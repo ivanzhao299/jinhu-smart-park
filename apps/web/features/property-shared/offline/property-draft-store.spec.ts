@@ -92,6 +92,43 @@ test("disabled persistence cleans local databases without opening IndexedDB or r
   }
 });
 
+test("blocked IndexedDB deletion waits for the existing connection before completing cleanup", async () => {
+  type DeleteRequest = {
+    onsuccess: (() => void) | null;
+    onerror: (() => void) | null;
+    onblocked: (() => void) | null;
+    error: DOMException | null;
+  };
+  const requests: DeleteRequest[] = [];
+  const fakeIndexedDb = {
+    deleteDatabase() {
+      const request = { onsuccess: null, onerror: null, onblocked: null, error: null };
+      requests.push(request);
+      return request;
+    }
+  };
+  Object.defineProperty(globalThis, "indexedDB", { configurable: true, value: fakeIndexedDb });
+
+  try {
+    const cleanup = disablePropertyDraftPersistence();
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    const request = requests[0];
+    assert.ok(request);
+    request.onblocked?.();
+
+    let settled = false;
+    void cleanup.then(() => { settled = true; });
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    assert.equal(settled, false);
+
+    for (const pending of requests) pending.onsuccess?.();
+    await cleanup;
+    assert.equal(settled, true);
+  } finally {
+    Reflect.deleteProperty(globalThis, "indexedDB");
+  }
+});
+
 test("logout purge wins a legacy cleanup interleaving before stale draft or upload writes can open IndexedDB", async () => {
   const previousDraftFlag = process.env.NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1;
   const previousQueueFlag = process.env.NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1;

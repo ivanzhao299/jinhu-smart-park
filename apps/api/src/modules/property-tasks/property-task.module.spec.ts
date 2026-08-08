@@ -7,6 +7,8 @@ import {
   PropertyTaskSourceRegistryProvider
 } from "./property-task.registry";
 import { PropertyTaskModule } from "./property-task.module";
+import { PropertyTaskReconciliationScheduler } from
+  "./property-task.reconciliation.scheduler";
 
 const SOURCE_RESOLVER = Symbol("SOURCE_RESOLVER");
 
@@ -30,6 +32,9 @@ describe("PropertyTaskModule B-2c source composition", () => {
 
     assert.equal(baseProviders.filter(
       (provider) => provider === PropertyTaskSourceRegistryProvider
+    ).length, 1);
+    assert.equal(baseProviders.filter(
+      (provider) => provider === PropertyTaskReconciliationScheduler
     ).length, 1);
     assert.equal(dynamicProviders.filter(
       (provider) => provider === PropertyTaskSourceRegistryProvider

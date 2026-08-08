@@ -58,6 +58,8 @@ interface AuthorityCandidate {
   taskKey: string;
 }
 
+const PROPERTY_TASK_RECONCILER_ACTOR_ID = "00000000-0000-4000-8000-000000000001";
+
 @Injectable()
 export class PropertyTaskOrchestrator {
   constructor(
@@ -462,7 +464,8 @@ export class PropertyTaskOrchestrator {
   async rebuild(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    request: PropertyTaskRebuildRequest
+    request: PropertyTaskRebuildRequest,
+    internal = false
   ): Promise<PropertyTaskRebuildResponse> {
     try {
       return await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
@@ -474,7 +477,7 @@ export class PropertyTaskOrchestrator {
           maintenanceScope: "current-park" as const,
           requiredPermission: "property_task:rebuild" as const
         };
-        if (!await this.access.authorizeTaskRead({
+        if (!internal && !await this.access.authorizeTaskRead({
           manager: managerPort,
           scope,
           actor: { actorId: actor.sub },
@@ -618,6 +621,18 @@ export class PropertyTaskOrchestrator {
       if (isHttpException(error)) throw error;
       translatePropertyTaskDatabaseError(error);
     }
+  }
+
+  async reconcile(
+    scope: TenantParkScope,
+    request: PropertyTaskRebuildRequest
+  ): Promise<PropertyTaskRebuildResponse> {
+    return this.rebuild(
+      scope,
+      { sub: PROPERTY_TASK_RECONCILER_ACTOR_ID } as JwtPrincipal,
+      request,
+      true
+    );
   }
 
   private async scanAuthorityCandidates(

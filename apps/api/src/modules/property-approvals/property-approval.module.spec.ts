@@ -45,6 +45,9 @@ import {
   PROPERTY_NOTIFICATION_AUTHORIZATION,
   PROPERTY_NOTIFICATION_CHANNEL
 } from "./outbox/property-notification.contracts";
+import { PropertyApprovalExecutionWorker } from "./property-approval.execution.worker";
+import { PropertyApprovalRuntimeScheduler } from "./property-approval.runtime.scheduler";
+import { PropertyLocalRuntimeComposition } from "./outbox/property-local-runtime.transport";
 
 type Provider = { provide?: unknown; useExisting?: unknown } | unknown;
 
@@ -100,6 +103,9 @@ describe("PropertyApprovalModule provider authority", () => {
     assert.equal(binding(PROPERTY_EVENT_PUBLISHER), PropertyEventPublisherRegistry);
     assert.equal(binding(PROPERTY_NOTIFICATION_CHANNEL), PropertyNotificationChannelRegistry);
     assert.ok(providers.includes(PropertyNotificationProjectionConsumer));
+    assert.ok(providers.includes(PropertyApprovalExecutionWorker));
+    assert.ok(providers.includes(PropertyApprovalRuntimeScheduler));
+    assert.ok(providers.includes(PropertyLocalRuntimeComposition));
     for (const publicSurface of [
       FrozenPropertyApprovalPolicyResolver,
       PropertyApprovalEffectRegistry,

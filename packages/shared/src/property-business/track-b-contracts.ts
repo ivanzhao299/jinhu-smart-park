@@ -301,7 +301,11 @@ export interface IdentityEvidenceProjection {
 
 export interface IdentitySubmissionProjection
   extends PropertyAllowedActionProjection<
-    "party.identity.claim" | "party.identity.reassign"
+    | "party.identity.submit"
+    | "party.identity.claim"
+    | "party.identity.reassign"
+    | "party.identity.verify"
+    | "party.identity.withdraw"
   > {
   id: string;
   partyId: string;

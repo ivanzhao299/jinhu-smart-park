@@ -183,3 +183,27 @@ git diff --check
 - [x] PR #223 正文改为汇总各层审查链接、canonical history、冲突裁决与 CI，不再要求 Codex
   一次性审查全部历史证据。
 - [ ] 在瘦身后的 PR #223 新 HEAD 只触发一次 `@codex review`；后续按可操作反馈闭环。
+
+## Phase 8：PR #223 Codex 可操作反馈闭环（2026-08-08）
+
+- [x] 读取 latest-head review 的 8 条完整线程；区分迁移历史误报与 7 项产品/CI 缺口。
+- [x] 恢复被 archive prune 误删、但仍由测试与 Track B reconcile 脚本引用的 6 个小型
+  canonical contract/handoff；不恢复 14k 行原始运行 artifact。
+- [x] 审批最终通过增加生产 execution worker；增加 lifecycle scheduler 顺序排空执行、
+  outbox publication/replay 与通知 delivery。
+- [x] 注册本地 durable event publisher 与 in-app notification channel；执行事件投影为请求人/
+  提交人通知，并以 inbox + stable UUID 保持重放幂等。
+- [x] Web 领域运行时增加批准、驳回、撤回操作；Identity 详情增加提交、领取、重新分派、
+  核验决定和撤回操作。
+- [x] Track B 已集成高风险动作从临时 block 切换为 available，同时继续要求精确 module/page/
+  action permission 与 server-side approval。
+- [x] 增加任务 authority 周期 reconcile：启动后按稳定游标扫描隔离 tenant/park authority，
+  对缺失、软删除、孤儿或 authority 更新时间领先的 projection 以 SERIALIZABLE rebuild 修复。
+- [x] IndexedDB `deleteDatabase().onblocked` 改为等待同一请求最终 success/error，并补 blocked
+  后成功的回归测试。
+- [x] 本地 targeted API 27/27、Web 18/18、API 全量 1052（1039 PASS、13 个无 PG
+  环境 SKIP）、lint、typecheck、production build 160 pages 与 diff-check 全部通过。
+- [ ] 提交并推送新 HEAD。
+- [ ] 逐线程回复并解决已修复项；迁移 `000183/000199` 以 pre-release 历史与现有合同证据说明
+  无已应用 checksum 被改写，不修改 forward-only migration。
+- [ ] 新 HEAD 重新触发一次 `@codex review`，等待 CI/release-smoke 与无新增可操作反馈。

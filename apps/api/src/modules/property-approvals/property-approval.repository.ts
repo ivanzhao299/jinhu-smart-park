@@ -41,6 +41,12 @@ export interface PropertyApprovalExecutionAuthority {
   outbox: PersistedApprovalOutboxEvidence[];
 }
 
+export interface PropertyApprovalExecutionCandidate {
+  requestId: string;
+  tenantId: string;
+  parkId: string;
+}
+
 @Injectable()
 export class PropertyApprovalRepository {
   constructor(private readonly dataSource: DataSource) {}
@@ -72,6 +78,35 @@ export class PropertyApprovalRepository {
   async dbNow(manager: EntityManager): Promise<Date> {
     const rows = await manager.query("SELECT clock_timestamp() AS now");
     return new Date((rows as Array<{ now: Date | string }>)[0]!.now);
+  }
+
+  async listExecutionCandidates(limit: number): Promise<PropertyApprovalExecutionCandidate[]> {
+    return this.dataSource.query(
+      `SELECT id AS "requestId", tenant_id AS "tenantId", park_id AS "parkId"
+         FROM biz_property_approval_request
+        WHERE decision_status = 'approved'
+          AND (
+            execution_status = 'not_started'
+            OR (execution_status = 'retry_wait' AND next_retry_at <= clock_timestamp())
+            OR (execution_status = 'executing' AND lease_expires_at <= clock_timestamp())
+          )
+        ORDER BY updated_at, id
+        LIMIT $1`,
+      [Math.min(Math.max(limit, 1), 500)]
+    );
+  }
+
+  async findNotificationRecipients(
+    scope: TenantParkScope,
+    requestId: string
+  ): Promise<{ requesterId: string; submitterId: string } | null> {
+    const request = await this.dataSource.getRepository(PropertyApprovalRequestEntity).findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, id: requestId },
+      select: { requesterId: true, submitterId: true }
+    });
+    return request
+      ? { requesterId: request.requesterId, submitterId: request.submitterId }
+      : null;
   }
 
   async lockManifests(

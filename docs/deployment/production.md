@@ -49,6 +49,13 @@ Do not commit `.env.production`.
 `false`；若提前启用，民宿订单取消、租约审批/作废/退租、退款减免、采购状态
 流转及转租客收费等高风险动作会以 HTTP 409 拒绝，且超级管理员也不会绕过。
 
+`PROPERTY_APPROVAL_RUNTIME_ENABLED` 与 `PROPERTY_TASK_RECONCILIATION_ENABLED`
+控制 API 内的审批执行/事件投递循环和任务投影自愈循环，生产默认均为 `true`。
+对应轮询间隔分别由 `PROPERTY_APPROVAL_RUNTIME_INTERVAL_MS`（默认 5000 ms）和
+`PROPERTY_TASK_RECONCILIATION_INTERVAL_MS`（默认 60000 ms）控制。仅在确认已有等价
+外部 worker 或执行紧急回滚时关闭；关闭审批运行时会使已终审请求停留在待执行状态，
+关闭任务对账会停止修复遗漏、软删除或滞后的任务投影。
+
 `PROPERTY_OFFLINE_DRAFTS_V1` 与 `PROPERTY_UPLOAD_QUEUE_V1` 是 Web 镜像构建期
 回滚开关。仅去除首尾空白并忽略大小写后严格等于 `true` 才启用；未设置、`false`
 或其他值均 fail-closed。`next.config.ts` 只把规范化后的 `true`/`false` 映射到浏览器

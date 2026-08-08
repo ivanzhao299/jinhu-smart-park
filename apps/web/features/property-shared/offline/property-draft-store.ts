@@ -77,7 +77,12 @@ function deleteDatabaseWithoutOpening(databaseName: string): Promise<void> {
     const request = indexedDB.deleteDatabase(databaseName);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error ?? new Error(`offline database cleanup failed: ${databaseName}`));
-    request.onblocked = () => reject(new Error(`offline database cleanup blocked: ${databaseName}`));
+    // `blocked` is advisory: the same delete request remains pending until every
+    // connection (including another tab's in-flight transaction) closes. Treating
+    // it as terminal lets the request later delete the database after callers have
+    // already observed a failed account/scope transition. Wait for success or a
+    // real request error instead.
+    request.onblocked = () => undefined;
   });
 }
 

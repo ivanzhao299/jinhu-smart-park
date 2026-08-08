@@ -46,14 +46,11 @@ checks.
   load coordinator.
 - Property module/page/action/data/field/file projections are UX hints only. Every
   protected API remains authoritative and fail-closed.
-- Neither `is_super` nor `*` bypasses module availability, module dependencies, or the
-  eight high-risk actions marked `blocked-until-track-b`; those actions remain
-  unavailable until the Track B server-side approval integration replaces the
-  temporary block.
+- Neither `is_super` nor `*` bypasses module availability or module dependencies.
+  Integrated high-risk actions use the Track B approval runtime and remain subject
+  to their exact page/action permissions before Web exposes the request operation.
 - The Web menu stays hidden until both workbench owners deliver real canonical route
   SHAs and the later menu integration gate consumes them.
-- This foundation can be reported as `integration-ready` after its static, unit,
-  lint, typecheck, and build gates pass. It must not be reported as having passed the
-  final UI gate until a real canonical domain route supplies desktop/mobile,
-  keyboard, focus, zoom/reflow, ARIA, forced-colors, and screen-reader-equivalent
-  evidence.
+- The final UI gate is complete only when real canonical domain routes supply
+  desktop/mobile, keyboard, focus, zoom/reflow, ARIA, forced-colors, and
+  screen-reader-equivalent evidence; the 2026-08-04 UAT archive records that gate.

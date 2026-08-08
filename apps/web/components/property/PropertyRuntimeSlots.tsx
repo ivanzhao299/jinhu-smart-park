@@ -3,6 +3,7 @@
 import {
   SYSTEM_PERMISSIONS,
   type ApprovalSummary,
+  type ApprovalDecisionCommand,
   type PropertyPaginatedResult,
   type PropertyTaskAction,
   type PropertyTaskDetailResponse,
@@ -31,6 +32,8 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const [approvals, setApprovals] = useState<ApprovalSummary[]>([]);
   const [taskError, setTaskError] = useState("");
   const [approvalError, setApprovalError] = useState("");
+  const [approvalReasons, setApprovalReasons] = useState<Record<string, string>>({});
+  const [mutatingApprovalIds, setMutatingApprovalIds] = useState<ReadonlySet<string>>(new Set());
   const [feedback, setFeedback] = useState("");
   const [taskReasons, setTaskReasons] = useState<Record<string, string>>({});
   const [mutatingTaskIds, setMutatingTaskIds] = useState<ReadonlySet<string>>(new Set());
@@ -119,6 +122,57 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
     }
   }
 
+  async function runApprovalAction(
+    item: ApprovalSummary,
+    action: "approve" | "reject" | "withdraw"
+  ) {
+    if (mutationLocks.current.has(item.requestId)) return;
+    const reason = approvalReasons[item.requestId]?.trim() ?? "";
+    if ((action === "reject" || action === "withdraw") && !reason) {
+      setFeedback("驳回或撤回审批前必须填写原因。");
+      return;
+    }
+    mutationLocks.current.add(item.requestId);
+    setMutatingApprovalIds((current) => new Set(current).add(item.requestId));
+    try {
+      const detail = await apiRequest<ApprovalDetail>(
+        `/property/approvals/${item.requestId}`,
+        { token: getAccessToken() ?? undefined }
+      );
+      const clientKey = createIdempotencyKey(`property.approval.${action}`);
+      if (action === "withdraw") {
+        await apiRequest(`/property/approvals/${item.requestId}/withdraw`, {
+          method: "POST", token: getAccessToken() ?? undefined, idempotencyKey: clientKey,
+          body: { clientKey, reason, expectedDecisionVersion: detail.data.request.decisionVersion }
+        });
+      } else {
+        const stage = detail.data.stages.find((candidate) => candidate.stageStatus === "pending");
+        if (!stage) throw new Error("审批当前阶段已变化，请刷新后重试");
+        const body: ApprovalDecisionCommand = {
+          clientKey,
+          decision: action,
+          reason: reason || undefined,
+          stageId: stage.stageId,
+          expectedStageVersion: stage.version,
+          expectedRequestVersion: detail.data.request.decisionVersion
+        };
+        await apiRequest(`/property/approvals/${item.requestId}/decisions`, {
+          method: "POST", token: getAccessToken() ?? undefined, idempotencyKey: clientKey, body
+        });
+      }
+      setApprovalReasons((current) => ({ ...current, [item.requestId]: "" }));
+      setFeedback("审批操作已提交。");
+      await load();
+    } catch (cause) {
+      setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
+    } finally {
+      mutationLocks.current.delete(item.requestId);
+      setMutatingApprovalIds((current) => {
+        const next = new Set(current); next.delete(item.requestId); return next;
+      });
+    }
+  }
+
   if (!canReadTasks && !canReadApprovals) return null;
   return <section className={styles.runtimeSection} aria-labelledby={`${module}-runtime-title`}>
     <div className={styles.sectionHeading}>
@@ -155,12 +209,34 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
       <p>审批通过与领域效果执行分别展示，避免把“已决策”误认为“已完成”。</p>
       {approvalError ? <p aria-live="polite">{approvalError}</p> : null}
       {!approvalError && !approvals.length ? <p>暂无可见审批。</p> : null}
-      {approvals.slice(0, 20).map((item) => <p key={item.requestId}>
-        {item.actionId} · {item.decisionStatus} / {item.executionStatus}
-      </p>)}
+      {approvals.slice(0, 20).map((item) => <div className={styles.taskRecord} key={item.requestId}>
+        <p><strong>{item.actionId}</strong> · {item.decisionStatus} / {item.executionStatus}</p>
+        {item.allowedActions.length ? <label>审批原因
+          <input aria-label={`${item.actionId}审批原因`} maxLength={1000}
+            onChange={(event) => setApprovalReasons((current) => ({
+              ...current, [item.requestId]: event.target.value
+            }))} value={approvalReasons[item.requestId] ?? ""} />
+        </label> : null}
+        <div className={styles.actions}>
+          {item.allowedActions.includes("property.approval.decide") ? <>
+            <button className="ds-button ds-button-primary" disabled={mutatingApprovalIds.has(item.requestId)}
+              onClick={() => void runApprovalAction(item, "approve")} type="button">批准</button>
+            <button className="ds-button" disabled={mutatingApprovalIds.has(item.requestId)}
+              onClick={() => void runApprovalAction(item, "reject")} type="button">驳回</button>
+          </> : null}
+          {item.allowedActions.includes("property.approval.withdraw") ? <button className="ds-button"
+            disabled={mutatingApprovalIds.has(item.requestId)}
+            onClick={() => void runApprovalAction(item, "withdraw")} type="button">撤回</button> : null}
+        </div>
+      </div>)}
     </div></article> : null}
     </div>
   </section>;
+}
+
+interface ApprovalDetail {
+  request: { decisionVersion: number };
+  stages: Array<{ stageId: string; stageStatus: string; version: number }>;
 }
 
 function taskActionLabel(action: PropertyTaskAction): string {

@@ -172,6 +172,8 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [reason, setReason] = useState("");
+  const [assignedVerifierId, setAssignedVerifierId] = useState("");
+  const [identityDecision, setIdentityDecision] = useState<"verified" | "rejected">("verified");
   const [mutating, setMutating] = useState(false);
   const mutationLock = useRef(false);
   const mutationKeys = useRef(new Map<string, string>());
@@ -192,24 +194,38 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
 
   useEffect(() => void load(), [load]);
 
-  async function mutate() {
-    if (!detail || surface === "identity" || mutationLock.current) return;
-    if (!action || !allowedActions(detail).includes(action)) return;
-    if (action !== "property.notification.mark-read" && !reason.trim()) {
+  async function mutate(identityAction?: string) {
+    if (!detail || mutationLock.current) return;
+    const selectedAction = surface === "identity" ? identityAction ?? null : action;
+    if (!selectedAction || !allowedActions(detail).includes(selectedAction)) return;
+    if (selectedAction !== "property.notification.mark-read"
+      && selectedAction !== "party.identity.claim"
+      && selectedAction !== "party.identity.submit"
+      && selectedAction !== "party.identity.verify"
+      && !reason.trim()) {
       setFeedback("请填写操作原因。"); return;
     }
     mutationLock.current = true; setMutating(true); setFeedback("");
-    const mutationId = `${surface}:${id}:${action}`;
-    const clientKey = mutationKeys.current.get(mutationId) ?? createIdempotencyKey(action);
+    const mutationId = `${surface}:${id}:${selectedAction}`;
+    const clientKey = mutationKeys.current.get(mutationId) ?? createIdempotencyKey(selectedAction);
     mutationKeys.current.set(mutationId, clientKey);
     try {
-      const mutation = mutationFor(surface, detail, reason, clientKey);
+      const mutation = surface === "identity"
+        ? identityMutationFor(
+            detail as IdentitySubmissionProjection,
+            selectedAction,
+            reason,
+            assignedVerifierId,
+            identityDecision,
+            clientKey
+          )
+        : mutationFor(surface, detail, reason, clientKey);
       await apiRequest(mutation.path, {
         method: "POST", token: getAccessToken() ?? undefined,
         idempotencyKey: clientKey, body: mutation.body
       });
       mutationKeys.current.delete(mutationId);
-      setFeedback("操作已提交。"); setReason(""); await load();
+      setFeedback("操作已提交。"); setReason(""); setAssignedVerifierId(""); await load();
     } catch (cause) {
       setFeedback(cause instanceof Error ? cause.message : "操作失败");
     } finally { mutationLock.current = false; setMutating(false); }
@@ -228,13 +244,35 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
         <p><Link href={`/assets/parties/${encodeURIComponent(detail.partyId)}?tab=identity#identity`}>打开 Party 身份页签</Link></p></PropertyPanelSurface> : null}
       {safeDetails(detail).length ? <PropertyPanelSurface title="安全详情">
         <pre className={styles.safeDetails}>{JSON.stringify(safeDetailsObject(detail), null, 2)}</pre></PropertyPanelSurface> : null}
-      {action && allowedActions(detail).includes(action) ? <PropertyPanelSurface title="允许操作">
+      {surface !== "identity" && action && allowedActions(detail).includes(action) ? <PropertyPanelSurface title="允许操作">
         <div className={styles.actionForm}>
           {surface === "notifications" ? null : <label>原因<textarea maxLength={1000} onChange={(event) => setReason(event.target.value)} value={reason} /></label>}
           <button aria-busy={mutating} className="ds-button ds-button-primary" disabled={mutating}
             onClick={() => void mutate()} type="button">{mutating ? "正在提交…" : actionLabel(surface)}</button>
           {feedback ? <p aria-live="polite">{feedback}</p> : null}
         </div></PropertyPanelSurface> : null}
+      {surface === "identity" && allowedActions(detail).length ? <PropertyPanelSurface title="身份核验操作">
+        <div className={styles.actionForm}>
+          {allowedActions(detail).includes("party.identity.verify") ? <label>核验决定
+            <select value={identityDecision} onChange={(event) => setIdentityDecision(
+              event.target.value as "verified" | "rejected"
+            )}><option value="verified">通过</option><option value="rejected">拒绝</option></select>
+          </label> : null}
+          {allowedActions(detail).includes("party.identity.reassign") ? <label>新核验人 ID（留空即解除分派）
+            <input value={assignedVerifierId} onChange={(event) => setAssignedVerifierId(event.target.value)} />
+          </label> : null}
+          {allowedActions(detail).some((value) => [
+            "party.identity.reassign", "party.identity.verify", "party.identity.withdraw"
+          ].includes(value)) ? <label>原因<textarea maxLength={500}
+            onChange={(event) => setReason(event.target.value)} value={reason} /></label> : null}
+          <div className={styles.toolbar}>{allowedActions(detail).map((identityAction) =>
+            <button aria-busy={mutating} className="ds-button ds-button-primary" disabled={mutating}
+              key={identityAction} onClick={() => void mutate(identityAction)} type="button">
+              {identityActionLabel(identityAction)}
+            </button>)}</div>
+          {feedback ? <p aria-live="polite">{feedback}</p> : null}
+        </div>
+      </PropertyPanelSurface> : null}
     </> : null}
   </PropertyPageSurface>;
 }
@@ -298,6 +336,45 @@ reason: string, clientKey: string) {
       expectedExecutionVersion: row.executionVersion } };
 }
 
+function identityMutationFor(
+  detail: IdentitySubmissionProjection,
+  action: string,
+  reason: string,
+  assignedVerifierId: string,
+  decision: "verified" | "rejected",
+  clientKey: string
+) {
+  const common = { clientKey, expectedVersion: detail.version };
+  if (action === "party.identity.submit") {
+    return { path: `/property/identity-submissions/${detail.id}/submit`, body: common };
+  }
+  if (action === "party.identity.claim") {
+    return { path: `/property/identity-submissions/${detail.id}/claim`,
+      body: { ...common, expectedAssignmentVersion: detail.assignmentVersion } };
+  }
+  if (action === "party.identity.reassign") {
+    return { path: `/property/identity-submissions/${detail.id}/reassign`, body: {
+      ...common,
+      expectedAssignmentVersion: detail.assignmentVersion,
+      assignedVerifierId: assignedVerifierId.trim() || null,
+      reason: reason.trim()
+    } };
+  }
+  if (action === "party.identity.verify") {
+    return { path: `/property/identity-submissions/${detail.id}/decisions`, body: {
+      ...common,
+      expectedAssignmentVersion: detail.assignmentVersion,
+      decision,
+      ...(reason.trim() ? { reason: reason.trim() } : {})
+    } };
+  }
+  if (action === "party.identity.withdraw") {
+    return { path: `/property/identity-submissions/${detail.id}/withdraw`,
+      body: { ...common, reason: reason.trim() } };
+  }
+  throw new Error("身份核验操作已变化，请刷新后重试");
+}
+
 function allowedActions(detail: ControlPlaneDetail): readonly string[] {
   return Array.isArray(detail.allowedActions) ? detail.allowedActions : [];
 }
@@ -324,6 +401,16 @@ function safeDetails(detail: ControlPlaneDetail): string[] {
 function actionLabel(surface: PropertyControlPlaneSurface): string {
   return surface === "notifications" ? "标为已读"
     : surface === "event-incidents" ? "重放事件" : "重试审批执行";
+}
+
+function identityActionLabel(action: string): string {
+  return ({
+    "party.identity.submit": "提交核验",
+    "party.identity.claim": "领取核验",
+    "party.identity.reassign": "重新分派",
+    "party.identity.verify": "提交决定",
+    "party.identity.withdraw": "撤回提交"
+  } as Record<string, string>)[action] ?? action;
 }
 
 function formatTime(value: string): string {

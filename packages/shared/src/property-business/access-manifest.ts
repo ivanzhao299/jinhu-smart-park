@@ -149,7 +149,7 @@ function mutation(
     approvalPolicy: highRisk
       ? {
           requirement: "required",
-          enforcement: "blocked-until-track-b",
+          enforcement: "available",
           policyId: options.highRiskPolicyId
         }
       : NO_APPROVAL,
@@ -1032,21 +1032,21 @@ export function validatePropertyAccessManifest(
       } else if (
         action.approvalPolicy.requirement === "required"
         && (
-          action.approvalPolicy.enforcement !== "blocked-until-track-b"
+          action.approvalPolicy.enforcement !== "available"
           || !action.approvalPolicy.policyId
         )
       ) {
-        issues.push(`Approval-required action is not fail-closed for Track B: ${action.actionId}`);
+        issues.push(`Approval-required action is not available through Track B: ${action.actionId}`);
       }
       if (
         action.highRisk
         && (
           action.approvalPolicy.requirement !== "required"
-          || action.approvalPolicy.enforcement !== "blocked-until-track-b"
+          || action.approvalPolicy.enforcement !== "available"
           || !action.approvalPolicy.policyId
         )
       ) {
-        issues.push(`High-risk action is not fail-closed for Track B: ${action.actionId}`);
+        issues.push(`High-risk action is not routed through Track B: ${action.actionId}`);
       }
       if (
         action.approvalPolicy?.requirement === "required"

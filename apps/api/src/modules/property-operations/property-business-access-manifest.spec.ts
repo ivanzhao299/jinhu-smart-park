@@ -904,7 +904,7 @@ test("manifest validator rejects malformed permissions, policies, idempotency, a
   assert.ok(highRisk);
   highRisk.approvalPolicy = {
     requirement: "required",
-    enforcement: "available"
+    enforcement: "blocked-until-track-b"
   };
 
   const fileEntry = invalid.find((entry) => entry.files.length > 0);
@@ -917,11 +917,11 @@ test("manifest validator rejects malformed permissions, policies, idempotency, a
   assert.equal(result.valid, false);
   assert.ok(result.issues.some((issue) => issue.includes("Mutation lacks idempotency policy")));
   assert.ok(result.issues.some((issue) => issue.includes("Legacy") || issue.includes("authorization source")));
-  assert.ok(result.issues.some((issue) => issue.includes("Approval-required action is not fail-closed")));
+  assert.ok(result.issues.some((issue) => issue.includes("Approval-required action is not available")));
   assert.ok(result.issues.some((issue) => issue.includes("exactly one biz_type")));
 });
 
-test("high-risk Track A contract declares approval-required and blocked-until-Track-B policy", () => {
+test("integrated high-risk contract declares approval-required and Track-B availability", () => {
   const highRisk = PROPERTY_ACCESS_MANIFEST.flatMap((entry) => entry.actions)
     .filter((action) => action.highRisk);
   assert.deepEqual(
@@ -934,7 +934,7 @@ test("high-risk Track A contract declares approval-required and blocked-until-Tr
   );
   for (const action of highRisk) {
     assert.equal(action.approvalPolicy.requirement, "required");
-    assert.equal(action.approvalPolicy.enforcement, "blocked-until-track-b");
+    assert.equal(action.approvalPolicy.enforcement, "available");
     assert.ok(action.approvalPolicy.policyId);
   }
 });
