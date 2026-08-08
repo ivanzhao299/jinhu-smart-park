@@ -60,6 +60,10 @@
 - 修正 failed migration 前必须确认该文件从未在长期环境记录为 `succeeded`、SQL 事务已回滚且目标库
   没有半执行结构；runner 会记录更新后的 checksum 并重新执行。仅新增后续 migration 不能修复一个
   会在它之前 fail-fast 的失败文件。
+- 若失败来自历史 migration 的前置状态缺口，应优先增加带独立 history/checksum 的窄范围
+  prerequisite，保持已审查 migration 字节不变。`000189` 的 asset park scope prerequisite 只会从
+  唯一有效的 active `biz_park` 与 active asset module assignment 补齐缺失的 `asset_park` 投影；
+  不覆盖既有资产记录，scope 无效、歧义或补齐后不唯一时继续 fail closed。
 - 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 

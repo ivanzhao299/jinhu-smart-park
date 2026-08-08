@@ -375,6 +375,7 @@ Migration behavior:
 - Successfully applied migration files are skipped on rerun.
 - A checksum mismatch after success fails fast and stops later migrations.
 - A failed migration can be retried after the SQL file is corrected.
+- A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant, one canonical active `biz_park`, and at least one active asset module assignment for the scope; ambiguous or invalid production scope still stops deployment.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 

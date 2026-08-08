@@ -326,3 +326,30 @@ git diff --check
   input 计算，生产代码不变；其余 API 1053 PASS、13 SKIP。
 - [ ] 提交推送后逐线程回复/resolve，仅对新 HEAD 触发一次 Codex review，并等待 GitHub CI
   全绿与零新增可操作反馈。
+
+## Phase 15：合并后生产部署 000189 scope 前置修复（2026-08-08）
+
+- [x] 分析 [Deploy Production run `31248856362`](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/31248856362/job/93082118875)：主部署在
+  `000189_property_b_module_rbac_definitions.sql` 的
+  `property-business-scope-preflight-failed` 停止；随后源码 rollback、旧版 full health 与 Docker
+  cleanup 实际成功，job 保留原始 exit 3 是正确失败语义，不把未部署的新版本误报为成功。
+- [x] 确认生产数据库已 forward-only 成功记录 `000183`–`000188`，`000189` 自身事务失败并回滚；
+  workflow 的源码 rollback 不反向执行数据库 migration，后续重试必须保持前置成功 migration
+  checksum 不变，数据库级恢复仍以发布前备份为准。
+- [x] 根因是 active asset module assignment 已存在且 canonical `biz_park` 有效，但历史 Track B
+  migration 按 asset-domain `asset_park` 投影 fail closed；生产 seed 未保证该投影在 migration 前存在。
+- [x] 保持 `000189` 与 `000200` 历史 SQL 字节和 checksum 不变，新增带独立 history 的
+  `002_asset_park_scope_reconcile.sql` prerequisite：仅从唯一有效 active tenant / `biz_park` /
+  asset assignment 插入缺失 `asset_park`，不覆盖或启用既有记录，歧义与无效 scope 继续阻断。
+- [x] 新增 production seed 000007，使 clean install 在 migration 后也收敛同一投影；seed 与
+  prerequisite 均为 insert-only，并保留迁移、seed 的职责边界与审计记录。
+- [x] 扩展 prerequisite 静态合同与 Release Smoke：冻结新 prerequisite 清单/写入边界，并在真实
+  PostgreSQL 中删除其 history 与投影后重跑 runner，验证已 succeeded 的 000189 不重放、仅新
+  prerequisite 补齐投影且双 history 收敛。
+- [x] 本地 Docker 隔离重放通过：fresh database `201/201 migrations`、`6/6 prerequisites`；
+  production seed 连跑两次成功。随后把 000189 双 history 改为 failed、删除新 prerequisite 双
+  history 和 asset park 投影，runner 只重试 000189（其余 200 skip），结果 projection=1、
+  prerequisite succeeded=2、000189 succeeded=2、双 history diff=0。隔离 container/network/volume
+  已全部删除。
+- [ ] 本地合同、YAML、diff-check 与独立复核通过后提交推送，创建 main 修复 PR；不得重跑旧 SHA
+  的生产部署，待修复 PR 合并后由新 main HEAD 触发完整部署。

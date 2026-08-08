@@ -8,6 +8,8 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 - `production/000003_s1_production_asset_bootstrap.sql`
 - `production/000004_core_role_permission_repair.sql`
 - `production/000005_admin_issue_runner_baseline.sql`
+- `production/000006_property_track_b_permission_reconcile.sql`
+- `production/000007_asset_park_scope_reconcile.sql`
 
 Production execution:
 
@@ -27,6 +29,7 @@ Execution scope:
 - Initializes field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL sensitive fields.
 - Initializes default park organization metadata.
 - Initializes S2-01 `biz_park` default record: `tenant_id=10000001`, `park_id=20000001`, `park_code=JH`.
+- Reconciles a missing active `asset_park` projection from each valid active `biz_park` scope that has an active `asset` module assignment; existing asset park records are never overwritten.
 - Initializes base dictionaries and dictionary items, including S2-A/S2-B房源用途、出租状态、装修状态字典。
 - Initializes S2-B permissions for房源状态流转、导入、导出、资产统计。
 - Initializes SaaS modules in `sys_module`: `system`, `asset`, `leasing`, `workorder`, `iot`, `energy`, `robot`, `video`, `bim`, `ai`.

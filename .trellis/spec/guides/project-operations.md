@@ -42,6 +42,11 @@ Reference files:
 - Never edit a migration recorded `succeeded`. A migration recorded only `failed` may be corrected
   in place after verifying transactional rollback and all long-lived environments; a later-numbered
   migration cannot repair a file that fail-fast prevents the runner from passing.
+- When an unchanged historical migration requires a projection that can be derived from canonical
+  production data, use a separately historied prerequisite only if the repair is deterministic,
+  insert-only, preserves existing business rows, and fails closed for missing or ambiguous scope.
+  Keep the matching production seed convergence so a clean migration-before-seed install does not
+  recreate the same projection gap after migrations finish.
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.

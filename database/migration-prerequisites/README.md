@@ -27,6 +27,13 @@ create credentials, demo data, or silently expand business authorization.
 
 Do not use this mechanism to revise a successful migration or bypass its checksum.
 
+The `000189` asset-park scope reconciliation is a bounded production repair: it
+materializes only a missing `asset_park` projection for an already-active asset
+module assignment whose tenant and canonical `biz_park` scope are both uniquely
+valid. It is insert-only, preserves existing asset records, and fails closed for
+invalid or ambiguous scope data. This allows the unchanged historical `000189`
+and `000200` migrations to keep enforcing their signed asset-domain scope contract.
+
 The two history rows for one execution are written in one database transaction.
 After bootstrap, any status/checksum disagreement between the history tables fails
 before prerequisite or migration execution and requires manual inspection.
