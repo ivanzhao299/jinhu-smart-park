@@ -88,6 +88,7 @@ const permissionRepairSeedPath = resolve(
 );
 const runnerPath = resolve(root, "scripts/db-migrate.sh");
 const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
+const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -115,6 +116,7 @@ const propertyCompatibilitySignaturePrerequisite = readFileSync(
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
+const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -519,6 +521,9 @@ assert.deepEqual(
 );
 assert.match(runner, /reconcile_migration_history_aliases\(\)/u);
 assert.match(runner, /both legacy and canonical migration history identities exist/u);
+assert.match(runner, /COLLAPSE DUPLICATE MIGRATION HISTORY ALIAS/u);
+assert.match(runner, /primary duplicate migration alias lost its validated rows/u);
+assert.match(runner, /standard duplicate migration alias lost its validated rows/u);
 assert.match(runner, /legacy migration history cannot be safely rekeyed/u);
 assert.match(runner, /migration-alias:\$\{legacy_filename\}=>\$\{canonical_filename\}/u);
 assert.match(runner, /migration history alias audit marker drifted/u);
@@ -528,6 +533,28 @@ const baselineCallForAlias = runner.lastIndexOf("baseline_nonempty_database_if_n
 assert.ok(
   aliasReconcileCall !== -1 && aliasReconcileCall < baselineCallForAlias,
   "history aliases must reconcile before non-empty database baseline"
+);
+const rollbackRelease = productionDeployWorkflow.slice(
+  productionDeployWorkflow.indexOf("rollback_release()"),
+  productionDeployWorkflow.indexOf("trap rollback_release ERR")
+);
+assert.notEqual(
+  productionDeployWorkflow.indexOf("rollback_release()"),
+  -1,
+  "production deployment must define source rollback"
+);
+assert.notEqual(
+  productionDeployWorkflow.indexOf("trap rollback_release ERR"),
+  -1,
+  "production deployment must install the source rollback trap"
+);
+assert.match(rollbackRelease, /docker compose --env-file \.env\.production/u);
+assert.match(rollbackRelease, /MODE=full sh scripts\/prod-healthcheck\.sh/u);
+assert.match(rollbackRelease, /PRUNE_DOCKER_BUILD_CACHE=yes sh scripts\/prod-docker-cleanup\.sh/u);
+assert.doesNotMatch(
+  rollbackRelease,
+  /(?:pnpm db:migrate|pnpm prod:deploy|RUN_PRODUCTION_SEED)/u,
+  "source rollback must not execute an older migration or production-seed manifest"
 );
 
 const historyWrite = runner.slice(

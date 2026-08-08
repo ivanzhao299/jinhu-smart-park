@@ -246,6 +246,15 @@ POSTGRES_PASSWORD=<POSTGRES_PASSWORD> \
 pnpm db:migrate
 ```
 
+迁移文件改名后的 history alias 只允许两种自动收敛：旧身份单独存在且 checksum 精确匹配时，
+事务性重签为 canonical；或旧身份、canonical 与既有 alias 审计标记在两张 history 表中均为
+`succeeded` 且 checksum 完全一致时，事务性删除重复旧身份。后者用于恢复“新版本迁移已重签，随后
+源码回滚又运行旧清单”形成的可证明重复。缺少审计标记、状态/checksum 漂移或双表不一致一律停止。
+
+GitHub 自动源码回滚只重建旧版 API/Web 容器、执行完整健康检查和 Docker cleanup，不运行旧版
+migration 或 production seed。数据库迁移保持 forward-only；如需数据库恢复，必须使用发布前备份并
+由数据库负责人显式执行。
+
 ### 8.4 执行 production seed
 
 ```bash

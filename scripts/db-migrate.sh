@@ -475,23 +475,6 @@ SQL
 )"
     [ -n "$legacy_history_row" ] || continue
 
-    canonical_history_row="$(psql_query <<SQL
-SELECT status || '|' || checksum
-FROM ${HISTORY_TABLE}
-WHERE filename = '${canonical_filename_sql}';
-SQL
-)"
-    if [ -n "$canonical_history_row" ]; then
-      echo "ERROR: both legacy and canonical migration history identities exist" >&2
-      echo "ERROR: legacy=$legacy_filename canonical=$canonical_filename" >&2
-      exit 1
-    fi
-    if [ "$legacy_history_row" != "succeeded|$expected_checksum" ]; then
-      echo "ERROR: legacy migration history cannot be safely rekeyed: $legacy_filename" >&2
-      echo "ERROR: expected=succeeded:$expected_checksum actual=$legacy_history_row" >&2
-      exit 1
-    fi
-
     alias_marker="migration-alias:${legacy_filename}=>${canonical_filename}"
     alias_marker_sql="$(sql_escape "$alias_marker")"
     alias_marker_history_row="$(psql_query <<SQL
@@ -505,6 +488,86 @@ SQL
       echo "ERROR: migration history alias audit marker drifted: $alias_marker" >&2
       exit 1
     fi
+
+    canonical_history_row="$(psql_query <<SQL
+SELECT status || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE filename = '${canonical_filename_sql}';
+SQL
+)"
+    if [ -n "$canonical_history_row" ]; then
+      if [ "$legacy_history_row" = "succeeded|$expected_checksum" ] \
+        && [ "$canonical_history_row" = "succeeded|$expected_checksum" ] \
+        && [ "$alias_marker_history_row" = "succeeded|$expected_checksum" ]; then
+        psql_exec <<SQL
+BEGIN;
+DO \$migration_alias_duplicate\$
+DECLARE
+  validated_rows integer;
+  affected_rows integer;
+BEGIN
+  SELECT count(*)
+  INTO validated_rows
+  FROM ${HISTORY_TABLE}
+  WHERE filename IN (
+      '${legacy_filename_sql}',
+      '${canonical_filename_sql}',
+      '${alias_marker_sql}'
+    )
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  IF validated_rows <> 3 THEN
+    RAISE EXCEPTION 'primary duplicate migration alias lost its validated rows';
+  END IF;
+
+  SELECT count(*)
+  INTO validated_rows
+  FROM ${STANDARD_HISTORY_TABLE}
+  WHERE filename IN (
+      '${legacy_filename_sql}',
+      '${canonical_filename_sql}',
+      '${alias_marker_sql}'
+    )
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  IF validated_rows <> 3 THEN
+    RAISE EXCEPTION 'standard duplicate migration alias lost its validated rows';
+  END IF;
+
+  DELETE FROM ${HISTORY_TABLE}
+  WHERE filename = '${legacy_filename_sql}'
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'primary duplicate migration alias lost its legacy row';
+  END IF;
+
+  DELETE FROM ${STANDARD_HISTORY_TABLE}
+  WHERE filename = '${legacy_filename_sql}'
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'standard duplicate migration alias lost its legacy row';
+  END IF;
+END
+\$migration_alias_duplicate\$;
+COMMIT;
+SQL
+        echo "COLLAPSE DUPLICATE MIGRATION HISTORY ALIAS: $legacy_filename -> $canonical_filename"
+        continue
+      fi
+      echo "ERROR: both legacy and canonical migration history identities exist" >&2
+      echo "ERROR: legacy=$legacy_filename canonical=$canonical_filename" >&2
+      exit 1
+    fi
+    if [ "$legacy_history_row" != "succeeded|$expected_checksum" ]; then
+      echo "ERROR: legacy migration history cannot be safely rekeyed: $legacy_filename" >&2
+      echo "ERROR: expected=succeeded:$expected_checksum actual=$legacy_history_row" >&2
+      exit 1
+    fi
+
     alias_executed_by_sql="$(sql_escape "$MIGRATION_EXECUTED_BY")"
     alias_batch_id_sql="$(sql_escape "$BATCH_ID")"
     psql_exec <<SQL

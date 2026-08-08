@@ -31,6 +31,24 @@ Reference files:
 - `scripts/check-init-baseline.sh`
 - `scripts/bootstrap-admin.sh`
 
+### Forward-Only Migration Identity And Source Rollback
+
+- Renamed migration history may be rekeyed automatically only when the legacy row is `succeeded` with the reviewed
+  canonical checksum and the canonical identity is absent.
+- If legacy and canonical identities both exist, automatic recovery requires both rows plus an existing alias audit
+  marker to be `succeeded` with that exact checksum in both history tables. Delete only the duplicate legacy identity
+  in one transaction; any missing marker, status/checksum drift, or cross-table disagreement must fail closed.
+- A source rollback may rebuild and health-check the previous application snapshot, but it must not run that older
+  snapshot's migration or production-seed manifest against a forward-migrated database.
+- Source rollback does not reverse database state. Use the release backup and an explicit database-owner decision for
+  database recovery.
+
+Reference files:
+- `database/migration-history-aliases.txt`
+- `scripts/db-migrate.sh`
+- `.github/workflows/deploy-production.yml`
+- `docs/release/production-migration-execution-policy.md`
+
 ### Migration Conflict And Retry Contract
 
 - Every `INSERT ... ON CONFLICT (<columns>) WHERE <predicate>` must match an active unique/exclusion
