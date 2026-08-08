@@ -1,7 +1,8 @@
 -- Production-safe convergence for the asset-domain park projection.
 -- Existing asset_park rows are preserved. A missing projection prefers one
--- active same-scope biz_park; the fixed production default scope may use the
--- globally unique active JH baseline row left under legacy scope IDs.
+-- active same-scope biz_park. If that scope contains multiple business parks,
+-- the fixed production default scope may still select the globally unique
+-- active JH baseline row.
 
 BEGIN;
 
@@ -89,8 +90,7 @@ BEGIN
         AND NOT (
           exact_source_count = 1
           OR (
-            exact_source_count = 0
-            AND tenant_key = '10000001'
+            tenant_key = '10000001'
             AND park_key = '20000001'
             AND default_source_count = 1
           )
@@ -171,7 +171,7 @@ JOIN biz_park park
      AND btrim(park.park_id) = scope.park_key
    )
    OR (
-     scope.exact_source_count = 0
+     scope.exact_source_count <> 1
      AND scope.tenant_key = '10000001'
      AND scope.park_key = '20000001'
      AND park.park_code = 'JH'

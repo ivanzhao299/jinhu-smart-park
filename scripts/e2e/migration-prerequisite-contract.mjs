@@ -89,6 +89,7 @@ const permissionRepairSeedPath = resolve(
 const runnerPath = resolve(root, "scripts/db-migrate.sh");
 const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
+const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -117,6 +118,7 @@ const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
+const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -404,6 +406,7 @@ for (const requiredScopeContract of [
   "assignment.status = 'enabled'",
   "asset_count = 0",
   "exact_source_count = 1",
+  "scope.exact_source_count <> 1",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -457,6 +460,7 @@ for (const requiredSeedContract of [
   "module.module_code = 'asset'",
   "asset_count = 0",
   "exact_source_count = 1",
+  "scope.exact_source_count <> 1",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -589,6 +593,49 @@ assert.doesNotMatch(
   rollbackRelease,
   /(?:pnpm db:migrate|pnpm prod:deploy|RUN_PRODUCTION_SEED)/u,
   "source rollback must not execute an older migration or production-seed manifest"
+);
+assert.match(productionDeployWorkflow, /diagnose-000189-scope/u);
+assert.match(productionDeployWorkflow, /Diagnose 000189 asset scope parity \(read-only\)/u);
+assert.match(productionDeployWorkflow, /Enforce 000189 asset scope parity before deployment/u);
+assert.match(productionDeployWorkflow, /sh -s -- report '\$PROD_DEPLOY_PATH'/u);
+assert.match(productionDeployWorkflow, /sh -s -- enforce '\$PROD_DEPLOY_PATH'/u);
+const diagnosticStep = productionDeployWorkflow.slice(
+  productionDeployWorkflow.indexOf("Diagnose 000189 asset scope parity (read-only)"),
+  productionDeployWorkflow.indexOf("Ensure required production secrets")
+);
+assert.doesNotMatch(
+  diagnosticStep,
+  /(?:rsync|\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/u,
+  "read-only production diagnostic must not enter a deployment or source-sync path"
+);
+assert.match(assetScopeDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(assetScopeDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
+assert.match(assetScopeDiagnostic, /invalid_scope/u);
+assert.match(assetScopeDiagnostic, /invalid_tenant/u);
+assert.match(assetScopeDiagnostic, /ambiguous_asset/u);
+assert.match(assetScopeDiagnostic, /unresolved_source/u);
+assert.match(assetScopeDiagnostic, /ready_existing_asset/u);
+assert.match(assetScopeDiagnostic, /ready_exact_source/u);
+assert.match(assetScopeDiagnostic, /ready_default_jh_source/u);
+assert.match(assetScopeDiagnostic, /building_count/u);
+assert.match(assetScopeDiagnostic, /floor_count/u);
+assert.match(assetScopeDiagnostic, /unit_count/u);
+assert.match(assetScopeDiagnostic, /org_count/u);
+assert.match(assetScopeDiagnostic, /exact_source_codes/u);
+assert.match(assetScopeDiagnostic, /\$1 !~ \/\^ready_\//u);
+assert.doesNotMatch(
+  assetScopeDiagnostic,
+  /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
+  "production scope diagnostic must remain read-only"
+);
+const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
+const enforceScopeStep = productionDeployWorkflow.indexOf(
+  "Enforce 000189 asset scope parity before deployment"
+);
+const deployStep = productionDeployWorkflow.indexOf("      - name: Deploy");
+assert.ok(
+  ensureSecretsStep !== -1 && ensureSecretsStep < enforceScopeStep && enforceScopeStep < deployStep,
+  "normal deployment must initialize required secrets, then enforce scope parity before release sync"
 );
 
 const historyWrite = runner.slice(

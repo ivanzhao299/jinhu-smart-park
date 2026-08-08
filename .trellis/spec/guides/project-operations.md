@@ -71,7 +71,8 @@ Reference files:
 - A projection prerequisite must not require its repair source when the immutable target is already
   satisfied by exactly one valid destination row. For a legacy seed whose global business key retained
   old scope IDs, a fallback may be used only for one fixed documented target scope and one fixed unique
-  source key; generic single-row or cross-tenant guessing remains forbidden.
+  source key. That fixed unique key may also disambiguate multiple rows inside the fixed target scope;
+  generic single-row or cross-tenant guessing remains forbidden.
 - When a deliberate legacy baseline skipped an earlier scope-ID type migration, use a separate,
   narrowly historied schema prerequisite before the unchanged target. Limit it to the exact columns
   consumed by that target, allow only known source/target types and sentinel rewrites, then assert the
@@ -79,6 +80,14 @@ Reference files:
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.
+- Projection migrations whose target scopes come from production assignments require a read-only parity
+  diagnostic and an API/full deployment gate after required secret initialization but before application release
+  source sync, migration, seed, or image build.
+  The diagnostic may expose scope identifiers and aggregate counts, but never credentials, personal data, or an
+  inferred cross-tenant mapping. A diagnostic-only workflow path must not write a release marker or run UAT.
+- Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly
+  observed production classification must become a deterministic isolated PostgreSQL fixture before the next
+  deployment attempt.
 - Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
   If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
   never publish a release marker from `web` or `fast-css` while deferring required seed work.

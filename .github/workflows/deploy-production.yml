@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_mode:
-        description: "Deployment mode. auto detects changed files; fast-css only syncs runtime CSS."
+        description: "Deployment mode. diagnose-000189-scope is read-only and never deploys."
         required: true
         default: auto
         type: choice
@@ -17,6 +17,7 @@ on:
           - web
           - api
           - full
+          - diagnose-000189-scope
 
 concurrency:
   group: deploy-production
@@ -81,36 +82,8 @@ jobs:
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
         run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Ensure required production secrets
-        env:
-          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
-          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
-          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
-          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
-        run: |
-          set -eu
-          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
-          rsync -az \
-            -e "ssh $SSH_OPTS" \
-            scripts/ensure-production-secrets.sh \
-            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/ensure-production-secrets.sh"
-          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
-
-      - name: Write release marker
-        run: |
-          cat > .release.json <<EOF
-          {
-            "commit": "${GITHUB_SHA}",
-            "ref": "${GITHUB_REF_NAME}",
-            "run_id": "${GITHUB_RUN_ID}",
-            "run_number": "${GITHUB_RUN_NUMBER}",
-            "workflow": "${GITHUB_WORKFLOW}",
-            "deployed_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          }
-          EOF
-
       - name: Resolve deployment mode
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
         id: deploy-mode
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
@@ -163,7 +136,65 @@ jobs:
           echo "mode=$resolved" >> "$GITHUB_OUTPUT"
           echo "run_production_seed=$run_production_seed" >> "$GITHUB_OUTPUT"
 
+      - name: Diagnose 000189 asset scope parity (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-000189-scope' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
+
+      - name: Ensure required production secrets
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          rsync -az \
+            -e "ssh $SSH_OPTS" \
+            scripts/ensure-production-secrets.sh \
+            "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/scripts/ensure-production-secrets.sh"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
+
+      - name: Enforce 000189 asset scope parity before deployment
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
+
+      - name: Write release marker
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        run: |
+          cat > .release.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "ref": "${GITHUB_REF_NAME}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "run_number": "${GITHUB_RUN_NUMBER}",
+            "workflow": "${GITHUB_WORKFLOW}",
+            "deployed_at_utc": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
       - name: Deploy
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -236,6 +267,7 @@ jobs:
           cleanup_rollback_snapshot
 
       - name: Verify protected UAT accounts through public production
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
         env:
           PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
         run: |
