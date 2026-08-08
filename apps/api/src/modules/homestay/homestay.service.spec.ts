@@ -16,6 +16,14 @@ import {
   HomestayStayCredentialEntity
 } from "./entities/homestay.entities";
 import { HomestayService } from "./homestay.service";
+import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
+import { HomestayRatesService } from "./homestay-rates.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayBookingCommandService } from "./homestay-booking-command.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
+import { HomestayStayCommandService } from "./homestay-stay-command.service";
+import { HomestayTurnoverService } from "./homestay-turnover.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -29,20 +37,12 @@ const actor: JwtPrincipal = {
 
 test("direct homestay cancellation stops before a transaction for every principal class", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {
+  const commands = new HomestayBookingCommandService(
+    {} as never, {} as never, {
       transaction: async () => {
         transactionCalls += 1;
       }
-    } as never
+    } as never, new HomestayTransactionSupportService()
   );
   const principals = [
     actor,
@@ -52,7 +52,7 @@ test("direct homestay cancellation stops before a transaction for every principa
 
   for (const principal of principals) {
     await assert.rejects(
-      service.cancelBooking(scope, principal, "booking-1", "reason"),
+      commands.cancelBooking(scope, principal, "booking-1", "reason"),
       (error: unknown) => {
         assert.ok(error instanceof ConflictException);
         assert.equal(error.message, PROPERTY_APPROVAL_REQUIRED_MESSAGE);
@@ -65,16 +65,10 @@ test("direct homestay cancellation stops before a transaction for every principa
 
 test("homestay refund and waiver require waive plus approval-create before stop-ship", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
+  const service = new HomestayFinanceService(
     {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { transaction: async () => { transactionCalls += 1; } } as never
+    { transaction: async () => { transactionCalls += 1; } } as never,
+    new HomestayTransactionSupportService()
   );
   const deniedPrincipals = [
     actor,
@@ -134,21 +128,15 @@ test("homestay refund and waiver require waive plus approval-create before stop-
 
 test("direct homestay service keeps low-risk ledger entry types reachable", async () => {
   let transactionCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayFinanceService(
     {} as never,
     {
       transaction: async () => {
         transactionCalls += 1;
         return "direct";
       }
-    } as never
+    } as never,
+    new HomestayTransactionSupportService()
   );
   const principal = {
     ...actor,
@@ -170,18 +158,13 @@ test("initial homestay rate configuration uses one atomic database upsert", asyn
   const expected = { id: "rate-1", unitId: "unit-1", baseDailyRate: "688.00" };
   let statement = "";
   let parameters: unknown[] = [];
-  const service = new HomestayService(
+  const service = new HomestayRatesService(
     {
       findOne: async () => {
         events.push("read");
         return expected;
       }
     } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { assertAccess: async () => undefined } as never,
     {
@@ -222,7 +205,7 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
   const expected = { id: "override-1", unitId: "unit-1", businessDate: "2026-08-01", dailyRate: "788.00" };
   let statement = "";
   let parameters: unknown[] = [];
-  const service = new HomestayService(
+  const service = new HomestayRatesService(
     { findOne: async () => ({ id: "rate-1" }) } as never,
     {
       findOne: async () => {
@@ -230,11 +213,6 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
         return expected;
       }
     } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { assertAccess: async () => undefined } as never,
     {
       query: async (sql: string, values: unknown[]) => {
@@ -325,14 +303,9 @@ test("booking detail masks every credential reference without changing null", as
       return [{ id: guest.partyId, displayName: "张三" }];
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { findOne: async () => booking } as never,
     { findOne: async () => null } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { allowedUnitIds: async () => null } as never,
     dataSource as never
   );
@@ -406,16 +379,11 @@ test("credential issue persists the reference but masks it in the response", asy
       throw new Error("Unexpected repository");
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayStayCommandService(
     {} as never,
     { assertAccess: async () => undefined } as never,
-    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never
+    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
+    new HomestayTransactionSupportService()
   );
 
   const result = await service.issueCredential(scope, actor, "booking-1", {
@@ -453,16 +421,11 @@ test("credential return masks the stored reference in new and replayed responses
       throw new Error("Unexpected repository");
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayStayCommandService(
     {} as never,
     { assertAccess: async () => undefined } as never,
-    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never
+    { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
+    new HomestayTransactionSupportService()
   );
 
   const first = await service.returnCredential(scope, actor, "booking-1", credential.id);
@@ -486,14 +449,8 @@ test("dashboard omits rate and finance fields and skips their queries without ex
       return builder;
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayDashboardAvailabilityQueryService(
     turnoversRepository as never,
-    {} as never,
-    {} as never,
-    {} as never,
     { allowedUnitIds: async () => null } as never,
     {
       query: async (sql: string) => {
@@ -501,7 +458,8 @@ test("dashboard omits rate and finance fields and skips their queries without ex
         if (sql.includes("rentable_units")) return [{ rentable_units: 2 }];
         return [{ arrivals: 1, departures: 0, occupied: 1 }];
       }
-    } as never
+    } as never,
+    { get: () => undefined } as never
   );
 
   const result = await service.dashboard(scope, actor, "2026-07-31");
@@ -523,13 +481,7 @@ test("availability preserves unset/false legacy arrays and enables wrapper only 
   };
   for (const [flag, expectedQueries] of [[undefined, 1], ["false", 1], ["true", 2]] as const) {
     let queryCount = 0;
-    const service = new HomestayService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+    const service = new HomestayDashboardAvailabilityQueryService(
       {} as never,
       { allowedUnitIds: async () => null } as never,
       {
@@ -564,13 +516,7 @@ test("V2 availability keeps true total on empty pages with constant statement co
   const counts: number[] = [];
   for (const pageSize of [1, 20, 100]) {
     let statementCount = 0;
-    const service = new HomestayService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
+    const service = new HomestayDashboardAvailabilityQueryService(
       {} as never,
       { allowedUnitIds: async () => null } as never,
       {
@@ -625,13 +571,8 @@ test("booking lists omit every finance field without homestay:finance:read", asy
     take: () => bookingBuilder,
     getManyAndCount: async () => [[booking], 1]
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { createQueryBuilder: () => bookingBuilder } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { allowedUnitIds: async () => null } as never,
     {
@@ -772,16 +713,11 @@ test("stay queues call getMany/getCount once and batch exactly two enrichments",
 
 test("stay detail returns the same 404 for empty scope before looking up the booking", async () => {
   let bookingReads = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
+  const service = new HomestayBookingQueryService(
     { findOne: async () => {
       bookingReads += 1;
       return { id: "booking-outside-scope" };
     } } as never,
-    {} as never,
-    {} as never,
-    {} as never,
     {} as never,
     { allowedUnitIds: async () => [] } as never,
     {} as never
@@ -795,6 +731,21 @@ test("stay detail returns the same 404 for empty scope before looking up the boo
 });
 
 test("tenant/park scope denial remains 403 while cross-unit GET detail remains 404", async () => {
+  const forbiddenUnitAccess = {
+    allowedUnitIds: async () => {
+      throw new ForbiddenException("Tenant/park scope denied");
+    }
+  };
+  const forbiddenBookingQuery = new HomestayBookingQueryService(
+    {} as never,
+    {} as never,
+    forbiddenUnitAccess as never,
+    {} as never
+  );
+  const forbiddenTurnovers = new HomestayTurnoverService(
+    {} as never, {} as never, {} as never, {} as never,
+    forbiddenUnitAccess as never, {} as never
+  );
   const forbiddenService = new HomestayService(
     {} as never,
     {} as never,
@@ -803,17 +754,15 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     {} as never,
     {} as never,
     {} as never,
-    {
-      allowedUnitIds: async () => {
-        throw new ForbiddenException("Tenant/park scope denied");
-      }
-    } as never,
-    {} as never
+    forbiddenUnitAccess as never,
+    {} as never,
+    undefined, undefined, undefined, undefined,
+    forbiddenBookingQuery
   );
   for (const operation of [
     () => forbiddenService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => forbiddenService.getStay(scope, actor, "11111111-1111-4111-8111-111111111111"),
-    () => forbiddenService.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111")
+    () => forbiddenTurnovers.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111")
   ]) {
     await assert.rejects(
       operation(),
@@ -833,21 +782,38 @@ test("tenant/park scope denial remains 403 while cross-unit GET detail remains 4
     },
     getOne: async () => null
   };
-  const crossUnitService = new HomestayService(
-    {} as never,
-    {} as never,
-    { createQueryBuilder: () => emptyBuilder } as never,
+  const crossUnitAccess = { allowedUnitIds: async () => ["unit-allowed"] };
+  const crossUnitBookingQuery = new HomestayBookingQueryService(
     { createQueryBuilder: () => emptyBuilder } as never,
     {} as never,
-    {} as never,
-    {} as never,
-    { allowedUnitIds: async () => ["unit-allowed"] } as never,
+    crossUnitAccess as never,
     {} as never
+  );
+  const crossUnitTurnovers = new HomestayTurnoverService(
+    { createQueryBuilder: () => emptyBuilder } as never, {} as never, {} as never,
+    {} as never, crossUnitAccess as never, {} as never
+  );
+  const crossUnitService = new HomestayService(
+    {
+      getRateCalendar: async () => {
+        throw new NotFoundException("Unit not found");
+      }
+    } as never,
+    {} as never,
+    { createQueryBuilder: () => emptyBuilder } as never,
+    { createQueryBuilder: () => emptyBuilder } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    crossUnitAccess as never,
+    {} as never,
+    undefined, undefined, undefined, undefined,
+    crossUnitBookingQuery
   );
   for (const operation of [
     () => crossUnitService.getBooking(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => crossUnitService.getStay(scope, actor, "11111111-1111-4111-8111-111111111111"),
-    () => crossUnitService.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111"),
+    () => crossUnitTurnovers.getTurnover(scope, actor, "11111111-1111-4111-8111-111111111111"),
     () => crossUnitService.getRateCalendar(
       scope,
       actor,
@@ -893,10 +859,7 @@ test("turnover list hides protected file IDs without file:read while preserving 
       return builder;
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     turnoversRepository as never,
     {} as never,
     {} as never,
@@ -970,10 +933,7 @@ test("turnover detail adds only attachment metadata with domain read plus file:r
       return [file];
     }
   };
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     { createQueryBuilder: () => turnoverBuilder } as never,
     { createQueryBuilder: () => fileBuilder } as never,
     {} as never,
@@ -1043,17 +1003,13 @@ test("turnover detail exposes only the authorized scoped work-order reference", 
     getOne: async () => task
   };
   let referenceCalls = 0;
-  const service = new HomestayService(
-    {} as never,
-    {} as never,
-    {} as never,
+  const service = new HomestayTurnoverService(
     { createQueryBuilder: () => builder } as never,
     {} as never,
     {} as never,
     {} as never,
     { allowedUnitIds: async () => null } as never,
     { query: async () => [{ unitCode: "A-101", unitName: "101" }] } as never,
-    undefined,
     {
       getAuthorizedWorkOrderReference: async () => {
         referenceCalls += 1;

@@ -4,6 +4,8 @@ import test from "node:test";
 import { ConflictException } from "@nestjs/common";
 import { DataSource, type EntityManager } from "typeorm";
 import { HousingService } from "./housing.service";
+import { HousingLeaseApprovalExecutorService } from "./housing-lease-approval-executor.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -66,11 +68,21 @@ test("PostgreSQL checkout rejects an occupancy pointer TOCTOU after its non-lock
           return run(intercepted as EntityManager);
         })
     };
+    const unitAccess = { assertAccess: async () => undefined };
+    const approvalCommands = {
+      createPendingRequest: async () => assert.fail("drift must fail before approval creation")
+    };
+    const leaseApprovalExecutor = new HousingLeaseApprovalExecutorService(
+      transactionalDataSource as never,
+      unitAccess as never,
+      new HousingTransactionSupportService(),
+      approvalCommands as never
+    );
     const service = new HousingService(
       {} as never, {} as never, {} as never, {} as never,
-      { assertAccess: async () => undefined } as never, {} as never,
+      unitAccess as never, {} as never,
       transactionalDataSource as never, {} as never,
-      { createPendingRequest: async () => assert.fail("drift must fail before approval creation") } as never
+      leaseApprovalExecutor
     );
     const checkout = service.checkoutLease(
       { tenantId, parkId },

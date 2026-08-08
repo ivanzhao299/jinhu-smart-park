@@ -5,6 +5,8 @@ import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayTurnoverService } from "./homestay-turnover.service";
 
 const scope: TenantParkScope = { tenantId: "tenant-scope", parkId: "park-scope" };
 const actor: JwtPrincipal = {
@@ -46,16 +48,27 @@ function homestayService(options: {
   unitAccessService: unknown;
   dataSource?: unknown;
 }): HomestayService {
+  const bookingsRepository = options.bookingsRepository ?? {};
+  const turnoversRepository = options.turnoversRepository ?? {};
+  const dataSource = options.dataSource ?? {};
+  const bookingQuery = new HomestayBookingQueryService(
+    bookingsRepository as never,
+    turnoversRepository as never,
+    options.unitAccessService as never,
+    dataSource as never
+  );
   return new HomestayService(
     {} as never,
     {} as never,
-    (options.bookingsRepository ?? {}) as never,
-    (options.turnoversRepository ?? {}) as never,
+    bookingsRepository as never,
+    turnoversRepository as never,
     {} as never,
     {} as never,
     {} as never,
     options.unitAccessService as never,
-    (options.dataSource ?? {}) as never
+    dataSource as never,
+    undefined, undefined, undefined, undefined,
+    bookingQuery
   );
 }
 
@@ -277,24 +290,32 @@ test("detail routes return cross-tenant/park 404 and propagate unit-scope 403", 
           },
           getOne: async () => null
         };
-        const operation = homestayService({
-          turnoversRepository: { createQueryBuilder: () => builder },
-          unitAccessService: { allowedUnitIds: async () => null }
-        }).getTurnover(scope, actor, detailId);
+        const operation = new HomestayTurnoverService(
+          { createQueryBuilder: () => builder } as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          { allowedUnitIds: async () => null } as never,
+          {} as never
+        ).getTurnover(scope, actor, detailId);
         return { operation, evidence: () => bindings };
       },
-      unitDenied: () => homestayService({
-        turnoversRepository: {
+      unitDenied: () => new HomestayTurnoverService(
+        {
           createQueryBuilder: () => {
             throw new Error("turnover query must not run");
           }
-        },
-        unitAccessService: {
+        } as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {
           allowedUnitIds: async () => {
             throw new ForbiddenException("Unit scope denied");
           }
-        }
-      }).getTurnover(scope, actor, detailId)
+        } as never,
+        {} as never
+      ).getTurnover(scope, actor, detailId)
     }
   ] as const;
 

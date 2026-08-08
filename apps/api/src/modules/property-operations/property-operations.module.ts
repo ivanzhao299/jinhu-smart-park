@@ -22,6 +22,8 @@ import {
 import { PropertyOperationsService } from "./property-operations.service";
 import { PropertyUnitAccessService } from "./property-unit-access.service";
 import { PropertyFoundationApprovalAdapter } from "./property-foundation-approval.adapter";
+import { PropertyOccupancyAdapter } from "./property-occupancy.adapter";
+import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
 
 @Module({
   imports: [
@@ -47,11 +49,13 @@ import { PropertyFoundationApprovalAdapter } from "./property-foundation-approva
   providers: [
     PropertyOperationsService,
     PropertyOccupanciesService,
+    PropertyOccupancyAdapter,
+    { provide: PROPERTY_OCCUPANCY_PORT, useExisting: PropertyOccupancyAdapter },
     PartiesService,
     PartySensitiveDataService,
     PropertyUnitAccessService,
     PropertyFoundationApprovalAdapter
   ],
-  exports: [PropertyOperationsService, PropertyOccupanciesService, PartiesService, PropertyUnitAccessService]
+  exports: [PropertyOperationsService, PROPERTY_OCCUPANCY_PORT, PartiesService, PropertyUnitAccessService]
 })
 export class PropertyOperationsModule {}

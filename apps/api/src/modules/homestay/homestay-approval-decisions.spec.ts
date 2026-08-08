@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { HomestayService } from "./homestay.service";
+import { HomestayBookingCommandService } from "./homestay-booking-command.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
 
 const scope: TenantParkScope = {
   tenantId: "10000000-0000-4000-8000-000000000001",
@@ -60,12 +63,19 @@ test("DEC-01 freezes cancellation fee, occupancy CAS, and credential CAS in one 
     }
   };
   let request: Record<string, unknown> | undefined;
+  const dataSource = { transaction: async (run: (value: typeof manager) => unknown) => run(manager) };
+  const access = { assertAccess: async () => undefined };
+  const support = new HomestayTransactionSupportService();
+  const approval = { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
+    request = input; return input;
+  } };
+  const commands = new HomestayBookingCommandService(
+    access as never, {} as never, dataSource as never, support, approval as never
+  );
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never,
-    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    undefined, undefined,
-    { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => { request = input; return input; } } as never
+    access as never, dataSource as never, undefined, undefined, approval as never,
+    undefined, undefined, support, commands
   );
 
   await service.cancelBooking(scope, actor, booking.id, " guest request ", "cancel-key");
@@ -117,12 +127,17 @@ test("DEC-02 blocks homestay approval when a legacy refund or waiver is not link
       throw new Error(`Unexpected query: ${sql}`);
     }
   };
+  const dataSource = { transaction: async (run: (value: typeof manager) => unknown) => run(manager) };
+  const access = { assertAccess: async () => undefined };
+  const support = new HomestayTransactionSupportService();
+  const approval = { createPendingRequest: async () => { requestCalls += 1; } };
+  const commands = new HomestayBookingCommandService(
+    access as never, {} as never, dataSource as never, support, approval as never
+  );
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
-    { assertAccess: async () => undefined } as never,
-    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    undefined, undefined,
-    { createPendingRequest: async () => { requestCalls += 1; } } as never
+    access as never, dataSource as never, undefined, undefined, approval as never,
+    undefined, undefined, support, commands
   );
 
   await assert.rejects(
@@ -186,11 +201,10 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
     }
   };
   let request: Record<string, unknown> | undefined;
-  const service = new HomestayService(
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+  const service = new HomestayFinanceService(
     { assertAccess: async () => undefined } as never,
     { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
-    undefined, undefined,
+    new HomestayTransactionSupportService(),
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       request = input;
       return input;

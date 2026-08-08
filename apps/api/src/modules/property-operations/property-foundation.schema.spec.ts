@@ -107,10 +107,13 @@ test("open turnover tasks remain shared availability and mode-transition blocker
   assert.match(snapshot, /FROM biz_homestay_turnover_task task/);
   assert.match(snapshot, /task\.status <> 'completed'/);
 
-  const homestay = readFileSync(resolve(__dirname, "../homestay/homestay.service.ts"), "utf8");
+  const homestay = readFileSync(
+    resolve(__dirname, "../homestay/homestay-stay-command.service.ts"),
+    "utf8"
+  );
   const checkout = homestay.slice(
     homestay.indexOf("async checkOut"),
-    homestay.indexOf("async registerLedgerEntry")
+    homestay.indexOf("private mustUnitAccess")
   );
   assert.match(checkout, /sourceType: "homestay_turnover"/);
   assert.match(checkout, /sourceId: task\.id/);

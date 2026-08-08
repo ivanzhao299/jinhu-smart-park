@@ -17,6 +17,20 @@ import {
 } from "./entities/housing.entities";
 import { HousingController } from "./housing.controller";
 import { HousingService } from "./housing.service";
+import { HousingDashboardQueryService } from "./housing-dashboard-query.service";
+import { HousingTenantService } from "./housing-tenant.service";
+import { HousingLeaseQueryService } from "./housing-lease-query.service";
+import { HousingLeaseCommandService } from "./housing-lease-command.service";
+import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
+import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HousingBillingCommandService } from "./housing-billing-command.service";
+import { HousingFinanceCommandService } from "./housing-finance-command.service";
+import { HousingHandoverCommandService } from "./housing-handover-command.service";
+import { HousingHandoverApprovalExecutorService } from "./housing-handover-approval-executor.service";
+import { HousingRepairCommandService } from "./housing-repair-command.service";
+import { HousingPurchaseService } from "./housing-purchase.service";
+import { HousingPurchaseApprovalExecutorService } from "./housing-purchase-approval-executor.service";
+import { HousingLeaseApprovalExecutorService } from "./housing-lease-approval-executor.service";
 import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 import { HousingApprovalAdapter } from "./housing-approval.adapter";
 import {
@@ -48,6 +62,20 @@ import {
   controllers: [HousingController],
   providers: [
     HousingService,
+    HousingDashboardQueryService,
+    HousingTenantService,
+    HousingLeaseQueryService,
+    HousingTransactionSupportService,
+    HousingReceivableWriterService,
+    HousingLeaseCommandService,
+    HousingBillingCommandService,
+    HousingFinanceCommandService,
+    HousingHandoverCommandService,
+    HousingHandoverApprovalExecutorService,
+    HousingRepairCommandService,
+    HousingPurchaseService,
+    HousingPurchaseApprovalExecutorService,
+    HousingLeaseApprovalExecutorService,
     HousingWorkbenchQueryService,
     HousingApprovalAdapter,
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },

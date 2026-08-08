@@ -21,6 +21,8 @@ import {
   HomestayTurnoverTaskEntity
 } from "./entities/homestay.entities";
 import { HomestayService } from "./homestay.service";
+import { HomestayStayCommandService } from "./homestay-stay-command.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 
 const databaseUrl = process.env.PROPERTY_IDENTITY_PG_URL;
 const entities = [
@@ -72,6 +74,7 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
   const today = businessDate(new Date());
   const tomorrow = businessDate(new Date(Date.now() + 86_400_000));
   let submissionId = "";
+  let primaryError: unknown = null;
 
   try {
     await admin.transaction(async (manager) => {
@@ -182,15 +185,25 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
     const identity = new PropertyIdentityService(admin, {} as never);
     const verifier = new PropertyIdentityVerificationService(identity);
     const transactionDataSource = transactionFacade(checkInRunner);
+    const support = new HomestayTransactionSupportService();
+    const access = { assertAccess: async () => undefined };
+    const stayCommands = new HomestayStayCommandService(
+      {} as never, access as never, transactionDataSource as never, support, verifier
+    );
     const service = new HomestayService(
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
       {} as never,
-      { assertAccess: async () => undefined } as never,
+      access as never,
       transactionDataSource as never,
       new ConfigService(),
       undefined,
       undefined,
-      verifier
+      verifier,
+      undefined,
+      support,
+      undefined,
+      undefined,
+      stayCommands
     );
 
     const success = await service.checkIn(scope, actor, ids.booking);
@@ -260,12 +273,75 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
       frozen_version: 1,
       frozen_sha: digest
     });
+  } catch (error) {
+    primaryError = error;
   } finally {
-    if (driftRunner.isTransactionActive) await driftRunner.rollbackTransaction();
-    await Promise.allSettled([checkInRunner.release(), driftRunner.release()]);
-    await Promise.allSettled([admin.destroy(), checkInSource.destroy(), driftSource.destroy()]);
+    let cleanupError: unknown = null;
+    try {
+      if (driftRunner.isTransactionActive) await driftRunner.rollbackTransaction();
+      await Promise.allSettled([checkInRunner.release(), driftRunner.release()]);
+      if (admin.isInitialized) await cleanupIdentityFixture(admin, scope);
+    } catch (error) {
+      cleanupError = error;
+    } finally {
+      await Promise.allSettled([admin.destroy(), checkInSource.destroy(), driftSource.destroy()]);
+    }
+    if (primaryError && cleanupError) {
+      throw new AggregateError([primaryError, cleanupError], "identity PostgreSQL test and fixture cleanup both failed");
+    }
+    if (primaryError) throw primaryError;
+    if (cleanupError) throw cleanupError;
   }
 });
+
+async function cleanupIdentityFixture(
+  dataSource: DataSource,
+  scope: { tenantId: string; parkId: string }
+): Promise<void> {
+  const tables = [
+    "biz_homestay_booking_action_log",
+    "biz_homestay_stay_credential",
+    "rel_homestay_booking_guest",
+    "biz_homestay_booking",
+    "biz_property_occupancy",
+    "rel_party_identity_snapshot_file",
+    "rel_party_identity_draft_file",
+    "biz_party_identity_decision",
+    "biz_party_identity_assignment_audit",
+    "biz_party_identity_submission",
+    "biz_party_identity_snapshot",
+    "sys_file",
+    "biz_party_identity_verification_queue",
+    "biz_party",
+    "biz_property_operation_config",
+    "biz_unit",
+    "biz_floor",
+    "biz_building"
+  ] as const;
+  await dataSource.transaction(async (manager) => {
+    await manager.query("SET CONSTRAINTS ALL DEFERRED");
+    await manager.query("SELECT set_config('session_replication_role','replica',true)");
+    await manager.query(
+      `UPDATE biz_party
+          SET current_identity_submission_id=NULL,
+              current_verified_submission_id=NULL
+        WHERE tenant_id=$1 AND park_id=$2`,
+      [scope.tenantId, scope.parkId]
+    );
+    for (const table of tables) {
+      await manager.query(
+        `DELETE FROM ${table} WHERE tenant_id=$1 AND park_id=$2`,
+        [scope.tenantId, scope.parkId]
+      );
+    }
+  });
+  const residual = await dataSource.query(
+    `SELECT coalesce(sum(residual),0)::int AS residual
+       FROM (${tables.map((table) => `SELECT count(*) AS residual FROM ${table} WHERE tenant_id=$1 AND park_id=$2`).join(" UNION ALL ")}) fixture`,
+    [scope.tenantId, scope.parkId]
+  ) as Array<{ residual: number }>;
+  assert.equal(residual[0]?.residual, 0, "identity PostgreSQL fixture cleanup must reach zero");
+}
 
 function transactionFacade(runner: QueryRunner) {
   return {

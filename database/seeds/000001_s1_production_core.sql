@@ -738,7 +738,22 @@ permission_parent_map AS (
       WHEN child.code IN ('system', 'asset', 'leasing', 'homestay', 'housing_rental', 'workorder', 'iot', 'energy', 'robot', 'video', 'bim', 'ai', 'cockpit') THEN NULL
       WHEN child.code IN ('system:org', 'system:user', 'system:role', 'system:permission', 'system:data-scope', 'system:field-policy', 'system:code-rule', 'system:tenant', 'system:module', 'system:dict-type', 'system:file', 'system:audit', 'system:audit-login-log') THEN 'system'
       WHEN child.code = 'system:dict-item' THEN 'system:dict-type'
-      WHEN child.code IN ('asset:park', 'asset:building', 'asset:floor', 'asset:unit', 'asset:unit-status-board', 'asset:statistics-page', 'asset:party') THEN 'asset'
+      WHEN child.code IN (
+        'asset:park',
+        'asset:building',
+        'asset:floor',
+        'asset:unit',
+        'asset:unit-status-board',
+        'asset:statistics-page',
+        'asset:party',
+        'asset:identity-submissions:page',
+        'asset:property-operations:page',
+        'asset:property-occupancies:page',
+        'asset:property-mode-transitions:page',
+        'property:notifications:page',
+        'property:event-delivery-incidents:page',
+        'property:approval-incidents:page'
+      ) THEN 'asset'
       WHEN child.code IN ('leasing:tenant', 'leasing:lead', 'leasing:lead-pool', 'leasing:invest', 'leasing:contract', 'leasing:contract-change', 'leasing:checkout', 'leasing:refund', 'leasing:receivable', 'leasing:payment', 'leasing:aging', 'leasing:waiver', 'leasing:invoice') THEN 'leasing'
       WHEN child.code = 'homestay:operations' THEN 'homestay'
       WHEN child.code = 'housing_rental:operations' THEN 'housing_rental'

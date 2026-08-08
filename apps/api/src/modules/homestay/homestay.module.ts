@@ -20,6 +20,15 @@ import {
 import { HomestayController } from "./homestay.controller";
 import { HomestayService } from "./homestay.service";
 import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
+import { HomestayDashboardAvailabilityQueryService } from "./homestay-dashboard-availability-query.service";
+import { HomestayRatesService } from "./homestay-rates.service";
+import { HomestayBookingQueryService } from "./homestay-booking-query.service";
+import { HomestayBookingCommandService } from "./homestay-booking-command.service";
+import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
+import { HomestayStayCommandService } from "./homestay-stay-command.service";
+import { HomestayTurnoverService } from "./homestay-turnover.service";
+import { HomestayFinanceService } from "./homestay-finance.service";
+import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import { HomestayApprovalAdapter } from "./homestay-approval.adapter";
 import {
   HOMESTAY_TURNOVER_TASK_RESOLVER,
@@ -47,9 +56,22 @@ import {
     PropertyIdentityModule
   ],
   controllers: [HomestayController],
-  providers: [HomestayService, HomestayWorkbenchQueryService, HomestayApprovalAdapter,
+  providers: [
+    HomestayService,
+    HomestayWorkbenchQueryService,
+    HomestayDashboardAvailabilityQueryService,
+    HomestayRatesService,
+    HomestayBookingQueryService,
+    HomestayBookingCommandService,
+    HomestayCancellationExecutorService,
+    HomestayStayCommandService,
+    HomestayTurnoverService,
+    HomestayFinanceService,
+    HomestayTransactionSupportService,
+    HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,
-    { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }],
+    { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }
+  ],
   exports: [HomestayService, HOMESTAY_TURNOVER_TASK_RESOLVER]
 })
 export class HomestayModule {}

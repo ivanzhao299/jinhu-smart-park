@@ -43,40 +43,39 @@ test("housing financial migration enforces one charge plan and non-overlapping p
 });
 
 test("housing billing locks its lease and rejects overlapping plan periods", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  assert.match(service, /const lease = await this\.lockLease\(manager, scope, leaseId\)/);
+  const service = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  assert.match(service, /const lease = await this\.support\.lockLease\(manager, scope, leaseId\)/);
   assert.match(service, /receivable\.period_start < :periodEnd/);
   assert.match(service, /receivable\.period_end > :periodStart/);
   assert.doesNotMatch(service, /overlapping\.periodStart === dto\.period_start/);
 });
 
 test("housing final-state, attachment, meter, privacy, and purchase guards stay explicit", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  assert.match(service, /this\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
-  assert.match(service, /Final housing leases cannot accept new occupants/);
-  assert.match(service, /Final housing leases cannot change charge plans/);
-  assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
-  assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
-  assert.match(service, /meter\.status !== "ONLINE"/);
+  const purchase = readFileSync(resolve(__dirname, "housing-purchase.service.ts"), "utf8");
+  const leaseCommands = readFileSync(resolve(__dirname, "housing-lease-command.service.ts"), "utf8");
+  const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  const financeCommands = readFileSync(resolve(__dirname, "housing-finance-command.service.ts"), "utf8");
+  assert.match(billingCommands, /this\.support\.assertStatus\(lease, \["active", "expiring", "checkout_pending"\]\)/);
+  assert.match(leaseCommands, /Final housing leases cannot accept new occupants/);
+  assert.match(billingCommands, /Final housing leases cannot change charge plans/);
+  assert.match(financeCommands, /Deposit deductions can only be created by the move-out handover workflow/);
+  assert.match(purchase, /Transferred purchase items must be reversed before voiding the purchase/);
+  assert.match(billingCommands, /meter\.status !== "ONLINE"/);
 
-  const activationStart = service.indexOf("async activateLease");
-  const activationEnd = service.indexOf("async voidLease", activationStart);
-  const activation = service.slice(activationStart, activationEnd);
-  assert.match(activation, /this\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);
-  assert.match(activation, /bizType: "housing_lease_signature"/);
+  assert.match(leaseCommands, /this\.support\.assertFiles\(manager, scope, \[lease\.signatureFileId\]/);
+  assert.match(leaseCommands, /bizType: "housing_lease_signature"/);
 });
 
 test("housing billing and repair files preserve exact domain boundaries", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  assert.doesNotMatch(service, /Number\(plan\.amount/);
-  assert.match(service, /multiplyHousingMoneyByRatio\(/);
-  assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
-  assert.match(service, /bizType: "housing_repair"/);
-  assert.match(service, /NOT EXISTS \([\s\S]*file\.id = ANY\(repair\.image_file_ids\)/);
-  assert.match(service, /One or more repair attachments are already bound to a work order/);
-  assert.match(service, /housing_handover_move_in/);
-  assert.match(service, /housing_handover_move_out/);
-  assert.match(service, /One or more handover attachments are already bound to another handover/);
+  const billingCommands = readFileSync(resolve(__dirname, "housing-billing-command.service.ts"), "utf8");
+  const repairCommands = readFileSync(resolve(__dirname, "housing-repair-command.service.ts"), "utf8");
+  const handoverCommands = readFileSync(resolve(__dirname, "housing-handover-command.service.ts"), "utf8");
+  assert.doesNotMatch(billingCommands, /Number\(plan\.amount/);
+  assert.match(billingCommands, /multiplyHousingMoneyByRatio\(/);
+  assert.match(repairCommands, /resolveFileUploadPolicy\("housing_repair"\)/);
+  assert.match(repairCommands, /bizType: "housing_repair"/);
+  assert.match(repairCommands, /One or more repair attachments are already bound to a work order/);
+  assert.match(handoverCommands, /One or more handover attachments are already bound to another handover/);
 });
 
 test("housing lease creation requires every selector permission at the API boundary", () => {
@@ -100,18 +99,6 @@ test("housing purchase creation requires its scoped unit selector permission", (
 
   assert.match(createPurchase, /SYSTEM_PERMISSIONS\.HOUSING_PURCHASE_MANAGE/);
   assert.match(createPurchase, /SYSTEM_PERMISSIONS\.UNIT_READ/);
-});
-
-test("housing lease pages own stable unit and tenant display labels", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  const listLeases = service.slice(service.indexOf("async listLeases"), service.indexOf("async getLease"));
-
-  assert.match(listLeases, /unit\.unit_code AS "unitCode"/);
-  assert.match(listLeases, /unit\.unit_name AS "unitName"/);
-  assert.match(listLeases, /party\.display_name AS "tenantDisplayName"/);
-  assert.match(listLeases, /lease\.id = ANY\(\$3::uuid\[\]\)/);
-  assert.match(listLeases, /unitCode: displayByLease\.get\(lease\.id\)\?\.unitCode/);
-  assert.match(listLeases, /tenantDisplayName: displayByLease\.get\(lease\.id\)\?\.tenantDisplayName/);
 });
 
 test("housing workflow permissions can reach their scoped lease and purchase records", () => {

@@ -113,12 +113,12 @@ function installCurrentUserFetchRecorder(
 
 type FetchCurrentUserWithOptions = (options?: { requestToken?: string }) => ReturnType<typeof fetchCurrentUser>;
 
-test("setSession stores access token and user but removes legacy refresh token storage", () => {
+test("setSession stores access token and user but removes legacy refresh token storage", async () => {
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_refresh_token", "old-session-refresh");
   local.setItem("jinhu_refresh_token", "old-local-refresh");
 
-  setSession("access-token", user, "new-refresh-token");
+  await setSession("access-token", user, "new-refresh-token");
 
   assert.equal(session.getItem("jinhu_access_token"), "access-token");
   assert.equal(local.getItem("jinhu_access_token"), "access-token");
@@ -129,7 +129,7 @@ test("setSession stores access token and user but removes legacy refresh token s
   assert.equal(getRefreshToken(), "");
 });
 
-test("clearSession removes legacy refresh token storage", () => {
+test("clearSession removes legacy refresh token storage", async () => {
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_access_token", "access-token");
   session.setItem("jinhu_auth_user", JSON.stringify(user));
@@ -138,7 +138,7 @@ test("clearSession removes legacy refresh token storage", () => {
   local.setItem("jinhu_auth_user", JSON.stringify(user));
   local.setItem("jinhu_refresh_token", "local-refresh");
 
-  clearSession();
+  await clearSession();
 
   assert.equal(session.getItem("jinhu_access_token"), null);
   assert.equal(session.getItem("jinhu_auth_user"), null);
@@ -146,6 +146,50 @@ test("clearSession removes legacy refresh token storage", () => {
   assert.equal(local.getItem("jinhu_access_token"), null);
   assert.equal(local.getItem("jinhu_auth_user"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+});
+
+test("account switch awaits the serialized offline cleanup barrier before publishing the new session", async () => {
+  const { session, local } = installBrowserStorage();
+  session.setItem("jinhu_auth_user", JSON.stringify(user));
+  local.setItem("jinhu_auth_user", JSON.stringify(user));
+  local.setItem("jinhu-property-offline-scope-v1", "old-scope");
+
+  await setSession("new-token", { ...user, id: "00000000-0000-0000-0000-000000000002" });
+
+  assert.equal(local.getItem("jinhu-property-offline-scope-v1"), null);
+  assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").id, "00000000-0000-0000-0000-000000000002");
+});
+
+test("module assignment enable and expiry changes await offline purge even when permissions stay equal", async () => {
+  const enabled = { module_code: "housing_rental", module_name: "住房", module_group: "property", enabled: true, expire_time: null };
+  const changes = [
+    { before: [], after: [enabled] },
+    { before: [enabled], after: [{ ...enabled, enabled: false }] },
+    { before: [enabled], after: [{ ...enabled, expire_time: "2026-12-31T00:00:00.000Z" }] }
+  ];
+  for (const change of changes) {
+    const { session, local } = installBrowserStorage();
+    const previous = { ...user, enabled_modules: change.before };
+    session.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu-property-offline-scope-v1", "old-scope");
+    await setSession("same-token", { ...user, enabled_modules: change.after });
+    assert.equal(local.getItem("jinhu-property-offline-scope-v1"), null);
+  }
+});
+
+test("same module assignments in a different order do not purge offline state", async () => {
+  const { session, local } = installBrowserStorage();
+  const asset = { module_code: "asset", module_name: "资产", module_group: "property", enabled: true, expire_time: null };
+  const housing = { module_code: "housing_rental", module_name: "住房", module_group: "property", enabled: true, expire_time: "2026-12-31T00:00:00.000Z" };
+  const previous = { ...user, enabled_modules: [asset, housing] };
+  session.setItem("jinhu_auth_user", JSON.stringify(previous));
+  local.setItem("jinhu_auth_user", JSON.stringify(previous));
+  local.setItem("jinhu-property-offline-scope-v1", "same-scope");
+
+  await setSession("same-token", { ...user, enabled_modules: [housing, asset] });
+
+  assert.equal(local.getItem("jinhu-property-offline-scope-v1"), "same-scope");
 });
 
 test("fetchCurrentUser writes user storage when request token is still current", async () => {

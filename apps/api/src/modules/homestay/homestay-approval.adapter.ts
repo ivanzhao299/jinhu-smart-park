@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Optional, type OnModuleInit } from "@nestjs/common";
 import { randomUUID } from "node:crypto";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { EntityManager } from "typeorm";
@@ -18,6 +18,7 @@ import {
   propertyApprovalCanonicalHash
 } from "../property-approvals/property-approval.service";
 import { HomestayService } from "./homestay.service";
+import { HomestayCancellationExecutorService } from "./homestay-cancellation-executor.service";
 
 type HomestayActionId = "homestay.bookings.cancel.request" | "homestay.finance.refund-or-waive.request";
 const ACTIONS: HomestayActionId[] = [
@@ -44,7 +45,9 @@ export class HomestayApprovalAdapter implements OnModuleInit {
     private readonly policies: FrozenPropertyApprovalPolicyResolver,
     private readonly effects: PropertyApprovalEffectRegistry,
     private readonly proofs: PropertyApprovalEffectProofVerifierRegistryService,
-    private readonly homestay: HomestayService
+    private readonly homestay: HomestayService,
+    @Optional()
+    private readonly cancellationExecutor?: HomestayCancellationExecutorService
   ) {}
 
   onModuleInit(): void {
@@ -56,7 +59,7 @@ export class HomestayApprovalAdapter implements OnModuleInit {
         const request = await this.requestRow(input.manager, input.requestId, actionId);
         if (actionId === "homestay.finance.refund-or-waive.request") {
           await this.homestay.executeApprovedFinance({ ...input, request });
-        } else await this.homestay.executeApprovedCancellation({ ...input, request });
+        } else await this.mustCancellationExecutor().execute({ ...input, request });
         return {
           receipts: [],
           outboxEvents: [this.outbox(actionId, request, input.requestId, input.executionIdempotencyKey)],
@@ -113,6 +116,13 @@ export class HomestayApprovalAdapter implements OnModuleInit {
       });
       }
     }
+  }
+
+  private mustCancellationExecutor(): HomestayCancellationExecutorService {
+    if (!this.cancellationExecutor) {
+      throw new Error("Homestay cancellation executor service is unavailable");
+    }
+    return this.cancellationExecutor;
   }
 
   private async resolvePolicy(actionId: HomestayActionId, input: {

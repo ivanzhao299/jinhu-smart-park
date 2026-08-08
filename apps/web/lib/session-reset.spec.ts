@@ -59,6 +59,7 @@ test("handleUnauthorizedSessionReset supports direct-fetch protected 401 cleanup
   const { session, local, location } = installBrowserStorage();
   session.setItem("jinhu_access_token", "download-token");
   local.setItem("jinhu_access_token", "download-token");
+  local.setItem("jinhu-property-offline-scope-v1", "download-scope");
   const calls = installFetchRecorder();
 
   const handled = await handleUnauthorizedSessionReset({
@@ -72,6 +73,7 @@ test("handleUnauthorizedSessionReset supports direct-fetch protected 401 cleanup
   assert.equal(calls[0]?.init?.credentials, "include");
   assert.equal(session.getItem("jinhu_access_token"), null);
   assert.equal(local.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu-property-offline-scope-v1"), null);
   assert.equal(location.href, "/login");
 });
 
