@@ -37,8 +37,10 @@
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
-  - `000189` 的 prerequisite 只确保全局 `asset` 模块目录存在且启用；不创建租户分配、
-    plan 授权、permission/role/user 或业务数据，完整基线仍由 production seed 收敛。
+  - `000189` 的 prerequisite 先确保全局 `asset` 模块目录存在，再对 deliberate baseline 遗留的
+    `asset_park.tenant_id/park_id` UUID 列恢复 `000029` 的 `varchar(64)` 合同，且只重写两个已知默认
+    scope sentinel；随后才从唯一有效的 active `biz_park` 投影缺失的 `asset_park`。它不创建租户分配、
+    plan 授权、permission/role/user，完整基线仍由 production seed 收敛。
   - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
     `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
     兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
@@ -60,6 +62,11 @@
 - 修正 failed migration 前必须确认该文件从未在长期环境记录为 `succeeded`、SQL 事务已回滚且目标库
   没有半执行结构；runner 会记录更新后的 checksum 并重新执行。仅新增后续 migration 不能修复一个
   会在它之前 fail-fast 的失败文件。
+- 若失败来自历史 migration 的前置状态缺口，应优先增加带独立 history/checksum 的窄范围
+  prerequisite，保持已审查 migration 字节不变。`000189` 的 asset scope type prerequisite 只恢复
+  目标表两列的历史 scope 类型合同；后续 projection prerequisite 只会从唯一有效的 active
+  `biz_park` 与 active asset module assignment 补齐缺失的 `asset_park` 投影，不覆盖既有资产记录，
+  scope 无效、歧义或补齐后不唯一时继续 fail closed。
 - 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 

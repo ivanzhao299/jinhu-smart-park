@@ -375,6 +375,7 @@ Migration behavior:
 - Successfully applied migration files are skipped on rerun.
 - A checksum mismatch after success fails fast and stops later migrations.
 - A failed migration can be retried after the SQL file is corrected.
+- A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant, one canonical active `biz_park`, and at least one active asset module assignment for the scope; ambiguous or invalid production scope still stops deployment.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
@@ -503,6 +504,9 @@ Migration execution behavior:
   complete. Migration-only history must not bypass prerequisite history checks.
 - Prerequisite status/checksum is recorded independently. Both history-table rows are written atomically, and any
   existing status/checksum disagreement stops before execution.
+- The `000189` prerequisite chain restores the historical `asset_park` scope-column type contract before deriving a
+  missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
+  fails closed on unexpected schema types or ambiguous canonical scope data.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

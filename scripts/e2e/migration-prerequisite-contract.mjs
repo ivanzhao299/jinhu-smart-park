@@ -8,6 +8,8 @@ const migrationPrerequisitesRoot = resolve(root, "database/migration-prerequisit
 const reviewedPrerequisiteFiles = [
   "000064_s3e_checkout_effective/001_core_role_templates.sql",
   "000189_property_b_module_rbac_definitions/001_asset_module.sql",
+  "000189_property_b_module_rbac_definitions/002_asset_park_scope_id_unification.sql",
+  "000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql",
   "000193_property_b_runtime_integrity_forward_fix/001_property_runtime_checkpoint.sql",
   "000194_property_task_projection_contract_correction/001_property_runtime_control.sql",
   "000200_property_b_migration_compatibility_control/001_sign_forward_declared_runtime_catalog.sql"
@@ -39,6 +41,18 @@ const propertyModuleMigrationPath = resolve(
 const assetModulePrerequisitePath = resolve(
   root,
   "database/migration-prerequisites/000189_property_b_module_rbac_definitions/001_asset_module.sql"
+);
+const assetParkScopeIdPrerequisitePath = resolve(
+  root,
+  "database/migration-prerequisites/000189_property_b_module_rbac_definitions/002_asset_park_scope_id_unification.sql"
+);
+const assetParkScopePrerequisitePath = resolve(
+  root,
+  "database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql"
+);
+const assetParkScopeSeedPath = resolve(
+  root,
+  "database/seeds/production/000007_asset_park_scope_reconcile.sql"
 );
 const adminIssueRunnerMigrationPath = resolve(
   root,
@@ -79,6 +93,9 @@ const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
 const propertyModuleMigration = readFileSync(propertyModuleMigrationPath);
 const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8");
+const assetParkScopeIdPrerequisite = readFileSync(assetParkScopeIdPrerequisitePath, "utf8");
+const assetParkScopePrerequisite = readFileSync(assetParkScopePrerequisitePath, "utf8");
+const assetParkScopeSeed = readFileSync(assetParkScopeSeedPath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
@@ -337,6 +354,103 @@ for (const forbiddenBoundary of [
     ),
     false,
     `000189 prerequisite must not write ${forbiddenBoundary}`
+  );
+}
+
+for (const requiredTypeContract of [
+  "tenant_type NOT IN ('uuid', 'varchar')",
+  "park_type NOT IN ('uuid', 'varchar')",
+  "ALTER COLUMN tenant_id TYPE varchar(64) USING tenant_id::text",
+  "ALTER COLUMN park_id TYPE varchar(64) USING park_id::text",
+  "tenant_id = '00000000-0000-4000-8000-000000000001'",
+  "park_id = '00000000-0000-4000-8000-000000000101'",
+  "asset-park-scope-id-unification-postcondition-failed"
+]) {
+  assert.ok(
+    assetParkScopeIdPrerequisite.includes(requiredTypeContract),
+    `000189 asset scope type prerequisite is missing ${requiredTypeContract}`
+  );
+}
+for (const forbiddenTypeBoundary of [
+  "asset_building",
+  "asset_floor",
+  "asset_unit",
+  "biz_park",
+  "sys_tenant",
+  "rel_tenant_module",
+  "sys_permission",
+  "sys_role",
+  "rel_role_perm"
+]) {
+  assert.equal(
+    new RegExp(
+      `(?:ALTER\\s+TABLE|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+(?:public\\.)?${forbiddenTypeBoundary}`,
+      "i"
+    ).test(assetParkScopeIdPrerequisite),
+    false,
+    `000189 asset scope type prerequisite must not write ${forbiddenTypeBoundary}`
+  );
+}
+
+for (const requiredScopeContract of [
+  "JOIN biz_park park",
+  "park.status = 1",
+  "JOIN sys_tenant tenant",
+  "module.module_code = 'asset'",
+  "assignment.enabled = true",
+  "assignment.status = 'enabled'",
+  "property-asset-park-scope-reconcile-preflight-failed",
+  "property-asset-park-scope-reconcile-postcondition-failed",
+  "ON CONFLICT (tenant_id, park_id, park_code) WHERE is_deleted = false DO NOTHING"
+]) {
+  assert.ok(
+    assetParkScopePrerequisite.includes(requiredScopeContract),
+    `000189 asset park prerequisite is missing ${requiredScopeContract}`
+  );
+}
+const assetParkPrerequisiteWrites = [
+  ...assetParkScopePrerequisite.matchAll(
+    /^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([a-z_][a-z0-9_]*)/gim
+  )
+].map((match) => `${match[1].toUpperCase()} ${match[2]}`);
+assert.deepEqual(
+  assetParkPrerequisiteWrites,
+  [
+    "INSERT INTO property_asset_park_reconcile_scope",
+    "INSERT INTO asset_park"
+  ],
+  "000189 asset park prerequisite must be insert-only"
+);
+for (const forbiddenScopeWrite of [
+  "biz_park",
+  "sys_tenant",
+  "rel_tenant_module",
+  "sys_module",
+  "sys_permission",
+  "sys_role",
+  "rel_role_perm"
+]) {
+  assert.equal(
+    new RegExp(
+      `(?:INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+${forbiddenScopeWrite}`,
+      "i"
+    ).test(assetParkScopePrerequisite),
+    false,
+    `000189 asset park prerequisite must not write ${forbiddenScopeWrite}`
+  );
+}
+for (const requiredSeedContract of [
+  "JOIN biz_park park",
+  "JOIN sys_tenant tenant",
+  "module.module_code = 'asset'",
+  "INSERT INTO asset_park",
+  "ON CONFLICT (tenant_id, park_id, park_code) WHERE is_deleted = false DO NOTHING",
+  "production-asset-park-scope-reconcile-preflight-failed",
+  "production-asset-park-scope-reconcile-failed"
+]) {
+  assert.ok(
+    assetParkScopeSeed.includes(requiredSeedContract),
+    `production asset park reconcile seed is missing ${requiredSeedContract}`
   );
 }
 
