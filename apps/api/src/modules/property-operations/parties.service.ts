@@ -1,6 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import {
+  SYSTEM_PERMISSIONS,
+  type PartyDetailResponse,
+  type PartyListItemResponse,
+  type PartyListResponse,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { Brackets, IsNull, Not, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type {
@@ -19,26 +25,6 @@ import {
   normalizePartyIdentityNumber
 } from "./party-identity.policy";
 
-export interface PartyResponse {
-  id: string;
-  tenantId: string;
-  parkId: string;
-  partyType: string;
-  displayName: string;
-  mobile: string | null;
-  email: string | null;
-  identityDocumentType: string | null;
-  identityNumberMasked: string | null;
-  identityNumber?: string | null;
-  sourceDomain: string | null;
-  verificationStatus: string;
-  consentStatus: string;
-  createTime: Date;
-  updateTime: Date;
-  version: number;
-  remark: string | null;
-}
-
 @Injectable()
 export class PartiesService {
   constructor(
@@ -49,26 +35,109 @@ export class PartiesService {
     private readonly sensitiveDataService: PartySensitiveDataService
   ) {}
 
-  async list(scope: TenantParkScope, query: PartyQueryDto): Promise<PaginatedResult<PartyResponse>> {
+  async list(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal
+  ): Promise<PartyListResponse> {
+    return this.listWithProjection(scope, query, actor, true);
+  }
+
+  async listForDomainProjection(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal,
+    housingUnitIds: string[] | null = null
+  ): Promise<PartyListResponse> {
+    if (housingUnitIds !== null && !housingUnitIds.length) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+    return this.listWithProjection(scope, query, actor, false, housingUnitIds);
+  }
+
+  private async listWithProjection(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal,
+    applyProjection: boolean,
+    housingUnitIds: string[] | null = null
+  ): Promise<PartyListResponse> {
     const builder = this.partiesRepository.createQueryBuilder("party")
       .where("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("party.is_deleted = false");
     if (query.party_type) builder.andWhere("party.party_type = :partyType", { partyType: query.party_type });
+    if (housingUnitIds !== null) {
+      builder.andWhere(
+        `EXISTS (
+          SELECT 1
+          FROM biz_housing_lease scoped_lease
+          WHERE scoped_lease.tenant_id = party.tenant_id
+            AND scoped_lease.park_id = party.park_id
+            AND scoped_lease.is_deleted = false
+            AND (
+              scoped_lease.unit_id IN (:...housingUnitIds)
+              OR EXISTS (
+                SELECT 1
+                FROM biz_property_occupancy scoped_occupancy
+                WHERE scoped_occupancy.id = scoped_lease.occupancy_id
+                  AND scoped_occupancy.tenant_id = scoped_lease.tenant_id
+                  AND scoped_occupancy.park_id = scoped_lease.park_id
+                  AND scoped_occupancy.unit_id IN (:...housingUnitIds)
+                  AND scoped_occupancy.is_deleted = false
+              )
+            )
+            AND (
+              scoped_lease.tenant_party_id = party.id
+              OR EXISTS (
+                SELECT 1
+                FROM rel_housing_lease_occupant scoped_occupant
+                WHERE scoped_occupant.tenant_id = scoped_lease.tenant_id
+                  AND scoped_occupant.park_id = scoped_lease.park_id
+                  AND scoped_occupant.lease_id = scoped_lease.id
+                  AND scoped_occupant.party_id = party.id
+                  AND scoped_occupant.is_deleted = false
+              )
+            )
+        )`,
+        { housingUnitIds }
+      );
+    }
     if (query.keyword) {
       builder.andWhere(new Brackets((nested) => {
-        nested.where("party.display_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
-          .orWhere("party.mobile ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        nested.where("party.display_name ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        if (this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ)) {
+          nested.orWhere("party.mobile ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        }
       }));
     }
-    const [items, total] = await builder.orderBy("party.update_time", "DESC")
+    const sortColumns = {
+      displayName: "party.display_name",
+      createTime: "party.create_time",
+      verificationStatus: "party.verification_status"
+    } as const;
+    const direction = query.order
+      ? (query.order === "asc" ? "ASC" : "DESC")
+      : "DESC";
+    const [items, total] = await builder
+      .orderBy(sortColumns[query.sort ?? "createTime"], direction)
+      .addOrderBy("party.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
-    return { items: items.map((item) => this.toResponse(item)), total, page: query.page, page_size: query.page_size };
+    return {
+      items: items.map((item) => this.toResponse(item, applyProjection ? actor : undefined)),
+      total,
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
-  async detail(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
+  async detail(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<PartyDetailResponse> {
     const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
     const builder = this.partiesRepository.createQueryBuilder("party")
       .where("party.id = :id", { id })
@@ -83,12 +152,22 @@ export class PartiesService {
         where: { tenantId: scope.tenantId, parkId: scope.parkId, partyId: id, isDeleted: false },
         order: { createTime: "ASC" }
       }),
-      Promise.resolve(this.toResponse(
-        entity,
-        canReadSensitive ? this.sensitiveDataService.decrypt(entity.identityNumberEncrypted) : undefined
-      ))
+      Promise.resolve(this.toResponse(entity, actor,
+        canReadSensitive
+          ? this.sensitiveDataService.decrypt(entity.identityNumberEncrypted)
+          : undefined))
     ]);
-    return { ...response, roles };
+    return {
+      ...response,
+      roles: roles.map((role) => ({
+        id: role.id,
+        roleType: role.roleType,
+        sourceType: role.sourceType,
+        sourceId: role.sourceId,
+        status: role.status,
+        createTime: role.createTime.toISOString()
+      }))
+    };
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePartyDto) {
@@ -271,8 +350,25 @@ export class PartiesService {
     return entity;
   }
 
-  private toResponse(entity: PartyEntity, identityNumber?: string | null): PartyResponse {
-    const response: PartyResponse = {
+  projectForActor(entity: PartyListItemResponse, actor: JwtPrincipal): PartyListItemResponse {
+    if (this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ)) {
+      return { ...entity };
+    }
+    const publicFields = { ...entity };
+    delete publicFields.mobile;
+    delete publicFields.email;
+    delete publicFields.identityDocumentType;
+    delete publicFields.identityNumberMasked;
+    delete publicFields.identityNumber;
+    return publicFields;
+  }
+
+  private toResponse(
+    entity: PartyEntity,
+    actor?: JwtPrincipal,
+    identityNumber?: string | null
+  ): PartyListItemResponse {
+    const response: PartyListItemResponse = {
       id: entity.id,
       tenantId: entity.tenantId,
       parkId: entity.parkId,
@@ -285,13 +381,13 @@ export class PartiesService {
       sourceDomain: entity.sourceDomain,
       verificationStatus: entity.verificationStatus,
       consentStatus: entity.consentStatus,
-      createTime: entity.createTime,
-      updateTime: entity.updateTime,
+      createTime: entity.createTime.toISOString(),
+      updateTime: entity.updateTime.toISOString(),
       version: entity.version,
       remark: entity.remark
     };
     if (identityNumber !== undefined) response.identityNumber = identityNumber;
-    return response;
+    return actor ? this.projectForActor(response, actor) : response;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {

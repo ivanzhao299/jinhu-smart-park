@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-handoff-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "profile", "profile_checksum", "generator_sha256",
+    "contract_sha256", "schema_sha256", "bootstrap_sha256", "run_ids",
+    "artifact_hashes", "cleanup_journal_hashes", "actor_oracle_sha256",
+    "traceability_sha256", "current_commit", "environment_guard", "evidence_ids",
+    "residual_count", "track_b_dependency_count"
+  ],
+  "properties": {
+    "schema_version": { "const": "property-remediation-a-base-handoff-v1" },
+    "profile": { "const": "property-remediation-a-base-v1" },
+    "profile_checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "generator_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "contract_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "schema_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "bootstrap_sha256": {
+      "const": "b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268"
+    },
+    "run_ids": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{11,63}$" },
+      "uniqueItems": true
+    },
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "a/provision-evidence.json", "a/cleanup-evidence.json",
+        "b/provision-evidence.json", "b/cleanup-evidence.json",
+        "source/actor-oracle.json", "source/traceability.json",
+        "source/evidence-catalog.json"
+      ],
+      "properties": {
+        "a/provision-evidence.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "a/cleanup-evidence.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "b/provision-evidence.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "b/cleanup-evidence.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source/actor-oracle.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source/traceability.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "source/evidence-catalog.json": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "cleanup_journal_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["a/cleanup-manifest.jsonl", "b/cleanup-manifest.jsonl"],
+      "properties": {
+        "a/cleanup-manifest.jsonl": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "b/cleanup-manifest.jsonl": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "actor_oracle_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "traceability_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "current_commit": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "environment_guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "image", "database", "database_url_override", "artifact_scope"],
+      "properties": {
+        "target": { "const": "exact-ephemeral-container-only" },
+        "image": { "const": "postgres:16-alpine" },
+        "database": { "const": "pr192_track_a_base_fixture" },
+        "database_url_override": { "const": "forbidden" },
+        "artifact_scope": { "const": "artifacts/property-remediation/runs/<run-id>" }
+      }
+    },
+    "evidence_ids": {
+      "type": "array", "minItems": 5, "maxItems": 5, "uniqueItems": true,
+      "items": {
+        "enum": [
+          "a0-profile", "a0-provision-repeat", "a0-safety",
+          "a0-cleanup", "a0-role-contract"
+        ]
+      }
+    },
+    "residual_count": { "const": 0 },
+    "track_b_dependency_count": { "const": 0 }
+  }
+}

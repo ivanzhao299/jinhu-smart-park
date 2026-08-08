@@ -15,7 +15,15 @@ import {
 } from "class-validator";
 import type { ValidationArguments, ValidatorConstraintInterface } from "class-validator";
 import { ValidatorConstraint } from "class-validator";
-import { PARTY_TYPES, PROPERTY_OCCUPANCY_DOMAINS, type PartyType, type PropertyOccupancyDomain } from "@jinhu/shared";
+import {
+  HOUSING_SORT_ORDERS,
+  PARTY_LIST_SORTS,
+  PARTY_TYPES,
+  PROPERTY_OCCUPANCY_DOMAINS,
+  type PartyListQuery,
+  type PartyType,
+  type PropertyOccupancyDomain
+} from "@jinhu/shared";
 import {
   isValidPartyIdentityNumber,
   PARTY_IDENTITY_DOCUMENT_TYPES
@@ -108,7 +116,7 @@ export class VerifyPartyDto {
   remark?: string | null;
 }
 
-export class PartyQueryDto {
+export class PartyQueryDto implements PartyListQuery {
   @IsOptional()
   @IsIn(PARTY_TYPES)
   party_type?: PartyType;
@@ -118,6 +126,14 @@ export class PartyQueryDto {
   @IsString()
   @MaxLength(200)
   keyword?: string | null;
+
+  @IsOptional()
+  @IsIn(PARTY_LIST_SORTS)
+  sort?: PartyListQuery["sort"];
+
+  @IsOptional()
+  @IsIn(HOUSING_SORT_ORDERS)
+  order?: PartyListQuery["order"];
 
   @IsOptional()
   @Transform(({ value }) => Number(value ?? 1))

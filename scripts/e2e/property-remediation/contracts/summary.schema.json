@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-summary-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "run_id", "profile_checksum",
+    "fixture_handoff_sha256", "exact_actor_count", "residual_count",
+    "performance"
+  ],
+  "properties": {
+    "schema_version": { "const": "property-remediation-a-base-summary-v1" },
+    "status": { "const": "A-base-core provisioned" },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{11,63}$" },
+    "profile_checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "fixture_handoff_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "exact_actor_count": { "type": "integer", "minimum": 1 },
+    "residual_count": { "const": 0 },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdict", "pass_threshold_frozen"],
+      "properties": {
+        "verdict": { "const": "candidate_observation_only" },
+        "pass_threshold_frozen": { "const": false }
+      }
+    }
+  }
+}

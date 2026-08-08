@@ -44,6 +44,12 @@ class HomestayBusinessDateConstraint implements ValidatorConstraintInterface {
 
 export class HomestayBookingQueryDto {
   @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(100)
+  keyword?: string;
+
+  @IsOptional()
   @IsIn(["draft", "confirmed", "checked_in", "checked_out", "cancelled", "no_show"])
   status?: string;
 
@@ -86,6 +92,56 @@ export class HomestayUnitCandidateQueryDto {
   @Min(1)
   @Max(100)
   page_size = 20;
+}
+
+export class HomestayCandidateQueryDto extends HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MaxLength(100)
+  keyword?: string;
+
+  @IsOptional()
+  @IsUUID()
+  unit_id?: string;
+}
+
+export class HomestayAvailabilityQueryDto extends HomestayUnitCandidateQueryDto {
+  @Validate(HomestayBusinessDateConstraint)
+  date_from!: string;
+
+  @Validate(HomestayBusinessDateConstraint)
+  date_to!: string;
+}
+
+export class HomestayTaskQueryDto extends HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @IsIn(["pending", "active", "completed", "exception"])
+  status?: "pending" | "active" | "completed" | "exception";
+
+  @IsOptional()
+  @IsIn(["homestay_arrival", "homestay_departure", "homestay_turnover"])
+  source_type?: "homestay_arrival" | "homestay_departure" | "homestay_turnover";
+
+  @IsOptional()
+  @Validate(HomestayBusinessDateConstraint)
+  business_date?: string;
+}
+
+export class HomestayStayQueryDto extends HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @IsIn(["all", "arrivals", "departures", "in_house"])
+  queue: "all" | "arrivals" | "departures" | "in_house" = "all";
+
+  @IsOptional()
+  @Validate(HomestayBusinessDateConstraint)
+  business_date?: string;
+}
+
+export class HomestayFinanceQueryDto extends HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @IsIn(["draft", "confirmed", "checked_in", "checked_out", "cancelled", "no_show"])
+  status?: string;
 }
 
 export class HomestayTurnoverQueryDto {

@@ -1,0 +1,70 @@
+.accessibilitySurface {
+  min-width: 0;
+}
+
+.responsiveRecords {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.interactiveControl {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accessibilitySurface *,
+  .accessibilitySurface *::before,
+  .accessibilitySurface *::after,
+  .responsiveRecords *,
+  .responsiveRecords *::before,
+  .responsiveRecords *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .accessibilitySurface :where(button, a[href], [role="button"]):hover,
+  .accessibilitySurface :where(button, a[href], [role="button"]):focus-visible,
+  .responsiveRecords :where(button, a[href], [role="button"]):hover,
+  .responsiveRecords :where(button, a[href], [role="button"]):focus-visible {
+    transform: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .accessibilitySurface,
+  .responsiveRecords {
+    forced-color-adjust: auto;
+  }
+
+  .accessibilitySurface:global(.ds-panel),
+  .accessibilitySurface :global(.ds-panel),
+  .accessibilitySurface :global(.ds-table-shell),
+  .accessibilitySurface :global(.ds-mobile-record),
+  .responsiveRecords :global(.ds-table-shell),
+  .responsiveRecords :global(.ds-mobile-record) {
+    border-color: CanvasText;
+    background-image: none;
+    box-shadow: none;
+  }
+
+  .accessibilitySurface :where(button, a[href], input, select, textarea, [role="button"]),
+  .responsiveRecords :where(button, a[href], input, select, textarea, [role="button"]),
+  .interactiveControl {
+    border-color: ButtonText;
+    background-image: none;
+    box-shadow: none;
+    forced-color-adjust: auto;
+  }
+
+  .accessibilitySurface :where(button, a[href], input, select, textarea, [role="button"]):focus-visible,
+  .responsiveRecords :where(button, a[href], input, select, textarea, [role="button"]):focus-visible,
+  .interactiveControl:focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}

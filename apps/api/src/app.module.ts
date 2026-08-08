@@ -62,6 +62,7 @@ import { ApiExceptionFilter } from "./shared/filters/api-exception.filter";
 import { IdempotencyKeyGuard } from "./shared/guards/idempotency-key.guard";
 import { ModuleGuard } from "./shared/guards/module.guard";
 import { PermissionGuard } from "./shared/guards/permission.guard";
+import { PropertyHighRiskActionGuard } from "./shared/guards/property-high-risk-action.guard";
 import { IdempotencyCleanupService } from "./shared/services/idempotency-cleanup.service";
 import { IdempotencyService, setIdempotencyService } from "./shared/services/idempotency.service";
 import { DataSource } from "typeorm";
@@ -202,6 +203,10 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     {
       provide: APP_GUARD,
       useClass: IdempotencyKeyGuard
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PropertyHighRiskActionGuard
     },
     {
       provide: APP_INTERCEPTOR,

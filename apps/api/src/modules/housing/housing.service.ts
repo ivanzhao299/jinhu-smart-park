@@ -9,7 +9,21 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   resolveFileUploadPolicy,
   SYSTEM_PERMISSIONS,
+  type HousingChargePlanResponse,
+  type HousingEnergyMeterCandidateListResponse,
+  type HousingLedgerEntryResponse,
+  type HousingLeaseListItem as HousingLeaseListResponseItem,
+  type HousingLeaseResponse,
+  type HousingPurchaseListItem as HousingPurchaseListResponseItem,
+  type HousingPurchaseDetailResponse,
+  type HousingPurchaseResponse,
+  type HousingReceivableResponse,
+  type HousingRepairSummaryResponse,
+  type HousingTenantResponse,
+  type HousingUnitCandidateListResponse,
+  type PartyListItemResponse,
   type PaginatedResult,
+  type PropertyWorkbenchFileRef,
   type TenantParkScope
 } from "@jinhu/shared";
 import { randomUUID } from "node:crypto";
@@ -17,6 +31,7 @@ import { DataSource, In, IsNull, type EntityManager, type Repository } from "typ
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FileEntity } from "../files/entities/file.entity";
 import { EnergyMeterEntity } from "../energy/entities/energy-meter.entity";
+import { DataScopeService } from "../data-scopes/data-scope.service";
 import type { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import { PartyEntity } from "../property-operations/entities/party.entity";
 import { PartiesService } from "../property-operations/parties.service";
@@ -32,9 +47,11 @@ import type {
   CreateHousingLeaseDto,
   CreateHousingPurchaseDto,
   GenerateHousingBillsDto,
+  HousingEnergyMeterCandidateQueryDto,
   HousingLeaseQueryDto,
   HousingPurchaseActionDto,
   HousingPurchaseQueryDto,
+  HousingUnitCandidateQueryDto,
   RegisterHousingLedgerEntryDto,
   SignHousingLeaseDto,
   TransferHousingPurchaseDto,
@@ -70,16 +87,30 @@ import {
   multiplyHousingMoneyByRatio,
   housingReceivableStatus
 } from "./housing-finance.policy";
+import { maskHousingCredential } from "./housing-projection.policy";
 
-type HousingLeaseListItem = HousingLeaseEntity & {
-  unitCode: string | null;
-  unitName: string | null;
-  tenantDisplayName: string | null;
+type HousingLeaseDetailAccess = {
+  tenant: boolean;
+  billing: boolean;
+  finance: boolean;
+  handovers: boolean;
+  handoverFiles: boolean;
+  pendingHandoverFiles: boolean;
+  repairs: boolean;
+  pendingRepairFiles: boolean;
 };
 
-type HousingPurchaseListItem = HousingPurchaseEntity & {
-  transferredItemCount: number;
-  receiptFiles: FileEntity[];
+type HousingLeaseDetailData = {
+  tenant: PartyEntity | null;
+  occupants: HousingLeaseOccupantEntity[];
+  chargePlans: HousingChargePlanEntity[];
+  receivables: HousingReceivableEntity[];
+  ledger: HousingLedgerEntryEntity[];
+  handovers: HousingHandoverEntity[];
+  handoverEvidenceFiles: FileEntity[];
+  pendingHandoverFiles: FileEntity[];
+  repairs: WorkOrderEntity[];
+  pendingRepairFiles: FileEntity[];
 };
 
 @Injectable()
@@ -93,19 +124,78 @@ export class HousingService {
     private readonly occupancyService: PropertyOccupanciesService,
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly workOrdersService: WorkOrdersService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    private readonly dataScopeService: DataScopeService
   ) {}
 
-  listTenants(scope: TenantParkScope, query: PartyQueryDto) {
-    return this.partiesService.list(scope, { ...query, party_type: "person" });
+  async listTenants(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: PartyQueryDto
+  ): Promise<PaginatedResult<HousingTenantResponse>> {
+    const housingUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    const result = await this.partiesService.listForDomainProjection(
+      scope,
+      { ...query, party_type: "person" },
+      actor,
+      housingUnitIds
+    );
+    return {
+      ...result,
+      items: result.items.map((tenant) => this.toTenantResponse(tenant, actor))
+    };
   }
 
-  createTenant(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePartyDto) {
-    return this.partiesService.create(scope, actor, {
+  async createTenant(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreatePartyDto
+  ): Promise<HousingTenantResponse> {
+    const tenant = await this.partiesService.create(scope, actor, {
       ...dto,
       party_type: "person",
       source_domain: "housing_rental"
     });
+    return this.toTenantResponse(tenant, actor);
+  }
+
+  private toTenantResponse(
+    tenant: PartyListItemResponse,
+    actor: JwtPrincipal
+  ): HousingTenantResponse {
+    const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
+    const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
+    return {
+      id: tenant.id,
+      displayName: tenant.displayName,
+      verificationStatus: tenant.verificationStatus,
+      ...(canReadSensitive ? {
+        identityNumberMasked: tenant.identityNumberMasked
+      } : {}),
+      ...(canManage ? {
+        mobile: this.maskTenantMobile(tenant.mobile ?? null),
+        email: this.maskTenantEmail(tenant.email ?? null)
+      } : {})
+    };
+  }
+
+  private maskTenantMobile(value: string | null): string | null {
+    if (value === null) return null;
+    if (/^\d{11}$/u.test(value)) return `${value.slice(0, 3)}****${value.slice(-4)}`;
+    if (value.length <= 4) return "****";
+    return `${value.slice(0, 2)}***${value.slice(-2)}`;
+  }
+
+  private maskTenantEmail(value: string | null): string | null {
+    if (value === null) return null;
+    const separatorIndex = value.indexOf("@");
+    if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
+      if (value.length <= 4) return "****";
+      return `${value.slice(0, 2)}***${value.slice(-2)}`;
+    }
+    const name = value.slice(0, separatorIndex);
+    const domain = value.slice(separatorIndex + 1);
+    return `${name.slice(0, Math.min(2, name.length))}***@${domain}`;
   }
 
   async dashboard(scope: TenantParkScope, actor: JwtPrincipal) {
@@ -176,7 +266,7 @@ export class HousingService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HousingLeaseQueryDto
-  ): Promise<PaginatedResult<HousingLeaseListItem>> {
+  ): Promise<PaginatedResult<HousingLeaseListResponseItem>> {
     const builder = this.leasesRepository.createQueryBuilder("lease")
       .where("lease.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("lease.park_id=:parkId", { parkId: scope.parkId })
@@ -189,7 +279,44 @@ export class HousingService {
     if (query.status) builder.andWhere("lease.status=:status", { status: query.status });
     if (query.unit_id) builder.andWhere("lease.unit_id=:unitId", { unitId: query.unit_id });
     if (query.tenant_party_id) builder.andWhere("lease.tenant_party_id=:partyId", { partyId: query.tenant_party_id });
-    const [leases, total] = await builder.orderBy("lease.start_date", "DESC")
+    if (query.keyword) {
+      builder.andWhere(
+        `(lease.lease_code ILIKE :leaseKeyword
+          OR EXISTS (
+            SELECT 1
+            FROM biz_unit keyword_unit
+            WHERE keyword_unit.id = lease.unit_id
+              AND keyword_unit.tenant_id = lease.tenant_id
+              AND keyword_unit.park_id = lease.park_id
+              AND keyword_unit.is_deleted = false
+              AND (
+                keyword_unit.unit_code ILIKE :leaseKeyword
+                OR keyword_unit.unit_name ILIKE :leaseKeyword
+              )
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM biz_party keyword_party
+            WHERE keyword_party.id = lease.tenant_party_id
+              AND keyword_party.tenant_id = lease.tenant_id
+              AND keyword_party.park_id = lease.park_id
+              AND keyword_party.is_deleted = false
+              AND keyword_party.display_name ILIKE :leaseKeyword
+          ))`,
+        { leaseKeyword: `%${query.keyword}%` }
+      );
+    }
+    const leaseSortColumns = {
+      startDate: "lease.start_date",
+      status: "lease.status",
+      leaseCode: "lease.lease_code"
+    } as const;
+    const [leases, total] = await builder
+      .orderBy(
+        leaseSortColumns[query.sort ?? "startDate"],
+        this.sortDirection(query.order, "DESC")
+      )
+      .addOrderBy("lease.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
@@ -220,8 +347,7 @@ export class HousingService {
       }>
       : [];
     const displayByLease = new Map(displayRows.map((row) => [row.id, row]));
-    const items = leases.map((lease) => ({
-      ...lease,
+    const items = leases.map((lease) => this.toLeaseListItem(lease, actor, {
       unitCode: displayByLease.get(lease.id)?.unitCode ?? null,
       unitName: displayByLease.get(lease.id)?.unitName ?? null,
       tenantDisplayName: displayByLease.get(lease.id)?.tenantDisplayName ?? null
@@ -229,194 +355,340 @@ export class HousingService {
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
+  async listUnitCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: HousingUnitCandidateQueryDto
+  ): Promise<HousingUnitCandidateListResponse> {
+    const unitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (unitIds !== null && !unitIds.length) {
+      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+    }
+    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const filters = [
+      "unit.tenant_id=$1",
+      "unit.park_id=$2",
+      "unit.is_deleted=false"
+    ];
+    if (unitIds !== null) {
+      parameters.push(unitIds);
+      filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);
+    }
+    if (query.keyword) {
+      parameters.push(`%${query.keyword}%`);
+      filters.push(
+        `(unit.unit_code ILIKE $${parameters.length} OR unit.unit_name ILIKE $${parameters.length})`
+      );
+    }
+    const paginationStart = parameters.length + 1;
+    const where = filters.join(" AND ");
+    const unitSortColumns = { code: "unit.unit_code", name: "unit.unit_name" } as const;
+    const unitSort = unitSortColumns[query.sort ?? "code"];
+    const unitOrder = this.sortDirection(query.order, "ASC");
+    const [rows, countRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+         FROM biz_unit unit
+         WHERE ${where}
+         ORDER BY ${unitSort} ${unitOrder} NULLS LAST, unit.id ASC
+         LIMIT $${paginationStart} OFFSET $${paginationStart + 1}`,
+        [...parameters, query.page_size, (query.page - 1) * query.page_size]
+      ),
+      this.dataSource.query(
+        `SELECT count(*)::int AS total
+         FROM biz_unit unit
+         WHERE ${where}`,
+        parameters
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    return {
+      items: (rows as HousingUnitCandidateListResponse["items"]).map((row) => ({
+        id: row.id,
+        unitCode: row.unitCode,
+        unitName: row.unitName
+      })),
+      total: Number(countRows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
+  }
+
+  async listEnergyMeterCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    leaseId: string,
+    query: HousingEnergyMeterCandidateQueryDto
+  ): Promise<HousingEnergyMeterCandidateListResponse> {
+    const lease = await this.mustLease(this.dataSource.manager, scope, leaseId);
+    await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+    const parameters: unknown[] = [scope.tenantId, scope.parkId, lease.unitId];
+    const keywordFilter = query.keyword
+      ? ` AND (meter.meter_code ILIKE $4 OR meter.meter_name ILIKE $4)`
+      : "";
+    if (query.keyword) parameters.push(`%${query.keyword}%`);
+    const paginationStart = parameters.length + 1;
+    const meterSortColumns = {
+      code: "meter.meter_code",
+      name: "meter.meter_name"
+    } as const;
+    const meterSort = meterSortColumns[query.sort ?? "code"];
+    const meterOrder = this.sortDirection(query.order, "ASC");
+    const [rows, countRows] = await Promise.all([
+      this.dataSource.query(
+        `SELECT meter.id, meter.meter_code AS "meterCode",
+                meter.meter_name AS "meterName", meter.meter_type AS "meterType",
+                meter.unit, meter.multiplier::text AS multiplier
+         FROM energy_meter meter
+         WHERE meter.tenant_id=$1 AND meter.park_id=$2
+           AND meter.room_id=$3 AND meter.is_deleted=false
+           AND meter.is_enabled=true AND meter.status='ONLINE'${keywordFilter}
+         ORDER BY ${meterSort} ${meterOrder} NULLS LAST, meter.id ASC
+         LIMIT $${paginationStart} OFFSET $${paginationStart + 1}`,
+        [...parameters, query.page_size, (query.page - 1) * query.page_size]
+      ),
+      this.dataSource.query(
+        `SELECT count(*)::int AS total
+         FROM energy_meter meter
+         WHERE meter.tenant_id=$1 AND meter.park_id=$2
+           AND meter.room_id=$3 AND meter.is_deleted=false
+           AND meter.is_enabled=true AND meter.status='ONLINE'${keywordFilter}`,
+        parameters
+      ) as Promise<Array<{ total: number }>>
+    ]);
+    return {
+      items: (rows as HousingEnergyMeterCandidateListResponse["items"]).map((row) => ({
+        id: row.id,
+        meterCode: row.meterCode,
+        meterName: row.meterName,
+        meterType: row.meterType,
+        unit: row.unit,
+        multiplier: String(row.multiplier)
+      })),
+      total: Number(countRows[0]?.total ?? 0),
+      page: query.page,
+      page_size: query.page_size
+    };
+  }
+
   async getLease(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const lease = await this.mustLease(this.dataSource.manager, scope, id);
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-    const canReadLease = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ);
-    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
-    const canRegisterFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER);
-    const canWaiveFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE);
-    const canAccessFinance = canReadFinance || canRegisterFinance || canWaiveFinance;
-    const canManageTenants = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
-    const canManageHandovers = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE);
-    const canManageRepairs = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE);
-    const canReadTenantData = canReadLease || canManageTenants;
-    const canReadHandovers = canReadLease || canManageHandovers;
-    const canReadRepairs = canReadLease || canManageRepairs;
-    const canReadHandoverEvidence = canReadHandovers
-      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
-    const canRecoverHandoverEvidence = canReadHandoverEvidence
-      && canManageHandovers;
-    const canRecoverRepairEvidence = canManageRepairs
-      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
-    const common = { tenantId: scope.tenantId, parkId: scope.parkId, leaseId: id, isDeleted: false };
-    const [
-      tenant,
-      occupants,
-      chargePlans,
-      receivables,
-      ledger,
-      handovers,
-      handoverEvidenceFiles,
-      pendingHandoverFiles,
-      repairEntities,
-      pendingRepairFiles
-    ] = await Promise.all([
-      canReadTenantData ? this.dataSource.getRepository(PartyEntity).findOne({
-        where: { id: lease.tenantPartyId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      }) : Promise.resolve(null),
-      canReadTenantData
-        ? this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common })
-        : Promise.resolve([]),
-      this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }),
-      canAccessFinance ? this.dataSource.getRepository(HousingReceivableEntity).find({
-        where: common,
-        order: { dueDate: "ASC" }
-      }) : Promise.resolve([]),
-      canAccessFinance ? this.dataSource.getRepository(HousingLedgerEntryEntity).find({
-        where: common,
-        order: { occurredAt: "ASC" }
-      }) : Promise.resolve([]),
-      canReadHandovers
-        ? this.dataSource.getRepository(HousingHandoverEntity).find({ where: common })
-        : Promise.resolve([]),
-      canReadHandoverEvidence
-        ? this.dataSource.getRepository(FileEntity).find({
-          where: {
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            bizType: In([
-              "housing_handover",
-              "housing_handover_move_in",
-              "housing_handover_move_out"
-            ]),
-            bizId: id,
-            status: 1,
-            isDeleted: false
-          },
-          order: { createTime: "DESC" }
-        })
-        : Promise.resolve([]),
-      canRecoverHandoverEvidence
-        ? this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
-          .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
-          .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
-          .andWhere("file.biz_type IN (:...bizTypes)", {
-            bizTypes: [
-              "housing_handover",
-              "housing_handover_move_in",
-              "housing_handover_move_out"
-            ]
-          })
-          .andWhere("file.biz_id = :leaseId", { leaseId: id })
-          .andWhere("file.status = 1")
-          .andWhere("file.is_deleted = false")
-          .andWhere(`NOT EXISTS (
-            SELECT 1
-            FROM biz_housing_handover handover
-            WHERE handover.tenant_id = file.tenant_id
-              AND handover.park_id = file.park_id
-              AND handover.lease_id = file.biz_id
-              AND handover.is_deleted = false
-              AND handover.photo_file_ids ? file.id::text
-          )`)
-          .orderBy("file.create_time", "DESC")
-          .getMany()
-        : Promise.resolve([]),
-      canReadRepairs ? this.dataSource.getRepository(WorkOrderEntity).find({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          sourceType: "tenant_request",
-          sourceId: id,
-          unitId: lease.unitId,
-          isDeleted: false
-        },
-        order: { createTime: "DESC" }
-      }) : Promise.resolve([]),
-      canRecoverRepairEvidence
-        ? this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
-          .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
-          .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
-          .andWhere("file.biz_type = :bizType", { bizType: "housing_repair" })
-          .andWhere("file.biz_id = :leaseId", { leaseId: id })
-          .andWhere("file.status = 1")
-          .andWhere("file.is_deleted = false")
-          .andWhere(`NOT EXISTS (
-            SELECT 1
-            FROM biz_work_order repair
-            WHERE repair.tenant_id = file.tenant_id
-              AND repair.park_id = file.park_id
-              AND repair.is_deleted = false
-              AND file.id = ANY(repair.image_file_ids)
-          )`)
-          .orderBy("file.create_time", "DESC")
-          .getMany()
-        : Promise.resolve([])
-    ]);
-    const occupantParties = occupants.length
-      ? await this.dataSource.getRepository(PartyEntity).find({
-        where: {
-          id: In(occupants.map((occupant) => occupant.partyId)),
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          isDeleted: false
-        }
-      })
-      : [];
-    const occupantNameByParty = new Map(
-      occupantParties.map((party) => [party.id, party.displayName])
-    );
+    const access = this.leaseDetailAccess(actor);
+    const data = await this.loadLeaseDetailData(scope, lease, access);
+    const occupantNames = await this.loadOccupantNames(scope, data.occupants);
+    if (access.repairs) data.repairs = await this.filterRepairScope(data.repairs, actor);
+    return this.projectLeaseDetail(lease, actor, access, data, occupantNames);
+  }
+
+  private leaseDetailAccess(actor: JwtPrincipal): HousingLeaseDetailAccess {
+    const fileRead = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const handovers = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ);
+    const repairs = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ);
     return {
-      lease,
-      tenant,
-      occupants: occupants.map((occupant) => ({
-        ...occupant,
-        partyDisplayName: occupantNameByParty.get(occupant.partyId) ?? null
-      })),
-      charge_plans: chargePlans,
-      receivables,
-      ledger,
-      handovers: handovers.map((handover) => ({
-        ...handover,
-        photo_files: handover.photoFileIds
-          .map((fileId) => handoverEvidenceFiles.find((file) => file.id === fileId))
-          .filter((file): file is FileEntity => Boolean(file))
-      })),
-      pending_handover_files: {
-        move_in: pendingHandoverFiles.filter((file) =>
-          file.bizType === "housing_handover_move_in"
-          || (
-            file.bizType === "housing_handover"
-            && !handovers.some((handover) =>
-              handover.handoverType === "move_in" && handover.status === "completed"
-            )
-          )
-        ),
-        move_out: pendingHandoverFiles.filter((file) =>
-          file.bizType === "housing_handover_move_out"
-          || (
-            file.bizType === "housing_handover"
-            && handovers.some((handover) =>
-              handover.handoverType === "move_in" && handover.status === "completed"
-            )
-          )
-        )
+      tenant: this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_READ),
+      billing: this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_BILLING_READ),
+      finance: this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ),
+      handovers,
+      handoverFiles: handovers && fileRead,
+      pendingHandoverFiles: handovers
+        && fileRead
+        && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE),
+      repairs,
+      pendingRepairFiles: repairs
+        && fileRead
+        && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
+    };
+  }
+
+  private async loadLeaseDetailData(
+    scope: TenantParkScope,
+    lease: HousingLeaseEntity,
+    access: HousingLeaseDetailAccess
+  ): Promise<HousingLeaseDetailData> {
+    const common = {
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      leaseId: lease.id,
+      isDeleted: false
+    };
+    const values = await Promise.all([
+      access.tenant ? this.dataSource.getRepository(PartyEntity).findOne({
+        where: { id: lease.tenantPartyId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      }) : null,
+      access.tenant ? this.dataSource.getRepository(HousingLeaseOccupantEntity).find({ where: common }) : [],
+      access.billing ? this.dataSource.getRepository(HousingChargePlanEntity).find({ where: common }) : [],
+      access.finance ? this.dataSource.getRepository(HousingReceivableEntity).find({
+        where: common, order: { dueDate: "ASC" }
+      }) : [],
+      access.finance ? this.dataSource.getRepository(HousingLedgerEntryEntity).find({
+        where: common, order: { occurredAt: "ASC" }
+      }) : [],
+      access.handovers ? this.dataSource.getRepository(HousingHandoverEntity).find({ where: common }) : [],
+      access.handoverFiles ? this.loadHandoverEvidence(scope, lease.id) : [],
+      access.pendingHandoverFiles ? this.loadPendingHandoverFiles(scope, lease.id) : [],
+      access.repairs ? this.loadLeaseRepairs(scope, lease) : [],
+      access.pendingRepairFiles ? this.loadPendingRepairFiles(scope, lease.id) : []
+    ]);
+    const [tenant, occupants, chargePlans, receivables, ledger, handovers,
+      handoverEvidenceFiles, pendingHandoverFiles, repairs, pendingRepairFiles] = values;
+    return {
+      tenant, occupants, chargePlans, receivables, ledger, handovers,
+      handoverEvidenceFiles, pendingHandoverFiles, repairs, pendingRepairFiles
+    };
+  }
+
+  private loadHandoverEvidence(scope: TenantParkScope, leaseId: string) {
+    return this.dataSource.getRepository(FileEntity).find({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        bizType: In([
+          "housing_handover",
+          "housing_handover_move_in",
+          "housing_handover_move_out"
+        ]),
+        bizId: leaseId,
+        status: 1,
+        isDeleted: false
       },
-      repairs: repairEntities.map((repair) => ({
-        id: repair.id,
-        woCode: repair.woCode,
-        title: repair.title,
-        priority: repair.priority,
-        urgency: repair.urgency,
-        status: repair.status,
-        assigneeName: repair.assigneeName,
-        overdueFlag: repair.overdueFlag,
-        createTime: repair.createTime,
-        updateTime: repair.updateTime
-      })),
-      pending_repair_files: pendingRepairFiles,
-      finance_summary: canAccessFinance ? this.financeSummary(receivables, ledger) : null
+      order: { createTime: "DESC" }
+    });
+  }
+
+  private loadPendingHandoverFiles(scope: TenantParkScope, leaseId: string) {
+    return this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
+      .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("file.biz_type IN (:...bizTypes)", {
+        bizTypes: ["housing_handover", "housing_handover_move_in", "housing_handover_move_out"]
+      })
+      .andWhere("file.biz_id = :leaseId", { leaseId })
+      .andWhere("file.status = 1")
+      .andWhere("file.is_deleted = false")
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM biz_housing_handover handover
+        WHERE handover.tenant_id = file.tenant_id
+          AND handover.park_id = file.park_id AND handover.lease_id = file.biz_id
+          AND handover.is_deleted = false AND handover.photo_file_ids ? file.id::text
+      )`)
+      .orderBy("file.create_time", "DESC")
+      .getMany();
+  }
+
+  private loadLeaseRepairs(scope: TenantParkScope, lease: HousingLeaseEntity) {
+    return this.dataSource.getRepository(WorkOrderEntity).find({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        sourceType: "tenant_request",
+        sourceId: lease.id,
+        unitId: lease.unitId,
+        isDeleted: false
+      },
+      order: { createTime: "DESC" }
+    });
+  }
+
+  private loadPendingRepairFiles(scope: TenantParkScope, leaseId: string) {
+    return this.dataSource.getRepository(FileEntity).createQueryBuilder("file")
+      .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("file.biz_type = :bizType", { bizType: "housing_repair" })
+      .andWhere("file.biz_id = :leaseId", { leaseId })
+      .andWhere("file.status = 1")
+      .andWhere("file.is_deleted = false")
+      .andWhere(`NOT EXISTS (
+        SELECT 1 FROM biz_work_order repair
+        WHERE repair.tenant_id = file.tenant_id AND repair.park_id = file.park_id
+          AND repair.is_deleted = false AND file.id = ANY(repair.image_file_ids)
+      )`)
+      .orderBy("file.create_time", "DESC")
+      .getMany();
+  }
+
+  private async loadOccupantNames(
+    scope: TenantParkScope,
+    occupants: HousingLeaseOccupantEntity[]
+  ): Promise<Map<string, string>> {
+    if (!occupants.length) return new Map();
+    const parties = await this.dataSource.getRepository(PartyEntity).find({
+      where: {
+        id: In(occupants.map((occupant) => occupant.partyId)),
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        isDeleted: false
+      }
+    });
+    return new Map(parties.map((party) => [party.id, party.displayName]));
+  }
+
+  private projectLeaseDetail(
+    lease: HousingLeaseEntity,
+    actor: JwtPrincipal,
+    access: HousingLeaseDetailAccess,
+    data: HousingLeaseDetailData,
+    occupantNames: Map<string, string>
+  ) {
+    return {
+      lease: this.toLeaseResponse(lease, actor),
+      ...(data.tenant ? { tenant: this.toTenantEntityResponse(data.tenant, actor) } : {}),
+      ...(access.tenant ? { occupants: data.occupants.map((occupant) => ({
+        id: occupant.id,
+        partyId: occupant.partyId,
+        partyDisplayName: occupantNames.get(occupant.partyId) ?? null,
+        occupantRole: occupant.occupantRole,
+        emergencyContact: occupant.emergencyContact
+      })) } : {}),
+      ...(access.billing ? { charge_plans: data.chargePlans.map((plan) =>
+        this.toChargePlanResponse(plan, access.finance)) } : {}),
+      ...(access.finance ? {
+        receivables: data.receivables.map((item) => this.toReceivableResponse(item)),
+        ledger: data.ledger.map((item) => this.toLedgerResponse(item)),
+        finance_summary: this.financeSummary(data.receivables, data.ledger)
+      } : {}),
+      ...(access.handovers ? {
+        handovers: this.projectLeaseHandovers(data, actor, access.handoverFiles)
+      } : {}),
+      ...(access.pendingHandoverFiles ? {
+        pending_handover_files: this.projectPendingHandoverFiles(data)
+      } : {}),
+      ...(access.repairs ? {
+        repairs: data.repairs.map((repair) => this.toRepairSummary(repair))
+      } : {}),
+      ...(access.pendingRepairFiles ? {
+        pending_repair_files: data.pendingRepairFiles.map((file) => this.toFileRef(file))
+      } : {})
+    };
+  }
+
+  private projectLeaseHandovers(
+    data: HousingLeaseDetailData,
+    actor: JwtPrincipal,
+    includeFiles: boolean
+  ) {
+    return data.handovers.map((handover) => ({
+      ...this.toHandoverResponse(handover, actor),
+      ...(includeFiles ? {
+        photo_files: handover.photoFileIds
+          .map((id) => data.handoverEvidenceFiles.find((file) => file.id === id))
+          .filter((file): file is FileEntity => Boolean(file))
+          .map((file) => this.toFileRef(file))
+      } : {})
+    }));
+  }
+
+  private projectPendingHandoverFiles(data: HousingLeaseDetailData) {
+    const moveInCompleted = data.handovers.some((item) =>
+      item.handoverType === "move_in" && item.status === "completed"
+    );
+    const matches = (file: FileEntity, type: "move_in" | "move_out") =>
+      file.bizType === `housing_handover_${type}`
+      || (file.bizType === "housing_handover" && (type === "move_out") === moveInCompleted);
+    return {
+      move_in: data.pendingHandoverFiles.filter((file) => matches(file, "move_in"))
+        .map((file) => this.toFileRef(file)),
+      move_out: data.pendingHandoverFiles.filter((file) => matches(file, "move_out"))
+        .map((file) => this.toFileRef(file))
     };
   }
 
@@ -809,10 +1081,10 @@ export class HousingService {
         if (!receivable) throw new NotFoundException("Housing receivable not found");
         if (receivable.status === "void") throw new ConflictException("Void receivable cannot receive financial entries");
         if (receivable.chargeType === "deposit") {
-          if (entryType === "payment") entryType = "deposit_receipt";
-          else if (entryType === "refund") entryType = "deposit_refund";
-          else if (entryType === "waiver") {
-            throw new BadRequestException("Deposit receivables cannot be waived");
+          if (!["deposit_receipt", "deposit_refund"].includes(entryType)) {
+            throw new BadRequestException(
+              "Deposit receivables require deposit_receipt or deposit_refund"
+            );
           }
         } else if (entryType.startsWith("deposit_")) {
           throw new BadRequestException("Deposit entries can only target the lease deposit receivable");
@@ -1166,7 +1438,7 @@ export class HousingService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     query: HousingPurchaseQueryDto
-  ): Promise<PaginatedResult<HousingPurchaseListItem>> {
+  ): Promise<PaginatedResult<HousingPurchaseListResponseItem>> {
     const builder = this.purchasesRepository.createQueryBuilder("purchase")
       .where("purchase.tenant_id=:tenantId", { tenantId: scope.tenantId })
       .andWhere("purchase.park_id=:parkId", { parkId: scope.parkId })
@@ -1178,57 +1450,29 @@ export class HousingService {
     }
     if (query.unit_id) builder.andWhere("purchase.unit_id=:unitId", { unitId: query.unit_id });
     if (query.approval_status) builder.andWhere("purchase.approval_status=:status", { status: query.approval_status });
-    const [items, total] = await builder.orderBy("purchase.purchase_date", "DESC")
+    const purchaseSortColumns = {
+      purchaseDate: "purchase.purchase_date",
+      status: "purchase.approval_status",
+      code: "purchase.purchase_code"
+    } as const;
+    const [items, total] = await builder
+      .orderBy(
+        purchaseSortColumns[query.sort ?? "purchaseDate"],
+        this.sortDirection(query.order, "DESC")
+      )
+      .addOrderBy("purchase.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
-    const transferredRows = items.length
-      ? await this.dataSource.query(
-        `SELECT item.purchase_id AS "purchaseId",
-                COUNT(*)::int AS "transferredItemCount"
-         FROM biz_housing_purchase_item item
-         WHERE item.tenant_id = $1
-           AND item.park_id = $2
-           AND item.purchase_id = ANY($3::uuid[])
-           AND item.transferred_receivable_id IS NOT NULL
-           AND item.is_deleted = false
-         GROUP BY item.purchase_id`,
-        [scope.tenantId, scope.parkId, items.map((item) => item.id)]
-      ) as Array<{ purchaseId: string; transferredItemCount: number }>
-      : [];
-    const transferredCountByPurchase = new Map(
-      transferredRows.map((row) => [row.purchaseId, Number(row.transferredItemCount)])
-    );
-    const canReadPurchaseEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
-      && (
-        this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
-        || this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE)
-      );
-    const receiptFiles = items.length && canReadPurchaseEvidence
-      ? await this.dataSource.getRepository(FileEntity).find({
-        where: {
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          bizType: "housing_purchase",
-          bizId: In(items.map((item) => item.id)),
-          status: 1,
-          isDeleted: false
-        },
-        order: { createTime: "DESC" }
-      })
-      : [];
-    const receiptFilesByPurchase = new Map<string, FileEntity[]>();
-    for (const file of receiptFiles) {
-      if (!file.bizId) continue;
-      const current = receiptFilesByPurchase.get(file.bizId) ?? [];
-      current.push(file);
-      receiptFilesByPurchase.set(file.bizId, current);
-    }
+    const relations = await this.loadPurchaseListRelations(scope, actor, items);
     return {
       items: items.map((item) => ({
-        ...item,
-        transferredItemCount: transferredCountByPurchase.get(item.id) ?? 0,
-        receiptFiles: receiptFilesByPurchase.get(item.id) ?? []
+        ...this.toPurchaseResponse(item, actor),
+        transferredItemCount: relations.transferredCounts.get(item.id) ?? 0,
+        ...(relations.includeEvidence ? {
+          receiptFiles: (relations.receiptFiles.get(item.id) ?? [])
+            .map((file) => this.toFileRef(file))
+        } : {})
       })),
       total,
       page: query.page,
@@ -1236,21 +1480,112 @@ export class HousingService {
     };
   }
 
-  async getPurchase(scope: TenantParkScope, actor: JwtPrincipal, purchaseId: string) {
+  private async loadPurchaseListRelations(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    items: HousingPurchaseEntity[]
+  ) {
+    if (!items.length) {
+      return {
+        transferredCounts: new Map<string, number>(),
+        receiptFiles: new Map<string, FileEntity[]>(),
+        includeEvidence: false
+      };
+    }
+    const ids = items.map((item) => item.id);
+    const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ);
+    const [transferredRows, files] = await Promise.all([
+      this.loadPurchaseTransferredCounts(scope, ids),
+      includeEvidence ? this.dataSource.getRepository(FileEntity).find({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bizType: "housing_purchase",
+          bizId: In(ids),
+          status: 1,
+          isDeleted: false
+        },
+        order: { createTime: "DESC" }
+      }) : []
+    ]);
+    const receiptFiles = new Map<string, FileEntity[]>();
+    for (const file of files) {
+      if (!file.bizId) continue;
+      receiptFiles.set(file.bizId, [...(receiptFiles.get(file.bizId) ?? []), file]);
+    }
+    return {
+      transferredCounts: new Map(transferredRows.map((row) =>
+        [row.purchaseId, Number(row.transferredItemCount)])),
+      receiptFiles,
+      includeEvidence
+    };
+  }
+
+  private loadPurchaseTransferredCounts(scope: TenantParkScope, ids: string[]) {
+    return this.dataSource.query(
+      `SELECT item.purchase_id AS "purchaseId", COUNT(*)::int AS "transferredItemCount"
+       FROM biz_housing_purchase_item item
+       WHERE item.tenant_id = $1 AND item.park_id = $2
+         AND item.purchase_id = ANY($3::uuid[])
+         AND item.transferred_receivable_id IS NOT NULL AND item.is_deleted = false
+       GROUP BY item.purchase_id`,
+      [scope.tenantId, scope.parkId, ids]
+    ) as Promise<Array<{ purchaseId: string; transferredItemCount: number }>>;
+  }
+
+  async getPurchase(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    purchaseId: string
+  ): Promise<HousingPurchaseDetailResponse> {
     const purchase = await this.purchasesRepository.findOne({
       where: { id: purchaseId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
     });
     if (!purchase) throw new NotFoundException("Housing purchase not found");
     await this.assertPurchaseAccess(scope, actor, purchase.unitId);
-    const items = await this.dataSource.getRepository(HousingPurchaseItemEntity).find({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        purchaseId,
-        isDeleted: false
-      }
-    });
-    return { purchase, items };
+    const includeEvidence = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ)
+      && this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
+    const [items, receiptFiles] = await Promise.all([
+      this.dataSource.getRepository(HousingPurchaseItemEntity).find({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          purchaseId,
+          isDeleted: false
+        }
+      }),
+      includeEvidence
+        ? this.dataSource.getRepository(FileEntity).find({
+            where: {
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              bizType: "housing_purchase",
+              bizId: purchaseId,
+              status: 1,
+              isDeleted: false
+            },
+            order: { createTime: "DESC" }
+          })
+        : Promise.resolve([])
+    ]);
+    return {
+      purchase: this.toPurchaseResponse(purchase, actor),
+      items: items.map((item) => ({
+        id: item.id,
+        itemName: item.itemName,
+        quantity: String(item.quantity),
+        unit: item.unit,
+        transferredReceivableId: item.transferredReceivableId,
+        ...(this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ) ? {
+          unitPrice: formatHousingMoney(item.unitPrice),
+          amount: formatHousingMoney(item.amount)
+        } : {})
+      })),
+      ...(includeEvidence
+        ? { receiptFiles: receiptFiles.map((file) => this.toFileRef(file)) }
+        : {})
+    };
   }
 
   async createPurchase(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateHousingPurchaseDto) {
@@ -1514,6 +1849,197 @@ export class HousingService {
     return files;
   }
 
+  private toLeaseListItem(
+    lease: HousingLeaseEntity,
+    actor: JwtPrincipal,
+    display: Pick<HousingLeaseListResponseItem, "unitCode" | "unitName" | "tenantDisplayName">
+  ): HousingLeaseListResponseItem {
+    return { ...this.toLeaseResponse(lease, actor), ...display };
+  }
+
+  private toLeaseResponse(
+    lease: HousingLeaseEntity,
+    actor: JwtPrincipal
+  ): HousingLeaseResponse {
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canReadSignature = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
+      && (
+        this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ)
+        || this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN)
+      );
+    return {
+      id: lease.id,
+      leaseCode: lease.leaseCode,
+      unitId: lease.unitId,
+      tenantPartyId: lease.tenantPartyId,
+      startDate: lease.startDate,
+      endDate: lease.endDate,
+      status: lease.status,
+      paymentCycleMonths: lease.paymentCycleMonths,
+      ...(canReadSignature ? { signatureFileId: lease.signatureFileId } : {}),
+      ...(canReadFinance ? {
+        monthlyRent: formatHousingMoney(lease.monthlyRent),
+        depositAmount: formatHousingMoney(lease.depositAmount)
+      } : {})
+    };
+  }
+
+  private toTenantEntityResponse(
+    tenant: PartyEntity,
+    actor: JwtPrincipal
+  ): HousingTenantResponse {
+    const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE);
+    const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
+    return {
+      id: tenant.id,
+      displayName: tenant.displayName,
+      verificationStatus: tenant.verificationStatus,
+      ...(canReadSensitive ? {
+        identityNumberMasked: tenant.identityNumberMasked
+      } : {}),
+      ...(canManage ? {
+        mobile: this.maskTenantMobile(tenant.mobile),
+        email: this.maskTenantEmail(tenant.email)
+      } : {})
+    };
+  }
+
+  private toChargePlanResponse(
+    plan: HousingChargePlanEntity,
+    canReadFinance: boolean
+  ): HousingChargePlanResponse {
+    return {
+      id: plan.id,
+      leaseId: plan.leaseId,
+      chargeType: plan.chargeType,
+      billingSource: plan.billingSource,
+      cycleMonths: plan.cycleMonths,
+      meterId: plan.meterId,
+      enabled: plan.enabled,
+      ...(canReadFinance ? {
+        amount: plan.amount === null ? null : formatHousingMoney(plan.amount),
+        unitPrice: plan.unitPrice
+      } : {})
+    };
+  }
+
+  private toReceivableResponse(
+    receivable: HousingReceivableEntity
+  ): HousingReceivableResponse {
+    return {
+      id: receivable.id,
+      leaseId: receivable.leaseId,
+      chargeType: receivable.chargeType,
+      periodStart: receivable.periodStart,
+      periodEnd: receivable.periodEnd,
+      dueDate: receivable.dueDate,
+      amount: formatHousingMoney(receivable.amount),
+      paidAmount: formatHousingMoney(receivable.paidAmount),
+      waivedAmount: formatHousingMoney(receivable.waivedAmount),
+      status: receivable.status
+    };
+  }
+
+  private toLedgerResponse(entry: HousingLedgerEntryEntity): HousingLedgerEntryResponse {
+    return {
+      id: entry.id,
+      leaseId: entry.leaseId,
+      receivableId: entry.receivableId,
+      entryType: entry.entryType,
+      chargeType: entry.chargeType,
+      amount: formatHousingMoney(entry.amount),
+      paymentMethod: entry.paymentMethod,
+      status: entry.status,
+      reason: entry.reason,
+      occurredAt: entry.occurredAt.toISOString()
+    };
+  }
+
+  private toHandoverResponse(
+    handover: HousingHandoverEntity,
+    actor: JwtPrincipal
+  ) {
+    const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
+    const canManage = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE);
+    return {
+      id: handover.id,
+      leaseId: handover.leaseId,
+      handoverType: handover.handoverType,
+      status: handover.status,
+      handoverAt: handover.handoverAt?.toISOString() ?? null,
+      meterReadings: handover.meterReadings,
+      itemSnapshot: handover.itemSnapshot,
+      ...(canManage ? {
+        credentials: handover.credentials.map(maskHousingCredential)
+      } : {}),
+      remark: handover.remark,
+      ...(canReadFinance ? {
+        damageAmount: formatHousingMoney(handover.damageAmount),
+        unsettledAmount: formatHousingMoney(handover.unsettledAmount),
+        depositDeductionAmount: formatHousingMoney(handover.depositDeductionAmount)
+      } : {})
+    };
+  }
+
+  private toRepairSummary(repair: WorkOrderEntity): HousingRepairSummaryResponse {
+    return {
+      id: repair.id,
+      woCode: repair.woCode,
+      title: repair.title,
+      priority: repair.priority,
+      urgency: repair.urgency,
+      status: repair.status,
+      assigneeName: repair.assigneeName,
+      overdueFlag: repair.overdueFlag,
+      createTime: repair.createTime.toISOString()
+    };
+  }
+
+  private async filterRepairScope(
+    repairs: WorkOrderEntity[],
+    actor: JwtPrincipal
+  ): Promise<WorkOrderEntity[]> {
+    if (actor.isSuper || actor.permissions.includes("*")) return repairs;
+    const handler = await this.dataScopeService.buildScopeFilter(actor, "workorder_handler");
+    return repairs.filter((repair) => {
+      const involvedIds = [repair.assigneeId, repair.reporterId, repair.createBy]
+        .filter((id): id is string => Boolean(id));
+      if (!handler.unrestricted && !handler.allowed_ids.some((id) => involvedIds.includes(id))) {
+        return false;
+      }
+      return actor.permissions.includes(SYSTEM_PERMISSIONS.WORKORDER_MANAGE_ALL)
+        || involvedIds.includes(actor.sub);
+    });
+  }
+
+  private toPurchaseResponse(
+    purchase: HousingPurchaseEntity,
+    actor: JwtPrincipal
+  ): HousingPurchaseResponse {
+    return {
+      id: purchase.id,
+      purchaseCode: purchase.purchaseCode,
+      unitId: purchase.unitId,
+      vendorName: purchase.vendorName,
+      purchaseDate: purchase.purchaseDate,
+      costCategory: purchase.costCategory,
+      approvalStatus: purchase.approvalStatus,
+      paymentStatus: purchase.paymentStatus,
+      ...(this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_PURCHASE_READ) ? {
+        totalAmount: formatHousingMoney(purchase.totalAmount)
+      } : {})
+    };
+  }
+
+  private toFileRef(file: FileEntity): PropertyWorkbenchFileRef {
+    return {
+      id: file.id,
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      fileSize: file.fileSize
+    };
+  }
+
   private async assertPurchaseAccess(scope: TenantParkScope, actor: JwtPrincipal, unitId: string | null) {
     if (unitId) {
       await this.unitAccessService.assertAccess(scope, actor, unitId);
@@ -1720,6 +2246,13 @@ export class HousingService {
 
   private hasPermission(actor: JwtPrincipal, permission: string) {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
+  }
+
+  private sortDirection(
+    order: "asc" | "desc" | undefined,
+    fallback: "ASC" | "DESC"
+  ): "ASC" | "DESC" {
+    return order ? (order === "asc" ? "ASC" : "DESC") : fallback;
   }
 
   private isDatabaseConflict(error: unknown) {

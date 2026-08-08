@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-provision-evidence-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "run_id", "profile_checksum", "expected_counts",
+    "actual_counts", "physical_file_count", "track_b_dependency_count",
+    "evidence_ids",
+    "migrations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "property-remediation-a-base-provision-evidence-v1"
+    },
+    "run_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{11,63}$" },
+    "profile_checksum": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "expected_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "park", "building", "floor", "unit", "party", "booking",
+        "booking_night", "property_occupancy", "turnover", "lease",
+        "charge_plan", "housing_receivable", "purchase", "purchase_item",
+        "handover", "work_order", "sys_file"
+      ],
+      "properties": {
+        "park": { "type": "integer", "const": 3 },
+        "building": { "type": "integer", "const": 3 },
+        "floor": { "type": "integer", "const": 3 },
+        "unit": { "type": "integer", "const": 100 },
+        "party": { "type": "integer", "const": 4000 },
+        "booking": { "type": "integer", "const": 10000 },
+        "booking_night": { "type": "integer", "const": 20000 },
+        "property_occupancy": { "type": "integer", "const": 6500 },
+        "turnover": { "type": "integer", "const": 2000 },
+        "lease": { "type": "integer", "const": 2000 },
+        "charge_plan": { "type": "integer", "const": 2000 },
+        "housing_receivable": { "type": "integer", "const": 10000 },
+        "purchase": { "type": "integer", "const": 1000 },
+        "purchase_item": { "type": "integer", "const": 2000 },
+        "handover": { "type": "integer", "const": 1000 },
+        "work_order": { "type": "integer", "const": 1000 },
+        "sys_file": { "type": "integer", "const": 2000 }
+      }
+    },
+    "actual_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "park", "building", "floor", "unit", "party", "booking",
+        "booking_night", "property_occupancy", "turnover", "lease",
+        "charge_plan", "housing_receivable", "purchase", "purchase_item",
+        "handover", "work_order", "sys_file", "sys_file_valid_association"
+      ],
+      "properties": {
+        "park": { "type": "integer", "const": 3 },
+        "building": { "type": "integer", "const": 3 },
+        "floor": { "type": "integer", "const": 3 },
+        "unit": { "type": "integer", "const": 100 },
+        "party": { "type": "integer", "const": 4000 },
+        "booking": { "type": "integer", "const": 10000 },
+        "booking_night": { "type": "integer", "const": 20000 },
+        "property_occupancy": { "type": "integer", "const": 6500 },
+        "turnover": { "type": "integer", "const": 2000 },
+        "lease": { "type": "integer", "const": 2000 },
+        "charge_plan": { "type": "integer", "const": 2000 },
+        "housing_receivable": { "type": "integer", "const": 10000 },
+        "purchase": { "type": "integer", "const": 1000 },
+        "purchase_item": { "type": "integer", "const": 2000 },
+        "handover": { "type": "integer", "const": 1000 },
+        "work_order": { "type": "integer", "const": 1000 },
+        "sys_file": { "type": "integer", "const": 2000 },
+        "sys_file_valid_association": { "type": "integer", "const": 2000 }
+      }
+    },
+    "physical_file_count": { "const": 2000 },
+    "track_b_dependency_count": { "const": 0 },
+    "evidence_ids": {
+      "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+      "items": { "enum": ["a0-profile", "a0-provision-repeat"] }
+    },
+    "migrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bootstrap_sha256", "applied", "skipped"],
+      "properties": {
+        "bootstrap_sha256": {
+          "const": "b734460703f061feecd5a4fac60a6ee8aad9771cd4ea4a9413d2fa60d27f6268"
+        },
+        "applied": { "const": 183 },
+        "skipped": {
+          "type": "array", "minItems": 1, "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["filename", "sha256", "reason_code", "rollback_residual"],
+            "properties": {
+              "filename": { "const": "000175_2026_responsibility_user_role_queue.sql" },
+              "sha256": {
+                "const": "5daaca3cb4a48b40c258446c36427c49ad657bd4d95de388ca9661c3cd52c89c"
+              },
+              "reason_code": { "const": "production-data-patch-empty-db-fail-fast" },
+              "rollback_residual": { "const": "0|0|0|0" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

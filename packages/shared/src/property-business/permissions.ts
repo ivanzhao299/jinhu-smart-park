@@ -1,0 +1,108 @@
+export const PROPERTY_BUSINESS_PERMISSIONS = {
+  HOMESTAY_MENU: "homestay",
+  HOMESTAY_OPERATIONS_PAGE: "homestay:operations",
+  HOUSING_RENTAL_MENU: "housing_rental",
+  HOUSING_RENTAL_OPERATIONS_PAGE: "housing_rental:operations",
+
+  HOMESTAY_DASHBOARD_PAGE: "homestay:dashboard:page",
+  HOMESTAY_TASKS_PAGE: "homestay:tasks:page",
+  HOMESTAY_AVAILABILITY_PAGE: "homestay:availability:page",
+  HOMESTAY_RATES_PAGE: "homestay:rates:page",
+  HOMESTAY_BOOKINGS_PAGE: "homestay:bookings:page",
+  HOMESTAY_STAYS_PAGE: "homestay:stays:page",
+  HOMESTAY_TURNOVERS_PAGE: "homestay:turnovers:page",
+  HOMESTAY_FINANCE_PAGE: "homestay:finance:page",
+
+  HOUSING_DASHBOARD_PAGE: "housing:dashboard:page",
+  HOUSING_TASKS_PAGE: "housing:tasks:page",
+  HOUSING_TENANTS_PAGE: "housing:tenants:page",
+  HOUSING_LEASES_PAGE: "housing:leases:page",
+  HOUSING_HANDOVERS_PAGE: "housing:handovers:page",
+  HOUSING_BILLING_PAGE: "housing:billing:page",
+  HOUSING_FINANCE_PAGE: "housing:finance:page",
+  HOUSING_REPAIRS_PAGE: "housing:repairs:page",
+  HOUSING_PURCHASES_PAGE: "housing:purchases:page",
+
+  PROPERTY_OPERATION_READ: "property_operation:read",
+  PROPERTY_OPERATION_UPDATE: "property_operation:update",
+  PROPERTY_OPERATION_TRANSITION_MODE: "property_operation:transition_mode",
+  PROPERTY_OCCUPANCY_READ: "property_occupancy:read",
+  PROPERTY_OCCUPANCY_CREATE: "property_occupancy:create",
+  PROPERTY_OCCUPANCY_ACTIVATE: "property_occupancy:activate",
+  PROPERTY_OCCUPANCY_RELEASE: "property_occupancy:release",
+  PROPERTY_OCCUPANCY_FORCE_RELEASE: "property_occupancy:force_release",
+  PARTY_READ: "party:read",
+  PARTY_CREATE: "party:create",
+  PARTY_UPDATE: "party:update",
+  PARTY_SENSITIVE_READ: "party:sensitive_read",
+  PARTY_ROLE_MANAGE: "party_role:manage",
+  HOMESTAY_DASHBOARD_READ: "homestay:dashboard:read",
+  HOMESTAY_TASK_READ: "homestay:task:read",
+  HOMESTAY_RATE_READ: "homestay:rate:read",
+  HOMESTAY_RATE_MANAGE: "homestay:rate:manage",
+  HOMESTAY_BOOKING_READ: "homestay:booking:read",
+  HOMESTAY_BOOKING_CREATE: "homestay:booking:create",
+  HOMESTAY_BOOKING_CONFIRM: "homestay:booking:confirm",
+  HOMESTAY_BOOKING_CANCEL: "homestay:booking:cancel",
+  HOMESTAY_BOOKING_RESCHEDULE: "homestay:booking:reschedule",
+  HOMESTAY_STAY_READ: "homestay:stay:read",
+  HOMESTAY_STAY_MANAGE: "homestay:stay:manage",
+  HOMESTAY_FINANCE_READ: "homestay:finance:read",
+  HOMESTAY_FINANCE_REGISTER: "homestay:finance:register",
+  HOMESTAY_FINANCE_WAIVE: "homestay:finance:waive",
+  HOMESTAY_TURNOVER_READ: "homestay:turnover:read",
+  HOMESTAY_TURNOVER_EXECUTE: "homestay:turnover:execute",
+  HOUSING_DASHBOARD_READ: "housing:dashboard:read",
+  HOUSING_TASK_READ: "housing:task:read",
+  HOUSING_TENANT_READ: "housing:tenant:read",
+  HOUSING_TENANT_MANAGE: "housing:tenant:manage",
+  HOUSING_LEASE_READ: "housing:lease:read",
+  HOUSING_LEASE_CREATE: "housing:lease:create",
+  HOUSING_LEASE_APPROVE: "housing:lease:approve",
+  HOUSING_LEASE_SIGN: "housing:lease:sign",
+  HOUSING_LEASE_ACTIVATE: "housing:lease:activate",
+  HOUSING_LEASE_CHECKOUT: "housing:lease:checkout",
+  HOUSING_HANDOVER_READ: "housing:handover:read",
+  HOUSING_HANDOVER_MANAGE: "housing:handover:manage",
+  HOUSING_REPAIR_READ: "housing:repair:read",
+  HOUSING_REPAIR_MANAGE: "housing:repair:manage",
+  HOUSING_FINANCE_READ: "housing:finance:read",
+  HOUSING_FINANCE_REGISTER: "housing:finance:register",
+  HOUSING_FINANCE_WAIVE: "housing:finance:waive",
+  HOUSING_BILLING_READ: "housing:billing:read",
+  HOUSING_BILLING_GENERATE: "housing:billing:generate",
+  HOUSING_PURCHASE_READ: "housing:purchase:read",
+  HOUSING_PURCHASE_MANAGE: "housing:purchase:manage",
+  HOUSING_PURCHASE_TRANSFER: "housing:purchase:transfer"
+} as const;
+
+export type PropertyBusinessPermissionCode =
+  (typeof PROPERTY_BUSINESS_PERMISSIONS)[keyof typeof PROPERTY_BUSINESS_PERMISSIONS];
+
+export const PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS = [
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_DASHBOARD_PAGE, name: "民宿运营看板页面", resource: "homestay.dashboard", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASKS_PAGE, name: "民宿任务页面", resource: "homestay.tasks", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_AVAILABILITY_PAGE, name: "民宿房态页面", resource: "homestay.availability", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_RATES_PAGE, name: "民宿价格页面", resource: "homestay.rates", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKINGS_PAGE, name: "民宿订单页面", resource: "homestay.bookings", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAYS_PAGE, name: "民宿入住页面", resource: "homestay.stays", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVERS_PAGE, name: "民宿周转页面", resource: "homestay.turnovers", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_PAGE, name: "民宿财务页面", resource: "homestay.finance", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_DASHBOARD_PAGE, name: "住房出租看板页面", resource: "housing.dashboard", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASKS_PAGE, name: "住房出租任务页面", resource: "housing.tasks", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE, name: "住房租客页面", resource: "housing.tenants", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASES_PAGE, name: "住房租约页面", resource: "housing.leases", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVERS_PAGE, name: "住房交割页面", resource: "housing.handovers", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_PAGE, name: "住房账单页面", resource: "housing.billing", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_PAGE, name: "住房财务页面", resource: "housing.finance", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIRS_PAGE, name: "住房报修页面", resource: "housing.repairs", action: "page" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASES_PAGE, name: "住房采购页面", resource: "housing.purchases", action: "page" }
+] as const;
+
+export const PROPERTY_BUSINESS_PAGE_PERMISSION_CODES = PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS
+  .map((seed) => seed.code);
+
+export const PROPERTY_BUSINESS_LEGACY_PAGE_PERMISSIONS = [
+  PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_OPERATIONS_PAGE,
+  PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_OPERATIONS_PAGE
+] as const;

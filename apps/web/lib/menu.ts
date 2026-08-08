@@ -26,7 +26,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { UserMenuTreeNode } from "@jinhu/shared";
+import {
+  PROPERTY_BUSINESS_SURFACES,
+  type UserMenuTreeNode
+} from "@jinhu/shared";
 
 export interface MenuNode {
   label: string;
@@ -89,6 +92,39 @@ const DISABLED_PLACEHOLDER_HREFS = new Set([
   "/video/overview"
 ]);
 
+const LEGACY_PROPERTY_MENU_HREFS = new Set(["/homestay", "/housing"]);
+
+const PROPERTY_SURFACE_LABELS: Readonly<Record<string, string>> = {
+  "homestay.dashboard": "运营看板",
+  "homestay.tasks": "待办任务",
+  "homestay.availability": "房态管理",
+  "homestay.rates": "价格管理",
+  "homestay.bookings": "订单管理",
+  "homestay.stays": "入住管理",
+  "homestay.turnovers": "房务周转",
+  "homestay.finance": "财务管理",
+  "housing.dashboard": "运营看板",
+  "housing.tasks": "待办任务",
+  "housing.tenants": "租客档案",
+  "housing.leases": "租约管理",
+  "housing.handovers": "交割管理",
+  "housing.billing": "账单管理",
+  "housing.finance": "财务管理",
+  "housing.repairs": "报修管理",
+  "housing.purchases": "采购管理"
+};
+
+function propertySurfaceMenus(moduleCode: "homestay" | "housing_rental"): MenuNode[] {
+  return PROPERTY_BUSINESS_SURFACES
+    .filter((surface) => surface.moduleCode === moduleCode)
+    .map((surface) => ({
+      label: PROPERTY_SURFACE_LABELS[surface.featureId] ?? surface.featureId,
+      href: surface.route,
+      permission: surface.pageCode,
+      module: surface.moduleCode
+    }));
+}
+
 export const FIRST_RELEASE_MENU_PATHS = [
   "/dashboard",
   "/cockpit/overview",
@@ -102,8 +138,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/contracts",
   "/leasing/receivables",
   "/leasing/payments",
-  "/homestay",
-  "/housing",
+  ...PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route),
   "/workorders",
   "/tenant/service",
   "/workflow/inbox",
@@ -198,17 +233,13 @@ export const dashboardMenus: MenuNode[] = [
     label: "民宿管理",
     icon: Hotel,
     module: "homestay",
-    children: [
-      { label: "民宿运营", href: "/homestay", permission: "homestay:operations", module: "homestay" }
-    ]
+    children: propertySurfaceMenus("homestay")
   },
   {
     label: "住房出租",
     icon: House,
     module: "housing_rental",
-    children: [
-      { label: "住房运营", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
-    ]
+    children: propertySurfaceMenus("housing_rental")
   },
   {
     label: "IoT 平台",
@@ -403,7 +434,13 @@ function toMenuNode(node: UserMenuTreeNode): MenuNode {
 }
 
 function prunePlaceholderMenus(menu: MenuNode): MenuNode | undefined {
-  if (menu.href && DISABLED_PLACEHOLDER_HREFS.has(menu.href)) {
+  if (
+    menu.href &&
+    (
+      DISABLED_PLACEHOLDER_HREFS.has(menu.href) ||
+      LEGACY_PROPERTY_MENU_HREFS.has(menu.href)
+    )
+  ) {
     return undefined;
   }
   const children = menu.children

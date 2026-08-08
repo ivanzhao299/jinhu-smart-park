@@ -23,8 +23,12 @@ export class PartiesController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARTY_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: PartyQueryDto) {
-    return this.service.list(scope, query);
+  list(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: PartyQueryDto
+  ) {
+    return this.service.list(scope, query, actor);
   }
 
   @Get(":id")
@@ -38,7 +42,8 @@ export class PartiesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.PARTY_CREATE)
   @AuditLog({ module: "共享房产底座", resource: "biz.party", action: "新增业务相对方", bizType: "biz_party", captureBody: false })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Body() dto: CreatePartyDto) {
-    return this.service.create(scope, actor, dto);
+    return this.service.create(scope, actor, dto)
+      .then((party) => this.service.projectForActor(party, actor));
   }
 
   @Put(":id")
@@ -51,7 +56,8 @@ export class PartiesController {
     @Param("id") id: string,
     @Body() dto: UpdatePartyDto
   ) {
-    return this.service.update(scope, actor, id, dto);
+    return this.service.update(scope, actor, id, dto)
+      .then((party) => this.service.projectForActor(party, actor));
   }
 
   @Post(":id/verification")
@@ -64,7 +70,8 @@ export class PartiesController {
     @Param("id") id: string,
     @Body() dto: VerifyPartyDto
   ) {
-    return this.service.verify(scope, actor, id, dto);
+    return this.service.verify(scope, actor, id, dto)
+      .then((party) => this.service.projectForActor(party, actor));
   }
 
   @Post("roles")

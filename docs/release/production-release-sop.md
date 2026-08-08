@@ -60,6 +60,7 @@
 | `AUTH_SMS_FIXED_CODE` | 短信 mock 固定码 | 是 | 已确认 | 首发必须为空 |
 | `AUTH_SMS_CODE_VISIBLE` | 是否展示短信 mock 码 | 是 | 已确认 | 首发必须为 `false` |
 | `AUTH_WECHAT_MOCK_ENABLED` | 微信 mock 开关 | 是 | 已确认 | 首发必须为 `false` |
+| `PROPERTY_WORKBENCH_V2` | 房产业务新版工作台开关 | 是 | 已确认 | Track B 审批执行能力发布前必须为 `false`；启用后高风险动作 fail-closed，超级管理员不绕过 |
 
 ## 5. 发布前备份
 

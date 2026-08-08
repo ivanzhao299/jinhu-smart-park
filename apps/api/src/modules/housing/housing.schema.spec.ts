@@ -58,7 +58,6 @@ test("housing final-state, attachment, meter, privacy, and purchase guards stay 
   assert.match(service, /Deposit deductions can only be created by the move-out handover workflow/);
   assert.match(service, /Transferred purchase items must be reversed before voiding the purchase/);
   assert.match(service, /meter\.status !== "ONLINE"/);
-  assert.match(service, /canReadTenantData \? this\.dataSource\.getRepository\(PartyEntity\)/);
 
   const activationStart = service.indexOf("async activateLease");
   const activationEnd = service.indexOf("async voidLease", activationStart);
@@ -73,20 +72,11 @@ test("housing billing and repair files preserve exact domain boundaries", () => 
   assert.match(service, /multiplyHousingMoneyByRatio\(/);
   assert.match(service, /resolveFileUploadPolicy\("housing_repair"\)/);
   assert.match(service, /bizType: "housing_repair"/);
-  assert.match(service, /canRecoverRepairEvidence/);
-  assert.match(service, /pending_repair_files: pendingRepairFiles/);
   assert.match(service, /NOT EXISTS \([\s\S]*file\.id = ANY\(repair\.image_file_ids\)/);
   assert.match(service, /One or more repair attachments are already bound to a work order/);
-  assert.match(service, /pending_handover_files:/);
-  assert.match(service, /const canReadHandovers = canReadLease \|\| canManageHandovers/);
-  assert.match(service, /const canReadRepairs = canReadLease \|\| canManageRepairs/);
-  assert.match(service, /canReadHandovers\s*\n\s*\? this\.dataSource\.getRepository\(HousingHandoverEntity\)/);
-  assert.match(service, /canReadRepairs \? this\.dataSource\.getRepository\(WorkOrderEntity\)/);
   assert.match(service, /housing_handover_move_in/);
   assert.match(service, /housing_handover_move_out/);
-  assert.match(service, /handover\.photo_file_ids \? file\.id::text/);
   assert.match(service, /One or more handover attachments are already bound to another handover/);
-  assert.match(service, /photo_files: handover\.photoFileIds/);
 });
 
 test("housing lease creation requires every selector permission at the API boundary", () => {
@@ -155,30 +145,54 @@ test("housing workflow permissions can reach their scoped lease and purchase rec
   }
 });
 
-test("housing detail and purchase list own persisted relationship and lifecycle projections", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  const getLease = service.slice(service.indexOf("async getLease"), service.indexOf("async createLease"));
-  const listPurchases = service.slice(
-    service.indexOf("async listPurchases"),
-    service.indexOf("async getPurchase")
-  );
+test("housing workbench GET routes use literal exact permissions and both required modules", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const routes = [
+    ["tasks", "HOUSING_TASK_READ"],
+    ["handovers", "HOUSING_HANDOVER_READ"],
+    ["handovers/:id", "HOUSING_HANDOVER_READ"],
+    ["billing", "HOUSING_BILLING_READ"],
+    ["finance", "HOUSING_FINANCE_READ"],
+    ["repairs", "HOUSING_REPAIR_READ"],
+    ["repairs/:id", "HOUSING_REPAIR_READ"]
+  ] as const;
 
-  assert.match(getLease, /occupantNameByParty/);
-  assert.match(getLease, /partyDisplayName: occupantNameByParty\.get\(occupant\.partyId\) \?\? null/);
-  assert.match(listPurchases, /COUNT\(\*\)::int AS "transferredItemCount"/);
-  assert.match(listPurchases, /item\.transferred_receivable_id IS NOT NULL/);
-  assert.match(listPurchases, /transferredItemCount: transferredCountByPurchase\.get\(item\.id\) \?\? 0/);
-  assert.match(listPurchases, /const canReadPurchaseEvidence/);
-  assert.match(listPurchases, /bizType: "housing_purchase"/);
-  assert.match(listPurchases, /receiptFiles: receiptFilesByPurchase\.get\(item\.id\) \?\? \[\]/);
+  for (const [path, permission] of routes) {
+    const start = controller.indexOf(`@Get("${path}")`);
+    assert.notEqual(start, -1, `missing GET /housing/${path}`);
+    const end = controller.indexOf("\n\n  @", start + 8);
+    const method = controller.slice(start, end === -1 ? undefined : end);
+    assert.match(method, /@RequireModule\("housing_rental", "asset"\)/);
+    assert.match(method, new RegExp(`@RequirePermissions\\(SYSTEM_PERMISSIONS\\.${permission}\\)`));
+    assert.doesNotMatch(method, /@RequireAnyPermissions/);
+  }
 });
 
-test("housing finance writers receive the minimum lease finance projection", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  const getLease = service.slice(service.indexOf("async getLease"), service.indexOf("async createLease"));
+test("housing tenant GET is exact read while create remains manage", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const tenantGet = controller.slice(
+    controller.indexOf('@Get("tenants")'),
+    controller.indexOf('@Get("handovers")')
+  );
+  const tenantPost = controller.slice(
+    controller.indexOf('@Post("tenants")'),
+    controller.indexOf('@Get("leases")')
+  );
+  assert.match(tenantGet, /HOUSING_TENANT_READ/);
+  assert.doesNotMatch(tenantGet, /HOUSING_TENANT_MANAGE/);
+  assert.match(tenantPost, /HOUSING_TENANT_MANAGE/);
+});
 
-  assert.match(getLease, /const canAccessFinance = canReadFinance \|\| canRegisterFinance \|\| canWaiveFinance/);
-  assert.match(getLease, /canAccessFinance \? this\.dataSource\.getRepository\(HousingReceivableEntity\)/);
-  assert.match(getLease, /canAccessFinance \? this\.dataSource\.getRepository\(HousingLedgerEntryEntity\)/);
-  assert.match(getLease, /finance_summary: canAccessFinance \? this\.financeSummary\(receivables, ledger\) : null/);
+test("move-out financial handover uses the frozen ninth high-risk predicate", () => {
+  const controller = readFileSync(resolve(__dirname, "housing.controller.ts"), "utf8");
+  const handoverPost = controller.slice(
+    controller.indexOf('@Post("leases/:id/handovers")'),
+    controller.indexOf('@Post("leases/:id/repairs")')
+  );
+  assert.match(handoverPost, /housing\.handovers\.complete-move-out-financial/);
+  assert.match(handoverPost, /allEquals: \{ handover_type: "move_out" \}/);
+  assert.match(
+    handoverPost,
+    /anyNonZero: \["damage_amount", "unsettled_amount", "deposit_deduction_amount"\]/
+  );
 });
