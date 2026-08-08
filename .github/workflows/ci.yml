@@ -724,7 +724,7 @@ jobs:
             scripts/diagnose-000189-asset-scope.sh report . "$retry_db" \
             > /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
           grep -Fq \
-            'release-smoke-tenant|release-smoke-park|unresolved_source|1|1|0|0|0|0|0|0|0' \
+            'release-smoke-tenant|release-smoke-park|unresolved_source|1|1|0|0|1|0|0|0|0|' \
             /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
           if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
             scripts/diagnose-000189-asset-scope.sh enforce . "$retry_db" \
