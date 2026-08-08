@@ -21,6 +21,14 @@
 - 每个 migration 成功后记录 `filename`、`checksum`、`status`、开始/结束时间、执行人和批次。
 - 部署前会先生成 migration manifest；即使 manifest 中所有文件都已按相同 checksum 记录为
   `succeeded`，脚本仍逐项核验 prerequisite，仅跳过 checksum 匹配的 migration/prerequisite。
+- `database/migration-history-aliases.txt` 记录发布前因编号冲突发生的 migration 文件名迁移。
+  runner 在 baseline 和 SQL 执行前，仅对 checksum 完全一致的单一成功旧记录执行双表原子重签，
+  并保留 alias 审计行；旧/新身份并存、非成功状态或 checksum 漂移必须人工处理。
+- CI Release Smoke 必须覆盖旧文件名成功记录到 canonical 文件名的重签重放，并断言 canonical
+  migration 被按原 checksum 跳过。
+- runner 必须在 bootstrap history 前持有数据库级 advisory lock，避免两个发布进程并发检查、写入
+  或执行同一 migration；等待必须使用可中断的 try-lock 轮询，进程退出后不得依赖额外数据库权限
+  释放锁。CI Release Smoke 必须验证第二个迁移进程会等待该锁。
 - 如果目标库已有业务表但 migration history 为空，脚本会自动 baseline：把当前仓库所有 migration 文件标记为已成功，不执行旧 SQL，以保护已有生产数据。
 - 如果目标库为空，脚本不会 baseline，会从第一条 migration 正常初始化。
 - 当前没有自动 down migration 机制。

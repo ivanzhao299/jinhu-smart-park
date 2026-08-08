@@ -73,6 +73,7 @@ const permissionRepairSeedPath = resolve(
   "database/seeds/production/000004_core_role_permission_repair.sql"
 );
 const runnerPath = resolve(root, "scripts/db-migrate.sh");
+const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -96,6 +97,7 @@ const propertyCompatibilitySignaturePrerequisite = readFileSync(
 );
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
+const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -377,10 +379,41 @@ assert.match(runner, /migration prerequisite is already marked running/);
 assert.match(runner, /Target migration not executed/);
 assert.match(runner, /assert_history_tables_consistent/);
 assert.match(runner, /migration history tables disagree/);
+assert.match(runner, /FULL JOIN \$\{STANDARD_HISTORY_TABLE\}/u);
+assert.match(runner, /primary_history\.filename IS NULL/u);
+assert.match(runner, /standard_history\.filename IS NULL/u);
+assert.match(runner, /pg_try_advisory_lock\(hashtextextended\(current_database\(\) \|\| ':jinhu-db-migrate'/u);
+assert.match(runner, /MIGRATION LOCK ACQUIRED/u);
+assert.ok(
+  runner.lastIndexOf("acquire_migration_lock") < runner.lastIndexOf("bootstrap_history_table"),
+  "the database migration lock must be acquired before history bootstrap and execution"
+);
 assert.equal(
   runner.includes("fast_skip_if_manifest_fully_succeeded"),
   false,
   "runner must not bypass newly added prerequisites when all target migrations already succeeded"
+);
+assert.deepEqual(
+  migrationAliases
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
+  [
+    "000183_floor_layout_deleted_file_backfill.sql|000199_floor_layout_deleted_file_backfill.sql|b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3"
+  ],
+  "every migration history alias must be explicitly reviewed"
+);
+assert.match(runner, /reconcile_migration_history_aliases\(\)/u);
+assert.match(runner, /both legacy and canonical migration history identities exist/u);
+assert.match(runner, /legacy migration history cannot be safely rekeyed/u);
+assert.match(runner, /migration-alias:\$\{legacy_filename\}=>\$\{canonical_filename\}/u);
+assert.match(runner, /migration history alias audit marker drifted/u);
+assert.match(runner, /ON CONFLICT \(filename\) DO NOTHING;/u);
+const aliasReconcileCall = runner.lastIndexOf("reconcile_migration_history_aliases");
+const baselineCallForAlias = runner.lastIndexOf("baseline_nonempty_database_if_needed");
+assert.ok(
+  aliasReconcileCall !== -1 && aliasReconcileCall < baselineCallForAlias,
+  "history aliases must reconcile before non-empty database baseline"
 );
 
 const historyWrite = runner.slice(

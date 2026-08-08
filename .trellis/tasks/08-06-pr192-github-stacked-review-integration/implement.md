@@ -244,6 +244,25 @@ git diff --check
 - [x] 当前修复通过目标回归（API 41/41、Web 12/12）、API 全量 unit
   （1050 PASS、13 个无 PostgreSQL 环境 SKIP）、API/Web lint/typecheck/build（160 pages）、
   diff-check 与三路独立复核；open P0/P1=[]。
-- [ ] 提交推送当前修复，并逐条回复/解决 5 个 latest-head 线程。
+- [x] 已提交推送 `bf35503f`，逐条回复并解决 5 个 latest-head 线程，并对该精确 HEAD
+  触发一次 Codex review。
 - [ ] 新 canonical HEAD 的 GitHub CI 全绿、Codex 无新增可操作反馈、threads 全部闭环、
   PR 可合并且 auto-merge 未启用；仅在此后通知人工合并。
+
+## Phase 11：迁移文件名历史兼容（2026-08-08）
+
+- [x] `bf35503f` Codex 复审再次指出 base 中 floor-layout migration 曾以
+  `000183_floor_layout_deleted_file_backfill.sql` 发布；当前 runner 只按文件名跳过，外部库若已
+  记录旧身份会再次执行 `000199`。已知 UAT/旧开发库无该记录，但 runner 契约缺口成立。
+- [x] 保持当前 `000183_property_business_granular_rbac.sql` 与 `000199` SQL 字节不变；增加显式
+  history alias manifest。仅当旧记录为 succeeded、checksum 等于当前 `000199` 精确 SHA-256、
+  canonical 记录不存在时，才在单事务内重签双 history 表并追加 alias 审计行；其他状态 fail closed。
+- [x] 修复同类迁移可靠性风险：runner 在 bootstrap 前通过 FIFO 长连接持有数据库级
+  `pg_try_advisory_lock`，并以 FULL JOIN 审计双 history 表缺失/状态/checksum 差异；alias marker
+  支持相同 checksum 的安全重放，漂移继续 fail closed。
+- [x] 本地静态契约、shell syntax、CI YAML、floor-layout target 3/3、API full unit
+  （1051 PASS、13 个无 PostgreSQL 环境 SKIP）、API lint/typecheck/build、diff-check 均通过；
+  多轮独立复核最终 open P0/P1=[]。本机 Docker 未启动，真实 PostgreSQL alias replay 与并发锁等待
+  已加入 GitHub Release Smoke，待新 HEAD CI 执行。
+- [ ] 提交推送当前 migration history 修复，回复并解决最新线程，对新 HEAD 仅触发一次 Codex
+  review，并等待 GitHub verify/release-smoke 全绿。

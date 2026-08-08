@@ -104,6 +104,15 @@
 - checksum 匹配且已 `succeeded` 的 migration/prerequisite 逐项跳过，不重复执行 SQL。
 - 即使 migration manifest 已全量成功，也不得绕过后来新增的 prerequisite。
 - manifest 缺失、checksum 冲突或 `running` 状态会 fail closed。
+- 历史 migration 如在发布前因编号冲突改用新文件名，必须在
+  `database/migration-history-aliases.txt` 以旧文件名、新文件名和不变 SQL SHA-256 显式登记。
+  runner 只会把 checksum 完全一致的单一 `succeeded` 旧记录原子重签到新文件名，并在双历史表
+  写入 alias 审计记录；旧/新身份同时存在、状态异常或 checksum 漂移都会 fail closed。
+- Release Smoke 会把 canonical 成功记录临时还原为旧文件名并重跑迁移，断言 alias 重签成功且
+  canonical migration 按原 checksum 输出 `SKIP`，从而防止历史 SQL 重复执行。
+- runner 在 bootstrap history 之前取得数据库级 advisory lock，同一数据库的第二个迁移进程必须等待
+  前一个进程释放锁；等待使用可中断的 `pg_try_advisory_lock` 轮询，退出时由持锁会话 EOF 自动释放，
+  不依赖数据库角色拥有终止其他 backend 的权限。Release Smoke 会用独立 blocker session验证该行为。
 
 ## 3. Checksum 计算规则
 
