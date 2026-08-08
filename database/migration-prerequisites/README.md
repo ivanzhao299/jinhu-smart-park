@@ -32,9 +32,12 @@ The `000189` asset repair first restores the `asset_park.tenant_id/park_id`
 baselined legacy database still exposes the original UUID columns. It converts only
 those two scope columns, rewrites only the two canonical legacy sentinel UUIDs, and
 fails closed for missing or unexpected column types. The following bounded,
-insert-only prerequisite materializes only a missing `asset_park` projection for an
-already-active asset module assignment whose tenant and canonical `biz_park` scope
-are both uniquely valid. Existing asset rows are not re-enabled or overwritten.
+insert-only prerequisite treats one existing active `asset_park` as authoritative
+without requiring a duplicate `biz_park` projection. For a genuinely missing asset
+projection it prefers one active same-scope `biz_park`; only the fixed production
+default scope may fall back to the globally unique active `park_code=JH` baseline
+row left under legacy scope IDs by an older seed. Existing asset rows are not
+re-enabled or overwritten, and every missing or ambiguous source still fails closed.
 This allows the unchanged historical `000189` and `000200` migrations to keep
 enforcing their signed asset-domain scope contract.
 

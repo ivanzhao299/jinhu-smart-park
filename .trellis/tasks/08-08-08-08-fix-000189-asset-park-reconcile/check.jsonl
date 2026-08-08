@@ -1,0 +1,2 @@
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"复核 prerequisite 不越过业务/授权写边界"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"复核生产重试与 Release Smoke 证据"}

@@ -15,6 +15,7 @@ Current production-safe seed files:
 - `000004_core_role_permission_repair.sql`
 - `000005_admin_issue_runner_baseline.sql`
 - `000006_property_track_b_permission_reconcile.sql`
+- `000007_asset_park_scope_reconcile.sql`
 
 This seed initializes:
 
@@ -26,6 +27,7 @@ This seed initializes:
 - Field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL fields
 - `sys_module`, `sys_plan`, `rel_plan_module`, and `rel_tenant_module`
 - Default organization metadata, dictionaries, and the S2-01 default `biz_park` record
+- A missing default-scope `asset_park` projection, using same-scope canonical data first and the globally unique active `JH` legacy-scope baseline only as a bounded fallback
 
 It does not create fixed-password users or S2 demo房源数据.
 The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,

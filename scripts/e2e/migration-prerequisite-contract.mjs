@@ -395,12 +395,20 @@ for (const forbiddenTypeBoundary of [
 }
 
 for (const requiredScopeContract of [
+  "property_asset_park_target_scope",
   "JOIN biz_park park",
   "park.status = 1",
-  "JOIN sys_tenant tenant",
+  "FROM sys_tenant tenant",
   "module.module_code = 'asset'",
   "assignment.enabled = true",
   "assignment.status = 'enabled'",
+  "asset_count = 0",
+  "exact_source_count = 1",
+  "scope.tenant_key = '10000001'",
+  "scope.park_key = '20000001'",
+  "park.park_code = 'JH'",
+  "ambiguous_asset=%",
+  "unresolved_source=%",
   "property-asset-park-scope-reconcile-preflight-failed",
   "property-asset-park-scope-reconcile-postcondition-failed",
   "ON CONFLICT (tenant_id, park_id, park_code) WHERE is_deleted = false DO NOTHING"
@@ -418,6 +426,7 @@ const assetParkPrerequisiteWrites = [
 assert.deepEqual(
   assetParkPrerequisiteWrites,
   [
+    "INSERT INTO property_asset_park_target_scope",
     "INSERT INTO property_asset_park_reconcile_scope",
     "INSERT INTO asset_park"
   ],
@@ -442,9 +451,15 @@ for (const forbiddenScopeWrite of [
   );
 }
 for (const requiredSeedContract of [
+  "production_asset_park_target_scope",
   "JOIN biz_park park",
-  "JOIN sys_tenant tenant",
+  "FROM sys_tenant tenant",
   "module.module_code = 'asset'",
+  "asset_count = 0",
+  "exact_source_count = 1",
+  "scope.tenant_key = '10000001'",
+  "scope.park_key = '20000001'",
+  "park.park_code = 'JH'",
   "INSERT INTO asset_park",
   "ON CONFLICT (tenant_id, park_id, park_code) WHERE is_deleted = false DO NOTHING",
   "production-asset-park-scope-reconcile-preflight-failed",
@@ -455,6 +470,20 @@ for (const requiredSeedContract of [
     `production asset park reconcile seed is missing ${requiredSeedContract}`
   );
 }
+const assetParkSeedWrites = [
+  ...assetParkScopeSeed.matchAll(
+    /^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+([a-z_][a-z0-9_]*)/gim
+  )
+].map((match) => `${match[1].toUpperCase()} ${match[2]}`);
+assert.deepEqual(
+  assetParkSeedWrites,
+  [
+    "INSERT INTO production_asset_park_target_scope",
+    "INSERT INTO production_asset_park_reconcile_scope",
+    "INSERT INTO asset_park"
+  ],
+  "production asset park reconciliation must preserve canonical source and existing asset rows"
+);
 
 const assetConflictUpdate = assetModulePrerequisite.match(
   /DO UPDATE SET\s+([\s\S]*?);/
