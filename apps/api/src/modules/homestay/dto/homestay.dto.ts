@@ -106,6 +106,11 @@ export class HomestayCandidateQueryDto extends HomestayUnitCandidateQueryDto {
   unit_id?: string;
 }
 
+export class HomestayGuestCandidateQueryDto extends HomestayCandidateQueryDto {
+  @IsUUID()
+  booking_id!: string;
+}
+
 export class HomestayAvailabilityQueryDto extends HomestayUnitCandidateQueryDto {
   @Validate(HomestayBusinessDateConstraint)
   date_from!: string;

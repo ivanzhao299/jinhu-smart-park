@@ -266,3 +266,21 @@ git diff --check
   已加入 GitHub Release Smoke，待新 HEAD CI 执行。
 - [ ] 提交推送当前 migration history 修复，回复并解决最新线程，对新 HEAD 仅触发一次 Codex
   review，并等待 GitHub verify/release-smoke 全绿。
+
+## Phase 12：canonical 业务边界复审闭环（2026-08-08）
+
+- [x] 读取 `bf35503f` 同轮 Codex review 的 3 条 inline 线程并核对 canonical 最新树：
+  guest candidate 缺 action-context/data-scope、Housing collection 响应乱序、采购日期使用 UTC 默认值。
+- [x] Guest candidate 改为要求 `booking_id`、`HOMESTAY_BOOKING_READ + HOMESTAY_STAY_MANAGE`
+  和当前 actor；查询以同 tenant/park 的未删除 booking 为 action context，并把 booking unit 约束到
+  actor 的 allowed unit scope，空 scope 在查询前返回空页。Web loader 与 access manifest 同步。
+- [x] Housing collection 为每次加载分配单调 request sequence（包括权限拒绝路径），旧成功/失败响应
+  不再覆盖当前 result/state；effect 依赖 callback，覆盖 feature/action/endpoint/filter/page/user 变化。
+- [x] 采购日期改用园区 `businessDate()`，并在客户端 effect 后写入受控 date input，避免 UTC 日期错误
+  及服务端/客户端跨上海午夜 hydration 差异。
+- [x] 新增 DTO、权限、scope SQL、空 scope、Web 静态契约回归；住房静态目标 8/8 与 diff-check PASS。
+  当前 WSL shell 缺少 Node/pnpm，API/Web typecheck、build 与 API targeted tests 交由新 HEAD GitHub CI；
+  Windows bundled Node 仅用于无需项目依赖的 CJS 静态目标。
+- [x] 三路独立只读复核完成；修复 effect dependency 与 hydration 两项后，当前 open P0/P1/P2=[]。
+- [ ] 提交并推送 Phase 12 修复；回复/resolve 3 条线程与迁移 review，更新 PR 正文，并仅对该新
+  canonical HEAD 触发一次 `@codex review`；等待 verify/release-smoke 与无新增可操作反馈。

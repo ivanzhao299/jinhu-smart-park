@@ -8,6 +8,7 @@ import {
   HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
   HomestayCandidateQueryDto,
+  HomestayGuestCandidateQueryDto,
   HomestayFinanceQueryDto,
   HomestayReasonDto,
   HomestayStayQueryDto,
@@ -175,6 +176,13 @@ test("A-2.5 homestay read DTOs validate queues, UUID filters, dates, and paginat
   assert.ok(
     (await validate(candidate)).some((error) => error.property === "unit_id")
   );
+  assert.ok(
+    (await validate(plainToInstance(HomestayGuestCandidateQueryDto, {})))
+      .some((error) => error.property === "booking_id")
+  );
+  assert.deepEqual(await validate(plainToInstance(HomestayGuestCandidateQueryDto, {
+    booking_id: "11111111-1111-4111-8111-111111111111"
+  })), []);
 
   const finance = plainToInstance(HomestayFinanceQueryDto, {
     status: "checked_out",

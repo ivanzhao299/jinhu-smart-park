@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomestayBookingDetailResponse, HomestayGuestCandidateListResponse } from "@jinhu/shared";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ConsequenceDialog, PropertyPanelSurface, RemoteEntityPicker,
   type PropertyCapabilityProjection, type RemoteEntityOption
@@ -13,17 +13,20 @@ import styles from "./HomestayWorkbench.module.css";
 
 type Mutate = (endpoint: string, body?: unknown) => Promise<void>;
 
-async function loadGuests(input: { query: string; page: number; pageSize: number; signal: AbortSignal }) {
-  const params = new URLSearchParams({
-    keyword: input.query, page: String(input.page), page_size: String(input.pageSize)
-  });
-  const response = await apiRequest<HomestayGuestCandidateListResponse>(
-    `/homestay/guest-candidates?${params.toString()}`,
-    { token: getAccessToken() ?? undefined, signal: input.signal }
-  );
-  return {
-    items: response.data.items.map((item) => ({ id: item.id, label: item.displayName })),
-    page: response.data.page, pageSize: response.data.page_size, total: response.data.total
+function loadGuests(bookingId: string) {
+  return async (input: { query: string; page: number; pageSize: number; signal: AbortSignal }) => {
+    const params = new URLSearchParams({
+      booking_id: bookingId,
+      keyword: input.query, page: String(input.page), page_size: String(input.pageSize)
+    });
+    const response = await apiRequest<HomestayGuestCandidateListResponse>(
+      `/homestay/guest-candidates?${params.toString()}`,
+      { token: getAccessToken() ?? undefined, signal: input.signal }
+    );
+    return {
+      items: response.data.items.map((item) => ({ id: item.id, label: item.displayName })),
+      page: response.data.page, pageSize: response.data.page_size, total: response.data.total
+    };
   };
 }
 
@@ -55,9 +58,10 @@ function GuestRegistration({ bookingId, capability, isFirst, mutate }: {
   bookingId: string; capability: PropertyCapabilityProjection; isFirst: boolean; mutate: Mutate;
 }) {
   const [guest, setGuest] = useState<RemoteEntityOption | null>(null);
+  const guestLoader = useMemo(() => loadGuests(bookingId), [bookingId]);
   return <PropertyPanelSurface title="登记住客"><div className={styles.toolbar}>
     <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
-      invalidationKey={capability.invalidationKey} label="住客" loadOptions={loadGuests}
+      invalidationKey={capability.invalidationKey} label="住客" loadOptions={guestLoader}
       onChange={setGuest} required value={guest} />
     <button className="primary-button" disabled={!guest} type="button"
       onClick={() => guest && void mutate(`/homestay/bookings/${bookingId}/guests`, {

@@ -68,8 +68,10 @@ function useCollectionData<T>(input: {
   const capabilities = useMemo(() => projectPropertyCapabilities(user, input.featureId), [input.featureId, user]);
   const [result, setResult] = useState<PaginatedResult<T> | null>(null);
   const resultRef = useRef<PaginatedResult<T> | null>(null);
+  const requestSequence = useRef(0);
   const [state, setState] = useState<PropertyPageState>({ kind: "initial-loading" });
   const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     if (!capabilities.pageAllowed || !capabilities.actionAllowed(input.readActionId)) {
       resultRef.current = null; setResult(null); setState({ kind: "forbidden-full" }); return;
     }
@@ -77,18 +79,18 @@ function useCollectionData<T>(input: {
     Object.entries(input.active).forEach(([key, value]) => { if (value) query.set(key, value); });
     try {
       const response = await apiRequest<PaginatedResult<T>>(`${input.endpoint}?${query.toString()}`, { token: getAccessToken() });
+      if (sequence !== requestSequence.current) return;
       resultRef.current = response.data; setResult(response.data);
       const emptyScope = hasAuthoritativeEmptyUnitScope(user?.data_scopes, user?.is_super === true);
       setState(response.data.items.length ? { kind: "ready" }
         : Object.values(input.active).some(Boolean) ? { kind: "empty-filtered" }
           : emptyScope ? { kind: "empty-scope" } : { kind: "empty-initial" });
     } catch (error) {
+      if (sequence !== requestSequence.current) return;
       setState(failureState(error, Boolean(resultRef.current)));
     }
   }, [capabilities, input.active, input.endpoint, input.page, input.readActionId, user]);
-  useEffect(() => { void load(); }, [
-    capabilities.invalidationKey, input.endpoint, input.page, input.queryKey, input.refreshKey
-  ]);
+  useEffect(() => { void load(); }, [load, input.queryKey, input.refreshKey]);
   return { capabilities, load, result, state };
 }
 

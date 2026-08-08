@@ -116,6 +116,19 @@ test("billing adopts the authoritative saved plan id before generation", () => {
   assert.match(source, /if \(plan\) setPlanId\(plan\.id\);/);
 });
 
+test("housing list requests reject stale completions and purchase defaults use the park date", () => {
+  const collection = read("HousingCollectionPage.tsx");
+  assert.match(collection, /const requestSequence = useRef\(0\);/);
+  assert.match(collection, /const sequence = \+\+requestSequence\.current;/);
+  assert.equal((collection.match(/sequence !== requestSequence\.current/g) ?? []).length, 2);
+
+  const purchase = read("HousingPurchaseCreatePanel.tsx");
+  assert.match(purchase, /import \{ businessDate \} from "\.\.\/\.\.\/\.\.\/lib\/business-date";/);
+  assert.match(purchase, /useEffect\(\(\) => setPurchaseDate\(businessDate\(\)\), \[\]\);/);
+  assert.match(purchase, /value=\{purchaseDate\}/);
+  assert.doesNotMatch(purchase, /toISOString\(\)/);
+});
+
 test("Party workbench distinguishes authoritative empty scope and white-lists sorting", () => {
   const source = fs.readFileSync(path.join(partiesRoot, "PartyWorkbenchClient.tsx"), "utf8");
   assert.match(source, /hasAuthoritativeEmptyPartyScope\(scopes, isSuper\)/);

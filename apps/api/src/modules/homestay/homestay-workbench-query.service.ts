@@ -22,6 +22,7 @@ import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import type {
   HomestayCandidateQueryDto,
   HomestayFinanceQueryDto,
+  HomestayGuestCandidateQueryDto,
   HomestayTaskQueryDto
 } from "./dto/homestay.dto";
 import { formatHomestayMoney } from "./homestay-booking.policy";
@@ -38,11 +39,31 @@ export class HomestayWorkbenchQueryService {
 
   async listGuestCandidates(
     scope: TenantParkScope,
-    query: HomestayCandidateQueryDto
+    actor: JwtPrincipal,
+    query: HomestayGuestCandidateQueryDto
   ): Promise<HomestayGuestCandidateListResponse> {
-    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
+      return this.emptyPage(query);
+    }
+    const parameters: unknown[] = [
+      scope.tenantId,
+      scope.parkId,
+      query.booking_id,
+      allowedUnitIds
+    ];
+    const bookingScopeClause = `
+           AND EXISTS (
+             SELECT 1
+             FROM biz_homestay_booking booking
+             WHERE booking.id = $3
+               AND booking.tenant_id = party.tenant_id
+               AND booking.park_id = party.park_id
+               AND booking.is_deleted = false
+               AND ($4::uuid[] IS NULL OR booking.unit_id = ANY($4::uuid[]))
+           )`;
     const keywordClause = query.keyword
-      ? " AND party.display_name ILIKE $3"
+      ? " AND party.display_name ILIKE $5"
       : "";
     if (query.keyword) parameters.push(`%${query.keyword}%`);
     const limitIndex = parameters.length + 1;
@@ -54,7 +75,7 @@ export class HomestayWorkbenchQueryService {
          WHERE party.tenant_id = $1
            AND party.park_id = $2
            AND party.party_type = 'person'
-           AND party.is_deleted = false${keywordClause}
+           AND party.is_deleted = false${bookingScopeClause}${keywordClause}
          ORDER BY party.display_name ASC, party.id ASC
          LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
         [...parameters, query.page_size, (query.page - 1) * query.page_size]
@@ -65,7 +86,7 @@ export class HomestayWorkbenchQueryService {
          WHERE party.tenant_id = $1
            AND party.park_id = $2
            AND party.party_type = 'person'
-           AND party.is_deleted = false${keywordClause}`,
+           AND party.is_deleted = false${bookingScopeClause}${keywordClause}`,
         parameters
       ) as Promise<Array<{ total: number }>>
     ]);

@@ -302,7 +302,10 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
       read(
         "homestay.bookings.guest-candidates",
         "/homestay/guest-candidates",
-        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
+        {
+          requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE]
+        }
       ),
       mutation("homestay.bookings.create", "POST", "/homestay/bookings", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CREATE),
       mutation("homestay.bookings.confirm", "POST", "/homestay/bookings/:id/confirm", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM, {

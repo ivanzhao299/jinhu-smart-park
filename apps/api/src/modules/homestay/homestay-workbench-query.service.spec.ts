@@ -27,19 +27,23 @@ test("guest candidates use two bounded queries and return only the frozen minima
   };
   const service = new HomestayWorkbenchQueryService(
     {} as never,
-    {} as never,
+    { allowedUnitIds: async () => null } as never,
     dataSource as never,
     {} as never
   );
 
-  const result = await service.listGuestCandidates(scope, {
+  const result = await service.listGuestCandidates(scope, actor, {
+    booking_id: "11111111-1111-4111-8111-111111111111",
     keyword: "张",
     page: 2,
     page_size: 20
   });
 
   assert.equal(statements.length, 2);
-  assert.match(statements[0] ?? "", /LIMIT \$4 OFFSET \$5/);
+  assert.match(statements[0] ?? "", /booking\.id = \$3/);
+  assert.match(statements[0] ?? "", /booking\.unit_id = ANY\(\$4::uuid\[\]\)/);
+  assert.match(statements[0] ?? "", /party\.display_name ILIKE \$5/);
+  assert.match(statements[0] ?? "", /LIMIT \$6 OFFSET \$7/);
   assert.deepEqual(result, {
     items: [{ id: "party-1", displayName: "张三" }],
     total: 1,
@@ -90,7 +94,11 @@ test("candidate statement counts stay constant for page sizes 1, 20, and 100", a
       {} as never
     );
     const [guests, workOrders] = await Promise.all([
-      service.listGuestCandidates(scope, { page: 7, page_size: pageSize }),
+      service.listGuestCandidates(scope, actor, {
+        booking_id: "11111111-1111-4111-8111-111111111111",
+        page: 7,
+        page_size: pageSize
+      }),
       service.listWorkOrderCandidates(
         scope,
         { ...actor, isSuper: true },
