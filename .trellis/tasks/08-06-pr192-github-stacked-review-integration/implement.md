@@ -203,7 +203,28 @@ git diff --check
   后成功的回归测试。
 - [x] 本地 targeted API 27/27、Web 18/18、API 全量 1052（1039 PASS、13 个无 PG
   环境 SKIP）、lint、typecheck、production build 160 pages 与 diff-check 全部通过。
-- [ ] 提交并推送新 HEAD。
-- [ ] 逐线程回复并解决已修复项；迁移 `000183/000199` 以 pre-release 历史与现有合同证据说明
+- [x] 提交并推送新 HEAD `8f1b6b63`。
+- [x] 逐线程回复并解决已修复项；迁移 `000183/000199` 以 pre-release 历史与现有合同证据说明
   无已应用 checksum 被改写，不修改 forward-only migration。
-- [ ] 新 HEAD 重新触发一次 `@codex review`，等待 CI/release-smoke 与无新增可操作反馈。
+- [x] 新 HEAD 重新触发一次 `@codex review`，并取得 #227/#228/#229 三层 bounded Codex review。
+
+## Phase 9：只读审查栈闭环（2026-08-08）
+
+- [x] Track A #227 在 immutable head `c647bfdca37e7fbeff2da504df725db93d002b45`
+  完成 Codex review：7 条发现全部在 canonical PR #223 修复；投影剩余可操作项 0。
+- [x] Track B #228 在 immutable head `053032100c4b4145a818438d7eaa78a9d012d0d8`
+  完成 Codex review：12 条发现中 3 条已由 `8f1b6b63` 修复，其余 9 条由
+  `183ceefc` 修复；投影剩余可操作项 0。
+- [x] Track C #229 在 immutable head `6665651c030ed075648537aa2c4a54adf7710600`
+  完成 Codex review：9 条发现中 untracked build-context 已由 `8f1b6b63` 修复，
+  其余 8 条由 `183ceefc` 修复；投影剩余可操作项 0。
+- [x] canonical `183ceefc` 同时闭环 #223 最新审查的身份附件/状态/拒绝理由、审批候选
+  饥饿、worker Compose env、通知 deepLink、availability 兼容、granular data scope 清理，
+  以及 handover/repair 附件只读权限。
+- [x] 所有 #227/#228/#229 与 #223 当前 review threads 已逐条回复并 resolved；不修改
+  投影分支，不启用 auto-merge。
+- [x] 修复树验证：API 全量 unit、API/Web lint/typecheck/build、Track C 18/18、
+  A-base 21/21、seed/migration contract 与 `git diff --check` 全部 PASS。
+- [x] 将本结论提交推送并同步 PR #223 正文；随后仅对该最终 docs/task HEAD 触发一次
+  `@codex review`，等待 CI 与无新增可操作反馈。
+- [ ] 在 #227/#228/#229 留下完成总结并关闭只读 Draft（不合并、不转 Ready、不删分支）。
