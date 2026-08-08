@@ -13,7 +13,7 @@
   `biz_park` 而误报失败，也不得覆盖、重启用或改写该资产记录。
 - 缺失 `asset_park` 时优先从同 scope 唯一有效的 `biz_park` 投影；默认生产 scope
   `10000001/20000001` 允许从全局唯一的 active `park_code=JH` 历史基线行投影，兼容旧 seed
-  在 `ON CONFLICT (park_code)` 时保留旧 scope ID 的状态。
+  在 `ON CONFLICT (park_code)` 时保留旧 scope ID，以及同 scope 存在其他 active 园区的状态。
 - 非法 scope、失效/重复租户、重复资产投影、缺失或歧义来源继续 fail closed，并输出不含密钥的分类计数。
 - production seed 使用同一来源优先级和后置唯一性合同，避免迁移与 seed 再次漂移。
 - Release Smoke 必须真实回放“已有 asset_park 但无同 scope biz_park”与“默认 JH park
@@ -33,6 +33,7 @@
 - [x] production seed 与 prerequisite 的解析合同一致且幂等。
 - [ ] 静态合同、真实 PostgreSQL 回放、Release Smoke、shell/YAML/diff 门禁通过。
 - [ ] 生产只读诊断识别 `unresolved_source=1` 的具体 scope 与业务落数，随后选择可审计的确定性修复。
+- [x] 只读 run 31265619022 证明默认 scope 有 2 个 exact business park、唯一 JH 来源，且有 30/84/83/15 的 building/floor/unit/org 落数。
 - [ ] 部署前门禁能在任何源码同步、migration 或 seed 之前阻断同类数据漂移。
 - [ ] 提交、推送并创建 Draft PR；不自动部署或合并。
 

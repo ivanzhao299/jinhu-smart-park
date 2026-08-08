@@ -16,6 +16,9 @@
   default scope. It intentionally refused arbitrary cross-tenant guessing.
 - The new classification exposed `unresolved_source=1`, but Release Smoke only replayed the two known default
   shapes. It therefore proved the implementation contract, not parity with historical production data.
+- Read-only run `31265619022` showed the actual third shape: the fixed default scope had zero asset projections,
+  two exact-scope business parks, and exactly one global `JH`. The earlier state machine allowed the fixed-key
+  source only when the exact-scope count was zero, so the extra business park masked the trusted JH source.
 
 ## 3. Prevention mechanisms
 
@@ -23,6 +26,8 @@
 - Run the same check in enforce mode before API/full deployment performs source sync, migration, seed, or build.
 - Output only scope identifiers and aggregate business counts; never infer or mutate a mapping from diagnostics.
 - Add every newly observed production shape to isolated PostgreSQL Release Smoke fixtures.
+- Permit the fixed unique key to disambiguate multiple rows only inside its fixed documented target scope; retain
+  fail-closed behavior for every generic/non-default multiple-source state.
 
 ## 4. Systematic expansion
 

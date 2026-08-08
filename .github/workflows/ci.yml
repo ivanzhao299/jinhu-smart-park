@@ -644,6 +644,92 @@ jobs:
           grep -Fq 'unresolved_source=1' \
             /tmp/release-smoke-logs/db-migrate-000189-missing-source.log
 
+          # Production can contain multiple active biz parks under the fixed
+          # default scope. The globally unique JH key remains the deterministic
+          # source; no other scope receives this fallback.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          INSERT INTO public.biz_park (
+            tenant_id, park_id, park_code, park_name, status, remark
+          ) VALUES
+            ('10000001', '20000001', 'JH', '金湖科创产业园', 1,
+             'release-smoke fixed default source'),
+            ('10000001', '20000001', 'JH-AUXILIARY', '同作用域辅助园区', 1,
+             'release-smoke same-scope non-default source');
+          COMMIT;
+          SQL
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql
+          default_multi_source_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT count(*), min(park_code)
+                  FROM public.asset_park
+                  WHERE tenant_id = '10000001'
+                    AND park_id = '20000001'
+                    AND status = 'enabled'
+                    AND is_deleted = false;"
+          )"
+          test "$default_multi_source_state" = "1|JH"
+
+          # Production-shape parity: a valid non-default active assignment can
+          # exist without any trusted park source. The read-only diagnostic and
+          # enforce gate must classify the same scope before deployment starts.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          INSERT INTO public.sys_tenant (
+            tenant_id, park_id, tenant_code, tenant_name, status, remark
+          ) VALUES (
+            'release-smoke-tenant', 'release-smoke-park', 'RELEASE-SMOKE-ORPHAN',
+            'Release Smoke Orphan Scope', 1, 'release-smoke non-default orphan scope'
+          );
+          INSERT INTO public.rel_tenant_module (
+            tenant_id, park_id, tenant_code, module_id, enabled, status, remark
+          )
+          SELECT
+            'release-smoke-tenant', 'release-smoke-park', 'RELEASE-SMOKE-ORPHAN',
+            module.id, true, 'enabled', 'release-smoke non-default orphan scope'
+          FROM public.sys_module module
+          WHERE module.module_code = 'asset'
+            AND module.status = 1
+            AND module.is_deleted = false;
+          COMMIT;
+          SQL
+
+          COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+            scripts/diagnose-000189-asset-scope.sh report . "$retry_db" \
+            > /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
+          grep -Fq \
+            'release-smoke-tenant|release-smoke-park|unresolved_source|1|1|0|0|0|0|0|0|0' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
+          if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+            scripts/diagnose-000189-asset-scope.sh enforce . "$retry_db" \
+              > /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log 2>&1; then
+            echo "Expected the non-default orphan asset scope gate to fail closed" >&2
+            exit 1
+          fi
+          grep -Fq 'summary: scopes=2 blocked=1 mode=enforce' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log
+          grep -Fq 'ERROR: 000189 asset scope parity gate failed before deployment' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          DELETE FROM public.rel_tenant_module
+          WHERE tenant_id = 'release-smoke-tenant'
+            AND park_id = 'release-smoke-park'
+            AND remark = 'release-smoke non-default orphan scope';
+          DELETE FROM public.sys_tenant
+          WHERE tenant_id = 'release-smoke-tenant'
+            AND tenant_code = 'RELEASE-SMOKE-ORPHAN'
+            AND remark = 'release-smoke non-default orphan scope';
+          COMMIT;
+          SQL
+
           target_checksum="$(sha256sum "database/migrations/$target_migration" | awk '{print $1}')"
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
             psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<SQL
@@ -652,6 +738,10 @@ jobs:
           -- park kept old scope IDs while the active module assignment uses the
           -- canonical production scope, and the asset projection is missing.
           DELETE FROM public.asset_park
+          WHERE tenant_id = '10000001'
+            AND park_id = '20000001'
+            AND is_deleted = false;
+          DELETE FROM public.biz_park
           WHERE tenant_id = '10000001'
             AND park_id = '20000001'
             AND is_deleted = false;

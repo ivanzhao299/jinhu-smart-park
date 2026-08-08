@@ -41,6 +41,9 @@
 - For a missing projection, make source precedence executable: unique same-scope source first; a
   cross-scope legacy fallback is allowed only for a documented fixed target scope and fixed unique
   business key. Never use “the only row in the database” as a tenant/scope mapping rule.
+- The same fixed target/key rule may disambiguate multiple active rows already under that fixed target
+  scope when the fixed key itself is globally unique. This does not authorize a generic “pick one exact
+  source” rule for any other scope.
 - A clean/default-scope fixture is not production-shape parity. When target scopes come from persisted
   assignments, provide a read-only diagnostic over every active target scope and promote every newly observed
   historical shape into isolated PostgreSQL regression coverage.
@@ -65,8 +68,8 @@
 - Destination absent, one same-scope source exists -> project and assert exactly one destination.
 - Fixed default destination absent, same-scope source absent, one fixed-key legacy source exists ->
   project through the documented fallback.
-- Destination duplicate, source duplicate, non-default cross-scope source, or no source -> fail closed
-  with category counts; do not rewrite source scope or authorization data.
+- Destination duplicate, non-default source duplicate, non-default cross-scope source, non-unique fixed key,
+  or no source -> fail closed with category counts; do not rewrite source scope or authorization data.
 
 ### 5. Good/Base/Bad Cases
 

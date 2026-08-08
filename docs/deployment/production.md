@@ -375,7 +375,7 @@ Migration behavior:
 - Successfully applied migration files are skipped on rerun.
 - A checksum mismatch after success fails fast and stops later migrations.
 - A failed migration or prerequisite can be retried after confirming it never succeeded in a long-lived environment and its transaction rolled back; the runner records the reviewed replacement checksum.
-- A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`, and only the fixed default scope may use the globally unique active legacy-scope `park_code=JH` baseline. Invalid scope, duplicate assets, or missing/ambiguous sources still stop deployment.
+- A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`. Only the fixed default scope may use the globally unique active `park_code=JH` baseline when the JH row retained legacy IDs or when other active business parks share the default scope. Invalid scope, duplicate assets, non-unique JH, or unbounded missing/ambiguous sources still stop deployment.
 - Before an API/full deployment syncs source or runs migrations, GitHub Actions executes the same `000189` scope classification in read-only enforce mode. Operators can select `diagnose-000189-scope` manually to print only tenant/park identifiers, classification, and aggregate building/floor/unit/org counts. That mode does not sync source, write `.release.json`, migrate, seed, deploy, or run UAT.
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
@@ -520,8 +520,8 @@ Migration execution behavior:
   missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
   fails closed on unexpected schema types or ambiguous canonical scope data. One existing active asset projection is
   accepted without requiring a duplicate `biz_park`; a missing projection prefers a unique same-scope park. Only the
-  fixed `10000001/20000001` production scope may fall back to the globally unique active `park_code=JH` row retained
-  under legacy scope IDs by older production seed upserts.
+  fixed `10000001/20000001` production scope may select the globally unique active `park_code=JH` row retained
+  under legacy scope IDs or alongside other active parks in that fixed default scope.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

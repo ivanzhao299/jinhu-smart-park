@@ -406,6 +406,7 @@ for (const requiredScopeContract of [
   "assignment.status = 'enabled'",
   "asset_count = 0",
   "exact_source_count = 1",
+  "scope.exact_source_count <> 1",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -459,6 +460,7 @@ for (const requiredSeedContract of [
   "module.module_code = 'asset'",
   "asset_count = 0",
   "exact_source_count = 1",
+  "scope.exact_source_count <> 1",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -618,6 +620,7 @@ assert.match(assetScopeDiagnostic, /building_count/u);
 assert.match(assetScopeDiagnostic, /floor_count/u);
 assert.match(assetScopeDiagnostic, /unit_count/u);
 assert.match(assetScopeDiagnostic, /org_count/u);
+assert.match(assetScopeDiagnostic, /exact_source_codes/u);
 assert.doesNotMatch(
   assetScopeDiagnostic,
   /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,

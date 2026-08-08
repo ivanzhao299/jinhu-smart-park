@@ -71,7 +71,8 @@ Reference files:
 - A projection prerequisite must not require its repair source when the immutable target is already
   satisfied by exactly one valid destination row. For a legacy seed whose global business key retained
   old scope IDs, a fallback may be used only for one fixed documented target scope and one fixed unique
-  source key; generic single-row or cross-tenant guessing remains forbidden.
+  source key. That fixed unique key may also disambiguate multiple rows inside the fixed target scope;
+  generic single-row or cross-tenant guessing remains forbidden.
 - When a deliberate legacy baseline skipped an earlier scope-ID type migration, use a separate,
   narrowly historied schema prerequisite before the unchanged target. Limit it to the exact columns
   consumed by that target, allow only known source/target types and sentinel rewrites, then assert the

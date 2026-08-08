@@ -20,6 +20,11 @@ scope 已经拥有唯一 active `asset_park`。这违反“只补缺失投影、
 Release Smoke 只构造默认 scope，无法代表历史生产作用域集合；继续扩大 fallback 会跨租户猜测
 业务数据，因此必须先获得只读证据。
 
+只读 run `31265619022` 纠正了这一假设：唯一 target 就是默认 scope；其中 active
+`asset_park=0`、exact-scope `biz_park=2`、全局 active `JH=1`，并有 30 栋、84 层、83 个房源、
+15 个组织。修复因此仍保持固定 target + 固定唯一 key，只把 JH 选择扩展到默认 scope 的 exact
+source count 不等于 1 时；其他 scope 和非唯一 JH 继续失败。
+
 ## 诊断与部署前门禁
 
 - 新增只读脚本，在 `BEGIN TRANSACTION READ ONLY` 中复用 prerequisite 判定，输出 scope ID、

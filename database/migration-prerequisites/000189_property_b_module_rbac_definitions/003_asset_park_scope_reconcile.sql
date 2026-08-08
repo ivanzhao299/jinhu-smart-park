@@ -3,9 +3,10 @@
 --
 -- This prerequisite is intentionally insert-only. Existing asset_park rows are
 -- never re-enabled or overwritten. A missing projection prefers one active
--- same-scope biz_park. The fixed production default scope may fall back to the
--- globally unique active JH baseline park because older production seeds
--- upserted by park_code without rewriting its legacy scope IDs.
+-- same-scope biz_park. If that scope contains multiple business parks, the
+-- fixed production default scope may still select the globally unique active
+-- JH baseline park. Older production databases can contain both JH and other
+-- active parks under the same canonical scope.
 
 BEGIN;
 SET LOCAL search_path = public, pg_catalog;
@@ -94,8 +95,7 @@ BEGIN
         AND NOT (
           exact_source_count = 1
           OR (
-            exact_source_count = 0
-            AND tenant_key = '10000001'
+            tenant_key = '10000001'
             AND park_key = '20000001'
             AND default_source_count = 1
           )
@@ -176,7 +176,7 @@ JOIN biz_park park
      AND btrim(park.park_id) = scope.park_key
    )
    OR (
-     scope.exact_source_count = 0
+     scope.exact_source_count <> 1
      AND scope.tenant_key = '10000001'
      AND scope.park_key = '20000001'
      AND park.park_code = 'JH'

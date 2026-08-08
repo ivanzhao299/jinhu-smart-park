@@ -4,6 +4,9 @@ set -eu
 
 mode="${1:-report}"
 deploy_path="${2:-.}"
+database_name="${3:-}"
+compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
+env_file="${ENV_FILE-.env.production}"
 
 case "$mode" in
   report|enforce) ;;
@@ -15,9 +18,20 @@ esac
 
 cd "$deploy_path"
 
+run_psql() {
+  if [ -n "$env_file" ]; then
+    docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name"
+  else
+    docker compose -f "$compose_file" exec -T postgres \
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name"
+  fi
+}
+
 rows="$({
-  docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml exec -T postgres \
-    sh -c 'exec psql -X -qAt -v ON_ERROR_STOP=1 -F "|" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<'SQL'
+  run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
 
 WITH target_scope AS (
@@ -61,6 +75,14 @@ WITH target_scope AS (
         AND park.status = 1
         AND park.is_deleted = false
     ) AS exact_source_count,
+    (
+      SELECT coalesce(string_agg(park.park_code, ',' ORDER BY park.park_code), '')
+      FROM biz_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.status = 1
+        AND park.is_deleted = false
+    ) AS exact_source_codes,
     (
       SELECT count(*) FROM biz_park park
       WHERE park.park_code = 'JH'
@@ -106,7 +128,7 @@ SELECT
     WHEN asset_count > 1 THEN 'ambiguous_asset'
     WHEN asset_count = 1 THEN 'ready_existing_asset'
     WHEN exact_source_count = 1 THEN 'ready_exact_source'
-    WHEN exact_source_count = 0
+    WHEN exact_source_count <> 1
       AND tenant_key = '10000001'
       AND park_key = '20000001'
       AND default_source_count = 1 THEN 'ready_default_jh_source'
@@ -120,7 +142,8 @@ SELECT
   building_count,
   floor_count,
   unit_count,
-  org_count
+  org_count,
+  exact_source_codes
 FROM scope_state
 ORDER BY tenant_key, park_key;
 
@@ -133,7 +156,7 @@ SQL
 }
 
 echo "000189 asset scope diagnostic (scope identifiers and aggregate counts only)"
-echo "tenant_id|park_id|classification|assignments|tenants|asset_parks|exact_biz_parks|default_jh_parks|buildings|floors|units|orgs"
+echo "tenant_id|park_id|classification|assignments|tenants|asset_parks|exact_biz_parks|default_jh_parks|buildings|floors|units|orgs|exact_biz_park_codes"
 printf '%s\n' "$rows"
 
 blocked_count="$(printf '%s\n' "$rows" | awk -F '|' '
