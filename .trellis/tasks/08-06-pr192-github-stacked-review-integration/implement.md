@@ -177,9 +177,9 @@ git diff --check
 - [x] 生成 archive retention manifest，复核 v31 compact manifest/authority canonical evidence 仍被跟踪。
 - [x] 重新统计 PR 文件/行数：933 files / +177252 / -8254，其中非归档 873、归档 60；
   `git diff --cached --check` 与 ignore contract 通过。
-- [ ] 提交并推送 `codex/pr192-main-integration`，等待 PR #223 CI 全绿。
-- [ ] 建立 `review-root -> review-a -> review-b -> review-c` Draft 投影栈；每层排除 `.trellis`
+- [x] 提交并推送 `codex/pr192-main-integration`（archive prune `d2a342cc`）；PR #223 CI 已按新 HEAD 重启。
+- [x] 建立 `review-root -> review-a -> review-b -> review-c` Draft 投影栈（#227/#228/#229）；每层排除 `.trellis`
   归档噪音，标题/正文标记“只读审查、禁止合并”，不得启用 auto-merge。
-- [ ] PR #223 正文改为汇总各层审查链接、canonical history、冲突裁决与 CI，不再要求 Codex
+- [x] PR #223 正文改为汇总各层审查链接、canonical history、冲突裁决与 CI，不再要求 Codex
   一次性审查全部历史证据。
 - [ ] 在瘦身后的 PR #223 新 HEAD 只触发一次 `@codex review`；后续按可操作反馈闭环。

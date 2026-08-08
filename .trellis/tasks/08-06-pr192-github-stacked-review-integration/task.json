@@ -25,9 +25,15 @@
     ".trellis/tasks/07-30-pr192-property-productization-remediation",
     ".trellis/tasks/archive/2026-08/07-30-pr192-c-architecture-reliability"
   ],
-  "notes": "Planning authority: immutable reviewed snapshot f19ab4d509595579d40d2906628df409cdfd92aa; final technical code SHA 15b6e8f6edd12759dc35b1675f851c9a0bc52c0c; initial latest origin/main 3608608ad1cb9c1b53c1829f8cd0f9fb33b6f098; divergence 68 main-only / 88 snapshot-only. Do not rebase, squash or cherry-pick the snapshot. Review refs are optional immutable comparison aids, not mergeable PRs. Only codex/pr192-main-integration may open a PR to main. Existing performance evidence remains exact-SHA evidence for 15b6 only; final integration requires fresh final-SHA rollback and performance evidence before ready-for-review/merge.",
+  "notes": "Planning authority: immutable reviewed snapshot f19ab4d509595579d40d2906628df409cdfd92aa; final technical code SHA 15b6e8f6edd12759dc35b1675f851c9a0bc52c0c. Do not rebase, squash or cherry-pick the snapshot. Draft PRs #227/#228/#229 are read-only non-.trellis review projections and must never be merged or auto-merged. Only PR #223 from codex/pr192-main-integration is the canonical merge source. Formal performance 30/30 is user-approved skipped, not PASS; prior rollback/performance evidence is ancestor-only after HEAD changes.",
   "meta": {
-    "reviewModel": "immutable_refs_single_integration_pr",
+    "reviewModel": "readonly_projection_stack_single_integration_pr",
+    "reviewPrUrls": [
+      "https://github.com/ivanzhao299/jinhu-smart-park/pull/227",
+      "https://github.com/ivanzhao299/jinhu-smart-park/pull/228",
+      "https://github.com/ivanzhao299/jinhu-smart-park/pull/229"
+    ],
+    "archivePruneCommit": "d2a342cc1b7ae9d3fd9a52fbb2d6c4c90ec27732",
     "snapshotSha": "f19ab4d509595579d40d2906628df409cdfd92aa",
     "testedCodeSha": "15b6e8f6edd12759dc35b1675f851c9a0bc52c0c",
     "initialOriginMainSha": "3608608ad1cb9c1b53c1829f8cd0f9fb33b6f098",
