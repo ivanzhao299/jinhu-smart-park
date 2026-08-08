@@ -373,4 +373,7 @@ git diff --check
   旧源码的 migration/production seed manifest，避免 forward-only 数据库被回滚清单再次写入。
 - [x] 静态合同、YAML、shell syntax、diff-check 与真实 PostgreSQL legacy-only、危险 duplicate 拒绝、
   精确 duplicate 收敛回放全部通过；隔离 container/network/volume 已清理，独立复核 open P0/P1/P2=[]。
+- [x] PR #231 首轮 Codex review 对 `88170402` 无问题；Verify 唯一失败是既有 admin-issues 静态测试仍
+  要求源码 rollback 包含 `RUN_PRODUCTION_SEED=no`。更新合同为直接断言旧容器重建、full health、
+  Docker cleanup，且 rollback 段不得出现 migration、production seed 或 `prod:deploy`。
 - [ ] 提交 Draft PR，等待 Codex review、Verify、Release Smoke 和零开放可操作线程后通知人工合并。
