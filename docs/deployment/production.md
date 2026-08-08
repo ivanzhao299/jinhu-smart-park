@@ -496,6 +496,9 @@ pnpm db:check:init
 Migration execution behavior:
 
 - `pnpm db:migrate` always bootstraps the migration record tables `public.sys_schema_migration_history` and `public.schema_migrations`.
+- When upgrading from one history table to two, bootstrap copies the existing table only if the peer table did not
+  exist before the transaction. If both tables already exist, bootstrap does not fill missing rows between them;
+  the subsequent FULL JOIN audit reports the original disagreement and stops.
 - If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command still walks the manifest to verify/apply independently tracked prerequisites, while skipping each checksum-matched migration.
 - If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
 - If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.

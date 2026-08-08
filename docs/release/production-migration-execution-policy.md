@@ -251,6 +251,10 @@ pnpm db:migrate
 `succeeded` 且 checksum 完全一致时，事务性删除重复旧身份。后者用于恢复“新版本迁移已重签，随后
 源码回滚又运行旧清单”形成的可证明重复。缺少审计标记、状态/checksum 漂移或双表不一致一律停止。
 
+双 history 表 bootstrap 只允许“原先仅有一张表”时向本次新建的 peer 表做一次整表升级复制。如果两张表
+在 runner 启动前都已存在，禁止在一致性审计前互相补齐缺失记录；缺 legacy、canonical、alias marker
+或任意其他 history 行都必须由 FULL JOIN 原样暴露并停止。
+
 GitHub 自动源码回滚只重建旧版 API/Web 容器、执行完整健康检查和 Docker cleanup，不运行旧版
 migration 或 production seed。数据库迁移保持 forward-only；如需数据库恢复，必须使用发布前备份并
 由数据库负责人显式执行。

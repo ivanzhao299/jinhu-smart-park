@@ -98,6 +98,11 @@ bootstrap_history_table() {
   psql_exec <<'SQL'
 BEGIN;
 
+CREATE TEMP TABLE migration_history_bootstrap_state ON COMMIT DROP AS
+SELECT
+  to_regclass('public.sys_schema_migration_history') IS NOT NULL AS primary_existed,
+  to_regclass('public.schema_migrations') IS NOT NULL AS standard_existed;
+
 CREATE TABLE IF NOT EXISTS public.sys_schema_migration_history (
   id BIGSERIAL PRIMARY KEY,
   filename varchar(255) NOT NULL UNIQUE,
@@ -154,6 +159,10 @@ SELECT
   created_at,
   updated_at
 FROM public.sys_schema_migration_history
+WHERE (
+  SELECT primary_existed AND NOT standard_existed
+  FROM migration_history_bootstrap_state
+)
 ON CONFLICT (filename) DO NOTHING;
 
 INSERT INTO public.sys_schema_migration_history (
@@ -180,6 +189,10 @@ SELECT
   created_at,
   updated_at
 FROM public.schema_migrations
+WHERE (
+  SELECT standard_existed AND NOT primary_existed
+  FROM migration_history_bootstrap_state
+)
 ON CONFLICT (filename) DO NOTHING;
 
 COMMIT;

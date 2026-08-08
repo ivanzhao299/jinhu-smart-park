@@ -38,6 +38,9 @@ Reference files:
 - If legacy and canonical identities both exist, automatic recovery requires both rows plus an existing alias audit
   marker to be `succeeded` with that exact checksum in both history tables. Delete only the duplicate legacy identity
   in one transaction; any missing marker, status/checksum drift, or cross-table disagreement must fail closed.
+- History bootstrap may copy rows only when exactly one history table existed before the runner created the other
+  table. If both tables already existed, never backfill missing rows between them before the FULL JOIN consistency
+  audit; an incomplete alias or migration audit must remain visible and fail closed.
 - A source rollback may rebuild and health-check the previous application snapshot, but it must not run that older
   snapshot's migration or production-seed manifest against a forward-migrated database.
 - Source rollback does not reverse database state. Use the release backup and an explicit database-owner decision for

@@ -498,6 +498,11 @@ assert.match(runner, /migration history tables disagree/);
 assert.match(runner, /FULL JOIN \$\{STANDARD_HISTORY_TABLE\}/u);
 assert.match(runner, /primary_history\.filename IS NULL/u);
 assert.match(runner, /standard_history\.filename IS NULL/u);
+assert.match(runner, /CREATE TEMP TABLE migration_history_bootstrap_state ON COMMIT DROP/u);
+assert.match(runner, /to_regclass\('public\.sys_schema_migration_history'\) IS NOT NULL AS primary_existed/u);
+assert.match(runner, /to_regclass\('public\.schema_migrations'\) IS NOT NULL AS standard_existed/u);
+assert.match(runner, /primary_existed AND NOT standard_existed/u);
+assert.match(runner, /standard_existed AND NOT primary_existed/u);
 assert.match(runner, /pg_try_advisory_lock\(hashtextextended\(current_database\(\) \|\| ':jinhu-db-migrate'/u);
 assert.match(runner, /MIGRATION LOCK ACQUIRED/u);
 assert.ok(

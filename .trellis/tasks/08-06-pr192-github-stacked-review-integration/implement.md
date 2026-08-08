@@ -376,4 +376,7 @@ git diff --check
 - [x] PR #231 首轮 Codex review 对 `88170402` 无问题；Verify 唯一失败是既有 admin-issues 静态测试仍
   要求源码 rollback 包含 `RUN_PRODUCTION_SEED=no`。更新合同为直接断言旧容器重建、full health、
   Docker cleanup，且 rollback 段不得出现 migration、production seed 或 `prod:deploy`。
+- [x] Codex 对 `bb78bad2` 指出 P1：双 history 表本已存在但缺 legacy/marker 时，旧 bootstrap 会先
+  双向补齐再审计。bootstrap 改为仅在 exactly-one-table-existed 的首次双表升级复制；两表原本均存在
+  时不补缺，由 FULL JOIN 保留原始分歧并 fail closed；Release Smoke 增加缺 marker/legacy 回放。
 - [ ] 提交 Draft PR，等待 Codex review、Verify、Release Smoke 和零开放可操作线程后通知人工合并。

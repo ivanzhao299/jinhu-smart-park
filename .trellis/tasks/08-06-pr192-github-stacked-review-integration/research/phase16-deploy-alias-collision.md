@@ -20,6 +20,7 @@
 | P0 | Runtime | 仅在双表 legacy/canonical/marker 均 succeeded 且 checksum 精确一致时事务折叠旧身份 | DONE |
 | P0 | Architecture | 源码 rollback 直接重建容器，不运行旧 migration/seed manifest | DONE |
 | P0 | Integration test | Release Smoke 回放 legacy-only、checksum 漂移双身份与精确双身份 | DONE |
+| P0 | Audit integrity | 双表已存在时 bootstrap 不补缺；缺 legacy/marker 保留给 FULL JOIN 拒绝 | DONE |
 | P1 | Documentation | 同步 production runbook、migration policy 与 Trellis operations guide | DONE |
 
 ## 4. Systematic Expansion
