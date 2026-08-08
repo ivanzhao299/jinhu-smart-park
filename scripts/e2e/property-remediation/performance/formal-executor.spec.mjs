@@ -111,3 +111,9 @@ test("requires the seed manifest to bind the declared dataset business clock", (
   writeFileSync(env.PROPERTY_PERF_SEED_MANIFEST, `${JSON.stringify({ businessClock: "2026-08-05T00:00:00Z", files: [] })}\n`);
   assert.throws(() => seedBusinessClock(env.PROPERTY_PERF_SEED_MANIFEST, env.PROPERTY_PERF_BUSINESS_CLOCK), /seed manifest business clock mismatch/u);
 });
+
+test("telemetry sampling is serialized before the final sample", () => {
+  const source = readFileSync(resolve(import.meta.dirname, "formal-executor.mjs"), "utf8");
+  assert.doesNotMatch(source, /setInterval\(sample,/u);
+  assert.match(source, /await pendingSample;/u);
+});

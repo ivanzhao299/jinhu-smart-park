@@ -19,6 +19,7 @@ type TurnoverRow = {
   updateTime: Date | string;
   startedAt: Date | string | null; completedAt: Date | string | null;
   exceptionDescription: string | null;
+  blockedUntil: Date | string | null;
 };
 
 @Injectable()
@@ -59,16 +60,27 @@ PropertyTaskProjectorSource {
       || row.version !== input.expectedAssignmentVersion) {
       throw new ConflictException("Property task source version changed");
     }
-    const next = this.transition(row, input.action, input.actor.actorId);
+    const next = this.transition(
+      row,
+      input.action,
+      input.actor.actorId,
+      input.reason,
+      input.blockedUntil
+    );
     const updated = typeormQueryRows<{ version: number }>(await manager.query(
       `UPDATE biz_homestay_turnover_task SET status=$6,assignee_id=$7,
-              assignee_name=CASE WHEN $7::uuid IS NULL THEN NULL ELSE assignee_name END,
+              assignee_name=CASE WHEN $7::uuid IS NULL THEN NULL ELSE COALESCE(
+                (SELECT NULLIF(actor.real_name, '') FROM sys_user actor
+                  WHERE actor.id=$7::uuid AND actor.tenant_id::text=$1 AND actor.park_id::text=$2),
+                (SELECT actor.username FROM sys_user actor
+                  WHERE actor.id=$7::uuid AND actor.tenant_id::text=$1 AND actor.park_id::text=$2)
+              ) END,
               started_at=CASE WHEN $6='cleaning' AND started_at IS NULL THEN clock_timestamp() ELSE started_at END,
-              exception_description=$8,update_by=$9,update_time=clock_timestamp(),version=version+1
+              exception_description=$8,blocked_until=$9,update_by=$10,update_time=clock_timestamp(),version=version+1
         WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4 AND status=$5
           AND is_deleted=false RETURNING version`,
       [input.scope.tenantId, input.scope.parkId, row.id, row.version, row.status,
-        next.status, next.assigneeId, next.exceptionDescription, input.actor.actorId]
+        next.status, next.assigneeId, next.exceptionDescription, next.blockedUntil, input.actor.actorId]
     ));
     if (updated.length !== 1 || updated[0]!.version !== row.version + 1) {
       throw new ConflictException("Property task source version changed");
@@ -83,7 +95,7 @@ PropertyTaskProjectorSource {
       `SELECT id::text AS id,booking_id::text AS "bookingId",unit_id::text AS "unitId",
               status,version,assignee_id::text AS "assigneeId",assignee_name AS "assigneeName",
               create_time AS "createTime",update_time AS "updateTime",started_at AS "startedAt",completed_at AS "completedAt",
-              exception_description AS "exceptionDescription"
+              exception_description AS "exceptionDescription",blocked_until AS "blockedUntil"
          FROM biz_homestay_turnover_task WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
           AND ($3::uuid IS NULL OR id>$3::uuid) ORDER BY id LIMIT $4`,
       [input.scope.tenantId, input.scope.parkId, input.after?.sourceId ?? null, input.limit]
@@ -94,27 +106,34 @@ PropertyTaskProjectorSource {
       ? { sourceId: last.id, businessOccurrenceKey: this.occurrence(last.id) } : null };
   }
 
-  private transition(row: TurnoverRow, action: PropertyTaskAction, actorId: string) {
+  private transition(
+    row: TurnoverRow,
+    action: PropertyTaskAction,
+    actorId: string,
+    reason?: string,
+    blockedUntil?: string | null
+  ) {
     switch (action) {
       case "property.task.claim":
         if (row.status !== "pending" || row.assigneeId) break;
         return { status: row.status, assigneeId: actorId,
-          exceptionDescription: row.exceptionDescription };
+          exceptionDescription: row.exceptionDescription, blockedUntil: row.blockedUntil };
       case "property.task.start":
         if (row.status !== "pending" || row.assigneeId !== actorId) break;
         return { status: "cleaning", assigneeId: actorId,
-          exceptionDescription: row.exceptionDescription };
+          exceptionDescription: row.exceptionDescription, blockedUntil: null };
       case "property.task.block":
         if (!["pending", "cleaning"].includes(row.status) || row.assigneeId !== actorId) break;
         return { status: "exception", assigneeId: actorId,
-          exceptionDescription: row.exceptionDescription ?? "property-task-blocked" };
+          exceptionDescription: reason?.trim() || row.exceptionDescription || "property-task-blocked",
+          blockedUntil: blockedUntil ?? null };
       case "property.task.unblock":
-        if (row.status !== "exception" || row.assigneeId !== actorId) break;
-        return { status: "cleaning", assigneeId: actorId, exceptionDescription: null };
+        if (row.status !== "exception") break;
+        return { status: "cleaning", assigneeId: row.assigneeId, exceptionDescription: null, blockedUntil: null };
       case "property.task.release":
-        if (row.status !== "pending" || row.assigneeId !== actorId) break;
+        if (!["pending", "cleaning"].includes(row.status) || !row.assigneeId) break;
         return { status: "pending", assigneeId: null,
-          exceptionDescription: row.exceptionDescription };
+          exceptionDescription: row.exceptionDescription, blockedUntil: null };
     }
     throw new ConflictException("Property task source is not eligible for this action");
   }
@@ -136,7 +155,8 @@ PropertyTaskProjectorSource {
         assigneeDisplay: row.assigneeName, claimedAt: row.assigneeId ? this.time(row.updateTime) : null,
         startedAt: row.startedAt ? this.time(row.startedAt) : null,
         blockedReason: row.status === "exception" ? row.exceptionDescription : null,
-        blockedUntil: null, outcomeCode: row.status === "completed" ? "turnover-completed" : null,
+        blockedUntil: row.status === "exception" && row.blockedUntil ? this.time(row.blockedUntil) : null,
+        outcomeCode: row.status === "completed" ? "turnover-completed" : null,
         outcomeSourceVersion: row.status === "completed" ? row.version : null,
         outcomeAt: row.completedAt ? this.time(row.completedAt) : null,
         createdAt, updatedAt: this.time(row.updateTime)
@@ -149,7 +169,7 @@ PropertyTaskProjectorSource {
       `SELECT id::text AS id,booking_id::text AS "bookingId",unit_id::text AS "unitId",
               status,version,assignee_id::text AS "assigneeId",assignee_name AS "assigneeName",
               create_time AS "createTime",update_time AS "updateTime",started_at AS "startedAt",completed_at AS "completedAt",
-              exception_description AS "exceptionDescription"
+              exception_description AS "exceptionDescription",blocked_until AS "blockedUntil"
          FROM biz_homestay_turnover_task WHERE tenant_id=$1 AND park_id=$2 AND id=$3
           AND is_deleted=false${lock ? " FOR UPDATE" : ""}`,
       [scope.tenantId, scope.parkId, id]

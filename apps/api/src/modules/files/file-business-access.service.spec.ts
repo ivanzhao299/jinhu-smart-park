@@ -103,27 +103,26 @@ test("lease readers and signers can recover lease signature evidence", async () 
   }
 });
 
-test("handover managers can read every supported handover evidence type", async () => {
+test("handover readers and managers can read every supported handover evidence type", async () => {
   const service = new FileBusinessAccessService(
     { query: async () => [{ unit_id: "unit-1" }] } as never,
     { assertAccess: async () => ({ id: "unit-1" }) } as never,
     unrestrictedDataScopes
   );
 
-  for (const bizType of [
-    "housing_handover",
-    "housing_handover_move_in",
-    "housing_handover_move_out"
+  for (const permission of [
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
   ]) {
-    await assert.doesNotReject(
-      service.assertReferenceAccess(
-        scope,
-        actor([SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE]),
-        bizType,
-        "lease-1",
-        "read"
-      )
-    );
+    for (const bizType of [
+      "housing_handover",
+      "housing_handover_move_in",
+      "housing_handover_move_out"
+    ]) {
+      await assert.doesNotReject(
+        service.assertReferenceAccess(scope, actor([permission]), bizType, "lease-1", "read")
+      );
+    }
   }
 });
 
@@ -169,14 +168,19 @@ test("housing repair evidence requires repair or lease permission and unit scope
     service.assertReferenceAccess(scope, actor([SYSTEM_PERMISSIONS.FILE_READ]), "housing_repair", "lease-1", "read"),
     ForbiddenException
   );
-  await service.assertReferenceAccess(
-    scope,
-    actor([SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE]),
-    "housing_repair",
-    "lease-1",
-    "read"
-  );
-  assert.deepEqual(checkedUnits, ["unit-1"]);
+  for (const permission of [
+    SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ,
+    SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE
+  ]) {
+    await service.assertReferenceAccess(
+      scope,
+      actor([permission]),
+      "housing_repair",
+      "lease-1",
+      "read"
+    );
+  }
+  assert.deepEqual(checkedUnits, ["unit-1", "unit-1"]);
 });
 
 test("project-wide purchase files require unrestricted property scope", async () => {

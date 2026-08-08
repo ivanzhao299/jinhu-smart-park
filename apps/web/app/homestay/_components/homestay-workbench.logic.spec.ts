@@ -9,6 +9,7 @@ import {
   homestayRateWorkspaceKey,
   homestayDetailHref,
   listPageState,
+  normalizeHomestayAvailabilityResponse,
   pageCount,
   resolveHomestayLanding,
   shouldLoadHomestayRead,
@@ -147,6 +148,18 @@ test("availability always sends a strict non-empty date interval", () => {
     availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-12" }),
     { dateFrom: "2026-08-10", dateTo: "2026-08-12" }
   );
+});
+
+test("availability normalizes the legacy array response without changing v2 metadata", () => {
+  const item = { unitId: "unit-1" } as never;
+  assert.deepEqual(normalizeHomestayAvailabilityResponse([item], 3), {
+    items: [item], total: 1, page: 3, page_size: 20
+  });
+  const wrapped = { items: [item], total: 41, page: 2, page_size: 20 };
+  assert.equal(normalizeHomestayAvailabilityResponse(wrapped, 9), wrapped);
+  assert.deepEqual(normalizeHomestayAvailabilityResponse([], 1), {
+    items: [], total: 0, page: 1, page_size: 20
+  });
 });
 
 test("rate workspaces remount whenever the selected unit changes", () => {

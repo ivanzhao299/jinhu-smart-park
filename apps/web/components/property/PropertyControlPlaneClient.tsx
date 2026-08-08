@@ -10,6 +10,7 @@ import type {
   NotificationListItem,
   PropertyPaginatedResult
 } from "@jinhu/shared";
+import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +21,12 @@ import {
   PropertyPanelSurface
 } from "../../features/property-shared";
 import styles from "./PropertyControlPlane.module.css";
+import { IdentityEvidenceList } from "./IdentityEvidenceList";
+import {
+  IDENTITY_STATUS_OPTIONS,
+  identityMutationValidationMessage,
+  safePropertyDeepLink
+} from "./property-control-plane.logic";
 
 export type PropertyControlPlaneSurface =
   | "identity"
@@ -38,7 +45,7 @@ const CONFIG = {
     description: "查看共享 Party 的核验提交、当前证据与分派状态。",
     api: "/property/identity-submissions",
     route: "/assets/identity-submissions",
-    statusOptions: ["draft", "submitted", "claimed", "verified", "revoked", "withdrawn", "superseded"]
+    statusOptions: IDENTITY_STATUS_OPTIONS
   },
   notifications: {
     title: "房产通知",
@@ -198,6 +205,10 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
     if (!detail || mutationLock.current) return;
     const selectedAction = surface === "identity" ? identityAction ?? null : action;
     if (!selectedAction || !allowedActions(detail).includes(selectedAction)) return;
+    if (surface === "identity") {
+      const validationMessage = identityMutationValidationMessage(selectedAction, identityDecision, reason);
+      if (validationMessage) { setFeedback(validationMessage); return; }
+    }
     if (selectedAction !== "property.notification.mark-read"
       && selectedAction !== "party.identity.claim"
       && selectedAction !== "party.identity.submit"
@@ -242,6 +253,14 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
       </dl></PropertyPanelSurface>
       {surface === "identity" && "partyId" in detail ? <PropertyPanelSurface title="Party 身份档案">
         <p><Link href={`/assets/parties/${encodeURIComponent(detail.partyId)}?tab=identity#identity`}>打开 Party 身份页签</Link></p></PropertyPanelSurface> : null}
+      {surface === "identity" && "evidence" in detail ? <PropertyPanelSurface title="身份核验证据">
+        <IdentityEvidenceList files={detail.evidence.files} />
+      </PropertyPanelSurface> : null}
+      {surface === "notifications" && "deepLink" in detail && safePropertyDeepLink(detail.deepLink)
+        ? <PropertyPanelSurface title="通知来源">
+          <p><Link href={safePropertyDeepLink(detail.deepLink)! as Route}>打开关联业务记录</Link></p>
+        </PropertyPanelSurface>
+        : null}
       {safeDetails(detail).length ? <PropertyPanelSurface title="安全详情">
         <pre className={styles.safeDetails}>{JSON.stringify(safeDetailsObject(detail), null, 2)}</pre></PropertyPanelSurface> : null}
       {surface !== "identity" && action && allowedActions(detail).includes(action) ? <PropertyPanelSurface title="允许操作">

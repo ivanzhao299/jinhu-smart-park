@@ -58,6 +58,7 @@ export function captureEvidence({ spec, output, spawn = spawnSync }) {
   mkdirSync(target, { recursive: false, mode: 0o700 });
   const records = [];
   let failure = null;
+  let cleanupResidualCount = null;
   try {
     for (let index = 0; index < spec.commands.length; index += 1) {
       const record = runCommand(spec.commands[index], target, index + 1, spawn);
@@ -69,9 +70,10 @@ export function captureEvidence({ spec, output, spawn = spawnSync }) {
     records.push({ ...cleanup, cleanup: true });
     let cleanupResult;
     try { cleanupResult = JSON.parse(readFileSync(join(target, cleanup.artifacts[0].path), "utf8")); } catch { cleanupResult = null; }
-    if (cleanup.exitCode !== 0 || cleanupResult?.residualCount !== 0) failure ??= { stage: "cleanup", exitCode: cleanup.exitCode, residualCount: cleanupResult?.residualCount ?? null };
+    cleanupResidualCount = cleanupResult?.residualCount ?? null;
+    if (cleanup.exitCode !== 0 || cleanupResidualCount !== 0) failure ??= { stage: "cleanup", exitCode: cleanup.exitCode, residualCount: cleanupResidualCount };
   }
-  const manifest = { schemaVersion: "property-track-c-evidence-v1", status: failure ? "FAIL" : "PASS", commitSha: spec.commitSha, environmentDigest: environment.sha256, datasetChecksum: dataset.sha256, profileChecksum: profile.sha256, reviewer: spec.reviewer, generatedAt: new Date().toISOString(), commands: records, failure, cleanup: { attempted: true, residualCount: failure?.stage === "cleanup" ? failure.residualCount : 0 } };
+  const manifest = { schemaVersion: "property-track-c-evidence-v1", status: failure ? "FAIL" : "PASS", commitSha: spec.commitSha, environmentDigest: environment.sha256, datasetChecksum: dataset.sha256, profileChecksum: profile.sha256, reviewer: spec.reviewer, generatedAt: new Date().toISOString(), commands: records, failure, cleanup: { attempted: true, residualCount: cleanupResidualCount } };
   const manifestPath = join(target, "manifest.json");
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 });
   return { ...manifest, manifestSha256: fileDigest(manifestPath), output: target };

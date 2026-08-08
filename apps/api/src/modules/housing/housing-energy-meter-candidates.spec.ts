@@ -95,7 +95,8 @@ test("housing energy meter candidate controller is lease-scoped for billing and 
   ]);
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY, handler), [
     SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
-    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+    SYSTEM_PERMISSIONS.HOUSING_BILLING_GENERATE
   ]);
   assert.deepEqual(Reflect.getMetadata(MODULES_KEY, handler), [
     "housing_rental",

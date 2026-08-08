@@ -487,13 +487,13 @@ test("A0-ROLES-001 actors are generated from exact shared bundles", () => {
   });
 });
 
-test("A0-ROLES-002 property permission oracle is exactly 65 while actors exclude broad codes", async () => {
+test("A0-ROLES-002 property permission oracle is exactly 97 while actors exclude broad codes", async () => {
   const shared = await import(
     "../../../../packages/shared/dist/property-business/permissions.js"
   );
   const values = Object.values(shared.PROPERTY_BUSINESS_PERMISSIONS);
-  assert.equal(values.length, 65);
-  assert.equal(new Set(values).size, 65);
+  assert.equal(values.length, 97);
+  assert.equal(new Set(values).size, 97);
   const forbidden = new Set([
     "homestay:operations",
     "housing_rental:operations",

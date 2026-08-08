@@ -476,6 +476,9 @@ function rebuildReplayRuntime(options: { receiptDatabaseError?: unknown } = {}) 
     }
   } as unknown as DataSource;
   const assignments = {
+    async ensureOpenAssignments() {
+      events.push("assignment:ensure-open");
+    },
     async lockByTaskKeys() {
       events.push("assignment:lock-keys");
       return [];
@@ -1345,6 +1348,7 @@ describe("C4 property task orchestrator receipt fences", () => {
       "registry:projectors",
       "projector:scan",
       "projector:source-lock",
+      "assignment:ensure-open",
       "assignment:lock-keys",
       "projection:lock-head-rows",
       "projection:hash-authority",
@@ -1396,6 +1400,7 @@ describe("C4 property task orchestrator receipt fences", () => {
       "registry:projectors",
       "projector:scan",
       "projector:source-lock",
+      "assignment:ensure-open",
       "assignment:lock-keys",
       "projection:lock-head-rows",
       "projection:hash-authority",
@@ -1473,6 +1478,9 @@ describe("C4 property task orchestrator receipt fences", () => {
         }
       } as unknown as DataSource,
       {
+        async ensureOpenAssignments() {
+          events.push("assignment:ensure-open");
+        },
         async lockByTaskKeys() {
           events.push("assignment:lock-keys");
           return [];
@@ -1545,6 +1553,7 @@ describe("C4 property task orchestrator receipt fences", () => {
       "registry:projectors",
       "projector:scan",
       "projector:source-lock",
+      "assignment:ensure-open",
       "assignment:lock-keys",
       "projection:lock-head-rows",
       "projection:hash-authority",

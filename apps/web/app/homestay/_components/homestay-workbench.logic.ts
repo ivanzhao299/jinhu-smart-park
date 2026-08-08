@@ -1,4 +1,8 @@
-import type { UserContext } from "@jinhu/shared";
+import type {
+  HomestayAvailabilityListResponse,
+  HomestayAvailabilityResponse,
+  UserContext
+} from "@jinhu/shared";
 import type {
   PropertyCapabilityProjection,
   PropertyPageState
@@ -20,6 +24,15 @@ export function availabilityQueryDates(
       ? input.dateTo
       : addBusinessDateDays(dateFrom, 1)
   };
+}
+
+export function normalizeHomestayAvailabilityResponse(
+  data: HomestayAvailabilityResponse | HomestayAvailabilityListResponse,
+  page: number
+): HomestayAvailabilityListResponse {
+  return Array.isArray(data)
+    ? { items: data, total: data.length, page, page_size: 20 }
+    : data;
 }
 
 export const HOMESTAY_LANDING_PRIORITY = [

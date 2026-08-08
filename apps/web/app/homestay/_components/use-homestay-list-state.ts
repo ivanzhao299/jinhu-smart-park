@@ -2,6 +2,7 @@
 
 import type {
   HomestayAvailabilityListResponse,
+  HomestayAvailabilityResponse,
   HomestayBookingListResponse,
   HomestayDashboardResponse,
   HomestayFinanceListResponse,
@@ -17,7 +18,11 @@ import type { RemoteEntityOption } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import type { HomestayListReturnContext } from "./HomestayListRecords";
-import { availabilityQueryDates, shouldLoadHomestayRead } from "./homestay-workbench.logic";
+import {
+  availabilityQueryDates,
+  normalizeHomestayAvailabilityResponse,
+  shouldLoadHomestayRead
+} from "./homestay-workbench.logic";
 import type { HomestayListSurface } from "./HomestayListClient";
 
 export type HomestaySurfaceData =
@@ -140,7 +145,13 @@ export function useHomestaySurfaceData(
         ? "/homestay/dashboard"
         : `/homestay/${surface}?${queryFor(surface, { ...filters, unitId: filters.unit?.id ?? "" }).toString()}`;
       const response = await apiRequest<HomestaySurfaceData>(endpoint, { token: getAccessToken() ?? undefined });
-      if (currentRequest === requestId.current) setData(response.data);
+      const normalized = surface === "availability"
+        ? normalizeHomestayAvailabilityResponse(
+            response.data as HomestayAvailabilityListResponse | HomestayAvailabilityResponse,
+            filters.page
+          )
+        : response.data;
+      if (currentRequest === requestId.current) setData(normalized);
     } catch (loadError) {
       if (currentRequest === requestId.current) setError(loadError instanceof Error ? loadError.message : "数据加载失败");
     } finally {

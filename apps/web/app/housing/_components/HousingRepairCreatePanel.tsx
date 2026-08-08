@@ -145,6 +145,7 @@ function useHousingRepairLease(
       module: "housing",
       permissionFingerprint: propertyOfflinePermissionFingerprint({
         dataScope: user.data_scope,
+        dataScopes: user.data_scopes,
         enabledModules: user.enabled_modules,
         permissions: user.permissions
       })

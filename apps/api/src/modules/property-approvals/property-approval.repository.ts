@@ -85,6 +85,17 @@ export class PropertyApprovalRepository {
       `SELECT id AS "requestId", tenant_id AS "tenantId", park_id AS "parkId"
          FROM biz_property_approval_request
         WHERE decision_status = 'approved'
+          AND EXISTS (
+            SELECT 1
+              FROM sys_property_runtime_control runtime_control
+             WHERE runtime_control.tenant_id = biz_property_approval_request.tenant_id
+               AND runtime_control.park_id = biz_property_approval_request.park_id
+               AND runtime_control.control_key = 'approval.enforce'
+               AND runtime_control.control_kind = 'enforce'
+               AND runtime_control.target = 'approval'
+               AND runtime_control.enabled = true
+               AND runtime_control.control_mode = 'enforce'
+          )
           AND (
             execution_status = 'not_started'
             OR (execution_status = 'retry_wait' AND next_retry_at <= clock_timestamp())

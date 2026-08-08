@@ -132,7 +132,8 @@ implements
       const requester = row.requesterId === input.actorId;
       const eligible = snapshot.eligibleActorIds.includes(input.actorId)
         && snapshot.requiredPermissions.every((permission) => grants.has(permission));
-      const auditor = snapshot.auditorActorIds.includes(input.actorId);
+      const auditor = grants.has("audit:read")
+        && snapshot.auditorActorIds.includes(input.actorId);
       const sourceAllowed = snapshot.sourceScopes.some((source) =>
         source.sourceType === row.sourceType && source.sourceId === row.sourceId
       );

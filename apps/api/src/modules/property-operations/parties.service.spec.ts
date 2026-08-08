@@ -229,30 +229,37 @@ test("restricted housing tenant list is one scoped query and excludes unrelated 
   assert.deepEqual(scopePredicate.parameters?.housingUnitIds, [
     "00000000-0000-4000-8000-000000000010"
   ]);
+  assert.equal(scopePredicate.parameters?.housingActorId, actor.sub);
+  assert.match(String(scopePredicate.sql), /party\.source_domain = 'housing_rental'/u);
+  assert.match(String(scopePredicate.sql), /NOT EXISTS[\s\S]+any_housing_lease/u);
   assert.equal(pageQueries, 1);
   assert.deepEqual(result, { items: [], total: 0, page: 8, page_size: 20 });
 });
 
-test("empty housing unit scope returns zero without querying parties", async () => {
-  let builders = 0;
+test("empty housing unit scope still exposes only the actor's newly created unbound housing tenants", async () => {
+  const predicates: Array<{ sql: unknown; parameters?: Record<string, unknown> }> = [];
+  const builder = {
+    where: (sql: unknown, parameters?: Record<string, unknown>) => { predicates.push({ sql, parameters }); return builder; },
+    andWhere: (sql: unknown, parameters?: Record<string, unknown>) => { predicates.push({ sql, parameters }); return builder; },
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => [[], 0]
+  };
   const service = new PartiesService(
-    { createQueryBuilder: () => {
-      builders += 1;
-      return {};
-    } } as never,
+    { createQueryBuilder: () => builder } as never,
     {} as never,
     {} as never
   );
-  assert.deepEqual(
-    await service.listForDomainProjection(
-      scope,
-      { page: 99, page_size: 20 },
-      actor,
-      []
-    ),
-    { items: [], total: 0, page: 99, page_size: 20 }
+  await service.listForDomainProjection(scope, { page: 99, page_size: 20 }, actor, []);
+  const scopePredicate = predicates.find((item) =>
+    typeof item.sql === "string" && item.sql.includes("any_housing_lease")
   );
-  assert.equal(builders, 0);
+  assert.ok(scopePredicate);
+  assert.match(String(scopePredicate.sql), /OR false/u);
+  assert.equal(scopePredicate.parameters?.housingActorId, actor.sub);
+  assert.equal(scopePredicate.parameters?.housingUnitIds, undefined);
 });
 
 test("party detail exposes protected fields and minimal roles only with sensitive read", async () => {

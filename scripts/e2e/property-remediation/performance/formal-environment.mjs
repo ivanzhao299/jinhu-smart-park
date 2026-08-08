@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -140,36 +140,50 @@ function createRuntime(config) {
   const setupDir = resolve(artifactsRoot, `environment-${config.projectName}-${config.commitSha.slice(0, 12)}`);
   const secretDir = resolve(setupDir, "secrets");
   mkdirSync(artifactsRoot, { recursive: true });
-  mkdirSync(setupDir, { recursive: false });
-  mkdirSync(secretDir, { recursive: false });
-  writeSecret(resolve(secretDir, "postgres_password"), config.secrets.postgresPassword);
-  writeSecret(resolve(secretDir, "jwt_secret"), config.secrets.jwtSecret);
-  writeSecret(resolve(secretDir, "party_data_encryption_key"), config.secrets.partyKey);
-  writeSecret(resolve(secretDir, "admin_password"), config.secrets.adminPassword);
-  const seedManifestPath = resolve(setupDir, "seed-manifest.json");
-  const seedDir = resolve(repoRoot, "database/seeds");
-  const seedManifest = readdirSync(seedDir).filter((name) => name.endsWith(".sql")).sort().map((name) => ({ name, sha256: sha(readFileSync(resolve(seedDir, name))) }));
-  writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, businessClock: config.businessClock, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
-  const runtime = {
-    schemaVersion: config.schemaVersion,
-    commitSha: config.commitSha,
-    projectName: config.projectName,
-    postgresDb: config.postgresDb,
-    postgresUser: config.postgresUser,
-    dataset: config.dataset,
-    businessClock: config.businessClock,
-    reviewer: config.reviewer,
-    executionOwner: config.executionOwner,
-    approvedInputs: config.approvedInputs,
-    setupDir,
-    secretDir,
-    seedManifestPath,
-    composeEnv: nonSecretComposeEnv(config, secretDir),
-    containers: { web: `${config.projectName}-web`, api: `${config.projectName}-api`, postgres: `${config.projectName}-postgres`, browserWorker: `${config.projectName}-browser` }
-  };
-  const runtimePath = resolve(setupDir, "runtime.json");
-  writeFileSync(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, { mode: 0o600, flag: "wx" });
-  return { runtime, runtimePath };
+  try {
+    mkdirSync(setupDir, { recursive: false });
+    mkdirSync(secretDir, { recursive: false });
+    writeSecret(resolve(secretDir, "postgres_password"), config.secrets.postgresPassword);
+    writeSecret(resolve(secretDir, "jwt_secret"), config.secrets.jwtSecret);
+    writeSecret(resolve(secretDir, "party_data_encryption_key"), config.secrets.partyKey);
+    writeSecret(resolve(secretDir, "admin_password"), config.secrets.adminPassword);
+    const seedManifestPath = resolve(setupDir, "seed-manifest.json");
+    const seedRoot = resolve(repoRoot, "database/seeds");
+    const seedFiles = [
+      resolve(seedRoot, "000001_s1_production_core.sql"),
+      ...readdirSync(resolve(seedRoot, "production"))
+        .filter((name) => name.endsWith(".sql"))
+        .sort()
+        .map((name) => resolve(seedRoot, "production", name))
+    ];
+    const seedManifest = seedFiles.map((path) => ({
+      name: relative(seedRoot, path), sha256: sha(readFileSync(path))
+    }));
+    writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, businessClock: config.businessClock, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    const runtime = {
+      schemaVersion: config.schemaVersion,
+      commitSha: config.commitSha,
+      projectName: config.projectName,
+      postgresDb: config.postgresDb,
+      postgresUser: config.postgresUser,
+      dataset: config.dataset,
+      businessClock: config.businessClock,
+      reviewer: config.reviewer,
+      executionOwner: config.executionOwner,
+      approvedInputs: config.approvedInputs,
+      setupDir,
+      secretDir,
+      seedManifestPath,
+      composeEnv: nonSecretComposeEnv(config, secretDir),
+      containers: { web: `${config.projectName}-web`, api: `${config.projectName}-api`, postgres: `${config.projectName}-postgres`, browserWorker: `${config.projectName}-browser` }
+    };
+    const runtimePath = resolve(setupDir, "runtime.json");
+    writeFileSync(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    return { runtime, runtimePath };
+  } catch (error) {
+    rmSync(setupDir, { recursive: true, force: true });
+    throw new Error(`formal runtime creation failed and partial state was removed: ${error.message}`);
+  }
 }
 
 async function validateCompose(config) {
@@ -223,10 +237,20 @@ function executorEnvironment(runtime, runtimePath) {
 }
 
 function readRuntime(path) {
-  const absolute = resolve(path);
+  const absolute = realpathSync(resolve(path));
+  const root = realpathSync(artifactsRoot);
   const runtime = JSON.parse(readFileSync(absolute, "utf8"));
-  if (runtime?.schemaVersion !== "property-track-c-formal-environment-v1" || !absolute.startsWith(`${artifactsRoot}/`) || !runtime.secretDir.startsWith(`${artifactsRoot}/`)) throw new Error("invalid formal runtime manifest");
-  return { ...runtime, runtimePath: absolute };
+  const setupDir = realpathSync(runtime?.setupDir ?? "");
+  const secretDir = realpathSync(runtime?.secretDir ?? "");
+  const inside = (parent, child) => {
+    const pathFromParent = relative(parent, child);
+    return pathFromParent === "" || (!pathFromParent.startsWith("..") && !pathFromParent.startsWith("/"));
+  };
+  if (runtime?.schemaVersion !== "property-track-c-formal-environment-v1"
+    || !inside(root, absolute)
+    || setupDir !== dirname(absolute)
+    || !inside(setupDir, secretDir)) throw new Error("invalid formal runtime manifest");
+  return { ...runtime, setupDir, secretDir, runtimePath: absolute };
 }
 
 async function waitHealthy(container) {
@@ -249,7 +273,13 @@ async function restart(runtime) {
 }
 
 async function dockerProjectCount(projectName, kind) {
-  const args = kind === "container" ? ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`] : kind === "network" ? ["network", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`] : ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`];
+  const args = kind === "container"
+    ? ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`]
+    : kind === "network"
+      ? ["network", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`]
+      : kind === "image"
+        ? ["image", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`]
+        : ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`];
   const { stdout } = await execFileAsync("docker", args);
   return stdout.trim() ? stdout.trim().split("\n").length : 0;
 }
@@ -268,6 +298,7 @@ async function cleanup(runtime) {
     containers: await dockerProjectCount(runtime.projectName, "container"),
     networks: await dockerProjectCount(runtime.projectName, "network"),
     volumes: await dockerProjectCount(runtime.projectName, "volume"),
+    images: await dockerProjectCount(runtime.projectName, "image"),
     secretFiles: 0
   };
   return cleanupInventory(runtime.projectName, remaining, downError);

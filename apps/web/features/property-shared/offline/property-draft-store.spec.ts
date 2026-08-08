@@ -129,6 +129,44 @@ test("blocked IndexedDB deletion waits for the existing connection before comple
   }
 });
 
+test("failed IndexedDB deletion keeps the scope marker so cleanup is retried", async () => {
+  const values = new Map([["jinhu-property-offline-scope-v1", "account-scope"]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key)
+  };
+  let failDraftDelete = true;
+  const fakeIndexedDb = {
+    deleteDatabase(name: string) {
+      const request: {
+        onsuccess: (() => void) | null;
+        onerror: (() => void) | null;
+        onblocked: (() => void) | null;
+        error: Error | null;
+      } = { onsuccess: null, onerror: null, onblocked: null, error: null };
+      queueMicrotask(() => {
+        if (name === "jinhu-property-drafts-v1" && failDraftDelete) {
+          request.error = new Error("delete failed");
+          request.onerror?.();
+        } else request.onsuccess?.();
+      });
+      return request;
+    }
+  };
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { indexedDB: fakeIndexedDb, localStorage: storage } });
+  Object.defineProperty(globalThis, "localStorage", { configurable: true, value: storage });
+  Object.defineProperty(globalThis, "indexedDB", { configurable: true, value: fakeIndexedDb });
+  try {
+    await assert.rejects(purgePropertyOfflineState(), /delete failed/u);
+    assert.equal(storage.getItem("jinhu-property-offline-scope-v1"), "account-scope");
+  } finally {
+    failDraftDelete = false;
+    await purgePropertyOfflineState();
+    Reflect.deleteProperty(globalThis, "indexedDB");
+  }
+});
+
 test("logout purge wins a legacy cleanup interleaving before stale draft or upload writes can open IndexedDB", async () => {
   const previousDraftFlag = process.env.NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1;
   const previousQueueFlag = process.env.NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1;

@@ -6,6 +6,7 @@ import {
   createPropertyDraftEnvelope,
   isPropertyDraftUsable,
   propertyDraftKey,
+  propertyDataScopeFingerprint,
   propertyModuleAssignmentFingerprint,
   propertyOfflinePermissionFingerprint,
   propertyOfflineScopeKey
@@ -44,6 +45,20 @@ test("module fingerprint is order-stable and changes with assignment enable or e
   assert.notEqual(base, propertyOfflinePermissionFingerprint({
     dataScope: "park", enabledModules: [asset, { ...housing, expire_time: null }], permissions: ["housing:repair", "file:upload"]
   }));
+});
+
+test("granular data scope fingerprint is order-stable, change-sensitive, and opaque", () => {
+  const scopes = [
+    { dimension: "unit", scope_type: "custom", rule_code: "secret-rule", scope_config: { unitIds: ["unit-secret"] } },
+    { dimension: "building", scope_type: "all", scope_config: { nested: { b: 2, a: 1 } } }
+  ];
+  const base = propertyDataScopeFingerprint("custom", scopes);
+  assert.equal(base, propertyDataScopeFingerprint("custom", [scopes[1]!, scopes[0]!]));
+  assert.notEqual(base, propertyDataScopeFingerprint("custom", [
+    { ...scopes[0]!, scope_config: { unitIds: ["different-unit"] } }, scopes[1]!
+  ]));
+  assert.equal(base.includes("secret-rule"), false);
+  assert.equal(base.includes("unit-secret"), false);
 });
 
 test("non-sensitive draft expires after exactly 24 hours", () => {

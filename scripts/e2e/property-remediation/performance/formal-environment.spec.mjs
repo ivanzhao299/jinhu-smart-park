@@ -100,11 +100,12 @@ test("source readiness includes untracked formal source paths and fails closed",
 });
 
 test("cleanup inventory fails closed when compose down reports an error", () => {
-  const clean = { containers: 0, networks: 0, volumes: 0, secretFiles: 0 };
+  const clean = { containers: 0, networks: 0, volumes: 0, images: 0, secretFiles: 0 };
   assert.equal(cleanupInventory("jinhu-track-c-perf-fixture", clean).residualCount, 0);
   const failed = cleanupInventory("jinhu-track-c-perf-fixture", clean, "compose down failed");
   assert.equal(failed.residualCount, 1);
   assert.equal(failed.manifest[0].downError, "compose down failed");
+  assert.equal(cleanupInventory("jinhu-track-c-perf-fixture", { ...clean, images: 1 }).residualCount, 1);
 });
 
 test("compose definition fixes all formal resources and isolates state", () => {

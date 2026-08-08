@@ -21,6 +21,12 @@ function fixture(cleanupResidual = 0) {
   return { output: join(temp, "evidence"), spec: { schemaVersion: "property-track-c-evidence-spec-v1", commitSha: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(), ...inputs, reviewer: "automated-self-test", commands: [{ id: "gate", executable: "/usr/bin/printf", args: ["pass"] }], cleanup: { id: "cleanup", executable: process.execPath, args: ["-e", `process.stdout.write(JSON.stringify({residualCount:${cleanupResidual}}))`] } } };
 }
 
+function failingFixture(cleanupResidual = 0) {
+  const value = fixture(cleanupResidual);
+  value.spec.commands = [{ id: "gate", executable: process.execPath, args: ["-e", "process.exit(1)"] }];
+  return value;
+}
+
 test("captures command hashes and cleanup proof", () => {
   const value = fixture();
   const result = captureEvidence(value);
@@ -32,4 +38,11 @@ test("captures command hashes and cleanup proof", () => {
 test("fails closed on cleanup residue", () => {
   const value = fixture(1);
   assert.equal(captureEvidence(value).status, "FAIL");
+});
+
+test("preserves cleanup residue when an earlier command already failed", () => {
+  const value = failingFixture(3);
+  const result = captureEvidence(value);
+  assert.equal(result.failure.stage, "gate");
+  assert.equal(result.cleanup.residualCount, 3);
 });

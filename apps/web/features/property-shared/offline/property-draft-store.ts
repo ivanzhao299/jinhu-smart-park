@@ -224,17 +224,14 @@ export async function purgePropertyOfflineState(): Promise<void> {
   if (typeof window === "undefined") return;
   offlineStateGeneration += 1;
   offlineCleanupBarrier = offlineCleanupBarrier.catch(() => undefined).then(async () => {
-    try {
-      if ("indexedDB" in window) {
-        await Promise.all([
-          cleanupLegacyDatabase(),
-          deleteDatabaseWithoutOpening(DRAFT_DATABASE),
-          deleteDatabaseWithoutOpening(UPLOAD_DATABASE)
-        ]);
-      }
-    } finally {
-      localStorage.removeItem(SCOPE_KEY);
+    if ("indexedDB" in window) {
+      await Promise.all([
+        cleanupLegacyDatabase(),
+        deleteDatabaseWithoutOpening(DRAFT_DATABASE),
+        deleteDatabaseWithoutOpening(UPLOAD_DATABASE)
+      ]);
     }
+    localStorage.removeItem(SCOPE_KEY);
   });
   await offlineCleanupBarrier;
 }

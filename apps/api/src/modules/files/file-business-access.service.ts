@@ -46,6 +46,7 @@ const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
   housing_handover: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -54,6 +55,7 @@ const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
   housing_handover_move_in: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -62,6 +64,7 @@ const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
   housing_handover_move_out: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -70,6 +73,7 @@ const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
   housing_repair: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ,
       SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE],

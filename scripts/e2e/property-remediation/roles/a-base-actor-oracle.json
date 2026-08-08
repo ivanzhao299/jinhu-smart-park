@@ -23,7 +23,9 @@
           "homestay:dashboard:page",
           "homestay:dashboard:read",
           "homestay:stay:manage",
+          "homestay:stay:read",
           "homestay:stays:page",
+          "homestay:task:read",
           "homestay:tasks:page"
         ],
         "menu_routes": [
@@ -58,6 +60,8 @@
           "housing:lease:sign",
           "housing:leases:page",
           "housing:tasks:page",
+          "housing:task:read",
+          "housing:tenant:read",
           "housing:tenant:manage",
           "housing:tenants:page"
         ],

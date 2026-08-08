@@ -31,7 +31,7 @@ const nullableTrim = ({ value }: { value: unknown }): unknown => {
 
 export class IdentityClientKeyDto {
   @IsString()
-  @MinLength(1)
+  @MinLength(8)
   @MaxLength(128)
   @Matches(/^[\x20-\x7e]+$/)
   clientKey!: string;

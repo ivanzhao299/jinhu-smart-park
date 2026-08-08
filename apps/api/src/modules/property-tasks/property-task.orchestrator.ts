@@ -502,6 +502,19 @@ export class PropertyTaskOrchestrator {
         const derivedTaskKeys = candidates
           .filter((candidate) => candidate.projector.assignmentAuthority === "derived")
           .map((candidate) => candidate.taskKey);
+        await this.assignments.ensureOpenAssignments(
+          manager,
+          scope,
+          candidates
+            .filter((candidate) => candidate.projector.assignmentAuthority === "derived")
+            .map((candidate) => ({
+              taskKey: candidate.taskKey,
+              taskKind: candidate.projector.taskKind,
+              sourceType: candidate.projector.sourceType,
+              sourceId: candidate.snapshot.sourceId,
+              sourceVersion: candidate.snapshot.sourceVersion
+            }))
+        );
         const derivedAssignments = await this.assignments.lockByTaskKeys(
           manager,
           scope,
@@ -754,7 +767,9 @@ export class PropertyTaskOrchestrator {
       businessOccurrenceKey: request.businessOccurrenceKey,
       taskKey: projection.taskKey,
       expectedSourceVersion: request.expectedSourceVersion,
-      expectedAssignmentVersion: request.expectedAssignmentVersion
+      expectedAssignmentVersion: request.expectedAssignmentVersion,
+      reason: "reason" in request ? request.reason : undefined,
+      blockedUntil: "blockedUntil" in request ? request.blockedUntil : undefined
     });
     const refreshed = await resolver.lockAndResolve({
       manager,

@@ -234,3 +234,21 @@ test("read and source scope fail independently and corrupt snapshots fail closed
     eligibilityPolicyHash: "f".repeat(64)
   }), ForbiddenException);
 });
+
+test("an auditor snapshot never grants audit visibility without the current audit permission", async () => {
+  const withoutAudit = authFixture({
+    permissions: ["property_approval:read"],
+    policy: snapshot({ auditorActorIds: [actorId], eligibleActorIds: [] })
+  });
+  const denied = await withoutAudit.adapter.predicate({ scope, actorId, permissions: [] });
+  assert.deepEqual(denied.auditorRequestIds, []);
+  assert.equal(denied.canAudit, false);
+
+  const withAudit = authFixture({
+    permissions: ["property_approval:read", "audit:read"],
+    policy: snapshot({ auditorActorIds: [actorId], eligibleActorIds: [] })
+  });
+  const allowed = await withAudit.adapter.predicate({ scope, actorId, permissions: [] });
+  assert.deepEqual(allowed.auditorRequestIds, [requestId]);
+  assert.equal(allowed.canAudit, true);
+});

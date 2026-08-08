@@ -28,6 +28,15 @@ test("identity create supersede tuple is either absent or complete", async () =>
   assert.ok((await validate(partial)).length > 0);
 });
 
+test("identity client keys match the global idempotency guard minimum", async () => {
+  const short = plainToInstance(CreateIdentityDraftDto, {
+    clientKey: "short",
+    partyId: uuid,
+    expectedIdentityVersion: 0
+  });
+  assert.ok((await validate(short)).some((error) => error.property === "clientKey"));
+});
+
 test("identity update retains ordered unique evidence and exact document pair", async () => {
   const valid = plainToInstance(UpdateIdentityDraftDto, {
     clientKey: "update-1",

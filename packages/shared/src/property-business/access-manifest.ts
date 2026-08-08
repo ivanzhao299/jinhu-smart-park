@@ -699,7 +699,8 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
           requiredPermissions: ["energy_meter:read"],
           anyPermissions: [
             PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
-            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_GENERATE
           ]
         }
       ),

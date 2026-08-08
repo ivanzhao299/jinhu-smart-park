@@ -242,13 +242,16 @@ async function executeCell(config, profile, scenario, concurrency, runIndex, run
     try { observations.push(await collectTelemetry(config)); } catch (error) { telemetryError ??= error; }
   };
   await sample();
-  const interval = setInterval(sample, config.telemetryIntervalMilliseconds);
+  let pendingSample = Promise.resolve();
+  const queueSample = () => { pendingSample = pendingSample.then(sample); };
+  const interval = setInterval(queueSample, config.telemetryIntervalMilliseconds);
   const startedAt = new Date().toISOString();
   let load;
   try {
     load = await runWorker(config, { baseUrl: config.workerBaseUrl, path: scenario.path, token, concurrency, warmupSeconds: profile.warmupSeconds, formalSeconds: profile.formalSeconds, minimumRequests: profile.minimumRequests, requestTimeoutMilliseconds: config.requestTimeoutMilliseconds });
   } finally {
     clearInterval(interval);
+    await pendingSample;
   }
   await sample();
   if (telemetryError) throw telemetryError;
