@@ -79,6 +79,13 @@ Reference files:
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.
+- Projection migrations whose target scopes come from production assignments require a read-only parity
+  diagnostic and an API/full deployment gate before any production source sync, migration, seed, or image build.
+  The diagnostic may expose scope identifiers and aggregate counts, but never credentials, personal data, or an
+  inferred cross-tenant mapping. A diagnostic-only workflow path must not write a release marker or run UAT.
+- Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly
+  observed production classification must become a deterministic isolated PostgreSQL fixture before the next
+  deployment attempt.
 - Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
   If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
   never publish a release marker from `web` or `fast-css` while deferring required seed work.

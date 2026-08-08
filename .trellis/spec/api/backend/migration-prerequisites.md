@@ -41,6 +41,12 @@
 - For a missing projection, make source precedence executable: unique same-scope source first; a
   cross-scope legacy fallback is allowed only for a documented fixed target scope and fixed unique
   business key. Never use “the only row in the database” as a tenant/scope mapping rule.
+- A clean/default-scope fixture is not production-shape parity. When target scopes come from persisted
+  assignments, provide a read-only diagnostic over every active target scope and promote every newly observed
+  historical shape into isolated PostgreSQL regression coverage.
+- Run the same projection classification as a fail-closed deployment preflight before source sync, migration,
+  seed, or image build. Diagnostic output is limited to scope identifiers, classification, and aggregate counts;
+  it must not write data or invent a tenant/park mapping.
 
 ### 4. Validation & Error Matrix
 
@@ -91,6 +97,8 @@
   destination-absent/legacy-fixed-key-source (bounded fallback), plus duplicate and missing-source
   failures. A failed-history replay must prove the runner accepts the updated checksum only for a
   `failed` prerequisite and then records success in both history tables.
+- Exercise at least one additional non-default active assignment in Release Smoke. A missing trusted source must
+  fail with the same classification in the diagnostic, deploy gate, prerequisite, and production seed.
 
 ### 7. Wrong vs Correct
 

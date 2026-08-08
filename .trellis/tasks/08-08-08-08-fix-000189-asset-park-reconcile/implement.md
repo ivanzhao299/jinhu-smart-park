@@ -9,3 +9,7 @@
 5. 同步 prerequisite README、生产部署/迁移策略和 Trellis 运维规范。
 6. 运行真实 PostgreSQL 回放、静态合同、YAML/shell/diff 检查和相关 CI 门禁。
 7. 独立复核后提交、推送、创建 Draft PR，并触发 Codex review；不自动部署/合并。
+8. 增加只读生产 scope 诊断脚本与 workflow_dispatch 诊断模式，并以静态合同证明它不进入部署写路径。
+9. 在 API/full 正常部署的源码同步前运行同一 enforce 门禁，失败时保留当前线上源码与服务。
+10. 用分支 workflow 执行只读诊断，根据非敏感生产证据设计确定性数据修复，并把实际形态补入 Release Smoke。
+11. 按 break-loop 复盘测试形态缺口与隐含假设，更新 Trellis migration prerequisite/运维规范。

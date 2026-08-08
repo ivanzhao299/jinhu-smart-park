@@ -2,7 +2,7 @@
 
 ## Goal
 
-修复生产部署 run 31259810154 中 003_asset_park_scope_reconcile 前置项误拒绝历史园区数据，并补充可重试与同类回归合同。
+修复生产部署 run 31259810154 与 31263880813 中 003_asset_park_scope_reconcile 暴露的历史园区数据漂移，并补充只读诊断、部署前门禁与生产形态回归合同。
 
 ## Requirements
 
@@ -19,6 +19,10 @@
 - Release Smoke 必须真实回放“已有 asset_park 但无同 scope biz_park”与“默认 JH park
   仍是 legacy scope 且 asset_park 缺失”两种生产历史。
 - 同步 migration prerequisite 合同测试、部署文档和 Trellis 运维规范。
+- 对 `unresolved_source` 不猜测跨租户园区映射；先通过显式 workflow_dispatch 只读诊断输出 scope ID、判定计数与非敏感业务落数。
+- 只读诊断不得同步源码、写 release marker、执行 migration/seed/deploy/UAT 或修改数据库。
+- API/full 部署必须在创建回滚快照和同步源码前执行同一生产数据门禁；门禁失败时不得进入部署。
+- Release Smoke 必须覆盖非默认 active asset assignment 且缺失可信园区来源的生产历史形态。
 
 ## Acceptance Criteria
 
@@ -28,6 +32,8 @@
 - [x] failed prerequisite 通过 runner 更新 checksum 后成功，随后不可变 `000189` 成功。
 - [x] production seed 与 prerequisite 的解析合同一致且幂等。
 - [ ] 静态合同、真实 PostgreSQL 回放、Release Smoke、shell/YAML/diff 门禁通过。
+- [ ] 生产只读诊断识别 `unresolved_source=1` 的具体 scope 与业务落数，随后选择可审计的确定性修复。
+- [ ] 部署前门禁能在任何源码同步、migration 或 seed 之前阻断同类数据漂移。
 - [ ] 提交、推送并创建 Draft PR；不自动部署或合并。
 
 ## Notes

@@ -76,6 +76,16 @@ describe("AdminIssuesService", () => {
     assert.match(deployment, /run_production_seed/);
     assert.match(deployment, /000001_s1_production_core/);
     assert.match(deployment, /Production seed changes require an API-capable full deployment/);
+    assert.match(deployment, /Diagnose 000189 asset scope parity \(read-only\)/);
+    assert.match(deployment, /Enforce 000189 asset scope parity before deployment/);
+    const diagnosticStart = deployment.indexOf("Diagnose 000189 asset scope parity (read-only)");
+    const diagnosticEnd = deployment.indexOf("Enforce 000189 asset scope parity before deployment");
+    assert.notEqual(diagnosticStart, -1);
+    assert.notEqual(diagnosticEnd, -1);
+    assert.doesNotMatch(
+      deployment.slice(diagnosticStart, diagnosticEnd),
+      /(?:rsync|\.release\.json|pnpm|prod:deploy|db:migrate|db:seed|go-live-uat)/
+    );
     assert.doesNotMatch(deployment, /RUN_PRODUCTION_SEED=yes/);
     assert.match(deployment, /rollback_release\(\) \{\s+trap - ERR/);
     assert.match(deployment, /Rollback failed; preserving source snapshot for manual recovery/);
