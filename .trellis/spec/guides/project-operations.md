@@ -47,6 +47,10 @@ Reference files:
   insert-only, preserves existing business rows, and fails closed for missing or ambiguous scope.
   Keep the matching production seed convergence so a clean migration-before-seed install does not
   recreate the same projection gap after migrations finish.
+- When a deliberate legacy baseline skipped an earlier scope-ID type migration, use a separate,
+  narrowly historied schema prerequisite before the unchanged target. Limit it to the exact columns
+  consumed by that target, allow only known source/target types and sentinel rewrites, then assert the
+  final type before any business projection runs.
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.

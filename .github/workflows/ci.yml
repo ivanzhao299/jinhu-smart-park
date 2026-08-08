@@ -330,10 +330,24 @@ jobs:
                     UNION ALL
                     SELECT filename, status FROM public.schema_migrations
                   ) history
-                  WHERE filename = 'prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_reconcile.sql'
+                  WHERE filename IN (
+                    'prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_id_unification.sql',
+                    'prerequisite:000189_property_b_module_rbac_definitions.sql:003_asset_park_scope_reconcile.sql'
+                  )
                     AND status = 'succeeded';"
           )"
-          test "$asset_scope_prerequisite_succeeded_count" = "2"
+          test "$asset_scope_prerequisite_succeeded_count" = "4"
+
+          asset_scope_column_types="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT string_agg(udt_name || ':' || character_maximum_length, ',' ORDER BY column_name)
+                  FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'asset_park'
+                    AND column_name IN ('tenant_id', 'park_id');"
+          )"
+          test "$asset_scope_column_types" = "varchar:64,varchar:64"
 
           history_conflict_count="$(
             docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -353,93 +367,157 @@ jobs:
           ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
           ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee -a /tmp/release-smoke-logs/db-seed-prod.log
 
-      - name: Verify asset park scope prerequisite replay
+      - name: Verify failed 000189 retry from rolled-back state
         run: |
-          asset_scope_prerequisite='prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_reconcile.sql'
           target_migration='000189_property_b_module_rbac_definitions.sql'
-          pre_replay_state="$(
+          type_prerequisite='prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_id_unification.sql'
+          projection_prerequisite='prerequisite:000189_property_b_module_rbac_definitions.sql:003_asset_park_scope_reconcile.sql'
+          retry_db="${POSTGRES_DB}_000189_retry"
+          retry_root="$(mktemp -d /tmp/jinhu-000189-retry.XXXXXX)"
+          retry_migrations="$retry_root/migrations"
+          retry_aliases="$retry_root/migration-history-aliases.txt"
+          retry_seeds="$retry_root/seeds"
+          mkdir -p "$retry_migrations"
+          mkdir -p "$retry_seeds/production"
+          : > "$retry_aliases"
+          cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
+
+          cleanup_retry_db() {
             docker compose -f "$COMPOSE_FILE" exec -T postgres \
-              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-              -c "SELECT
-                    (SELECT count(*) FROM public.asset_park
-                     WHERE tenant_id = '10000001'
-                       AND park_id = '20000001'
-                       AND status = 'enabled'
-                       AND is_deleted = false),
-                    (SELECT count(*) FROM (
-                       SELECT filename, status FROM public.sys_schema_migration_history
-                       UNION ALL
-                       SELECT filename, status FROM public.schema_migrations
-                     ) history
-                     WHERE filename = '$asset_scope_prerequisite'
-                       AND status = 'succeeded'),
-                    (SELECT count(*) FROM (
-                       SELECT filename, status FROM public.sys_schema_migration_history
-                       UNION ALL
-                       SELECT filename, status FROM public.schema_migrations
-                     ) history
-                     WHERE filename = '$target_migration'
-                       AND status = 'succeeded');"
-          )"
-          test "$pre_replay_state" = "1|2|2"
+              psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+              -c "DROP DATABASE IF EXISTS \"$retry_db\" WITH (FORCE);" >/dev/null 2>&1 || true
+            rm -rf "$retry_root"
+          }
+          trap cleanup_retry_db EXIT
+          trap 'exit 130' HUP INT TERM
 
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
-            psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<SQL
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+            -c "DROP DATABASE IF EXISTS \"$retry_db\" WITH (FORCE);"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+            -c "CREATE DATABASE \"$retry_db\";"
+
+          for migration in database/migrations/*.sql; do
+            migration_name="$(basename "$migration")"
+            if [[ "$migration_name" < "$target_migration" ]]; then
+              cp "$migration" "$retry_migrations/$migration_name"
+            fi
+          done
+
+          POSTGRES_DB="$retry_db" \
+          MIGRATIONS_DIR="$retry_migrations" \
+          MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+          MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+            pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-000188-retry-baseline.log
+
+          ALLOW_PRODUCTION_SEED=yes \
+          SEEDS_DIR="$retry_seeds" \
+          POSTGRES_DB="$retry_db" \
+            pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-000188-retry-baseline.log
+
+          target_checksum="$(sha256sum "database/migrations/$target_migration" | awk '{print $1}')"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<SQL
           BEGIN;
-          DELETE FROM public.sys_schema_migration_history
-          WHERE filename = '$asset_scope_prerequisite';
-          DELETE FROM public.schema_migrations
-          WHERE filename = '$asset_scope_prerequisite';
-          UPDATE public.sys_schema_migration_history
-          SET status = 'failed',
-              finished_at = now(),
-              error_message = 'release-smoke synthetic failed migration retry'
-          WHERE filename = '$target_migration';
-          UPDATE public.schema_migrations
-          SET status = 'failed',
-              finished_at = now(),
-              error_message = 'release-smoke synthetic failed migration retry'
-          WHERE filename = '$target_migration';
-          DELETE FROM public.asset_park
-          WHERE tenant_id = '10000001'
-            AND park_id = '20000001'
-            AND is_deleted = false;
+          -- A failed transaction leaves no 000189 catalog objects. Recreate the
+          -- pre-000029 UUID shape to prove the new type prerequisite repairs a
+          -- deliberately baselined legacy schema before inserting the projection.
+          ALTER TABLE public.asset_park
+            ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
+          ALTER TABLE public.asset_park
+            ALTER COLUMN park_id TYPE uuid USING park_id::uuid;
+
+          INSERT INTO public.sys_schema_migration_history (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$target_migration', '$target_checksum', 'failed', now(), now(),
+            'release-smoke synthetic transaction rollback', 'release-smoke', '000189-retry'
+          );
+          INSERT INTO public.schema_migrations (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$target_migration', '$target_checksum', 'failed', now(), now(),
+            'release-smoke synthetic transaction rollback', 'release-smoke', '000189-retry'
+          );
           COMMIT;
           SQL
 
-          pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-asset-scope-replay.log
-          grep -Fq 'SUCCESS PREREQUISITE: prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_reconcile.sql' \
-            /tmp/release-smoke-logs/db-migrate-asset-scope-replay.log
-          grep -Fq 'APPLY: 000189_property_b_module_rbac_definitions.sql' \
-            /tmp/release-smoke-logs/db-migrate-asset-scope-replay.log
-          grep -Fq 'SUCCESS: 000189_property_b_module_rbac_definitions.sql' \
-            /tmp/release-smoke-logs/db-migrate-asset-scope-replay.log
-
-          asset_scope_replay_state="$(
+          pre_retry_state="$(
             docker compose -f "$COMPOSE_FILE" exec -T postgres \
-              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
               -c "SELECT
+                    (SELECT string_agg(udt_name, ',' ORDER BY column_name)
+                     FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'asset_park'
+                       AND column_name IN ('tenant_id', 'park_id')),
+                    (SELECT count(*) FROM public.asset_park),
+                    (SELECT count(*) FROM (VALUES
+                       (to_regclass('public.sys_module_dependency')),
+                       (to_regclass('public.sys_property_permission_bundle')),
+                       (to_regclass('public.rel_property_permission_bundle_member'))
+                     ) target(relation) WHERE relation IS NOT NULL),
+                    (SELECT count(*) FROM (
+                       SELECT filename, status FROM public.sys_schema_migration_history
+                       UNION ALL
+                       SELECT filename, status FROM public.schema_migrations
+                     ) history WHERE filename = '$target_migration' AND status = 'failed');"
+          )"
+          test "$pre_retry_state" = "uuid,uuid|0|0|2"
+
+          cp "database/migrations/$target_migration" "$retry_migrations/$target_migration"
+          POSTGRES_DB="$retry_db" \
+          MIGRATIONS_DIR="$retry_migrations" \
+          MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+          MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+            pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+
+          grep -Fq "SUCCESS PREREQUISITE: $type_prerequisite" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "SUCCESS PREREQUISITE: $projection_prerequisite" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "APPLY: $target_migration" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "SUCCESS: $target_migration" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+
+          retry_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT
+                    (SELECT string_agg(udt_name || ':' || character_maximum_length, ',' ORDER BY column_name)
+                     FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'asset_park'
+                       AND column_name IN ('tenant_id', 'park_id')),
                     (SELECT count(*) FROM public.asset_park
                      WHERE tenant_id = '10000001'
                        AND park_id = '20000001'
                        AND status = 'enabled'
                        AND is_deleted = false),
+                    (SELECT count(*) FROM (VALUES
+                       (to_regclass('public.sys_module_dependency')),
+                       (to_regclass('public.sys_property_permission_bundle')),
+                       (to_regclass('public.rel_property_permission_bundle_member'))
+                     ) target(relation) WHERE relation IS NOT NULL),
                     (SELECT count(*) FROM (
                        SELECT filename, status FROM public.sys_schema_migration_history
                        UNION ALL
                        SELECT filename, status FROM public.schema_migrations
                      ) history
-                     WHERE filename = '$asset_scope_prerequisite'
-                       AND status = 'succeeded'),
+                     WHERE filename IN (
+                       'prerequisite:000189_property_b_module_rbac_definitions.sql:001_asset_module.sql',
+                       '$type_prerequisite',
+                       '$projection_prerequisite'
+                     ) AND status = 'succeeded'),
                     (SELECT count(*) FROM (
                        SELECT filename, status FROM public.sys_schema_migration_history
                        UNION ALL
                        SELECT filename, status FROM public.schema_migrations
-                     ) history
-                     WHERE filename = '$target_migration'
-                       AND status = 'succeeded');"
+                     ) history WHERE filename = '$target_migration' AND status = 'succeeded');"
           )"
-          test "$asset_scope_replay_state" = "1|2|2"
+          test "$retry_state" = "varchar:64,varchar:64|1|3|6|2"
 
       - name: Verify repaired core-role permissions
         run: |

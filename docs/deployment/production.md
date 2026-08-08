@@ -504,6 +504,9 @@ Migration execution behavior:
   complete. Migration-only history must not bypass prerequisite history checks.
 - Prerequisite status/checksum is recorded independently. Both history-table rows are written atomically, and any
   existing status/checksum disagreement stops before execution.
+- The `000189` prerequisite chain restores the historical `asset_park` scope-column type contract before deriving a
+  missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
+  fails closed on unexpected schema types or ambiguous canonical scope data.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

@@ -339,17 +339,23 @@ git diff --check
 - [x] 根因是 active asset module assignment 已存在且 canonical `biz_park` 有效，但历史 Track B
   migration 按 asset-domain `asset_park` 投影 fail closed；生产 seed 未保证该投影在 migration 前存在。
 - [x] 保持 `000189` 与 `000200` 历史 SQL 字节和 checksum 不变，新增带独立 history 的
-  `002_asset_park_scope_reconcile.sql` prerequisite：仅从唯一有效 active tenant / `biz_park` /
-  asset assignment 插入缺失 `asset_park`，不覆盖或启用既有记录，歧义与无效 scope 继续阻断。
+  `002_asset_park_scope_id_unification.sql`：对 deliberate baseline 遗留的 `asset_park` UUID scope
+  列恢复 `varchar(64)` 合同；`003_asset_park_scope_reconcile.sql` 仍只从唯一有效 active tenant /
+  `biz_park` / asset assignment 插入缺失投影，不覆盖或启用既有记录，歧义与无效 scope 继续阻断。
 - [x] 新增 production seed 000007，使 clean install 在 migration 后也收敛同一投影；seed 与
-  prerequisite 均为 insert-only，并保留迁移、seed 的职责边界与审计记录。
-- [x] 扩展 prerequisite 静态合同与 Release Smoke：冻结新 prerequisite 清单/写入边界，并在真实
-  PostgreSQL 中删除其 history 与投影后重跑 runner，验证已 succeeded 的 000189 不重放、仅新
-  prerequisite 补齐投影且双 history 收敛。
+  projection prerequisite 均为 insert-only，scope type prerequisite 只恢复历史列类型合同，并保留
+  migration、seed 的职责边界与审计记录。
+- [x] 扩展 prerequisite 静态合同与 Release Smoke：冻结新 prerequisite 清单/写入边界，并在一次性
+  PostgreSQL 中只迁移到 `000188`，构造 UUID scope、active assignment 和 000189 双 failed history；
+  首次运行 000189 前确认目标表/签名不存在，再验证类型修复、投影、目标 migration 与双 history 收敛。
 - [x] 本地 Docker 隔离重放通过：fresh database `201/201 migrations`、`6/6 prerequisites`；
   production seed 连跑两次成功。随后把 000189 双 history 改为 failed、删除新 prerequisite 双
   history 和 asset park 投影，runner 只重试 000189（其余 200 skip），结果 projection=1、
   prerequisite succeeded=2、000189 succeeded=2、双 history diff=0。隔离 container/network/volume
   已全部删除。
-- [ ] 本地合同、YAML、diff-check 与独立复核通过后提交推送，创建 main 修复 PR；不得重跑旧 SHA
-  的生产部署，待修复 PR 合并后由新 main HEAD 触发完整部署。
+- [x] PR #230 Codex 复审后改为非自证回放：一次性数据库只执行到 `000188`，运行 top-level
+  production core seed 后构造 UUID scope 与 000189 双 failed history；确认三张 000189 catalog 表均
+  不存在再重试。结果 scope type=`varchar:64,varchar:64`、projection=1、catalog tables=3、三个
+  prerequisite 双 history=6、000189 双 history=2，隔离 container/network/volume 与临时副本已清理。
+- [x] 本地合同、YAML、diff-check、真实 PostgreSQL 回放与独立复核通过；修复已在 PR #230 闭环，
+  不得重跑旧 SHA 的生产部署，待修复 PR 合并后由新 main HEAD 触发完整部署。
