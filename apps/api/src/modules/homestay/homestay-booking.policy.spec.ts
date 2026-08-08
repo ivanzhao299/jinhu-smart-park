@@ -8,6 +8,7 @@ import {
   assertHomestayGuestRosterComplete,
   assertHomestayMoneyFitsNumeric,
   assertHomestayNoShowWindow,
+  assertHomestayRescheduleFinanciallySafe,
   homestayMoneyDifference,
   turnoverLockEnd
 } from "./homestay-booking.policy";
@@ -19,6 +20,13 @@ test("reschedule differences are compared in integer cents", () => {
     homestayMoneyDifference("9999999999999999.99", "9999999999999999.98"),
     "0.01"
   );
+});
+
+test("confirmed booking price decreases wait for an approval-backed workflow", () => {
+  assert.doesNotThrow(() => assertHomestayRescheduleFinanciallySafe("draft", -100n));
+  assert.doesNotThrow(() => assertHomestayRescheduleFinanciallySafe("confirmed", 0n));
+  assert.doesNotThrow(() => assertHomestayRescheduleFinanciallySafe("confirmed", 100n));
+  assert.throws(() => assertHomestayRescheduleFinanciallySafe("confirmed", -1n));
 });
 
 test("persisted homestay amounts stay inside the numeric(18,2) boundary", () => {

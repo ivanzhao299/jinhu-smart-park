@@ -8,6 +8,7 @@ import {
   hasExplicitEmptyHomestayUnitScope,
   homestayRateWorkspaceKey,
   homestayDetailHref,
+  homestayStayActionVisibility,
   listPageState,
   normalizeHomestayAvailabilityResponse,
   pageCount,
@@ -172,4 +173,23 @@ test("rate workspaces remount whenever the selected unit changes", () => {
   assert.equal(homestayRateWorkspaceKey(null), "homestay-rate:no-unit");
   assert.notEqual(homestayRateWorkspaceKey("unit-a"), homestayRateWorkspaceKey("unit-b"));
   assert.equal(homestayRateWorkspaceKey("unit-a"), "homestay-rate:unit-a");
+});
+
+test("stay mutations mirror the booking lifecycle accepted by the API", () => {
+  assert.deepEqual(homestayStayActionVisibility("draft"), {
+    canAddGuest: true,
+    canIssueCredential: false
+  });
+  for (const status of ["confirmed", "checked_in"]) {
+    assert.deepEqual(homestayStayActionVisibility(status), {
+      canAddGuest: true,
+      canIssueCredential: true
+    });
+  }
+  for (const status of ["cancelled", "no_show", "checked_out"]) {
+    assert.deepEqual(homestayStayActionVisibility(status), {
+      canAddGuest: false,
+      canIssueCredential: false
+    });
+  }
 });

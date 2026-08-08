@@ -37,6 +37,15 @@ export function homestayMoneyDifference(currentValue: string | number, previousV
   );
 }
 
+export function assertHomestayRescheduleFinanciallySafe(
+  status: string,
+  differenceCents: bigint
+): void {
+  if (status === "confirmed" && differenceCents < 0n) {
+    throw new ConflictException("Confirmed booking price decreases require approval");
+  }
+}
+
 export function assertHomestayCheckInWindow(
   now: Date,
   stayStart: Date,

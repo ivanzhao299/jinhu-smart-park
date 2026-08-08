@@ -42,36 +42,40 @@ export function HousingLeaseSecondaryActions({
 
   async function sign(form: FormData) {
     if (!signature || uploading || lock.current) return;
-    await mutate("housing-lease-sign", "sign", {
+    const succeeded = await mutate("housing-lease-sign", "sign", {
       signature_file_id: signature.id,
       signed_at: String(form.get("signed_at") ?? "") || undefined
     }, "线下签署已登记。");
-    setSignature(null);
+    if (succeeded) setSignature(null);
   }
 
   async function addOccupant(form: FormData) {
     if (!occupant || lock.current) return;
-    await mutate("housing-lease-occupant", "occupants", {
+    const succeeded = await mutate("housing-lease-occupant", "occupants", {
       party_id: occupant.id,
       occupant_role: String(form.get("occupant_role")),
       emergency_contact: form.get("emergency_contact") === "on"
     }, "同住人员已登记。");
-    setOccupant(null);
+    if (succeeded) setOccupant(null);
   }
 
   async function mutate(operation: string, suffix: string, body: object, success: string) {
     lock.current = true; setSubmitting(true);
+    let succeeded = false;
     try {
       await apiRequest(`/housing/leases/${encodeURIComponent(data.lease.id)}/${suffix}`, {
         method: "POST", token: getAccessToken(),
         idempotencyKey: idempotency.keyFor(operation, body), body
       });
+      succeeded = true;
       idempotency.complete(operation); setMessage(success); await reload();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "操作失败");
+      const detail = error instanceof Error ? error.message : "数据刷新失败";
+      setMessage(succeeded ? `${success} 数据刷新失败：${detail}` : detail);
     } finally {
       lock.current = false; setSubmitting(false);
     }
+    return succeeded;
   }
 
   if (!canSign && !canAdd) return null;

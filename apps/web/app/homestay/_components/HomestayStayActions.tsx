@@ -9,6 +9,7 @@ import {
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { businessDate } from "../../../lib/business-date";
+import { homestayStayActionVisibility } from "./homestay-workbench.logic";
 import styles from "./HomestayWorkbench.module.css";
 
 type Mutate = (endpoint: string, body?: unknown) => Promise<void>;
@@ -38,14 +39,15 @@ export function HomestayStayActions({
   mutate: Mutate;
 }) {
   const bookingId = data.booking.id;
+  const visibility = homestayStayActionVisibility(data.booking.status);
   const canNoShow = capability.actionAllowed("homestay.stays.no-show")
     && data.booking.status === "confirmed" && data.booking.arrivalDate <= businessDate();
   return (
     <>
-      {capability.actionAllowed("homestay.stays.add-guest")
+      {visibility.canAddGuest && capability.actionAllowed("homestay.stays.add-guest")
         ? <GuestRegistration bookingId={bookingId} capability={capability} isFirst={data.guests.length === 0} mutate={mutate} />
         : null}
-      {capability.actionAllowed("homestay.stays.issue-credential")
+      {visibility.canIssueCredential && capability.actionAllowed("homestay.stays.issue-credential")
         ? <CredentialIssue bookingId={bookingId} mutate={mutate} /> : null}
       {capability.actionAllowed("homestay.stays.return-credential")
         ? <CredentialReturns bookingId={bookingId} data={data} mutate={mutate} /> : null}

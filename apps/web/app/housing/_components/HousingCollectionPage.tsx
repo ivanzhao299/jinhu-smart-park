@@ -68,11 +68,19 @@ function useCollectionData<T>(input: {
   const capabilities = useMemo(() => projectPropertyCapabilities(user, input.featureId), [input.featureId, user]);
   const [result, setResult] = useState<PaginatedResult<T> | null>(null);
   const resultRef = useRef<PaginatedResult<T> | null>(null);
+  const resultQueryKey = useRef<string | null>(null);
   const requestSequence = useRef(0);
   const [state, setState] = useState<PropertyPageState>({ kind: "initial-loading" });
   const load = useCallback(async () => {
     const sequence = ++requestSequence.current;
+    if (resultQueryKey.current !== input.queryKey) {
+      resultQueryKey.current = input.queryKey;
+      resultRef.current = null;
+      setResult(null);
+      setState({ kind: "initial-loading" });
+    }
     if (!capabilities.pageAllowed || !capabilities.actionAllowed(input.readActionId)) {
+      resultQueryKey.current = null;
       resultRef.current = null; setResult(null); setState({ kind: "forbidden-full" }); return;
     }
     const query = new URLSearchParams({ page: String(input.page), page_size: String(PAGE_SIZE) });
@@ -89,9 +97,18 @@ function useCollectionData<T>(input: {
       if (sequence !== requestSequence.current) return;
       setState(failureState(error, Boolean(resultRef.current)));
     }
-  }, [capabilities, input.active, input.endpoint, input.page, input.readActionId, user]);
+  }, [capabilities, input.active, input.endpoint, input.page, input.queryKey, input.readActionId, user]);
   useEffect(() => { void load(); }, [load, input.queryKey, input.refreshKey]);
-  return { capabilities, load, result, state };
+  const authorized = capabilities.pageAllowed && capabilities.actionAllowed(input.readActionId);
+  const currentQuery = resultQueryKey.current === input.queryKey;
+  return {
+    capabilities,
+    load,
+    result: authorized && currentQuery ? result : null,
+    state: !authorized
+      ? { kind: "forbidden-full" } as const
+      : currentQuery ? state : { kind: "initial-loading" } as const
+  };
 }
 
 export function HousingCollectionPage<T>(props: HousingCollectionPageProps<T>) {
@@ -99,7 +116,14 @@ export function HousingCollectionPage<T>(props: HousingCollectionPageProps<T>) {
   const query = useCollectionQuery(filters, props.route);
   const data = useCollectionData<T>({
     active: query.active, endpoint: props.endpoint, featureId: props.featureId, page: query.page,
-    queryKey: JSON.stringify(query.query), readActionId: props.readActionId, refreshKey: props.refreshKey ?? 0
+    queryKey: JSON.stringify({
+      active: query.active,
+      endpoint: props.endpoint,
+      featureId: props.featureId,
+      page: query.page,
+      readActionId: props.readActionId
+    }),
+    readActionId: props.readActionId, refreshKey: props.refreshKey ?? 0
   });
   return <HousingCollectionView
     {...props} {...data} {...query} filters={filters}

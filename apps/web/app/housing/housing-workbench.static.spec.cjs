@@ -108,6 +108,11 @@ test("attachment removal uses synchronous locks on every Track A workflow", () =
   assert.match(leaseSource, /if \(!signature \|\| lock\.current\) return;/);
   assert.match(leaseSource, /lock\.current = true;/);
   assert.match(leaseSource, /lock\.current = false;/);
+  assert.match(leaseSource, /const succeeded = await mutate\("housing-lease-sign"/);
+  assert.match(leaseSource, /if \(succeeded\) setSignature\(null\);/);
+  assert.match(leaseSource, /let succeeded = false;/);
+  assert.match(leaseSource, /succeeded = true;/);
+  assert.match(leaseSource, /succeeded \? `\$\{success\} 数据刷新失败：\$\{detail\}` : detail/);
 });
 
 test("billing adopts the authoritative saved plan id before generation", () => {
@@ -121,12 +126,26 @@ test("housing list requests reject stale completions and purchase defaults use t
   assert.match(collection, /const requestSequence = useRef\(0\);/);
   assert.match(collection, /const sequence = \+\+requestSequence\.current;/);
   assert.equal((collection.match(/sequence !== requestSequence\.current/g) ?? []).length, 2);
+  assert.match(collection, /const resultQueryKey = useRef<string \| null>\(null\);/);
+  assert.match(collection, /if \(resultQueryKey\.current !== input\.queryKey\)/);
+  assert.match(collection, /resultRef\.current = null;\s*setResult\(null\);/);
+  assert.match(collection, /queryKey: JSON\.stringify\(\{/);
+  assert.match(collection, /result: authorized && currentQuery \? result : null/);
+  assert.match(collection, /: currentQuery \? state : \{ kind: "initial-loading" \}/);
 
   const purchase = read("HousingPurchaseCreatePanel.tsx");
   assert.match(purchase, /import \{ businessDate \} from "\.\.\/\.\.\/\.\.\/lib\/business-date";/);
   assert.match(purchase, /useEffect\(\(\) => setPurchaseDate\(businessDate\(\)\), \[\]\);/);
   assert.match(purchase, /value=\{purchaseDate\}/);
   assert.doesNotMatch(purchase, /toISOString\(\)/);
+});
+
+test("finance selection follows the refreshed receivable set", () => {
+  const source = read("HousingFinanceActions.tsx");
+  assert.match(source, /if \(!entryKinds\.includes\(entryKind\)\)/);
+  assert.match(source, /setEntryKind\(entryKinds\[0\] \?\? "payment"\);/);
+  assert.match(source, /!receivables\.some\(\(receivable\) => receivable\.id === receivableId\)/);
+  assert.equal((source.match(/setReceivableId\(""\)/g) ?? []).length >= 3, true);
 });
 
 test("Party workbench distinguishes authoritative empty scope and white-lists sorting", () => {

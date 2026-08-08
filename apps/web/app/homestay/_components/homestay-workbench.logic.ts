@@ -138,3 +138,13 @@ export function pageCount(total: number, pageSize: number): number {
 export function homestayRateWorkspaceKey(unitId: string | null | undefined): string {
   return unitId ? `homestay-rate:${unitId}` : "homestay-rate:no-unit";
 }
+
+export function homestayStayActionVisibility(status: string): {
+  canAddGuest: boolean;
+  canIssueCredential: boolean;
+} {
+  return {
+    canAddGuest: ["draft", "confirmed", "checked_in"].includes(status),
+    canIssueCredential: ["confirmed", "checked_in"].includes(status)
+  };
+}

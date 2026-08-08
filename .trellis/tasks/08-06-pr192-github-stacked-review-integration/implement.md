@@ -284,3 +284,23 @@ git diff --check
 - [x] 三路独立只读复核完成；修复 effect dependency 与 hydration 两项后，当前 open P0/P1/P2=[]。
 - [ ] 提交并推送 Phase 12 修复；回复/resolve 3 条线程与迁移 review，更新 PR 正文，并仅对该新
   canonical HEAD 触发一次 `@codex review`；等待 verify/release-smoke 与无新增可操作反馈。
+
+## Phase 13：latest-head 状态与财务安全闭环（2026-08-08）
+
+- [x] `f2ea6b11` GitHub Lint/Typecheck/Build 与 Release Smoke 全部 PASS；Codex 对精确 HEAD
+  返回 5 条新反馈（1 P1、4 P2），故该 SHA 仍不作为最终可合并结论。
+- [x] Stay add-guest / issue-credential 的显示状态与服务端允许矩阵一致；终态不再显示必然 409
+  的操作，draft 仅保留允许的 guest registration。
+- [x] Housing collection 将缓存绑定到 endpoint/feature/action/page/filter query identity；跨查询
+  先清旧结果，同查询 refresh 仍可保留 stale cache，request sequence 继续阻止乱序完成。
+- [x] Lease sign 与 add-occupant 仅在 mutation API 成功后清选择；网络、并发或校验失败保留已上传
+  signature，用户仍可重试或删除。
+- [x] Finance actions 在 receivable 集合刷新后协调受控 entry kind 与 receivable id；已结清或已移除
+  的目标不再残留到下一次提交。
+- [x] confirmed booking 改期若产生价格下降，在 occupancy、night、booking、ledger 任何写入前
+  fail closed；当前无原子 reschedule approval contract，因此保留 draft 降价及 confirmed 加价，
+  不再直接创建 confirmed/unlinked waiver。
+- [x] Windows bundled Node 运行无需项目依赖的住房静态目标 9/9、diff-check PASS；两路最终独立
+  复核 `open P0/P1/P2=[]`。当前 WSL shell 无 Node/pnpm，完整门禁交由 GitHub CI。
+- [ ] 提交推送后逐线程回复/resolve，仅对新 HEAD 触发一次 Codex review，并等待 GitHub CI
+  全绿与零新增可操作反馈。

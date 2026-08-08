@@ -36,6 +36,7 @@ import {
 import {
   assertHomestayMoneyFitsNumeric,
   assertHomestayNoShowWindow,
+  assertHomestayRescheduleFinanciallySafe,
   formatMoneyCents,
   homestayMoneyDifference,
   toMoneyCents
@@ -306,6 +307,10 @@ export class HomestayBookingCommandService {
       const pricing = await this.calculatePricing(
         manager, scope, booking.unitId, dto.arrival_date, dto.departure_date
       );
+      const previousAmount = booking.roomAmount;
+      const difference = homestayMoneyDifference(pricing.total, previousAmount);
+      const differenceCents = toMoneyCents(difference);
+      assertHomestayRescheduleFinanciallySafe(booking.status, differenceCents);
       if (!booking.occupancyId) throw new ConflictException("Booking occupancy is missing");
       const occupancy = await this.propertyOccupanciesService.replacePeriodInTransaction(
         manager, scope, actor, booking.occupancyId, {
@@ -334,9 +339,6 @@ export class HomestayBookingCommandService {
           createBy: actor.sub, updateBy: actor.sub
         }))
       );
-      const previousAmount = booking.roomAmount;
-      const difference = homestayMoneyDifference(pricing.total, previousAmount);
-      const differenceCents = toMoneyCents(difference);
       booking.arrivalDate = pricing.arrivalDate;
       booking.departureDate = pricing.departureDate;
       booking.occupancyId = occupancy.id;
@@ -347,9 +349,9 @@ export class HomestayBookingCommandService {
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
       if (booking.status === "confirmed" && differenceCents !== 0n) {
         await this.transactionSupport.createLedgerEntry(manager, scope, actor, saved.id, {
-          entry_type: differenceCents > 0n ? "charge" : "waiver",
-          charge_type: differenceCents > 0n ? "reschedule_increase" : "reschedule_decrease",
-          amount: formatMoneyCents(differenceCents < 0n ? -differenceCents : differenceCents),
+          entry_type: "charge",
+          charge_type: "reschedule_increase",
+          amount: formatMoneyCents(differenceCents),
           reason: `订单改期差价：${dto.reason}`
         });
       }
