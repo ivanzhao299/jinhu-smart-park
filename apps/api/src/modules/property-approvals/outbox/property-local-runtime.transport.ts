@@ -41,6 +41,58 @@ export class PropertyLocalEventPublisher implements PropertyEventPublisherPort {
   ) {}
 
   async publish(event: Readonly<PropertyEventEnvelope>): Promise<void> {
+    const canonicalEvent = {
+      eventId: event.eventId,
+      tenantId: event.tenantId,
+      parkId: event.parkId,
+      eventType: event.eventType,
+      eventVersion: event.eventVersion,
+      orderingKey: event.orderingKey,
+      sequence: event.sequence,
+      eventOrdinal: event.eventOrdinal,
+      payload: event.payload,
+      payloadHash: event.payloadHash,
+      ...(event.replayDlqId ? { replayDlqId: event.replayDlqId } : {}),
+      ...(event.replayDlqVersion == null ? {} : { replayDlqVersion: event.replayDlqVersion })
+    };
+    if (["party.identity.claimed", "party.identity.reassigned"].includes(event.eventType)) {
+      const submissionId = String(event.payload.submissionId ?? "");
+      const response = event.payload.response;
+      const assignedVerifierId = response && typeof response === "object"
+        ? String((response as Record<string, unknown>).assignedVerifierId ?? "")
+        : "";
+      if (!UUID.test(submissionId) || !UUID.test(assignedVerifierId)) return;
+      await this.consumer.consume({
+        scope: { tenantId: event.tenantId, parkId: event.parkId },
+        event: canonicalEvent,
+        project: (canonical) => ({
+          id: stableUuid(`notification:${canonical.eventId}`),
+          scope: { tenantId: canonical.tenantId, parkId: canonical.parkId },
+          eventId: canonical.eventId,
+          eventPayloadHash: canonical.payloadHash,
+          notificationType: "identity-verification-assigned",
+          projectionVersion: 1,
+          title: "身份核验任务已分配",
+          summary: "新的身份核验任务已分配给你，请打开详情及时处理。",
+          severity: "info",
+          sourceType: "identity-submission",
+          sourceId: submissionId,
+          routeId: submissionId,
+          retentionUntil: new Date(Date.now() + 180 * 24 * 60 * 60 * 1_000),
+          recipients: [{
+            id: stableUuid(`notification-recipient:${canonical.eventId}:${assignedVerifierId}`),
+            userId: assignedVerifierId,
+            relationVersion: 1,
+            bundleSnapshot: { submissionId, eventType: canonical.eventType },
+            channels: [{
+              id: stableUuid(`notification-delivery:${canonical.eventId}:${assignedVerifierId}:in_app`),
+              channel: "in_app" as const
+            }]
+          }]
+        })
+      });
+      return;
+    }
     const approvalRequestId = String(event.payload.approvalRequestId ?? "");
     if (!UUID.test(approvalRequestId)) return;
     const recipients = await this.approvals.findNotificationRecipients(
@@ -51,20 +103,7 @@ export class PropertyLocalEventPublisher implements PropertyEventPublisherPort {
     const userIds = [...new Set([recipients.requesterId, recipients.submitterId])];
     await this.consumer.consume({
       scope: { tenantId: event.tenantId, parkId: event.parkId },
-      event: {
-        eventId: event.eventId,
-        tenantId: event.tenantId,
-        parkId: event.parkId,
-        eventType: event.eventType,
-        eventVersion: event.eventVersion,
-        orderingKey: event.orderingKey,
-        sequence: event.sequence,
-        eventOrdinal: event.eventOrdinal,
-        payload: event.payload,
-        payloadHash: event.payloadHash,
-        ...(event.replayDlqId ? { replayDlqId: event.replayDlqId } : {}),
-        ...(event.replayDlqVersion == null ? {} : { replayDlqVersion: event.replayDlqVersion })
-      },
+      event: canonicalEvent,
       project: (canonical) => ({
         id: stableUuid(`notification:${canonical.eventId}`),
         scope: { tenantId: canonical.tenantId, parkId: canonical.parkId },

@@ -152,9 +152,15 @@ test("availability always sends a strict non-empty date interval", () => {
 
 test("availability normalizes the legacy array response without changing v2 metadata", () => {
   const item = { unitId: "unit-1" } as never;
-  assert.deepEqual(normalizeHomestayAvailabilityResponse([item], 3), {
-    items: [item], total: 1, page: 3, page_size: 20
+  assert.deepEqual(normalizeHomestayAvailabilityResponse([item], 1), {
+    items: [item], total: 1, page: 1, page_size: 20
   });
+  const legacy = Array.from({ length: 41 }, (_, index) => ({ unit_id: `unit-${index + 1}` })) as never;
+  assert.deepEqual(
+    normalizeHomestayAvailabilityResponse(legacy, 2).items.map((entry) => entry.unit_id),
+    Array.from({ length: 20 }, (_, index) => `unit-${index + 21}`)
+  );
+  assert.equal(normalizeHomestayAvailabilityResponse(legacy, 2).total, 41);
   const wrapped = { items: [item], total: 41, page: 2, page_size: 20 };
   assert.equal(normalizeHomestayAvailabilityResponse(wrapped, 9), wrapped);
   assert.deepEqual(normalizeHomestayAvailabilityResponse([], 1), {

@@ -22,7 +22,10 @@ import type {
 } from "./property-task.assignment.repository";
 import { canonicalPropertyTaskRequestHash } from "./property-task.canonical";
 import { PropertyTaskMapper } from "./property-task.mapper";
-import { PropertyTaskOrchestrator } from "./property-task.orchestrator";
+import {
+  PropertyTaskOrchestrator,
+  shouldMaterializeDerivedAssignment
+} from "./property-task.orchestrator";
 import type {
   PropertyTaskProjectionRepository,
   PropertyTaskProjectionRow,
@@ -43,6 +46,21 @@ const taskId = "22222222-2222-4222-8222-222222222222";
 const sourceId = "33333333-3333-4333-8333-333333333333";
 const assignmentId = "44444444-4444-4444-8444-444444444444";
 const taskKey = "a".repeat(64);
+
+it("materializes only eligible derived assignments during rebuild", () => {
+  assert.equal(shouldMaterializeDerivedAssignment({
+    assignmentAuthority: "derived", lifecycle: "eligible"
+  }), true);
+  assert.equal(shouldMaterializeDerivedAssignment({
+    assignmentAuthority: "derived", lifecycle: "succeeded"
+  }), false);
+  assert.equal(shouldMaterializeDerivedAssignment({
+    assignmentAuthority: "derived", lifecycle: "cancelled"
+  }), false);
+  assert.equal(shouldMaterializeDerivedAssignment({
+    assignmentAuthority: "owning", lifecycle: "eligible"
+  }), false);
+});
 
 function projection(
   assignmentStatus: PropertyTaskProjectionRow["assignmentStatus"] = "claimed",

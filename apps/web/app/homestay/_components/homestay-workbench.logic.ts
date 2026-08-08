@@ -30,9 +30,15 @@ export function normalizeHomestayAvailabilityResponse(
   data: HomestayAvailabilityResponse | HomestayAvailabilityListResponse,
   page: number
 ): HomestayAvailabilityListResponse {
-  return Array.isArray(data)
-    ? { items: data, total: data.length, page, page_size: 20 }
-    : data;
+  if (!Array.isArray(data)) return data;
+  const pageSize = 20;
+  const offset = (page - 1) * pageSize;
+  return {
+    items: data.slice(offset, offset + pageSize),
+    total: data.length,
+    page,
+    page_size: pageSize
+  };
 }
 
 export const HOMESTAY_LANDING_PRIORITY = [

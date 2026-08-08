@@ -130,6 +130,12 @@ export class FilesService {
     query: FileQueryDto
   ): Promise<PaginatedResult<FileEntity>> {
     const isPendingPurchaseList = query.biz_type === "housing_purchase" && !query.biz_id;
+    const isPendingRepairList = query.pending === "true"
+      && query.biz_type === "housing_repair"
+      && Boolean(query.biz_id);
+    if (query.pending === "true" && !isPendingRepairList) {
+      throw new BadRequestException("pending file listing requires housing_repair and biz_id");
+    }
     if (query.biz_type && this.businessAccessService.isProtectedBizType(query.biz_type)) {
       await this.businessAccessService.assertReferenceAccess(
         scope,
@@ -139,6 +145,27 @@ export class FilesService {
         "read",
         isPendingPurchaseList ? actor.sub : undefined
       );
+    }
+    if (isPendingRepairList) {
+      const queryBuilder = this.fileRepository.createQueryBuilder("file")
+        .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("file.biz_type = :bizType", { bizType: query.biz_type })
+        .andWhere("file.biz_id = :bizId", { bizId: query.biz_id })
+        .andWhere("file.status = 1")
+        .andWhere("file.is_deleted = false")
+        .andWhere(`NOT EXISTS (
+          SELECT 1 FROM biz_work_order repair
+          WHERE repair.tenant_id = file.tenant_id
+            AND repair.park_id = file.park_id
+            AND repair.is_deleted = false
+            AND file.id = ANY(repair.image_file_ids)
+        )`)
+        .orderBy("file.create_time", "DESC")
+        .skip((query.page - 1) * query.page_size)
+        .take(query.page_size);
+      const [items, total] = await queryBuilder.getManyAndCount();
+      return { items, total, page: query.page, page_size: query.page_size };
     }
     const [items, total] = await this.fileRepository.findAndCount({
       where: {

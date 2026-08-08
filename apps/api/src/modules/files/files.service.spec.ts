@@ -49,6 +49,50 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
   assert.ok(where?.bizId);
 });
 
+test("pending repair listing excludes files already bound to work orders", async () => {
+  const whereClauses: string[] = [];
+  const builder = {
+    where(sql: string) { whereClauses.push(sql); return this; },
+    andWhere(sql: string) { whereClauses.push(sql); return this; },
+    orderBy() { return this; },
+    skip() { return this; },
+    take() { return this; },
+    async getManyAndCount() { return [[{ id: "pending-file" }], 1]; }
+  };
+  const service = new FilesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never,
+    {
+      isProtectedBizType: () => true,
+      assertReferenceAccess: async () => undefined
+    } as never
+  );
+  const result = await service.list(scope, actor, {
+    biz_type: "housing_repair",
+    biz_id: "11111111-1111-4111-8111-111111111111",
+    pending: "true",
+    page: 1,
+    page_size: 20
+  });
+  assert.equal(result.total, 1);
+  assert.match(whereClauses.join("\n"), /NOT EXISTS[\s\S]*biz_work_order/u);
+  assert.match(whereClauses.join("\n"), /file\.id = ANY\(repair\.image_file_ids\)/u);
+});
+
+test("pending file mode rejects unsupported business scopes", async () => {
+  const service = new FilesService({} as never, {} as never, {} as never, {} as never);
+  await assert.rejects(
+    service.list(scope, actor, {
+      biz_type: "housing_handover",
+      pending: "true",
+      page: 1,
+      page_size: 20
+    }),
+    /pending file listing requires housing_repair and biz_id/u
+  );
+});
+
 test("multipart filenames use an independently decoded UTF-8 name when its bytes match", () => {
   for (const expected of [
     "热转印桌面打印机用户指南.pdf",

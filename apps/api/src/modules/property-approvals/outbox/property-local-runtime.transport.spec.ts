@@ -58,4 +58,44 @@ describe("Property local runtime transports", () => {
       maxAttempts: 3, claimEpoch: "1", claimToken: "4"
     });
   });
+
+  it("projects identity assignment notifications to the assigned verifier", async () => {
+    const projected: NotificationProjectionInput[] = [];
+    let approvalLookupCount = 0;
+    const publisher = new PropertyLocalEventPublisher(
+      { findNotificationRecipients: async () => {
+        approvalLookupCount += 1;
+        return null;
+      } } as unknown as PropertyApprovalRepository,
+      { consume: async (input: {
+        project: (event: never) => NotificationProjectionInput;
+        event: never;
+      }) => { projected.push(input.project(input.event)); } } as unknown as PropertyNotificationProjectionConsumer
+    );
+    const event = {
+      eventId: "88888888-8888-4888-8888-888888888888",
+      tenantId: "tenant", parkId: "park", eventType: "party.identity.claimed",
+      eventVersion: 1, orderingKey: "identity", sequence: "1", eventOrdinal: 0,
+      payload: {
+        submissionId: "99999999-9999-4999-8999-999999999999",
+        response: { assignedVerifierId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }
+      },
+      payloadHash: "c".repeat(64), attemptCount: 1, claimEpoch: "1",
+      claimToken: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    };
+    await publisher.publish(event);
+    await publisher.publish({ ...event, eventType: "party.identity.reassigned" });
+    assert.equal(approvalLookupCount, 0);
+    assert.equal(projected.length, 2);
+    assert.equal(projected[0]?.notificationType, "identity-verification-assigned");
+    assert.equal(projected[0]?.recipients[0]?.userId, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    assert.equal(projected[0]?.id, projected[1]?.id);
+
+    await publisher.publish({
+      ...event,
+      eventId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      payload: { submissionId: event.payload.submissionId, response: {} }
+    });
+    assert.equal(projected.length, 2);
+  });
 });

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 import { PaginationQueryDto } from "../../../shared/dto/pagination-query.dto";
 
 export class FileQueryDto extends PaginationQueryDto {
@@ -10,4 +10,8 @@ export class FileQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   biz_id?: string;
+
+  @IsOptional()
+  @IsIn(["true"])
+  pending?: "true";
 }

@@ -60,6 +60,13 @@ interface AuthorityCandidate {
 
 const PROPERTY_TASK_RECONCILER_ACTOR_ID = "00000000-0000-4000-8000-000000000001";
 
+export function shouldMaterializeDerivedAssignment(input: {
+  assignmentAuthority: "derived" | "owning";
+  lifecycle: PropertyTaskSourceSnapshot["lifecycle"];
+}): boolean {
+  return input.assignmentAuthority === "derived" && input.lifecycle === "eligible";
+}
+
 @Injectable()
 export class PropertyTaskOrchestrator {
   constructor(
@@ -506,7 +513,10 @@ export class PropertyTaskOrchestrator {
           manager,
           scope,
           candidates
-            .filter((candidate) => candidate.projector.assignmentAuthority === "derived")
+            .filter((candidate) => shouldMaterializeDerivedAssignment({
+              assignmentAuthority: candidate.projector.assignmentAuthority,
+              lifecycle: candidate.snapshot.lifecycle
+            }))
             .map((candidate) => ({
               taskKey: candidate.taskKey,
               taskKind: candidate.projector.taskKind,

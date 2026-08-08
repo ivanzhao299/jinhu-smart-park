@@ -7,6 +7,10 @@ import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
 import { PropertyPageSurface, PropertyPanelSurface } from "../../features/property-shared";
 import styles from "./PropertyControlPlane.module.css";
+import {
+  propertyApprovalListQuery,
+  propertyApprovalPageCount
+} from "./property-approval-list.logic";
 
 interface ApprovalDetail {
   request: ApprovalSummary & {
@@ -30,31 +34,54 @@ interface ApprovalDetail {
 }
 
 export function PropertyApprovalListClient() {
+  const [page, setPage] = useState(1);
   const [data, setData] = useState<PropertyPaginatedResult<ApprovalSummary> | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestSequence = useRef(0);
   const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    setLoading(true);
     try {
       const response = await apiRequest<PropertyPaginatedResult<ApprovalSummary>>(
-        "/property/approvals?page=1&pageSize=100",
+        `/property/approvals?${propertyApprovalListQuery(page)}`,
         { token: getAccessToken() ?? undefined }
       );
-      setData(response.data); setError("");
+      if (sequence === requestSequence.current) {
+        setData(response.data); setError("");
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "审批加载失败");
+      if (sequence === requestSequence.current) {
+        setError(cause instanceof Error ? cause.message : "审批加载失败");
+      }
+    } finally {
+      if (sequence === requestSequence.current) setLoading(false);
     }
-  }, []);
+  }, [page]);
   useEffect(() => void load(), [load]);
+  const pages = propertyApprovalPageCount(data?.total ?? 0);
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
   return <PropertyPageSurface className={styles.stack}>
     <header className="ds-hero"><div className="ds-hero-copy"><p className="ds-kicker">共享房产控制面</p>
       <h1>房产业务审批</h1><p>查看审批决定与领域效果执行的独立状态。</p></div></header>
     {error ? <PropertyPanelSurface aria-live="polite"><p>{error}</p></PropertyPanelSurface> : null}
-    <section aria-label="审批列表" className="ds-mobile-record-list">
+    {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
+    {!loading && !error ? <section aria-label="审批列表" className="ds-mobile-record-list">
       {(data?.items ?? []).map((item) => <article className="ds-mobile-record" key={item.requestId}>
         <Link href={`/property/approvals/${item.requestId}`}>{item.actionId}</Link>
         <p>{item.decisionStatus} / {item.executionStatus}</p>
       </article>)}
       {data && !data.items.length ? <PropertyPanelSurface><p>暂无可见审批。</p></PropertyPanelSurface> : null}
-    </section>
+    </section> : null}
+    {!loading && !error ? <nav aria-label="分页" className={`ds-panel ds-section-panel ${styles.pager}`}>
+      <button className="ds-button" disabled={page <= 1 || loading}
+        onClick={() => setPage((value) => value - 1)} type="button">上一页</button>
+      <span>第 {page} / {pages} 页，共 {data?.total ?? 0} 条</span>
+      <button className="ds-button" disabled={page >= pages || loading}
+        onClick={() => setPage((value) => value + 1)} type="button">下一页</button>
+    </nav> : null}
   </PropertyPageSurface>;
 }
 

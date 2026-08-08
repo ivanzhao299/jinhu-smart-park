@@ -227,4 +227,23 @@ git diff --check
   A-base 21/21、seed/migration contract 与 `git diff --check` 全部 PASS。
 - [x] 将本结论提交推送并同步 PR #223 正文；随后仅对该最终 docs/task HEAD 触发一次
   `@codex review`，等待 CI 与无新增可操作反馈。
-- [ ] 在 #227/#228/#229 留下完成总结并关闭只读 Draft（不合并、不转 Ready、不删分支）。
+- [x] 在 #227/#228/#229 留下完成总结并关闭只读 Draft（不合并、不转 Ready、不删分支）。
+
+## Phase 10：canonical 最终复审闭环（2026-08-08）
+
+- [x] `29c9f441` GitHub verify/release-smoke 全部 PASS；Codex 在该精确 HEAD 返回 5 条
+  新的可操作反馈，故该 SHA 不作为最终可合并结论。
+- [x] 任务 rebuild 仅为 `eligible` 的 derived authority 补建 open assignment；终态 authority
+  继续锁定既有 closed/cancelled assignment，缺失时 fail closed。
+- [x] Web 对 legacy availability 全量数组按 20 条本地切页并保留真实 total；审批工作队列
+  增加可翻页查询、竞态保护、加载状态与移动端一致的分页控件。
+- [x] 本地事件发布器将 claimed/reassigned 身份核验事件幂等投影给 assigned verifier；缺失或
+  非法 submission/verifier UUID 继续 fail closed，revoked 等非分配事件不产生误通知。
+- [x] 报修草稿恢复通过显式 `pending=true` 服务端查询排除已被 work order 绑定的旧附件；
+  其他附件列表保持历史可见语义，提交侧 unbound 校验继续作为最终防线。
+- [x] 当前修复通过目标回归（API 41/41、Web 12/12）、API 全量 unit
+  （1050 PASS、13 个无 PostgreSQL 环境 SKIP）、API/Web lint/typecheck/build（160 pages）、
+  diff-check 与三路独立复核；open P0/P1=[]。
+- [ ] 提交推送当前修复，并逐条回复/解决 5 个 latest-head 线程。
+- [ ] 新 canonical HEAD 的 GitHub CI 全绿、Codex 无新增可操作反馈、threads 全部闭环、
+  PR 可合并且 auto-merge 未启用；仅在此后通知人工合并。
