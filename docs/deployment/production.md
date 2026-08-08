@@ -496,6 +496,9 @@ pnpm db:check:init
 Migration execution behavior:
 
 - `pnpm db:migrate` always bootstraps the migration record tables `public.sys_schema_migration_history` and `public.schema_migrations`.
+- When upgrading from one history table to two, bootstrap copies the existing table only if the peer table did not
+  exist before the transaction. If both tables already exist, bootstrap does not fill missing rows between them;
+  the subsequent FULL JOIN audit reports the original disagreement and stops.
 - If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command still walks the manifest to verify/apply independently tracked prerequisites, while skipping each checksum-matched migration.
 - If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
 - If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.
@@ -504,6 +507,13 @@ Migration execution behavior:
   complete. Migration-only history must not bypass prerequisite history checks.
 - Prerequisite status/checksum is recorded independently. Both history-table rows are written atomically, and any
   existing status/checksum disagreement stops before execution.
+- A renamed migration can be recovered from the exact rollback collision where legacy and canonical identities both
+  exist only when both rows and the prior alias audit marker are `succeeded` with the reviewed checksum in both
+  history tables. The runner then deletes only the duplicate legacy identity in one transaction. Missing markers,
+  status drift, checksum drift, or cross-table disagreement still stop before migration execution.
+- The GitHub source rollback rebuilds and health-checks the previous application snapshot without running that older
+  snapshot's migration or production-seed manifest. Database migrations remain forward-only; database recovery still
+  requires the release backup and an explicit operator decision.
 - The `000189` prerequisite chain restores the historical `asset_park` scope-column type contract before deriving a
   missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
   fails closed on unexpected schema types or ambiguous canonical scope data.

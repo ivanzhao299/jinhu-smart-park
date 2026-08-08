@@ -222,6 +222,148 @@ jobs:
             'SKIP: 000199_floor_layout_deleted_file_backfill.sql (already succeeded, checksum matched)' \
             /tmp/release-smoke-logs/db-migrate-alias-replay.log
 
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          INSERT INTO public.sys_schema_migration_history (
+            filename, checksum, status, started_at, finished_at, error_message,
+            executed_by, batch_id, created_at, updated_at
+          )
+          SELECT '000183_floor_layout_deleted_file_backfill.sql', checksum, status,
+                 started_at, finished_at, error_message, executed_by, batch_id,
+                 created_at, updated_at
+          FROM public.sys_schema_migration_history
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          INSERT INTO public.schema_migrations (
+            filename, checksum, status, started_at, finished_at, error_message,
+            executed_by, batch_id, created_at, updated_at
+          )
+          SELECT '000183_floor_layout_deleted_file_backfill.sql', checksum, status,
+                 started_at, finished_at, error_message, executed_by, batch_id,
+                 created_at, updated_at
+          FROM public.schema_migrations
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+
+          expect_alias_replay_failure() {
+            case_name="$1"
+            expected_error="$2"
+            failure_log="/tmp/release-smoke-logs/db-migrate-alias-${case_name}.log"
+            if pnpm db:migrate > "$failure_log" 2>&1; then
+              echo "Unsafe duplicate migration history case unexpectedly succeeded: $case_name" >&2
+              exit 1
+            fi
+            grep -Fq "$expected_error" "$failure_log"
+          }
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "DELETE FROM public.schema_migrations
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            missing-standard-marker \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "INSERT INTO public.schema_migrations (
+                  filename, checksum, status, started_at, finished_at, error_message,
+                  executed_by, batch_id, created_at, updated_at
+                )
+                SELECT filename, checksum, status, started_at, finished_at, error_message,
+                       executed_by, batch_id, created_at, updated_at
+                FROM public.sys_schema_migration_history
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "DELETE FROM public.schema_migrations
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            missing-standard-legacy \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "INSERT INTO public.schema_migrations (
+                  filename, checksum, status, started_at, finished_at, error_message,
+                  executed_by, batch_id, created_at, updated_at
+                )
+                SELECT filename, checksum, status, started_at, finished_at, error_message,
+                       executed_by, batch_id, created_at, updated_at
+                FROM public.sys_schema_migration_history
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = repeat('1', 64)
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = repeat('1', 64)
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            marker-drift \
+            'ERROR: migration history alias audit marker drifted'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.sys_schema_migration_history
+                SET checksum = repeat('2', 64)
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            cross-table-drift \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.sys_schema_migration_history
+                SET status = 'failed'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET status = 'failed'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            legacy-status-drift \
+            'ERROR: both legacy and canonical migration history identities exist'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          UPDATE public.sys_schema_migration_history
+          SET status = 'succeeded', checksum = repeat('0', 64)
+          WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+          UPDATE public.schema_migrations
+          SET status = 'succeeded', checksum = repeat('0', 64)
+          WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+          expect_alias_replay_failure \
+            legacy-checksum-drift \
+            'ERROR: both legacy and canonical migration history identities exist'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+
+          pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-alias-duplicate-replay.log
+          grep -Fq \
+            'COLLAPSE DUPLICATE MIGRATION HISTORY ALIAS: 000183_floor_layout_deleted_file_backfill.sql -> 000199_floor_layout_deleted_file_backfill.sql' \
+            /tmp/release-smoke-logs/db-migrate-alias-duplicate-replay.log
+
           alias_contract_count="$(
             docker compose -f "$COMPOSE_FILE" exec -T postgres \
               psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \

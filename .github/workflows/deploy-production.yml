@@ -193,8 +193,10 @@ jobs:
                 --exclude='.env' --exclude='.env.*' --exclude='uploads/' --exclude='storage/' --exclude='data/' --exclude='tmp/' \
                 '$rollback_root/' '$PROD_DEPLOY_PATH/'; \
                 cd '$PROD_DEPLOY_PATH'; \
-                PROD_DEPLOY_MODE=full RUN_PRODUCTION_SEED=no PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy; \
-                pnpm prod:health"; then
+                docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml build api web; \
+                docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml up -d postgres api web; \
+                MODE=full sh scripts/prod-healthcheck.sh; \
+                PRUNE_DOCKER_BUILD_CACHE=yes sh scripts/prod-docker-cleanup.sh"; then
               cleanup_rollback_snapshot
             else
               echo "Rollback failed; preserving source snapshot for manual recovery: $rollback_root" >&2

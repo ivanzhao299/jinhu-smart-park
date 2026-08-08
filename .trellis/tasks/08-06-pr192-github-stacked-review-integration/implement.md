@@ -359,3 +359,24 @@ git diff --check
   prerequisite 双 history=6、000189 双 history=2，隔离 container/network/volume 与临时副本已清理。
 - [x] 本地合同、YAML、diff-check、真实 PostgreSQL 回放与独立复核通过；修复已在 PR #230 闭环，
   不得重跑旧 SHA 的生产部署，待修复 PR 合并后由新 main HEAD 触发完整部署。
+
+## Phase 16：回滚诱发 migration alias 双身份修复（2026-08-08）
+
+- [x] 分析 Deploy Production run `31255172526`：新版本 build 成功，但 migration runner 检测到
+  `000183_floor_layout_deleted_file_backfill.sql` 与 canonical `000199` 同时存在后 fail closed；自动
+  源码 rollback 随后通过 API/Web full health 与 Docker cleanup，job 保留原始失败状态。
+- [x] 还原形成链：PR #223 部署先把生产旧身份事务性重签为 `000199` 并写 alias 审计标记，随后
+  `000189` 失败；旧源码 rollback 又运行包含 `000183` 的旧迁移清单，重新写入同 checksum 成功记录。
+- [x] runner 仅在 legacy、canonical、alias marker 在双 history 表均为 succeeded 且精确 checksum
+  一致时，事务性删除重复 legacy；缺 marker、状态/checksum 漂移与双表不一致继续 fail closed。
+- [x] GitHub 源码 rollback 改为直接重建旧 API/Web 容器、full health 与 Docker cleanup，不再执行
+  旧源码的 migration/production seed manifest，避免 forward-only 数据库被回滚清单再次写入。
+- [x] 静态合同、YAML、shell syntax、diff-check 与真实 PostgreSQL legacy-only、危险 duplicate 拒绝、
+  精确 duplicate 收敛回放全部通过；隔离 container/network/volume 已清理，独立复核 open P0/P1/P2=[]。
+- [x] PR #231 首轮 Codex review 对 `88170402` 无问题；Verify 唯一失败是既有 admin-issues 静态测试仍
+  要求源码 rollback 包含 `RUN_PRODUCTION_SEED=no`。更新合同为直接断言旧容器重建、full health、
+  Docker cleanup，且 rollback 段不得出现 migration、production seed 或 `prod:deploy`。
+- [x] Codex 对 `bb78bad2` 指出 P1：双 history 表本已存在但缺 legacy/marker 时，旧 bootstrap 会先
+  双向补齐再审计。bootstrap 改为仅在 exactly-one-table-existed 的首次双表升级复制；两表原本均存在
+  时不补缺，由 FULL JOIN 保留原始分歧并 fail closed；Release Smoke 增加缺 marker/legacy 回放。
+- [ ] 提交 Draft PR，等待 Codex review、Verify、Release Smoke 和零开放可操作线程后通知人工合并。
