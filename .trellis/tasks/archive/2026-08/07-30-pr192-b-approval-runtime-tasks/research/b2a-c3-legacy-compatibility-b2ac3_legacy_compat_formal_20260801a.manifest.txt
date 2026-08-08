@@ -1,8 +1,0 @@
-property-remediation-b2a-c3-runtime-candidate-v1
-run_id	b2ac3_legacy_compat_formal_20260801a
-status	failed
-candidate_admissible	false
-publication_contract	artifact-and-manifest-both-required
-artifact	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c3-legacy-compatibility-b2ac3_legacy_compat_formal_20260801a.json	1314879	15f6f7e24d1902dd0d7ad14ac24ef5b544d6ef1d565612ec7998a143ac83d621
-input_freeze	125d311cf6f2af2cf2c5a47e0e0a0d58e09aece6d8ea3e55845e994c6a8d6d1d
-reservation	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/.b2a-c3-legacy-compatibility-runid-1ea8389145f957f37b35f0323186453e171e5ba028c758e9abc0f2fc873080a3.reservation.json	b3a83060b8004173678d98846483f6ba71866c91af34c85eb9a87387f587dc0f

@@ -1,9 +1,0 @@
-b-property-task-projection-callsite-v1
-call	authority-sync	property.task.block	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.command
-call	authority-sync	property.task.claim	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.command
-call	authority-sync	property.task.release	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.command
-call	authority-sync	property.task.source-terminal.cancelled	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.sourceTerminal
-call	authority-sync	property.task.source-terminal.closed	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.sourceTerminal
-call	authority-sync	property.task.start	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.command
-call	authority-sync	property.task.unblock	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.command
-call	manual-rebuild	property.task.rebuild	apps/api/src/modules/property-tasks/property-task.orchestrator.ts	PropertyTaskOrchestrator.rebuild

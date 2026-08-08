@@ -166,3 +166,20 @@ git diff --check
 - Phase 0：删除新建的同目标本地 ref；远端 ref 不强删，先确认无人消费。
 - Phase 1–3：删除专用 worktree/本地 integration branch 后从记录的 main SHA 重建。
 - Phase 4–6：关闭 Draft PR；保留 snapshot 和证据，集成分支不 force rewrite。
+
+## Phase 7：PR diff 瘦身与只读审查投影（2026-08-08）
+
+- [x] 记录 PR #223 瘦身前基线：约 63.6k 文件、12.1M 新增行；确认主要来源为归档
+  `formal-source-snapshot/runtime-dependencies`、source maps 与重复 v22-v30 evidence。
+- [x] 新增 archive-only ignore 规则；保留 task 摘要、manifest、authority、final report、index、summary。
+- [x] 仅从 Git 索引移除生成快照、`.map`、`.tap`、`*.reservation.json` 和版本化原始 evidence；
+  不删除 Windows UAT 证据目录，也不物理删除本地归档工作副本。
+- [x] 生成 archive retention manifest，复核 v31 compact manifest/authority canonical evidence 仍被跟踪。
+- [x] 重新统计 PR 文件/行数：933 files / +177252 / -8254，其中非归档 873、归档 60；
+  `git diff --cached --check` 与 ignore contract 通过。
+- [ ] 提交并推送 `codex/pr192-main-integration`，等待 PR #223 CI 全绿。
+- [ ] 建立 `review-root -> review-a -> review-b -> review-c` Draft 投影栈；每层排除 `.trellis`
+  归档噪音，标题/正文标记“只读审查、禁止合并”，不得启用 auto-merge。
+- [ ] PR #223 正文改为汇总各层审查链接、canonical history、冲突裁决与 CI，不再要求 Codex
+  一次性审查全部历史证据。
+- [ ] 在瘦身后的 PR #223 新 HEAD 只触发一次 `@codex review`；后续按可操作反馈闭环。

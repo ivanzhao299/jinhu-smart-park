@@ -1,9 +1,0 @@
-{
-  "schema_version": "b2c-000197-success-manifest-v6",
-  "formal_run_id": "b2c197_prelim_20260802c",
-  "artifact": {
-    "filename": "success-b2c197_prelim_20260802c.json",
-    "bytes": 1894,
-    "raw_sha256": "19229d2b750df99d48081ecf2e1d4e0b0cf45f6e58e9768c3bda5a570310be7a"
-  }
-}
