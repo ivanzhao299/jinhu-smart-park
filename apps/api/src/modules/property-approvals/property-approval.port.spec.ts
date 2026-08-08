@@ -232,7 +232,6 @@ function serviceForCreatedPath(
     incidentActorIds: [checkerId],
     sourceScopes: [{ sourceType: "property-unit", sourceId }]
   };
-  const payload = command().canonicalPayload;
   const effectBase = {
     effectKind: "property.mode.transition",
     effectOrdinal: 0,
@@ -246,7 +245,7 @@ function serviceForCreatedPath(
   const service = new PropertyApprovalService(
     repository as never,
     {
-      resolve: async () => ({
+      resolve: async (input) => ({
         policyId: "40000000-0000-4000-8000-000000000001",
         policyVersion: 1,
         policyHash: "a".repeat(64),
@@ -266,7 +265,7 @@ function serviceForCreatedPath(
         }],
         effects: [{
           ...effectBase,
-          invariantHash: canonicalEffectInvariantHash(effectBase, payload)
+          invariantHash: canonicalEffectInvariantHash(effectBase, input.canonicalPayload)
         }]
       })
     },

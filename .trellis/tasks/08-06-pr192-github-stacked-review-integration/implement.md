@@ -321,5 +321,8 @@ git diff --check
   其他状态不渲染提交表单。
 - [x] Windows bundled Node 运行住房静态契约 10/10，`git diff --check` PASS；三路独立复核
   `open P0/P1/P2=[]`。WSL 无原生 pnpm，Windows UNC 依赖解析无法完成项目 typecheck，完整门禁交由 CI。
+- [x] `c2c19692` Codex review 无新增问题；GitHub API unit 仅新增 retry test 失败，根因是测试
+  policy fixture 对所有命令固定使用旧 canonical payload 计算 effect invariant。fixture 改为按本次 resolve
+  input 计算，生产代码不变；其余 API 1053 PASS、13 SKIP。
 - [ ] 提交推送后逐线程回复/resolve，仅对新 HEAD 触发一次 Codex review，并等待 GitHub CI
   全绿与零新增可操作反馈。
