@@ -69,7 +69,8 @@ export function HousingPurchaseCreatePanel({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (uploading || removing || lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = purchaseBody(form, unit?.id, files);
     lock.current = true; setSubmitting(true);
     try {
@@ -79,7 +80,7 @@ export function HousingPurchaseCreatePanel({
       });
       idempotency.complete("housing-purchase-create");
       setMessage("采购草稿已创建。");
-      setUnit(null); setFiles([]); event.currentTarget.reset(); onCreated();
+      setUnit(null); setFiles([]); formElement.reset(); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "采购草稿创建失败");
     } finally {

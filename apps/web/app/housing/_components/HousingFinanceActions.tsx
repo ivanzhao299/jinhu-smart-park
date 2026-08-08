@@ -56,7 +56,8 @@ export function HousingFinanceActions({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = financeBody(form);
     lock.current = true;
     setSubmitting(true);
@@ -68,7 +69,7 @@ export function HousingFinanceActions({
       });
       idempotency.complete("housing-ledger-register");
       setMessage("普通财务流水已登记。");
-      event.currentTarget.reset();
+      formElement.reset();
       await reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "财务登记失败");

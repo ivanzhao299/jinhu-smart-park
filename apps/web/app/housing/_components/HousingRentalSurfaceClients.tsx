@@ -28,7 +28,8 @@ function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
   const lock = useRef(false); const idempotency = useStableIdempotency();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (lock.current) return;
-    const form = new FormData(event.currentTarget); lock.current = true; setSubmitting(true); setMessage("");
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement); lock.current = true; setSubmitting(true); setMessage("");
     const body = { party_type: "person", display_name: String(form.get("display_name") ?? ""),
       mobile: String(form.get("mobile") ?? "") || undefined, source_domain: "housing" };
     try {
@@ -36,7 +37,7 @@ function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
         method: "POST", token: getAccessToken(),
         idempotencyKey: idempotency.keyFor("housing-tenant-create", body), body
       });
-      idempotency.complete("housing-tenant-create"); event.currentTarget.reset();
+      idempotency.complete("housing-tenant-create"); formElement.reset();
       setMessage("租客档案已创建。"); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "创建失败");

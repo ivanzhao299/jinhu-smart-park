@@ -407,6 +407,7 @@ implements PropertyApprovalCommandPort, PropertyApprovalProjectionPort {
       savepointEstablished = true;
       const identityReplay = await this.resolvePortIdentityReplay(manager, normalized);
       let selected = identityReplay?.request ?? null;
+      let createCommand = normalized;
       let disposition: CreatePendingPropertyApprovalResult["disposition"] =
         identityReplay?.disposition ?? "created";
       if (!selected) {
@@ -425,17 +426,28 @@ implements PropertyApprovalCommandPort, PropertyApprovalProjectionPort {
         const terminal = await this.repository.findLatestTerminalBySource(
           manager, normalized.scope, normalized
         );
-        if (terminal && normalized.sourceExpectedVersion <= terminal.sourceExpectedVersion) {
+        if (terminal && normalized.sourceExpectedVersion < terminal.sourceExpectedVersion) {
           throw propertyApprovalError("approval-source-changed", {
             latestVersion: terminal.sourceExpectedVersion
           });
         }
-        selected = await this.createDraftWithManager(manager, normalized.scope, normalized, {
+        if (terminal && normalized.sourceExpectedVersion === terminal.sourceExpectedVersion) {
+          if (!isRetryableApprovalTerminal(terminal)) {
+            throw propertyApprovalError("approval-source-changed", {
+              latestVersion: terminal.sourceExpectedVersion
+            });
+          }
+          createCommand = {
+            ...normalized,
+            businessIntentKey: retryApprovalBusinessIntentKey(normalized)
+          };
+        }
+        selected = await this.createDraftWithManager(manager, normalized.scope, createCommand, {
           conflictSafe: true,
           strictPort: true
         });
         if (!selected) {
-          const resolution = await this.resolvePortConflict(manager, normalized);
+          const resolution = await this.resolvePortConflict(manager, createCommand);
           selected = resolution.request;
           disposition = resolution.disposition;
         }
@@ -502,6 +514,7 @@ implements PropertyApprovalCommandPort, PropertyApprovalProjectionPort {
       manager, command.scope, command.actionId, command.businessIntentKey
     );
     if (byIntent) {
+      if (isRetryableApprovalTerminal(byIntent)) return null;
       assertExactPortRequest(byIntent, command, payloadHash);
       return { disposition: "replayed-business-intent", request: byIntent };
     }
@@ -561,7 +574,7 @@ implements PropertyApprovalCommandPort, PropertyApprovalProjectionPort {
     const byIntent = await this.repository.findByBusinessIntent(
       manager, command.scope, command.actionId, command.businessIntentKey
     );
-    if (byIntent) {
+    if (byIntent && !isRetryableApprovalTerminal(byIntent)) {
       assertExactPortRequest(byIntent, command, payloadHash);
       return { disposition: "replayed-business-intent", request: byIntent };
     }
@@ -575,7 +588,14 @@ implements PropertyApprovalCommandPort, PropertyApprovalProjectionPort {
     const terminal = await this.repository.findLatestTerminalBySource(
       manager, command.scope, command
     );
-    if (terminal && command.sourceExpectedVersion <= terminal.sourceExpectedVersion) {
+    if (
+      terminal
+      && (
+        command.sourceExpectedVersion < terminal.sourceExpectedVersion
+        || (command.sourceExpectedVersion === terminal.sourceExpectedVersion
+          && !isRetryableApprovalTerminal(terminal))
+      )
+    ) {
       throw propertyApprovalError("approval-source-changed", {
         latestVersion: terminal.sourceExpectedVersion
       });
@@ -2160,12 +2180,30 @@ function assertExactPortRequest(
     || request.requesterId !== command.requesterId
     || request.submitterId !== command.submitterId
     || request.submitterId !== command.actorId
-    || request.businessIntentKey !== command.businessIntentKey
+    || (
+      request.businessIntentKey !== command.businessIntentKey
+      && request.businessIntentKey !== retryApprovalBusinessIntentKey(command)
+    )
     || request.payloadSchemaVersion !== command.payloadSchemaVersion
     || request.payloadHash !== payloadHash
     || request.amount !== command.amount
     || request.currency !== command.currency
   ) throw propertyApprovalError("idempotency-key-conflict");
+}
+
+function isRetryableApprovalTerminal(request: PropertyApprovalRequestEntity): boolean {
+  return (request.decisionStatus === "rejected" || request.decisionStatus === "withdrawn")
+    && request.executionStatus === "not_required";
+}
+
+function retryApprovalBusinessIntentKey(
+  command: Pick<CreatePendingPropertyApprovalCommand, "businessIntentKey" | "clientKey">
+): string {
+  return `approval-retry:${createHash("sha256")
+    .update(command.businessIntentKey)
+    .update("\0")
+    .update(command.clientKey)
+    .digest("hex")}`;
 }
 
 function assertLegalTerminalOrActivePair(request: PropertyApprovalRequestEntity): void {

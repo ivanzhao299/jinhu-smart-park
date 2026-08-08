@@ -7,8 +7,11 @@ import {
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   homestayRateWorkspaceKey,
+  homestayRateWindow,
+  homestaySurfaceQueryKey,
   homestayDetailHref,
   homestayStayActionVisibility,
+  isMissingHomestayRateConfiguration,
   listPageState,
   normalizeHomestayAvailabilityResponse,
   pageCount,
@@ -17,6 +20,7 @@ import {
   taskDetailHref
 } from "./homestay-workbench.logic";
 import { resolveReturnHref } from "../../../features/property-shared/detail/return-context";
+import { ApiError } from "../../../lib/api-client";
 
 test("seven list categories and all detail aliases use exact read actions", () => {
   assert.deepEqual(HOMESTAY_LIST_READ_ACTIONS, {
@@ -36,6 +40,25 @@ test("seven list categories and all detail aliases use exact read actions", () =
   assert.equal(shouldLoadHomestayRead(true, false), false);
   assert.equal(shouldLoadHomestayRead(false, true), false);
   assert.equal(shouldLoadHomestayRead(true, true), true);
+});
+
+test("homestay query identity and rate window preserve backend half-open semantics", () => {
+  assert.equal(
+    homestaySurfaceQueryKey("bookings", new URLSearchParams({ page: "2", status: "confirmed" })),
+    "bookings:page=2&status=confirmed"
+  );
+  assert.deepEqual(homestayRateWindow("2026-08-08"), {
+    from: "2026-08-08",
+    to: "2026-08-22"
+  });
+});
+
+test("only the exact missing-rate 404 is treated as an unconfigured workspace", () => {
+  assert.equal(isMissingHomestayRateConfiguration(
+    new ApiError("Homestay rate configuration not found", 404)
+  ), true);
+  assert.equal(isMissingHomestayRateConfiguration(new ApiError("Unit not found", 404)), false);
+  assert.equal(isMissingHomestayRateConfiguration(new ApiError("Forbidden", 403)), false);
 });
 
 test("landing requires active modules and selects the first granular page only", () => {

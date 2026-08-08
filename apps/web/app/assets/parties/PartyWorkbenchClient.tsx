@@ -172,7 +172,8 @@ function PartyCreateForm({ onCreated }: { onCreated(): void }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     lock.current = true;
     setSubmitting(true);
     setFeedback("");
@@ -191,7 +192,7 @@ function PartyCreateForm({ onCreated }: { onCreated(): void }) {
         idempotencyKey: idempotency.keyFor("party-create", body), body
       });
       idempotency.complete();
-      event.currentTarget.reset();
+      formElement.reset();
       setFeedback("业务相对方已创建。");
       onCreated();
     } catch (error) {

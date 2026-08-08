@@ -6,7 +6,7 @@ import {
   type PaginatedResult
 } from "@jinhu/shared";
 import type { FormEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { PendingAttachmentList } from "../../../components/files/PendingAttachmentList";
 import {
@@ -24,21 +24,26 @@ import {
 } from "./HousingFormPrimitives";
 import styles from "./HousingWorkbench.module.css";
 import { loadHousingMeters } from "./housing-picker-loaders";
-import { isHousingFinancialHandover } from "./housing-workbench-contract";
+import {
+  housingHandoverTypes,
+  isHousingFinancialHandover,
+  type HousingHandoverType
+} from "./housing-workbench-contract";
 import { useStableIdempotency } from "./use-stable-idempotency";
-
-type HandoverType = "move_in" | "move_out";
 
 export function HousingHandoverForm({
   capabilities,
   leaseId,
+  leaseStatus,
   onCompleted
 }: {
   capabilities: PropertyCapabilityProjection;
   leaseId: string;
+  leaseStatus: string;
   onCompleted(): Promise<void>;
 }) {
-  const [type, setType] = useState<HandoverType>("move_in");
+  const allowedTypes = useMemo(() => housingHandoverTypes(leaseStatus), [leaseStatus]);
+  const [type, setType] = useState<HousingHandoverType>(allowedTypes[0] ?? "move_in");
   const [amounts, setAmounts] = useState({ damage: "0.00", unsettled: "0.00", deduction: "0.00" });
   const [meter, setMeter] = useState<RemoteEntityOption | null>(null);
   const [reading, setReading] = useState("");
@@ -58,7 +63,10 @@ export function HousingHandoverForm({
     handoverType: type, damageAmount: amounts.damage,
     unsettledAmount: amounts.unsettled, depositDeductionAmount: amounts.deduction
   });
-  usePendingHandoverFiles({ bizType, canRead: fileCapability.canRead, capabilities, leaseId, setFiles, setMessage });
+  useEffect(() => {
+    if (!allowedTypes.includes(type)) setType(allowedTypes[0] ?? "move_in");
+  }, [allowedTypes, type]);
+  usePendingHandoverFiles({ bizType, canRead: allowedTypes.length > 0 && fileCapability.canRead, capabilities, leaseId, setFiles, setMessage });
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,9 +106,9 @@ export function HousingHandoverForm({
     }
   }
 
-  if (!capabilities.actionAllowed("housing.handovers.complete")) return null;
+  if (!capabilities.actionAllowed("housing.handovers.complete") || allowedTypes.length === 0) return null;
   return (
-    <HandoverFormView amounts={amounts} bizType={bizType} capabilities={capabilities} energyAllowed={energyAllowed} fileCapability={fileCapability} files={files} financial={financial} leaseId={leaseId} meter={meter} message={message} onAmounts={setAmounts} onFiles={setFiles} onMeter={setMeter} onReading={setReading} onRemoveFile={removeFile} onSubmit={submit} onType={(value) => { setType(value); setMeter(null); setReading(""); setAmounts({ damage: "0.00", unsettled: "0.00", deduction: "0.00" }); }} onUploading={setUploading} reading={reading} removing={removing} submitting={submitting} type={type} uploading={uploading} />
+    <HandoverFormView allowedTypes={allowedTypes} amounts={amounts} bizType={bizType} capabilities={capabilities} energyAllowed={energyAllowed} fileCapability={fileCapability} files={files} financial={financial} leaseId={leaseId} meter={meter} message={message} onAmounts={setAmounts} onFiles={setFiles} onMeter={setMeter} onReading={setReading} onRemoveFile={removeFile} onSubmit={submit} onType={(value) => { setType(value); setMeter(null); setReading(""); setAmounts({ damage: "0.00", unsettled: "0.00", deduction: "0.00" }); }} onUploading={setUploading} reading={reading} removing={removing} submitting={submitting} type={type} uploading={uploading} />
   );
 }
 
@@ -130,7 +138,7 @@ async function executeHandover(
 
 function handoverBody(form: FormData, value: {
   amounts: { damage: string; unsettled: string; deduction: string };
-  files: FileRecord[]; meter: RemoteEntityOption | null; reading: string; type: HandoverType;
+  files: FileRecord[]; meter: RemoteEntityOption | null; reading: string; type: HousingHandoverType;
 }) {
   return {
       handover_type: value.type,
@@ -147,6 +155,7 @@ function handoverBody(form: FormData, value: {
 }
 
 function HandoverFormView(props: {
+  allowedTypes: readonly HousingHandoverType[];
   amounts: { damage: string; unsettled: string; deduction: string }; bizType: string;
   capabilities: PropertyCapabilityProjection; energyAllowed: boolean;
   fileCapability: ReturnType<PropertyCapabilityProjection["fileCapability"]>;
@@ -156,8 +165,8 @@ function HandoverFormView(props: {
   onFiles(value: FileRecord[]): void; onMeter(value: RemoteEntityOption | null): void;
   onReading(value: string): void; onRemoveFile(fileId: string): Promise<void>;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
-  onType(value: HandoverType): void; onUploading(value: boolean): void;
-  reading: string; removing: boolean; submitting: boolean; type: HandoverType; uploading: boolean;
+  onType(value: HousingHandoverType): void; onUploading(value: boolean): void;
+  reading: string; removing: boolean; submitting: boolean; type: HousingHandoverType; uploading: boolean;
 }) {
   return (
     <PropertyPanelSurface title="完成现场交割">
@@ -196,7 +205,7 @@ function HandoverConfirmation({ financial }: { financial: boolean }) {
 function HandoverFields(props: Parameters<typeof HandoverFormView>[0]) {
   return (
     <div className={styles.formGrid}>
-      <label>交割类型<select onChange={(event) => props.onType(event.target.value as HandoverType)} value={props.type}><option value="move_in">入住交割</option><option value="move_out">退租交割</option></select></label>
+      <label>交割类型<select onChange={(event) => props.onType(event.target.value as HousingHandoverType)} value={props.type}>{props.allowedTypes.map((value) => <option key={value} value={value}>{value === "move_in" ? "入住交割" : "退租交割"}</option>)}</select></label>
       <label>物品清单<input maxLength={500} name="items" required /></label>
       {props.energyAllowed ? <><RemoteEntityPicker authorized contextValid={props.capabilities.moduleAvailable} invalidationKey={props.capabilities.invalidationKey} label="现场表计（可选）" loadOptions={(input) => loadHousingMeters(props.leaseId, input)} onChange={props.onMeter} value={props.meter} />{props.meter ? <label>现场读数<input inputMode="decimal" min="0" onChange={(event) => props.onReading(event.target.value)} required step="0.000001" type="number" value={props.reading} /></label> : null}</> : null}
       <label>钥匙 / 门卡<input maxLength={500} name="credentials" required /></label>

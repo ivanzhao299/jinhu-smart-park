@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   HOUSING_DETAIL_ROUTES,
   HOUSING_WORKBENCH_SURFACES,
+  housingHandoverTypes,
   isHousingFinancialHandover,
   resolveHousingLanding
 } from "./housing-workbench-contract";
@@ -30,6 +31,15 @@ test("housing exposes the frozen nine surfaces and four detail routes", () => {
     "/housing/repairs/[repairId]",
     "/housing/purchases/[purchaseId]"
   ]);
+});
+
+test("handover types follow the lease lifecycle enforced by the command service", () => {
+  assert.deepEqual(housingHandoverTypes("active"), ["move_in", "move_out"]);
+  assert.deepEqual(housingHandoverTypes("expiring"), ["move_out"]);
+  assert.deepEqual(housingHandoverTypes("checkout_pending"), ["move_out"]);
+  for (const status of ["draft", "pending_approval", "pending_signature", "terminated", "void"]) {
+    assert.deepEqual(housingHandoverTypes(status), []);
+  }
 });
 
 test("move-out financial discriminator uses decimal strings without number coercion", () => {

@@ -9,9 +9,13 @@ import {
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
+import { businessDate } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
-import { homestayRateWorkspaceKey } from "./homestay-workbench.logic";
+import {
+  homestayRateWorkspaceKey,
+  homestayRateWindow,
+  isMissingHomestayRateConfiguration
+} from "./homestay-workbench.logic";
 
 type FeeType = "fixed" | "percentage";
 type RateDraft = {
@@ -35,27 +39,34 @@ async function loadUnits(input: { page: number; pageSize: number; signal: AbortS
 
 function useRateCalendar(unit: RemoteEntityOption | null, canRead: boolean, invalidationKey: string) {
   const [calendar, setCalendar] = useState<HomestayRateCalendarResponse | null>(null);
+  const [notConfigured, setNotConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const load = useCallback(async () => {
     if (!unit || !canRead) return;
     setLoading(true);
     setError("");
+    setNotConfigured(false);
     try {
-      const from = businessDate();
+      const { from, to } = homestayRateWindow();
       const response = await apiRequest<HomestayRateCalendarResponse>(
-        `/homestay/rates/${unit.id}?date_from=${from}&date_to=${addBusinessDateDays(from, 13)}`,
+        `/homestay/rates/${unit.id}?date_from=${from}&date_to=${to}`,
         { token: getAccessToken() ?? undefined }
       );
       setCalendar(response.data);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "价格加载失败");
+      if (isMissingHomestayRateConfiguration(loadError)) {
+        setCalendar(null);
+        setNotConfigured(true);
+      } else {
+        setError(loadError instanceof Error ? loadError.message : "价格加载失败");
+      }
     } finally {
       setLoading(false);
     }
   }, [canRead, unit]);
   useEffect(() => void load(), [load, invalidationKey]);
-  return { calendar, error, load, loading, setError };
+  return { calendar, error, load, loading, notConfigured, setError };
 }
 
 function useRateDraft(calendar: HomestayRateCalendarResponse | null) {
@@ -180,11 +191,12 @@ function RateWorkspace({
   };
   return (
     <>
-      <RateCalendar calendar={query.calendar} error={query.error} loading={query.loading} reload={query.load} unit={unit} />
-      {query.calendar && canManage ? (
+      <RateCalendar calendar={query.calendar} error={query.error} loading={query.loading} notConfigured={query.notConfigured} reload={query.load} unit={unit} />
+      {query.notConfigured ? <p className="ds-help">尚未配置价格，请先保存基础价格。</p> : null}
+      {(query.calendar || query.notConfigured) && canManage ? (
         <>
           <BaseRateForm draft={rate.draft} onSubmit={saveBase} submitting={saves.submitting} update={rate.update} />
-          <OverrideRateForm draft={override} onSubmit={saveOverride} setDraft={setOverride} submitting={saves.submitting} />
+          {query.calendar ? <OverrideRateForm draft={override} onSubmit={saveOverride} setDraft={setOverride} submitting={saves.submitting} /> : null}
         </>
       ) : null}
       <p aria-live="polite">{saves.submitting ? "正在保存价格…" : saves.message || (query.calendar && query.error ? `刷新失败：${query.error}` : "")}</p>
@@ -193,14 +205,15 @@ function RateWorkspace({
 }
 
 function RateCalendar({
-  calendar, error, loading, reload, unit
+  calendar, error, loading, notConfigured, reload, unit
 }: {
   calendar: HomestayRateCalendarResponse | null; error: string; loading: boolean;
-  reload(): Promise<void>; unit: RemoteEntityOption | null;
+  notConfigured: boolean; reload(): Promise<void>; unit: RemoteEntityOption | null;
 }) {
   const state = loading ? { kind: "initial-loading" as const }
     : error && !calendar ? { kind: "initial-failure" as const, message: error }
       : !unit ? { kind: "empty-filtered" as const }
+        : notConfigured ? { kind: "empty-initial" as const }
         : calendar ? { kind: "ready" as const } : { kind: "empty-initial" as const };
   return (
     <PageState state={state} retryAction={<button className="secondary-button" type="button" onClick={() => void reload()}>重试</button>}>

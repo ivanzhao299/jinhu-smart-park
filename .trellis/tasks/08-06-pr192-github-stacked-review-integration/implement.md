@@ -304,3 +304,22 @@ git diff --check
   复核 `open P0/P1/P2=[]`。当前 WSL shell 无 Node/pnpm，完整门禁交由 GitHub CI。
 - [ ] 提交推送后逐线程回复/resolve，仅对新 HEAD 触发一次 Codex review，并等待 GitHub CI
   全绿与零新增可操作反馈。
+
+## Phase 14：latest-head 重试、查询与表单边界闭环（2026-08-08）
+
+- [x] `59b91f0a` GitHub verify/release-smoke 全部 PASS；Codex 对该精确 HEAD 返回 6 条
+  新反馈（3 P1、3 P2），故继续在 canonical 分支闭环，不修改只读投影。
+- [x] 所有异步表单在 `await` 前同步捕获 form element；住房五个命中及 parties/leasing 同类
+  风险一起修复，异步成功后不再读取 React event 的 `currentTarget`。
+- [x] rejected/withdrawn 审批保持不可变历史，同时允许新 client key 在同 source version 创建
+  独立哈希 attempt intent；同 client key 精确重放、active 冲突及 approved/expired 单调 fence 不变。
+- [x] Homestay 列表缓存绑定 surface + API query identity，跨筛选/分页清旧结果，same-query refresh
+  保留缓存且 request sequence 继续阻止旧请求覆盖。
+- [x] 价格日历按后端半开区间请求 `from + 14 days`；精确 missing-configuration 404 转为可配置空态，
+  仅显示基础价格 upsert，配置创建成功后才开放日期覆盖价。
+- [x] 交割类型与后端租约生命周期一致：active 可入住/退租，expiring/checkout_pending 仅退租，
+  其他状态不渲染提交表单。
+- [x] Windows bundled Node 运行住房静态契约 10/10，`git diff --check` PASS；三路独立复核
+  `open P0/P1/P2=[]`。WSL 无原生 pnpm，Windows UNC 依赖解析无法完成项目 typecheck，完整门禁交由 CI。
+- [ ] 提交推送后逐线程回复/resolve，仅对新 HEAD 触发一次 Codex review，并等待 GitHub CI
+  全绿与零新增可操作反馈。

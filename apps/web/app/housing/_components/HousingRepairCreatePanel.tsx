@@ -75,7 +75,8 @@ export function HousingRepairCreatePanel({
       return;
     }
     if (!lease) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = repairBody(form, files);
     lock.current = true;
     setSubmitting(true);
@@ -86,7 +87,7 @@ export function HousingRepairCreatePanel({
       });
       idempotency.complete("housing-repair-create");
       setMessage("报修已代录。");
-      leaseState.clearLease(); setFiles([]); event.currentTarget.reset(); onCreated();
+      leaseState.clearLease(); setFiles([]); formElement.reset(); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "报修代录失败");
     } finally {

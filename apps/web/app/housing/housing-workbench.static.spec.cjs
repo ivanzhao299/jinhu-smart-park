@@ -148,6 +148,20 @@ test("finance selection follows the refreshed receivable set", () => {
   assert.equal((source.match(/setReceivableId\(""\)/g) ?? []).length >= 3, true);
 });
 
+test("async housing forms capture the form element before awaiting", () => {
+  for (const name of [
+    "HousingFinanceActions.tsx",
+    "HousingPurchaseCreatePanel.tsx",
+    "HousingRentalSurfaceClients.tsx",
+    "HousingRepairCreatePanel.tsx",
+    "HousingLeaseCreatePanel.tsx"
+  ]) {
+    const source = read(name);
+    assert.match(source, /const formElement = event\.currentTarget;/, name);
+    assert.doesNotMatch(source, /event\.currentTarget\.reset\(\)/, name);
+  }
+});
+
 test("Party workbench distinguishes authoritative empty scope and white-lists sorting", () => {
   const source = fs.readFileSync(path.join(partiesRoot, "PartyWorkbenchClient.tsx"), "utf8");
   assert.match(source, /hasAuthoritativeEmptyPartyScope\(scopes, isSuper\)/);

@@ -140,3 +140,11 @@ export function isHousingFinancialHandover(input: {
       input.depositDeductionAmount
     ].some(isNonZeroDecimal);
 }
+
+export type HousingHandoverType = "move_in" | "move_out";
+
+export function housingHandoverTypes(leaseStatus: string): readonly HousingHandoverType[] {
+  if (leaseStatus === "active") return ["move_in", "move_out"];
+  if (leaseStatus === "expiring" || leaseStatus === "checkout_pending") return ["move_out"];
+  return [];
+}

@@ -12,6 +12,26 @@ import {
   type StructuredReturnContext
 } from "../../../features/property-shared/detail/return-context";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
+import { ApiError } from "../../../lib/api-client";
+
+export const HOMESTAY_RATE_CONFIGURATION_MISSING = "Homestay rate configuration not found";
+
+export function isMissingHomestayRateConfiguration(error: unknown): boolean {
+  return error instanceof ApiError
+    && error.status === 404
+    && error.message === HOMESTAY_RATE_CONFIGURATION_MISSING;
+}
+
+export function homestaySurfaceQueryKey(
+  surface: string,
+  query: URLSearchParams
+): string {
+  return `${surface}:${query.toString()}`;
+}
+
+export function homestayRateWindow(from = businessDate()): { from: string; to: string } {
+  return { from, to: addBusinessDateDays(from, 14) };
+}
 
 export function availabilityQueryDates(
   input: { dateFrom?: string; dateTo?: string },
