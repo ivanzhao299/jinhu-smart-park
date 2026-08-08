@@ -1,0 +1,34 @@
+# syntax=docker/dockerfile:1.7
+FROM docker:27-cli AS docker_cli
+
+FROM node:22-bookworm-slim
+
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+ENV PNPM_HOME=/pnpm
+ENV PATH=/pnpm:$PATH
+ENV COREPACK_NPM_REGISTRY="$NPM_REGISTRY"
+
+COPY --from=docker_cli /usr/local/bin/docker /usr/local/bin/docker
+COPY --from=docker_cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
+
+RUN set -eux; \
+  corepack enable; \
+  for attempt in 1 2 3; do \
+    if corepack prepare pnpm@9.12.0 --activate; then break; fi; \
+    if [ "$attempt" = "3" ]; then exit 1; fi; \
+    sleep $((attempt * 5)); \
+  done
+WORKDIR /workspace
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/ui/package.json packages/ui/package.json
+COPY packages/config/package.json packages/config/package.json
+RUN --mount=type=cache,id=jinhu-property-perf-control-pnpm,target=/pnpm/store \
+  pnpm --filter @jinhu/api... install --frozen-lockfile
+
+COPY . .
+RUN chmod 0755 scripts/e2e/property-remediation/performance/*.sh

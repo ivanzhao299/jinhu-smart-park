@@ -1,10 +1,27 @@
 "use client";
 
 import { CloudOff, RefreshCw } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ensurePropertyOfflineScope } from "../../features/property-shared/offline/property-draft-store";
+import { useAuthUser } from "../../lib/auth-context";
 
 export function MobileTerminalReliability() {
   const [online, setOnline] = useState(true);
+  const pathname = usePathname();
+  const user = useAuthUser();
+  const module = pathname.split("/").filter(Boolean)[0] ?? "dashboard";
+
+  useEffect(() => {
+    if (!user) return;
+    void ensurePropertyOfflineScope({
+      tenantId: user.tenant_id,
+      parkId: user.park_id,
+      userId: user.id,
+      module,
+      permissionFingerprint: JSON.stringify([user.data_scope, ...user.permissions].sort())
+    });
+  }, [module, user]);
 
   useEffect(() => {
     const updateNetworkState = () => setOnline(navigator.onLine);
@@ -38,7 +55,7 @@ export function MobileTerminalReliability() {
   return (
     <aside aria-live="assertive" className="mobile-terminal-network-state" role="status">
       <CloudOff size={18} />
-      <span>网络已断开，已填写内容会保留在本机。</span>
+      <span>网络已断开，请勿刷新或关闭页面；恢复连接后再提交。</span>
       <button type="button" onClick={() => window.location.reload()}>
         <RefreshCw size={16} />
         重试

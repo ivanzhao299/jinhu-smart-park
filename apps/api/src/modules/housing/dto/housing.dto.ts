@@ -19,7 +19,29 @@ import {
   ValidateIf,
   ValidateNested
 } from "class-validator";
-import { HOUSING_LEASE_STATUSES, HOUSING_LEDGER_ENTRY_TYPES } from "@jinhu/shared";
+import {
+  HOUSING_LEASE_STATUSES,
+  HOUSING_LEDGER_ENTRY_TYPES,
+  HOUSING_BILLING_SORTS,
+  HOUSING_ENERGY_METER_CANDIDATE_SORTS,
+  HOUSING_FINANCE_SORTS,
+  HOUSING_HANDOVER_SORTS,
+  HOUSING_LEASE_SORTS,
+  HOUSING_PURCHASE_SORTS,
+  HOUSING_REPAIR_SORTS,
+  HOUSING_SORT_ORDERS,
+  HOUSING_TASK_SORTS,
+  HOUSING_UNIT_CANDIDATE_SORTS,
+  type HousingBillingListQuery,
+  type HousingEnergyMeterCandidateQuery,
+  type HousingFinanceListQuery,
+  type HousingHandoverListQuery,
+  type HousingLeaseListQuery,
+  type HousingPurchaseListQuery,
+  type HousingRepairListQuery,
+  type HousingTaskListQuery,
+  type HousingUnitCandidateQuery
+} from "@jinhu/shared";
 
 const trim = ({ value }: { value: unknown }): string | undefined => {
   if (value === undefined || value === null) return undefined;
@@ -34,12 +56,77 @@ const HOUSING_MONEY_PATTERN = /^(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 const HOUSING_POSITIVE_MONEY_PATTERN = /^(?!0(?:\.0{1,2})?$)(?:0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 const HOUSING_RATE_PATTERN = /^(?:0|[1-9]\d{0,11})(?:\.\d{1,6})?$/;
 
-export class HousingLeaseQueryDto {
+export class HousingLeaseQueryDto implements HousingLeaseListQuery {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?: string;
   @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
   @IsOptional() @IsUUID() unit_id?: string;
   @IsOptional() @IsUUID() tenant_party_id?: string;
+  @IsOptional() @IsIn(HOUSING_LEASE_SORTS) sort?: HousingLeaseListQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: HousingLeaseListQuery["order"];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
+}
+
+export class HousingEnergyMeterCandidateQueryDto
+implements HousingEnergyMeterCandidateQuery {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?: string;
+  @IsOptional() @IsIn(HOUSING_ENERGY_METER_CANDIDATE_SORTS)
+  sort?: HousingEnergyMeterCandidateQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: HousingEnergyMeterCandidateQuery["order"];
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
+}
+
+export class HousingUnitCandidateQueryDto implements HousingUnitCandidateQuery {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?: string;
+  @IsOptional() @IsIn(HOUSING_UNIT_CANDIDATE_SORTS)
+  sort?: HousingUnitCandidateQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: HousingUnitCandidateQuery["order"];
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
+}
+
+export class HousingWorkbenchPageQueryDto {
+  @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: "asc" | "desc";
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
+}
+
+export class HousingTaskQueryDto extends HousingWorkbenchPageQueryDto
+implements HousingTaskListQuery {
+  @IsOptional() @IsIn(HOUSING_TASK_SORTS) sort?: HousingTaskListQuery["sort"];
+  @IsOptional()
+  @IsIn(["pending", "active", "exception", "completed"])
+  status?: "pending" | "active" | "exception" | "completed";
+
+  @IsOptional()
+  @IsIn(["housing_lease", "housing_handover", "housing_repair", "housing_billing", "housing_purchase"])
+  source_type?: "housing_lease" | "housing_handover" | "housing_repair" | "housing_billing" | "housing_purchase";
+}
+
+export class HousingHandoverQueryDto extends HousingWorkbenchPageQueryDto
+implements HousingHandoverListQuery {
+  @IsOptional() @IsIn(HOUSING_HANDOVER_SORTS) sort?: HousingHandoverListQuery["sort"];
+  @IsOptional() @IsIn(["move_in", "move_out"]) handover_type?: "move_in" | "move_out";
+  @IsOptional() @IsIn(["draft", "completed"]) status?: "draft" | "completed";
+}
+
+export class HousingBillingQueryDto extends HousingWorkbenchPageQueryDto
+implements HousingBillingListQuery {
+  @IsOptional() @IsIn(HOUSING_BILLING_SORTS) sort?: HousingBillingListQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
+}
+
+export class HousingFinanceQueryDto extends HousingWorkbenchPageQueryDto
+implements HousingFinanceListQuery {
+  @IsOptional() @IsIn(HOUSING_FINANCE_SORTS) sort?: HousingFinanceListQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_LEASE_STATUSES) status?: string;
+}
+
+export class HousingRepairQueryDto extends HousingWorkbenchPageQueryDto
+implements HousingRepairListQuery {
+  @IsOptional() @IsIn(HOUSING_REPAIR_SORTS) sort?: HousingRepairListQuery["sort"];
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) status?: string;
 }
 
 export class CreateHousingLeaseDto {
@@ -163,9 +250,11 @@ export class CreateHousingPurchaseDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?: string;
 }
 
-export class HousingPurchaseQueryDto {
+export class HousingPurchaseQueryDto implements HousingPurchaseListQuery {
   @IsOptional() @IsIn(["draft", "approved", "rejected", "void"]) approval_status?: string;
   @IsOptional() @IsUUID() unit_id?: string;
+  @IsOptional() @IsIn(HOUSING_PURCHASE_SORTS) sort?: HousingPurchaseListQuery["sort"];
+  @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: HousingPurchaseListQuery["order"];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) page = 1;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100) page_size = 20;
 }

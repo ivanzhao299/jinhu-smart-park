@@ -1,0 +1,53 @@
+{
+  "schema_version": "property-remediation-traceability-v1",
+  "requirements": [
+    {
+      "requirement_id": "A0-PROFILE-DETERMINISM",
+      "source": ".trellis/tasks/07-30-pr192-a-automated-gates/prd.md",
+      "journey": "provision the same isolated fixture twice",
+      "layers": ["profile", "database", "evidence"],
+      "positive_test_ids": ["A0-PROFILE-001", "A0-PROVISION-001"],
+      "negative_test_ids": ["A0-PROFILE-002"],
+      "evidence_ids": ["a0-profile", "a0-provision-repeat"],
+      "owner": "a-profile-owner",
+      "status": "implemented",
+      "waiver": null
+    },
+    {
+      "requirement_id": "A0-PRODUCTION-PROTECTION",
+      "source": ".trellis/tasks/07-30-pr192-a-automated-gates/prd.md",
+      "journey": "reject every non-ephemeral or ambiguous target",
+      "layers": ["environment", "database", "cleanup"],
+      "positive_test_ids": ["A0-SAFETY-001"],
+      "negative_test_ids": ["A0-SAFETY-002", "A0-SAFETY-003"],
+      "evidence_ids": ["a0-safety"],
+      "owner": "a-profile-owner",
+      "status": "implemented",
+      "waiver": null
+    },
+    {
+      "requirement_id": "A0-CRASH-CLEANUP",
+      "source": ".trellis/tasks/07-30-pr192-a-automated-gates/design.md",
+      "journey": "recover exact resources after interruption",
+      "layers": ["journal", "filesystem", "database"],
+      "positive_test_ids": ["A0-JOURNAL-001", "A0-JOURNAL-002"],
+      "negative_test_ids": ["A0-JOURNAL-003", "A0-JOURNAL-004"],
+      "evidence_ids": ["a0-cleanup"],
+      "owner": "a-profile-owner",
+      "status": "implemented",
+      "waiver": null
+    },
+    {
+      "requirement_id": "A0-EXACT-PERMISSIONS",
+      "source": ".trellis/tasks/07-30-pr192-a-automated-gates/prd.md",
+      "journey": "load least-privilege actors",
+      "layers": ["module", "menu", "route", "api", "data", "field", "file"],
+      "positive_test_ids": ["A0-ROLES-001"],
+      "negative_test_ids": ["A0-ROLES-002"],
+      "evidence_ids": ["a0-role-contract"],
+      "owner": "a-profile-owner",
+      "status": "implemented",
+      "waiver": null
+    }
+  ]
+}

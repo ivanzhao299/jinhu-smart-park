@@ -68,7 +68,7 @@ export class FilesService {
       actor,
       dto.biz_type,
       dto.biz_id,
-      "write",
+      "upload",
       actor.sub
     );
     return this.upload(scope, actor.sub, dto, file);
@@ -93,6 +93,7 @@ export class FilesService {
     const storedName = `${randomUUID()}${originalExt}`;
     const relativeDir = `${scope.tenantId}/${scope.parkId}/${day}`;
     const md5 = createHash("md5").update(file.buffer).digest("hex");
+    const contentSha256 = createHash("sha256").update(file.buffer).digest("hex");
     const stored = await this.storageService.save({ buffer: file.buffer, storedName, relativeDir }, "local");
 
     const entity = await this.fileRepository.save(
@@ -106,6 +107,7 @@ export class FilesService {
         fileSize: String(file.size),
         mimeType: file.mimetype,
         md5,
+        contentSha256,
         bizType: dto.biz_type,
         bizId: dto.biz_id ?? null,
         storageType: stored.storageType,
@@ -128,6 +130,12 @@ export class FilesService {
     query: FileQueryDto
   ): Promise<PaginatedResult<FileEntity>> {
     const isPendingPurchaseList = query.biz_type === "housing_purchase" && !query.biz_id;
+    const isPendingRepairList = query.pending === "true"
+      && query.biz_type === "housing_repair"
+      && Boolean(query.biz_id);
+    if (query.pending === "true" && !isPendingRepairList) {
+      throw new BadRequestException("pending file listing requires housing_repair and biz_id");
+    }
     if (query.biz_type && this.businessAccessService.isProtectedBizType(query.biz_type)) {
       await this.businessAccessService.assertReferenceAccess(
         scope,
@@ -137,6 +145,27 @@ export class FilesService {
         "read",
         isPendingPurchaseList ? actor.sub : undefined
       );
+    }
+    if (isPendingRepairList) {
+      const queryBuilder = this.fileRepository.createQueryBuilder("file")
+        .where("file.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("file.park_id = :parkId", { parkId: scope.parkId })
+        .andWhere("file.biz_type = :bizType", { bizType: query.biz_type })
+        .andWhere("file.biz_id = :bizId", { bizId: query.biz_id })
+        .andWhere("file.status = 1")
+        .andWhere("file.is_deleted = false")
+        .andWhere(`NOT EXISTS (
+          SELECT 1 FROM biz_work_order repair
+          WHERE repair.tenant_id = file.tenant_id
+            AND repair.park_id = file.park_id
+            AND repair.is_deleted = false
+            AND file.id = ANY(repair.image_file_ids)
+        )`)
+        .orderBy("file.create_time", "DESC")
+        .skip((query.page - 1) * query.page_size)
+        .take(query.page_size);
+      const [items, total] = await queryBuilder.getManyAndCount();
+      return { items, total, page: query.page, page_size: query.page_size };
     }
     const [items, total] = await this.fileRepository.findAndCount({
       where: {
@@ -173,8 +202,9 @@ export class FilesService {
       actor,
       file.bizType,
       file.bizId,
-      action,
-      file.createBy ?? undefined
+      action === "write" ? "delete" : action,
+      file.createBy ?? undefined,
+      file.id
     );
     return file;
   }
@@ -194,7 +224,17 @@ export class FilesService {
     actor: JwtPrincipal,
     id: string
   ): Promise<DownloadFileResult> {
-    const file = await this.detailForActor(scope, actor, id);
+    const file = await this.detail(scope, id);
+    this.businessAccessService.assertPendingFileOwner(actor, file);
+    await this.businessAccessService.assertReferenceAccess(
+      scope,
+      actor,
+      file.bizType,
+      file.bizId,
+      "download",
+      file.createBy ?? undefined,
+      file.id
+    );
     return {
       file,
       absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))
@@ -278,8 +318,9 @@ export class FilesService {
         actor,
         file.bizType,
         file.bizId,
-        "write",
-        file.createBy ?? undefined
+        "delete",
+        file.createBy ?? undefined,
+        file.id
       );
       await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
       await this.businessAccessService.detachReferencesOnDelete(scope, file, actor, manager);

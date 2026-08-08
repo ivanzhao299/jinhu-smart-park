@@ -1,0 +1,6 @@
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"Verify historical migration prerequisite, checksum, forward-declaration, catalog-signature, and fail-closed contracts."}
+{"file":".trellis/tasks/08-06-pr192-github-stacked-review-integration/research/phase5-migration-prerequisite-replay-20260807.md","reason":"Verify the current 200/200 migration and 6/6 prerequisite clean-database replay evidence and its status boundary."}
+{"file":".trellis/tasks/08-06-pr192-github-stacked-review-integration/research/phase4-ci-20260806.md","reason":"Retain the prior GitHub CI baseline as historical evidence only; require a fresh run after the new commit."}
+{"file":".trellis/tasks/08-06-pr192-github-stacked-review-integration/research/phase5-rollback-20260806.md","reason":"Retain the prior rollback analysis as historical evidence only; require fresh final-SHA binding after the new commit."}
+{"file":"scripts/db-migrate.sh","reason":"Verify fully migrated and non-empty baseline paths cannot bypass newly added prerequisite history."}
+{"file":".trellis/spec/config/backend/database-initialization.md","reason":"Verify database initialization and prerequisite execution semantics match the repaired runner behavior."}

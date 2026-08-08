@@ -1,0 +1,46 @@
+.root {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inputRow {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  min-width: 0;
+}
+
+.input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.clearButton {
+  flex: 0 0 auto;
+  min-width: 44px;
+}
+
+.listbox {
+  display: grid;
+  gap: 6px;
+  max-height: min(320px, 50vh);
+  overflow-y: auto;
+}
+
+.option {
+  width: 100%;
+  min-height: 44px;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

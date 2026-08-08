@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import process from "node:process";
+import test from "node:test";
+import { formalStaticV6, staticV6Candidate } from "../track-b2c-000197-preliminary-orchestrator-v6.mjs";
+test("unfrozen mode is explicit",()=>{const x=staticV6Candidate({mode:"unfrozen"});assert.equal(x.manifest_frozen,false);assert.equal(x.status,"unfrozen-v8-integrated");});
+test("missing or wrong static mode fails",()=>{assert.throws(()=>staticV6Candidate({mode:"wrong"}),/v6-static-mode/u);});
+test("formal static passes frozen env and records nonsecret value",()=>{const calls=[];formalStaticV6({runChild:(x)=>{calls.push(x);return{};}});
+ const target=calls.find((x)=>x.stage==="static-v6-orchestrator");assert.equal(target.env.B2C_000197_V6_STATIC_MODE,"frozen");
+ assert.deepEqual(target.envAllowlist.find((x)=>x.name==="B2C_000197_V6_STATIC_MODE"),{name:"B2C_000197_V6_STATIC_MODE",persist:"value"});});
+test("frozen mode asserts frozen contract after freeze",()=>{const mode=process.env.B2C_000197_V6_STATIC_MODE??"unfrozen";const x=staticV6Candidate({mode});
+ if(mode==="frozen"){assert.equal(x.manifest_frozen,true);assert.equal(x.status,"frozen-awaiting-independent-reviews");}else assert.equal(x.manifest_frozen,false);});

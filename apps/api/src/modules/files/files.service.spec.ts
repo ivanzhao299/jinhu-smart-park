@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { ForbiddenException } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { FilesService, normalizeMultipartFileName } from "./files.service";
@@ -46,6 +47,50 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
   assert.equal(accessCalls[0]?.[5], actor.sub);
   assert.equal(where?.createBy, actor.sub);
   assert.ok(where?.bizId);
+});
+
+test("pending repair listing excludes files already bound to work orders", async () => {
+  const whereClauses: string[] = [];
+  const builder = {
+    where(sql: string) { whereClauses.push(sql); return this; },
+    andWhere(sql: string) { whereClauses.push(sql); return this; },
+    orderBy() { return this; },
+    skip() { return this; },
+    take() { return this; },
+    async getManyAndCount() { return [[{ id: "pending-file" }], 1]; }
+  };
+  const service = new FilesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    {} as never,
+    {
+      isProtectedBizType: () => true,
+      assertReferenceAccess: async () => undefined
+    } as never
+  );
+  const result = await service.list(scope, actor, {
+    biz_type: "housing_repair",
+    biz_id: "11111111-1111-4111-8111-111111111111",
+    pending: "true",
+    page: 1,
+    page_size: 20
+  });
+  assert.equal(result.total, 1);
+  assert.match(whereClauses.join("\n"), /NOT EXISTS[\s\S]*biz_work_order/u);
+  assert.match(whereClauses.join("\n"), /file\.id = ANY\(repair\.image_file_ids\)/u);
+});
+
+test("pending file mode rejects unsupported business scopes", async () => {
+  const service = new FilesService({} as never, {} as never, {} as never, {} as never);
+  await assert.rejects(
+    service.list(scope, actor, {
+      biz_type: "housing_handover",
+      pending: "true",
+      page: 1,
+      page_size: 20
+    }),
+    /pending file listing requires housing_repair and biz_id/u
+  );
 });
 
 test("multipart filenames use an independently decoded UTF-8 name when its bytes match", () => {
@@ -103,4 +148,177 @@ test("every custom FilesService upload adapter forwards validated multipart meta
       `${method} must validate the shared multipart metadata DTO`
     );
   }
+});
+
+test("upload persists SHA-256 alongside the legacy MD5 digest", async () => {
+  let saved: Record<string, unknown> | undefined;
+  const repository = {
+    count: async () => 0,
+    create: (value: Record<string, unknown>) => value,
+    save: async (value: Record<string, unknown>) => {
+      saved = value;
+      return { id: "file-1", ...value };
+    }
+  };
+  const service = new FilesService(
+    repository as never,
+    {
+      save: async () => ({
+        storageType: "local",
+        storageBucket: null,
+        storagePath: "tenant-1/park-1/file"
+      })
+    } as never,
+    {} as never,
+    {} as never
+  );
+  const payload = Buffer.from("identity-evidence");
+  await service.upload(
+    scope,
+    actor.sub,
+    { biz_type: "party_identity_evidence" },
+    {
+      originalname: "evidence.png",
+      mimetype: "image/png",
+      size: payload.byteLength,
+      buffer: payload
+    }
+  );
+  assert.equal(saved?.md5, "c915f5b1fec5cc845a4fd0f4a91a66c8");
+  assert.equal(
+    saved?.contentSha256,
+    "19fbbac87e6b967cf30be1f11b515f3b02e93f982ef15fe64dfe6cb3f9518842"
+  );
+});
+
+test("identity downloads use the download-specific authorization path before returning storage", async () => {
+  const accessCalls: unknown[][] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "party_identity_evidence",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: "maker",
+    storagePath: "tenant/park/evidence",
+    storageType: "local"
+  };
+  const service = new FilesService(
+    {
+      findOne: async () => file
+    } as never,
+    {
+      resolve: () => "/tmp/evidence"
+    } as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => undefined,
+      assertReferenceAccess: async (...args: unknown[]) => {
+        accessCalls.push(args);
+      }
+    } as never
+  );
+  await service.prepareDownload(scope, actor, file.id);
+  assert.equal(accessCalls.length, 1);
+  assert.equal(accessCalls[0]?.[4], "download");
+  assert.equal(accessCalls[0]?.[6], file.id);
+});
+
+test("successful identity download records a protected evidence access audit", async () => {
+  let audit: Record<string, unknown> | undefined;
+  const service = new FilesService(
+    {} as never,
+    {} as never,
+    {
+      recordOperation: async (input: Record<string, unknown>) => {
+        audit = input;
+      }
+    } as never,
+    {} as never
+  );
+  await service.recordDownload(
+    scope,
+    { id: actor.sub, username: actor.username, roles: [] },
+    {
+      id: "22222222-2222-4222-8222-222222222222",
+      bizType: "party_identity_evidence",
+      bizId: "11111111-1111-4111-8111-111111111111",
+      fileUrl: "/api/v1/files/22222222-2222-4222-8222-222222222222/download"
+    } as never,
+    "request-1"
+  );
+  assert.equal(audit?.action, "download");
+  assert.equal(audit?.bizType, "party_identity_evidence");
+  assert.equal(audit?.success, true);
+  assert.equal(audit?.requestId, "request-1");
+});
+
+test("identity deletion authorizes before revealing whether evidence is referenced", async () => {
+  const calls: string[] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "party_identity_evidence",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: actor.sub,
+    isDeleted: false
+  };
+  const repository = {
+    findOne: async () => file,
+    save: async (value: unknown) => value
+  };
+  const manager = {
+    getRepository: () => repository,
+    transaction: async (run: (transactionManager: unknown) => Promise<unknown>) => run(manager)
+  };
+  const service = new FilesService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => calls.push("pending-owner"),
+      assertReferenceAccess: async () => { calls.push("authorize"); },
+      assertDeletionAllowed: async () => { calls.push("reference-check"); },
+      detachReferencesOnDelete: async () => { calls.push("detach"); }
+    } as never
+  );
+
+  await service.softDeleteForActor(scope, actor, file.id);
+  assert.deepEqual(calls, ["pending-owner", "authorize", "reference-check", "detach"]);
+});
+
+test("identity deletion never checks references after authorization is rejected", async () => {
+  const calls: string[] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "party_identity_evidence",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: actor.sub,
+    isDeleted: false
+  };
+  const repository = { findOne: async () => file };
+  const manager = {
+    getRepository: () => repository,
+    transaction: async (run: (transactionManager: unknown) => Promise<unknown>) => run(manager)
+  };
+  const service = new FilesService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => calls.push("pending-owner"),
+      assertReferenceAccess: async () => {
+        calls.push("authorize");
+        throw new ForbiddenException("forbidden");
+      },
+      assertDeletionAllowed: async () => { calls.push("reference-check"); },
+      detachReferencesOnDelete: async () => { calls.push("detach"); }
+    } as never
+  );
+
+  await assert.rejects(service.softDeleteForActor(scope, actor, file.id), ForbiddenException);
+  assert.deepEqual(calls, ["pending-owner", "authorize"]);
 });

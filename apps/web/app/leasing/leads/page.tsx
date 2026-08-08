@@ -887,7 +887,8 @@ export default function LeasingLeadsPage() {
     if (!detail) return;
     setUploadingFollowFile(true);
     try {
-      const formData = new FormData(event.currentTarget);
+      const formElement = event.currentTarget;
+      const formData = new FormData(formElement);
       formData.set("biz_type", FOLLOW_FILE_BIZ_TYPE);
       formData.set("biz_id", detail.id);
       const response = await apiFormRequest<FileRecord>("/files", {
@@ -901,7 +902,7 @@ export default function LeasingLeadsPage() {
         attachmentFileIds: [...new Set([...current.attachmentFileIds, response.data.id])]
       }));
       setFollowFileNames((current) => ({ ...current, [response.data.id]: response.data.originalName }));
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage("附件上传成功，请保存跟进记录");
     } finally {
       setUploadingFollowFile(false);
@@ -951,7 +952,8 @@ export default function LeasingLeadsPage() {
     if (!detail) return;
     setUploadingVisitPhoto(true);
     try {
-      const formData = new FormData(event.currentTarget);
+      const formElement = event.currentTarget;
+      const formData = new FormData(formElement);
       formData.set("biz_type", VISIT_FILE_BIZ_TYPE);
       formData.set("biz_id", detail.id);
       const response = await apiFormRequest<FileRecord>("/files", {
@@ -965,7 +967,7 @@ export default function LeasingLeadsPage() {
         photoFileIds: [...new Set([...current.photoFileIds, response.data.id])]
       }));
       setVisitFileNames((current) => ({ ...current, [response.data.id]: response.data.originalName }));
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage("看房照片上传成功，请保存看房记录");
     } finally {
       setUploadingVisitPhoto(false);

@@ -1,0 +1,138 @@
+.hero {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.heroActions,
+.filters,
+.pagination,
+.actionBar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filters label,
+.formGrid label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.filters {
+  align-items: end;
+}
+
+.filters input,
+.filters select,
+.formGrid input,
+.formGrid select,
+.formGrid textarea {
+  min-height: 44px;
+}
+
+.pagination {
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.detailGrid,
+.formGrid,
+.kpiGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.detailGrid dl,
+.kpiGrid article {
+  margin: 0;
+}
+
+.detailGrid div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.detailGrid dt {
+  font-size: 0.875rem;
+}
+
+.detailGrid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.fieldset {
+  border: 0;
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.inlineAction {
+  margin-top: 0.75rem;
+  min-width: min(28rem, 80vw);
+}
+
+.inlineForm {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+}
+
+.inlineForm label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inlineForm input,
+.inlineForm select,
+.inlineForm textarea {
+  min-height: 44px;
+  min-width: 0;
+}
+
+.notice {
+  border-inline-start: 4px solid currentColor;
+  padding-inline-start: 1rem;
+}
+
+.dangerNotice {
+  border-inline-start: 4px solid currentColor;
+  padding: 0.75rem 1rem;
+}
+
+@media (max-width: 520px) {
+  .filters,
+  .filters label,
+  .filters input,
+  .filters select,
+  .heroActions,
+  .heroActions > *,
+  .actionBar,
+  .actionBar > * {
+    width: 100%;
+  }
+
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pagination button {
+    min-height: 44px;
+  }
+
+  .inlineAction {
+    min-width: 0;
+    width: 100%;
+  }
+}

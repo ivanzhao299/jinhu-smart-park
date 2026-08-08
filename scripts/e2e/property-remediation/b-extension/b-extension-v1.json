@@ -1,0 +1,83 @@
+{
+  "schema_version": "property-remediation-b-extension-profile-v1",
+  "profile": "property-remediation-b-extension-v1",
+  "profile_version": 1,
+  "generator_version": "b-extension-generator-v1",
+  "seed": "jinhu-pr192-b-extension-v1",
+  "business_clock": "2026-08-01T09:00:00+08:00",
+  "timezone": "Asia/Shanghai",
+  "uuid_namespace": "7c168137-eb03-5963-bf76-30db89776de5",
+  "scope_marker": "PR192_B_EXTENSION_TEST_ONLY_V1",
+  "a_base": {
+    "profile": "property-remediation-a-base-v1",
+    "profile_version": 1,
+    "profile_checksum": "68daec8fb6fe73a413749a8a0181780c7462d35ff8e684fbaefaba0ed41b107b",
+    "fixture_handoff_sha256": "3cb78fe3b7d1d69490bc028f4da460d2fe4d0673f9eb7e13f6a6f47de10eb87c"
+  },
+  "expected_counts": {
+    "identity_queue": 1,
+    "identity_snapshot": 4,
+    "identity_submission": 6,
+    "approval_request": 11,
+    "approval_stage": 1,
+    "approval_decision": 1,
+    "approval_audit": 1,
+    "effect_manifest": 1,
+    "effect_receipt": 1,
+    "mutation_receipt": 1,
+    "task_assignment": 6,
+    "task_projection_head": 1,
+    "task_projection": 1,
+    "task_projection_rebuild_audit": 1,
+    "outbox": 5,
+    "inbox": 1,
+    "notification": 5,
+    "notification_recipient": 5,
+    "notification_delivery": 5,
+    "event_dlq": 4
+  },
+  "identity_statuses": [
+    "draft",
+    "pending_verification",
+    "verified",
+    "rejected",
+    "withdrawn",
+    "superseded"
+  ],
+  "approval_matrix": [
+    ["draft", "not_started"],
+    ["submitted", "not_started"],
+    ["pending_approval", "not_started"],
+    ["approved", "executing"],
+    ["approved", "retry_wait"],
+    ["approved", "executed"],
+    ["approved", "execution_failed"],
+    ["approved", "infra_exhausted"],
+    ["rejected", "not_required"],
+    ["withdrawn", "not_required"],
+    ["expired", "not_required"]
+  ],
+  "task_statuses": ["open", "claimed", "in_progress", "blocked", "closed", "cancelled"],
+  "outbox_statuses": ["pending", "publishing", "retry_wait", "published", "dlq"],
+  "delivery_statuses": [
+    "pending",
+    "delivering",
+    "delivered",
+    "delivery_failed",
+    "delivery_exhausted"
+  ],
+  "event_incident_statuses": ["active", "replaying", "resolved", "quarantined"],
+  "negative_scenarios": [
+    { "scenario": "maker_checker_self_approval", "evidence_id": "svc:maker-checker", "kind": "service", "target": "maker-checker exclusion and historical actor decision both fail closed" },
+    { "scenario": "stale_claim_epoch_token", "evidence_id": "pg:event-stale-fence", "kind": "pg", "target": "claims only the first aggregate sequence and fences stale completion" },
+    { "scenario": "expired_source_version", "evidence_id": "svc:expired-source-version", "kind": "service", "target": "rolls back a new-client receipt before mutation when the expected version drifted" },
+    { "scenario": "cross_tenant_scope", "evidence_id": "sql:approval-stage-cross-tenant-fk", "kind": "sql", "probe": "approval-stage-cross-tenant-fk" },
+    { "scenario": "cross_park_scope", "evidence_id": "sql:approval-stage-cross-park-fk", "kind": "sql", "probe": "approval-stage-cross-park-fk" },
+    { "scenario": "inbox_duplicate", "evidence_id": "sql:inbox-exact-once-conflict", "kind": "sql", "probe": "inbox-exact-once-conflict" },
+    { "scenario": "out_of_order_event", "evidence_id": "pg:event-order-dedupe", "kind": "pg", "target": "enforces canonical payload, consumer order, sequence gaps and concurrent dedupe" },
+    { "scenario": "outbox_publish_crash", "evidence_id": "pg:outbox-retry-dlq", "kind": "pg", "target": "persists retry_wait recovery and terminal DLQ with exact fencing and immutable identity" },
+    { "scenario": "dlq_replay_once", "evidence_id": "pg:consumer-replay-closure", "kind": "pg", "target": "completes consumer DLQ replay exactly once with resolved audit and inbox closure" },
+    { "scenario": "task_claim_race", "evidence_id": "pg:task-claim-race", "kind": "pg", "target": "serializes concurrent claims to one winner and one zero-mutation loser" },
+    { "scenario": "approval_execution_lease_reclaim", "evidence_id": "pg:approval-lease-cas", "kind": "pg", "target": "serializes approval execution expired-lease reclaim with one fenced repository CAS winner" }
+  ]
+}

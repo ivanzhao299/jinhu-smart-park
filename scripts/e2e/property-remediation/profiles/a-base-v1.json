@@ -1,0 +1,39 @@
+{
+  "schema_version": "property-remediation-a-base-contract-v1",
+  "profile": "property-remediation-a-base-v1",
+  "profile_version": 1,
+  "generator_version": "a-base-generator-v1",
+  "seed": "jinhu-pr192-a-base-v1",
+  "business_clock": "2026-07-30T09:00:00+08:00",
+  "timezone": "Asia/Shanghai",
+  "uuid_namespace": "e2a9472f-28be-5a42-a894-a142803b88d7",
+  "scope_marker": "PR192_A_BASE_TEST_ONLY_V1",
+  "expected_counts": {
+    "park": 3,
+    "building": 3,
+    "floor": 3,
+    "unit": 100,
+    "party": 4000,
+    "booking": 10000,
+    "booking_night": 20000,
+    "property_occupancy": 6500,
+    "turnover": 2000,
+    "lease": 2000,
+    "charge_plan": 2000,
+    "housing_receivable": 10000,
+    "purchase": 1000,
+    "purchase_item": 2000,
+    "handover": 1000,
+    "work_order": 1000,
+    "sys_file": 2000
+  },
+  "park_distribution": [60, 30, 10],
+  "track_b_tables": [
+    "biz_property_identity_submission",
+    "biz_property_approval",
+    "biz_property_assignment",
+    "biz_property_outbox",
+    "biz_property_inbox",
+    "biz_property_dlq"
+  ]
+}

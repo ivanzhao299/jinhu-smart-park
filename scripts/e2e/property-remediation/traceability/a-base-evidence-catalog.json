@@ -1,0 +1,24 @@
+{
+  "schema_version": "property-remediation-a-base-evidence-catalog-v1",
+  "test_ids": [
+    "A0-PROFILE-001",
+    "A0-PROFILE-002",
+    "A0-PROVISION-001",
+    "A0-SAFETY-001",
+    "A0-SAFETY-002",
+    "A0-SAFETY-003",
+    "A0-JOURNAL-001",
+    "A0-JOURNAL-002",
+    "A0-JOURNAL-003",
+    "A0-JOURNAL-004",
+    "A0-ROLES-001",
+    "A0-ROLES-002"
+  ],
+  "evidence_ids": [
+    "a0-profile",
+    "a0-provision-repeat",
+    "a0-safety",
+    "a0-cleanup",
+    "a0-role-contract"
+  ]
+}

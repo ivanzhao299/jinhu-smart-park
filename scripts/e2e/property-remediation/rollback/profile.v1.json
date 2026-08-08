@@ -1,0 +1,525 @@
+{
+  "schemaVersion": "property-track-c-rollback-profile-v1",
+  "profileId": "pr192-track-c-rollback-rehearsal-v1",
+  "rtoTargetMilliseconds": 1800000,
+  "rpoTargetCommittedRows": 0,
+  "sourceDatasetProfileId": "pr192-property-uat-v1",
+  "requiredDatasetSentinels": [
+    "biz_property_approval_request",
+    "biz_housing_receivable",
+    "biz_property_occupancy"
+  ],
+  "requiredGateIds": [
+    "shared-build",
+    "api-build",
+    "web-typecheck",
+    "web-clean-production-build",
+    "contract",
+    "canonical-port",
+    "targeted-regression",
+    "postgresql-regression",
+    "flags-artifact-runtime-proof",
+    "rollback-service-smoke"
+  ],
+  "requiredDisabledFlags": [
+    "PROPERTY_OFFLINE_DRAFTS_V1",
+    "PROPERTY_UPLOAD_QUEUE_V1"
+  ],
+  "commandSpec": {
+    "contractFile": "scripts/e2e/property-remediation/evidence/contract-gate.mjs",
+    "canonicalPortFile": "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts",
+    "nodeTestArgs": ["--test", "--require", "ts-node/register"],
+    "postgresqlFiles": [
+      "apps/api/src/modules/homestay/homestay-cancellation-atomic.pg.spec.ts",
+      "apps/api/src/modules/homestay/homestay-identity-checkin-atomic.pg.spec.ts",
+      "apps/api/src/modules/homestay/property-finance-owner-integrity.pg.spec.ts",
+      "apps/api/src/modules/housing/housing-approval-executors.pg.spec.ts",
+      "apps/api/src/modules/housing/housing-checkout-concurrency.pg.spec.ts"
+    ]
+  },
+  "durableTableSources": {
+    "biz_property_approval_request": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_approval_stage": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_approval_decision": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_approval_audit": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_execution_effect_receipt": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_mutation_receipt": "database/migrations/000186_property_b_approval_runtime_schema.sql",
+    "biz_property_task_assignment": "database/migrations/000188_property_b_task_runtime_schema.sql",
+    "biz_property_task_assignment_audit": "database/migrations/000188_property_b_task_runtime_schema.sql",
+    "biz_property_task_projection_rebuild_audit": "database/migrations/000194_property_task_projection_contract_correction.sql",
+    "biz_property_outbox": "database/migrations/000187_property_b_event_notification_schema.sql",
+    "biz_party_identity_snapshot": "database/migrations/000185_property_b_identity_schema_expand.sql",
+    "biz_party_identity_submission": "database/migrations/000185_property_b_identity_schema_expand.sql",
+    "biz_party_identity_decision": "database/migrations/000185_property_b_identity_schema_expand.sql",
+    "biz_property_occupancy": "database/migrations/000176_shared_property_foundation.sql",
+    "biz_property_occupancy_release_audit": "database/migrations/000191_property_b_homestay_effect_schema.sql",
+    "biz_homestay_ledger_entry": "database/migrations/000177_homestay_mvp.sql",
+    "biz_housing_receivable": "database/migrations/000178_housing_rental_mvp.sql",
+    "biz_housing_ledger_entry": "database/migrations/000178_housing_rental_mvp.sql"
+  },
+  "forbiddenSnapshotFields": [
+    "name",
+    "phone",
+    "email",
+    "address",
+    "idCard",
+    "idNumber",
+    "document",
+    "credential",
+    "password",
+    "token",
+    "secret",
+    "payload",
+    "row"
+  ],
+  "forbiddenBlindRevertCommits": [
+    "791a17fd"
+  ],
+  "cases": [
+    {
+      "id": "homestay-dashboard",
+      "kind": "backend-closure",
+      "commits": ["7ab44df46c116ee030b3377638bfa59a10079cc0"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-dashboard-facade", "intentGroupId": "hs-dashboard-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["dashboard", "availability", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["dashboardAvailabilityQuery", "mustDashboardAvailabilityQuery", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayDashboardAvailabilityQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-dashboard-module", "intentGroupId": "hs-dashboard-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayDashboardAvailabilityQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayDashboardAvailabilityQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-dashboard-shell", "intentGroupId": "hs-dashboard-inline", "path": "apps/api/src/modules/homestay/homestay-dashboard-availability-query.service.ts", "pathState": "present", "mustContain": ["HomestayDashboardAvailabilityQueryService", "biz_property_occupancy", "status", "arrival_date", "departure_date", "biz_homestay_booking_night", "final_rate", "average_daily_rate"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayDashboardAvailabilityQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-DASHBOARD-AVAILABILITY-COMPATIBILITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-rates",
+      "kind": "backend-closure",
+      "commits": ["b11782538bdaeaebc760f44612885de05b48c7ad"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-rates-facade", "intentGroupId": "hs-rates-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["getRateCalendar", "upsertRate", "upsertRateOverride", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["ratesService", "mustRatesService", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayRatesService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-rates-module", "intentGroupId": "hs-rates-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayRatesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayRatesService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-rates-shell", "intentGroupId": "hs-rates-inline", "path": "apps/api/src/modules/homestay/homestay-rates.service.ts", "pathState": "present", "mustContain": ["HomestayRatesService", "getRateCalendar", "upsertRate", "upsertRateOverride"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "HomestayRatesService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "identifier", "name": "getRateCalendar", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "identifier", "name": "upsertRate", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "identifier", "name": "upsertRateOverride", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-SCOPED-RATE-UPSERT", "INV-UNIT-ACCESS-SCOPE", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-booking-read",
+      "kind": "backend-closure",
+      "commits": ["aca95a100b96c3b01a012a706b0d08bd14f2895f"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-booking-read-facade", "intentGroupId": "hs-booking-read-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["listBookings", "getBooking", "getStay", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["bookingQuery", "mustBookingQuery", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayBookingQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-booking-read-module", "intentGroupId": "hs-booking-read-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayBookingQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayBookingQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-booking-query-shell", "intentGroupId": "hs-booking-read-inline", "path": "apps/api/src/modules/homestay/homestay-booking-query.service.ts", "pathState": "present", "mustContain": ["HomestayBookingQueryService"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayBookingQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [{ "id": "hs-booking-projections", "intentGroupId": "hs-booking-projection-invariant", "path": "apps/api/src/modules/homestay/homestay-projections.ts", "pathState": "present", "mustContain": ["projectHomestayBooking", "projectHomestayCredential", "projectHomestayTurnover"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "projectHomestayBooking", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "projectHomestayCredential", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "projectHomestayTurnover", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOMESTAY-FIELD-PROJECTION", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-tx-support",
+      "kind": "backend-closure",
+      "commits": ["7c02d62cc163f56ca9e367e281e7caf2da417257"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts", "apps/api/src/modules/homestay/homestay-booking-command.service.ts", "apps/api/src/modules/homestay/homestay-cancellation-executor.service.ts", "apps/api/src/modules/homestay/homestay-stay-command.service.ts", "apps/api/src/modules/homestay/homestay-finance.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts", "apps/api/src/modules/homestay/homestay-booking-command.service.ts", "apps/api/src/modules/homestay/homestay-cancellation-executor.service.ts", "apps/api/src/modules/homestay/homestay-stay-command.service.ts", "apps/api/src/modules/homestay/homestay-finance.service.ts"],
+        "postApply": [
+          { "id": "hs-tx-facade", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["lockBooking", "assertUnitBookable", "assertActiveBookingOccupancy", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["transactionSupport", "HomestayTransactionSupportService", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-tx-module", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayTransactionSupportService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-tx-booking-consumer", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay-booking-command.service.ts", "pathState": "present", "mustContain": ["lockBooking", "assertUnitBookable", "assertActiveBookingOccupancy", "FOR UPDATE"], "mustNotContain": ["transactionSupport", "HomestayTransactionSupportService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-tx-cancellation-consumer", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay-cancellation-executor.service.ts", "pathState": "present", "mustContain": ["voidIssuedCredentials", "FOR UPDATE"], "mustNotContain": ["transactionSupport", "HomestayTransactionSupportService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-tx-stay-consumer", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay-stay-command.service.ts", "pathState": "present", "mustContain": ["lockBooking", "assertActiveBookingOccupancy", "FOR UPDATE"], "mustNotContain": ["transactionSupport", "HomestayTransactionSupportService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-tx-finance-consumer", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay-finance.service.ts", "pathState": "present", "mustContain": ["createLedgerEntry", "lockHomestayFinanceSourceKey", "lockConfirmedHomestayLedger", "assertNoUnresolvedLegacyHomestayFinance", "homestayFinanceAllocationSnapshot", "pg_advisory_xact_lock"], "mustNotContain": ["transactionSupport", "HomestayTransactionSupportService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-tx-shell", "intentGroupId": "hs-tx-inline", "path": "apps/api/src/modules/homestay/homestay-transaction-support.service.ts", "pathState": "present", "mustContain": ["HomestayTransactionSupportService", "lockBooking", "assertUnitBookable"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOMESTAY-TRANSACTION-LOCKS", "INV-HOMESTAY-FINANCE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-booking-command",
+      "kind": "backend-closure",
+      "commits": ["a4de69c080af03e174bb34ec3f35cdbbe10c6dbb"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-booking-command-facade", "intentGroupId": "hs-booking-command-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["createBooking", "confirmBooking", "markNoShow", "cancelBooking", "rescheduleBooking", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["bookingCommands", "mustBookingCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayBookingCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-booking-command-module", "intentGroupId": "hs-booking-command-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayBookingCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayBookingCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-booking-command-shell", "intentGroupId": "hs-booking-command-inline", "path": "apps/api/src/modules/homestay/homestay-booking-command.service.ts", "pathState": "present", "mustContain": ["HomestayBookingCommandService", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayBookingCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "hs-booking-approval-adapter", "intentGroupId": "hs-booking-approval-invariant", "path": "apps/api/src/modules/homestay/homestay-approval.adapter.ts", "pathState": "present", "mustContain": ["HomestayApprovalAdapter"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayApprovalAdapter", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "hs-booking-cancellation-executor", "intentGroupId": "hs-booking-approval-invariant", "path": "apps/api/src/modules/homestay/homestay-cancellation-executor.service.ts", "pathState": "present", "mustContain": ["FOR UPDATE", "executionIdempotencyKey", "effectKind"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayCancellationExecutorService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "hs-booking-transaction-support", "intentGroupId": "hs-booking-approval-invariant", "path": "apps/api/src/modules/homestay/homestay-transaction-support.service.ts", "pathState": "present", "mustContain": ["HomestayTransactionSupportService", "calculateCancellationFee", "lockConfirmedHomestayLedger", "assertNoUnresolvedLegacyHomestayFinance"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "identifier", "name": "calculateCancellationFee", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOMESTAY-CANCELLATION-ATOMICITY", "INV-APPROVAL-EFFECT-IDEMPOTENCY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-stay",
+      "kind": "backend-closure",
+      "commits": ["47c6bfd597f0e0a6b3d3234279c790c88bcb49b1"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-stay-facade", "intentGroupId": "hs-stay-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["addGuest", "issueCredential", "returnCredential", "checkIn", "checkOut", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["stayCommands", "mustStayCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayStayCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-stay-module", "intentGroupId": "hs-stay-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayStayCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayStayCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-stay-shell", "intentGroupId": "hs-stay-inline", "path": "apps/api/src/modules/homestay/homestay-stay-command.service.ts", "pathState": "present", "mustContain": ["HomestayStayCommandService", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayStayCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-IDENTITY-CHECKIN-ATOMICITY", "INV-CREDENTIAL-LIFECYCLE", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-turnover",
+      "kind": "backend-closure",
+      "commits": ["b19e00c3712e18f43f9cc09a708c66833b0cda5"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-turnover-facade", "intentGroupId": "hs-turnover-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["listTurnovers", "getTurnover", "executeTurnover", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["turnoverService", "mustTurnoverService", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayTurnoverService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-turnover-module", "intentGroupId": "hs-turnover-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayTurnoverService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayTurnoverService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-turnover-shell", "intentGroupId": "hs-turnover-inline", "path": "apps/api/src/modules/homestay/homestay-turnover.service.ts", "pathState": "present", "mustContain": ["HomestayTurnoverService", "status", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "releaseInTransaction", "turnover_completed"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayTurnoverService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-TURNOVER-TERMINAL-RELEASE", "INV-TENANT-PARK-SCOPE", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "homestay-finance",
+      "kind": "backend-closure",
+      "commits": ["56b79013f8873d38b046eeabeaa0c49fe0f825fd"],
+      "targetedTestFiles": ["apps/api/src/modules/homestay/homestay.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/homestay/homestay.service.ts", "apps/api/src/modules/homestay/homestay.module.ts"],
+        "postApply": [
+          { "id": "hs-finance-facade", "intentGroupId": "hs-finance-inline", "path": "apps/api/src/modules/homestay/homestay.service.ts", "pathState": "present", "mustContain": ["registerLedgerEntry", "executeApprovedFinance", "lockHomestayFinanceSourceKey", "lockConfirmedHomestayLedger", "homestayFinanceAllocationSnapshot", "INSERT INTO biz_homestay_ledger_entry(", "approval_execution_key", "approval_effect_kind", "approval_effect_line_key", "RETURNING id::text AS id", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["financeService", "mustFinanceService", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HomestayFinanceService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "hs-finance-module", "intentGroupId": "hs-finance-inline", "path": "apps/api/src/modules/homestay/homestay.module.ts", "pathState": "present", "mustContain": ["HomestayService"], "mustNotContain": ["HomestayFinanceService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HomestayFinanceService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "hs-finance-shell", "intentGroupId": "hs-finance-inline", "path": "apps/api/src/modules/homestay/homestay-finance.service.ts", "pathState": "present", "mustContain": ["HomestayFinanceService", "lockHomestayFinanceSourceKey", "lockConfirmedHomestayLedger", "homestayFinanceAllocationSnapshot", "INSERT INTO biz_homestay_ledger_entry(", "approval_execution_key", "approval_effect_kind", "approval_effect_line_key", "RETURNING id::text AS id"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HomestayFinanceService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/api/src/modules/homestay/*.spec.ts", "apps/api/src/modules/homestay/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOMESTAY-FINANCE-SOURCE-LOCK", "INV-APPROVAL-EFFECT-IDEMPOTENCY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-dashboard",
+      "kind": "backend-closure",
+      "commits": ["88033a9a0c946dcef2845660439159fe9989c13c"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-dashboard-query.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-dashboard-query.service.ts"],
+        "postApply": [
+          { "id": "housing-dashboard-facade", "intentGroupId": "housing-dashboard-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["dashboard", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["dashboardQuery", "mustDashboardQuery", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingDashboardQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-dashboard-module", "intentGroupId": "housing-dashboard-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService"], "mustNotContain": ["HousingDashboardQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingDashboardQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-dashboard-query-removed", "intentGroupId": "housing-dashboard-inline", "path": "apps/api/src/modules/housing/housing-dashboard-query.service.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["HousingDashboardQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ], "retainedShell": [],
+        "protectedExternalPaths": [
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-DASHBOARD-COMPATIBILITY", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-tenant",
+      "kind": "backend-closure",
+      "commits": ["699ef512a46d83bdcdec833f1dd1c6a2e18e3c43"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing-tenant.service.ts", "apps/api/src/modules/housing/housing-dashboard-query.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing-tenant.service.ts", "apps/api/src/modules/housing/housing-dashboard-query.service.ts"],
+        "postApply": [
+          { "id": "housing-tenant-facade", "intentGroupId": "housing-tenant-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["listTenants", "createTenant", "toTenantResponse", "maskMobile", "maskEmail", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["tenantService.list", "tenantService.create", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "PartiesService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 8 }] },
+          { "id": "housing-tenant-dashboard-helper", "intentGroupId": "housing-tenant-inline", "path": "apps/api/src/modules/housing/housing-dashboard-query.service.ts", "pathState": "present", "mustContain": ["HousingDashboardQueryService"], "mustNotContain": ["listTenants", "createTenant"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ],
+        "retainedShell": [{ "id": "housing-tenant-projection-shell", "intentGroupId": "housing-tenant-inline", "path": "apps/api/src/modules/housing/housing-tenant.service.ts", "pathState": "present", "mustContain": ["HousingTenantService", "project", "maskMobile", "maskEmail"], "mustNotContain": ["PartiesService", "async list", "async create"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HousingTenantService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-tenant-module-provider", "intentGroupId": "housing-tenant-provider-invariant", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingTenantService"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingTenantService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-TENANT-PROJECTION", "INV-HOUSING-TENANT-MODULE-PROVIDER", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-lease-read",
+      "kind": "backend-closure",
+      "commits": ["595c9437998eabf340196d081b08b817d347535d"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-lease-query.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-lease-query.service.ts"],
+        "postApply": [
+          { "id": "housing-lease-read-facade", "intentGroupId": "housing-lease-read-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["listLeases", "getLease", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["leaseQuery", "mustLeaseQuery", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingLeaseQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-lease-read-module", "intentGroupId": "housing-lease-read-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService"], "mustNotContain": ["HousingLeaseQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingLeaseQueryService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-lease-query-removed", "intentGroupId": "housing-lease-read-inline", "path": "apps/api/src/modules/housing/housing-lease-query.service.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["HousingLeaseQueryService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ], "retainedShell": [],
+        "protectedExternalPaths": [
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-LEASE-PROJECTION", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-lease-command",
+      "kind": "backend-closure",
+      "commits": ["f90ff2badbafe6efdd625f7b983d6d95ccd41d74"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+        "postApply": [
+          { "id": "housing-lease-command-facade", "intentGroupId": "housing-lease-command-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["createLease", "submitLease", "approveLease", "signLease", "activateLease", "voidLease", "addOccupant", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["leaseCommands", "mustLeaseCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingLeaseCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-lease-command-module", "intentGroupId": "housing-lease-command-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService", "HousingTransactionSupportService", "HousingReceivableWriterService"], "mustNotContain": ["HousingLeaseCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingLeaseCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "housing-lease-command-shell", "intentGroupId": "housing-lease-command-inline", "path": "apps/api/src/modules/housing/housing-lease-command.service.ts", "pathState": "present", "mustContain": ["HousingLeaseCommandService", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HousingLeaseCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-transaction-support", "intentGroupId": "housing-lease-support-invariant", "path": "apps/api/src/modules/housing/housing-transaction-support.service.ts", "pathState": "present", "mustContain": ["HousingTransactionSupportService"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HousingTransactionSupportService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-receivable-writer", "intentGroupId": "housing-lease-support-invariant", "path": "apps/api/src/modules/housing/housing-receivable-writer.service.ts", "pathState": "present", "mustContain": ["HousingReceivableWriterService", "HousingReceivableEntity", "lockBusinessKey"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "class", "name": "HousingReceivableWriterService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-TRANSACTION-SUPPORT", "INV-HOUSING-RECEIVABLE-WRITER", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-billing",
+      "kind": "backend-closure",
+      "commits": ["9be980598636edf5c43afe59a33512ec687949e5"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-billing-command.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-billing-command.service.ts"],
+        "postApply": [
+          { "id": "housing-billing-facade", "intentGroupId": "housing-billing-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["saveChargePlan", "generateBills", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["billingCommands", "mustBillingCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingBillingCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-billing-module", "intentGroupId": "housing-billing-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService"], "mustNotContain": ["HousingBillingCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingBillingCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-billing-command-removed", "intentGroupId": "housing-billing-inline", "path": "apps/api/src/modules/housing/housing-billing-command.service.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["HousingBillingCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ], "retainedShell": [],
+        "protectedExternalPaths": [
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-BILLING-COMPATIBILITY", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-finance",
+      "kind": "backend-closure",
+      "commits": ["32fb5d2ec650ba1885ac6e6be041e1b29b4b948d"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+        "postApply": [
+          { "id": "housing-finance-facade", "intentGroupId": "housing-finance-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["registerLedger", "executeApprovedFinance", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["financeCommands", "mustFinanceCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingFinanceCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-finance-module", "intentGroupId": "housing-finance-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService"], "mustNotContain": ["HousingFinanceCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingFinanceCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "housing-finance-command-shell", "intentGroupId": "housing-finance-inline", "path": "apps/api/src/modules/housing/housing-finance-command.service.ts", "pathState": "present", "mustContain": ["HousingFinanceCommandService", "registerLedger", "executeApprovedFinance"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "HousingFinanceCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HOUSING-FINANCE-ATOMICITY", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-handover-repair",
+      "kind": "backend-closure",
+      "commits": ["3aaf37cc9e8fb033ce100f1e8a665b7cd9880ba4"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-repair-command.service.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts", "apps/api/src/modules/housing/housing-repair-command.service.ts"],
+        "postApply": [
+          { "id": "housing-handover-repair-facade", "intentGroupId": "housing-handover-repair-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["completeHandover", "createRepair", "executeApprovedMoveOutHandover", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["handoverCommands", "repairCommands", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "call", "name": "execute", "source": "", "owner": "this.mustHandoverApprovalExecutor()", "enclosingOwner": "executeApprovedMoveOutHandover", "minCount": 1, "maxCount": 1 }] },
+          { "id": "housing-handover-repair-module", "intentGroupId": "housing-handover-repair-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService", "HousingHandoverApprovalExecutorService"], "mustNotContain": ["HousingHandoverCommandService", "HousingRepairCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingHandoverCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }, { "kind": "provider", "name": "HousingRepairCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-repair-command-removed", "intentGroupId": "housing-handover-repair-inline", "path": "apps/api/src/modules/housing/housing-repair-command.service.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["HousingRepairCommandService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ],
+        "retainedShell": [{ "id": "housing-handover-command-shell", "intentGroupId": "housing-handover-repair-inline", "path": "apps/api/src/modules/housing/housing-handover-command.service.ts", "pathState": "present", "mustContain": ["HousingHandoverCommandService", "complete"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "HousingHandoverCommandService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-handover-approval-executor", "intentGroupId": "housing-handover-approval-invariant", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["HousingHandoverApprovalExecutorService", "insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-HANDOVER-APPROVAL-DELEGATION", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-purchase",
+      "kind": "backend-closure",
+      "commits": ["872f3afeedfc5dd632286d836bff5f14350e0a6b"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+        "postApply": [
+          { "id": "housing-purchase-facade", "intentGroupId": "housing-purchase-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["listPurchases", "getPurchase", "createPurchase", "purchaseAction", "transferPurchase", "executeApprovedPurchaseTransfer", "executeApprovedPurchaseLifecycle", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["purchaseService", "mustPurchaseService", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "call", "name": "executeApprovedPurchaseTransfer", "source": "", "owner": "this.mustPurchaseApprovalExecutor()", "enclosingOwner": "executeApprovedPurchaseTransfer", "minCount": 1, "maxCount": 1 }, { "kind": "call", "name": "executeApprovedPurchaseLifecycle", "source": "", "owner": "this.mustPurchaseApprovalExecutor()", "enclosingOwner": "executeApprovedPurchaseLifecycle", "minCount": 1, "maxCount": 1 }] },
+          { "id": "housing-purchase-module", "intentGroupId": "housing-purchase-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService", "HousingPurchaseApprovalExecutorService"], "mustNotContain": ["HousingPurchaseService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingPurchaseService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "housing-purchase-service-shell", "intentGroupId": "housing-purchase-inline", "path": "apps/api/src/modules/housing/housing-purchase.service.ts", "pathState": "present", "mustContain": ["HousingPurchaseService", "listPurchases", "getPurchase", "createPurchase", "purchaseAction", "transferPurchase"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "HousingPurchaseService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-purchase-approval-executor", "intentGroupId": "housing-purchase-approval-invariant", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["HousingPurchaseApprovalExecutorService", "executeApprovedPurchaseTransfer", "executeApprovedPurchaseLifecycle", "updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-PURCHASE-APPROVAL-DELEGATION", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "housing-lease-approval-checkout",
+      "kind": "backend-closure",
+      "commits": ["e9d8ffa861f92c71a4a9a60a2cbf98edcc55800"],
+      "targetedTestFiles": ["apps/api/src/modules/housing/housing.service.spec.ts"],
+      "allowedPatchPrefixes": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/housing/housing.service.ts", "apps/api/src/modules/housing/housing.module.ts"],
+        "postApply": [
+          { "id": "housing-lease-approval-facade", "intentGroupId": "housing-lease-approval-inline", "path": "apps/api/src/modules/housing/housing.service.ts", "pathState": "present", "mustContain": ["checkoutLease", "executeApprovedLeaseAction", "PROPERTY_OCCUPANCY_PORT", "PropertyOccupancyPort", "@Inject"], "mustNotContain": ["leaseApprovalExecutor", "mustLeaseApprovalExecutor", "PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "HousingLeaseApprovalExecutorService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "housing-lease-approval-module", "intentGroupId": "housing-lease-approval-inline", "path": "apps/api/src/modules/housing/housing.module.ts", "pathState": "present", "mustContain": ["HousingService"], "mustNotContain": ["HousingLeaseApprovalExecutorService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "provider", "name": "HousingLeaseApprovalExecutorService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] }
+        ],
+        "retainedShell": [{ "id": "housing-lease-approval-executor-shell", "intentGroupId": "housing-lease-approval-inline", "path": "apps/api/src/modules/housing/housing-lease-approval-executor.service.ts", "pathState": "present", "mustContain": ["HousingLeaseApprovalExecutorService", "checkout", "execute"], "mustNotContain": ["PropertyOccupanciesService"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "HousingLeaseApprovalExecutorService", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "housing-791a-handover", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-handover-approval-executor.service.ts", "pathState": "present", "mustContain": ["insertReceivable", "updateReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "insertReceivable", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "housing-791a-purchase", "intentGroupId": "housing-791a-atomicity", "path": "apps/api/src/modules/housing/housing-purchase-approval-executor.service.ts", "pathState": "present", "mustContain": ["updateTransferReceivable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "query", "source": "", "owner": "input.manager", "enclosingOwner": "updateTransferReceivable", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/housing/*.spec.ts", "apps/api/src/modules/housing/*.pg.spec.ts", "apps/api/src/modules/property-operations/property-occupancy.port.spec.ts"],
+        "allowedInvariantIds": ["INV-CANONICAL-OCCUPANCY-PORT", "INV-LEASE-APPROVAL-ATOMICITY", "INV-791A-RECEIVABLE-ATOMICITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "frontend-offline-upload",
+      "kind": "frontend-group",
+      "commits": ["38c433d3", "92d062fa", "c7c0eb51", "dddf8565"],
+      "targetedTestFiles": [
+        "apps/web/features/property-shared/offline/property-reliability-flags.spec.ts",
+        "apps/web/features/property-shared/offline/property-draft-store.spec.ts",
+        "apps/web/features/property-shared/offline/property-upload-queue.spec.ts"
+      ],
+      "allowedPatchPrefixes": [
+        "apps/api/src/modules/files/files.controller.ts",
+        "apps/api/src/shared/interceptors/idempotency.interceptor.ts",
+        "apps/web/app/homestay/_components/HomestayBookingCreatePanel.tsx",
+        "apps/web/app/housing/_components/HousingRepairCreatePanel.tsx",
+        "apps/web/components/files/FileUploader.tsx",
+        "apps/web/components/runtime/MobileTerminalReliability.tsx",
+        "apps/web/features/property-shared/offline/use-property-draft.ts"
+      ],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/api/src/modules/files/files.controller.ts", "apps/api/src/shared/interceptors/idempotency.interceptor.ts", "apps/web/app/homestay/_components/HomestayBookingCreatePanel.tsx", "apps/web/app/housing/_components/HousingRepairCreatePanel.tsx", "apps/web/components/files/FileUploader.tsx", "apps/web/components/runtime/MobileTerminalReliability.tsx", "apps/web/features/property-shared/offline/use-property-draft.ts"],
+        "postApply": [
+          { "id": "offline-files-controller", "intentGroupId": "offline-consumer-removal", "path": "apps/api/src/modules/files/files.controller.ts", "pathState": "present", "mustContain": ["FilesController"], "mustNotContain": ["IdempotencyInterceptor"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "IdempotencyInterceptor", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "offline-idempotency-interceptor", "intentGroupId": "offline-consumer-removal", "path": "apps/api/src/shared/interceptors/idempotency.interceptor.ts", "pathState": "present", "mustContain": ["IdempotencyInterceptor"], "mustNotContain": ["requestFingerprintBody", "__multipartFile"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] },
+          { "id": "offline-booking-panel", "intentGroupId": "offline-consumer-removal", "path": "apps/web/app/homestay/_components/HomestayBookingCreatePanel.tsx", "pathState": "present", "mustContain": ["HomestayBookingCreatePanel"], "mustNotContain": ["usePropertyDraft", "offlineDraft"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "usePropertyDraft", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "offline-repair-panel", "intentGroupId": "offline-consumer-removal", "path": "apps/web/app/housing/_components/HousingRepairCreatePanel.tsx", "pathState": "present", "mustContain": ["HousingRepairCreatePanel"], "mustNotContain": ["offlineQueueContext", "FileUploaderOfflineContext", "resolveCurrentLeaseVersion", "housingLeaseProjectionVersion", "housingRepairSubmissionBlocked", "beginHousingRepairQueueGate", "./housing-offline-version"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] },
+          { "id": "offline-file-uploader", "intentGroupId": "offline-consumer-removal", "path": "apps/web/components/files/FileUploader.tsx", "pathState": "present", "mustContain": ["FileUploader"], "mustNotContain": ["usePropertyUploadQueue", "createPropertyUploadQueueItem", "offlineQueueContext", "recovery"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "usePropertyUploadQueue", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "offline-mobile-runtime", "intentGroupId": "offline-consumer-removal", "path": "apps/web/components/runtime/MobileTerminalReliability.tsx", "pathState": "present", "mustContain": ["MobileTerminalReliability"], "mustNotContain": ["ensurePropertyOfflineScope"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "identifier", "name": "ensurePropertyOfflineScope", "source": "", "owner": "", "enclosingOwner": "", "minCount": 0, "maxCount": 0 }] },
+          { "id": "offline-draft-hook-removed", "intentGroupId": "offline-consumer-removal", "path": "apps/web/features/property-shared/offline/use-property-draft.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["usePropertyDraft"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ],
+        "retainedShell": [{ "id": "offline-housing-version-shell", "intentGroupId": "offline-consumer-removal", "path": "apps/web/app/housing/_components/housing-offline-version.ts", "pathState": "present", "mustContain": ["housingLeaseProjectionVersion", "housingRepairSubmissionBlocked", "beginHousingRepairQueueGate"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "housingLeaseProjectionVersion", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "housingRepairSubmissionBlocked", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "beginHousingRepairQueueGate", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }],
+        "protectedExternalPaths": [
+          { "id": "offline-flags", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/property-reliability-flags.ts", "pathState": "present", "mustContain": ["NEXT_PUBLIC_PROPERTY_OFFLINE_DRAFTS_V1", "NEXT_PUBLIC_PROPERTY_UPLOAD_QUEUE_V1", "propertyReliabilityFlagEnabled", "=== \"true\""], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [], "allowsIntentionalOmission": true },
+          { "id": "offline-next-config", "intentGroupId": "offline-d53-invariants", "path": "apps/web/next.config.ts", "pathState": "present", "mustContain": [], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "fileDigest", "name": "next-config-reliability", "source": "f225e9a527505e023ca6a3d70745adc2f176cfb48787825b0ff79e2e2769e554", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-draft-contract", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/property-draft-contract.ts", "pathState": "present", "mustContain": ["PROPERTY_DRAFT_TTL_MS", "propertyOfflineScopeKey", "propertyOfflinePermissionFingerprint", "assertPropertyDraftMatchesSchema", "createPropertyDraftEnvelope", "isPropertyDraftUsable"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "propertyOfflineScopeKey", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "propertyOfflinePermissionFingerprint", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "assertPropertyDraftMatchesSchema", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "createPropertyDraftEnvelope", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-draft-store-purge", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/property-draft-store.ts", "pathState": "present", "mustContain": ["purgePropertyOfflineState", "purgeExpiredPropertyDrafts", "purgeExpiredPropertyUploadQueue"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [], "allowsIntentionalOmission": true },
+          { "id": "offline-upload-queue-contract", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/property-upload-queue.ts", "pathState": "present", "mustContain": ["PROPERTY_UPLOAD_BLOB_TTL_MS", "sensitive evidence cannot be queued offline", "createPropertyUploadQueueItem", "assertPropertyUploadSubmissionContext", "preparePropertyUploadRecovery"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "createPropertyUploadQueueItem", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "assertPropertyUploadSubmissionContext", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "preparePropertyUploadRecovery", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-indexeddb-transaction", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/indexeddb-transaction.ts", "pathState": "present", "mustContain": ["completeIndexedDbTransaction", "sweepIndexedDbKeys", "transaction.oncomplete", "transaction.onerror", "transaction.onabort"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "export", "name": "completeIndexedDbTransaction", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }, { "kind": "export", "name": "sweepIndexedDbKeys", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-upload-hook", "intentGroupId": "offline-d53-invariants", "path": "apps/web/features/property-shared/offline/use-property-upload-queue.ts", "pathState": "present", "mustContain": ["usePropertyUploadQueue", "ensurePropertyOfflineScope"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [], "allowsIntentionalOmission": true },
+          { "id": "offline-auth", "intentGroupId": "offline-session-invariants", "path": "apps/web/lib/auth.ts", "pathState": "present", "mustContain": ["setSession", "clearSession", "purgePropertyOfflineState"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "purgePropertyOfflineState", "source": "", "owner": "", "enclosingOwner": "setSession", "minCount": 1, "maxCount": 1 }, { "kind": "awaitedCall", "name": "purgePropertyOfflineState", "source": "", "owner": "", "enclosingOwner": "clearSession", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-session-reset", "intentGroupId": "offline-session-invariants", "path": "apps/web/lib/session-reset.ts", "pathState": "present", "mustContain": ["purgePropertyOfflineState", "clearSessionStorageOnly"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "purgePropertyOfflineState", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-login-session", "intentGroupId": "offline-session-invariants", "path": "apps/web/app/login/page.tsx", "pathState": "present", "mustContain": ["await setSession(result.accessToken, currentUser, result.refreshToken)"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "setSession", "source": "", "owner": "", "enclosingOwner": "completeLogin", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-dashboard-layout", "intentGroupId": "offline-session-invariants", "path": "apps/web/components/layout/DashboardLayout.tsx", "pathState": "present", "mustContain": ["await clearSession()", "void clearSession().finally"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "clearSession", "source": "", "owner": "", "enclosingOwner": "", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true },
+          { "id": "offline-authz-session", "intentGroupId": "offline-session-invariants", "path": "apps/web/lib/authz.ts", "pathState": "present", "mustContain": ["setAuthSession", "await setSession"], "mustNotContain": [], "mustMatch": [], "mustNotMatch": [], "astMatchers": [{ "kind": "awaitedCall", "name": "setSession", "source": "", "owner": "", "enclosingOwner": "setAuthSession", "minCount": 1, "maxCount": 1 }], "allowsIntentionalOmission": true }
+        ],
+        "immutableTestPaths": ["apps/api/src/modules/files/*.spec.ts", "apps/api/src/shared/interceptors/*.spec.ts", "apps/web/features/property-shared/offline/*.spec.ts", "apps/web/lib/auth.spec.ts", "apps/web/lib/session-reset.spec.ts", "apps/web/app/housing/_components/housing-offline-version.spec.ts"],
+        "allowedInvariantIds": ["INV-OFFLINE-FLAGS-DEFAULT-OFF", "INV-OFFLINE-STATE-PURGE", "INV-UPLOAD-QUEUE-HOOK", "INV-AUTH-SESSION-AWAIT-CHAIN", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    },
+    {
+      "id": "frontend-request-state",
+      "kind": "frontend-group",
+      "commits": ["c0678d18"],
+      "targetedTestFiles": ["apps/web/app/homestay/_components/homestay-workbench.logic.spec.ts"],
+      "allowedPatchPrefixes": [
+        "apps/web/app/homestay/_components/HomestayListClient.tsx",
+        "apps/web/app/homestay/_components/use-homestay-list-state.ts"
+      ],
+      "rollbackSemanticContract": {
+        "mustChangeProductionPaths": ["apps/web/app/homestay/_components/HomestayListClient.tsx", "apps/web/app/homestay/_components/use-homestay-list-state.ts"],
+        "postApply": [
+          { "id": "request-state-inline", "intentGroupId": "request-state-inline", "path": "apps/web/app/homestay/_components/HomestayListClient.tsx", "pathState": "present", "mustContain": ["HomestaySurfaceData", "HomestayListFilters", "EMPTY_HOMESTAY_FILTERS", "loadHomestayUnitOptions", "useHomestayListFilters", "useHomestaySurfaceData", "requestId", "currentRequest", "signal: AbortSignal"], "mustNotContain": ["./use-homestay-list-state"], "mustMatch": [], "mustNotMatch": ["apiRequest<HomestaySurfaceData>[^;]+signal"], "astMatchers": [{ "kind": "identifier", "name": "requestId", "source": "", "owner": "", "enclosingOwner": "", "minCount": 2, "maxCount": 12 }, { "kind": "identifier", "name": "currentRequest", "source": "", "owner": "", "enclosingOwner": "", "minCount": 2, "maxCount": 12 }] },
+          { "id": "request-state-hook-removed", "intentGroupId": "request-state-inline", "path": "apps/web/app/homestay/_components/use-homestay-list-state.ts", "pathState": "absent", "mustContain": [], "mustNotContain": ["useHomestaySurfaceData"], "mustMatch": [], "mustNotMatch": [], "astMatchers": [] }
+        ], "retainedShell": [], "protectedExternalPaths": [],
+        "immutableTestPaths": ["apps/web/app/homestay/_components/*.spec.ts"],
+        "allowedInvariantIds": ["INV-HOMESTAY-REQUEST-RACE-GUARD", "INV-UNIT-PICKER-ABORT-SIGNAL", "INV-SURFACE-REQUEST-COMPATIBILITY", "INV-IMMUTABLE-REGRESSION-GATES"],
+        "allowedGateIds": ["api-build", "web-typecheck", "web-clean-production-build", "contract", "canonical-port", "targeted-regression", "postgresql-regression", "flags-artifact-runtime-proof", "rollback-service-smoke"]
+      },
+      "reviewedPatchRequired": true
+    }
+  ]
+}

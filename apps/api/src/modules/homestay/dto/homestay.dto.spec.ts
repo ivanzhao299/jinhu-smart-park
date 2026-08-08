@@ -5,8 +5,14 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import {
   CreateHomestayBookingDto,
+  HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
+  HomestayCandidateQueryDto,
+  HomestayGuestCandidateQueryDto,
+  HomestayFinanceQueryDto,
   HomestayReasonDto,
+  HomestayStayQueryDto,
+  HomestayTaskQueryDto,
   HomestayTurnoverQueryDto,
   HomestayUnitCandidateQueryDto,
   RegisterHomestayLedgerEntryDto,
@@ -112,4 +118,77 @@ test("homestay candidate and turnover queries enforce bounded pagination and kno
 
   const invalidTurnovers = plainToInstance(HomestayTurnoverQueryDto, { status: "all" });
   assert.ok((await validate(invalidTurnovers)).some((error) => error.property === "status"));
+});
+
+test("A-2.5 homestay read DTOs validate queues, UUID filters, dates, and pagination", async () => {
+  const bookingQuery = plainToInstance(HomestayBookingQueryDto, {
+    keyword: "  HS-2026  "
+  });
+  assert.deepEqual(await validate(bookingQuery), []);
+  assert.equal(bookingQuery.keyword, "HS-2026");
+  assert.ok(
+    (await validate(plainToInstance(HomestayBookingQueryDto, {
+      keyword: "x".repeat(101)
+    }))).some((error) => error.property === "keyword")
+  );
+
+  const availability = plainToInstance(HomestayAvailabilityQueryDto, {
+    date_from: "2026-07-31",
+    date_to: "2026-08-02",
+    page: 2,
+    page_size: 50
+  });
+  assert.deepEqual(await validate(availability), []);
+
+  const missingAvailabilityDate = plainToInstance(HomestayAvailabilityQueryDto, {
+    date_from: "2026-07-31"
+  });
+  assert.ok(
+    (await validate(missingAvailabilityDate))
+      .some((error) => error.property === "date_to")
+  );
+
+  const stay = plainToInstance(HomestayStayQueryDto, {
+    queue: "arrivals",
+    business_date: "2026-07-31"
+  });
+  assert.deepEqual(await validate(stay), []);
+  assert.ok(
+    (await validate(plainToInstance(HomestayStayQueryDto, { queue: "unknown" })))
+      .some((error) => error.property === "queue")
+  );
+
+  const task = plainToInstance(HomestayTaskQueryDto, {
+    status: "active",
+    source_type: "homestay_turnover",
+    business_date: "2026-07-31"
+  });
+  assert.deepEqual(await validate(task), []);
+  assert.ok(
+    (await validate(plainToInstance(HomestayTaskQueryDto, { status: "cancelled" })))
+      .some((error) => error.property === "status")
+  );
+
+  const candidate = plainToInstance(HomestayCandidateQueryDto, {
+    unit_id: "not-a-uuid",
+    keyword: "空调"
+  });
+  assert.ok(
+    (await validate(candidate)).some((error) => error.property === "unit_id")
+  );
+  assert.ok(
+    (await validate(plainToInstance(HomestayGuestCandidateQueryDto, {})))
+      .some((error) => error.property === "booking_id")
+  );
+  assert.deepEqual(await validate(plainToInstance(HomestayGuestCandidateQueryDto, {
+    booking_id: "11111111-1111-4111-8111-111111111111"
+  })), []);
+
+  const finance = plainToInstance(HomestayFinanceQueryDto, {
+    status: "checked_out",
+    page_size: 101
+  });
+  assert.ok(
+    (await validate(finance)).some((error) => error.property === "page_size")
+  );
 });

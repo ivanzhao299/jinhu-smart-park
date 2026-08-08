@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AssetUnitEntity } from "../assets/entities/asset-unit.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { PropertyIdentityModule } from "../property-identity/property-identity.module";
+import { PropertyApprovalModule } from "../property-approvals/property-approval.module";
 import { UnitEntity } from "../units/entities/unit.entity";
 import { PartiesController } from "./parties.controller";
 import { PartiesService } from "./parties.service";
@@ -13,9 +15,15 @@ import { PropertyOperationConfigEntity } from "./entities/property-operation-con
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
 import { PropertyOccupanciesController } from "./property-occupancies.controller";
 import { PropertyOccupanciesService } from "./property-occupancies.service";
-import { PropertyOperationsController } from "./property-operations.controller";
+import {
+  PropertyOperationListController,
+  PropertyOperationsController
+} from "./property-operations.controller";
 import { PropertyOperationsService } from "./property-operations.service";
 import { PropertyUnitAccessService } from "./property-unit-access.service";
+import { PropertyFoundationApprovalAdapter } from "./property-foundation-approval.adapter";
+import { PropertyOccupancyAdapter } from "./property-occupancy.adapter";
+import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
 
 @Module({
   imports: [
@@ -28,16 +36,26 @@ import { PropertyUnitAccessService } from "./property-unit-access.service";
       PartyEntity,
       PartyRoleEntity
     ]),
-    DataScopesModule
+    DataScopesModule,
+    PropertyIdentityModule,
+    PropertyApprovalModule
   ],
-  controllers: [PropertyOperationsController, PropertyOccupanciesController, PartiesController],
+  controllers: [
+    PropertyOperationsController,
+    PropertyOperationListController,
+    PropertyOccupanciesController,
+    PartiesController
+  ],
   providers: [
     PropertyOperationsService,
     PropertyOccupanciesService,
+    PropertyOccupancyAdapter,
+    { provide: PROPERTY_OCCUPANCY_PORT, useExisting: PropertyOccupancyAdapter },
     PartiesService,
     PartySensitiveDataService,
-    PropertyUnitAccessService
+    PropertyUnitAccessService,
+    PropertyFoundationApprovalAdapter
   ],
-  exports: [PropertyOperationsService, PropertyOccupanciesService, PartiesService, PropertyUnitAccessService]
+  exports: [PropertyOperationsService, PROPERTY_OCCUPANCY_PORT, PartiesService, PropertyUnitAccessService]
 })
 export class PropertyOperationsModule {}

@@ -1042,7 +1042,8 @@ export default function LeasingTenantsPage() {
     if (!detail) return;
     setUploadingQualificationFile(true);
     try {
-      const formData = new FormData(event.currentTarget);
+      const formElement = event.currentTarget;
+      const formData = new FormData(formElement);
       formData.set("biz_type", QUALIFICATION_FILE_BIZ_TYPE);
       const response = await apiFormRequest<FileRecord>("/files", {
         method: "POST",
@@ -1051,7 +1052,7 @@ export default function LeasingTenantsPage() {
         body: formData
       });
       setQualificationForm((current) => ({ ...current, fileId: response.data.id, fileName: response.data.originalName }));
-      event.currentTarget.reset();
+      formElement.reset();
       setMessage("附件上传成功，请保存资质");
     } finally {
       setUploadingQualificationFile(false);

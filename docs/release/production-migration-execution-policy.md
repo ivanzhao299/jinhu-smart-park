@@ -13,13 +13,22 @@
 - 当前执行方式为按文件名顺序执行未成功记录过的 SQL 文件。
 - 当前使用 `public.sys_schema_migration_history` 作为兼容主记录表，同时维护标准命名表 `public.schema_migrations`。
 - 对不能修改的历史 migration，可在 `database/migration-prerequisites/<target-migration>/`
-  放置最小前置 SQL。只要本批仍有 pending migration，runner 就按 migration 顺序检查前置项；
-  因此新补到已成功早期 migration 的 prerequisite 也会在后续 pending migration 前执行。
-  全量已完成环境仍直接 fast-skip。前置项以独立 filename/checksum/status 写入两张 history 表。
+  放置最小前置 SQL。runner 始终按 migration 顺序检查前置项；因此新补到已成功早期 migration
+  的 prerequisite 在全量 migration 已完成的环境也会执行。前置项以独立
+  filename/checksum/status 写入两张 history 表，不能被 migration-only fast-skip 绕过。
 - 两张 history 表在 bootstrap 后必须具有一致的 status/checksum；冲突立即阻断且不自动选边。
   同一状态变更在单个数据库事务内写入两表，第二表失败时第一表同步回滚。
 - 每个 migration 成功后记录 `filename`、`checksum`、`status`、开始/结束时间、执行人和批次。
-- 部署前会先生成 migration manifest；如果 manifest 中所有文件都已按相同 checksum 记录为 `succeeded`，脚本直接退出，不再逐个陪跑。
+- 部署前会先生成 migration manifest；即使 manifest 中所有文件都已按相同 checksum 记录为
+  `succeeded`，脚本仍逐项核验 prerequisite，仅跳过 checksum 匹配的 migration/prerequisite。
+- `database/migration-history-aliases.txt` 记录发布前因编号冲突发生的 migration 文件名迁移。
+  runner 在 baseline 和 SQL 执行前，仅对 checksum 完全一致的单一成功旧记录执行双表原子重签，
+  并保留 alias 审计行；旧/新身份并存、非成功状态或 checksum 漂移必须人工处理。
+- CI Release Smoke 必须覆盖旧文件名成功记录到 canonical 文件名的重签重放，并断言 canonical
+  migration 被按原 checksum 跳过。
+- runner 必须在 bootstrap history 前持有数据库级 advisory lock，避免两个发布进程并发检查、写入
+  或执行同一 migration；等待必须使用可中断的 try-lock 轮询，进程退出后不得依赖额外数据库权限
+  释放锁。CI Release Smoke 必须验证第二个迁移进程会等待该锁。
 - 如果目标库已有业务表但 migration history 为空，脚本会自动 baseline：把当前仓库所有 migration 文件标记为已成功，不执行旧 SQL，以保护已有生产数据。
 - 如果目标库为空，脚本不会 baseline，会从第一条 migration 正常初始化。
 - 当前没有自动 down migration 机制。
@@ -28,13 +37,24 @@
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
+  - `000189` 的 prerequisite 只确保全局 `asset` 模块目录存在且启用；不创建租户分配、
+    plan 授权、permission/role/user 或业务数据，完整基线仍由 production seed 收敛。
+  - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
+    `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
+    兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
+  - `000194` 的 prerequisite 同样只前置创建其 guard 所需、原顺序到 `000200` 才定义的
+    `sys_property_runtime_control` 表及索引；所有 control 默认禁用，不插入控制记录，定义与
+    `000200` 完全兼容。
+  - `000200` 的 prerequisite 在签署这两张前置表的 catalog 注释前，先校验 57 个表、列、
+    约束和索引对象的固定聚合 SHA-256；任何结构漂移都会 fail closed。该前置项只创建会话级
+    临时视图和 COMMENT，不改永久 schema 或业务数据。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 
 当前治理状态：
 
 - `scripts/db-migrate.sh` 已引入 `sys_schema_migration_history` 与 `schema_migrations` 记录表。
-- 成功执行的 migration 会跳过；无新增 migration 时会整体快速跳过。
+- 成功执行的 migration 会逐项跳过；无新增 migration 时仍逐项核验独立 prerequisite 历史。
 - `checksum` 不一致会阻断继续执行。
 - `failed` 状态允许在人工确认后修正并重试。
 - 修正 failed migration 前必须确认该文件从未在长期环境记录为 `succeeded`、SQL 事务已回滚且目标库

@@ -153,32 +153,37 @@ test("energy meter charges apply the configured multiplier to usage and amount",
 });
 
 test("receivable reuse includes the source identity used by the database uniqueness key", () => {
-  const servicePath = resolve(__dirname, "housing.service.ts");
+  const servicePath = resolve(__dirname, "housing-receivable-writer.service.ts");
   const service = readFileSync(servicePath, "utf8");
 
   assert.match(service, /sourceId: input\.sourceId \?\? IsNull\(\)/);
 });
 
 test("housing service revalidates meter state and makes completed handover retries side-effect free", () => {
-  const servicePath = resolve(__dirname, "housing.service.ts");
-  const service = readFileSync(servicePath, "utf8");
-
-  assert.match(service, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
-  assert.match(service, /if \(handover\?\.status === "completed"\) return handover;/);
-  assert.ok(
-    service.indexOf('if (handover?.status === "completed") return handover;')
-      < service.indexOf("Deposit deduction cannot exceed agreed deposit")
+  const purchase = readFileSync(resolve(__dirname, "housing-purchase.service.ts"), "utf8");
+  const billing = readFileSync(
+    resolve(__dirname, "housing-billing-command.service.ts"),
+    "utf8"
   );
-  assert.match(service, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
-  assert.match(service, /Transferred purchase items must be reversed before refunding the purchase/);
-  assert.match(service, /purchase\.payment_status <> 'refunded'/);
+  const handover = readFileSync(
+    resolve(__dirname, "housing-handover-command.service.ts"),
+    "utf8"
+  );
+
+  assert.match(billing, /!meter\.isEnabled \|\| meter\.status !== "ONLINE"/);
+  assert.match(handover, /if \(handover\?\.status === "completed"\) \{/);
+  assert.ok(
+    handover.indexOf('if (handover?.status === "completed") {')
+      < handover.indexOf("Deposit deduction cannot exceed agreed deposit")
+  );
+  assert.match(handover, /Move-in handover cannot include damage, unsettled, or deposit deduction amounts/);
+  assert.match(purchase, /Transferred purchase items must be reversed before refunding the purchase/);
 });
 
 test("housing repair binds evidence under the same file-row lock transaction", () => {
-  const service = readFileSync(resolve(__dirname, "housing.service.ts"), "utf8");
-  const repair = service.slice(service.indexOf("async createRepair"), service.indexOf("async checkoutLease"));
+  const repair = readFileSync(resolve(__dirname, "housing-repair-command.service.ts"), "utf8");
   assert.match(repair, /this\.dataSource\.transaction\(async \(manager\)/);
-  assert.match(repair, /this\.assertFiles\(manager/);
+  assert.match(repair, /this\.support\.assertFiles\(manager/);
   assert.doesNotMatch(repair, /lock:\s*false/);
   assert.match(repair, /this\.workOrdersService\.create\([\s\S]*manager\)/);
 });

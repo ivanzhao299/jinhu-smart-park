@@ -11,8 +11,10 @@ class FakeIdempotencyService {
   public readonly failureCalls: Array<unknown> = [];
   public beginResult: unknown;
   public buildFingerprintResult = "fingerprint";
+  public readonly fingerprintCalls: Array<unknown> = [];
 
-  buildFingerprint(): string {
+  buildFingerprint(input: unknown): string {
+    this.fingerprintCalls.push(input);
     return this.buildFingerprintResult;
   }
 
@@ -30,7 +32,7 @@ class FakeIdempotencyService {
   }
 }
 
-function createContext(overrides: Partial<{ statusCode: number; user: unknown; headers: Record<string, string> }> = {}) {
+function createContext(overrides: Partial<{ statusCode: number; user: unknown; headers: Record<string, string>; file: unknown }> = {}) {
   const request = {
     method: "POST",
     path: "/work-orders",
@@ -42,6 +44,7 @@ function createContext(overrides: Partial<{ statusCode: number; user: unknown; h
       tenantId: "10000001",
       parkId: "20000001"
     },
+    ...(overrides.file ? { file: overrides.file } : {}),
     ...(overrides.user ? { user: overrides.user } : {})
   };
   const response = {
@@ -142,4 +145,23 @@ test("interceptor marks success and failure around handler execution", async () 
   );
 
   assert.deepEqual(service.failureCalls, [{ id: "id-2", errorCode: "Error" }]);
+});
+
+test("multipart fingerprint includes file content digest and rejects non-memory storage", async () => {
+  const service = new FakeIdempotencyService();
+  setIdempotencyService(service as never);
+  service.beginResult = { outcome: "cached", request: { id: "id-file" }, cachedResponse: { responseStatus: 201, responseBody: { id: "f1" } } };
+  const interceptor = new IdempotencyInterceptor();
+  const file = {
+    fieldname: "file", originalname: "site.jpg", mimetype: "image/jpeg", size: 3, buffer: Buffer.from("one")
+  };
+
+  await firstValueFrom(interceptor.intercept(createContext({ file }).context as never, { handle: () => of(null) }));
+  const fingerprintInput = service.fingerprintCalls[0] as { body: { __multipartFile: { sha256: string } } };
+  assert.equal(fingerprintInput.body.__multipartFile.sha256, "7692c3ad3540bb803c020b3aee66cd8887123234ea0c6e7143c0add73ff431ed");
+
+  assert.throws(
+    () => interceptor.intercept(createContext({ file: { ...file, buffer: undefined } }).context as never, { handle: () => of(null) }),
+    /in-memory file payload/u
+  );
 });

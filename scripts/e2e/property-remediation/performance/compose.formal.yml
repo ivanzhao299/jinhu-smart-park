@@ -1,0 +1,189 @@
+services:
+  postgres:
+    image: ${PROPERTY_PERF_POSTGRES_IMAGE:?immutable postgres image reference is required}
+    container_name: ${PROPERTY_PERF_PROJECT_NAME:?project name is required}-postgres
+    cpus: 2
+    mem_limit: 4g
+    environment:
+      POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB:?isolated database name is required}
+      POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
+    command:
+      - postgres
+      - -c
+      - track_io_timing=on
+      - -c
+      - shared_buffers=1GB
+      - -c
+      - effective_cache_size=3GB
+      - -c
+      - max_connections=100
+      - -c
+      - jit=off
+    secrets:
+      - postgres_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf} -d ${PROPERTY_PERF_POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [formal]
+
+  api:
+    image: ${PROPERTY_PERF_API_IMAGE:?commit-bound API image tag is required}
+    build:
+      context: ../../../..
+      dockerfile: infra/docker/Dockerfile.api
+    container_name: ${PROPERTY_PERF_PROJECT_NAME}-api
+    cpus: 2
+    mem_limit: 2g
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      APP_PORT: 3001
+      API_PREFIX: api/v1
+      PROPERTY_WORKBENCH_V2: "true"
+      WEB_ORIGIN: http://127.0.0.1:${PROPERTY_PERF_WEB_PORT:-33100}
+      AUTH_SMS_FIXED_CODE: ""
+      AUTH_SMS_CODE_VISIBLE: "false"
+      AUTH_WECHAT_MOCK_ENABLED: "false"
+      AUTH_REFRESH_COOKIE_SECURE: "false"
+      AUTH_COOKIE_ORIGIN_ALLOW_MISSING: "true"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB}
+      POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
+      FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/files
+      DEFAULT_TENANT_CODE: jinhu
+      DEFAULT_TENANT_ID: "10000001"
+      DEFAULT_PARK_ID: "20000001"
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
+    secrets:
+      - postgres_password
+      - jwt_secret
+      - party_data_encryption_key
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        export POSTGRES_PASSWORD="$$(cat /run/secrets/postgres_password)"
+        export JWT_SECRET="$$(cat /run/secrets/jwt_secret)"
+        export PARTY_DATA_ENCRYPTION_KEY="$$(cat /run/secrets/party_data_encryption_key)"
+        exec node --trace-gc --trace-gc-nvp apps/api/dist/main.js
+    ports:
+      - 127.0.0.1:${PROPERTY_PERF_API_PORT:-33101}:3001
+    volumes:
+      - api-files:/var/lib/jinhu/files
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [formal]
+
+  web:
+    image: ${PROPERTY_PERF_WEB_IMAGE:?commit-bound Web image tag is required}
+    build:
+      context: ../../../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_TARGET: http://api:3001
+        NEXT_PUBLIC_API_PREFIX: /api/v1
+    container_name: ${PROPERTY_PERF_PROJECT_NAME}-web
+    cpus: 1
+    mem_limit: 1g
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      WEB_PORT: 3000
+      NEXT_PUBLIC_API_TARGET: http://api:3001
+      NEXT_PUBLIC_API_PREFIX: /api/v1
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
+    ports:
+      - 127.0.0.1:${PROPERTY_PERF_WEB_PORT:-33100}:3000
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [formal]
+
+  browser-worker:
+    image: ${PROPERTY_PERF_BROWSER_IMAGE:?immutable Node browser-worker image reference is required}
+    container_name: ${PROPERTY_PERF_PROJECT_NAME}-browser
+    cpus: 2
+    mem_limit: 2g
+    environment:
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
+    command: ["sleep", "infinity"]
+    init: true
+    networks: [formal]
+
+  control:
+    profiles: ["control"]
+    image: ${PROPERTY_PERF_CONTROL_IMAGE:?commit-bound control image tag is required}
+    build:
+      context: ../../../..
+      dockerfile: scripts/e2e/property-remediation/performance/Dockerfile.control
+    working_dir: /workspace
+    environment:
+      COMPOSE_PROJECT_NAME: ${PROPERTY_PERF_PROJECT_NAME}
+      COMPOSE_FILE: /workspace/scripts/e2e/property-remediation/performance/compose.formal.yml
+      PROPERTY_PERF_PROJECT_NAME: ${PROPERTY_PERF_PROJECT_NAME}
+      PROPERTY_PERF_POSTGRES_IMAGE: ${PROPERTY_PERF_POSTGRES_IMAGE}
+      PROPERTY_PERF_BROWSER_IMAGE: ${PROPERTY_PERF_BROWSER_IMAGE}
+      PROPERTY_PERF_API_IMAGE: ${PROPERTY_PERF_API_IMAGE}
+      PROPERTY_PERF_WEB_IMAGE: ${PROPERTY_PERF_WEB_IMAGE}
+      PROPERTY_PERF_CONTROL_IMAGE: ${PROPERTY_PERF_CONTROL_IMAGE}
+      PROPERTY_PERF_POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB}
+      PROPERTY_PERF_POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
+      PROPERTY_PERF_API_PORT: ${PROPERTY_PERF_API_PORT:-33101}
+      PROPERTY_PERF_WEB_PORT: ${PROPERTY_PERF_WEB_PORT:-33100}
+      PROPERTY_PERF_BUSINESS_CLOCK: ${PROPERTY_PERF_BUSINESS_CLOCK:?dataset business clock is required}
+      PROPERTY_PERF_SECRET_DIR: ${PROPERTY_PERF_SECRET_DIR:?generated secret directory is required}
+      POSTGRES_DB: ${PROPERTY_PERF_POSTGRES_DB}
+      POSTGRES_USER: ${PROPERTY_PERF_POSTGRES_USER:-jinhu_perf}
+      FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/performance-control-files
+      AUTH_SMS_FIXED_CODE: ""
+      AUTH_SMS_CODE_VISIBLE: "false"
+      AUTH_WECHAT_MOCK_ENABLED: "false"
+      ADMIN_USERNAME: ${PROPERTY_PERF_USERNAME:?performance username is required}
+      ADMIN_NAME: ${PROPERTY_PERF_ADMIN_NAME:?performance display name is required}
+      TENANT_ID: "10000001"
+      PARK_ID: "20000001"
+      ROLE_CODE: SUPER_ADMIN
+    secrets:
+      - admin_password
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROPERTY_PERF_DATASET_DUMP:?isolated dataset dump is required}:/run/perf/dataset.dump:ro
+    entrypoint: ["/workspace/scripts/e2e/property-remediation/performance/environment-control.sh"]
+    command: ["initialize"]
+    networks: [formal]
+
+networks:
+  formal:
+    name: ${PROPERTY_PERF_PROJECT_NAME}-network
+
+volumes:
+  postgres-data:
+    name: ${PROPERTY_PERF_PROJECT_NAME}-postgres-data
+  api-files:
+    name: ${PROPERTY_PERF_PROJECT_NAME}-api-files
+
+secrets:
+  postgres_password:
+    file: ${PROPERTY_PERF_SECRET_DIR}/postgres_password
+  jwt_secret:
+    file: ${PROPERTY_PERF_SECRET_DIR}/jwt_secret
+  party_data_encryption_key:
+    file: ${PROPERTY_PERF_SECRET_DIR}/party_data_encryption_key
+  admin_password:
+    file: ${PROPERTY_PERF_SECRET_DIR}/admin_password

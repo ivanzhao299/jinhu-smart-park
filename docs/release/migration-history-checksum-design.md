@@ -7,17 +7,17 @@
 现状特点：
 
 - 按文件名顺序逐个执行 SQL。
-- 没有执行历史表记录每个 migration 的状态。
-- 没有 checksum 校验，无法自动识别文件被修改。
+- 两张执行历史表原子记录每个 migration/prerequisite 的状态与 checksum。
+- 已成功文件发生 checksum 变化时 fail closed。
 - 没有自动 down migration。
-- 失败后主要依赖命令日志和人工判断。
+- `running`/`failed` 状态要求结合命令日志进行人工判断后再恢复。
 - `production seed` 与 migration 是不同职责，不能混用。
 
 当前已观察到的真实风险：
 
 - migration 编号已出现重复前缀，实际文件为 `000136_idempotency_request.sql` 与 `000136_s9f_energy_billing_allocation.sql`。
-- 已执行文件无法通过系统表确认。
-- 文件内容事后修改无法自动识别。
+- 双历史表若 status/checksum 不一致会阻断执行，不能自动选边。
+- 新增 historical prerequisite 必须进入独立历史并接受契约审查。
 - 半执行失败后需要人工判断数据库状态。
 - 重复执行是否安全依赖 SQL 自身幂等性。
 - 回滚主要依赖数据库备份恢复。
@@ -25,9 +25,8 @@
 
 结论：
 
-- 当前机制可以支撑单次受控发布。
-- 当前机制不适合作为长期多环境、多人员、多批次发布机制。
-- 因此需要引入最小可落地的 history + checksum 方案，先解决“可追踪、可跳过、可拦截、可回溯”的问题。
+- 当前机制已实现可追踪、可逐项跳过、可拦截和可回溯的最小 history + checksum 基线。
+- 自动 down migration 仍不在当前范围，生产回滚继续依赖备份恢复与正式回滚证据。
 
 与 [production-migration-execution-policy.md](/home/veich/JinhuProjects/SmartPark/jinhu-smart-park/docs/release/production-migration-execution-policy.md) 的衔接关系如下：
 
@@ -35,7 +34,7 @@
 - 本文件负责 history + checksum 的最小实现设计，进一步定义“怎么把机制做出来”。
 - 两份文档合在一起，形成从风险接受、执行冻结到机制演进的完整路径。
 
-当前实现已经落地到 `scripts/db-migrate.sh` 与 `database/migrations/000139_sys_schema_migration_history.sql`。脚本会维护兼容主表 `public.sys_schema_migration_history` 和标准命名表 `public.schema_migrations`，并支持非空库首次 baseline、checksum 阻断和无新增 migration 快速跳过。本文件保留为实现契约、验收口径和后续治理路线的统一参考。
+当前实现已经落地到 `scripts/db-migrate.sh` 与 `database/migrations/000139_sys_schema_migration_history.sql`。脚本会维护兼容主表 `public.sys_schema_migration_history` 和标准命名表 `public.schema_migrations`，并支持非空库首次 baseline、checksum 阻断，以及在无新增 migration 时逐项跳过已成功 migration、继续核验独立 prerequisite。本文件保留为实现契约、验收口径和后续治理路线的统一参考。
 
 ## 2. History 表结构设计
 
@@ -99,11 +98,21 @@
 - 这样可以避免历史建表、历史 seed、历史修补 migration 在已有库上重复执行。
 - 若数据库为空，则不 baseline，正常从第一条 migration 开始初始化。
 
-快速跳过规则：
+逐项跳过规则：
 
-- 若当前 manifest 中的所有文件都已在 history 中以相同 checksum 记录为 `succeeded`，脚本直接退出。
-- 纯代码部署或没有新增 migration 的部署不会逐个陪跑 migration。
-- 若 manifest 有缺失或 checksum 不一致，则进入逐文件执行 / 校验流程。
+- 脚本始终按 manifest 顺序检查目标 migration 及其独立 prerequisite 历史。
+- checksum 匹配且已 `succeeded` 的 migration/prerequisite 逐项跳过，不重复执行 SQL。
+- 即使 migration manifest 已全量成功，也不得绕过后来新增的 prerequisite。
+- manifest 缺失、checksum 冲突或 `running` 状态会 fail closed。
+- 历史 migration 如在发布前因编号冲突改用新文件名，必须在
+  `database/migration-history-aliases.txt` 以旧文件名、新文件名和不变 SQL SHA-256 显式登记。
+  runner 只会把 checksum 完全一致的单一 `succeeded` 旧记录原子重签到新文件名，并在双历史表
+  写入 alias 审计记录；旧/新身份同时存在、状态异常或 checksum 漂移都会 fail closed。
+- Release Smoke 会把 canonical 成功记录临时还原为旧文件名并重跑迁移，断言 alias 重签成功且
+  canonical migration 按原 checksum 输出 `SKIP`，从而防止历史 SQL 重复执行。
+- runner 在 bootstrap history 之前取得数据库级 advisory lock，同一数据库的第二个迁移进程必须等待
+  前一个进程释放锁；等待使用可中断的 `pg_try_advisory_lock` 轮询，退出时由持锁会话 EOF 自动释放，
+  不依赖数据库角色拥有终止其他 backend 的权限。Release Smoke 会用独立 blocker session验证该行为。
 
 ## 3. Checksum 计算规则
 

@@ -4,6 +4,7 @@ import {
   Get,
   Headers,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -13,6 +14,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
+import { PropertyHighRiskAction } from "../../shared/decorators/property-high-risk-action.decorator";
 import {
   RequireAnyPermissions,
   RequirePermissions
@@ -24,8 +26,14 @@ import {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
   ExecuteHomestayTurnoverDto,
+  HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
+  HomestayCandidateQueryDto,
+  HomestayGuestCandidateQueryDto,
+  HomestayFinanceQueryDto,
   HomestayReasonDto,
+  HomestayStayQueryDto,
+  HomestayTaskQueryDto,
   HomestayTurnoverQueryDto,
   HomestayUnitCandidateQueryDto,
   IssueHomestayCredentialDto,
@@ -35,11 +43,15 @@ import {
   UpsertHomestayRateOverrideDto
 } from "./dto/homestay.dto";
 import { HomestayService } from "./homestay.service";
+import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.service";
 
 @Controller("homestay")
 @RequireModule("homestay")
 export class HomestayController {
-  constructor(private readonly service: HomestayService) {}
+  constructor(
+    private readonly service: HomestayService,
+    private readonly workbenchQuery: HomestayWorkbenchQueryService
+  ) {}
 
   @Get("dashboard")
   @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_DASHBOARD_READ)
@@ -56,10 +68,45 @@ export class HomestayController {
   availability(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Query("date_from") dateFrom: string,
-    @Query("date_to") dateTo: string
+    @Query() query: HomestayAvailabilityQueryDto
   ) {
-    return this.service.availability(scope, actor, dateFrom, dateTo);
+    return this.service.availability(scope, actor, query);
+  }
+
+  @Get("tasks")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TASK_READ)
+  tasks(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayTaskQueryDto
+  ) {
+    return this.workbenchQuery.listTasks(scope, actor, query);
+  }
+
+  @Get("guest-candidates")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
+  guestCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayGuestCandidateQueryDto
+  ) {
+    return this.workbenchQuery.listGuestCandidates(scope, actor, query);
+  }
+
+  @Get("work-order-candidates")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ)
+  workOrderCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayCandidateQueryDto
+  ) {
+    return this.workbenchQuery.listWorkOrderCandidates(scope, actor, query);
   }
 
   @Get("unit-candidates")
@@ -82,7 +129,7 @@ export class HomestayController {
   rateCalendar(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("unitId") unitId: string,
+    @Param("unitId", new ParseUUIDPipe({ version: "4" })) unitId: string,
     @Query("date_from") dateFrom: string,
     @Query("date_to") dateTo: string
   ) {
@@ -130,9 +177,42 @@ export class HomestayController {
   getBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.getBooking(scope, actor, id);
+  }
+
+  @Get("stays")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ)
+  listStays(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayStayQueryDto
+  ) {
+    return this.service.listStays(scope, actor, query);
+  }
+
+  @Get("stays/:stayId")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ)
+  getStay(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("stayId", new ParseUUIDPipe({ version: "4" })) stayId: string
+  ) {
+    return this.service.getStay(scope, actor, stayId);
+  }
+
+  @Get("finance")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ)
+  finance(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayFinanceQueryDto
+  ) {
+    return this.workbenchQuery.listFinance(scope, actor, query);
   }
 
   @Post("bookings")
@@ -164,19 +244,22 @@ export class HomestayController {
   }
 
   @Post("bookings/:id/cancel")
+  @PropertyHighRiskAction("homestay.bookings.cancel")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
-    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_CANCEL,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
   @AuditLog({ module: "民宿管理", resource: "biz.homestay_booking", action: "取消订单", bizType: "biz_homestay_booking", bizIdParam: "id" })
   cancelBooking(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: HomestayReasonDto
+    @Body() dto: HomestayReasonDto,
+    @Headers("x-idempotency-key") clientKey: string
   ) {
-    return this.service.cancelBooking(scope, actor, id, dto.reason);
+    return this.service.cancelBooking(scope, actor, id, dto.reason, clientKey);
   }
 
   @Post("bookings/:id/no-show")
@@ -290,6 +373,10 @@ export class HomestayController {
   }
 
   @Post("bookings/:id/ledger")
+  @PropertyHighRiskAction("homestay.finance.refund-or-waive", {
+    bodyField: "entry_type",
+    highRiskValues: ["refund", "waiver"]
+  })
   @UseInterceptors(new IdempotencyInterceptor())
   @RequireAnyPermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
@@ -301,9 +388,10 @@ export class HomestayController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: RegisterHomestayLedgerEntryDto
+    @Body() dto: RegisterHomestayLedgerEntryDto,
+    @Headers("x-idempotency-key") clientKey = ""
   ) {
-    return this.service.registerLedgerEntry(scope, actor, id, dto);
+    return this.service.registerLedgerEntry(scope, actor, id, dto, clientKey);
   }
 
   @Get("turnovers")
@@ -314,6 +402,17 @@ export class HomestayController {
     @Query() query: HomestayTurnoverQueryDto
   ) {
     return this.service.listTurnovers(scope, actor, query);
+  }
+
+  @Get("turnovers/:id")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ)
+  getTurnover(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
+  ) {
+    return this.service.getTurnover(scope, actor, id);
   }
 
   @Post("turnovers/:id/actions/:action")

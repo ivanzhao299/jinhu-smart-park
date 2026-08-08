@@ -44,6 +44,30 @@ Do not commit `.env.production`.
 
 `PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
 
+`PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
+`true` 时启用。Track B 审批执行能力完成发布门禁前，生产环境必须保持
+`false`；若提前启用，民宿订单取消、租约审批/作废/退租、退款减免、采购状态
+流转及转租客收费等高风险动作会以 HTTP 409 拒绝，且超级管理员也不会绕过。
+
+`PROPERTY_APPROVAL_RUNTIME_ENABLED` 与 `PROPERTY_TASK_RECONCILIATION_ENABLED`
+控制 API 内的审批执行/事件投递循环和任务投影自愈循环，生产默认均为 `true`。
+对应轮询间隔分别由 `PROPERTY_APPROVAL_RUNTIME_INTERVAL_MS`（默认 5000 ms）和
+`PROPERTY_TASK_RECONCILIATION_INTERVAL_MS`（默认 60000 ms）控制。仅在确认已有等价
+外部 worker 或执行紧急回滚时关闭；关闭审批运行时会使已终审请求停留在待执行状态，
+关闭任务对账会停止修复遗漏、软删除或滞后的任务投影。
+
+`PROPERTY_OFFLINE_DRAFTS_V1` 与 `PROPERTY_UPLOAD_QUEUE_V1` 是 Web 镜像构建期
+回滚开关。仅去除首尾空白并忽略大小写后严格等于 `true` 才启用；未设置、`false`
+或其他值均 fail-closed。`next.config.ts` 只把规范化后的 `true`/`false` 映射到浏览器
+可读的 `NEXT_PUBLIC_*` 常量，不会把其他服务端环境值暴露到客户端。修改开关后必须
+重新构建并发布 Web 镜像，单纯重启现有容器不会改变已编译行为。
+
+关闭草稿开关后，页面不会打开草稿 IndexedDB，也不会声称草稿已保存；关闭上传队列
+开关后，在线上传保持可用，但不会持久化 blob、显示恢复队列或向父表单报告虚假的队列
+忙碌状态。浏览器会删除相应的本机临时数据库和旧版合并数据库；这些数据库只包含未提交
+草稿及待恢复/失败的临时图片，不包含服务器已成功保存的文件，因此回滚清理不得也不会
+删除已成功上传的服务端证据。
+
 ## 1.1 Authentication Release Constraints
 
 The first release supports password login only.
@@ -471,14 +495,14 @@ pnpm db:check:init
 Migration execution behavior:
 
 - `pnpm db:migrate` always bootstraps the migration record tables `public.sys_schema_migration_history` and `public.schema_migrations`.
-- If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command exits immediately and does not re-run individual migrations.
+- If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command still walks the manifest to verify/apply independently tracked prerequisites, while skipping each checksum-matched migration.
 - If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
 - If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.
-- While any migration remains pending, files under
-  `database/migration-prerequisites/<migration-name>/` are evaluated in migration order, even when a newly added
-  prerequisite belongs to an already-succeeded earlier target. A fully migrated database still exits via fast-skip.
+- Files under `database/migration-prerequisites/<migration-name>/` are evaluated in migration order, even when a
+  newly added prerequisite belongs to an already-succeeded earlier target or the migration manifest is fully
+  complete. Migration-only history must not bypass prerequisite history checks.
 - Prerequisite status/checksum is recorded independently. Both history-table rows are written atomically, and any
-  existing status/checksum disagreement stops before fast-skip or execution.
+  existing status/checksum disagreement stops before execution.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

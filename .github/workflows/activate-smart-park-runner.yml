@@ -61,8 +61,8 @@ jobs:
             "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/tmp/"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "set -eu; cd '$PROD_DEPLOY_PATH'; cleanup_runner_activation() { rm -f -- tmp/smart-park-runner.hash.send tmp/activate-smart-park-runner-account.sh; }; trap cleanup_runner_activation EXIT HUP INT TERM; SMART_PARK_RUNNER_PASSWORD_HASH=\"\$(cat tmp/smart-park-runner.hash.send)\" bash tmp/activate-smart-park-runner-account.sh"
-          response="$(curl -fsS -X POST 'https://park.cnjinhu.com/api/v1/auth/login' -H 'content-type: application/json' \
-            --data "{\"tenantId\":\"10000001\",\"parkId\":\"20000001\",\"username\":\"studio_runner\",\"password\":\"$SMART_PARK_RUNNER_PASSWORD\"}")"
+          response="$(node -e 'process.stdout.write(JSON.stringify({tenantId:"10000001",parkId:"20000001",username:"studio_runner",password:process.env.SMART_PARK_RUNNER_PASSWORD}))' | \
+            curl -fsS -X POST 'https://park.cnjinhu.com/api/v1/auth/login' -H 'content-type: application/json' --data-binary @-)"
           node -e 'const body=JSON.parse(process.argv[1]); if(!(body.data?.accessToken||body.accessToken)) process.exit(1)' "$response"
 
       - name: Remove local credential artifacts

@@ -31,12 +31,12 @@ The local Compose service is named `postgres`. Migration history is recorded in
   rebuild must recognize those roots and parent mappings. The standard `migrate -> seed` order must preserve
   the migration-created `parent_id` relationships instead of resetting unknown codes to `NULL`.
 - Historical data migrations that need minimal prerequisite metadata may use
-  `database/migration-prerequisites/<target-migration>/`. When any migration remains pending, the runner evaluates
-  these files in migration order, including a newly added prerequisite on an already-succeeded earlier target,
-  records independent checksum/status history, and stops before later pending work on failure.
+  `database/migration-prerequisites/<target-migration>/`. The runner evaluates these files in migration order even
+  when every target migration already succeeded, records independent checksum/status history, and stops before
+  later work on failure.
 - A migration prerequisite must contain only the minimum production-safe state needed by its target. It must not
   create credentials, demo data, broad permissions, or replace the production seed.
-- The two history tables must agree on status/checksum for every shared filename before fast-skip or execution.
+- The two history tables must agree on status/checksum for every shared filename before execution.
   Conflicts fail for manual inspection; a single-sided row may be copied to the missing table.
 - One history state transition must update both history tables in one database transaction.
 - `MIGRATION_BASELINE_ON_NONEMPTY_DB=yes` is for a deliberately audited legacy database, not recovery from
@@ -51,7 +51,7 @@ The local Compose service is named `postgres`. Migration history is recorded in
 | Migration prerequisite fails or is marked running | Stop before marking or executing its target migration |
 | Succeeded prerequisite checksum changes while its target is pending | Fail with checksum conflict |
 | Succeeded filename checksum changes | Fail with checksum conflict |
-| History tables disagree on status/checksum | Fail before fast-skip; do not choose a winner automatically |
+| History tables disagree on status/checksum | Fail before prerequisite or migration execution; do not choose a winner automatically |
 | One history table is missing a filename | Copy the complete row to the missing table, then verify consistency |
 | Second history-table write fails | Roll back the first history-table write in the same transaction |
 | Non-empty database with empty history | Do not auto-baseline until the existing schema is audited |

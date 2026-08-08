@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "property-remediation-a-base-cleanup-evidence-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "database_residual_count",
+    "physical_file_residual_count", "pending_resources", "evidence_ids"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "property-remediation-a-base-cleanup-evidence-v1"
+    },
+    "database_residual_count": { "type": ["integer", "null"], "minimum": 0 },
+    "physical_file_residual_count": { "type": ["integer", "null"], "minimum": 0 },
+    "evidence_ids": {
+      "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+      "items": { "enum": ["a0-cleanup", "a0-safety"] }
+    },
+    "pending_resources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "key", "state"],
+        "properties": {
+          "type": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1 },
+          "state": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

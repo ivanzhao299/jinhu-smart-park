@@ -5,20 +5,35 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.yml}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-$ROOT_DIR/database/migrations}"
 MIGRATION_PREREQUISITES_DIR="${MIGRATION_PREREQUISITES_DIR:-$ROOT_DIR/database/migration-prerequisites}"
+MIGRATION_HISTORY_ALIASES_FILE="${MIGRATION_HISTORY_ALIASES_FILE:-$ROOT_DIR/database/migration-history-aliases.txt}"
 POSTGRES_USER="${POSTGRES_USER:-jinhu}"
 POSTGRES_DB="${POSTGRES_DB:-jinhu_smart_park}"
 MIGRATION_EXECUTED_BY="${MIGRATION_EXECUTED_BY:-${USER:-unknown}}"
 BATCH_ID="$(date -u +%Y%m%dT%H%M%SZ)"
+MIGRATION_LOCK_PID=""
+MIGRATION_LOCK_ACQUIRED="no"
+MIGRATION_LOCK_WRITER_OPEN="no"
 HISTORY_TABLE="public.sys_schema_migration_history"
 STANDARD_HISTORY_TABLE="public.schema_migrations"
 MIGRATION_BASELINE_ON_NONEMPTY_DB="${MIGRATION_BASELINE_ON_NONEMPTY_DB:-yes}"
 
 TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/jinhu-db-migrate.XXXXXX")"
+MIGRATION_LOCK_APPLICATION_NAME="jinhu-db-migrate-${BATCH_ID}-${TMP_DIR##*.}"
 FILES_LIST="$TMP_DIR/migrations.txt"
 MANIFEST_LIST="$TMP_DIR/migration-manifest.txt"
-HISTORY_SUCCEEDED_LIST="$TMP_DIR/history-succeeded.txt"
-MISSING_MANIFEST_LIST="$TMP_DIR/migration-missing.txt"
-trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+
+cleanup() {
+  if [ "$MIGRATION_LOCK_WRITER_OPEN" = "yes" ]; then
+    exec 9>&-
+    MIGRATION_LOCK_WRITER_OPEN="no"
+  fi
+  if [ -n "$MIGRATION_LOCK_PID" ]; then
+    wait "$MIGRATION_LOCK_PID" 2>/dev/null || true
+  fi
+  rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT
+trap 'exit 130' HUP INT TERM
 
 sql_escape() {
   printf "%s" "$1" | sed "s/'/''/g"
@@ -32,6 +47,51 @@ psql_exec() {
 psql_query() {
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" "$@"
+}
+
+acquire_migration_lock() {
+  lock_application_name_sql="$(sql_escape "$MIGRATION_LOCK_APPLICATION_NAME")"
+  migration_lock_fifo="$TMP_DIR/migration-lock.sql"
+  mkfifo "$migration_lock_fifo"
+  (
+    docker compose -f "$COMPOSE_FILE" exec -T \
+      -e "PGAPPNAME=$MIGRATION_LOCK_APPLICATION_NAME" postgres \
+      psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+      < "$migration_lock_fifo"
+  ) >"$TMP_DIR/migration-lock.log" 2>&1 &
+  MIGRATION_LOCK_PID=$!
+  exec 9>"$migration_lock_fifo"
+  MIGRATION_LOCK_WRITER_OPEN="yes"
+
+  lock_wait_count=0
+  while [ "$lock_wait_count" -lt 2700 ]; do
+    if ! kill -0 "$MIGRATION_LOCK_PID" 2>/dev/null; then
+      echo "ERROR: migration lock session exited before acquiring the database lock" >&2
+      cat "$TMP_DIR/migration-lock.log" >&2
+      exit 1
+    fi
+    printf '%s\n' \
+      "SELECT pg_try_advisory_lock(hashtextextended(current_database() || ':jinhu-db-migrate', 0));" >&9
+    sleep 1
+    lock_granted="$(psql_query <<SQL
+SELECT count(*)
+FROM pg_stat_activity activity
+JOIN pg_locks held_lock ON held_lock.pid = activity.pid
+WHERE activity.application_name = '${lock_application_name_sql}'
+  AND held_lock.locktype = 'advisory'
+  AND held_lock.granted = true;
+SQL
+    )"
+    if [ "$lock_granted" = "1" ]; then
+      MIGRATION_LOCK_ACQUIRED="yes"
+      echo "MIGRATION LOCK ACQUIRED: $MIGRATION_LOCK_APPLICATION_NAME"
+      return 0
+    fi
+    lock_wait_count=$((lock_wait_count + 1))
+  done
+
+  echo "ERROR: timed out waiting for the database migration lock" >&2
+  exit 1
 }
 
 bootstrap_history_table() {
@@ -136,15 +196,17 @@ ensure_dependency() {
 assert_history_tables_consistent() {
   history_conflicts="$(psql_query <<SQL
 SELECT
-  primary_history.filename
-    || '|primary=' || primary_history.status || ':' || primary_history.checksum
-    || '|standard=' || standard_history.status || ':' || standard_history.checksum
+  COALESCE(primary_history.filename, standard_history.filename)
+    || '|primary=' || COALESCE(primary_history.status || ':' || primary_history.checksum, 'missing')
+    || '|standard=' || COALESCE(standard_history.status || ':' || standard_history.checksum, 'missing')
 FROM ${HISTORY_TABLE} primary_history
-JOIN ${STANDARD_HISTORY_TABLE} standard_history
+FULL JOIN ${STANDARD_HISTORY_TABLE} standard_history
   ON standard_history.filename = primary_history.filename
-WHERE primary_history.status IS DISTINCT FROM standard_history.status
+WHERE primary_history.filename IS NULL
+   OR standard_history.filename IS NULL
+   OR primary_history.status IS DISTINCT FROM standard_history.status
    OR primary_history.checksum IS DISTINCT FROM standard_history.checksum
-ORDER BY primary_history.filename;
+ORDER BY COALESCE(primary_history.filename, standard_history.filename);
 SQL
 )"
 
@@ -351,6 +413,152 @@ build_migration_manifest() {
   LC_ALL=C sort -o "$MANIFEST_LIST" "$MANIFEST_LIST"
 }
 
+reconcile_migration_history_aliases() {
+  [ -f "$MIGRATION_HISTORY_ALIASES_FILE" ] || return 0
+
+  alias_line_number=0
+  while IFS='|' read -r legacy_filename canonical_filename expected_checksum extra_field; do
+    alias_line_number=$((alias_line_number + 1))
+    case "$legacy_filename" in
+      ""|'#'*) continue ;;
+    esac
+    if [ -n "$extra_field" ] \
+      || [ -z "$canonical_filename" ] \
+      || [ "${#expected_checksum}" -ne 64 ]; then
+      echo "ERROR: invalid migration history alias at line $alias_line_number" >&2
+      exit 1
+    fi
+    case "$legacy_filename|$canonical_filename" in
+      */*|*..*)
+        echo "ERROR: migration history aliases must use plain SQL filenames" >&2
+        exit 1
+        ;;
+    esac
+    case "$legacy_filename|$canonical_filename" in
+      *.sql'|'*.sql) ;;
+      *)
+        echo "ERROR: migration history aliases must map SQL filenames" >&2
+        exit 1
+        ;;
+    esac
+    case "$expected_checksum" in
+      *[!0-9a-f]*)
+        echo "ERROR: migration history alias checksum must be lowercase SHA-256" >&2
+        exit 1
+        ;;
+    esac
+    if [ "$legacy_filename" = "$canonical_filename" ]; then
+      echo "ERROR: migration history alias must change the filename" >&2
+      exit 1
+    fi
+
+    canonical_manifest_checksum="$(awk -F'|' -v name="$canonical_filename" '
+      $1 == name { print $2 }
+    ' "$MANIFEST_LIST")"
+    if [ "$canonical_manifest_checksum" != "$expected_checksum" ]; then
+      echo "ERROR: migration history alias target is absent or checksum drifted: $canonical_filename" >&2
+      exit 1
+    fi
+    if awk -F'|' -v name="$legacy_filename" '$1 == name { found = 1 } END { exit !found }' "$MANIFEST_LIST"; then
+      echo "ERROR: migration history alias source is still present in the manifest: $legacy_filename" >&2
+      exit 1
+    fi
+
+    legacy_filename_sql="$(sql_escape "$legacy_filename")"
+    canonical_filename_sql="$(sql_escape "$canonical_filename")"
+    expected_checksum_sql="$(sql_escape "$expected_checksum")"
+    legacy_history_row="$(psql_query <<SQL
+SELECT status || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE filename = '${legacy_filename_sql}';
+SQL
+)"
+    [ -n "$legacy_history_row" ] || continue
+
+    canonical_history_row="$(psql_query <<SQL
+SELECT status || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE filename = '${canonical_filename_sql}';
+SQL
+)"
+    if [ -n "$canonical_history_row" ]; then
+      echo "ERROR: both legacy and canonical migration history identities exist" >&2
+      echo "ERROR: legacy=$legacy_filename canonical=$canonical_filename" >&2
+      exit 1
+    fi
+    if [ "$legacy_history_row" != "succeeded|$expected_checksum" ]; then
+      echo "ERROR: legacy migration history cannot be safely rekeyed: $legacy_filename" >&2
+      echo "ERROR: expected=succeeded:$expected_checksum actual=$legacy_history_row" >&2
+      exit 1
+    fi
+
+    alias_marker="migration-alias:${legacy_filename}=>${canonical_filename}"
+    alias_marker_sql="$(sql_escape "$alias_marker")"
+    alias_marker_history_row="$(psql_query <<SQL
+SELECT status || '|' || checksum
+FROM ${HISTORY_TABLE}
+WHERE filename = '${alias_marker_sql}';
+SQL
+)"
+    if [ -n "$alias_marker_history_row" ] \
+      && [ "$alias_marker_history_row" != "succeeded|$expected_checksum" ]; then
+      echo "ERROR: migration history alias audit marker drifted: $alias_marker" >&2
+      exit 1
+    fi
+    alias_executed_by_sql="$(sql_escape "$MIGRATION_EXECUTED_BY")"
+    alias_batch_id_sql="$(sql_escape "$BATCH_ID")"
+    psql_exec <<SQL
+BEGIN;
+DO \$migration_alias\$
+DECLARE
+  affected_rows integer;
+BEGIN
+  UPDATE ${HISTORY_TABLE}
+  SET filename = '${canonical_filename_sql}', updated_at = CURRENT_TIMESTAMP
+  WHERE filename = '${legacy_filename_sql}'
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'primary migration history alias lost its validated row';
+  END IF;
+
+  UPDATE ${STANDARD_HISTORY_TABLE}
+  SET filename = '${canonical_filename_sql}', updated_at = CURRENT_TIMESTAMP
+  WHERE filename = '${legacy_filename_sql}'
+    AND status = 'succeeded'
+    AND checksum = '${expected_checksum_sql}';
+  GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  IF affected_rows <> 1 THEN
+    RAISE EXCEPTION 'standard migration history alias lost its validated row';
+  END IF;
+END
+\$migration_alias\$;
+
+INSERT INTO ${HISTORY_TABLE} (
+  filename, checksum, status, started_at, finished_at, error_message,
+  executed_by, batch_id, created_at, updated_at
+) VALUES (
+  '${alias_marker_sql}', '${expected_checksum_sql}', 'succeeded',
+  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+  'migration history filename rekeyed; SQL bytes unchanged',
+  '${alias_executed_by_sql}', '${alias_batch_id_sql}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+) ON CONFLICT (filename) DO NOTHING;
+INSERT INTO ${STANDARD_HISTORY_TABLE} (
+  filename, checksum, status, started_at, finished_at, error_message,
+  executed_by, batch_id, created_at, updated_at
+) VALUES (
+  '${alias_marker_sql}', '${expected_checksum_sql}', 'succeeded',
+  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+  'migration history filename rekeyed; SQL bytes unchanged',
+  '${alias_executed_by_sql}', '${alias_batch_id_sql}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+) ON CONFLICT (filename) DO NOTHING;
+COMMIT;
+SQL
+    echo "REKEY MIGRATION HISTORY: $legacy_filename -> $canonical_filename"
+  done < "$MIGRATION_HISTORY_ALIASES_FILE"
+}
+
 public_user_table_count() {
   psql_query <<'SQL'
 SELECT count(*)
@@ -398,23 +606,6 @@ SQL
   echo "BASELINE: $baseline_count migration files recorded."
 }
 
-fast_skip_if_manifest_fully_succeeded() {
-  psql_query <<SQL | LC_ALL=C sort > "$HISTORY_SUCCEEDED_LIST"
-SELECT filename || '|' || checksum
-FROM ${HISTORY_TABLE}
-WHERE status = 'succeeded';
-SQL
-
-  comm -23 "$MANIFEST_LIST" "$HISTORY_SUCCEEDED_LIST" > "$MISSING_MANIFEST_LIST"
-  if [ ! -s "$MISSING_MANIFEST_LIST" ]; then
-    echo "Migration batch id: $BATCH_ID"
-    echo "Migration executed by: $MIGRATION_EXECUTED_BY"
-    echo "Migration file count: $total_count"
-    echo "No new migrations. All migration files are already recorded as succeeded; execution skipped."
-    exit 0
-  fi
-}
-
 if [ ! -d "$MIGRATIONS_DIR" ]; then
   echo "Migration directory not found: $MIGRATIONS_DIR" >&2
   exit 1
@@ -422,7 +613,6 @@ fi
 
 ensure_dependency sha256sum
 ensure_dependency awk
-ensure_dependency comm
 
 find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort > "$FILES_LIST"
 
@@ -431,9 +621,12 @@ if [ ! -s "$FILES_LIST" ]; then
   exit 1
 fi
 
+acquire_migration_lock
 bootstrap_history_table
 assert_history_tables_consistent
 build_migration_manifest
+reconcile_migration_history_aliases
+assert_history_tables_consistent
 
 duplicate_prefixes="$(awk '
 {
@@ -468,7 +661,6 @@ prerequisite_failed_count=0
 last_success_file=""
 
 baseline_nonempty_database_if_needed
-fast_skip_if_manifest_fully_succeeded
 
 echo "Migration batch id: $BATCH_ID"
 echo "Migration executed by: $MIGRATION_EXECUTED_BY"
@@ -517,7 +709,9 @@ SQL
   # introduced prerequisite may belong to an already-succeeded target. Apply it
   # only after validating the target's existing history, and before skipping
   # that target, so later pending migrations and the repair seed can converge.
-  # Fully migrated databases still exit via fast-skip.
+  # This loop intentionally also runs for a fully migrated manifest. A
+  # prerequisite may be added later for an immutable, already-succeeded target,
+  # so migration-only history is not sufficient to skip prerequisite checks.
   run_prerequisites_for_migration "$filename"
 
   if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" = "$current_checksum" ]; then

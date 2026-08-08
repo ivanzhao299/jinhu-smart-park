@@ -1,7 +1,22 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  Optional
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
-import { Brackets, IsNull, Not, type Repository } from "typeorm";
+import {
+  PROPERTY_BUSINESS_PERMISSIONS,
+  SYSTEM_PERMISSIONS,
+  type PartyIdentitySummary,
+  type PartyDetailResponse,
+  type PartyListItemResponse,
+  type PartyListResponse,
+  type TenantParkScope
+} from "@jinhu/shared";
+import { Brackets, IsNull, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type {
   AddPartyRoleDto,
@@ -13,31 +28,11 @@ import type {
 import { PartyRoleEntity } from "./entities/party-role.entity";
 import { PartyEntity } from "./entities/party.entity";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
+import { LegacyPartyIdentityAdapter } from "../property-identity/legacy-party-identity.adapter";
 import {
-  didPartyIdentityChange,
   isValidPartyIdentityNumber,
   normalizePartyIdentityNumber
 } from "./party-identity.policy";
-
-export interface PartyResponse {
-  id: string;
-  tenantId: string;
-  parkId: string;
-  partyType: string;
-  displayName: string;
-  mobile: string | null;
-  email: string | null;
-  identityDocumentType: string | null;
-  identityNumberMasked: string | null;
-  identityNumber?: string | null;
-  sourceDomain: string | null;
-  verificationStatus: string;
-  consentStatus: string;
-  createTime: Date;
-  updateTime: Date;
-  version: number;
-  remark: string | null;
-}
 
 @Injectable()
 export class PartiesService {
@@ -46,29 +41,140 @@ export class PartiesService {
     private readonly partiesRepository: Repository<PartyEntity>,
     @InjectRepository(PartyRoleEntity)
     private readonly rolesRepository: Repository<PartyRoleEntity>,
-    private readonly sensitiveDataService: PartySensitiveDataService
+    private readonly sensitiveDataService: PartySensitiveDataService,
+    @Optional()
+    private readonly identityAdapter?: LegacyPartyIdentityAdapter
   ) {}
 
-  async list(scope: TenantParkScope, query: PartyQueryDto): Promise<PaginatedResult<PartyResponse>> {
+  async list(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal
+  ): Promise<PartyListResponse> {
+    return this.listWithProjection(scope, query, actor, true);
+  }
+
+  async listForDomainProjection(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal,
+    housingUnitIds: string[] | null = null
+  ): Promise<PartyListResponse> {
+    return this.listWithProjection(scope, query, actor, false, housingUnitIds);
+  }
+
+  private async listWithProjection(
+    scope: TenantParkScope,
+    query: PartyQueryDto,
+    actor: JwtPrincipal,
+    applyProjection: boolean,
+    housingUnitIds: string[] | null = null
+  ): Promise<PartyListResponse> {
     const builder = this.partiesRepository.createQueryBuilder("party")
       .where("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("party.is_deleted = false");
     if (query.party_type) builder.andWhere("party.party_type = :partyType", { partyType: query.party_type });
+    if (housingUnitIds !== null) {
+      const scopedLeasePredicate = housingUnitIds.length > 0 ?
+        `EXISTS (
+          SELECT 1
+          FROM biz_housing_lease scoped_lease
+          WHERE scoped_lease.tenant_id = party.tenant_id
+            AND scoped_lease.park_id = party.park_id
+            AND scoped_lease.is_deleted = false
+            AND (
+              scoped_lease.unit_id IN (:...housingUnitIds)
+              OR EXISTS (
+                SELECT 1
+                FROM biz_property_occupancy scoped_occupancy
+                WHERE scoped_occupancy.id = scoped_lease.occupancy_id
+                  AND scoped_occupancy.tenant_id = scoped_lease.tenant_id
+                  AND scoped_occupancy.park_id = scoped_lease.park_id
+                  AND scoped_occupancy.unit_id IN (:...housingUnitIds)
+                  AND scoped_occupancy.is_deleted = false
+              )
+            )
+            AND (
+              scoped_lease.tenant_party_id = party.id
+              OR EXISTS (
+                SELECT 1
+                FROM rel_housing_lease_occupant scoped_occupant
+                WHERE scoped_occupant.tenant_id = scoped_lease.tenant_id
+                  AND scoped_occupant.park_id = scoped_lease.park_id
+                  AND scoped_occupant.lease_id = scoped_lease.id
+                  AND scoped_occupant.party_id = party.id
+                  AND scoped_occupant.is_deleted = false
+              )
+            )
+        )` : "false";
+      builder.andWhere(
+        `(
+          (
+            party.source_domain = 'housing_rental'
+            AND party.create_by = :housingActorId
+            AND NOT EXISTS (
+              SELECT 1 FROM biz_housing_lease any_housing_lease
+              WHERE any_housing_lease.tenant_id = party.tenant_id
+                AND any_housing_lease.park_id = party.park_id
+                AND any_housing_lease.is_deleted = false
+                AND (
+                  any_housing_lease.tenant_party_id = party.id
+                  OR EXISTS (
+                    SELECT 1 FROM rel_housing_lease_occupant any_housing_occupant
+                    WHERE any_housing_occupant.tenant_id = any_housing_lease.tenant_id
+                      AND any_housing_occupant.park_id = any_housing_lease.park_id
+                      AND any_housing_occupant.lease_id = any_housing_lease.id
+                      AND any_housing_occupant.party_id = party.id
+                      AND any_housing_occupant.is_deleted = false
+                  )
+                )
+            )
+          )
+          OR ${scopedLeasePredicate}
+        )`,
+        { housingActorId: actor.sub, ...(housingUnitIds.length ? { housingUnitIds } : {}) }
+      );
+    }
     if (query.keyword) {
       builder.andWhere(new Brackets((nested) => {
-        nested.where("party.display_name ILIKE :keyword", { keyword: `%${query.keyword}%` })
-          .orWhere("party.mobile ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        nested.where("party.display_name ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        if (this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ)) {
+          nested.orWhere("party.mobile ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        }
       }));
     }
-    const [items, total] = await builder.orderBy("party.update_time", "DESC")
+    const sortColumns = {
+      displayName: "party.display_name",
+      createTime: "party.create_time",
+      verificationStatus: "party.verification_status"
+    } as const;
+    const direction = query.order
+      ? (query.order === "asc" ? "ASC" : "DESC")
+      : "DESC";
+    const [items, total] = await builder
+      .orderBy(sortColumns[query.sort ?? "createTime"], direction)
+      .addOrderBy("party.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();
-    return { items: items.map((item) => this.toResponse(item)), total, page: query.page, page_size: query.page_size };
+    const summaries = await this.identitySummaries(scope, actor, items.map((item) => item.id));
+    return {
+      items: items.map((item) => this.withIdentitySummary(
+        this.toResponse(item, applyProjection ? actor : undefined),
+        summaries.get(item.id) ?? null
+      )),
+      total,
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
-  async detail(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
+  async detail(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string
+  ): Promise<PartyDetailResponse> {
     const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
     const builder = this.partiesRepository.createQueryBuilder("party")
       .where("party.id = :id", { id })
@@ -78,23 +184,44 @@ export class PartiesService {
     if (canReadSensitive) builder.addSelect("party.identityNumberEncrypted");
     const entity = await builder.getOne();
     if (!entity) throw new NotFoundException("Party not found");
-    const [roles, response] = await Promise.all([
+    const [roles, summaries] = await Promise.all([
       this.rolesRepository.find({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, partyId: id, isDeleted: false },
         order: { createTime: "ASC" }
       }),
-      Promise.resolve(this.toResponse(
-        entity,
-        canReadSensitive ? this.sensitiveDataService.decrypt(entity.identityNumberEncrypted) : undefined
-      ))
+      this.identitySummaries(scope, actor, [id])
     ]);
-    return { ...response, roles };
+    const response = this.withIdentitySummary(
+      this.toResponse(entity, actor,
+        canReadSensitive
+          ? this.sensitiveDataService.decrypt(entity.identityNumberEncrypted)
+          : undefined),
+      summaries.get(id) ?? null
+    );
+    return {
+      ...response,
+      roles: roles.map((role) => ({
+        id: role.id,
+        roleType: role.roleType,
+        sourceType: role.sourceType,
+        sourceId: role.sourceId,
+        status: role.status,
+        createTime: role.createTime.toISOString()
+      }))
+    };
   }
 
-  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePartyDto) {
+  async create(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreatePartyDto,
+    clientKey?: string
+  ) {
+    const hasIdentityMutation = dto.identity_document_type !== undefined
+      || dto.identity_number !== undefined;
+    if (hasIdentityMutation) this.assertIdentityPermission(actor);
     const identityDocumentType = dto.identity_document_type?.trim() ?? null;
     const identity = normalizePartyIdentityNumber(identityDocumentType, dto.identity_number);
-    await this.assertNoLegacyIdentityDuplicate(this.partiesRepository, scope, identityDocumentType, identity);
     const entity = this.partiesRepository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -102,10 +229,10 @@ export class PartiesService {
       displayName: dto.display_name.trim(),
       mobile: dto.mobile?.trim() ?? null,
       email: dto.email?.trim() ?? null,
-      identityDocumentType,
-      identityNumberEncrypted: identity ? this.sensitiveDataService.encrypt(identity) : null,
-      identityNumberHash: identity ? this.sensitiveDataService.hash(identity) : null,
-      identityNumberMasked: identity ? this.sensitiveDataService.mask(identity) : null,
+      identityDocumentType: null,
+      identityNumberEncrypted: null,
+      identityNumberHash: null,
+      identityNumberMasked: null,
       sourceDomain: dto.source_domain ?? null,
       verificationStatus: "unverified",
       consentStatus: dto.consent_status ?? "pending",
@@ -114,89 +241,108 @@ export class PartiesService {
       remark: dto.remark?.trim() ?? null
     });
     try {
-      return this.toResponse(await this.partiesRepository.save(entity));
+      const saved = await this.partiesRepository.manager.transaction(async (manager) => {
+        const repository = manager.getRepository(PartyEntity);
+        const persisted = await repository.save(entity);
+        if (hasIdentityMutation) {
+          if (!this.identityAdapter) throw new ConflictException("Identity runtime is unavailable");
+          await this.identityAdapter.writeDraft(
+            scope,
+            actor,
+            persisted.id,
+            clientKey,
+            identityDocumentType as "id_card" | "passport" | null,
+            identity ?? null,
+            manager
+          );
+        }
+        return persisted;
+      });
+      const summaries = await this.identitySummaries(scope, actor, [saved.id]);
+      return this.withIdentitySummary(this.toResponse(saved), summaries.get(saved.id) ?? null);
     } catch (error) {
       if (this.isUniqueViolation(error)) throw new ConflictException("Party identity already exists in current tenant and park");
       throw error;
     }
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdatePartyDto) {
+  async update(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: UpdatePartyDto,
+    clientKey?: string
+  ) {
+    const hasIdentityMutation = dto.identity_document_type !== undefined
+      || dto.identity_number !== undefined;
+    if (hasIdentityMutation) this.assertIdentityPermission(actor);
+    let identityDocumentType: string | null = null;
+    let identity: string | null = null;
     try {
-      return await this.partiesRepository.manager.transaction(async (manager) => {
+      const updated = await this.partiesRepository.manager.transaction(async (manager) => {
         const repository = manager.getRepository(PartyEntity);
-        const entity = await this.mustFind(scope, id, true, repository, true);
-        const previousIdentityDocumentType = entity.identityDocumentType;
-        const previousIdentityNumberHash = entity.identityNumberHash;
-        const effectiveIdentityDocumentType = dto.identity_document_type !== undefined
+        const entity = await this.mustFind(scope, id, false, repository, true);
+        identityDocumentType = dto.identity_document_type !== undefined
           ? dto.identity_document_type?.trim() ?? null
           : entity.identityDocumentType;
-        const identity = dto.identity_number !== undefined
-          ? normalizePartyIdentityNumber(effectiveIdentityDocumentType, dto.identity_number)
-          : undefined;
-        if (identity && !isValidPartyIdentityNumber(effectiveIdentityDocumentType, identity)) {
+        identity = dto.identity_number !== undefined
+          ? normalizePartyIdentityNumber(identityDocumentType, dto.identity_number) ?? null
+          : null;
+        if (identity && !isValidPartyIdentityNumber(identityDocumentType, identity)) {
           throw new BadRequestException("identity_number does not match identity_document_type");
         }
-        await this.assertNoLegacyIdentityDuplicate(
-          repository,
-          scope,
-          effectiveIdentityDocumentType,
-          identity,
-          entity.id
-        );
         if (dto.party_type !== undefined) entity.partyType = dto.party_type;
         if (dto.display_name !== undefined) entity.displayName = dto.display_name.trim();
         if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
         if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
-        if (dto.identity_document_type !== undefined) {
-          entity.identityDocumentType = effectiveIdentityDocumentType;
-          if (
-            dto.identity_number === undefined
-            && entity.identityDocumentType !== previousIdentityDocumentType
-          ) {
-            entity.identityNumberEncrypted = null;
-            entity.identityNumberHash = null;
-            entity.identityNumberMasked = null;
-          }
-        }
-        if (dto.identity_number !== undefined) {
-          entity.identityNumberEncrypted = identity ? this.sensitiveDataService.encrypt(identity) : null;
-          entity.identityNumberHash = identity ? this.sensitiveDataService.hash(identity) : null;
-          entity.identityNumberMasked = identity ? this.sensitiveDataService.mask(identity) : null;
-          if (!identity) entity.identityDocumentType = null;
-        }
         if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
         if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
         if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
-        if (didPartyIdentityChange(
-          previousIdentityDocumentType,
-          previousIdentityNumberHash,
-          entity.identityDocumentType,
-          entity.identityNumberHash
-        )) {
-          entity.verificationStatus = "unverified";
-        }
         entity.updateBy = actor.sub;
-        return this.toResponse(await repository.save(entity));
+        const persisted = await repository.save(entity);
+        if (hasIdentityMutation) {
+          if (!this.identityAdapter) throw new ConflictException("Identity runtime is unavailable");
+          await this.identityAdapter.writeDraft(
+            scope,
+            actor,
+            id,
+            clientKey,
+            identityDocumentType as "id_card" | "passport" | null,
+            identity,
+            manager
+          );
+        }
+        return persisted;
       });
+      const summaries = await this.identitySummaries(scope, actor, [id]);
+      return this.withIdentitySummary(this.toResponse(updated), summaries.get(id) ?? null);
     } catch (error) {
       if (this.isUniqueViolation(error)) throw new ConflictException("Party identity already exists in current tenant and park");
       throw error;
     }
   }
 
-  async verify(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: VerifyPartyDto) {
-    return this.partiesRepository.manager.transaction(async (manager) => {
-      const repository = manager.getRepository(PartyEntity);
-      const entity = await this.mustFind(scope, id, true, repository, true);
-      if (dto.verification_status === "verified" && (!entity.identityDocumentType || !entity.identityNumberEncrypted)) {
-        throw new ConflictException("Identity document type and number are required before verification");
-      }
-      entity.verificationStatus = dto.verification_status;
-      if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
-      entity.updateBy = actor.sub;
-      return this.toResponse(await repository.save(entity));
-    });
+  async verify(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: VerifyPartyDto,
+    clientKey?: string
+  ) {
+    this.assertPermission(actor, PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY);
+    if (!this.identityAdapter) throw new ConflictException("Identity runtime is unavailable");
+    await this.partiesRepository.manager.transaction((manager) =>
+      this.identityAdapter!.decide(
+        scope,
+        actor,
+        id,
+        clientKey,
+        dto.verification_status,
+        dto.remark,
+        manager
+      )
+    );
+    return this.detail(scope, actor, id);
   }
 
   async addRole(scope: TenantParkScope, actor: JwtPrincipal, dto: AddPartyRoleDto) {
@@ -271,8 +417,69 @@ export class PartiesService {
     return entity;
   }
 
-  private toResponse(entity: PartyEntity, identityNumber?: string | null): PartyResponse {
-    const response: PartyResponse = {
+  projectForActor(entity: PartyListItemResponse, actor: JwtPrincipal): PartyListItemResponse {
+    if (this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ)) {
+      return { ...entity };
+    }
+    const publicFields = { ...entity };
+    delete publicFields.mobile;
+    delete publicFields.email;
+    delete publicFields.identityDocumentType;
+    delete publicFields.identityNumberMasked;
+    delete publicFields.identityNumber;
+    return publicFields;
+  }
+
+  private identitySummaries(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    partyIds: readonly string[]
+  ): Promise<Map<string, PartyIdentitySummary | null>> {
+    if (this.identityAdapter) {
+      return this.identityAdapter.identitySummaries(scope, actor, partyIds);
+    }
+    return Promise.resolve(new Map(
+      partyIds.map((partyId) => [partyId, null] as const)
+    ));
+  }
+
+  private withIdentitySummary(
+    response: PartyListItemResponse,
+    summary: PartyIdentitySummary | null
+  ): PartyListItemResponse {
+    return {
+      ...response,
+      verificationStatus: this.legacyVerificationStatus(summary, response.verificationStatus),
+      identitySummary: summary
+    } as PartyListItemResponse;
+  }
+
+  private legacyVerificationStatus(
+    summary: PartyIdentitySummary | null,
+    fallback: string
+  ): string {
+    if (!summary) return fallback;
+    if (summary.status === "verified") return "verified";
+    if (summary.status === "rejected") return "rejected";
+    return "unverified";
+  }
+
+  private assertIdentityPermission(actor: JwtPrincipal): void {
+    this.assertPermission(actor, PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE);
+  }
+
+  private assertPermission(actor: JwtPrincipal, permission: string): void {
+    if (!this.hasPermission(actor, permission)) {
+      throw new ForbiddenException(`Permission ${permission} is required`);
+    }
+  }
+
+  private toResponse(
+    entity: PartyEntity,
+    actor?: JwtPrincipal,
+    identityNumber?: string | null
+  ): PartyListItemResponse {
+    const response: PartyListItemResponse = {
       id: entity.id,
       tenantId: entity.tenantId,
       parkId: entity.parkId,
@@ -285,39 +492,17 @@ export class PartiesService {
       sourceDomain: entity.sourceDomain,
       verificationStatus: entity.verificationStatus,
       consentStatus: entity.consentStatus,
-      createTime: entity.createTime,
-      updateTime: entity.updateTime,
+      createTime: entity.createTime.toISOString(),
+      updateTime: entity.updateTime.toISOString(),
       version: entity.version,
       remark: entity.remark
     };
     if (identityNumber !== undefined) response.identityNumber = identityNumber;
-    return response;
+    return actor ? this.projectForActor(response, actor) : response;
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
-  }
-
-  private async assertNoLegacyIdentityDuplicate(
-    repository: Repository<PartyEntity>,
-    scope: TenantParkScope,
-    documentType: string | null,
-    identity: string | null | undefined,
-    excludedId?: string
-  ): Promise<void> {
-    if (documentType !== "id_card" || !identity?.endsWith("X")) return;
-    const legacyIdentity = `${identity.slice(0, -1)}x`;
-    const existing = await repository.findOne({
-      where: {
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        identityDocumentType: documentType,
-        identityNumberHash: this.sensitiveDataService.hash(legacyIdentity),
-        isDeleted: false,
-        ...(excludedId ? { id: Not(excludedId) } : {})
-      }
-    });
-    if (existing) throw new ConflictException("Party identity already exists in current tenant and park");
   }
 
   private isUniqueViolation(error: unknown): boolean {

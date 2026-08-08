@@ -41,6 +41,7 @@
     "test:e2e:s9f-energy-billing-tenant": "node scripts/e2e/s9f-energy-billing-tenant-smoke.mjs",
     "test:e2e:s9f1-energy-billing-adjustment-reversal": "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs",
     "test:e2e:migration-prerequisites": "node scripts/e2e/migration-prerequisite-contract.mjs",
+    "test:e2e:property-track-b-seed-reconcile": "node scripts/e2e/property-track-b-seed-reconcile-contract.mjs",
     "smoke:cleanup": "sh scripts/smoke-cleanup.sh",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",

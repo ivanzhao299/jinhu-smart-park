@@ -2,6 +2,11 @@
 
 import type { UserContext } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "./api-client";
+import { purgePropertyOfflineState } from "../features/property-shared/offline/property-draft-store";
+import {
+  propertyDataScopeFingerprint,
+  propertyModuleAssignmentFingerprint
+} from "../features/property-shared/offline/property-draft-contract";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -38,7 +43,11 @@ export function getRefreshToken(): string {
   return sessionStorage.getItem(REFRESH_TOKEN_KEY) ?? localStorage.getItem(REFRESH_TOKEN_KEY) ?? "";
 }
 
-export function setSession(token: string, user: UserContext, _refreshToken?: string): void {
+export async function setSession(token: string, user: UserContext, _refreshToken?: string): Promise<void> {
+  const previous = getStoredUser();
+  if (previous && sessionScope(previous) !== sessionScope(user)) {
+    await purgePropertyOfflineState();
+  }
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.setItem(TOKEN_KEY, token);
@@ -56,7 +65,7 @@ export function setRefreshToken(token: string): void {
   removeRefreshTokenStorage();
 }
 
-export function clearSession(): void {
+export async function clearSession(): Promise<void> {
   currentUserRequest = null;
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -64,6 +73,18 @@ export function clearSession(): void {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  await purgePropertyOfflineState();
+}
+
+function sessionScope(user: UserContext): string {
+  return JSON.stringify([
+    user.id,
+    user.tenant_id,
+    user.park_id,
+    propertyDataScopeFingerprint(user.data_scope, user.data_scopes),
+    [...user.permissions].sort(),
+    propertyModuleAssignmentFingerprint(user.enabled_modules)
+  ]);
 }
 
 export async function logoutSession(): Promise<void> {
@@ -75,7 +96,7 @@ export async function logoutSession(): Promise<void> {
       await postLogout(token, legacyRefreshToken).catch(() => undefined);
     }
   } finally {
-    clearSession();
+    await clearSession();
   }
 }
 
@@ -86,7 +107,13 @@ export async function fetchCurrentUser(options: { requestToken?: string } = {}):
   }
   if (!currentUserRequest || currentUserRequest.token !== token) {
     const promise = apiRequest<UserContext>("/users/me", { token })
-      .then((response) => {
+      .then(async (response) => {
+        if (token === getToken()) {
+          const previous = getStoredUser();
+          if (previous && sessionScope(previous) !== sessionScope(response.data)) {
+            await purgePropertyOfflineState();
+          }
+        }
         if (token === getToken()) {
           sessionStorage.setItem(USER_KEY, JSON.stringify(response.data));
           localStorage.setItem(USER_KEY, JSON.stringify(response.data));

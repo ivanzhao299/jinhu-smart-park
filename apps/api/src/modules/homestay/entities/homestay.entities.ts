@@ -223,6 +223,24 @@ export class HomestayLedgerEntryEntity extends AuditableEntity {
   @Column({ type: "numeric", precision: 18, scale: 2 })
   amount!: string;
 
+  @Column({ type: "varchar", length: 8, default: "CNY" })
+  currency!: string;
+
+  @Column({ name: "source_ledger_entry_id", type: "uuid", nullable: true })
+  sourceLedgerEntryId!: string | null;
+
+  @Column({ name: "approval_execution_key", type: "varchar", length: 128, nullable: true })
+  approvalExecutionKey!: string | null;
+
+  @Column({ name: "approval_effect_kind", type: "varchar", length: 128, nullable: true })
+  approvalEffectKind!: string | null;
+
+  @Column({ name: "approval_effect_line_key", type: "varchar", length: 160, nullable: true })
+  approvalEffectLineKey!: string | null;
+
+  @Column({ name: "approval_effect_hash", type: "char", length: 64, nullable: true })
+  approvalEffectHash!: string | null;
+
   @Column({ name: "payment_method", type: "varchar", length: 32, nullable: true })
   paymentMethod!: string | null;
 
@@ -284,6 +302,9 @@ export class HomestayTurnoverTaskEntity extends AuditableEntity {
   @Column({ name: "exception_description", type: "varchar", length: 1000, nullable: true })
   exceptionDescription!: string | null;
 
+  @Column({ name: "blocked_until", type: "timestamptz", nullable: true })
+  blockedUntil!: Date | null;
+
   @Column({ name: "linked_work_order_id", type: "uuid", nullable: true })
   linkedWorkOrderId!: string | null;
 }
@@ -328,4 +349,16 @@ export class HomestayBookingActionLogEntity {
 
   @Column({ name: "create_time", type: "timestamptz", default: () => "now()" })
   createTime!: Date;
+
+  @Column({ name: "approval_execution_key", type: "varchar", length: 128, nullable: true })
+  approvalExecutionKey!: string | null;
+
+  @Column({ name: "approval_effect_kind", type: "varchar", length: 128, nullable: true })
+  approvalEffectKind!: string | null;
+
+  @Column({ name: "approval_effect_line_key", type: "varchar", length: 160, nullable: true })
+  approvalEffectLineKey!: string | null;
+
+  @Column({ name: "approval_effect_hash", type: "char", length: 64, nullable: true })
+  approvalEffectHash!: string | null;
 }

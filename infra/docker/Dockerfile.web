@@ -6,8 +6,15 @@ ARG NPM_REGISTRY=https://registry.npmmirror.com
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV COREPACK_NPM_REGISTRY="$NPM_REGISTRY"
 
-RUN corepack enable
+RUN set -eux; \
+  corepack enable; \
+  for attempt in 1 2 3; do \
+    if corepack prepare pnpm@9.12.0 --activate; then break; fi; \
+    if [ "$attempt" = "3" ]; then exit 1; fi; \
+    sleep $((attempt * 5)); \
+  done
 WORKDIR /app
 RUN pnpm config set registry "$NPM_REGISTRY"
 
@@ -56,8 +63,12 @@ FROM deps AS build
 
 ARG NEXT_PUBLIC_API_TARGET=http://api:3001
 ARG NEXT_PUBLIC_API_PREFIX=/api/v1
+ARG PROPERTY_OFFLINE_DRAFTS_V1=false
+ARG PROPERTY_UPLOAD_QUEUE_V1=false
 ENV NEXT_PUBLIC_API_TARGET=$NEXT_PUBLIC_API_TARGET
 ENV NEXT_PUBLIC_API_PREFIX=$NEXT_PUBLIC_API_PREFIX
+ENV PROPERTY_OFFLINE_DRAFTS_V1=$PROPERTY_OFFLINE_DRAFTS_V1
+ENV PROPERTY_UPLOAD_QUEUE_V1=$PROPERTY_UPLOAD_QUEUE_V1
 
 COPY . .
 RUN pnpm --filter @jinhu/shared build
@@ -65,11 +76,20 @@ RUN pnpm --filter @jinhu/web build
 
 FROM node:22-bookworm-slim AS runtime
 
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
 ENV NODE_ENV=production
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV COREPACK_NPM_REGISTRY="$NPM_REGISTRY"
 
-RUN corepack enable
+RUN set -eux; \
+  corepack enable; \
+  for attempt in 1 2 3; do \
+    if corepack prepare pnpm@9.12.0 --activate; then break; fi; \
+    if [ "$attempt" = "3" ]; then exit 1; fi; \
+    sleep $((attempt * 5)); \
+  done
 WORKDIR /app
 
 COPY --from=build /app/package.json ./package.json

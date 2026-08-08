@@ -63,7 +63,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|database/migration-history-aliases\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -78,6 +78,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -118,6 +120,7 @@ jobs:
     timeout-minutes: 45
     env:
       COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
+      NPM_REGISTRY: https://registry.npmjs.org
       NODE_ENV: production
       APP_ENV: ci
       APP_PORT: 3001
@@ -140,7 +143,9 @@ jobs:
       ADMIN_PHONE: 13800001234
       ROLE_CODE: SUPER_ADMIN
       JWT_SECRET: JinhuReleaseSmokeJwtSecret#2026_LongAndRandom
-      PARTY_DATA_ENCRYPTION_KEY: JinhuReleaseSmokePartyDataKey#2026_LongAndRandom
+      # Public, deterministic key for the disposable synthetic CI database only.
+      # Production must use an independent random secret that remains stable across deploys.
+      PARTY_DATA_ENCRYPTION_KEY: ${{ github.sha }}
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
       FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
@@ -194,6 +199,113 @@ jobs:
 
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
+
+      - name: Verify migration history filename alias replay
+        run: |
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          UPDATE public.sys_schema_migration_history
+          SET filename = '000183_floor_layout_deleted_file_backfill.sql'
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          UPDATE public.schema_migrations
+          SET filename = '000183_floor_layout_deleted_file_backfill.sql'
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+
+          pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-alias-replay.log
+          grep -Fq \
+            'REKEY MIGRATION HISTORY: 000183_floor_layout_deleted_file_backfill.sql -> 000199_floor_layout_deleted_file_backfill.sql' \
+            /tmp/release-smoke-logs/db-migrate-alias-replay.log
+          grep -Fq \
+            'SKIP: 000199_floor_layout_deleted_file_backfill.sql (already succeeded, checksum matched)' \
+            /tmp/release-smoke-logs/db-migrate-alias-replay.log
+
+          alias_contract_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*) FROM (
+                    SELECT filename, status FROM public.sys_schema_migration_history
+                    UNION ALL
+                    SELECT filename, status FROM public.schema_migrations
+                  ) history
+                  WHERE status = 'succeeded'
+                    AND filename IN (
+                      '000199_floor_layout_deleted_file_backfill.sql',
+                      'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql'
+                    );"
+          )"
+          test "$alias_contract_count" = "4"
+
+          legacy_history_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*) FROM (
+                    SELECT filename FROM public.sys_schema_migration_history
+                    UNION ALL
+                    SELECT filename FROM public.schema_migrations
+                  ) history
+                  WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          )"
+          test "$legacy_history_count" = "0"
+
+      - name: Verify concurrent migration serialization
+        run: |
+          docker compose -f "$COMPOSE_FILE" exec -T \
+            -e PGAPPNAME=ci-migration-lock-blocker postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT pg_advisory_lock(hashtextextended(current_database() || ':jinhu-db-migrate', 0)); SELECT pg_sleep(20);" &
+          blocker_pid=$!
+
+          blocker_ready=false
+          for _ in $(seq 1 30); do
+            blocker_lock_count="$(
+              docker compose -f "$COMPOSE_FILE" exec -T postgres \
+                psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -c "SELECT count(*)
+                    FROM pg_stat_activity activity
+                    JOIN pg_locks held_lock ON held_lock.pid = activity.pid
+                    WHERE activity.application_name = 'ci-migration-lock-blocker'
+                      AND held_lock.locktype = 'advisory'
+                      AND held_lock.granted = true;"
+            )"
+            if [ "$blocker_lock_count" = "1" ]; then
+              blocker_ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$blocker_ready" = "true"
+
+          pnpm db:migrate > /tmp/release-smoke-logs/db-migrate-lock-wait.log 2>&1 &
+          migration_pid=$!
+          migration_waiter_seen=false
+          for _ in $(seq 1 30); do
+            migration_waiter_count="$(
+              docker compose -f "$COMPOSE_FILE" exec -T postgres \
+                psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*)
+                    FROM pg_stat_activity activity
+                    WHERE activity.application_name LIKE 'jinhu-db-migrate-%'
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM pg_locks held_lock
+                        WHERE held_lock.pid = activity.pid
+                          AND held_lock.locktype = 'advisory'
+                          AND held_lock.granted = true
+                      );"
+            )"
+            if [ "$migration_waiter_count" = "1" ]; then
+              migration_waiter_seen=true
+              break
+            fi
+            sleep 1
+          done
+          test "$migration_waiter_seen" = "true"
+          wait "$blocker_pid"
+          wait "$migration_pid"
+          grep -Fq 'MIGRATION LOCK ACQUIRED:' /tmp/release-smoke-logs/db-migrate-lock-wait.log
 
       - name: Verify migration prerequisite history
         run: |

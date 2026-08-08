@@ -119,10 +119,11 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - 参考 [../release/production-migration-execution-policy.md](../release/production-migration-execution-policy.md)
   - 参考 [../release/migration-history-checksum-design.md](../release/migration-history-checksum-design.md)
 - migration prerequisite：
-  - 运行 `pnpm test:e2e:migration-prerequisites` 检查 `000175` 不变、最小角色边界、
-    双 history 原子写入和权限修复矩阵
+  - 运行 `pnpm test:e2e:migration-prerequisites` 检查 `000175` / `000189` 不变、
+    最小角色/模块目录边界、双 history 原子写入和权限修复矩阵
   - 空库执行 `pnpm db:migrate` 后，确认两张 history 表中的
     `prerequisite:000064_s3e_checkout_effective.sql:001_core_role_templates.sql`
+    与 `prerequisite:000189_property_b_module_rbac_definitions.sql:001_asset_module.sql`
     均为 `succeeded`
   - prerequisite 失败或 running 时不得继续目标 migration
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚

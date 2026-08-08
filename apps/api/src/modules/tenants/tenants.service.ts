@@ -812,6 +812,8 @@ export class TenantsService {
         const code = permission.code;
         if (modules.has("system") && this.isSystemFoundationPermission(code)) return true;
         if (modules.has("asset") && this.isAssetPermission(code)) return true;
+        if (modules.has("homestay") && (code === "homestay" || code.startsWith("homestay:"))) return true;
+        if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing:"))) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;

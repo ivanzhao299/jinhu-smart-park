@@ -14,10 +14,11 @@ import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
 interface AppSidebarProps {
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
+  onNavigate?: () => void;
   terminalMode?: boolean;
 }
 
-export function AppSidebar({ collapsed, terminalMode = false }: AppSidebarProps) {
+export function AppSidebar({ collapsed, onNavigate, terminalMode = false }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuthUser();
@@ -92,6 +93,7 @@ export function AppSidebar({ collapsed, terminalMode = false }: AppSidebarProps)
             pathname={pathname}
             open={openGroup === menu.label}
             onPrefetch={prefetchRoute}
+            onNavigate={onNavigate}
             onToggle={() => toggleGroup(menu.label)}
           />
         ))}
@@ -105,13 +107,15 @@ function MenuGroup({
   pathname,
   open,
   onToggle,
-  onPrefetch
+  onPrefetch,
+  onNavigate
 }: {
   menu: MenuNode;
   pathname: string;
   open: boolean;
   onToggle: () => void;
   onPrefetch: (href?: string) => void;
+  onNavigate?: () => void;
 }) {
   const Icon = menu.icon;
   if (!menu.children?.length) {
@@ -123,6 +127,7 @@ function MenuGroup({
         <Link
           className={`menu-group-title${isChildActive(pathname, menu.href, true) ? " active" : ""}`}
           href={menu.href as Route}
+          onClick={onNavigate}
           onFocus={() => onPrefetch(menu.href)}
           onMouseEnter={() => onPrefetch(menu.href)}
         >
@@ -147,6 +152,7 @@ function MenuGroup({
               className={`nav-link${isActive ? " active" : ""}`}
               href={(child.href ?? "/dashboard") as Route}
               key={child.href}
+              onClick={onNavigate}
               onFocus={() => onPrefetch(child.href)}
               onMouseEnter={() => onPrefetch(child.href)}
               tabIndex={open ? undefined : -1}

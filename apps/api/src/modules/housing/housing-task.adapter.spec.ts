@@ -1,0 +1,93 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+import { ConflictException } from "@nestjs/common";
+import type { EntityManagerPort, TenantParkScope } from "@jinhu/shared";
+import { createHousingTaskResolvers } from "./housing-task.adapter";
+
+const scope: TenantParkScope = {
+  tenantId: "11111111-1111-4111-8111-111111111111",
+  parkId: "22222222-2222-4222-8222-222222222222"
+};
+const sourceId = "33333333-3333-4333-8333-333333333333";
+
+function port(query: (sql: string, parameters: unknown[]) => Promise<unknown>): EntityManagerPort {
+  return { transactionContext: { query } };
+}
+
+describe("housing derived property-task resolvers", () => {
+  test("registers the four non-owning housing queues with exact access boundaries", () => {
+    const resolvers = Object.values(createHousingTaskResolvers());
+    assert.deepEqual(resolvers.map((resolver) => resolver.sourceType), [
+      "housing_lease", "housing_handover", "housing_billing", "housing_purchase"
+    ]);
+    for (const resolver of resolvers) {
+      assert.equal(resolver.assignmentAuthority, "derived");
+      if (resolver.access.tag !== "workspace") assert.fail("housing task must use workspace access");
+      assert.deepEqual(resolver.access.requiredModules, ["asset", "housing_rental"]);
+      assert.equal(resolver.access.pagePermission, "housing:tasks:page");
+      assert.equal(resolver.access.domainRoute, "/housing/tasks/[taskId]");
+    }
+  });
+
+  test("locks the source row and freezes version plus occurrence identity", async () => {
+    const statements: string[] = [];
+    const resolver = createHousingTaskResolvers().lease;
+    const manager = port(async (sql) => {
+      statements.push(sql);
+      return [{
+        id: sourceId,
+        version: 4,
+        lifecycle: "eligible",
+        title: "租约 · H-001",
+        sourceLabel: "H-001",
+        priority: 60,
+        dueAt: "2026-08-04T16:00:00.000Z",
+        createTime: "2026-08-03T01:00:00.000Z",
+        updateTime: "2026-08-03T02:00:00.000Z"
+      }];
+    });
+
+    const snapshot = await resolver.lockAndResolve({
+      manager,
+      scope,
+      sourceId,
+      businessOccurrenceKey: `housing-lease:${sourceId}`,
+      expectedSourceVersion: 4,
+      taskKey: "a".repeat(64)
+    });
+
+    assert.equal(snapshot?.owningAssignment, null);
+    assert.equal(snapshot?.sourceDeepLink, `/housing/leases/${sourceId}`);
+    assert.match(statements[0] ?? "", /FOR UPDATE OF source/);
+    await assert.rejects(resolver.lockAndResolve({
+      manager,
+      scope,
+      sourceId,
+      businessOccurrenceKey: `housing-lease:${sourceId}`,
+      expectedSourceVersion: 3,
+      taskKey: "a".repeat(64)
+    }), ConflictException);
+  });
+
+  test("uses a stable UUID cursor and preserves terminal lifecycle", async () => {
+    const resolver = createHousingTaskResolvers().purchase;
+    const manager = port(async () => [{
+      id: sourceId,
+      version: 8,
+      lifecycle: "cancelled",
+      title: "采购 · P-001",
+      sourceLabel: "P-001",
+      priority: 50,
+      dueAt: null,
+      createTime: "2026-08-03T01:00:00.000Z",
+      updateTime: "2026-08-03T02:00:00.000Z"
+    }]);
+
+    const page = await resolver.scanCandidates({ manager, scope, after: null, limit: 1 });
+    assert.equal(page.items[0]?.lifecycle, "cancelled");
+    assert.deepEqual(page.next, {
+      sourceId,
+      businessOccurrenceKey: `housing-purchase:${sourceId}`
+    });
+  });
+});

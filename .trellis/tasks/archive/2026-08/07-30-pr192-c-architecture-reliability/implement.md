@@ -1,0 +1,262 @@
+# Track C 架构与可靠性实施计划
+
+> 仅规划，不实现代码。
+
+## 1. Entry Gate
+
+开始前必须：
+
+- [x] B technical handoff SHA 已记录：`f4797adf` 及其正式 signoff。
+- [x] B `open_P0_P1=[]`。
+- [x] approval/identity/assignment/outbox contract snapshot 已冻结。
+- [x] 各 domain owner 已由完成的 Track B handoff 释放路径。
+- [x] `shared-property-web-owner` 已对
+  `apps/web/features/property-shared/offline/**` 提供 path-specific handoff SHA。
+- [x] offline handoff 记录 `writer_stopped=true`、base SHA、validation、known
+  failures 和 `open_P0_P1=[]`，且 handoff SHA 是当前 branch ancestor。
+- [x] 当前 branch 基于 B SHA。
+
+Human UAT 未完成不是 Entry blocker。
+
+## 1.1 执行状态（2026-08-04）
+
+- B technical base：`f4797adf`，Entry Gate 已满足。
+- C1 Homestay 已按单 closure 提交 dashboard/availability、rates、booking read、
+  transaction support、booking command、stay/credential/guest、turnover 与 finance；最终
+  SHA 为 `56b79013`，`HomestayService` 已由 2564 行降至 498 行，domain service `<=650`
+  目标达成。完整 Homestay 最近一次 96 PASS / 3 PostgreSQL conditional skip。
+- C1 Housing 已按单 closure 提交 dashboard、tenant/party、lease read、lease command、
+  billing、finance/deposit、handover/repair、purchase 与 lease approval/checkout；最终 SHA
+  为 `e9d8ffa8`，`HousingService` 已由 3554 行降至 488 行，domain service `<=650` 目标
+  达成。完整 Housing 最近一次 124 PASS / 2 PostgreSQL conditional skip。
+- C2 frontend/offline 基础 SHA 为 `38c433d3`、`c0678d18`、`92d062fa`、`c7c0eb51`；
+  最终可靠性返修 SHA 为 `dddf8565`。三轮独立复审依次发现并关闭 queue 初始化窗口、
+  `remark` fingerprint 漂移、module assignment/enable/expiry scope 三类 P1；最终 reviewer
+  结论 `P0/P1/P2=0`、`open_P0_P1=[]`。真实 Nest multipart HTTP 已覆盖同 key replay、
+  异 file/remark 409；C2 technical PASS。
+- C3 machine gates：`17641fde`、`cd8ee7d8`、`b414aee0` 已提交；contract 与 complexity
+  当前 PASS，正式性能执行器和隔离固定资源环境的自测通过。现有 UAT 容器因无资源限制、
+  共享数据库/挂载且无 browser worker，已被正式审计拒绝用于性能验收。
+- C3 database/full regression：全 API 966 PASS / 13 conditional skip / 0 FAIL；另以
+  `jinhu_uat_20260804` 只读 dump 创建隔离 PostgreSQL clone，并同时设置 `DATABASE_URL` 与
+  `PROPERTY_IDENTITY_PG_URL`，5 个 PostgreSQL 条件套件 5/5 PASS / 0 skip，随后删除 clone
+  并验证残留为 0。旧开发库历史迁移失败未被修改，也不作为 Track C UAT 失败依据。
+- C3 formal performance：首次隔离 project `jinhu-track-c-perf-20260804a` 已 **FAIL-CLOSED**：
+  空 PGDMP 的 TOC 为 0，洁净迁移在 production seed 之前缺少 active `asset`，因此
+  `000189_property_b_module_rbac_definitions.sql` 阻断；30-cell 未启动，cleanup residual=0。
+  失败证据 SHA 为 `bbf2e237eee840cf5422c17a2dac93380a8fc60edab32faa708b7fa656832390`。
+  已以仓库既有 forward-only prerequisite 机制新增最小 production-safe `asset` catalog
+  前置项，修复 SHA `d25789a2`；历史 000189 SHA 保持 `f4af3e88776ae16a0903b0a9a6a8453f674a7a8d317bdd56b5455dfc18e114a2`，
+  targeted contract PASS。第二个隔离 project `jinhu-track-c-perf-20260804b` 证明 prerequisite、
+  000189、global bundles 与 module dependency 均已通过，但又 fail-closed 发现 migration 时
+  tenant scope 为空，导致 seed 后 25 个 signed permissions 与 SUPER_ADMIN bindings 未回填；
+  证据 SHA `df8dbbecd4c0c39256d99ac2596feea7ea6e509db7db0be6e43cbde985c5b335`，cleanup residual=0。
+  后续隔离 c/d 轮分别 fail-closed 发现 production canonical park 应为 `biz_park`，以及二次
+  production seed 会清空 7 个 Track B page parent；证据 SHA 分别为
+  `2ad6c96c7d9442d2ba58865b1091f7955ad398216d038ebb1498f4585de2b431` 与
+  `f69ea815fc28d10ac14f6251f8f09b8a1b4b7b17414fe10ae406f89b78901b82`，两轮 cleanup
+  residual=0。已提交 post-seed 精确 reconcile `0e995ce8`、strict control env `f7720802`、
+  canonical park 修复 `11e96674` 与显式 page parent 修复 `c651c963`；两个 contract targeted
+  gate 均 PASS。第五个隔离 project `jinhu-track-c-perf-20260804e` 的首次 provision/strict、
+  第二次完整 seed 幂等（permission/grant count、ID 与 semantic hash 稳定）、25/25、bundle
+  16/125、52/52、越权 0 与 check-config 30 runs 均 PASS。E 轮 executor 在第 23 个完整
+  PASS cell 落盘后被外部会话终止，未形成 `formal-evidence.json` 或 executor cleanup，故该轮
+  明确不具备 PASS 资格；23 个 raw cell 原样保留，并以 `aborted-run-cleanup.json`
+  （SHA `6a6a0326a84ad4384cea46ca8b111fd6886fb0f83c7e03afd9433d3e6efce331`）记录
+  external termination 与官方 cleanup residual=0。随后 fresh project
+  `jinhu-track-c-perf-20260804f` 按候选 `b994d163` 重新 clean provision，strict baseline 与
+  check-config 30 runs 均 PASS；完整 30-cell 曾通过 `nohup` + `setsid` 脱离短会话重新启动，
+  run 为 `2026-08-04T14-40-17-484Z-b994d1630791`。独立 rollback/handoff 审计随后确认
+  canonical occupancy port、upload queue rollback flag、rollback rehearsal/output handoff 仍缺失，
+  因而 `b994d163` 不能作为 final candidate。F 轮在首个完整 PASS cell 后主动停止，partial
+  evidence 不具备 PASS 资格，官方 cleanup residual=0；后续不得与 E/F 轮拼接，须在修复后的
+  final SHA 上重跑完整 30-cell。
+  正式完成仍要求 30 个矩阵单元（2 scenarios x
+  concurrency 1/10/30 x 5 runs）、每单元 2m warmup + 10m formal、>=10k requests、
+  完整资源遥测、hash 与 cleanup proof；总运行时至少 6 小时。
+- Track C Chrome 新切片：独立任务已按 15 项矩阵重试，但在任何 Chrome 扩展代码执行前被
+  `sandboxCwd is not a local file URI: file:///mnt/d/...` 拦截，15 项全部 `BLOCKED`、截图 0。
+  证据位于 `2026-08-04/12-track-c-reliability-delta`；开放环境项
+  `C-P1-CHROME-HOST-ENVIRONMENT`。不得以应用内浏览器、Playwright 或 Computer Use 代替。
+  既有 Track B 108 项证据仍保留且未重复，但不能冒充 Track C 新增离线/上传界面复验。
+- 2026-08-06 final：缺口已在 final SHA
+  `15b6e8f6edd12759dc35b1675f851c9a0bc52c0c` 闭合；正式 rollback 19/19 PASS，
+  fresh performance project `jinhu-track-c-perf-20260806g` 完成未拼接 30/30 PASS，
+  formal evidence SHA 为
+  `1a451ecf1241de7a95aa3726fe97da244971f31ecf2ed27cf4492446bdc64ff2`，
+  cleanup residual=0。主线程独立门禁与两个非实施者 reviewer 均 APPROVE，产品
+  `open_P0_P1=[]`。Track C technical PASS，可归档。
+- Track C Chrome 新切片仍为 15/15 `BLOCKED`、截图 0，开放环境项
+  `C-P1-CHROME-HOST-ENVIRONMENT`；不得以既有 Track B UAT 或替代浏览器工具冒充
+  Track C Chrome PASS。该外部宿主限制被明确转交，不逆转已闭合的 Codex technical
+  Gate。
+
+## 1.2 最终技术验收（2026-08-06）
+
+- [x] Canonical occupancy port 与 offline/upload rollback flags 已闭合。
+- [x] Final-SHA rollback rehearsal 19/19 PASS；独立 evidence/cleanup review APPROVE。
+- [x] 30-cell 性能矩阵按 2m warmup + 10m formal 自然完成，未缩短、合成或拼接。
+- [x] 30/30 error rate=0；p95 max=200.374ms；throughput min=98.780/s；
+  six-group p95 CV max=0.04935。
+- [x] Formal evidence gate PASS，expected/observed runs=30/30，errors=[]。
+- [x] Docker containers/networks/volumes/secret files residual=0；无 execution failure。
+- [x] 非实施者 performance evidence reviewer APPROVE（P0/P1=0，P2 为门禁自动覆盖
+  范围观察，已由手工 SHA/identity 核验补足）。
+- [x] 非实施者 cleanup reviewer APPROVE（P0/P1/P2=0）。
+- [x] 产品 `open_P0_P1=[]`；Chrome 环境 P1 单独保留，不误报为产品缺陷。
+
+完整交接见
+[final-technical-handoff-20260806.md](./research/final-technical-handoff-20260806.md)。
+
+## 2. Subagent Batches
+
+### C0：基线
+
+并行：
+
+- homestay characterization owner。
+- housing characterization owner。
+- reliability/performance baseline owner。
+
+只增加测试/报告，不移动实现。若 offline path handoff 尚未完成，reliability owner
+只能只读 characterization。
+
+### C1：Backend Closure
+
+最多三个并行，但两个 domain 各自串行闭包：
+
+- homestay decomposition worker。
+- housing decomposition worker。
+- property-port checker。
+
+每个 closure 通过 targeted regression 后才进入下一个。
+
+### C2：Frontend/Offline
+
+- homestay feature cleanup。
+- housing feature cleanup。
+- C-reliability-owner 仅在 Entry Gate 的 path-specific handoff 完成后接管
+  `apps/web/features/property-shared/offline/**`，并实现 shared offline/upload
+  reliability。
+
+不得与 C1 同时修改相同 feature/domain path；需要显式 SHA handoff。
+
+返修按 ownership 路由：
+
+- pre-handoff baseline 或其他 `property-shared/**` 路径问题退回
+  `shared-property-web-owner`，C 停写并等待新 handoff SHA。
+- post-handoff `offline/**` 问题由 C owner 修复、独立 reviewer 复审。
+- shared contract、globals/DS 或 sibling feature 问题只提交 change request。
+- 返还 `offline/**` 时 C 先输出 final SHA、测试和 `writer_stopped=true`，原 owner
+  显式接收后才能继续写。
+
+### C3：Non-functional
+
+- reproducible performance/evidence。
+- complexity/contract QA。
+- docs/rollback checker。
+
+### C4：Independent Review
+
+- architecture reviewer。
+- QA/reliability reviewer。
+- release reviewer。
+
+## 3. Machine Gates
+
+### Compatibility
+
+- OpenAPI/response snapshot 无未批准差异。
+- old canonical/legacy routes。
+- DTO validation。
+- state/finance/occupancy/idempotency regression。
+
+### Architecture
+
+- no dual DI。
+- no dual write/read。
+- façade only orchestration。
+- response types import shared。
+- no source regex as sole correctness evidence。
+- offline path handoff SHA、ancestor、单 writer 和返修记录完整。
+
+### Frontend
+
+- per-page request isolation。
+- stable selection/detail。
+- refresh/error/terminal behavior。
+- 360/390/768/desktop。
+- WCAG/DS。
+
+### Offline/Upload
+
+- TTL。
+- logout/account/tenant/park/module/scope purge。
+- sensitive fields not persisted。
+- upload context and promise locking。
+- 409 manual conflict。
+- service worker does not submit business mutations。
+
+### Performance/Evidence
+
+- fixed resources/config。
+- minimum duration/sample/5 runs。
+- CI/error thresholds。
+- artifact hashes。
+- cleanup residual=0。
+
+## 4. Validation Commands
+
+按实际影响运行：
+
+```bash
+pnpm --filter @jinhu/api build
+pnpm --filter @jinhu/web lint
+pnpm --filter @jinhu/web build
+pnpm --filter @jinhu/shared build
+pnpm typecheck
+pnpm test
+node scripts/e2e/first-release-regression.mjs
+```
+
+补充 targeted homestay/housing、approval/identity/finance、browser mobile、performance 和 cleanup。
+
+## 5. Stop-ship
+
+P0：
+
+- 财务/approval/identity/occupancy 行为变化。
+- sensitive draft 泄露。
+- duplicate domain effect。
+
+P1：
+
+- 外部 contract 漂移。
+- dual implementation。
+- rollback closure 不可用。
+- weak-network 文案与能力不一致。
+- performance/WCAG Gate 失败。
+
+## 6. Rollback
+
+- 按 closure commit 回退。
+- 关闭 `PROPERTY_OFFLINE_DRAFTS_V1`、`PROPERTY_UPLOAD_QUEUE_V1`。
+- 保留 B durable data。
+- 回退后运行相同 contract/finance/occupancy regression。
+- rollback evidence 写入 handoff。
+
+## 7. 人工 Gate
+
+C technical PASS 后可将 `codex_execution_status` 推进到 `track_c_technical_passed` 或 `codex_complete`。External human lane 仍可为 awaiting；只有 Production Readiness Gate 需要真人 UAT 和签署。
+
+## 8. Handoff
+
+向父任务交付：
+
+- B base SHA、C final SHA。
+- ownership handoff records。
+- offline path input/output handoff SHA 与 writer stop/resume records。
+- contract/complexity/performance reports。
+- rollback rehearsal。
+- validation results。
+- `open_P0_P1=[]`。
