@@ -674,6 +674,27 @@ jobs:
           )"
           test "$default_multi_source_state" = "1|JH"
 
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            -c "DELETE FROM public.asset_park
+                WHERE tenant_id = '10000001'
+                  AND park_id = '20000001'
+                  AND is_deleted = false;"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/seeds/production/000007_asset_park_scope_reconcile.sql
+          default_multi_source_seed_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT count(*), min(park_code)
+                  FROM public.asset_park
+                  WHERE tenant_id = '10000001'
+                    AND park_id = '20000001'
+                    AND status = 'enabled'
+                    AND is_deleted = false;"
+          )"
+          test "$default_multi_source_seed_state" = "1|JH"
+
           # Production-shape parity: a valid non-default active assignment can
           # exist without any trusted park source. The read-only diagnostic and
           # enforce gate must classify the same scope before deployment starts.
