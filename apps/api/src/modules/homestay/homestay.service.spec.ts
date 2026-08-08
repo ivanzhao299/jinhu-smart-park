@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TenantParkScope } from "@jinhu/shared";
-import { ForbiddenException, NotFoundException } from "@nestjs/common";
+import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { ConflictException, ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+  PROPERTY_APPROVAL_REQUIRED_MESSAGE,
+  PROPERTY_HIGH_RISK_PERMISSION_REQUIRED_MESSAGE
+} from "../../shared/property-workbench/property-high-risk-stopship";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   HomestayBookingActionLogEntity,
@@ -22,6 +26,144 @@ const actor: JwtPrincipal = {
   roles: [],
   permissions: []
 };
+
+test("direct homestay cancellation stops before a transaction for every principal class", async () => {
+  let transactionCalls = 0;
+  const service = new HomestayService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {
+      transaction: async () => {
+        transactionCalls += 1;
+      }
+    } as never
+  );
+  const principals = [
+    actor,
+    { ...actor, isSuper: true },
+    { ...actor, permissions: ["*"] }
+  ];
+
+  for (const principal of principals) {
+    await assert.rejects(
+      service.cancelBooking(scope, principal, "booking-1", "reason"),
+      (error: unknown) => {
+        assert.ok(error instanceof ConflictException);
+        assert.equal(error.message, PROPERTY_APPROVAL_REQUIRED_MESSAGE);
+        return true;
+      }
+    );
+  }
+  assert.equal(transactionCalls, 0);
+});
+
+test("homestay refund and waiver require waive plus approval-create before stop-ship", async () => {
+  let transactionCalls = 0;
+  const service = new HomestayService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { transaction: async () => { transactionCalls += 1; } } as never
+  );
+  const deniedPrincipals = [
+    actor,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE] },
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] },
+    {
+      ...actor,
+      permissions: [
+        SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    }
+  ];
+  const allowedPrincipals = [
+    {
+      ...actor,
+      permissions: [
+        SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    { ...actor, isSuper: true },
+    { ...actor, permissions: ["*"] }
+  ];
+
+  for (const entryType of ["refund", "waiver"] as const) {
+    for (const principal of deniedPrincipals) {
+      await assert.rejects(
+        service.registerLedgerEntry(scope, principal, "booking-1", {
+          entry_type: entryType
+        } as never),
+        (error: unknown) => {
+          assert.ok(error instanceof ForbiddenException);
+          assert.equal(
+            error.message,
+            PROPERTY_HIGH_RISK_PERMISSION_REQUIRED_MESSAGE
+          );
+          return true;
+        }
+      );
+    }
+    for (const principal of allowedPrincipals) {
+      await assert.rejects(
+        service.registerLedgerEntry(scope, principal, "booking-1", {
+          entry_type: entryType
+        } as never),
+        (error: unknown) => {
+          assert.ok(error instanceof ConflictException);
+          assert.equal(error.message, PROPERTY_APPROVAL_REQUIRED_MESSAGE);
+          return true;
+        }
+      );
+    }
+  }
+  assert.equal(transactionCalls, 0);
+});
+
+test("direct homestay service keeps low-risk ledger entry types reachable", async () => {
+  let transactionCalls = 0;
+  const service = new HomestayService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {
+      transaction: async () => {
+        transactionCalls += 1;
+        return "direct";
+      }
+    } as never
+  );
+  const principal = {
+    ...actor,
+    permissions: [SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER]
+  };
+  for (const entryType of ["charge", "payment"] as const) {
+    assert.equal(
+      await service.registerLedgerEntry(scope, principal, "booking-1", {
+        entry_type: entryType
+      } as never),
+      "direct"
+    );
+  }
+  assert.equal(transactionCalls, 2);
+});
 
 test("initial homestay rate configuration uses one atomic database upsert", async () => {
   const events: string[] = [];

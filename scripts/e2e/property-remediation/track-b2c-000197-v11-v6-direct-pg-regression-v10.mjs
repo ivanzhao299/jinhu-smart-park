@@ -1,0 +1,15 @@
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+import process from "node:process";
+import { fileURLToPath, URL } from "node:url";
+const root=resolve(fileURLToPath(new URL("../../../",import.meta.url))); const research=resolve(root,".trellis/tasks/07-30-pr192-b-domain-integrations/research"); const sha=(v)=>createHash("sha256").update(v).digest("hex"); const hex=/^[0-9a-f]{64}$/u;
+const p=Object.freeze({authority:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-candidate-authority-20260803.grammar"),manifest:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-candidate-manifest-20260803.json"),record:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-static-test-record-20260803.json"),db:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-db.grammar"),qa:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-qa.grammar"),drain:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-drain.grammar"),resource:resolve(research,"b2c-000197-v11-v6-direct-pg-regression-v10-resource.grammar")});
+export const V10_ENV=Object.freeze(["B2C_V10_EXECUTE","B2C_V10_DB_SHA","B2C_V10_QA_SHA","B2C_V10_DRAIN_SHA","B2C_V10_RESOURCE_SHA"]);
+function exact(path,hash){if(!hex.test(hash)||!existsSync(path)||lstatSync(path).isSymbolicLink()||realpathSync(path)!==path||(statSync(path).mode&0o777)!==0o444||sha(readFileSync(path))!==hash)throw new Error("v10-sealed-input-drift");return readFileSync(path,"utf8");}
+function line(text,key){const hit=String(text).split("\n").find((x)=>x.startsWith(`${key}\t`));if(!hit)throw new Error("v10-authority-schema");return hit.slice(key.length+1);}
+export function sealedIntakeV10(env=process.env){if(env.B2C_V10_EXECUTE!=="1")throw new Error("v10-not-authorized");for(const path of [p.authority,p.manifest,p.record])exact(path,sha(readFileSync(path)));const db=exact(p.db,env.B2C_V10_DB_SHA??"");const qa=exact(p.qa,env.B2C_V10_QA_SHA??"");const drain=exact(p.drain,env.B2C_V10_DRAIN_SHA??"");const resource=exact(p.resource,env.B2C_V10_RESOURCE_SHA??"");if(line(db,"decision")!=="GO"||line(qa,"decision")!=="GO"||line(drain,"decision")!=="GO"||line(resource,"status")!=="READY")throw new Error("v10-go-chain-drift");return Object.freeze({db_sha:env.B2C_V10_DB_SHA,qa_sha:env.B2C_V10_QA_SHA,drain_sha:env.B2C_V10_DRAIN_SHA,resource_sha:env.B2C_V10_RESOURCE_SHA});}
+/** Self-contained safe path: actual command invocation remains disabled until a later execution authority extends this sealed plan. */
+export function executeV10({env=process.env,runCommand=spawnSync}={}){const intake=sealedIntakeV10(env);void runCommand;return Object.freeze({status:"sealed-plan-ready-no-command-issued",intake,docker_or_database_command_executed:false});}
+export function candidateV10(){return Object.freeze({status:"sealed-awaiting-authorities",self_contained:true,delegates_to_v7:false,default_executor:"spawnSync",required_environment_keys:[...V10_ENV],docker_or_database_command_executed:false});}

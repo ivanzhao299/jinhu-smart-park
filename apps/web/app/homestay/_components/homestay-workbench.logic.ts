@@ -7,6 +7,20 @@ import {
   encodeReturnContext,
   type StructuredReturnContext
 } from "../../../features/property-shared/detail/return-context";
+import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
+
+export function availabilityQueryDates(
+  input: { dateFrom?: string; dateTo?: string },
+  defaultDate = businessDate()
+): { dateFrom: string; dateTo: string } {
+  const dateFrom = input.dateFrom || defaultDate;
+  return {
+    dateFrom,
+    dateTo: input.dateTo && input.dateTo > dateFrom
+      ? input.dateTo
+      : addBusinessDateDays(dateFrom, 1)
+  };
+}
 
 export const HOMESTAY_LANDING_PRIORITY = [
   ["homestay.dashboard", "/homestay/dashboard"],

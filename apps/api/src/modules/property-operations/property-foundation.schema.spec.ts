@@ -144,11 +144,30 @@ test("party role creation normalizes keys and recovers a concurrent winner", () 
   assert.match(addRole, /if \(concurrent\) return concurrent/);
 });
 
-test("party document-type changes cannot retain an identity from the old document type", () => {
+test("party document-type changes clear the old number through the identity draft adapter", () => {
   const service = readFileSync(resolve(__dirname, "parties.service.ts"), "utf8");
-  assert.match(service, /entity\.identityDocumentType !== previousIdentityDocumentType/);
-  assert.match(service, /entity\.identityNumberEncrypted = null/);
-  assert.match(service, /entity\.identityNumberHash = null/);
+  const update = service.slice(service.indexOf("async update("), service.indexOf("async verify("));
+  assert.match(
+    update,
+    /identityDocumentType = dto\.identity_document_type !== undefined[\s\S]+?: entity\.identityDocumentType/
+  );
+  assert.match(
+    update,
+    /identity = dto\.identity_number !== undefined[\s\S]+?: null;/
+  );
+  assert.match(
+    update,
+    /this\.identityAdapter\.writeDraft\([\s\S]+?identityDocumentType as[\s\S]+?identity,[\s\S]+?manager/
+  );
+
+  const adapter = readFileSync(
+    resolve(__dirname, "../property-identity/legacy-party-identity.adapter.ts"),
+    "utf8"
+  );
+  assert.match(
+    adapter,
+    /this\.identityService\.update\([\s\S]+?documentType,[\s\S]+?identityNumber,[\s\S]+?pendingFileIds: \[\]/
+  );
 });
 
 test("generic occupancy creation rejects aggregates owned by business workflows", () => {

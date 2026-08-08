@@ -309,7 +309,10 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
       }),
       mutation("homestay.bookings.cancel", "POST", "/homestay/bookings/:id/cancel", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CANCEL, {
-        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
+        requiredPermissions: [
+          PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
+          PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+        ],
         highRiskPolicyId: "homestay.booking.cancel"
       }),
       mutation("homestay.bookings.reschedule", "POST", "/homestay/bookings/:id/reschedule", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_RESCHEDULE, {
@@ -565,15 +568,18 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
       }),
       mutation("housing.leases.submit", "POST", "/housing/leases/:id/submit", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE),
       mutation("housing.leases.approve", "POST", "/housing/leases/:id/approve", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_APPROVE, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         highRiskPolicyId: "housing.lease.approve"
       }),
       mutation("housing.leases.sign", "POST", "/housing/leases/:id/sign", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_SIGN),
       mutation("housing.leases.activate", "POST", "/housing/leases/:id/activate", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_ACTIVATE),
       mutation("housing.leases.void", "POST", "/housing/leases/:id/void", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         highRiskPolicyId: "housing.lease.void"
       }),
       mutation("housing.leases.add-occupant", "POST", "/housing/leases/:id/occupants", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_MANAGE),
       mutation("housing.leases.checkout", "POST", "/housing/leases/:id/checkout", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CHECKOUT, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         highRiskPolicyId: "housing.lease.early-checkout"
       })
     ],
@@ -803,9 +809,11 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         requiredPermissions: ["unit:read"]
       }),
       mutation("housing.purchases.lifecycle", "POST", "/housing/purchases/:id/actions", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_MANAGE, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         highRiskPolicyId: "housing.purchase.approve-pay-refund-or-void"
       }),
       mutation("housing.purchases.transfer", "POST", "/housing/purchases/:id/transfer", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_TRANSFER, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         highRiskPolicyId: "housing.purchase.transfer-to-tenant-charge"
       })
     ],

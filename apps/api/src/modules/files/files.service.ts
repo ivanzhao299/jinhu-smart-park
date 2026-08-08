@@ -58,7 +58,7 @@ export class FilesService {
       actor,
       dto.biz_type,
       dto.biz_id,
-      "write",
+      "upload",
       actor.sub
     );
     return this.upload(scope, actor.sub, dto, file);
@@ -82,6 +82,7 @@ export class FilesService {
     const storedName = `${randomUUID()}${originalExt}`;
     const relativeDir = `${scope.tenantId}/${scope.parkId}/${day}`;
     const md5 = createHash("md5").update(file.buffer).digest("hex");
+    const contentSha256 = createHash("sha256").update(file.buffer).digest("hex");
     const stored = await this.storageService.save({ buffer: file.buffer, storedName, relativeDir }, "local");
 
     const entity = await this.fileRepository.save(
@@ -95,6 +96,7 @@ export class FilesService {
         fileSize: String(file.size),
         mimeType: file.mimetype,
         md5,
+        contentSha256,
         bizType: dto.biz_type,
         bizId: dto.biz_id ?? null,
         storageType: stored.storageType,
@@ -162,8 +164,9 @@ export class FilesService {
       actor,
       file.bizType,
       file.bizId,
-      action,
-      file.createBy ?? undefined
+      action === "write" ? "delete" : action,
+      file.createBy ?? undefined,
+      file.id
     );
     return file;
   }
@@ -183,7 +186,17 @@ export class FilesService {
     actor: JwtPrincipal,
     id: string
   ): Promise<DownloadFileResult> {
-    const file = await this.detailForActor(scope, actor, id);
+    const file = await this.detail(scope, id);
+    this.businessAccessService.assertPendingFileOwner(actor, file);
+    await this.businessAccessService.assertReferenceAccess(
+      scope,
+      actor,
+      file.bizType,
+      file.bizId,
+      "download",
+      file.createBy ?? undefined,
+      file.id
+    );
     return {
       file,
       absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))
@@ -262,15 +275,21 @@ export class FilesService {
       });
       if (!file) throw new NotFoundException("File not found");
       this.businessAccessService.assertPendingFileOwner(actor, file);
+      if (file.bizType === "party_identity_evidence") {
+        await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
+      }
       await this.businessAccessService.assertReferenceAccess(
         scope,
         actor,
         file.bizType,
         file.bizId,
-        "write",
-        file.createBy ?? undefined
+        "delete",
+        file.createBy ?? undefined,
+        file.id
       );
-      await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
+      if (file.bizType !== "party_identity_evidence") {
+        await this.businessAccessService.assertDeletionAllowed(scope, file, manager);
+      }
       file.isDeleted = true;
       file.updateBy = actor.sub;
       await repository.save(file);

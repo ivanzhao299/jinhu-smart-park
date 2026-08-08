@@ -1,0 +1,6 @@
+{
+  "schema_version": "property-remediation-b-extension-expected-mutations-v1",
+  "profile": "property-remediation-b-extension-v1",
+  "profile_version": 1,
+  "expected_mutations": []
+}

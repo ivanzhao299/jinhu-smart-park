@@ -2,6 +2,7 @@
 
 import {
   type FormEvent,
+  type KeyboardEvent,
   type RefObject,
   type ReactNode,
   type SyntheticEvent,
@@ -246,6 +247,7 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
       className="ds-panel"
       onCancel={props.onCancel}
       onClose={() => restoreTriggerFocus(props.triggerRef)}
+      onKeyDown={trapDialogFocus}
       ref={props.dialogRef}
     >
       <form method="dialog" onSubmit={(event) => void props.onConfirm(event)}>
@@ -276,6 +278,23 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
       </form>
     </dialog>
   );
+}
+
+function trapDialogFocus(event: KeyboardEvent<HTMLDialogElement>) {
+  if (event.key !== "Tab") return;
+  const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]'
+  )).filter((element) => element.getClientRects().length > 0);
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (!first || !last) return;
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function restoreTriggerFocus(triggerRef: RefObject<HTMLElement | null>) {

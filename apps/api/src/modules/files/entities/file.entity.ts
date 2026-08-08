@@ -27,6 +27,9 @@ export class FileEntity extends AuditableEntity {
   @Column({ name: "md5", type: "varchar", length: 32 })
   md5!: string;
 
+  @Column({ name: "content_sha256", type: "varchar", length: 64, nullable: true })
+  contentSha256!: string | null;
+
   @Column({ name: "biz_type", type: "varchar", length: 64 })
   bizType!: string;
 

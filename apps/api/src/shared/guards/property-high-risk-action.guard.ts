@@ -1,12 +1,10 @@
 import {
-  ConflictException,
   Injectable,
   type CanActivate,
   type ExecutionContext
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Reflector } from "@nestjs/core";
-import { TRACK_A_HIGH_RISK_ACTION_IDS } from "@jinhu/shared";
 import type { Request } from "express";
 import {
   PROPERTY_HIGH_RISK_ACTION_KEY,
@@ -15,13 +13,21 @@ import {
 import {
   isPropertyWorkbenchV2Enabled
 } from "../property-workbench/property-workbench-v2";
+import {
+  assertPropertyHighRiskActionApprovalRequired
+} from "../property-workbench/property-high-risk-stopship";
 
-export const PROPERTY_APPROVAL_REQUIRED_MESSAGE =
-  "PROPERTY_APPROVAL_REQUIRED: High-risk property action is disabled until approval enforcement is available";
-
-const TRACK_A_HIGH_RISK_ACTION_ID_SET = new Set<string>(
-  TRACK_A_HIGH_RISK_ACTION_IDS
-);
+const TRACK_B_APPROVAL_INTEGRATED_ACTIONS = new Set([
+  "homestay.bookings.cancel",
+  "homestay.finance.refund-or-waive",
+  "housing.leases.approve",
+  "housing.leases.void",
+  "housing.leases.checkout",
+  "housing.finance.refund-waive-or-deposit-refund",
+  "housing.handovers.complete-move-out-financial",
+  "housing.purchases.lifecycle",
+  "housing.purchases.transfer"
+]);
 
 const RAW_DECIMAL_PATTERN = /^[+-]?(?:0|[1-9]\d*)(?:\.\d+)?$/u;
 
@@ -84,9 +90,18 @@ export class PropertyHighRiskActionGuard implements CanActivate {
 
     if (
       !isPropertyHighRiskActionMetadata(metadata)
-      || !TRACK_A_HIGH_RISK_ACTION_ID_SET.has(metadata.actionId)
     ) {
-      throw new ConflictException(PROPERTY_APPROVAL_REQUIRED_MESSAGE);
+      const actionId = metadata && typeof metadata === "object"
+        ? (metadata as Record<string, unknown>).actionId
+        : metadata;
+      assertPropertyHighRiskActionApprovalRequired(actionId);
+      return false;
+    }
+
+    // These routes have a strict Track-B command adapter. The domain service
+    // creates a pending approval instead of executing the high-risk mutation.
+    if (TRACK_B_APPROVAL_INTEGRATED_ACTIONS.has(metadata.actionId)) {
+      return true;
     }
 
     if (metadata.discriminator) {
@@ -114,6 +129,7 @@ export class PropertyHighRiskActionGuard implements CanActivate {
       if (predicateResult === "no-match") return true;
     }
 
-    throw new ConflictException(PROPERTY_APPROVAL_REQUIRED_MESSAGE);
+    assertPropertyHighRiskActionApprovalRequired(metadata.actionId);
+    return false;
   }
 }

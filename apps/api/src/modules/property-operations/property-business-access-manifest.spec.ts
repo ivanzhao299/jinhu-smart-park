@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { INTERCEPTORS_METADATA, PATH_METADATA, METHOD_METADATA } from "@nestjs/common/constants";
 import { RequestMethod } from "@nestjs/common";
@@ -18,6 +20,9 @@ import {
   SYSTEM_PERMISSIONS,
   SYSTEM_PERMISSION_SEEDS,
   TRACK_A_HIGH_RISK_ACTION_IDS,
+  TRACK_B_ACTION_PERMISSION_CODES,
+  TRACK_B_PAGE_PERMISSION_CODES,
+  TRACK_B_PERMISSION_BUNDLES,
   type HomestayAvailabilityListResponse,
   type HomestayAvailabilityResponse,
   type HomestayBookingDetailResponse,
@@ -226,15 +231,52 @@ test("root permission exports preserve legacy/action values and seed every granu
     "housing_rental:operations"
   ]);
 
-  assert.equal(new Set(PROPERTY_BUSINESS_PAGE_PERMISSION_CODES).size, 17);
-  assert.equal(PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS.length, 17);
+  assert.equal(TRACK_B_PAGE_PERMISSION_CODES.length, 7);
+  assert.equal(PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS.length, 24);
+  assert.equal(
+    new Set(PROPERTY_BUSINESS_PAGE_PERMISSION_CODES).size,
+    PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS.length
+  );
+  assert.deepEqual(
+    PROPERTY_BUSINESS_PAGE_PERMISSION_CODES.slice(-TRACK_B_PAGE_PERMISSION_CODES.length),
+    [...TRACK_B_PAGE_PERMISSION_CODES]
+  );
+  const migrationOwnedPermissionCodes = new Set<string>(TRACK_B_ACTION_PERMISSION_CODES);
+  assert.equal(migrationOwnedPermissionCodes.size, 18);
   for (const code of Object.values(PROPERTY_BUSINESS_PERMISSIONS)) {
+    const expectedSeedCount = migrationOwnedPermissionCodes.has(code) ? 0 : 1;
     assert.equal(
       SYSTEM_PERMISSION_SEEDS.filter((seed) => seed.code === code).length,
-      1,
-      `${code} must have exactly one seed`
+      expectedSeedCount,
+      migrationOwnedPermissionCodes.has(code)
+        ? `${code} is owned by migration 000189 and must not be production-seeded`
+        : `${code} must have exactly one production seed`
     );
   }
+
+  const definitionSql = readFileSync(
+    resolve(
+      __dirname,
+      "../../../../../database/migrations/000189_property_b_module_rbac_definitions.sql"
+    ),
+    "utf8"
+  );
+  const signedCodeBlock = definitionSql.match(
+    /INSERT INTO b0_signed_permission_code VALUES([\s\S]+?);\n\nUPDATE/
+  )?.[1];
+  const signedDefinitionBlock = definitionSql.match(
+    /signed_permission\([\s\S]+?\) AS \(\s*VALUES([\s\S]+?)\n\)\nINSERT INTO sys_permission/
+  )?.[1];
+  assert.ok(signedCodeBlock);
+  assert.ok(signedDefinitionBlock);
+  const expectedTrackBPermissions = [
+    ...TRACK_B_ACTION_PERMISSION_CODES,
+    ...TRACK_B_PAGE_PERMISSION_CODES
+  ].sort();
+  const extractCodes = (block: string) =>
+    [...block.matchAll(/^\s*\('([^']+)'/gm)].map((match) => match[1]!).sort();
+  assert.deepEqual(extractCodes(signedCodeBlock), expectedTrackBPermissions);
+  assert.deepEqual(extractCodes(signedDefinitionBlock), expectedTrackBPermissions);
 });
 
 test("response contracts preserve current casing and freeze A-2.5 pagination wrappers", () => {
@@ -627,7 +669,17 @@ test("housing field projections allow read-only omission and authorized minimum 
 
 test("permission bundles compose capabilities and never translate legacy operations into new pages", () => {
   assert.deepEqual(validatePropertyPermissionBundles(), []);
-  assert.equal(Object.keys(PROPERTY_PERMISSION_BUNDLES).length, 14);
+  assert.equal(Object.keys(TRACK_B_PERMISSION_BUNDLES).length, 16);
+  assert.equal(
+    Object.keys(PROPERTY_PERMISSION_BUNDLES).length,
+    14 + Object.keys(TRACK_B_PERMISSION_BUNDLES).length
+  );
+  for (const [key, bundle] of Object.entries(TRACK_B_PERMISSION_BUNDLES)) {
+    assert.equal(
+      (PROPERTY_PERMISSION_BUNDLES as Record<string, PropertyPermissionBundle>)[key],
+      bundle
+    );
+  }
   const legacy = new Set<string>(PROPERTY_BUSINESS_LEGACY_PAGE_PERMISSIONS);
   for (const bundle of Object.values(PROPERTY_PERMISSION_BUNDLES)) {
     assert.equal(bundle.permissions.some((permission) => legacy.has(permission)), false);

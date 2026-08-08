@@ -14,6 +14,7 @@ import {
 } from "class-validator";
 import {
   PROPERTY_OCCUPANCY_DOMAINS,
+  PROPERTY_OCCUPANCY_STATUSES,
   type PropertyOccupancyDomain
 } from "@jinhu/shared";
 
@@ -65,38 +66,44 @@ export class CreatePropertyOccupancyDto {
 
 export class CheckPropertyAvailabilityDto {
   @IsUUID()
-  unit_id!: string;
+  unitId!: string;
 
   @IsDateString()
-  start_at!: string;
+  startAt!: string;
 
   @IsDateString()
-  end_at!: string;
+  endAt!: string;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(64)
-  exclude_source_type?: string;
+  excludeSourceType?: string;
 
   @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(64)
-  exclude_source_id?: string;
+  excludeSourceId?: string;
 }
 
 export class PropertyOccupancyQueryDto {
   @IsOptional()
   @IsUUID()
-  unit_id?: string;
+  unitId?: string;
 
   @IsOptional()
   @IsIn(PROPERTY_OCCUPANCY_DOMAINS)
-  source_domain?: PropertyOccupancyDomain;
+  sourceDomain?: PropertyOccupancyDomain;
 
   @IsOptional()
-  @IsIn(["held", "active", "released", "completed", "cancelled"])
+  @Transform(optionalTrim)
+  @IsString()
+  @MaxLength(64)
+  sourceType?: string;
+
+  @IsOptional()
+  @IsIn(PROPERTY_OCCUPANCY_STATUSES)
   status?: string;
 
   @IsOptional()
@@ -110,7 +117,23 @@ export class PropertyOccupancyQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  page_size = 20;
+  pageSize = 20;
+
+  @IsOptional()
+  @IsDateString()
+  startFrom?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endTo?: string;
+
+  @IsOptional()
+  @IsIn(["startAt", "endAt", "updateTime"])
+  sort: "startAt" | "endAt" | "updateTime" = "startAt";
+
+  @IsOptional()
+  @IsIn(["asc", "desc"])
+  order: "asc" | "desc" = "desc";
 }
 
 export class ReleasePropertyOccupancyDto {

@@ -9,12 +9,16 @@ import { METHOD_METADATA, PATH_METADATA, ROUTE_ARGS_METADATA } from "@nestjs/com
 import { Reflector } from "@nestjs/core";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { MODULES_KEY } from "../../shared/decorators/modules.decorator";
-import { PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import {
+  ANY_PERMISSIONS_KEY,
+  PERMISSIONS_KEY
+} from "../../shared/decorators/permissions.decorator";
 import {
   PROPERTY_HIGH_RISK_ACTION_KEY,
   type PropertyHighRiskActionMetadata
 } from "../../shared/decorators/property-high-risk-action.decorator";
 import { ModuleGuard } from "../../shared/guards/module.guard";
+import { PermissionGuard } from "../../shared/guards/permission.guard";
 import { PropertyHighRiskActionGuard } from "../../shared/guards/property-high-risk-action.guard";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
@@ -39,6 +43,102 @@ const paths = {
   listRepairs: "repairs",
   getRepair: "repairs/:id"
 } as const;
+
+test("housing pure high-risk routes require approval-create while mixed routes preserve permissions", () => {
+  const expected = {
+    approveLease: {
+      actionId: "housing.leases.approve",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    voidLease: {
+      actionId: "housing.leases.void",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    registerLedger: {
+      actionId: "housing.finance.refund-waive-or-deposit-refund",
+      permissions: undefined
+    },
+    completeHandover: {
+      actionId: "housing.handovers.complete-move-out-financial",
+      permissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE]
+    },
+    checkoutLease: {
+      actionId: "housing.leases.checkout",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    purchaseAction: {
+      actionId: "housing.purchases.lifecycle",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    },
+    transferPurchase: {
+      actionId: "housing.purchases.transfer",
+      permissions: [
+        SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER,
+        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+      ]
+    }
+  } as const;
+
+  for (const [methodName, contract] of Object.entries(expected)) {
+    const handler = HousingController.prototype[
+      methodName as keyof HousingController
+    ];
+    const metadata = Reflect.getMetadata(
+      PROPERTY_HIGH_RISK_ACTION_KEY,
+      handler
+    ) as PropertyHighRiskActionMetadata;
+    assert.equal(metadata.actionId, contract.actionId);
+    assert.deepEqual(
+      Reflect.getMetadata(PERMISSIONS_KEY, handler),
+      contract.permissions,
+      `${methodName} must keep the exact required-permission metadata`
+    );
+  }
+  assert.deepEqual(
+    Reflect.getMetadata(
+      ANY_PERMISSIONS_KEY,
+      HousingController.prototype.registerLedger
+    ),
+    [
+      SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER,
+      SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE
+    ]
+  );
+});
+
+test("housing mixed routes retain their original PermissionGuard requirements", () => {
+  const cases = [
+    [
+      HousingController.prototype.registerLedger,
+      [SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER]
+    ],
+    [
+      HousingController.prototype.completeHandover,
+      [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE]
+    ]
+  ] as const;
+  for (const [handler, permissions] of cases) {
+    const user = { ...baseUser, permissions: [...permissions] };
+    assert.equal(
+      new PermissionGuard(new Reflector()).canActivate(
+        contextFor(handler, user)
+      ),
+      true
+    );
+  }
+});
 
 const baseUser: JwtPrincipal = {
   sub: "00000000-0000-4000-8000-000000000001",
@@ -206,7 +306,7 @@ test("normal, super, and wildcard cannot bypass either housing module dependency
   assert.ok(controller);
 });
 
-test("actual handover controller metadata blocks financial move-out before domain service", async () => {
+test("actual handover controller metadata delegates financial move-out to the strict Track-B service", async () => {
   const handler = HousingController.prototype.completeHandover;
   const metadata = Reflect.getMetadata(
     PROPERTY_HIGH_RISK_ACTION_KEY,
@@ -243,12 +343,7 @@ test("actual handover controller metadata blocks financial move-out before domai
         new Reflector(),
         { get: () => "true" } as never
       );
-      assert.throws(
-        () => guard.canActivate(contextFor(handler, principal, body)),
-        (error: unknown) =>
-          typeof error === "object" && error !== null && "getStatus" in error
-          && (error as { getStatus(): number }).getStatus() === 409
-      );
+      assert.equal(guard.canActivate(contextFor(handler, principal, body)), true);
     }
   }
   assert.equal(mutationCalls, 0);

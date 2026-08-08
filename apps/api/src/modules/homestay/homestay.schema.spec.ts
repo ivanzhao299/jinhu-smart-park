@@ -80,8 +80,10 @@ test("homestay dashboard occupancy follows the requested stay date", () => {
 test("homestay availability and check-in use current cross-domain truth", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
 
-  assert.match(service, /party\.verification_status = 'verified'/);
-  assert.match(service, /party\.identity_number_hash IS NOT NULL/);
+  assert.match(service, /identityVerifier.*verifyForCheckIn/s);
+  assert.match(service, /expectedConsent: "granted"/);
+  assert.match(service, /FOR UPDATE OF guest,party/);
+  assert.match(service, /identity_evidence: identityEvidence/);
   assert.match(service, /FROM rel_leasing_contract_unit lease_unit/);
   assert.match(service, /contract\.status NOT IN \('90', '91'\)/);
   assert.match(service, /lease_unit\.start_date::timestamp AT TIME ZONE 'Asia\/Shanghai'/);
@@ -99,9 +101,10 @@ test("homestay availability and check-in use current cross-domain truth", () => 
   );
   assert.match(checkIn, /assertUnitBookable\(manager, scope, booking\.unitId\)/);
   assert.match(checkIn, /assertActiveBookingOccupancy\(manager, scope, booking\)/);
-  assert.match(checkIn, /manager\.getRepository\(PartyEntity\)/);
-  assert.match(checkIn, /\.setLock\("pessimistic_read"\)/);
-  assert.match(checkIn, /verifiedGuestParties\.length/);
+  assert.match(checkIn, /ORDER BY guest\.party_id FOR UPDATE OF guest,party/);
+  assert.match(checkIn, /FROM rel_homestay_booking_guest guest/);
+  assert.match(checkIn, /partyIds: guestRows\.map\(\(row\) => row\.partyId\)/);
+  assert.match(checkIn, /assertHomestayGuestRosterComplete\(booking\.guestCount, identityEvidence\.length\)/);
 
   const occupancy = service.slice(
     service.indexOf("private async assertActiveBookingOccupancy"),
@@ -147,13 +150,24 @@ test("guest registration locks the booking inside its write transaction", () => 
   assert.match(addGuest, /dto\.is_primary && !existingPrimary/);
 });
 
-test("booking cancellation revokes credentials before releasing occupancy", () => {
+test("booking cancellation freezes credentials and occupancy before atomic approved execution", () => {
   const service = readFileSync(resolve(__dirname, "homestay.service.ts"), "utf8");
   const cancelStart = service.indexOf("async cancelBooking");
   const issueStart = service.indexOf("async issueCredential");
   const cancellation = service.slice(cancelStart, issueStart);
-  assert.match(cancellation, /voidIssuedCredentials\(manager, scope, actor, id\)/);
-  assert.ok(cancellation.indexOf("voidIssuedCredentials") < cancellation.indexOf("releaseInTransaction"));
+  assert.match(cancellation, /createPendingRequest\(/);
+  assert.match(cancellation, /transaction_timestamp/);
+  assert.match(cancellation, /cancellationEvaluationAt/);
+  assert.match(cancellation, /credentials/);
+  assert.match(cancellation, /occupancy/);
+  assert.match(cancellation, /ledgerContributors/);
+  assert.match(cancellation, /roomWaiverAmount/);
+  assert.match(cancellation, /cancellationFeeAmount/);
+  assert.match(cancellation, /executeApprovedCancellation/);
+  assert.match(cancellation, /UPDATE biz_homestay_stay_credential/);
+  assert.match(cancellation, /UPDATE biz_property_occupancy/);
+  assert.match(cancellation, /UPDATE biz_homestay_booking/);
+  assert.match(cancellation, /approval_execution_key/);
 
   const issueEnd = service.indexOf("async returnCredential");
   const issuance = service.slice(issueStart, issueEnd);
