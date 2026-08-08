@@ -1,0 +1,2 @@
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"历史 migration 前置修复与 fail-closed 合同"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"生产迁移重试、seed 同步与 Release Smoke 规则"}

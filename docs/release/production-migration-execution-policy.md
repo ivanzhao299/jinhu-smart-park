@@ -39,8 +39,9 @@
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
   - `000189` 的 prerequisite 先确保全局 `asset` 模块目录存在，再对 deliberate baseline 遗留的
     `asset_park.tenant_id/park_id` UUID 列恢复 `000029` 的 `varchar(64)` 合同，且只重写两个已知默认
-    scope sentinel；随后才从唯一有效的 active `biz_park` 投影缺失的 `asset_park`。它不创建租户分配、
-    plan 授权、permission/role/user，完整基线仍由 production seed 收敛。
+    scope sentinel；随后保留已有唯一 active `asset_park`，只为真正缺失的投影解析来源。同 scope 唯一
+    active `biz_park` 优先；仅固定默认 scope 可使用全局唯一 active `park_code=JH` 的 legacy-scope 基线
+    行。它不创建租户分配、plan 授权、permission/role/user，完整基线仍由 production seed 收敛。
   - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
     `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
     兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
@@ -64,9 +65,10 @@
   会在它之前 fail-fast 的失败文件。
 - 若失败来自历史 migration 的前置状态缺口，应优先增加带独立 history/checksum 的窄范围
   prerequisite，保持已审查 migration 字节不变。`000189` 的 asset scope type prerequisite 只恢复
-  目标表两列的历史 scope 类型合同；后续 projection prerequisite 只会从唯一有效的 active
-  `biz_park` 与 active asset module assignment 补齐缺失的 `asset_park` 投影，不覆盖既有资产记录，
-  scope 无效、歧义或补齐后不唯一时继续 fail closed。
+  目标表两列的历史 scope 类型合同；后续 projection prerequisite 接受已有唯一 active `asset_park`，
+  真正缺失时优先从唯一同 scope active `biz_park` 投影。固定默认 scope 可从全局唯一 active `JH`
+  legacy-scope 行投影，但其他 scope 不做猜测；既有资产记录不会被覆盖，scope 无效、来源歧义或补齐后
+  不唯一时继续 fail closed。
 - 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 

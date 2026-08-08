@@ -68,6 +68,10 @@ Reference files:
   insert-only, preserves existing business rows, and fails closed for missing or ambiguous scope.
   Keep the matching production seed convergence so a clean migration-before-seed install does not
   recreate the same projection gap after migrations finish.
+- A projection prerequisite must not require its repair source when the immutable target is already
+  satisfied by exactly one valid destination row. For a legacy seed whose global business key retained
+  old scope IDs, a fallback may be used only for one fixed documented target scope and one fixed unique
+  source key; generic single-row or cross-tenant guessing remains forbidden.
 - When a deliberate legacy baseline skipped an earlier scope-ID type migration, use a separate,
   narrowly historied schema prerequisite before the unchanged target. Limit it to the exact columns
   consumed by that target, allow only known source/target types and sentinel rewrites, then assert the

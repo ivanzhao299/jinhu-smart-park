@@ -29,7 +29,7 @@ Execution scope:
 - Initializes field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL sensitive fields.
 - Initializes default park organization metadata.
 - Initializes S2-01 `biz_park` default record: `tenant_id=10000001`, `park_id=20000001`, `park_code=JH`.
-- Reconciles a missing active `asset_park` projection from each valid active `biz_park` scope that has an active `asset` module assignment; existing asset park records are never overwritten.
+- Preserves each unique active `asset_park` projection without requiring a duplicate `biz_park`; when the projection is missing, it prefers a unique active same-scope `biz_park`, with a narrowly bounded fallback from the globally unique active `JH` baseline row to the fixed default scope. Existing asset park records are never overwritten.
 - Initializes base dictionaries and dictionary items, including S2-A/S2-B房源用途、出租状态、装修状态字典。
 - Initializes S2-B permissions for房源状态流转、导入、导出、资产统计。
 - Initializes SaaS modules in `sys_module`: `system`, `asset`, `leasing`, `workorder`, `iot`, `energy`, `robot`, `video`, `bim`, `ai`.
