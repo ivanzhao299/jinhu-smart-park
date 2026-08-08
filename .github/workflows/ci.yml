@@ -704,14 +704,14 @@ jobs:
           INSERT INTO public.sys_tenant (
             tenant_id, park_id, tenant_code, tenant_name, status, remark
           ) VALUES (
-            'release-smoke-tenant', 'release-smoke-park', 'RELEASE-SMOKE-ORPHAN',
+            'release-smoke-tenant', 'release-smoke-park|ready_spoof', 'RELEASE-SMOKE-ORPHAN',
             'Release Smoke Orphan Scope', 1, 'release-smoke non-default orphan scope'
           );
           INSERT INTO public.rel_tenant_module (
             tenant_id, park_id, tenant_code, module_id, enabled, status, remark
           )
           SELECT
-            'release-smoke-tenant', 'release-smoke-park', 'RELEASE-SMOKE-ORPHAN',
+            'release-smoke-tenant', 'release-smoke-park|ready_spoof', 'RELEASE-SMOKE-ORPHAN',
             module.id, true, 'enabled', 'release-smoke non-default orphan scope'
           FROM public.sys_module module
           WHERE module.module_code = 'asset'
@@ -724,7 +724,7 @@ jobs:
             scripts/diagnose-000189-asset-scope.sh report . "$retry_db" \
             > /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
           grep -Fq \
-            'release-smoke-tenant|release-smoke-park|unresolved_source|1|1|0|0|1|0|0|0|0|' \
+            'unresolved_source|release-smoke-tenant|release-smoke-park|ready_spoof|1|1|0|0|1|0|0|0|0|' \
             /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
           if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
             scripts/diagnose-000189-asset-scope.sh enforce . "$retry_db" \
@@ -742,7 +742,7 @@ jobs:
           BEGIN;
           DELETE FROM public.rel_tenant_module
           WHERE tenant_id = 'release-smoke-tenant'
-            AND park_id = 'release-smoke-park'
+            AND park_id = 'release-smoke-park|ready_spoof'
             AND remark = 'release-smoke non-default orphan scope';
           DELETE FROM public.sys_tenant
           WHERE tenant_id = 'release-smoke-tenant'

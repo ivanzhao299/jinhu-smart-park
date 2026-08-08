@@ -33,6 +33,7 @@ run_psql() {
 rows="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
 
 WITH target_scope AS (
   SELECT
@@ -117,8 +118,6 @@ WITH target_scope AS (
   FROM target_scope scope
 )
 SELECT
-  tenant_key,
-  park_key,
   CASE
     WHEN tenant_key IS NULL OR park_key IS NULL
       OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
@@ -134,6 +133,8 @@ SELECT
       AND default_source_count = 1 THEN 'ready_default_jh_source'
     ELSE 'unresolved_source'
   END AS classification,
+  tenant_key,
+  park_key,
   assignment_count,
   tenant_count,
   asset_count,
@@ -156,11 +157,11 @@ SQL
 }
 
 echo "000189 asset scope diagnostic (scope identifiers and aggregate counts only)"
-echo "tenant_id|park_id|classification|assignments|tenants|asset_parks|exact_biz_parks|default_jh_parks|buildings|floors|units|orgs|exact_biz_park_codes"
+echo "classification|tenant_id|park_id|assignments|tenants|asset_parks|exact_biz_parks|default_jh_parks|buildings|floors|units|orgs|exact_biz_park_codes"
 printf '%s\n' "$rows"
 
 blocked_count="$(printf '%s\n' "$rows" | awk -F '|' '
-  NF >= 3 && $3 !~ /^ready_/ { count += 1 }
+  NF >= 3 && $1 !~ /^ready_/ { count += 1 }
   END { print count + 0 }
 ')"
 scope_count="$(printf '%s\n' "$rows" | awk -F '|' 'NF >= 3 { count += 1 } END { print count + 0 }')"

@@ -81,7 +81,8 @@ Reference files:
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.
 - Projection migrations whose target scopes come from production assignments require a read-only parity
-  diagnostic and an API/full deployment gate before any production source sync, migration, seed, or image build.
+  diagnostic and an API/full deployment gate after required secret initialization but before application release
+  source sync, migration, seed, or image build.
   The diagnostic may expose scope identifiers and aggregate counts, but never credentials, personal data, or an
   inferred cross-tenant mapping. A diagnostic-only workflow path must not write a release marker or run UAT.
 - Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly

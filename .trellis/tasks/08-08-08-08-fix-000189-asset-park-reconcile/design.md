@@ -30,7 +30,8 @@ source count 不等于 1 时；其他 scope 和非唯一 JH 继续失败。
 - 新增只读脚本，在 `BEGIN TRANSACTION READ ONLY` 中复用 prerequisite 判定，输出 scope ID、
   tenant/asset/biz source 计数和 building/floor/unit/org 聚合计数。
 - workflow 的显式诊断模式只通过 stdin 在远端执行该脚本，不同步或修改生产源码。
-- 正常 API/full 部署在 release marker、回滚快照和源码同步前以 enforce 模式运行同一脚本。
+- 正常 API/full 部署先初始化 Compose 必需密钥，再在 release marker、回滚快照和应用源码同步前以
+  enforce 模式运行同一脚本。
 - 诊断报告用于选择确定性修复：有可信业务元数据时补投影；确认无业务且为遗留授权时才另行
   审计并停用 assignment。当前变更不自动作此选择。
 

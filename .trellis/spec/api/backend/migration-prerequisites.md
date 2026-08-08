@@ -47,9 +47,10 @@
 - A clean/default-scope fixture is not production-shape parity. When target scopes come from persisted
   assignments, provide a read-only diagnostic over every active target scope and promote every newly observed
   historical shape into isolated PostgreSQL regression coverage.
-- Run the same projection classification as a fail-closed deployment preflight before source sync, migration,
-  seed, or image build. Diagnostic output is limited to scope identifiers, classification, and aggregate counts;
-  it must not write data or invent a tenant/park mapping.
+- Run the same projection classification as a fail-closed deployment preflight after required secret
+  initialization but before application release source sync, migration, seed, or image build. Diagnostic output
+  is limited to scope identifiers, classification, and aggregate counts; it must not write data or invent a
+  tenant/park mapping.
 
 ### 4. Validation & Error Matrix
 

@@ -23,7 +23,8 @@
 ## 3. Prevention mechanisms
 
 - Provide an explicit read-only production diagnostic that uses the same classification as the prerequisite.
-- Run the same check in enforce mode before API/full deployment performs source sync, migration, seed, or build.
+- Run the same check in enforce mode after required secret initialization but before API/full deployment performs
+  application source sync, migration, seed, or build.
 - Output only scope identifiers and aggregate business counts; never infer or mutate a mapping from diagnostics.
 - Add every newly observed production shape to isolated PostgreSQL Release Smoke fixtures.
 - Permit the fixed unique key to disambiguate multiple rows only inside its fixed documented target scope; retain

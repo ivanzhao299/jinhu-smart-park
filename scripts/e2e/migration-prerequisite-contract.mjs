@@ -601,7 +601,7 @@ assert.match(productionDeployWorkflow, /sh -s -- report '\$PROD_DEPLOY_PATH'/u);
 assert.match(productionDeployWorkflow, /sh -s -- enforce '\$PROD_DEPLOY_PATH'/u);
 const diagnosticStep = productionDeployWorkflow.slice(
   productionDeployWorkflow.indexOf("Diagnose 000189 asset scope parity (read-only)"),
-  productionDeployWorkflow.indexOf("Enforce 000189 asset scope parity before deployment")
+  productionDeployWorkflow.indexOf("Ensure required production secrets")
 );
 assert.doesNotMatch(
   diagnosticStep,
@@ -609,6 +609,7 @@ assert.doesNotMatch(
   "read-only production diagnostic must not enter a deployment or source-sync path"
 );
 assert.match(assetScopeDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(assetScopeDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(assetScopeDiagnostic, /invalid_scope/u);
 assert.match(assetScopeDiagnostic, /invalid_tenant/u);
 assert.match(assetScopeDiagnostic, /ambiguous_asset/u);
@@ -621,10 +622,20 @@ assert.match(assetScopeDiagnostic, /floor_count/u);
 assert.match(assetScopeDiagnostic, /unit_count/u);
 assert.match(assetScopeDiagnostic, /org_count/u);
 assert.match(assetScopeDiagnostic, /exact_source_codes/u);
+assert.match(assetScopeDiagnostic, /\$1 !~ \/\^ready_\//u);
 assert.doesNotMatch(
   assetScopeDiagnostic,
   /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
   "production scope diagnostic must remain read-only"
+);
+const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
+const enforceScopeStep = productionDeployWorkflow.indexOf(
+  "Enforce 000189 asset scope parity before deployment"
+);
+const deployStep = productionDeployWorkflow.indexOf("      - name: Deploy");
+assert.ok(
+  ensureSecretsStep !== -1 && ensureSecretsStep < enforceScopeStep && enforceScopeStep < deployStep,
+  "normal deployment must initialize required secrets, then enforce scope parity before release sync"
 );
 
 const historyWrite = runner.slice(
