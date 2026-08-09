@@ -560,7 +560,11 @@ Migration execution behavior:
   fail closed, and proves an already-succeeded immutable source remains skipped. A separate empty-database replay
   follows the real migration-before-seed order; `000008_property_runtime_control_scope_reconcile.sql` initializes
   only wholly missing late-created asset scopes through the audited v1 -> v2 -> v3 transition and rejects partial
-  or drifting states.
+  or drifting states. `000009_jh_leasing_lead_workorder_create_repair.sql` then grants only `workorder:create` to
+  the active imported `JH_LEASING_LEAD` responsibility role; databases where that optional role has not been
+  imported remain unchanged.
+- Release Smoke uses a workflow-wide `pipefail` shell contract, so logging migration, seed, bootstrap, baseline,
+  or login output through `tee` cannot turn a nonzero producer result into a successful step.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

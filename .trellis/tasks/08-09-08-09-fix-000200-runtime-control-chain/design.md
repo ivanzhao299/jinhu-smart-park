@@ -98,26 +98,26 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 - **Design Improvement**: 预检计数必须与后续 SELECT 的真实基数需求一致。
 - **Process Improvement**: 每个生产新分类都进入 deterministic PostgreSQL fixture 后再重试部署。
 
-## Bug Analysis: 000189 与 production seed 的权限可见性表达式相反
+## Bug Analysis: 受保护 UAT 权限缺口与 Release Smoke 假绿
 
 ### 1. Root Cause Category
 
-- **Category**: B/C/D — 跨层合同、变更传播失败与生产形态覆盖缺口。
-- **Specific Cause**: immutable 000189 在已有 scope 的生产库创建 25 条权限时使用
-  `visible=(permission_type='api')`；000006 的 canonical 定义使用
-  `visible=(permission_type IN ('menu','page'))`。migration-before-seed 空库没有 000189 目标 scope，因而 CI 只覆盖
-  seed 直接创建 canonical 行，未覆盖 migration-created legacy 行。
+- **Category**: B/C/D — 角色合同漂移、变更传播失败与 CI 失败传播缺口。
+- **Specific Cause**: 历史 000171 只为旧 `INVEST_MANAGER` 补 `workorder:create`，2026 责任分工却将
+  `song_qianchang` 绑定到 `JH_LEASING_LEAD`；受保护 UAT 因此在部署、seed、健康和 cleanup 均成功后失败。
+  同时 Release Smoke 的命令通过 `tee` 输出日志但未显式启用 `pipefail`，seed 的 exit 3 被 `tee` 的 0 掩盖。
 
 ### 2. Prevention Mechanisms
 
 | Priority | Mechanism | Specific Action | Status |
 |----------|-----------|-----------------|--------|
-| P0 | Convergence | 仅更新 frozen Track B identity/remark/scope 且 visibility 等于已知 000189 表达式的行 | DONE |
-| P0 | Fail closed | 同事务 exact-set 继续校验其余所有定义字段、状态、version 与 remark | DONE |
-| P0 | Test | 将 25 条 canonical 行改为旧 visibility，完整 seed 重跑后断言 25 条全部恢复 | DONE |
+| P0 | Least privilege | 新 production seed 仅为固定 scope 的 active `JH_LEASING_LEAD` 补 `workorder:create` | DONE |
+| P0 | Fail closed | 角色存在但非 active、重复角色或权限缺失时事务失败；角色尚未导入时安全 no-op | DONE |
+| P0 | CI truth | workflow 默认 shell 显式 `-eo pipefail`，所有 `tee` 管道保留生产者退出码 | DONE |
+| P0 | Test | production-shaped fixture 创建当前责任角色，完整 seed 后断言唯一 grant | DONE |
 
 ### 3. Systematic Expansion
 
-- **Similar Issues**: migration 与 seed 复制同一 metadata manifest 时，任一表达式漂移都必须有生产顺序 fixture。
-- **Design Improvement**: forward-only 历史不可改时，seed convergence 只接受已签名旧值或 canonical 值。
-- **Process Improvement**: CI 除 migration-before-seed 外，还需注入 migration-created legacy metadata 再跑 seed。
+- **Similar Issues**: 旧模板角色与当前责任分工角色 code 不同，不能假设给旧角色补权会传播到当前用户。
+- **Design Improvement**: 生产权限修复必须从受保护 UAT 的当前 role assignment 反推最小 grant。
+- **Process Improvement**: release 命令只要接 `tee` 就由 workflow 级 `pipefail` 统一保证失败传播。

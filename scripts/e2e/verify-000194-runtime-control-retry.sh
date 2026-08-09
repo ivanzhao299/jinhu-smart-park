@@ -568,16 +568,23 @@ VALUES (
   'production-seed-multi-park-scope-regression'
 );
 
-UPDATE public.sys_permission
-SET visible = (permission_type = 'api'),
-    update_time = clock_timestamp()
-WHERE tenant_id = '10000001'
-  AND park_id = '20000001'
-  AND remark = 'PR192 Track B frozen permission definition'
-  AND is_deleted = false;
+INSERT INTO public.sys_role (
+  id, tenant_id, park_id, code, name, parent_id, role_path,
+  role_level, level, sort_no, role_type, role_scope, data_scope,
+  data_scope_config, is_template, is_system, is_builtin, is_super,
+  editable, is_editable, is_deletable, is_enabled, status, remark
+)
+VALUES (
+  '00000000-0000-4000-8000-000000009120',
+  '10000001', '20000001', 'JH_LEASING_LEAD', '园区招商负责人',
+  NULL, 'JH_LEASING_LEAD', 1, 1, 120, 'park', 'park', 'self',
+  '{}'::jsonb, false, false, false, false,
+  true, true, true, true, 'enabled',
+  'Release Smoke 2026 responsibility-role fixture'
+);
 SQL
 
-fresh_order_legacy_visibility_count="$(
+fresh_order_visibility_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
     -c "SELECT count(*) FROM public.sys_permission
@@ -585,7 +592,7 @@ fresh_order_legacy_visibility_count="$(
           AND remark='PR192 Track B frozen permission definition'
           AND is_deleted=false AND visible=(permission_type='api');"
 )"
-test "$fresh_order_legacy_visibility_count" -eq 25
+test "$fresh_order_visibility_count" -eq 25
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
@@ -636,6 +643,8 @@ ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
 
 grep -Fq 'Applying production seed: 000006_property_track_b_permission_reconcile.sql' \
   "$log_root/db-seed-000200-fresh-order-rerun.log"
+grep -Fq 'Applying production seed: 000009_jh_leasing_lead_workorder_create_repair.sql' \
+  "$log_root/db-seed-000200-fresh-order-rerun.log"
 
 fresh_order_active_park_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -646,16 +655,39 @@ fresh_order_active_park_count="$(
 )"
 test "$fresh_order_active_park_count" -eq 2
 
-fresh_order_canonical_permission_count="$(
+fresh_order_permission_visibility_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
     -c "SELECT count(*) FROM public.sys_permission
         WHERE tenant_id='10000001' AND park_id='20000001'
           AND remark='PR192 Track B frozen permission definition'
           AND is_deleted=false
-          AND visible=(permission_type IN ('menu','page'));"
+          AND visible=(permission_type='api');"
 )"
-test "$fresh_order_canonical_permission_count" -eq 25
+test "$fresh_order_permission_visibility_count" -eq 25
+
+fresh_order_leasing_workorder_grant_count="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT count(*)
+        FROM public.sys_role role
+        JOIN public.rel_role_perm relation
+          ON relation.tenant_id=role.tenant_id
+         AND relation.park_id=role.park_id
+         AND relation.role_id=role.id
+         AND relation.is_deleted=false
+        JOIN public.sys_permission permission
+          ON permission.id=relation.permission_id
+         AND permission.tenant_id=role.tenant_id
+         AND permission.park_id=role.park_id
+         AND permission.code='workorder:create'
+         AND permission.is_deleted=false
+        WHERE role.tenant_id='10000001' AND role.park_id='20000001'
+          AND role.code='JH_LEASING_LEAD'
+          AND role.is_enabled=true AND role.status='enabled'
+          AND role.is_deleted=false;"
+)"
+test "$fresh_order_leasing_workorder_grant_count" -eq 1
 
 fresh_order_state="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \

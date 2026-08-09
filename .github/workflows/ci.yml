@@ -21,6 +21,10 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
+
 jobs:
   release-smoke-scope:
     name: Detect Release Smoke Scope
@@ -97,6 +101,9 @@ jobs:
 
       - name: Verify production seed decision precedence
         run: scripts/e2e/prod-deploy-seed-precedence.sh
+
+      - name: Verify Track B production seed contracts
+        run: pnpm test:e2e:property-track-b-seed-reconcile
 
       - name: Lint
         run: pnpm lint
