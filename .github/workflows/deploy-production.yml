@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_mode:
-        description: "Deployment mode. diagnose-000189-scope is read-only and never deploys."
+        description: "Deployment mode. diagnose modes are read-only and never deploy."
         required: true
         default: auto
         type: choice
@@ -18,6 +18,7 @@ on:
           - api
           - full
           - diagnose-000189-scope
+          - diagnose-000194-runtime-control
 
 concurrency:
   group: deploy-production
@@ -83,7 +84,7 @@ jobs:
         run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
 
       - name: Resolve deployment mode
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         id: deploy-mode
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
@@ -149,8 +150,21 @@ jobs:
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
 
+      - name: Diagnose 000194 runtime control parity (read-only)
+        if: ${{ inputs.deploy_mode == 'diagnose-000194-runtime-control' }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-000194-runtime-control.sh
+
       - name: Ensure required production secrets
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -167,7 +181,7 @@ jobs:
             "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
 
       - name: Enforce 000189 asset scope parity before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -179,8 +193,21 @@ jobs:
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
 
+      - name: Enforce 000194 runtime control parity before deployment
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000194-runtime-control.sh
+
       - name: Write release marker
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         run: |
           cat > .release.json <<EOF
           {
@@ -194,7 +221,7 @@ jobs:
           EOF
 
       - name: Deploy
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -267,7 +294,7 @@ jobs:
           cleanup_rollback_snapshot
 
       - name: Verify protected UAT accounts through public production
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         env:
           PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
         run: |

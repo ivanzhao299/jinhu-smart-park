@@ -88,6 +88,11 @@ Reference files:
 - Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly
   observed production classification must become a deterministic isolated PostgreSQL fixture before the next
   deployment attempt.
+- An exact-set guard whose expected rows are derived from persisted assignments must not rely only on a
+  migration-before-seed empty-database fixture: an empty target scope makes the check vacuously pass. Rehearse the
+  production order by migrating to the predecessor, creating the non-empty assignment shape, then applying the
+  prerequisite and unchanged target. The matching read-only predeploy classifier must distinguish deterministic
+  insert-only convergence from extra rows or definition drift; only the former may proceed to migration.
 - Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
   If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
   never publish a release marker from `web` or `fast-css` while deferring required seed work.

@@ -141,3 +141,74 @@ WHERE active_destination_count > 1
      )
    );
 ```
+
+## Scenario: Non-empty assignment exact-set repair before an immutable target
+
+### 1. Scope / Trigger
+
+- Trigger: a clean migration-before-seed run gives an empty assignment-derived target set, but a long-lived
+  environment has active assignments before the pending target runs.
+- Signature symptom: the clean database passes while production raises an `*-scope-exact-set-drift` guard.
+
+### 2. Signatures
+
+- Ordered repair: `database/migration-prerequisites/<failed-target>/002_<catalog>_scope_reconcile.sql`.
+- Read-only classifier: `scripts/diagnose-<target>-<catalog>.sh [report|enforce] [deploy-path] [database]`.
+- History identity: `prerequisite:<target>:002_<catalog>_scope_reconcile.sql` in both history tables.
+
+### 3. Contracts
+
+- Derive scopes from the same active assignment predicate and signed manifest as the immutable target.
+- Lock the target catalog against concurrent row writes, reject invalid scopes and rows outside the expected
+  scope/key Cartesian set, then insert only missing disabled canonical rows.
+- Never update/delete existing evidence or enable a control. Existing definition/state drift remains fail closed.
+- If both history tables prove the immutable target already succeeded with its frozen checksum, the retroactive
+  prerequisite records itself without reversing the target's audited final state.
+- `enforce` may allow a deterministic missing-only classification, but must block extra keys/scopes and definition
+  drift before release marker, source sync, migration, seed, or build.
+
+### 4. Validation & Error Matrix
+
+- Valid scope + all expected rows missing -> classify repairable, insert exact signed set, run unchanged target.
+- Valid scope + partial canonical old-state rows -> preserve existing rows and insert only missing rows.
+- Extra key/scope -> `*-extra-control`; no rows changed.
+- Existing signed key has wrong definition/state -> `*-definition-drift`; no rows changed.
+- Invalid tenant/park/asset projection -> `*-preflight-failed`; no rows changed.
+- Postcondition differs in either EXCEPT direction -> `*-postcondition-failed`; transaction rolls back.
+- Frozen target succeeded in both histories -> no-op prerequisite; never rewrite corrected rows.
+
+### 5. Good/Base/Bad Cases
+
+- Good: migrate to the predecessor, seed a production-shaped assignment, observe 12 missing disabled controls,
+  insert them through the prerequisite, and apply the unchanged failed target.
+- Base: all 12 old-state controls already exist exactly; prerequisite writes zero rows.
+- Bad: delete an extra control, update a mismatched row into compliance, or treat an empty fresh-schema scope as
+  sufficient Release Smoke coverage.
+
+### 6. Tests Required
+
+- Freeze the immutable target SHA-256 and successful schema prerequisite definition.
+- Static-test the new prerequisite's only permanent write as `INSERT INTO` the target catalog.
+- PostgreSQL replay: predecessor migrations -> production seed/assignment -> schema-only prerequisite -> failed
+  target histories -> missing-only diagnostic -> repair prerequisite -> unchanged target success.
+- Assert exact row/audit counts and succeeded prerequisite/target rows in both history tables.
+- Inject extra-key and definition-drift fixtures; assert both the read-only deployment gate and SQL prerequisite fail.
+- Re-run the diagnostic after target success and assert the frozen dual-history identity is accepted without writes.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+-- Empty on migration-before-seed, so this check proves nothing about production.
+SELECT count(*) FROM active_assignment_scope; -- 0
+```
+
+#### Correct
+
+```sql
+-- Release Smoke creates the non-empty assignment before replaying the pending target.
+INSERT INTO target_catalog (...)
+SELECT ... FROM active_assignment_scope CROSS JOIN signed_manifest
+ON CONFLICT (tenant_id, park_id, control_key) DO NOTHING;
+```
