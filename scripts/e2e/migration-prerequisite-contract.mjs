@@ -749,6 +749,11 @@ assert.match(runtimeControlDiagnostic, /ready_exact/u);
 assert.match(runtimeControlDiagnostic, /post_000194/u);
 assert.match(runtimeControlDiagnostic, /post_000195/u);
 assert.match(runtimeControlDiagnostic, /migration_stage_drift/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /runtime_contract_stage" != "pre_000194".*table_present" = "no"/su,
+  "an absent runtime-control table is repairable only before 000194 succeeds"
+);
 assert.match(runtimeControlDiagnostic, /FULL JOIN schema_migrations standard_history USING \(filename\)/u);
 assert.match(runtimeControlDiagnostic, /"2\|2\|0\|2\|2\|2\|0\|2\|0"/u);
 assert.match(runtimeControlDiagnostic, /e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944/u);

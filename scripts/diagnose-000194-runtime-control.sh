@@ -123,7 +123,7 @@ SQL
 }
 
 if [ "$runtime_contract_stage" = "invalid" ] \
-  || { [ "$runtime_contract_stage" = "post_000195" ] && [ "$table_present" = "no" ]; }; then
+  || { [ "$runtime_contract_stage" != "pre_000194" ] && [ "$table_present" = "no" ]; }; then
   echo "000194 runtime control diagnostic (scope identifiers and aggregate counts only)"
   echo "classification|tenant_id|park_id|expected|actual|missing|extra|definition_drift|missing_keys|extra_keys"
   echo "migration_stage_drift|||0|0|0|0|0||"

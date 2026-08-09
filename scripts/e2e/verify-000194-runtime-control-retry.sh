@@ -463,4 +463,24 @@ fi
 grep -Fq 'ERROR: migration file changed after success: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-unknown-success.log"
 
+# Once 000194 has succeeded, an absent runtime-control table cannot be repaired
+# into the correction state with its audit evidence and must fail pre-sync.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET status='failed'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';
+      UPDATE public.schema_migrations SET status='failed'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';
+      DROP TABLE public.sys_property_runtime_control CASCADE;"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+    > "$log_root/db-migrate-000200-post-v2-table-absent.log" 2>&1; then
+  echo 'Expected a post-000194 absent runtime-control table to fail the deployment gate' >&2
+  exit 1
+fi
+grep -Fq 'migration_stage_drift|||0|0|0|0|0||' \
+  "$log_root/db-migrate-000200-post-v2-table-absent.log"
+grep -Fq 'contract_stage=post_000194' \
+  "$log_root/db-migrate-000200-post-v2-table-absent.log"
+
 echo '[PASS] production-shaped 000194-000200 runtime-control migration chain'

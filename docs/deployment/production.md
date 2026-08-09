@@ -385,7 +385,8 @@ Migration behavior:
   and fail closed because the successful correction cannot be replayed to create its audit evidence. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
-  diagnostic never enables, updates, or deletes a runtime control. The classifier follows the immutable migration
+  whole control table being absent after `000194` is also migration-stage drift. The diagnostic never enables,
+  updates, or deletes a runtime control. The classifier follows the immutable migration
   stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown
   history stage is `migration_stage_drift` and blocks.
 - The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
