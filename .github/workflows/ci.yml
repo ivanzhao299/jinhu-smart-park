@@ -63,7 +63,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|seeds)/|database/migration-history-aliases\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi

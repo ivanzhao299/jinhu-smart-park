@@ -6,6 +6,8 @@ COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.yml}"
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-$ROOT_DIR/database/migrations}"
 MIGRATION_PREREQUISITES_DIR="${MIGRATION_PREREQUISITES_DIR:-$ROOT_DIR/database/migration-prerequisites}"
 MIGRATION_HISTORY_ALIASES_FILE="${MIGRATION_HISTORY_ALIASES_FILE:-$ROOT_DIR/database/migration-history-aliases.txt}"
+MIGRATION_REPLACEMENTS_DIR="${MIGRATION_REPLACEMENTS_DIR:-$ROOT_DIR/database/migration-replacements}"
+MIGRATION_REPLACEMENTS_FILE="${MIGRATION_REPLACEMENTS_FILE:-$ROOT_DIR/database/migration-replacements.txt}"
 POSTGRES_USER="${POSTGRES_USER:-jinhu}"
 POSTGRES_DB="${POSTGRES_DB:-jinhu_smart_park}"
 MIGRATION_EXECUTED_BY="${MIGRATION_EXECUTED_BY:-${USER:-unknown}}"
@@ -426,6 +428,134 @@ build_migration_manifest() {
   LC_ALL=C sort -o "$MANIFEST_LIST" "$MANIFEST_LIST"
 }
 
+validate_migration_replacement_manifest() {
+  [ -f "$MIGRATION_REPLACEMENTS_FILE" ] || return 0
+
+  replacement_line_number=0
+  while IFS='|' read -r replacement_target _replacement_rest; do
+    replacement_line_number=$((replacement_line_number + 1))
+    case "$replacement_target" in
+      ""|'#'*) continue ;;
+    esac
+    case "$replacement_target" in
+      */*|*..*|*.sql) ;;
+      *)
+        echo "ERROR: invalid migration replacement target at line $replacement_line_number" >&2
+        exit 1
+        ;;
+    esac
+    case "$replacement_target" in
+      */*|*..*)
+        echo "ERROR: migration replacement target must be a plain SQL filename" >&2
+        exit 1
+        ;;
+    esac
+    manifest_target_count="$(awk -F'|' -v name="$replacement_target" '
+      $1 == name { count += 1 } END { print count + 0 }
+    ' "$MANIFEST_LIST")"
+    declaration_count="$(awk -F'|' -v name="$replacement_target" '
+      $1 == name && $1 !~ /^#/ { count += 1 } END { print count + 0 }
+    ' "$MIGRATION_REPLACEMENTS_FILE")"
+    if [ "$declaration_count" != "1" ]; then
+      echo "ERROR: migration replacement target is absent or duplicated: $replacement_target" >&2
+      exit 1
+    fi
+    if [ "$manifest_target_count" = "0" ] \
+      && [ "$MIGRATIONS_DIR" != "$ROOT_DIR/database/migrations" ]; then
+      continue
+    fi
+    if [ "$manifest_target_count" != "1" ]; then
+      echo "ERROR: migration replacement target is absent or duplicated: $replacement_target" >&2
+      exit 1
+    fi
+  done < "$MIGRATION_REPLACEMENTS_FILE"
+}
+
+prepare_migration_execution() {
+  migration_source_file="$1"
+  migration_prepare_mode="${2:-execute}"
+  migration_source_filename="${migration_source_file##*/}"
+  migration_source_checksum="$(sha256sum "$migration_source_file" | awk '{ print $1 }')"
+  migration_execution_file="$migration_source_file"
+  migration_execution_checksum="$migration_source_checksum"
+  migration_compatible_succeeded_checksum=""
+
+  [ -f "$MIGRATION_REPLACEMENTS_FILE" ] || return 0
+  replacement_rows="$(awk -F'|' -v name="$migration_source_filename" '
+    $1 == name && $1 !~ /^#/ { print }
+  ' "$MIGRATION_REPLACEMENTS_FILE")"
+  [ -n "$replacement_rows" ] || return 0
+  if [ "$(printf '%s\n' "$replacement_rows" | awk 'END { print NR }')" != "1" ]; then
+    echo "ERROR: multiple migration replacements declared: $migration_source_filename" >&2
+    exit 1
+  fi
+
+  IFS='|' read -r replacement_target replacement_source_checksum \
+    replacement_patch_filename replacement_patch_checksum \
+    replacement_execution_checksum replacement_extra <<EOF
+$replacement_rows
+EOF
+  if [ -n "$replacement_extra" ] \
+    || [ "$replacement_target" != "$migration_source_filename" ] \
+    || [ "${#replacement_source_checksum}" -ne 64 ] \
+    || [ "${#replacement_patch_checksum}" -ne 64 ] \
+    || [ "${#replacement_execution_checksum}" -ne 64 ]; then
+    echo "ERROR: invalid migration replacement declaration: $migration_source_filename" >&2
+    exit 1
+  fi
+  case "$replacement_source_checksum$replacement_patch_checksum$replacement_execution_checksum" in
+    *[!0-9a-f]*)
+      echo "ERROR: migration replacement checksums must be lowercase SHA-256" >&2
+      exit 1
+      ;;
+  esac
+  case "$replacement_patch_filename" in
+    ""|*/*|*..*)
+      echo "ERROR: migration replacement must reference a plain .patch filename" >&2
+      exit 1
+      ;;
+    *.patch) ;;
+    *)
+      echo "ERROR: migration replacement must reference a plain .patch filename" >&2
+      exit 1
+      ;;
+  esac
+  if [ "$migration_source_checksum" != "$replacement_source_checksum" ]; then
+    echo "ERROR: immutable migration source drifted before replacement: $migration_source_filename" >&2
+    exit 1
+  fi
+
+  migration_execution_checksum="$replacement_execution_checksum"
+  migration_compatible_succeeded_checksum="$migration_source_checksum"
+  if [ "$migration_prepare_mode" = "metadata" ]; then
+    return 0
+  fi
+
+  replacement_patch_file="$MIGRATION_REPLACEMENTS_DIR/$replacement_patch_filename"
+  if [ ! -f "$replacement_patch_file" ]; then
+    echo "ERROR: migration replacement patch is missing: $replacement_patch_filename" >&2
+    exit 1
+  fi
+  actual_patch_checksum="$(sha256sum "$replacement_patch_file" | awk '{ print $1 }')"
+  if [ "$actual_patch_checksum" != "$replacement_patch_checksum" ]; then
+    echo "ERROR: migration replacement patch checksum drifted: $replacement_patch_filename" >&2
+    exit 1
+  fi
+
+  ensure_dependency patch
+  migration_execution_file="$TMP_DIR/replacement.$migration_source_filename"
+  cp "$migration_source_file" "$migration_execution_file"
+  if ! patch -s "$migration_execution_file" < "$replacement_patch_file"; then
+    echo "ERROR: migration replacement patch no longer applies: $replacement_patch_filename" >&2
+    exit 1
+  fi
+  migration_execution_checksum="$(sha256sum "$migration_execution_file" | awk '{ print $1 }')"
+  if [ "$migration_execution_checksum" != "$replacement_execution_checksum" ]; then
+    echo "ERROR: migration replacement output checksum drifted: $migration_source_filename" >&2
+    exit 1
+  fi
+}
+
 reconcile_migration_history_aliases() {
   [ -f "$MIGRATION_HISTORY_ALIASES_FILE" ] || return 0
 
@@ -701,6 +831,7 @@ acquire_migration_lock
 bootstrap_history_table
 assert_history_tables_consistent
 build_migration_manifest
+validate_migration_replacement_manifest
 reconcile_migration_history_aliases
 assert_history_tables_consistent
 
@@ -746,7 +877,6 @@ while IFS= read -r file; do
   [ -n "$file" ] || continue
 
   filename="${file##*/}"
-  current_checksum="$(sha256sum "$file" | awk '{ print $1 }')"
   started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   history_row="$(psql_query <<SQL
@@ -763,7 +893,15 @@ SQL
     existing_checksum="$(printf '%s' "$history_row" | cut -d'|' -f2-)"
   fi
 
-  if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" != "$current_checksum" ]; then
+  # Resolve immutable source/approved checksum metadata only after reading
+  # history. An already-succeeded migration must not need the patch executable
+  # or materialize replacement SQL merely to be skipped.
+  prepare_migration_execution "$file" metadata
+  current_checksum="$migration_execution_checksum"
+
+  if [ "$existing_status" = "succeeded" ] \
+    && [ "$existing_checksum" != "$current_checksum" ] \
+    && [ "$existing_checksum" != "$migration_compatible_succeeded_checksum" ]; then
     echo "ERROR: migration file changed after success: $filename" >&2
     echo "ERROR: recorded checksum=$existing_checksum current checksum=$current_checksum" >&2
     echo "ERROR: stop before continuing later migrations" >&2
@@ -790,12 +928,21 @@ SQL
   # so migration-only history is not sufficient to skip prerequisite checks.
   run_prerequisites_for_migration "$filename"
 
-  if [ "$existing_status" = "succeeded" ] && [ "$existing_checksum" = "$current_checksum" ]; then
+  if [ "$existing_status" = "succeeded" ] \
+    && { [ "$existing_checksum" = "$current_checksum" ] \
+      || [ "$existing_checksum" = "$migration_compatible_succeeded_checksum" ]; }; then
     skipped_count=$((skipped_count + 1))
     last_success_file="$filename"
-    echo "SKIP: $filename (already succeeded, checksum matched)"
+    if [ "$existing_checksum" = "$current_checksum" ]; then
+      echo "SKIP: $filename (already succeeded, checksum matched)"
+    else
+      echo "SKIP: $filename (already succeeded with approved immutable source checksum; replacement not re-run)"
+    fi
     continue
   fi
+
+  prepare_migration_execution "$file"
+  current_checksum="$migration_execution_checksum"
 
   write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
 
@@ -803,7 +950,7 @@ SQL
   stderr_file="$TMP_DIR/${filename}.stderr.log"
 
   echo "APPLY: $filename"
-  if psql_exec < "$file" >"$stdout_file" 2>"$stderr_file"; then
+  if psql_exec < "$migration_execution_file" >"$stdout_file" 2>"$stderr_file"; then
     finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     write_history_row "$filename" "$current_checksum" "succeeded" "$started_at" "$finished_at" ""
     success_count=$((success_count + 1))

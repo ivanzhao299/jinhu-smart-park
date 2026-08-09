@@ -119,7 +119,7 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - 参考 [../release/production-migration-execution-policy.md](../release/production-migration-execution-policy.md)
   - 参考 [../release/migration-history-checksum-design.md](../release/migration-history-checksum-design.md)
 - migration prerequisite：
-  - 运行 `pnpm test:e2e:migration-prerequisites` 检查 `000175` / `000189` / `000194` 不变、
+  - 运行 `pnpm test:e2e:migration-prerequisites` 检查 `000175` / `000189` / `000194` / `000200` 不变、
     最小角色/模块目录边界、`000194` insert-only runtime-control 收敛、双 history 原子写入和权限修复矩阵
   - 空库执行 `pnpm db:migrate` 后，确认两张 history 表中的
     `prerequisite:000064_s3e_checkout_effective.sql:001_core_role_templates.sql`
@@ -128,7 +128,11 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - prerequisite 失败或 running 时不得继续目标 migration
   - Release Smoke 运行 `scripts/e2e/verify-000194-runtime-control-retry.sh`：先迁移到 `000193`，再写入
     production-shaped assignment/seed，证明空 runtime-control 集合会被只读门禁识别、由新 prerequisite
-    补齐，unchanged failed `000194` 重试成功；额外 key 与定义漂移必须在门禁和 prerequisite 双层失败
+    补齐，unchanged failed `000194` 重试成功；随后必须继续执行 `000195` 到 `000201` 与完整 production
+    seed 集合，回放 failed immutable-checksum `000200` 的受审 replacement，并验证 final v3、双 correction
+    audit 的时间/证据哈希绑定、generated checksum 和 immutable-source 成功记录兼容跳过；另以独立空库
+    按真实 `migration -> production seed` 顺序执行并重跑 seed，验证 seed 后新增 asset scope 收敛为 exact v3
+    与双 correction audit。post-v3 缺行、额外 key 与定义漂移必须失败关闭
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚
   - production seed 后检查 `OPERATIONS_OWNER`、`EXECUTIVE`、`AUDITOR` 的代表性安全/工程权限
 

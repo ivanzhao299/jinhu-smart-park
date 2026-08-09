@@ -1,0 +1,187 @@
+--- database/migrations/000200_property_b_migration_compatibility_control.sql
++++ database/migration-replacements/000200_property_b_migration_compatibility_control.replacement.sql
+@@ -613,0 +614,51 @@
++CREATE TEMP TABLE b0_runtime_control_contract (
++  contract_hash char(64) NOT NULL,
++  disabled_reason varchar(500) NOT NULL,
++  version integer NOT NULL,
++  requires_correction_audit boolean NOT NULL
++) ON COMMIT DROP;
++
++DO $runtime_control_stage$
++DECLARE
++  correction_history_count integer;
++  correction_history_any integer;
++BEGIN
++  SELECT count(*) FILTER (
++           WHERE history.filename='000194_property_task_projection_contract_correction.sql'
++             AND history.status='succeeded'
++             AND history.checksum='93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0'
++         )
++       + count(*) FILTER (
++           WHERE history.filename='000195_property_mutation_receipt_contract_v2.sql'
++             AND history.status='succeeded'
++             AND history.checksum='9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4'
++         ),
++         count(*)
++    INTO correction_history_count, correction_history_any
++  FROM (
++    SELECT filename,status,checksum FROM public.sys_schema_migration_history
++    UNION ALL
++    SELECT filename,status,checksum FROM public.schema_migrations
++  ) history
++  WHERE history.filename IN (
++    '000194_property_task_projection_contract_correction.sql',
++    '000195_property_mutation_receipt_contract_v2.sql'
++  );
++
++  IF correction_history_count=4 AND correction_history_any=4 THEN
++    INSERT INTO b0_runtime_control_contract VALUES (
++      'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944',
++      'b2a-contract-correction-000195', 3, true
++    );
++  ELSIF correction_history_any=0 THEN
++    INSERT INTO b0_runtime_control_contract VALUES (
++      'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8',
++      'expand-only', 1, false
++    );
++  ELSE
++    RAISE EXCEPTION 'property-runtime-control-migration-stage-drift'
++      USING ERRCODE='23514';
++  END IF;
++END;
++$runtime_control_stage$;
++
+@@ -622,2 +673,2 @@
+-  'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8',
+-  false, 'disabled', NULL, NULL, NULL, 'expand-only', 1
++  contract.contract_hash,
++  false, 'disabled', NULL, NULL, NULL, contract.disabled_reason, contract.version
+@@ -625,0 +677 @@
++CROSS JOIN b0_runtime_control_contract contract
+@@ -630,0 +683 @@
++  audit_drift boolean;
+@@ -640,2 +693 @@
+-      'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'::char(64)
+-        AS contract_hash,
++      contract.contract_hash,
+@@ -644 +696,5 @@
+-      'expand-only'::varchar AS disabled_reason
++      NULL::uuid AS enabled_by,
++      NULL::timestamptz AS enabled_at,
++      NULL::varchar AS approval_reference,
++      contract.disabled_reason,
++      contract.version
+@@ -646,0 +703 @@
++    CROSS JOIN b0_runtime_control_contract contract
+@@ -650 +707,2 @@
+-           contract_hash, enabled, control_mode, disabled_reason
++           contract_hash, enabled, control_mode, enabled_by, enabled_at,
++           approval_reference, disabled_reason, version
+@@ -661,0 +720,106 @@
++  END IF;
++
++  IF (SELECT requires_correction_audit FROM b0_runtime_control_contract) THEN
++    IF to_regclass('public.sys_property_runtime_control_contract_audit') IS NULL THEN
++      RAISE EXCEPTION 'property-runtime-control-correction-audit-drift'
++        USING ERRCODE='23514';
++    END IF;
++    EXECUTE $audit_validation$
++    SELECT EXISTS (
++      (SELECT scope.tenant_key,scope.park_key,control.control_key,correction.correction_key
++         FROM b0_validated_business_target_scope scope
++         CROSS JOIN b0_signed_runtime_control control
++         CROSS JOIN (VALUES
++           ('b2a-contract-correction-000194'),
++           ('b2a-contract-correction-000195')
++         ) correction(correction_key)
++       EXCEPT
++       SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
++         FROM public.sys_property_runtime_control_contract_audit audit)
++      UNION ALL
++      (SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
++         FROM public.sys_property_runtime_control_contract_audit audit
++        WHERE audit.correction_key IN (
++          'b2a-contract-correction-000194','b2a-contract-correction-000195'
++        )
++       EXCEPT
++       SELECT scope.tenant_key,scope.park_key,control.control_key,correction.correction_key
++         FROM b0_validated_business_target_scope scope
++         CROSS JOIN b0_signed_runtime_control control
++         CROSS JOIN (VALUES
++           ('b2a-contract-correction-000194'),
++           ('b2a-contract-correction-000195')
++         ) correction(correction_key))
++    ) OR EXISTS (
++      SELECT 1
++      FROM public.sys_property_runtime_control_contract_audit audit
++      JOIN public.sys_property_runtime_control runtime
++        ON runtime.tenant_id=audit.tenant_id
++       AND runtime.park_id=audit.park_id
++       AND runtime.id=audit.control_id
++      WHERE (audit.correction_key='b2a-contract-correction-000194' AND (
++          audit.control_key<>runtime.control_key
++          OR audit.old_contract_hash<>'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'
++          OR audit.new_contract_hash<>'81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
++          OR audit.old_version<>1 OR audit.new_version<>2
++          OR audit.old_disabled_reason<>'expand-only'
++          OR audit.new_disabled_reason<>'b2a-contract-correction-000194'
++          OR audit.new_update_time<>audit.occurred_at
++          OR audit.new_update_time<audit.old_update_time
++          OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
++            'runtime-control-contract-audit-v1'||E'\n'
++            ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
++            'UTF8'),'sha256'),'hex')
++        )) OR (audit.correction_key='b2a-contract-correction-000195' AND (
++          audit.control_key<>runtime.control_key
++          OR audit.old_contract_hash<>'81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
++          OR audit.new_contract_hash<>'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
++          OR audit.new_contract_hash<>runtime.contract_hash
++          OR audit.old_version<>2 OR audit.new_version<>3
++          OR audit.new_version<>runtime.version
++          OR audit.old_disabled_reason<>'b2a-contract-correction-000194'
++          OR audit.new_disabled_reason<>'b2a-contract-correction-000195'
++          OR audit.new_disabled_reason<>runtime.disabled_reason
++          OR audit.old_update_time IS DISTINCT FROM (
++            SELECT prior.new_update_time
++            FROM public.sys_property_runtime_control_contract_audit prior
++            WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
++              AND prior.control_id=audit.control_id
++              AND prior.correction_key='b2a-contract-correction-000194')
++          OR audit.new_update_time<>runtime.update_time
++          OR audit.occurred_at<>runtime.update_time
++          OR audit.new_update_time<audit.old_update_time
++          OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
++            'runtime-control-contract-audit-v2'||E'\n'
++            ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
++            'UTF8'),'sha256'),'hex')
++        ))
++    )
++    $audit_validation$ INTO audit_drift;
++    IF audit_drift THEN
++      RAISE EXCEPTION 'property-runtime-control-correction-audit-drift'
++        USING ERRCODE='23514';
++    END IF;

@@ -200,11 +200,12 @@ jobs:
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
           PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          RUN_PRODUCTION_SEED: ${{ steps.deploy-mode.outputs.run_production_seed }}
         run: |
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000194-runtime-control.sh
+            "sh -s -- enforce '$PROD_DEPLOY_PATH' '' '$RUN_PRODUCTION_SEED'" < scripts/diagnose-000194-runtime-control.sh
 
       - name: Write release marker
         if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
@@ -249,8 +250,13 @@ jobs:
             if ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
               "set -eu; rsync -a --delete \
                 --exclude='.env' --exclude='.env.*' --exclude='uploads/' --exclude='storage/' --exclude='data/' --exclude='tmp/' \
-                '$rollback_root/' '$PROD_DEPLOY_PATH/'; \
-                cd '$PROD_DEPLOY_PATH'; \
+                '$rollback_root/' '$PROD_DEPLOY_PATH/'" && \
+              rsync -azR \
+                -e "ssh $SSH_OPTS" \
+                scripts/db-migrate.sh database/migration-replacements.txt database/migration-replacements/ \
+                "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/" && \
+              ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+              "set -eu; cd '$PROD_DEPLOY_PATH'; \
                 docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml build api web; \
                 docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml up -d postgres api web; \
                 MODE=full sh scripts/prod-healthcheck.sh; \

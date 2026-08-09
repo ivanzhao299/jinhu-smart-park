@@ -55,6 +55,10 @@ const assetParkScopeSeedPath = resolve(
   root,
   "database/seeds/production/000007_asset_park_scope_reconcile.sql"
 );
+const propertyRuntimeControlSeedPath = resolve(
+  root,
+  "database/seeds/production/000008_property_runtime_control_scope_reconcile.sql"
+);
 const adminIssueRunnerMigrationPath = resolve(
   root,
   "database/migrations/000190_admin_issue_runner_repair.sql"
@@ -93,6 +97,11 @@ const permissionRepairSeedPath = resolve(
 );
 const runnerPath = resolve(root, "scripts/db-migrate.sh");
 const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
+const migrationReplacementsPath = resolve(root, "database/migration-replacements.txt");
+const propertyCompatibilityReplacementPatchPath = resolve(
+  root,
+  "database/migration-replacements/000200_property_b_migration_compatibility_control.patch"
+);
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
@@ -104,6 +113,7 @@ const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8"
 const assetParkScopeIdPrerequisite = readFileSync(assetParkScopeIdPrerequisitePath, "utf8");
 const assetParkScopePrerequisite = readFileSync(assetParkScopePrerequisitePath, "utf8");
 const assetParkScopeSeed = readFileSync(assetParkScopeSeedPath, "utf8");
+const propertyRuntimeControlSeed = readFileSync(propertyRuntimeControlSeedPath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
@@ -127,6 +137,11 @@ const propertyCompatibilitySignaturePrerequisite = readFileSync(
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
+const migrationReplacements = readFileSync(migrationReplacementsPath, "utf8");
+const propertyCompatibilityReplacementPatch = readFileSync(
+  propertyCompatibilityReplacementPatchPath,
+  "utf8"
+);
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
 const runtimeControlDiagnostic = readFileSync(runtimeControlDiagnosticPath, "utf8");
@@ -173,6 +188,38 @@ assert.equal(
   "685bf06141d5769c6139fa4e4c8f7453438997e3dd05f93c8979a98d2e5c978c",
   "reviewed 000200 catalog-signature prerequisite must remain byte-for-byte unchanged"
 );
+assert.equal(
+  createHash("sha256").update(propertyCompatibilityReplacementPatch).digest("hex"),
+  "06fe3ae6d3a4d70bcb3c1d55ab1af367c3c95ac9f9e2d4aee03524e2497d13c9",
+  "000200 replacement patch must remain byte-for-byte reviewed"
+);
+assert.deepEqual(
+  migrationReplacements
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
+  [
+    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|06fe3ae6d3a4d70bcb3c1d55ab1af367c3c95ac9f9e2d4aee03524e2497d13c9|d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b"
+  ],
+  "every migration replacement must be explicitly reviewed"
+);
+for (const replacementContract of [
+  "property-runtime-control-migration-stage-drift",
+  "property-runtime-control-correction-audit-drift",
+  "e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944",
+  "b2a-contract-correction-000195",
+  "requires_correction_audit",
+  "runtime-control-contract-audit-v1",
+  "runtime-control-contract-audit-v2",
+  "evidence_hash",
+  "approval_reference"
+]) {
+  assert.match(
+    propertyCompatibilityReplacementPatch,
+    new RegExp(replacementContract),
+    `000200 replacement is missing ${replacementContract}`
+  );
+}
 
 assert.match(
   propertyRuntimeCheckpointPrerequisite,
@@ -574,6 +621,29 @@ for (const forbiddenWrite of [
 }
 
 assert.match(runner, /MIGRATION_PREREQUISITES_DIR=/);
+assert.match(runner, /MIGRATION_REPLACEMENTS_FILE=/);
+assert.match(runner, /validate_migration_replacement_manifest\(\)/u);
+assert.match(runner, /migration replacement target is absent or duplicated/u);
+assert.match(runner, /prepare_migration_execution\(\)/u);
+assert.ok(
+  runner.indexOf("ensure_dependency patch") > runner.indexOf('replacement_rows="$(awk'),
+  "patch is required only after a replacement declaration matches the current migration"
+);
+assert.ok(
+  runner.indexOf('history_row="$(psql_query') <
+    runner.indexOf('prepare_migration_execution "$file" metadata'),
+  "migration history must be read before replacement metadata or SQL is prepared"
+);
+assert.match(
+  runner,
+  /if \[ "\$migration_prepare_mode" = "metadata" \]; then\s+return 0[\s\S]*?ensure_dependency patch/u,
+  "an already-succeeded replacement must skip without requiring patch"
+);
+assert.match(runner, /immutable migration source drifted before replacement/u);
+assert.match(runner, /migration replacement patch checksum drifted/u);
+assert.match(runner, /migration replacement output checksum drifted/u);
+assert.match(runner, /approved immutable source checksum; replacement not re-run/u);
+assert.match(runner, /psql_exec < "\$migration_execution_file"/u);
 assert.match(runner, /prerequisite:\$\{prerequisite_target_filename\}:\$\{prerequisite_filename\}/);
 assert.match(runner, /migration prerequisite changed after success/);
 assert.match(runner, /migration prerequisite is already marked running/);
@@ -641,6 +711,11 @@ assert.notEqual(
 assert.match(rollbackRelease, /docker compose --env-file \.env\.production/u);
 assert.match(rollbackRelease, /MODE=full sh scripts\/prod-healthcheck\.sh/u);
 assert.match(rollbackRelease, /PRUNE_DOCKER_BUILD_CACHE=yes sh scripts\/prod-docker-cleanup\.sh/u);
+assert.match(
+  rollbackRelease,
+  /scripts\/db-migrate\.sh database\/migration-replacements\.txt database\/migration-replacements\//u,
+  "source rollback must retain the candidate replacement-aware migration control plane"
+);
 assert.doesNotMatch(
   rollbackRelease,
   /(?:pnpm db:migrate|pnpm prod:deploy|RUN_PRODUCTION_SEED)/u,
@@ -681,11 +756,58 @@ assert.doesNotMatch(
   "production scope diagnostic must remain read-only"
 );
 assert.match(runtimeControlDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
+for (const requiredSeedContract of [
+  "production-runtime-control-migration-stage-drift",
+  "production-runtime-control-partial-state",
+  "production-runtime-control-000194-correction-count",
+  "production-runtime-control-000195-correction-count",
+  "production-runtime-control-postcondition-failed",
+  "b2a-contract-correction-000194",
+  "b2a-contract-correction-000195"
+]) {
+  assert.ok(
+    propertyRuntimeControlSeed.includes(requiredSeedContract),
+    `late-scope runtime-control seed is missing ${requiredSeedContract}`
+  );
+}
+assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
+assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
+assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
+assert.match(
+  propertyRuntimeControlSeed,
+  /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
+  "late-scope seed must bind the v2 audit start to the v1 audit completion"
+);
+assert.match(
+  propertyCompatibilityReplacementPatch,
+  /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
+  "000200 replacement must bind the v2 audit start to the v1 audit completion"
+);
 assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
-assert.match(runtimeControlDiagnostic, /ready_target_succeeded/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /runtime_compatibility_succeeded/u);
+assert.match(runtimeControlDiagnostic, /d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b/u);
+assert.match(runtimeControlDiagnostic, /missing_control/u);
 assert.match(runtimeControlDiagnostic, /ready_exact/u);
+assert.match(runtimeControlDiagnostic, /post_000194/u);
+assert.match(runtimeControlDiagnostic, /post_000195/u);
+assert.match(
+  productionDeployWorkflow,
+  /RUN_PRODUCTION_SEED: \$\{\{ steps\.deploy-mode\.outputs\.run_production_seed \}\}[\s\S]*?sh -s -- enforce '\$PROD_DEPLOY_PATH' '' '\$RUN_PRODUCTION_SEED'/u,
+  "runtime-control gate may allow a wholly missing scope only when this deployment will run production seed"
+);
+assert.match(runtimeControlDiagnostic, /migration_stage_drift/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /runtime_contract_stage" != "pre_000194".*table_present" = "no"/su,
+  "an absent runtime-control table is repairable only before 000194 succeeds"
+);
+assert.match(runtimeControlDiagnostic, /FULL JOIN schema_migrations standard_history USING \(filename\)/u);
+assert.match(runtimeControlDiagnostic, /"2\|2\|0\|2\|2\|2\|0\|2\|0"/u);
+assert.match(runtimeControlDiagnostic, /e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944/u);
 assert.match(runtimeControlDiagnostic, /extra_control_scope/u);
 assert.match(runtimeControlDiagnostic, /definition_drift/u);
 assert.match(runtimeControlDiagnostic, /missing_keys/u);

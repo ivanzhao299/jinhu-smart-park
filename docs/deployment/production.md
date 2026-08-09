@@ -380,10 +380,24 @@ Migration behavior:
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
 - The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
   `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
-  and non-sensitive control keys. `ready_missing_reconcile` means the ordered insert-only prerequisite can create
-  the missing fixed disabled controls; `extra_control`, `extra_control_scope`, `definition_drift`, or `invalid_scope`
-  stop before release sync and require audited investigation. The diagnostic never enables, updates, or deletes a
-  runtime control.
+  and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
+  prerequisite can create the missing fixed disabled controls. After `000194`, partial missing controls are
+  `missing_control` and fail closed because the successful correction cannot be replayed safely. At final
+  `post_000195`, an exact zero-control/zero-audit scope is `ready_missing_seed_reconcile` only after `000200` has an
+  approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
+  seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
+  migration execution precedes seed execution.
+  The same state remains blocked when seed execution is disabled. `extra_control`,
+  `extra_control_scope`,
+  `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
+  whole control table being absent after `000194` is also migration-stage drift. The diagnostic never enables,
+  updates, or deletes a runtime control. The classifier follows the immutable migration
+  stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown
+  history stage is `migration_stage_drift` and blocks.
+- The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
+  `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
+  verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database
+  that previously succeeded the immutable source checksum is skipped and never re-executed.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
@@ -520,8 +534,10 @@ Migration execution behavior:
   history tables. The runner then deletes only the duplicate legacy identity in one transaction. Missing markers,
   status drift, checksum drift, or cross-table disagreement still stop before migration execution.
 - The GitHub source rollback rebuilds and health-checks the previous application snapshot without running that older
-  snapshot's migration or production-seed manifest. Database migrations remain forward-only; database recovery still
-  requires the release backup and an explicit operator decision.
+  snapshot's migration or production-seed manifest. It overlays only the candidate's reviewed migration runner and
+  replacement manifest/patches so a forward-applied replacement checksum remains readable after application-source
+  rollback. Database migrations remain forward-only; database recovery still requires the release backup and an
+  explicit operator decision.
 - The `000189` prerequisite chain restores the historical `asset_park` scope-column type contract before deriving a
   missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
   fails closed on unexpected schema types or ambiguous canonical scope data. One existing active asset projection is
@@ -534,6 +550,13 @@ Migration execution behavior:
   and a non-exact postcondition fail before unchanged `000194`; a previously succeeded unchanged target is recognized
   only from matching status/checksum in both history tables so the retroactive prerequisite does not reverse its
   audited correction.
+- Release Smoke then continues the same non-empty production-shaped fixture through `000195`, `000197`–`000201`
+  and the complete production seed set. It reproduces a failed immutable-checksum `000200`, verifies the reviewed
+  replacement reaches final v3 with complete timestamp-bound correction evidence, proves post-v3 missing controls
+  fail closed, and proves an already-succeeded immutable source remains skipped. A separate empty-database replay
+  follows the real migration-before-seed order; `000008_property_runtime_control_scope_reconcile.sql` initializes
+  only wholly missing late-created asset scopes through the audited v1 -> v2 -> v3 transition and rejects partial
+  or drifting states.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

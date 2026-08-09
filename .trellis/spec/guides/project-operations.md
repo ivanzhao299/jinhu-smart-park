@@ -42,7 +42,9 @@ Reference files:
   table. If both tables already existed, never backfill missing rows between them before the FULL JOIN consistency
   audit; an incomplete alias or migration audit must remain visible and fail closed.
 - A source rollback may rebuild and health-check the previous application snapshot, but it must not run that older
-  snapshot's migration or production-seed manifest against a forward-migrated database.
+  snapshot's migration or production-seed manifest against a forward-migrated database. Overlay the reviewed
+  candidate migration runner and replacement manifest/patches after restoring application source so a replacement
+  execution checksum already committed to history remains readable.
 - Source rollback does not reverse database state. Use the release backup and an explicit database-owner decision for
   database recovery.
 
@@ -92,15 +94,66 @@ Reference files:
   migration-before-seed empty-database fixture: an empty target scope makes the check vacuously pass. Rehearse the
   production order by migrating to the predecessor, creating the non-empty assignment shape, then applying the
   prerequisite and unchanged target. The matching read-only predeploy classifier must distinguish deterministic
-  insert-only convergence from extra rows or definition drift; only the former may proceed to migration.
+  insert-only convergence from extra rows or definition drift; only the former may proceed to migration. Continue
+  that same non-empty fixture through every dependent pending migration and the production seed; stopping after the
+  first repaired target can hide a later migration that still asserts an obsolete contract state.
+- Keep reviewed historical migration bytes immutable. When a pending/failed target must execute corrected SQL but
+  an older environment may already have succeeded the immutable source, use a narrowly reviewed replacement manifest
+  with source, patch, and generated-output SHA-256. Execute the generated SQL only for absent/failed history, accept
+  the immutable checksum only as a skip identity, and fail closed for every other succeeded checksum.
 - Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
   If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
   never publish a release marker from `web` or `fast-css` while deferring required seed work.
 
 Reference files:
+- `database/migration-replacements.txt`
 - `scripts/db-migrate.sh`
 - `.github/workflows/ci.yml`
 - `docs/release/production-migration-execution-policy.md`
+
+### Executable Contract: Immutable Migration Replacement
+
+#### 1. Scope / Trigger
+
+- Trigger only when a reviewed immutable migration is pending/failed in the runner's real order, while an older
+  long-lived environment may already have succeeded the same immutable source.
+
+#### 2. Signatures
+
+- Manifest row: `filename|immutable_source_sha256|patch_filename|patch_sha256|execution_sha256`.
+- Runner inputs: `MIGRATION_REPLACEMENTS_FILE` and `MIGRATION_REPLACEMENTS_DIR`.
+
+#### 3. Contracts
+
+- `filename` must exist exactly once in the default migration manifest; subset test manifests may omit it.
+- `patch_filename` is a plain `.patch` file. All three hashes are lowercase 64-character SHA-256 values.
+- The immutable source file is never edited. Generated SQL is executed under the original migration filename.
+
+#### 4. Validation & Error Matrix
+
+- missing/duplicate target -> `migration replacement target is absent or duplicated`.
+- source, patch, or generated output hash mismatch -> fail before SQL execution.
+- history `failed`/absent -> execute generated SQL and record `execution_sha256`.
+- history `succeeded|immutable_source_sha256` -> skip without changing history.
+- history `succeeded|execution_sha256` -> normal skip; every other succeeded checksum -> fail closed.
+
+#### 5. Good / Base / Bad Cases
+
+- Good: production failed source checksum retries generated SQL and converges.
+- Base: clean database executes generated SQL; an old successful database skips immutable source identity.
+- Bad: unknown success checksum, orphan manifest row, patch drift, mixed runtime contract, or partial dual history.
+
+#### 6. Tests Required
+
+- Static contract freezes source/patch/manifest hashes and runner branches.
+- Disposable PostgreSQL fixture must assert failed retry, generated success history, immutable-source skip, unknown
+  success rejection, full dependent migration tail, production seed, and post-state hashes/audits.
+
+#### 7. Wrong vs Correct
+
+- Wrong: edit the immutable SQL, downgrade final rows in a prerequisite, or stop the fixture after the first repair.
+- Correct: patch only pending/failed execution, preserve final audited state, and run the non-empty fixture through
+  every dependent migration and seed.
 
 ### Deployment Artifact Cleanup Contract
 

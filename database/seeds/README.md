@@ -10,6 +10,7 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 - `production/000005_admin_issue_runner_baseline.sql`
 - `production/000006_property_track_b_permission_reconcile.sql`
 - `production/000007_asset_park_scope_reconcile.sql`
+- `production/000008_property_runtime_control_scope_reconcile.sql`
 
 Production execution:
 
