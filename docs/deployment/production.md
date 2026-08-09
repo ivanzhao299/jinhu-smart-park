@@ -378,6 +378,12 @@ Migration behavior:
 - A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`. Only the fixed default scope may use the globally unique active `park_code=JH` baseline when the JH row retained legacy IDs or when other active business parks share the default scope. Invalid scope, duplicate assets, non-unique JH, or unbounded missing/ambiguous sources still stop deployment.
 - After initializing required Compose secrets but before an API/full deployment syncs application release source or runs migrations, GitHub Actions executes the same `000189` scope classification in read-only enforce mode. Operators can select `diagnose-000189-scope` manually to print only tenant/park identifiers, classification, and aggregate building/floor/unit/org counts. That mode does not sync source, write `.release.json`, migrate, seed, deploy, or run UAT.
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
+- The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
+  `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
+  and non-sensitive control keys. `ready_missing_reconcile` means the ordered insert-only prerequisite can create
+  the missing fixed disabled controls; `extra_control`, `extra_control_scope`, `definition_drift`, or `invalid_scope`
+  stop before release sync and require audited investigation. The diagnostic never enables, updates, or deletes a
+  runtime control.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
@@ -522,6 +528,12 @@ Migration execution behavior:
   accepted without requiring a duplicate `biz_park`; a missing projection prefers a unique same-scope park. Only the
   fixed `10000001/20000001` production scope may select the globally unique active `park_code=JH` row retained
   under legacy scope IDs or alongside other active parks in that fixed default scope.
+- The `000194` prerequisite chain first forward-declares the later authoritative runtime-control table, then derives
+  every valid active asset-assignment scope and inserts only missing rows from the fixed 12-control disabled manifest.
+  Existing rows are never overwritten or removed. Extra controls, noncanonical definitions/states, invalid scopes,
+  and a non-exact postcondition fail before unchanged `000194`; a previously succeeded unchanged target is recognized
+  only from matching status/checksum in both history tables so the retroactive prerequisite does not reverse its
+  audited correction.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

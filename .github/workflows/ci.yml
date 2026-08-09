@@ -897,6 +897,9 @@ jobs:
           )"
           test "$retry_state" = "varchar:64,varchar:64|1|3|6|2"
 
+      - name: Verify failed 000194 runtime-control retry from production-shaped state
+        run: scripts/e2e/verify-000194-runtime-control-retry.sh
+
       - name: Verify repaired core-role permissions
         run: |
           repaired_grant_count="$(

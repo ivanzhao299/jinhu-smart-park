@@ -45,9 +45,12 @@
   - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
     `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
     兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
-  - `000194` 的 prerequisite 同样只前置创建其 guard 所需、原顺序到 `000200` 才定义的
-    `sys_property_runtime_control` 表及索引；所有 control 默认禁用，不插入控制记录，定义与
-    `000200` 完全兼容。
+  - `000194` 的第一个 prerequisite 前置创建其 guard 所需、原顺序到 `000200` 才定义的
+    `sys_property_runtime_control` 表及索引，定义与 `000200` 完全兼容。第二个 prerequisite 从
+    active `asset` assignment 严格派生 scope，只插入缺失的固定 12 个 disabled controls，使 unchanged
+    `000194` 能处理 migration-before-seed 与生产已有 assignment 的顺序差异；它不 UPDATE/DELETE，遇到
+    额外 control、已有定义/状态漂移或非法 scope 继续 fail closed。若双 history 已证明 unchanged
+    `000194` 按固定 checksum 成功，则 retroactive prerequisite 只记录自身历史，不回写已 correction 的 rows。
   - `000200` 的 prerequisite 在签署这两张前置表的 catalog 注释前，先校验 57 个表、列、
     约束和索引对象的固定聚合 SHA-256；任何结构漂移都会 fail closed。该前置项只创建会话级
     临时视图和 COMMENT，不改永久 schema 或业务数据。
@@ -85,6 +88,9 @@
 - seed 和 migration 边界存在混淆风险。
 - `ON CONFLICT` 目标与当前 partial unique index 漂移会在运行时产生 PostgreSQL 42P10；数据库相关 PR
   必须通过 fresh-schema Release Smoke，并同步检查后续 join 是否使用同一业务唯一键。
+- fresh-schema migration-before-seed 可能因为 target scope 为空而让 exact-set guard vacuously pass；任何
+  从持久化 assignment 派生目标集合的 migration 都必须增加“先迁移到前一版本、再写入生产形态 assignment、
+  最后重试目标 migration”的独立 PostgreSQL fixture，并在发布副作用前运行同源只读 parity gate。
 
 当前仓库已观察到的重复编号现象：
 

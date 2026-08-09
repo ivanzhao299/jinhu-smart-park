@@ -12,6 +12,7 @@ const reviewedPrerequisiteFiles = [
   "000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql",
   "000193_property_b_runtime_integrity_forward_fix/001_property_runtime_checkpoint.sql",
   "000194_property_task_projection_contract_correction/001_property_runtime_control.sql",
+  "000194_property_task_projection_contract_correction/002_runtime_control_scope_reconcile.sql",
   "000200_property_b_migration_compatibility_control/001_sign_forward_declared_runtime_catalog.sql"
 ];
 const discoveredPrerequisiteFiles = readdirSync(migrationPrerequisitesRoot, {
@@ -74,6 +75,10 @@ const propertyRuntimeControlPrerequisitePath = resolve(
   root,
   "database/migration-prerequisites/000194_property_task_projection_contract_correction/001_property_runtime_control.sql"
 );
+const propertyRuntimeControlScopePrerequisitePath = resolve(
+  root,
+  "database/migration-prerequisites/000194_property_task_projection_contract_correction/002_runtime_control_scope_reconcile.sql"
+);
 const propertyCompatibilityMigrationPath = resolve(
   root,
   "database/migrations/000200_property_b_migration_compatibility_control.sql"
@@ -90,6 +95,7 @@ const runnerPath = resolve(root, "scripts/db-migrate.sh");
 const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
+const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -109,6 +115,10 @@ const propertyRuntimeControlPrerequisite = readFileSync(
   propertyRuntimeControlPrerequisitePath,
   "utf8"
 );
+const propertyRuntimeControlScopePrerequisite = readFileSync(
+  propertyRuntimeControlScopePrerequisitePath,
+  "utf8"
+);
 const propertyCompatibilityMigration = readFileSync(propertyCompatibilityMigrationPath, "utf8");
 const propertyCompatibilitySignaturePrerequisite = readFileSync(
   propertyCompatibilitySignaturePrerequisitePath,
@@ -119,6 +129,7 @@ const runner = readFileSync(runnerPath, "utf8");
 const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
+const runtimeControlDiagnostic = readFileSync(runtimeControlDiagnosticPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -207,6 +218,47 @@ assert.equal(
   ),
   false,
   "000194 prerequisite must not contain data writes or destructive DDL"
+);
+for (const requiredReconcileContract of [
+  "BEGIN;",
+  "SET LOCAL search_path = public, pg_catalog;",
+  "LOCK TABLE public.sys_property_runtime_control IN SHARE ROW EXCLUSIVE MODE;",
+  "property_runtime_control_target_history",
+  "93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0",
+  "property_runtime_control_signed_manifest",
+  "property_runtime_control_target_scope",
+  "module.module_code = 'asset'",
+  "property-runtime-control-scope-reconcile-preflight-failed",
+  "property-runtime-control-scope-reconcile-extra-control",
+  "property-runtime-control-scope-reconcile-definition-drift",
+  "ON CONFLICT (tenant_id, park_id, control_key) DO NOTHING",
+  "property-runtime-control-scope-reconcile-postcondition-failed",
+  "COMMIT;"
+]) {
+  assert.ok(
+    propertyRuntimeControlScopePrerequisite.includes(requiredReconcileContract),
+    `000194 runtime-control reconciliation prerequisite is missing ${requiredReconcileContract}`
+  );
+}
+const runtimeControlScopeWrites = [
+  ...propertyRuntimeControlScopePrerequisite.matchAll(
+    /^\s*(INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:public\.)?([a-z_][a-z0-9_]*)/gim
+  )
+].map((match) => `${match[1].toUpperCase()} ${match[2]}`);
+assert.deepEqual(
+  runtimeControlScopeWrites,
+  [
+    "INSERT INTO property_runtime_control_target_history",
+    "INSERT INTO property_runtime_control_signed_manifest",
+    "INSERT INTO property_runtime_control_target_scope",
+    "INSERT INTO sys_property_runtime_control"
+  ],
+  "000194 runtime-control reconciliation prerequisite must remain insert-only"
+);
+assert.doesNotMatch(
+  propertyRuntimeControlScopePrerequisite,
+  /^\s*(?:UPDATE|DELETE\s+FROM|MERGE|ALTER|DROP|TRUNCATE)\b/im,
+  "000194 runtime-control reconciliation prerequisite must not rewrite or delete evidence"
 );
 assert.match(
   propertyCompatibilitySignaturePrerequisite,
@@ -628,14 +680,40 @@ assert.doesNotMatch(
   /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
   "production scope diagnostic must remain read-only"
 );
+assert.match(runtimeControlDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
+assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_target_succeeded/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_exact/u);
+assert.match(runtimeControlDiagnostic, /extra_control_scope/u);
+assert.match(runtimeControlDiagnostic, /definition_drift/u);
+assert.match(runtimeControlDiagnostic, /missing_keys/u);
+assert.match(runtimeControlDiagnostic, /extra_keys/u);
+assert.match(runtimeControlDiagnostic, /\$1 !~ \/\^ready_\//u);
+assert.doesNotMatch(
+  runtimeControlDiagnostic,
+  /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
+  "production runtime-control diagnostic must remain read-only"
+);
 const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
 const enforceScopeStep = productionDeployWorkflow.indexOf(
   "Enforce 000189 asset scope parity before deployment"
 );
 const deployStep = productionDeployWorkflow.indexOf("      - name: Deploy");
+const enforceRuntimeControlStep = productionDeployWorkflow.indexOf(
+  "Enforce 000194 runtime control parity before deployment"
+);
 assert.ok(
-  ensureSecretsStep !== -1 && ensureSecretsStep < enforceScopeStep && enforceScopeStep < deployStep,
-  "normal deployment must initialize required secrets, then enforce scope parity before release sync"
+  ensureSecretsStep !== -1 &&
+    ensureSecretsStep < enforceScopeStep &&
+    enforceScopeStep < enforceRuntimeControlStep &&
+    enforceRuntimeControlStep < deployStep,
+  "normal deployment must initialize secrets and enforce both migration parity gates before release sync"
+);
+assert.match(
+  productionDeployWorkflow,
+  /Diagnose 000194 runtime control parity \(read-only\)[\s\S]*?diagnose-000194-runtime-control[\s\S]*?diagnose-000194-runtime-control\.sh/u
 );
 
 const historyWrite = runner.slice(
