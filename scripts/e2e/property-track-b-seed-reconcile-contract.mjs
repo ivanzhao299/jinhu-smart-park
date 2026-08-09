@@ -291,10 +291,12 @@ for (const forbiddenWriteTarget of [
 
 for (const repairToken of [
   "BEGIN;",
-  "role.code = 'JH_LEASING_LEAD'",
+  "LOCK TABLE rel_role_perm IN SHARE ROW EXCLUSIVE MODE;",
+  "VALUES ('INVEST_MANAGER'), ('JH_LEASING_LEAD')",
   "permission.code = 'workorder:create'",
-  "role_total_count NOT IN (0, 1)",
-  "role_active_count <> role_total_count",
+  "total_count NOT IN (0, 1)",
+  "active_count <> total_count",
+  "invalid_role_count <> 0",
   "permission_count <> 1",
   "INSERT INTO rel_role_perm",
   "WHERE scope.role_id IS NOT NULL",
@@ -310,10 +312,10 @@ assert.equal(
   false,
   "leasing-lead repair must only bind an existing role to an existing permission"
 );
-assert.equal(
-  /role\.code\s*=\s*'(?!JH_LEASING_LEAD)[^']+'/i.test(leasingLeadRepair),
-  false,
-  "leasing-lead repair must not widen the grant to another role"
+assert.match(
+  leasingLeadRepair,
+  /INSERT INTO jh_leasing_lead_expected_role \(role_code\)\s*VALUES \('INVEST_MANAGER'\), \('JH_LEASING_LEAD'\);/,
+  "leasing-lead repair must keep the reviewed two-role alias set exact"
 );
 
 assert.match(

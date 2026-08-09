@@ -132,8 +132,8 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
     seed 集合，回放 failed immutable-checksum `000200` 的受审 replacement，并验证 final v3、双 correction
     audit 的时间/证据哈希绑定、generated checksum 和 immutable-source 成功记录兼容跳过；另以独立空库
     按真实 `migration -> production seed` 顺序执行并重跑 seed，验证 seed 后新增 asset scope 收敛为 exact v3
-    与双 correction audit；若 fixture 存在当前 `JH_LEASING_LEAD` 责任角色，还必须验证 000009 唯一补授
-    `workorder:create`。post-v3 缺行、额外 key 与定义漂移必须失败关闭
+    与双 correction audit；fixture 必须验证 000009 为 `INVEST_MANAGER` / `JH_LEASING_LEAD` 两个受审
+    招商负责人角色别名各自唯一补授 `workorder:create`。post-v3 缺行、额外 key 与定义漂移必须失败关闭
   - CI workflow 的 run shell 必须显式启用 `pipefail`；任何通过 `tee` 留存日志的 migration、seed、
     bootstrap、baseline 或 login 命令都必须传播原命令的非零退出码
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚

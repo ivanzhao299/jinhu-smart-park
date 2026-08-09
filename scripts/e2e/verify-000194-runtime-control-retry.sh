@@ -557,6 +557,33 @@ grep -Fq 'summary: scopes=1 blocked=0 mode=enforce table=present contract_stage=
 ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order.log"
 
+fresh_order_absent_alias_state="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT
+      (SELECT count(*) FROM public.sys_role
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND code='JH_LEASING_LEAD'),
+      (SELECT count(*)
+       FROM public.sys_role role
+       JOIN public.rel_role_perm relation
+         ON relation.tenant_id=role.tenant_id
+        AND relation.park_id=role.park_id
+        AND relation.role_id=role.id
+        AND relation.is_deleted=false
+       JOIN public.sys_permission permission
+         ON permission.id=relation.permission_id
+        AND permission.tenant_id=role.tenant_id
+        AND permission.park_id=role.park_id
+        AND permission.code='workorder:create'
+        AND permission.is_deleted=false
+       WHERE role.tenant_id='10000001' AND role.park_id='20000001'
+         AND role.code='INVEST_MANAGER'
+         AND role.is_enabled=true AND role.status='enabled'
+         AND role.is_deleted=false);"
+)"
+test "$fresh_order_absent_alias_state" = '0|1'
+
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" <<'SQL'
 INSERT INTO public.biz_park (
@@ -579,10 +606,46 @@ VALUES (
   '10000001', '20000001', 'JH_LEASING_LEAD', '园区招商负责人',
   NULL, 'JH_LEASING_LEAD', 1, 1, 120, 'park', 'park', 'self',
   '{}'::jsonb, false, false, false, false,
-  true, true, true, true, 'enabled',
+  true, true, true, false, 'disabled',
   'Release Smoke 2026 responsibility-role fixture'
 );
 SQL
+
+if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    < database/seeds/production/000009_jh_leasing_lead_workorder_create_repair.sql \
+    > "$log_root/db-seed-000009-inactive-role.log" 2>&1; then
+  echo 'Expected production seed 000009 to reject an inactive reviewed role alias' >&2
+  exit 1
+fi
+grep -Fq 'jh-leasing-lead-workorder-create-preflight-failed' \
+  "$log_root/db-seed-000009-inactive-role.log"
+
+fresh_order_inactive_alias_grant_count="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT count(*)
+        FROM public.sys_role role
+        JOIN public.rel_role_perm relation
+          ON relation.tenant_id=role.tenant_id
+         AND relation.park_id=role.park_id
+         AND relation.role_id=role.id
+         AND relation.is_deleted=false
+        JOIN public.sys_permission permission
+          ON permission.id=relation.permission_id
+         AND permission.code='workorder:create'
+         AND permission.is_deleted=false
+        WHERE role.tenant_id='10000001' AND role.park_id='20000001'
+          AND role.code='JH_LEASING_LEAD';"
+)"
+test "$fresh_order_inactive_alias_grant_count" -eq 0
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_role
+      SET is_enabled=true, status='enabled', update_time=clock_timestamp()
+      WHERE tenant_id='10000001' AND park_id='20000001'
+        AND code='JH_LEASING_LEAD' AND is_deleted=false;"
 
 fresh_order_visibility_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -683,11 +746,11 @@ fresh_order_leasing_workorder_grant_count="$(
          AND permission.code='workorder:create'
          AND permission.is_deleted=false
         WHERE role.tenant_id='10000001' AND role.park_id='20000001'
-          AND role.code='JH_LEASING_LEAD'
+          AND role.code IN ('INVEST_MANAGER','JH_LEASING_LEAD')
           AND role.is_enabled=true AND role.status='enabled'
           AND role.is_deleted=false;"
 )"
-test "$fresh_order_leasing_workorder_grant_count" -eq 1
+test "$fresh_order_leasing_workorder_grant_count" -eq 2
 
 fresh_order_state="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
