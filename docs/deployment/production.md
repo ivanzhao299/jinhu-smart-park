@@ -380,9 +380,10 @@ Migration behavior:
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
 - The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
   `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
-  and non-sensitive control keys. Before final v3, `ready_missing_reconcile` means the ordered insert-only prerequisite
-  can create the missing fixed disabled controls. After `000195`, missing controls are `missing_control` and fail
-  closed because recreating v3 requires both correction audits. `extra_control`, `extra_control_scope`,
+  and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
+  prerequisite can create the missing fixed disabled controls. After `000194`, missing controls are `missing_control`
+  and fail closed because the successful correction cannot be replayed to create its audit evidence. `extra_control`,
+  `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
   diagnostic never enables, updates, or deletes a runtime control. The classifier follows the immutable migration
   stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown

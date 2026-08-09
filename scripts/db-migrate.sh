@@ -535,6 +535,7 @@ EOF
     exit 1
   fi
 
+  ensure_dependency patch
   migration_execution_file="$TMP_DIR/replacement.$migration_source_filename"
   cp "$migration_source_file" "$migration_execution_file"
   if ! patch -s "$migration_execution_file" < "$replacement_patch_file"; then
@@ -812,7 +813,6 @@ fi
 
 ensure_dependency sha256sum
 ensure_dependency awk
-ensure_dependency patch
 
 find "$MIGRATIONS_DIR" -maxdepth 1 -type f -name '*.sql' | LC_ALL=C sort > "$FILES_LIST"
 

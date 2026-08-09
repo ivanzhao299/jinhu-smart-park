@@ -185,7 +185,7 @@ assert.equal(
 );
 assert.equal(
   createHash("sha256").update(propertyCompatibilityReplacementPatch).digest("hex"),
-  "ce8e31af1f6be7898ad0ecb430c3377449f399c50b9813c8f8946aa513f7bcc8",
+  "c734329e8b9c66c7ec8ded54f143edaf7d57177aac9f3888abc0b9bda735b4ec",
   "000200 replacement patch must remain byte-for-byte reviewed"
 );
 assert.deepEqual(
@@ -194,7 +194,7 @@ assert.deepEqual(
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#")),
   [
-    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|ce8e31af1f6be7898ad0ecb430c3377449f399c50b9813c8f8946aa513f7bcc8|a62c84510ed6bf013f31e35fc998c09748c6edf028caa835c7ce67792c9c57fc"
+    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|c734329e8b9c66c7ec8ded54f143edaf7d57177aac9f3888abc0b9bda735b4ec|946dc96d73f2382986e1dd172ad90cc8fa563d6d14271c9fc7ef5fe17d321efe"
   ],
   "every migration replacement must be explicitly reviewed"
 );
@@ -206,7 +206,8 @@ for (const replacementContract of [
   "requires_correction_audit",
   "runtime-control-contract-audit-v1",
   "runtime-control-contract-audit-v2",
-  "evidence_hash"
+  "evidence_hash",
+  "approval_reference"
 ]) {
   assert.match(
     propertyCompatibilityReplacementPatch,
@@ -619,6 +620,10 @@ assert.match(runner, /MIGRATION_REPLACEMENTS_FILE=/);
 assert.match(runner, /validate_migration_replacement_manifest\(\)/u);
 assert.match(runner, /migration replacement target is absent or duplicated/u);
 assert.match(runner, /prepare_migration_execution\(\)/u);
+assert.ok(
+  runner.indexOf("ensure_dependency patch") > runner.indexOf('replacement_rows="$(awk'),
+  "patch is required only after a replacement declaration matches the current migration"
+);
 assert.match(runner, /immutable migration source drifted before replacement/u);
 assert.match(runner, /migration replacement patch checksum drifted/u);
 assert.match(runner, /migration replacement output checksum drifted/u);
@@ -745,7 +750,7 @@ assert.match(runtimeControlDiagnostic, /post_000194/u);
 assert.match(runtimeControlDiagnostic, /post_000195/u);
 assert.match(runtimeControlDiagnostic, /migration_stage_drift/u);
 assert.match(runtimeControlDiagnostic, /FULL JOIN schema_migrations standard_history USING \(filename\)/u);
-assert.match(runtimeControlDiagnostic, /"2\|2\|2\|2\|0"/u);
+assert.match(runtimeControlDiagnostic, /"2\|2\|0\|2\|2\|2\|0\|2\|0"/u);
 assert.match(runtimeControlDiagnostic, /e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944/u);
 assert.match(runtimeControlDiagnostic, /extra_control_scope/u);
 assert.match(runtimeControlDiagnostic, /definition_drift/u);

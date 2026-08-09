@@ -65,16 +65,20 @@
 -      'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'::char(64)
 -        AS contract_hash,
 +      contract.contract_hash,
-@@ -644 +696,2 @@
+@@ -644 +696,5 @@
 -      'expand-only'::varchar AS disabled_reason
++      NULL::uuid AS enabled_by,
++      NULL::timestamptz AS enabled_at,
++      NULL::varchar AS approval_reference,
 +      contract.disabled_reason,
 +      contract.version
-@@ -646,0 +700 @@
+@@ -646,0 +703 @@
 +    CROSS JOIN b0_runtime_control_contract contract
-@@ -650 +704 @@
+@@ -650 +707,2 @@
 -           contract_hash, enabled, control_mode, disabled_reason
-+           contract_hash, enabled, control_mode, disabled_reason, version
-@@ -661,0 +716,100 @@
++           contract_hash, enabled, control_mode, enabled_by, enabled_at,
++           approval_reference, disabled_reason, version
+@@ -661,0 +720,100 @@
 +  END IF;
 +
 +  IF (SELECT requires_correction_audit FROM b0_runtime_control_contract) THEN

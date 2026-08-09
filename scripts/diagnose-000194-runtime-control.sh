@@ -58,10 +58,18 @@ SELECT
     AND status='succeeded'
     AND checksum='93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0'),
   count(*) FILTER (WHERE filename='000194_property_task_projection_contract_correction.sql'),
+  count(*) FILTER (WHERE filename='000194_property_task_projection_contract_correction.sql'
+    AND status='failed'),
+  count(*) FILTER (WHERE filename='000194_property_task_projection_contract_correction.sql'
+    AND status='succeeded'),
   count(*) FILTER (WHERE filename='000195_property_mutation_receipt_contract_v2.sql'
     AND status='succeeded'
     AND checksum='9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4'),
   count(*) FILTER (WHERE filename='000195_property_mutation_receipt_contract_v2.sql'),
+  count(*) FILTER (WHERE filename='000195_property_mutation_receipt_contract_v2.sql'
+    AND status='failed'),
+  count(*) FILTER (WHERE filename='000195_property_mutation_receipt_contract_v2.sql'
+    AND status='succeeded'),
   (SELECT count(*)
    FROM sys_schema_migration_history primary_history
    FULL JOIN schema_migrations standard_history USING (filename)
@@ -90,9 +98,13 @@ SQL
     exit "$rc"
   }
   case "$correction_history_state" in
-    "2|2|2|2|0") runtime_contract_stage="post_000195" ;;
-    "2|2|0|0|0"|"2|2|0|2|0") runtime_contract_stage="post_000194" ;;
-    "0|0|0|0|0"|"0|2|0|0|0") runtime_contract_stage="pre_000194" ;;
+    "2|2|0|2|2|2|0|2|0") runtime_contract_stage="post_000195" ;;
+    "2|2|0|2|0|0|0|0|0"|"2|2|0|2|0|2|2|0|0")
+      runtime_contract_stage="post_000194"
+      ;;
+    "0|0|0|0|0|0|0|0|0"|"0|2|2|0|0|0|0|0|0")
+      runtime_contract_stage="pre_000194"
+      ;;
     *) runtime_contract_stage="invalid" ;;
   esac
 fi
@@ -248,7 +260,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         OR tenant_count <> 1 OR asset_count <> 1 THEN 'invalid_scope'
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
-      WHEN missing_count <> 0 AND :'runtime_contract_stage'='post_000195'
+      WHEN missing_count <> 0 AND :'runtime_contract_stage'<>'pre_000194'
         THEN 'missing_control'
       WHEN missing_count <> 0 THEN 'ready_missing_reconcile'
       ELSE 'ready_exact'

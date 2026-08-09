@@ -183,12 +183,36 @@ grep -Fq 'ready_exact|10000001|20000001|12|12|0|0|0||' \
 grep -Fq 'contract_stage=post_000194' \
   "$log_root/db-migrate-000194-runtime-control-post-success.log"
 
+# Canonical stage selection must reject a succeeded correction row whose
+# checksum is unknown, before release source synchronization.
+unknown_correction_checksum='0000000000000000000000000000000000000000000000000000000000000000'
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET checksum='$unknown_correction_checksum'
+        WHERE filename='$target_migration';
+      UPDATE public.schema_migrations SET checksum='$unknown_correction_checksum'
+        WHERE filename='$target_migration';"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+    > "$log_root/db-migrate-000194-unknown-succeeded-checksum.log" 2>&1; then
+  echo 'Expected an unknown succeeded 000194 checksum to fail the deployment gate' >&2
+  exit 1
+fi
+grep -Fq 'migration_stage_drift' \
+  "$log_root/db-migrate-000194-unknown-succeeded-checksum.log"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET checksum='$target_checksum'
+        WHERE filename='$target_migration';
+      UPDATE public.schema_migrations SET checksum='$target_checksum'
+        WHERE filename='$target_migration';"
+
 # Reproduce the production boundary: 000194 succeeded, 000195 advances every
 # control to v3, while the immutable 000200 source is recorded failed with its
 # original checksum. The runner must execute the reviewed replacement without
 # rewriting the immutable source migration.
 original_000200_checksum='da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a'
-replacement_000200_checksum='a62c84510ed6bf013f31e35fc998c09748c6edf028caa835c7ce67792c9c57fc'
+replacement_000200_checksum='946dc96d73f2382986e1dd172ad90cc8fa563d6d14271c9fc7ef5fe17d321efe'
 copy_tail='no'
 for migration in database/migrations/*.sql; do
   migration_name="$(basename "$migration")"
@@ -288,6 +312,31 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
       ALTER TABLE public.sys_property_runtime_control_contract_audit
         ENABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;"
 
+# A non-null approval reference is invalid in the canonical disabled v3 state
+# even though the table-level disabled check permits it.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_property_runtime_control
+        SET approval_reference='release-smoke-definition-drift'
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND control_key='task.enforce';"
+if POSTGRES_DB="$retry_db" \
+  MIGRATIONS_DIR="$retry_migrations" \
+  MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+  MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+    sh scripts/db-migrate.sh > "$log_root/db-migrate-000200-approval-reference-drift.log" 2>&1; then
+  echo 'Expected a v3 approval reference to fail the replacement' >&2
+  exit 1
+fi
+grep -Fq 'property-runtime-control-definition-drift' \
+  "$log_root/db-migrate-000200-approval-reference-drift.log"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_property_runtime_control
+        SET approval_reference=NULL
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND control_key='task.enforce';"
+
 POSTGRES_DB="$retry_db" \
 MIGRATIONS_DIR="$retry_migrations" \
 MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
@@ -368,6 +417,33 @@ grep -Fq 'missing_control|10000001|20000001|12|11|1|0|0|task.enforce|' \
   "$log_root/db-migrate-000200-post-v3-missing-control.log"
 grep -Fq 'ERROR: 000194 runtime control parity gate failed before deployment' \
   "$log_root/db-migrate-000200-post-v3-missing-control.log"
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET status='failed'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';
+      UPDATE public.schema_migrations SET status='failed'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';
+      UPDATE public.sys_property_runtime_control
+        SET contract_hash='81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3',
+            disabled_reason='b2a-contract-correction-000194', version=2
+        WHERE tenant_id='10000001' AND park_id='20000001';"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+    > "$log_root/db-migrate-000200-post-v2-missing-control.log" 2>&1; then
+  echo 'Expected a post-000194 missing control to fail the deployment gate' >&2
+  exit 1
+fi
+grep -Fq 'missing_control|10000001|20000001|12|11|1|0|0|task.enforce|' \
+  "$log_root/db-migrate-000200-post-v2-missing-control.log"
+grep -Fq 'contract_stage=post_000194' \
+  "$log_root/db-migrate-000200-post-v2-missing-control.log"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET status='succeeded'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';
+      UPDATE public.schema_migrations SET status='succeeded'
+        WHERE filename='000195_property_mutation_receipt_contract_v2.sql';"
 
 unknown_000200_checksum='0000000000000000000000000000000000000000000000000000000000000000'
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
