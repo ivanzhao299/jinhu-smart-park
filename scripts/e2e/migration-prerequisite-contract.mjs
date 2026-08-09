@@ -788,6 +788,8 @@ assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /runtime_compatibility_succeeded/u);
+assert.match(runtimeControlDiagnostic, /d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b/u);
 assert.match(runtimeControlDiagnostic, /missing_control/u);
 assert.match(runtimeControlDiagnostic, /ready_exact/u);
 assert.match(runtimeControlDiagnostic, /post_000194/u);

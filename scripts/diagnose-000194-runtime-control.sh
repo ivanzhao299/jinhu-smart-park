@@ -29,16 +29,17 @@ cd "$deploy_path"
 run_psql() {
   if [ -n "$env_file" ]; then
     docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded"
   else
     docker compose -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded"
   fi
 }
 
 runtime_contract_stage="pre_000194"
+runtime_compatibility_succeeded="no"
 history_tables_present="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
@@ -115,6 +116,40 @@ SQL
       ;;
     *) runtime_contract_stage="invalid" ;;
   esac
+
+  compatibility_history_state="$({
+    run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT
+  count(*) FILTER (WHERE status='succeeded' AND checksum IN (
+    'da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a',
+    'd7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b')),
+  count(*),
+  count(*) FILTER (WHERE status='succeeded'),
+  (SELECT count(*)
+   FROM sys_schema_migration_history primary_history
+   FULL JOIN schema_migrations standard_history USING (filename)
+   WHERE coalesce(primary_history.filename,standard_history.filename)=
+     '000200_property_b_migration_compatibility_control.sql'
+     AND (primary_history.filename IS NULL OR standard_history.filename IS NULL
+       OR primary_history.status IS DISTINCT FROM standard_history.status
+       OR primary_history.checksum IS DISTINCT FROM standard_history.checksum))
+FROM (
+  SELECT checksum,status FROM sys_schema_migration_history
+    WHERE filename='000200_property_b_migration_compatibility_control.sql'
+  UNION ALL
+  SELECT checksum,status FROM schema_migrations
+    WHERE filename='000200_property_b_migration_compatibility_control.sql'
+) history;
+COMMIT;
+SQL
+  } 2>&1)" || {
+    rc=$?
+    printf '%s\n' "$compatibility_history_state" >&2
+    exit "$rc"
+  }
+  [ "$compatibility_history_state" = "2|2|2|0" ] && runtime_compatibility_succeeded="yes"
 fi
 
 table_present="$({
@@ -310,6 +345,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN missing_count=expected_count AND actual_count=0
         AND :'runtime_contract_stage'='post_000195'
         AND :'allow_seed_reconcile'='yes'
+        AND :'runtime_compatibility_succeeded'='yes'
         THEN 'ready_missing_seed_reconcile'
       WHEN missing_count <> 0 AND :'runtime_contract_stage'<>'pre_000194'
         THEN 'missing_control'

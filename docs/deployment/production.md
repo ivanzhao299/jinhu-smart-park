@@ -383,8 +383,10 @@ Migration behavior:
   and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
   prerequisite can create the missing fixed disabled controls. After `000194`, partial missing controls are
   `missing_control` and fail closed because the successful correction cannot be replayed safely. At final
-  `post_000195`, an exact zero-control/zero-audit scope is `ready_missing_seed_reconcile` only when the resolved
-  deployment will execute the reviewed production seed; `000008` then creates both continuous correction audits.
+  `post_000195`, an exact zero-control/zero-audit scope is `ready_missing_seed_reconcile` only after `000200` has an
+  approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
+  seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
+  migration execution precedes seed execution.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The

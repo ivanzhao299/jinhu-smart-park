@@ -511,8 +511,31 @@ POSTGRES_DB="$fresh_order_db" \
 MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-fresh-order.log"
 
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_schema_migration_history SET status='failed'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';
+      UPDATE public.schema_migrations SET status='failed'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';"
+
 ALLOW_PRODUCTION_SEED=yes SEEDS_DIR="$retry_baseline_seeds" POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-baseline.log"
+
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" yes \
+    > "$log_root/db-migrate-000200-fresh-order-pending-gate.log" 2>&1; then
+  echo 'Expected a wholly missing scope to block while 000200 is not succeeded' >&2
+  exit 1
+fi
+grep -Fq 'missing_control|10000001|20000001|12|0|12|0|0|' \
+  "$log_root/db-migrate-000200-fresh-order-pending-gate.log"
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_schema_migration_history SET status='succeeded'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';
+      UPDATE public.schema_migrations SET status='succeeded'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';"
 
 if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
   scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" no \
