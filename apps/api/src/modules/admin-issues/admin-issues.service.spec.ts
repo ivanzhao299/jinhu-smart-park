@@ -104,7 +104,11 @@ describe("AdminIssuesService", () => {
     assert.doesNotMatch(rollbackRelease, /(?:pnpm db:migrate|pnpm prod:deploy|RUN_PRODUCTION_SEED)/);
     assert.ok(deployment.split("cleanup_rollback_snapshot").length >= 4);
     assert.match(ci, /Detect database and release changes/);
-    assert.match(ci, /database\/\(migrations\|migration-prerequisites\|seeds\)/);
+    assert.match(
+      ci,
+      /database\/\(migrations\|migration-prerequisites\|migration-replacements\|seeds\)/
+    );
+    assert.match(ci, /database\/\(migration-history-aliases\|migration-replacements\)\\\.txt/);
     assert.match(ci, /prod-deploy\|prod-healthcheck\|prod-docker-cleanup/);
     assert.match(ci, /ci\|deploy-production/);
     assert.equal(ci.match(/ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod/g)?.length, 2);
