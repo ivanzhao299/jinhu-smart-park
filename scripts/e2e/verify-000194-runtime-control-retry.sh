@@ -6,21 +6,34 @@ target_migration='000194_property_task_projection_contract_correction.sql'
 schema_prerequisite='prerequisite:000194_property_task_projection_contract_correction.sql:001_property_runtime_control.sql'
 scope_prerequisite='prerequisite:000194_property_task_projection_contract_correction.sql:002_runtime_control_scope_reconcile.sql'
 retry_db="${POSTGRES_DB}_000194_retry"
+fresh_order_db="${POSTGRES_DB}_000194_fresh_order"
 retry_root="$(mktemp -d /tmp/jinhu-000194-retry.XXXXXX)"
 retry_migrations="$retry_root/migrations"
 retry_aliases="$retry_root/migration-history-aliases.txt"
 retry_seeds="$retry_root/seeds"
+retry_baseline_seeds="$retry_root/baseline-seeds"
 log_root="${RELEASE_SMOKE_LOG_DIR:-/tmp/release-smoke-logs}"
 
-mkdir -p "$retry_migrations" "$retry_seeds/production" "$log_root"
+mkdir -p "$retry_migrations" "$retry_seeds/production" \
+  "$retry_baseline_seeds/production" "$log_root"
 : > "$retry_aliases"
 cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
 cp database/seeds/production/*.sql "$retry_seeds/production/"
+cp database/seeds/000001_s1_production_core.sql \
+  "$retry_baseline_seeds/000001_s1_production_core.sql"
+for seed in database/seeds/production/*.sql; do
+  seed_name="$(basename "$seed")"
+  [ "$seed_name" = '000008_property_runtime_control_scope_reconcile.sql' ] && continue
+  cp "$seed" "$retry_baseline_seeds/production/$seed_name"
+done
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
     -c "DROP DATABASE IF EXISTS \"$retry_db\" WITH (FORCE);" >/dev/null 2>&1 || true
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+    -c "DROP DATABASE IF EXISTS \"$fresh_order_db\" WITH (FORCE);" >/dev/null 2>&1 || true
   rm -rf "$retry_root"
 }
 trap cleanup EXIT
@@ -48,7 +61,7 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000193-runtime-control-baseline.log"
 
 ALLOW_PRODUCTION_SEED=yes \
-SEEDS_DIR="$retry_seeds" \
+SEEDS_DIR="$retry_baseline_seeds" \
 POSTGRES_DB="$retry_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000194-runtime-control-baseline.log"
 
@@ -482,5 +495,50 @@ grep -Fq 'migration_stage_drift|||0|0|0|0|0||' \
   "$log_root/db-migrate-000200-post-v2-table-absent.log"
 grep -Fq 'contract_stage=post_000194' \
   "$log_root/db-migrate-000200-post-v2-table-absent.log"
+
+# Rehearse the documented first-release order on a separate empty database:
+# all migrations run before production seed creates the active asset scope.
+# The late-scope seed must publish the exact v3 controls and both truthful
+# correction audits, and a second seed run must remain an exact no-op.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+  -c "DROP DATABASE IF EXISTS \"$fresh_order_db\" WITH (FORCE);"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+  -c "CREATE DATABASE \"$fresh_order_db\";"
+
+POSTGRES_DB="$fresh_order_db" \
+MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+  sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-fresh-order.log"
+
+ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
+  sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order.log"
+ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
+  sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-rerun.log"
+
+fresh_order_state="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT
+      (SELECT count(*) FROM public.sys_property_runtime_control
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+          AND disabled_reason='b2a-contract-correction-000195' AND version=3),
+      (SELECT count(*) FROM public.sys_property_runtime_control_contract_audit
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND correction_key='b2a-contract-correction-000194'),
+      (SELECT count(*) FROM public.sys_property_runtime_control_contract_audit
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND correction_key='b2a-contract-correction-000195');"
+)"
+test "$fresh_order_state" = '12|12|12'
+
+COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" \
+  > "$log_root/db-migrate-000200-fresh-order-gate.log"
+grep -Fq 'ready_exact|10000001|20000001|12|12|0|0|0||' \
+  "$log_root/db-migrate-000200-fresh-order-gate.log"
+grep -Fq 'summary: scopes=1 blocked=0 mode=enforce table=present contract_stage=post_000195' \
+  "$log_root/db-migrate-000200-fresh-order-gate.log"
 
 echo '[PASS] production-shaped 000194-000200 runtime-control migration chain'

@@ -98,7 +98,8 @@
 - fresh-schema migration-before-seed 可能因为 target scope 为空而让 exact-set guard vacuously pass；任何
   从持久化 assignment 派生目标集合的 migration 都必须增加“先迁移到前一版本、再写入生产形态 assignment、
   最后跑完整依赖尾链和 production seed”的独立 PostgreSQL fixture，并在发布副作用前运行同源只读
-  parity gate。不得在第一个修复目标成功后停止回放，否则后续 migration 的旧合同仍会形成假绿。
+  parity gate；还必须以独立空库覆盖真实 `migration -> production seed` 顺序，证明 seed 后新增 scope
+  有明确的生产安全收敛路径。不得在第一个修复目标成功后停止回放，否则后续 migration 的旧合同仍会形成假绿。
 
 当前仓库已观察到的重复编号现象：
 

@@ -548,7 +548,10 @@ Migration execution behavior:
 - Release Smoke then continues the same non-empty production-shaped fixture through `000195`, `000197`–`000201`
   and the complete production seed set. It reproduces a failed immutable-checksum `000200`, verifies the reviewed
   replacement reaches final v3 with complete timestamp-bound correction evidence, proves post-v3 missing controls
-  fail closed, and proves an already-succeeded immutable source remains skipped.
+  fail closed, and proves an already-succeeded immutable source remains skipped. A separate empty-database replay
+  follows the real migration-before-seed order; `000008_property_runtime_control_scope_reconcile.sql` initializes
+  only wholly missing late-created asset scopes through the audited v1 -> v2 -> v3 transition and rejects partial
+  or drifting states.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

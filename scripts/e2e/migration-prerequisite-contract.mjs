@@ -55,6 +55,10 @@ const assetParkScopeSeedPath = resolve(
   root,
   "database/seeds/production/000007_asset_park_scope_reconcile.sql"
 );
+const propertyRuntimeControlSeedPath = resolve(
+  root,
+  "database/seeds/production/000008_property_runtime_control_scope_reconcile.sql"
+);
 const adminIssueRunnerMigrationPath = resolve(
   root,
   "database/migrations/000190_admin_issue_runner_repair.sql"
@@ -109,6 +113,7 @@ const assetModulePrerequisite = readFileSync(assetModulePrerequisitePath, "utf8"
 const assetParkScopeIdPrerequisite = readFileSync(assetParkScopeIdPrerequisitePath, "utf8");
 const assetParkScopePrerequisite = readFileSync(assetParkScopePrerequisitePath, "utf8");
 const assetParkScopeSeed = readFileSync(assetParkScopeSeedPath, "utf8");
+const propertyRuntimeControlSeed = readFileSync(propertyRuntimeControlSeedPath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
@@ -741,6 +746,23 @@ assert.doesNotMatch(
   "production scope diagnostic must remain read-only"
 );
 assert.match(runtimeControlDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
+for (const requiredSeedContract of [
+  "production-runtime-control-migration-stage-drift",
+  "production-runtime-control-partial-state",
+  "production-runtime-control-000194-correction-count",
+  "production-runtime-control-000195-correction-count",
+  "production-runtime-control-postcondition-failed",
+  "b2a-contract-correction-000194",
+  "b2a-contract-correction-000195"
+]) {
+  assert.ok(
+    propertyRuntimeControlSeed.includes(requiredSeedContract),
+    `late-scope runtime-control seed is missing ${requiredSeedContract}`
+  );
+}
+assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
+assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
+assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
 assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
