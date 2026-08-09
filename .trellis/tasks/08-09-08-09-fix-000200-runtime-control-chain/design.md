@@ -97,3 +97,27 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 - **Similar Issues**: 其他 seed/preflight 若只按 tenant/park 写元数据，也不应把同 scope 业务行数当唯一性合同。
 - **Design Improvement**: 预检计数必须与后续 SELECT 的真实基数需求一致。
 - **Process Improvement**: 每个生产新分类都进入 deterministic PostgreSQL fixture 后再重试部署。
+
+## Bug Analysis: 受保护 UAT 权限缺口与 Release Smoke 假绿
+
+### 1. Root Cause Category
+
+- **Category**: B/C/D — 角色合同漂移、变更传播失败与 CI 失败传播缺口。
+- **Specific Cause**: 历史 000171 只为旧 `INVEST_MANAGER` 补 `workorder:create`，2026 责任分工却将
+  `song_qianchang` 绑定到 `JH_LEASING_LEAD`；受保护 UAT 因此在部署、seed、健康和 cleanup 均成功后失败。
+  同时 Release Smoke 的命令通过 `tee` 输出日志但未显式启用 `pipefail`，seed 的 exit 3 被 `tee` 的 0 掩盖。
+
+### 2. Prevention Mechanisms
+
+| Priority | Mechanism | Specific Action | Status |
+|----------|-----------|-----------------|--------|
+| P0 | Least privilege | 新 production seed 仅为固定 scope 的 active `JH_LEASING_LEAD` 补 `workorder:create` | DONE |
+| P0 | Fail closed | 角色存在但非 active、重复角色或权限缺失时事务失败；角色尚未导入时安全 no-op | DONE |
+| P0 | CI truth | workflow 默认 shell 显式 `-eo pipefail`，所有 `tee` 管道保留生产者退出码 | DONE |
+| P0 | Test | production-shaped fixture 创建当前责任角色，完整 seed 后断言唯一 grant | DONE |
+
+### 3. Systematic Expansion
+
+- **Similar Issues**: 旧模板角色与当前责任分工角色 code 不同，不能假设给旧角色补权会传播到当前用户。
+- **Design Improvement**: 生产权限修复必须从受保护 UAT 的当前 role assignment 反推最小 grant。
+- **Process Improvement**: release 命令只要接 `tee` 就由 workflow 级 `pipefail` 统一保证失败传播。

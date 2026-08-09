@@ -110,6 +110,13 @@ Reference files:
 - A production seed that writes only tenant/park-scoped metadata must treat multiple active business rows inside
   that same validated scope as valid unless it actually selects one row as a source. Require at least one scoped
   row for existence; reserve exact-one checks for logic whose output depends on a unique source record.
+- Immutable migration and production-seed copies of one signed metadata manifest must preserve the same field
+  semantics and be checked by a source-level contract. Production-order fixtures must exercise rows created by
+  the migration, not approximate that state by changing one field on rows created by the seed.
+- CI steps that pipe release commands through `tee` must enable `pipefail` at workflow scope (or in that exact run
+  block), so migration, seed, bootstrap, baseline, and login failures cannot be reported as successful steps.
+- Responsibility-role permission repairs must target the current imported role code, remain tenant/park scoped,
+  grant only the UAT-required permission, and be a no-op when the optional imported role does not exist.
 
 Reference files:
 - `database/migration-replacements.txt`

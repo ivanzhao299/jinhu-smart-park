@@ -11,6 +11,7 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 - `production/000006_property_track_b_permission_reconcile.sql`
 - `production/000007_asset_park_scope_reconcile.sql`
 - `production/000008_property_runtime_control_scope_reconcile.sql`
+- `production/000009_jh_leasing_lead_workorder_create_repair.sql`
 
 Production execution:
 
@@ -36,6 +37,7 @@ Execution scope:
 - Initializes SaaS modules in `sys_module`: `system`, `asset`, `leasing`, `workorder`, `iot`, `energy`, `robot`, `video`, `bim`, `ai`.
 - Initializes SaaS plans in `sys_plan`: `BASIC`, `PROFESSIONAL`, `ENTERPRISE`, `GROUP`.
 - Initializes `rel_plan_module` and enables all `GROUP` modules for the default Jinhu tenant in `rel_tenant_module`.
+- If the imported `JH_LEASING_LEAD` responsibility role exists and is active, idempotently grants only `workorder:create`; a clean database without that optional imported role remains unchanged.
 - When当前园区还没有任何有效楼栋 / 楼层 / 房源时，补最小可用的基线资产结构：
   - 楼栋：`A1`、`A3`、`A5`
   - 楼层：`A1-F01`、`A1-F02`、`A3-F01`、`A5-F01`、`A5-F03`

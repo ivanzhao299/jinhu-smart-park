@@ -13,10 +13,17 @@ const seedPath = resolve(
   "database/seeds/production/000006_property_track_b_permission_reconcile.sql"
 );
 const productionCoreSeedPath = resolve(root, "database/seeds/000001_s1_production_core.sql");
+const leasingLeadRepairPath = resolve(
+  root,
+  "database/seeds/production/000009_jh_leasing_lead_workorder_create_repair.sql"
+);
+const ciWorkflowPath = resolve(root, ".github/workflows/ci.yml");
 const migrationBuffer = readFileSync(migrationPath);
 const migration = migrationBuffer.toString("utf8");
 const seed = readFileSync(seedPath, "utf8");
 const productionCoreSeed = readFileSync(productionCoreSeedPath, "utf8");
+const leasingLeadRepair = readFileSync(leasingLeadRepairPath, "utf8");
+const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
 
 assert.equal(
   createHash("sha256").update(migrationBuffer).digest("hex"),
@@ -281,5 +288,38 @@ for (const forbiddenWriteTarget of [
     `post-seed reconcile must not write ${forbiddenWriteTarget}`
   );
 }
+
+for (const repairToken of [
+  "BEGIN;",
+  "role.code = 'JH_LEASING_LEAD'",
+  "permission.code = 'workorder:create'",
+  "role_total_count NOT IN (0, 1)",
+  "role_active_count <> role_total_count",
+  "permission_count <> 1",
+  "INSERT INTO rel_role_perm",
+  "WHERE scope.role_id IS NOT NULL",
+  "grant_count <> expected_count",
+  "COMMIT;"
+]) {
+  assert.ok(leasingLeadRepair.includes(repairToken), `missing leasing-lead repair contract: ${repairToken}`);
+}
+assert.equal(
+  /(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:sys_role|sys_user|sys_permission)/i.test(
+    leasingLeadRepair
+  ),
+  false,
+  "leasing-lead repair must only bind an existing role to an existing permission"
+);
+assert.equal(
+  /role\.code\s*=\s*'(?!JH_LEASING_LEAD)[^']+'/i.test(leasingLeadRepair),
+  false,
+  "leasing-lead repair must not widen the grant to another role"
+);
+
+assert.match(
+  ciWorkflow,
+  /defaults:\s*\n\s+run:\s*\n\s+shell: bash --noprofile --norc -eo pipefail \{0\}/,
+  "CI run steps must globally preserve the producer exit status for tee pipelines"
+);
 
 console.log("[PASS] property Track B post-seed reconcile contract");
