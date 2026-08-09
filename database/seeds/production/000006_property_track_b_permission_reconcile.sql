@@ -175,7 +175,7 @@ SELECT
   permission.permission_type, permission.perm_type, permission.api_method,
   permission.api_path, permission.frontend_route,
   NULL, NULL, NULL, NULL, true, true, false,
-  permission.permission_type IN ('menu', 'page'), false, false, true, 'enabled',
+  permission.permission_type = 'api', false, false, true, 'enabled',
   clock_timestamp(), clock_timestamp(), false, 1,
   'PR192 Track B frozen permission definition'
 FROM permission_scope scope
@@ -210,7 +210,7 @@ BEGIN
       NULL::varchar AS component_key, NULL::varchar AS icon,
       NULL::varchar AS field_key, NULL::varchar AS data_dimension,
       true AS is_system, true AS is_builtin, false AS is_tenant_custom,
-      permission.permission_type IN ('menu', 'page') AS visible,
+      permission.permission_type = 'api' AS visible,
       false AS keep_alive, false AS always_show, true AS is_enabled,
       'enabled'::varchar AS status, false AS is_deleted, 1 AS version,
       'PR192 Track B frozen permission definition'::varchar AS remark

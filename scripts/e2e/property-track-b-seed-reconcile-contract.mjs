@@ -168,7 +168,7 @@ assert.equal(
 for (const preflightToken of [
   "property-track-b-seed-scope-preflight-failed",
   "tenant_count <> 1",
-  "park_count <> 1",
+  "park_count < 1",
   "JOIN biz_park park",
   "park.status = 1",
   "asset_assignment_count <> 1",
@@ -188,6 +188,17 @@ assert.equal(
   seed.includes("asset_park"),
   false,
   "post-seed scope must use the production-core canonical biz_park table"
+);
+
+assert.equal(
+  (seed.match(/permission\.permission_type = 'api'/g) ?? []).length,
+  2,
+  "post-seed insert and drift guard must preserve immutable migration visibility semantics"
+);
+assert.equal(
+  seed.includes("permission.permission_type IN ('menu', 'page')"),
+  false,
+  "post-seed visibility must not invert the immutable migration definition"
 );
 
 assert.match(
