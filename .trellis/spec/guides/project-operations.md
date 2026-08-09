@@ -107,6 +107,9 @@ Reference files:
 - Treat the workflow's explicit `RUN_PRODUCTION_SEED=yes|no` as a one-release control-plane decision. Preserve it
   over any long-lived `.env.production` default loaded by the remote deploy script, reject unknown values before
   mutation, and regression-test both precedence directions plus the no-override fallback.
+- A production seed that writes only tenant/park-scoped metadata must treat multiple active business rows inside
+  that same validated scope as valid unless it actually selects one row as a source. Require at least one scoped
+  row for existence; reserve exact-one checks for logic whose output depends on a unique source record.
 
 Reference files:
 - `database/migration-replacements.txt`
