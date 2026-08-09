@@ -128,9 +128,10 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - prerequisite 失败或 running 时不得继续目标 migration
   - Release Smoke 运行 `scripts/e2e/verify-000194-runtime-control-retry.sh`：先迁移到 `000193`，再写入
     production-shaped assignment/seed，证明空 runtime-control 集合会被只读门禁识别、由新 prerequisite
-    补齐，unchanged failed `000194` 重试成功；随后必须继续执行 `000195` 到 `000201` 与 production seed，
-    回放 failed immutable-checksum `000200` 的受审 replacement，并验证 final v3、双 correction audit、
-    generated checksum 和 immutable-source 成功记录兼容跳过。额外 key 与定义漂移必须双层失败
+    补齐，unchanged failed `000194` 重试成功；随后必须继续执行 `000195` 到 `000201` 与完整 production
+    seed 集合，回放 failed immutable-checksum `000200` 的受审 replacement，并验证 final v3、双 correction
+    audit 的时间/证据哈希绑定、generated checksum 和 immutable-source 成功记录兼容跳过。post-v3 缺行、
+    额外 key 与定义漂移必须失败关闭
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚
   - production seed 后检查 `OPERATIONS_OWNER`、`EXECUTIVE`、`AUDITOR` 的代表性安全/工程权限
 

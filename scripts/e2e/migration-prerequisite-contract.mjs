@@ -185,7 +185,7 @@ assert.equal(
 );
 assert.equal(
   createHash("sha256").update(propertyCompatibilityReplacementPatch).digest("hex"),
-  "4c44d9e314ae8135e401374014754396b34790ec5171fdf8572f84135e43a32d",
+  "ce8e31af1f6be7898ad0ecb430c3377449f399c50b9813c8f8946aa513f7bcc8",
   "000200 replacement patch must remain byte-for-byte reviewed"
 );
 assert.deepEqual(
@@ -194,7 +194,7 @@ assert.deepEqual(
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#")),
   [
-    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|4c44d9e314ae8135e401374014754396b34790ec5171fdf8572f84135e43a32d|c28b2dd95e39984d9db9ac824ac03275c87a9a4796ce1b8a603e941f4565378b"
+    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|ce8e31af1f6be7898ad0ecb430c3377449f399c50b9813c8f8946aa513f7bcc8|a62c84510ed6bf013f31e35fc998c09748c6edf028caa835c7ce67792c9c57fc"
   ],
   "every migration replacement must be explicitly reviewed"
 );
@@ -203,7 +203,10 @@ for (const replacementContract of [
   "property-runtime-control-correction-audit-drift",
   "e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944",
   "b2a-contract-correction-000195",
-  "requires_correction_audit"
+  "requires_correction_audit",
+  "runtime-control-contract-audit-v1",
+  "runtime-control-contract-audit-v2",
+  "evidence_hash"
 ]) {
   assert.match(
     propertyCompatibilityReplacementPatch,
@@ -688,6 +691,11 @@ assert.notEqual(
 assert.match(rollbackRelease, /docker compose --env-file \.env\.production/u);
 assert.match(rollbackRelease, /MODE=full sh scripts\/prod-healthcheck\.sh/u);
 assert.match(rollbackRelease, /PRUNE_DOCKER_BUILD_CACHE=yes sh scripts\/prod-docker-cleanup\.sh/u);
+assert.match(
+  rollbackRelease,
+  /scripts\/db-migrate\.sh database\/migration-replacements\.txt database\/migration-replacements\//u,
+  "source rollback must retain the candidate replacement-aware migration control plane"
+);
 assert.doesNotMatch(
   rollbackRelease,
   /(?:pnpm db:migrate|pnpm prod:deploy|RUN_PRODUCTION_SEED)/u,
@@ -731,6 +739,7 @@ assert.match(runtimeControlDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
 assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
+assert.match(runtimeControlDiagnostic, /missing_control/u);
 assert.match(runtimeControlDiagnostic, /ready_exact/u);
 assert.match(runtimeControlDiagnostic, /post_000194/u);
 assert.match(runtimeControlDiagnostic, /post_000195/u);

@@ -42,7 +42,9 @@ Reference files:
   table. If both tables already existed, never backfill missing rows between them before the FULL JOIN consistency
   audit; an incomplete alias or migration audit must remain visible and fail closed.
 - A source rollback may rebuild and health-check the previous application snapshot, but it must not run that older
-  snapshot's migration or production-seed manifest against a forward-migrated database.
+  snapshot's migration or production-seed manifest against a forward-migrated database. Overlay the reviewed
+  candidate migration runner and replacement manifest/patches after restoring application source so a replacement
+  execution checksum already committed to history remains readable.
 - Source rollback does not reverse database state. Use the release backup and an explicit database-owner decision for
   database recovery.
 

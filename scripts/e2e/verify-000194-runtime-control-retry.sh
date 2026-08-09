@@ -15,8 +15,7 @@ log_root="${RELEASE_SMOKE_LOG_DIR:-/tmp/release-smoke-logs}"
 mkdir -p "$retry_migrations" "$retry_seeds/production" "$log_root"
 : > "$retry_aliases"
 cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
-cp database/seeds/production/000007_asset_park_scope_reconcile.sql \
-  "$retry_seeds/production/000007_asset_park_scope_reconcile.sql"
+cp database/seeds/production/*.sql "$retry_seeds/production/"
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -189,7 +188,7 @@ grep -Fq 'contract_stage=post_000194' \
 # original checksum. The runner must execute the reviewed replacement without
 # rewriting the immutable source migration.
 original_000200_checksum='da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a'
-replacement_000200_checksum='c28b2dd95e39984d9db9ac824ac03275c87a9a4796ce1b8a603e941f4565378b'
+replacement_000200_checksum='a62c84510ed6bf013f31e35fc998c09748c6edf028caa835c7ce67792c9c57fc'
 copy_tail='no'
 for migration in database/migrations/*.sql; do
   migration_name="$(basename "$migration")"
@@ -242,6 +241,53 @@ for migration in database/migrations/*.sql; do
   [ "$migration_name" = '000199_floor_layout_deleted_file_backfill.sql' ] && copy_tail='yes'
 done
 
+# Corrupt one immutable correction-audit digest in the disposable database and
+# prove the replacement validates canonical timestamp-bound evidence, not only
+# row counts and contract versions.
+original_audit_evidence_hash="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+    -c "SELECT evidence_hash FROM public.sys_property_runtime_control_contract_audit
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND control_key='task.enforce'
+          AND correction_key='b2a-contract-correction-000195';"
+)"
+test -n "$original_audit_evidence_hash"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "ALTER TABLE public.sys_property_runtime_control_contract_audit
+        DISABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;
+      UPDATE public.sys_property_runtime_control_contract_audit
+        SET evidence_hash=repeat('0',64)
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND control_key='task.enforce'
+          AND correction_key='b2a-contract-correction-000195';
+      ALTER TABLE public.sys_property_runtime_control_contract_audit
+        ENABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;"
+if POSTGRES_DB="$retry_db" \
+  MIGRATIONS_DIR="$retry_migrations" \
+  MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+  MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+    sh scripts/db-migrate.sh > "$log_root/db-migrate-000200-audit-drift.log" 2>&1; then
+  echo 'Expected corrupted correction-audit evidence to fail the replacement' >&2
+  exit 1
+fi
+grep -Fq 'property-runtime-control-correction-audit-drift' \
+  "$log_root/db-migrate-000200-audit-drift.log"
+grep -Fq 'WARNING: retrying failed migration with updated checksum: 000200_property_b_migration_compatibility_control.sql' \
+  "$log_root/db-migrate-000200-audit-drift.log"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "ALTER TABLE public.sys_property_runtime_control_contract_audit
+        DISABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;
+      UPDATE public.sys_property_runtime_control_contract_audit
+        SET evidence_hash='$original_audit_evidence_hash'
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND control_key='task.enforce'
+          AND correction_key='b2a-contract-correction-000195';
+      ALTER TABLE public.sys_property_runtime_control_contract_audit
+        ENABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;"
+
 POSTGRES_DB="$retry_db" \
 MIGRATIONS_DIR="$retry_migrations" \
 MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
@@ -249,8 +295,6 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-runtime-control-chain.log"
 
 grep -Fq 'SKIP: 000195_property_mutation_receipt_contract_v2.sql (already succeeded, checksum matched)' \
-  "$log_root/db-migrate-000200-runtime-control-chain.log"
-grep -Fq 'WARNING: retrying failed migration with updated checksum: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-runtime-control-chain.log"
 grep -Fq 'SUCCESS: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-runtime-control-chain.log"
@@ -301,6 +345,29 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-compatible-source-skip.log"
 grep -Fq 'SKIP: 000200_property_b_migration_compatibility_control.sql (already succeeded with approved immutable source checksum; replacement not re-run)' \
   "$log_root/db-migrate-000200-compatible-source-skip.log"
+
+# A scope introduced after both correction migrations has no safe insert-only
+# path to the v3 rows and dual audits. The deployment diagnostic must block it.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "ALTER TABLE public.sys_property_runtime_control_contract_audit
+        DISABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;
+      DELETE FROM public.sys_property_runtime_control_contract_audit
+        WHERE tenant_id='10000001' AND park_id='20000001' AND control_key='task.enforce';
+      ALTER TABLE public.sys_property_runtime_control_contract_audit
+        ENABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;
+      DELETE FROM public.sys_property_runtime_control
+        WHERE tenant_id='10000001' AND park_id='20000001' AND control_key='task.enforce';"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+    > "$log_root/db-migrate-000200-post-v3-missing-control.log" 2>&1; then
+  echo 'Expected a post-000195 missing control to fail the deployment gate' >&2
+  exit 1
+fi
+grep -Fq 'missing_control|10000001|20000001|12|11|1|0|0|task.enforce|' \
+  "$log_root/db-migrate-000200-post-v3-missing-control.log"
+grep -Fq 'ERROR: 000194 runtime control parity gate failed before deployment' \
+  "$log_root/db-migrate-000200-post-v3-missing-control.log"
 
 unknown_000200_checksum='0000000000000000000000000000000000000000000000000000000000000000'
 docker compose -f "$COMPOSE_FILE" exec -T postgres \

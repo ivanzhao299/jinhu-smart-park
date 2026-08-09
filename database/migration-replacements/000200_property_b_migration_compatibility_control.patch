@@ -1,5 +1,5 @@
---- database/migrations/000200_property_b_migration_compatibility_control.sql	2026-08-09 10:32:50.815231109 +0800
-+++ /tmp/000200_property_b_migration_compatibility_control.replacement.sql	2026-08-09 10:49:42.267743369 +0800
+--- database/migrations/000200_property_b_migration_compatibility_control.sql
++++ database/migration-replacements/000200_property_b_migration_compatibility_control.replacement.sql
 @@ -613,0 +614,51 @@
 +CREATE TEMP TABLE b0_runtime_control_contract (
 +  contract_hash char(64) NOT NULL,
@@ -74,7 +74,7 @@
 @@ -650 +704 @@
 -           contract_hash, enabled, control_mode, disabled_reason
 +           contract_hash, enabled, control_mode, disabled_reason, version
-@@ -661,0 +716,64 @@
+@@ -661,0 +716,100 @@
 +  END IF;
 +
 +  IF (SELECT requires_correction_audit FROM b0_runtime_control_contract) THEN
@@ -122,6 +122,23 @@
 +          OR audit.old_version<>1 OR audit.new_version<>2
 +          OR audit.old_disabled_reason<>'expand-only'
 +          OR audit.new_disabled_reason<>'b2a-contract-correction-000194'
++          OR audit.new_update_time<>audit.occurred_at
++          OR audit.new_update_time<audit.old_update_time
++          OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
++            'runtime-control-contract-audit-v1'||E'\n'
++            ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
++            'UTF8'),'sha256'),'hex')
 +        )) OR (audit.correction_key='b2a-contract-correction-000195' AND (
 +          audit.control_key<>runtime.control_key
 +          OR audit.old_contract_hash<>'81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
@@ -132,6 +149,25 @@
 +          OR audit.old_disabled_reason<>'b2a-contract-correction-000194'
 +          OR audit.new_disabled_reason<>'b2a-contract-correction-000195'
 +          OR audit.new_disabled_reason<>runtime.disabled_reason
++          OR audit.new_update_time<>runtime.update_time
++          OR audit.occurred_at<>runtime.update_time
++          OR audit.new_update_time<audit.old_update_time
++          OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
++            'runtime-control-contract-audit-v2'||E'\n'
++            ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
++            ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
++            'UTF8'),'sha256'),'hex')
 +        ))
 +    )
 +    $audit_validation$ INTO audit_drift;

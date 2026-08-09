@@ -248,6 +248,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         OR tenant_count <> 1 OR asset_count <> 1 THEN 'invalid_scope'
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
+      WHEN missing_count <> 0 AND :'runtime_contract_stage'='post_000195'
+        THEN 'missing_control'
       WHEN missing_count <> 0 THEN 'ready_missing_reconcile'
       ELSE 'ready_exact'
     END AS classification,

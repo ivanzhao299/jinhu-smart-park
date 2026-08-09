@@ -249,8 +249,13 @@ jobs:
             if ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
               "set -eu; rsync -a --delete \
                 --exclude='.env' --exclude='.env.*' --exclude='uploads/' --exclude='storage/' --exclude='data/' --exclude='tmp/' \
-                '$rollback_root/' '$PROD_DEPLOY_PATH/'; \
-                cd '$PROD_DEPLOY_PATH'; \
+                '$rollback_root/' '$PROD_DEPLOY_PATH/'" && \
+              rsync -azR \
+                -e "ssh $SSH_OPTS" \
+                scripts/db-migrate.sh database/migration-replacements.txt database/migration-replacements/ \
+                "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/" && \
+              ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+              "set -eu; cd '$PROD_DEPLOY_PATH'; \
                 docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml build api web; \
                 docker compose --env-file .env.production -f infra/docker/docker-compose.prod.yml up -d postgres api web; \
                 MODE=full sh scripts/prod-healthcheck.sh; \
