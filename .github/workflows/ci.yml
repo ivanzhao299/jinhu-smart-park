@@ -95,6 +95,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify production seed decision precedence
+        run: scripts/e2e/prod-deploy-seed-precedence.sh
+
       - name: Lint
         run: pnpm lint
 

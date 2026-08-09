@@ -34,3 +34,38 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 ## Rollout and rollback
 
 先在 disposable PostgreSQL 上回放生产失败状态及旧直跑状态，再由 CI Release Smoke 验证。部署仍保持 source snapshot rollback；数据库迁移自身事务失败即回滚，已成功的前序迁移不逆转。任何兼容证明失败都在服务替换之前由只读门禁阻断。
+
+## Bug Analysis: 发布级 seed 决策被环境文件覆盖
+
+### 1. Root Cause Category
+
+- **Category**: B/D/E — 跨层合同、测试覆盖缺口与隐式假设。
+- **Specific Cause**: workflow 把 `RUN_PRODUCTION_SEED=yes` 作为命令环境传入远端，但 `prod-deploy.sh`
+  随后 source 常驻 `.env.production`，其中默认 `RUN_PRODUCTION_SEED=no` 覆盖了本次发布决策。工作流日志显示
+  `yes`，迁移和健康检查也成功，因此形成“绿部署但未执行 seed”的假象。
+
+### 2. Why Fixes Failed
+
+1. 前序修复验证了 workflow 的 mode/seed 输出与诊断门禁，但没有观察 `prod-deploy.sh` source 环境文件后的最终值。
+2. Release Smoke 直接执行 migration/seed，未经过生产部署脚本的环境加载边界，无法捕获优先级反转。
+
+### 3. Prevention Mechanisms
+
+| Priority | Mechanism | Specific Action | Status |
+|----------|-----------|-----------------|--------|
+| P0 | Architecture | source 前捕获显式发布决策，source 后恢复；环境文件只作未显式传参时的默认值 | DONE |
+| P0 | Runtime | `RUN_PRODUCTION_SEED` 非 `yes|no` 时在任何 mutation 前失败 | DONE |
+| P0 | Test | 回放 `CI yes/env no`、`CI no/env yes`、无覆盖回退、非法值四种情况 | DONE |
+| P1 | Documentation/spec | 固化发布控制面优先于常驻配置的合同 | DONE |
+
+### 4. Systematic Expansion
+
+- **Similar Issues**: 所有“命令行/工作流一次性决策 + 脚本内部 source `.env`”组合都可能发生同类覆盖。
+- **Design Improvement**: 区分 release control-plane 参数与 application configuration；前者不得由常驻应用配置反向覆盖。
+- **Process Improvement**: 部署脚本变更必须至少有一个经过真实 env 加载顺序的 focused regression，不能只测 workflow 文本。
+
+### 5. Knowledge Capture
+
+- [x] 更新 `.trellis/spec/guides/project-operations.md`。
+- [x] 更新生产部署与 runner release 文档。
+- [x] 新增可执行优先级回归并接入 Verify。

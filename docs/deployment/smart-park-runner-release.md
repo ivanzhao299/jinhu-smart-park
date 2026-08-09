@@ -46,7 +46,7 @@ Runner 领取后必须在租约过期前调用 `POST /api/v1/admin-issues/:issue
 - 不与 Phoenix 共用服务账号、Unix 用户、Deploy Key 或工作目录。
 - 不在迁移失败后继续部署；Release Smoke 和生产迁移均 fail-fast。
 - migration 只负责 schema；Runner 权限、角色、禁用机器身份与关系由 production-safe seed 幂等收敛。
-- 部署范围包含顶层 production core seed、`database/seeds/production/` 变更或无法识别上一 release 时，生产工作流才设置 `RUN_PRODUCTION_SEED=yes`；此时 `web/fast-css` 模式强制升级为 `full`。其他部署保持 `no`，回滚旧源码时也不重复运行新 seed。
+- 部署范围包含顶层 production core seed、`database/seeds/production/` 变更或无法识别上一 release 时，生产工作流才设置 `RUN_PRODUCTION_SEED=yes`；该次发布的显式 `yes|no` 决策优先于常驻 `.env.production` 默认值，非法值在迁移前 fail closed。此时 `web/fast-css` 模式强制升级为 `full`。其他部署保持 `no`，回滚旧源码时也不重复运行新 seed。
 - 触及 migration、production seed、生产部署/健康/清理脚本或相关 workflow 的 PR 会自动执行 Release Smoke，不依赖人工标签。
 - 部署前保留应用源码快照；部署失败恢复旧源码并重新构建、健康检查。数据库迁移为 forward-only，涉及破坏性 schema 的变更仍必须人工 HOLD。
 - 部署或回滚成功后删除源码快照；回滚失败时保留快照并输出精确路径供人工恢复。

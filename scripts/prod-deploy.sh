@@ -7,6 +7,8 @@ COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/infra/docker/docker-compose.prod.yml}"
 PROD_DEPLOY_MODE="${PROD_DEPLOY_MODE:-${DEPLOY_MODE:-full}}"
 WEB_CONTAINER_NAME="${WEB_CONTAINER_NAME:-jinhu-smart-park-prod-web}"
 RUNTIME_DESIGN_SYSTEM_CSS="$ROOT_DIR/apps/web/public/runtime-design-system.css"
+REQUESTED_RUN_PRODUCTION_SEED_IS_SET="${RUN_PRODUCTION_SEED+x}"
+REQUESTED_RUN_PRODUCTION_SEED="${RUN_PRODUCTION_SEED-}"
 
 if [ ! -f "$ENV_FILE" ]; then
   printf "Missing production env file: %s\nCopy .env.production.example to .env.production and fill production values first.\n" "$ENV_FILE" >&2
@@ -17,6 +19,23 @@ set -a
 # shellcheck disable=SC1090
 . "$ENV_FILE"
 set +a
+
+# The workflow decides whether this release contains production-seed changes.
+# Preserve that one-shot decision over the long-lived .env.production default.
+if [ "$REQUESTED_RUN_PRODUCTION_SEED_IS_SET" = "x" ]; then
+  RUN_PRODUCTION_SEED="$REQUESTED_RUN_PRODUCTION_SEED"
+elif [ "${RUN_PRODUCTION_SEED+x}" != "x" ]; then
+  RUN_PRODUCTION_SEED=no
+fi
+
+case "$RUN_PRODUCTION_SEED" in
+  yes|no)
+    ;;
+  *)
+    printf "RUN_PRODUCTION_SEED must be yes or no, got: %s\n" "$RUN_PRODUCTION_SEED" >&2
+    exit 1
+    ;;
+esac
 
 compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
