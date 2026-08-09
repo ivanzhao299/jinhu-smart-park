@@ -93,6 +93,11 @@ const permissionRepairSeedPath = resolve(
 );
 const runnerPath = resolve(root, "scripts/db-migrate.sh");
 const migrationAliasesPath = resolve(root, "database/migration-history-aliases.txt");
+const migrationReplacementsPath = resolve(root, "database/migration-replacements.txt");
+const propertyCompatibilityReplacementPatchPath = resolve(
+  root,
+  "database/migration-replacements/000200_property_b_migration_compatibility_control.patch"
+);
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
@@ -127,6 +132,11 @@ const propertyCompatibilitySignaturePrerequisite = readFileSync(
 const permissionRepairSeed = readFileSync(permissionRepairSeedPath, "utf8");
 const runner = readFileSync(runnerPath, "utf8");
 const migrationAliases = readFileSync(migrationAliasesPath, "utf8");
+const migrationReplacements = readFileSync(migrationReplacementsPath, "utf8");
+const propertyCompatibilityReplacementPatch = readFileSync(
+  propertyCompatibilityReplacementPatchPath,
+  "utf8"
+);
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
 const runtimeControlDiagnostic = readFileSync(runtimeControlDiagnosticPath, "utf8");
@@ -173,6 +183,34 @@ assert.equal(
   "685bf06141d5769c6139fa4e4c8f7453438997e3dd05f93c8979a98d2e5c978c",
   "reviewed 000200 catalog-signature prerequisite must remain byte-for-byte unchanged"
 );
+assert.equal(
+  createHash("sha256").update(propertyCompatibilityReplacementPatch).digest("hex"),
+  "4c44d9e314ae8135e401374014754396b34790ec5171fdf8572f84135e43a32d",
+  "000200 replacement patch must remain byte-for-byte reviewed"
+);
+assert.deepEqual(
+  migrationReplacements
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#")),
+  [
+    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|4c44d9e314ae8135e401374014754396b34790ec5171fdf8572f84135e43a32d|c28b2dd95e39984d9db9ac824ac03275c87a9a4796ce1b8a603e941f4565378b"
+  ],
+  "every migration replacement must be explicitly reviewed"
+);
+for (const replacementContract of [
+  "property-runtime-control-migration-stage-drift",
+  "property-runtime-control-correction-audit-drift",
+  "e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944",
+  "b2a-contract-correction-000195",
+  "requires_correction_audit"
+]) {
+  assert.match(
+    propertyCompatibilityReplacementPatch,
+    new RegExp(replacementContract),
+    `000200 replacement is missing ${replacementContract}`
+  );
+}
 
 assert.match(
   propertyRuntimeCheckpointPrerequisite,
@@ -574,6 +612,15 @@ for (const forbiddenWrite of [
 }
 
 assert.match(runner, /MIGRATION_PREREQUISITES_DIR=/);
+assert.match(runner, /MIGRATION_REPLACEMENTS_FILE=/);
+assert.match(runner, /validate_migration_replacement_manifest\(\)/u);
+assert.match(runner, /migration replacement target is absent or duplicated/u);
+assert.match(runner, /prepare_migration_execution\(\)/u);
+assert.match(runner, /immutable migration source drifted before replacement/u);
+assert.match(runner, /migration replacement patch checksum drifted/u);
+assert.match(runner, /migration replacement output checksum drifted/u);
+assert.match(runner, /approved immutable source checksum; replacement not re-run/u);
+assert.match(runner, /psql_exec < "\$migration_execution_file"/u);
 assert.match(runner, /prerequisite:\$\{prerequisite_target_filename\}:\$\{prerequisite_filename\}/);
 assert.match(runner, /migration prerequisite changed after success/);
 assert.match(runner, /migration prerequisite is already marked running/);
@@ -683,9 +730,14 @@ assert.doesNotMatch(
 assert.match(runtimeControlDiagnostic, /BEGIN TRANSACTION READ ONLY;/u);
 assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
-assert.match(runtimeControlDiagnostic, /ready_target_succeeded/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_exact/u);
+assert.match(runtimeControlDiagnostic, /post_000194/u);
+assert.match(runtimeControlDiagnostic, /post_000195/u);
+assert.match(runtimeControlDiagnostic, /migration_stage_drift/u);
+assert.match(runtimeControlDiagnostic, /FULL JOIN schema_migrations standard_history USING \(filename\)/u);
+assert.match(runtimeControlDiagnostic, /"2\|2\|2\|2\|0"/u);
+assert.match(runtimeControlDiagnostic, /e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944/u);
 assert.match(runtimeControlDiagnostic, /extra_control_scope/u);
 assert.match(runtimeControlDiagnostic, /definition_drift/u);
 assert.match(runtimeControlDiagnostic, /missing_keys/u);

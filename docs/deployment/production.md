@@ -383,7 +383,12 @@ Migration behavior:
   and non-sensitive control keys. `ready_missing_reconcile` means the ordered insert-only prerequisite can create
   the missing fixed disabled controls; `extra_control`, `extra_control_scope`, `definition_drift`, or `invalid_scope`
   stop before release sync and require audited investigation. The diagnostic never enables, updates, or deletes a
-  runtime control.
+  runtime control. The classifier follows the immutable migration stage: expand v1 before `000194`, correction v2
+  after `000194`, and final v3 after `000195`. A partial/unknown history stage is `migration_stage_drift` and blocks.
+- The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
+  `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
+  verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database
+  that previously succeeded the immutable source checksum is skipped and never re-executed.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
@@ -534,6 +539,9 @@ Migration execution behavior:
   and a non-exact postcondition fail before unchanged `000194`; a previously succeeded unchanged target is recognized
   only from matching status/checksum in both history tables so the retroactive prerequisite does not reverse its
   audited correction.
+- Release Smoke then continues the same non-empty production-shaped fixture through `000195`, `000197`–`000201`
+  and production seed. It reproduces a failed immutable-checksum `000200`, verifies the reviewed replacement reaches
+  final v3 without rewriting correction audit, and proves an already-succeeded immutable source remains skipped.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

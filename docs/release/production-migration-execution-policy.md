@@ -26,6 +26,10 @@
   并保留 alias 审计行；旧/新身份并存、非成功状态或 checksum 漂移必须人工处理。
 - CI Release Smoke 必须覆盖旧文件名成功记录到 canonical 文件名的重签重放，并断言 canonical
   migration 被按原 checksum 跳过。
+- 已审查且必须保持字节不变的 migration 若因实际文件顺序只在 pending/failed 环境需要修正，可在
+  `database/migration-replacements.txt` 登记 source、patch、执行结果三重 SHA-256。runner 只对未成功
+  目标生成并执行补丁结果；已按 immutable source checksum 成功的环境继续跳过，未知成功 checksum、
+  source/patch/output 任一漂移或 patch 无法精确应用都 fail closed。replacement 不能用于重跑成功 SQL。
 - runner 必须在 bootstrap history 前持有数据库级 advisory lock，避免两个发布进程并发检查、写入
   或执行同一 migration；等待必须使用可中断的 try-lock 轮询，进程退出后不得依赖额外数据库权限
   释放锁。CI Release Smoke 必须验证第二个迁移进程会等待该锁。
@@ -54,6 +58,9 @@
   - `000200` 的 prerequisite 在签署这两张前置表的 catalog 注释前，先校验 57 个表、列、
     约束和索引对象的固定聚合 SHA-256；任何结构漂移都会 fail closed。该前置项只创建会话级
     临时视图和 COMMENT，不改永久 schema 或业务数据。
+  - `000200` immutable source 原先只接受 expand v1，但实际 runner 会先执行 immutable `000194/000195`
+    并把控制合同推进到 v3。受审 replacement 在 000194/000195 双 history 与 correction audit 完整时
+    保留并验证 v3；在历史直跑顺序中仍建立 v1。混合阶段、定义、集合或 audit 漂移继续阻断。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 
@@ -90,7 +97,8 @@
   必须通过 fresh-schema Release Smoke，并同步检查后续 join 是否使用同一业务唯一键。
 - fresh-schema migration-before-seed 可能因为 target scope 为空而让 exact-set guard vacuously pass；任何
   从持久化 assignment 派生目标集合的 migration 都必须增加“先迁移到前一版本、再写入生产形态 assignment、
-  最后重试目标 migration”的独立 PostgreSQL fixture，并在发布副作用前运行同源只读 parity gate。
+  最后跑完整依赖尾链和 production seed”的独立 PostgreSQL fixture，并在发布副作用前运行同源只读
+  parity gate。不得在第一个修复目标成功后停止回放，否则后续 migration 的旧合同仍会形成假绿。
 
 当前仓库已观察到的重复编号现象：
 

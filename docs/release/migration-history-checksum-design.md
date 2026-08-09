@@ -110,6 +110,11 @@
   写入 alias 审计记录；旧/新身份同时存在、状态异常或 checksum 漂移都会 fail closed。
 - Release Smoke 会把 canonical 成功记录临时还原为旧文件名并重跑迁移，断言 alias 重签成功且
   canonical migration 按原 checksum 输出 `SKIP`，从而防止历史 SQL 重复执行。
+- `database/migration-replacements.txt` 是与 alias 分离的执行替换清单。它不修改 immutable source，
+  逐项固定 source SHA-256、unified patch SHA-256 和生成 SQL SHA-256。pending/failed 目标记录生成 SQL
+  checksum；已成功 source checksum 被显式识别并跳过，不能借 replacement 重跑成功 migration。
+- replacement 必须有生产形态 PostgreSQL 回放，至少覆盖 failed source checksum 重试、generated checksum
+  成功记录、immutable source checksum 兼容跳过，以及未知 succeeded checksum fail closed。
 - runner 在 bootstrap history 之前取得数据库级 advisory lock，同一数据库的第二个迁移进程必须等待
   前一个进程释放锁；等待使用可中断的 `pg_try_advisory_lock` 轮询，退出时由持锁会话 EOF 自动释放，
   不依赖数据库角色拥有终止其他 backend 的权限。Release Smoke 会用独立 blocker session验证该行为。

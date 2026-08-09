@@ -179,7 +179,145 @@ test "$retry_state" = '12|12|12|2|2'
 COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
   scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
   > "$log_root/db-migrate-000194-runtime-control-post-success.log"
-grep -Fq 'ready_target_succeeded|||0|0|0|0|0||' \
+grep -Fq 'ready_exact|10000001|20000001|12|12|0|0|0||' \
+  "$log_root/db-migrate-000194-runtime-control-post-success.log"
+grep -Fq 'contract_stage=post_000194' \
   "$log_root/db-migrate-000194-runtime-control-post-success.log"
 
-echo '[PASS] 000194 runtime-control failed-history retry'
+# Reproduce the production boundary: 000194 succeeded, 000195 advances every
+# control to v3, while the immutable 000200 source is recorded failed with its
+# original checksum. The runner must execute the reviewed replacement without
+# rewriting the immutable source migration.
+original_000200_checksum='da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a'
+replacement_000200_checksum='c28b2dd95e39984d9db9ac824ac03275c87a9a4796ce1b8a603e941f4565378b'
+copy_tail='no'
+for migration in database/migrations/*.sql; do
+  migration_name="$(basename "$migration")"
+  [ "$migration_name" = '000200_property_b_migration_compatibility_control.sql' ] && break
+  if [ "$copy_tail" = 'yes' ]; then
+    cp "$migration" "$retry_migrations/$migration_name"
+  fi
+  [ "$migration_name" = "$target_migration" ] && copy_tail='yes'
+done
+
+POSTGRES_DB="$retry_db" \
+MIGRATIONS_DIR="$retry_migrations" \
+MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+  sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000199-runtime-control-tail.log"
+
+grep -Fq 'SUCCESS: 000195_property_mutation_receipt_contract_v2.sql' \
+  "$log_root/db-migrate-000199-runtime-control-tail.log"
+grep -Fq 'SUCCESS: 000197_property_approval_active_source_index_forward_fix.sql' \
+  "$log_root/db-migrate-000199-runtime-control-tail.log"
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<SQL
+BEGIN;
+INSERT INTO public.sys_schema_migration_history (
+  filename,checksum,status,started_at,finished_at,error_message,
+  executed_by,batch_id,created_at,updated_at
+) VALUES (
+  '000200_property_b_migration_compatibility_control.sql','$original_000200_checksum',
+  'failed',clock_timestamp(),clock_timestamp(),'property-runtime-control-definition-drift',
+  'release-smoke','000200-chain-retry',clock_timestamp(),clock_timestamp()
+);
+INSERT INTO public.schema_migrations (
+  filename,checksum,status,started_at,finished_at,error_message,
+  executed_by,batch_id,created_at,updated_at
+) VALUES (
+  '000200_property_b_migration_compatibility_control.sql','$original_000200_checksum',
+  'failed',clock_timestamp(),clock_timestamp(),'property-runtime-control-definition-drift',
+  'release-smoke','000200-chain-retry',clock_timestamp(),clock_timestamp()
+);
+COMMIT;
+SQL
+
+copy_tail='no'
+for migration in database/migrations/*.sql; do
+  migration_name="$(basename "$migration")"
+  if [ "$copy_tail" = 'yes' ]; then
+    cp "$migration" "$retry_migrations/$migration_name"
+  fi
+  [ "$migration_name" = '000199_floor_layout_deleted_file_backfill.sql' ] && copy_tail='yes'
+done
+
+POSTGRES_DB="$retry_db" \
+MIGRATIONS_DIR="$retry_migrations" \
+MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+  sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-runtime-control-chain.log"
+
+grep -Fq 'SKIP: 000195_property_mutation_receipt_contract_v2.sql (already succeeded, checksum matched)' \
+  "$log_root/db-migrate-000200-runtime-control-chain.log"
+grep -Fq 'WARNING: retrying failed migration with updated checksum: 000200_property_b_migration_compatibility_control.sql' \
+  "$log_root/db-migrate-000200-runtime-control-chain.log"
+grep -Fq 'SUCCESS: 000200_property_b_migration_compatibility_control.sql' \
+  "$log_root/db-migrate-000200-runtime-control-chain.log"
+
+ALLOW_PRODUCTION_SEED=yes \
+SEEDS_DIR="$retry_seeds" \
+POSTGRES_DB="$retry_db" \
+  sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-runtime-control-chain.log"
+
+chain_state="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+    -c "SELECT
+      (SELECT count(*) FROM public.sys_property_runtime_control
+        WHERE contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+          AND disabled_reason='b2a-contract-correction-000195' AND version=3),
+      (SELECT count(*) FROM public.sys_property_runtime_control_contract_audit
+        WHERE correction_key IN ('b2a-contract-correction-000194','b2a-contract-correction-000195')),
+      (SELECT count(*) FROM (SELECT filename,status,checksum FROM public.sys_schema_migration_history
+        UNION ALL SELECT filename,status,checksum FROM public.schema_migrations) history
+        WHERE filename='000200_property_b_migration_compatibility_control.sql'
+          AND status='succeeded' AND checksum='$replacement_000200_checksum'),
+      (to_regclass('public.biz_property_migration_anomaly') IS NOT NULL)::int,
+      (to_regclass('public.biz_property_migration_evidence') IS NOT NULL)::int;"
+)"
+test "$chain_state" = '12|24|2|1|1'
+
+COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+  > "$log_root/db-migrate-000200-runtime-control-post-success.log"
+grep -Fq 'ready_exact|10000001|20000001|12|12|0|0|0||' \
+  "$log_root/db-migrate-000200-runtime-control-post-success.log"
+grep -Fq 'contract_stage=post_000195' \
+  "$log_root/db-migrate-000200-runtime-control-post-success.log"
+
+# A database that already succeeded with the immutable source checksum must
+# remain skipped; the replacement is for pending/failed execution only.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET checksum='$original_000200_checksum'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';
+      UPDATE public.schema_migrations SET checksum='$original_000200_checksum'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';"
+POSTGRES_DB="$retry_db" \
+MIGRATIONS_DIR="$retry_migrations" \
+MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+  sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-compatible-source-skip.log"
+grep -Fq 'SKIP: 000200_property_b_migration_compatibility_control.sql (already succeeded with approved immutable source checksum; replacement not re-run)' \
+  "$log_root/db-migrate-000200-compatible-source-skip.log"
+
+unknown_000200_checksum='0000000000000000000000000000000000000000000000000000000000000000'
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+  -c "UPDATE public.sys_schema_migration_history SET checksum='$unknown_000200_checksum'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';
+      UPDATE public.schema_migrations SET checksum='$unknown_000200_checksum'
+        WHERE filename='000200_property_b_migration_compatibility_control.sql';"
+if POSTGRES_DB="$retry_db" \
+  MIGRATIONS_DIR="$retry_migrations" \
+  MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+  MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+    sh scripts/db-migrate.sh > "$log_root/db-migrate-000200-unknown-success.log" 2>&1; then
+  echo 'Expected an unknown succeeded 000200 checksum to fail closed' >&2
+  exit 1
+fi
+grep -Fq 'ERROR: migration file changed after success: 000200_property_b_migration_compatibility_control.sql' \
+  "$log_root/db-migrate-000200-unknown-success.log"
+
+echo '[PASS] production-shaped 000194-000200 runtime-control migration chain'
