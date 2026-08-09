@@ -2,6 +2,9 @@
 -- after the immutable 000194/000195 correction migrations have succeeded.
 -- Existing canonical scopes are validated and preserved; only wholly missing
 -- scopes are initialized through the audited v1 -> v2 -> v3 transition.
+-- Operational replay: the seed was introduced before the deploy runner preserved
+-- workflow-level RUN_PRODUCTION_SEED, so this reviewed no-op change deliberately
+-- re-enters the automatic production-seed release path after that fix shipped.
 
 BEGIN;
 SET LOCAL search_path = public, pg_catalog;

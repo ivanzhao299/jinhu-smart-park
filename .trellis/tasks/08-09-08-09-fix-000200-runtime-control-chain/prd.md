@@ -26,8 +26,9 @@
 - [x] 相关 shell/Node 静态检查、迁移合同测试、PostgreSQL 集成回放、Verify/Release Smoke 全部通过。
 - [x] PR 无未解决可操作 review thread，Codex 对最新 head 无新增问题，PR 已自动合并。
 - [x] 合并后的生产 Deploy 成功，API liveness/readiness、Web login、Docker cleanup 均通过。
-- [ ] 发布工作流显式传入的 `RUN_PRODUCTION_SEED=yes|no` 不会再被 `.env.production` 默认值覆盖；双向优先级、无覆盖回退和非法值均有回归。
-- [ ] seed 控制面修复通过 Verify/Release Smoke、最新 Codex review 并自动合并，合并后的生产 Deploy 再次成功。
+- [x] 发布工作流显式传入的 `RUN_PRODUCTION_SEED=yes|no` 不会再被 `.env.production` 默认值覆盖；双向优先级、无覆盖回退和非法值均有回归。
+- [x] seed 控制面修复通过 Verify/Release Smoke、最新 Codex review 并自动合并，合并后的生产 Deploy 再次成功。
+- [ ] 通过受审计的 seed 文件重放触发自动发布，生产日志明确显示 `RUN_PRODUCTION_SEED=yes`、执行 `000008`，并通过健康、UAT 与 Docker cleanup。
 
 ## Notes
 
