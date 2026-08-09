@@ -69,3 +69,31 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 - [x] 更新 `.trellis/spec/guides/project-operations.md`。
 - [x] 更新生产部署与 runner release 文档。
 - [x] 新增可执行优先级回归并接入 Verify。
+
+## Bug Analysis: Track B seed 把 scope 存在性误写成业务行唯一性
+
+### 1. Root Cause Category
+
+- **Category**: B/D/E — 跨层合同、生产形态覆盖缺口与隐式唯一性假设。
+- **Specific Cause**: `000006` 只需要固定 tenant/park scope 存在，后续权限写入不选择或读取某一条
+  `biz_park`；预检却要求该 scope 恰好一条 active park。生产历史数据在同一 scope 下合法保留 `CSYQ,JH`
+  两条业务园区，因此完整 seed 重放在任何写入前 fail closed。
+
+### 2. Why Fixes Failed
+
+1. fresh-schema seed 只有一条同 scope park，无法覆盖生产历史的多业务行形态。
+2. 前序部署长期没有真正执行 production seed，过度约束直到控制面修复后才暴露。
+
+### 3. Prevention Mechanisms
+
+| Priority | Mechanism | Specific Action | Status |
+|----------|-----------|-----------------|--------|
+| P0 | Contract | 仅需 scope 存在时检查 `count >= 1`；只有真正选择唯一来源时才要求 exact-one | DONE |
+| P0 | Test | fresh-order 数据库插入第二条同 scope active park，再完整重跑 production seed | DONE |
+| P1 | Spec | 将 scope 存在性与业务来源唯一性分离写入 project operations | DONE |
+
+### 4. Systematic Expansion
+
+- **Similar Issues**: 其他 seed/preflight 若只按 tenant/park 写元数据，也不应把同 scope 业务行数当唯一性合同。
+- **Design Improvement**: 预检计数必须与后续 SELECT 的真实基数需求一致。
+- **Process Improvement**: 每个生产新分类都进入 deterministic PostgreSQL fixture 后再重试部署。

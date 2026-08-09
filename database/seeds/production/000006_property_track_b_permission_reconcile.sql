@@ -78,7 +78,7 @@ BEGIN
    AND role.is_deleted = false;
 
   IF tenant_count <> 1
-     OR park_count <> 1
+     OR park_count < 1
      OR asset_assignment_count <> 1
      OR asset_parent_count <> 1
      OR super_admin_count <> 1 THEN

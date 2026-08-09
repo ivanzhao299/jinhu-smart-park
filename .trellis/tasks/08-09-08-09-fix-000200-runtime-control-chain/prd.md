@@ -28,7 +28,9 @@
 - [x] 合并后的生产 Deploy 成功，API liveness/readiness、Web login、Docker cleanup 均通过。
 - [x] 发布工作流显式传入的 `RUN_PRODUCTION_SEED=yes|no` 不会再被 `.env.production` 默认值覆盖；双向优先级、无覆盖回退和非法值均有回归。
 - [x] seed 控制面修复通过 Verify/Release Smoke、最新 Codex review 并自动合并，合并后的生产 Deploy 再次成功。
-- [ ] 通过受审计的 seed 文件重放触发自动发布，生产日志明确显示 `RUN_PRODUCTION_SEED=yes`、执行 `000008`，并通过健康、UAT 与 Docker cleanup。
+- [x] 通过受审计的 seed 文件重放触发自动发布，生产日志明确显示 `RUN_PRODUCTION_SEED=yes`，并暴露真实 production seed 阻断而未误报成功。
+- [ ] Track B permission seed 接受同一已验证 scope 下多个有效 biz park，完整 seed 重跑回归通过。
+- [ ] 修复通过 Verify/Release Smoke、最新 Codex review 并自动合并；最终生产日志显示执行 `000006`、`000008`、健康、UAT 与 Docker cleanup 全部成功。
 
 ## Notes
 
