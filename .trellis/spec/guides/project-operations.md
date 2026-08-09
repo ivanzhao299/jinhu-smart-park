@@ -110,6 +110,9 @@ Reference files:
 - A production seed that writes only tenant/park-scoped metadata must treat multiple active business rows inside
   that same validated scope as valid unless it actually selects one row as a source. Require at least one scoped
   row for existence; reserve exact-one checks for logic whose output depends on a unique source record.
+- When an immutable migration and the canonical production seed differ in one reviewed metadata expression, the
+  seed may converge only the exact legacy value for rows carrying the frozen identity/remark. Keep the full
+  canonical exact-set postcondition in the same transaction so unrelated definition drift still rolls back.
 
 Reference files:
 - `database/migration-replacements.txt`

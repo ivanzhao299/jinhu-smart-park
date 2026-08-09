@@ -97,3 +97,27 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 - **Similar Issues**: 其他 seed/preflight 若只按 tenant/park 写元数据，也不应把同 scope 业务行数当唯一性合同。
 - **Design Improvement**: 预检计数必须与后续 SELECT 的真实基数需求一致。
 - **Process Improvement**: 每个生产新分类都进入 deterministic PostgreSQL fixture 后再重试部署。
+
+## Bug Analysis: 000189 与 production seed 的权限可见性表达式相反
+
+### 1. Root Cause Category
+
+- **Category**: B/C/D — 跨层合同、变更传播失败与生产形态覆盖缺口。
+- **Specific Cause**: immutable 000189 在已有 scope 的生产库创建 25 条权限时使用
+  `visible=(permission_type='api')`；000006 的 canonical 定义使用
+  `visible=(permission_type IN ('menu','page'))`。migration-before-seed 空库没有 000189 目标 scope，因而 CI 只覆盖
+  seed 直接创建 canonical 行，未覆盖 migration-created legacy 行。
+
+### 2. Prevention Mechanisms
+
+| Priority | Mechanism | Specific Action | Status |
+|----------|-----------|-----------------|--------|
+| P0 | Convergence | 仅更新 frozen Track B identity/remark/scope 且 visibility 等于已知 000189 表达式的行 | DONE |
+| P0 | Fail closed | 同事务 exact-set 继续校验其余所有定义字段、状态、version 与 remark | DONE |
+| P0 | Test | 将 25 条 canonical 行改为旧 visibility，完整 seed 重跑后断言 25 条全部恢复 | DONE |
+
+### 3. Systematic Expansion
+
+- **Similar Issues**: migration 与 seed 复制同一 metadata manifest 时，任一表达式漂移都必须有生产顺序 fixture。
+- **Design Improvement**: forward-only 历史不可改时，seed convergence 只接受已签名旧值或 canonical 值。
+- **Process Improvement**: CI 除 migration-before-seed 外，还需注入 migration-created legacy metadata 再跑 seed。

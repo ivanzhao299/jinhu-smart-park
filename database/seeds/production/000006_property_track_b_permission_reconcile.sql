@@ -182,6 +182,24 @@ FROM permission_scope scope
 CROSS JOIN property_track_b_expected_definition permission
 ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO NOTHING;
 
+-- 000189 used the inverse visibility expression when it created these frozen
+-- definitions in a pre-seeded production scope. Converge only that reviewed
+-- legacy value; the exact-set postcondition below still rejects every other
+-- field, scope, status, version, or remark drift transactionally.
+UPDATE sys_permission permission
+SET visible = expected.permission_type IN ('menu', 'page'),
+    update_time = clock_timestamp()
+FROM property_track_b_seed_scope scope
+JOIN property_track_b_expected_definition expected ON true
+WHERE permission.tenant_id = scope.tenant_id
+  AND permission.park_id = scope.park_id
+  AND permission.code = expected.code
+  AND permission.remark = 'PR192 Track B frozen permission definition'
+  AND permission.is_deleted = false
+  AND permission.visible = (expected.permission_type = 'api')
+  AND permission.visible IS DISTINCT FROM
+      (expected.permission_type IN ('menu', 'page'));
+
 DO $$
 DECLARE
   drift_count integer;

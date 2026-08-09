@@ -567,7 +567,69 @@ VALUES (
   'Release Smoke Second Active Park', 1, false,
   'production-seed-multi-park-scope-regression'
 );
+
+UPDATE public.sys_permission
+SET visible = (permission_type = 'api'),
+    update_time = clock_timestamp()
+WHERE tenant_id = '10000001'
+  AND park_id = '20000001'
+  AND remark = 'PR192 Track B frozen permission definition'
+  AND is_deleted = false;
 SQL
+
+fresh_order_legacy_visibility_count="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT count(*) FROM public.sys_permission
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND remark='PR192 Track B frozen permission definition'
+          AND is_deleted=false AND visible=(permission_type='api');"
+)"
+test "$fresh_order_legacy_visibility_count" -eq 25
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_permission
+      SET name='Release Smoke Unknown Definition Drift',
+          update_time=clock_timestamp()
+      WHERE tenant_id='10000001' AND park_id='20000001'
+        AND code='party:identity_update'
+        AND remark='PR192 Track B frozen permission definition'
+        AND is_deleted=false;"
+
+if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    < database/seeds/production/000006_property_track_b_permission_reconcile.sql \
+    > "$log_root/db-seed-000006-permission-definition-drift.log" 2>&1; then
+  echo 'Expected production seed 000006 to reject unknown permission definition drift' >&2
+  exit 1
+fi
+grep -Fq 'property-track-b-seed-permission-definition-drift' \
+  "$log_root/db-seed-000006-permission-definition-drift.log"
+
+fresh_order_rollback_state="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT
+      count(*) FILTER (WHERE visible=(permission_type='api')),
+      count(*) FILTER (WHERE code='party:identity_update'
+        AND name='Release Smoke Unknown Definition Drift')
+    FROM public.sys_permission
+    WHERE tenant_id='10000001' AND park_id='20000001'
+      AND remark='PR192 Track B frozen permission definition'
+      AND is_deleted=false;"
+)"
+test "$fresh_order_rollback_state" = '25|1'
+
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_permission
+      SET name='身份资料录入',
+          update_time=clock_timestamp()
+      WHERE tenant_id='10000001' AND park_id='20000001'
+        AND code='party:identity_update'
+        AND remark='PR192 Track B frozen permission definition'
+        AND is_deleted=false;"
 
 ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-rerun.log"
@@ -583,6 +645,17 @@ fresh_order_active_park_count="$(
           AND status=1 AND is_deleted=false;"
 )"
 test "$fresh_order_active_park_count" -eq 2
+
+fresh_order_canonical_permission_count="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+    -c "SELECT count(*) FROM public.sys_permission
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND remark='PR192 Track B frozen permission definition'
+          AND is_deleted=false
+          AND visible=(permission_type IN ('menu','page'));"
+)"
+test "$fresh_order_canonical_permission_count" -eq 25
 
 fresh_order_state="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
