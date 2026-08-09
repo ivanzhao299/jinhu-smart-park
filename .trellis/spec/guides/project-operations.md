@@ -104,6 +104,9 @@ Reference files:
 - Release seed scope includes both the top-level production core seed and `database/seeds/production/`.
   If seed execution is required, reject or upgrade deployment modes that do not run migrations/seeds;
   never publish a release marker from `web` or `fast-css` while deferring required seed work.
+- Treat the workflow's explicit `RUN_PRODUCTION_SEED=yes|no` as a one-release control-plane decision. Preserve it
+  over any long-lived `.env.production` default loaded by the remote deploy script, reject unknown values before
+  mutation, and regression-test both precedence directions plus the no-override fallback.
 
 Reference files:
 - `database/migration-replacements.txt`

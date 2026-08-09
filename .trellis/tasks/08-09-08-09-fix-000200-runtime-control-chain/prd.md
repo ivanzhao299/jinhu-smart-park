@@ -23,9 +23,11 @@
 - [x] 生产形态 fixture 从 000193 之前跑过 000194→000195→000200→当前尾部迁移及 production seed，并验证双 history、控制定义和审计收敛。
 - [x] 部署前只读检查能在 000200 定义漂移时阻止部署，并且不输出敏感信息或写生产数据。
 - [x] 独立空库按真实 migration→production seed 顺序执行并重跑 seed 后，late-created asset scope 收敛为 exact v3 与双 correction audit。
-- [ ] 相关 shell/Node 静态检查、迁移合同测试、PostgreSQL 集成回放、Verify/Release Smoke 全部通过。
-- [ ] PR 无未解决可操作 review thread，Codex 对最新 head 无新增问题，PR 已自动合并。
-- [ ] 合并后的生产 Deploy 成功，API liveness/readiness、Web login、Docker cleanup 均通过。
+- [x] 相关 shell/Node 静态检查、迁移合同测试、PostgreSQL 集成回放、Verify/Release Smoke 全部通过。
+- [x] PR 无未解决可操作 review thread，Codex 对最新 head 无新增问题，PR 已自动合并。
+- [x] 合并后的生产 Deploy 成功，API liveness/readiness、Web login、Docker cleanup 均通过。
+- [ ] 发布工作流显式传入的 `RUN_PRODUCTION_SEED=yes|no` 不会再被 `.env.production` 默认值覆盖；双向优先级、无覆盖回退和非法值均有回归。
+- [ ] seed 控制面修复通过 Verify/Release Smoke、最新 Codex review 并自动合并，合并后的生产 Deploy 再次成功。
 
 ## Notes
 

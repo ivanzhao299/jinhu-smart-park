@@ -303,6 +303,10 @@ First-time deployments that need the production core seed can use:
 RUN_PRODUCTION_SEED=yes pnpm prod:deploy
 ```
 
+An explicitly supplied `RUN_PRODUCTION_SEED=yes|no` is a one-release decision and takes precedence over the
+long-lived value in `.env.production`. If the variable is not supplied, the deploy script uses the value from
+`.env.production`. Any value other than `yes` or `no` fails before migration, seed, or service changes begin.
+
 The default full deploy script:
 
 1. Builds API and Web images.
