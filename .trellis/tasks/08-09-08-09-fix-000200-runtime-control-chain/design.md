@@ -103,15 +103,16 @@ immutable source checksum 成功，则只跳过且不改写 history；若按 gen
 ### 1. Root Cause Category
 
 - **Category**: B/C/D — 角色合同漂移、变更传播失败与 CI 失败传播缺口。
-- **Specific Cause**: 历史 000171 只为旧 `INVEST_MANAGER` 补 `workorder:create`，2026 责任分工却将
-  `song_qianchang` 绑定到 `JH_LEASING_LEAD`；受保护 UAT 因此在部署、seed、健康和 cleanup 均成功后失败。
+- **Specific Cause**: 历史 000171 是一次性迁移；当它执行时旧 `INVEST_MANAGER` 模板可能尚不存在，
+  后续 2026 责任分工又引入 `JH_LEASING_LEAD`。生产账号仍可能绑定任一受审别名，导致部署、seed、健康
+  和 cleanup 均成功后，受保护 UAT 仍缺少 `workorder:create`。
   同时 Release Smoke 的命令通过 `tee` 输出日志但未显式启用 `pipefail`，seed 的 exit 3 被 `tee` 的 0 掩盖。
 
 ### 2. Prevention Mechanisms
 
 | Priority | Mechanism | Specific Action | Status |
 |----------|-----------|-----------------|--------|
-| P0 | Least privilege | 新 production seed 仅为固定 scope 的 active `JH_LEASING_LEAD` 补 `workorder:create` | DONE |
+| P0 | Least privilege | 新 production seed 仅为固定 scope 的 active `INVEST_MANAGER` / `JH_LEASING_LEAD` 补 `workorder:create`，绝不按用户名推导角色 | DONE |
 | P0 | Fail closed | 角色存在但非 active、重复角色或权限缺失时事务失败；角色尚未导入时安全 no-op | DONE |
 | P0 | CI truth | workflow 默认 shell 显式 `-eo pipefail`，所有 `tee` 管道保留生产者退出码 | DONE |
 | P0 | Test | production-shaped fixture 创建当前责任角色，完整 seed 后断言唯一 grant | DONE |

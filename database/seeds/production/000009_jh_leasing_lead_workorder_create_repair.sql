@@ -1,24 +1,35 @@
--- Production-safe repair for the 2026 responsibility role used by the
--- protected go-live account song_qianchang. Historical repair 000171 granted
--- workorder:create only to the legacy INVEST_MANAGER role, while the current
--- responsibility import assigns JH_LEASING_LEAD.
+-- Production-safe repair for the two reviewed role identities used by the
+-- protected go-live leasing-lead account. Historical repair 000171 could run
+-- before the legacy INVEST_MANAGER template existed; the current responsibility
+-- import uses JH_LEASING_LEAD. Repair both explicit aliases without deriving
+-- grants from a username or widening them to other leasing roles.
 
 BEGIN;
+
+-- Serialize the active relation existence check with any concurrent seed run.
+LOCK TABLE rel_role_perm IN SHARE ROW EXCLUSIVE MODE;
 
 CREATE TEMP TABLE jh_leasing_lead_workorder_scope (
   tenant_id varchar(64) NOT NULL,
   park_id varchar(64) NOT NULL,
+  role_code varchar(64) NOT NULL,
   role_id uuid,
   permission_id uuid NOT NULL,
-  PRIMARY KEY (tenant_id, park_id)
+  PRIMARY KEY (tenant_id, park_id, role_code)
 ) ON COMMIT DROP;
+
+CREATE TEMP TABLE jh_leasing_lead_expected_role (
+  role_code varchar(64) PRIMARY KEY
+) ON COMMIT DROP;
+
+INSERT INTO jh_leasing_lead_expected_role (role_code)
+VALUES ('INVEST_MANAGER'), ('JH_LEASING_LEAD');
 
 DO $$
 DECLARE
   tenant_count integer;
   park_count integer;
-  role_total_count integer;
-  role_active_count integer;
+  invalid_role_count integer;
   permission_count integer;
 BEGIN
   SELECT count(*) INTO tenant_count
@@ -34,16 +45,26 @@ BEGIN
     AND park.status = 1
     AND park.is_deleted = false;
 
-  SELECT count(*), count(*) FILTER (
-    WHERE role.is_enabled = true
-      AND role.status = 'enabled'
-      AND role.is_deleted = false
+  WITH role_state AS (
+    SELECT
+      expected.role_code,
+      count(role.id) AS total_count,
+      count(role.id) FILTER (
+        WHERE role.is_enabled = true
+          AND role.status = 'enabled'
+          AND role.is_deleted = false
+      ) AS active_count
+    FROM jh_leasing_lead_expected_role expected
+    LEFT JOIN sys_role role
+      ON role.tenant_id = '10000001'
+     AND role.park_id = '20000001'
+     AND role.code = expected.role_code
+    GROUP BY expected.role_code
   )
-  INTO role_total_count, role_active_count
-  FROM sys_role role
-  WHERE role.tenant_id = '10000001'
-    AND role.park_id = '20000001'
-    AND role.code = 'JH_LEASING_LEAD';
+  SELECT count(*) INTO invalid_role_count
+  FROM role_state
+  WHERE total_count NOT IN (0, 1)
+     OR active_count <> total_count;
 
   SELECT count(*) INTO permission_count
   FROM sys_permission permission
@@ -56,30 +77,31 @@ BEGIN
 
   IF tenant_count <> 1
      OR park_count < 1
-     OR role_total_count NOT IN (0, 1)
-     OR role_active_count <> role_total_count
+     OR invalid_role_count <> 0
      OR permission_count <> 1 THEN
     RAISE EXCEPTION
-      'jh-leasing-lead-workorder-create-preflight-failed: tenant=%, park=%, role_total=%, role_active=%, permission=%',
-      tenant_count, park_count, role_total_count, role_active_count, permission_count
+      'jh-leasing-lead-workorder-create-preflight-failed: tenant=%, park=%, invalid_roles=%, permission=%',
+      tenant_count, park_count, invalid_role_count, permission_count
       USING ERRCODE = '23514';
   END IF;
 END;
 $$;
 
 INSERT INTO jh_leasing_lead_workorder_scope (
-  tenant_id, park_id, role_id, permission_id
+  tenant_id, park_id, role_code, role_id, permission_id
 )
 SELECT
   '10000001',
   '20000001',
+  expected.role_code,
   role.id,
   permission.id
 FROM sys_permission permission
+JOIN jh_leasing_lead_expected_role expected ON true
 LEFT JOIN sys_role role
   ON role.tenant_id = '10000001'
  AND role.park_id = '20000001'
- AND role.code = 'JH_LEASING_LEAD'
+ AND role.code = expected.role_code
  AND role.is_enabled = true
  AND role.status = 'enabled'
  AND role.is_deleted = false
@@ -103,7 +125,7 @@ SELECT
   clock_timestamp(),
   false,
   1,
-  'Repair JH_LEASING_LEAD workorder:create required by protected go-live UAT.'
+  'Repair reviewed leasing-lead workorder:create grant required by protected go-live UAT.'
 FROM jh_leasing_lead_workorder_scope scope
 WHERE scope.role_id IS NOT NULL
   AND NOT EXISTS (
