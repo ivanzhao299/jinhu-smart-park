@@ -190,7 +190,7 @@ assert.equal(
 );
 assert.equal(
   createHash("sha256").update(propertyCompatibilityReplacementPatch).digest("hex"),
-  "c734329e8b9c66c7ec8ded54f143edaf7d57177aac9f3888abc0b9bda735b4ec",
+  "06fe3ae6d3a4d70bcb3c1d55ab1af367c3c95ac9f9e2d4aee03524e2497d13c9",
   "000200 replacement patch must remain byte-for-byte reviewed"
 );
 assert.deepEqual(
@@ -199,7 +199,7 @@ assert.deepEqual(
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#")),
   [
-    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|c734329e8b9c66c7ec8ded54f143edaf7d57177aac9f3888abc0b9bda735b4ec|946dc96d73f2382986e1dd172ad90cc8fa563d6d14271c9fc7ef5fe17d321efe"
+    "000200_property_b_migration_compatibility_control.sql|da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a|000200_property_b_migration_compatibility_control.patch|06fe3ae6d3a4d70bcb3c1d55ab1af367c3c95ac9f9e2d4aee03524e2497d13c9|d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b"
   ],
   "every migration replacement must be explicitly reviewed"
 );
@@ -629,6 +629,16 @@ assert.ok(
   runner.indexOf("ensure_dependency patch") > runner.indexOf('replacement_rows="$(awk'),
   "patch is required only after a replacement declaration matches the current migration"
 );
+assert.ok(
+  runner.indexOf('history_row="$(psql_query') <
+    runner.indexOf('prepare_migration_execution "$file" metadata'),
+  "migration history must be read before replacement metadata or SQL is prepared"
+);
+assert.match(
+  runner,
+  /if \[ "\$migration_prepare_mode" = "metadata" \]; then\s+return 0[\s\S]*?ensure_dependency patch/u,
+  "an already-succeeded replacement must skip without requiring patch"
+);
 assert.match(runner, /immutable migration source drifted before replacement/u);
 assert.match(runner, /migration replacement patch checksum drifted/u);
 assert.match(runner, /migration replacement output checksum drifted/u);
@@ -763,13 +773,30 @@ for (const requiredSeedContract of [
 assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
+assert.match(
+  propertyRuntimeControlSeed,
+  /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
+  "late-scope seed must bind the v2 audit start to the v1 audit completion"
+);
+assert.match(
+  propertyCompatibilityReplacementPatch,
+  /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
+  "000200 replacement must bind the v2 audit start to the v1 audit completion"
+);
 assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catalog;/u);
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /missing_control/u);
 assert.match(runtimeControlDiagnostic, /ready_exact/u);
 assert.match(runtimeControlDiagnostic, /post_000194/u);
 assert.match(runtimeControlDiagnostic, /post_000195/u);
+assert.match(
+  productionDeployWorkflow,
+  /RUN_PRODUCTION_SEED: \$\{\{ steps\.deploy-mode\.outputs\.run_production_seed \}\}[\s\S]*?sh -s -- enforce '\$PROD_DEPLOY_PATH' '' '\$RUN_PRODUCTION_SEED'/u,
+  "runtime-control gate may allow a wholly missing scope only when this deployment will run production seed"
+);
 assert.match(runtimeControlDiagnostic, /migration_stage_drift/u);
 assert.match(
   runtimeControlDiagnostic,

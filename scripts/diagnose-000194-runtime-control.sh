@@ -5,13 +5,21 @@ set -eu
 mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
+allow_seed_reconcile="${4:-no}"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
 case "$mode" in
   report|enforce) ;;
   *)
-    echo "Usage: $0 [report|enforce] [production-deploy-path]" >&2
+    echo "Usage: $0 [report|enforce] [production-deploy-path] [database] [allow-seed-reconcile]" >&2
+    exit 2
+    ;;
+esac
+case "$allow_seed_reconcile" in
+  yes|no) ;;
+  *)
+    echo "allow-seed-reconcile must be yes or no" >&2
     exit 2
     ;;
 esac
@@ -21,12 +29,12 @@ cd "$deploy_path"
 run_psql() {
   if [ -n "$env_file" ]; then
     docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile"
   else
     docker compose -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile"
   fi
 }
 
@@ -122,8 +130,22 @@ SQL
   exit "$rc"
 }
 
+audit_table_present="$({
+  run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT CASE WHEN to_regclass('public.sys_property_runtime_control_contract_audit') IS NULL THEN 'no' ELSE 'yes' END;
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$audit_table_present" >&2
+  exit "$rc"
+}
+
 if [ "$runtime_contract_stage" = "invalid" ] \
-  || { [ "$runtime_contract_stage" != "pre_000194" ] && [ "$table_present" = "no" ]; }; then
+  || { [ "$runtime_contract_stage" != "pre_000194" ] \
+    && { [ "$table_present" = "no" ] || [ "$audit_table_present" = "no" ]; }; }; then
   echo "000194 runtime control diagnostic (scope identifiers and aggregate counts only)"
   echo "classification|tenant_id|park_id|expected|actual|missing|extra|definition_drift|missing_keys|extra_keys"
   echo "migration_stage_drift|||0|0|0|0|0||"
@@ -142,6 +164,31 @@ if [ "$table_present" = "no" ]; then
   echo "ready_table_absent_reconcile|||0|0|0|0|0||"
   printf 'summary: scopes=0 blocked=0 mode=%s table=absent\n' "$mode"
   exit 0
+fi
+
+if [ "$runtime_contract_stage" = "post_000195" ]; then
+  orphan_audit_count="$({
+    run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT count(*)
+FROM public.sys_property_runtime_control_contract_audit audit
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.sys_property_runtime_control control
+  WHERE control.tenant_id=audit.tenant_id AND control.park_id=audit.park_id
+    AND control.id=audit.control_id
+);
+COMMIT;
+SQL
+  } 2>&1)" || {
+    rc=$?
+    printf '%s\n' "$orphan_audit_count" >&2
+    exit "$rc"
+  }
+  if [ "$orphan_audit_count" != "0" ]; then
+    echo "ERROR: runtime control correction audit contains orphan rows" >&2
+    exit 3
+  fi
 fi
 
 rows="$({
@@ -260,6 +307,10 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         OR tenant_count <> 1 OR asset_count <> 1 THEN 'invalid_scope'
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
+      WHEN missing_count=expected_count AND actual_count=0
+        AND :'runtime_contract_stage'='post_000195'
+        AND :'allow_seed_reconcile'='yes'
+        THEN 'ready_missing_seed_reconcile'
       WHEN missing_count <> 0 AND :'runtime_contract_stage'<>'pre_000194'
         THEN 'missing_control'
       WHEN missing_count <> 0 THEN 'ready_missing_reconcile'

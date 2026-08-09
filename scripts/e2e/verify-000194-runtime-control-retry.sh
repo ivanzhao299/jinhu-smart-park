@@ -131,7 +131,7 @@ INSERT INTO public.sys_property_runtime_control (
    'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8',false,'disabled','expand-only',1);
 SQL
 if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
-  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" yes \
     > "$log_root/db-migrate-000194-runtime-control-drift-gate.log" 2>&1; then
   echo "Expected unsafe runtime-control drift to fail the deployment gate" >&2
   exit 1
@@ -225,7 +225,7 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
 # original checksum. The runner must execute the reviewed replacement without
 # rewriting the immutable source migration.
 original_000200_checksum='da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a'
-replacement_000200_checksum='946dc96d73f2382986e1dd172ad90cc8fa563d6d14271c9fc7ef5fe17d321efe'
+replacement_000200_checksum='d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b'
 copy_tail='no'
 for migration in database/migrations/*.sql; do
   migration_name="$(basename "$migration")"
@@ -309,7 +309,7 @@ if POSTGRES_DB="$retry_db" \
   echo 'Expected corrupted correction-audit evidence to fail the replacement' >&2
   exit 1
 fi
-grep -Fq 'property-runtime-control-correction-audit-drift' \
+grep -Fq 'FAILED: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-audit-drift.log"
 grep -Fq 'WARNING: retrying failed migration with updated checksum: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-audit-drift.log"
@@ -341,7 +341,7 @@ if POSTGRES_DB="$retry_db" \
   echo 'Expected a v3 approval reference to fail the replacement' >&2
   exit 1
 fi
-grep -Fq 'property-runtime-control-definition-drift' \
+grep -Fq 'FAILED: 000200_property_b_migration_compatibility_control.sql' \
   "$log_root/db-migrate-000200-approval-reference-drift.log"
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
@@ -408,8 +408,8 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
 grep -Fq 'SKIP: 000200_property_b_migration_compatibility_control.sql (already succeeded with approved immutable source checksum; replacement not re-run)' \
   "$log_root/db-migrate-000200-compatible-source-skip.log"
 
-# A scope introduced after both correction migrations has no safe insert-only
-# path to the v3 rows and dual audits. The deployment diagnostic must block it.
+# Partial loss after both correction migrations has no safe reconciliation
+# path. The deployment diagnostic must block it even when seed will run.
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
   -c "ALTER TABLE public.sys_property_runtime_control_contract_audit
@@ -421,7 +421,7 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
       DELETE FROM public.sys_property_runtime_control
         WHERE tenant_id='10000001' AND park_id='20000001' AND control_key='task.enforce';"
 if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
-  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$retry_db" yes \
     > "$log_root/db-migrate-000200-post-v3-missing-control.log" 2>&1; then
   echo 'Expected a post-000195 missing control to fail the deployment gate' >&2
   exit 1
@@ -510,6 +510,26 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
 POSTGRES_DB="$fresh_order_db" \
 MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000200-fresh-order.log"
+
+ALLOW_PRODUCTION_SEED=yes SEEDS_DIR="$retry_baseline_seeds" POSTGRES_DB="$fresh_order_db" \
+  sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-baseline.log"
+
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" no \
+    > "$log_root/db-migrate-000200-fresh-order-no-seed-gate.log" 2>&1; then
+  echo 'Expected a wholly missing post-000195 scope to require an authorized seed run' >&2
+  exit 1
+fi
+grep -Fq 'missing_control|10000001|20000001|12|0|12|0|0|' \
+  "$log_root/db-migrate-000200-fresh-order-no-seed-gate.log"
+
+COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" yes \
+  > "$log_root/db-migrate-000200-fresh-order-seed-gate.log"
+grep -Fq 'ready_missing_seed_reconcile|10000001|20000001|12|0|12|0|0|' \
+  "$log_root/db-migrate-000200-fresh-order-seed-gate.log"
+grep -Fq 'summary: scopes=1 blocked=0 mode=enforce table=present contract_stage=post_000195' \
+  "$log_root/db-migrate-000200-fresh-order-seed-gate.log"
 
 ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order.log"

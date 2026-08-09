@@ -78,7 +78,7 @@
 -           contract_hash, enabled, control_mode, disabled_reason
 +           contract_hash, enabled, control_mode, enabled_by, enabled_at,
 +           approval_reference, disabled_reason, version
-@@ -661,0 +720,100 @@
+@@ -661,0 +720,106 @@
 +  END IF;
 +
 +  IF (SELECT requires_correction_audit FROM b0_runtime_control_contract) THEN
@@ -153,6 +153,12 @@
 +          OR audit.old_disabled_reason<>'b2a-contract-correction-000194'
 +          OR audit.new_disabled_reason<>'b2a-contract-correction-000195'
 +          OR audit.new_disabled_reason<>runtime.disabled_reason
++          OR audit.old_update_time IS DISTINCT FROM (
++            SELECT prior.new_update_time
++            FROM public.sys_property_runtime_control_contract_audit prior
++            WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
++              AND prior.control_id=audit.control_id
++              AND prior.correction_key='b2a-contract-correction-000194')
 +          OR audit.new_update_time<>runtime.update_time
 +          OR audit.occurred_at<>runtime.update_time
 +          OR audit.new_update_time<audit.old_update_time

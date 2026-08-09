@@ -381,8 +381,11 @@ Migration behavior:
 - The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
   `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
   and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
-  prerequisite can create the missing fixed disabled controls. After `000194`, missing controls are `missing_control`
-  and fail closed because the successful correction cannot be replayed to create its audit evidence. `extra_control`,
+  prerequisite can create the missing fixed disabled controls. After `000194`, partial missing controls are
+  `missing_control` and fail closed because the successful correction cannot be replayed safely. At final
+  `post_000195`, an exact zero-control/zero-audit scope is `ready_missing_seed_reconcile` only when the resolved
+  deployment will execute the reviewed production seed; `000008` then creates both continuous correction audits.
+  The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
   whole control table being absent after `000194` is also migration-stage drift. The diagnostic never enables,

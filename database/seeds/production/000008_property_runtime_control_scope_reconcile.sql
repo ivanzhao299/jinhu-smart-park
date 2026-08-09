@@ -355,6 +355,12 @@ BEGIN
         OR audit.old_disabled_reason<>'b2a-contract-correction-000194'
         OR audit.new_disabled_reason<>'b2a-contract-correction-000195'
         OR audit.new_disabled_reason<>control.disabled_reason
+        OR audit.old_update_time IS DISTINCT FROM (
+          SELECT prior.new_update_time
+          FROM public.sys_property_runtime_control_contract_audit prior
+          WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
+            AND prior.control_id=audit.control_id
+            AND prior.correction_key='b2a-contract-correction-000194')
         OR audit.new_update_time<>control.update_time
         OR audit.occurred_at<>control.update_time
         OR audit.new_update_time<audit.old_update_time

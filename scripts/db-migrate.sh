@@ -473,6 +473,7 @@ validate_migration_replacement_manifest() {
 
 prepare_migration_execution() {
   migration_source_file="$1"
+  migration_prepare_mode="${2:-execute}"
   migration_source_filename="${migration_source_file##*/}"
   migration_source_checksum="$(sha256sum "$migration_source_file" | awk '{ print $1 }')"
   migration_execution_file="$migration_source_file"
@@ -524,6 +525,12 @@ EOF
     exit 1
   fi
 
+  migration_execution_checksum="$replacement_execution_checksum"
+  migration_compatible_succeeded_checksum="$migration_source_checksum"
+  if [ "$migration_prepare_mode" = "metadata" ]; then
+    return 0
+  fi
+
   replacement_patch_file="$MIGRATION_REPLACEMENTS_DIR/$replacement_patch_filename"
   if [ ! -f "$replacement_patch_file" ]; then
     echo "ERROR: migration replacement patch is missing: $replacement_patch_filename" >&2
@@ -547,7 +554,6 @@ EOF
     echo "ERROR: migration replacement output checksum drifted: $migration_source_filename" >&2
     exit 1
   fi
-  migration_compatible_succeeded_checksum="$migration_source_checksum"
 }
 
 reconcile_migration_history_aliases() {
@@ -871,8 +877,6 @@ while IFS= read -r file; do
   [ -n "$file" ] || continue
 
   filename="${file##*/}"
-  prepare_migration_execution "$file"
-  current_checksum="$migration_execution_checksum"
   started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   history_row="$(psql_query <<SQL
@@ -888,6 +892,12 @@ SQL
     existing_status="$(printf '%s' "$history_row" | cut -d'|' -f1)"
     existing_checksum="$(printf '%s' "$history_row" | cut -d'|' -f2-)"
   fi
+
+  # Resolve immutable source/approved checksum metadata only after reading
+  # history. An already-succeeded migration must not need the patch executable
+  # or materialize replacement SQL merely to be skipped.
+  prepare_migration_execution "$file" metadata
+  current_checksum="$migration_execution_checksum"
 
   if [ "$existing_status" = "succeeded" ] \
     && [ "$existing_checksum" != "$current_checksum" ] \
@@ -930,6 +940,9 @@ SQL
     fi
     continue
   fi
+
+  prepare_migration_execution "$file"
+  current_checksum="$migration_execution_checksum"
 
   write_history_row "$filename" "$current_checksum" "running" "$started_at" "" ""
 
