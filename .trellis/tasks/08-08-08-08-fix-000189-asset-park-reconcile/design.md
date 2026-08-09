@@ -6,6 +6,8 @@
 - `003_asset_park_scope_reconcile.sql` 于 `2026-08-08T13:41:02Z` 报
   `property-asset-park-scope-reconcile-preflight-failed`；target `000189` 未执行。
 - prerequisite 自带事务，runner 记录 `failed` 后退出 3；旧源码恢复并通过 API/Web 完整健康检查。
+- run `31263880813` 在 PR #232 合并后再次失败，分类明确为
+  `invalid_scope=0, invalid_tenant=0, ambiguous_asset=0, unresolved_source=1`。
 
 ## 根因
 
@@ -13,6 +15,25 @@
 scope 已经拥有唯一 active `asset_park`。这违反“只补缺失投影、保留已有资产”的注释合同。
 同时，生产 core seed 通过全局唯一 `park_code` upsert `JH`，冲突更新不会改写旧
 `tenant_id/park_id`；因此 canonical assignment 可能只有唯一 active legacy-scope `JH` 来源。
+
+第二次失败证明生产还存在另一个非默认或无 `JH` 来源的 active asset assignment。前一版
+Release Smoke 只构造默认 scope，无法代表历史生产作用域集合；继续扩大 fallback 会跨租户猜测
+业务数据，因此必须先获得只读证据。
+
+只读 run `31265619022` 纠正了这一假设：唯一 target 就是默认 scope；其中 active
+`asset_park=0`、exact-scope `biz_park=2`、全局 active `JH=1`，并有 30 栋、84 层、83 个房源、
+15 个组织。修复因此仍保持固定 target + 固定唯一 key，只把 JH 选择扩展到默认 scope 的 exact
+source count 不等于 1 时；其他 scope 和非唯一 JH 继续失败。
+
+## 诊断与部署前门禁
+
+- 新增只读脚本，在 `BEGIN TRANSACTION READ ONLY` 中复用 prerequisite 判定，输出 scope ID、
+  tenant/asset/biz source 计数和 building/floor/unit/org 聚合计数。
+- workflow 的显式诊断模式只通过 stdin 在远端执行该脚本，不同步或修改生产源码。
+- 正常 API/full 部署先初始化 Compose 必需密钥，再在 release marker、回滚快照和应用源码同步前以
+  enforce 模式运行同一脚本。
+- 诊断报告用于选择确定性修复：有可信业务元数据时补投影；确认无业务且为遗留授权时才另行
+  审计并停用 assignment。当前变更不自动作此选择。
 
 ## 解析状态机
 
