@@ -252,9 +252,12 @@ export class FileBusinessAccessService {
         break;
     }
     if (!sql) return;
+    const parameters = file.bizType === "housing_repair"
+      ? [file.id, scope.tenantId, scope.parkId]
+      : [file.id, scope.tenantId, scope.parkId, file.bizId];
     const references = await manager.query(
       `${sql} LIMIT 1`,
-      [file.id, scope.tenantId, scope.parkId, file.bizId]
+      parameters
     ) as Array<{ "?column?": number }>;
     if (references.length > 0) {
       throw new ConflictException(

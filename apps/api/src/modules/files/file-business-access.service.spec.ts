@@ -183,6 +183,129 @@ test("housing repair evidence requires repair or lease permission and unit scope
   assert.deepEqual(checkedUnits, ["unit-1", "unit-1"]);
 });
 
+test("housing repair deletion requires manage permission and a lease in the current tenant and park", async () => {
+  let queries = 0;
+  const denied = new FileBusinessAccessService(
+    {
+      query: async (_sql: string, parameters: unknown[]) => {
+        queries += 1;
+        assert.deepEqual(parameters, ["lease-1", scope.tenantId, scope.parkId]);
+        return [];
+      }
+    } as never,
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
+    unrestrictedDataScopes
+  );
+
+  await assert.rejects(
+    denied.assertReferenceAccess(
+      scope,
+      actor([SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ]),
+      "housing_repair",
+      "lease-1",
+      "delete"
+    ),
+    ForbiddenException
+  );
+  assert.equal(queries, 0, "permission denial must happen before reference lookup");
+
+  await assert.rejects(
+    denied.assertReferenceAccess(
+      scope,
+      actor([SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE]),
+      "housing_repair",
+      "lease-1",
+      "delete"
+    ),
+    /outside the current tenant or park/u
+  );
+  assert.equal(queries, 1);
+});
+
+test("pending housing repair evidence uses the scoped three-parameter work-order query", async () => {
+  const calls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
+
+  await assert.doesNotReject(
+    service.assertDeletionAllowed(
+      scope,
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        bizType: "housing_repair",
+        bizId: "22222222-2222-4222-8222-222222222222"
+      } as never,
+      {
+        query: async (sql: string, parameters: unknown[]) => {
+          calls.push({ sql, parameters });
+          return [];
+        }
+      } as never
+    )
+  );
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0]!.parameters, [
+    "11111111-1111-4111-8111-111111111111",
+    scope.tenantId,
+    scope.parkId
+  ]);
+  assert.match(calls[0]!.sql, /FROM biz_work_order/u);
+  assert.match(calls[0]!.sql, /tenant_id=\$2 AND park_id=\$3/u);
+  assert.match(calls[0]!.sql, /\$1::uuid=ANY\(image_file_ids\)/u);
+  assert.match(calls[0]!.sql, /is_deleted=false/u);
+  assert.doesNotMatch(calls[0]!.sql, /\$4/u);
+});
+
+test("active work-order references block housing repair evidence deletion", async () => {
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
+
+  await assert.rejects(
+    service.assertDeletionAllowed(
+      scope,
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        bizType: "housing_repair",
+        bizId: "22222222-2222-4222-8222-222222222222"
+      } as never,
+      {
+        query: async (_sql: string, parameters: unknown[]) => {
+          assert.equal(parameters.length, 3);
+          return [{ "?column?": 1 }];
+        }
+      } as never
+    ),
+    ConflictException
+  );
+});
+
+test("other protected evidence deletion keeps its biz-id parameter contract", async () => {
+  const calls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const service = new FileBusinessAccessService({} as never, {} as never, unrestrictedDataScopes);
+
+  await service.assertDeletionAllowed(
+    scope,
+    {
+      id: "11111111-1111-4111-8111-111111111111",
+      bizType: "housing_purchase",
+      bizId: "22222222-2222-4222-8222-222222222222"
+    } as never,
+    {
+      query: async (sql: string, parameters: unknown[]) => {
+        calls.push({ sql, parameters });
+        return [];
+      }
+    } as never
+  );
+
+  assert.deepEqual(calls[0]!.parameters, [
+    "11111111-1111-4111-8111-111111111111",
+    scope.tenantId,
+    scope.parkId,
+    "22222222-2222-4222-8222-222222222222"
+  ]);
+  assert.match(calls[0]!.sql, /id=\$4::uuid/u);
+});
+
 test("project-wide purchase files require unrestricted property scope", async () => {
   const restricted = new FileBusinessAccessService(
     { query: async () => [{ unit_id: null }] } as never,
