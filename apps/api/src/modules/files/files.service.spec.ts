@@ -288,6 +288,62 @@ test("identity deletion authorizes before revealing whether evidence is referenc
   assert.deepEqual(calls, ["pending-owner", "authorize", "reference-check", "detach"]);
 });
 
+test("pending housing repair deletion completes after scoped authorization and reference checks", async () => {
+  const calls: string[] = [];
+  const file = {
+    id: "22222222-2222-4222-8222-222222222222",
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    bizType: "housing_repair",
+    bizId: "11111111-1111-4111-8111-111111111111",
+    createBy: actor.sub,
+    isDeleted: false,
+    updateBy: null
+  };
+  const repository = {
+    findOne: async () => file,
+    save: async (value: typeof file) => {
+      calls.push("save");
+      return value;
+    }
+  };
+  const manager = {
+    getRepository: () => repository,
+    transaction: async (run: (transactionManager: unknown) => Promise<unknown>) => run(manager)
+  };
+  const service = new FilesService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {
+      assertPendingFileOwner: () => calls.push("pending-owner"),
+      assertReferenceAccess: async (
+        receivedScope: TenantParkScope,
+        receivedActor: JwtPrincipal,
+        bizType: string,
+        bizId: string,
+        action: string
+      ) => {
+        calls.push("authorize");
+        assert.deepEqual(receivedScope, scope);
+        assert.equal(receivedActor, actor);
+        assert.equal(bizType, "housing_repair");
+        assert.equal(bizId, file.bizId);
+        assert.equal(action, "delete");
+      },
+      assertDeletionAllowed: async () => calls.push("reference-check"),
+      detachReferencesOnDelete: async () => calls.push("detach")
+    } as never
+  );
+
+  const result = await service.softDeleteForActor(scope, actor, file.id);
+
+  assert.deepEqual(result, { id: file.id });
+  assert.equal(file.isDeleted, true);
+  assert.equal(file.updateBy, actor.sub);
+  assert.deepEqual(calls, ["pending-owner", "authorize", "reference-check", "detach", "save"]);
+});
+
 test("identity deletion never checks references after authorization is rejected", async () => {
   const calls: string[] = [];
   const file = {
