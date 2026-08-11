@@ -8,6 +8,7 @@ import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_ACCESS_MANIFEST,
+  SYSTEM_PERMISSIONS,
   type EnabledModuleContext,
   type PaginatedResult,
   type PropertyBusinessModuleCode,
@@ -578,7 +579,9 @@ export class UsersService {
       tenantId: first.user_tenant_id,
       parkId: first.user_park_id,
       roles: activeRoles.map((role) => role.code),
-      permissions: isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]),
+      permissions: isSuper
+        ? ["*"]
+        : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]),
       dataScope: isSuper ? "all" : this.resolveDataScope(activeRoles.map((role) => role.dataScope)),
       isSuper
     };
@@ -1164,7 +1167,9 @@ export class UsersService {
         .map((permissionLink) => permissionLink.permission.code)
     );
     const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
-    const permissions = isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]);
+    const permissions = isSuper
+      ? ["*"]
+      : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]);
 
     return {
       sub: user.id,

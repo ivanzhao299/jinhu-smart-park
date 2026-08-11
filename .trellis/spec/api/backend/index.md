@@ -55,6 +55,60 @@ Reference files:
 - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
 - `packages/shared/src/index.ts`
 
+## Scenario: Current-User Permission Survives JWT Rehydration
+
+### 1. Scope / Trigger
+
+- Trigger: changing login authorization assembly, `UsersService.resolveJwtPrincipal`, or the `system:user:me` permission contract.
+
+### 2. Signatures
+
+- `POST /auth/login` returns a token for an active user even when the user has no roles.
+- Authenticated requests rehydrate `JwtPrincipal` from the database through `UsersService.resolveJwtPrincipal(scope, userId)`.
+- `GET /auth/me` requires `SYSTEM_PERMISSIONS.USER_ME`.
+
+### 3. Contracts
+
+- Every active non-super user principal includes `SYSTEM_PERMISSIONS.USER_ME`, both at login-result assembly and at database rehydration.
+- Entity-based principal assembly used by current-user context follows the same rule.
+- Super users retain the wildcard representation `permissions=["*"]`; do not append redundant base permissions to it.
+- Role and permission status, deletion, tenant, and park filtering remain fail-closed.
+
+### 4. Validation & Error Matrix
+
+- active user without roles -> login succeeds and `GET /auth/me` returns HTTP 200.
+- active user with roles -> role permissions plus `system:user:me` are available after rehydration.
+- active super user -> wildcard principal and HTTP 200.
+- missing, disabled, deleted, or cross-scope user -> authentication context is rejected.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a newly created user resets a password, logs in before role assignment, and can read only their own login context.
+- Base: a role-bearing user keeps role grants and the current-user base permission.
+- Bad: login response adds `system:user:me`, but the next JWT validation rebuilds a principal without it and returns HTTP 403.
+
+### 6. Tests Required
+
+- Unit-test database principal rehydration for an active role-less user and assert exactly `system:user:me`.
+- Preserve active-grant filtering and wildcard-super tests.
+- Run `first-release-users-assets.mjs` or the full first-release regression so login followed by `GET /auth/me` is exercised before and after role assignment.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+permissions: isSuper ? ["*"] : expand(rolePermissions)
+```
+
+#### Correct
+
+```ts
+permissions: isSuper
+  ? ["*"]
+  : expand([...rolePermissions, SYSTEM_PERMISSIONS.USER_ME])
+```
+
 ## DTO Validation
 
 Global validation is configured in `apps/api/src/main.ts` with:

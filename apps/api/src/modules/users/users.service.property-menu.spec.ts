@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
+  SYSTEM_PERMISSIONS,
   type EnabledModuleContext,
   type UserMenuTreeNode
 } from "@jinhu/shared";
@@ -247,7 +248,7 @@ test("principal and menu permissions share current tenant and park relation filt
 
   const principal = internals().buildJwtPrincipal(user);
   assert.deepEqual(principal.roles, ["current-role"]);
-  assert.deepEqual(principal.permissions, [dashboard.pageCode]);
+  assert.deepEqual(principal.permissions, [dashboard.pageCode, SYSTEM_PERMISSIONS.USER_ME]);
 });
 
 test("disabled role and permission status fail closed even when isEnabled remains true", () => {
@@ -283,7 +284,7 @@ test("disabled role and permission status fail closed even when isEnabled remain
 
   const principal = internals().buildJwtPrincipal(user);
   assert.deepEqual(principal.roles, ["enabled-role"]);
-  assert.deepEqual(principal.permissions, [dashboard.pageCode]);
+  assert.deepEqual(principal.permissions, [dashboard.pageCode, SYSTEM_PERMISSIONS.USER_ME]);
 });
 
 test("current user context resolves enabled modules for the current park before returning one menu projection", async () => {
