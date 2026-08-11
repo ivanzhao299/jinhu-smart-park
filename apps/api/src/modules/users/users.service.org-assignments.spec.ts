@@ -66,7 +66,7 @@ test("organization assignment replacement only deletes the target user's current
     { get: (_key: string, fallback?: string) => fallback } as never
   );
 
-  await service.replaceOrgAssignments(scope, actor, target.id, { assignments: [] });
+  await service.replaceOrgAssignments(scope, { ...actor, isSuper: true, permissions: ["*"] }, target.id, { assignments: [] });
 
   assert.deepEqual(updateWhere, {
     userId: target.id,
@@ -104,7 +104,13 @@ test("user scope updates serialize with assignment writes and retire the previou
     query: async (_sql: string, parameters: unknown[]) => { lockKeys.push(String(parameters[0])); },
     getRepository: (entity: unknown) => {
       if (entity === UserEntity) return userRepository;
-      if (entity === UserOrgEntity) return { update: async (where: unknown) => { retiredWhere = where; } };
+      if (entity === UserOrgEntity) return {
+        find: async () => [
+          { tenantId: "tenant-1", parkId: "park-1" },
+          { tenantId: "tenant-1", parkId: "park-secondary" }
+        ],
+        update: async (where: unknown) => { retiredWhere = where; }
+      };
       if (entity === ParkEntity) return { find: async () => [{ tenantId: "tenant-2", parkId: "park-2" }] };
       if (entity === UserParkEntity) return { update: async () => undefined, create: (value: unknown) => value, save: async () => undefined };
       throw new Error("Unexpected repository");
@@ -128,13 +134,95 @@ test("user scope updates serialize with assignment writes and retire the previou
 
   await service.update(scope, superActor, target.id, { tenantId: "tenant-2", parkId: "park-2" });
 
-  assert.deepEqual(lockKeys, ["user-org-scope:user-1", "org-hierarchy:tenant-1:park-1"]);
+  assert.deepEqual(lockKeys, [
+    "user-org-scope:user-1",
+    "org-hierarchy:tenant-1:park-1",
+    "org-hierarchy:tenant-1:park-secondary"
+  ]);
   assert.deepEqual(retiredWhere, {
     userId: target.id,
     tenantId: "tenant-1",
-    parkId: "park-1",
     isDeleted: false
   });
+});
+
+test("organization assignment reads apply the actor's organization data scope", async () => {
+  const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
+  let linkFindWhere: unknown;
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === OrgEntity) return { find: async () => [{ id: "org-visible" }] };
+      throw new Error("Unexpected repository");
+    }
+  };
+  const service = new UsersService(
+    { findOne: async () => target } as never,
+    {} as never,
+    {} as never,
+    {
+      manager,
+      find: async (options: { where: unknown }) => { linkFindWhere = options.where; return []; }
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never,
+    {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  await service.listOrgAssignments(scope, actor, target.id);
+
+  assert.deepEqual(((linkFindWhere as { orgId: { _value: string[] } }).orgId)._value, ["org-visible"]);
+});
+
+test("organization assignment replacement preserves relationships outside the actor's organization scope", async () => {
+  const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
+  let updateWhere: unknown;
+  const relationshipRepository = {
+    find: async () => [{ orgId: "org-hidden", isPrimary: true }],
+    update: async (where: unknown) => { updateWhere = where; },
+    create: (value: unknown) => value,
+    save: async (value: unknown) => value
+  };
+  interface PreserveManager {
+    query(): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (value: PreserveManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: PreserveManager = {
+    query: async () => undefined,
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) return { findOne: async () => target };
+      if (entity === UserOrgEntity) return relationshipRepository;
+      if (entity === OrgEntity) return {
+        count: async () => 1,
+        find: async () => [{ id: "org-visible" }]
+      };
+      throw new Error("Unexpected repository");
+    },
+    transaction: async (callback) => callback(manager)
+  };
+  const service = new UsersService(
+    { findOne: async () => target } as never,
+    {} as never,
+    {} as never,
+    { manager, find: async () => [] } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never,
+    {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  await service.replaceOrgAssignments(scope, actor, target.id, {
+    assignments: [{ orgId: "org-visible", postId: null, isPrimary: false }]
+  });
+
+  assert.deepEqual(((updateWhere as { orgId: { _value: string[] } }).orgId)._value, ["org-visible"]);
 });
 
 test("create organization candidates resolve the requested super-admin target scope", async () => {
