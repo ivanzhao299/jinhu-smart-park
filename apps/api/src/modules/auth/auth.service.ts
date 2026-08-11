@@ -754,13 +754,26 @@ export class AuthService implements OnModuleInit {
     isSuper: boolean;
   } {
     const activeRoleLinks = (user.roleLinks ?? []).filter(
-      (link) => !link.isDeleted && link.role.isEnabled && !link.role.isDeleted
+      (link) =>
+        link.tenantId === user.tenantId &&
+        link.parkId === user.parkId &&
+        !link.isDeleted &&
+        link.role.isEnabled &&
+        !link.role.isDeleted &&
+        link.role.status === "enabled" &&
+        link.role.tenantId === user.tenantId
     );
     const basePermissions = activeRoleLinks.flatMap((link) =>
       (link.role.permissionLinks ?? [])
         .filter(
           (permissionLink) =>
-            !permissionLink.isDeleted && permissionLink.permission.isEnabled && !permissionLink.permission.isDeleted
+            permissionLink.tenantId === user.tenantId &&
+            permissionLink.parkId === user.parkId &&
+            !permissionLink.isDeleted &&
+            permissionLink.permission.isEnabled &&
+            !permissionLink.permission.isDeleted &&
+            permissionLink.permission.status === "enabled" &&
+            permissionLink.permission.tenantId === user.tenantId
         )
         .map((permissionLink) => permissionLink.permission.code)
     );

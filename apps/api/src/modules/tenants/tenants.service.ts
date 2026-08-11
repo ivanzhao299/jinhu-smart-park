@@ -370,7 +370,7 @@ export class TenantsService {
       const defaultParkId = dto.defaultParkId === undefined
         ? configuredDefaultParkId
         : dto.defaultParkId?.trim() || null;
-      if (defaultParkId) {
+      if (dto.defaultParkId !== undefined && defaultParkId) {
         await this.assertParkBelongsToTenant(manager, tenant.tenantId, defaultParkId);
       }
       if (dto.status !== undefined) {
@@ -403,7 +403,10 @@ export class TenantsService {
         }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
         const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
-        const authorizationParkId = defaultParkId ?? firstTenantPark.parkId;
+        const retainedDefaultParkIsActive = tenantParks.some((park) => park.parkId === configuredDefaultParkId);
+        const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
+          ? firstTenantPark.parkId
+          : defaultParkId ?? firstTenantPark.parkId;
         const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
         const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);

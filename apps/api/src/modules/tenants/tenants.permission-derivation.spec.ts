@@ -107,6 +107,8 @@ test("tenant-wide authorization changes converge every tenant park without clear
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
 
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
+  assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
+  assert.match(source, /tenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
   assert.match(source, /getRepository\(ParkEntity\)\.find/);
   assert.match(source, /authorizationScope/);
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
