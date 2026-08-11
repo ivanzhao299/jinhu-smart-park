@@ -9,6 +9,8 @@
 7. 运行 API/Web 定向测试、lint、typecheck、build、diff 检查和独立 Trellis 复核。
 8. 提交中文 Draft PR，触发最新 head Codex Review；处理反馈至无新问题。
 9. CI/Release Smoke 全绿后 Ready、合并并监控生产 Deploy 与公网验证至成功。
+10. 通过前向 migration 统一 tenant-wide 策略定义与 park-scoped 角色绑定唯一性，并使绑定替换事务化。
+11. 保留历史停用套餐的服务器授权快照；未触碰授权时省略授权字段，显式调整时拒绝空的有效模块集合。
 
 ## Risky Files
 
@@ -16,6 +18,8 @@
 - `apps/api/src/modules/tenants/dto/create-tenant.dto.ts`
 - `apps/web/app/system/tenants/page.tsx`
 - `apps/web/app/system/plan-catalog-options.logic.ts`
+- `database/migrations/000205_role_policy_binding_park_scope.sql`
+- `database/seeds/000001_s1_production_core.sql`
 
 ## Validation Commands
 

@@ -169,37 +169,43 @@ export class DataScopeService {
 
   async assignRoleRules(scope: TenantParkScope, actorId: string, roleId: string, dto: AssignRoleDataScopesDto): Promise<{ roleId: string; ruleIds: string[] }> {
     await this.mustFindRole(scope, roleId);
+    const ruleIds = [...new Set(dto.ruleIds)];
+    if (ruleIds.length !== dto.ruleIds.length) {
+      throw new BadRequestException("Data scope rule ids must be unique");
+    }
     const rules = await this.rulesRepository.find({
       where: {
-        id: In(dto.ruleIds),
+        id: In(ruleIds),
         tenantId: scope.tenantId,
         isDeleted: false,
         status: "enabled"
       }
     });
-    if (rules.length !== dto.ruleIds.length) {
+    if (rules.length !== ruleIds.length) {
       throw new NotFoundException("Data scope rule not found in current tenant");
     }
-    await this.roleDataScopeRepository.update(
-      { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    if (dto.ruleIds.length === 0) {
-      return { roleId, ruleIds: [] };
-    }
-    await this.roleDataScopeRepository.save(
-      dto.ruleIds.map((ruleId) =>
-        this.roleDataScopeRepository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          roleId,
-          ruleId,
-          createBy: actorId,
-          updateBy: actorId
-        })
-      )
-    );
-    return { roleId, ruleIds: dto.ruleIds };
+    await this.roleDataScopeRepository.manager.transaction(async (manager) => {
+      const linksRepository = manager.getRepository(RoleDataScopeEntity);
+      await linksRepository.update(
+        { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      if (ruleIds.length > 0) {
+        await linksRepository.save(
+          ruleIds.map((ruleId) =>
+            linksRepository.create({
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              roleId,
+              ruleId,
+              createBy: actorId,
+              updateBy: actorId
+            })
+          )
+        );
+      }
+    });
+    return { roleId, ruleIds };
   }
 
   createBaseWhere<T extends ObjectLiteral>(scope: TenantParkScope): FindOptionsWhere<T> {

@@ -84,3 +84,15 @@ export function changedPlanAuthorization(
     ...(planChanged || modulesChanged ? { moduleCodes: nextCodes } : {})
   };
 }
+
+export function changedPlanAuthorizationIfTouched(
+  touched: boolean,
+  currentPlanCode: string | null,
+  currentModuleCodes: string[],
+  nextPlanCode: string | null,
+  nextModuleCodes: string[]
+): { planCode?: string | null; moduleCodes?: string[] } {
+  return touched
+    ? changedPlanAuthorization(currentPlanCode, currentModuleCodes, nextPlanCode, nextModuleCodes)
+    : {};
+}

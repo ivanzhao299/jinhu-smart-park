@@ -1378,7 +1378,7 @@ SELECT
   rule_id,
   'Production-safe built-in role data scope seed'
 FROM role_data_scope_links
-ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false DO UPDATE SET
+ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false DO UPDATE SET
   is_deleted = false,
   remark = EXCLUDED.remark,
   update_time = now();

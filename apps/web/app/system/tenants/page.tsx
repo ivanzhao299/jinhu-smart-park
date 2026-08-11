@@ -9,7 +9,7 @@ import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
 import {
   activeModuleSelection,
-  changedPlanAuthorization,
+  changedPlanAuthorizationIfTouched,
   collectAllCandidatePages,
   findPlanAuthorization,
   isRetainedCatalogValue,
@@ -93,6 +93,7 @@ export default function TenantsPage() {
   const [createMaxParks, setCreateMaxParks] = useState(0);
   const [settingsPlanCode, setSettingsPlanCode] = useState("");
   const [settingsModuleCodes, setSettingsModuleCodes] = useState<string[]>([]);
+  const [settingsAuthorizationTouched, setSettingsAuthorizationTouched] = useState(false);
   const [createError, setCreateError] = useState("");
   const [settingsError, setSettingsError] = useState("");
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -218,6 +219,7 @@ export default function TenantsPage() {
       setSettings(response.data);
       setSettingsPlanCode(response.data.tenant.planCode ?? "");
       setSettingsModuleCodes(response.data.enabledModuleCodes);
+      setSettingsAuthorizationTouched(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载登录配置失败");
     } finally {
@@ -231,11 +233,17 @@ export default function TenantsPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const form = new FormData(event.currentTarget);
     const expireDate = String(form.get("expireTime") ?? "");
-    const planAuthorization = changedPlanAuthorization(
+    const activeModuleCodes = activeModuleSelection(settingsModuleCodes, modules.items.map((item) => item.moduleCode));
+    if (settingsAuthorizationTouched && activeModuleCodes.length === 0) {
+      setSettingsError("调整授权时请至少启用一个当前有效模块");
+      return;
+    }
+    const planAuthorization = changedPlanAuthorizationIfTouched(
+      settingsAuthorizationTouched,
       settings.tenant.planCode,
       settings.enabledModuleCodes,
       settingsPlanCode || null,
-      activeModuleSelection(settingsModuleCodes, modules.items.map((item) => item.moduleCode))
+      activeModuleCodes
     );
     setSettingsError("");
     setSettingsSubmitting(true);
@@ -254,6 +262,7 @@ export default function TenantsPage() {
       setSettingsTarget(response.data.tenant);
       setSettingsPlanCode(response.data.tenant.planCode ?? "");
       setSettingsModuleCodes(response.data.enabledModuleCodes);
+      setSettingsAuthorizationTouched(false);
       try {
         await load(tenants.page);
       } catch (error) {
@@ -273,21 +282,27 @@ export default function TenantsPage() {
     setSettingsLoading(false);
     setSettingsPlanCode("");
     setSettingsModuleCodes([]);
+    setSettingsAuthorizationTouched(false);
     setSettingsError("");
   }
 
   function selectSettingsPlan(planCode: string) {
     setSettingsPlanCode(planCode);
+    setSettingsAuthorizationTouched(true);
     const moduleCodes = moduleCodesForSelectedPlan(
       plans.items,
       planCode,
       settings?.tenant.planCode,
-      settingsModuleCodes
+      activeModuleSelection(
+        settings?.enabledModuleCodes ?? [],
+        modules.items.map((item) => item.moduleCode)
+      )
     );
     if (moduleCodes) setSettingsModuleCodes(moduleCodes);
   }
 
   function toggleSettingsModule(moduleCode: string, enabled: boolean) {
+    setSettingsAuthorizationTouched(true);
     setSettingsModuleCodes((current) => enabled
       ? [...new Set([...current, moduleCode])]
       : current.filter((code) => code !== moduleCode));

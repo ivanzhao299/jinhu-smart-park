@@ -130,39 +130,45 @@ export class FieldPolicyService {
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
     await this.mustFindRole(scope, roleId);
-    if (dto.fieldPolicyIds.length > 0) {
+    const fieldPolicyIds = [...new Set(dto.fieldPolicyIds)];
+    if (fieldPolicyIds.length !== dto.fieldPolicyIds.length) {
+      throw new BadRequestException("Field policy ids must be unique");
+    }
+    if (fieldPolicyIds.length > 0) {
       const policies = await this.fieldPoliciesRepository.find({
         where: {
-          id: In(dto.fieldPolicyIds),
+          id: In(fieldPolicyIds),
           tenantId: scope.tenantId,
           isDeleted: false,
           status: "enabled"
         }
       });
-      if (policies.length !== dto.fieldPolicyIds.length) {
+      if (policies.length !== fieldPolicyIds.length) {
         throw new NotFoundException("Field policy not found in current tenant");
       }
     }
-    await this.roleFieldPoliciesRepository.update(
-      { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    if (dto.fieldPolicyIds.length === 0) {
-      return { roleId, fieldPolicyIds: [] };
-    }
-    await this.roleFieldPoliciesRepository.save(
-      dto.fieldPolicyIds.map((fieldPolicyId) =>
-        this.roleFieldPoliciesRepository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          roleId,
-          fieldPolicyId,
-          createBy: actorId,
-          updateBy: actorId
-        })
-      )
-    );
-    return { roleId, fieldPolicyIds: dto.fieldPolicyIds };
+    await this.roleFieldPoliciesRepository.manager.transaction(async (manager) => {
+      const linksRepository = manager.getRepository(RoleFieldPolicyEntity);
+      await linksRepository.update(
+        { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      if (fieldPolicyIds.length > 0) {
+        await linksRepository.save(
+          fieldPolicyIds.map((fieldPolicyId) =>
+            linksRepository.create({
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              roleId,
+              fieldPolicyId,
+              createBy: actorId,
+              updateBy: actorId
+            })
+          )
+        );
+      }
+    });
+    return { roleId, fieldPolicyIds };
   }
 
   async getUserFieldPolicies(scope: TenantParkScope, user: JwtPrincipal): Promise<FieldPolicyContext[]> {

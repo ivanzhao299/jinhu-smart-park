@@ -6,6 +6,10 @@ import { FieldPolicyEntity } from "./field-policy.entity";
 @Entity("rel_role_field_policy")
 @Index("idx_rel_role_field_policy_entity_role", ["tenantId", "roleId", "isDeleted"])
 @Index("idx_rel_role_field_policy_entity_policy", ["tenantId", "fieldPolicyId", "isDeleted"])
+@Index("uq_rel_role_field_policy_active", ["tenantId", "parkId", "roleId", "fieldPolicyId"], {
+  unique: true,
+  where: "is_deleted = false"
+})
 export class RoleFieldPolicyEntity extends AuditableEntity {
   @Column({ name: "role_id", type: "uuid" })
   roleId!: string;

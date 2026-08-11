@@ -6,6 +6,14 @@ test("shared tenant role field-policy assignments update only the caller park", 
   let roleWhere: unknown;
   let policyWhere: unknown;
   let linkUpdateWhere: unknown;
+  let transactionCount = 0;
+  const linksRepository = {
+    update: async (where: unknown) => {
+      linkUpdateWhere = where;
+    },
+    create: (value: unknown) => value,
+    save: async (value: unknown) => value
+  };
   const service = new FieldPolicyService(
     {
       find: async (options: { where: unknown }) => {
@@ -14,11 +22,12 @@ test("shared tenant role field-policy assignments update only the caller park", 
       }
     } as never,
     {
-      update: async (where: unknown) => {
-        linkUpdateWhere = where;
-      },
-      create: (value: unknown) => value,
-      save: async (value: unknown) => value
+      manager: {
+        transaction: async (callback: (manager: { getRepository: () => typeof linksRepository }) => Promise<void>) => {
+          transactionCount += 1;
+          await callback({ getRepository: () => linksRepository });
+        }
+      }
     } as never,
     {
       findOne: async (options: { where: unknown }) => {
@@ -48,6 +57,7 @@ test("shared tenant role field-policy assignments update only the caller park", 
     roleId: "role-1",
     isDeleted: false
   });
+  assert.equal(transactionCount, 1);
 });
 
 test("field-policy definitions are tenant-wide while bindings stay park-scoped", async () => {

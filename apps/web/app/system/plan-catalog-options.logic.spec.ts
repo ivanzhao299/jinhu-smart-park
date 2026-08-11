@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   activeModuleSelection,
   changedPlanAuthorization,
+  changedPlanAuthorizationIfTouched,
   collectAllCandidatePages,
   findPlanAuthorization,
   isRetainedCatalogValue,
@@ -96,6 +97,28 @@ test("unchanged tenant authorization is omitted instead of re-resolving a histor
   ), { planCode: "PRO", moduleCodes: ["ASSET", "SYSTEM"] });
 });
 
+test("unrelated settings saves preserve authorization even when every historical module is inactive", () => {
+  assert.deepEqual(changedPlanAuthorizationIfTouched(
+    false,
+    "DISABLED_PLAN",
+    ["deleted-module"],
+    "DISABLED_PLAN",
+    []
+  ), {});
+
+  assert.deepEqual(changedPlanAuthorizationIfTouched(
+    true,
+    "DISABLED_PLAN",
+    ["deleted-module"],
+    "BASIC",
+    ["asset", "system"]
+  ), { planCode: "BASIC", moduleCodes: ["asset", "system"] });
+
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /settingsAuthorizationTouched && activeModuleCodes\.length === 0/);
+  assert.match(source, /调整授权时请至少启用一个当前有效模块/);
+});
+
 test("module-only tenants can retain an unbound plan while changing unrelated settings", () => {
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
 
@@ -171,4 +194,5 @@ test("changing the plan in login settings replaces the module selection from tha
   assert.match(source, /function selectSettingsPlan/);
   assert.match(source, /moduleCodesForSelectedPlan/);
   assert.match(source, /settingsPlanCode \|\| null/);
+  assert.match(source, /settings\?\.enabledModuleCodes \?\? \[\]/);
 });

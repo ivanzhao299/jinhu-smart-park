@@ -34,6 +34,8 @@ GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/253
 - [x] 未启用模块和平台 `/tenants` 对首管仍返回 403。
 - [x] API/Web 单元测试覆盖套餐联动、权限派生和模块权限过滤；真实事务链由 E2E 覆盖。
 - [x] 真实数据库/API/浏览器 E2E 覆盖“创建租户 → 首管登录 → 菜单/关键 API”。
+- [x] 数据范围/字段策略定义保持租户唯一，共享角色绑定可在各园区独立且原子替换。
+- [x] 历史套餐/模块失效时，无关设置可保存；显式授权调整必须收敛到非空有效模块。
 - [ ] lint、typecheck、build、GitHub CI、Codex Review 与生产部署通过。
 
 ## Out of Scope

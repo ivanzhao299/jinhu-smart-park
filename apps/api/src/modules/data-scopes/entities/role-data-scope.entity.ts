@@ -6,6 +6,10 @@ import { DataScopeRuleEntity } from "./data-scope-rule.entity";
 @Entity("rel_role_data_scope")
 @Index("idx_rel_role_data_scope_entity_role", ["tenantId", "roleId", "isDeleted"])
 @Index("idx_rel_role_data_scope_entity_rule", ["tenantId", "ruleId", "isDeleted"])
+@Index("uq_rel_role_data_scope_active", ["tenantId", "parkId", "roleId", "ruleId"], {
+  unique: true,
+  where: "is_deleted = false"
+})
 export class RoleDataScopeEntity extends AuditableEntity {
   @Column({ name: "role_id", type: "uuid" })
   roleId!: string;

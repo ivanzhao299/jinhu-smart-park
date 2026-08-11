@@ -163,6 +163,14 @@ test("shared tenant role data-scope assignments update only the caller park", as
   let roleWhere: unknown;
   let ruleWhere: unknown;
   let linkUpdateWhere: unknown;
+  let transactionCount = 0;
+  const linksRepository = {
+    update: async (where: unknown) => {
+      linkUpdateWhere = where;
+    },
+    create: (value: unknown) => value,
+    save: async (value: unknown) => value
+  };
   const service = new DataScopeService(
     {
       find: async (options: { where: unknown }) => {
@@ -171,11 +179,12 @@ test("shared tenant role data-scope assignments update only the caller park", as
       }
     } as never,
     {
-      update: async (where: unknown) => {
-        linkUpdateWhere = where;
-      },
-      create: (value: unknown) => value,
-      save: async (value: unknown) => value
+      manager: {
+        transaction: async (callback: (manager: { getRepository: () => typeof linksRepository }) => Promise<void>) => {
+          transactionCount += 1;
+          await callback({ getRepository: () => linksRepository });
+        }
+      }
     } as never,
     {
       findOne: async (options: { where: unknown }) => {
@@ -205,6 +214,7 @@ test("shared tenant role data-scope assignments update only the caller park", as
     roleId: "role-1",
     isDeleted: false
   });
+  assert.equal(transactionCount, 1);
 });
 
 test("data-scope definitions are tenant-wide while bindings stay park-scoped", async () => {
