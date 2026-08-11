@@ -253,7 +253,12 @@ export default function TenantsPage() {
       setSettingsTarget(response.data.tenant);
       setSettingsPlanCode(response.data.tenant.planCode ?? "");
       setSettingsModuleCodes(response.data.enabledModuleCodes);
-      await load(tenants.page);
+      try {
+        await load(tenants.page);
+      } catch (error) {
+        setCatalogReady(true);
+        setSettingsError(`登录与授权配置已保存，但列表刷新失败：${error instanceof Error ? error.message : "请手动刷新页面"}`);
+      }
     } catch (error) {
       setSettingsError(error instanceof Error ? error.message : "保存登录配置失败");
     } finally {
@@ -454,8 +459,15 @@ export default function TenantsPage() {
                 </div>
                 <div className="field">
                   <label>套餐</label>
-                  <select name="planCode" value={settingsPlanCode} onChange={(event) => selectSettingsPlan(event.target.value)} required>
-                    <option value="" disabled>请选择套餐</option>
+                  <select
+                    name="planCode"
+                    value={settingsPlanCode}
+                    onChange={(event) => selectSettingsPlan(event.target.value)}
+                    required={settingsModuleCodes.length === 0}
+                  >
+                    {settings.tenant.planCode === null
+                      ? <option value="">未绑定套餐（保留当前模块）</option>
+                      : <option value="" disabled>请选择套餐</option>}
                     {isRetainedCatalogValue(plans.items.map((plan) => plan.planCode), settings.tenant.planCode)
                       ? <option value={settings.tenant.planCode}>{settings.tenant.planCode}（当前绑定，已停用）</option>
                       : null}

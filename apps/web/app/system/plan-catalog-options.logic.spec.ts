@@ -66,6 +66,28 @@ test("unchanged tenant authorization is omitted instead of re-resolving a histor
     "PRO",
     ["ASSET", "WORKORDER"]
   ), { planCode: "PRO", moduleCodes: ["ASSET", "WORKORDER"] });
+
+  assert.deepEqual(changedPlanAuthorization(
+    "BASIC",
+    ["ASSET", "SYSTEM"],
+    "PRO",
+    ["SYSTEM", "ASSET"]
+  ), { planCode: "PRO", moduleCodes: ["ASSET", "SYSTEM"] });
+});
+
+test("module-only tenants can retain an unbound plan while changing unrelated settings", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /settings\.tenant\.planCode === null/);
+  assert.match(source, /未绑定套餐（保留当前模块）/);
+  assert.match(source, /required=\{settingsModuleCodes\.length === 0\}/);
+});
+
+test("a successful settings save is not reported as failed when list refresh fails", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /登录与授权配置已保存，但列表刷新失败/);
+  assert.match(source, /setCatalogReady\(true\)/);
 });
 
 test("tenant creation waits until plan and module catalogs are ready", () => {

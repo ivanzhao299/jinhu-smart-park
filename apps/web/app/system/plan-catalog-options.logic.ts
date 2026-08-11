@@ -76,6 +76,6 @@ export function changedPlanAuthorization(
 
   return {
     ...(planChanged ? { planCode: nextPlanCode } : {}),
-    ...(modulesChanged ? { moduleCodes: nextCodes } : {})
+    ...(planChanged || modulesChanged ? { moduleCodes: nextCodes } : {})
   };
 }

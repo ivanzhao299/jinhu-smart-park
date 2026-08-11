@@ -114,6 +114,27 @@ test("the work-order module keeps core, SLA, log, and compatibility permissions"
   ]);
 });
 
+test("the apartment module keeps its menu and API permission family", () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const derive = (service as unknown as {
+    derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
+  }).derivePermissionCodes.bind(service);
+  const permissions = [
+    { code: "apartment" },
+    { code: "apartment:dashboard" },
+    { code: "apartment:read" },
+    { code: "apartment:document_manage" },
+    { code: "asset:read" }
+  ] as never;
+
+  assert.deepEqual(derive(["apartment"], permissions), [
+    "apartment",
+    "apartment:dashboard",
+    "apartment:read",
+    "apartment:document_manage"
+  ]);
+});
+
 test("plan module markers cannot grant permissions for a module that is not enabled", () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
   const filter = (service as unknown as {
@@ -133,6 +154,7 @@ test("plan module markers cannot grant permissions for a module that is not enab
     filter(["workorder_sla:*", "workorder_log:*", "asset:*"], ["workorder"]),
     ["workorder_sla:*", "workorder_log:*"]
   );
+  assert.deepEqual(filter(["apartment:*", "asset:*"], ["apartment"]), ["apartment:*"]);
   assert.deepEqual(
     filter(["iot_alert:*", "iot_device:read", "energy_meter:*"], ["system", "iot"]),
     ["iot_alert:*", "iot_device:read"]
