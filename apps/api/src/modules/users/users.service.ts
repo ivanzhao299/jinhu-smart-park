@@ -204,7 +204,7 @@ export class UsersService {
         actor.sub,
         manager
       );
-      await this.assertOrgAssignments(targetScope, assignments, manager);
+      await this.assertOrgAssignments(targetScope, actor, assignments, manager);
       if (assignments.length > 0) {
         const repository = manager.getRepository(UserOrgEntity);
         await repository.save(assignments.map((item) => repository.create({
@@ -376,7 +376,7 @@ export class UsersService {
   async getOrgCandidates(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const user = await this.getEntityForActor(scope, id, actor);
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
-    return this.listOrgCandidates(targetScope);
+    return this.listOrgCandidates(targetScope, actor);
   }
 
   async getCreateOrgCandidates(
@@ -386,13 +386,20 @@ export class UsersService {
     parkId?: string
   ) {
     const targetScope = await this.resolveUserTargetScope(scope, actor, tenantId, parkId);
-    return this.listOrgCandidates(targetScope);
+    return this.listOrgCandidates(targetScope, actor);
   }
 
-  private async listOrgCandidates(targetScope: TenantParkScope) {
+  private async listOrgCandidates(targetScope: TenantParkScope, actor: JwtPrincipal) {
+    const orgWhere = await this.dataScopeService.buildFindWhere<OrgEntity>(
+      targetScope,
+      actor,
+      "org",
+      { ...targetScope, isDeleted: false, status: "enabled" },
+      { org: "id" }
+    );
     const [orgs, posts] = await Promise.all([
       this.userOrgRepository.manager.getRepository(OrgEntity).find({
-        where: { ...targetScope, isDeleted: false, status: "enabled" },
+        where: orgWhere,
         select: {
           id: true,
           parentId: true,
@@ -426,7 +433,7 @@ export class UsersService {
       const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
       const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
       await lockOrgHierarchy(manager, targetScope);
-      await this.assertOrgAssignments(targetScope, dto.assignments, manager);
+      await this.assertOrgAssignments(targetScope, actor, dto.assignments, manager);
       const repository = manager.getRepository(UserOrgEntity);
       await repository.update(
         {
@@ -455,14 +462,22 @@ export class UsersService {
 
   private async assertOrgAssignments(
     scope: TenantParkScope,
+    actor: JwtPrincipal,
     assignments: ReplaceUserOrgsDto["assignments"],
     manager: EntityManager
   ): Promise<void> {
     const orgIds = [...new Set(assignments.map((item) => item.orgId))];
     const postIds = [...new Set(assignments.map((item) => item.postId).filter((id): id is string => Boolean(id)))];
     if (orgIds.length > 0) {
+      const where = await this.dataScopeService.buildFindWhere<OrgEntity>(
+        scope,
+        actor,
+        "org",
+        { id: In(orgIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" },
+        { org: "id" }
+      );
       const count = await manager.getRepository(OrgEntity).count({
-        where: { id: In(orgIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+        where
       });
       if (count !== orgIds.length) throw new BadRequestException("包含不存在、停用或跨园区的组织");
     }

@@ -1,5 +1,9 @@
 BEGIN;
 
+-- The previous API version may still be serving traffic while production migrations run.
+-- Block concurrent hierarchy writes before inspecting the existing graph.
+LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;
+
 DO $preflight$
 DECLARE
   invalid_count integer;
@@ -8,9 +12,15 @@ BEGIN
   FROM sys_org child
   LEFT JOIN sys_org parent ON parent.id = child.parent_id
   WHERE child.parent_id IS NOT NULL
-    AND (parent.id IS NULL OR parent.tenant_id <> child.tenant_id OR parent.park_id <> child.park_id);
+    AND child.is_deleted = false
+    AND (
+      parent.id IS NULL
+      OR parent.is_deleted = true
+      OR parent.tenant_id <> child.tenant_id
+      OR parent.park_id <> child.park_id
+  );
   IF invalid_count > 0 THEN
-    RAISE EXCEPTION 'org-hierarchy-preflight: % orphan or cross-scope parent links', invalid_count;
+    RAISE EXCEPTION 'org-hierarchy-preflight: % orphan, deleted-parent, or cross-scope parent links', invalid_count;
   END IF;
 
   WITH RECURSIVE walk AS (

@@ -142,6 +142,7 @@ test("create organization candidates resolve the requested super-admin target sc
   const postFindWhere: unknown[] = [];
   const orgFindOptions: Array<{ where: unknown; select?: unknown }> = [];
   const postFindOptions: Array<{ where: unknown; select?: unknown }> = [];
+  const dataScopeCalls: unknown[][] = [];
   const manager = {
     getRepository: (entity: unknown) => {
       if (entity === OrgEntity) return { find: async (options: { where: unknown; select?: unknown }) => { orgFindWhere.push(options.where); orgFindOptions.push(options); return []; } };
@@ -157,7 +158,12 @@ test("create organization candidates resolve the requested super-admin target sc
     {} as never,
     { exists: async () => true } as never,
     {} as never,
-    {} as never,
+    {
+      buildFindWhere: async (...args: unknown[]) => {
+        dataScopeCalls.push(args);
+        return args[3];
+      }
+    } as never,
     {} as never,
     {} as never,
     { get: (_key: string, fallback?: string) => fallback } as never
@@ -169,6 +175,9 @@ test("create organization candidates resolve the requested super-admin target sc
   const expected = { tenantId: "tenant-2", parkId: "park-2", isDeleted: false, status: "enabled" };
   assert.deepEqual(orgFindWhere, [expected]);
   assert.deepEqual(postFindWhere, [expected]);
+  assert.equal(dataScopeCalls.length, 1);
+  assert.equal(dataScopeCalls[0]?.[1], superActor);
+  assert.equal(dataScopeCalls[0]?.[2], "org");
   assert.deepEqual(orgFindOptions[0]?.select, {
     id: true, parentId: true, orgCode: true, orgName: true, orgType: true,
     leaderUserId: true, sortOrder: true, status: true
@@ -176,4 +185,51 @@ test("create organization candidates resolve the requested super-admin target sc
   assert.deepEqual(postFindOptions[0]?.select, {
     id: true, postCode: true, postName: true, sortOrder: true, status: true
   });
+});
+
+test("organization assignment writes enforce the actor's organization data scope", async () => {
+  const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
+  const deniedWhere = { id: "denied-by-data-scope" };
+  let countedWhere: unknown;
+  interface AssignmentScopeManager {
+    query(): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (value: AssignmentScopeManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: AssignmentScopeManager = {
+    query: async () => undefined,
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) return { findOne: async () => target };
+      if (entity === OrgEntity) return {
+        count: async (options: { where: unknown }) => {
+          countedWhere = options.where;
+          return 0;
+        }
+      };
+      if (entity === UserOrgEntity) return {};
+      throw new Error("Unexpected repository");
+    },
+    transaction: async (callback) => callback(manager)
+  };
+  const service = new UsersService(
+    {} as never,
+    {} as never,
+    {} as never,
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { buildFindWhere: async () => deniedWhere } as never,
+    {} as never,
+    {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  await assert.rejects(
+    service.replaceOrgAssignments(scope, actor, target.id, {
+      assignments: [{ orgId: "org-hidden", postId: null, isPrimary: true }]
+    }),
+    /包含不存在、停用或跨园区的组织/
+  );
+  assert.equal(countedWhere, deniedWhere);
 });

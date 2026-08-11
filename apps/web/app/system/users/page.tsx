@@ -198,11 +198,17 @@ export default function UsersPage() {
     if (selectedTenant) {
       setShowCreate(true);
       setFormTenantId(selectedTenant.tenantId);
-      const selection = await loadLoginSettings(selectedTenant.tenantId);
-      if (requestId !== orgCatalogRequest.current) return;
-      if (!selection) { setOrgCatalogLoading(false); return; }
-      await loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId });
+      try {
+        const selection = await loadLoginSettings(selectedTenant.tenantId);
+        if (requestId !== orgCatalogRequest.current) return;
+        if (!selection) { setOrgCatalogLoading(false); return; }
+        await loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId });
+      } catch (error) {
+        if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+        throw error;
+      }
     } else {
+      setOrgCatalogLoading(false);
       setShowCreate(false);
       setMessage("暂无可选租户，请先创建租户");
     }
@@ -216,9 +222,14 @@ export default function UsersPage() {
     setEditingUser(row);
     setShowCreate(false);
     setFormTenantId(row.tenantId);
-    await loadLoginSettings(row.tenantId, row);
-    if (requestId !== orgCatalogRequest.current) return;
-    await loadOrgCatalog(row.id);
+    try {
+      await loadLoginSettings(row.tenantId, row);
+      if (requestId !== orgCatalogRequest.current) return;
+      await loadOrgCatalog(row.id);
+    } catch (error) {
+      if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+      throw error;
+    }
   }
 
   async function saveUser(event: FormEvent<HTMLFormElement>) {
