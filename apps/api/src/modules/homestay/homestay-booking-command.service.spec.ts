@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -45,4 +46,18 @@ test("homestay façade delegates the complete booking command closure without st
   assert.deepEqual(calls[0]!.args, [scope, actor, createDto, "create-key"]);
   assert.deepEqual(calls[3]!.args, [scope, actor, "booking-1", "request", "cancel-key"]);
   assert.deepEqual(calls[5]!.args, [approvalInput]);
+});
+
+test("confirmed reschedule decreases fail before any occupancy or booking mutation", () => {
+  const source = readFileSync(__filename.replace(/\.spec\.ts$/, ".ts"), "utf8");
+  const reschedule = source.slice(
+    source.indexOf("  async rescheduleBooking("),
+    source.indexOf("  private async calculatePricing(")
+  );
+  const guard = reschedule.indexOf("assertHomestayRescheduleFinanciallySafe(");
+  assert.ok(guard > 0);
+  assert.ok(guard < reschedule.indexOf("replacePeriodInTransaction("));
+  assert.ok(guard < reschedule.indexOf("HomestayBookingNightEntity).update("));
+  assert.ok(guard < reschedule.indexOf("HomestayBookingEntity).save("));
+  assert.doesNotMatch(reschedule, /reschedule_decrease/);
 });

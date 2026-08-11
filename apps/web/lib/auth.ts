@@ -3,7 +3,10 @@
 import type { UserContext } from "@jinhu/shared";
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "./api-client";
 import { purgePropertyOfflineState } from "../features/property-shared/offline/property-draft-store";
-import { propertyModuleAssignmentFingerprint } from "../features/property-shared/offline/property-draft-contract";
+import {
+  propertyDataScopeFingerprint,
+  propertyModuleAssignmentFingerprint
+} from "../features/property-shared/offline/property-draft-contract";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -78,7 +81,7 @@ function sessionScope(user: UserContext): string {
     user.id,
     user.tenant_id,
     user.park_id,
-    user.data_scope,
+    propertyDataScopeFingerprint(user.data_scope, user.data_scopes),
     [...user.permissions].sort(),
     propertyModuleAssignmentFingerprint(user.enabled_modules)
   ]);

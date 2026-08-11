@@ -7,6 +7,7 @@ import type { PaginatedResult } from "@jinhu/shared";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
@@ -26,11 +27,6 @@ const CHANGE_PERMISSIONS = {
   reject: "leasing_contract_change:reject",
   effective: "leasing_contract_change:effective"
 } as const;
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -235,10 +231,6 @@ export default function LeasingContractChangesPage() {
   }, [canRead, filters, pageData.page_size]);
 
   const loadDicts = useCallback(async () => {
-    const dictTypeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "leasing_contract_change_type",
       "leasing_contract_change_status",
@@ -246,15 +238,7 @@ export default function LeasingContractChangesPage() {
       "leasing_payment_period",
       "leasing_contract_status"
     ];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = dictTypeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadLookups = useCallback(async () => {
@@ -345,7 +329,7 @@ export default function LeasingContractChangesPage() {
         method: editing ? "PUT" : "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(editing ? "contract-change-update" : "contract-change-create"),
-        body: JSON.stringify(payload)
+        body: payload
       });
       setNotice(editing ? "合同变更草稿已更新" : "合同变更草稿已创建");
       setDrawerOpen(false);
@@ -366,7 +350,7 @@ export default function LeasingContractChangesPage() {
         method: "DELETE",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("contract-change-delete"),
-        body: JSON.stringify({})
+        body: {}
       });
       setNotice("合同变更草稿已删除");
       await load(pageData.page);
@@ -385,7 +369,7 @@ export default function LeasingContractChangesPage() {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey("contract-change-preview"),
-        body: JSON.stringify({})
+        body: {}
       });
       setFinanceImpact(response.data);
       setDetail((prev) => prev && prev.id === row.id ? { ...prev, financeImpact: response.data } : prev);
@@ -413,7 +397,7 @@ export default function LeasingContractChangesPage() {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(`contract-change-${action}`),
-        body: JSON.stringify(action === "reject" ? { reject_reason: text, opinion: text } : { opinion: text || undefined })
+        body: action === "reject" ? { reject_reason: text, opinion: text } : { opinion: text || undefined }
       });
       setNotice(actionNotice(action));
       setDetail(null);

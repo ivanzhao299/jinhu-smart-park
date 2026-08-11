@@ -8,6 +8,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import { Public } from "../../shared/decorators/public.decorator";
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { UploadedFilePayload } from "../files/files.service";
 import { CreateTenantDto } from "./dto/create-tenant.dto";
 import { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
@@ -56,9 +57,10 @@ export class TenantsController {
   uploadBrandLogo(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
+    @Body() metadata: MultipartFileMetadataDto,
     @UploadedFile() file?: UploadedFilePayload
   ) {
-    return this.tenantsService.uploadBrandLogo(scope, user.sub, file);
+    return this.tenantsService.uploadBrandLogo(scope, user.sub, file, metadata);
   }
 
   @Get()

@@ -31,5 +31,8 @@ export function buildPropertyNotificationDeepLink(
       return `/property/event-delivery-incidents/${encoded}`;
     case "approval-infra-exhausted":
       return `/property/approval-incidents/${encoded}`;
+    case "homestay-approval-executed":
+    case "housing-approval-executed":
+      return `/property/approvals/${encoded}`;
   }
 }

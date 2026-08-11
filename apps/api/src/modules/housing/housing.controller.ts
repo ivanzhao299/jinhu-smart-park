@@ -193,7 +193,8 @@ export class HousingController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ENERGY_METER_READ)
   @RequireAnyPermissions(
     SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
-    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+    SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+    SYSTEM_PERMISSIONS.HOUSING_BILLING_GENERATE
   )
   listEnergyMeterCandidates(
     @CurrentScope() scope: TenantParkScope,

@@ -13,7 +13,11 @@ Current production-safe seed files:
 - `../000001_s1_production_core.sql`
 - `000003_s1_production_asset_bootstrap.sql`
 - `000004_core_role_permission_repair.sql`
-- `000005_property_track_b_permission_reconcile.sql`
+- `000005_admin_issue_runner_baseline.sql`
+- `000006_property_track_b_permission_reconcile.sql`
+- `000007_asset_park_scope_reconcile.sql`
+- `000008_property_runtime_control_scope_reconcile.sql`
+- `000009_jh_leasing_lead_workorder_create_repair.sql`
 
 This seed initializes:
 
@@ -25,8 +29,14 @@ This seed initializes:
 - Field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL fields
 - `sys_module`, `sys_plan`, `rel_plan_module`, and `rel_tenant_module`
 - Default organization metadata, dictionaries, and the S2-01 default `biz_park` record
+- A missing default-scope `asset_park` projection, using same-scope canonical data first and the globally unique active `JH` legacy-scope baseline only as a bounded fallback
+- Missing runtime controls for an asset scope created after migrations, initialized through the audited disabled v1 -> v2 -> v3 contract transition; partial or drifting states fail closed
+- The reviewed leasing-lead role aliases `INVEST_MANAGER` and `JH_LEASING_LEAD` receive the least-privilege `workorder:create` grant required by protected go-live UAT; an absent optional alias remains a safe no-op
 
 It does not create fixed-password users or S2 demo房源数据.
+The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,
+its tenant-wide role, minimum Runner permission, and park binding. Only the protected activation workflow may make
+that account login-capable.
 
 Compatibility note: S1-RBAC-STD-FIX unifies `tenant_id` and `park_id` scope columns as string SaaS isolation IDs. Production and development seeds use the default Jinhu scope `tenant_id=10000001` and `park_id=20000001`; UUID values remain only for primary keys such as `id`.
 

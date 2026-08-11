@@ -6,6 +6,12 @@ Place environment-specific seed scripts here. Do not commit real passwords or pr
 
 - `000001_s1_production_core.sql`
 - `production/000003_s1_production_asset_bootstrap.sql`
+- `production/000004_core_role_permission_repair.sql`
+- `production/000005_admin_issue_runner_baseline.sql`
+- `production/000006_property_track_b_permission_reconcile.sql`
+- `production/000007_asset_park_scope_reconcile.sql`
+- `production/000008_property_runtime_control_scope_reconcile.sql`
+- `production/000009_jh_leasing_lead_workorder_create_repair.sql`
 
 Production execution:
 
@@ -25,11 +31,13 @@ Execution scope:
 - Initializes field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL sensitive fields.
 - Initializes default park organization metadata.
 - Initializes S2-01 `biz_park` default record: `tenant_id=10000001`, `park_id=20000001`, `park_code=JH`.
+- Preserves each unique active `asset_park` projection without requiring a duplicate `biz_park`; when the projection is missing, it prefers a unique active same-scope `biz_park`, with a narrowly bounded fallback from the globally unique active `JH` baseline row to the fixed default scope. Existing asset park records are never overwritten.
 - Initializes base dictionaries and dictionary items, including S2-A/S2-B房源用途、出租状态、装修状态字典。
 - Initializes S2-B permissions for房源状态流转、导入、导出、资产统计。
 - Initializes SaaS modules in `sys_module`: `system`, `asset`, `leasing`, `workorder`, `iot`, `energy`, `robot`, `video`, `bim`, `ai`.
 - Initializes SaaS plans in `sys_plan`: `BASIC`, `PROFESSIONAL`, `ENTERPRISE`, `GROUP`.
 - Initializes `rel_plan_module` and enables all `GROUP` modules for the default Jinhu tenant in `rel_tenant_module`.
+- Idempotently grants only `workorder:create` to the reviewed leasing-lead role aliases `INVEST_MANAGER` and `JH_LEASING_LEAD`; an optional alias that has not been imported remains unchanged.
 - When当前园区还没有任何有效楼栋 / 楼层 / 房源时，补最小可用的基线资产结构：
   - 楼栋：`A1`、`A3`、`A5`
   - 楼层：`A1-F01`、`A1-F02`、`A3-F01`、`A5-F01`、`A5-F03`
@@ -37,6 +45,8 @@ Execution scope:
   - 仅在当前园区资产表为空时写入，已有真实资产数据的环境不会覆盖
 
 Production-safe seeds must not create fixed-password users, plaintext passwords, test phone numbers, or test emails.
+The Runner baseline creates only a disabled machine identity with a non-login sentinel hash; activation injects the
+protected credential through the dedicated production workflow.
 
 Compatibility note: `000029_saas_scope_id_unification.sql` aligns historical S1 auth/RBAC scope columns to the SaaS string ID contract. Production and development seeds now use the same default scope: `tenant_id=10000001`, `park_id=20000001`.
 

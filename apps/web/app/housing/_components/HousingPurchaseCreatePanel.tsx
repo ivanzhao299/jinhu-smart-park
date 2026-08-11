@@ -13,6 +13,7 @@ import {
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { businessDate } from "../../../lib/business-date";
 import {
   MoneyField,
   MutationFeedback
@@ -24,8 +25,6 @@ import {
   loadPendingFiles
 } from "./housing-pending-files";
 import { useStableIdempotency } from "./use-stable-idempotency";
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 export function HousingPurchaseCreatePanel({
   capabilities,
@@ -70,7 +69,8 @@ export function HousingPurchaseCreatePanel({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (uploading || removing || lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = purchaseBody(form, unit?.id, files);
     lock.current = true; setSubmitting(true);
     try {
@@ -80,7 +80,7 @@ export function HousingPurchaseCreatePanel({
       });
       idempotency.complete("housing-purchase-create");
       setMessage("采购草稿已创建。");
-      setUnit(null); setFiles([]); event.currentTarget.reset(); onCreated();
+      setUnit(null); setFiles([]); formElement.reset(); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "采购草稿创建失败");
     } finally {
@@ -123,10 +123,13 @@ function PurchaseCreateView(props: {
 }
 
 function PurchaseFields() {
+  const [purchaseDate, setPurchaseDate] = useState("");
+  useEffect(() => setPurchaseDate(businessDate()), []);
   return (
     <div className={styles.formGrid}>
       <label>供应商<input maxLength={200} name="vendor_name" required /></label>
-      <label>采购日期<input defaultValue={today()} name="purchase_date" required type="date" /></label>
+      <label>采购日期<input name="purchase_date" onChange={(event) => setPurchaseDate(event.target.value)}
+        required type="date" value={purchaseDate} /></label>
       <label>成本分类<input maxLength={64} name="cost_category" required /></label>
       <label>物品名称<input maxLength={200} name="item_name" required /></label>
       <label>数量<input min="0.001" name="quantity" required step="0.001" type="number" /></label>

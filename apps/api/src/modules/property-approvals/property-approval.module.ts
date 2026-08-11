@@ -64,6 +64,13 @@ import {
 } from "@jinhu/shared";
 import { DatabasePropertyMutationReceiptAdapter } from
   "./property-mutation-receipt.adapter";
+import { PropertyApprovalExecutionWorker } from "./property-approval.execution.worker";
+import { PropertyApprovalRuntimeScheduler } from "./property-approval.runtime.scheduler";
+import {
+  PropertyInAppNotificationChannel,
+  PropertyLocalEventPublisher,
+  PropertyLocalRuntimeComposition
+} from "./outbox/property-local-runtime.transport";
 
 @Module({
   imports: [TypeOrmModule.forFeature([...PROPERTY_APPROVAL_ENTITIES])],
@@ -93,11 +100,13 @@ import { DatabasePropertyMutationReceiptAdapter } from
     PropertyNotificationChannelRegistry,
     DatabasePropertyRuntimeControlAdapter,
     DatabasePropertyMutationReceiptAdapter,
-    // These workers have explicit run() entry points and no lifecycle hook.
-    // A scheduler may invoke the exported singleton; module creation never
-    // starts a second loop or performs background work.
+    PropertyInAppNotificationChannel,
+    PropertyLocalEventPublisher,
+    PropertyLocalRuntimeComposition,
+    PropertyApprovalExecutionWorker,
     PropertyEventPublisherWorker,
     PropertyNotificationDeliveryWorker,
+    PropertyApprovalRuntimeScheduler,
     {
       provide: PROPERTY_APPROVAL_POLICY_PORT,
       useExisting: FrozenPropertyApprovalPolicyResolver

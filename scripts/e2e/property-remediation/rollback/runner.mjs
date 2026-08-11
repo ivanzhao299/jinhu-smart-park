@@ -32,6 +32,7 @@ export { assertCommandOutputSafe } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
 import {
   captureDurableSnapshot,
+  assertUniqueAuthorityPorts,
   CLEANUP_FIELDS,
   cleanupCaseResources,
   provisionCaseDatabase,
@@ -160,6 +161,7 @@ export async function prepareRun({ runId, finalSha, env = process.env, now = () 
   const commandSpecsSha256 = Object.fromEntries(profile.cases.map((entry) => [entry.id, commandSpecSha256(profile, entry)]));
   const executionNonce = randomBytes(32).toString("hex");
   const authorities = Object.fromEntries(profile.cases.map((entry) => [entry.id, resourceAuthority({ runId, finalSha, caseId: entry.id, runRoot, executionNonce, commandSpecSha256: commandSpecsSha256[entry.id] })]));
+  assertUniqueAuthorityPorts(authorities);
   const authoritySha256 = Object.fromEntries(Object.entries(authorities).map(([caseId, authority]) => [caseId, canonicalSha256(authority)]));
   const manifest = {
     schemaVersion: "property-track-c-rollback-run-v3",

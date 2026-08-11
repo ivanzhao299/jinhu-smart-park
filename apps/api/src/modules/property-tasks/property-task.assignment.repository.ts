@@ -34,6 +34,45 @@ export interface PropertyTaskAssignmentRow {
 
 @Injectable()
 export class PropertyTaskAssignmentRepository {
+  async ensureOpenAssignments(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    candidates: ReadonlyArray<{
+      taskKey: string;
+      taskKind: string;
+      sourceType: string;
+      sourceId: string;
+      sourceVersion: number;
+    }>
+  ): Promise<void> {
+    if (candidates.length === 0) return;
+    await manager.query(
+      `INSERT INTO biz_property_task_assignment(
+         tenant_id,park_id,task_key,task_key_version,task_kind,source_type,
+         source_id,source_version_at_generation,assignment_status
+       )
+       SELECT $1,$2,candidate.task_key,1,candidate.task_kind,candidate.source_type,
+              candidate.source_id,candidate.source_version,'open'
+         FROM jsonb_to_recordset($3::jsonb) AS candidate(
+           task_key text,task_kind text,source_type text,source_id uuid,source_version integer
+         )
+        WHERE NOT EXISTS (
+          SELECT 1 FROM biz_property_task_assignment existing
+           WHERE existing.tenant_id=$1 AND existing.park_id=$2
+             AND existing.task_key=candidate.task_key AND existing.is_deleted=false
+             AND existing.assignment_status IN ('open','claimed','in_progress','blocked')
+        )
+       ON CONFLICT DO NOTHING`,
+      [scope.tenantId, scope.parkId, JSON.stringify(candidates.map((candidate) => ({
+        task_key: candidate.taskKey,
+        task_kind: candidate.taskKind,
+        source_type: candidate.sourceType,
+        source_id: candidate.sourceId,
+        source_version: candidate.sourceVersion
+      })))]
+    );
+  }
+
   async lockById(
     manager: EntityManager,
     scope: TenantParkScope,

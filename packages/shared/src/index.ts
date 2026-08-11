@@ -362,6 +362,10 @@ export type HousingLedgerEntryType = (typeof HOUSING_LEDGER_ENTRY_TYPES)[number]
 
 export const SYSTEM_PERMISSIONS = {
   AI_ASSISTANT: "ai:assistant",
+  ADMIN_ISSUE_CREATE: "admin_issue:create",
+  ADMIN_ISSUE_READ: "admin_issue:read",
+  ADMIN_ISSUE_MANAGE: "admin_issue:manage",
+  ADMIN_ISSUE_RUNNER: "admin_issue:runner",
   ORG_LIST: "system:org:list",
   ORG_CREATE: "system:org:create",
   ORG_DETAIL: "system:org:detail",
@@ -897,6 +901,10 @@ export interface PermissionSeed {
 
 export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.AI_ASSISTANT, name: "AI 工作台", resource: "ai.assistant", action: "page" },
+  { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_CREATE, name: "提交问题反馈", resource: "ops.admin_issue", action: "create" },
+  { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_READ, name: "查看问题反馈", resource: "ops.admin_issue", action: "read" },
+  { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_MANAGE, name: "管理问题修复", resource: "ops.admin_issue", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.ADMIN_ISSUE_RUNNER, name: "问题修复 Runner", resource: "ops.admin_issue", action: "runner" },
   { code: SYSTEM_PERMISSIONS.ORG_LIST, name: "组织列表", resource: "system.org", action: "list" },
   { code: SYSTEM_PERMISSIONS.ORG_CREATE, name: "新增组织", resource: "system.org", action: "create" },
   { code: SYSTEM_PERMISSIONS.ORG_DETAIL, name: "组织详情", resource: "system.org", action: "detail" },

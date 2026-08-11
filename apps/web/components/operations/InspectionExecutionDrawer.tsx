@@ -159,7 +159,16 @@ export function InspectionExecutionDrawer({
         <h3 className={styles.formSectionTitle}>检查项</h3>
         <div className={styles.checklist}>
           {(task.items ?? []).map((item) => {
-            const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
+            const input = resultInputs[item.id] ?? {
+              result: "normal",
+              valueText: "",
+              valueTextEditable: false,
+              valueNumber: "",
+              valueNumberEditable: false,
+              photoFileIds: [],
+              photoFileIdsEditable: false,
+              createHazard: true
+            };
             const abnormal = input.result === "abnormal";
             const numericItem = item.itemType === "number";
             return (
@@ -173,16 +182,21 @@ export function InspectionExecutionDrawer({
                 {item.standardDesc ? <p className={styles.itemStandard}>{item.standardDesc}</p> : null}
                 {numericItem ? (
                   <input
+                    disabled={!input.valueNumberEditable}
                     type="number"
                     value={input.valueNumber}
                     onChange={(event) => onResultInputChange(item.id, { valueNumber: event.target.value })}
                     placeholder="填写现场数值"
                   />
                 ) : null}
-                <textarea value={input.valueText} onChange={(event) => onResultInputChange(item.id, { valueText: event.target.value })} placeholder={abnormal ? "请描述异常情况" : "可填写现场说明"} />
+                <textarea disabled={!input.valueTextEditable} value={input.valueText} onChange={(event) => onResultInputChange(item.id, { valueText: event.target.value })} placeholder={abnormal ? "请描述异常情况" : "可填写现场说明"} />
                 <div className={styles.checkItemActions}>
-                  <OperationPhotoUploader bizType="safety_inspect_task_result" bizId={task.id} onUploaded={(file) => onResultInputChange(item.id, { photoFileIds: appendUnique(input.photoFileIds, file.id) })} />
-                  <AttachmentCounter count={input.photoFileIds.length} />
+                  {input.photoFileIdsEditable ? (
+                    <>
+                      <OperationPhotoUploader bizType="safety_inspect_task_result" bizId={task.id} onUploaded={(file) => onResultInputChange(item.id, { photoFileIds: appendUnique(input.photoFileIds, file.id) })} />
+                      <AttachmentCounter count={input.photoFileIds.length} />
+                    </>
+                  ) : <span className="status-pill">附件受字段权限保护</span>}
                   <label className={styles.checkboxRow}>
                     <input checked={input.createHazard} type="checkbox" onChange={(event) => onResultInputChange(item.id, { createHazard: event.target.checked })} />
                     异常时生成隐患

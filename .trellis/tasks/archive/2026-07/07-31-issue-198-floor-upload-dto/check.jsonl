@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/web/frontend/file-upload-and-form-controls.md", "reason": "Verify generic and custom multipart contracts"}
+{"file": ".trellis/spec/api/backend/file-upload.md", "reason": "Verify strict domain upload DTO boundary"}

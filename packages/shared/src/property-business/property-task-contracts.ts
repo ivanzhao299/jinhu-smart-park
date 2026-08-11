@@ -236,6 +236,8 @@ export interface PropertyTaskOwningCommandInput {
   taskKey: string;
   expectedSourceVersion: number;
   expectedAssignmentVersion: number;
+  reason?: string;
+  blockedUntil?: IsoDateTime | null;
 }
 
 export interface PropertyTaskSourceResolver {

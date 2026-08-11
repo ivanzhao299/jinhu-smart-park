@@ -13,6 +13,12 @@ const artifactsRoot = resolve(repoRoot, "artifacts/property-remediation/runs");
 const workerSource = resolve(here, "load-worker.mjs");
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const exactHash = (value) => /^[0-9a-f]{64}$/u.test(value ?? "");
+const exactCommit = (value) => /^[0-9a-f]{40}$/u.test(value ?? "");
+const identityKey = (value) => value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
+const immutableImage = (value, label) => {
+  if (!/^[A-Za-z0-9][A-Za-z0-9._/:@-]*@sha256:[0-9a-f]{64}$/u.test(value)) throw new Error(`invalid approved ${label} image`);
+  return value;
+};
 const required = (env, key) => {
   const value = env[key]?.trim();
   if (!value) throw new Error(`missing required environment variable: ${key}`);
@@ -23,6 +29,12 @@ const safeIdentifier = (value, label) => {
   return value;
 };
 const fileHash = (path) => sha(readFileSync(path));
+
+export function seedBusinessClock(path, expected) {
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  if (manifest?.businessClock !== expected) throw new Error("seed manifest business clock mismatch");
+  return manifest.businessClock;
+}
 
 function safeCommand(value, password, label) {
   if (value.includes(password) || /(?:password|passwd|token|secret)\s*=/iu.test(value)) {
@@ -39,6 +51,13 @@ export function loadConfig(env = process.env) {
   }
   for (const key of expectedNames) containers[key] = safeIdentifier(containers[key], `${key} container`);
   const password = required(env, "PROPERTY_PERF_PASSWORD");
+  const reviewer = required(env, "PROPERTY_PERF_REVIEWER");
+  const executionOwner = required(env, "PROPERTY_PERF_EXECUTION_OWNER");
+  if (identityKey(reviewer) === identityKey(executionOwner)) throw new Error("performance reviewer must be independent from execution owner");
+  const expectedDatasetSha256 = required(env, "PROPERTY_PERF_EXPECTED_DATASET_SHA256");
+  if (!exactHash(expectedDatasetSha256)) throw new Error("invalid approved dataset sha256");
+  const approvedCommitSha = required(env, "PROPERTY_PERF_APPROVED_COMMIT_SHA");
+  if (!exactCommit(approvedCommitSha)) throw new Error("invalid approved commit sha");
   const config = {
     baseUrl: new URL(required(env, "PROPERTY_PERF_BASE_URL")).origin,
     workerBaseUrl: new URL(env.PROPERTY_PERF_WORKER_BASE_URL?.trim() || required(env, "PROPERTY_PERF_BASE_URL")).origin,
@@ -54,7 +73,14 @@ export function loadConfig(env = process.env) {
     gcCommand: safeCommand(required(env, "PROPERTY_PERF_GC_COMMAND"), password, "GC command"),
     dbWaitCommand: safeCommand(required(env, "PROPERTY_PERF_DB_WAIT_COMMAND"), password, "DB wait command"),
     postgresParametersCommand: safeCommand(required(env, "PROPERTY_PERF_POSTGRES_PARAMETERS_COMMAND"), password, "PostgreSQL parameter command"),
-    reviewer: required(env, "PROPERTY_PERF_REVIEWER"),
+    reviewer,
+    executionOwner,
+    approvedInputs: {
+      commitSha: approvedCommitSha,
+      datasetSha256: expectedDatasetSha256,
+      postgresImage: immutableImage(required(env, "PROPERTY_PERF_APPROVED_POSTGRES_IMAGE"), "PostgreSQL"),
+      browserImage: immutableImage(required(env, "PROPERTY_PERF_APPROVED_BROWSER_IMAGE"), "browser-worker")
+    },
     requestTimeoutMilliseconds: Number(env.PROPERTY_PERF_REQUEST_TIMEOUT_MS ?? "30000"),
     telemetryIntervalMilliseconds: Number(env.PROPERTY_PERF_TELEMETRY_INTERVAL_MS ?? "5000")
   };
@@ -78,7 +104,7 @@ async function inspectContainer(name) {
   return value;
 }
 
-export function deriveResourceObservation(inspections, expected) {
+export function deriveResourceObservation(inspections, expected, approvedImageReferences = {}) {
   const limits = {};
   const imageDigests = {};
   for (const [key, wanted] of Object.entries(expected)) {
@@ -87,10 +113,22 @@ export function deriveResourceObservation(inspections, expected) {
     const memoryMiB = value?.HostConfig?.Memory / 1024 / 1024;
     if (cpu !== wanted.cpu || memoryMiB !== wanted.memoryMiB) throw new Error(`fixed resource mismatch: ${key}`);
     if (!/^sha256:[0-9a-f]{64}$/u.test(value?.Image ?? "")) throw new Error(`missing immutable image digest: ${key}`);
+    if (approvedImageReferences[key] && value?.Config?.Image !== approvedImageReferences[key]) throw new Error(`approved image reference mismatch: ${key}`);
     limits[key] = { cpu, memoryMiB };
     imageDigests[key] = value.Image;
   }
-  return { limits, imageDigests };
+  return { limits, imageDigests, imageReferences: Object.fromEntries(Object.entries(approvedImageReferences).map(([key]) => [key, inspections[key]?.Config?.Image])) };
+}
+
+export function deriveBusinessClockBindings(inspections, expected) {
+  const bindings = {};
+  for (const [key, inspection] of Object.entries(inspections)) {
+    const entry = inspection?.Config?.Env?.find((value) => value.startsWith("PROPERTY_PERF_BUSINESS_CLOCK="));
+    const value = entry?.slice("PROPERTY_PERF_BUSINESS_CLOCK=".length);
+    if (value !== expected) throw new Error(`business clock binding mismatch: ${key}`);
+    bindings[key] = value;
+  }
+  return bindings;
 }
 
 async function numericShell(command, label) {
@@ -204,13 +242,16 @@ async function executeCell(config, profile, scenario, concurrency, runIndex, run
     try { observations.push(await collectTelemetry(config)); } catch (error) { telemetryError ??= error; }
   };
   await sample();
-  const interval = setInterval(sample, config.telemetryIntervalMilliseconds);
+  let pendingSample = Promise.resolve();
+  const queueSample = () => { pendingSample = pendingSample.then(sample); };
+  const interval = setInterval(queueSample, config.telemetryIntervalMilliseconds);
   const startedAt = new Date().toISOString();
   let load;
   try {
     load = await runWorker(config, { baseUrl: config.workerBaseUrl, path: scenario.path, token, concurrency, warmupSeconds: profile.warmupSeconds, formalSeconds: profile.formalSeconds, minimumRequests: profile.minimumRequests, requestTimeoutMilliseconds: config.requestTimeoutMilliseconds });
   } finally {
     clearInterval(interval);
+    await pendingSample;
   }
   await sample();
   if (telemetryError) throw telemetryError;
@@ -236,14 +277,17 @@ async function executeCell(config, profile, scenario, concurrency, runIndex, run
 
 async function environmentEvidence(config, profile) {
   const inspections = Object.fromEntries(await Promise.all(Object.entries(config.containers).map(async ([key, name]) => [key, await inspectContainer(name)])));
-  const resources = deriveResourceObservation(inspections, profile.resourceProfile);
+  const resources = deriveResourceObservation(inspections, profile.resourceProfile, { postgres: config.approvedInputs.postgresImage, browserWorker: config.approvedInputs.browserImage });
+  const businessClockBindings = deriveBusinessClockBindings(inspections, config.businessClock);
   const pgObservation = await runShell(config.postgresParametersCommand);
   const postgresParameters = JSON.parse(pgObservation.stdout);
   if (!postgresParameters || Array.isArray(postgresParameters) || Object.keys(postgresParameters).length === 0) throw new Error("PostgreSQL parameter command must print a non-empty JSON object");
   const seedSha256 = fileHash(config.seedManifest);
+  const seedClock = seedBusinessClock(config.seedManifest, config.businessClock);
   const datasetChecksum = fileHash(config.datasetManifest);
-  const provenance = { ...resources, postgresParameters, seedSha256, datasetChecksum, businessClock: config.businessClock };
-  return { datasetChecksum, environment: { ...resources, postgresParameters, seedSha256, businessClock: config.businessClock, environmentDigest: sha(JSON.stringify(provenance)) } };
+  if (datasetChecksum !== config.approvedInputs.datasetSha256) throw new Error("dataset checksum does not match approved input");
+  const provenance = { ...resources, postgresParameters, seedSha256, datasetChecksum, businessClock: config.businessClock, seedBusinessClock: seedClock, businessClockBindings };
+  return { datasetChecksum, environment: { ...resources, postgresParameters, seedSha256, businessClock: config.businessClock, seedBusinessClock: seedClock, businessClockBindings, environmentDigest: sha(JSON.stringify(provenance)) } };
 }
 
 async function cleanupEvidence(config, runDir) {
@@ -257,7 +301,10 @@ async function cleanupEvidence(config, runDir) {
 
 export async function checkConfig(env = process.env) {
   const config = loadConfig(env);
-  for (const path of [config.datasetManifest, config.seedManifest]) readFileSync(path);
+  const commitSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repoRoot })).stdout.trim();
+  if (commitSha !== config.approvedInputs.commitSha) throw new Error("current commit does not match approved input");
+  if (fileHash(config.datasetManifest) !== config.approvedInputs.datasetSha256) throw new Error("dataset checksum does not match approved input");
+  seedBusinessClock(config.seedManifest, config.businessClock);
   return { status: "PASS", schemaVersion: "property-track-c-performance-config-check-v1", matrixRuns: 30, secretsLogged: false };
 }
 
@@ -267,6 +314,7 @@ async function executeFormal() {
   const profileBytes = readFileSync(canonicalProfilePath);
   const profile = JSON.parse(profileBytes);
   const commitSha = (await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: repoRoot })).stdout.trim();
+  if (commitSha !== config.approvedInputs.commitSha) throw new Error("current commit does not match approved input");
   const runId = `${new Date().toISOString().replace(/[:.]/gu, "-")}-${commitSha.slice(0, 12)}`;
   const runDir = resolve(artifactsRoot, runId);
   mkdirSync(artifactsRoot, { recursive: true });
@@ -291,11 +339,11 @@ async function executeFormal() {
     writeFileSync(failurePath, `${JSON.stringify({ at: new Date().toISOString(), message }, null, 2)}\n`);
     failureLogs.push({ key: "executor", sha256: fileHash(failurePath) });
   }
-  const evidence = { schemaVersion: "property-track-c-performance-evidence-v1", profileSha256: sha(profileBytes), commitSha, datasetChecksum: provenance.datasetChecksum, environment: provenance.environment, results, cleanup, failureLogs, reviewer: config.reviewer };
+  const evidence = { schemaVersion: "property-track-c-performance-evidence-v1", profileSha256: sha(profileBytes), commitSha, datasetChecksum: provenance.datasetChecksum, approvedInputs: config.approvedInputs, environment: provenance.environment, results, cleanup, failureLogs, reviewer: config.reviewer, executionOwner: config.executionOwner };
   const evidencePath = resolve(runDir, "formal-evidence.json");
   writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
   if (executionError) throw new Error(`formal execution failed; partial evidence: ${evidencePath}; ${executionError.message}`);
-  const gate = validateFormalEvidence(evidence, profile);
+  const gate = validateFormalEvidence(evidence, profile, { commitSha, datasetSha256: provenance.datasetChecksum });
   if (gate.status !== "PASS") throw new Error(`formal evidence gate failed: ${gate.errors.join("; ")}`);
   process.stdout.write(`${JSON.stringify({ status: "PASS", evidencePath, evidenceSha256: fileHash(evidencePath), gate }, null, 2)}\n`);
 }

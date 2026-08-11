@@ -32,6 +32,14 @@ For each arrow, ask:
 - What could go wrong?
 - Who is responsible for validation?
 
+### Request serialization ownership
+
+The shared Web `apiRequest` helper owns JSON serialization. Callers pass
+structured bodies and must never call `JSON.stringify` first. The helper rejects
+string bodies so double-encoded payloads fail at the nearest boundary instead of
+surfacing later as an API JSON parse error. Direct `fetch` callers still own their
+own serialization.
+
 ### Step 2: Identify Boundaries
 
 | Boundary              | Common Issues                     |
@@ -141,11 +149,47 @@ action against every state and sibling entry point before implementation:
       same business payload
 - [ ] Permission-aware responses project only fields authorized by each granular
       read permission
+- [ ] Before permission-aware or legacy response fields enter editable controls,
+      consumers normalize runtime `unknown` values; compile-time row interfaces do
+      not authorize array methods or constrained-input assignment at the HTTP boundary
+- [ ] When multiple screens consume the same permission-aware projection, every
+      consumer retains per-child field availability through form state, local drafts,
+      and serialization. Cached browser drafts are untrusted after a permission change
+      and must not restore or submit currently protected values.
+- [ ] Optional replacement fields distinguish unavailable/omitted from explicitly
+      empty; the UI omits unavailable projections and the service preserves the
+      existing association instead of defaulting a missing field to `[]`
+- [ ] Replacement-array validators reject the entire projection when any member is
+      malformed; lossy filtering must not turn unavailable data into an explicit
+      partial or empty replacement
+- [ ] Repeated child updates carry replacement-field availability per child and the
+      service resolves omission against that child's persisted record; a fix for one
+      top-level occurrence is expanded to every nested sibling occurrence
+- [ ] Parent and child fields with matching names resolve their own field-policy
+      entity and key; a parent capability is never reused as a child capability
+- [ ] List filters remain query context only; they never initialize persisted
+      lifecycle flags unless the backend independently derives and validates that state
+- [ ] Route-owned capabilities depend on explicit route mode, not an effective query
+      boolean that also includes mutable list filters
 - [ ] Every projected attachment is exercised through metadata list, file detail,
       and blob download policy for each allowed granular business role
 - [ ] Write-only roles receive the minimum read context required to reach their
       authorized action, or the permission contract explicitly requires the missing
       selector/context permission at both controller and UI boundaries
+- [ ] Action-specific candidate endpoints are authorized by the action permission,
+      apply the same data scope as the mutation, and return the labels needed by the
+      selector in one projection; the browser must not join several unrelated
+      read-permission endpoints to make an authorized action reachable
+- [ ] An action-labelled control performs or resumes the named transition in one
+      interaction. If it only opens read-only context, label it as view/detail;
+      do not hide the real transition behind a second action with the same meaning
+- [ ] Action context responses include the owning aggregate's minimum child data
+      under the action capability. They do not borrow management-read permissions
+      from another route, and they revalidate target ownership/data scope server-side
+- [ ] Candidate pagination is an integer-only, server-bounded contract before SQL
+      `skip`/`take`; defaults do not substitute for an explicit maximum
+- [ ] Historical financial candidates remain reachable when a current reference is
+      soft-deleted; label joins preserve historical rows and provide stable fallbacks
 - [ ] Decimal values survive HTTP, DTO, service, database, and frontend round trips
       without passing through JavaScript `number`
 - [ ] Decimal calculations also remain scaled integers or exact rational arithmetic;
@@ -178,6 +222,24 @@ action against every state and sibling entry point before implementation:
       percentage values capped at 100
 - [ ] Rapid user actions use a synchronous in-flight guard plus one stable retry key;
       React/render state alone is not a lock against two events in the same tick
+- [ ] Cross-client lifecycle transitions decide their disposition under a database row
+      lock or equivalent conditional write; a browser lock and pre-transaction status
+      read do not prevent duplicate transitions or audit records
+- [ ] Validate action context before committing a state transition. If post-transition
+      enrichment fails, preserve and report the committed success independently instead
+      of clearing the workflow as though the mutation failed
+- [ ] Nested child collections pass through their own field-policy entity before attachment;
+      a shallow parent projection does not secure child values
+- [ ] A masked/hidden/readonly value is never round-tripped as mutation input. Track editability,
+      omit protected fields, and make the write contract distinguish omission (preserve) from
+      explicit null (clear), including validation against the resolved stored value
+- [ ] After a mutation, prefer a valid authoritative response projection over preflight data;
+      use a validated preflight snapshot only as an atomic fallback, never as an unconditional
+      overwrite or a field-by-field mix of two versions
+- [ ] Validate and derive the complete selected-target UI state before publishing the target.
+      A failed projection must not pair a new parent with a previous parent's child form state,
+      and every successful lifecycle response reconciles the parent, children, and derived inputs
+      in one state publication.
 - [ ] Same-target refresh failures preserve the last successful projection; clearing
       data is reserved for a real target change or a successful empty response
 - [ ] Server-owned uniqueness or singleton roles are derived under a shared aggregate
@@ -203,11 +265,15 @@ action against every state and sibling entry point before implementation:
       paginate history instead of loading all historical records into the main surface
 - [ ] Permission-aware effects are gated by the exact read permission of their
       endpoint, independently from write controls and unrelated page visibility
+- [ ] Action-only candidate effects run only after the authorized action is entered
+      (for example, opening its permission-gated drawer); a page-level read guard does
+      not authorize eager calls to an endpoint protected by create/execute permission
 - [ ] Permission capability graphs include the dataset needed to discover and select
       the target. If an action requires list/detail context, enforce that read
       permission as an API composite prerequisite; button checks alone are not access
 - [ ] A domain file policy is intersected with the generic file endpoint permission:
-      domain read + `file:read` for lists, domain write + `file:upload` for uploaders
+      domain read + `file:read` for lists, domain write + `file:upload` for uploaders,
+      and domain mutation + `file:delete` for protected deletion controls
 - [ ] Operational list rows carry their own stable human-readable identity; labels do
       not depend on a separate candidate selector's current page or enabled subset
 - [ ] A paginated dataset shared by multiple forms exposes paging beside every
@@ -219,6 +285,9 @@ action against every state and sibling entry point before implementation:
       the domain business timezone; hiding a button is never the only enforcement
 - [ ] Read and execute permissions are projected at sub-control level: read-only
       users keep evidence and exception context but do not see upload/edit controls
+- [ ] Post-create continuation re-evaluates permissions for the persisted-record
+      state. Create permission may continue to authorized child actions, but it must
+      not expose profile update controls that require an independent update permission
 - [ ] Every backend-supported operational payload field needed in the MVP (such as
       exception description, consumables, evidence, and linked work order) has a
       reachable production input and a round-trip test
@@ -237,6 +306,19 @@ action against every state and sibling entry point before implementation:
       before releasing or closing the parent resource
 - [ ] A successful mutation reloads every selected projection it can invalidate,
       including ledger summaries, credentials, action history, and status-derived UI
+- [ ] Mutation success and projection refresh are separate events: commit owner-state
+      cleanup immediately after the successful response, then refresh secondary lists;
+      a refresh error must not roll back client state to a server-invalid reference
+- [ ] Successful list deletion removes the row and decrements the visible total before
+      the follow-up GET. If that GET fails, report “mutation succeeded, refresh failed”
+      instead of restoring the deleted row or showing a generic deletion failure
+- [ ] Shared attachment deletion follows the same committed-mutation rule: notify the
+      owner, remove the local row, then refresh; refresh rejection is warning data and
+      never a rejection of the completed DELETE
+- [ ] When an attachment ID or URL is denormalized into multiple owner projections,
+      reconcile every list/detail/edit/action snapshot immediately after both upload
+      and deletion commits; project the replacement before older files can be deleted,
+      and compare the deleted file ID before clearing so the replacement survives
 - [ ] Refresh-error state is separate from action feedback and is cleared on the next
       fully successful refresh
 - [ ] Selected detail has an identity independent from current list-page membership;
@@ -254,6 +336,9 @@ action against every state and sibling entry point before implementation:
 
 Add behavioral tests for both the allowed transition and its nearest forbidden
 neighbor. Source-pattern assertions may supplement, but not replace, these tests.
+Every new package-local regression spec must also be reachable from that package's
+test command and from the root CI verification path; passing an ad-hoc invocation
+does not make the regression executable protection.
 
 ---
 
@@ -490,6 +575,10 @@ sibling before the next commit. Do not stop at the named line.
       effects and preview buttons must follow the download capability.
 - [ ] For every action permission, prove list and detail reachability without granting
       unrelated broad read access; keep each detail projection independently gated.
+- [ ] Open every new selector under the narrowest supported action-role fixture and
+      assert its network calls require no sibling module read permissions.
+- [ ] Also open the containing page with read-only permission and assert action-only
+      candidate requests are absent until the permission-gated action is entered.
 - [ ] Persisted relationship rows carry response-owned display labels; never resolve
       historical names from a separately paginated candidate list.
 - [ ] Terminal attachment references define authoritative ownership: after registration,

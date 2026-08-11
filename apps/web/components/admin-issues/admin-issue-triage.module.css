@@ -1,0 +1,10 @@
+.triage {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.triage p { margin: 0; white-space: pre-wrap; }
+.triage textarea { min-height: 78px; resize: vertical; }
+.triage > div { display: flex; gap: 8px; flex-wrap: wrap; }

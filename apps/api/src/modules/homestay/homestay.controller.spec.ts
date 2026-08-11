@@ -24,7 +24,6 @@ import { HomestayController } from "./homestay.controller";
 
 const exactReads = {
   tasks: SYSTEM_PERMISSIONS.HOMESTAY_TASK_READ,
-  guestCandidates: SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
   workOrderCandidates: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ,
   listStays: SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ,
   getStay: SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ,
@@ -145,7 +144,10 @@ test("A-2.5 homestay GET handlers declare exact permissions and required module 
 test("A-2.5 candidate handlers do not add unrelated permissions or workorder module gates", () => {
   assert.deepEqual(
     Reflect.getMetadata(PERMISSIONS_KEY, HomestayController.prototype.guestCandidates),
-    [SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ]
+    [
+      SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+      SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+    ]
   );
   assert.deepEqual(
     Reflect.getMetadata(PERMISSIONS_KEY, HomestayController.prototype.workOrderCandidates),

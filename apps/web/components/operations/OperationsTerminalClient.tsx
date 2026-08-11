@@ -45,11 +45,18 @@ import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { loadDictMapByCodes } from "../../lib/dict-client";
+import { canEditField } from "../../lib/field-policy";
 import { hasPermission } from "../../lib/permissions";
 import { fetchReferenceFormOptions } from "../../lib/reference-data";
 import type { WorkflowInboxResponse } from "../../lib/workflow-inbox-types";
 import { buildWorkOrderPrefill, resolveWorkOrderAudience } from "../../lib/workorder-prefill";
 import { InspectionExecutionDrawer } from "./InspectionExecutionDrawer";
+import {
+  buildResultMutationPayload,
+  mergeLocalDraftResultInputs,
+  prepareResultState,
+  resolveStartedResultState
+} from "./inspection-result.logic";
 import { QuickWorkOrderDrawer } from "./QuickWorkOrderDrawer";
 import { OPERATION_SCENES, TERMINAL_DICT_CODES, TERMINAL_QUICK_ACTIONS, matchScene, type OperationSceneConfig } from "./terminal-config";
 import type {
@@ -83,6 +90,8 @@ interface OperationsTerminalClientProps {
 
 const defaultCheckInForm: CheckInForm = { qrCode: "", gpsLng: "", gpsLat: "", photoFileIds: [] };
 const OVERDUE_STATUS = "40";
+const SAFETY_MODULE = "safety";
+const INSPECT_TASK_RESULT_ENTITY = "inspect_task_result";
 const defaultWorkOrderForm: WorkOrderForm = {
   woType: "",
   priority: "",
@@ -254,6 +263,11 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   const abnormalTasks = todayTasks.filter((task) => task.result === "abnormal");
   const completionRate = todayTasks.length === 0 ? 0 : Math.round((completedTasks.length / todayTasks.length) * 100);
   const canGenerate = previewMode || hasPermission(authUser, "safety_inspect_task:generate");
+  const resultFieldAccess = {
+    valueTextEditable: previewMode || canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueText"),
+    valueNumberEditable: previewMode || canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "valueNumber"),
+    photoFileIdsEditable: previewMode || canEditField(authUser, SAFETY_MODULE, INSPECT_TASK_RESULT_ENTITY, "photoFileIds")
+  };
   const canReadWorkflow = previewMode || hasPermission(authUser, SYSTEM_PERMISSIONS.WORKORDER_READ);
   const roleLabel = useMemo(() => resolveMobileRoleLabel(authUser), [authUser]);
   const visibleRoleModules = useMemo(() => resolveVisibleRoleModules(authUser, previewMode), [authUser, previewMode]);
@@ -360,54 +374,36 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
 
   async function openExecute(task: InspectTaskRow) {
     if (previewMode) {
-      setExecuting(task);
-      setCheckInForm({
+      const prepared = prepareResultState(task.items ?? [], task.results ?? [], resultFieldAccess);
+      const nextCheckInForm = {
         qrCode: task.point?.qrCode ?? task.point?.pointCode ?? "",
         gpsLng: task.gpsLng ?? "",
         gpsLat: task.gpsLat ?? "",
         photoFileIds: task.photoFileIds ?? []
-      });
-      const inputs: Record<string, ResultInput> = {};
-      for (const item of task.items ?? []) {
-        inputs[item.id] = { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
-      }
+      };
       const localDraft = readLocalDraft(task.id);
-      if (localDraft) {
-        setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
-        setResultInputs({ ...inputs, ...localDraft.resultInputs });
-      } else {
-        setResultInputs(inputs);
-      }
+      setCheckInForm(localDraft ? { ...nextCheckInForm, ...localDraft.checkInForm } : nextCheckInForm);
+      setResultInputs(localDraft
+        ? mergeLocalDraftResultInputs(prepared.inputs, localDraft.resultInputs)
+        : prepared.inputs);
+      setExecuting({ ...task, items: prepared.items, results: prepared.results });
       return;
     }
     const response = await apiRequest<InspectTaskRow>(`/safety/my-inspect-tasks/${task.id}`, { token: getAccessToken() });
     const detail = response.data;
-    setExecuting(detail);
-    setCheckInForm({
+    const prepared = prepareResultState(detail.items, detail.results, resultFieldAccess);
+    const nextCheckInForm = {
       qrCode: detail.point?.qrCode ?? detail.point?.pointCode ?? "",
       gpsLng: detail.gpsLng ?? "",
       gpsLat: detail.gpsLat ?? "",
       photoFileIds: detail.photoFileIds ?? []
-    });
-    const existing = new Map((detail.results ?? []).map((result) => [result.itemId, result]));
-    const inputs: Record<string, ResultInput> = {};
-    for (const item of detail.items ?? []) {
-      const result = existing.get(item.id);
-      inputs[item.id] = {
-        result: result?.result ?? "normal",
-        valueText: result?.valueText ?? "",
-        valueNumber: result?.valueNumber ?? "",
-        photoFileIds: result?.photoFileIds ?? [],
-        createHazard: !result?.hazardCreated
-      };
-    }
+    };
     const localDraft = readLocalDraft(detail.id);
-    if (localDraft) {
-      setCheckInForm((current) => ({ ...current, ...localDraft.checkInForm }));
-      setResultInputs({ ...inputs, ...localDraft.resultInputs });
-    } else {
-      setResultInputs(inputs);
-    }
+    setCheckInForm(localDraft ? { ...nextCheckInForm, ...localDraft.checkInForm } : nextCheckInForm);
+    setResultInputs(localDraft
+      ? mergeLocalDraftResultInputs(prepared.inputs, localDraft.resultInputs)
+      : prepared.inputs);
+    setExecuting({ ...detail, items: prepared.items, results: prepared.results });
   }
 
   async function startTask() {
@@ -422,7 +418,16 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey("terminal-inspect-start")
     });
-    setExecuting(response.data);
+    const prepared = resolveStartedResultState(
+      response.data.items,
+      response.data.results,
+      executing.items,
+      executing.results,
+      resultInputs,
+      resultFieldAccess
+    );
+    setResultInputs(prepared.inputs);
+    setExecuting({ ...response.data, items: prepared.items, results: prepared.results });
     setMessage("已开始巡检");
     await loadAll();
   }
@@ -460,15 +465,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
       return;
     }
     const results = (executing.items ?? []).map((item) => {
-      const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
-      return {
-        item_id: item.id,
-        result: input.result,
-        value_text: input.valueText.trim() || undefined,
-        value_number: input.valueNumber ? Number(input.valueNumber) : undefined,
-        photo_file_ids: input.photoFileIds,
-        create_hazard: input.result === "abnormal" ? input.createHazard : false
-      };
+      const input = resultInputs[item.id] ?? defaultTerminalResultInput();
+      return buildResultMutationPayload(item.id, input, input.result === "abnormal" ? input.createHazard : false);
     });
     await apiRequest<InspectTaskRow>(`/safety/inspect-tasks/${executing.id}/submit-results`, {
       method: "POST",
@@ -485,15 +483,8 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
   async function saveDraft() {
     if (!executing) return;
     const results = (executing.items ?? []).map((item) => {
-      const input = resultInputs[item.id] ?? { result: "normal", valueText: "", valueNumber: "", photoFileIds: [], createHazard: true };
-      return {
-        item_id: item.id,
-        result: input.result,
-        value_text: input.valueText.trim() || undefined,
-        value_number: input.valueNumber ? Number(input.valueNumber) : undefined,
-        photo_file_ids: input.photoFileIds,
-        create_hazard: false
-      };
+      const input = resultInputs[item.id] ?? defaultTerminalResultInput();
+      return buildResultMutationPayload(item.id, input, false);
     });
     writeLocalDraft(executing.id, { checkInForm, resultInputs });
     if (previewMode) {
@@ -1020,16 +1011,25 @@ export function OperationsTerminalClient({ previewMode = false, previewData }: O
     setResultInputs((current) => ({
       ...current,
       [itemId]: {
-        result: "normal",
-        valueText: "",
-        valueNumber: "",
-        photoFileIds: [],
-        createHazard: true,
+        ...defaultTerminalResultInput(),
         ...(current[itemId] ?? {}),
         ...patch
       }
     }));
   }
+}
+
+function defaultTerminalResultInput(): ResultInput {
+  return {
+    result: "normal",
+    valueText: "",
+    valueTextEditable: false,
+    valueNumber: "",
+    valueNumberEditable: false,
+    photoFileIds: [],
+    photoFileIdsEditable: false,
+    createHazard: true
+  };
 }
 
 function resolveVisibleRoleModules(user: UserContext | null, previewMode: boolean): MobileRoleModule[] {

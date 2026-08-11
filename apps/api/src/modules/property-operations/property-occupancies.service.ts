@@ -425,6 +425,7 @@ export class PropertyOccupanciesService {
   ) {
     if (dto.force) {
       this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_FORCE_RELEASE);
+      this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE);
       const existing = await this.mustFindOccupancy(scope, id);
       await this.unitAccessService.assertAccess(scope, actor, existing.unitId);
       if (["released", "completed", "cancelled"].includes(existing.status)) return existing;
@@ -466,6 +467,7 @@ export class PropertyOccupanciesService {
       });
     }
 
+    this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_RELEASE);
     const entity = await this.mustFindOccupancy(scope, id);
     await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
     if (["released", "completed", "cancelled"].includes(entity.status)) return entity;
@@ -752,7 +754,7 @@ export class PropertyOccupanciesService {
     pagePermission: string,
     actionPermission: string
   ): void {
-    if (!actor.permissions.includes(pagePermission)) {
+    if (!this.hasPermission(actor, pagePermission)) {
       throw new ForbiddenException({
         message: "Property page access is forbidden",
         errorCode: "property-action-forbidden"

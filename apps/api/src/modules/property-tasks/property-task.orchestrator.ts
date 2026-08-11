@@ -58,6 +58,15 @@ interface AuthorityCandidate {
   taskKey: string;
 }
 
+const PROPERTY_TASK_RECONCILER_ACTOR_ID = "00000000-0000-4000-8000-000000000001";
+
+export function shouldMaterializeDerivedAssignment(input: {
+  assignmentAuthority: "derived" | "owning";
+  lifecycle: PropertyTaskSourceSnapshot["lifecycle"];
+}): boolean {
+  return input.assignmentAuthority === "derived" && input.lifecycle === "eligible";
+}
+
 @Injectable()
 export class PropertyTaskOrchestrator {
   constructor(
@@ -462,7 +471,8 @@ export class PropertyTaskOrchestrator {
   async rebuild(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    request: PropertyTaskRebuildRequest
+    request: PropertyTaskRebuildRequest,
+    internal = false
   ): Promise<PropertyTaskRebuildResponse> {
     try {
       return await this.dataSource.transaction("SERIALIZABLE", async (manager) => {
@@ -474,7 +484,7 @@ export class PropertyTaskOrchestrator {
           maintenanceScope: "current-park" as const,
           requiredPermission: "property_task:rebuild" as const
         };
-        if (!await this.access.authorizeTaskRead({
+        if (!internal && !await this.access.authorizeTaskRead({
           manager: managerPort,
           scope,
           actor: { actorId: actor.sub },
@@ -499,6 +509,22 @@ export class PropertyTaskOrchestrator {
         const derivedTaskKeys = candidates
           .filter((candidate) => candidate.projector.assignmentAuthority === "derived")
           .map((candidate) => candidate.taskKey);
+        await this.assignments.ensureOpenAssignments(
+          manager,
+          scope,
+          candidates
+            .filter((candidate) => shouldMaterializeDerivedAssignment({
+              assignmentAuthority: candidate.projector.assignmentAuthority,
+              lifecycle: candidate.snapshot.lifecycle
+            }))
+            .map((candidate) => ({
+              taskKey: candidate.taskKey,
+              taskKind: candidate.projector.taskKind,
+              sourceType: candidate.projector.sourceType,
+              sourceId: candidate.snapshot.sourceId,
+              sourceVersion: candidate.snapshot.sourceVersion
+            }))
+        );
         const derivedAssignments = await this.assignments.lockByTaskKeys(
           manager,
           scope,
@@ -620,6 +646,18 @@ export class PropertyTaskOrchestrator {
     }
   }
 
+  async reconcile(
+    scope: TenantParkScope,
+    request: PropertyTaskRebuildRequest
+  ): Promise<PropertyTaskRebuildResponse> {
+    return this.rebuild(
+      scope,
+      { sub: PROPERTY_TASK_RECONCILER_ACTOR_ID } as JwtPrincipal,
+      request,
+      true
+    );
+  }
+
   private async scanAuthorityCandidates(
     manager: ReturnType<typeof toPropertyTaskManagerPort>,
     scope: TenantParkScope,
@@ -739,7 +777,9 @@ export class PropertyTaskOrchestrator {
       businessOccurrenceKey: request.businessOccurrenceKey,
       taskKey: projection.taskKey,
       expectedSourceVersion: request.expectedSourceVersion,
-      expectedAssignmentVersion: request.expectedAssignmentVersion
+      expectedAssignmentVersion: request.expectedAssignmentVersion,
+      reason: "reason" in request ? request.reason : undefined,
+      blockedUntil: "blockedUntil" in request ? request.blockedUntil : undefined
     });
     const refreshed = await resolver.lockAndResolve({
       manager,

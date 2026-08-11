@@ -1,0 +1,33 @@
+{
+  "id": "open-issues-209-217",
+  "name": "open-issues-209-217",
+  "title": "修复当前开放 Issues 209 与 215-217",
+  "description": "",
+  "status": "review",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-03",
+  "completedAt": null,
+  "branch": "agent/fix-open-issues-209-217",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-03-issue-209-inspect-execute-white-screen",
+    "08-03-issue-215-inspect-point-cascades",
+    "08-03-issue-216-user-default-park-options",
+    "08-03-issue-217-tenant-package-options",
+    "08-03-issue-217-super-admin-login",
+    "08-03-issue-216-create-user-park-labels"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

@@ -2,7 +2,7 @@
 
 import type { HousingFinanceListItem } from "@jinhu/shared";
 import type { FormEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
@@ -25,25 +25,39 @@ export function HousingFinanceActions({
 }) {
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const available = item.receivables.filter(
+  const available = useMemo(() => item.receivables.filter(
     (receivable) => receivable.status !== "void" && receivable.balance !== "0.00"
-  );
+  ), [item.receivables]);
   const [entryKind, setEntryKind] = useState<"payment" | "deposit_receipt">(
     available.some((item) => item.entryKind === "payment") ? "payment" : "deposit_receipt"
   );
   const [receivableId, setReceivableId] = useState("");
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
-  const receivables = available.filter((receivable) => receivable.entryKind === entryKind);
-  const entryKinds = (["payment", "deposit_receipt"] as const)
-    .filter((kind) => available.some((receivable) => receivable.entryKind === kind));
+  const receivables = useMemo(
+    () => available.filter((receivable) => receivable.entryKind === entryKind),
+    [available, entryKind]
+  );
+  const entryKinds = useMemo(() => (["payment", "deposit_receipt"] as const)
+    .filter((kind) => available.some((receivable) => receivable.entryKind === kind)), [available]);
+  useEffect(() => {
+    if (!entryKinds.includes(entryKind)) {
+      setEntryKind(entryKinds[0] ?? "payment");
+      setReceivableId("");
+      return;
+    }
+    if (receivableId && !receivables.some((receivable) => receivable.id === receivableId)) {
+      setReceivableId("");
+    }
+  }, [entryKind, entryKinds, receivableId, receivables]);
   if (!capabilities.actionAllowed("housing.finance.register")) return null;
   if (!available.length) return <span>当前没有可登记收款的应收。</span>;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const body = financeBody(form);
     lock.current = true;
     setSubmitting(true);
@@ -55,7 +69,7 @@ export function HousingFinanceActions({
       });
       idempotency.complete("housing-ledger-register");
       setMessage("普通财务流水已登记。");
-      event.currentTarget.reset();
+      formElement.reset();
       await reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "财务登记失败");

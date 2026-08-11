@@ -231,14 +231,14 @@ test("public barrel exports only the integration contract", () => {
   }
 });
 
-test("handoff document records frozen inputs and the deferred UI gate", () => {
+test("handoff document records frozen inputs and the completed UI gate", () => {
   const handoff = readFileSync(join(ROOT, "README.md"), "utf8");
   assert.match(handoff, /e709459a034807b3575db604a76bc69bf1c5ff5b/);
   assert.match(handoff, /b1a0625b59f7c2263a1909126e335b85c81d8c13/);
   assert.match(handoff, /API response contract only/);
   assert.match(handoff, /is_super.*system `\*` permission/s);
   assert.match(handoff, /Neither `is_super` nor `\*` bypasses module availability/);
-  assert.match(handoff, /eight high-risk actions marked `blocked-until-track-b`/);
-  assert.match(handoff, /final UI gate/);
+  assert.match(handoff, /high-risk actions.*Track B approval runtime/is);
+  assert.match(handoff, /final UI gate/i);
   assert.match(handoff, /real canonical domain route/);
 });

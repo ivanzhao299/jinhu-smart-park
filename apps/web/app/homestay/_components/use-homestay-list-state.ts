@@ -2,6 +2,7 @@
 
 import type {
   HomestayAvailabilityListResponse,
+  HomestayAvailabilityResponse,
   HomestayBookingListResponse,
   HomestayDashboardResponse,
   HomestayFinanceListResponse,
@@ -17,7 +18,12 @@ import type { RemoteEntityOption } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import type { HomestayListReturnContext } from "./HomestayListRecords";
-import { availabilityQueryDates, shouldLoadHomestayRead } from "./homestay-workbench.logic";
+import {
+  availabilityQueryDates,
+  homestaySurfaceQueryKey,
+  normalizeHomestayAvailabilityResponse,
+  shouldLoadHomestayRead
+} from "./homestay-workbench.logic";
 import type { HomestayListSurface } from "./HomestayListClient";
 
 export type HomestaySurfaceData =
@@ -131,24 +137,41 @@ export function useHomestaySurfaceData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const requestId = useRef(0);
+  const queryKey = surface === "dashboard"
+    ? "dashboard"
+    : homestaySurfaceQueryKey(
+        surface,
+        queryFor(surface, { ...filters, unitId: filters.unit?.id ?? "" })
+      );
+  const dataQueryKey = useRef("");
   const load = useCallback(async () => {
-    if (!shouldLoadHomestayRead(filters.ready, readAllowed)) { setLoading(false); return; }
     const currentRequest = ++requestId.current;
+    if (dataQueryKey.current !== queryKey) {
+      dataQueryKey.current = queryKey;
+      setData(null);
+    }
+    if (!shouldLoadHomestayRead(filters.ready, readAllowed)) { setLoading(false); return; }
     setLoading(true); setError("");
     try {
       const endpoint = surface === "dashboard"
         ? "/homestay/dashboard"
         : `/homestay/${surface}?${queryFor(surface, { ...filters, unitId: filters.unit?.id ?? "" }).toString()}`;
       const response = await apiRequest<HomestaySurfaceData>(endpoint, { token: getAccessToken() ?? undefined });
-      if (currentRequest === requestId.current) setData(response.data);
+      const normalized = surface === "availability"
+        ? normalizeHomestayAvailabilityResponse(
+            response.data as HomestayAvailabilityListResponse | HomestayAvailabilityResponse,
+            filters.page
+          )
+        : response.data;
+      if (currentRequest === requestId.current) setData(normalized);
     } catch (loadError) {
       if (currentRequest === requestId.current) setError(loadError instanceof Error ? loadError.message : "数据加载失败");
     } finally {
       if (currentRequest === requestId.current) setLoading(false);
     }
-  }, [filters, readAllowed, surface]);
+  }, [filters, queryKey, readAllowed, surface]);
   useEffect(() => void load(), [load, invalidationKey]);
-  return { data, error, load, loading };
+  return { data: dataQueryKey.current === queryKey ? data : null, error, load, loading };
 }
 
 export function homestayPaginatedData(surface: HomestayListSurface, data: HomestaySurfaceData | null) {

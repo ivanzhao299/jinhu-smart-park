@@ -36,7 +36,7 @@ test("force release submits through the strict approval port while retaining an 
   assert.doesNotMatch(source, /assertApprovalRequired\(/);
 });
 
-test("non-force release preserves the existing low-risk path", async () => {
+test("non-force release preserves the existing low-risk path with its exact action permission", async () => {
   const entity = {
     id: "occupancy-low-risk",
     unitId: "unit-1",
@@ -71,7 +71,7 @@ test("non-force release preserves the existing low-risk path", async () => {
 
   const result = await service.release(
     scope,
-    principals[0]!,
+    { ...principals[0]!, permissions: ["property_occupancy:release"] },
     entity.id,
     { force: false, reason: "normal release" },
     "low-risk-key"
@@ -82,4 +82,23 @@ test("non-force release preserves the existing low-risk path", async () => {
   assert.equal(result.releaseReason, "normal release");
   assert.equal(accessCalls, 1);
   assert.equal(saveCalls, 1);
+});
+
+test("release variants enforce their exact service permissions even behind the any-permission controller guard", async () => {
+  const service = new PropertyOccupanciesService(
+    { findOne: async () => ({ id: "occupancy", unitId: "unit-1", status: "active", sourceDomain: "operations" }) } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { assertAccess: async () => undefined } as never,
+    {} as never
+  );
+  await assert.rejects(
+    service.release(scope, { ...principals[0]!, permissions: ["property_occupancy:force_release"] }, "occupancy", { force: false, reason: "normal" }, "key"),
+    /Property action is forbidden/u
+  );
+  await assert.rejects(
+    service.release(scope, { ...principals[0]!, permissions: ["property_occupancy:force_release"] }, "occupancy", { force: true, reason: "force" }, "key"),
+    /Property action is forbidden/u
+  );
 });

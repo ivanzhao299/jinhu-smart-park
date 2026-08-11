@@ -16,10 +16,14 @@ export class ApiError extends Error {
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   token?: string;
   idempotencyKey?: string;
-  body?: unknown;
+  body?: object | number | boolean | null;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<ApiResponse<T>> {
+  if (typeof options.body === "string") {
+    throw new TypeError("apiRequest body must be structured data; JSON serialization is handled by apiRequest");
+  }
+
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
 
@@ -64,6 +68,11 @@ export interface ApiFormRequestOptions extends Omit<RequestInit, "body"> {
 export async function apiFormRequest<T>(path: string, options: ApiFormRequestOptions): Promise<ApiResponse<T>> {
   const headers = new Headers(options.headers);
   headers.set("Accept", "application/json");
+
+  const file = options.body.get("file");
+  if (file && typeof file !== "string") {
+    options.body.set("original_name", file.name);
+  }
 
   if (options.token) {
     headers.set("Authorization", `Bearer ${options.token}`);

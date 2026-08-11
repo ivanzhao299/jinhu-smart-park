@@ -1,3 +1,5 @@
+import type { UserDataScopeContext } from "@jinhu/shared";
+
 export const PROPERTY_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface PropertyDraftContext {
@@ -64,13 +66,42 @@ export function propertyModuleAssignmentFingerprint(
     }));
 }
 
+function stableScopeValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableScopeValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => [key, stableScopeValue(entry)]));
+  }
+  return value;
+}
+
+export function propertyDataScopeFingerprint(
+  dataScope: string,
+  dataScopes: readonly UserDataScopeContext[] | undefined
+): string {
+  const source = JSON.stringify(stableScopeValue({
+    fallback: dataScope,
+    scopes: [...(dataScopes ?? [])]
+      .map((scope) => stableScopeValue(scope))
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+  }));
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 export function propertyOfflinePermissionFingerprint(input: {
   dataScope: string;
+  dataScopes?: readonly UserDataScopeContext[];
   enabledModules: readonly PropertyModuleAssignmentSubject[] | undefined;
   permissions: readonly string[];
 }): string {
   return JSON.stringify({
-    dataScope: input.dataScope,
+    dataScope: propertyDataScopeFingerprint(input.dataScope, input.dataScopes),
     enabledModules: propertyModuleAssignmentFingerprint(input.enabledModules),
     permissions: [...input.permissions].sort()
   });

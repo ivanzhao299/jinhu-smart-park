@@ -88,7 +88,7 @@ function LeaseDetail(props: LeaseContextProps) {
       <LeasePrimary {...props} />
       <LeaseRelated {...props} />
       <HousingLeaseSecondaryActions capabilities={props.capabilities} data={props.data} reload={props.reload} />
-      <HousingHandoverForm capabilities={props.capabilities} leaseId={props.data.lease.id} onCompleted={props.reload} />
+      <HousingHandoverForm capabilities={props.capabilities} leaseId={props.data.lease.id} leaseStatus={props.data.lease.status} onCompleted={props.reload} />
       <BlockedHighRiskActions labels={["租约审批", "作废", "提前退租或结清"]} />
     </div>
   );

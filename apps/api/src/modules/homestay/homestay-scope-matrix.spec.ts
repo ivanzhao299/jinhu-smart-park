@@ -21,7 +21,7 @@ const actor: JwtPrincipal = {
 const detailId = "11111111-1111-4111-8111-111111111111";
 const GET_SCOPE_MATRIX = {
   "/homestay/tasks": ["tenant-park-bound", "empty-unit-page"],
-  "/homestay/guest-candidates": ["tenant-park-raw-sql"],
+  "/homestay/guest-candidates": ["tenant-park-bound", "booking-unit-bound", "empty-unit-page"],
   "/homestay/work-order-candidates": ["tenant-park-bound", "empty-unit-page"],
   "/homestay/stays": ["tenant-park-bound", "empty-unit-page"],
   "/homestay/stays/:stayId": ["cross-scope-404", "unit-denied-403"],
@@ -82,7 +82,11 @@ test("seven literal GET routes map to explicit scope scenarios", () => {
     "/homestay/finance",
     "/homestay/turnovers/:id"
   ]);
-  assert.deepEqual(GET_SCOPE_MATRIX["/homestay/guest-candidates"], ["tenant-park-raw-sql"]);
+  assert.deepEqual(GET_SCOPE_MATRIX["/homestay/guest-candidates"], [
+    "tenant-park-bound",
+    "booking-unit-bound",
+    "empty-unit-page"
+  ]);
   assert.deepEqual(GET_SCOPE_MATRIX["/homestay/stays/:stayId"], [
     "cross-scope-404",
     "unit-denied-403"
@@ -98,6 +102,18 @@ test("unit-scoped list routes return empty pages without repository or raw queri
         { allowedUnitIds: async () => [] },
         { query: async () => { counter.value += 1; return []; } }
       ).listTasks(scope, actor, { page: 1, page_size: 20 })
+    },
+    {
+      route: "/homestay/guest-candidates",
+      run: async (counter: { value: number }) => workbenchService(
+        {},
+        { allowedUnitIds: async () => [] },
+        { query: async () => { counter.value += 1; return []; } }
+      ).listGuestCandidates(scope, actor, {
+        booking_id: detailId,
+        page: 1,
+        page_size: 20
+      })
     },
     {
       route: "/homestay/work-order-candidates",
@@ -154,7 +170,7 @@ test("five list routes bind the current tenant and park at their query boundary"
   ).listTasks(scope, actor, { page: 1, page_size: 20 });
   const guestResult = await workbenchService(
     {},
-    {},
+    { allowedUnitIds: async () => [detailId] },
     {
       query: async (sql: string, parameters: unknown[]) => {
         evidence.set("/homestay/guest-candidates", { sql, parameters });
@@ -164,7 +180,11 @@ test("five list routes bind the current tenant and park at their query boundary"
           : [{ id: "party-scoped", displayName: "园区住客" }];
       }
     }
-  ).listGuestCandidates(scope, { page: 1, page_size: 20 });
+  ).listGuestCandidates(scope, actor, {
+    booking_id: detailId,
+    page: 1,
+    page_size: 20
+  });
   assert.deepEqual(guestResult, {
     items: [{ id: "party-scoped", displayName: "园区住客" }],
     total: 1,
@@ -236,6 +256,18 @@ test("five list routes bind the current tenant and park at their query boundary"
     assert.match(raw.sql, /park_id = \$2/);
     assert.deepEqual(raw.parameters.slice(0, 2), [scope.tenantId, scope.parkId], route);
   }
+  const guestRaw = evidence.get("/homestay/guest-candidates") as {
+    sql: string;
+    parameters: unknown[];
+  };
+  assert.match(guestRaw.sql, /booking\.id = \$3/);
+  assert.match(guestRaw.sql, /booking\.unit_id = ANY\(\$4::uuid\[\]\)/);
+  assert.deepEqual(guestRaw.parameters.slice(0, 4), [
+    scope.tenantId,
+    scope.parkId,
+    detailId,
+    [detailId]
+  ]);
   for (const route of ["/homestay/work-order-candidates", "/homestay/stays"]) {
     const bindings = evidence.get(route) as Array<{ condition: string; parameters?: unknown }>;
     assert.ok(bindings.some(({ parameters }) =>

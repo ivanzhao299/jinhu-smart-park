@@ -6,8 +6,15 @@ ARG NPM_REGISTRY=https://registry.npmmirror.com
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV COREPACK_NPM_REGISTRY="$NPM_REGISTRY"
 
-RUN corepack enable
+RUN set -eux; \
+  corepack enable; \
+  for attempt in 1 2 3; do \
+    if corepack prepare pnpm@9.12.0 --activate; then break; fi; \
+    if [ "$attempt" = "3" ]; then exit 1; fi; \
+    sleep $((attempt * 5)); \
+  done
 WORKDIR /app
 RUN pnpm config set registry "$NPM_REGISTRY"
 

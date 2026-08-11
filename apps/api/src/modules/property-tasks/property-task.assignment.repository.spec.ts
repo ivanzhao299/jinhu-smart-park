@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import test, { describe, it } from "node:test";
 import type { PropertyTaskAction, PropertyTaskStatus } from "@jinhu/shared";
 import type { EntityManager } from "typeorm";
 import {
   PropertyTaskAssignmentRepository,
   type PropertyTaskAssignmentRow
 } from "./property-task.assignment.repository";
+
+test("rebuild materializes missing derived assignments before locking projections", async () => {
+  const calls: Array<{ sql: string; params: unknown[] }> = [];
+  const repository = new PropertyTaskAssignmentRepository();
+  await repository.ensureOpenAssignments({
+    query: async (sql: string, params: unknown[]) => { calls.push({ sql, params }); return []; }
+  } as never, { tenantId: "tenant", parkId: "park" }, [{
+    taskKey: "a".repeat(64), taskKind: "inspection", sourceType: "fixture",
+    sourceId: "00000000-0000-4000-8000-000000000001", sourceVersion: 3
+  }]);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0]!.sql, /INSERT INTO biz_property_task_assignment/u);
+  assert.match(calls[0]!.sql, /ON CONFLICT DO NOTHING/u);
+  assert.match(String(calls[0]!.params[2]), /"source_version":3/u);
+});
 
 const scope = { tenantId: "tenant-a", parkId: "park-a" };
 const actorId = "11111111-1111-4111-8111-111111111111";

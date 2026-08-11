@@ -6,7 +6,11 @@ import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
-import { CreateEnergyBillingAdjustmentDto, EnergyBillingAdjustmentQueryDto } from "./dto/energy-billing.dto";
+import {
+  CreateEnergyBillingAdjustmentDto,
+  EnergyBillingAdjustmentQueryDto,
+  EnergyBillingItemQueryDto
+} from "./dto/energy-billing.dto";
 import { EnergyBillingAdjustmentService } from "./energy-billing-adjustment.service";
 
 @Controller("energy/billing-adjustments")
@@ -25,6 +29,16 @@ export class EnergyBillingAdjustmentsController {
   @AuditLog({ module: "能源管理", action: "新增能源调整红冲单", resource: "energy.billing_adjustment", bizType: "energy_billing_adjustment" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateEnergyBillingAdjustmentDto) {
     return this.adjustmentService.create(scope, user, dto);
+  }
+
+  @Get("candidates")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ENERGY_BILLING_ADJUSTMENT_CREATE)
+  candidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Query() query: EnergyBillingItemQueryDto
+  ) {
+    return this.adjustmentService.listCandidates(scope, query, user);
   }
 
   @Get(":id")

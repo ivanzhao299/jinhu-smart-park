@@ -5,13 +5,31 @@ import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
-import { CreateEnergyBillingAdjustmentDto, EnergyBillingAdjustmentQueryDto } from "./dto/energy-billing.dto";
+import {
+  CreateEnergyBillingAdjustmentDto,
+  EnergyBillingAdjustmentQueryDto,
+  EnergyBillingItemQueryDto
+} from "./dto/energy-billing.dto";
 import { EnergyToReceivableAdapter } from "./energy-to-receivable.adapter";
 import { EnergyBillingAdjustmentEntity } from "./entities/energy-billing-adjustment.entity";
 import { EnergyBillingCycleEntity } from "./entities/energy-billing-cycle.entity";
 import { EnergyBillingItemEntity } from "./entities/energy-billing-item.entity";
 
 const ADJUSTMENT_CODE_ENTITY_TYPE = "energy_billing_adjustment";
+
+export interface EnergyBillingAdjustmentCandidate {
+  id: string;
+  cycleId: string;
+  cycleCode: string;
+  cycleName: string;
+  relatedParkTenantId: string;
+  parkTenantCode: string;
+  companyName: string;
+  billingMethod: string;
+  finalAmount: string;
+  confirmationStatus: string;
+  receivableId: string;
+}
 
 @Injectable()
 export class EnergyBillingAdjustmentService {
@@ -51,6 +69,51 @@ export class EnergyBillingAdjustmentService {
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<EnergyBillingAdjustmentEntity> {
     return this.findAdjustment(scope, id, actor);
+  }
+
+  async listCandidates(
+    scope: TenantParkScope,
+    query: EnergyBillingItemQueryDto,
+    actor: JwtPrincipal
+  ): Promise<PaginatedResult<EnergyBillingAdjustmentCandidate>> {
+    const page = query.page ?? 1;
+    const pageSize = query.page_size ?? 50;
+    const builder = this.itemRepository
+      .createQueryBuilder("item")
+      .innerJoin(
+        EnergyBillingCycleEntity,
+        "cycle",
+        "cycle.id = item.cycle_id AND cycle.tenant_id = item.tenant_id AND cycle.park_id = item.park_id AND cycle.is_deleted = false"
+      )
+      .leftJoin(
+        "biz_park_tenant",
+        "parkTenant",
+        "parkTenant.id = item.related_park_tenant_id AND parkTenant.tenant_id = item.tenant_id AND parkTenant.park_id = item.park_id"
+      )
+      .where("item.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("item.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("item.is_deleted = false")
+      .andWhere("cycle.status = :postedStatus", { postedStatus: "POSTED" })
+      .andWhere("item.receivable_id IS NOT NULL");
+    await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "park", "item");
+    const total = await builder.getCount();
+    const rows = await builder
+      .select("item.id", "id")
+      .addSelect("item.cycle_id", "cycleId")
+      .addSelect("cycle.cycle_code", "cycleCode")
+      .addSelect("cycle.cycle_name", "cycleName")
+      .addSelect("item.related_park_tenant_id", "relatedParkTenantId")
+      .addSelect("COALESCE(parkTenant.park_tenant_code, item.related_park_tenant_id::text)", "parkTenantCode")
+      .addSelect("COALESCE(parkTenant.company_name, '历史租户')", "companyName")
+      .addSelect("item.billing_method", "billingMethod")
+      .addSelect("item.final_amount", "finalAmount")
+      .addSelect("item.confirmation_status", "confirmationStatus")
+      .addSelect("item.receivable_id", "receivableId")
+      .orderBy("item.create_time", "DESC")
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getRawMany<EnergyBillingAdjustmentCandidate>();
+    return { items: rows, total, page, page_size: pageSize };
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateEnergyBillingAdjustmentDto): Promise<EnergyBillingAdjustmentEntity> {

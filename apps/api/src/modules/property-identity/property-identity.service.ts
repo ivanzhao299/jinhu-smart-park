@@ -851,14 +851,27 @@ export class PropertyIdentityService {
     const masked = row.identity_number_masked
       ?? (decrypted ? this.sensitiveData.mask(decrypted) : null);
     const files = row.files ?? [];
-    const allowedActions: Array<"party.identity.claim" | "party.identity.reassign"> = [];
+    const allowedActions: Array<
+      | "party.identity.submit"
+      | "party.identity.claim"
+      | "party.identity.reassign"
+      | "party.identity.verify"
+      | "party.identity.withdraw"
+    > = [];
     const canVerify = this.hasPermission(actor, PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY);
     const maker = [row.drafted_by, row.recorded_by, row.submitted_by].includes(actor.sub);
+    if (row.status === "draft" && row.drafted_by === actor.sub) {
+      allowedActions.push("party.identity.submit");
+    }
     if (row.status === "pending_verification" && canVerify && !maker) {
       if (!row.assigned_verifier_id) allowedActions.push("party.identity.claim");
       if (row.assigned_verifier_id && this.isQueueSupervisor(row.eligibility_policy_snapshot, actor.sub)) {
         allowedActions.push("party.identity.reassign");
       }
+      if (row.assigned_verifier_id === actor.sub) allowedActions.push("party.identity.verify");
+    }
+    if (row.status === "pending_verification" && maker) {
+      allowedActions.push("party.identity.withdraw");
     }
     return {
       id: row.id,

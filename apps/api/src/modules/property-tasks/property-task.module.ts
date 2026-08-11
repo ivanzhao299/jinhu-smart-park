@@ -21,6 +21,8 @@ import {
 } from "./property-task.registry";
 import { PropertyTaskService } from "./property-task.service";
 import { CanonicalUuidPipe } from "./property-task.validation";
+import { PropertyTaskReconciliationScheduler } from
+  "./property-task.reconciliation.scheduler";
 
 export interface PropertyTaskSourceComposition {
   readonly imports?: NonNullable<ModuleMetadata["imports"]>;
@@ -38,7 +40,8 @@ export interface PropertyTaskSourceComposition {
     PropertyTaskSourceRegistryProvider,
     PropertyTaskAccessEvaluatorService,
     PropertyTaskMapper,
-    CanonicalUuidPipe
+    CanonicalUuidPipe,
+    PropertyTaskReconciliationScheduler
   ],
   exports: [
     PropertyTaskService,

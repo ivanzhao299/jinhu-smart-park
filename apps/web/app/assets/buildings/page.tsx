@@ -18,6 +18,10 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import {
+  getCommittedDeleteRefreshError,
+  removeCommittedItem
+} from "../../../lib/committed-delete.logic";
 
 type BuildingStatus = 0 | 1;
 
@@ -136,13 +140,21 @@ export default function BuildingsPage() {
     if (!window.confirm(`确认删除楼栋「${row.buildingName}」？删除前系统会检查是否存在未删除楼层。`)) {
       return;
     }
-    await apiRequest<{ id: string }>(`/buildings/${row.id}`, {
-      method: "DELETE",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey("building-delete")
-    });
+    try {
+      await apiRequest<{ id: string }>(`/buildings/${row.id}`, {
+        method: "DELETE",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey("building-delete")
+      });
+    } catch (error) {
+      const failureMessage = error instanceof Error ? error.message : "楼栋删除失败";
+      window.alert(failureMessage);
+      return;
+    }
+    setPageData((current) => removeCommittedItem(current, row.id));
     setMessage("删除成功");
-    await load(pageData.page);
+    const refreshError = await getCommittedDeleteRefreshError(() => load(pageData.page));
+    if (refreshError) setMessage(`删除成功，但列表刷新失败：${refreshError}`);
   }
 
   return (
@@ -217,7 +229,7 @@ export default function BuildingsPage() {
                       <Edit3 size={16} />
                       <span className="ds-row-action-label">编辑</span>
                     </PermissionButton>
-                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.BUILDING_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.BUILDING_DELETE} title="删除" type="button" onClick={() => void remove(row)}>
                       <Trash2 size={16} />
                       <span className="ds-row-action-label">删除</span>
                     </PermissionButton>

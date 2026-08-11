@@ -235,14 +235,28 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("账号已停用，请联系管理员");
     }
 
-    for (const user of enabledUsers) {
+    const superUsers = enabledUsers.filter((user) => this.resolveUserAuthorization(user).isSuper);
+    if (superUsers.length > 1) {
+      const firstUser = superUsers[0]!;
+      await this.recordLoginEvent(
+        { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
+        meta,
+        firstUser.id,
+        false,
+        "Multiple super administrator identities require administrator cleanup"
+      );
+      throw new ConflictException("该超级管理员账号存在多个有效身份，请联系管理员清理重复账号");
+    }
+    const selectedUsers = superUsers.length === 1 ? superUsers : enabledUsers;
+
+    for (const user of selectedUsers) {
       await this.tenantsService.assertTenantActive(user.tenantId);
     }
 
-    if (enabledUsers.length > 1) {
-      const tenantIds = [...new Set(enabledUsers.map((user) => user.tenantId))];
+    if (selectedUsers.length > 1) {
+      const tenantIds = [...new Set(selectedUsers.map((user) => user.tenantId))];
       if (tenantIds.length > 1) {
-        const firstUser = enabledUsers[0]!;
+        const firstUser = selectedUsers[0]!;
         await this.recordLoginEvent(
           { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
           meta,
@@ -254,11 +268,11 @@ export class AuthService implements OnModuleInit {
       }
     }
 
-    const finalizeResults = await this.finalizePasswordLoginUsers(enabledUsers, passwordLockoutConfig, now);
+    const finalizeResults = await this.finalizePasswordLoginUsers(selectedUsers, passwordLockoutConfig, now);
     const finalizedUsers = finalizeResults.filter((result) => result.allowed).map((result) => result.user);
     if (finalizedUsers.length === 0) {
       const firstResult = finalizeResults[0];
-      const firstUser = firstResult?.user ?? enabledUsers[0]!;
+      const firstUser = firstResult?.user ?? selectedUsers[0]!;
       await this.recordLoginEvent(
         { tenantId: firstUser.tenantId, parkId: firstUser.parkId, username, loginMethod: "password" },
         meta,
@@ -692,20 +706,7 @@ export class AuthService implements OnModuleInit {
     loginMethod: string,
     loginUsername: string
   ): Promise<LoginResult> {
-    const activeRoleLinks = user.roleLinks.filter(
-      (link) => !link.isDeleted && link.role.isEnabled && !link.role.isDeleted
-    );
-    const basePermissions = activeRoleLinks.flatMap((link) =>
-      link.role.permissionLinks
-        .filter(
-          (permissionLink) =>
-            !permissionLink.isDeleted && permissionLink.permission.isEnabled && !permissionLink.permission.isDeleted
-        )
-        .map((permissionLink) => permissionLink.permission.code)
-    );
-
-    const permissions = this.expandPermissionAliases([...new Set(basePermissions)]);
-    const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || permissions.includes("*");
+    const { activeRoleLinks, permissions, isSuper } = this.resolveUserAuthorization(user);
     const grantedPermissions = isSuper ? ["*"] : [...new Set([...permissions, SYSTEM_PERMISSIONS.USER_ME])];
     const dataScope = isSuper ? "all" : this.resolveDataScope(activeRoleLinks.map((link) => link.role.dataScope));
     const authUser: AuthUser = {
@@ -745,6 +746,30 @@ export class AuthService implements OnModuleInit {
       "success"
     );
     return result;
+  }
+
+  private resolveUserAuthorization(user: UserEntity): {
+    activeRoleLinks: UserEntity["roleLinks"];
+    permissions: string[];
+    isSuper: boolean;
+  } {
+    const activeRoleLinks = (user.roleLinks ?? []).filter(
+      (link) => !link.isDeleted && link.role.isEnabled && !link.role.isDeleted
+    );
+    const basePermissions = activeRoleLinks.flatMap((link) =>
+      (link.role.permissionLinks ?? [])
+        .filter(
+          (permissionLink) =>
+            !permissionLink.isDeleted && permissionLink.permission.isEnabled && !permissionLink.permission.isDeleted
+        )
+        .map((permissionLink) => permissionLink.permission.code)
+    );
+    const permissions = this.expandPermissionAliases([...new Set(basePermissions)]);
+    return {
+      activeRoleLinks,
+      permissions,
+      isSuper: activeRoleLinks.some((link) => link.role.isSuper) || permissions.includes("*")
+    };
   }
 
   private async recordLoginEvent(

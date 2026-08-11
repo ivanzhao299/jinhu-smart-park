@@ -3,13 +3,22 @@ FROM docker:27-cli AS docker_cli
 
 FROM node:22-bookworm-slim
 
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
 ENV PNPM_HOME=/pnpm
 ENV PATH=/pnpm:$PATH
+ENV COREPACK_NPM_REGISTRY="$NPM_REGISTRY"
 
 COPY --from=docker_cli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=docker_cli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
 
-RUN corepack enable
+RUN set -eux; \
+  corepack enable; \
+  for attempt in 1 2 3; do \
+    if corepack prepare pnpm@9.12.0 --activate; then break; fi; \
+    if [ "$attempt" = "3" ]; then exit 1; fi; \
+    sleep $((attempt * 5)); \
+  done
 WORKDIR /workspace
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./

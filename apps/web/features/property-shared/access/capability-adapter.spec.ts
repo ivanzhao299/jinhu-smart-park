@@ -140,7 +140,7 @@ test("action capability requires granular page and every composite permission", 
   assert.equal(allowed.actionAllowed("housing.purchases.create"), true);
 });
 
-test("all Track B approval actions remain blocked even for wildcard users", () => {
+test("all integrated Track B approval actions are available only with exact access", () => {
   const wildcard = user({
     is_super: true,
     permissions: ["*"],
@@ -175,9 +175,9 @@ test("all Track B approval actions remain blocked even for wildcard users", () =
       entry.featureId
     ).actionCapability(actionId);
     assert.deepEqual(capability, {
-      allowed: false,
+      allowed: true,
       approvalRequired: true,
-      blockedUntilTrackB: true
+      blockedUntilTrackB: false
     });
 
     const action = entry.actions.find((candidate) => candidate.actionId === actionId);
@@ -195,9 +195,9 @@ test("all Track B approval actions remain blocked even for wildcard users", () =
       projectPropertyCapabilities(normal, entry.featureId)
         .actionCapability(actionId),
       {
-        allowed: false,
+        allowed: true,
         approvalRequired: true,
-        blockedUntilTrackB: true
+        blockedUntilTrackB: false
       }
     );
   }

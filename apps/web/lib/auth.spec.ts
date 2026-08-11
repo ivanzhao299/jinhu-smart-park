@@ -192,6 +192,32 @@ test("same module assignments in a different order do not purge offline state", 
   assert.equal(local.getItem("jinhu-property-offline-scope-v1"), "same-scope");
 });
 
+test("granular data scope changes purge offline state while scope order does not", async () => {
+  const first = { dimension: "unit", scope_type: "custom", scope_config: { unitIds: ["unit-a"] } };
+  const second = { dimension: "building", scope_type: "all", scope_config: { ids: ["building-a"] } };
+  {
+    const { session, local } = installBrowserStorage();
+    const previous = { ...user, data_scope: "custom", data_scopes: [first, second] };
+    session.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu-property-offline-scope-v1", "same-scope");
+    await setSession("same-token", { ...previous, data_scopes: [second, first] });
+    assert.equal(local.getItem("jinhu-property-offline-scope-v1"), "same-scope");
+  }
+  {
+    const { session, local } = installBrowserStorage();
+    const previous = { ...user, data_scope: "custom", data_scopes: [first] };
+    session.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu_auth_user", JSON.stringify(previous));
+    local.setItem("jinhu-property-offline-scope-v1", "old-scope");
+    await setSession("same-token", {
+      ...previous,
+      data_scopes: [{ ...first, scope_config: { unitIds: ["unit-b"] } }]
+    });
+    assert.equal(local.getItem("jinhu-property-offline-scope-v1"), null);
+  }
+});
+
 test("fetchCurrentUser writes user storage when request token is still current", async () => {
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_access_token", "access-token");

@@ -11,11 +11,11 @@ database/migration-prerequisites/
     <ordered-prerequisite>.sql
 ```
 
-When a batch still has pending migrations, the runner evaluates prerequisites in
-migration order, including prerequisites newly attached to an already-succeeded
-earlier target. This lets a partially initialized database acquire a newly discovered
-dependency before later pending migrations run. A fully migrated database still exits
-through fast-skip and is not forced to acquire retroactive prerequisite history.
+The runner always evaluates prerequisites in migration order, including prerequisites
+newly attached to an already-succeeded earlier target. This lets partially initialized,
+fully migrated, and deliberately baselined databases acquire a newly discovered
+dependency. Checksum-matched migrations and prerequisites are skipped individually;
+migration-only history never bypasses prerequisite inspection.
 
 Each prerequisite receives its own checksum and running/succeeded/failed history
 record in both migration history tables. Any prerequisite failure stops before later
@@ -27,6 +27,20 @@ create credentials, demo data, or silently expand business authorization.
 
 Do not use this mechanism to revise a successful migration or bypass its checksum.
 
+The `000189` asset repair first restores the `asset_park.tenant_id/park_id`
+`varchar(64)` contract established by migration `000029` when a deliberately
+baselined legacy database still exposes the original UUID columns. It converts only
+those two scope columns, rewrites only the two canonical legacy sentinel UUIDs, and
+fails closed for missing or unexpected column types. The following bounded,
+insert-only prerequisite treats one existing active `asset_park` as authoritative
+without requiring a duplicate `biz_park` projection. For a genuinely missing asset
+projection it prefers one active same-scope `biz_park`; only the fixed production
+default scope may fall back to the globally unique active `park_code=JH` baseline
+row left under legacy scope IDs by an older seed. Existing asset rows are not
+re-enabled or overwritten, and every missing or ambiguous source still fails closed.
+This allows the unchanged historical `000189` and `000200` migrations to keep
+enforcing their signed asset-domain scope contract.
+
 The two history rows for one execution are written in one database transaction.
 After bootstrap, any status/checksum disagreement between the history tables fails
-before fast-skip or migration execution and requires manual inspection.
+before prerequisite or migration execution and requires manual inspection.

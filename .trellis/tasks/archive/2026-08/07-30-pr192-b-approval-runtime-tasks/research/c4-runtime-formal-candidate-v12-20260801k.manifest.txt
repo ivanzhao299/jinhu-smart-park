@@ -1,9 +1,0 @@
-property-remediation-b2a-c4-runtime-candidate-v1
-run_id	b2ac4_runtime_formal_v12_20260801k
-status	failed
-candidate_admissible	false
-publication_contract	artifact-and-manifest-both-required
-artifact	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-formal-candidate-v12-20260801k.json	268348	029ee3dd610cfa1c17032f18413f2d754a9dc5f1eefb573bb2595ab9c58bf69d
-input_freeze_before	60af550f3babffae6a1ab19ef942b796badd9edc96c1c6c303e173461822f8a6
-input_freeze_after	60af550f3babffae6a1ab19ef942b796badd9edc96c1c6c303e173461822f8a6
-reservation	.trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/c4-runtime-runid-90c61ff0e744fcbb2703e556982f676cbc1456c3b9215cbf87ad2f8a9c7c0feb.reservation.json	d661e7625e981ee758b4f443cd76dcd81b8edb387e730c367839a5b96b58ac6d

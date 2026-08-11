@@ -35,7 +35,8 @@ export function HousingLeaseCreatePanel({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!unit || !tenant || lock.current) return;
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     lock.current = true;
     setSubmitting(true);
     setMessage("");
@@ -50,7 +51,7 @@ export function HousingLeaseCreatePanel({
       setMessage("租约草稿已创建。");
       setUnit(null);
       setTenant(null);
-      event.currentTarget.reset();
+      formElement.reset();
       onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "创建租约失败");

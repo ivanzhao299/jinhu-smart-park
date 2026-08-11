@@ -11,7 +11,15 @@ import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import {
+  getCommittedDeleteRefreshError,
+  removeCommittedItem
+} from "../../../lib/committed-delete.logic";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
+import {
+  applyCommittedFloorLayout,
+  clearCommittedFloorLayout
+} from "./floor-layout-state.logic";
 
 type FloorStatus = 0 | 1;
 
@@ -167,18 +175,60 @@ export default function FloorsPage() {
     if (!window.confirm(`确认删除楼层「${row.floorName}」？删除前系统会检查是否存在未删除房源。`)) {
       return;
     }
-    await apiRequest<{ id: string }>(`/floors/${row.id}`, {
-      method: "DELETE",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey("floor-delete")
-    });
+    try {
+      await apiRequest<{ id: string }>(`/floors/${row.id}`, {
+        method: "DELETE",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey("floor-delete")
+      });
+    } catch (error) {
+      const failureMessage = error instanceof Error ? error.message : "楼层删除失败";
+      window.alert(failureMessage);
+      return;
+    }
+    setPageData((current) => removeCommittedItem(current, row.id));
     setMessage("删除成功");
-    await load(pageData.page);
+    const refreshError = await getCommittedDeleteRefreshError(() => load(pageData.page));
+    if (refreshError) setMessage(`删除成功，但列表刷新失败：${refreshError}`);
   }
 
-  function handleLayoutUploaded(_file: FileRecord) {
+  function handleLayoutUploaded(floorId: string, file: FileRecord) {
+    setPageData((current) => ({
+      ...current,
+      items: current.items.map((row) => applyCommittedFloorLayout(
+        row,
+        floorId,
+        file.id,
+        file.fileUrl
+      ))
+    }));
+    setLayoutTarget((current) => current
+      ? applyCommittedFloorLayout(current, floorId, file.id, file.fileUrl)
+      : null);
+    setDetail((current) => current
+      ? applyCommittedFloorLayout(current, floorId, file.id, file.fileUrl)
+      : null);
     setRefreshKey((value) => value + 1);
-    void load(pageData.page).catch((error: Error) => setMessage(error.message));
+    void load(pageData.page).catch((error: Error) => {
+      setMessage(`平面图已上传，但楼层列表刷新失败：${error.message}`);
+    });
+  }
+
+  function handleLayoutDeleted(floorId: string, file: FileRecord) {
+    setPageData((current) => ({
+      ...current,
+      items: current.items.map((row) => clearCommittedFloorLayout(row, floorId, file.id))
+    }));
+    setLayoutTarget((current) => current
+      ? clearCommittedFloorLayout(current, floorId, file.id)
+      : null);
+    setDetail((current) => current
+      ? clearCommittedFloorLayout(current, floorId, file.id)
+      : null);
+    setRefreshKey((value) => value + 1);
+    void load(pageData.page).catch((error: Error) => {
+      setMessage(`平面图已删除，但楼层列表刷新失败：${error.message}`);
+    });
   }
 
   return (
@@ -276,7 +326,7 @@ export default function FloorsPage() {
                         <span className="ds-row-action-label">平面图</span>
                       </PermissionButton>
                     ) : null}
-                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.FLOOR_DELETE} title="删除" type="button" onClick={() => void remove(row).catch((error: Error) => setMessage(error.message))}>
+                    <PermissionButton className="ds-row-action ds-row-action-danger" permission={SYSTEM_PERMISSIONS.FLOOR_DELETE} title="删除" type="button" onClick={() => void remove(row)}>
                       <Trash2 size={16} />
                       <span className="ds-row-action-label">删除</span>
                     </PermissionButton>
@@ -362,11 +412,11 @@ export default function FloorsPage() {
                           compact
                           policyKey="floorplan"
                           uploadPath={`/floors/${editingFloor.id}/layout`}
-                          onUploaded={handleLayoutUploaded}
+                          onUploaded={(file) => handleLayoutUploaded(editingFloor.id, file)}
                         />
                       </PermissionGuard>
                     ) : null}
-                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} /> : null}
+                    {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={editingFloor.id} compact refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={(file) => handleLayoutDeleted(editingFloor.id, file)} /> : null}
                   </div>
                 ) : (
                   <div className="ds-drawer-upload-placeholder">
@@ -399,11 +449,11 @@ export default function FloorsPage() {
                   bizId={layoutTarget.id}
                   policyKey="floorplan"
                   uploadPath={`/floors/${layoutTarget.id}/layout`}
-                  onUploaded={handleLayoutUploaded}
+                  onUploaded={(file) => handleLayoutUploaded(layoutTarget.id, file)}
                 />
               </PermissionGuard>
             ) : null}
-            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} /> : null}
+            {canViewLayoutUrl ? <AttachmentList bizType="floorplan" bizId={layoutTarget.id} refreshKey={refreshKey} mutationPermission={SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT} onDeleted={(file) => handleLayoutDeleted(layoutTarget.id, file)} /> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setLayoutTarget(null)}>关闭</button>
             </DrawerFooter>

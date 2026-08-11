@@ -49,6 +49,12 @@ export class SaaSModulesController {
     return this.modulesService.listPlans(scope, query);
   }
 
+  @Get("plans/available")
+  @RequirePermissions(SYSTEM_PERMISSIONS.PLAN_OPEN_READ)
+  listAvailablePlans(@CurrentScope() scope: TenantParkScope, @Query() query: PaginationQueryDto) {
+    return this.modulesService.listAvailablePlans(scope, query);
+  }
+
   @Post("plans")
   @RequirePermissions(SYSTEM_PERMISSIONS.PLAN_MANAGE)
   @AuditLog({ module: "套餐管理", resource: "system.plan", action: "新增套餐", captureBody: true })

@@ -25,6 +25,7 @@ function row(overrides: Record<string, unknown> = {}) {
     startedAt: null,
     completedAt: null,
     exceptionDescription: null,
+    blockedUntil: null,
     ...overrides
   };
 }
@@ -116,6 +117,34 @@ describe("HomestayTurnoverTaskResolver", () => {
       ConflictException
     );
     assert.equal(calls, 1);
+  });
+
+  test("forwards block reason and deadline and permits a supervisor release from active work", async () => {
+    const statements: Array<{ sql: string; parameters: unknown[] }> = [];
+    const resolver = new HomestayTurnoverTaskResolver();
+    const manager = port(async (sql, parameters) => {
+      statements.push({ sql, parameters });
+      return sql.startsWith("SELECT")
+        ? [row({ status: "cleaning", assigneeId: actorId })]
+        : [[{ version: 4 }], 1];
+    });
+    await resolver.invokeOwningCommand({
+      manager, scope, actor: { actorId }, action: "property.task.block", sourceId,
+      businessOccurrenceKey: `homestay-turnover:${sourceId}`,
+      taskKey: "d".repeat(64), expectedSourceVersion: 3, expectedAssignmentVersion: 3,
+      reason: "等待备件", blockedUntil: "2026-08-09T00:00:00.000Z"
+    });
+    assert.equal(statements[1]?.parameters[7], "等待备件");
+    assert.equal(statements[1]?.parameters[8], "2026-08-09T00:00:00.000Z");
+
+    statements.length = 0;
+    await resolver.invokeOwningCommand({
+      manager, scope, actor: { actorId: "77777777-7777-4777-8777-777777777777" },
+      action: "property.task.release", sourceId,
+      businessOccurrenceKey: `homestay-turnover:${sourceId}`,
+      taskKey: "e".repeat(64), expectedSourceVersion: 3, expectedAssignmentVersion: 3
+    });
+    assert.equal(statements[1]?.parameters[6], null);
   });
 
   test("projects terminal outcome and a stable rebuild cursor", async () => {

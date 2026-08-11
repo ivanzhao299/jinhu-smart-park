@@ -22,21 +22,22 @@ import {
 import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
 import { detailUrlObject } from "./housing-route-types";
+import { buildHousingTenantCreateBody } from "../housing-tenant-create.logic";
 
 function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
   const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState("");
   const lock = useRef(false); const idempotency = useStableIdempotency();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (lock.current) return;
-    const form = new FormData(event.currentTarget); lock.current = true; setSubmitting(true); setMessage("");
-    const body = { party_type: "person", display_name: String(form.get("display_name") ?? ""),
-      mobile: String(form.get("mobile") ?? "") || undefined, source_domain: "housing" };
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement); lock.current = true; setSubmitting(true); setMessage("");
+    const body = buildHousingTenantCreateBody(form);
     try {
       await apiRequest<HousingTenantListItem>("/housing/tenants", {
         method: "POST", token: getAccessToken(),
         idempotencyKey: idempotency.keyFor("housing-tenant-create", body), body
       });
-      idempotency.complete("housing-tenant-create"); event.currentTarget.reset();
+      idempotency.complete("housing-tenant-create"); formElement.reset();
       setMessage("租客档案已创建。"); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "创建失败");

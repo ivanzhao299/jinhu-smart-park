@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { connect } from "node:net";
@@ -9,6 +10,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { withHardTimeout } from "./timeout.mjs";
 import { readBoundRuntimeLease, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { assertNoSensitiveData, redactSensitiveData } from "./lib.mjs";
+
+const SERVICE_DIAGNOSTIC_TAIL_BYTES = 8 * 1024;
 
 function required(name, minimum = 1) {
   const value = process.env[name];
@@ -40,8 +43,19 @@ export function assertServiceProcessRunning(state) {
   if (state.spawnError) throw new Error(`${state.role} service process failed to start`);
   if (state.exited) {
     const terminal = state.signal ? `signal ${state.signal}` : `exit code ${state.exitCode}`;
-    throw new Error(`${state.role} service process exited before readiness (${terminal})`);
+    const diagnostic = state.stderrTail ? `; ${state.role} stderr tail: ${state.stderrTail}` : "";
+    throw new Error(`${state.role} service process exited before readiness (${terminal})${diagnostic}`);
   }
+}
+
+export function appendServiceDiagnostic(state, chunk) {
+  const next = `${state.stderrTail ?? ""}${String(chunk)}`;
+  let tail = Buffer.from(next, "utf8");
+  if (tail.length > SERVICE_DIAGNOSTIC_TAIL_BYTES) {
+    tail = tail.subarray(-SERVICE_DIAGNOSTIC_TAIL_BYTES);
+    while (tail.length > 0 && (tail[0] & 0xc0) === 0x80) tail = tail.subarray(1);
+  }
+  state.stderrTail = tail.toString("utf8");
 }
 
 export async function waitReady(url, validator, signal, {
@@ -72,9 +86,11 @@ export async function waitReady(url, validator, signal, {
 }
 
 function spawnGroup(executable, args, cwd, env) {
-  const child = spawn(executable, args, { cwd, env, detached: true, stdio: ["ignore", "ignore", "ignore"] });
+  const child = spawn(executable, args, { cwd, env, detached: true, stdio: ["ignore", "ignore", "pipe"] });
   if (!child.pid) throw new Error("service process group did not start");
-  const state = { child, role: env.ROLLBACK_PROCESS_ROLE, spawnError: null, exited: false, exitCode: null, signal: null };
+  const state = { child, role: env.ROLLBACK_PROCESS_ROLE, spawnError: null, exited: false, exitCode: null, signal: null, stderrTail: "" };
+  child.stderr.setEncoding("utf8");
+  child.stderr.on("data", (chunk) => appendServiceDiagnostic(state, chunk));
   child.once("error", () => { state.spawnError = true; });
   child.once("exit", (code, signal) => { state.exited = true; state.exitCode = code; state.signal = signal; });
   return state;

@@ -12,6 +12,7 @@ on:
   push:
     branches:
       - main
+      - "runner/**"
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -20,7 +21,59 @@ concurrency:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
+
 jobs:
+  release-smoke-scope:
+    name: Detect Release Smoke Scope
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.scope.outputs.required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect database and release changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref }}
+          RELEASE_SMOKE_LABELLED: ${{ contains(github.event.pull_request.labels.*.name, 'run-release-smoke') }}
+        run: |
+          set -eu
+          required=false
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] || [ "$RELEASE_SMOKE_LABELLED" = "true" ]; then
+            required=true
+          elif printf '%s' "$REF_NAME" | grep -q '^refs/heads/runner/'; then
+            required=true
+          else
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+            else
+              case "$BEFORE_SHA" in
+                ""|0000000000000000000000000000000000000000)
+                  changed_files="$(git diff-tree --no-commit-id --name-only -r "$CURRENT_SHA")"
+                  ;;
+                *)
+                  changed_files="$(git diff --name-only "$BEFORE_SHA" "$CURRENT_SHA")"
+                  ;;
+              esac
+            fi
+            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+              required=true
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          printf 'Release Smoke required: %s\n' "$required"
+
   verify:
     name: Lint, Typecheck, Build
     runs-on: ubuntu-latest
@@ -29,6 +82,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -43,6 +98,12 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify production seed decision precedence
+        run: scripts/e2e/prod-deploy-seed-precedence.sh
+
+      - name: Verify Track B production seed contracts
+        run: pnpm test:e2e:property-track-b-seed-reconcile
 
       - name: Lint
         run: pnpm lint
@@ -61,12 +122,15 @@ jobs:
 
   release-smoke:
     name: Release Smoke
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-release-smoke'))
-    needs: verify
+    if: needs.release-smoke-scope.outputs.required == 'true'
+    needs:
+      - verify
+      - release-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
+      NPM_REGISTRY: https://registry.npmjs.org
       NODE_ENV: production
       APP_ENV: ci
       APP_PORT: 3001
@@ -89,6 +153,9 @@ jobs:
       ADMIN_PHONE: 13800001234
       ROLE_CODE: SUPER_ADMIN
       JWT_SECRET: JinhuReleaseSmokeJwtSecret#2026_LongAndRandom
+      # Public, deterministic key for the disposable synthetic CI database only.
+      # Production must use an independent random secret that remains stable across deploys.
+      PARTY_DATA_ENCRYPTION_KEY: ${{ github.sha }}
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
       FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
@@ -143,6 +210,255 @@ jobs:
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
 
+      - name: Verify migration history filename alias replay
+        run: |
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          UPDATE public.sys_schema_migration_history
+          SET filename = '000183_floor_layout_deleted_file_backfill.sql'
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          UPDATE public.schema_migrations
+          SET filename = '000183_floor_layout_deleted_file_backfill.sql'
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+
+          pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-alias-replay.log
+          grep -Fq \
+            'REKEY MIGRATION HISTORY: 000183_floor_layout_deleted_file_backfill.sql -> 000199_floor_layout_deleted_file_backfill.sql' \
+            /tmp/release-smoke-logs/db-migrate-alias-replay.log
+          grep -Fq \
+            'SKIP: 000199_floor_layout_deleted_file_backfill.sql (already succeeded, checksum matched)' \
+            /tmp/release-smoke-logs/db-migrate-alias-replay.log
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          INSERT INTO public.sys_schema_migration_history (
+            filename, checksum, status, started_at, finished_at, error_message,
+            executed_by, batch_id, created_at, updated_at
+          )
+          SELECT '000183_floor_layout_deleted_file_backfill.sql', checksum, status,
+                 started_at, finished_at, error_message, executed_by, batch_id,
+                 created_at, updated_at
+          FROM public.sys_schema_migration_history
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          INSERT INTO public.schema_migrations (
+            filename, checksum, status, started_at, finished_at, error_message,
+            executed_by, batch_id, created_at, updated_at
+          )
+          SELECT '000183_floor_layout_deleted_file_backfill.sql', checksum, status,
+                 started_at, finished_at, error_message, executed_by, batch_id,
+                 created_at, updated_at
+          FROM public.schema_migrations
+          WHERE filename = '000199_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+
+          expect_alias_replay_failure() {
+            case_name="$1"
+            expected_error="$2"
+            failure_log="/tmp/release-smoke-logs/db-migrate-alias-${case_name}.log"
+            if pnpm db:migrate > "$failure_log" 2>&1; then
+              echo "Unsafe duplicate migration history case unexpectedly succeeded: $case_name" >&2
+              exit 1
+            fi
+            grep -Fq "$expected_error" "$failure_log"
+          }
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "DELETE FROM public.schema_migrations
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            missing-standard-marker \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "INSERT INTO public.schema_migrations (
+                  filename, checksum, status, started_at, finished_at, error_message,
+                  executed_by, batch_id, created_at, updated_at
+                )
+                SELECT filename, checksum, status, started_at, finished_at, error_message,
+                       executed_by, batch_id, created_at, updated_at
+                FROM public.sys_schema_migration_history
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "DELETE FROM public.schema_migrations
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            missing-standard-legacy \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "INSERT INTO public.schema_migrations (
+                  filename, checksum, status, started_at, finished_at, error_message,
+                  executed_by, batch_id, created_at, updated_at
+                )
+                SELECT filename, checksum, status, started_at, finished_at, error_message,
+                       executed_by, batch_id, created_at, updated_at
+                FROM public.sys_schema_migration_history
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = repeat('1', 64)
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = repeat('1', 64)
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            marker-drift \
+            'ERROR: migration history alias audit marker drifted'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = 'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.sys_schema_migration_history
+                SET checksum = repeat('2', 64)
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            cross-table-drift \
+            'ERROR: migration history tables disagree; manual inspection is required.'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.sys_schema_migration_history
+                SET status = 'failed'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET status = 'failed'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          expect_alias_replay_failure \
+            legacy-status-drift \
+            'ERROR: both legacy and canonical migration history identities exist'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" <<'SQL'
+          BEGIN;
+          UPDATE public.sys_schema_migration_history
+          SET status = 'succeeded', checksum = repeat('0', 64)
+          WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+          UPDATE public.schema_migrations
+          SET status = 'succeeded', checksum = repeat('0', 64)
+          WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+          COMMIT;
+          SQL
+          expect_alias_replay_failure \
+            legacy-checksum-drift \
+            'ERROR: both legacy and canonical migration history identities exist'
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "UPDATE public.sys_schema_migration_history
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';
+                UPDATE public.schema_migrations
+                SET checksum = 'b8187f89e8810abeaac09f7e615e9247335e6a9655550e74886d65b4a2e1bdc3'
+                WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+
+          pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-alias-duplicate-replay.log
+          grep -Fq \
+            'COLLAPSE DUPLICATE MIGRATION HISTORY ALIAS: 000183_floor_layout_deleted_file_backfill.sql -> 000199_floor_layout_deleted_file_backfill.sql' \
+            /tmp/release-smoke-logs/db-migrate-alias-duplicate-replay.log
+
+          alias_contract_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*) FROM (
+                    SELECT filename, status FROM public.sys_schema_migration_history
+                    UNION ALL
+                    SELECT filename, status FROM public.schema_migrations
+                  ) history
+                  WHERE status = 'succeeded'
+                    AND filename IN (
+                      '000199_floor_layout_deleted_file_backfill.sql',
+                      'migration-alias:000183_floor_layout_deleted_file_backfill.sql=>000199_floor_layout_deleted_file_backfill.sql'
+                    );"
+          )"
+          test "$alias_contract_count" = "4"
+
+          legacy_history_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*) FROM (
+                    SELECT filename FROM public.sys_schema_migration_history
+                    UNION ALL
+                    SELECT filename FROM public.schema_migrations
+                  ) history
+                  WHERE filename = '000183_floor_layout_deleted_file_backfill.sql';"
+          )"
+          test "$legacy_history_count" = "0"
+
+      - name: Verify concurrent migration serialization
+        run: |
+          docker compose -f "$COMPOSE_FILE" exec -T \
+            -e PGAPPNAME=ci-migration-lock-blocker postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT pg_advisory_lock(hashtextextended(current_database() || ':jinhu-db-migrate', 0)); SELECT pg_sleep(20);" &
+          blocker_pid=$!
+
+          blocker_ready=false
+          for _ in $(seq 1 30); do
+            blocker_lock_count="$(
+              docker compose -f "$COMPOSE_FILE" exec -T postgres \
+                psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+                -c "SELECT count(*)
+                    FROM pg_stat_activity activity
+                    JOIN pg_locks held_lock ON held_lock.pid = activity.pid
+                    WHERE activity.application_name = 'ci-migration-lock-blocker'
+                      AND held_lock.locktype = 'advisory'
+                      AND held_lock.granted = true;"
+            )"
+            if [ "$blocker_lock_count" = "1" ]; then
+              blocker_ready=true
+              break
+            fi
+            sleep 1
+          done
+          test "$blocker_ready" = "true"
+
+          pnpm db:migrate > /tmp/release-smoke-logs/db-migrate-lock-wait.log 2>&1 &
+          migration_pid=$!
+          migration_waiter_seen=false
+          for _ in $(seq 1 30); do
+            migration_waiter_count="$(
+              docker compose -f "$COMPOSE_FILE" exec -T postgres \
+                psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*)
+                    FROM pg_stat_activity activity
+                    WHERE activity.application_name LIKE 'jinhu-db-migrate-%'
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM pg_locks held_lock
+                        WHERE held_lock.pid = activity.pid
+                          AND held_lock.locktype = 'advisory'
+                          AND held_lock.granted = true
+                      );"
+            )"
+            if [ "$migration_waiter_count" = "1" ]; then
+              migration_waiter_seen=true
+              break
+            fi
+            sleep 1
+          done
+          test "$migration_waiter_seen" = "true"
+          wait "$blocker_pid"
+          wait "$migration_pid"
+          grep -Fq 'MIGRATION LOCK ACQUIRED:' /tmp/release-smoke-logs/db-migrate-lock-wait.log
+
       - name: Verify migration prerequisite history
         run: |
           prerequisite_succeeded_count="$(
@@ -158,6 +474,33 @@ jobs:
           )"
           test "$prerequisite_succeeded_count" = "2"
 
+          asset_scope_prerequisite_succeeded_count="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT count(*) FROM (
+                    SELECT filename, status FROM public.sys_schema_migration_history
+                    UNION ALL
+                    SELECT filename, status FROM public.schema_migrations
+                  ) history
+                  WHERE filename IN (
+                    'prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_id_unification.sql',
+                    'prerequisite:000189_property_b_module_rbac_definitions.sql:003_asset_park_scope_reconcile.sql'
+                  )
+                    AND status = 'succeeded';"
+          )"
+          test "$asset_scope_prerequisite_succeeded_count" = "4"
+
+          asset_scope_column_types="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              -c "SELECT string_agg(udt_name || ':' || character_maximum_length, ',' ORDER BY column_name)
+                  FROM information_schema.columns
+                  WHERE table_schema = 'public'
+                    AND table_name = 'asset_park'
+                    AND column_name IN ('tenant_id', 'park_id');"
+          )"
+          test "$asset_scope_column_types" = "varchar:64,varchar:64"
+
           history_conflict_count="$(
             docker compose -f "$COMPOSE_FILE" exec -T postgres \
               psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
@@ -172,7 +515,400 @@ jobs:
           test "$history_conflict_count" = "0"
 
       - name: Run production seed
-        run: ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+        run: |
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-prod.log
+          ALLOW_PRODUCTION_SEED=yes pnpm db:seed:prod 2>&1 | tee -a /tmp/release-smoke-logs/db-seed-prod.log
+
+      - name: Verify failed 000189 retry from rolled-back state
+        run: |
+          target_migration='000189_property_b_module_rbac_definitions.sql'
+          type_prerequisite='prerequisite:000189_property_b_module_rbac_definitions.sql:002_asset_park_scope_id_unification.sql'
+          projection_prerequisite='prerequisite:000189_property_b_module_rbac_definitions.sql:003_asset_park_scope_reconcile.sql'
+          retry_db="${POSTGRES_DB}_000189_retry"
+          retry_root="$(mktemp -d /tmp/jinhu-000189-retry.XXXXXX)"
+          retry_migrations="$retry_root/migrations"
+          retry_aliases="$retry_root/migration-history-aliases.txt"
+          retry_seeds="$retry_root/seeds"
+          mkdir -p "$retry_migrations"
+          mkdir -p "$retry_seeds/production"
+          : > "$retry_aliases"
+          cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
+
+          cleanup_retry_db() {
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+              -c "DROP DATABASE IF EXISTS \"$retry_db\" WITH (FORCE);" >/dev/null 2>&1 || true
+            rm -rf "$retry_root"
+          }
+          trap cleanup_retry_db EXIT
+          trap 'exit 130' HUP INT TERM
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+            -c "DROP DATABASE IF EXISTS \"$retry_db\" WITH (FORCE);"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d postgres \
+            -c "CREATE DATABASE \"$retry_db\";"
+
+          for migration in database/migrations/*.sql; do
+            migration_name="$(basename "$migration")"
+            if [[ "$migration_name" < "$target_migration" ]]; then
+              cp "$migration" "$retry_migrations/$migration_name"
+            fi
+          done
+
+          POSTGRES_DB="$retry_db" \
+          MIGRATIONS_DIR="$retry_migrations" \
+          MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+          MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+            pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-000188-retry-baseline.log
+
+          ALLOW_PRODUCTION_SEED=yes \
+          SEEDS_DIR="$retry_seeds" \
+          POSTGRES_DB="$retry_db" \
+            pnpm db:seed:prod 2>&1 | tee /tmp/release-smoke-logs/db-seed-000188-retry-baseline.log
+
+          # An existing unique asset projection already satisfies immutable
+          # migration 000189. Its business row must remain untouched even when
+          # no same-scope biz_park exists.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          INSERT INTO public.asset_park (
+            tenant_id, park_id, park_code, park_name, address, total_area, status, remark
+          )
+          SELECT
+            '10000001', '20000001', park_code, park_name, address, total_area,
+            'enabled', 'release-smoke existing asset projection sentinel'
+          FROM public.biz_park
+          WHERE park_code = 'JH'
+            AND status = 1
+            AND is_deleted = false;
+          DELETE FROM public.biz_park
+          WHERE park_code = 'JH'
+            AND is_deleted = false;
+          COMMIT;
+          SQL
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql
+
+          existing_projection_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT
+                    (SELECT count(*) FROM public.asset_park
+                     WHERE tenant_id = '10000001'
+                       AND park_id = '20000001'
+                       AND status = 'enabled'
+                       AND is_deleted = false),
+                    (SELECT remark FROM public.asset_park
+                     WHERE tenant_id = '10000001'
+                       AND park_id = '20000001'
+                       AND status = 'enabled'
+                       AND is_deleted = false),
+                    (SELECT count(*) FROM public.biz_park
+                     WHERE tenant_id = '10000001'
+                       AND park_id = '20000001'
+                       AND status = 1
+                       AND is_deleted = false);"
+          )"
+          test "$existing_projection_state" = "1|release-smoke existing asset projection sentinel|0"
+
+          # Duplicate active destination rows are ambiguous even when one row
+          # was already valid; the prerequisite must not pick or overwrite one.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            -c "INSERT INTO public.asset_park (
+                  tenant_id, park_id, park_code, park_name, total_area, status, remark
+                ) VALUES (
+                  '10000001', '20000001', 'JH-AMBIGUOUS', '歧义园区', 0,
+                  'enabled', 'release-smoke ambiguity sentinel'
+                );"
+          if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql \
+              > /tmp/release-smoke-logs/db-migrate-000189-ambiguous-asset.log 2>&1; then
+            echo "Expected duplicate active asset projections to fail closed" >&2
+            exit 1
+          fi
+          grep -Fq 'ambiguous_asset=1' \
+            /tmp/release-smoke-logs/db-migrate-000189-ambiguous-asset.log
+
+          # A genuinely missing destination with no exact or bounded default
+          # source also remains fail closed.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            -c "DELETE FROM public.asset_park
+                WHERE tenant_id = '10000001'
+                  AND park_id = '20000001'
+                  AND is_deleted = false;"
+          if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql \
+              > /tmp/release-smoke-logs/db-migrate-000189-missing-source.log 2>&1; then
+            echo "Expected a missing asset projection without a trusted source to fail closed" >&2
+            exit 1
+          fi
+          grep -Fq 'unresolved_source=1' \
+            /tmp/release-smoke-logs/db-migrate-000189-missing-source.log
+
+          # Production can contain multiple active biz parks under the fixed
+          # default scope. The globally unique JH key remains the deterministic
+          # source; no other scope receives this fallback.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          INSERT INTO public.biz_park (
+            tenant_id, park_id, park_code, park_name, status, remark
+          ) VALUES
+            ('10000001', '20000001', 'JH', '金湖科创产业园', 1,
+             'release-smoke fixed default source'),
+            ('10000001', '20000001', 'JH-AUXILIARY', '同作用域辅助园区', 1,
+             'release-smoke same-scope non-default source');
+          COMMIT;
+          SQL
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql
+          default_multi_source_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT count(*), min(park_code)
+                  FROM public.asset_park
+                  WHERE tenant_id = '10000001'
+                    AND park_id = '20000001'
+                    AND status = 'enabled'
+                    AND is_deleted = false;"
+          )"
+          test "$default_multi_source_state" = "1|JH"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            -c "DELETE FROM public.asset_park
+                WHERE tenant_id = '10000001'
+                  AND park_id = '20000001'
+                  AND is_deleted = false;"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/seeds/production/000007_asset_park_scope_reconcile.sql
+          default_multi_source_seed_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT count(*), min(park_code)
+                  FROM public.asset_park
+                  WHERE tenant_id = '10000001'
+                    AND park_id = '20000001'
+                    AND status = 'enabled'
+                    AND is_deleted = false;"
+          )"
+          test "$default_multi_source_seed_state" = "1|JH"
+
+          # Production-shape parity: a valid non-default active assignment can
+          # exist without any trusted park source. The read-only diagnostic and
+          # enforce gate must classify the same scope before deployment starts.
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          INSERT INTO public.sys_tenant (
+            tenant_id, park_id, tenant_code, tenant_name, status, remark
+          ) VALUES (
+            'release-smoke-tenant', 'release-smoke-park|ready_spoof', 'RELEASE-SMOKE-ORPHAN',
+            'Release Smoke Orphan Scope', 1, 'release-smoke non-default orphan scope'
+          );
+          INSERT INTO public.rel_tenant_module (
+            tenant_id, park_id, tenant_code, module_id, enabled, status, remark
+          )
+          SELECT
+            'release-smoke-tenant', 'release-smoke-park|ready_spoof', 'RELEASE-SMOKE-ORPHAN',
+            module.id, true, 'enabled', 'release-smoke non-default orphan scope'
+          FROM public.sys_module module
+          WHERE module.module_code = 'asset'
+            AND module.status = 1
+            AND module.is_deleted = false;
+          COMMIT;
+          SQL
+
+          COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+            scripts/diagnose-000189-asset-scope.sh report . "$retry_db" \
+            > /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
+          grep -Fq \
+            'unresolved_source|release-smoke-tenant|release-smoke-park|ready_spoof|1|1|0|0|1|0|0|0|0|' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-diagnostic.log
+          if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+            scripts/diagnose-000189-asset-scope.sh enforce . "$retry_db" \
+              > /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log 2>&1; then
+            echo "Expected the non-default orphan asset scope gate to fail closed" >&2
+            exit 1
+          fi
+          grep -Fq 'summary: scopes=2 blocked=1 mode=enforce' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log
+          grep -Fq 'ERROR: 000189 asset scope parity gate failed before deployment' \
+            /tmp/release-smoke-logs/db-migrate-000189-scope-gate.log
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
+          BEGIN;
+          DELETE FROM public.rel_tenant_module
+          WHERE tenant_id = 'release-smoke-tenant'
+            AND park_id = 'release-smoke-park|ready_spoof'
+            AND remark = 'release-smoke non-default orphan scope';
+          DELETE FROM public.sys_tenant
+          WHERE tenant_id = 'release-smoke-tenant'
+            AND tenant_code = 'RELEASE-SMOKE-ORPHAN'
+            AND remark = 'release-smoke non-default orphan scope';
+          COMMIT;
+          SQL
+
+          target_checksum="$(sha256sum "database/migrations/$target_migration" | awk '{print $1}')"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<SQL
+          BEGIN;
+          -- Recreate the production legacy-seed shape: the globally unique JH
+          -- park kept old scope IDs while the active module assignment uses the
+          -- canonical production scope, and the asset projection is missing.
+          DELETE FROM public.asset_park
+          WHERE tenant_id = '10000001'
+            AND park_id = '20000001'
+            AND is_deleted = false;
+          DELETE FROM public.biz_park
+          WHERE tenant_id = '10000001'
+            AND park_id = '20000001'
+            AND is_deleted = false;
+          INSERT INTO public.biz_park (
+            tenant_id, park_id, park_code, park_name, status, remark
+          ) VALUES (
+            'legacy-tenant', 'legacy-park', 'JH', '金湖科创产业园', 1,
+            'release-smoke legacy scope source'
+          );
+
+          -- A failed transaction leaves no 000189 catalog objects. Recreate the
+          -- pre-000029 UUID shape to prove the new type prerequisite repairs a
+          -- deliberately baselined legacy schema before inserting the projection.
+          ALTER TABLE public.asset_park
+            ALTER COLUMN tenant_id TYPE uuid USING tenant_id::uuid;
+          ALTER TABLE public.asset_park
+            ALTER COLUMN park_id TYPE uuid USING park_id::uuid;
+
+          INSERT INTO public.sys_schema_migration_history (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$target_migration', '$target_checksum', 'failed', now(), now(),
+            'release-smoke synthetic transaction rollback', 'release-smoke', '000189-retry'
+          );
+          INSERT INTO public.schema_migrations (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$target_migration', '$target_checksum', 'failed', now(), now(),
+            'release-smoke synthetic transaction rollback', 'release-smoke', '000189-retry'
+          );
+          INSERT INTO public.sys_schema_migration_history (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$projection_prerequisite', repeat('0', 64), 'failed', now(), now(),
+            'production scope reconcile preflight failed', 'release-smoke', '000189-retry'
+          );
+          INSERT INTO public.schema_migrations (
+            filename, checksum, status, started_at, finished_at, error_message, executed_by, batch_id
+          ) VALUES (
+            '$projection_prerequisite', repeat('0', 64), 'failed', now(), now(),
+            'production scope reconcile preflight failed', 'release-smoke', '000189-retry'
+          );
+          COMMIT;
+          SQL
+
+          pre_retry_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT
+                    (SELECT string_agg(udt_name, ',' ORDER BY column_name)
+                     FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'asset_park'
+                       AND column_name IN ('tenant_id', 'park_id')),
+                    (SELECT count(*) FROM public.asset_park),
+                    (SELECT count(*) FROM (VALUES
+                       (to_regclass('public.sys_module_dependency')),
+                       (to_regclass('public.sys_property_permission_bundle')),
+                       (to_regclass('public.rel_property_permission_bundle_member'))
+                     ) target(relation) WHERE relation IS NOT NULL),
+                    (SELECT count(*) FROM (
+                       SELECT filename, status FROM public.sys_schema_migration_history
+                       UNION ALL
+                       SELECT filename, status FROM public.schema_migrations
+                     ) history WHERE filename = '$target_migration' AND status = 'failed'),
+                    (SELECT count(*) FROM (
+                       SELECT filename, status FROM public.sys_schema_migration_history
+                       UNION ALL
+                       SELECT filename, status FROM public.schema_migrations
+                     ) history WHERE filename = '$projection_prerequisite' AND status = 'failed'),
+                    (SELECT count(*) FROM public.biz_park
+                     WHERE tenant_id = 'legacy-tenant'
+                       AND park_id = 'legacy-park'
+                       AND park_code = 'JH'
+                       AND status = 1
+                       AND is_deleted = false);"
+          )"
+          test "$pre_retry_state" = "uuid,uuid|0|0|2|2|1"
+
+          cp "database/migrations/$target_migration" "$retry_migrations/$target_migration"
+          POSTGRES_DB="$retry_db" \
+          MIGRATIONS_DIR="$retry_migrations" \
+          MIGRATION_HISTORY_ALIASES_FILE="$retry_aliases" \
+          MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
+            pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+
+          grep -Fq "SUCCESS PREREQUISITE: $type_prerequisite" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "SUCCESS PREREQUISITE: $projection_prerequisite" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "WARNING: retrying failed migration prerequisite with updated checksum: $projection_prerequisite" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "APPLY: $target_migration" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+          grep -Fq "SUCCESS: $target_migration" \
+            /tmp/release-smoke-logs/db-migrate-000189-rollback-retry.log
+
+          retry_state="$(
+            docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              psql -X -A -t -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              -c "SELECT
+                    (SELECT string_agg(udt_name || ':' || character_maximum_length, ',' ORDER BY column_name)
+                     FROM information_schema.columns
+                     WHERE table_schema = 'public'
+                       AND table_name = 'asset_park'
+                       AND column_name IN ('tenant_id', 'park_id')),
+                    (SELECT count(*) FROM public.asset_park
+                     WHERE tenant_id = '10000001'
+                       AND park_id = '20000001'
+                       AND status = 'enabled'
+                       AND is_deleted = false),
+                    (SELECT count(*) FROM (VALUES
+                       (to_regclass('public.sys_module_dependency')),
+                       (to_regclass('public.sys_property_permission_bundle')),
+                       (to_regclass('public.rel_property_permission_bundle_member'))
+                     ) target(relation) WHERE relation IS NOT NULL),
+                    (SELECT count(*) FROM (
+                       SELECT filename, status FROM public.sys_schema_migration_history
+                       UNION ALL
+                       SELECT filename, status FROM public.schema_migrations
+                     ) history
+                     WHERE filename IN (
+                       'prerequisite:000189_property_b_module_rbac_definitions.sql:001_asset_module.sql',
+                       '$type_prerequisite',
+                       '$projection_prerequisite'
+                     ) AND status = 'succeeded'),
+                    (SELECT count(*) FROM (
+                       SELECT filename, status FROM public.sys_schema_migration_history
+                       UNION ALL
+                       SELECT filename, status FROM public.schema_migrations
+                     ) history WHERE filename = '$target_migration' AND status = 'succeeded');"
+          )"
+          test "$retry_state" = "varchar:64,varchar:64|1|3|6|2"
+
+      - name: Verify failed 000194 runtime-control retry from production-shaped state
+        run: scripts/e2e/verify-000194-runtime-control-retry.sh
 
       - name: Verify repaired core-role permissions
         run: |
@@ -204,6 +940,54 @@ jobs:
                    AND relation.is_deleted = false;"
           )"
           test "$repaired_grant_count" = "4"
+
+      - name: Verify Admin Issue Runner minimum-permission baseline
+        run: |
+          runner_baseline="$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT count(*)
+                FROM public.sys_user app_user
+                JOIN public.rel_user_role user_role
+                  ON user_role.tenant_id = app_user.tenant_id
+                 AND user_role.park_id = app_user.park_id
+                 AND user_role.user_id = app_user.id
+                 AND user_role.is_deleted = false
+                JOIN public.sys_role role
+                  ON role.id = user_role.role_id
+                 AND role.tenant_id = app_user.tenant_id
+                 AND role.code = 'SMART_PARK_RUNNER'
+                 AND role.is_deleted = false
+                JOIN public.rel_role_perm role_permission
+                  ON role_permission.tenant_id = app_user.tenant_id
+                 AND role_permission.park_id = app_user.park_id
+                 AND role_permission.role_id = role.id
+                 AND role_permission.is_deleted = false
+                JOIN public.sys_permission permission
+                  ON permission.id = role_permission.permission_id
+                 AND permission.code = 'admin_issue:runner'
+                 AND permission.is_deleted = false
+                WHERE app_user.tenant_id = '10000001'
+                  AND app_user.park_id = '20000001'
+                  AND app_user.username = 'studio_runner'
+                  AND app_user.is_enabled = false
+                  AND app_user.status = 'disabled'
+                  AND app_user.password_hash = '!SMART_PARK_RUNNER_CREDENTIAL_NOT_INITIALIZED!'
+                  AND app_user.is_deleted = false;")"
+          test "$runner_baseline" = "1"
+
+          excessive_permission_count="$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -A -t -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT count(*)
+                FROM public.sys_role role
+                JOIN public.rel_role_perm role_permission
+                  ON role_permission.role_id = role.id AND role_permission.is_deleted = false
+                JOIN public.sys_permission permission
+                  ON permission.id = role_permission.permission_id AND permission.is_deleted = false
+                WHERE role.tenant_id = '10000001'
+                  AND role.code = 'SMART_PARK_RUNNER'
+                  AND role.is_deleted = false
+                  AND permission.code <> 'admin_issue:runner';")"
+          test "$excessive_permission_count" = "0"
 
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log

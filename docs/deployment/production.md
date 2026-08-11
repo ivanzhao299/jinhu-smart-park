@@ -49,6 +49,13 @@ Do not commit `.env.production`.
 `false`；若提前启用，民宿订单取消、租约审批/作废/退租、退款减免、采购状态
 流转及转租客收费等高风险动作会以 HTTP 409 拒绝，且超级管理员也不会绕过。
 
+`PROPERTY_APPROVAL_RUNTIME_ENABLED` 与 `PROPERTY_TASK_RECONCILIATION_ENABLED`
+控制 API 内的审批执行/事件投递循环和任务投影自愈循环，生产默认均为 `true`。
+对应轮询间隔分别由 `PROPERTY_APPROVAL_RUNTIME_INTERVAL_MS`（默认 5000 ms）和
+`PROPERTY_TASK_RECONCILIATION_INTERVAL_MS`（默认 60000 ms）控制。仅在确认已有等价
+外部 worker 或执行紧急回滚时关闭；关闭审批运行时会使已终审请求停留在待执行状态，
+关闭任务对账会停止修复遗漏、软删除或滞后的任务投影。
+
 `PROPERTY_OFFLINE_DRAFTS_V1` 与 `PROPERTY_UPLOAD_QUEUE_V1` 是 Web 镜像构建期
 回滚开关。仅去除首尾空白并忽略大小写后严格等于 `true` 才启用；未设置、`false`
 或其他值均 fail-closed。`next.config.ts` 只把规范化后的 `true`/`false` 映射到浏览器
@@ -296,6 +303,10 @@ First-time deployments that need the production core seed can use:
 RUN_PRODUCTION_SEED=yes pnpm prod:deploy
 ```
 
+An explicitly supplied `RUN_PRODUCTION_SEED=yes|no` is a one-release decision and takes precedence over the
+long-lived value in `.env.production`. If the variable is not supplied, the deploy script uses the value from
+`.env.production`. Any value other than `yes` or `no` fails before migration, seed, or service changes begin.
+
 The default full deploy script:
 
 1. Builds API and Web images.
@@ -317,6 +328,8 @@ The workflow and `prod:*` command names are technical compatibility names. In th
 - `web`: builds and restarts the Web container only. It does not run migrations.
 - `api`: builds and restarts the API container, then runs migrations and optional production seed.
 - `full`: builds API and Web, runs migrations and optional production seed, starts API/Web, and runs health checks.
+
+Android 客户端采用独立构建、轻量发布：`android-app/**` 由 Android CI 构建；CI 生成的 `apps/web/public/downloads/android/**` 下载资产按 `web` 模式部署，不执行数据库迁移。完整签名、版本、客户端下载入口、升级和回滚说明见 [Android 客户端构建与发布](android-client.md)。
 
 Use `fast-css` only for runtime design-system polish inside `apps/web/public/runtime-design-system.css`. Durable UI changes in React components, `globals.css`, or page CSS still require `web` or `full` because they are bundled by Next.js.
 
@@ -365,7 +378,30 @@ Migration behavior:
 
 - Successfully applied migration files are skipped on rerun.
 - A checksum mismatch after success fails fast and stops later migrations.
-- A failed migration can be retried after the SQL file is corrected.
+- A failed migration or prerequisite can be retried after confirming it never succeeded in a long-lived environment and its transaction rolled back; the runner records the reviewed replacement checksum.
+- A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`. Only the fixed default scope may use the globally unique active `park_code=JH` baseline when the JH row retained legacy IDs or when other active business parks share the default scope. Invalid scope, duplicate assets, non-unique JH, or unbounded missing/ambiguous sources still stop deployment.
+- After initializing required Compose secrets but before an API/full deployment syncs application release source or runs migrations, GitHub Actions executes the same `000189` scope classification in read-only enforce mode. Operators can select `diagnose-000189-scope` manually to print only tenant/park identifiers, classification, and aggregate building/floor/unit/org counts. That mode does not sync source, write `.release.json`, migrate, seed, deploy, or run UAT.
+- An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
+- The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
+  `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
+  and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
+  prerequisite can create the missing fixed disabled controls. After `000194`, partial missing controls are
+  `missing_control` and fail closed because the successful correction cannot be replayed safely. At final
+  `post_000195`, an exact zero-control/zero-audit scope is `ready_missing_seed_reconcile` only after `000200` has an
+  approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
+  seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
+  migration execution precedes seed execution.
+  The same state remains blocked when seed execution is disabled. `extra_control`,
+  `extra_control_scope`,
+  `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
+  whole control table being absent after `000194` is also migration-stage drift. The diagnostic never enables,
+  updates, or deletes a runtime control. The classifier follows the immutable migration
+  stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown
+  history stage is `migration_stage_drift` and blocks.
+- The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
+  `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
+  verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database
+  that previously succeeded the immutable source checksum is skipped and never re-executed.
 - Database migrations remain forward-only; rollback still relies on database backup recovery.
 - `production seed` remains a separate step and is not part of migration execution.
 
@@ -486,14 +522,49 @@ pnpm db:check:init
 Migration execution behavior:
 
 - `pnpm db:migrate` always bootstraps the migration record tables `public.sys_schema_migration_history` and `public.schema_migrations`.
-- If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command exits immediately and does not re-run individual migrations.
+- When upgrading from one history table to two, bootstrap copies the existing table only if the peer table did not
+  exist before the transaction. If both tables already exist, bootstrap does not fill missing rows between them;
+  the subsequent FULL JOIN audit reports the original disagreement and stops.
+- If every SQL file in `database/migrations` is already recorded as `succeeded` with the same checksum, the command still walks the manifest to verify/apply independently tracked prerequisites, while skipping each checksum-matched migration.
 - If the target database is non-empty but migration history is empty, the command performs an automatic baseline: all current migration files are recorded as succeeded without executing old SQL.
 - If the target database is empty, no baseline is created; migrations run from the beginning to initialize the schema.
-- While any migration remains pending, files under
-  `database/migration-prerequisites/<migration-name>/` are evaluated in migration order, even when a newly added
-  prerequisite belongs to an already-succeeded earlier target. A fully migrated database still exits via fast-skip.
+- Files under `database/migration-prerequisites/<migration-name>/` are evaluated in migration order, even when a
+  newly added prerequisite belongs to an already-succeeded earlier target or the migration manifest is fully
+  complete. Migration-only history must not bypass prerequisite history checks.
 - Prerequisite status/checksum is recorded independently. Both history-table rows are written atomically, and any
-  existing status/checksum disagreement stops before fast-skip or execution.
+  existing status/checksum disagreement stops before execution.
+- A renamed migration can be recovered from the exact rollback collision where legacy and canonical identities both
+  exist only when both rows and the prior alias audit marker are `succeeded` with the reviewed checksum in both
+  history tables. The runner then deletes only the duplicate legacy identity in one transaction. Missing markers,
+  status drift, checksum drift, or cross-table disagreement still stop before migration execution.
+- The GitHub source rollback rebuilds and health-checks the previous application snapshot without running that older
+  snapshot's migration or production-seed manifest. It overlays only the candidate's reviewed migration runner and
+  replacement manifest/patches so a forward-applied replacement checksum remains readable after application-source
+  rollback. Database migrations remain forward-only; database recovery still requires the release backup and an
+  explicit operator decision.
+- The `000189` prerequisite chain restores the historical `asset_park` scope-column type contract before deriving a
+  missing projection. It changes only `asset_park.tenant_id/park_id`, rewrites only known legacy scope sentinels, and
+  fails closed on unexpected schema types or ambiguous canonical scope data. One existing active asset projection is
+  accepted without requiring a duplicate `biz_park`; a missing projection prefers a unique same-scope park. Only the
+  fixed `10000001/20000001` production scope may select the globally unique active `park_code=JH` row retained
+  under legacy scope IDs or alongside other active parks in that fixed default scope.
+- The `000194` prerequisite chain first forward-declares the later authoritative runtime-control table, then derives
+  every valid active asset-assignment scope and inserts only missing rows from the fixed 12-control disabled manifest.
+  Existing rows are never overwritten or removed. Extra controls, noncanonical definitions/states, invalid scopes,
+  and a non-exact postcondition fail before unchanged `000194`; a previously succeeded unchanged target is recognized
+  only from matching status/checksum in both history tables so the retroactive prerequisite does not reverse its
+  audited correction.
+- Release Smoke then continues the same non-empty production-shaped fixture through `000195`, `000197`–`000201`
+  and the complete production seed set. It reproduces a failed immutable-checksum `000200`, verifies the reviewed
+  replacement reaches final v3 with complete timestamp-bound correction evidence, proves post-v3 missing controls
+  fail closed, and proves an already-succeeded immutable source remains skipped. A separate empty-database replay
+  follows the real migration-before-seed order; `000008_property_runtime_control_scope_reconcile.sql` initializes
+  only wholly missing late-created asset scopes through the audited v1 -> v2 -> v3 transition and rejects partial
+  or drifting states. `000009_jh_leasing_lead_workorder_create_repair.sql` then grants only `workorder:create` to
+  the reviewed `INVEST_MANAGER` / `JH_LEASING_LEAD` leasing-lead role aliases; an optional alias that has not been
+  imported remains unchanged, while an inactive or duplicate alias fails closed.
+- Release Smoke uses a workflow-wide `pipefail` shell contract, so logging migration, seed, bootstrap, baseline,
+  or login output through `tee` cannot turn a nonzero producer result into a successful step.
 - After this migration-order repair, run the production seed in the documented sequence. Its
   `000004_core_role_permission_repair.sql` step restores the exact historical core-role grants that may have been
   skipped in an already-partial database.

@@ -29,6 +29,7 @@ import {
   HomestayAvailabilityQueryDto,
   HomestayBookingQueryDto,
   HomestayCandidateQueryDto,
+  HomestayGuestCandidateQueryDto,
   HomestayFinanceQueryDto,
   HomestayReasonDto,
   HomestayStayQueryDto,
@@ -85,12 +86,16 @@ export class HomestayController {
 
   @Get("guest-candidates")
   @RequireModule("homestay", "asset")
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
   guestCandidates(
     @CurrentScope() scope: TenantParkScope,
-    @Query() query: HomestayCandidateQueryDto
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: HomestayGuestCandidateQueryDto
   ) {
-    return this.workbenchQuery.listGuestCandidates(scope, query);
+    return this.workbenchQuery.listGuestCandidates(scope, actor, query);
   }
 
   @Get("work-order-candidates")

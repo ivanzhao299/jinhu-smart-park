@@ -7,6 +7,7 @@ import { ILike, In } from "typeorm";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_SURFACES,
+  PROPERTY_ACCESS_MANIFEST,
   type EnabledModuleContext,
   type PaginatedResult,
   type PropertyBusinessModuleCode,
@@ -1160,11 +1161,17 @@ export class UsersService {
     const nonPropertyMenus = menuTree.filter((node) => !this.isPropertyBusinessMenuNode(node));
     const canonicalPropertyMenus = (["homestay", "housing_rental"] as const)
       .flatMap((moduleCode) => {
-        if (!enabledModuleCodes.has(moduleCode)) {
+        const moduleSurfaces = PROPERTY_BUSINESS_SURFACES.filter(
+          (surface) => surface.moduleCode === moduleCode
+        );
+        const dependencies = new Set(PROPERTY_ACCESS_MANIFEST
+          .filter((entry) => entry.module.required === moduleCode)
+          .flatMap((entry) => entry.module.dependencies));
+        if (!enabledModuleCodes.has(moduleCode)
+          || [...dependencies].some((dependency) => !enabledModuleCodes.has(dependency))) {
           return [];
         }
-        const children = PROPERTY_BUSINESS_SURFACES
-          .filter((surface) => surface.moduleCode === moduleCode)
+        const children = moduleSurfaces
           .flatMap((surface) => {
             if (!granted.has("*") && !granted.has(surface.pageCode)) {
               return [];

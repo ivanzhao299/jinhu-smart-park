@@ -10,7 +10,7 @@ import { PropertyNotificationDeliveryWorker } from "./property-notification.work
 const id = "11111111-1111-4111-8111-111111111111";
 
 describe("property notification projection", () => {
-  it("uses only the seven frozen canonical deep-link templates", () => {
+  it("uses only the nine canonical deep-link templates", () => {
     assert.equal(buildPropertyNotificationDeepLink("identity-verification-assigned", id),
       `/assets/identity-submissions/${id}`);
     assert.equal(buildPropertyNotificationDeepLink("homestay-approval-stage-assigned", id),
@@ -25,6 +25,10 @@ describe("property notification projection", () => {
       `/property/event-delivery-incidents/${id}`);
     assert.equal(buildPropertyNotificationDeepLink("approval-infra-exhausted", id),
       `/property/approval-incidents/${id}`);
+    assert.equal(buildPropertyNotificationDeepLink("homestay-approval-executed", id),
+      `/property/approvals/${id}`);
+    assert.equal(buildPropertyNotificationDeepLink("housing-approval-executed", id),
+      `/property/approvals/${id}`);
     assert.throws(() =>
       buildPropertyNotificationDeepLink("approval-infra-exhausted", "https://evil.example"));
   });

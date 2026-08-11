@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { chmodSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { chmodSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +11,8 @@ const repoRoot = resolve(here, "../../../../");
 const composeFile = resolve(here, "compose.formal.yml");
 const artifactsRoot = resolve(repoRoot, "artifacts/property-remediation/runs");
 const sha = (value) => createHash("sha256").update(value).digest("hex");
+const exactHash = (value) => /^[0-9a-f]{64}$/u.test(value ?? "");
+const identityKey = (value) => value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
 const required = (env, key) => {
   const value = env[key]?.trim();
   if (!value) throw new Error(`missing required environment variable: ${key}`);
@@ -53,15 +55,31 @@ export async function loadEnvironmentConfig(env = process.env) {
   const projectName = safeName(required(env, "PROPERTY_PERF_PROJECT_NAME"), /^jinhu-track-c-perf-[a-z0-9][a-z0-9-]{2,40}$/u, "performance project name");
   const postgresDb = safeName(required(env, "PROPERTY_PERF_POSTGRES_DB"), /^jinhu_perf_[a-z0-9_]{3,40}$/u, "performance database name");
   const performancePassword = adminPassword(required(env, "PROPERTY_PERF_PASSWORD"));
+  const expectedDatasetSha256 = required(env, "PROPERTY_PERF_EXPECTED_DATASET_SHA256");
+  if (!exactHash(expectedDatasetSha256)) throw new Error("invalid approved dataset sha256");
+  const approvedCommitSha = required(env, "PROPERTY_PERF_APPROVED_COMMIT_SHA");
+  if (!/^[0-9a-f]{40}$/u.test(approvedCommitSha)) throw new Error("invalid approved commit sha");
+  const approvedPostgresImage = immutableImage(required(env, "PROPERTY_PERF_APPROVED_POSTGRES_IMAGE"), "approved PostgreSQL image");
+  const approvedBrowserImage = immutableImage(required(env, "PROPERTY_PERF_APPROVED_BROWSER_IMAGE"), "approved browser-worker image");
+  const reviewer = required(env, "PROPERTY_PERF_REVIEWER");
+  const executionOwner = required(env, "PROPERTY_PERF_EXECUTION_OWNER");
+  if (identityKey(reviewer) === identityKey(executionOwner)) throw new Error("performance reviewer must be independent from execution owner");
+  const dataset = datasetDump(required(env, "PROPERTY_PERF_DATASET_DUMP"));
+  const postgresImage = immutableImage(required(env, "PROPERTY_PERF_POSTGRES_IMAGE"), "PostgreSQL image");
+  const browserImage = immutableImage(required(env, "PROPERTY_PERF_BROWSER_IMAGE"), "browser-worker image");
+  if (dataset.sha256 !== expectedDatasetSha256) throw new Error("dataset sha256 does not match approved input");
+  if (commitSha !== approvedCommitSha) throw new Error("current commit does not match approved input");
+  if (postgresImage !== approvedPostgresImage) throw new Error("PostgreSQL image does not match approved input");
+  if (browserImage !== approvedBrowserImage) throw new Error("browser-worker image does not match approved input");
   const config = {
     schemaVersion: "property-track-c-formal-environment-v1",
     commitSha,
     projectName,
     postgresDb,
     postgresUser: safeName(env.PROPERTY_PERF_POSTGRES_USER?.trim() || "jinhu_perf", /^[a-z][a-z0-9_]{2,31}$/u, "PostgreSQL user"),
-    postgresImage: immutableImage(required(env, "PROPERTY_PERF_POSTGRES_IMAGE"), "PostgreSQL image"),
-    browserImage: immutableImage(required(env, "PROPERTY_PERF_BROWSER_IMAGE"), "browser-worker image"),
-    dataset: datasetDump(required(env, "PROPERTY_PERF_DATASET_DUMP")),
+    postgresImage,
+    browserImage,
+    dataset,
     username: safeName(required(env, "PROPERTY_PERF_USERNAME"), /^[A-Za-z0-9_.@-]{3,80}$/u, "performance username"),
     adminName: required(env, "PROPERTY_PERF_ADMIN_NAME"),
     secrets: {
@@ -73,7 +91,9 @@ export async function loadEnvironmentConfig(env = process.env) {
     apiPort: Number(env.PROPERTY_PERF_API_PORT ?? "33101"),
     webPort: Number(env.PROPERTY_PERF_WEB_PORT ?? "33100"),
     businessClock: required(env, "PROPERTY_PERF_BUSINESS_CLOCK"),
-    reviewer: required(env, "PROPERTY_PERF_REVIEWER")
+    reviewer,
+    executionOwner,
+    approvedInputs: { commitSha: approvedCommitSha, datasetSha256: expectedDatasetSha256, postgresImage: approvedPostgresImage, browserImage: approvedBrowserImage }
   };
   if (![config.apiPort, config.webPort].every((value) => Number.isInteger(value) && value >= 1024 && value <= 65535) || config.apiPort === config.webPort) throw new Error("invalid or colliding published ports");
   if (Number.isNaN(Date.parse(config.businessClock))) throw new Error("invalid business clock");
@@ -97,7 +117,8 @@ function nonSecretComposeEnv(config, secretDir) {
     PROPERTY_PERF_DATASET_DUMP: config.dataset.path,
     PROPERTY_PERF_SECRET_DIR: secretDir,
     PROPERTY_PERF_USERNAME: config.username,
-    PROPERTY_PERF_ADMIN_NAME: config.adminName
+    PROPERTY_PERF_ADMIN_NAME: config.adminName,
+    PROPERTY_PERF_BUSINESS_CLOCK: config.businessClock
   };
 }
 
@@ -119,34 +140,50 @@ function createRuntime(config) {
   const setupDir = resolve(artifactsRoot, `environment-${config.projectName}-${config.commitSha.slice(0, 12)}`);
   const secretDir = resolve(setupDir, "secrets");
   mkdirSync(artifactsRoot, { recursive: true });
-  mkdirSync(setupDir, { recursive: false });
-  mkdirSync(secretDir, { recursive: false });
-  writeSecret(resolve(secretDir, "postgres_password"), config.secrets.postgresPassword);
-  writeSecret(resolve(secretDir, "jwt_secret"), config.secrets.jwtSecret);
-  writeSecret(resolve(secretDir, "party_data_encryption_key"), config.secrets.partyKey);
-  writeSecret(resolve(secretDir, "admin_password"), config.secrets.adminPassword);
-  const seedManifestPath = resolve(setupDir, "seed-manifest.json");
-  const seedDir = resolve(repoRoot, "database/seeds");
-  const seedManifest = readdirSync(seedDir).filter((name) => name.endsWith(".sql")).sort().map((name) => ({ name, sha256: sha(readFileSync(resolve(seedDir, name))) }));
-  writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
-  const runtime = {
-    schemaVersion: config.schemaVersion,
-    commitSha: config.commitSha,
-    projectName: config.projectName,
-    postgresDb: config.postgresDb,
-    postgresUser: config.postgresUser,
-    dataset: config.dataset,
-    businessClock: config.businessClock,
-    reviewer: config.reviewer,
-    setupDir,
-    secretDir,
-    seedManifestPath,
-    composeEnv: nonSecretComposeEnv(config, secretDir),
-    containers: { web: `${config.projectName}-web`, api: `${config.projectName}-api`, postgres: `${config.projectName}-postgres`, browserWorker: `${config.projectName}-browser` }
-  };
-  const runtimePath = resolve(setupDir, "runtime.json");
-  writeFileSync(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, { mode: 0o600, flag: "wx" });
-  return { runtime, runtimePath };
+  try {
+    mkdirSync(setupDir, { recursive: false });
+    mkdirSync(secretDir, { recursive: false });
+    writeSecret(resolve(secretDir, "postgres_password"), config.secrets.postgresPassword);
+    writeSecret(resolve(secretDir, "jwt_secret"), config.secrets.jwtSecret);
+    writeSecret(resolve(secretDir, "party_data_encryption_key"), config.secrets.partyKey);
+    writeSecret(resolve(secretDir, "admin_password"), config.secrets.adminPassword);
+    const seedManifestPath = resolve(setupDir, "seed-manifest.json");
+    const seedRoot = resolve(repoRoot, "database/seeds");
+    const seedFiles = [
+      resolve(seedRoot, "000001_s1_production_core.sql"),
+      ...readdirSync(resolve(seedRoot, "production"))
+        .filter((name) => name.endsWith(".sql"))
+        .sort()
+        .map((name) => resolve(seedRoot, "production", name))
+    ];
+    const seedManifest = seedFiles.map((path) => ({
+      name: relative(seedRoot, path), sha256: sha(readFileSync(path))
+    }));
+    writeFileSync(seedManifestPath, `${JSON.stringify({ commitSha: config.commitSha, businessClock: config.businessClock, files: seedManifest }, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    const runtime = {
+      schemaVersion: config.schemaVersion,
+      commitSha: config.commitSha,
+      projectName: config.projectName,
+      postgresDb: config.postgresDb,
+      postgresUser: config.postgresUser,
+      dataset: config.dataset,
+      businessClock: config.businessClock,
+      reviewer: config.reviewer,
+      executionOwner: config.executionOwner,
+      approvedInputs: config.approvedInputs,
+      setupDir,
+      secretDir,
+      seedManifestPath,
+      composeEnv: nonSecretComposeEnv(config, secretDir),
+      containers: { web: `${config.projectName}-web`, api: `${config.projectName}-api`, postgres: `${config.projectName}-postgres`, browserWorker: `${config.projectName}-browser` }
+    };
+    const runtimePath = resolve(setupDir, "runtime.json");
+    writeFileSync(runtimePath, `${JSON.stringify(runtime, null, 2)}\n`, { mode: 0o600, flag: "wx" });
+    return { runtime, runtimePath };
+  } catch (error) {
+    rmSync(setupDir, { recursive: true, force: true });
+    throw new Error(`formal runtime creation failed and partial state was removed: ${error.message}`);
+  }
 }
 
 async function validateCompose(config) {
@@ -155,8 +192,8 @@ async function validateCompose(config) {
   await compose(runtime, ["config", "--quiet"]);
 }
 
-async function assertSourceReady() {
-  const { stdout } = await execFileAsync("git", ["status", "--porcelain", "--untracked-files=no", "--", "apps", "packages", "database", "infra", "scripts", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], { cwd: repoRoot });
+export async function assertSourceReady({ execute = execFileAsync, cwd = repoRoot } = {}) {
+  const { stdout } = await execute("git", ["status", "--porcelain=v1", "--untracked-files=all", "--", "apps", "packages", "database", "infra", "scripts", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"], { cwd });
   if (stdout.trim()) throw new Error("formal source paths contain uncommitted changes");
 }
 
@@ -183,6 +220,10 @@ function executorEnvironment(runtime, runtimePath) {
     PROPERTY_PERF_WORKER_BASE_URL: "http://api:3001",
     PROPERTY_PERF_CONTAINERS_JSON: JSON.stringify(runtime.containers),
     PROPERTY_PERF_DATASET_MANIFEST: runtime.dataset.path,
+    PROPERTY_PERF_EXPECTED_DATASET_SHA256: runtime.approvedInputs.datasetSha256,
+    PROPERTY_PERF_APPROVED_COMMIT_SHA: runtime.approvedInputs.commitSha,
+    PROPERTY_PERF_APPROVED_POSTGRES_IMAGE: runtime.approvedInputs.postgresImage,
+    PROPERTY_PERF_APPROVED_BROWSER_IMAGE: runtime.approvedInputs.browserImage,
     PROPERTY_PERF_SEED_MANIFEST: runtime.seedManifestPath,
     PROPERTY_PERF_BUSINESS_CLOCK: runtime.businessClock,
     PROPERTY_PERF_RESTART_COMMAND: `node ${script} --restart --runtime ${runtimePath}`,
@@ -190,15 +231,26 @@ function executorEnvironment(runtime, runtimePath) {
     PROPERTY_PERF_GC_COMMAND: `node ${script} --gc --runtime ${runtimePath}`,
     PROPERTY_PERF_DB_WAIT_COMMAND: `node ${script} --db-wait --runtime ${runtimePath}`,
     PROPERTY_PERF_POSTGRES_PARAMETERS_COMMAND: `node ${script} --pg-parameters --runtime ${runtimePath}`,
-    PROPERTY_PERF_REVIEWER: runtime.reviewer
+    PROPERTY_PERF_REVIEWER: runtime.reviewer,
+    PROPERTY_PERF_EXECUTION_OWNER: runtime.executionOwner
   };
 }
 
 function readRuntime(path) {
-  const absolute = resolve(path);
+  const absolute = realpathSync(resolve(path));
+  const root = realpathSync(artifactsRoot);
   const runtime = JSON.parse(readFileSync(absolute, "utf8"));
-  if (runtime?.schemaVersion !== "property-track-c-formal-environment-v1" || !absolute.startsWith(`${artifactsRoot}/`) || !runtime.secretDir.startsWith(`${artifactsRoot}/`)) throw new Error("invalid formal runtime manifest");
-  return { ...runtime, runtimePath: absolute };
+  const setupDir = realpathSync(runtime?.setupDir ?? "");
+  const secretDir = realpathSync(runtime?.secretDir ?? "");
+  const inside = (parent, child) => {
+    const pathFromParent = relative(parent, child);
+    return pathFromParent === "" || (!pathFromParent.startsWith("..") && !pathFromParent.startsWith("/"));
+  };
+  if (runtime?.schemaVersion !== "property-track-c-formal-environment-v1"
+    || !inside(root, absolute)
+    || setupDir !== dirname(absolute)
+    || !inside(setupDir, secretDir)) throw new Error("invalid formal runtime manifest");
+  return { ...runtime, setupDir, secretDir, runtimePath: absolute };
 }
 
 async function waitHealthy(container) {
@@ -221,9 +273,21 @@ async function restart(runtime) {
 }
 
 async function dockerProjectCount(projectName, kind) {
-  const args = kind === "container" ? ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`] : kind === "network" ? ["network", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`] : ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`];
+  const args = kind === "container"
+    ? ["ps", "-aq", "--filter", `label=com.docker.compose.project=${projectName}`]
+    : kind === "network"
+      ? ["network", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`]
+      : kind === "image"
+        ? ["image", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`]
+        : ["volume", "ls", "-q", "--filter", `label=com.docker.compose.project=${projectName}`];
   const { stdout } = await execFileAsync("docker", args);
   return stdout.trim() ? stdout.trim().split("\n").length : 0;
+}
+
+export function cleanupInventory(projectName, remaining, downError = null) {
+  const resourceResidualCount = Object.values(remaining).reduce((sum, value) => sum + value, 0);
+  const residualCount = resourceResidualCount + (downError ? 1 : 0);
+  return { residualCount, manifest: [{ projectName, remaining, downError }] };
 }
 
 async function cleanup(runtime) {
@@ -234,10 +298,10 @@ async function cleanup(runtime) {
     containers: await dockerProjectCount(runtime.projectName, "container"),
     networks: await dockerProjectCount(runtime.projectName, "network"),
     volumes: await dockerProjectCount(runtime.projectName, "volume"),
+    images: await dockerProjectCount(runtime.projectName, "image"),
     secretFiles: 0
   };
-  const residualCount = Object.values(remaining).reduce((sum, value) => sum + value, 0);
-  return { residualCount, manifest: [{ projectName: runtime.projectName, remaining, downError }] };
+  return cleanupInventory(runtime.projectName, remaining, downError);
 }
 
 async function queryPostgres(runtime, sql) {

@@ -3,8 +3,9 @@
 ## 1. 目标
 
 在不改写 PR192 已验收历史、不混入平行 UAT 分支、不伪造 final-SHA 证据的前提下，
-将 `codex/pr192-property-productization-remediation` 安全集成到最新 `main`，通过 GitHub
-CI、独立审查与 final-SHA 正式门禁后形成唯一可合并 PR。
+将 `codex/pr192-property-productization-remediation` 安全集成到最新 `main`，先通过不作为
+合并来源的 Track A/B/C 只读审查投影缩小审查面，再由唯一可合并的最终集成 PR 汇总审查
+结论、运行 GitHub CI，并完成 final-SHA 技术门禁。
 
 ## 2. 已确认事实
 
@@ -40,12 +41,17 @@ CI、独立审查与 final-SHA 正式门禁后形成唯一可合并 PR。
 
 ### 3.2 审查模型
 
-- Track A/B/C 切点仅作为 immutable compare refs 或审查清单，不作为独立 merge PR。
-- 唯一 GitHub PR 为 `codex/pr192-main-integration -> main`，初始状态为 Draft。
-- PR body 必须按 Track A、Track B、Track C Core、rollback/performance、Trellis/docs
-  列出审查范围、关键 SHA、冲突裁决和测试证据。
-- 不依赖当前不存在的 branch protection；在人工与机器 Gate 完成前不得改为 Ready、
-  不得启用 auto-merge。
+- Track A/B/C 使用从 immutable cutpoint 生成的**审查投影分支**；投影只保留可审查代码差异，
+  排除 `.trellis` 归档快照、运行时依赖复制件和瞬态测试输出。
+- 审查投影 PR 必须保持 Draft，标题和正文标记“只读审查、禁止合并”，base 指向前一层投影
+  或专用 review root；它们只承载 Codex/人工审查，不是生产合并来源。
+- 唯一可合并 PR 仍为 `codex/pr192-main-integration -> main`（#223）。它负责汇总各层审查、
+  main 冲突裁决、跨 Track Gate、CI/release-smoke 与最终交接，不再要求 Codex 一次性覆盖
+  全部历史证据。
+- PR #223 的归档只保留 task 摘要、manifest、最终报告和必要索引；生成快照与旧重复 evidence
+  必须从最终 diff 移除，并由根 `.gitignore` 防止再次纳入。
+- 不依赖当前不存在的 branch protection；所有审查 PR 不得启用 auto-merge，最终 PR 只能由
+  用户人工合并。
 
 ### 3.3 平行分支
 
@@ -58,8 +64,8 @@ CI、独立审查与 final-SHA 正式门禁后形成唯一可合并 PR。
 
 - 旧 rollback/performance 证据只能描述 `15b6e8f6`，不能描述新的集成 HEAD。
 - 集成过程中必须验证 `15b6e8f6` 仍为祖先，并记录从该 SHA 到最终 HEAD 的相关 diff。
-- 最终集成 SHA 必须重新完成 rollback 19/19 和未缩短、未拼接的 formal performance
-  30/30；否则 PR 只能保持 Draft，且只能声明 ancestor-only evidence。
+- 最终集成 SHA 必须重新确认 rollback；formal performance 30/30 按用户批准的豁免保持
+  “已跳过”，不得声明 PASS。
 - 新证据必须包含 commit SHA、profile/dataset/environment digest、artifact SHA、失败日志
   和 cleanup residual=0。
 
@@ -74,16 +80,16 @@ CI、独立审查与 final-SHA 正式门禁后形成唯一可合并 PR。
 
 - [ ] immutable snapshot/ref 已核验并安全推送，远端不存在碰撞或强推。
 - [ ] coordination SHA 仅包含本任务 Trellis 计划/启动记录，并已冻结。
-- [ ] review cutpoint manifest 已生成；没有创建多余 stacked PR。
+- [ ] review cutpoint manifest 已生成；只创建明确标记“禁止合并”的 A/B/C 审查投影 PR。
 - [ ] 独立 worktree 从当时最新 `origin/main` 创建。
 - [ ] coordination SHA 以 merge 方式进入集成分支，snapshot 与技术 SHA 仍为祖先。
 - [ ] 所有冲突逐文件裁决并记录来源、测试与风险。
 - [ ] 平行 agent/UAT 分支没有重复合入；缺口审计有可复查结论。
 - [ ] targeted tests、CI verify 与 release-smoke 全部通过。
 - [ ] final-SHA rollback 19/19 PASS、cleanup residual=0。
-- [ ] final-SHA formal performance 30/30 PASS、cleanup residual=0。
+- [ ] formal performance 30/30 在 PR 正文中明确记录为用户批准的“已跳过”，不冒充 PASS。
 - [ ] 独立代码/证据/清理 reviewer 均无开放 P0/P1。
-- [ ] 唯一 final integration PR 已创建；Ready 状态只在全部 Gate 完成后设置。
+- [ ] 唯一可合并 final integration PR 已创建；审查投影 PR 保持 Draft 且禁止合并。
 - [ ] `.codex/config.toml`、`NUL`、秘密和本地大型 artifacts 未进入提交或 push。
 
 ## 5. Out of Scope

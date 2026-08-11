@@ -50,7 +50,7 @@ test("pins the exact 000184 through 000190 migration closure", () => {
     "000187_property_b_event_notification_schema.sql",
     "000188_property_b_task_runtime_schema.sql",
     "000189_property_b_module_rbac_definitions.sql",
-    "000190_property_b_migration_compatibility_control.sql"
+    "000200_property_b_migration_compatibility_control.sql"
   ]);
   assert.equal(new Set(MODULE_MIGRATIONS.map(([, sha]) => sha)).size, 7);
 });
@@ -66,11 +66,16 @@ test("uses one deterministic test-only asset prerequisite without running seeds"
   assert.match(runner, /exact-set mismatch/u);
 });
 
-test("requires the exact 14-file module tree", () => {
+test("requires the exact 17-file module tree", () => {
   const files = listModuleTree();
-  assert.equal(files.length, 14);
-  assert.equal(files.filter((path) => path.endsWith(".spec.ts")).length, 1);
-  assert.equal(files.filter((path) => !path.endsWith(".spec.ts")).length, 13);
+  assert.equal(files.length, 17);
+  assert.deepEqual(files.filter((path) => path.endsWith(".spec.ts"))
+    .map((path) => path.slice(path.lastIndexOf("/") + 1)), [
+    "plan-catalog.logic.spec.ts",
+    "saas-modules.property-dependency.spec.ts",
+    "standard-module-pagination.logic.spec.ts"
+  ]);
+  assert.equal(files.filter((path) => !path.endsWith(".spec.ts")).length, 14);
 });
 
 test("input freeze is deterministic and includes execution authority", () => {

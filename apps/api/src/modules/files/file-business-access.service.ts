@@ -6,6 +6,7 @@ import {
 } from "@jinhu/shared";
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { DataScopeService } from "../data-scopes/data-scope.service";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
 import type { FileEntity } from "./entities/file.entity";
 
@@ -17,13 +18,19 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "housing_repair",
   "housing_purchase",
   "homestay_turnover",
+  "floorplan",
   "party_identity_evidence"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
+type RuleBasedPropertyBusinessFileType = Exclude<
+  PropertyBusinessFileType,
+  "floorplan" | "party_identity_evidence"
+>;
 type AccessAction = "upload" | "read" | "download" | "delete";
+type FloorAccessAction = "read" | "write";
 
-const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evidence">, {
+const ACCESS_RULES: Record<RuleBasedPropertyBusinessFileType, {
   readPermissions: readonly string[];
   writePermissions: readonly string[];
   referenceTable: string;
@@ -39,6 +46,7 @@ const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evi
   housing_handover: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -47,6 +55,7 @@ const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evi
   housing_handover_move_in: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -55,6 +64,7 @@ const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evi
   housing_handover_move_out: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_HANDOVER_READ,
       SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE],
@@ -63,6 +73,7 @@ const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evi
   housing_repair: {
     readPermissions: [
       SYSTEM_PERMISSIONS.HOUSING_LEASE_READ,
+      SYSTEM_PERMISSIONS.HOUSING_REPAIR_READ,
       SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE
     ],
     writePermissions: [SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE],
@@ -87,7 +98,8 @@ const ACCESS_RULES: Record<Exclude<PropertyBusinessFileType, "party_identity_evi
 export class FileBusinessAccessService {
   constructor(
     private readonly dataSource: DataSource,
-    private readonly unitAccessService: PropertyUnitAccessService
+    private readonly unitAccessService: PropertyUnitAccessService,
+    private readonly dataScopeService: DataScopeService
   ) {}
 
   isProtectedBizType(value: string): value is PropertyBusinessFileType {
@@ -104,6 +116,13 @@ export class FileBusinessAccessService {
     protectedFileId?: string
   ): Promise<void> {
     if (!this.isProtectedBizType(bizType)) return;
+    if (bizType === "floorplan") {
+      const floorAction: FloorAccessAction = action === "upload" || action === "delete"
+        ? "write"
+        : "read";
+      await this.assertFloorReferenceAccess(scope, actor, bizId, floorAction);
+      return;
+    }
     if (bizType === "party_identity_evidence") {
       await this.assertIdentityEvidenceAccess(
         scope,
@@ -233,14 +252,91 @@ export class FileBusinessAccessService {
         break;
     }
     if (!sql) return;
+    const parameters = file.bizType === "housing_repair"
+      ? [file.id, scope.tenantId, scope.parkId]
+      : [file.id, scope.tenantId, scope.parkId, file.bizId];
     const references = await manager.query(
       `${sql} LIMIT 1`,
-      [file.id, scope.tenantId, scope.parkId, file.bizId]
+      parameters
     ) as Array<{ "?column?": number }>;
     if (references.length > 0) {
       throw new ConflictException(
         "Referenced business evidence cannot be deleted; detach or reverse it through the owning workflow"
       );
+    }
+  }
+
+  async detachReferencesOnDelete(
+    scope: TenantParkScope,
+    file: FileEntity,
+    actor: JwtPrincipal,
+    manager: EntityManager = this.dataSource.manager
+  ): Promise<void> {
+    if (file.bizType !== "floorplan" || !file.bizId) return;
+    await this.assertFloorReferenceAccess(scope, actor, file.bizId, "write", manager);
+    await manager.query(
+      `UPDATE biz_floor
+       SET layout_file_id = NULL,
+           layout_url = NULL,
+           update_by = $1,
+           update_time = now(),
+           version = version + 1
+       WHERE tenant_id = $2
+         AND park_id = $3
+         AND id = $4::uuid
+         AND layout_file_id = $5::uuid
+         AND is_deleted = false`,
+      [actor.sub, scope.tenantId, scope.parkId, file.bizId, file.id]
+    );
+  }
+
+  private async assertFloorReferenceAccess(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    floorId: string | null | undefined,
+    action: FloorAccessAction,
+    manager: EntityManager = this.dataSource.manager
+  ): Promise<void> {
+    const permission = action === "write"
+      ? SYSTEM_PERMISSIONS.FLOOR_UPLOAD_LAYOUT
+      : SYSTEM_PERMISSIONS.FLOOR_READ;
+    if (!this.hasPermission(actor, permission)) {
+      throw new ForbiddenException(`${permission} permission is required`);
+    }
+    if (!floorId) {
+      throw new ForbiddenException("Floorplan files require a valid floor reference");
+    }
+    const rows = await manager.query(
+      `SELECT id, park_id, building_id
+       FROM biz_floor
+       WHERE id = $1::uuid
+         AND tenant_id = $2
+         AND park_id = $3
+         AND is_deleted = false
+       LIMIT 1`,
+      [floorId, scope.tenantId, scope.parkId]
+    ) as Array<{ id: string; park_id: string; building_id: string }>;
+    const floor = rows[0];
+    if (!floor) {
+      throw new ForbiddenException("Floorplan reference is outside the current tenant or park");
+    }
+    if (actor.isSuper || actor.permissions.includes("*")) return;
+    const filters = await Promise.all([
+      this.dataScopeService.buildScopeFilter(actor, "park"),
+      this.dataScopeService.buildScopeFilter(actor, "building"),
+      this.dataScopeService.buildScopeFilter(actor, "floor")
+    ]);
+    const values = {
+      park: floor.park_id,
+      building: floor.building_id,
+      floor: floor.id
+    } as const;
+    for (const filter of filters) {
+      if (filter.unrestricted) continue;
+      const value = values[filter.dimension as keyof typeof values];
+      if (value && !filter.allowed_ids.includes(value)) {
+        throw new ForbiddenException("Floor is outside current data scope");
+      }
     }
   }
 

@@ -32,7 +32,7 @@ import { cleanupExactLifecycle } from "./track-b2a-c4-runtime-lifecycle.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 const apiRoot = resolve(root, "apps/api");
 const researchRoot = resolve(root,
-  ".trellis/tasks/07-30-pr192-b-domain-integrations/research");
+  ".trellis/tasks/archive/2026-08/07-30-pr192-b-domain-integrations/research");
 const runnerPath = fileURLToPath(import.meta.url);
 const staticSpecPath = resolve(root,
   "scripts/e2e/property-remediation/track-b-module-core-gate.spec.mjs");
@@ -45,9 +45,9 @@ const runtimeFreezePath = resolve(root,
 const contractLocatorPath = resolve(root,
   ".trellis/tasks/07-30-pr192-property-productization-remediation/research/b0-contract-freeze-current.md");
 const contractFinalGatePath = resolve(root,
-  ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/b2a-c1-5-final-gate.md");
+  ".trellis/tasks/archive/2026-08/07-30-pr192-b-approval-runtime-tasks/research/b2a-c1-5-final-gate.md");
 const schemaHandoffPath = resolve(root,
-  ".trellis/tasks/07-30-pr192-b-approval-runtime-tasks/research/ar1-schema-handoff-final.json");
+  ".trellis/tasks/archive/2026-08/07-30-pr192-b-approval-runtime-tasks/research/ar1-schema-handoff-final.json");
 const parentImplementPath = resolve(root,
   ".trellis/tasks/07-30-pr192-property-productization-remediation/implement.md");
 const parentReviewGatesPath = resolve(root,
@@ -78,7 +78,7 @@ export const AUTHORITY_SIDECARS = Object.freeze({
   schema_handoff: [schemaHandoffPath,
     "24c29bc464c31962ac3012a23841beecba10f18e4cf4191b05d7adc367c3ec1d"],
   stopship_implementation_record: [parentImplementPath,
-    "9fa03904f4b12c562a24991154f7a28d601151e0df432d00657518e100f31058"],
+    "60715fcf8a5dec58bde0e4ecda0f585c1437dfc2765895aace269b954ed342d5"],
   stopship_independent_review_record: [parentReviewGatesPath,
     "7f3bf48bde42266641dc9f8c2c1ac3f4afb47524b62a43d62d29d3d0b4bcae09"]
 });
@@ -90,7 +90,7 @@ export const MODULE_MIGRATIONS = Object.freeze([
   ["000187_property_b_event_notification_schema.sql", "85dbd8235a538ed243a613ae9a12d6bddaba34f88687296c1ad02d3df9504c20"],
   ["000188_property_b_task_runtime_schema.sql", "e0b659d9d5c35eec67cfa029240538626492736e4f450f2b47acb40e25dc4e08"],
   ["000189_property_b_module_rbac_definitions.sql", FIXED_AUTHORITIES.migration_000189],
-  ["000190_property_b_migration_compatibility_control.sql", "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"]
+  ["000200_property_b_migration_compatibility_control.sql", "da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a"]
 ]);
 
 const fixtureLabel = "pr192-b-module-core-gate";
@@ -154,8 +154,14 @@ export function listModuleTree() {
     Buffer.from(posixRelative(left)).compare(Buffer.from(posixRelative(right))));
   const production = files.filter((path) => !path.endsWith(".spec.ts"));
   const targeted = files.filter((path) => path.endsWith(".spec.ts"));
-  if (files.length !== 14 || production.length !== 13 || targeted.length !== 1
-    || !targeted[0]?.endsWith("saas-modules.property-dependency.spec.ts")) {
+  const expectedSpecs = [
+    "plan-catalog.logic.spec.ts",
+    "saas-modules.property-dependency.spec.ts",
+    "standard-module-pagination.logic.spec.ts"
+  ];
+  if (files.length !== 17 || production.length !== 14 || targeted.length !== 3
+    || targeted.map((path) => path.slice(moduleTreeRoot.length + 1)).join("\0")
+      !== expectedSpecs.join("\0")) {
     throw new Error(
       `module-core exact tree mismatch:total=${files.length}:production=${production.length}:spec=${targeted.length}`
     );
@@ -662,7 +668,7 @@ export async function runFormalGate(environment = process.env) {
     candidate_admissible: !primaryError,
     final_grammar_or_signoff_generated: false,
     fixed_authorities: FIXED_AUTHORITIES,
-    module_tree: { total: 14, production: 13, targeted_spec: 1 },
+    module_tree: { total: 17, production: 14, targeted_spec: 3 },
     input_freeze_before_container: freezeBefore,
     input_freeze_after_local: freezeAfterLocal,
     input_freeze_after_pg: freezeAfterPg,

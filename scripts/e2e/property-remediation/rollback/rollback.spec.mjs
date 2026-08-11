@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { symlinkSync, realpathSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
@@ -14,13 +15,13 @@ import { compareDurableSnapshots } from "./comparator.mjs";
 import { assertNoSensitiveData, canonicalSha256, durableTableNames, loadProfile, makeDurableSnapshot, repoRoot, sha256 } from "./lib.mjs";
 import { validatePatchMetadata } from "./patch-validator.mjs";
 import { assertCommandOutputSafe, deriveExpectedTree, makeRtoRpoDiagnostic, parseOptions, runGitWithFrozenPatch } from "./runner.mjs";
-import { databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
+import { assertUniqueAuthorityPorts, databaseUrlForName, resourceAuthority, validateCleanupResult } from "./runtime-control.mjs";
 import { proveBuildFlags } from "./flags-proof.mjs";
 import { cleanDeclaredBuildOutput } from "./build-output.mjs";
 import { enumerateAuthorityProcesses, initializeRuntimeLease, readBoundRuntimeLease, terminateAuthorityProcesses, writeRuntimeLeaseAtomic } from "./runtime-lease.mjs";
 import { anchorPasses, assertBaselineSemanticAnchors, captureImmutableTestFiles, evaluateRollbackSemanticContract, immutableSyntheticAnchorId, readSemanticFilesFromGitTree } from "./semantic-contract.mjs";
 import { checkConfig } from "./check-config.mjs";
-import { assertServiceProcessRunning, combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment, waitReady } from "./service-smoke.mjs";
+import { appendServiceDiagnostic, assertServiceProcessRunning, combineServiceSmokeErrors, formatServiceSmokeFailure, runServiceSmokeStep, serviceAuthorityEnvironment, waitReady } from "./service-smoke.mjs";
 
 const FINAL_SHA = "1234567890abcdef1234567890abcdef12345678";
 const RUN_ID = "rollback-20260805T180000Z-1234567890ab";
@@ -175,10 +176,11 @@ test("secret scanner catches bearer, JWT, raw provider token and credential argv
 
 test("Next build output permits only exact frozen public documentation URLs", () => {
   const docs = "https://nextjs.org/docs/app/api-reference/config/eslint";
+  const docsMigration = "https://nextjs.org/docs/app/api-reference/config/eslint#migrating-existing-config";
   const outputCaveats = "https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats";
   const telemetry = "https://nextjs.org/telemetry";
   for (const id of ["baseline-web-clean-production-build", "web-clean-production-build"]) {
-    const result = { stdout: `docs ${docs}.\r\noutput ${outputCaveats}\ntelemetry (${telemetry}),\ncolored \u001b[36m${docs}\u001b[0m\n`, stderr: "" };
+    const result = { stdout: `docs ${docs}.\r\nmigration ${docsMigration}\noutput ${outputCaveats}\ntelemetry (${telemetry}),\ncolored \u001b[36m${docs}\u001b[0m\n`, stderr: "" };
     assert.equal(assertCommandOutputSafe(result, id), result);
   }
   for (const value of [
@@ -186,6 +188,7 @@ test("Next build output permits only exact frozen public documentation URLs", ()
     "https://user@nextjs.org/docs/app/api-reference/config/eslint", "https://nextjs.org:443/docs/app/api-reference/config/eslint",
     "https://nextjs.org.evil/docs/app/api-reference/config/eslint", "https://docs.nextjs.org/app/api-reference/config/eslint",
     "https://nextjs.org/docs/app/api-reference/config/unknown", "postgresql://user:password@example.invalid/database",
+    `${docsMigration}?token=value`, `${docsMigration}/`, `${docsMigration}-suffix`,
     `${outputCaveats}?token=value`, `${outputCaveats}/`, "http://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats",
     "https://user@nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats",
     "https://nextjs.org:443/docs/app/api-reference/config/next-config-js/output#caveats",
@@ -297,8 +300,15 @@ test("service readiness retries transient Web startup failures within a fixed bu
 });
 
 test("service readiness fails immediately when a child exits before listening", async () => {
-  const exited = { role: "web", spawnError: null, exited: true, exitCode: 1, signal: null };
-  assert.throws(() => assertServiceProcessRunning(exited), /web service process exited before readiness \(exit code 1\)/u);
+  const exited = { role: "web", spawnError: null, exited: true, exitCode: 1, signal: null, stderrTail: "" };
+  appendServiceDiagnostic(exited, "next startup failed safely\n");
+  assert.throws(() => assertServiceProcessRunning(exited), /web service process exited before readiness \(exit code 1\); web stderr tail: next startup failed safely/u);
+  appendServiceDiagnostic(exited, `prefix-${"x".repeat(9 * 1024)}-tail`);
+  assert.equal(Buffer.byteLength(exited.stderrTail, "utf8") <= 8 * 1024, true);
+  assert.match(exited.stderrTail, /-tail$/u);
+  assert.doesNotMatch(exited.stderrTail, /prefix-/u);
+  const safeDiagnostic = formatServiceSmokeFailure(new Error(`service smoke web-login-page failed: ${exited.stderrTail}`));
+  assert.doesNotThrow(() => assertNoSensitiveData(safeDiagnostic));
   let requests = 0;
   await assert.rejects(waitReady("http://127.0.0.1:50000/login", null, undefined, {
     attempts: 3,
@@ -518,6 +528,26 @@ test("baseline and rollback shared/API build specs delete stale dist JavaScript 
     const { profile } = loadProfile(); const specs = buildCommandSpecs(profile, profile.cases[0]); const apiBuild = specs.find(({ id }) => id === "api-build"); const sharedBuild = specs.find(({ id }) => id === "shared-build");
     assert.equal(apiBuild.cleanPath, "apps/api/dist"); assert.equal(sharedBuild.cleanPath, "packages/shared/dist"); cleanDeclaredBuildOutput(temp, sharedBuild); cleanDeclaredBuildOutput(temp, apiBuild); assert.equal(existsSync(staleApi), false); assert.equal(existsSync(staleShared), false);
   } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test("runtime authority allocates service listeners outside the default Linux ephemeral range", () => {
+  const authority = resourceAuthority({
+    runId: "rollback-20260805T010000Z-abcdef123456",
+    finalSha: FINAL_SHA,
+    caseId: "homestay-dashboard",
+    runRoot: "/tmp/rollback-authority-port-contract",
+    executionNonce: "c".repeat(64),
+    commandSpecSha256: sha256("spec")
+  });
+  assert.ok(authority.apiPort >= 20_000 && authority.apiPort < 25_000);
+  assert.ok(authority.webPort >= 25_000 && authority.webPort < 30_000);
+  assert.throws(
+    () => assertUniqueAuthorityPorts({
+      first: authority,
+      second: { ...authority, apiPort: authority.apiPort, webPort: authority.webPort + 1 }
+    }),
+    /rollback authority port collision/u
+  );
 });
 
 test("runtime authority cleanup reaches residual zero at API spawn, Web spawn, and manifest-update interruption points", async () => {

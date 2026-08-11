@@ -149,7 +149,7 @@ function mutation(
     approvalPolicy: highRisk
       ? {
           requirement: "required",
-          enforcement: "blocked-until-track-b",
+          enforcement: "available",
           policyId: options.highRiskPolicyId
         }
       : NO_APPROVAL,
@@ -302,7 +302,10 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
       read(
         "homestay.bookings.guest-candidates",
         "/homestay/guest-candidates",
-        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
+        {
+          requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE]
+        }
       ),
       mutation("homestay.bookings.create", "POST", "/homestay/bookings", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CREATE),
       mutation("homestay.bookings.confirm", "POST", "/homestay/bookings/:id/confirm", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_CONFIRM, {
@@ -699,7 +702,8 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
           requiredPermissions: ["energy_meter:read"],
           anyPermissions: [
             PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_CREATE,
-            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_MANAGE,
+            PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_GENERATE
           ]
         }
       ),
@@ -1032,21 +1036,21 @@ export function validatePropertyAccessManifest(
       } else if (
         action.approvalPolicy.requirement === "required"
         && (
-          action.approvalPolicy.enforcement !== "blocked-until-track-b"
+          action.approvalPolicy.enforcement !== "available"
           || !action.approvalPolicy.policyId
         )
       ) {
-        issues.push(`Approval-required action is not fail-closed for Track B: ${action.actionId}`);
+        issues.push(`Approval-required action is not available through Track B: ${action.actionId}`);
       }
       if (
         action.highRisk
         && (
           action.approvalPolicy.requirement !== "required"
-          || action.approvalPolicy.enforcement !== "blocked-until-track-b"
+          || action.approvalPolicy.enforcement !== "available"
           || !action.approvalPolicy.policyId
         )
       ) {
-        issues.push(`High-risk action is not fail-closed for Track B: ${action.actionId}`);
+        issues.push(`High-risk action is not routed through Track B: ${action.actionId}`);
       }
       if (
         action.approvalPolicy?.requirement === "required"

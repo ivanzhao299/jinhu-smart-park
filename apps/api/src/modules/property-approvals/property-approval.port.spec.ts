@@ -232,7 +232,6 @@ function serviceForCreatedPath(
     incidentActorIds: [checkerId],
     sourceScopes: [{ sourceType: "property-unit", sourceId }]
   };
-  const payload = command().canonicalPayload;
   const effectBase = {
     effectKind: "property.mode.transition",
     effectOrdinal: 0,
@@ -246,7 +245,7 @@ function serviceForCreatedPath(
   const service = new PropertyApprovalService(
     repository as never,
     {
-      resolve: async () => ({
+      resolve: async (input) => ({
         policyId: "40000000-0000-4000-8000-000000000001",
         policyVersion: 1,
         policyHash: "a".repeat(64),
@@ -266,7 +265,7 @@ function serviceForCreatedPath(
         }],
         effects: [{
           ...effectBase,
-          invariantHash: canonicalEffectInvariantHash(effectBase, payload)
+          invariantHash: canonicalEffectInvariantHash(effectBase, input.canonicalPayload)
         }]
       })
     },
@@ -854,6 +853,31 @@ test("terminal source-version monotonicity runs before insert and allows only a 
     { transactionContext: higher.manager }, command({ sourceExpectedVersion: 3 })
   )).disposition, "created");
   assert.deepEqual(higher.trace.slice(0, 2), ["find-latest-terminal", "insert-request"]);
+});
+
+test("rejected and withdrawn terminals allow a separately keyed same-version retry", async () => {
+  for (const decisionStatus of ["rejected", "withdrawn"] as const) {
+    const fixture = serviceForCreatedPath({
+      sourceExpectedVersion: 1,
+      decisionStatus,
+      executionStatus: "not_required"
+    });
+    const retryCommand = command({
+      clientKey: `approval-retry-${decisionStatus}`,
+      canonicalPayload: { unitId: sourceId, corrected: true }
+    });
+    const created = await fixture.service.createPendingRequest(
+      { transactionContext: fixture.manager }, retryCommand
+    );
+    assert.equal(created.disposition, "created");
+    assert.match(created.request.businessIntentKey, /^approval-retry:[0-9a-f]{64}$/);
+
+    const replay = await fixture.service.createPendingRequest(
+      { transactionContext: fixture.manager }, retryCommand
+    );
+    assert.equal(replay.disposition, "replayed-client-key");
+    assert.equal(replay.request.requestId, created.request.requestId);
+  }
 });
 
 test("port version and byte-length boundaries are exact", async () => {

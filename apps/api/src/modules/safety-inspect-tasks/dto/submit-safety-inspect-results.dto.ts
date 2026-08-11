@@ -12,11 +12,11 @@ export class SubmitSafetyInspectResultItemDto {
   @IsOptional()
   @IsString()
   @MaxLength(2000)
-  value_text?: string;
+  value_text?: string | null;
 
   @IsOptional()
   @IsNumber()
-  value_number?: number;
+  value_number?: number | null;
 
   @IsOptional()
   @IsArray()

@@ -18,6 +18,8 @@ export type PropertyNotificationType =
   | "identity-verification-assigned"
   | "homestay-approval-stage-assigned"
   | "housing-approval-stage-assigned"
+  | "homestay-approval-executed"
+  | "housing-approval-executed"
   | "homestay-task-assigned"
   | "housing-task-assigned"
   | "property-event-delivery-incident"

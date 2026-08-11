@@ -14,6 +14,7 @@ import type { DataSource, EntityManager, Repository } from "typeorm";
 import { In } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
+import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
@@ -32,6 +33,7 @@ import {
   TENANT_BRAND_LOGO_BIZ_TYPE,
   type UploadedFilePayload
 } from "../files/files.service";
+import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
@@ -44,7 +46,6 @@ import {
   type TenantBrandingView
 } from "./tenant-branding";
 
-const DEFAULT_SOURCE_SCOPE: TenantParkScope = { tenantId: "10000001", parkId: "20000001" };
 const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
 
@@ -124,7 +125,7 @@ export class TenantsService {
     });
     const tenant =
       tenants.find((item) => tenantMatchesBrandingHost(host ?? "", item.domains, item.websites)) ??
-      tenants.find((item) => item.tenantId === DEFAULT_SOURCE_SCOPE.tenantId) ??
+      tenants.find((item) => item.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId) ??
       tenants.find((item) => item.tenantCode === DEFAULT_TENANT_CODE) ??
       tenants[0];
     return normalizeTenantBranding(tenant?.featureConfig?.branding);
@@ -162,11 +163,16 @@ export class TenantsService {
     return branding;
   }
 
-  uploadBrandLogo(scope: TenantParkScope, actorId: string, file?: UploadedFilePayload) {
+  uploadBrandLogo(
+    scope: TenantParkScope,
+    actorId: string,
+    file?: UploadedFilePayload,
+    metadata: MultipartFileMetadataDto = {}
+  ) {
     return this.filesService.upload(
       scope,
       actorId,
-      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE },
+      { biz_type: TENANT_BRAND_LOGO_BIZ_TYPE, ...metadata },
       file
     );
   }
@@ -729,7 +735,7 @@ export class TenantsService {
     if (scopedCount > 0) {
       return scope;
     }
-    return DEFAULT_SOURCE_SCOPE;
+    return DEFAULT_PLATFORM_SCOPE;
   }
 
   private async applyTenantAdminPermissions(
@@ -806,6 +812,8 @@ export class TenantsService {
         const code = permission.code;
         if (modules.has("system") && this.isSystemFoundationPermission(code)) return true;
         if (modules.has("asset") && this.isAssetPermission(code)) return true;
+        if (modules.has("homestay") && (code === "homestay" || code.startsWith("homestay:"))) return true;
+        if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing:"))) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
@@ -910,13 +918,15 @@ export class TenantsService {
     if (scopedPlan) {
       return scopedPlan;
     }
-    const globalPlan = await planRepository
-      .createQueryBuilder("plan")
-      .where("plan.planCode = :planCode", { planCode })
-      .andWhere("plan.status = :status", { status: "enabled" })
-      .andWhere("plan.isDeleted = false")
-      .orderBy("plan.createTime", "ASC")
-      .getOne();
+    const globalPlan = await planRepository.findOne({
+      where: {
+        tenantId: DEFAULT_PLATFORM_SCOPE.tenantId,
+        parkId: DEFAULT_PLATFORM_SCOPE.parkId,
+        planCode,
+        status: "enabled",
+        isDeleted: false
+      }
+    });
     if (!globalPlan) {
       throw new NotFoundException("Plan not found");
     }

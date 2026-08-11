@@ -60,9 +60,6 @@ export class PartiesService {
     actor: JwtPrincipal,
     housingUnitIds: string[] | null = null
   ): Promise<PartyListResponse> {
-    if (housingUnitIds !== null && !housingUnitIds.length) {
-      return { items: [], total: 0, page: query.page, page_size: query.page_size };
-    }
     return this.listWithProjection(scope, query, actor, false, housingUnitIds);
   }
 
@@ -79,7 +76,7 @@ export class PartiesService {
       .andWhere("party.is_deleted = false");
     if (query.party_type) builder.andWhere("party.party_type = :partyType", { partyType: query.party_type });
     if (housingUnitIds !== null) {
-      builder.andWhere(
+      const scopedLeasePredicate = housingUnitIds.length > 0 ?
         `EXISTS (
           SELECT 1
           FROM biz_housing_lease scoped_lease
@@ -110,8 +107,33 @@ export class PartiesService {
                   AND scoped_occupant.is_deleted = false
               )
             )
+        )` : "false";
+      builder.andWhere(
+        `(
+          (
+            party.source_domain = 'housing_rental'
+            AND party.create_by = :housingActorId
+            AND NOT EXISTS (
+              SELECT 1 FROM biz_housing_lease any_housing_lease
+              WHERE any_housing_lease.tenant_id = party.tenant_id
+                AND any_housing_lease.park_id = party.park_id
+                AND any_housing_lease.is_deleted = false
+                AND (
+                  any_housing_lease.tenant_party_id = party.id
+                  OR EXISTS (
+                    SELECT 1 FROM rel_housing_lease_occupant any_housing_occupant
+                    WHERE any_housing_occupant.tenant_id = any_housing_lease.tenant_id
+                      AND any_housing_occupant.park_id = any_housing_lease.park_id
+                      AND any_housing_occupant.lease_id = any_housing_lease.id
+                      AND any_housing_occupant.party_id = party.id
+                      AND any_housing_occupant.is_deleted = false
+                  )
+                )
+            )
+          )
+          OR ${scopedLeasePredicate}
         )`,
-        { housingUnitIds }
+        { housingActorId: actor.sub, ...(housingUnitIds.length ? { housingUnitIds } : {}) }
       );
     }
     if (query.keyword) {

@@ -56,7 +56,7 @@ function internals(service = createService()): UsersServiceInternals {
   return service as unknown as UsersServiceInternals;
 }
 
-function enabledModule(moduleCode: "homestay" | "housing_rental", enabled = true): EnabledModuleContext {
+function enabledModule(moduleCode: string, enabled = true): EnabledModuleContext {
   return {
     module_code: moduleCode,
     module_name: moduleCode,
@@ -131,7 +131,7 @@ test("property menu projection accepts only explicit page permissions and remove
       PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ
     ],
-    [enabledModule("homestay"), enabledModule("housing_rental")]
+    [enabledModule("homestay"), enabledModule("housing_rental"), enabledModule("asset")]
   );
 
   assert.deepEqual(
@@ -151,7 +151,7 @@ test("property menu projection accepts only explicit page permissions and remove
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_OPERATIONS_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ
     ],
-    [enabledModule("homestay"), enabledModule("housing_rental")]
+    [enabledModule("homestay"), enabledModule("housing_rental"), enabledModule("asset")]
   );
   assert.deepEqual(propertyChildren(legacyAndActionOnly), []);
 });
@@ -161,7 +161,7 @@ test("wildcard projects all 17 canonical pages but never bypasses current park m
   const bothModules = service.buildPermissionMenuTree(
     [],
     ["*"],
-    [enabledModule("homestay"), enabledModule("housing_rental")]
+    [enabledModule("homestay"), enabledModule("housing_rental"), enabledModule("asset")]
   );
   assert.equal(propertyChildren(bothModules).length, 17);
   assert.deepEqual(
@@ -172,7 +172,7 @@ test("wildcard projects all 17 canonical pages but never bypasses current park m
   const homestayOnly = service.buildPermissionMenuTree(
     [],
     ["*"],
-    [enabledModule("homestay"), enabledModule("housing_rental", false)]
+    [enabledModule("homestay"), enabledModule("housing_rental", false), enabledModule("asset")]
   );
   assert.equal(propertyChildren(homestayOnly, "homestay").length, 8);
   assert.equal(propertyChildren(homestayOnly, "housing_rental").length, 0);
@@ -189,7 +189,7 @@ test("seeded property metadata is preferred and any route, type, module, or dupl
       service.buildPermissionMenuTree(
         definitions,
         [surface.pageCode],
-        [enabledModule("homestay")]
+        [enabledModule("homestay"), enabledModule("asset")]
       )
     );
 
@@ -320,7 +320,7 @@ test("current user context resolves enabled modules for the current park before 
     saasModulesService: {
       listEnabledModulesForTenant: async (tenantId: string, parkId: string) => {
         moduleCalls.push([tenantId, parkId]);
-        return [enabledModule("homestay")];
+        return [enabledModule("homestay"), enabledModule("asset")];
       }
     }
   });

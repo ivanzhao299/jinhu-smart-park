@@ -397,7 +397,7 @@ const exactChain = [
   "000187_property_b_event_notification_schema.sql",
   "000188_property_b_task_runtime_schema.sql",
   "000189_property_b_module_rbac_definitions.sql",
-  "000190_property_b_migration_compatibility_control.sql",
+  "000200_property_b_migration_compatibility_control.sql",
   "000193_property_b_runtime_integrity_forward_fix.sql",
   migration194
 ];
@@ -2386,7 +2386,7 @@ try {
     watchdogInjectionGate();
   start();
   bootstrap();
-  migration190Before=migrationFileAndHistoryEvidence("000190_property_b_migration_compatibility_control.sql");
+  migration190Before=migrationFileAndHistoryEvidence("000200_property_b_migration_compatibility_control.sql");
   assertEqual(migration190Before.file_sha256,"da633165db9a031d2a981a2d20f26a2fd78920b91be7722044b06bc9a7385c3a",
     "000190 signed raw sha before 000194");
   for(const store of ["primary","standard"]){const rows=migration190Before.history[store];
@@ -2427,7 +2427,7 @@ try {
   securityControls = securityControlEvidence();
   databaseEnvironment = databaseEnvironmentEvidence();
   fixture = fixtureEvidence();
-  const migration190After=migrationFileAndHistoryEvidence("000190_property_b_migration_compatibility_control.sql");
+  const migration190After=migrationFileAndHistoryEvidence("000200_property_b_migration_compatibility_control.sql");
   if(JSON.stringify(migration190After)!==JSON.stringify(migration190Before))
     throw new Error(`000190 file/history changed across 000194: ${JSON.stringify({migration190Before,migration190After})}`);
   migration190={before:migration190Before,after:migration190After,expected_raw_sha256:

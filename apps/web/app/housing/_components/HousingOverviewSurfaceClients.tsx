@@ -101,16 +101,24 @@ function DashboardShortcuts() {
 
 export function HousingTasksClient() {
   type Item = HousingTaskListResponse["items"][number];
+  const user = useAuthUser();
   return <HousingCollectionPage<Item>
     description="聚合租约、交割、账单、报修与采购待办；任务状态不替代领域状态。"
     detailHref={(item) => {
-      const paths: Record<string, Route> = {
-        housing_lease: "/housing/leases", housing_handover: "/housing/handovers",
-        housing_repair: "/housing/repairs", housing_purchase: "/housing/purchases"
+      const destinations: Record<string, { feature: string; action: string; path: Route; detail: boolean }> = {
+        housing_lease: { feature: "housing.leases", action: "housing.leases.list", path: "/housing/leases", detail: true },
+        housing_handover: { feature: "housing.handovers", action: "housing.handovers.list", path: "/housing/handovers", detail: true },
+        housing_repair: { feature: "housing.repairs", action: "housing.repairs.list", path: "/housing/repairs", detail: true },
+        housing_purchase: { feature: "housing.purchases", action: "housing.purchases.list", path: "/housing/purchases", detail: true },
+        housing_billing: { feature: "housing.billing", action: "housing.billing.list", path: "/housing/billing", detail: false }
       };
-      const path = paths[item.sourceType];
-      if (!path) return detailUrlObject("/housing/billing");
-      return detailUrlObject(`${path}/${encodeURIComponent(item.sourceId)}`);
+      const destination = destinations[item.sourceType];
+      if (!destination) return null;
+      const capability = projectPropertyCapabilities(user, destination.feature);
+      if (!capability.pageAllowed || !capability.actionAllowed(destination.action)) return null;
+      return detailUrlObject(destination.detail
+        ? `${destination.path}/${encodeURIComponent(item.sourceId)}`
+        : destination.path);
     }}
     endpoint="/housing/tasks" featureId="housing.tasks" route="/housing/tasks"
     fields={housingFields<Item>(

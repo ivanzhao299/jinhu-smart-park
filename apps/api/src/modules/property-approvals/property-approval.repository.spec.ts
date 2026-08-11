@@ -67,3 +67,22 @@ test("repository active and terminal source predicates exactly partition legal s
     terminalApprovedExecutionStatuses: ["executed", "execution_failed"]
   });
 });
+
+test("execution candidates exclude disabled and shadow approval scopes before applying the limit", async () => {
+  let capturedSql = "";
+  let capturedParams: unknown[] = [];
+  const repository = new PropertyApprovalRepository({
+    query: async (sql: string, params: unknown[]) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return [];
+    }
+  } as never);
+
+  await repository.listExecutionCandidates(50);
+
+  assert.match(capturedSql, /EXISTS[\s\S]+control_key = 'approval\.enforce'/u);
+  assert.match(capturedSql, /enabled = true[\s\S]+control_mode = 'enforce'/u);
+  assert.ok(capturedSql.indexOf("EXISTS") < capturedSql.indexOf("LIMIT $1"));
+  assert.deepEqual(capturedParams, [50]);
+});

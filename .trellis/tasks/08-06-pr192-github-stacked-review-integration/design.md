@@ -2,23 +2,23 @@
 
 ## 1. 决策摘要
 
-弃用“多个 stacked PR + 一个 final PR”。采用：
+采用“只读审查投影栈 + 一个 final integration PR”：
 
 ```text
-immutable snapshot / optional compare refs
-                    |
+immutable cutpoints -> sanitized review root
+                    -> Track A review PR (Draft, forbidden to merge)
+                    -> Track B review PR (Draft, forbidden to merge)
+                    -> Track C review PR (Draft, forbidden to merge)
+
 latest origin/main --merge--> dedicated integration worktree
-                    |
-              one Draft PR to main
-                    |
-       CI + release smoke + final-SHA formal gates
-                    |
-                  Ready
+                    -> PR #223 to main (the only merge source)
+                    -> review summaries + CI + release smoke + final gates
 ```
 
-原因：当前 main 无可见保护，stacked PR 会重复 CI、可能误合并；Track B 历史包含大量
-Trellis 归档噪音；retarget base 会改变 diff/review；cherry-pick/rebase 会破坏 commit-bound
-证据身份。
+审查投影不改写或替代 canonical history，只把 immutable cutpoint 之间的非 `.trellis` 代码
+差异投影为小型 Draft PR。这样既避免 Track B 的海量 Trellis 归档噪音进入 Codex 上下文，
+也不把投影分支作为生产合并源。PR #223 保持 canonical history 与 final tree，仅汇总各层
+结论并承担 main 冲突、跨层 Gate 和 CI。
 
 ## 2. Branch Contract
 
@@ -37,7 +37,18 @@ Trellis 归档噪音；retarget base 会改变 diff/review；cherry-pick/rebase 
 - compare refs 不开 PR、不作为 merge source，只用于 GitHub compare、本地 diff 和审查分派。
 - 所有 refs 只能首次创建或 fast-forward 到完全相同目标；禁止 force push。
 
-### 2.2 Integration branch
+### 2.2 Read-only review projections
+
+- `codex/pr192-review-root` -> 原 merge-base，仅作为投影栈 base，不开 PR。
+- `codex/pr192-review-a`：投影 merge-base 到 Track A cutpoint 的非 `.trellis` 差异。
+- `codex/pr192-review-b`：基于 review-a，投影 Track A 到 Track B cutpoint 的非 `.trellis` 差异。
+- `codex/pr192-review-c`：基于 review-b，投影 Track B 到 Track C final cutpoint 的非 `.trellis` 差异。
+- 如 final integration repair 仍过大，可增加 `codex/pr192-review-integration`，只投影
+  Track C final 到 PR #223 HEAD 的 PR192 集成/冲突修复；不得混入 PR224–226 或 Android 平行工作。
+- 投影提交必须写明 source range、排除规则和 canonical PR；所有 PR 保持 Draft、禁止合并、
+  禁止 auto-merge，审查结论回填 PR #223。
+
+### 2.3 Integration branch
 
 - 名称：`codex/pr192-main-integration`。
 - Base：执行时 `origin/main` 的精确 SHA，记录到任务 metadata/research。
@@ -96,13 +107,12 @@ ancestor-only”，不得写“integration SHA performance PASS”。
 ## 5. CI / PR State Machine
 
 ```text
-local preflight
-  -> push integration
-  -> Draft PR
-  -> verify
-  -> run-release-smoke
-  -> rollback/performance formal gates
-  -> independent reviews
+archive pruning + retention manifest
+  -> push integration and refresh PR #223 CI
+  -> push read-only review projection stack
+  -> request Codex on each bounded projection
+  -> summarize reviews in PR #223
+  -> verify + release-smoke + rollback confirmation
   -> confirm PR head unchanged
   -> Ready for review
 ```

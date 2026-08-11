@@ -21,3 +21,24 @@ artifacts/
 replace*.mjs
 apps/web/.next.*
 database/import-reports/
+android-app/.gradle/
+android-app/local.properties
+android-app/signing.properties
+android-app/signing/*.keystore
+android-app/signing/*.jks
+android-app/signing/*.p12
+android-app/app/build/
+
+# Trellis archive evidence policy: archived research is local by default.
+# Curated summaries, manifests, final reports, authorities and indexes may be
+# added explicitly with `git add -f`; generated/raw evidence must stay local.
+/.trellis/tasks/archive/**/research/**
+/.trellis/tasks/archive/**/formal-source-snapshot/
+/.trellis/tasks/archive/**/*.map
+/.trellis/tasks/archive/**/*.tap
+/.trellis/tasks/archive/**/*.reservation.json
+
+# Superseded PR192 B2C direct-PG evidence runs. The final v31 manifests,
+# authorities, reports and indexes remain tracked as the canonical evidence.
+/.trellis/tasks/archive/**/b2c-000197-v11-v6-direct-pg-regression-v2[2-9]-evidence-*/
+/.trellis/tasks/archive/**/b2c-000197-v11-v6-direct-pg-regression-v30-evidence-*/

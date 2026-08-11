@@ -6,14 +6,21 @@ import {
   HOMESTAY_LIST_READ_ACTIONS,
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
+  homestayRateWorkspaceKey,
+  homestayRateWindow,
+  homestaySurfaceQueryKey,
   homestayDetailHref,
+  homestayStayActionVisibility,
+  isMissingHomestayRateConfiguration,
   listPageState,
+  normalizeHomestayAvailabilityResponse,
   pageCount,
   resolveHomestayLanding,
   shouldLoadHomestayRead,
   taskDetailHref
 } from "./homestay-workbench.logic";
 import { resolveReturnHref } from "../../../features/property-shared/detail/return-context";
+import { ApiError } from "../../../lib/api-client";
 
 test("seven list categories and all detail aliases use exact read actions", () => {
   assert.deepEqual(HOMESTAY_LIST_READ_ACTIONS, {
@@ -33,6 +40,25 @@ test("seven list categories and all detail aliases use exact read actions", () =
   assert.equal(shouldLoadHomestayRead(true, false), false);
   assert.equal(shouldLoadHomestayRead(false, true), false);
   assert.equal(shouldLoadHomestayRead(true, true), true);
+});
+
+test("homestay query identity and rate window preserve backend half-open semantics", () => {
+  assert.equal(
+    homestaySurfaceQueryKey("bookings", new URLSearchParams({ page: "2", status: "confirmed" })),
+    "bookings:page=2&status=confirmed"
+  );
+  assert.deepEqual(homestayRateWindow("2026-08-08"), {
+    from: "2026-08-08",
+    to: "2026-08-22"
+  });
+});
+
+test("only the exact missing-rate 404 is treated as an unconfigured workspace", () => {
+  assert.equal(isMissingHomestayRateConfiguration(
+    new ApiError("Homestay rate configuration not found", 404)
+  ), true);
+  assert.equal(isMissingHomestayRateConfiguration(new ApiError("Unit not found", 404)), false);
+  assert.equal(isMissingHomestayRateConfiguration(new ApiError("Forbidden", 403)), false);
 });
 
 test("landing requires active modules and selects the first granular page only", () => {
@@ -146,4 +172,47 @@ test("availability always sends a strict non-empty date interval", () => {
     availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-12" }),
     { dateFrom: "2026-08-10", dateTo: "2026-08-12" }
   );
+});
+
+test("availability normalizes the legacy array response without changing v2 metadata", () => {
+  const item = { unitId: "unit-1" } as never;
+  assert.deepEqual(normalizeHomestayAvailabilityResponse([item], 1), {
+    items: [item], total: 1, page: 1, page_size: 20
+  });
+  const legacy = Array.from({ length: 41 }, (_, index) => ({ unit_id: `unit-${index + 1}` })) as never;
+  assert.deepEqual(
+    normalizeHomestayAvailabilityResponse(legacy, 2).items.map((entry) => entry.unit_id),
+    Array.from({ length: 20 }, (_, index) => `unit-${index + 21}`)
+  );
+  assert.equal(normalizeHomestayAvailabilityResponse(legacy, 2).total, 41);
+  const wrapped = { items: [item], total: 41, page: 2, page_size: 20 };
+  assert.equal(normalizeHomestayAvailabilityResponse(wrapped, 9), wrapped);
+  assert.deepEqual(normalizeHomestayAvailabilityResponse([], 1), {
+    items: [], total: 0, page: 1, page_size: 20
+  });
+});
+
+test("rate workspaces remount whenever the selected unit changes", () => {
+  assert.equal(homestayRateWorkspaceKey(null), "homestay-rate:no-unit");
+  assert.notEqual(homestayRateWorkspaceKey("unit-a"), homestayRateWorkspaceKey("unit-b"));
+  assert.equal(homestayRateWorkspaceKey("unit-a"), "homestay-rate:unit-a");
+});
+
+test("stay mutations mirror the booking lifecycle accepted by the API", () => {
+  assert.deepEqual(homestayStayActionVisibility("draft"), {
+    canAddGuest: true,
+    canIssueCredential: false
+  });
+  for (const status of ["confirmed", "checked_in"]) {
+    assert.deepEqual(homestayStayActionVisibility(status), {
+      canAddGuest: true,
+      canIssueCredential: true
+    });
+  }
+  for (const status of ["cancelled", "no_show", "checked_out"]) {
+    assert.deepEqual(homestayStayActionVisibility(status), {
+      canAddGuest: false,
+      canIssueCredential: false
+    });
+  }
 });

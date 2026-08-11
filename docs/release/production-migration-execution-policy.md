@@ -13,13 +13,26 @@
 - 当前执行方式为按文件名顺序执行未成功记录过的 SQL 文件。
 - 当前使用 `public.sys_schema_migration_history` 作为兼容主记录表，同时维护标准命名表 `public.schema_migrations`。
 - 对不能修改的历史 migration，可在 `database/migration-prerequisites/<target-migration>/`
-  放置最小前置 SQL。只要本批仍有 pending migration，runner 就按 migration 顺序检查前置项；
-  因此新补到已成功早期 migration 的 prerequisite 也会在后续 pending migration 前执行。
-  全量已完成环境仍直接 fast-skip。前置项以独立 filename/checksum/status 写入两张 history 表。
+  放置最小前置 SQL。runner 始终按 migration 顺序检查前置项；因此新补到已成功早期 migration
+  的 prerequisite 在全量 migration 已完成的环境也会执行。前置项以独立
+  filename/checksum/status 写入两张 history 表，不能被 migration-only fast-skip 绕过。
 - 两张 history 表在 bootstrap 后必须具有一致的 status/checksum；冲突立即阻断且不自动选边。
   同一状态变更在单个数据库事务内写入两表，第二表失败时第一表同步回滚。
 - 每个 migration 成功后记录 `filename`、`checksum`、`status`、开始/结束时间、执行人和批次。
-- 部署前会先生成 migration manifest；如果 manifest 中所有文件都已按相同 checksum 记录为 `succeeded`，脚本直接退出，不再逐个陪跑。
+- 部署前会先生成 migration manifest；即使 manifest 中所有文件都已按相同 checksum 记录为
+  `succeeded`，脚本仍逐项核验 prerequisite，仅跳过 checksum 匹配的 migration/prerequisite。
+- `database/migration-history-aliases.txt` 记录发布前因编号冲突发生的 migration 文件名迁移。
+  runner 在 baseline 和 SQL 执行前，仅对 checksum 完全一致的单一成功旧记录执行双表原子重签，
+  并保留 alias 审计行；旧/新身份并存、非成功状态或 checksum 漂移必须人工处理。
+- CI Release Smoke 必须覆盖旧文件名成功记录到 canonical 文件名的重签重放，并断言 canonical
+  migration 被按原 checksum 跳过。
+- 已审查且必须保持字节不变的 migration 若因实际文件顺序只在 pending/failed 环境需要修正，可在
+  `database/migration-replacements.txt` 登记 source、patch、执行结果三重 SHA-256。runner 只对未成功
+  目标生成并执行补丁结果；已按 immutable source checksum 成功的环境继续跳过，未知成功 checksum、
+  source/patch/output 任一漂移或 patch 无法精确应用都 fail closed。replacement 不能用于重跑成功 SQL。
+- runner 必须在 bootstrap history 前持有数据库级 advisory lock，避免两个发布进程并发检查、写入
+  或执行同一 migration；等待必须使用可中断的 try-lock 轮询，进程退出后不得依赖额外数据库权限
+  释放锁。CI Release Smoke 必须验证第二个迁移进程会等待该锁。
 - 如果目标库已有业务表但 migration history 为空，脚本会自动 baseline：把当前仓库所有 migration 文件标记为已成功，不执行旧 SQL，以保护已有生产数据。
 - 如果目标库为空，脚本不会 baseline，会从第一条 migration 正常初始化。
 - 当前没有自动 down migration 机制。
@@ -28,17 +41,44 @@
   - migration 负责 schema 和必要结构演进。
   - production seed 负责首发 baseline metadata 初始化。
   - migration prerequisite 只补目标 migration 的最小生产安全依赖，不替代 production seed。
-  - `000189` 的 prerequisite 只确保全局 `asset` 模块目录存在且启用；不创建租户分配、
-    plan 授权、permission/role/user 或业务数据，完整基线仍由 production seed 收敛。
+  - `000189` 的 prerequisite 先确保全局 `asset` 模块目录存在，再对 deliberate baseline 遗留的
+    `asset_park.tenant_id/park_id` UUID 列恢复 `000029` 的 `varchar(64)` 合同，且只重写两个已知默认
+    scope sentinel；随后保留已有唯一 active `asset_park`，只为真正缺失的投影解析来源。同 scope 唯一
+    active `biz_park` 优先；仅固定默认 scope 可使用全局唯一 active `park_code=JH` 的 legacy-scope 基线
+    行。它不创建租户分配、plan 授权、permission/role/user，完整基线仍由 production seed 收敛。
+  - `000193` 的 prerequisite 只前置创建该历史 migration 已断言存在、但原迁移顺序到
+    `000200` 才定义的 `biz_property_runtime_checkpoint` 表及其索引。定义与 `000200` 完全
+    兼容，不回填或写入业务数据，也不提前启用任何 runtime control。
+  - `000194` 的第一个 prerequisite 前置创建其 guard 所需、原顺序到 `000200` 才定义的
+    `sys_property_runtime_control` 表及索引，定义与 `000200` 完全兼容。第二个 prerequisite 从
+    active `asset` assignment 严格派生 scope，只插入缺失的固定 12 个 disabled controls，使 unchanged
+    `000194` 能处理 migration-before-seed 与生产已有 assignment 的顺序差异；它不 UPDATE/DELETE，遇到
+    额外 control、已有定义/状态漂移或非法 scope 继续 fail closed。若双 history 已证明 unchanged
+    `000194` 按固定 checksum 成功，则 retroactive prerequisite 只记录自身历史，不回写已 correction 的 rows。
+  - `000200` 的 prerequisite 在签署这两张前置表的 catalog 注释前，先校验 57 个表、列、
+    约束和索引对象的固定聚合 SHA-256；任何结构漂移都会 fail closed。该前置项只创建会话级
+    临时视图和 COMMENT，不改永久 schema 或业务数据。
+  - `000200` immutable source 原先只接受 expand v1，但实际 runner 会先执行 immutable `000194/000195`
+    并把控制合同推进到 v3。受审 replacement 在 000194/000195 双 history 与 correction audit 完整时
+    保留并验证 v3；在历史直跑顺序中仍建立 v1。混合阶段、定义、集合或 audit 漂移继续阻断。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 
 当前治理状态：
 
 - `scripts/db-migrate.sh` 已引入 `sys_schema_migration_history` 与 `schema_migrations` 记录表。
-- 成功执行的 migration 会跳过；无新增 migration 时会整体快速跳过。
+- 成功执行的 migration 会逐项跳过；无新增 migration 时仍逐项核验独立 prerequisite 历史。
 - `checksum` 不一致会阻断继续执行。
 - `failed` 状态允许在人工确认后修正并重试。
+- 修正 failed migration 前必须确认该文件从未在长期环境记录为 `succeeded`、SQL 事务已回滚且目标库
+  没有半执行结构；runner 会记录更新后的 checksum 并重新执行。仅新增后续 migration 不能修复一个
+  会在它之前 fail-fast 的失败文件。
+- 若失败来自历史 migration 的前置状态缺口，应优先增加带独立 history/checksum 的窄范围
+  prerequisite，保持已审查 migration 字节不变。`000189` 的 asset scope type prerequisite 只恢复
+  目标表两列的历史 scope 类型合同；后续 projection prerequisite 接受已有唯一 active `asset_park`，
+  真正缺失时优先从唯一同 scope active `biz_park` 投影。固定默认 scope 可从全局唯一 active `JH`
+  legacy-scope 行投影，但其他 scope 不做猜测；既有资产记录不会被覆盖，scope 无效、来源歧义或补齐后
+  不唯一时继续 fail closed。
 - 非空生产库首次接入 history 机制时会自动 baseline，避免历史 migration 和 seed migration 重复执行。
 - 生产发布仍然保持 forward-only，回滚仍以数据库备份为主。
 
@@ -53,6 +93,13 @@
 - 重复执行是否安全依赖 SQL 自身幂等性。
 - 回滚主要依赖数据库备份恢复。
 - seed 和 migration 边界存在混淆风险。
+- `ON CONFLICT` 目标与当前 partial unique index 漂移会在运行时产生 PostgreSQL 42P10；数据库相关 PR
+  必须通过 fresh-schema Release Smoke，并同步检查后续 join 是否使用同一业务唯一键。
+- fresh-schema migration-before-seed 可能因为 target scope 为空而让 exact-set guard vacuously pass；任何
+  从持久化 assignment 派生目标集合的 migration 都必须增加“先迁移到前一版本、再写入生产形态 assignment、
+  最后跑完整依赖尾链和 production seed”的独立 PostgreSQL fixture，并在发布副作用前运行同源只读
+  parity gate；还必须以独立空库覆盖真实 `migration -> production seed` 顺序，证明 seed 后新增 scope
+  有明确的生产安全收敛路径。不得在第一个修复目标成功后停止回放，否则后续 migration 的旧合同仍会形成假绿。
 
 当前仓库已观察到的重复编号现象：
 
@@ -215,6 +262,19 @@ POSTGRES_USER=<POSTGRES_USER> \
 POSTGRES_PASSWORD=<POSTGRES_PASSWORD> \
 pnpm db:migrate
 ```
+
+迁移文件改名后的 history alias 只允许两种自动收敛：旧身份单独存在且 checksum 精确匹配时，
+事务性重签为 canonical；或旧身份、canonical 与既有 alias 审计标记在两张 history 表中均为
+`succeeded` 且 checksum 完全一致时，事务性删除重复旧身份。后者用于恢复“新版本迁移已重签，随后
+源码回滚又运行旧清单”形成的可证明重复。缺少审计标记、状态/checksum 漂移或双表不一致一律停止。
+
+双 history 表 bootstrap 只允许“原先仅有一张表”时向本次新建的 peer 表做一次整表升级复制。如果两张表
+在 runner 启动前都已存在，禁止在一致性审计前互相补齐缺失记录；缺 legacy、canonical、alias marker
+或任意其他 history 行都必须由 FULL JOIN 原样暴露并停止。
+
+GitHub 自动源码回滚只重建旧版 API/Web 容器、执行完整健康检查和 Docker cleanup，不运行旧版
+migration 或 production seed。数据库迁移保持 forward-only；如需数据库恢复，必须使用发布前备份并
+由数据库负责人显式执行。
 
 ### 8.4 执行 production seed
 

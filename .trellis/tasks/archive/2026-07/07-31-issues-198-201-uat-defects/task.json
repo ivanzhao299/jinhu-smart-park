@@ -1,0 +1,31 @@
+{
+  "id": "issues-198-201-uat-defects",
+  "name": "issues-198-201-uat-defects",
+  "title": "Issues 198-201 UAT defects",
+  "description": "",
+  "status": "completed",
+  "dev_type": "bugfix",
+  "scope": "web",
+  "package": "web",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-07-31",
+  "completedAt": "2026-07-31",
+  "branch": "fix/issues-198-201",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-31-issue-198-floor-upload-dto",
+    "07-31-issue-199-contract-change-json",
+    "07-31-issue-200-sla-rule-selectors",
+    "07-31-issue-201-contract-unit-link"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

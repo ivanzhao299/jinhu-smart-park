@@ -1,4 +1,8 @@
-import type { UserContext } from "@jinhu/shared";
+import type {
+  HomestayAvailabilityListResponse,
+  HomestayAvailabilityResponse,
+  UserContext
+} from "@jinhu/shared";
 import type {
   PropertyCapabilityProjection,
   PropertyPageState
@@ -8,6 +12,26 @@ import {
   type StructuredReturnContext
 } from "../../../features/property-shared/detail/return-context";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
+import { ApiError } from "../../../lib/api-client";
+
+export const HOMESTAY_RATE_CONFIGURATION_MISSING = "Homestay rate configuration not found";
+
+export function isMissingHomestayRateConfiguration(error: unknown): boolean {
+  return error instanceof ApiError
+    && error.status === 404
+    && error.message === HOMESTAY_RATE_CONFIGURATION_MISSING;
+}
+
+export function homestaySurfaceQueryKey(
+  surface: string,
+  query: URLSearchParams
+): string {
+  return `${surface}:${query.toString()}`;
+}
+
+export function homestayRateWindow(from = businessDate()): { from: string; to: string } {
+  return { from, to: addBusinessDateDays(from, 14) };
+}
 
 export function availabilityQueryDates(
   input: { dateFrom?: string; dateTo?: string },
@@ -19,6 +43,21 @@ export function availabilityQueryDates(
     dateTo: input.dateTo && input.dateTo > dateFrom
       ? input.dateTo
       : addBusinessDateDays(dateFrom, 1)
+  };
+}
+
+export function normalizeHomestayAvailabilityResponse(
+  data: HomestayAvailabilityResponse | HomestayAvailabilityListResponse,
+  page: number
+): HomestayAvailabilityListResponse {
+  if (!Array.isArray(data)) return data;
+  const pageSize = 20;
+  const offset = (page - 1) * pageSize;
+  return {
+    items: data.slice(offset, offset + pageSize),
+    total: data.length,
+    page,
+    page_size: pageSize
   };
 }
 
@@ -114,4 +153,18 @@ export function taskDetailHref(sourceType: string, sourceId: string): string {
 
 export function pageCount(total: number, pageSize: number): number {
   return Math.max(1, Math.ceil(total / pageSize));
+}
+
+export function homestayRateWorkspaceKey(unitId: string | null | undefined): string {
+  return unitId ? `homestay-rate:${unitId}` : "homestay-rate:no-unit";
+}
+
+export function homestayStayActionVisibility(status: string): {
+  canAddGuest: boolean;
+  canIssueCredential: boolean;
+} {
+  return {
+    canAddGuest: ["draft", "confirmed", "checked_in"].includes(status),
+    canIssueCredential: ["confirmed", "checked_in"].includes(status)
+  };
 }

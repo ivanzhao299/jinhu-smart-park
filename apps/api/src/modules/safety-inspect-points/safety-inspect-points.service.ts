@@ -17,6 +17,7 @@ import { CreateSafetyInspectPointDto } from "./dto/create-safety-inspect-point.d
 import { SafetyInspectPointQueryDto } from "./dto/safety-inspect-point-query.dto";
 import { UpdateSafetyInspectPointDto } from "./dto/update-safety-inspect-point.dto";
 import { SafetyInspectPointEntity } from "./entities/safety-inspect-point.entity";
+import { resolveLocationUpdate } from "./location-update.logic";
 
 interface ResolvedLocation {
   buildingId: string | null;
@@ -118,12 +119,11 @@ export class SafetyInspectPointsService {
     if (nextPointCode !== entity.pointCode) {
       await this.assertPointCodeAvailable(scope, nextPointCode, entity.id);
     }
-    const location = await this.resolveLocation(
-      scope,
-      dto.building_id === undefined ? entity.buildingId ?? undefined : dto.building_id,
-      dto.floor_id === undefined ? entity.floorId ?? undefined : dto.floor_id,
-      dto.unit_id === undefined ? entity.unitId ?? undefined : dto.unit_id
+    const locationUpdate = resolveLocationUpdate(
+      { buildingId: entity.buildingId, floorId: entity.floorId, unitId: entity.unitId },
+      { buildingId: dto.building_id, floorId: dto.floor_id, unitId: dto.unit_id }
     );
+    const location = await this.resolveLocation(scope, locationUpdate.buildingId, locationUpdate.floorId, locationUpdate.unitId);
     await this.assertParkTenant(scope, dto.park_tenant_id === undefined ? entity.parkTenantId ?? undefined : dto.park_tenant_id);
     const qrCode =
       dto.qr_code !== undefined ? dto.qr_code : entity.qrCode === entity.pointCode && nextPointCode !== entity.pointCode ? nextPointCode : entity.qrCode;

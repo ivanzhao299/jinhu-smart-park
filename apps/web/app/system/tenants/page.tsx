@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
+import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -63,8 +65,8 @@ interface PlanRow {
 }
 
 const emptyTenants: PaginatedResult<TenantRow> = { items: [], page: 1, page_size: 20, total: 0 };
-const emptyPlans: PaginatedResult<PlanRow> = { items: [], page: 1, page_size: 50, total: 0 };
-const emptyModules: PaginatedResult<ModuleRow> = { items: [], page: 1, page_size: 200, total: 0 };
+const emptyPlans: PaginatedResult<PlanRow> = { items: [], page: 1, page_size: 100, total: 0 };
+const emptyModules: PaginatedResult<ModuleRow> = { items: [], page: 1, page_size: 100, total: 0 };
 
 export default function TenantsPage() {
   const [tenants, setTenants] = useState(emptyTenants);
@@ -77,21 +79,38 @@ export default function TenantsPage() {
   const [settingsTarget, setSettingsTarget] = useState<TenantRow | null>(null);
   const [settings, setSettings] = useState<TenantLoginSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [catalogReady, setCatalogReady] = useState(false);
 
   async function load(page = 1) {
+    setCatalogReady(false);
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword) params.set("keyword", keyword);
     if (status) params.set("status", status);
-    const [tenantResponse, planResponse, moduleResponse] = await Promise.all([
+    const [tenantResponse, planItems, moduleItems] = await Promise.all([
       apiRequest<PaginatedResult<TenantRow>>(`/tenants?${params.toString()}`, { token }),
-      apiRequest<PaginatedResult<PlanRow>>("/plans?page=1&page_size=50", { token }),
-      apiRequest<PaginatedResult<ModuleRow>>("/modules?page=1&page_size=200", { token })
+      collectAllCandidatePages(async (planPage, pageSize) => {
+        const response = await apiRequest<PaginatedResult<PlanRow>>(`/plans/available?page=${planPage}&page_size=${pageSize}`, { token });
+        return response.data;
+      }, (plan) => plan.planCode),
+      collectAllCandidatePages(async (modulePage, pageSize) => {
+        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}`, { token });
+        return response.data;
+      }, (module) => module.moduleCode)
     ]);
     setTenants(tenantResponse.data);
-    setPlans(planResponse.data);
-    setModules(moduleResponse.data);
+    setPlans({ items: planItems, page: 1, page_size: 100, total: planItems.length });
+    setModules({ items: moduleItems, page: 1, page_size: 100, total: moduleItems.length });
+    setCatalogReady(true);
     setMessage("");
+  }
+
+  function openCreate() {
+    if (!catalogReady) {
+      setMessage("套餐与模块候选尚未加载完成，请稍后重试");
+      return;
+    }
+    setShowCreate(true);
   }
 
   async function createTenant(event: FormEvent<HTMLFormElement>) {
@@ -116,7 +135,7 @@ export default function TenantsPage() {
         websites: splitCsv(form.get("websites")),
         domains: splitCsv(form.get("domains")),
         parkCode: String(form.get("parkCode") ?? "").trim(),
-        parkName: String(form.get("parkName") ?? "").trim(),
+        parkName: normalizeUserParkNameInput(String(form.get("parkName") ?? "")),
         adminUsername: String(form.get("adminUsername") ?? "").trim(),
         adminPassword: String(form.get("adminPassword") ?? ""),
         adminDisplayName: String(form.get("adminDisplayName") ?? "").trim(),
@@ -164,15 +183,20 @@ export default function TenantsPage() {
     const moduleCodes = modules.items
       .map((item) => item.moduleCode)
       .filter((code) => form.get(`module.${code}`) === "on");
+    const planAuthorization = changedPlanAuthorization(
+      settings.tenant.planCode,
+      settings.enabledModuleCodes,
+      emptyToNull(form.get("planCode")),
+      moduleCodes
+    );
     const response = await apiRequest<TenantLoginSettings>(`/tenants/${settings.tenant.id}/login-settings`, {
       method: "PATCH",
       token,
       body: {
         defaultParkId: emptyToNull(form.get("defaultParkId")),
         status: String(form.get("status") ?? "enabled"),
-        planCode: emptyToNull(form.get("planCode")),
         expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
-        moduleCodes
+        ...planAuthorization
       }
     });
     setSettings(response.data);
@@ -197,7 +221,7 @@ export default function TenantsPage() {
           <strong>租户管理</strong>
           <span>开通租户、绑定套餐、控制账号和园区配额</span>
         </div>
-        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.TENANT_MANAGE} type="button" onClick={() => setShowCreate(true)}>
+        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.TENANT_MANAGE} type="button" disabled={!catalogReady} onClick={openCreate}>
           <Plus size={16} />开通租户
         </PermissionButton>
       </header>
@@ -284,7 +308,7 @@ export default function TenantsPage() {
               <div className="field"><label>租户编码</label><input name="tenantCode" required /></div>
               <div className="field"><label>租户名称</label><input name="tenantName" required /></div>
               <div className="field"><label>租户类型</label><input name="tenantType" defaultValue="park_operator" /></div>
-              <div className="field"><label>套餐</label><select name="planCode" defaultValue={plans.items[0]?.planCode ?? ""}>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
+              <div className="field"><label>套餐</label><select name="planCode" defaultValue={plans.items[0]?.planCode ?? ""}><option value="">未绑定套餐</option>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
               <div className="field"><label>联系人</label><input name="contactName" /></div>
               <div className="field"><label>联系电话</label><input name="contactMobile" /></div>
               <div className="field"><label>站点</label><input name="websites" placeholder="多个用英文逗号分隔" /></div>
@@ -293,7 +317,7 @@ export default function TenantsPage() {
               <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={plans.items[0]?.maxUsers ?? 0} /></div>
               <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={plans.items[0]?.maxParks ?? 0} /></div>
               <div className="field"><label>园区编码</label><input name="parkCode" required /></div>
-              <div className="field"><label>园区名称</label><input name="parkName" required /></div>
+              <div className="field"><label>园区名称</label><input name="parkName" title="请输入包含可见文字的园区名称，例如“11号园区”" onInput={(event) => event.currentTarget.setCustomValidity(isReadableUserParkName(event.currentTarget.value) ? "" : "请输入包含可见文字的园区名称")} required /></div>
               <div className="field"><label>管理员账号</label><input name="adminUsername" required /></div>
               <div className="field"><label>管理员姓名</label><input name="adminDisplayName" required /></div>
               <div className="field"><label>初始密码</label><input name="adminPassword" type="password" minLength={8} required /></div>
@@ -343,6 +367,9 @@ export default function TenantsPage() {
                   <label>套餐</label>
                   <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
                     <option value="">未绑定套餐</option>
+                    {isRetainedCatalogValue(plans.items.map((plan) => plan.planCode), settings.tenant.planCode)
+                      ? <option value={settings.tenant.planCode}>{settings.tenant.planCode}（当前绑定，已停用）</option>
+                      : null}
                     {plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}
                   </select>
                 </div>

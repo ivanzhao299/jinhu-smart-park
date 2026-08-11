@@ -12,6 +12,7 @@ import {
 } from "@jinhu/shared";
 import { apiFormRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
+import { buildFileUploadFormData } from "./file-uploader.logic";
 import {
   createPropertyUploadQueueItem,
   executePropertyUploadAttempt,
@@ -135,11 +136,14 @@ export function FileUploader({
   }
 
   async function uploadBlob(file: Blob, fileName: string, uploadRemark: string, idempotencyKey: string): Promise<FileRecord> {
-    const form = new FormData();
-    form.set("file", file, fileName);
-    form.set("biz_type", bizType);
-    if (bizId) form.set("biz_id", bizId);
-    if (uploadRemark) form.set("remark", uploadRemark);
+    const form = buildFileUploadFormData({
+      file,
+      fileName,
+      bizType,
+      bizId,
+      remark: uploadRemark,
+      uploadPath
+    });
     const response = await apiFormRequest<FileRecord>(uploadPath, {
       method: "POST",
       token: getAccessToken(),

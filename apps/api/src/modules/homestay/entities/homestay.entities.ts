@@ -302,6 +302,9 @@ export class HomestayTurnoverTaskEntity extends AuditableEntity {
   @Column({ name: "exception_description", type: "varchar", length: 1000, nullable: true })
   exceptionDescription!: string | null;
 
+  @Column({ name: "blocked_until", type: "timestamptz", nullable: true })
+  blockedUntil!: Date | null;
+
   @Column({ name: "linked_work_order_id", type: "uuid", nullable: true })
   linkedWorkOrderId!: string | null;
 }

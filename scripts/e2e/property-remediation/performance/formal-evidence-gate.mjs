@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,8 @@ export const canonicalProfilePath = resolve(here, "profile.v1.json");
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const exactHash = (value) => /^[0-9a-f]{64}$/u.test(value ?? "");
 const exactCommit = (value) => /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(value ?? "");
+const immutableImage = (value) => /^[A-Za-z0-9][A-Za-z0-9._/:@-]*@sha256:[0-9a-f]{64}$/u.test(value ?? "");
+const identityKey = (value) => typeof value === "string" ? value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US") : "";
 
 function same(left, right) { return JSON.stringify(left) === JSON.stringify(right); }
 function finite(value) { return typeof value === "number" && Number.isFinite(value); }
@@ -25,7 +28,9 @@ function validateResources(actual, expected) {
   if (!same(actual?.limits, expected)) throw new Error("fixed resource profile mismatch");
   for (const name of Object.keys(expected)) if (!/^sha256:[0-9a-f]{64}$/u.test(actual?.imageDigests?.[name] ?? "")) throw new Error(`missing image digest: ${name}`);
   if (!actual.postgresParameters || Object.keys(actual.postgresParameters).length === 0) throw new Error("missing PostgreSQL parameters");
-  if (!exactHash(actual.seedSha256) || !exactHash(actual.environmentDigest) || !actual.businessClock) throw new Error("incomplete environment provenance");
+  if (!exactHash(actual.seedSha256) || !exactHash(actual.environmentDigest) || !actual.businessClock || Number.isNaN(Date.parse(actual.businessClock))) throw new Error("incomplete environment provenance");
+  if (actual.seedBusinessClock !== actual.businessClock) throw new Error("seed manifest business clock mismatch");
+  for (const name of Object.keys(expected)) if (actual?.businessClockBindings?.[name] !== actual.businessClock) throw new Error(`business clock binding mismatch: ${name}`);
 }
 
 function expectedKeys(profile) {
@@ -39,12 +44,18 @@ function coefficientOfVariation(values) {
   return mean === 0 ? 0 : Math.sqrt(variance) / mean;
 }
 
-export function validateFormalEvidence(evidence, profile = JSON.parse(readFileSync(canonicalProfilePath, "utf8"))) {
+export function validateFormalEvidence(evidence, profile = JSON.parse(readFileSync(canonicalProfilePath, "utf8")), observedInputs = {}) {
   const profileSha256 = validateProfile(profile);
   const errors = [];
   if (evidence?.schemaVersion !== "property-track-c-performance-evidence-v1") errors.push("schema version");
   if (evidence?.profileSha256 !== profileSha256) errors.push("profile checksum");
   if (!exactCommit(evidence?.commitSha) || !exactHash(evidence?.datasetChecksum)) errors.push("commit/dataset checksum");
+  if (evidence?.approvedInputs?.commitSha !== evidence?.commitSha || evidence?.approvedInputs?.datasetSha256 !== evidence?.datasetChecksum) errors.push("approved commit/dataset binding");
+  if (observedInputs.commitSha !== evidence?.approvedInputs?.commitSha || observedInputs.datasetSha256 !== evidence?.approvedInputs?.datasetSha256) errors.push("observed commit/dataset binding");
+  if (!immutableImage(evidence?.approvedInputs?.postgresImage) || !immutableImage(evidence?.approvedInputs?.browserImage)
+    || evidence?.environment?.imageReferences?.postgres !== evidence?.approvedInputs?.postgresImage
+    || evidence?.environment?.imageReferences?.browserWorker !== evidence?.approvedInputs?.browserImage) errors.push("approved external image binding");
+  if (!identityKey(evidence?.reviewer) || !identityKey(evidence?.executionOwner) || identityKey(evidence.reviewer) === identityKey(evidence.executionOwner)) errors.push("independent reviewer binding");
   try { validateResources(evidence?.environment, profile.resourceProfile); } catch (error) { errors.push(error.message); }
   const results = new Map((evidence?.results ?? []).map((item) => [item.key, item]));
   const keys = expectedKeys(profile);
@@ -74,14 +85,18 @@ export function validateFormalEvidence(evidence, profile = JSON.parse(readFileSy
 }
 
 function parseArgs(argv) {
-  if (argv.length !== 2 || argv[0] !== "--evidence") throw new Error("usage: formal-evidence-gate.mjs --evidence <formal-evidence.json>");
-  return argv[1];
+  if (argv.length !== 4 || argv[0] !== "--evidence" || argv[2] !== "--dataset") throw new Error("usage: formal-evidence-gate.mjs --evidence <formal-evidence.json> --dataset <approved-dataset-file>");
+  return { evidencePath: argv[1], datasetPath: argv[3] };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
-    const path = parseArgs(process.argv.slice(2));
-    const result = validateFormalEvidence(JSON.parse(readFileSync(resolve(path), "utf8")));
+    const { evidencePath, datasetPath } = parseArgs(process.argv.slice(2));
+    const observedInputs = {
+      commitSha: execFileSync("git", ["rev-parse", "HEAD"], { cwd: resolve(here, "../../../../"), encoding: "utf8" }).trim(),
+      datasetSha256: sha(readFileSync(resolve(datasetPath)))
+    };
+    const result = validateFormalEvidence(JSON.parse(readFileSync(resolve(evidencePath), "utf8")), undefined, observedInputs);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     if (result.status !== "PASS") process.exitCode = 1;
   } catch (error) {
