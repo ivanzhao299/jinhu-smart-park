@@ -3,7 +3,7 @@
   "name": "apartment-management",
   "title": "集团人才公寓与员工宿舍管理",
   "description": "审计并建设公司自用人才公寓、下属企业高管及员工宿舍管理，覆盖房源房号、入住申请审批、入住退房、安全消防承诺和系列归档文件，并为集团人力资源经理吴恩国配置角色权限。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",
