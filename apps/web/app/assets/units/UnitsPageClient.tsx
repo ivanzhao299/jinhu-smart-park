@@ -612,7 +612,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   }
 
   return (
-    <PermissionGuard permission={SYSTEM_PERMISSIONS.UNIT_READ} fallback={<ForbiddenInline />}>
+    <PermissionGuard permission={SYSTEM_PERMISSIONS.ASSET_UNIT_LIST} fallback={<ForbiddenInline />}>
       <main className="content">
         <header className="header">
           <div className="header-title">
