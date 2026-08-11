@@ -139,6 +139,12 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/receivables",
   "/leasing/payments",
   ...PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route),
+  "/apartments",
+  "/apartments/rooms",
+  "/apartments/applications",
+  "/apartments/stays",
+  "/apartments/checkouts",
+  "/apartments/documents",
   "/workorders",
   "/tenant/service",
   "/workflow/inbox",
@@ -240,6 +246,19 @@ export const dashboardMenus: MenuNode[] = [
     icon: House,
     module: "housing_rental",
     children: propertySurfaceMenus("housing_rental")
+  },
+  {
+    label: "公寓管理",
+    icon: Building2,
+    module: "apartment",
+    children: [
+      { label: "公寓总览", href: "/apartments", permission: "apartment:dashboard", module: "apartment" },
+      { label: "房源床位", href: "/apartments/rooms", permission: "apartment:rooms", module: "apartment" },
+      { label: "入住申请", href: "/apartments/applications", permission: "apartment:applications", module: "apartment" },
+      { label: "在住管理", href: "/apartments/stays", permission: "apartment:stays", module: "apartment" },
+      { label: "退房办理", href: "/apartments/checkouts", permission: "apartment:checkouts", module: "apartment" },
+      { label: "文书档案", href: "/apartments/documents", permission: "apartment:documents", module: "apartment" }
+    ]
   },
   {
     label: "IoT 平台",

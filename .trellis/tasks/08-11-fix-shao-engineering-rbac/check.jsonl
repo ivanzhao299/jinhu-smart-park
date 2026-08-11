@@ -1,0 +1,2 @@
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify production seed and deployment gates."}
+{"file":".trellis/spec/api/backend/index.md","reason":"Verify least-privilege RBAC and scope behavior."}

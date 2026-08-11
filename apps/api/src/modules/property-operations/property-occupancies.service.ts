@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
+  isPropertyManagedOccupancyDomain,
   SYSTEM_PERMISSIONS,
   type PropertyApprovalCommandPort,
   type TenantParkScope
@@ -152,7 +153,7 @@ export class PropertyOccupanciesService {
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePropertyOccupancyDto, idempotencyKey?: string) {
     await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
-    if (["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)) {
+    if (isPropertyManagedOccupancyDomain(dto.source_domain)) {
       throw new ForbiddenException("Business-owned occupancies must be created by their owning domain workflow");
     }
     try {
@@ -188,7 +189,7 @@ export class PropertyOccupanciesService {
     });
     if (!unit) throw new NotFoundException("Unit not found");
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)
+      isPropertyManagedOccupancyDomain(dto.source_domain)
       && unit.status !== 1
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
@@ -203,7 +204,7 @@ export class PropertyOccupanciesService {
       throw new ConflictException(`Occupancy source domain ${dto.source_domain} is incompatible with operating mode ${mode}`);
     }
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(dto.source_domain)
+      isPropertyManagedOccupancyDomain(dto.source_domain)
       && config?.operatingStatus !== "enabled"
     ) {
       throw new ConflictException("Business occupancy requires an enabled operating unit");
@@ -285,7 +286,7 @@ export class PropertyOccupanciesService {
     });
     if (!unit) throw new NotFoundException("Unit not found");
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
@@ -304,7 +305,7 @@ export class PropertyOccupanciesService {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && config?.operatingStatus !== "enabled"
     ) {
       throw new ConflictException("Business occupancy requires an enabled operating unit");
@@ -343,7 +344,7 @@ export class PropertyOccupanciesService {
     });
     if (!unit) throw new NotFoundException("Unit not found");
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
@@ -358,7 +359,7 @@ export class PropertyOccupanciesService {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }
     if (
-      ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)
+      isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && config?.operatingStatus !== "enabled"
     ) {
       throw new ConflictException("Business occupancy requires an enabled operating unit");
@@ -408,7 +409,7 @@ export class PropertyOccupanciesService {
   async activate(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const entity = await this.mustFindOccupancy(scope, id);
     await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
-    if (["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)) {
+    if (isPropertyManagedOccupancyDomain(entity.sourceDomain)) {
       throw new ForbiddenException("Business-owned occupancies must be activated by their owning domain workflow");
     }
     return this.dataSource.transaction((manager) =>
@@ -471,7 +472,7 @@ export class PropertyOccupanciesService {
     const entity = await this.mustFindOccupancy(scope, id);
     await this.unitAccessService.assertAccess(scope, actor, entity.unitId);
     if (["released", "completed", "cancelled"].includes(entity.status)) return entity;
-    if (!dto.force && ["commercial_leasing", "housing_rental", "homestay"].includes(entity.sourceDomain)) {
+    if (!dto.force && isPropertyManagedOccupancyDomain(entity.sourceDomain)) {
       throw new ConflictException("Business-owned occupancy must be released by its source workflow or force released");
     }
     entity.status = "released";

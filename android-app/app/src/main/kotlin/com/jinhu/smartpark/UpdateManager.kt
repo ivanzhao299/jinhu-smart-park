@@ -1,6 +1,7 @@
 package com.jinhu.smartpark
 
 import android.app.DownloadManager
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,7 +17,10 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
-class UpdateManager(private val activity: MainActivity) {
+class UpdateManager(
+    private val activity: Activity,
+    private val showMessage: (String) -> Unit
+) {
     private val executor = Executors.newSingleThreadExecutor()
     private var activeDownloadId: Long? = null
     private var expectedRelease: AppRelease? = null
@@ -50,7 +54,7 @@ class UpdateManager(private val activity: MainActivity) {
                 if (release != null && release.versionCode > BuildConfig.VERSION_CODE) {
                     showUpdateDialog(release)
                 } else if (showNoUpdate) {
-                    activity.showMessage("当前已是最新版本")
+                    showMessage("当前已是最新版本")
                 }
             }
         }
@@ -93,7 +97,7 @@ class UpdateManager(private val activity: MainActivity) {
         val manager = activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         expectedRelease = release
         activeDownloadId = manager.enqueue(request)
-        activity.showMessage("已开始下载，完成后将打开安装界面")
+        showMessage("已开始下载，完成后将打开安装界面")
     }
 
     private fun installCompletedDownload(downloadId: Long) {
@@ -102,7 +106,7 @@ class UpdateManager(private val activity: MainActivity) {
             if (!cursor.moveToFirst()) return
             val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
             if (status != DownloadManager.STATUS_SUCCESSFUL) {
-                activity.showMessage("更新下载失败，请稍后重试")
+                showMessage("更新下载失败，请稍后重试")
                 return
             }
             val localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI)) ?: return
@@ -110,7 +114,7 @@ class UpdateManager(private val activity: MainActivity) {
             val expectedHash = expectedRelease?.sha256.orEmpty()
             if (expectedHash.isNotBlank() && !file.sha256().equals(expectedHash, ignoreCase = true)) {
                 file.delete()
-                activity.showMessage("安装包校验失败，请重新下载")
+                showMessage("安装包校验失败，请重新下载")
                 return
             }
             val contentUri = FileProvider.getUriForFile(activity, "${BuildConfig.APPLICATION_ID}.fileprovider", file)

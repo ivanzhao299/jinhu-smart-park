@@ -30,7 +30,7 @@ import androidx.core.net.toUri
 import com.jinhu.smartpark.databinding.ActivityMainBinding
 import java.io.File
 
-class MainActivity : AppCompatActivity() {
+class LegacyWebActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var updateManager: UpdateManager
     private var fileCallback: ValueCallback<Array<Uri>>? = null
@@ -64,12 +64,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        updateManager = UpdateManager(this)
+        updateManager = UpdateManager(this, ::showMessage)
         updateManager.register()
         configureWebView()
         configureBackNavigation()
         binding.swipeRefresh.setOnRefreshListener { binding.webView.reload() }
-        if (savedInstanceState == null) binding.webView.loadUrl(BuildConfig.START_URL) else binding.webView.restoreState(savedInstanceState)
+        if (savedInstanceState == null) binding.webView.loadUrl(resolveStartUrl()) else binding.webView.restoreState(savedInstanceState)
         updateManager.checkForUpdates()
     }
 
@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
             override fun onShowFileChooser(webView: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 fileCallback?.onReceiveValue(null)
                 fileCallback = callback
-                if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                if (ContextCompat.checkSelfPermission(this@LegacyWebActivity, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     launchFileChooser(params, includeCamera = true)
                 } else {
                     pendingFileChooserParams = params
@@ -121,8 +121,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onGeolocationPermissionsShowPrompt(origin: String, callback: GeolocationPermissions.Callback) {
-                val fine = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION)
-                val coarse = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION)
+                val fine = ContextCompat.checkSelfPermission(this@LegacyWebActivity, Manifest.permission.ACCESS_FINE_LOCATION)
+                val coarse = ContextCompat.checkSelfPermission(this@LegacyWebActivity, Manifest.permission.ACCESS_COARSE_LOCATION)
                 if (fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED) {
                     callback.invoke(origin, true, false)
                 } else {
@@ -180,6 +180,11 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    private fun resolveStartUrl(): String {
+        val requested = intent.getStringExtra(EXTRA_URL)?.toUri() ?: return BuildConfig.START_URL
+        return if (requested.scheme == "https" && requested.host == START_HOST) requested.toString() else BuildConfig.START_URL
+    }
+
     private fun openExternal(uri: Uri): Boolean {
         return try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
@@ -209,6 +214,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private val START_HOST = Uri.parse(BuildConfig.START_URL).host
+        const val EXTRA_URL = "web_fallback_url"
         private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
     }
 }

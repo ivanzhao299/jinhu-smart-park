@@ -46,6 +46,7 @@ export class AdminIssuesController {
   }
 
   @Patch(":issueNo/triage")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.ADMIN_ISSUE_MANAGE)
   @AuditLog({ module: "问题修复", resource: "ops.admin_issue", action: "审核问题", bizType: "admin_issue_report", bizIdParam: "issueNo" })
   triage(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("issueNo") issueNo: string, @Body() dto: TriageAdminIssueDto) {

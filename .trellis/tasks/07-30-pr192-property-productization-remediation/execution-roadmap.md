@@ -53,7 +53,7 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 | Track B B-2a 任务运行时 | 已完成（PASS / CLOSED） | C1.5、C2、000195、C3、C4、runtime/callsite、AppModule 与 13-action legacy compatibility 均已签署；纠正版 combined signoff `e61f39d9…c633` 经双独立复审 `P0/P1/P2=0` |
 | Track B B-2b 扩展测试数据 | 已完成（PASS / CLOSED） | 唯一正式 run `c2v11_formal_20260802l` 通过双 fresh PostgreSQL、可重复 fixture、11 个负向场景、四阶段冻结与 exact cleanup；架构和 QA 独立复审 GO，`P0/P1/P2=0` |
 | Track B 技术交付与 Chrome UAT | 已完成（PASS / ARCHIVED） | 000197、000191/000192、领域集成、迁移恢复演练、共享控制面及完整 Chrome UAT 均已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务于 2026-08-04 归档 |
-| Track C 架构与可靠性 | 已完成（TECHNICAL PASS / ARCHIVED） | final SHA `15b6e8f6...52c0c` 已闭合 canonical port、rollback flags 与 handoff；rollback 19/19、fresh performance 30/30、独立 evidence/cleanup review 与 residual=0 全部通过；Chrome 增量 15/15 环境 BLOCKED 如实保留 |
+| Track C 架构与可靠性 | 已完成（TECHNICAL PASS / ARCHIVED） | final SHA `15b6e8f6...52c0c` 已闭合 canonical port、rollback flags 与 handoff；rollback 19/19、fresh performance 30/30、独立 evidence/cleanup review 与 residual=0 全部通过；2026-08-10 Windows Chrome Profile 1 增量复测 15/15 PASS，历史 BLOCKED 证据保留 |
 | 外部人工 UAT 与签署 | 阻塞（`awaiting_human_gate`） | Track B 的机器 Chrome UAT 已完成，但真实岗位、业务、财务、安全/审计及发布负责人尚未验收或签署，Codex 不代签 |
 | 生产就绪 | 阻塞（`awaiting_human_gate`） | Track C 技术终门已通过，`codex_execution_status=codex_complete`；仍须等待真人 UAT 和外部签署，当前不得声明 `production_ready` |
 
@@ -65,10 +65,11 @@ Track C 并行；只有技术整改和人工验收都通过，才进入生产就
 clean-provision 门禁，产品 `open_P0_P1=[]`。E/F 两次 partial 性能轮均不具备 PASS 资格且
 已 residual=0 清理；final SHA `15b6e8f6...52c0c` 随后完成 rollback 19/19 与全新未拼接
 performance 30/30，formal evidence、独立 evidence/cleanup review 与 residual=0 均通过，
-Track C 已 technical PASS 并归档。Track C Chrome 增量 15/15 在插件执行前因宿主
-`sandboxCwd` local-file-URI 错误 BLOCKED，登记环境 P1
-`C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS，也不得将其误报为产品 P1。
-外部真人岗位 UAT 与业务/财务/安全/发布签署仍为 `awaiting_human_gate`。因此父任务继续
+Track C 已 technical PASS 并归档。2026-08-10 已在 Windows Google Chrome Profile 1
+完成本地隔离环境增量复测，Chrome 15 项 15 PASS / 0 FAIL，UAT-002 已解决，
+`C-P1-CHROME-HOST-ENVIRONMENT` 已关闭；旧 BLOCKED/FAIL 证据继续保留且未被覆盖。
+当前唯一剩余环境阻塞为 `ENV-001 / ROLE-NEG-01`。外部真人岗位 UAT 与
+业务/财务/安全/发布签署仍为 `awaiting_human_gate`。因此父任务继续
 `in_progress`，但 `codex_execution_status=codex_complete`；当前不声明
 `production_ready`。**
 
@@ -136,7 +137,7 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | C-1 后端职责拆分 | 已完成（技术 PASS） | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | HomestayService 498 行、HousingService 488 行；职责拆分为原子提交，合同 SHA 不变，独立复审产品 `open_P0_P1=[]` | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
 | C-2 前端、弱网与上传可靠性 | 已完成（技术 PASS） | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | C1/C2 技术实现已完成；全量 API 966 PASS / 13 条件 skip / 0 fail，统一隔离 PostgreSQL 5/5 PASS / 0 skip | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
 | C-3 性能、复杂度与证据 | 已完成（PASS） | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | final SHA rollback 19/19；fresh 30-cell 30/30，p95 max 200.374ms、error 0、CV max 0.04935；formal evidence SHA `1a451ecf...4ff2`；residual=0 | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
-| C-4 独立技术复审 | 已完成（TECHNICAL PASS） | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 独立 performance evidence review APPROVE（P0/P1=0）且 cleanup review APPROVE（P0/P1/P2=0）；Chrome 环境 P1 如实保留，不冒充 PASS | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
+| C-4 独立技术复审 | 已完成（TECHNICAL PASS） | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 独立 performance evidence review APPROVE（P0/P1=0）且 cleanup review APPROVE（P0/P1/P2=0）；原 Chrome 环境 P1 已于 2026-08-10 通过 Windows Chrome Profile 1 复测关闭，历史 BLOCKED 证据保留 | [PR223 Windows UAT 任务](../08-10-pr223-windows-real-browser-uat/) | 2026-08-04 | 2026-08-10 |
 
 ## 8. 外部人工 UAT
 
@@ -221,6 +222,7 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | 2026-08-04 | 已完成 | Track B 后续前向迁移、领域集成、恢复控制、最终质量门及真实 Chrome UAT 已闭合；全矩阵 PASS、产品 P0/P1=0、无跳过，子任务已归档 | 不重复执行或归档 Track B；按父任务顺序推进 Track C | [Track B 归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) | emvia / Codex |
 | 2026-08-04 | 进行中 | Track C 早期代码/PG Gate 通过；E 在 23/30 后外部中断，F 在 1/30 后因 hard AC 缺口主动停止，两轮均保留 partial 且 residual=0；产品 P0/P1仍为0，Chrome 15/15环境 BLOCKED | 修复 canonical occupancy port 与双 rollback flags，完成 rollback/output handoff；冻结 final SHA 后重新完整跑 30-cell，不拼接 E/F | [Track C 归档任务](../archive/2026-08/07-30-pr192-c-architecture-reliability/) | emvia / Codex |
 | 2026-08-06 | 已完成（Codex technical） | Track C final SHA 完成 rollback 19/19、fresh performance 30/30、formal gate、独立 evidence/cleanup review 和 residual=0；Track C 已归档，产品 P0/P1=0；Chrome 15/15 环境 BLOCKED 保留 | 父任务 Codex 技术泳道结束；转入外部真人 UAT、业务/财务/安全/发布签署和 production readiness，不代签 | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | emvia / Codex |
+| 2026-08-10 | 阻塞（外部环境） | Windows Chrome Profile 1 已完成 PR223 本地隔离环境复测：Chrome 15/15 PASS、UAT-002 与 C-P1-CHROME-HOST-ENVIRONMENT 已关闭、总矩阵 47 PASS / 0 FAIL / 1 BLOCKED、residual=0 | 仅复测 `ENV-001 / ROLE-NEG-01`；继续等待真人岗位、业务、财务、安全及发布签署，不声明 production_ready | [PR223 Windows UAT 任务](../08-10-pr223-windows-real-browser-uat/) | emvia / Codex |
 
 ## 11. 风险、决策与阻塞记录
 
@@ -251,20 +253,23 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | BLOCK-待编号 | YYYY-MM-DD | 待填写 | Track ? | 待填写 | 待填写 | YYYY-MM-DD | 开放/已解除 | 待补 |
 | BLOCK-B-2A-C2-001 | 2026-08-01 | full-b timeout P1 与 full-c cleanup 竞态曾阻断 C2 | B-2a C3/C4 | v12d 自动完成有界 cleanup 并证明 exact container/volume 全 absent；根代理复算与三方独立签署 `open_P0_P1=[]` | Codex | 2026-08-01 | 已解除（仅释放 C3） | [B-2a C2 最终签署](../07-30-pr192-b-approval-runtime-tasks/research/b2a-c2-final-gate-signoff-v12d.md) |
 | BLOCK-B-2C-197-001 | 2026-08-02 | regression v4 曾因旧索引目录摘要漂移 fail-closed | B-2c / 000197 | 以新资源完成后续前向恢复、技术 Gate 和最终 Chrome UAT | Codex | 2026-08-04 | 已解除 | [Track B 归档任务](../archive/2026-08/07-30-pr192-b-domain-integrations/) |
-| C-P1-CHROME-HOST-ENVIRONMENT | 2026-08-04 | Track C Chrome 增量在插件执行前被 `sandboxCwd is not a local file URI` 宿主错误阻断，15/15 BLOCKED、截图 0 | C-4 / Chrome 增量证据 | 修复或提供 Chrome 插件可接受的 Windows 本地工作目录后原样重跑；不得以应用内浏览器、Playwright、CDP 或注入证据替代 | Codex / Chrome 宿主环境 | 待环境变化 | 开放（环境 P1，产品 P1=0） | `D:/lishuai/JinhuWork/智慧园区UAT测试/2026-08-04/12-track-c-reliability-delta` |
+| C-P1-CHROME-HOST-ENVIRONMENT | 2026-08-04 | Track C Chrome 增量曾在插件执行前被 `sandboxCwd is not a local file URI` 宿主错误阻断，15/15 BLOCKED、截图 0 | C-4 / Chrome 增量证据 | 已在 Windows Google Chrome Profile 1 本地隔离环境原样复测，Chrome 15/15 PASS；历史 BLOCKED 证据保留 | Codex / Chrome 宿主环境 | 2026-08-10 | 已解除 | [PR223 Windows UAT 任务](../08-10-pr223-windows-real-browser-uat/) |
+| ENV-001 / ROLE-NEG-01 | 2026-08-10 | `no_access` fixture 在登录阶段返回 `Forbidden resource`；虽 fail-closed，但无法进入 authenticated shell 完成菜单与直链负向矩阵 | 外部浏览器 UAT | 修正本地隔离 fixture 的模块/权限装配后，仅复测 ROLE-NEG-01，并保留非泄露式拒绝合同 | Codex / 本地 UAT 环境 | 待环境修复 | 开放（环境阻塞，产品 P1=0） | [PR223 Windows UAT 任务](../08-10-pr223-windows-real-browser-uat/) |
 
 ## 12. 下一步
 
-当前权威顺序（2026-08-06）：
+当前权威顺序（2026-08-11）：
 
 1. 不重复执行或重复归档 Track B；其技术 Gate、Chrome UAT 与 Trellis 归档均已完成。
 2. Track C canonical port、双 rollback flags、rollback/output handoff、fresh 30-cell 与
    独立复审均已闭合；Track C technical PASS 并归档，不重复执行。
-3. Chrome 增量继续如实保留 `C-P1-CHROME-HOST-ENVIRONMENT`；环境修复后可原样补跑，
-   但不得以替代工具伪造浏览器 PASS，也不把环境 P1 误报为产品 P1。
-4. 父任务 `codex_execution_status=codex_complete`，父任务本身继续 `in_progress`，因为
+3. Windows Chrome Profile 1 已闭合 Chrome 增量 15/15 与 UAT-002；
+   `C-P1-CHROME-HOST-ENVIRONMENT` 已解除，历史 BLOCKED/FAIL 证据不得覆盖或改写。
+4. 当前仅剩 `ENV-001 / ROLE-NEG-01`；修正本地 fixture 后只复测该项，不重复 UAT-002
+   或 Chrome 15 已通过项，也不得以 API、Playwright、CDP 或内置浏览器替代真实 Chrome。
+5. 父任务 `codex_execution_status=codex_complete`，父任务本身继续 `in_progress`，因为
    human/production 两条外部泳道尚未完成。
-5. 外部真人岗位 UAT、业务/财务/安全/发布签署继续由
+6. 外部真人岗位 UAT、业务/财务/安全/发布签署继续由
    `07-30-pr192-human-uat-production-readiness` 承载，状态为
    `awaiting_human_gate`；这些签署不能由 Codex 代替，未完成前不得声明生产就绪。
 

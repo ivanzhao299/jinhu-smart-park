@@ -63,6 +63,14 @@ describe("AdminIssuesService", () => {
     assert.match(controller, /@Get\(":issueNo"\)\s+@RequireAuthenticated\(\)/);
   });
 
+  it("gives administrator triage replay and conflict semantics", () => {
+    const controller = readFileSync(resolve(process.cwd(), "src/modules/admin-issues/admin-issues.controller.ts"), "utf8");
+    assert.match(
+      controller,
+      /@Patch\(":issueNo\/triage"\)\s+@UseInterceptors\(new IdempotencyInterceptor\(\)\)/
+    );
+  });
+
   it("keeps Runner activation and deployment rollback artifacts bounded", () => {
     const activation = readFileSync(resolve(process.cwd(), "../../.github/workflows/activate-smart-park-runner.yml"), "utf8");
     const deployment = readFileSync(resolve(process.cwd(), "../../.github/workflows/deploy-production.yml"), "utf8");

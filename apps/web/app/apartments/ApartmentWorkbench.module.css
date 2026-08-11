@@ -1,0 +1,27 @@
+.hero { display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
+.hero h1 { margin: 8px 0; }
+.hero p { margin: 0; color: var(--text-secondary); }
+.nav { display: flex; gap: 8px; overflow: auto; padding-bottom: 2px; }
+.nav a { white-space: nowrap; padding: 10px 14px; border-radius: 10px; background: var(--surface-subtle); color: inherit; text-decoration: none; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.list { display: grid; gap: 10px; }
+.record { display: grid; grid-template-columns: minmax(140px, 1.2fr) repeat(3, minmax(90px, 1fr)) auto; gap: 12px; align-items: center; }
+.record strong, .record span { overflow: hidden; text-overflow: ellipsis; }
+.muted { color: var(--text-secondary); font-size: 13px; }
+.empty { text-align: center; padding: 36px 16px; color: var(--text-secondary); }
+.form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.form label { display: grid; gap: 6px; font-size: 13px; }
+.form input, .form select, .form textarea { width: 100%; min-height: 42px; }
+.wide { grid-column: span 2; }
+.formActions { display: flex; align-items: flex-end; }
+.formActions button { width: 100%; }
+@media (max-width: 600px) {
+  .hero { display: block; }
+  .record { grid-template-columns: 1fr 1fr; }
+  .record > :first-child { grid-column: 1 / -1; }
+  .actions { grid-column: 1 / -1; }
+  .nav { margin-inline: -4px; }
+  .hero button { margin-top: 14px; width: 100%; }
+  .form { grid-template-columns: 1fr; }
+  .wide { grid-column: auto; }
+}

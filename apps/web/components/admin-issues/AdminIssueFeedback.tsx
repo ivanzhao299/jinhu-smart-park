@@ -76,6 +76,7 @@ export function AdminIssueFeedback() {
     try {
       const response = await apiRequest<IssueSummary>(`/admin-issues/${issue.issueNo}/triage`, {
         method: "PATCH", token,
+        idempotencyKey: createIdempotencyKey(`admin-issue-triage-${issue.issueNo}-${status.toLowerCase()}`),
         body: { status, acceptance_criteria: acceptanceCriteria[issue.issueNo]?.trim() || undefined }
       });
       setIssues((current) => current.map((item) => item.issueNo === issue.issueNo ? response.data : item));
