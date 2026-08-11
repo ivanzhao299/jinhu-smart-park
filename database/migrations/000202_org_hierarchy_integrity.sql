@@ -16,11 +16,12 @@ BEGIN
     AND (
       parent.id IS NULL
       OR parent.is_deleted = true
+      OR parent.status <> 'enabled'
       OR parent.tenant_id <> child.tenant_id
       OR parent.park_id <> child.park_id
   );
   IF invalid_count > 0 THEN
-    RAISE EXCEPTION 'org-hierarchy-preflight: % orphan, deleted-parent, or cross-scope parent links', invalid_count;
+    RAISE EXCEPTION 'org-hierarchy-preflight: % orphan, inactive-parent, or cross-scope parent links', invalid_count;
   END IF;
 
   WITH RECURSIVE walk AS (

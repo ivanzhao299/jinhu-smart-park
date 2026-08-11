@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
 import { OrgsService } from "./orgs.service";
@@ -7,6 +9,10 @@ import { UserOrgEntity } from "./entities/user-org.entity";
 import { UserEntity } from "../users/entities/user.entity";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
+const hierarchyMigration = readFileSync(
+  resolve(__dirname, "../../../../../database/migrations/000202_org_hierarchy_integrity.sql"),
+  "utf8"
+);
 
 function makeOrg(id: string, parentId: string | null, sortOrder: number, orgName = id) {
   return {
@@ -152,4 +158,9 @@ test("leader candidates are not silently capped", async () => {
   const service = createService([], { leaderFindOptions: findOptions });
   await service.listLeaders(scope);
   assert.equal(Object.hasOwn(findOptions[0] as object, "take"), false);
+});
+
+test("hierarchy migration locks writes and rejects inactive parents before adding constraints", () => {
+  assert.match(hierarchyMigration, /LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;[\s\S]*DO \$preflight\$/);
+  assert.match(hierarchyMigration, /child\.is_deleted = false[\s\S]*parent\.is_deleted = true[\s\S]*parent\.status <> 'enabled'/);
 });

@@ -212,7 +212,11 @@ ensure_binding_user_org() {
     return
   fi
   existing_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND org_id = '$org_id' ORDER BY is_deleted ASC, create_time ASC LIMIT 1;")
-  other_primary_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND org_id <> '$org_id' AND is_deleted = false AND is_primary = true ORDER BY create_time ASC LIMIT 1;")
+  if [ -n "$existing_id" ]; then
+    other_primary_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND id <> '$existing_id' AND is_deleted = false AND is_primary = true ORDER BY create_time ASC LIMIT 1;")
+  else
+    other_primary_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND is_deleted = false AND is_primary = true ORDER BY create_time ASC LIMIT 1;")
+  fi
   root_is_primary=true
   if [ -n "$other_primary_id" ]; then
     root_is_primary=false

@@ -233,3 +233,53 @@ test("organization assignment writes enforce the actor's organization data scope
   );
   assert.equal(countedWhere, deniedWhere);
 });
+
+test("user deletion serializes with assignment writes and retires active assignments", async () => {
+  const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
+  const lockKeys: string[] = [];
+  let assignmentUpdateWhere: unknown;
+  const userRepository = {
+    findOne: async () => target,
+    save: async (value: UserEntity) => value
+  };
+  interface DeleteManager {
+    query(sql: string, parameters: unknown[]): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (value: DeleteManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: DeleteManager = {
+    query: async (_sql, parameters) => { lockKeys.push(String(parameters[0])); },
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) return userRepository;
+      if (entity === UserOrgEntity) return {
+        update: async (where: unknown) => { assignmentUpdateWhere = where; }
+      };
+      throw new Error("Unexpected repository");
+    },
+    transaction: async (callback) => callback(manager)
+  };
+  const service = new UsersService(
+    { manager } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  await service.softDelete(scope, actor.sub, target.id);
+
+  assert.deepEqual(lockKeys, ["user-org-scope:user-1"]);
+  assert.equal(target.isDeleted, true);
+  assert.deepEqual(assignmentUpdateWhere, {
+    userId: target.id,
+    tenantId: scope.tenantId,
+    parkId: scope.parkId,
+    isDeleted: false
+  });
+});

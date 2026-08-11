@@ -717,10 +717,21 @@ export class UsersService {
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
-    const user = await this.getEntityInScope(scope, id);
-    user.isDeleted = true;
-    user.updateBy = actorId;
-    await this.usersRepository.save(user);
+    await this.usersRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const repository = manager.getRepository(UserEntity);
+      const user = await repository.findOne({
+        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (!user) throw new NotFoundException("User not found");
+      user.isDeleted = true;
+      user.updateBy = actorId;
+      await repository.save(user);
+      await manager.getRepository(UserOrgEntity).update(
+        { userId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+    });
     return { id };
   }
 
