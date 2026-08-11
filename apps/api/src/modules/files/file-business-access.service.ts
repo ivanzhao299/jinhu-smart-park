@@ -423,7 +423,6 @@ export class FileBusinessAccessService {
                    FROM public.rel_user_role user_role
                    JOIN public.sys_role role
                      ON role.tenant_id=user_role.tenant_id
-                    AND role.park_id=user_role.park_id
                     AND role.id=user_role.role_id
                     AND role.is_enabled=true
                     AND role.status='enabled'
@@ -506,7 +505,6 @@ export class FileBusinessAccessService {
                    FROM public.rel_user_role user_role
                    JOIN public.sys_role role
                      ON role.tenant_id=user_role.tenant_id
-                    AND role.park_id=user_role.park_id
                     AND role.id=user_role.role_id
                     AND role.is_enabled=true
                     AND role.status='enabled'

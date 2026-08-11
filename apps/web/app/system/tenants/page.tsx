@@ -380,7 +380,7 @@ export default function TenantsPage() {
             onClose={() => setShowCreate(false)}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm onSubmit={(event) => void createTenant(event)}>
+          <DrawerForm onChange={() => setCreateError("")} onSubmit={(event) => void createTenant(event)}>
             <DrawerFormGrid>
               <div className="field"><label>租户编码</label><input name="tenantCode" required /></div>
               <div className="field"><label>租户名称</label><input name="tenantName" required /></div>
@@ -412,7 +412,7 @@ export default function TenantsPage() {
                 </div>
               </div>
             </DrawerFormGrid>
-            {createError ? <p className="status-pill">{createError}</p> : null}
+            {createError ? <p className="status-pill" role="alert">{createError}</p> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
               <button className="primary-button" type="submit" disabled={createSubmitting}><CheckCircle2 size={16} />{createSubmitting ? "保存中…" : "保存"}</button>
@@ -430,7 +430,7 @@ export default function TenantsPage() {
             closeIcon={<X size={18} />}
           />
           {settings ? (
-            <DrawerForm onSubmit={(event) => void saveLoginSettings(event)}>
+            <DrawerForm onChange={() => setSettingsError("")} onSubmit={(event) => void saveLoginSettings(event)}>
               <DrawerFormGrid>
                 <div className="field">
                   <label>租户</label>
@@ -484,7 +484,7 @@ export default function TenantsPage() {
                   </div>
                 </div>
               </DrawerFormGrid>
-              {settingsError ? <p className="status-pill">{settingsError}</p> : null}
+              {settingsError ? <p className="status-pill" role="alert">{settingsError}</p> : null}
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={closeSettings}>取消</button>
                 <button className="primary-button" type="submit" disabled={settingsSubmitting}><CheckCircle2 size={16} />{settingsSubmitting ? "保存中…" : "保存配置"}</button>

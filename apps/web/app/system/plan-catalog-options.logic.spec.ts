@@ -105,6 +105,15 @@ test("tenant creation excludes enabled catalog plans without modules", () => {
   assert.match(source, /provisionablePlans\(planItems\)/);
 });
 
+test("tenant drawers announce submission errors and clear stale errors on edit", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /onChange=\{\(\) => setCreateError\(""\)\}/);
+  assert.match(source, /onChange=\{\(\) => setSettingsError\(""\)\}/);
+  assert.match(source, /className="status-pill" role="alert">\{createError\}/);
+  assert.match(source, /className="status-pill" role="alert">\{settingsError\}/);
+});
+
 test("changing the plan in login settings replaces the module selection from that plan", () => {
   const plans = [
     { planCode: "BASIC", moduleCodes: ["system", "asset"] },

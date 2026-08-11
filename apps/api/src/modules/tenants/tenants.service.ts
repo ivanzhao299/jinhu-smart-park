@@ -395,16 +395,19 @@ export class TenantsService {
           where: { tenantId: tenant.tenantId, isDeleted: false },
           order: { createTime: "ASC" }
         });
-        if (tenantParks.length === 0) {
+        const [firstTenantPark] = tenantParks;
+        if (!firstTenantPark) {
           throw new NotFoundException("Tenant park not found");
         }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
         const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
+        const authorizationParkId = defaultParkId ?? firstTenantPark.parkId;
+        const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
+        const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
+        const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of tenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          const permissions = await this.ensureTenantPermissions(manager, actorScope, targetScope, actorId);
           await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
-          const role = await this.getOrCreateTenantAdminRole(manager, tenant, park.parkId, actorId);
           await this.applyTenantAdminPermissions(
             manager,
             targetScope,
@@ -420,6 +423,12 @@ export class TenantsService {
           tenant.maxUsers = plan?.maxUsers ?? tenant.maxUsers;
           tenant.maxParks = plan?.maxParks ?? tenant.maxParks;
         }
+      }
+      if (dto.expireTime !== undefined) {
+        await manager.getRepository(TenantModuleEntity).update(
+          { tenantId: tenant.tenantId, isDeleted: false },
+          { expireTime: tenant.expireTime, updateBy: actorId }
+        );
       }
 
       await tenantRepository.save(tenant);
@@ -608,7 +617,7 @@ export class TenantsService {
   ): Promise<RoleEntity> {
     const roleRepository = manager.getRepository(RoleEntity);
     const existing = await roleRepository.findOne({
-      where: { tenantId: tenant.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
+      where: { tenantId: tenant.tenantId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
     });
     return existing ?? this.createTenantAdminRole(manager, tenant, parkId, actorId);
   }
@@ -704,7 +713,7 @@ export class TenantsService {
   ): Promise<PermissionEntity[]> {
     const permissionRepository = manager.getRepository(PermissionEntity);
     const existing = await permissionRepository.find({
-      where: { tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
+      where: { tenantId: targetScope.tenantId, isDeleted: false },
       order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
     });
     if (existing.length > 0) {

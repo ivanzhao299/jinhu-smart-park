@@ -108,6 +108,11 @@ test("tenant-wide authorization changes converge every tenant park without clear
 
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
   assert.match(source, /getRepository\(ParkEntity\)\.find/);
+  assert.match(source, /authorizationScope/);
+  assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
   assert.match(source, /for \(const park of tenantParks\)/);
   assert.match(source, /parkId: park\.parkId/);
+  assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
+  assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
+  assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
 });

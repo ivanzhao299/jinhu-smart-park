@@ -419,7 +419,6 @@ export class UsersService {
             AND active_role.is_enabled = true
             AND active_role.status = 'enabled'
             AND active_role.tenant_id = usr.tenant_id
-            AND active_role.park_id = usr.park_id
         )
        LEFT JOIN sys_role role
          ON role.id = user_role.role_id
@@ -427,7 +426,6 @@ export class UsersService {
         AND role.is_enabled = true
         AND role.status = 'enabled'
         AND role.tenant_id = usr.tenant_id
-        AND role.park_id = usr.park_id
        LEFT JOIN rel_role_perm role_permission
          ON role_permission.role_id = role.id
         AND role_permission.is_deleted = false
@@ -1108,8 +1106,7 @@ export class UsersService {
         !link.role.isDeleted &&
         link.role.isEnabled &&
         link.role.status === "enabled" &&
-        link.role.tenantId === user.tenantId &&
-        link.role.parkId === user.parkId
+        link.role.tenantId === user.tenantId
     );
   }
 

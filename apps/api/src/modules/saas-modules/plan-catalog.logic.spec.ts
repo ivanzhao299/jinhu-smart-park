@@ -38,7 +38,10 @@ test("available plan catalog excludes plans that cannot provision any module", (
     { page: 1, page_size: 20 }
   );
 
-  assert.match(result.sql, /jsonb_array_length\(COALESCE\(plan\.module_codes, '\[\]'::jsonb\)\) > 0/);
+  const ranked = result.sql.slice(result.sql.indexOf("ranked AS"), result.sql.indexOf("selected AS"));
+  const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
+  assert.doesNotMatch(ranked, /jsonb_array_length/);
+  assert.match(selected, /precedence = 1\s+AND jsonb_array_length\(COALESCE\(module_codes, '\[\]'::jsonb\)\) > 0/);
 });
 
 test("available plan catalog orders the selected rows before applying offset and limit", () => {
@@ -60,5 +63,5 @@ test("available plan catalog applies keyword filtering after scope precedence", 
   const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
 
   assert.doesNotMatch(ranked, /\$5/);
-  assert.match(selected, /WHERE precedence = 1\s+AND \(\$5::text IS NULL OR plan_code ILIKE \$5 OR plan_name ILIKE \$5\)/);
+  assert.match(selected, /WHERE precedence = 1\s+AND jsonb_array_length[\s\S]+AND \(\$5::text IS NULL OR plan_code ILIKE \$5 OR plan_name ILIKE \$5\)/);
 });
