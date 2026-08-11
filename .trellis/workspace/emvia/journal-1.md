@@ -276,3 +276,37 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: Issue 248 运行态迁移与完整回归
+
+**Date**: 2026-08-11
+**Task**: Issue 248 运行态迁移与完整回归
+**Package**: api
+**Branch**: `codex/issue-248-org-hierarchy`
+
+### Summary
+
+在隔离 PostgreSQL/API 环境完成 202/202 迁移、组织层级专项与首发完整 E2E；修复 JWT 重建遗漏 system:user:me，相关单测及 API 质量门通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7767a5b0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
