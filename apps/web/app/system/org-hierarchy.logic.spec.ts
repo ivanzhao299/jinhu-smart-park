@@ -26,7 +26,17 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /if \(requestId !== orgCatalogRequest\.current\) return/);
   assert.match(usersSource, /\/users\/org-candidates\?\$\{params\.toString\(\)\}/);
   assert.match(usersSource, /await loadLoginSettings\(row\.tenantId, row\);\s*if \(requestId !== orgCatalogRequest\.current\) return;/);
+  assert.match(usersSource, /const \[orgCatalogLoading, setOrgCatalogLoading\] = useState\(false\)/);
+  assert.match(usersSource, /disabled=\{loginSettingsLoading \|\| orgCatalogLoading \|\| !formParkId\}/);
+  assert.match(usersSource, /function closeUserDrawer\(\)[\s\S]*clearOrgCatalog\(\)/);
+  assert.match(usersSource, /mergeRetainedOrgOptions/);
+  assert.match(usersSource, /sameOrgAssignments\(body\.assignments, loadedOrgAssignments\)/);
   assert.match(usersSource, /添加组织关系/);
   assert.match(usersSource, /name="primaryOrg"/);
   assert.match(usersSource, /role="alert"/);
+});
+
+test("organization editor preserves unavailable current leaders on unrelated updates", () => {
+  assert.match(source, /当前负责人（已停用或不可选）/);
+  assert.match(source, /form\.leaderUserId === \(editingOrg\.leaderUserId \?\? ""\) \? \{\} : \{ leaderUserId:/);
 });

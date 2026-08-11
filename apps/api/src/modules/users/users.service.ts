@@ -393,10 +393,21 @@ export class UsersService {
     const [orgs, posts] = await Promise.all([
       this.userOrgRepository.manager.getRepository(OrgEntity).find({
         where: { ...targetScope, isDeleted: false, status: "enabled" },
+        select: {
+          id: true,
+          parentId: true,
+          orgCode: true,
+          orgName: true,
+          orgType: true,
+          leaderUserId: true,
+          sortOrder: true,
+          status: true
+        },
         order: { sortOrder: "ASC", orgName: "ASC", id: "ASC" }
       }),
       this.userOrgRepository.manager.getRepository(PostEntity).find({
         where: { ...targetScope, isDeleted: false, status: "enabled" },
+        select: { id: true, postCode: true, postName: true, sortOrder: true, status: true },
         order: { sortOrder: "ASC", postName: "ASC" }
       })
     ]);

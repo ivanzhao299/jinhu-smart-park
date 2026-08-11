@@ -75,10 +75,12 @@ test("organization assignment replacement only deletes the target user's current
 test("create organization candidates resolve the requested super-admin target scope", async () => {
   const orgFindWhere: unknown[] = [];
   const postFindWhere: unknown[] = [];
+  const orgFindOptions: Array<{ where: unknown; select?: unknown }> = [];
+  const postFindOptions: Array<{ where: unknown; select?: unknown }> = [];
   const manager = {
     getRepository: (entity: unknown) => {
-      if (entity === OrgEntity) return { find: async (options: { where: unknown }) => { orgFindWhere.push(options.where); return []; } };
-      if (entity === PostEntity) return { find: async (options: { where: unknown }) => { postFindWhere.push(options.where); return []; } };
+      if (entity === OrgEntity) return { find: async (options: { where: unknown; select?: unknown }) => { orgFindWhere.push(options.where); orgFindOptions.push(options); return []; } };
+      if (entity === PostEntity) return { find: async (options: { where: unknown; select?: unknown }) => { postFindWhere.push(options.where); postFindOptions.push(options); return []; } };
       throw new Error("Unexpected repository");
     }
   };
@@ -102,4 +104,11 @@ test("create organization candidates resolve the requested super-admin target sc
   const expected = { tenantId: "tenant-2", parkId: "park-2", isDeleted: false, status: "enabled" };
   assert.deepEqual(orgFindWhere, [expected]);
   assert.deepEqual(postFindWhere, [expected]);
+  assert.deepEqual(orgFindOptions[0]?.select, {
+    id: true, parentId: true, orgCode: true, orgName: true, orgType: true,
+    leaderUserId: true, sortOrder: true, status: true
+  });
+  assert.deepEqual(postFindOptions[0]?.select, {
+    id: true, postCode: true, postName: true, sortOrder: true, status: true
+  });
 });
