@@ -1,6 +1,6 @@
 BEGIN;
 
--- The previous API version may still be serving traffic while production migrations run.
+-- A previous API version may still be serving traffic while production migrations run.
 -- Block concurrent hierarchy writes before inspecting the existing graph.
 LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;
 

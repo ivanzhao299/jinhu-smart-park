@@ -18,7 +18,7 @@ const actor = {
   permissions: ["*"]
 };
 const hierarchyMigration = readFileSync(
-  resolve(__dirname, "../../../../../database/migrations/000203_org_hierarchy_integrity.sql"),
+  resolve(__dirname, "../../../../../database/migrations/000204_org_hierarchy_integrity.sql"),
   "utf8"
 );
 
