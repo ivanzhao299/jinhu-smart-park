@@ -8,6 +8,7 @@ import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
 import {
+  activeModuleSelection,
   changedPlanAuthorization,
   collectAllCandidatePages,
   findPlanAuthorization,
@@ -110,7 +111,7 @@ export default function TenantsPage() {
         return response.data;
       }, (plan) => plan.planCode),
       collectAllCandidatePages(async (modulePage, pageSize) => {
-        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}`, { token });
+        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}&status=enabled`, { token });
         return response.data;
       }, (module) => module.moduleCode)
     ]);
@@ -234,7 +235,7 @@ export default function TenantsPage() {
       settings.tenant.planCode,
       settings.enabledModuleCodes,
       settingsPlanCode || null,
-      settingsModuleCodes
+      activeModuleSelection(settingsModuleCodes, modules.items.map((item) => item.moduleCode))
     );
     setSettingsError("");
     setSettingsSubmitting(true);
@@ -281,7 +282,7 @@ export default function TenantsPage() {
       plans.items,
       planCode,
       settings?.tenant.planCode,
-      settings?.enabledModuleCodes ?? []
+      settingsModuleCodes
     );
     if (moduleCodes) setSettingsModuleCodes(moduleCodes);
   }
@@ -396,8 +397,8 @@ export default function TenantsPage() {
               <div className="field"><label>站点</label><input name="websites" placeholder="多个用英文逗号分隔" /></div>
               <div className="field"><label>域名</label><input name="domains" placeholder="多个用英文逗号分隔" /></div>
               <div className="field"><label>到期日期</label><input name="expireTime" type="date" /></div>
-              <div className="field"><label>用户上限</label><input name="maxUsers" type="number" min={0} value={createMaxUsers} onChange={(event) => setCreateMaxUsers(Number(event.target.value))} /></div>
-              <div className="field"><label>园区上限</label><input name="maxParks" type="number" min={0} value={createMaxParks} onChange={(event) => setCreateMaxParks(Number(event.target.value))} /></div>
+              <div className="field"><label>用户上限</label><input name="maxUsers" type="number" min={0} value={createMaxUsers} onChange={(event) => setCreateMaxUsers(Number(event.target.value))} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>园区上限</label><input name="maxParks" type="number" min={0} value={createMaxParks} onChange={(event) => setCreateMaxParks(Number(event.target.value))} onFocus={(event) => event.target.select()} /></div>
               <div className="field"><label>园区编码</label><input name="parkCode" required /></div>
               <div className="field"><label>园区名称</label><input name="parkName" title="请输入包含可见文字的园区名称，例如“11号园区”" onInput={(event) => event.currentTarget.setCustomValidity(isReadableUserParkName(event.currentTarget.value) ? "" : "请输入包含可见文字的园区名称")} required /></div>
               <div className="field"><label>管理员账号</label><input name="adminUsername" required /></div>

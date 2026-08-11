@@ -197,11 +197,34 @@ test("shared tenant role data-scope assignments update only the caller park", as
     { id: "role-1", tenantId: "tenant-a", roleScope: "tenant", isDeleted: false },
     { id: "role-1", tenantId: "tenant-a", parkId: "park-b", roleScope: "park", isDeleted: false }
   ]);
-  assert.equal((ruleWhere as { parkId?: string }).parkId, "park-b");
+  assert.equal((ruleWhere as { tenantId?: string }).tenantId, "tenant-a");
+  assert.equal((ruleWhere as { parkId?: string }).parkId, undefined);
   assert.deepEqual(linkUpdateWhere, {
     tenantId: "tenant-a",
     parkId: "park-b",
     roleId: "role-1",
     isDeleted: false
   });
+});
+
+test("data-scope definitions are tenant-wide while bindings stay park-scoped", async () => {
+  let detailWhere: unknown;
+  let boundCountWhere: unknown;
+  const rule = { id: "rule-a", tenantId: "tenant-a", parkId: "park-a", isDeleted: false };
+  const service = new DataScopeService(
+    {
+      findOne: async (options: { where: unknown }) => { detailWhere = options.where; return rule; },
+      save: async (value: unknown) => value
+    } as never,
+    {
+      count: async (options: { where: unknown }) => { boundCountWhere = options.where; return 0; }
+    } as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.softDeleteRule({ tenantId: "tenant-a", parkId: "park-b" }, "actor-1", rule.id);
+
+  assert.deepEqual(detailWhere, { id: rule.id, tenantId: "tenant-a", isDeleted: false });
+  assert.deepEqual(boundCountWhere, { tenantId: "tenant-a", ruleId: rule.id, isDeleted: false });
 });

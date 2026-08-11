@@ -51,6 +51,11 @@ export function provisionablePlans<T extends PlanAuthorizationOption>(plans: T[]
   return plans.filter((plan) => normalizedCodes(plan.moduleCodes).length > 0);
 }
 
+export function activeModuleSelection(selectedCodes: string[], activeCodes: string[]): string[] {
+  const active = new Set(normalizedCodes(activeCodes));
+  return normalizedCodes(selectedCodes).filter((code) => active.has(code));
+}
+
 export function moduleCodesForSelectedPlan<T extends PlanAuthorizationOption>(
   plans: T[],
   selectedPlanCode: string,

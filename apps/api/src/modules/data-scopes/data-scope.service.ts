@@ -50,7 +50,6 @@ export class DataScopeService {
   async listRules(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<DataScopeRuleEntity>> {
     const where = {
       tenantId: scope.tenantId,
-      parkId: scope.parkId,
       isDeleted: false,
       ...(query.status ? { status: query.status } : {})
     };
@@ -102,7 +101,7 @@ export class DataScopeService {
 
   async detailRule(scope: TenantParkScope, id: string): Promise<DataScopeRuleEntity> {
     const entity = await this.rulesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id, tenantId: scope.tenantId, isDeleted: false }
     });
     if (!entity) {
       throw new NotFoundException("Data scope rule not found");
@@ -113,7 +112,7 @@ export class DataScopeService {
   async softDeleteRule(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
     const entity = await this.detailRule(scope, id);
     const boundRoles = await this.roleDataScopeRepository.count({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, ruleId: id, isDeleted: false }
+      where: { tenantId: scope.tenantId, ruleId: id, isDeleted: false }
     });
     if (boundRoles > 0) {
       throw new BadRequestException("Data scope rule has bound roles and cannot be deleted");
@@ -137,7 +136,6 @@ export class DataScopeService {
         (rule) =>
           rule &&
           rule.tenantId === scope.tenantId &&
-          rule.parkId === scope.parkId &&
           !rule.isDeleted
       );
   }
@@ -175,7 +173,6 @@ export class DataScopeService {
       where: {
         id: In(dto.ruleIds),
         tenantId: scope.tenantId,
-        parkId: scope.parkId,
         isDeleted: false,
         status: "enabled"
       }
@@ -268,7 +265,6 @@ export class DataScopeService {
         (rule) =>
           rule &&
           rule.tenantId === scope.tenantId &&
-          rule.parkId === scope.parkId &&
           !rule.isDeleted &&
           rule.status === "enabled"
       );
@@ -359,7 +355,6 @@ export class DataScopeService {
         (rule) =>
           rule &&
           rule.tenantId === scope.tenantId &&
-          rule.parkId === scope.parkId &&
           !rule.isDeleted &&
           rule.status === "enabled"
       )
@@ -454,7 +449,7 @@ export class DataScopeService {
 
   private async assertRuleCodeAvailable(scope: TenantParkScope, ruleCode: string): Promise<void> {
     const exists = await this.rulesRepository.exists({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, ruleCode, isDeleted: false }
+      where: { tenantId: scope.tenantId, ruleCode, isDeleted: false }
     });
     if (exists) {
       throw new ConflictException("Data scope rule code already exists");

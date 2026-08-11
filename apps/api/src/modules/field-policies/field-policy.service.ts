@@ -29,7 +29,6 @@ export class FieldPolicyService {
   async list(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<FieldPolicyEntity>> {
     const where = {
       tenantId: scope.tenantId,
-      parkId: scope.parkId,
       isDeleted: false,
       ...(query.status ? { status: query.status } : {})
     };
@@ -63,7 +62,7 @@ export class FieldPolicyService {
 
   async detail(scope: TenantParkScope, id: string): Promise<FieldPolicyEntity> {
     const entity = await this.fieldPoliciesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id, tenantId: scope.tenantId, isDeleted: false }
     });
     if (!entity) {
       throw new NotFoundException("Field policy not found");
@@ -96,7 +95,7 @@ export class FieldPolicyService {
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
     const entity = await this.detail(scope, id);
     const boundRoles = await this.roleFieldPoliciesRepository.count({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, fieldPolicyId: id, isDeleted: false }
+      where: { tenantId: scope.tenantId, fieldPolicyId: id, isDeleted: false }
     });
     if (boundRoles > 0) {
       throw new BadRequestException("Field policy has bound roles and cannot be deleted");
@@ -120,7 +119,6 @@ export class FieldPolicyService {
         (policy) =>
           policy &&
           policy.tenantId === scope.tenantId &&
-          policy.parkId === scope.parkId &&
           !policy.isDeleted
       );
   }
@@ -132,24 +130,25 @@ export class FieldPolicyService {
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
     await this.mustFindRole(scope, roleId);
+    if (dto.fieldPolicyIds.length > 0) {
+      const policies = await this.fieldPoliciesRepository.find({
+        where: {
+          id: In(dto.fieldPolicyIds),
+          tenantId: scope.tenantId,
+          isDeleted: false,
+          status: "enabled"
+        }
+      });
+      if (policies.length !== dto.fieldPolicyIds.length) {
+        throw new NotFoundException("Field policy not found in current tenant");
+      }
+    }
     await this.roleFieldPoliciesRepository.update(
       { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
       { isDeleted: true, updateBy: actorId }
     );
     if (dto.fieldPolicyIds.length === 0) {
       return { roleId, fieldPolicyIds: [] };
-    }
-    const policies = await this.fieldPoliciesRepository.find({
-      where: {
-        id: In(dto.fieldPolicyIds),
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false,
-        status: "enabled"
-      }
-    });
-    if (policies.length !== dto.fieldPolicyIds.length) {
-      throw new NotFoundException("Field policy not found in current tenant");
     }
     await this.roleFieldPoliciesRepository.save(
       dto.fieldPolicyIds.map((fieldPolicyId) =>
@@ -169,7 +168,7 @@ export class FieldPolicyService {
   async getUserFieldPolicies(scope: TenantParkScope, user: JwtPrincipal): Promise<FieldPolicyContext[]> {
     const policies = user.isSuper
       ? await this.fieldPoliciesRepository.find({
-          where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" },
+          where: { tenantId: scope.tenantId, isDeleted: false, status: "enabled" },
           order: { module: "ASC", entity: "ASC", fieldKey: "ASC" }
         })
       : await this.getPoliciesForRoles(scope, await this.resolveUserRoleIds(scope, user));
@@ -267,7 +266,6 @@ export class FieldPolicyService {
         (policy) =>
           policy &&
           policy.tenantId === scope.tenantId &&
-          policy.parkId === scope.parkId &&
           !policy.isDeleted &&
           policy.status === "enabled"
       );
@@ -318,7 +316,6 @@ export class FieldPolicyService {
     const exists = await this.fieldPoliciesRepository.exists({
       where: {
         tenantId: scope.tenantId,
-        parkId: scope.parkId,
         module: moduleName,
         entity: entityName,
         fieldKey,

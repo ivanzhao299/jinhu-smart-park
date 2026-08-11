@@ -72,3 +72,72 @@ test("built-in role scope cannot be changed", async () => {
     /Built-in role scope cannot be changed/
   );
 });
+
+test("custom tenant role scope cannot be changed directly", async () => {
+  const role = {
+    id: "role-1",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "tenant",
+    isBuiltin: false,
+    isSystem: false,
+    isEditable: true,
+    editable: true
+  };
+  let saved = false;
+  const service = new RolesService(
+    { findOne: async () => role, save: async () => { saved = true; return role; } } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    service.update(
+      { tenantId: "tenant-a", parkId: "park-b" },
+      "actor-1",
+      role.id,
+      { roleScope: "park" }
+    ),
+    /Role scope cannot be changed directly/
+  );
+  assert.equal(saved, false);
+});
+
+test("custom park role scope cannot be expanded to tenant directly", async () => {
+  const role = {
+    id: "role-2",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "park",
+    isBuiltin: false,
+    isSystem: false,
+    isEditable: true,
+    editable: true
+  };
+  let saved = false;
+  const service = new RolesService(
+    { findOne: async () => role, save: async () => { saved = true; return role; } } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    service.update(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      role.id,
+      { roleScope: "tenant" }
+    ),
+    /Role scope cannot be changed directly/
+  );
+  assert.equal(saved, false);
+});
+
+test("role scope is locked in the edit form", () => {
+  const source = readFileSync(resolve(__dirname, "../../../../web/app/system/roles/page.tsx"), "utf8");
+  assert.match(source, /disabled=\{formMode === "edit"\}/);
+});

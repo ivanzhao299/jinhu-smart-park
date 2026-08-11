@@ -137,6 +137,9 @@ export class RolesService {
     ) {
       throw new ForbiddenException("Built-in role scope cannot be changed");
     }
+    if (dto.roleScope !== undefined && dto.roleScope !== role.roleScope) {
+      throw new ForbiddenException("Role scope cannot be changed directly");
+    }
     if (dto.code && dto.code !== role.code) {
       await this.assertCodeAvailable(scope, dto.code);
     }

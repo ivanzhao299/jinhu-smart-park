@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import {
+  activeModuleSelection,
   changedPlanAuthorization,
   collectAllCandidatePages,
   findPlanAuthorization,
@@ -10,6 +11,26 @@ import {
   moduleCodesForSelectedPlan,
   provisionablePlans
 } from "./plan-catalog-options.logic";
+
+test("tenant settings remove disabled or deleted modules from the submitted selection", () => {
+  assert.deepEqual(
+    activeModuleSelection(
+      ["system", "disabled-module", "asset", "deleted-module", "asset"],
+      ["asset", "system"]
+    ),
+    ["asset", "system"]
+  );
+
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /modules\?page=\$\{modulePage\}&page_size=\$\{pageSize\}&status=enabled/);
+  assert.match(source, /activeModuleSelection\(settingsModuleCodes/);
+});
+
+test("tenant quota inputs select their value on focus", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /name="maxUsers".*onFocus=\{\(event\) => event\.target\.select\(\)\}/);
+  assert.match(source, /name="maxParks".*onFocus=\{\(event\) => event\.target\.select\(\)\}/);
+});
 
 test("tenant plan selector loads every catalog page", async () => {
   const requestedPages: number[] = [];
