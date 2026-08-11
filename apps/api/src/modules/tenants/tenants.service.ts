@@ -916,7 +916,7 @@ export class TenantsService {
         if (modules.has("bim") && (code === "bim" || code.startsWith("bim:") || code.startsWith("bim_"))) return true;
         if (modules.has("ai") && (code === "ai" || code.startsWith("ai:") || code.startsWith("ai_"))) return true;
         if (modules.has("cockpit") && (code === "cockpit" || code.startsWith("cockpit:") || code.startsWith("cockpit_"))) return true;
-        if (modules.has("apartment") && (code === "apartment" || code.startsWith("apartment:"))) return true;
+        if (modules.has("apartment") && this.isApartmentPermission(code)) return true;
         return false;
       })
       .map((permission) => permission.code);
@@ -964,6 +964,21 @@ export class TenantsService {
       code.startsWith("property_event:") ||
       code.startsWith("property_task:") ||
       code.startsWith("property_notification:")
+    );
+  }
+
+  private isApartmentPermission(code: string): boolean {
+    return (
+      code === "apartment" ||
+      code.startsWith("apartment:") ||
+      code === "unit:read" ||
+      code === "party:read" ||
+      code === "party:manage" ||
+      code === "party:*" ||
+      code === "file:read" ||
+      code === "file:upload" ||
+      code === "file:download" ||
+      code === "file:*"
     );
   }
 

@@ -187,6 +187,7 @@ test("changing the plan in login settings replaces the module selection from tha
   ];
   assert.deepEqual(moduleCodesForSelectedPlan(plans, "PRO", "DISABLED_PLAN", ["system"]), ["system", "asset", "safety"]);
   assert.deepEqual(moduleCodesForSelectedPlan(plans, "DISABLED_PLAN", "DISABLED_PLAN", ["system", "workorder"]), ["system", "workorder"]);
+  assert.deepEqual(moduleCodesForSelectedPlan(plans, "", null, ["system", "workorder"]), ["system", "workorder"]);
   assert.equal(moduleCodesForSelectedPlan(plans, "UNKNOWN", "DISABLED_PLAN", ["system"]), null);
 
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");

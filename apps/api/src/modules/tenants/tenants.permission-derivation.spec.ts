@@ -124,6 +124,14 @@ test("the apartment module keeps its menu and API permission family", () => {
     { code: "apartment:dashboard" },
     { code: "apartment:read" },
     { code: "apartment:document_manage" },
+    { code: "unit:read" },
+    { code: "party:read" },
+    { code: "party:manage" },
+    { code: "file:read" },
+    { code: "file:upload" },
+    { code: "file:download" },
+    { code: "file:delete" },
+    { code: "unit:update" },
     { code: "asset:read" }
   ] as never;
 
@@ -131,7 +139,13 @@ test("the apartment module keeps its menu and API permission family", () => {
     "apartment",
     "apartment:dashboard",
     "apartment:read",
-    "apartment:document_manage"
+    "apartment:document_manage",
+    "unit:read",
+    "party:read",
+    "party:manage",
+    "file:read",
+    "file:upload",
+    "file:download"
   ]);
 });
 
@@ -185,7 +199,10 @@ test("plan module markers cannot grant permissions for a module that is not enab
     filter(["workorder_sla:*", "workorder_log:*", "asset:*"], ["workorder"]),
     ["workorder_sla:*", "workorder_log:*"]
   );
-  assert.deepEqual(filter(["apartment:*", "asset:*"], ["apartment"]), ["apartment:*"]);
+  assert.deepEqual(
+    filter(["apartment:*", "unit:read", "party:*", "file:*", "asset:*"], ["apartment"]),
+    ["apartment:*", "unit:read", "party:*", "file:*"]
+  );
   assert.deepEqual(
     filter(["property_task:*", "property_approval:*", "workorder:*"], ["asset"]),
     ["property_task:*", "property_approval:*"]

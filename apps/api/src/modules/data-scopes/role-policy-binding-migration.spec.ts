@@ -24,6 +24,8 @@ const runtimeControlRetry = readFileSync(
 );
 
 test("role policy binding uniqueness is park-scoped without changing tenant-wide definitions", () => {
+  assert.match(migration, /^\s*--[\s\S]*?\n\s*BEGIN;/);
+  assert.match(migration, /COMMIT;\s*$/);
   assert.match(
     migration,
     /ON rel_role_data_scope \(tenant_id, park_id, role_id, rule_id\)\s+WHERE is_deleted = false/

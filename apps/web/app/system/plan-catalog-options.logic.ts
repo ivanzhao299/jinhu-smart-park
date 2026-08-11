@@ -62,9 +62,13 @@ export function moduleCodesForSelectedPlan<T extends PlanAuthorizationOption>(
   retainedPlanCode: string | null | undefined,
   retainedModuleCodes: string[]
 ): string[] | null {
-  const plan = findPlanAuthorization(plans, selectedPlanCode);
+  const normalizedSelectedPlanCode = selectedPlanCode.trim() || null;
+  const normalizedRetainedPlanCode = retainedPlanCode?.trim() || null;
+  const plan = normalizedSelectedPlanCode
+    ? findPlanAuthorization(plans, normalizedSelectedPlanCode)
+    : null;
   if (plan) return plan.moduleCodes;
-  return selectedPlanCode === retainedPlanCode ? retainedModuleCodes : null;
+  return normalizedSelectedPlanCode === normalizedRetainedPlanCode ? retainedModuleCodes : null;
 }
 
 export function changedPlanAuthorization(
