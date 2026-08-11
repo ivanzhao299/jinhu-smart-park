@@ -32,7 +32,7 @@ test("tenant provisioning derives cockpit permissions from cockpit module codes"
 
   assert.ok(source.includes('modules.has("cockpit")'), "expected tenant provisioning to derive cockpit permissions");
   assert.ok(source.includes('code === "cockpit"'), "expected cockpit root permission to be derived");
-  assert.ok(source.includes('code === "cockpit:read"'), "expected cockpit read permission to be derived");
+  assert.ok(source.includes('code.startsWith("cockpit:")'), "expected the complete cockpit permission family to be derived");
 });
 
 test("EPDR backfill migration repairs engineering module visibility for entitled scopes", () => {
