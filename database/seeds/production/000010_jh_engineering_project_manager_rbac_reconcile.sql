@@ -81,8 +81,6 @@ BEGIN
   WHERE app_user.tenant_id = '10000001'
     AND app_user.park_id = '20000001'
     AND app_user.username = 'shao_minghong'
-    AND app_user.is_enabled = true
-    AND app_user.status = 'enabled'
     AND app_user.is_deleted = false;
 
   SELECT count(*) INTO role_count
@@ -286,8 +284,6 @@ BEGIN
   WHERE app_user.tenant_id = '10000001'
     AND app_user.park_id = '20000001'
     AND app_user.username = 'shao_minghong'
-    AND app_user.is_enabled = true
-    AND app_user.status = 'enabled'
     AND app_user.is_deleted = false;
 
   SELECT count(*) INTO actual_permission_count

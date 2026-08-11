@@ -11,6 +11,11 @@ assert.match(sql, /'shao_minghong'/, "reviewed account mapping must be explicit"
 assert.match(sql, /'PROPERTY_STAFF', 'MAINTENANCE_ENGINEER'/, "only reviewed legacy aliases may be replaced");
 assert.match(sql, /unexpected_binding_count <> 0/, "unexpected roles must fail closed");
 assert.match(sql, /expected_permission_count <> resolved_permission_count/, "missing permission definitions must fail closed");
+assert.doesNotMatch(
+  sql,
+  /app_user\.username = 'shao_minghong'[\s\S]{0,120}app_user\.is_enabled/,
+  "disabled protected UAT baselines must still receive their reviewed role before credential activation",
+);
 assert.match(sql, /permission\.code LIKE 'homestay:%'/, "homestay denial must be asserted");
 assert.match(sql, /permission\.code LIKE 'housing:%'/, "housing denial must be asserted");
 
