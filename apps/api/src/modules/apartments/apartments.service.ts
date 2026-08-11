@@ -61,7 +61,7 @@ export class ApartmentsService {
     });
   }
 
-  listApplications(scope: TenantParkScope, query: ListApartmentDto) { return this.dataSource.query(`SELECT a.*,u.real_name AS applicant_user_name FROM biz_apartment_application a LEFT JOIN sys_user u ON u.id=a.applicant_user_id WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND ($3::text IS NULL OR a.status=$3) AND ($4::text IS NULL OR a.applicant_name ILIKE '%'||$4||'%' OR a.application_code ILIKE '%'||$4||'%') ORDER BY a.create_time DESC`,[...this.scope(scope),query.status??null,query.keyword?.trim()||null]); }
+  listApplications(scope: TenantParkScope, query: ListApartmentDto) { return this.dataSource.query(`SELECT a.*,u.display_name AS applicant_user_name FROM biz_apartment_application a LEFT JOIN sys_user u ON u.id=a.applicant_user_id AND u.tenant_id=a.tenant_id AND u.park_id=a.park_id AND u.is_deleted=false WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND ($3::text IS NULL OR a.status=$3) AND ($4::text IS NULL OR a.applicant_name ILIKE '%'||$4||'%' OR a.application_code ILIKE '%'||$4||'%') ORDER BY a.create_time DESC`,[...this.scope(scope),query.status??null,query.keyword?.trim()||null]); }
   async createApplication(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateApartmentApplicationDto) {
     if (!dto.applicant_party_id && !dto.applicant_user_id) dto.applicant_user_id=actor.sub;
     if (dto.requested_end_date && dto.requested_start_date>=dto.requested_end_date) throw new BadRequestException("结束日期必须晚于开始日期");

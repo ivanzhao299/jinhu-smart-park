@@ -15,6 +15,8 @@ assert.match(seed,/APARTMENT_MANAGER/);assert.match(seed,/wu_enguo/);assert.does
 assert.match(controller,/@RequireModule\("apartment"\)/);assert.match(controller,/IdempotencyInterceptor/g);assert.match(controller,/AuditLog/g);
 for(const action of ["generateDocument","onlineSign","paperSign","renderDocument","updateSettings"])assert.ok(controller.includes(action),`missing document action ${action}`);
 assert.match(service,/createHash\("sha256"\)\.update\(row\.content_html/);
+assert.match(service,/u\.display_name AS applicant_user_name/);
+assert.doesNotMatch(service,/u\.real_name AS applicant_user_name/);
 for(const state of ["submitted","approved","allocated","active","checkout_pending","completed"])assert.match(service,new RegExp(`["]${state}["]|[']${state}[']`));
 for(const route of ["/apartments","/apartments/rooms","/apartments/applications","/apartments/stays","/apartments/checkouts","/apartments/documents"])assert.ok(menu.includes(route),`missing menu route ${route}`);
 assert.equal((shared.match(/APARTMENT_[A-Z_]+:/g)||[]).length,17);
