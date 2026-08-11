@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
-- **Last Active**: 2026-08-06
+- **Total Sessions**: 8
+- **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | 244 | Active |
+| `journal-1.md` | ~278 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-08-11 | 完成 Issue 248 组织层级闭环 | `1ca72c93` | `codex/issue-248-org-hierarchy` |
 | 7 | 2026-08-06 | PR192 Track C formal performance and technical closure | `15b6e8f6` | `codex/pr192-property-productization-remediation` |
 | 6 | 2026-08-04 | PR192 Track B final Chrome UAT | `b6f8d470` | `codex/pr192-property-productization-remediation` |
 | 5 | 2026-07-31 | PR214 policy and route context review fixes | `a18a811` | `agent/fix-safety-issues-206-213` |
