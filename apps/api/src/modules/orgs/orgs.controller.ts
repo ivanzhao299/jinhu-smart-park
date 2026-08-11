@@ -20,6 +20,24 @@ export class OrgsController {
     return this.orgsService.list(scope, query, user);
   }
 
+  @Get("tree")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST)
+  tree(@CurrentScope() scope: TenantParkScope) {
+    return this.orgsService.tree(scope);
+  }
+
+  @Get("posts")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST)
+  posts(@CurrentScope() scope: TenantParkScope) {
+    return this.orgsService.listPosts(scope);
+  }
+
+  @Get("leaders")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST)
+  leaders(@CurrentScope() scope: TenantParkScope) {
+    return this.orgsService.listLeaders(scope);
+  }
+
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_CREATE)
   @AuditLog({ module: "组织管理", resource: "system.org", action: "新增", bizType: "org" })

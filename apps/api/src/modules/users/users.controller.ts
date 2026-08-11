@@ -10,6 +10,7 @@ import { AssignRolesDto } from "./dto/assign-roles.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
 import { UsersService } from "./users.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
@@ -41,6 +42,31 @@ export class UsersController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_DETAIL)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.usersService.detail(scope, id, user);
+  }
+
+  @Get(":id/orgs")
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
+  listOrgs(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.usersService.listOrgAssignments(scope, user, id);
+  }
+
+  @Get(":id/org-candidates")
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
+  orgCandidates(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.usersService.getOrgCandidates(scope, user, id);
+  }
+
+  @Post(":id/orgs")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
+  @AuditLog({ module: "用户管理", resource: "system.user_org", action: "组织岗位变更", bizType: "user", bizIdParam: "id" })
+  replaceOrgs(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: ReplaceUserOrgsDto
+  ) {
+    return this.usersService.replaceOrgAssignments(scope, user, id, dto);
   }
 
   @Patch(":id")

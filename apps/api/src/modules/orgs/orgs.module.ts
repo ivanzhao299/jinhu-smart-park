@@ -6,9 +6,10 @@ import { PostEntity } from "./entities/post.entity";
 import { UserOrgEntity } from "./entities/user-org.entity";
 import { OrgsController } from "./orgs.controller";
 import { OrgsService } from "./orgs.service";
+import { UserEntity } from "../users/entities/user.entity";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([OrgEntity, PostEntity, UserOrgEntity]), DataScopesModule],
+  imports: [TypeOrmModule.forFeature([OrgEntity, PostEntity, UserOrgEntity, UserEntity]), DataScopesModule],
   controllers: [OrgsController],
   providers: [OrgsService],
   exports: [OrgsService, TypeOrmModule]

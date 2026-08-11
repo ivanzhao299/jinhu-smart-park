@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
-import type { Repository } from "typeorm";
+import type { EntityManager, Repository } from "typeorm";
 import { ILike, In } from "typeorm";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
@@ -14,13 +14,16 @@ import {
   type TenantParkScope,
   type UserContext,
   type UserMenuTreeNode,
-  type UserParkContext
+  type UserParkContext,
+  type UserOrgAssignment
 } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
+import { OrgEntity } from "../orgs/entities/org.entity";
+import { PostEntity } from "../orgs/entities/post.entity";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
@@ -38,6 +41,7 @@ import type { AssignRolesDto } from "./dto/assign-roles.dto";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { UpdateUserDto } from "./dto/update-user.dto";
+import type { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
 import { UserEntity } from "./entities/user.entity";
 import { UserParkEntity } from "./entities/user-park.entity";
 
@@ -320,6 +324,96 @@ export class UsersService {
       throw new NotFoundException("User not found");
     }
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "system", "user", view) as Promise<UserView>;
+  }
+
+  async listOrgAssignments(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<UserOrgAssignment[]> {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    const links = await this.userOrgRepository.find({
+      where: { userId: id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
+      relations: { org: true, post: true },
+      order: { isPrimary: "DESC", createTime: "ASC" }
+    });
+    return links.map((link) => ({
+      orgId: link.orgId,
+      postId: link.postId,
+      isPrimary: link.isPrimary,
+      orgName: link.org?.orgName,
+      postName: link.post?.postName ?? null
+    }));
+  }
+
+  async getOrgCandidates(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    const [orgs, posts] = await Promise.all([
+      this.userOrgRepository.manager.getRepository(OrgEntity).find({
+        where: { ...targetScope, isDeleted: false, status: "enabled" },
+        order: { sortOrder: "ASC", orgName: "ASC", id: "ASC" }
+      }),
+      this.userOrgRepository.manager.getRepository(PostEntity).find({
+        where: { ...targetScope, isDeleted: false, status: "enabled" },
+        order: { sortOrder: "ASC", postName: "ASC" }
+      })
+    ]);
+    return { orgs, posts };
+  }
+
+  async replaceOrgAssignments(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: ReplaceUserOrgsDto
+  ): Promise<UserOrgAssignment[]> {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    const keys = dto.assignments.map((item) => `${item.orgId}:${item.postId ?? ""}`);
+    if (new Set(keys).size !== keys.length) throw new BadRequestException("用户组织岗位关系不能重复");
+    if (dto.assignments.filter((item) => item.isPrimary).length > 1) {
+      throw new BadRequestException("同一用户只能有一个主组织");
+    }
+    await this.userOrgRepository.manager.transaction(async (manager) => {
+      await this.assertOrgAssignments(targetScope, dto.assignments, manager);
+      const repository = manager.getRepository(UserOrgEntity);
+      await repository.update(
+        { userId: id, isDeleted: false },
+        { isDeleted: true, updateBy: actor.sub }
+      );
+      if (dto.assignments.length > 0) {
+        await repository.save(dto.assignments.map((item) => repository.create({
+          userId: id,
+          orgId: item.orgId,
+          postId: item.postId ?? null,
+          isPrimary: item.isPrimary,
+          tenantId: targetScope.tenantId,
+          parkId: targetScope.parkId,
+          createBy: actor.sub,
+          updateBy: actor.sub
+        })));
+      }
+    });
+    return this.listOrgAssignments(scope, actor, id);
+  }
+
+  private async assertOrgAssignments(
+    scope: TenantParkScope,
+    assignments: ReplaceUserOrgsDto["assignments"],
+    manager: EntityManager
+  ): Promise<void> {
+    const orgIds = [...new Set(assignments.map((item) => item.orgId))];
+    const postIds = [...new Set(assignments.map((item) => item.postId).filter((id): id is string => Boolean(id)))];
+    if (orgIds.length > 0) {
+      const count = await manager.getRepository(OrgEntity).count({
+        where: { id: In(orgIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+      });
+      if (count !== orgIds.length) throw new BadRequestException("包含不存在、停用或跨园区的组织");
+    }
+    if (postIds.length > 0) {
+      const count = await manager.getRepository(PostEntity).count({
+        where: { id: In(postIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+      });
+      if (count !== postIds.length) throw new BadRequestException("包含不存在、停用或跨园区的岗位");
+    }
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {

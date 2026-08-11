@@ -279,8 +279,28 @@ export class DataScopeService {
       for (const id of this.idsForDimension(dimension, rule.scopeConfig)) {
         ids.add(id);
       }
+      if (dimension === "org" && this.normalizeScopeType(rule.scopeType) === "org_and_children") {
+        const roots = this.idsForDimension("org", rule.scopeConfig);
+        for (const id of await this.expandOrgDescendants(scope, roots)) ids.add(id);
+      }
     }
     return [...ids];
+  }
+
+  private async expandOrgDescendants(scope: TenantParkScope, roots: string[]): Promise<string[]> {
+    if (roots.length === 0) return [];
+    const rows = await this.rulesRepository.query<Array<{ id: string }>>(
+      `WITH RECURSIVE org_tree AS (
+         SELECT id FROM sys_org
+          WHERE tenant_id = $1 AND park_id = $2 AND is_deleted = false AND status = 'enabled' AND id = ANY($3::uuid[])
+         UNION
+         SELECT child.id FROM sys_org child
+         JOIN org_tree parent ON child.parent_id = parent.id
+          WHERE child.tenant_id = $1 AND child.park_id = $2 AND child.is_deleted = false AND child.status = 'enabled'
+       ) SELECT id FROM org_tree`,
+      [scope.tenantId, scope.parkId, roots]
+    );
+    return rows.map((row) => row.id);
   }
 
   private resolveFallbackAllowedIds(user: JwtPrincipal, dimension: DataScopeDimension): string[] | null {

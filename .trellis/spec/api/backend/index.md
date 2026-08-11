@@ -152,6 +152,69 @@ Reference files:
 
 Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictException`, `NotFoundException`, etc.) from services. Do not return ad hoc error objects from controllers or services.
 
+## Scenario: Organization Hierarchy And User Assignments
+
+### 1. Scope / Trigger
+
+- Trigger: changing `sys_org.parent_id`, organization tree APIs, user organization/post assignments, or `org_and_children` data-scope behavior.
+
+### 2. Signatures
+
+- `GET /orgs/tree` returns scoped `OrgTreeNode[]` with recursive `children`.
+- `GET /users/:id/org-candidates` returns enabled organizations and posts in the target user's scope.
+- `GET /users/:id/orgs` returns active `UserOrgAssignment[]`.
+- `POST /users/:id/orgs` accepts `{ assignments: { orgId, postId, isPrimary }[] }` with replacement semantics.
+- Database parent identity is `(parent_id, tenant_id, park_id) -> sys_org(id, tenant_id, park_id)`.
+
+### 3. Contracts
+
+- Existing paginated `GET /orgs` remains compatible; tree reading is a separate endpoint.
+- Parent organizations must exist, be enabled, share the child's tenant/park, and must not create self or ancestor cycles.
+- User-organization replacement resolves the target scope from the target user, not from the acting super administrator's current JWT scope.
+- Replacement is transactional, soft-deletes all previous active relationships for that user, and creates the requested target-scope set.
+- At most one active primary organization exists per user and scope; duplicate organization/post assignments are rejected.
+- `org_and_children` expands only enabled, non-deleted descendants inside the current tenant/park; an empty root set denies access.
+
+### 4. Validation & Error Matrix
+
+- missing, disabled, or cross-scope parent -> HTTP 400.
+- self-parent or cycle -> HTTP 400.
+- delete organization with active child or user assignment -> HTTP 400.
+- duplicate assignment or multiple primary organizations -> HTTP 400.
+- missing, disabled, or cross-scope organization/post assignment -> HTTP 400 and no partial replacement.
+- empty `org_and_children` roots -> empty allowed ID set, never unrestricted access.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a super administrator edits a user in another tenant; candidates and writes use that user's tenant/park.
+- Base: a three-level tree is returned in stable sibling order while `GET /orgs` remains paginated.
+- Bad: writing `rel_user_org.tenant_id/park_id` from the actor's current scope when the target user belongs elsewhere.
+- Bad: treating an empty recursive root set as `null`/unrestricted.
+
+### 6. Tests Required
+
+- Unit-test three-level tree ordering, self/missing/disabled/cyclic parents, child/user deletion blockers.
+- Unit-test recursive scope SQL, tenant/park predicates, descendant de-duplication, and empty-root deny behavior.
+- Test replacement duplicate/primary validation and transaction rollback for invalid organizations/posts.
+- E2E-create a three-level tree and test cycle rejection, parent deletion blocking, user primary assignment, duplicate rejection, and cleanup.
+- Run Shared/API/Web typecheck and build; inspect organization and user pages at desktop and 390px when a browser runtime is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await links.save({ userId, tenantId: actor.tenantId, parkId: actor.parkId, orgId });
+```
+
+#### Correct
+
+```ts
+const target = await getEntityForActor(scope, userId, actor);
+const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
+await validateAndReplaceInTransaction(targetScope, userId, assignments);
+```
+
 ## Business Action Context Endpoints
 
 An authorized business action must receive its minimum execution context from the owning
