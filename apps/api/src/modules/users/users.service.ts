@@ -419,6 +419,7 @@ export class UsersService {
             AND active_role.is_enabled = true
             AND active_role.status = 'enabled'
             AND active_role.tenant_id = usr.tenant_id
+            AND (active_role.role_scope = 'tenant' OR active_role.park_id = usr.park_id)
         )
        LEFT JOIN sys_role role
          ON role.id = user_role.role_id
@@ -426,6 +427,7 @@ export class UsersService {
         AND role.is_enabled = true
         AND role.status = 'enabled'
         AND role.tenant_id = usr.tenant_id
+        AND (role.role_scope = 'tenant' OR role.park_id = usr.park_id)
        LEFT JOIN rel_role_perm role_permission
          ON role_permission.role_id = role.id
         AND role_permission.is_deleted = false
@@ -643,12 +645,10 @@ export class UsersService {
   async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {
     await this.getEntityInScope(scope, id);
     const roles = await this.rolesRepository.find({
-      where: {
-        id: In(dto.roleIds),
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        isDeleted: false
-      }
+      where: [
+        { id: In(dto.roleIds), tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { id: In(dto.roleIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      ]
     });
     if (roles.length !== dto.roleIds.length) {
       throw new NotFoundException("Role not found in current scope");
@@ -1106,7 +1106,8 @@ export class UsersService {
         !link.role.isDeleted &&
         link.role.isEnabled &&
         link.role.status === "enabled" &&
-        link.role.tenantId === user.tenantId
+        link.role.tenantId === user.tenantId &&
+        (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
     );
   }
 

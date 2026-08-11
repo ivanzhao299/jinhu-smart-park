@@ -35,43 +35,43 @@ export class RolesService {
   async list(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<RoleEntity>> {
     const statusWhere =
       query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
-    const baseWhere = {
-      tenantId: scope.tenantId,
-      isDeleted: false,
-      ...statusWhere
-    };
+    const scopeWhere = [
+      { tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false, ...statusWhere },
+      { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, ...statusWhere }
+    ];
     const where = query.keyword
-      ? [
+      ? scopeWhere.flatMap((baseWhere) => [
           { ...baseWhere, code: ILike(`%${query.keyword}%`) },
           { ...baseWhere, name: ILike(`%${query.keyword}%`) }
-        ]
-      : baseWhere;
+        ])
+      : scopeWhere;
     const [items, total] = await this.rolesRepository.findAndCount({
       where,
-      relations: { permissionLinks: { permission: true } },
       order: { level: "ASC", sortNo: "ASC", createTime: "DESC" },
       skip: (query.page - 1) * query.page_size,
       take: query.page_size
     });
+    await this.attachPermissionLinks(scope, items);
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
-  listByScope(scope: TenantParkScope): Promise<RoleEntity[]> {
-    return this.rolesRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        isDeleted: false
-      },
-      relations: { permissionLinks: { permission: true } }
+  async listByScope(scope: TenantParkScope): Promise<RoleEntity[]> {
+    const roles = await this.rolesRepository.find({
+      where: [
+        { tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      ]
     });
+    await this.attachPermissionLinks(scope, roles);
+    return roles;
   }
 
   async tree(scope: TenantParkScope): Promise<RoleTreeNode[]> {
     const roles = await this.rolesRepository.find({
-      where: {
-        tenantId: scope.tenantId,
-        isDeleted: false
-      },
+      where: [
+        { tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      ],
       order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
     });
     return this.buildTree(roles);
@@ -113,12 +113,15 @@ export class RolesService {
 
   async detail(scope: TenantParkScope, id: string): Promise<RoleEntity> {
     const role = await this.rolesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, isDeleted: false },
-      relations: { permissionLinks: { permission: true } }
+      where: [
+        { id, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      ]
     });
     if (!role) {
       throw new NotFoundException("Role not found");
     }
+    await this.attachPermissionLinks(scope, [role]);
     return role;
   }
 
@@ -325,7 +328,10 @@ export class RolesService {
 
   private async mustFindParent(scope: TenantParkScope, id: string): Promise<RoleEntity> {
     const parent = await this.rolesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, isDeleted: false }
+      where: [
+        { id, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      ]
     });
     if (!parent) {
       throw new NotFoundException("Parent role not found in current scope");
@@ -347,7 +353,7 @@ export class RolesService {
 
   private async copyPermissions(scope: TenantParkScope, actorId: string, sourceRoleId: string, targetRoleId: string): Promise<void> {
     const links = await this.rolePermissionRepository.find({
-      where: { tenantId: scope.tenantId, roleId: sourceRoleId, isDeleted: false }
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: sourceRoleId, isDeleted: false }
     });
     await this.rolePermissionRepository.save(
       links.map((link) =>
@@ -366,7 +372,7 @@ export class RolesService {
 
   private async copyFieldPermissions(scope: TenantParkScope, actorId: string, sourceRoleId: string, targetRoleId: string): Promise<void> {
     const fields = await this.roleFieldPermissionRepository.find({
-      where: { tenantId: scope.tenantId, roleId: sourceRoleId, isDeleted: false }
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: sourceRoleId, isDeleted: false }
     });
     await this.roleFieldPermissionRepository.save(
       fields.map((field) =>
@@ -384,6 +390,28 @@ export class RolesService {
         })
       )
     );
+  }
+
+  private async attachPermissionLinks(scope: TenantParkScope, roles: RoleEntity[]): Promise<void> {
+    if (roles.length === 0) return;
+    const links = await this.rolePermissionRepository.find({
+      where: {
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        roleId: In(roles.map((role) => role.id)),
+        isDeleted: false
+      },
+      relations: { permission: true }
+    });
+    const linksByRole = new Map<string, RolePermissionEntity[]>();
+    for (const link of links) {
+      const roleLinks = linksByRole.get(link.roleId) ?? [];
+      roleLinks.push(link);
+      linksByRole.set(link.roleId, roleLinks);
+    }
+    for (const role of roles) {
+      role.permissionLinks = linksByRole.get(role.id) ?? [];
+    }
   }
 
   private buildTree(roles: RoleEntity[]): RoleTreeNode[] {

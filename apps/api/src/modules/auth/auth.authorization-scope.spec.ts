@@ -8,6 +8,8 @@ test("login authorization only includes role and permission links from the user'
   }).resolveUserAuthorization;
   const currentRole = {
     tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "tenant",
     isEnabled: true,
     isDeleted: false,
     status: "enabled",
@@ -44,6 +46,8 @@ test("login authorization only includes role and permission links from the user'
         isDeleted: false,
         role: {
           tenantId: "tenant-a",
+          parkId: "park-a",
+          roleScope: "tenant",
           isEnabled: true,
           isDeleted: false,
           status: "enabled",
@@ -57,6 +61,23 @@ test("login authorization only includes role and permission links from the user'
         isDeleted: false,
         role: {
           tenantId: "tenant-b",
+          parkId: "park-a",
+          roleScope: "tenant",
+          isEnabled: true,
+          isDeleted: false,
+          status: "enabled",
+          isSuper: true,
+          permissionLinks: []
+        }
+      },
+      {
+        tenantId: "tenant-a",
+        parkId: "park-a",
+        isDeleted: false,
+        role: {
+          tenantId: "tenant-a",
+          parkId: "park-b",
+          roleScope: "park",
           isEnabled: true,
           isDeleted: false,
           status: "enabled",

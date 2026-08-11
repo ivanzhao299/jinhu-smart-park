@@ -761,7 +761,8 @@ export class AuthService implements OnModuleInit {
         link.role.isEnabled &&
         !link.role.isDeleted &&
         link.role.status === "enabled" &&
-        link.role.tenantId === user.tenantId
+        link.role.tenantId === user.tenantId &&
+        (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
     );
     const basePermissions = activeRoleLinks.flatMap((link) =>
       (link.role.permissionLinks ?? [])

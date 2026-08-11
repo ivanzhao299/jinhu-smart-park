@@ -85,6 +85,35 @@ test("the safety module grants every safety permission family used by its menus 
   ]);
 });
 
+test("the work-order module keeps core, SLA, log, and compatibility permissions", () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const derive = (service as unknown as {
+    derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
+  }).derivePermissionCodes.bind(service);
+  const permissions = [
+    { code: "workorder" },
+    { code: "workorder:center" },
+    { code: "workorder:read" },
+    { code: "workorder_sla:read" },
+    { code: "workorder_sla:create" },
+    { code: "workorder_log:read" },
+    { code: "workorder_log:create" },
+    { code: "wo:read" },
+    { code: "asset:read" }
+  ] as never;
+
+  assert.deepEqual(derive(["workorder"], permissions), [
+    "workorder",
+    "workorder:center",
+    "workorder:read",
+    "workorder_sla:read",
+    "workorder_sla:create",
+    "workorder_log:read",
+    "workorder_log:create",
+    "wo:read"
+  ]);
+});
+
 test("plan module markers cannot grant permissions for a module that is not enabled", () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
   const filter = (service as unknown as {
@@ -100,6 +129,10 @@ test("plan module markers cannot grant permissions for a module that is not enab
     ["safety_hazard:read"]
   );
   assert.deepEqual(filter(["safety:*", "asset:*"], ["safety"]), ["safety:*"]);
+  assert.deepEqual(
+    filter(["workorder_sla:*", "workorder_log:*", "asset:*"], ["workorder"]),
+    ["workorder_sla:*", "workorder_log:*"]
+  );
   assert.deepEqual(
     filter(["iot_alert:*", "iot_device:read", "energy_meter:*"], ["system", "iot"]),
     ["iot_alert:*", "iot_device:read"]

@@ -67,6 +67,8 @@ function withSuperRole(user: UserEntity): UserEntity {
         isDeleted: false,
         role: {
           tenantId: user.tenantId,
+          parkId: user.parkId,
+          roleScope: "tenant",
           code: "SUPER_ADMIN",
           isSuper: true,
           isEnabled: true,
