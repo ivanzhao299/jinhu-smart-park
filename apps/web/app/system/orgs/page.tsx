@@ -93,6 +93,10 @@ export default function OrgsPage() {
   const allOrgs = useMemo(() => flattenTree(tree), [tree]);
   const visibleOrgs = useMemo(() => flattenTree(filterTree(tree, keyword, status)), [tree, keyword, status]);
   const blockedParents = editingOrg ? new Set([editingOrg.id, ...collectDescendantIds(editingOrg)]) : new Set<string>();
+  const parentOptions = allOrgs.filter(({ org }) => org.status === "enabled" && !blockedParents.has(org.id));
+  const unavailableCurrentParent = editingOrg?.parentId && !parentOptions.some(({ org }) => org.id === editingOrg.parentId)
+    ? editingOrg.parentId
+    : null;
   const parentName = (id: string | null) => allOrgs.find((item) => item.org.id === id)?.org.orgName ?? "根组织";
   const leaderName = (id: string | null) => leaders.find((item) => item.id === id)?.displayName ?? "-";
   const leaderOptions = editingOrg?.leaderUserId && !leaders.some((leader) => leader.id === editingOrg.leaderUserId)
@@ -108,7 +112,8 @@ export default function OrgsPage() {
     event.preventDefault();
     setDrawerError("");
     const body = {
-      parentId: form.parentId || null, orgCode: form.orgCode.trim(), orgName: form.orgName.trim(),
+      ...(!editingOrg || form.parentId !== (editingOrg.parentId ?? "") ? { parentId: form.parentId || null } : {}),
+      orgCode: form.orgCode.trim(), orgName: form.orgName.trim(),
       orgType: form.orgType,
       ...(editingOrg && form.leaderUserId === (editingOrg.leaderUserId ?? "") ? {} : { leaderUserId: form.leaderUserId || null }),
       status: form.status,
@@ -149,7 +154,7 @@ export default function OrgsPage() {
       <div className="ds-mobile-record-list">{visibleOrgs.map(({ org, depth }) => <article className="ds-mobile-record" key={org.id}><header><strong>{"　".repeat(depth)}{org.orgName}</strong><StatusBadge status={org.status as OrgStatus} /></header><dl><div><dt>编码</dt><dd>{org.orgCode}</dd></div><div><dt>上级</dt><dd>{parentName(org.parentId)}</dd></div><div><dt>负责人</dt><dd>{leaderName(org.leaderUserId)}</dd></div></dl><footer>{actions(org)}</footer></article>)}</div>
     </Card>
     {showForm ? <Drawer size="md" onClose={closeForm}><DrawerHeader eyebrow="系统管理" title={editingOrg ? "编辑组织" : "新增组织"} description="维护组织归属、负责人和基础信息。" onClose={closeForm} closeIcon={<X size={18} />} /><DrawerForm onSubmit={submit}><DrawerFormGrid>
-      <div className="field"><label>上级组织</label><select value={form.parentId} onChange={(e) => { setDrawerError(""); setForm((v) => ({ ...v, parentId: e.target.value })); }}><option value="">无（根组织）</option>{allOrgs.filter(({ org }) => org.status === "enabled" && !blockedParents.has(org.id)).map(({ org, depth }) => <option key={org.id} value={org.id}>{"—".repeat(depth)} {org.orgName}</option>)}</select></div>
+      <div className="field"><label>上级组织</label><select value={form.parentId} onChange={(e) => { setDrawerError(""); setForm((v) => ({ ...v, parentId: e.target.value })); }}><option value="">无（根组织）</option>{unavailableCurrentParent ? <option value={unavailableCurrentParent} disabled>当前上级（不可见或不可选）</option> : null}{parentOptions.map(({ org, depth }) => <option key={org.id} value={org.id}>{"—".repeat(depth)} {org.orgName}</option>)}</select></div>
       <div className="field"><label>负责人</label><select value={form.leaderUserId} onChange={(e) => setForm((v) => ({ ...v, leaderUserId: e.target.value }))}><option value="">未指定</option>{leaderOptions.map((leader) => <option key={leader.id} value={leader.id} disabled={leader.id === editingOrg?.leaderUserId && !leaders.some((candidate) => candidate.id === leader.id)}>{leader.displayName}（{leader.username}）</option>)}</select></div>
       <div className="field"><label>组织编码</label><input required maxLength={64} value={form.orgCode} onChange={(e) => setForm((v) => ({ ...v, orgCode: e.target.value }))} /></div><div className="field"><label>组织名称</label><input required maxLength={100} value={form.orgName} onChange={(e) => setForm((v) => ({ ...v, orgName: e.target.value }))} /></div>
       <div className="field"><label>类型</label><select value={form.orgType} onChange={(e) => setForm((v) => ({ ...v, orgType: e.target.value }))}>{orgTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="field"><label>状态</label><select value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as OrgStatus }))}><option value="enabled">启用</option><option value="disabled">停用</option></select></div><div className="field"><label>排序</label><input type="number" min={0} step={1} value={form.sortOrder} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm((v) => ({ ...v, sortOrder: e.target.value }))} /></div><div className="field"><label>备注</label><textarea maxLength={500} value={form.remark} onChange={(e) => setForm((v) => ({ ...v, remark: e.target.value }))} /></div>

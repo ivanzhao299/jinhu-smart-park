@@ -42,3 +42,8 @@ test("organization editor preserves unavailable current leaders on unrelated upd
   assert.match(source, /当前负责人（已停用或不可选）/);
   assert.match(source, /form\.leaderUserId === \(editingOrg\.leaderUserId \?\? ""\) \? \{\} : \{ leaderUserId:/);
 });
+
+test("organization editor preserves an unavailable parent without resubmitting it", () => {
+  assert.match(source, /当前上级（不可见或不可选）/);
+  assert.match(source, /form\.parentId !== \(editingOrg\.parentId \?\? ""\) \? \{ parentId:/);
+});
