@@ -262,7 +262,10 @@ export class TenantsService {
       await this.assertParkIdAvailable(manager.getRepository(ParkEntity), parkId);
 
       const plan = await this.resolvePlan(manager, actorScope, dto.planCode ?? null);
-      const moduleCodes = this.normalizeCodes(dto.moduleCodes?.length ? dto.moduleCodes : plan?.moduleCodes ?? ["system"]);
+      const moduleCodes = this.normalizeCodes(dto.moduleCodes?.length ? dto.moduleCodes : plan?.moduleCodes ?? []);
+      if (moduleCodes.length === 0) {
+        throw new BadRequestException("Plan code or module codes are required");
+      }
       const maxUsers = dto.maxUsers ?? plan?.maxUsers ?? 0;
       const maxParks = dto.maxParks ?? plan?.maxParks ?? 0;
       const expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
@@ -302,7 +305,10 @@ export class TenantsService {
         role,
         permissions,
         moduleCodes,
-        dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+        this.permissionCodesForModules(
+          dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+          moduleCodes
+        ),
         actorId
       );
       const user = await this.createTenantAdminUser(manager, tenant, park.parkId, actorId, dto);
@@ -366,27 +372,42 @@ export class TenantsService {
       if (dto.expireTime !== undefined) {
         tenant.expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
       }
-      if (dto.planCode !== undefined) {
-        tenant.planCode = dto.planCode;
-      }
       tenant.featureConfig = {
         ...(tenant.featureConfig ?? {}),
         ...(dto.featureConfig ?? {}),
         defaultParkId
       };
       tenant.updateBy = actorId;
-      await tenantRepository.save(tenant);
-
-      if (dto.moduleCodes !== undefined) {
-        const plan = await this.resolvePlan(manager, actorScope, dto.planCode ?? tenant.planCode);
-        const moduleCodes = this.normalizeCodes(dto.moduleCodes);
+      const authorizationChanged = dto.planCode !== undefined || dto.moduleCodes !== undefined;
+      if (authorizationChanged) {
+        const requestedPlanCode = dto.planCode === undefined ? tenant.planCode : dto.planCode;
+        const plan = dto.planCode === undefined ? null : await this.resolvePlan(manager, actorScope, requestedPlanCode);
+        const moduleCodes = this.normalizeCodes(dto.moduleCodes === undefined ? plan?.moduleCodes ?? [] : dto.moduleCodes);
+        if (moduleCodes.length === 0) {
+          throw new BadRequestException("Plan code or module codes are required");
+        }
         const targetParkId = defaultParkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
         const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId: tenant.tenantId, parkId: targetParkId }, actorId);
         const modules = await this.resolveStandardModules(manager, moduleCodes);
         await this.upsertTenantModules(manager, tenant, targetParkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, targetParkId, actorId);
-        await this.applyTenantAdminPermissions(manager, { tenantId: tenant.tenantId, parkId: targetParkId }, role, permissions, moduleCodes, [], actorId);
+        await this.applyTenantAdminPermissions(
+          manager,
+          { tenantId: tenant.tenantId, parkId: targetParkId },
+          role,
+          permissions,
+          moduleCodes,
+          this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes),
+          actorId
+        );
+        if (dto.planCode !== undefined) {
+          tenant.planCode = plan?.planCode ?? requestedPlanCode ?? null;
+          tenant.maxUsers = plan?.maxUsers ?? tenant.maxUsers;
+          tenant.maxParks = plan?.maxParks ?? tenant.maxParks;
+        }
       }
+
+      await tenantRepository.save(tenant);
 
       return this.toLoginSettingsView(manager, tenant);
     });
@@ -440,7 +461,10 @@ export class TenantsService {
         role,
         permissions,
         moduleCodes,
-        dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+        this.permissionCodesForModules(
+          dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+          moduleCodes
+        ),
         actorId
       );
       tenant.planCode = plan?.planCode ?? tenant.planCode;
@@ -805,6 +829,16 @@ export class TenantsService {
     return permissions.filter((permission) => selectedCodes.has(permission.code) && permission.isEnabled && !permission.isDeleted);
   }
 
+  private permissionCodesForModules(permissionCodes: string[], moduleCodes: string[]): string[] {
+    const enabledModules = new Set(this.normalizeCodes(moduleCodes));
+    return this.normalizeCodes(permissionCodes).filter((code) => {
+      if (code.startsWith("module:")) {
+        return enabledModules.has(code.replace(/^module:/, ""));
+      }
+      return this.derivePermissionCodes([...enabledModules], [{ code } as PermissionEntity]).length > 0;
+    });
+  }
+
   private derivePermissionCodes(moduleCodes: string[], permissions: PermissionEntity[]): string[] {
     const modules = new Set(this.normalizeCodes(moduleCodes));
     return permissions
@@ -816,6 +850,7 @@ export class TenantsService {
         if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing:"))) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
+        if (modules.has("safety") && (code === "safety" || code.startsWith("safety_"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
         if (modules.has("iot") && (code === "iot" || code === "iot:overview" || code === "iot:read")) return true;
         if (modules.has("energy") && (code === "energy" || code === "energy:overview" || code === "energy:read")) return true;

@@ -41,6 +41,18 @@ authorization authority for the signatures above.
   route guard. A module-free destination such as `/dashboard` is the safe fallback.
 - Menu materialization may derive eligible roles from existing API permissions, but it must
   intersect those roles with an active tenant-module assignment in the same tenant and park.
+- Tenant provisioning must receive either a resolvable plan or an explicit non-empty module
+  set. Missing authorization input is an error; it must never silently become a reduced
+  `system`-only tenant.
+- Plan selection, `rel_tenant_module`, the built-in tenant administrator role permissions,
+  quotas, and the resulting `/users/me` projection are one cross-layer authorization contract.
+  Creating a tenant or changing its plan must converge these records in the same transaction.
+- Plan permission markers and explicit permission patterns must be intersected with the final
+  enabled module set before role grants are rebuilt. Removing a module must remove its role
+  permissions even when the plan still contains a stale explicit permission code.
+- Web plan selectors may present module and quota projections, but the backend remains the
+  authority for resolving plan modules and permission families. Browsers must not synthesize
+  plan permission codes.
 
 ## 4. Validation & Error Matrix
 
@@ -82,6 +94,12 @@ authorization authority for the signatures above.
   grants.
 - Runtime/browser: disable a module for a real superuser, reload `/users/me`, and assert the
   menu disappears, direct navigation is denied, and the API returns 403.
+- Provisioning regression: create a tenant from each production plan, log in as its first
+  administrator, and assert enabled modules, representative module permissions, visible menus,
+  an authorized tenant API, a disabled-module 403, and a platform-management 403.
+- Update regression: change only `planCode` and assert module assignments and the built-in
+  administrator role permissions converge atomically. Also cover a module reduction where
+  stale plan permission patterns cannot survive.
 
 ## 7. Wrong vs Correct
 

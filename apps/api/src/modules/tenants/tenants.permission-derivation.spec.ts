@@ -42,3 +42,45 @@ test("the default system module grants tenant administration pages without platf
     "system:user:list"
   ]);
 });
+
+test("the safety module grants every safety permission family used by its menus and APIs", () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const derive = (service as unknown as {
+    derivePermissionCodes(moduleCodes: string[], permissions: Array<{ code: string }>): string[];
+  }).derivePermissionCodes.bind(service);
+  const permissions = [
+    { code: "safety" },
+    { code: "safety_statistics:read" },
+    { code: "safety_inspect_task:my" },
+    { code: "safety_hazard:read" },
+    { code: "safety_emergency:read" },
+    { code: "safety_work_permit:read" },
+    { code: "video_alert:create_hazard" },
+    { code: "workorder:read" }
+  ] as never;
+
+  assert.deepEqual(derive(["safety"], permissions), [
+    "safety",
+    "safety_statistics:read",
+    "safety_inspect_task:my",
+    "safety_hazard:read",
+    "safety_emergency:read",
+    "safety_work_permit:read"
+  ]);
+});
+
+test("plan module markers cannot grant permissions for a module that is not enabled", () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const filter = (service as unknown as {
+    permissionCodesForModules(permissionCodes: string[], moduleCodes: string[]): string[];
+  }).permissionCodesForModules.bind(service);
+
+  assert.deepEqual(
+    filter(["module:system", "module:safety", "asset:read", "system:user:*", "module:system"], ["system"]),
+    ["module:system", "system:user:*"]
+  );
+  assert.deepEqual(
+    filter(["safety_hazard:read", "asset:read"], ["system", "safety"]),
+    ["safety_hazard:read"]
+  );
+});

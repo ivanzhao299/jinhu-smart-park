@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "./plan-catalog-options.logic";
+import { changedPlanAuthorization, collectAllCandidatePages, findPlanAuthorization, isRetainedCatalogValue } from "./plan-catalog-options.logic";
 
 test("tenant plan selector loads every catalog page", async () => {
   const requestedPages: number[] = [];
@@ -49,6 +49,13 @@ test("unchanged tenant authorization is omitted instead of re-resolving a histor
   assert.deepEqual(changedPlanAuthorization(
     "DISABLED_PLAN",
     ["ASSET"],
+    "DISABLED_PLAN",
+    ["ASSET", "WORKORDER"]
+  ), { moduleCodes: ["ASSET", "WORKORDER"] });
+
+  assert.deepEqual(changedPlanAuthorization(
+    "DISABLED_PLAN",
+    ["ASSET"],
     "PRO",
     ["ASSET", "WORKORDER"]
   ), { planCode: "PRO", moduleCodes: ["ASSET", "WORKORDER"] });
@@ -59,4 +66,28 @@ test("tenant creation waits until plan and module catalogs are ready", () => {
 
   assert.match(source, /if \(!catalogReady\)/);
   assert.match(source, /disabled=\{!catalogReady\} onClick=\{openCreate\}/);
+});
+
+test("tenant creation selects a concrete plan with its modules and quotas", () => {
+  const plans = [
+    { planCode: "BASIC", moduleCodes: ["system", "asset"], maxUsers: 20, maxParks: 1 },
+    { planCode: "PRO", moduleCodes: ["system", "asset", "safety"], maxUsers: 100, maxParks: 5 }
+  ];
+
+  assert.deepEqual(findPlanAuthorization(plans, "PRO"), plans[1]);
+  assert.equal(findPlanAuthorization(plans, "MISSING"), null);
+
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /无可用套餐，无法开通租户/);
+  assert.match(source, /planCode: createPlanCode/);
+  assert.match(source, /selectCreatePlan/);
+  assert.doesNotMatch(source, /<option value="">未绑定套餐<\/option>/);
+});
+
+test("changing the plan in login settings replaces the module selection from that plan", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /function selectSettingsPlan/);
+  assert.match(source, /setSettingsModuleCodes\(plan\.moduleCodes\)/);
+  assert.match(source, /settingsPlanCode \|\| null/);
 });

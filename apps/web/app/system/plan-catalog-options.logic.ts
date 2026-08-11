@@ -36,6 +36,17 @@ function normalizedCodes(codes: string[]): string[] {
   return [...new Set(codes.map((code) => code.trim()).filter(Boolean))].sort();
 }
 
+export interface PlanAuthorizationOption {
+  planCode: string;
+  moduleCodes: string[];
+  maxUsers?: number;
+  maxParks?: number;
+}
+
+export function findPlanAuthorization<T extends PlanAuthorizationOption>(plans: T[], planCode: string): T | null {
+  return plans.find((plan) => plan.planCode === planCode) ?? null;
+}
+
 export function changedPlanAuthorization(
   currentPlanCode: string | null,
   currentModuleCodes: string[],
@@ -44,9 +55,12 @@ export function changedPlanAuthorization(
 ): { planCode?: string | null; moduleCodes?: string[] } {
   const currentCodes = normalizedCodes(currentModuleCodes);
   const nextCodes = normalizedCodes(nextModuleCodes);
-  const isUnchanged = currentPlanCode === nextPlanCode
-    && currentCodes.length === nextCodes.length
-    && currentCodes.every((code, index) => code === nextCodes[index]);
+  const planChanged = currentPlanCode !== nextPlanCode;
+  const modulesChanged = currentCodes.length !== nextCodes.length
+    || currentCodes.some((code, index) => code !== nextCodes[index]);
 
-  return isUnchanged ? {} : { planCode: nextPlanCode, moduleCodes: nextCodes };
+  return {
+    ...(planChanged ? { planCode: nextPlanCode } : {}),
+    ...(modulesChanged ? { moduleCodes: nextCodes } : {})
+  };
 }
