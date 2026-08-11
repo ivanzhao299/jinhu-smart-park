@@ -1,0 +1,2 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 Android 与 API 契约和权限边界"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查是否保留并复用现有更新/WebView 能力"}

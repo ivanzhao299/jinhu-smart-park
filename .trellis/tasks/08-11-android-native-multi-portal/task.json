@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-11-mobile-bootstrap-contract"
+    "08-11-mobile-bootstrap-contract",
+    "08-11-08-11-android-native-foundation"
   ],
   "parent": null,
   "relatedFiles": [],
