@@ -49,6 +49,11 @@ run_migrations_and_optional_seed() {
   fi
 }
 
+quiesce_api_for_migrations() {
+  printf "Stopping the existing API before database migrations. It will remain stopped until the new API starts.\n"
+  compose stop api
+}
+
 wait_for_postgres() {
   i=0
   while [ "$i" -lt 60 ]; do
@@ -87,6 +92,7 @@ deploy_api() {
   compose build api
   compose up -d postgres
   wait_for_postgres
+  quiesce_api_for_migrations
   run_migrations_and_optional_seed
   compose up -d api
   MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
@@ -96,6 +102,7 @@ deploy_full() {
   compose build api web
   compose up -d postgres
   wait_for_postgres
+  quiesce_api_for_migrations
   run_migrations_and_optional_seed
   compose up -d api web
   MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"

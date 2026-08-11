@@ -2,25 +2,30 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
-import type { Repository } from "typeorm";
+import type { EntityManager, Repository } from "typeorm";
 import { ILike, In } from "typeorm";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_ACCESS_MANIFEST,
+  SYSTEM_PERMISSIONS,
   type EnabledModuleContext,
   type PaginatedResult,
   type PropertyBusinessModuleCode,
   type TenantParkScope,
   type UserContext,
   type UserMenuTreeNode,
-  type UserParkContext
+  type UserParkContext,
+  type UserOrgAssignment
 } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
+import { OrgEntity } from "../orgs/entities/org.entity";
+import { PostEntity } from "../orgs/entities/post.entity";
+import { lockOrgHierarchy, lockUserOrganizationScope } from "../orgs/org-hierarchy-lock";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
@@ -38,6 +43,7 @@ import type { AssignRolesDto } from "./dto/assign-roles.dto";
 import type { CreateUserDto } from "./dto/create-user.dto";
 import type { ResetPasswordDto } from "./dto/reset-password.dto";
 import type { UpdateUserDto } from "./dto/update-user.dto";
+import type { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
 import { UserEntity } from "./entities/user.entity";
 import { UserParkEntity } from "./entities/user-park.entity";
 
@@ -167,8 +173,14 @@ export class UsersService {
     await this.assertTenantUserLimit(targetScope);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
-    const user = await this.usersRepository.save(
-      this.usersRepository.create({
+    const user = await this.usersRepository.manager.transaction(async (manager) => {
+      const assignments = dto.assignments ?? [];
+      this.assertOrgAssignmentShape(assignments);
+      if (assignments.length > 0) {
+        await lockOrgHierarchy(manager, targetScope);
+      }
+      const usersRepository = manager.getRepository(UserEntity);
+      const savedUser = await usersRepository.save(usersRepository.create({
         username: dto.username,
         displayName: dto.displayName,
         passwordHash,
@@ -183,9 +195,31 @@ export class UsersService {
         parkId: targetScope.parkId,
         createBy: actor.sub,
         updateBy: actor.sub
-      })
-    );
-    await this.syncUserParks(user.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
+      }));
+      await this.syncUserParks(
+        savedUser.id,
+        targetScope.tenantId,
+        targetScope.parkId,
+        dto.accessibleParkIds,
+        actor.sub,
+        manager
+      );
+      await this.assertOrgAssignments(targetScope, actor, assignments, manager, []);
+      if (assignments.length > 0) {
+        const repository = manager.getRepository(UserOrgEntity);
+        await repository.save(assignments.map((item) => repository.create({
+          userId: savedUser.id,
+          orgId: item.orgId,
+          postId: item.postId ?? null,
+          isPrimary: item.isPrimary,
+          tenantId: targetScope.tenantId,
+          parkId: targetScope.parkId,
+          createBy: actor.sub,
+          updateBy: actor.sub
+        })));
+      }
+      return savedUser;
+    });
     const [view] = await this.toViews([user]);
     if (!view) {
       throw new NotFoundException("User not found");
@@ -320,6 +354,214 @@ export class UsersService {
       throw new NotFoundException("User not found");
     }
     return this.fieldPolicyService.applyFieldPolicies(scope, actor, "system", "user", view) as Promise<UserView>;
+  }
+
+  async listOrgAssignments(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<UserOrgAssignment[]> {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    return this.listOrgAssignmentsInScope(targetScope, actor, id, this.userOrgRepository.manager);
+  }
+
+  private async listOrgAssignmentsInScope(
+    targetScope: TenantParkScope,
+    actor: JwtPrincipal,
+    userId: string,
+    manager: EntityManager
+  ): Promise<UserOrgAssignment[]> {
+    const visibleOrgIds = await this.resolveVisibleOrgIds(targetScope, actor, manager);
+    const links = await manager.getRepository(UserOrgEntity).find({
+      where: {
+        userId,
+        tenantId: targetScope.tenantId,
+        parkId: targetScope.parkId,
+        isDeleted: false,
+        ...(visibleOrgIds === null ? {} : { orgId: In(visibleOrgIds) })
+      },
+      relations: { org: true, post: true },
+      order: { isPrimary: "DESC", createTime: "ASC" }
+    });
+    return links.map((link) => ({
+      orgId: link.orgId,
+      postId: link.postId,
+      isPrimary: link.isPrimary,
+      orgName: link.org?.orgName,
+      postName: link.post?.postName ?? null
+    }));
+  }
+
+  async getOrgCandidates(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    return this.listOrgCandidates(targetScope, actor);
+  }
+
+  async getCreateOrgCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    tenantId?: string,
+    parkId?: string
+  ) {
+    const targetScope = await this.resolveUserTargetScope(scope, actor, tenantId, parkId);
+    return this.listOrgCandidates(targetScope, actor);
+  }
+
+  private async listOrgCandidates(targetScope: TenantParkScope, actor: JwtPrincipal) {
+    const orgWhere = await this.dataScopeService.buildFindWhere<OrgEntity>(
+      targetScope,
+      actor,
+      "org",
+      { ...targetScope, isDeleted: false, status: "enabled" },
+      { org: "id" }
+    );
+    const [orgs, posts] = await Promise.all([
+      this.userOrgRepository.manager.getRepository(OrgEntity).find({
+        where: orgWhere,
+        select: {
+          id: true,
+          parentId: true,
+          orgCode: true,
+          orgName: true,
+          orgType: true,
+          leaderUserId: true,
+          sortOrder: true,
+          status: true
+        },
+        order: { sortOrder: "ASC", orgName: "ASC", id: "ASC" }
+      }),
+      this.userOrgRepository.manager.getRepository(PostEntity).find({
+        where: { ...targetScope, isDeleted: false, status: "enabled" },
+        select: { id: true, postCode: true, postName: true, sortOrder: true, status: true },
+        order: { sortOrder: "ASC", postName: "ASC" }
+      })
+    ]);
+    return { orgs, posts };
+  }
+
+  private async resolveVisibleOrgIds(
+    targetScope: TenantParkScope,
+    actor: JwtPrincipal,
+    manager: EntityManager = this.userOrgRepository.manager
+  ): Promise<string[] | null> {
+    if (actor.isSuper || actor.permissions.includes("*")) return null;
+    const where = await this.dataScopeService.buildFindWhere<OrgEntity>(
+      targetScope,
+      actor,
+      "org",
+      { ...targetScope, isDeleted: false },
+      { org: "id" }
+    );
+    const orgs = await manager.getRepository(OrgEntity).find({ where, select: { id: true } });
+    return orgs.map((org) => org.id);
+  }
+
+  async replaceOrgAssignments(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: ReplaceUserOrgsDto,
+    onTargetScope?: (targetScope: TenantParkScope) => void
+  ): Promise<UserOrgAssignment[]> {
+    this.assertOrgAssignmentShape(dto.assignments);
+    return this.userOrgRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
+      const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+      onTargetScope?.(targetScope);
+      await lockOrgHierarchy(manager, targetScope);
+      await this.replaceOrgAssignmentsInTransaction(targetScope, actor, id, dto.assignments, manager);
+      return this.listOrgAssignmentsInScope(targetScope, actor, id, manager);
+    });
+  }
+
+  private async assertOrgAssignments(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    assignments: ReplaceUserOrgsDto["assignments"],
+    manager: EntityManager,
+    activeLinks: Array<Pick<UserOrgEntity, "orgId" | "postId" | "isPrimary">>
+  ): Promise<string[] | null> {
+    const relationshipKey = (item: { orgId: string; postId?: string | null }) => `${item.orgId}:${item.postId ?? ""}`;
+    const retainedKeys = new Set(activeLinks.map(relationshipKey));
+    const assignmentsToValidate = assignments.filter((item) => !retainedKeys.has(relationshipKey(item)));
+    const orgIds = [...new Set(assignments.map((item) => item.orgId))];
+    const orgIdsToValidate = [...new Set(assignmentsToValidate.map((item) => item.orgId))];
+    const postIds = [...new Set(assignmentsToValidate.map((item) => item.postId).filter((id): id is string => Boolean(id)))];
+    const visibleOrgIds = await this.resolveVisibleOrgIds(scope, actor, manager);
+    if (orgIds.length > 0) {
+      if (visibleOrgIds !== null) {
+        const visibleOrgIdSet = new Set(visibleOrgIds);
+        if (orgIds.some((orgId) => !visibleOrgIdSet.has(orgId))) {
+          throw new BadRequestException("包含不存在、停用、跨园区或无权使用的组织");
+        }
+      }
+    }
+    if (orgIdsToValidate.length > 0) {
+      const count = await manager.getRepository(OrgEntity).count({
+        where: { id: In(orgIdsToValidate), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+      });
+      if (count !== orgIdsToValidate.length) throw new BadRequestException("包含不存在、停用、跨园区或无权使用的组织");
+    }
+    if (postIds.length > 0) {
+      const count = await manager.getRepository(PostEntity).count({
+        where: { id: In(postIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+      });
+      if (count !== postIds.length) throw new BadRequestException("包含不存在、停用或跨园区的岗位");
+    }
+    return visibleOrgIds;
+  }
+
+  private async replaceOrgAssignmentsInTransaction(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    userId: string,
+    assignments: ReplaceUserOrgsDto["assignments"],
+    manager: EntityManager
+  ): Promise<void> {
+    const repository = manager.getRepository(UserOrgEntity);
+    const activeLinks = await repository.find({
+      where: { userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      select: { orgId: true, postId: true, isPrimary: true }
+    });
+    const visibleOrgIds = await this.assertOrgAssignments(scope, actor, assignments, manager, activeLinks);
+    if (visibleOrgIds !== null) {
+      const visibleOrgIdSet = new Set(visibleOrgIds);
+      const hiddenPrimaryExists = activeLinks.some((link) => link.isPrimary && !visibleOrgIdSet.has(link.orgId));
+      if (hiddenPrimaryExists && assignments.some((item) => item.isPrimary)) {
+        throw new BadRequestException("无权变更的组织关系中已有主组织");
+      }
+    }
+    if (visibleOrgIds === null || visibleOrgIds.length > 0) {
+      await repository.update(
+        {
+          userId,
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          isDeleted: false,
+          ...(visibleOrgIds === null ? {} : { orgId: In(visibleOrgIds) })
+        },
+        { isDeleted: true, updateBy: actor.sub }
+      );
+    }
+    if (assignments.length > 0) {
+      await repository.save(assignments.map((item) => repository.create({
+        userId,
+        orgId: item.orgId,
+        postId: item.postId ?? null,
+        isPrimary: item.isPrimary,
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      })));
+    }
+  }
+
+  private assertOrgAssignmentShape(assignments: ReplaceUserOrgsDto["assignments"]): void {
+    const keys = assignments.map((item) => `${item.orgId}:${item.postId ?? ""}`);
+    if (new Set(keys).size !== keys.length) throw new BadRequestException("用户组织岗位关系不能重复");
+    if (assignments.filter((item) => item.isPrimary).length > 1) {
+      throw new BadRequestException("同一用户只能有一个主组织");
+    }
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {
@@ -484,35 +726,96 @@ export class UsersService {
       tenantId: first.user_tenant_id,
       parkId: first.user_park_id,
       roles: activeRoles.map((role) => role.code),
-      permissions: isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]),
+      permissions: isSuper
+        ? ["*"]
+        : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]),
       dataScope: isSuper ? "all" : this.resolveDataScope(activeRoles.map((role) => role.dataScope)),
       isSuper
     };
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
-    const user = await this.getEntityForActor(scope, id, actor);
-    const targetScope = await this.resolveUserTargetScope({ tenantId: user.tenantId, parkId: user.parkId }, actor, dto.tenantId, dto.parkId);
-    if (targetScope.tenantId !== user.tenantId || targetScope.parkId !== user.parkId) {
-      await this.assertUsernameAvailable(targetScope, user.username);
+  async update(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: UpdateUserDto,
+    onTargetScope?: (targetScope: TenantParkScope) => void
+  ): Promise<UserView> {
+    if (dto.assignments !== undefined) {
+      this.assertOrgAssignmentShape(dto.assignments);
     }
-    Object.assign(user, {
-      tenantId: targetScope.tenantId,
-      parkId: targetScope.parkId,
-      displayName: dto.displayName ?? user.displayName,
-      mobile: dto.mobile ?? user.mobile,
-      email: dto.email ?? user.email,
-      avatarUrl: dto.avatarUrl ?? user.avatarUrl,
-      gender: dto.gender ?? user.gender,
-      status: dto.status ?? user.status,
-      isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
-      remark: dto.remark ?? user.remark,
-      updateBy: actor.sub
+    const saved = await this.usersRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const usersRepository = manager.getRepository(UserEntity);
+      const user = await this.getEntityForActor(scope, id, actor, usersRepository);
+      const previousScope = { tenantId: user.tenantId, parkId: user.parkId };
+      const targetScope = await this.resolveUserTargetScope(previousScope, actor, dto.tenantId, dto.parkId);
+      onTargetScope?.(targetScope);
+      const scopeChanged = targetScope.tenantId !== previousScope.tenantId || targetScope.parkId !== previousScope.parkId;
+      const scopesToLock = new Map<string, TenantParkScope>();
+      if (scopeChanged) {
+        await this.assertUsernameAvailable(targetScope, user.username, usersRepository);
+        const tenantChanged = targetScope.tenantId !== previousScope.tenantId;
+        const relationshipScopes = tenantChanged
+          ? await manager.getRepository(UserOrgEntity).find({
+              where: { userId: id, tenantId: previousScope.tenantId, isDeleted: false },
+              select: { tenantId: true, parkId: true }
+            })
+          : [previousScope];
+        scopesToLock.set(`${previousScope.tenantId}:${previousScope.parkId}`, previousScope);
+        for (const relationshipScope of relationshipScopes) {
+          scopesToLock.set(`${relationshipScope.tenantId}:${relationshipScope.parkId}`, {
+            tenantId: relationshipScope.tenantId,
+            parkId: relationshipScope.parkId
+          });
+        }
+      }
+      if (dto.assignments !== undefined) {
+        scopesToLock.set(`${targetScope.tenantId}:${targetScope.parkId}`, targetScope);
+      }
+      for (const relationshipScope of [...scopesToLock.values()].sort((a, b) =>
+        `${a.tenantId}:${a.parkId}`.localeCompare(`${b.tenantId}:${b.parkId}`)
+      )) {
+        await lockOrgHierarchy(manager, relationshipScope);
+      }
+      if (scopeChanged) {
+        const tenantChanged = targetScope.tenantId !== previousScope.tenantId;
+        await manager.getRepository(UserOrgEntity).update(
+          tenantChanged
+            ? { userId: id, tenantId: previousScope.tenantId, isDeleted: false }
+            : { userId: id, ...previousScope, isDeleted: false },
+          { isDeleted: true, updateBy: actor.sub }
+        );
+      }
+      Object.assign(user, {
+        tenantId: targetScope.tenantId,
+        parkId: targetScope.parkId,
+        displayName: dto.displayName ?? user.displayName,
+        mobile: dto.mobile ?? user.mobile,
+        email: dto.email ?? user.email,
+        avatarUrl: dto.avatarUrl ?? user.avatarUrl,
+        gender: dto.gender ?? user.gender,
+        status: dto.status ?? user.status,
+        isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
+        remark: dto.remark ?? user.remark,
+        updateBy: actor.sub
+      });
+      const updatedUser = await usersRepository.save(user);
+      if (dto.accessibleParkIds !== undefined || dto.parkId !== undefined || dto.tenantId !== undefined) {
+        await this.syncUserParks(
+          updatedUser.id,
+          targetScope.tenantId,
+          targetScope.parkId,
+          dto.accessibleParkIds,
+          actor.sub,
+          manager
+        );
+      }
+      if (dto.assignments !== undefined) {
+        await this.replaceOrgAssignmentsInTransaction(targetScope, actor, id, dto.assignments, manager);
+      }
+      return updatedUser;
     });
-    const saved = await this.usersRepository.save(user);
-    if (dto.accessibleParkIds !== undefined || dto.parkId !== undefined || dto.tenantId !== undefined) {
-      await this.syncUserParks(saved.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
-    }
     const [view] = await this.toViews([saved]);
     if (!view) {
       throw new NotFoundException("User not found");
@@ -521,10 +824,21 @@ export class UsersService {
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
-    const user = await this.getEntityInScope(scope, id);
-    user.isDeleted = true;
-    user.updateBy = actorId;
-    await this.usersRepository.save(user);
+    await this.usersRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const repository = manager.getRepository(UserEntity);
+      const user = await repository.findOne({
+        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (!user) throw new NotFoundException("User not found");
+      user.isDeleted = true;
+      user.updateBy = actorId;
+      await repository.save(user);
+      await manager.getRepository(UserOrgEntity).update(
+        { userId: id, tenantId: user.tenantId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+    });
     return { id };
   }
 
@@ -674,15 +988,24 @@ export class UsersService {
     return { id };
   }
 
-  private async getEntityForActor(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UserEntity> {
+  private async getEntityForActor(
+    scope: TenantParkScope,
+    id: string,
+    actor?: JwtPrincipal,
+    repository = this.usersRepository
+  ): Promise<UserEntity> {
     if (actor?.isSuper || actor?.permissions.includes("*")) {
-      const user = await this.usersRepository.findOne({ where: { id, isDeleted: false } });
+      const user = await repository.findOne({ where: { id, isDeleted: false } });
       if (!user) {
         throw new NotFoundException("User not found");
       }
       return user;
     }
-    return this.getEntityInScope(scope, id);
+    const user = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!user) throw new NotFoundException("User not found");
+    return user;
   }
 
   private async resolveUserTargetScope(
@@ -728,17 +1051,20 @@ export class UsersService {
     tenantId: string,
     defaultParkId: string,
     requestedParkIds: string[] | undefined,
-    actorId: string
+    actorId: string,
+    manager?: EntityManager
   ): Promise<void> {
+    const parksRepository = manager?.getRepository(ParkEntity) ?? this.parksRepository;
+    const userParkRepository = manager?.getRepository(UserParkEntity) ?? this.userParkRepository;
     const parkIds = [...new Set([defaultParkId, ...(requestedParkIds ?? [])].map((item) => item.trim()).filter(Boolean))];
-    const parks = await this.parksRepository.find({ where: { tenantId, parkId: In(parkIds), isDeleted: false } });
+    const parks = await parksRepository.find({ where: { tenantId, parkId: In(parkIds), isDeleted: false } });
     if (parks.length !== parkIds.length) {
       throw new NotFoundException("Accessible park not found in target tenant");
     }
-    await this.userParkRepository.update({ userId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
-    await this.userParkRepository.save(
+    await userParkRepository.update({ userId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
+    await userParkRepository.save(
       parkIds.map((parkId) =>
-        this.userParkRepository.create({
+        userParkRepository.create({
           userId,
           tenantId,
           parkId,
@@ -771,8 +1097,12 @@ export class UsersService {
     return hasDefaultAccess ? "ready" : "default_park_not_accessible";
   }
 
-  private async assertUsernameAvailable(scope: TenantParkScope, username: string): Promise<void> {
-    const exists = await this.usersRepository.exists({
+  private async assertUsernameAvailable(
+    scope: TenantParkScope,
+    username: string,
+    repository = this.usersRepository
+  ): Promise<void> {
+    const exists = await repository.exists({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, username, isDeleted: false }
     });
     if (exists) {
@@ -1070,7 +1400,9 @@ export class UsersService {
         .map((permissionLink) => permissionLink.permission.code)
     );
     const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
-    const permissions = isSuper ? ["*"] : this.expandPermissionAliases([...new Set(basePermissions)]);
+    const permissions = isSuper
+      ? ["*"]
+      : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]);
 
     return {
       sub: user.id,

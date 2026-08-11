@@ -21,11 +21,11 @@ cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_producti
 cp database/seeds/production/*.sql "$retry_seeds/production/"
 cp database/seeds/000001_s1_production_core.sql \
   "$retry_baseline_seeds/000001_s1_production_core.sql"
-for seed in database/seeds/production/*.sql; do
-  seed_name="$(basename "$seed")"
-  [ "$seed_name" = '000008_property_runtime_control_scope_reconcile.sql' ] && continue
-  cp "$seed" "$retry_baseline_seeds/production/$seed_name"
-done
+# Keep the pre-000194 fixture pinned to the production seed that originally
+# introduced the active asset scope. Later production seeds may depend on
+# schema added after 000194 and belong only in the fully migrated retry path.
+cp database/seeds/production/000007_asset_park_scope_reconcile.sql \
+  "$retry_baseline_seeds/production/000007_asset_park_scope_reconcile.sql"
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" exec -T postgres \

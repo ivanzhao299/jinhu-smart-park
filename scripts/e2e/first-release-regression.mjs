@@ -12,6 +12,7 @@ const requiredScriptOrder = [
   "scripts/e2e/first-release-idempotency.mjs",
   "scripts/e2e/first-release-files.mjs",
   "scripts/e2e/first-release-users-assets.mjs",
+  "scripts/e2e/first-release-org-hierarchy.mjs",
   "scripts/e2e/first-release-workorders.mjs",
   "scripts/e2e/first-release-leasing.mjs"
 ];

@@ -311,11 +311,17 @@ The default full deploy script:
 
 1. Builds API and Web images.
 2. Starts PostgreSQL.
-3. Runs SQL migrations through the history/checksum-aware migration runner.
-4. Optionally runs production seed.
-5. Starts API and Web.
-6. Runs API/Web health checks.
-7. Prunes stopped Docker containers and unused images.
+3. Stops the existing API to quiesce writes before schema changes.
+4. Runs SQL migrations through the history/checksum-aware migration runner while API remains stopped.
+5. Optionally runs production seed while API remains stopped.
+6. Starts the new API and Web containers.
+7. Runs API/Web health checks.
+8. Prunes stopped Docker containers and unused images.
+
+For `api` and `full` modes, a migration or production-seed failure deliberately leaves API stopped. Do not
+restart the old API blindly after a forward migration failure; inspect the migration history, database state,
+and compatibility before choosing a recovery action. Web-only and fast-CSS modes do not run migrations and do
+not stop API.
 
 ### Deployment Modes
 

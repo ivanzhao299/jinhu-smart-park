@@ -1,21 +1,39 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { ILike } from "typeorm";
-import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import type { OrgPostOption, OrgTreeNode, PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
+import { FieldPolicyService } from "../field-policies/field-policy.service";
 import type { CreateOrgDto } from "./dto/create-org.dto";
 import type { UpdateOrgDto } from "./dto/update-org.dto";
 import { OrgEntity } from "./entities/org.entity";
+import { PostEntity } from "./entities/post.entity";
+import { UserOrgEntity } from "./entities/user-org.entity";
+import { UserEntity } from "../users/entities/user.entity";
+import { lockOrgHierarchy } from "./org-hierarchy-lock";
+
+interface HierarchyRepositories {
+  orgRepository: Repository<OrgEntity>;
+  userOrgRepository: Repository<UserOrgEntity>;
+  userRepository: Repository<UserEntity>;
+}
 
 @Injectable()
 export class OrgsService {
   constructor(
     @InjectRepository(OrgEntity)
     private readonly orgRepository: Repository<OrgEntity>,
-    private readonly dataScopeService: DataScopeService
+    @InjectRepository(PostEntity)
+    private readonly postRepository: Repository<PostEntity>,
+    @InjectRepository(UserOrgEntity)
+    private readonly userOrgRepository: Repository<UserOrgEntity>,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+    private readonly dataScopeService: DataScopeService,
+    private readonly fieldPolicyService: FieldPolicyService
   ) {}
 
   async list(scope: TenantParkScope, query: PaginationQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<OrgEntity>> {
@@ -41,24 +59,80 @@ export class OrgsService {
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateOrgDto): Promise<OrgEntity> {
-    await this.assertCodeAvailable(scope, dto.orgCode);
-    const entity = this.orgRepository.create({
-      ...dto,
-      parentId: dto.parentId ?? null,
-      leaderUserId: dto.leaderUserId ?? null,
-      sortOrder: dto.sortOrder ?? 0,
-      status: dto.status ?? "enabled",
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      createBy: actorId,
-      updateBy: actorId
+  async tree(scope: TenantParkScope, actor?: JwtPrincipal): Promise<OrgTreeNode[]> {
+    const where = await this.dataScopeService.buildFindWhere<OrgEntity>(
+      scope,
+      actor,
+      "org",
+      { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      { org: "id" }
+    );
+    const items = await this.orgRepository.find({
+      where,
+      order: { sortOrder: "ASC", orgName: "ASC", id: "ASC" }
     });
-    return this.orgRepository.save(entity);
+    const nodes = new Map<string, OrgTreeNode>();
+    for (const item of items) {
+      nodes.set(item.id, { ...item, children: [] });
+    }
+    const roots: OrgTreeNode[] = [];
+    for (const item of items) {
+      const node = nodes.get(item.id);
+      if (!node) continue;
+      const parent = item.parentId ? nodes.get(item.parentId) : undefined;
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    }
+    return roots;
   }
 
-  async detail(scope: TenantParkScope, id: string): Promise<OrgEntity> {
-    const entity = await this.orgRepository.findOne({
+  async listPosts(scope: TenantParkScope): Promise<OrgPostOption[]> {
+    return this.postRepository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" },
+      select: { id: true, postCode: true, postName: true, sortOrder: true, status: true },
+      order: { sortOrder: "ASC", postName: "ASC" }
+    });
+  }
+
+  async listLeaders(
+    scope: TenantParkScope,
+    actor: JwtPrincipal
+  ): Promise<Array<{ id: string; displayName: string; username: string }>> {
+    const leaders = await this.userRepository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, isEnabled: true },
+      select: { id: true, displayName: true, username: true },
+      order: { displayName: "ASC", username: "ASC" }
+    });
+    const secured = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "system", "user", leaders);
+    return secured.map((leader) => ({
+      id: leader.id,
+      displayName: typeof leader.displayName === "string" ? leader.displayName : "负责人",
+      username: typeof leader.username === "string" ? leader.username : ""
+    }));
+  }
+
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateOrgDto): Promise<OrgEntity> {
+    return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
+      await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
+      await this.assertParentAllowed(scope, dto.parentId ?? null, actor, undefined, orgRepository);
+      await this.assertLeaderAllowed(scope, dto.leaderUserId ?? null, userRepository);
+      const entity = orgRepository.create({
+        ...dto,
+        parentId: dto.parentId ?? null,
+        leaderUserId: dto.leaderUserId ?? null,
+        sortOrder: dto.sortOrder ?? 0,
+        status: dto.status ?? "enabled",
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        createBy: actor.sub,
+        updateBy: actor.sub
+      });
+      return orgRepository.save(entity);
+    });
+  }
+
+  async detail(scope: TenantParkScope, id: string, repository = this.orgRepository): Promise<OrgEntity> {
+    const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
     });
     if (!entity) {
@@ -67,33 +141,141 @@ export class OrgsService {
     return entity;
   }
 
-  async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateOrgDto): Promise<OrgEntity> {
-    const entity = await this.detail(scope, id);
-    if (dto.orgCode && dto.orgCode !== entity.orgCode) {
-      await this.assertCodeAvailable(scope, dto.orgCode);
-    }
-    Object.assign(entity, dto, {
-      parentId: dto.parentId ?? entity.parentId,
-      leaderUserId: dto.leaderUserId ?? entity.leaderUserId,
-      updateBy: actorId
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateOrgDto): Promise<OrgEntity> {
+    return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
+      const entity = await this.detail(scope, id, orgRepository);
+      if (dto.orgCode && dto.orgCode !== entity.orgCode) {
+        await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
+      }
+      if (dto.parentId !== undefined) {
+        await this.assertParentAllowed(scope, dto.parentId, actor, id, orgRepository);
+      }
+      if (dto.leaderUserId !== undefined) {
+        await this.assertLeaderAllowed(scope, dto.leaderUserId, userRepository);
+      }
+      if (dto.status === "disabled" && entity.status !== "disabled") {
+        await this.assertNoActiveChildren(scope, id, "存在有效下级组织，不能停用", orgRepository);
+      }
+      Object.assign(entity, dto, {
+        parentId: dto.parentId === undefined ? entity.parentId : dto.parentId,
+        leaderUserId: dto.leaderUserId === undefined ? entity.leaderUserId : dto.leaderUserId,
+        updateBy: actor.sub
+      });
+      return orgRepository.save(entity);
     });
-    return this.orgRepository.save(entity);
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
-    const entity = await this.detail(scope, id);
-    entity.isDeleted = true;
-    entity.updateBy = actorId;
-    await this.orgRepository.save(entity);
-    return { id };
+    return this.withHierarchyLock(scope, async ({ orgRepository, userOrgRepository }) => {
+      const entity = await this.detail(scope, id, orgRepository);
+      await this.assertNoActiveChildren(scope, id, "存在有效下级组织，不能删除", orgRepository);
+      const activeUsers = await userOrgRepository.count({
+        where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          orgId: id,
+          isDeleted: false,
+          user: { tenantId: scope.tenantId, isDeleted: false }
+        }
+      });
+      if (activeUsers > 0) {
+        throw new BadRequestException("组织仍有关联用户，不能删除");
+      }
+      entity.isDeleted = true;
+      entity.updateBy = actorId;
+      await orgRepository.save(entity);
+      return { id };
+    });
   }
 
-  private async assertCodeAvailable(scope: TenantParkScope, orgCode: string): Promise<void> {
-    const exists = await this.orgRepository.exists({
+  private async assertNoActiveChildren(
+    scope: TenantParkScope,
+    id: string,
+    message: string,
+    repository = this.orgRepository
+  ): Promise<void> {
+    const count = await repository.count({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, parentId: id, isDeleted: false }
+    });
+    if (count > 0) throw new BadRequestException(message);
+  }
+
+  private async assertParentAllowed(
+    scope: TenantParkScope,
+    parentId: string | null,
+    actor: JwtPrincipal,
+    currentId?: string,
+    repository = this.orgRepository
+  ): Promise<void> {
+    if (!parentId) return;
+    if (currentId && parentId === currentId) {
+      throw new BadRequestException("上级组织不能是当前组织自身");
+    }
+    if (!actor.isSuper && !actor.permissions.includes("*")) {
+      const visibleWhere = await this.dataScopeService.buildFindWhere<OrgEntity>(
+        scope,
+        actor,
+        "org",
+        { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { org: "id" }
+      );
+      const visibleParents = await repository.find({ where: visibleWhere, select: { id: true } });
+      if (!visibleParents.some((org) => org.id === parentId)) {
+        throw new BadRequestException("无权使用该上级组织");
+      }
+    }
+    let cursor: string | null = parentId;
+    const visited = new Set<string>();
+    while (cursor) {
+      if (visited.has(cursor) || (currentId && cursor === currentId)) {
+        throw new BadRequestException("上级组织关系不能形成循环");
+      }
+      visited.add(cursor);
+      const parent: OrgEntity | null = await repository.findOne({
+        where: { id: cursor, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (!parent) throw new BadRequestException("上级组织不存在或不属于当前园区");
+      if (parent.status !== "enabled") throw new BadRequestException("上级组织已停用");
+      cursor = parent.parentId;
+    }
+  }
+
+  private async assertLeaderAllowed(
+    scope: TenantParkScope,
+    leaderUserId: string | null,
+    repository = this.userRepository
+  ): Promise<void> {
+    if (!leaderUserId) return;
+    const exists = await repository.exists({
+      where: { id: leaderUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, isEnabled: true }
+    });
+    if (!exists) throw new BadRequestException("负责人不存在、已停用或不属于当前园区");
+  }
+
+  private async assertCodeAvailable(
+    scope: TenantParkScope,
+    orgCode: string,
+    repository = this.orgRepository
+  ): Promise<void> {
+    const exists = await repository.exists({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, orgCode, isDeleted: false }
     });
     if (exists) {
       throw new ConflictException("Org code already exists");
     }
+  }
+
+  private withHierarchyLock<T>(
+    scope: TenantParkScope,
+    operation: (repositories: HierarchyRepositories) => Promise<T>
+  ): Promise<T> {
+    return this.orgRepository.manager.transaction(async (manager) => {
+      await lockOrgHierarchy(manager, scope);
+      return operation({
+        orgRepository: manager.getRepository(OrgEntity),
+        userOrgRepository: manager.getRepository(UserOrgEntity),
+        userRepository: manager.getRepository(UserEntity)
+      });
+    });
   }
 }

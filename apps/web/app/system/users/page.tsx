@@ -1,9 +1,9 @@
 "use client";
 import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
-import { CheckCircle2, Edit3, Plus, Search, X, XCircle } from "lucide-react";
+import { CheckCircle2, Edit3, Plus, Search, Trash2, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type OrgPostOption, type OrgTreeNode, type PaginatedResult, type UserOrgAssignment } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import {
@@ -70,6 +70,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [message, setMessage] = useState("");
+  const [drawerError, setDrawerError] = useState("");
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loginSettings, setLoginSettings] = useState<TenantLoginSettings | null>(null);
@@ -77,7 +78,13 @@ export default function UsersPage() {
   const [formTenantId, setFormTenantId] = useState("");
   const [formParkId, setFormParkId] = useState("");
   const [accessibleParkIds, setAccessibleParkIds] = useState<string[]>([]);
+  const [orgTree, setOrgTree] = useState<OrgTreeNode[]>([]);
+  const [posts, setPosts] = useState<OrgPostOption[]>([]);
+  const [orgAssignments, setOrgAssignments] = useState<UserOrgAssignment[]>([]);
+  const [loadedOrgAssignments, setLoadedOrgAssignments] = useState<UserOrgAssignment[]>([]);
+  const [orgCatalogLoading, setOrgCatalogLoading] = useState(false);
   const loginSettingsRequest = useRef(0);
+  const orgCatalogRequest = useRef(0);
 
   const selectedTenant = useMemo(
     () => tenants.items.find((item) => item.tenantId === tenantId) ?? tenants.items[0] ?? null,
@@ -92,6 +99,41 @@ export default function UsersPage() {
     () => resolveUserParkLabels(parkOptions, loginSettings?.tenant.tenantName),
     [loginSettings, parkOptions]
   );
+  const orgOptions = useMemo(() => mergeRetainedOrgOptions(flattenOrgOptions(orgTree), orgAssignments), [orgTree, orgAssignments]);
+  const postOptions = useMemo(() => mergeRetainedPostOptions(posts, orgAssignments), [posts, orgAssignments]);
+
+  async function loadOrgCatalog(userId?: string, targetScope?: { tenantId: string; parkId: string }) {
+    const requestId = ++orgCatalogRequest.current;
+    const token = localStorage.getItem("jinhu_access_token") ?? "";
+    setOrgCatalogLoading(true);
+    try {
+      if (userId) {
+        const [candidateResponse, assignmentResponse] = await Promise.all([
+          apiRequest<{ orgs: Array<Omit<OrgTreeNode, "children">>; posts: OrgPostOption[] }>(`/users/${userId}/org-candidates`, { token }),
+          apiRequest<UserOrgAssignment[]>(`/users/${userId}/orgs`, { token })
+        ]);
+        if (requestId !== orgCatalogRequest.current) return;
+        setOrgTree(buildOrgTree(candidateResponse.data.orgs));
+        setPosts(candidateResponse.data.posts);
+        setOrgAssignments(assignmentResponse.data);
+        setLoadedOrgAssignments(assignmentResponse.data);
+        return;
+      }
+      if (!targetScope) return;
+      const params = new URLSearchParams(targetScope);
+      const candidateResponse = await apiRequest<{ orgs: Array<Omit<OrgTreeNode, "children">>; posts: OrgPostOption[] }>(
+        `/users/org-candidates?${params.toString()}`,
+        { token }
+      );
+      if (requestId !== orgCatalogRequest.current) return;
+      setOrgTree(buildOrgTree(candidateResponse.data.orgs));
+      setPosts(candidateResponse.data.posts);
+      setOrgAssignments([]);
+      setLoadedOrgAssignments([]);
+    } finally {
+      if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+    }
+  }
 
   async function load(page = 1) {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
@@ -118,11 +160,11 @@ export default function UsersPage() {
     if (!tenant) {
       if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
       setMessage("未找到所选租户，请刷新后重试");
-      return;
+      return null;
     }
     try {
       const response = await apiRequest<TenantLoginSettings>(`/tenants/${tenant.id}/login-settings`, { token });
-      if (requestId !== loginSettingsRequest.current) return;
+      if (requestId !== loginSettingsRequest.current) return null;
       const selection = resolveUserParkSelection(
         {
           tenantId: response.data.tenant.tenantId,
@@ -141,28 +183,53 @@ export default function UsersPage() {
       setFormParkId(selection?.parkId ?? "");
       setAccessibleParkIds(selection?.accessibleParkIds ?? []);
       if (!selection) setMessage("所选租户尚未配置可用园区，暂不能保存用户");
+      return selection;
     } finally {
       if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
     }
   }
 
   async function openCreate() {
+    const requestId = ++orgCatalogRequest.current;
+    clearOrgCatalog();
+    setOrgCatalogLoading(true);
     setEditingUser(null);
+    setDrawerError("");
     if (selectedTenant) {
       setShowCreate(true);
       setFormTenantId(selectedTenant.tenantId);
-      await loadLoginSettings(selectedTenant.tenantId);
+      try {
+        const selection = await loadLoginSettings(selectedTenant.tenantId);
+        if (requestId !== orgCatalogRequest.current) return;
+        if (!selection) { setOrgCatalogLoading(false); return; }
+        await loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId });
+      } catch (error) {
+        if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+        throw error;
+      }
     } else {
+      setOrgCatalogLoading(false);
       setShowCreate(false);
       setMessage("暂无可选租户，请先创建租户");
     }
   }
 
   async function openEdit(row: UserRow) {
+    const requestId = ++orgCatalogRequest.current;
+    clearOrgCatalog();
+    setOrgCatalogLoading(true);
+    setDrawerError("");
     setEditingUser(row);
     setShowCreate(false);
     setFormTenantId(row.tenantId);
-    await loadLoginSettings(row.tenantId, row);
+    try {
+      await loadLoginSettings(row.tenantId, row);
+      if (requestId !== orgCatalogRequest.current) return;
+      await loadOrgCatalog(row.id);
+    } catch (error) {
+      if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+      throw error;
+    }
   }
 
   async function saveUser(event: FormEvent<HTMLFormElement>) {
@@ -171,8 +238,8 @@ export default function UsersPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const targetTenantId = String(form.get("tenantId") ?? "").trim();
     const defaultParkId = String(form.get("parkId") ?? "").trim();
-    if (loginSettingsLoading || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
-      throw new Error("园区选项尚未加载完成，请稍后重试");
+    if (loginSettingsLoading || orgCatalogLoading || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
+      throw new Error("园区或组织选项尚未加载完成，请稍后重试");
     }
     const body = {
       tenantId: targetTenantId,
@@ -183,9 +250,11 @@ export default function UsersPage() {
       password: String(form.get("password") ?? ""),
       mobile: emptyToNull(form.get("mobile")),
       email: emptyToNull(form.get("email")),
-      status: String(form.get("status") ?? "enabled")
+      status: String(form.get("status") ?? "enabled"),
+      assignments: orgAssignments.map(({ orgId, postId, isPrimary }) => ({ orgId, postId, isPrimary }))
     };
     if (editingUser) {
+      const assignmentsChanged = !sameOrgAssignments(body.assignments, loadedOrgAssignments);
       await apiRequest<UserRow>(`/users/${editingUser.id}`, {
         method: "PATCH",
         token,
@@ -197,7 +266,8 @@ export default function UsersPage() {
           displayName: body.displayName,
           mobile: body.mobile,
           email: body.email,
-          status: body.status
+          status: body.status,
+          ...(assignmentsChanged ? { assignments: body.assignments } : {})
         }
       });
     } else {
@@ -214,7 +284,33 @@ export default function UsersPage() {
     setFormTenantId("");
     setFormParkId("");
     setAccessibleParkIds([]);
-    await load(data.page);
+    clearOrgCatalog();
+    const successMessage = editingUser ? "用户更新成功" : "用户创建成功";
+    setMessage(successMessage);
+    try {
+      await load(data.page);
+    } catch (error) {
+      setMessage(`${successMessage}，但列表刷新失败：${error instanceof Error ? error.message : "未知错误"}`);
+    }
+  }
+
+  function clearOrgCatalog() {
+    setOrgTree([]);
+    setPosts([]);
+    setOrgAssignments([]);
+    setLoadedOrgAssignments([]);
+    setOrgCatalogLoading(false);
+  }
+
+  function closeUserDrawer() {
+    loginSettingsRequest.current += 1;
+    orgCatalogRequest.current += 1;
+    setShowCreate(false);
+    setEditingUser(null);
+    setLoginSettings(null);
+    setLoginSettingsLoading(false);
+    clearOrgCatalog();
+    setDrawerError("");
   }
 
   useEffect(() => {
@@ -305,15 +401,15 @@ export default function UsersPage() {
       </Card>
 
       {(showCreate || editingUser) ? (
-        <Drawer size="lg" onClose={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}>
+        <Drawer size="lg" onClose={closeUserDrawer}>
           <DrawerHeader
             eyebrow="系统管理"
             title={editingUser ? "编辑用户登录上下文" : "新增用户"}
             description="维护用户账号、登录上下文与可访问园区。"
-            onClose={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}
+            onClose={closeUserDrawer}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm onSubmit={(event) => void saveUser(event).catch((error: Error) => setMessage(error.message))}>
+          <DrawerForm onSubmit={(event) => { setDrawerError(""); void saveUser(event).catch((error: Error) => setDrawerError(error.message)); }}>
             <DrawerFormGrid>
               <div className="field">
                 <label>所属租户</label>
@@ -322,11 +418,17 @@ export default function UsersPage() {
                   value={formTenantId}
                   onChange={(event) => {
                     const nextTenantId = event.target.value;
+                    const requestId = ++orgCatalogRequest.current;
                     setFormTenantId(nextTenantId);
+                    clearOrgCatalog();
+                    if (editingUser) setDrawerError("切换租户后请先保存用户，再重新编辑以维护目标园区的组织岗位。");
                     void loadLoginSettings(
                       nextTenantId,
                       editingUser?.tenantId === nextTenantId ? editingUser : null
-                    ).catch((error: Error) => setMessage(error.message));
+                    ).then((selection) => {
+                      if (editingUser || requestId !== orgCatalogRequest.current || !selection) return;
+                      return loadOrgCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId });
+                    }).catch((error: Error) => setDrawerError(error.message));
                   }}
                 >
                   {tenants.items.map((item) => <option key={item.id} value={item.tenantId}>{item.tenantName} / {item.tenantId}</option>)}
@@ -334,7 +436,7 @@ export default function UsersPage() {
               </div>
               <div className="field">
                 <label>默认园区</label>
-                <select name="parkId" value={formParkId} onChange={(event) => setFormParkId(event.target.value)} disabled={loginSettingsLoading || !parkOptions.length} required>
+                <select name="parkId" value={formParkId} onChange={(event) => { const nextParkId = event.target.value; orgCatalogRequest.current += 1; setFormParkId(nextParkId); clearOrgCatalog(); if (editingUser && nextParkId !== editingUser.parkId) { setDrawerError("切换默认园区后请先保存用户，再重新编辑以维护目标园区的组织岗位。"); } else if (!editingUser && nextParkId) { void loadOrgCatalog(undefined, { tenantId: formTenantId, parkId: nextParkId }).catch((error: Error) => setDrawerError(error.message)); } }} disabled={loginSettingsLoading || !parkOptions.length} required>
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
                   {parkOptions.map((park) => (
                     <option key={park.parkId} value={park.parkId}>
@@ -373,9 +475,31 @@ export default function UsersPage() {
                 </div>
               </div>
             </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field">
+                <label>组织与岗位</label>
+                <div className="checkbox-list">
+                  {orgAssignments.length > 0 ? <label className="checkbox-row"><input type="radio" name="primaryOrg" checked={!orgAssignments.some((item) => item.isPrimary)} onChange={() => setOrgAssignments((current) => current.map((item) => ({ ...item, isPrimary: false })))} /><span>无主组织</span></label> : null}
+                  {orgAssignments.map((assignment, index) => (
+                    <div className="task-item" style={{ flexWrap: "wrap" }} key={`${index}-${assignment.orgId}`}>
+                      <select aria-label={`组织 ${index + 1}`} value={assignment.orgId} onChange={(event) => setOrgAssignments((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, orgId: event.target.value } : item))} required>
+                        <option value="">请选择组织</option>{orgOptions.map((option) => <option key={option.id} value={option.id} disabled={option.unavailable}>{option.label}</option>)}
+                      </select>
+                      <select aria-label={`岗位 ${index + 1}`} value={assignment.postId ?? ""} onChange={(event) => setOrgAssignments((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, postId: event.target.value || null } : item))}>
+                        <option value="">不指定岗位</option>{postOptions.map((post) => <option key={post.id} value={post.id} disabled={post.unavailable}>{post.label}</option>)}
+                      </select>
+                      <label className="checkbox-row"><input type="radio" name="primaryOrg" checked={assignment.isPrimary} onChange={() => setOrgAssignments((current) => current.map((item, itemIndex) => ({ ...item, isPrimary: itemIndex === index })))} /><span>主组织</span></label>
+                      <button className="secondary-button" type="button" aria-label={`删除组织关系 ${index + 1}`} onClick={() => setOrgAssignments((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                  <button className="secondary-button" type="button" onClick={() => setOrgAssignments((current) => [...current, { orgId: "", postId: null, isPrimary: current.length === 0 }])}><Plus size={16} />添加组织关系</button>
+                </div>
+              </div>
+            </DrawerFormGrid>
+            {drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
             <DrawerFooter>
-              <button className="secondary-button" type="button" onClick={() => { loginSettingsRequest.current += 1; setShowCreate(false); setEditingUser(null); setLoginSettings(null); setLoginSettingsLoading(false); }}><XCircle size={16} />取消</button>
-              <button className="primary-button" type="submit" disabled={loginSettingsLoading || !formParkId}><CheckCircle2 size={16} />保存</button>
+              <button className="secondary-button" type="button" onClick={closeUserDrawer}><XCircle size={16} />取消</button>
+              <button className="primary-button" type="submit" disabled={loginSettingsLoading || orgCatalogLoading || !formParkId}><CheckCircle2 size={16} />{orgCatalogLoading ? "组织加载中…" : "保存"}</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>
@@ -403,4 +527,69 @@ function LoginContextBadge({ status }: { status: UserRow["loginContextStatus"] }
 function emptyToNull(value: FormDataEntryValue | null): string | null {
   const text = String(value ?? "").trim();
   return text ? text : null;
+}
+
+function flattenOrgOptions(nodes: OrgTreeNode[], depth = 0): Array<{ id: string; label: string; unavailable?: boolean }> {
+  return nodes.flatMap((org) => [
+    { id: org.id, label: `${"—".repeat(depth)} ${org.orgName}`.trim() },
+    ...flattenOrgOptions(org.children, depth + 1)
+  ]);
+}
+
+function mergeRetainedOrgOptions(
+  options: Array<{ id: string; label: string; unavailable?: boolean }>,
+  assignments: UserOrgAssignment[]
+) {
+  const knownIds = new Set(options.map((option) => option.id));
+  return [...options, ...assignments
+    .filter((assignment) => {
+      if (!assignment.orgId || knownIds.has(assignment.orgId)) return false;
+      knownIds.add(assignment.orgId);
+      return true;
+    })
+    .map((assignment) => ({
+      id: assignment.orgId,
+      label: `${assignment.orgName ?? assignment.orgId}（已停用或不可选）`,
+      unavailable: true
+    }))];
+}
+
+function mergeRetainedPostOptions(posts: OrgPostOption[], assignments: UserOrgAssignment[]) {
+  const knownIds = new Set(posts.map((post) => post.id));
+  return [
+    ...posts.map((post) => ({ id: post.id, label: post.postName, unavailable: false })),
+    ...assignments
+      .filter((assignment) => {
+        if (!assignment.postId || knownIds.has(assignment.postId)) return false;
+        knownIds.add(assignment.postId);
+        return true;
+      })
+      .map((assignment) => ({
+        id: assignment.postId as string,
+        label: `${assignment.postName ?? assignment.postId}（已停用或不可选）`,
+        unavailable: true
+      }))
+  ];
+}
+
+function sameOrgAssignments(
+  left: Array<Pick<UserOrgAssignment, "orgId" | "postId" | "isPrimary">>,
+  right: Array<Pick<UserOrgAssignment, "orgId" | "postId" | "isPrimary">>
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((assignment, index) => assignment.orgId === right[index]?.orgId
+    && assignment.postId === right[index]?.postId
+    && assignment.isPrimary === right[index]?.isPrimary);
+}
+
+function buildOrgTree(items: Array<Omit<OrgTreeNode, "children">>): OrgTreeNode[] {
+  const nodes = new Map(items.map((item) => [item.id, { ...item, children: [] as OrgTreeNode[] }]));
+  const roots: OrgTreeNode[] = [];
+  for (const item of items) {
+    const node = nodes.get(item.id);
+    if (!node) continue;
+    const parent = item.parentId ? nodes.get(item.parentId) : undefined;
+    if (parent) parent.children.push(node); else roots.push(node);
+  }
+  return roots;
 }

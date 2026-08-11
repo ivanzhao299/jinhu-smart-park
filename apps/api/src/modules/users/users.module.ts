@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
+import { OrgEntity } from "../orgs/entities/org.entity";
+import { PostEntity } from "../orgs/entities/post.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { SaaSModulesModule } from "../saas-modules/saas-modules.module";
@@ -16,7 +18,7 @@ import { UsersService } from "./users.service";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([UserEntity, RoleEntity, UserRoleEntity, UserOrgEntity, UserParkEntity, ParkEntity, TenantEntity]),
+    TypeOrmModule.forFeature([UserEntity, RoleEntity, UserRoleEntity, UserOrgEntity, OrgEntity, PostEntity, UserParkEntity, ParkEntity, TenantEntity]),
     RolesModule,
     DataScopesModule,
     FieldPoliciesModule,
