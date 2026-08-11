@@ -25,6 +25,7 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { PostEntity } from "../orgs/entities/post.entity";
+import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
@@ -173,6 +174,11 @@ export class UsersService {
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
     const user = await this.usersRepository.manager.transaction(async (manager) => {
+      const assignments = dto.assignments ?? [];
+      this.assertOrgAssignmentShape(assignments);
+      if (assignments.length > 0) {
+        await lockOrgHierarchy(manager, targetScope);
+      }
       const usersRepository = manager.getRepository(UserEntity);
       const savedUser = await usersRepository.save(usersRepository.create({
         username: dto.username,
@@ -198,8 +204,6 @@ export class UsersService {
         actor.sub,
         manager
       );
-      const assignments = dto.assignments ?? [];
-      this.assertOrgAssignmentShape(assignments);
       await this.assertOrgAssignments(targetScope, assignments, manager);
       if (assignments.length > 0) {
         const repository = manager.getRepository(UserOrgEntity);
@@ -372,6 +376,20 @@ export class UsersService {
   async getOrgCandidates(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     const user = await this.getEntityForActor(scope, id, actor);
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    return this.listOrgCandidates(targetScope);
+  }
+
+  async getCreateOrgCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    tenantId?: string,
+    parkId?: string
+  ) {
+    const targetScope = await this.resolveUserTargetScope(scope, actor, tenantId, parkId);
+    return this.listOrgCandidates(targetScope);
+  }
+
+  private async listOrgCandidates(targetScope: TenantParkScope) {
     const [orgs, posts] = await Promise.all([
       this.userOrgRepository.manager.getRepository(OrgEntity).find({
         where: { ...targetScope, isDeleted: false, status: "enabled" },
@@ -395,6 +413,7 @@ export class UsersService {
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
     this.assertOrgAssignmentShape(dto.assignments);
     await this.userOrgRepository.manager.transaction(async (manager) => {
+      await lockOrgHierarchy(manager, targetScope);
       await this.assertOrgAssignments(targetScope, dto.assignments, manager);
       const repository = manager.getRepository(UserOrgEntity);
       await repository.update(

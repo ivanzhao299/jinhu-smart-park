@@ -33,3 +33,13 @@
 - [x] 组织专项 E2E 与完整 first-release regression。
 - [ ] 提交、推送，逐线程回复/解决并对最新 head 重新请求 Codex review。
 - [ ] 最新 CI、Release Smoke、Codex review、线程和可合并状态全部通过后合并。
+
+## 6. 第二轮 Codex Review
+
+- [x] 新建/编辑抽屉在登录设置 await 后再次校验组织目录 generation。
+- [x] 新增按目标租户/园区解析的创建候选目录 API。
+- [x] 创建与替换关系复用组织层级园区 advisory lock。
+- [x] 并发关系替换回归验证不产生关系并集。
+- [x] bootstrap-admin 保留既有非根主组织并补契约测试。
+- [x] 完整质量门、数据库实跑与 bootstrap 重跑验证。
+- [ ] 回复并解决第二轮 5 个线程，重新请求最新 head Codex review。

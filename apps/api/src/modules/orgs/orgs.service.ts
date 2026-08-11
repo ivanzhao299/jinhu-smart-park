@@ -12,6 +12,7 @@ import { OrgEntity } from "./entities/org.entity";
 import { PostEntity } from "./entities/post.entity";
 import { UserOrgEntity } from "./entities/user-org.entity";
 import { UserEntity } from "../users/entities/user.entity";
+import { lockOrgHierarchy } from "./org-hierarchy-lock";
 
 interface HierarchyRepositories {
   orgRepository: Repository<OrgEntity>;
@@ -244,9 +245,7 @@ export class OrgsService {
     operation: (repositories: HierarchyRepositories) => Promise<T>
   ): Promise<T> {
     return this.orgRepository.manager.transaction(async (manager) => {
-      await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-        `org-hierarchy:${scope.tenantId}:${scope.parkId}`
-      ]);
+      await lockOrgHierarchy(manager, scope);
       return operation({
         orgRepository: manager.getRepository(OrgEntity),
         userOrgRepository: manager.getRepository(UserOrgEntity),

@@ -134,6 +134,25 @@ try {
     body: JSON.stringify({ assignments: [assignment, { orgId: created[1], postId: null, isPrimary: true }] })
   });
   assertStatus("reject multiple primary organizations", multiplePrimary, [400]);
+
+  const concurrentAssignments = await Promise.all([
+    request(`/users/${createdUserId}/orgs`, {
+      method: "POST", headers: headers(token, "concurrent-user-org-root"),
+      body: JSON.stringify({ assignments: [{ orgId: created[0], postId: null, isPrimary: false }] })
+    }),
+    request(`/users/${createdUserId}/orgs`, {
+      method: "POST", headers: headers(token, "concurrent-user-org-child"),
+      body: JSON.stringify({ assignments: [{ orgId: created[1], postId: null, isPrimary: false }] })
+    })
+  ]);
+  for (const result of concurrentAssignments) assertStatus("serialize concurrent organization replacement", result, [200, 201]);
+  const finalAssignments = await request(`/users/${createdUserId}/orgs`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("read serialized organization replacement", finalAssignments, [200]);
+  const finalItems = data(finalAssignments.body) ?? [];
+  if (finalItems.length !== 1 || ![created[0], created[1]].includes(finalItems[0]?.orgId)) {
+    throw new Error(`concurrent organization replacement produced a union: ${JSON.stringify(finalItems)}`);
+  }
+  console.log("[PASS] concurrent organization replacement is last-writer-wins");
 } finally {
   if (invalidCreatedUserId) {
     const result = await request(`/users/${invalidCreatedUserId}`, { method: "DELETE", headers: headers(token, "cleanup-invalid-user") });

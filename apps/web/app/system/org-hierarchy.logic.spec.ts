@@ -24,6 +24,8 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /if \(editingUser\)[\s\S]*\/users\/\$\{editingUser\.id\}\/orgs/);
   assert.match(usersSource, /const orgCatalogRequest = useRef\(0\)/);
   assert.match(usersSource, /if \(requestId !== orgCatalogRequest\.current\) return/);
+  assert.match(usersSource, /\/users\/org-candidates\?\$\{params\.toString\(\)\}/);
+  assert.match(usersSource, /await loadLoginSettings\(row\.tenantId, row\);\s*if \(requestId !== orgCatalogRequest\.current\) return;/);
   assert.match(usersSource, /添加组织关系/);
   assert.match(usersSource, /name="primaryOrg"/);
   assert.match(usersSource, /role="alert"/);

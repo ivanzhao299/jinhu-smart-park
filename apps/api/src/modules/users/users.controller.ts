@@ -11,6 +11,7 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
+import { UserOrgCandidatesQueryDto } from "./dto/user-org-candidates-query.dto";
 import { UsersService } from "./users.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
@@ -36,6 +37,16 @@ export class UsersController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
   me(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
     return this.usersService.getCurrentUserContext(scope, user.sub);
+  }
+
+  @Get("org-candidates")
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_CREATE)
+  createOrgCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Query() query: UserOrgCandidatesQueryDto
+  ) {
+    return this.usersService.getCreateOrgCandidates(scope, user, query.tenantId, query.parkId);
   }
 
   @Get(":id")

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
+import { OrgEntity } from "../orgs/entities/org.entity";
+import { PostEntity } from "../orgs/entities/post.entity";
 import { UsersService } from "./users.service";
 import type { UserEntity } from "./entities/user.entity";
 
@@ -28,10 +30,15 @@ test("organization assignment replacement only deletes the target user's current
     save: async (value: unknown) => value
   };
   interface MockManager {
+    query(sql: string, parameters: unknown[]): Promise<void>;
     getRepository(entity: unknown): unknown;
     transaction(callback: (value: MockManager) => Promise<unknown>): Promise<unknown>;
   }
   const manager: MockManager = {
+    query: async (sql, parameters) => {
+      assert.match(sql, /pg_advisory_xact_lock/);
+      assert.deepEqual(parameters, ["org-hierarchy:tenant-2:park-2"]);
+    },
     getRepository: (entity: unknown) => {
       if (entity === UserOrgEntity) return transactionRepository;
       throw new Error("Unexpected repository");
@@ -63,4 +70,36 @@ test("organization assignment replacement only deletes the target user's current
     parkId: target.parkId,
     isDeleted: false
   });
+});
+
+test("create organization candidates resolve the requested super-admin target scope", async () => {
+  const orgFindWhere: unknown[] = [];
+  const postFindWhere: unknown[] = [];
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === OrgEntity) return { find: async (options: { where: unknown }) => { orgFindWhere.push(options.where); return []; } };
+      if (entity === PostEntity) return { find: async (options: { where: unknown }) => { postFindWhere.push(options.where); return []; } };
+      throw new Error("Unexpected repository");
+    }
+  };
+  const service = new UsersService(
+    {} as never,
+    {} as never,
+    {} as never,
+    { manager } as never,
+    {} as never,
+    { exists: async () => true } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+  const superActor = { ...actor, isSuper: true, permissions: ["*"] };
+
+  await service.getCreateOrgCandidates(scope, superActor, "tenant-2", "park-2");
+
+  const expected = { tenantId: "tenant-2", parkId: "park-2", isDeleted: false, status: "enabled" };
+  assert.deepEqual(orgFindWhere, [expected]);
+  assert.deepEqual(postFindWhere, [expected]);
 });

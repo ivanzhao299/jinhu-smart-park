@@ -99,7 +99,7 @@ export default function UsersPage() {
   );
   const orgOptions = useMemo(() => flattenOrgOptions(orgTree), [orgTree]);
 
-  async function loadOrgCatalog(userId?: string) {
+  async function loadOrgCatalog(userId?: string, targetScope?: { tenantId: string; parkId: string }) {
     const requestId = ++orgCatalogRequest.current;
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     if (userId) {
@@ -113,11 +113,14 @@ export default function UsersPage() {
       setOrgAssignments(assignmentResponse.data);
       return;
     }
-    const [treeResponse, postResponse] = await Promise.all([
-      apiRequest<OrgTreeNode[]>("/orgs/tree", { token }), apiRequest<OrgPostOption[]>("/orgs/posts", { token })
-    ]);
+    if (!targetScope) return;
+    const params = new URLSearchParams(targetScope);
+    const candidateResponse = await apiRequest<{ orgs: Array<Omit<OrgTreeNode, "children">>; posts: OrgPostOption[] }>(
+      `/users/org-candidates?${params.toString()}`,
+      { token }
+    );
     if (requestId !== orgCatalogRequest.current) return;
-    setOrgTree(treeResponse.data); setPosts(postResponse.data); setOrgAssignments([]);
+    setOrgTree(buildOrgTree(candidateResponse.data.orgs)); setPosts(candidateResponse.data.posts); setOrgAssignments([]);
   }
 
   async function load(page = 1) {
@@ -145,11 +148,11 @@ export default function UsersPage() {
     if (!tenant) {
       if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
       setMessage("未找到所选租户，请刷新后重试");
-      return;
+      return null;
     }
     try {
       const response = await apiRequest<TenantLoginSettings>(`/tenants/${tenant.id}/login-settings`, { token });
-      if (requestId !== loginSettingsRequest.current) return;
+      if (requestId !== loginSettingsRequest.current) return null;
       const selection = resolveUserParkSelection(
         {
           tenantId: response.data.tenant.tenantId,
@@ -168,20 +171,22 @@ export default function UsersPage() {
       setFormParkId(selection?.parkId ?? "");
       setAccessibleParkIds(selection?.accessibleParkIds ?? []);
       if (!selection) setMessage("所选租户尚未配置可用园区，暂不能保存用户");
+      return selection;
     } finally {
       if (requestId === loginSettingsRequest.current) setLoginSettingsLoading(false);
     }
   }
 
   async function openCreate() {
-    orgCatalogRequest.current += 1;
+    const requestId = ++orgCatalogRequest.current;
     setEditingUser(null);
     setDrawerError("");
     if (selectedTenant) {
       setShowCreate(true);
       setFormTenantId(selectedTenant.tenantId);
-      await loadLoginSettings(selectedTenant.tenantId);
-      await loadOrgCatalog();
+      const selection = await loadLoginSettings(selectedTenant.tenantId);
+      if (requestId !== orgCatalogRequest.current || !selection) return;
+      await loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId });
     } else {
       setShowCreate(false);
       setMessage("暂无可选租户，请先创建租户");
@@ -189,12 +194,13 @@ export default function UsersPage() {
   }
 
   async function openEdit(row: UserRow) {
-    orgCatalogRequest.current += 1;
+    const requestId = ++orgCatalogRequest.current;
     setDrawerError("");
     setEditingUser(row);
     setShowCreate(false);
     setFormTenantId(row.tenantId);
     await loadLoginSettings(row.tenantId, row);
+    if (requestId !== orgCatalogRequest.current) return;
     await loadOrgCatalog(row.id);
   }
 
@@ -361,14 +367,17 @@ export default function UsersPage() {
                   value={formTenantId}
                   onChange={(event) => {
                     const nextTenantId = event.target.value;
-                    orgCatalogRequest.current += 1;
+                    const requestId = ++orgCatalogRequest.current;
                     setFormTenantId(nextTenantId);
                     setOrgTree([]); setPosts([]); setOrgAssignments([]);
-                    setDrawerError("切换租户后请先保存用户，再重新编辑以维护目标园区的组织岗位。");
+                    if (editingUser) setDrawerError("切换租户后请先保存用户，再重新编辑以维护目标园区的组织岗位。");
                     void loadLoginSettings(
                       nextTenantId,
                       editingUser?.tenantId === nextTenantId ? editingUser : null
-                    ).catch((error: Error) => setMessage(error.message));
+                    ).then((selection) => {
+                      if (editingUser || requestId !== orgCatalogRequest.current || !selection) return;
+                      return loadOrgCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId });
+                    }).catch((error: Error) => setMessage(error.message));
                   }}
                 >
                   {tenants.items.map((item) => <option key={item.id} value={item.tenantId}>{item.tenantName} / {item.tenantId}</option>)}
@@ -376,7 +385,7 @@ export default function UsersPage() {
               </div>
               <div className="field">
                 <label>默认园区</label>
-                <select name="parkId" value={formParkId} onChange={(event) => { orgCatalogRequest.current += 1; setFormParkId(event.target.value); if (editingUser && event.target.value !== editingUser.parkId) { setOrgTree([]); setPosts([]); setOrgAssignments([]); setDrawerError("切换默认园区后请先保存用户，再重新编辑以维护目标园区的组织岗位。"); } }} disabled={loginSettingsLoading || !parkOptions.length} required>
+                <select name="parkId" value={formParkId} onChange={(event) => { const nextParkId = event.target.value; orgCatalogRequest.current += 1; setFormParkId(nextParkId); setOrgTree([]); setPosts([]); setOrgAssignments([]); if (editingUser && nextParkId !== editingUser.parkId) { setDrawerError("切换默认园区后请先保存用户，再重新编辑以维护目标园区的组织岗位。"); } else if (!editingUser && nextParkId) { void loadOrgCatalog(undefined, { tenantId: formTenantId, parkId: nextParkId }).catch((error: Error) => setDrawerError(error.message)); } }} disabled={loginSettingsLoading || !parkOptions.length} required>
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
                   {parkOptions.map((park) => (
                     <option key={park.parkId} value={park.parkId}>
