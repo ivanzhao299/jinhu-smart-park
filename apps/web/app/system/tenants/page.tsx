@@ -12,7 +12,8 @@ import {
   collectAllCandidatePages,
   findPlanAuthorization,
   isRetainedCatalogValue,
-  moduleCodesForSelectedPlan
+  moduleCodesForSelectedPlan,
+  provisionablePlans
 } from "../plan-catalog-options.logic";
 
 interface TenantRow {
@@ -114,7 +115,8 @@ export default function TenantsPage() {
       }, (module) => module.moduleCode)
     ]);
     setTenants(tenantResponse.data);
-    setPlans({ items: planItems, page: 1, page_size: 100, total: planItems.length });
+    const availablePlans = provisionablePlans(planItems);
+    setPlans({ items: availablePlans, page: 1, page_size: 100, total: availablePlans.length });
     setModules({ items: moduleItems, page: 1, page_size: 100, total: moduleItems.length });
     setCatalogReady(true);
     setMessage("");

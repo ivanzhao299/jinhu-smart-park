@@ -7,7 +7,8 @@ import {
   collectAllCandidatePages,
   findPlanAuthorization,
   isRetainedCatalogValue,
-  moduleCodesForSelectedPlan
+  moduleCodesForSelectedPlan,
+  provisionablePlans
 } from "./plan-catalog-options.logic";
 
 test("tenant plan selector loads every catalog page", async () => {
@@ -88,6 +89,20 @@ test("tenant creation selects a concrete plan with its modules and quotas", () =
   assert.match(source, /planCode: createPlanCode/);
   assert.match(source, /selectCreatePlan/);
   assert.doesNotMatch(source, /<option value="">未绑定套餐<\/option>/);
+});
+
+test("tenant creation excludes enabled catalog plans without modules", () => {
+  assert.deepEqual(
+    provisionablePlans([
+      { planCode: "EMPTY", moduleCodes: [] },
+      { planCode: "BLANK", moduleCodes: [" "] },
+      { planCode: "BASIC", moduleCodes: ["system", "asset"] }
+    ]).map((plan) => plan.planCode),
+    ["BASIC"]
+  );
+
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  assert.match(source, /provisionablePlans\(planItems\)/);
 });
 
 test("changing the plan in login settings replaces the module selection from that plan", () => {

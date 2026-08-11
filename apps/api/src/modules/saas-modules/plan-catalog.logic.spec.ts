@@ -32,6 +32,15 @@ test("available plan catalog remains bounded by the validated page size", () => 
   assert.equal(result.parameters[6], 100);
 });
 
+test("available plan catalog excludes plans that cannot provision any module", () => {
+  const result = buildAvailablePlanCatalogQuery(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { page: 1, page_size: 20 }
+  );
+
+  assert.match(result.sql, /jsonb_array_length\(COALESCE\(plan\.module_codes, '\[\]'::jsonb\)\) > 0/);
+});
+
 test("available plan catalog orders the selected rows before applying offset and limit", () => {
   const result = buildAvailablePlanCatalogQuery(
     { tenantId: "tenant-a", parkId: "park-a" },

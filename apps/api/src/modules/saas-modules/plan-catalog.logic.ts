@@ -30,6 +30,7 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
         FROM sys_plan plan
         WHERE plan.is_deleted = false
           AND plan.status = 'enabled'
+          AND jsonb_array_length(COALESCE(plan.module_codes, '[]'::jsonb)) > 0
           AND (
             (plan.tenant_id = $1 AND plan.park_id = $2)
             OR (plan.tenant_id = $3 AND plan.park_id = $4)

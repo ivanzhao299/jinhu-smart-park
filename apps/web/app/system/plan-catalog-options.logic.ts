@@ -47,6 +47,10 @@ export function findPlanAuthorization<T extends PlanAuthorizationOption>(plans: 
   return plans.find((plan) => plan.planCode === planCode) ?? null;
 }
 
+export function provisionablePlans<T extends PlanAuthorizationOption>(plans: T[]): T[] {
+  return plans.filter((plan) => normalizedCodes(plan.moduleCodes).length > 0);
+}
+
 export function moduleCodesForSelectedPlan<T extends PlanAuthorizationOption>(
   plans: T[],
   selectedPlanCode: string,
