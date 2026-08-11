@@ -162,6 +162,13 @@ test("async housing forms capture the form element before awaiting", () => {
   }
 });
 
+test("housing tenant creation leaves the server-owned source domain to the API", () => {
+  const source = read("HousingRentalSurfaceClients.tsx");
+  assert.doesNotMatch(source, /source_domain\s*:/);
+  assert.match(source, /buildHousingTenantCreateBody\(form\)/);
+  assert.match(source, /apiRequest<HousingTenantListItem>\("\/housing\/tenants"/);
+});
+
 test("Party workbench distinguishes authoritative empty scope and white-lists sorting", () => {
   const source = fs.readFileSync(path.join(partiesRoot, "PartyWorkbenchClient.tsx"), "utf8");
   assert.match(source, /hasAuthoritativeEmptyPartyScope\(scopes, isSuper\)/);

@@ -22,6 +22,7 @@ import {
 import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
 import { detailUrlObject } from "./housing-route-types";
+import { buildHousingTenantCreateBody } from "../housing-tenant-create.logic";
 
 function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
   const [submitting, setSubmitting] = useState(false); const [message, setMessage] = useState("");
@@ -30,8 +31,7 @@ function TenantCreatePanel({ onCreated }: { onCreated(): void }) {
     event.preventDefault(); if (lock.current) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement); lock.current = true; setSubmitting(true); setMessage("");
-    const body = { party_type: "person", display_name: String(form.get("display_name") ?? ""),
-      mobile: String(form.get("mobile") ?? "") || undefined, source_domain: "housing" };
+    const body = buildHousingTenantCreateBody(form);
     try {
       await apiRequest<HousingTenantListItem>("/housing/tenants", {
         method: "POST", token: getAccessToken(),

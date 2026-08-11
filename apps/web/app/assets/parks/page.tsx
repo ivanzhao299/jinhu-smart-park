@@ -8,6 +8,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { getCityOptions, getDistrictOptions, getProvinceOptions } from "./park-region-options";
 
 interface ParkRow {
   id: string;
@@ -74,6 +75,7 @@ export default function ParksPage() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState("");
+  const [drawerError, setDrawerError] = useState("");
   const [form, setForm] = useState<ParkFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ParkRow | null>(null);
@@ -98,6 +100,7 @@ export default function ParksPage() {
     setForm(emptyForm);
     setShowForm(true);
     setMessage("");
+    setDrawerError("");
   }
 
   function openEdit(row: ParkRow) {
@@ -118,6 +121,17 @@ export default function ParksPage() {
     });
     setShowForm(true);
     setMessage("");
+    setDrawerError("");
+  }
+
+  function closeForm() {
+    setShowForm(false);
+    setDrawerError("");
+  }
+
+  function updateForm(update: (current: ParkFormState) => ParkFormState) {
+    setForm(update);
+    setDrawerError("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -266,32 +280,55 @@ export default function ParksPage() {
         </Card>
 
         {showForm ? (
-          <Drawer size="md" onClose={() => setShowForm(false)}>
+          <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
               eyebrow="资产空间"
               title={editingId ? "编辑园区" : "新增园区"}
               description="维护园区基础档案，支撑多园区资产、合同与服务数据隔离。"
-              onClose={() => setShowForm(false)}
+              onClose={closeForm}
               closeIcon={<X size={18} />}
             />
-            <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onSubmit={(event) => {
+              setDrawerError("");
+              void submit(event).catch((error: Error) => setDrawerError(error.message));
+            }}>
               <DrawerFormGrid>
-                <TextField label="园区编码" value={form.parkCode} required onChange={(value) => setForm((current) => ({ ...current, parkCode: value }))} />
-                <TextField label="园区名称" value={form.parkName} required onChange={(value) => setForm((current) => ({ ...current, parkName: value }))} />
-                <TextField label="省份" value={form.province} onChange={(value) => setForm((current) => ({ ...current, province: value }))} />
-                <TextField label="城市" value={form.city} onChange={(value) => setForm((current) => ({ ...current, city: value }))} />
-                <TextField label="区县" value={form.district} onChange={(value) => setForm((current) => ({ ...current, district: value }))} />
-                <TextField label="地址" value={form.address} onChange={(value) => setForm((current) => ({ ...current, address: value }))} />
-                <NumberField label="经度" value={form.lng} onChange={(value) => setForm((current) => ({ ...current, lng: value }))} />
-                <NumberField label="纬度" value={form.lat} onChange={(value) => setForm((current) => ({ ...current, lat: value }))} />
-                <NumberField label="总面积" value={form.totalArea} required onChange={(value) => setForm((current) => ({ ...current, totalArea: value }))} />
-                <NumberField label="土地面积" value={form.landArea} required onChange={(value) => setForm((current) => ({ ...current, landArea: value }))} />
+                <TextField label="园区编码" value={form.parkCode} required onChange={(value) => updateForm((current) => ({ ...current, parkCode: value }))} />
+                <TextField label="园区名称" value={form.parkName} required onChange={(value) => updateForm((current) => ({ ...current, parkName: value }))} />
+                <SelectField
+                  id="parkFormProvince"
+                  label="省份"
+                  value={form.province}
+                  options={getProvinceOptions(form.province)}
+                  onChange={(value) => updateForm((current) => ({ ...current, province: value, city: "", district: "" }))}
+                />
+                <SelectField
+                  id="parkFormCity"
+                  label="城市"
+                  value={form.city}
+                  disabled={!form.province && !form.city}
+                  options={getCityOptions(form.province, form.city)}
+                  onChange={(value) => updateForm((current) => ({ ...current, city: value, district: "" }))}
+                />
+                <SelectField
+                  id="parkFormDistrict"
+                  label="区县"
+                  value={form.district}
+                  disabled={!form.city && !form.district}
+                  options={getDistrictOptions(form.province, form.city, form.district)}
+                  onChange={(value) => updateForm((current) => ({ ...current, district: value }))}
+                />
+                <TextField label="地址" value={form.address} onChange={(value) => updateForm((current) => ({ ...current, address: value }))} />
+                <NumberField label="经度" value={form.lng} onChange={(value) => updateForm((current) => ({ ...current, lng: value }))} />
+                <NumberField label="纬度" value={form.lat} onChange={(value) => updateForm((current) => ({ ...current, lat: value }))} />
+                <NumberField label="总面积" value={form.totalArea} required onChange={(value) => updateForm((current) => ({ ...current, totalArea: value }))} />
+                <NumberField label="土地面积" value={form.landArea} required onChange={(value) => updateForm((current) => ({ ...current, landArea: value }))} />
                 <div className="field">
                   <label htmlFor="parkFormStatus">状态</label>
                   <select
                     id="parkFormStatus"
                     value={form.status}
-                    onChange={(event) => setForm((current) => ({ ...current, status: Number(event.target.value) as ParkStatus }))}
+                    onChange={(event) => updateForm((current) => ({ ...current, status: Number(event.target.value) as ParkStatus }))}
                   >
                     {statusOptions.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -300,10 +337,11 @@ export default function ParksPage() {
                 </div>
               </DrawerFormGrid>
               <DrawerFormGrid single>
-                <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
+                <TextField label="备注" value={form.remark} onChange={(value) => updateForm((current) => ({ ...current, remark: value }))} />
               </DrawerFormGrid>
+              {drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
               <DrawerFooter>
-                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
+                <button className="secondary-button" type="button" onClick={closeForm}>取消</button>
                 <button className="primary-button" type="submit">保存</button>
               </DrawerFooter>
             </DrawerForm>
@@ -347,6 +385,34 @@ function TextField({ label, value, required, onChange }: { label: string; value:
     <div className="field">
       <label>{label}</label>
       <input value={value} required={required} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  value,
+  options,
+  disabled,
+  onChange
+}: {
+  id: string;
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
+        <option value="">请选择{label}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
     </div>
   );
 }
