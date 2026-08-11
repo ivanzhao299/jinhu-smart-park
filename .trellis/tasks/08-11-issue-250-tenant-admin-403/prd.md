@@ -24,8 +24,14 @@
 - [x] 登录落点过滤不可访问菜单，并有稳定 fallback。
 - [x] `/users/me` 的角色、权限、启用模块和菜单继续作为同一授权判定输入。
 - [x] API 与 Web 单元测试覆盖默认模块、权限派生和登录落点。
-- [ ] 端到端覆盖“创建租户 → 首管登录 → 用户上下文 → 首个页面/关键接口”。
-- [x] 相关 lint、typecheck、build 通过；首发运行态回归待隔离 API/数据库环境验证。
+- [x] 端到端覆盖“创建租户 → 首管登录 → 用户上下文 → 首个页面/关键接口”。
+- [x] 相关 lint、typecheck、build 通过，并已在隔离 PostgreSQL、API、Web 与 Edge 环境完成运行态回归。
+
+## Runtime Verification
+
+- 通过浏览器使用平台超级管理员开通租户 `ISSUE250_36048713`，创建首管 `issue250_admin_36048713`。
+- 修复前在 800px 视口误跳 `/operations/terminal` 并进入 403；首管实际仅启用 `asset`、`workorder`、`system`，不具备安全巡检终端契约。
+- 修复后同一首管登录落到 `/system/orgs`，页面可见默认组织；`GET /users/me` 与租户内 `GET /users` 返回 200，平台 `GET /tenants` 保持 403。
 
 ## Out of Scope
 

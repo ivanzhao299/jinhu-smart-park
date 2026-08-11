@@ -62,6 +62,17 @@ test("mobile super users without enabled operational modules fall back to a modu
   assert.equal(route, "/dashboard");
 });
 
+test("mobile workorder-only administrators do not enter the safety operations terminal", () => {
+  const user = createUser({
+    permissions: ["workorder:read", "workorder:create"],
+    enabled_modules: [{ module_code: "workorder", module_name: "工单管理", module_group: "operations", enabled: true }]
+  });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 800, pointerCoarse: false, touchPoints: 0, userAgent: "HeadlessChrome" });
+
+  assert.equal(route, "/dashboard");
+});
+
 test("desktop users fall back to first visible menu item", () => {
   const user = createUser({
     permissions: ["ENGINEERING_PROJECT_VIEW"],

@@ -18,13 +18,6 @@ const ENGINEERING_PERMISSIONS = [
   "ENGINEERING_ACCEPTANCE_VIEW"
 ];
 
-const OPERATIONS_PERMISSIONS = [
-  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY,
-  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ,
-  SYSTEM_PERMISSIONS.WORKORDER_CREATE,
-  SYSTEM_PERMISSIONS.WORKORDER_READ
-];
-
 function hasAnyPermission(user: UserContext | null, permissions: string[]): boolean {
   return permissions.some((permission) => hasPermission(user, permission));
 }
@@ -81,8 +74,7 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
   const firstMenuHref = findFirstAccessibleMenuHref(user, user?.menu_tree ?? user?.menus);
   const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
   const hasOperationsAccess =
-    (hasModule(user, "safety") && hasAnyPermission(user, OPERATIONS_PERMISSIONS)) ||
-    (hasModule(user, "workorder") && hasAnyPermission(user, OPERATIONS_PERMISSIONS));
+    hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);
 
   if (prefersMobileWorkbench(signals)) {
     if (hasEngineeringAccess) {
@@ -93,7 +85,6 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
     }
     return firstMenuHref ?? "/dashboard";
   }
-
   if (firstMenuHref) {
     return firstMenuHref;
   }
