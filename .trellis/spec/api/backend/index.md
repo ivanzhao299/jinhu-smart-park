@@ -215,6 +215,8 @@ Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictExcep
 ### 2. Signatures
 
 - `GET /orgs/tree` returns scoped `OrgTreeNode[]` with recursive `children`.
+- `GET /orgs/leaders` returns every enabled, non-deleted user in the current tenant/park; it is not a silently truncated candidate page.
+- `POST /users` optionally accepts `assignments: { orgId, postId, isPrimary }[]` for atomic account creation.
 - `GET /users/:id/org-candidates` returns enabled organizations and posts in the target user's scope.
 - `GET /users/:id/orgs` returns active `UserOrgAssignment[]`.
 - `POST /users/:id/orgs` accepts `{ assignments: { orgId, postId, isPrimary }[] }` with replacement semantics.
@@ -222,10 +224,13 @@ Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictExcep
 
 ### 3. Contracts
 
-- Existing paginated `GET /orgs` remains compatible; tree reading is a separate endpoint.
+- Existing paginated `GET /orgs` remains compatible; tree reading is a separate endpoint and applies the same `org` data-scope predicate. Authorized children whose ancestors are filtered out become projection roots; unauthorized ancestors are never restored.
 - Parent organizations must exist, be enabled, share the child's tenant/park, and must not create self or ancestor cycles.
+- Organization hierarchy writes in one tenant/park are serialized across create, update, disable, and delete before parent/child validation. A pre-transaction validation is insufficient because concurrent inverse parent changes can both pass the same old snapshot.
+- User creation saves the account, accessible-park links, and optional organization/post assignments in one database transaction. Assignment validation or persistence failure rolls back the complete create operation.
 - User-organization replacement resolves the target scope from the target user, not from the acting super administrator's current JWT scope.
-- Replacement is transactional, soft-deletes all previous active relationships for that user, and creates the requested target-scope set.
+- Replacement is transactional, soft-deletes previous active relationships only for that user and target tenant/park, and creates the requested target-scope set without changing links in other parks.
+- Organization deletion is blocked only by active children or links to active users; historical links owned by soft-deleted users do not permanently block deletion.
 - At most one active primary organization exists per user and scope; duplicate organization/post assignments are rejected.
 - `org_and_children` expands only enabled, non-deleted descendants inside the current tenant/park; an empty root set denies access.
 
@@ -236,21 +241,25 @@ Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictExcep
 - delete organization with active child or user assignment -> HTTP 400.
 - duplicate assignment or multiple primary organizations -> HTTP 400.
 - missing, disabled, or cross-scope organization/post assignment -> HTTP 400 and no partial replacement.
+- invalid organization/post assignment during `POST /users` -> HTTP 400 and no user, accessible-park link, or organization link remains.
 - empty `org_and_children` roots -> empty allowed ID set, never unrestricted access.
+- two concurrent inverse parent updates -> at most one succeeds; the committed hierarchy remains acyclic.
 
 ### 5. Good / Base / Bad Cases
 
 - Good: a super administrator edits a user in another tenant; candidates and writes use that user's tenant/park.
+- Good: creating a user with a valid primary organization produces the account and relationship atomically; retrying after invalid assignments cannot collide with a partially created username.
 - Base: a three-level tree is returned in stable sibling order while `GET /orgs` remains paginated.
 - Bad: writing `rel_user_org.tenant_id/park_id` from the actor's current scope when the target user belongs elsewhere.
 - Bad: treating an empty recursive root set as `null`/unrestricted.
+- Bad: validating `A -> B` and `B -> A` outside a shared transaction lock, allowing both requests to commit a cycle.
 
 ### 6. Tests Required
 
 - Unit-test three-level tree ordering, self/missing/disabled/cyclic parents, child/user deletion blockers.
 - Unit-test recursive scope SQL, tenant/park predicates, descendant de-duplication, and empty-root deny behavior.
-- Test replacement duplicate/primary validation and transaction rollback for invalid organizations/posts.
-- E2E-create a three-level tree and test cycle rejection, parent deletion blocking, user primary assignment, duplicate rejection, and cleanup.
+- Test replacement duplicate/primary validation, target-scope soft-delete predicates, and transaction rollback for invalid organizations/posts.
+- E2E-create a three-level tree plus siblings and test cycle rejection, concurrent inverse-parent serialization, parent deletion blocking, atomic user/primary assignment creation, invalid-assignment rollback, duplicate rejection, and cleanup.
 - Run Shared/API/Web typecheck and build; inspect organization and user pages at desktop and 390px when a browser runtime is available.
 
 ### 7. Wrong vs Correct

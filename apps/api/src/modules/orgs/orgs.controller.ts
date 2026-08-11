@@ -22,8 +22,8 @@ export class OrgsController {
 
   @Get("tree")
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST)
-  tree(@CurrentScope() scope: TenantParkScope) {
-    return this.orgsService.tree(scope);
+  tree(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.orgsService.tree(scope, user);
   }
 
   @Get("posts")

@@ -276,12 +276,13 @@ export class DataScopeService {
       if (rule.scopeType === "self") {
         ids.add(user.sub);
       }
-      for (const id of this.idsForDimension(dimension, rule.scopeConfig)) {
-        ids.add(id);
-      }
       if (dimension === "org" && this.normalizeScopeType(rule.scopeType) === "org_and_children") {
         const roots = this.idsForDimension("org", rule.scopeConfig);
         for (const id of await this.expandOrgDescendants(scope, roots)) ids.add(id);
+        continue;
+      }
+      for (const id of this.idsForDimension(dimension, rule.scopeConfig)) {
+        ids.add(id);
       }
     }
     return [...ids];

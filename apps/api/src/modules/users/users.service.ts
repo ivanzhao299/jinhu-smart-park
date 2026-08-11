@@ -172,8 +172,9 @@ export class UsersService {
     await this.assertTenantUserLimit(targetScope);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
     const passwordHash = await bcrypt.hash(dto.password, saltRounds);
-    const user = await this.usersRepository.save(
-      this.usersRepository.create({
+    const user = await this.usersRepository.manager.transaction(async (manager) => {
+      const usersRepository = manager.getRepository(UserEntity);
+      const savedUser = await usersRepository.save(usersRepository.create({
         username: dto.username,
         displayName: dto.displayName,
         passwordHash,
@@ -188,9 +189,33 @@ export class UsersService {
         parkId: targetScope.parkId,
         createBy: actor.sub,
         updateBy: actor.sub
-      })
-    );
-    await this.syncUserParks(user.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
+      }));
+      await this.syncUserParks(
+        savedUser.id,
+        targetScope.tenantId,
+        targetScope.parkId,
+        dto.accessibleParkIds,
+        actor.sub,
+        manager
+      );
+      const assignments = dto.assignments ?? [];
+      this.assertOrgAssignmentShape(assignments);
+      await this.assertOrgAssignments(targetScope, assignments, manager);
+      if (assignments.length > 0) {
+        const repository = manager.getRepository(UserOrgEntity);
+        await repository.save(assignments.map((item) => repository.create({
+          userId: savedUser.id,
+          orgId: item.orgId,
+          postId: item.postId ?? null,
+          isPrimary: item.isPrimary,
+          tenantId: targetScope.tenantId,
+          parkId: targetScope.parkId,
+          createBy: actor.sub,
+          updateBy: actor.sub
+        })));
+      }
+      return savedUser;
+    });
     const [view] = await this.toViews([user]);
     if (!view) {
       throw new NotFoundException("User not found");
@@ -368,16 +393,17 @@ export class UsersService {
   ): Promise<UserOrgAssignment[]> {
     const user = await this.getEntityForActor(scope, id, actor);
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
-    const keys = dto.assignments.map((item) => `${item.orgId}:${item.postId ?? ""}`);
-    if (new Set(keys).size !== keys.length) throw new BadRequestException("用户组织岗位关系不能重复");
-    if (dto.assignments.filter((item) => item.isPrimary).length > 1) {
-      throw new BadRequestException("同一用户只能有一个主组织");
-    }
+    this.assertOrgAssignmentShape(dto.assignments);
     await this.userOrgRepository.manager.transaction(async (manager) => {
       await this.assertOrgAssignments(targetScope, dto.assignments, manager);
       const repository = manager.getRepository(UserOrgEntity);
       await repository.update(
-        { userId: id, isDeleted: false },
+        {
+          userId: id,
+          tenantId: targetScope.tenantId,
+          parkId: targetScope.parkId,
+          isDeleted: false
+        },
         { isDeleted: true, updateBy: actor.sub }
       );
       if (dto.assignments.length > 0) {
@@ -414,6 +440,14 @@ export class UsersService {
         where: { id: In(postIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
       });
       if (count !== postIds.length) throw new BadRequestException("包含不存在、停用或跨园区的岗位");
+    }
+  }
+
+  private assertOrgAssignmentShape(assignments: ReplaceUserOrgsDto["assignments"]): void {
+    const keys = assignments.map((item) => `${item.orgId}:${item.postId ?? ""}`);
+    if (new Set(keys).size !== keys.length) throw new BadRequestException("用户组织岗位关系不能重复");
+    if (assignments.filter((item) => item.isPrimary).length > 1) {
+      throw new BadRequestException("同一用户只能有一个主组织");
     }
   }
 
@@ -825,17 +859,20 @@ export class UsersService {
     tenantId: string,
     defaultParkId: string,
     requestedParkIds: string[] | undefined,
-    actorId: string
+    actorId: string,
+    manager?: EntityManager
   ): Promise<void> {
+    const parksRepository = manager?.getRepository(ParkEntity) ?? this.parksRepository;
+    const userParkRepository = manager?.getRepository(UserParkEntity) ?? this.userParkRepository;
     const parkIds = [...new Set([defaultParkId, ...(requestedParkIds ?? [])].map((item) => item.trim()).filter(Boolean))];
-    const parks = await this.parksRepository.find({ where: { tenantId, parkId: In(parkIds), isDeleted: false } });
+    const parks = await parksRepository.find({ where: { tenantId, parkId: In(parkIds), isDeleted: false } });
     if (parks.length !== parkIds.length) {
       throw new NotFoundException("Accessible park not found in target tenant");
     }
-    await this.userParkRepository.update({ userId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
-    await this.userParkRepository.save(
+    await userParkRepository.update({ userId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
+    await userParkRepository.save(
       parkIds.map((parkId) =>
-        this.userParkRepository.create({
+        userParkRepository.create({
           userId,
           tenantId,
           parkId,

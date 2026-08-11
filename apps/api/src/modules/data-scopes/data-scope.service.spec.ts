@@ -52,3 +52,22 @@ test("org_and_children with no roots denies access without running recursive SQL
   assert.equal(queryCount, 0);
   assert.equal(sql, "1 = 0");
 });
+
+test("org_and_children does not re-add a disabled or deleted root excluded by recursion", async () => {
+  const rootId = "00000000-0000-0000-0000-000000000001";
+  const service = new DataScopeService(
+    { query: async () => [] } as never,
+    { find: async () => [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: { orgIds: [rootId] }, status: "enabled", isDeleted: false } }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }] } as never
+  );
+  let sql = "";
+  const builder = { andWhere(value: string) { sql = value; return this; } };
+  await service.applyToQueryBuilder(
+    builder as never,
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { sub: "user-1", username: "user", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [] },
+    "org", "org"
+  );
+  assert.equal(sql, "1 = 0");
+});

@@ -28,6 +28,7 @@ if (!token) throw new Error("login did not return access token");
 
 const created = [];
 let createdUserId = null;
+let invalidCreatedUserId = null;
 try {
   let parentId = null;
   for (const [index, kind] of ["root", "child", "grandchild"].entries()) {
@@ -41,6 +42,15 @@ try {
     created.push(org.id); parentId = org.id;
   }
 
+  const siblingResult = await request("/orgs", {
+    method: "POST", headers: headers(token, "create-sibling"),
+    body: JSON.stringify({ parentId: created[0], orgCode: `REG_${runId}_sibling`, orgName: `组织层级回归-sibling-${runId}`, orgType: "department", sortOrder: 904 })
+  });
+  assertStatus("create sibling", siblingResult, [200, 201]);
+  const siblingId = data(siblingResult.body)?.id;
+  if (!siblingId) throw new Error("create sibling did not return id");
+  created.push(siblingId);
+
   const tree = await request("/orgs/tree", { headers: { authorization: `Bearer ${token}` } });
   assertStatus("read organization tree", tree, [200]);
   const serialized = JSON.stringify(data(tree.body));
@@ -52,19 +62,64 @@ try {
   const blockedDelete = await request(`/orgs/${created[0]}`, { method: "DELETE", headers: headers(token, "blocked-delete") });
   assertStatus("reject parent deletion", blockedDelete, [400]);
 
+  const concurrentParents = await Promise.all([
+    request(`/orgs/${created[1]}`, {
+      method: "PATCH", headers: headers(token, "concurrent-child-to-sibling"), body: JSON.stringify({ parentId: siblingId })
+    }),
+    request(`/orgs/${siblingId}`, {
+      method: "PATCH", headers: headers(token, "concurrent-sibling-to-child"), body: JSON.stringify({ parentId: created[1] })
+    })
+  ]);
+  const concurrentStatuses = concurrentParents.map((result) => result.response.status).sort((a, b) => a - b);
+  if (JSON.stringify(concurrentStatuses) !== JSON.stringify([200, 400])) {
+    throw new Error(`concurrent parent updates: expected one 200 and one 400, got ${concurrentStatuses.join("/")}`);
+  }
+  console.log("[PASS] serialize concurrent cyclic parent updates");
+  for (const [id, action] of [[created[1], "reset-child-parent"], [siblingId, "reset-sibling-parent"]]) {
+    const reset = await request(`/orgs/${id}`, {
+      method: "PATCH", headers: headers(token, action), body: JSON.stringify({ parentId: created[0] })
+    });
+    assertStatus(action, reset, [200]);
+  }
+
+  const invalidUsername = `reg_org_invalid_${runId}`;
+  const invalidUser = await request("/users", {
+    method: "POST", headers: headers(token, "create-user-invalid-org"),
+    body: JSON.stringify({
+      username: invalidUsername,
+      displayName: `组织回归无效用户-${runId}`,
+      password: `OrgReg@${runId}`,
+      assignments: [{ orgId: randomUUID(), postId: null, isPrimary: true }]
+    })
+  });
+  assertStatus("reject user creation with invalid organization", invalidUser, [400]);
+  const invalidUserList = await request(`/users?page=1&page_size=20&keyword=${encodeURIComponent(invalidUsername)}`, {
+    headers: { authorization: `Bearer ${token}` }
+  });
+  assertStatus("verify invalid user creation rolled back", invalidUserList, [200]);
+  const invalidMatches = (data(invalidUserList.body)?.items ?? []).filter((item) => item.username === invalidUsername);
+  invalidCreatedUserId = invalidMatches[0]?.id ?? null;
+  if (invalidMatches.length !== 0) throw new Error("invalid organization assignment left a partially created user");
+  console.log("[PASS] invalid organization assignment rolls back user creation");
+
+  const assignment = { orgId: created[0], postId: null, isPrimary: true };
   const userResult = await request("/users", {
     method: "POST", headers: headers(token, "create-user"),
-    body: JSON.stringify({ username: `reg_org_${runId}`, displayName: `组织回归用户-${runId}`, password: `OrgReg@${runId}` })
+    body: JSON.stringify({
+      username: `reg_org_${runId}`,
+      displayName: `组织回归用户-${runId}`,
+      password: `OrgReg@${runId}`,
+      assignments: [assignment]
+    })
   });
-  assertStatus("create organization regression user", userResult, [200, 201]);
+  assertStatus("atomically create user with organization assignment", userResult, [200, 201]);
   createdUserId = data(userResult.body)?.id;
   if (!createdUserId) throw new Error("create user did not return id");
 
-  const assignment = { orgId: created[0], postId: null, isPrimary: true };
   const assignResult = await request(`/users/${createdUserId}/orgs`, {
-    method: "POST", headers: headers(token, "assign-user-org"), body: JSON.stringify({ assignments: [assignment] })
+    headers: { authorization: `Bearer ${token}` }
   });
-  assertStatus("assign user primary organization", assignResult, [200, 201]);
+  assertStatus("read atomically created primary organization", assignResult, [200]);
   if (data(assignResult.body)?.[0]?.orgId !== created[0] || data(assignResult.body)?.[0]?.isPrimary !== true) {
     throw new Error("primary organization assignment was not returned");
   }
@@ -80,6 +135,10 @@ try {
   });
   assertStatus("reject multiple primary organizations", multiplePrimary, [400]);
 } finally {
+  if (invalidCreatedUserId) {
+    const result = await request(`/users/${invalidCreatedUserId}`, { method: "DELETE", headers: headers(token, "cleanup-invalid-user") });
+    if (![200, 201, 404].includes(result.response.status)) throw new Error(`cleanup invalid user failed with ${result.response.status}`);
+  }
   if (createdUserId) {
     const clearResult = await request(`/users/${createdUserId}/orgs`, { method: "POST", headers: headers(token, "cleanup-user-orgs"), body: JSON.stringify({ assignments: [] }) });
     if (![200, 201].includes(clearResult.response.status)) throw new Error(`cleanup user organizations failed with ${clearResult.response.status}`);
