@@ -815,14 +815,28 @@ export class SafetyInspectTasksService {
     }
     return this.usersRepository
       .createQueryBuilder("user")
-      .innerJoin(UserRoleEntity, "userRole", "userRole.user_id = user.id AND userRole.is_deleted = false")
-      .innerJoin("userRole.role", "role")
+      .innerJoin(
+        UserRoleEntity,
+        "userRole",
+        `userRole.user_id = user.id
+          AND userRole.tenant_id = user.tenant_id
+          AND userRole.park_id = user.park_id
+          AND userRole.is_deleted = false`
+      )
+      .innerJoin(
+        "userRole.role",
+        "role",
+        `role.tenant_id = user.tenant_id
+          AND (role.role_scope = 'tenant' OR role.park_id = user.park_id)`
+      )
       .where("user.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("user.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("user.is_deleted = false")
+      .andWhere("user.is_enabled = true")
       .andWhere("user.status = :status", { status: "enabled" })
       .andWhere("role.code IN (:...roleCodes)", { roleCodes: plan.handlerRoleCodes })
       .andWhere("role.is_deleted = false")
+      .andWhere("role.is_enabled = true")
       .andWhere("role.status = :status", { status: "enabled" })
       .orderBy("user.display_name", "ASC")
       .getMany();
