@@ -17,8 +17,7 @@ INSERT INTO wu_hr_permission_defs(code) VALUES
   ('system:user:detail'),
   ('system:user:create'),
   ('system:user:update'),
-  ('system:user:reset-password'),
-  ('role:read');
+  ('system:user:reset-password');
 
 DO $$
 DECLARE missing_codes text;

@@ -210,7 +210,7 @@ export const dashboardMenus: MenuNode[] = [
       { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "asset" },
       { label: "楼栋管理", href: "/assets/buildings", permission: "building:read", module: "asset" },
       { label: "楼层管理", href: "/assets/floors", permission: "floor:read", module: "asset" },
-      { label: "房间/房源管理", href: "/assets/units", permission: "unit:read", module: "asset" },
+      { label: "房间/房源管理", href: "/assets/units", permission: "asset:unit:list", module: "asset" },
       { label: "房源状态看板", href: "/assets/unit-status-board", permission: "asset:status_board", module: "asset" },
       { label: "资产统计", href: "/assets/statistics", permission: "asset:statistics", module: "asset" }
     ]
@@ -391,11 +391,11 @@ export const dashboardMenus: MenuNode[] = [
       { label: "数据权限", href: "/system/data-scopes", permission: "data_scope:read", module: "system" },
       { label: "字段权限", href: "/system/field-policies", permission: "field_policy:read", module: "system" },
       { label: "编码规则", href: "/system/code-rules", permission: "system:code-rule:read", module: "system" },
-      { label: "品牌设置", href: "/system/branding", permission: "system:read", module: "system" },
+      { label: "品牌设置", href: "/system/branding", permission: "tenant:manage", module: "system" },
       { label: "租户管理", href: "/system/tenants", permission: "tenant:read", module: "system" },
       { label: "模块授权", href: "/system/modules", permission: "module:read", module: "system" },
       { label: "字典管理", href: "/system/dicts", permission: "dict:read", module: "system" },
-      { label: "附件中心", href: "/system/files", permission: "file:read", module: "system" },
+      { label: "附件中心", href: "/system/files", permission: "system:attachment:list", module: "system" },
       { label: "操作日志", href: "/system/audit/op-logs", permission: "audit:read", module: "system" },
       { label: "登录日志", href: "/system/audit/login-logs", permission: "audit:read", module: "system" }
     ]
