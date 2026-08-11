@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-0.md`
-- **Total Sessions**: 1
+- **Total Sessions**: 2
 - **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-08-11 | 修复公寓登录后白屏并轻量上线 | `05cb22a3` | `main` |
 | 1 | 2026-08-11 | 集团人才公寓管理全链路上线 | `2f83f3f1`, `3d0816be` | `main` |
 <!-- @@@/auto:session-history -->
 
