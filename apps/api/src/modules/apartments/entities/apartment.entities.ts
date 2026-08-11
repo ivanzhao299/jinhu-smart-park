@@ -88,22 +88,34 @@ export class ApartmentDocumentTemplateEntity extends AuditableEntity {
   @Column({ name: "version_no", type: "integer" }) versionNo!: number;
   @Column({ type: "varchar", length: 16, default: "draft" }) status!: string;
   @Column({ name: "template_file_id", type: "uuid", nullable: true }) templateFileId!: string | null;
+  @Column({ type: "varchar", length: 200 }) title!: string;
+  @Column({ name: "content_html", type: "text" }) contentHtml!: string;
+  @Column({ name: "signature_required", type: "boolean", default: true }) signatureRequired!: boolean;
   @Column({ name: "variable_schema", type: "jsonb", default: () => "'{}'::jsonb" }) variableSchema!: Record<string, unknown>;
   @Column({ name: "published_at", type: "timestamptz", nullable: true }) publishedAt!: Date | null;
 }
 
 @Entity("biz_apartment_document")
 export class ApartmentDocumentEntity extends AuditableEntity {
+  @Column({ name: "document_no", type: "varchar", length: 64 }) documentNo!: string;
   @Column({ name: "stay_id", type: "uuid", nullable: true }) stayId!: string | null;
   @Column({ name: "application_id", type: "uuid", nullable: true }) applicationId!: string | null;
   @Column({ name: "template_id", type: "uuid" }) templateId!: string;
   @Column({ name: "document_type", type: "varchar", length: 40 }) documentType!: string;
   @Column({ name: "template_version", type: "integer" }) templateVersion!: number;
+  @Column({ type: "varchar", length: 200 }) title!: string;
+  @Column({ name: "content_html", type: "text" }) contentHtml!: string;
+  @Column({ type: "varchar", length: 24, default: "pending_signature" }) status!: string;
   @Column({ name: "variable_snapshot", type: "jsonb", default: () => "'{}'::jsonb" }) variableSnapshot!: Record<string, unknown>;
   @Column({ name: "generated_file_id", type: "uuid", nullable: true }) generatedFileId!: string | null;
   @Column({ name: "signed_file_id", type: "uuid", nullable: true }) signedFileId!: string | null;
   @Column({ name: "signed_sha256", type: "char", length: 64, nullable: true }) signedSha256!: string | null;
   @Column({ name: "signed_at", type: "timestamptz", nullable: true }) signedAt!: Date | null;
+  @Column({ name: "signature_method", type: "varchar", length: 16, nullable: true }) signatureMethod!: string | null;
+  @Column({ name: "signer_user_id", type: "uuid", nullable: true }) signerUserId!: string | null;
+  @Column({ name: "signer_name", type: "varchar", length: 100, nullable: true }) signerName!: string | null;
+  @Column({ name: "signature_statement", type: "varchar", length: 500, nullable: true }) signatureStatement!: string | null;
+  @Column({ name: "signature_evidence", type: "jsonb", default: () => "'{}'::jsonb" }) signatureEvidence!: Record<string, unknown>;
   @Column({ name: "voided_at", type: "timestamptz", nullable: true }) voidedAt!: Date | null;
   @Column({ name: "void_reason", type: "varchar", length: 500, nullable: true }) voidReason!: string | null;
 }

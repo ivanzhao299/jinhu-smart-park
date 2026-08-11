@@ -135,6 +135,10 @@ Reference files:
 - `apps/api/src/modules/files/files.controller.ts`
 - `packages/shared/src/index.ts`
 
+## Apartment Formal Documents
+
+Read [Apartment Formal Documents And Signing](./apartment-documents.md) before changing apartment templates, document generation, signing evidence, default reasons, or responsibility-user role convergence.
+
 ## Response And Error Shape
 
 Successful responses are wrapped by `ResponseInterceptor` as:

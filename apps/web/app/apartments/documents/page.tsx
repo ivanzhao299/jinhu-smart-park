@@ -1,2 +1,2 @@
-import { ApartmentWorkbench } from "../ApartmentWorkbench";
-export default function Page(){return <ApartmentWorkbench view="documents"/>}
+import { ApartmentDocumentsWorkbench } from "../ApartmentDocumentsWorkbench";
+export default function Page(){return <ApartmentDocumentsWorkbench/>}

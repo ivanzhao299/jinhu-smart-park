@@ -10,5 +10,8 @@ export const apartmentsApi={
  applications:(token?:string)=>unwrap(apiRequest<ApartmentRecord[]>("/apartments/applications",{token})),
  stays:(token?:string,status?:string)=>unwrap(apiRequest<ApartmentRecord[]>(`/apartments/stays${status?`?status=${status}`:""}`,{token})),
  documents:(token?:string)=>unwrap(apiRequest<ApartmentRecord[]>("/apartments/documents",{token})),
+ templates:(token?:string)=>unwrap(apiRequest<ApartmentRecord[]>("/apartments/templates",{token})),
+ settings:(token?:string)=>unwrap(apiRequest<{default_application_reason:string}>("/apartments/settings",{token})),
+ renderDocument:(id:string,token?:string)=>unwrap(apiRequest<{filename:string;html:string}>(`/apartments/documents/${id}/render`,{token})),
  mutate:<T>(path:string,body:object|undefined,token?:string,method="POST")=>unwrap(apiRequest<T>(path,{method,token,idempotencyKey:crypto.randomUUID(),body}))
 };
