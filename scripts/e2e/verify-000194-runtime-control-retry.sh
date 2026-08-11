@@ -21,6 +21,18 @@ cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_producti
 cp database/seeds/production/*.sql "$retry_seeds/production/"
 cp database/seeds/000001_s1_production_core.sql \
   "$retry_baseline_seeds/000001_s1_production_core.sql"
+# Both retry manifests stop before 000205, so their copied production core
+# seed must keep the historical tenant-wide role-data-scope conflict identity.
+for legacy_seed in \
+  "$retry_seeds/000001_s1_production_core.sql" \
+  "$retry_baseline_seeds/000001_s1_production_core.sql"; do
+  sed -i \
+    's/ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false/ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false/' \
+    "$legacy_seed"
+  grep -Fq \
+    'ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false' \
+    "$legacy_seed"
+done
 # Keep the pre-000194 fixture pinned to the production seed that originally
 # introduced the active asset scope. Later production seeds may depend on
 # schema added after 000194 and belong only in the fully migrated retry path.

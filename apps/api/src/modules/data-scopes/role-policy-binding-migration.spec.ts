@@ -17,6 +17,11 @@ const fieldPolicyEntity = readFileSync(
   resolve(__dirname, "../field-policies/entities/role-field-policy.entity.ts"),
   "utf8"
 );
+const ciWorkflow = readFileSync(resolve(root, ".github/workflows/ci.yml"), "utf8");
+const runtimeControlRetry = readFileSync(
+  resolve(root, "scripts/e2e/verify-000194-runtime-control-retry.sh"),
+  "utf8"
+);
 
 test("role policy binding uniqueness is park-scoped without changing tenant-wide definitions", () => {
   assert.match(
@@ -33,4 +38,11 @@ test("role policy binding uniqueness is park-scoped without changing tenant-wide
   );
   assert.match(dataScopeEntity, /\["tenantId", "parkId", "roleId", "ruleId"\]/);
   assert.match(fieldPolicyEntity, /\["tenantId", "parkId", "roleId", "fieldPolicyId"\]/);
+});
+
+test("pre-000205 release fixtures adapt the copied seed to their historical unique index", () => {
+  const legacyConflict = "ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false";
+  assert.match(ciWorkflow, new RegExp(legacyConflict.replace(/[()]/g, "\\$&")));
+  assert.match(runtimeControlRetry, new RegExp(legacyConflict.replace(/[()]/g, "\\$&")));
+  assert.match(runtimeControlRetry, /retry_baseline_seeds\/000001_s1_production_core\.sql/);
 });
