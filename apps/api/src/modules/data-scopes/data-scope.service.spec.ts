@@ -81,3 +81,50 @@ test("org_and_children does not re-add a disabled or deleted root excluded by re
   );
   assert.equal(sql, "1 = 0");
 });
+
+test("shared tenant role data-scope assignments update only the caller park", async () => {
+  let roleWhere: unknown;
+  let ruleWhere: unknown;
+  let linkUpdateWhere: unknown;
+  const service = new DataScopeService(
+    {
+      find: async (options: { where: unknown }) => {
+        ruleWhere = options.where;
+        return [{ id: "rule-b" }];
+      }
+    } as never,
+    {
+      update: async (where: unknown) => {
+        linkUpdateWhere = where;
+      },
+      create: (value: unknown) => value,
+      save: async (value: unknown) => value
+    } as never,
+    {
+      findOne: async (options: { where: unknown }) => {
+        roleWhere = options.where;
+        return { id: "role-1", roleScope: "tenant" };
+      }
+    } as never,
+    {} as never
+  );
+
+  await service.assignRoleRules(
+    { tenantId: "tenant-a", parkId: "park-b" },
+    "actor-1",
+    "role-1",
+    { ruleIds: ["rule-b"] }
+  );
+
+  assert.deepEqual(roleWhere, [
+    { id: "role-1", tenantId: "tenant-a", roleScope: "tenant", isDeleted: false },
+    { id: "role-1", tenantId: "tenant-a", parkId: "park-b", roleScope: "park", isDeleted: false }
+  ]);
+  assert.equal((ruleWhere as { parkId?: string }).parkId, "park-b");
+  assert.deepEqual(linkUpdateWhere, {
+    tenantId: "tenant-a",
+    parkId: "park-b",
+    roleId: "role-1",
+    isDeleted: false
+  });
+});

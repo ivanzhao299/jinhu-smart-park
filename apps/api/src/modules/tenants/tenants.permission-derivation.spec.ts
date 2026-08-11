@@ -218,3 +218,33 @@ test("tenant module read models deduplicate park-scoped module bindings", () => 
   assert.match(source, /enabledModuleCodes: \[\s*\.\.\.new Set\(/);
   assert.match(source, /const enabledModuleCount = new Set\(enabledModuleRows\.map\(\(item\) => item\.moduleId\)\)\.size/);
 });
+
+test("tenant authorization rejects a malformed park-scoped administrator role", async () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const getOrCreate = (service as unknown as {
+    getOrCreateTenantAdminRole(
+      manager: { getRepository(): { findOne(): Promise<unknown> } },
+      tenant: { tenantId: string },
+      parkId: string,
+      actorId: string
+    ): Promise<unknown>;
+  }).getOrCreateTenantAdminRole.bind(service);
+
+  await assert.rejects(
+    getOrCreate(
+      {
+        getRepository: () => ({
+          findOne: async () => ({
+            roleScope: "park",
+            isBuiltin: true,
+            isSystem: true
+          })
+        })
+      },
+      { tenantId: "tenant-a" },
+      "park-b",
+      "actor-1"
+    ),
+    /Tenant administrator role must be a tenant-scoped built-in role/
+  );
+});

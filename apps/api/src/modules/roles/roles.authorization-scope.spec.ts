@@ -42,3 +42,33 @@ test("role copy and list contracts keep role links park-scoped", () => {
   assert.match(source, /attachPermissionLinks\(scope, \[role\]\)/);
   assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: sourceRoleId, isDeleted: false \}/);
 });
+
+test("built-in role scope cannot be changed", async () => {
+  const role = {
+    id: "role-1",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "tenant",
+    isBuiltin: true,
+    isSystem: true,
+    isEditable: true,
+    editable: true
+  };
+  const service = new RolesService(
+    { findOne: async () => role } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    service.update(
+      { tenantId: "tenant-a", parkId: "park-b" },
+      "actor-1",
+      role.id,
+      { roleScope: "park" }
+    ),
+    /Built-in role scope cannot be changed/
+  );
+});

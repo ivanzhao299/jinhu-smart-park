@@ -130,6 +130,13 @@ export class RolesService {
     if (!role.isEditable || !role.editable) {
       throw new ForbiddenException("Role is not editable");
     }
+    if (
+      (role.isBuiltin || role.isSystem) &&
+      dto.roleScope !== undefined &&
+      dto.roleScope !== role.roleScope
+    ) {
+      throw new ForbiddenException("Built-in role scope cannot be changed");
+    }
     if (dto.code && dto.code !== role.code) {
       await this.assertCodeAvailable(scope, dto.code);
     }

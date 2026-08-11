@@ -624,6 +624,9 @@ export class TenantsService {
     const existing = await roleRepository.findOne({
       where: { tenantId: tenant.tenantId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
     });
+    if (existing && (existing.roleScope !== "tenant" || !existing.isBuiltin || !existing.isSystem)) {
+      throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
+    }
     return existing ?? this.createTenantAdminRole(manager, tenant, parkId, actorId);
   }
 
