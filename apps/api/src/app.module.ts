@@ -31,6 +31,7 @@ import { LeasingLeadsModule } from "./modules/leasing-leads/leasing-leads.module
 import { LeasingPaymentsModule } from "./modules/leasing-payments/leasing-payments.module";
 import { LeasingReceivablesModule } from "./modules/leasing-receivables/leasing-receivables.module";
 import { LeasingWaiversModule } from "./modules/leasing-waivers/leasing-waivers.module";
+import { MobileModule } from "./modules/mobile/mobile.module";
 import { OrgsModule } from "./modules/orgs/orgs.module";
 import { ParkTenantsModule } from "./modules/park-tenants/park-tenants.module";
 import { ParksModule } from "./modules/parks/parks.module";
@@ -168,6 +169,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     LeasingReceivablesModule,
     LeasingPaymentsModule,
     LeasingWaiversModule,
+    MobileModule,
     UnitsModule,
     ParkTenantsModule,
     OrgsModule,

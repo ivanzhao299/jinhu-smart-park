@@ -4,6 +4,7 @@ import {
 } from "./property-business/permissions";
 
 export * from "./property-business";
+export * from "./mobile";
 
 export interface ApiResponse<T> {
   code: number;
