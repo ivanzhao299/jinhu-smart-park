@@ -204,7 +204,7 @@ export class UsersService {
         actor.sub,
         manager
       );
-      await this.assertOrgAssignments(targetScope, actor, assignments, manager);
+      await this.assertOrgAssignments(targetScope, actor, assignments, manager, []);
       if (assignments.length > 0) {
         const repository = manager.getRepository(UserOrgEntity);
         await repository.save(assignments.map((item) => repository.create({
@@ -477,10 +477,20 @@ export class UsersService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     assignments: ReplaceUserOrgsDto["assignments"],
-    manager: EntityManager
+    manager: EntityManager,
+    activeLinks: Array<Pick<UserOrgEntity, "orgId" | "postId" | "isPrimary">>
   ): Promise<string[] | null> {
+    const assignmentKey = (item: Pick<UserOrgEntity, "orgId" | "postId" | "isPrimary">) =>
+      `${item.orgId}:${item.postId ?? ""}:${item.isPrimary}`;
+    const retainedKeys = new Set(activeLinks.map(assignmentKey));
+    const assignmentsToValidate = assignments.filter((item) => !retainedKeys.has(assignmentKey({
+      orgId: item.orgId,
+      postId: item.postId ?? null,
+      isPrimary: item.isPrimary
+    })));
     const orgIds = [...new Set(assignments.map((item) => item.orgId))];
-    const postIds = [...new Set(assignments.map((item) => item.postId).filter((id): id is string => Boolean(id)))];
+    const orgIdsToValidate = [...new Set(assignmentsToValidate.map((item) => item.orgId))];
+    const postIds = [...new Set(assignmentsToValidate.map((item) => item.postId).filter((id): id is string => Boolean(id)))];
     const visibleOrgIds = await this.resolveVisibleOrgIds(scope, actor, manager);
     if (orgIds.length > 0) {
       if (visibleOrgIds !== null) {
@@ -489,10 +499,12 @@ export class UsersService {
           throw new BadRequestException("包含不存在、停用、跨园区或无权使用的组织");
         }
       }
+    }
+    if (orgIdsToValidate.length > 0) {
       const count = await manager.getRepository(OrgEntity).count({
-        where: { id: In(orgIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+        where: { id: In(orgIdsToValidate), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
       });
-      if (count !== orgIds.length) throw new BadRequestException("包含不存在、停用、跨园区或无权使用的组织");
+      if (count !== orgIdsToValidate.length) throw new BadRequestException("包含不存在、停用、跨园区或无权使用的组织");
     }
     if (postIds.length > 0) {
       const count = await manager.getRepository(PostEntity).count({
@@ -510,14 +522,14 @@ export class UsersService {
     assignments: ReplaceUserOrgsDto["assignments"],
     manager: EntityManager
   ): Promise<void> {
-    const visibleOrgIds = await this.assertOrgAssignments(scope, actor, assignments, manager);
     const repository = manager.getRepository(UserOrgEntity);
+    const activeLinks = await repository.find({
+      where: { userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      select: { orgId: true, postId: true, isPrimary: true }
+    });
+    const visibleOrgIds = await this.assertOrgAssignments(scope, actor, assignments, manager, activeLinks);
     if (visibleOrgIds !== null) {
       const visibleOrgIdSet = new Set(visibleOrgIds);
-      const activeLinks = await repository.find({
-        where: { userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-        select: { orgId: true, isPrimary: true }
-      });
       const hiddenPrimaryExists = activeLinks.some((link) => link.isPrimary && !visibleOrgIdSet.has(link.orgId));
       if (hiddenPrimaryExists && assignments.some((item) => item.isPrimary)) {
         throw new BadRequestException("无权变更的组织关系中已有主组织");

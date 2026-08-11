@@ -98,6 +98,51 @@ test("organization assignment replacement only deletes the target user's current
   assert.deepEqual(result, [{ orgId: "org-current", postId: null, isPrimary: true, orgName: undefined, postName: null }]);
 });
 
+test("organization assignment replacement preserves an unchanged disabled organization and post", async () => {
+  const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
+  const retained = { orgId: "org-disabled", postId: "post-disabled", isPrimary: true };
+  let validationRepositoryRequested = false;
+  const relationshipRepository = {
+    find: async () => [retained],
+    update: async () => undefined,
+    create: (value: unknown) => value,
+    save: async (value: unknown) => value
+  };
+  interface RetainedManager {
+    query(): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (value: RetainedManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: RetainedManager = {
+    query: async () => undefined,
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) return { findOne: async () => target };
+      if (entity === UserOrgEntity) return relationshipRepository;
+      if (entity === OrgEntity || entity === PostEntity) {
+        validationRepositoryRequested = true;
+        return { count: async () => 0 };
+      }
+      throw new Error("Unexpected repository");
+    },
+    transaction: async (callback) => callback(manager)
+  };
+  const service = new UsersService(
+    {} as never, {} as never, {} as never, { manager } as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  const result = await service.replaceOrgAssignments(
+    scope,
+    { ...actor, isSuper: true, permissions: ["*"] },
+    target.id,
+    { assignments: [retained] }
+  );
+
+  assert.equal(validationRepositoryRequested, false, "unchanged inactive assignments must not be revalidated as new choices");
+  assert.deepEqual(result, [{ ...retained, orgName: undefined, postName: null }]);
+});
+
 test("user scope updates serialize with assignment writes and retire the previous scope", async () => {
   const target = {
     id: "user-1",
@@ -319,7 +364,7 @@ test("organization assignment writes enforce the actor's organization data scope
         find: async () => [{ id: "org-visible" }],
         count: async () => { countCalled = true; return 1; }
       };
-      if (entity === UserOrgEntity) return {};
+      if (entity === UserOrgEntity) return { find: async () => [] };
       throw new Error("Unexpected repository");
     },
     transaction: async (callback) => callback(manager)

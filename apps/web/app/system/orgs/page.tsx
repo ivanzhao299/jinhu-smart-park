@@ -82,11 +82,11 @@ export default function OrgsPage() {
   const load = useCallback(async () => {
     const token = getAccessToken();
     const canListUsers = hasPermission(getAuthUser(), SYSTEM_PERMISSIONS.USER_LIST);
-    const [treeResponse, leaderResponse] = await Promise.all([
-      apiRequest<OrgRow[]>("/orgs/tree", { token }),
-      canListUsers ? apiRequest<LeaderOption[]>("/orgs/leaders", { token }) : Promise.resolve(null)
-    ]);
+    const treeResponse = await apiRequest<OrgRow[]>("/orgs/tree", { token });
     setTree(treeResponse.data);
+    const leaderResponse = canListUsers
+      ? await apiRequest<LeaderOption[]>("/orgs/leaders", { token }).catch(() => null)
+      : null;
     setLeaders(leaderResponse?.data ?? []);
   }, []);
   useEffect(() => { void load().catch(showError); }, [load]);

@@ -20,6 +20,8 @@ test("organization page exposes desktop and mobile hierarchy records", () => {
   assert.match(source, /role="alert"/);
   assert.match(source, /上级组织不可见/);
   assert.match(source, /负责人不可用/);
+  assert.equal(source.includes('const treeResponse = await apiRequest<OrgRow[]>("/orgs/tree"'), true);
+  assert.equal(source.includes('apiRequest<LeaderOption[]>("/orgs/leaders", { token }).catch(() => null)'), true);
   assert.match(source, /label="排序"/);
   assert.match(source, /label="数据租户"/);
   assert.match(source, /label="园区范围"/);

@@ -85,6 +85,7 @@ export class UsersController {
   }
 
   @Patch(":id")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
   @AuditLog({ module: "用户管理", resource: "system.user", action: "修改", bizType: "user", bizIdParam: "id" })
   update(
