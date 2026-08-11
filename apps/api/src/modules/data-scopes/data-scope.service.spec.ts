@@ -15,7 +15,19 @@ test("org_and_children expands descendants inside the scoped query", async () =>
   const roleDataScopeRepository = {
     find: async (options: { where: unknown }) => {
       ruleLinkWhere.push(options.where);
-      return [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: { orgIds: ["00000000-0000-0000-0000-000000000001"] }, status: "enabled", isDeleted: false } }];
+      return [
+        {
+          rule: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            dimension: "org",
+            scopeType: "org_and_children",
+            scopeConfig: { orgIds: ["00000000-0000-0000-0000-000000000001"] },
+            status: "enabled",
+            isDeleted: false
+          }
+        }
+      ];
     }
   };
   const userRoleRepository = {
@@ -47,7 +59,21 @@ test("org_and_children with no roots denies access without running recursive SQL
   let queryCount = 0;
   const service = new DataScopeService(
     { query: async () => { queryCount += 1; return []; } } as never,
-    { find: async () => [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: {}, status: "enabled", isDeleted: false } }] } as never,
+    {
+      find: async () => [
+        {
+          rule: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            dimension: "org",
+            scopeType: "org_and_children",
+            scopeConfig: {},
+            status: "enabled",
+            isDeleted: false
+          }
+        }
+      ]
+    } as never,
     {} as never,
     { find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }] } as never
   );
@@ -67,7 +93,21 @@ test("org_and_children does not re-add a disabled or deleted root excluded by re
   const rootId = "00000000-0000-0000-0000-000000000001";
   const service = new DataScopeService(
     { query: async () => [] } as never,
-    { find: async () => [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: { orgIds: [rootId] }, status: "enabled", isDeleted: false } }] } as never,
+    {
+      find: async () => [
+        {
+          rule: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            dimension: "org",
+            scopeType: "org_and_children",
+            scopeConfig: { orgIds: [rootId] },
+            status: "enabled",
+            isDeleted: false
+          }
+        }
+      ]
+    } as never,
     {} as never,
     { find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }] } as never
   );
