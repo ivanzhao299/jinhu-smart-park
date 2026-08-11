@@ -33,7 +33,18 @@ test("org_and_children expands descendants inside the scoped query", async () =>
   const userRoleRepository = {
     find: async (options: { where: unknown }) => {
       roleLinkWhere.push(options.where);
-      return [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }];
+      return [
+        {
+          roleId: "role-1",
+          role: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            roleScope: "tenant",
+            isDeleted: false,
+            isEnabled: true
+          }
+        }
+      ];
     }
   };
   const service = new DataScopeService(rulesRepository as never, roleDataScopeRepository as never, {} as never, userRoleRepository as never);
@@ -75,7 +86,20 @@ test("org_and_children with no roots denies access without running recursive SQL
       ]
     } as never,
     {} as never,
-    { find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }] } as never
+    {
+      find: async () => [
+        {
+          roleId: "role-1",
+          role: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            roleScope: "tenant",
+            isDeleted: false,
+            isEnabled: true
+          }
+        }
+      ]
+    } as never
   );
   let sql = "";
   const builder = { andWhere(value: string) { sql = value; return this; } };
@@ -109,7 +133,20 @@ test("org_and_children does not re-add a disabled or deleted root excluded by re
       ]
     } as never,
     {} as never,
-    { find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }] } as never
+    {
+      find: async () => [
+        {
+          roleId: "role-1",
+          role: {
+            tenantId: "tenant-1",
+            parkId: "park-1",
+            roleScope: "tenant",
+            isDeleted: false,
+            isEnabled: true
+          }
+        }
+      ]
+    } as never
   );
   let sql = "";
   const builder = { andWhere(value: string) { sql = value; return this; } };
