@@ -9,6 +9,14 @@ import { UserOrgEntity } from "./entities/user-org.entity";
 import { UserEntity } from "../users/entities/user.entity";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
+const actor = {
+  sub: "actor",
+  username: "operator",
+  tenantId: scope.tenantId,
+  parkId: scope.parkId,
+  roles: [],
+  permissions: ["*"]
+};
 const hierarchyMigration = readFileSync(
   resolve(__dirname, "../../../../../database/migrations/000203_org_hierarchy_integrity.sql"),
   "utf8"
@@ -32,12 +40,16 @@ function createService(
     orgFindOptions?: unknown[];
     leaderFindOptions?: unknown[];
     userOrgCountWhere?: unknown[];
+    visibleOrgIds?: string[];
   } = {}
 ) {
   const byId = new Map(orgs.map((org) => [org.id, org]));
   const orgRepository: Record<string, unknown> = {
-    find: async (findOptions: unknown) => {
+    find: async (findOptions: { select?: { id?: boolean } }) => {
       options.orgFindOptions?.push(findOptions);
+      if (findOptions.select?.id && options.visibleOrgIds) {
+        return orgs.filter((org) => options.visibleOrgIds?.includes(org.id));
+      }
       return [...orgs].sort((a, b) => a.sortOrder - b.sortOrder || a.orgName.localeCompare(b.orgName));
     },
     findOne: async ({ where }: { where: { id: string } }) => byId.get(where.id) ?? null,
@@ -96,7 +108,7 @@ test("update rejects a parent that creates a cycle", async () => {
   const root = makeOrg("root", null, 10);
   const child = makeOrg("child", "root", 20);
   const service = createService([root, child]);
-  await assert.rejects(() => service.update(scope, "actor", "root", { parentId: "child" }), BadRequestException);
+  await assert.rejects(() => service.update(scope, actor, "root", { parentId: "child" }), BadRequestException);
 });
 
 test("delete rejects an organization with active children", async () => {
@@ -109,9 +121,9 @@ test("update rejects self, missing and disabled parents", async () => {
   const root = makeOrg("root", null, 10);
   const disabled = { ...makeOrg("disabled", null, 20), status: "disabled" };
   const service = createService([root, disabled]);
-  await assert.rejects(() => service.update(scope, "actor", "root", { parentId: "root" }), BadRequestException);
-  await assert.rejects(() => service.update(scope, "actor", "root", { parentId: "missing" }), BadRequestException);
-  await assert.rejects(() => service.update(scope, "actor", "root", { parentId: "disabled" }), BadRequestException);
+  await assert.rejects(() => service.update(scope, actor, "root", { parentId: "root" }), BadRequestException);
+  await assert.rejects(() => service.update(scope, actor, "root", { parentId: "missing" }), BadRequestException);
+  await assert.rejects(() => service.update(scope, actor, "root", { parentId: "disabled" }), BadRequestException);
 });
 
 test("delete rejects an organization with active user assignments", async () => {
@@ -148,7 +160,7 @@ test("hierarchy updates acquire the scoped transaction advisory lock", async () 
   const lockCalls: Array<{ sql: string; parameters: unknown[] }> = [];
   const root = makeOrg("root", null, 10);
   const service = createService([root], { lockCalls });
-  await service.update(scope, "actor", "root", { orgName: "Renamed" });
+  await service.update(scope, actor, "root", { orgName: "Renamed" });
   assert.match(lockCalls[0]?.sql ?? "", /pg_advisory_xact_lock/);
   assert.deepEqual(lockCalls[0]?.parameters, ["org-hierarchy:tenant-1:park-1"]);
 });
@@ -163,4 +175,21 @@ test("leader candidates are not silently capped", async () => {
 test("hierarchy migration locks writes and rejects inactive parents before adding constraints", () => {
   assert.match(hierarchyMigration, /LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;[\s\S]*DO \$preflight\$/);
   assert.match(hierarchyMigration, /child\.is_deleted = false[\s\S]*parent\.is_deleted = true[\s\S]*parent\.status <> 'enabled'/);
+});
+
+test("create and reparent reject parent organizations outside the actor data scope", async () => {
+  const allowed = makeOrg("allowed", null, 10);
+  const hidden = makeOrg("hidden", null, 20);
+  const child = makeOrg("child", "allowed", 30);
+  const service = createService([allowed, hidden, child], { visibleOrgIds: ["allowed", "child"] });
+  const scopedActor = { ...actor, permissions: [], isSuper: false };
+
+  await assert.rejects(
+    () => service.create(scope, scopedActor, { orgCode: "new", orgName: "New", orgType: "department", parentId: "hidden" }),
+    /无权使用该上级组织/
+  );
+  await assert.rejects(
+    () => service.update(scope, scopedActor, "child", { parentId: "hidden" }),
+    /无权使用该上级组织/
+  );
 });

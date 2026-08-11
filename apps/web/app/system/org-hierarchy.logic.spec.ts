@@ -21,7 +21,8 @@ test("organization page exposes desktop and mobile hierarchy records", () => {
 
 test("user page creates organization assignments atomically and guards stale catalogs", () => {
   assert.match(usersSource, /assignments: orgAssignments\.map/);
-  assert.match(usersSource, /if \(editingUser\)[\s\S]*\/users\/\$\{editingUser\.id\}\/orgs/);
+  assert.match(usersSource, /assignmentsChanged \? \{ assignments: body\.assignments \} : \{\}/);
+  assert.doesNotMatch(usersSource, /apiRequest<UserOrgAssignment\[\]>\(`\/users\/\$\{editingUser\.id\}\/orgs/);
   assert.match(usersSource, /const orgCatalogRequest = useRef\(0\)/);
   assert.match(usersSource, /if \(requestId !== orgCatalogRequest\.current\) return/);
   assert.match(usersSource, /\/users\/org-candidates\?\$\{params\.toString\(\)\}/);

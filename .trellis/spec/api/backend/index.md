@@ -127,6 +127,28 @@ punctuation, decimal separators, and invisible characters would pass. Reject omi
 punctuation-only, and invisible-only names at the API boundary even when the Web form also validates them.
 Identifiers and codes belong in their dedicated fields.
 
+## Scenario: Organization Hierarchy And Assignment Scope Integrity
+
+### Contracts
+
+- A submitted parent organization must be active, in the target tenant/park, cycle-safe, and visible in the
+  actor's organization data scope. Do not authorize a hidden `parentId` merely because it exists.
+- When validating submitted organization assignments, first resolve the actor-visible organization ids and
+  explicitly intersect the submitted ids with that set. Do not merge a submitted `id: In(...)` predicate with
+  a data-scope mapping for the same column because the mapped predicate can overwrite the submitted ids.
+- User profile fields and optional organization assignments in one update request commit in the same database
+  transaction under the user/scope advisory locks. A validation or relationship-write failure rolls back the
+  profile update.
+- Production `api` and `full` deployments stop the old API before migration and keep it stopped through the
+  optional production seed until the new API starts. Migration failure remains fail-closed with API stopped.
+
+### Tests Required
+
+- Reject an existing but actor-hidden parent for both create and reparent operations.
+- Reject a submitted hidden assignment even if a separate entity count would find that organization.
+- Prove profile save and relationship replacement execute inside the same transaction manager.
+- Assert deploy ordering is `stop api -> db-migrate -> up -d api` (or `api web`).
+
 Pagination DTOs must validate `page` and `page_size` as integers and cap
 `page_size` at the endpoint's documented maximum before values reach
 `skip`/`take`. Candidate endpoints are not exempt from the bound.

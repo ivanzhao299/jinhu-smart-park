@@ -100,10 +100,10 @@ export class OrgsService {
     });
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateOrgDto): Promise<OrgEntity> {
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateOrgDto): Promise<OrgEntity> {
     return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
       await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
-      await this.assertParentAllowed(scope, dto.parentId ?? null, undefined, orgRepository);
+      await this.assertParentAllowed(scope, dto.parentId ?? null, actor, undefined, orgRepository);
       await this.assertLeaderAllowed(scope, dto.leaderUserId ?? null, userRepository);
       const entity = orgRepository.create({
         ...dto,
@@ -113,8 +113,8 @@ export class OrgsService {
         status: dto.status ?? "enabled",
         tenantId: scope.tenantId,
         parkId: scope.parkId,
-        createBy: actorId,
-        updateBy: actorId
+        createBy: actor.sub,
+        updateBy: actor.sub
       });
       return orgRepository.save(entity);
     });
@@ -130,14 +130,14 @@ export class OrgsService {
     return entity;
   }
 
-  async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateOrgDto): Promise<OrgEntity> {
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateOrgDto): Promise<OrgEntity> {
     return this.withHierarchyLock(scope, async ({ orgRepository, userRepository }) => {
       const entity = await this.detail(scope, id, orgRepository);
       if (dto.orgCode && dto.orgCode !== entity.orgCode) {
         await this.assertCodeAvailable(scope, dto.orgCode, orgRepository);
       }
       if (dto.parentId !== undefined) {
-        await this.assertParentAllowed(scope, dto.parentId, id, orgRepository);
+        await this.assertParentAllowed(scope, dto.parentId, actor, id, orgRepository);
       }
       if (dto.leaderUserId !== undefined) {
         await this.assertLeaderAllowed(scope, dto.leaderUserId, userRepository);
@@ -148,7 +148,7 @@ export class OrgsService {
       Object.assign(entity, dto, {
         parentId: dto.parentId === undefined ? entity.parentId : dto.parentId,
         leaderUserId: dto.leaderUserId === undefined ? entity.leaderUserId : dto.leaderUserId,
-        updateBy: actorId
+        updateBy: actor.sub
       });
       return orgRepository.save(entity);
     });
@@ -192,12 +192,26 @@ export class OrgsService {
   private async assertParentAllowed(
     scope: TenantParkScope,
     parentId: string | null,
+    actor: JwtPrincipal,
     currentId?: string,
     repository = this.orgRepository
   ): Promise<void> {
     if (!parentId) return;
     if (currentId && parentId === currentId) {
       throw new BadRequestException("上级组织不能是当前组织自身");
+    }
+    if (!actor.isSuper && !actor.permissions.includes("*")) {
+      const visibleWhere = await this.dataScopeService.buildFindWhere<OrgEntity>(
+        scope,
+        actor,
+        "org",
+        { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { org: "id" }
+      );
+      const visibleParents = await repository.find({ where: visibleWhere, select: { id: true } });
+      if (!visibleParents.some((org) => org.id === parentId)) {
+        throw new BadRequestException("无权使用该上级组织");
+      }
     }
     let cursor: string | null = parentId;
     const visited = new Set<string>();

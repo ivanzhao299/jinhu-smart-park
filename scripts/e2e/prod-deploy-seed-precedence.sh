@@ -19,6 +19,9 @@ for helper in db-migrate.sh db-seed-prod.sh prod-healthcheck.sh prod-docker-clea
 #!/usr/bin/env sh
 set -eu
 printf '%s\n' 'HELPER_NAME' >> "$PROD_DEPLOY_TEST_LOG"
+if [ "HELPER_NAME" = "db-migrate" ] && [ "${PROD_DEPLOY_TEST_MIGRATE_FAIL:-no}" = "yes" ]; then
+  exit 23
+fi
 SH
   chmod +x "$TEST_ROOT/scripts/$helper"
 done
@@ -26,7 +29,7 @@ done
 sed 's/HELPER_NAME/docker/g' > "$TEST_ROOT/bin/docker" <<'SH'
 #!/usr/bin/env sh
 set -eu
-printf '%s\n' 'HELPER_NAME' >> "$PROD_DEPLOY_TEST_LOG"
+printf 'HELPER_NAME %s\n' "$*" >> "$PROD_DEPLOY_TEST_LOG"
 exit 0
 SH
 chmod +x "$TEST_ROOT/bin/docker"
@@ -66,11 +69,41 @@ run_case() {
   seed_count="$(grep -c '^db-seed-prod$' "$log_file" || true)"
   test "$migrate_count" -eq 1
   test "$seed_count" -eq "$expected_seed_count"
+
+  stop_line="$(grep -n ' stop api$' "$log_file" | head -1 | cut -d: -f1)"
+  migrate_line="$(grep -n '^db-migrate$' "$log_file" | head -1 | cut -d: -f1)"
+  start_line="$(grep -n ' up -d api web$' "$log_file" | head -1 | cut -d: -f1)"
+  test -n "$stop_line"
+  test -n "$migrate_line"
+  test -n "$start_line"
+  test "$stop_line" -lt "$migrate_line"
+  test "$migrate_line" -lt "$start_line"
 }
 
 run_case workflow_yes_env_no no yes 1
 run_case workflow_no_env_yes yes no 0
 run_case no_workflow_override yes unset 1
+
+migration_failure_log="$TEST_ROOT/migration-failure.log"
+: > "$migration_failure_log"
+if PATH="$TEST_ROOT/bin:$PATH" \
+  PROD_DEPLOY_TEST_LOG="$migration_failure_log" \
+  PROD_DEPLOY_TEST_MIGRATE_FAIL=yes \
+  ENV_FILE="$TEST_ROOT/workflow_yes_env_no.env" \
+  COMPOSE_FILE="$TEST_ROOT/infra/docker/docker-compose.prod.yml" \
+  PROD_DEPLOY_MODE=full \
+  RUN_PRODUCTION_SEED=no \
+  PRUNE_DOCKER_AFTER_DEPLOY=no \
+  sh "$TEST_ROOT/scripts/prod-deploy.sh" >/dev/null 2>&1; then
+  printf 'Expected migration failure to stop the deployment.\n' >&2
+  exit 1
+fi
+grep -q ' stop api$' "$migration_failure_log"
+grep -q '^db-migrate$' "$migration_failure_log"
+if grep -q ' up -d api web$' "$migration_failure_log"; then
+  printf 'API/Web must not start after a migration failure.\n' >&2
+  exit 1
+fi
 
 for invalid_value in invalid ""; do
   invalid_log="$TEST_ROOT/invalid-${invalid_value:-empty}.log"

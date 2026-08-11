@@ -124,6 +124,48 @@ try {
     throw new Error("primary organization assignment was not returned");
   }
 
+  const originalDisplayName = `组织回归用户-${runId}`;
+  const rejectedUpdateName = `不应提交-${runId}`;
+  const invalidAtomicUpdate = await request(`/users/${createdUserId}`, {
+    method: "PATCH", headers: headers(token, "atomic-update-invalid-org"),
+    body: JSON.stringify({
+      displayName: rejectedUpdateName,
+      assignments: [{ orgId: randomUUID(), postId: null, isPrimary: true }]
+    })
+  });
+  assertStatus("reject atomic profile update with invalid organization", invalidAtomicUpdate, [400]);
+  const afterRejectedUpdate = await request(`/users/${createdUserId}`, { headers: { authorization: `Bearer ${token}` } });
+  assertStatus("read user after rejected atomic update", afterRejectedUpdate, [200]);
+  if (data(afterRejectedUpdate.body)?.displayName !== originalDisplayName) {
+    throw new Error("invalid assignment left a partially updated user profile");
+  }
+  const assignmentsAfterRejectedUpdate = await request(`/users/${createdUserId}/orgs`, {
+    headers: { authorization: `Bearer ${token}` }
+  });
+  assertStatus("read assignments after rejected atomic update", assignmentsAfterRejectedUpdate, [200]);
+  if (data(assignmentsAfterRejectedUpdate.body)?.[0]?.orgId !== created[0]) {
+    throw new Error("invalid atomic update changed organization assignments");
+  }
+  console.log("[PASS] invalid atomic profile and organization update rolls back together");
+
+  const updatedDisplayName = `组织回归更新用户-${runId}`;
+  const validAtomicUpdate = await request(`/users/${createdUserId}`, {
+    method: "PATCH", headers: headers(token, "atomic-update-valid-org"),
+    body: JSON.stringify({
+      displayName: updatedDisplayName,
+      assignments: [{ orgId: created[1], postId: null, isPrimary: true }]
+    })
+  });
+  assertStatus("atomically update profile and organization", validAtomicUpdate, [200]);
+  const assignmentsAfterValidUpdate = await request(`/users/${createdUserId}/orgs`, {
+    headers: { authorization: `Bearer ${token}` }
+  });
+  assertStatus("read assignments after valid atomic update", assignmentsAfterValidUpdate, [200]);
+  if (data(validAtomicUpdate.body)?.displayName !== updatedDisplayName || data(assignmentsAfterValidUpdate.body)?.[0]?.orgId !== created[1]) {
+    throw new Error("valid atomic update did not commit profile and organization together");
+  }
+  console.log("[PASS] valid atomic profile and organization update commits together");
+
   const duplicate = await request(`/users/${createdUserId}/orgs`, {
     method: "POST", headers: headers(token, "duplicate-user-org"), body: JSON.stringify({ assignments: [assignment, assignment] })
   });

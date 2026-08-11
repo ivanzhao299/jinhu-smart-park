@@ -42,7 +42,7 @@ export class OrgsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_CREATE)
   @AuditLog({ module: "组织管理", resource: "system.org", action: "新增", bizType: "org" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateOrgDto) {
-    return this.orgsService.create(scope, user.sub, dto);
+    return this.orgsService.create(scope, user, dto);
   }
 
   @Get(":id")
@@ -60,7 +60,7 @@ export class OrgsController {
     @Param("id") id: string,
     @Body() dto: UpdateOrgDto
   ) {
-    return this.orgsService.update(scope, user.sub, id, dto);
+    return this.orgsService.update(scope, user, id, dto);
   }
 
   @Delete(":id")

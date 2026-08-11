@@ -277,8 +277,7 @@ test("create organization candidates resolve the requested super-admin target sc
 
 test("organization assignment writes enforce the actor's organization data scope", async () => {
   const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
-  const deniedWhere = { id: "denied-by-data-scope" };
-  let countedWhere: unknown;
+  let countCalled = false;
   interface AssignmentScopeManager {
     query(): Promise<void>;
     getRepository(entity: unknown): unknown;
@@ -289,10 +288,8 @@ test("organization assignment writes enforce the actor's organization data scope
     getRepository: (entity: unknown) => {
       if (entity === UserEntity) return { findOne: async () => target };
       if (entity === OrgEntity) return {
-        count: async (options: { where: unknown }) => {
-          countedWhere = options.where;
-          return 0;
-        }
+        find: async () => [{ id: "org-visible" }],
+        count: async () => { countCalled = true; return 1; }
       };
       if (entity === UserOrgEntity) return {};
       throw new Error("Unexpected repository");
@@ -307,7 +304,7 @@ test("organization assignment writes enforce the actor's organization data scope
     {} as never,
     {} as never,
     {} as never,
-    { buildFindWhere: async () => deniedWhere } as never,
+    { buildFindWhere: async () => ({ id: "org-visible" }) } as never,
     {} as never,
     {} as never,
     { get: (_key: string, fallback?: string) => fallback } as never
@@ -317,9 +314,73 @@ test("organization assignment writes enforce the actor's organization data scope
     service.replaceOrgAssignments(scope, actor, target.id, {
       assignments: [{ orgId: "org-hidden", postId: null, isPrimary: true }]
     }),
-    /包含不存在、停用或跨园区的组织/
+    /包含不存在、停用、跨园区或无权使用的组织/
   );
-  assert.equal(countedWhere, deniedWhere);
+  assert.equal(countCalled, false, "hidden submitted ids must be rejected before the plain entity count");
+});
+
+test("user profile and organization assignment updates share one transaction", async () => {
+  const target = {
+    id: "user-1", username: "user", displayName: "Old name",
+    tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false,
+    status: "enabled", isEnabled: true
+  } as UserEntity;
+  const events: string[] = [];
+  interface AtomicUpdateManager {
+    query(sql: string, parameters: unknown[]): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (value: AtomicUpdateManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: AtomicUpdateManager = {
+    query: async (_sql, parameters) => { events.push(`lock:${String(parameters[0])}`); },
+    getRepository: (entity: unknown) => {
+      if (entity === UserEntity) return {
+        findOne: async () => target,
+        save: async (value: UserEntity) => { events.push(`save-user:${value.displayName}`); return value; }
+      };
+      if (entity === OrgEntity) return {
+        find: async () => [{ id: "org-visible" }],
+        count: async () => 1
+      };
+      if (entity === UserOrgEntity) return {
+        find: async () => [],
+        update: async () => { events.push("retire-assignments"); },
+        create: (value: unknown) => value,
+        save: async () => { events.push("save-assignments"); }
+      };
+      throw new Error("Unexpected repository");
+    },
+    transaction: async (callback) => {
+      events.push("transaction-start");
+      const result = await callback(manager);
+      events.push("transaction-commit");
+      return result;
+    }
+  };
+  const service = new UsersService(
+    { manager } as never, {} as never, {} as never, {} as never,
+    { find: async () => [] } as never,
+    { find: async () => [] } as never,
+    { find: async () => [] } as never,
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,
+    {} as never, {} as never,
+    { get: (_key: string, fallback?: string) => fallback } as never
+  );
+
+  await service.update(scope, actor, target.id, {
+    displayName: "New name",
+    assignments: [{ orgId: "org-visible", postId: null, isPrimary: true }]
+  });
+
+  assert.deepEqual(events, [
+    "transaction-start",
+    "lock:user-org-scope:user-1",
+    "lock:org-hierarchy:tenant-1:park-1",
+    "save-user:New name",
+    "retire-assignments",
+    "save-assignments",
+    "transaction-commit"
+  ]);
 });
 
 test("user deletion serializes with assignment writes and retires active assignments", async () => {

@@ -254,6 +254,7 @@ export default function UsersPage() {
       assignments: orgAssignments.map(({ orgId, postId, isPrimary }) => ({ orgId, postId, isPrimary }))
     };
     if (editingUser) {
+      const assignmentsChanged = !sameOrgAssignments(body.assignments, loadedOrgAssignments);
       await apiRequest<UserRow>(`/users/${editingUser.id}`, {
         method: "PATCH",
         token,
@@ -265,15 +266,10 @@ export default function UsersPage() {
           displayName: body.displayName,
           mobile: body.mobile,
           email: body.email,
-          status: body.status
+          status: body.status,
+          ...(assignmentsChanged ? { assignments: body.assignments } : {})
         }
       });
-      if (!sameOrgAssignments(body.assignments, loadedOrgAssignments)) {
-        await apiRequest<UserOrgAssignment[]>(`/users/${editingUser.id}/orgs`, {
-          method: "POST", token, idempotencyKey: createIdempotencyKey("user-orgs"),
-          body: { assignments: body.assignments }
-        });
-      }
     } else {
       await apiRequest<UserRow>("/users", {
         method: "POST",
