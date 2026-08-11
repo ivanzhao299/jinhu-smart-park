@@ -25,7 +25,7 @@ import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { PostEntity } from "../orgs/entities/post.entity";
-import { lockOrgHierarchy } from "../orgs/org-hierarchy-lock";
+import { lockOrgHierarchy, lockUserOrganizationScope } from "../orgs/org-hierarchy-lock";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
@@ -420,10 +420,11 @@ export class UsersService {
     id: string,
     dto: ReplaceUserOrgsDto
   ): Promise<UserOrgAssignment[]> {
-    const user = await this.getEntityForActor(scope, id, actor);
-    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
     this.assertOrgAssignmentShape(dto.assignments);
     await this.userOrgRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
+      const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
       await lockOrgHierarchy(manager, targetScope);
       await this.assertOrgAssignments(targetScope, dto.assignments, manager);
       const repository = manager.getRepository(UserOrgEntity);
@@ -652,28 +653,47 @@ export class UsersService {
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
-    const user = await this.getEntityForActor(scope, id, actor);
-    const targetScope = await this.resolveUserTargetScope({ tenantId: user.tenantId, parkId: user.parkId }, actor, dto.tenantId, dto.parkId);
-    if (targetScope.tenantId !== user.tenantId || targetScope.parkId !== user.parkId) {
-      await this.assertUsernameAvailable(targetScope, user.username);
-    }
-    Object.assign(user, {
-      tenantId: targetScope.tenantId,
-      parkId: targetScope.parkId,
-      displayName: dto.displayName ?? user.displayName,
-      mobile: dto.mobile ?? user.mobile,
-      email: dto.email ?? user.email,
-      avatarUrl: dto.avatarUrl ?? user.avatarUrl,
-      gender: dto.gender ?? user.gender,
-      status: dto.status ?? user.status,
-      isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
-      remark: dto.remark ?? user.remark,
-      updateBy: actor.sub
+    const saved = await this.usersRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const usersRepository = manager.getRepository(UserEntity);
+      const user = await this.getEntityForActor(scope, id, actor, usersRepository);
+      const previousScope = { tenantId: user.tenantId, parkId: user.parkId };
+      const targetScope = await this.resolveUserTargetScope(previousScope, actor, dto.tenantId, dto.parkId);
+      const scopeChanged = targetScope.tenantId !== previousScope.tenantId || targetScope.parkId !== previousScope.parkId;
+      if (scopeChanged) {
+        await this.assertUsernameAvailable(targetScope, user.username, usersRepository);
+        await lockOrgHierarchy(manager, previousScope);
+        await manager.getRepository(UserOrgEntity).update(
+          { userId: id, ...previousScope, isDeleted: false },
+          { isDeleted: true, updateBy: actor.sub }
+        );
+      }
+      Object.assign(user, {
+        tenantId: targetScope.tenantId,
+        parkId: targetScope.parkId,
+        displayName: dto.displayName ?? user.displayName,
+        mobile: dto.mobile ?? user.mobile,
+        email: dto.email ?? user.email,
+        avatarUrl: dto.avatarUrl ?? user.avatarUrl,
+        gender: dto.gender ?? user.gender,
+        status: dto.status ?? user.status,
+        isEnabled: dto.status ? dto.status === "enabled" : user.isEnabled,
+        remark: dto.remark ?? user.remark,
+        updateBy: actor.sub
+      });
+      const updatedUser = await usersRepository.save(user);
+      if (dto.accessibleParkIds !== undefined || dto.parkId !== undefined || dto.tenantId !== undefined) {
+        await this.syncUserParks(
+          updatedUser.id,
+          targetScope.tenantId,
+          targetScope.parkId,
+          dto.accessibleParkIds,
+          actor.sub,
+          manager
+        );
+      }
+      return updatedUser;
     });
-    const saved = await this.usersRepository.save(user);
-    if (dto.accessibleParkIds !== undefined || dto.parkId !== undefined || dto.tenantId !== undefined) {
-      await this.syncUserParks(saved.id, targetScope.tenantId, targetScope.parkId, dto.accessibleParkIds, actor.sub);
-    }
     const [view] = await this.toViews([saved]);
     if (!view) {
       throw new NotFoundException("User not found");
@@ -835,15 +855,24 @@ export class UsersService {
     return { id };
   }
 
-  private async getEntityForActor(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UserEntity> {
+  private async getEntityForActor(
+    scope: TenantParkScope,
+    id: string,
+    actor?: JwtPrincipal,
+    repository = this.usersRepository
+  ): Promise<UserEntity> {
     if (actor?.isSuper || actor?.permissions.includes("*")) {
-      const user = await this.usersRepository.findOne({ where: { id, isDeleted: false } });
+      const user = await repository.findOne({ where: { id, isDeleted: false } });
       if (!user) {
         throw new NotFoundException("User not found");
       }
       return user;
     }
-    return this.getEntityInScope(scope, id);
+    const user = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!user) throw new NotFoundException("User not found");
+    return user;
   }
 
   private async resolveUserTargetScope(
@@ -935,8 +964,12 @@ export class UsersService {
     return hasDefaultAccess ? "ready" : "default_park_not_accessible";
   }
 
-  private async assertUsernameAvailable(scope: TenantParkScope, username: string): Promise<void> {
-    const exists = await this.usersRepository.exists({
+  private async assertUsernameAvailable(
+    scope: TenantParkScope,
+    username: string,
+    repository = this.usersRepository
+  ): Promise<void> {
+    const exists = await repository.exists({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, username, isDeleted: false }
     });
     if (exists) {

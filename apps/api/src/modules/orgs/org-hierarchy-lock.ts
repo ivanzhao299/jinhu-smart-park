@@ -6,3 +6,9 @@ export async function lockOrgHierarchy(manager: EntityManager, scope: TenantPark
     `org-hierarchy:${scope.tenantId}:${scope.parkId}`
   ]);
 }
+
+export async function lockUserOrganizationScope(manager: EntityManager, userId: string): Promise<void> {
+  await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+    `user-org-scope:${userId}`
+  ]);
+}
