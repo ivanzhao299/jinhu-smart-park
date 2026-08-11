@@ -43,7 +43,8 @@
     "production_readiness_status": "awaiting_human_gate",
     "openProductP0": 0,
     "openProductP1": 0,
-    "openEnvironmentP1": 1,
+    "openEnvironmentP1": 0,
+    "openEnvironmentP2": 1,
     "openEnvironmentItems": [
       "ENV-001/ROLE-NEG-01"
     ],

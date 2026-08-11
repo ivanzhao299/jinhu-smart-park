@@ -1,5 +1,11 @@
 # PR223 Windows 真实页面 UAT 验收
 
+> 状态更新（2026-08-11）：本文原始规划已执行，不再作为全量矩阵启动入口。
+> Windows Google Chrome Profile 1 已完成本地隔离环境验收，Chrome 15 项 15 PASS / 0 FAIL，
+> UAT-002 已解决，总矩阵 47 PASS / 0 FAIL / 1 BLOCKED，residual=0。
+> 当前仅需在本地 fixture 修正后复测 P2 `ENV-001 / ROLE-NEG-01`；权威状态见 `task.json`，
+> 不得重跑已通过矩阵，也不得据此声明真人岗位签署或 `production_ready`。
+
 ## Goal
 
 在 Windows 原生 Codex Desktop 会话中，使用本机 Google Chrome 或 Codex 内置浏览器，
@@ -40,7 +46,8 @@ commit、依赖锁、迁移、端口和启动日志；代码或隔离环境无�
 
 ## Acceptance Criteria
 
-- [ ] Trellis 任务保持 `planning`，并包含完整 `prd.md`、`design.md`、`implement.md`。
+- [x] Trellis 任务已从原规划状态进入 `in_progress`，并包含完整 `prd.md`、`design.md`、`implement.md`；
+  仅因 P2 `ENV-001 / ROLE-NEG-01` 与外部人工 Gate 尚未闭合而不完成。
 - [ ] 证据明确绑定 PR #223、最终 head、merge commit 和本地待测 commit/启动参数。
 - [ ] 旧 PR192 浏览器证据只作历史基线，新结果写入独立 PR223 run，不改写旧记录。
 - [ ] 覆盖 17 个业务工作台、共享控制面和 PR223 review-fix 回归矩阵。
@@ -50,9 +57,10 @@ commit、依赖锁、迁移、端口和启动日志；代码或隔离环境无�
 - [ ] Windows 交接文档已保存到指定 D 盘目录，可在新会话中独立接管。
 - [ ] 浏览器完成状态与真人岗位样本、业务/财务/安全/审计/发布签署严格分开。
 
-## Out of Scope
+## 原规划会话的 Out of Scope（历史边界）
 
-- 本规划会话不实际执行本地 UAT，也不提前运行 `task.py start`。
+- 创建本文的原规划会话不实际执行本地 UAT，也不提前运行 `task.py start`；该限制已由后续
+  Windows 原生执行会话按批准计划接管，不应被当前 continuation 误读为尚未启动。
 - 不代替真人岗位样本或任何具名签署，不单独声明 `production_ready`。
 - 不补做 PR223 的 CI、rollback 19/19 或 formal performance 30/30；浏览器 UAT 不修复或
   追认 PR 集成门禁的历史豁免。
@@ -64,5 +72,5 @@ commit、依赖锁、迁移、端口和启动日志；代码或隔离环境无�
   不访问已经部署的线上系统。
 - PR223 是 PR192 产品化改造的最终集成入口，同时包含合并冲突裁决和后续 review-fix；
   因此本任务不是“重做 PR192 UAT”，而是针对 PR223 最终交付做新一轮真实页面验收。
-- 2026-08-04 的 15 项 Chrome 场景因 Linux `sandboxCwd`/本地 URI 环境阻塞；本次以
-  Windows 本机 Chrome 消除该环境阻塞，但历史 `BLOCKED` 记录保持不变。
+- 2026-08-04 的 15 项 Chrome 场景因 Linux `sandboxCwd`/本地 URI 环境阻塞；后续已以
+  Windows 本机 Chrome 消除该环境阻塞并取得 15/15 PASS，历史 `BLOCKED` 记录保持不变。

@@ -243,7 +243,10 @@ maker-checker 默认覆盖：
 Track C 于 2026-08-06 在 final SHA
 `15b6e8f6edd12759dc35b1675f851c9a0bc52c0c` 达到 technical PASS 并归档；
 formal performance 30/30、rollback 19/19、独立 evidence/cleanup review 与 residual=0
-均通过。Chrome 增量仍为宿主环境 15/15 `BLOCKED`、截图 0，不冒充产品或浏览器 PASS。
+均通过。2026-08-10 已使用 Windows Google Chrome Profile 1 在 PR223 本地隔离环境完成
+Chrome 增量复测，15/15 PASS，UAT-002 与 `C-P1-CHROME-HOST-ENVIRONMENT` 已关闭；
+2026-08-04 的 15/15 `BLOCKED`、截图 0 记录继续作为历史快照保留，不被覆盖或改写。
+当前唯一剩余环境阻塞为 P2 `ENV-001 / ROLE-NEG-01`。
 
 ### 8.4 Production Readiness
 
@@ -263,7 +266,7 @@ formal performance 30/30、rollback 19/19、独立 evidence/cleanup review 与 r
 
 允许 Codex 已完成而生产仍等待人工 Gate；不得把自动化 PASS 描述为真人业务验收完成。
 
-2026-08-06 当前三态：
+2026-08-11 当前三态：
 
 - `codex_execution_status=codex_complete`。
 - `human_readiness_status=awaiting_human_gate`。

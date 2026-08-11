@@ -47,6 +47,8 @@
     "localTestDataPolicy": "dedicated_database_and_prefixed_reversible_data",
     "closesEnvironmentItem": "C-P1-CHROME-HOST-ENVIRONMENT",
     "uatStatus": "blocked",
+    "openEnvironmentP1": 0,
+    "openEnvironmentP2": 1,
     "matrixSummary": "47_pass_0_fail_1_blocked",
     "chrome15Summary": "15_pass_0_fail",
     "resolvedDefects": [

@@ -1,5 +1,12 @@
 # PR223 Windows 真实页面 UAT 执行计划
 
+> 【已执行的历史计划，不得重新启动全量矩阵】
+> 本计划已由 Windows Google Chrome Profile 1 在本地隔离环境执行：Chrome 15 项
+> 15 PASS / 0 FAIL，UAT-002 已解决，总矩阵 47 PASS / 0 FAIL / 1 BLOCKED，residual=0。
+> 下方未回填的复选框保留原始执行计划形态，不表示这些阶段仍待执行；当前唯一允许的后续动作是
+> 修正本地 fixture 后复测 P2 `ENV-001 / ROLE-NEG-01`。当前权威状态见 `task.json`，不得重复
+> 已通过场景、覆盖历史证据、冒充真实 Chrome 操作或声明 `production_ready`。
+
 ## Phase 0 — 接管、代码身份与本地隔离预检
 
 - [ ] 完整阅读 `prd.md`、`design.md` 和外部交接文档。

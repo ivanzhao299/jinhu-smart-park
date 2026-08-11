@@ -137,7 +137,7 @@ Track C 只依赖 Track B 的技术交付，不等待人工 UAT。它以不改�
 | C-1 后端职责拆分 | 已完成（技术 PASS） | 民宿、住房后端负责人；架构和回归测试参与 | C-0 完成 | HomestayService 498 行、HousingService 488 行；职责拆分为原子提交，合同 SHA 不变，独立复审产品 `open_P0_P1=[]` | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
 | C-2 前端、弱网与上传可靠性 | 已完成（技术 PASS） | 民宿、住房前端负责人、可靠性负责人；现场用户代表参与 | C-0 完成；共享离线路径完成专门交接 | C1/C2 技术实现已完成；全量 API 966 PASS / 13 条件 skip / 0 fail，统一隔离 PostgreSQL 5/5 PASS / 0 skip | [Track C 归档状态](../archive/2026-08/07-30-pr192-c-architecture-reliability/task.json) | 2026-08-04 | 2026-08-04 |
 | C-3 性能、复杂度与证据 | 已完成（PASS） | 性能测试、质量和发布文档负责人 | C-1、C-2 完成 | final SHA rollback 19/19；fresh 30-cell 30/30，p95 max 200.374ms、error 0、CV max 0.04935；formal evidence SHA `1a451ecf...4ff2`；residual=0 | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
-| C-4 独立技术复审 | 已完成（TECHNICAL PASS） | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 独立 performance evidence review APPROVE（P0/P1=0）且 cleanup review APPROVE（P0/P1/P2=0）；Chrome 环境 P1 如实保留，不冒充 PASS | [Track C 最终交接](../archive/2026-08/07-30-pr192-c-architecture-reliability/research/final-technical-handoff-20260806.md) | 2026-08-04 | 2026-08-06 |
+| C-4 独立技术复审 | 已完成（TECHNICAL PASS） | 独立架构、QA、发布审查者 | C-1 至 C-3 完成 | 独立 performance evidence review APPROVE（P0/P1=0）且 cleanup review APPROVE（P0/P1/P2=0）；原 Chrome 环境 P1 已于 2026-08-10 通过 Windows Chrome Profile 1 复测关闭，历史 BLOCKED 证据保留 | [PR223 Windows UAT 任务](../08-10-pr223-windows-real-browser-uat/) | 2026-08-04 | 2026-08-10 |
 
 ## 8. 外部人工 UAT
 
