@@ -18,11 +18,16 @@ mkdir -p "$retry_migrations" "$retry_seeds/production" \
   "$retry_baseline_seeds/production" "$log_root"
 : > "$retry_aliases"
 cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
-cp database/seeds/production/*.sql "$retry_seeds/production/"
 cp database/seeds/000001_s1_production_core.sql \
   "$retry_baseline_seeds/000001_s1_production_core.sql"
 for seed in database/seeds/production/*.sql; do
   seed_name="$(basename "$seed")"
+  # This retry database intentionally stops at the 000194/000200 schema
+  # boundary. Seeds introduced for later schemas must not enter either
+  # temporary seed set; the fresh-order path below runs the canonical seed
+  # directory after all migrations and still verifies them there.
+  [ "$seed_name" = '000013_apartment_document_defaults.sql' ] && continue
+  cp "$seed" "$retry_seeds/production/$seed_name"
   [ "$seed_name" = '000008_property_runtime_control_scope_reconcile.sql' ] && continue
   cp "$seed" "$retry_baseline_seeds/production/$seed_name"
 done
