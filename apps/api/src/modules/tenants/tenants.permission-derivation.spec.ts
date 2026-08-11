@@ -153,7 +153,17 @@ test("the asset module keeps shared property operations, approvals, tasks, and n
     { code: "workorder:read" }
   ] as never;
 
-  assert.deepEqual(derive(["asset"], permissions), permissions.slice(0, -1).map(({ code }) => code));
+  assert.deepEqual(derive(["asset"], permissions), [
+    "party:read",
+    "party_role:manage",
+    "property:notifications:page",
+    "property_operation:read",
+    "property_occupancy:activate",
+    "property_approval:decide",
+    "property_event:replay",
+    "property_task:rebuild",
+    "property_notification:mark_read"
+  ]);
 });
 
 test("plan module markers cannot grant permissions for a module that is not enabled", () => {
