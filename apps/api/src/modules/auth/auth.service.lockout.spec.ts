@@ -62,12 +62,18 @@ function withSuperRole(user: UserEntity): UserEntity {
     ...user,
     roleLinks: [
       {
+        tenantId: user.tenantId,
+        parkId: user.parkId,
         isDeleted: false,
         role: {
+          tenantId: user.tenantId,
+          parkId: user.parkId,
+          roleScope: "tenant",
           code: "SUPER_ADMIN",
           isSuper: true,
           isEnabled: true,
           isDeleted: false,
+          status: "enabled",
           dataScope: "all",
           permissionLinks: []
         }

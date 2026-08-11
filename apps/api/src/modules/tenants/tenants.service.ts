@@ -245,7 +245,9 @@ export class TenantsService {
         parkName: park.parkName,
         status: park.status
       })),
-      enabledModuleCodes: modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code))
+      enabledModuleCodes: [
+        ...new Set(modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code)))
+      ]
     };
   }
 
@@ -262,7 +264,10 @@ export class TenantsService {
       await this.assertParkIdAvailable(manager.getRepository(ParkEntity), parkId);
 
       const plan = await this.resolvePlan(manager, actorScope, dto.planCode ?? null);
-      const moduleCodes = this.normalizeCodes(dto.moduleCodes?.length ? dto.moduleCodes : plan?.moduleCodes ?? ["system"]);
+      const moduleCodes = this.normalizeCodes(dto.moduleCodes?.length ? dto.moduleCodes : plan?.moduleCodes ?? []);
+      if (moduleCodes.length === 0) {
+        throw new BadRequestException("Plan code or module codes are required");
+      }
       const maxUsers = dto.maxUsers ?? plan?.maxUsers ?? 0;
       const maxParks = dto.maxParks ?? plan?.maxParks ?? 0;
       const expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
@@ -302,7 +307,10 @@ export class TenantsService {
         role,
         permissions,
         moduleCodes,
-        dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+        this.permissionCodesForModules(
+          dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+          moduleCodes
+        ),
         actorId
       );
       const user = await this.createTenantAdminUser(manager, tenant, park.parkId, actorId, dto);
@@ -356,8 +364,13 @@ export class TenantsService {
       if (!tenant) {
         throw new NotFoundException("Tenant not found");
       }
-      const defaultParkId = dto.defaultParkId?.trim() || null;
-      if (defaultParkId) {
+      const configuredDefaultParkId = typeof tenant.featureConfig?.defaultParkId === "string"
+        ? tenant.featureConfig.defaultParkId
+        : null;
+      const defaultParkId = dto.defaultParkId === undefined
+        ? configuredDefaultParkId
+        : dto.defaultParkId?.trim() || null;
+      if (dto.defaultParkId !== undefined && defaultParkId) {
         await this.assertParkBelongsToTenant(manager, tenant.tenantId, defaultParkId);
       }
       if (dto.status !== undefined) {
@@ -366,27 +379,64 @@ export class TenantsService {
       if (dto.expireTime !== undefined) {
         tenant.expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
       }
-      if (dto.planCode !== undefined) {
-        tenant.planCode = dto.planCode;
-      }
       tenant.featureConfig = {
         ...(tenant.featureConfig ?? {}),
         ...(dto.featureConfig ?? {}),
         defaultParkId
       };
       tenant.updateBy = actorId;
-      await tenantRepository.save(tenant);
-
-      if (dto.moduleCodes !== undefined) {
-        const plan = await this.resolvePlan(manager, actorScope, dto.planCode ?? tenant.planCode);
-        const moduleCodes = this.normalizeCodes(dto.moduleCodes);
-        const targetParkId = defaultParkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
-        const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId: tenant.tenantId, parkId: targetParkId }, actorId);
+      const authorizationChanged = dto.planCode !== undefined || dto.moduleCodes !== undefined;
+      if (authorizationChanged) {
+        const requestedPlanCode = dto.planCode === undefined ? tenant.planCode : dto.planCode;
+        const plan = dto.planCode === undefined ? null : await this.resolvePlan(manager, actorScope, requestedPlanCode);
+        const moduleCodes = this.normalizeCodes(dto.moduleCodes === undefined ? plan?.moduleCodes ?? [] : dto.moduleCodes);
+        if (moduleCodes.length === 0) {
+          throw new BadRequestException("Plan code or module codes are required");
+        }
+        const tenantParks = await manager.getRepository(ParkEntity).find({
+          where: { tenantId: tenant.tenantId, isDeleted: false },
+          order: { createTime: "ASC" }
+        });
+        const [firstTenantPark] = tenantParks;
+        if (!firstTenantPark) {
+          throw new NotFoundException("Tenant park not found");
+        }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
-        await this.upsertTenantModules(manager, tenant, targetParkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
-        const role = await this.getOrCreateTenantAdminRole(manager, tenant, targetParkId, actorId);
-        await this.applyTenantAdminPermissions(manager, { tenantId: tenant.tenantId, parkId: targetParkId }, role, permissions, moduleCodes, [], actorId);
+        const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
+        const retainedDefaultParkIsActive = tenantParks.some((park) => park.parkId === configuredDefaultParkId);
+        const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
+          ? firstTenantPark.parkId
+          : defaultParkId ?? firstTenantPark.parkId;
+        const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
+        const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
+        const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
+        for (const park of tenantParks) {
+          const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
+          await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
+          await this.applyTenantAdminPermissions(
+            manager,
+            targetScope,
+            role,
+            permissions,
+            moduleCodes,
+            permissionCodes,
+            actorId
+          );
+        }
+        if (dto.planCode !== undefined) {
+          tenant.planCode = plan?.planCode ?? requestedPlanCode ?? null;
+          tenant.maxUsers = plan?.maxUsers ?? tenant.maxUsers;
+          tenant.maxParks = plan?.maxParks ?? tenant.maxParks;
+        }
       }
+      if (dto.expireTime !== undefined) {
+        await manager.getRepository(TenantModuleEntity).update(
+          { tenantId: tenant.tenantId, isDeleted: false },
+          { expireTime: tenant.expireTime, updateBy: actorId }
+        );
+      }
+
+      await tenantRepository.save(tenant);
 
       return this.toLoginSettingsView(manager, tenant);
     });
@@ -440,7 +490,10 @@ export class TenantsService {
         role,
         permissions,
         moduleCodes,
-        dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+        this.permissionCodesForModules(
+          dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+          moduleCodes
+        ),
         actorId
       );
       tenant.planCode = plan?.planCode ?? tenant.planCode;
@@ -569,8 +622,11 @@ export class TenantsService {
   ): Promise<RoleEntity> {
     const roleRepository = manager.getRepository(RoleEntity);
     const existing = await roleRepository.findOne({
-      where: { tenantId: tenant.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
+      where: { tenantId: tenant.tenantId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
     });
+    if (existing && (existing.roleScope !== "tenant" || !existing.isBuiltin || !existing.isSystem)) {
+      throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
+    }
     return existing ?? this.createTenantAdminRole(manager, tenant, parkId, actorId);
   }
 
@@ -665,7 +721,7 @@ export class TenantsService {
   ): Promise<PermissionEntity[]> {
     const permissionRepository = manager.getRepository(PermissionEntity);
     const existing = await permissionRepository.find({
-      where: { tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
+      where: { tenantId: targetScope.tenantId, isDeleted: false },
       order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
     });
     if (existing.length > 0) {
@@ -805,6 +861,16 @@ export class TenantsService {
     return permissions.filter((permission) => selectedCodes.has(permission.code) && permission.isEnabled && !permission.isDeleted);
   }
 
+  private permissionCodesForModules(permissionCodes: string[], moduleCodes: string[]): string[] {
+    const enabledModules = new Set(this.normalizeCodes(moduleCodes));
+    return this.normalizeCodes(permissionCodes).filter((code) => {
+      if (code.startsWith("module:")) {
+        return enabledModules.has(code.replace(/^module:/, ""));
+      }
+      return this.derivePermissionCodes([...enabledModules], [{ code } as PermissionEntity]).length > 0;
+    });
+  }
+
   private derivePermissionCodes(moduleCodes: string[], permissions: PermissionEntity[]): string[] {
     const modules = new Set(this.normalizeCodes(moduleCodes));
     return permissions
@@ -813,13 +879,22 @@ export class TenantsService {
         if (modules.has("system") && this.isSystemFoundationPermission(code)) return true;
         if (modules.has("asset") && this.isAssetPermission(code)) return true;
         if (modules.has("homestay") && (code === "homestay" || code.startsWith("homestay:"))) return true;
-        if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing:"))) return true;
+        if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing_rental:") || code.startsWith("housing:"))) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
-        if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
+        if (
+          modules.has("workorder") &&
+          (code === "workorder" ||
+            code === "workorder:center" ||
+            code === "wo:read" ||
+            code.startsWith("workorder:") ||
+            code.startsWith("workorder_sla:") ||
+            code.startsWith("workorder_log:"))
+        ) return true;
+        if (modules.has("safety") && (code === "safety" || code.startsWith("safety:") || code.startsWith("safety_"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
-        if (modules.has("iot") && (code === "iot" || code === "iot:overview" || code === "iot:read")) return true;
-        if (modules.has("energy") && (code === "energy" || code === "energy:overview" || code === "energy:read")) return true;
-        if (modules.has("robot") && (code === "robot" || code === "robot:overview" || code === "robot:read")) return true;
+        if (modules.has("iot") && (code === "iot" || code.startsWith("iot:") || code.startsWith("iot_"))) return true;
+        if (modules.has("energy") && (code === "energy" || code.startsWith("energy:") || code.startsWith("energy_"))) return true;
+        if (modules.has("robot") && (code === "robot" || code.startsWith("robot:") || code.startsWith("robot_"))) return true;
         if (
           modules.has("video") &&
           (code === "video" ||
@@ -838,9 +913,10 @@ export class TenantsService {
             code.startsWith("VIDEO_SECURITY_DASHBOARD") ||
             code.startsWith("MENU_VIDEO"))
         ) return true;
-        if (modules.has("bim") && (code === "bim" || code === "bim:overview" || code === "bim:read")) return true;
-        if (modules.has("ai") && (code === "ai" || code === "ai:assistant" || code === "ai:read")) return true;
-        if (modules.has("cockpit") && (code === "cockpit" || code === "cockpit:overview" || code === "cockpit:read")) return true;
+        if (modules.has("bim") && (code === "bim" || code.startsWith("bim:") || code.startsWith("bim_"))) return true;
+        if (modules.has("ai") && (code === "ai" || code.startsWith("ai:") || code.startsWith("ai_"))) return true;
+        if (modules.has("cockpit") && (code === "cockpit" || code.startsWith("cockpit:") || code.startsWith("cockpit_"))) return true;
+        if (modules.has("apartment") && this.isApartmentPermission(code)) return true;
         return false;
       })
       .map((permission) => permission.code);
@@ -878,7 +954,31 @@ export class TenantsService {
       code.startsWith("park:") ||
       code.startsWith("building:") ||
       code.startsWith("floor:") ||
-      code.startsWith("unit:")
+      code.startsWith("unit:") ||
+      code.startsWith("party:") ||
+      code.startsWith("party_role:") ||
+      code.startsWith("property:") ||
+      code.startsWith("property_operation:") ||
+      code.startsWith("property_occupancy:") ||
+      code.startsWith("property_approval:") ||
+      code.startsWith("property_event:") ||
+      code.startsWith("property_task:") ||
+      code.startsWith("property_notification:")
+    );
+  }
+
+  private isApartmentPermission(code: string): boolean {
+    return (
+      code === "apartment" ||
+      code.startsWith("apartment:") ||
+      code === "unit:read" ||
+      code === "party:read" ||
+      code === "party:manage" ||
+      code === "party:*" ||
+      code === "file:read" ||
+      code === "file:upload" ||
+      code === "file:download" ||
+      code === "file:*"
     );
   }
 
@@ -1018,13 +1118,15 @@ export class TenantsService {
 
   private async toView(tenant: TenantEntity, manager?: EntityManager): Promise<TenantView> {
     const entityManager = manager ?? this.dataSource.manager;
-    const [userCount, parkCount, enabledModuleCount] = await Promise.all([
+    const [userCount, parkCount, enabledModuleRows] = await Promise.all([
       entityManager.getRepository(UserEntity).count({ where: { tenantId: tenant.tenantId, isDeleted: false } }),
       entityManager.getRepository(ParkEntity).count({ where: { tenantId: tenant.tenantId, isDeleted: false } }),
-      entityManager.getRepository(TenantModuleEntity).count({
-        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" }
+      entityManager.getRepository(TenantModuleEntity).find({
+        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" },
+        select: { moduleId: true }
       })
     ]);
+    const enabledModuleCount = new Set(enabledModuleRows.map((item) => item.moduleId)).size;
     return {
       id: tenant.id,
       tenantId: tenant.tenantId,

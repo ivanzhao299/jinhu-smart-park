@@ -36,6 +36,41 @@ function normalizedCodes(codes: string[]): string[] {
   return [...new Set(codes.map((code) => code.trim()).filter(Boolean))].sort();
 }
 
+export interface PlanAuthorizationOption {
+  planCode: string;
+  moduleCodes: string[];
+  maxUsers?: number;
+  maxParks?: number;
+}
+
+export function findPlanAuthorization<T extends PlanAuthorizationOption>(plans: T[], planCode: string): T | null {
+  return plans.find((plan) => plan.planCode === planCode) ?? null;
+}
+
+export function provisionablePlans<T extends PlanAuthorizationOption>(plans: T[]): T[] {
+  return plans.filter((plan) => normalizedCodes(plan.moduleCodes).length > 0);
+}
+
+export function activeModuleSelection(selectedCodes: string[], activeCodes: string[]): string[] {
+  const active = new Set(normalizedCodes(activeCodes));
+  return normalizedCodes(selectedCodes).filter((code) => active.has(code));
+}
+
+export function moduleCodesForSelectedPlan<T extends PlanAuthorizationOption>(
+  plans: T[],
+  selectedPlanCode: string,
+  retainedPlanCode: string | null | undefined,
+  retainedModuleCodes: string[]
+): string[] | null {
+  const normalizedSelectedPlanCode = selectedPlanCode.trim() || null;
+  const normalizedRetainedPlanCode = retainedPlanCode?.trim() || null;
+  const plan = normalizedSelectedPlanCode
+    ? findPlanAuthorization(plans, normalizedSelectedPlanCode)
+    : null;
+  if (plan) return plan.moduleCodes;
+  return normalizedSelectedPlanCode === normalizedRetainedPlanCode ? retainedModuleCodes : null;
+}
+
 export function changedPlanAuthorization(
   currentPlanCode: string | null,
   currentModuleCodes: string[],
@@ -44,9 +79,24 @@ export function changedPlanAuthorization(
 ): { planCode?: string | null; moduleCodes?: string[] } {
   const currentCodes = normalizedCodes(currentModuleCodes);
   const nextCodes = normalizedCodes(nextModuleCodes);
-  const isUnchanged = currentPlanCode === nextPlanCode
-    && currentCodes.length === nextCodes.length
-    && currentCodes.every((code, index) => code === nextCodes[index]);
+  const planChanged = currentPlanCode !== nextPlanCode;
+  const modulesChanged = currentCodes.length !== nextCodes.length
+    || currentCodes.some((code, index) => code !== nextCodes[index]);
 
-  return isUnchanged ? {} : { planCode: nextPlanCode, moduleCodes: nextCodes };
+  return {
+    ...(planChanged ? { planCode: nextPlanCode } : {}),
+    ...(planChanged || modulesChanged ? { moduleCodes: nextCodes } : {})
+  };
+}
+
+export function changedPlanAuthorizationIfTouched(
+  touched: boolean,
+  currentPlanCode: string | null,
+  currentModuleCodes: string[],
+  nextPlanCode: string | null,
+  nextModuleCodes: string[]
+): { planCode?: string | null; moduleCodes?: string[] } {
+  return touched
+    ? changedPlanAuthorization(currentPlanCode, currentModuleCodes, nextPlanCode, nextModuleCodes)
+    : {};
 }

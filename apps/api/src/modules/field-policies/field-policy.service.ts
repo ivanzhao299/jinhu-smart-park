@@ -29,7 +29,6 @@ export class FieldPolicyService {
   async list(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<FieldPolicyEntity>> {
     const where = {
       tenantId: scope.tenantId,
-      parkId: scope.parkId,
       isDeleted: false,
       ...(query.status ? { status: query.status } : {})
     };
@@ -63,7 +62,7 @@ export class FieldPolicyService {
 
   async detail(scope: TenantParkScope, id: string): Promise<FieldPolicyEntity> {
     const entity = await this.fieldPoliciesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id, tenantId: scope.tenantId, isDeleted: false }
     });
     if (!entity) {
       throw new NotFoundException("Field policy not found");
@@ -110,11 +109,18 @@ export class FieldPolicyService {
   async listRolePolicies(scope: TenantParkScope, roleId: string): Promise<FieldPolicyEntity[]> {
     await this.mustFindRole(scope, roleId);
     const links = await this.roleFieldPoliciesRepository.find({
-      where: { tenantId: scope.tenantId, roleId, isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
       relations: { fieldPolicy: true },
       order: { createTime: "ASC" }
     });
-    return links.map((link) => link.fieldPolicy).filter((policy) => policy && !policy.isDeleted);
+    return links
+      .map((link) => link.fieldPolicy)
+      .filter(
+        (policy) =>
+          policy &&
+          policy.tenantId === scope.tenantId &&
+          !policy.isDeleted
+      );
   }
 
   async assignRolePolicies(
@@ -124,32 +130,45 @@ export class FieldPolicyService {
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
     await this.mustFindRole(scope, roleId);
-    await this.roleFieldPoliciesRepository.update(
-      { tenantId: scope.tenantId, roleId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    if (dto.fieldPolicyIds.length === 0) {
-      return { roleId, fieldPolicyIds: [] };
+    const fieldPolicyIds = [...new Set(dto.fieldPolicyIds)];
+    if (fieldPolicyIds.length !== dto.fieldPolicyIds.length) {
+      throw new BadRequestException("Field policy ids must be unique");
     }
-    const policies = await this.fieldPoliciesRepository.find({
-      where: { id: In(dto.fieldPolicyIds), tenantId: scope.tenantId, isDeleted: false, status: "enabled" }
-    });
-    if (policies.length !== dto.fieldPolicyIds.length) {
-      throw new NotFoundException("Field policy not found in current tenant");
-    }
-    await this.roleFieldPoliciesRepository.save(
-      dto.fieldPolicyIds.map((fieldPolicyId) =>
-        this.roleFieldPoliciesRepository.create({
+    if (fieldPolicyIds.length > 0) {
+      const policies = await this.fieldPoliciesRepository.find({
+        where: {
+          id: In(fieldPolicyIds),
           tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          roleId,
-          fieldPolicyId,
-          createBy: actorId,
-          updateBy: actorId
-        })
-      )
-    );
-    return { roleId, fieldPolicyIds: dto.fieldPolicyIds };
+          isDeleted: false,
+          status: "enabled"
+        }
+      });
+      if (policies.length !== fieldPolicyIds.length) {
+        throw new NotFoundException("Field policy not found in current tenant");
+      }
+    }
+    await this.roleFieldPoliciesRepository.manager.transaction(async (manager) => {
+      const linksRepository = manager.getRepository(RoleFieldPolicyEntity);
+      await linksRepository.update(
+        { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      if (fieldPolicyIds.length > 0) {
+        await linksRepository.save(
+          fieldPolicyIds.map((fieldPolicyId) =>
+            linksRepository.create({
+              tenantId: scope.tenantId,
+              parkId: scope.parkId,
+              roleId,
+              fieldPolicyId,
+              createBy: actorId,
+              updateBy: actorId
+            })
+          )
+        );
+      }
+    });
+    return { roleId, fieldPolicyIds };
   }
 
   async getUserFieldPolicies(scope: TenantParkScope, user: JwtPrincipal): Promise<FieldPolicyContext[]> {
@@ -244,10 +263,18 @@ export class FieldPolicyService {
       return [];
     }
     const links = await this.roleFieldPoliciesRepository.find({
-      where: { tenantId: scope.tenantId, roleId: In(roleIds), isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: In(roleIds), isDeleted: false },
       relations: { fieldPolicy: true }
     });
-    return links.map((link) => link.fieldPolicy).filter((policy) => policy && !policy.isDeleted && policy.status === "enabled");
+    return links
+      .map((link) => link.fieldPolicy)
+      .filter(
+        (policy) =>
+          policy &&
+          policy.tenantId === scope.tenantId &&
+          !policy.isDeleted &&
+          policy.status === "enabled"
+      );
   }
 
   private resolveEffectivePolicies(policies: FieldPolicyEntity[]): FieldPolicyEntity[] {
@@ -276,15 +303,30 @@ export class FieldPolicyService {
 
   private async resolveUserRoleIds(scope: TenantParkScope, user: JwtPrincipal): Promise<string[]> {
     const roleLinks = await this.userRoleRepository.find({
-      where: { tenantId: scope.tenantId, userId: user.sub, isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, userId: user.sub, isDeleted: false },
       relations: { role: true }
     });
-    return roleLinks.filter((link) => link.role && !link.role.isDeleted && link.role.isEnabled).map((link) => link.roleId);
+    return roleLinks
+      .filter(
+        (link) =>
+          link.role &&
+          link.role.tenantId === scope.tenantId &&
+          (link.role.roleScope === "tenant" || link.role.parkId === scope.parkId) &&
+          !link.role.isDeleted &&
+          link.role.isEnabled
+      )
+      .map((link) => link.roleId);
   }
 
   private async assertFieldAvailable(scope: TenantParkScope, moduleName: string, entityName: string, fieldKey: string): Promise<void> {
     const exists = await this.fieldPoliciesRepository.exists({
-      where: { tenantId: scope.tenantId, module: moduleName, entity: entityName, fieldKey, isDeleted: false }
+      where: {
+        tenantId: scope.tenantId,
+        module: moduleName,
+        entity: entityName,
+        fieldKey,
+        isDeleted: false
+      }
     });
     if (exists) {
       throw new ConflictException("Field policy already exists");
@@ -293,7 +335,10 @@ export class FieldPolicyService {
 
   private async mustFindRole(scope: TenantParkScope, roleId: string): Promise<RoleEntity> {
     const role = await this.rolesRepository.findOne({
-      where: { id: roleId, tenantId: scope.tenantId, isDeleted: false }
+      where: [
+        { id: roleId, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+        { id: roleId, tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", isDeleted: false }
+      ]
     });
     if (!role) {
       throw new NotFoundException("Role not found in current tenant");

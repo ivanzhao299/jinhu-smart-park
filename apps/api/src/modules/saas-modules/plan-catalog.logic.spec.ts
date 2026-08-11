@@ -32,6 +32,20 @@ test("available plan catalog remains bounded by the validated page size", () => 
   assert.equal(result.parameters[6], 100);
 });
 
+test("available plan catalog excludes plans that cannot provision any module", () => {
+  const result = buildAvailablePlanCatalogQuery(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { page: 1, page_size: 20 }
+  );
+
+  const ranked = result.sql.slice(result.sql.indexOf("ranked AS"), result.sql.indexOf("selected AS"));
+  const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
+  assert.doesNotMatch(ranked, /jsonb_array_length/);
+  assert.match(selected, /precedence = 1\s+AND jsonb_array_length\(COALESCE\(module_codes, '\[\]'::jsonb\)\) > 0/);
+  assert.match(selected, /jsonb_array_elements_text\(COALESCE\(module_codes, '\[\]'::jsonb\)\)/);
+  assert.match(selected, /FROM sys_module module[\s\S]+module\.module_code = requested\.module_code[\s\S]+module\.status = 1/);
+});
+
 test("available plan catalog orders the selected rows before applying offset and limit", () => {
   const result = buildAvailablePlanCatalogQuery(
     { tenantId: "tenant-a", parkId: "park-a" },
@@ -51,5 +65,5 @@ test("available plan catalog applies keyword filtering after scope precedence", 
   const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
 
   assert.doesNotMatch(ranked, /\$5/);
-  assert.match(selected, /WHERE precedence = 1\s+AND \(\$5::text IS NULL OR plan_code ILIKE \$5 OR plan_name ILIKE \$5\)/);
+  assert.match(selected, /WHERE precedence = 1\s+AND jsonb_array_length[\s\S]+AND \(\$5::text IS NULL OR plan_code ILIKE \$5 OR plan_name ILIKE \$5\)/);
 });

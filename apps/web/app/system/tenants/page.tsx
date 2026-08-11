@@ -7,7 +7,15 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
-import { changedPlanAuthorization, collectAllCandidatePages, isRetainedCatalogValue } from "../plan-catalog-options.logic";
+import {
+  activeModuleSelection,
+  changedPlanAuthorizationIfTouched,
+  collectAllCandidatePages,
+  findPlanAuthorization,
+  isRetainedCatalogValue,
+  moduleCodesForSelectedPlan,
+  provisionablePlans
+} from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -80,6 +88,16 @@ export default function TenantsPage() {
   const [settings, setSettings] = useState<TenantLoginSettings | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [catalogReady, setCatalogReady] = useState(false);
+  const [createPlanCode, setCreatePlanCode] = useState("");
+  const [createMaxUsers, setCreateMaxUsers] = useState(0);
+  const [createMaxParks, setCreateMaxParks] = useState(0);
+  const [settingsPlanCode, setSettingsPlanCode] = useState("");
+  const [settingsModuleCodes, setSettingsModuleCodes] = useState<string[]>([]);
+  const [settingsAuthorizationTouched, setSettingsAuthorizationTouched] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [settingsError, setSettingsError] = useState("");
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [settingsSubmitting, setSettingsSubmitting] = useState(false);
 
   async function load(page = 1) {
     setCatalogReady(false);
@@ -94,12 +112,13 @@ export default function TenantsPage() {
         return response.data;
       }, (plan) => plan.planCode),
       collectAllCandidatePages(async (modulePage, pageSize) => {
-        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}`, { token });
+        const response = await apiRequest<PaginatedResult<ModuleRow>>(`/modules?page=${modulePage}&page_size=${pageSize}&status=enabled`, { token });
         return response.data;
       }, (module) => module.moduleCode)
     ]);
     setTenants(tenantResponse.data);
-    setPlans({ items: planItems, page: 1, page_size: 100, total: planItems.length });
+    const availablePlans = provisionablePlans(planItems);
+    setPlans({ items: availablePlans, page: 1, page_size: 100, total: availablePlans.length });
     setModules({ items: moduleItems, page: 1, page_size: 100, total: moduleItems.length });
     setCatalogReady(true);
     setMessage("");
@@ -110,7 +129,25 @@ export default function TenantsPage() {
       setMessage("套餐与模块候选尚未加载完成，请稍后重试");
       return;
     }
+    const defaultPlan = plans.items[0];
+    if (!defaultPlan) {
+      setMessage("无可用套餐，无法开通租户");
+      return;
+    }
+    setCreatePlanCode(defaultPlan.planCode);
+    setCreateMaxUsers(defaultPlan.maxUsers ?? 0);
+    setCreateMaxParks(defaultPlan.maxParks ?? 0);
+    setCreateError("");
+    setMessage("");
     setShowCreate(true);
+  }
+
+  function selectCreatePlan(planCode: string) {
+    const plan = findPlanAuthorization(plans.items, planCode);
+    setCreatePlanCode(planCode);
+    if (!plan) return;
+    setCreateMaxUsers(plan.maxUsers ?? 0);
+    setCreateMaxParks(plan.maxParks ?? 0);
   }
 
   async function createTenant(event: FormEvent<HTMLFormElement>) {
@@ -118,33 +155,45 @@ export default function TenantsPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const form = new FormData(event.currentTarget);
     const expireDate = String(form.get("expireTime") ?? "");
-    await apiRequest<TenantRow>("/tenants", {
-      method: "POST",
-      token,
-      idempotencyKey: createIdempotencyKey("tenant"),
-      body: {
-        tenantCode: String(form.get("tenantCode") ?? "").trim(),
-        tenantName: String(form.get("tenantName") ?? "").trim(),
-        tenantType: String(form.get("tenantType") ?? "park_operator").trim(),
-        contactName: emptyToNull(form.get("contactName")),
-        contactMobile: emptyToNull(form.get("contactMobile")),
-        planCode: emptyToNull(form.get("planCode")),
-        expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
-        maxUsers: Number(form.get("maxUsers") ?? 0),
-        maxParks: Number(form.get("maxParks") ?? 0),
-        websites: splitCsv(form.get("websites")),
-        domains: splitCsv(form.get("domains")),
-        parkCode: String(form.get("parkCode") ?? "").trim(),
-        parkName: normalizeUserParkNameInput(String(form.get("parkName") ?? "")),
-        adminUsername: String(form.get("adminUsername") ?? "").trim(),
-        adminPassword: String(form.get("adminPassword") ?? ""),
-        adminDisplayName: String(form.get("adminDisplayName") ?? "").trim(),
-        adminMobile: emptyToNull(form.get("adminMobile")),
-        adminEmail: emptyToNull(form.get("adminEmail"))
+    setCreateError("");
+    setCreateSubmitting(true);
+    try {
+      await apiRequest<TenantRow>("/tenants", {
+        method: "POST",
+        token,
+        idempotencyKey: createIdempotencyKey("tenant"),
+        body: {
+          tenantCode: String(form.get("tenantCode") ?? "").trim(),
+          tenantName: String(form.get("tenantName") ?? "").trim(),
+          tenantType: String(form.get("tenantType") ?? "park_operator").trim(),
+          contactName: emptyToNull(form.get("contactName")),
+          contactMobile: emptyToNull(form.get("contactMobile")),
+          planCode: createPlanCode,
+          expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
+          maxUsers: Number(form.get("maxUsers") ?? 0),
+          maxParks: Number(form.get("maxParks") ?? 0),
+          websites: splitCsv(form.get("websites")),
+          domains: splitCsv(form.get("domains")),
+          parkCode: String(form.get("parkCode") ?? "").trim(),
+          parkName: normalizeUserParkNameInput(String(form.get("parkName") ?? "")),
+          adminUsername: String(form.get("adminUsername") ?? "").trim(),
+          adminPassword: String(form.get("adminPassword") ?? ""),
+          adminDisplayName: String(form.get("adminDisplayName") ?? "").trim(),
+          adminMobile: emptyToNull(form.get("adminMobile")),
+          adminEmail: emptyToNull(form.get("adminEmail"))
+        }
+      });
+      setShowCreate(false);
+      try {
+        await load(tenants.page);
+      } catch (error) {
+        setMessage(`租户已创建，但列表刷新失败：${error instanceof Error ? error.message : "请手动刷新页面"}`);
       }
-    });
-    setShowCreate(false);
-    await load(tenants.page);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : "创建租户失败");
+    } finally {
+      setCreateSubmitting(false);
+    }
   }
 
   async function toggleTenant(row: TenantRow) {
@@ -163,10 +212,14 @@ export default function TenantsPage() {
     setSettingsTarget(row);
     setSettingsLoading(true);
     setSettings(null);
+    setSettingsError("");
     setMessage("");
     try {
       const response = await apiRequest<TenantLoginSettings>(`/tenants/${row.id}/login-settings`, { token });
       setSettings(response.data);
+      setSettingsPlanCode(response.data.tenant.planCode ?? "");
+      setSettingsModuleCodes(response.data.enabledModuleCodes);
+      setSettingsAuthorizationTouched(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加载登录配置失败");
     } finally {
@@ -180,34 +233,79 @@ export default function TenantsPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const form = new FormData(event.currentTarget);
     const expireDate = String(form.get("expireTime") ?? "");
-    const moduleCodes = modules.items
-      .map((item) => item.moduleCode)
-      .filter((code) => form.get(`module.${code}`) === "on");
-    const planAuthorization = changedPlanAuthorization(
+    const activeModuleCodes = activeModuleSelection(settingsModuleCodes, modules.items.map((item) => item.moduleCode));
+    if (settingsAuthorizationTouched && activeModuleCodes.length === 0) {
+      setSettingsError("调整授权时请至少启用一个当前有效模块");
+      return;
+    }
+    const planAuthorization = changedPlanAuthorizationIfTouched(
+      settingsAuthorizationTouched,
       settings.tenant.planCode,
       settings.enabledModuleCodes,
-      emptyToNull(form.get("planCode")),
-      moduleCodes
+      settingsPlanCode || null,
+      activeModuleCodes
     );
-    const response = await apiRequest<TenantLoginSettings>(`/tenants/${settings.tenant.id}/login-settings`, {
-      method: "PATCH",
-      token,
-      body: {
-        defaultParkId: emptyToNull(form.get("defaultParkId")),
-        status: String(form.get("status") ?? "enabled"),
-        expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
-        ...planAuthorization
+    setSettingsError("");
+    setSettingsSubmitting(true);
+    try {
+      const response = await apiRequest<TenantLoginSettings>(`/tenants/${settings.tenant.id}/login-settings`, {
+        method: "PATCH",
+        token,
+        body: {
+          defaultParkId: emptyToNull(form.get("defaultParkId")),
+          status: String(form.get("status") ?? "enabled"),
+          expireTime: expireDate ? `${expireDate}T23:59:59+08:00` : null,
+          ...planAuthorization
+        }
+      });
+      setSettings(response.data);
+      setSettingsTarget(response.data.tenant);
+      setSettingsPlanCode(response.data.tenant.planCode ?? "");
+      setSettingsModuleCodes(response.data.enabledModuleCodes);
+      setSettingsAuthorizationTouched(false);
+      try {
+        await load(tenants.page);
+      } catch (error) {
+        setCatalogReady(true);
+        setSettingsError(`登录与授权配置已保存，但列表刷新失败：${error instanceof Error ? error.message : "请手动刷新页面"}`);
       }
-    });
-    setSettings(response.data);
-    setSettingsTarget(response.data.tenant);
-    await load(tenants.page);
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : "保存登录配置失败");
+    } finally {
+      setSettingsSubmitting(false);
+    }
   }
 
   function closeSettings() {
     setSettingsTarget(null);
     setSettings(null);
     setSettingsLoading(false);
+    setSettingsPlanCode("");
+    setSettingsModuleCodes([]);
+    setSettingsAuthorizationTouched(false);
+    setSettingsError("");
+  }
+
+  function selectSettingsPlan(planCode: string) {
+    setSettingsPlanCode(planCode);
+    setSettingsAuthorizationTouched(true);
+    const moduleCodes = moduleCodesForSelectedPlan(
+      plans.items,
+      planCode,
+      settings?.tenant.planCode,
+      activeModuleSelection(
+        settings?.enabledModuleCodes ?? [],
+        modules.items.map((item) => item.moduleCode)
+      )
+    );
+    if (moduleCodes) setSettingsModuleCodes(moduleCodes);
+  }
+
+  function toggleSettingsModule(moduleCode: string, enabled: boolean) {
+    setSettingsAuthorizationTouched(true);
+    setSettingsModuleCodes((current) => enabled
+      ? [...new Set([...current, moduleCode])]
+      : current.filter((code) => code !== moduleCode));
   }
 
   useEffect(() => {
@@ -303,19 +401,19 @@ export default function TenantsPage() {
             onClose={() => setShowCreate(false)}
             closeIcon={<X size={18} />}
           />
-          <DrawerForm onSubmit={(event) => void createTenant(event).catch((error: Error) => setMessage(error.message))}>
+          <DrawerForm onChange={() => setCreateError("")} onSubmit={(event) => void createTenant(event)}>
             <DrawerFormGrid>
               <div className="field"><label>租户编码</label><input name="tenantCode" required /></div>
               <div className="field"><label>租户名称</label><input name="tenantName" required /></div>
               <div className="field"><label>租户类型</label><input name="tenantType" defaultValue="park_operator" /></div>
-              <div className="field"><label>套餐</label><select name="planCode" defaultValue={plans.items[0]?.planCode ?? ""}><option value="">未绑定套餐</option>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
+              <div className="field"><label>套餐</label><select name="planCode" value={createPlanCode} onChange={(event) => selectCreatePlan(event.target.value)} required><option value="" disabled>请选择套餐</option>{plans.items.map((plan) => <option key={plan.id} value={plan.planCode}>{plan.planName}</option>)}</select></div>
               <div className="field"><label>联系人</label><input name="contactName" /></div>
               <div className="field"><label>联系电话</label><input name="contactMobile" /></div>
               <div className="field"><label>站点</label><input name="websites" placeholder="多个用英文逗号分隔" /></div>
               <div className="field"><label>域名</label><input name="domains" placeholder="多个用英文逗号分隔" /></div>
               <div className="field"><label>到期日期</label><input name="expireTime" type="date" /></div>
-              <div className="field"><label>用户上限</label><input name="maxUsers" type="number" defaultValue={plans.items[0]?.maxUsers ?? 0} /></div>
-              <div className="field"><label>园区上限</label><input name="maxParks" type="number" defaultValue={plans.items[0]?.maxParks ?? 0} /></div>
+              <div className="field"><label>用户上限</label><input name="maxUsers" type="number" min={0} value={createMaxUsers} onChange={(event) => setCreateMaxUsers(Number(event.target.value))} onFocus={(event) => event.target.select()} /></div>
+              <div className="field"><label>园区上限</label><input name="maxParks" type="number" min={0} value={createMaxParks} onChange={(event) => setCreateMaxParks(Number(event.target.value))} onFocus={(event) => event.target.select()} /></div>
               <div className="field"><label>园区编码</label><input name="parkCode" required /></div>
               <div className="field"><label>园区名称</label><input name="parkName" title="请输入包含可见文字的园区名称，例如“11号园区”" onInput={(event) => event.currentTarget.setCustomValidity(isReadableUserParkName(event.currentTarget.value) ? "" : "请输入包含可见文字的园区名称")} required /></div>
               <div className="field"><label>管理员账号</label><input name="adminUsername" required /></div>
@@ -324,9 +422,21 @@ export default function TenantsPage() {
               <div className="field"><label>管理员手机</label><input name="adminMobile" /></div>
               <div className="field"><label>管理员邮箱</label><input name="adminEmail" /></div>
             </DrawerFormGrid>
+            <DrawerFormGrid single>
+              <div className="field">
+                <label>套餐模块</label>
+                <div className="checkbox-list">
+                  {(findPlanAuthorization(plans.items, createPlanCode)?.moduleCodes ?? []).map((code) => {
+                    const module = modules.items.find((item) => item.moduleCode === code);
+                    return <span key={code} className="status-pill">{module?.moduleName ?? code} / {code}</span>;
+                  })}
+                </div>
+              </div>
+            </DrawerFormGrid>
+            {createError ? <p className="status-pill" role="alert">{createError}</p> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>取消</button>
-              <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存</button>
+              <button className="primary-button" type="submit" disabled={createSubmitting}><CheckCircle2 size={16} />{createSubmitting ? "保存中…" : "保存"}</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>
@@ -341,7 +451,7 @@ export default function TenantsPage() {
             closeIcon={<X size={18} />}
           />
           {settings ? (
-            <DrawerForm onSubmit={(event) => void saveLoginSettings(event).catch((error: Error) => setMessage(error.message))}>
+            <DrawerForm onChange={() => setSettingsError("")} onSubmit={(event) => void saveLoginSettings(event)}>
               <DrawerFormGrid>
                 <div className="field">
                   <label>租户</label>
@@ -365,8 +475,15 @@ export default function TenantsPage() {
                 </div>
                 <div className="field">
                   <label>套餐</label>
-                  <select name="planCode" defaultValue={settings.tenant.planCode ?? ""}>
-                    <option value="">未绑定套餐</option>
+                  <select
+                    name="planCode"
+                    value={settingsPlanCode}
+                    onChange={(event) => selectSettingsPlan(event.target.value)}
+                    required={settingsModuleCodes.length === 0}
+                  >
+                    {settings.tenant.planCode === null
+                      ? <option value="">未绑定套餐（保留当前模块）</option>
+                      : <option value="" disabled>请选择套餐</option>}
                     {isRetainedCatalogValue(plans.items.map((plan) => plan.planCode), settings.tenant.planCode)
                       ? <option value={settings.tenant.planCode}>{settings.tenant.planCode}（当前绑定，已停用）</option>
                       : null}
@@ -388,16 +505,17 @@ export default function TenantsPage() {
                   <div className="checkbox-list">
                     {modules.items.map((item) => (
                       <label key={item.id} className="checkbox-row">
-                        <input name={`module.${item.moduleCode}`} type="checkbox" defaultChecked={settings.enabledModuleCodes.includes(item.moduleCode)} />
+                        <input name={`module.${item.moduleCode}`} type="checkbox" checked={settingsModuleCodes.includes(item.moduleCode)} onChange={(event) => toggleSettingsModule(item.moduleCode, event.target.checked)} />
                         <span>{item.moduleName} / {item.moduleCode}</span>
                       </label>
                     ))}
                   </div>
                 </div>
               </DrawerFormGrid>
+              {settingsError ? <p className="status-pill" role="alert">{settingsError}</p> : null}
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={closeSettings}>取消</button>
-                <button className="primary-button" type="submit"><CheckCircle2 size={16} />保存配置</button>
+                <button className="primary-button" type="submit" disabled={settingsSubmitting}><CheckCircle2 size={16} />{settingsSubmitting ? "保存中…" : "保存配置"}</button>
               </DrawerFooter>
             </DrawerForm>
           ) : (

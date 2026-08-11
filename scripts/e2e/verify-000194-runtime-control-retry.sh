@@ -11,21 +11,40 @@ retry_root="$(mktemp -d /tmp/jinhu-000194-retry.XXXXXX)"
 retry_migrations="$retry_root/migrations"
 retry_aliases="$retry_root/migration-history-aliases.txt"
 retry_seeds="$retry_root/seeds"
-retry_baseline_seeds="$retry_root/baseline-seeds"
+legacy_baseline_seeds="$retry_root/legacy-baseline-seeds"
+fresh_baseline_seeds="$retry_root/fresh-baseline-seeds"
 log_root="${RELEASE_SMOKE_LOG_DIR:-/tmp/release-smoke-logs}"
 
 mkdir -p "$retry_migrations" "$retry_seeds/production" \
-  "$retry_baseline_seeds/production" "$log_root"
+  "$legacy_baseline_seeds/production" "$fresh_baseline_seeds/production" "$log_root"
 : > "$retry_aliases"
 cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
 cp database/seeds/production/*.sql "$retry_seeds/production/"
 cp database/seeds/000001_s1_production_core.sql \
-  "$retry_baseline_seeds/000001_s1_production_core.sql"
+  "$legacy_baseline_seeds/000001_s1_production_core.sql"
+cp database/seeds/000001_s1_production_core.sql \
+  "$fresh_baseline_seeds/000001_s1_production_core.sql"
+# The pre-000194 fixture stops before 000205, so only its copied production
+# core seed keeps the historical tenant-wide role-data-scope conflict identity.
+sed -i \
+  's/ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false/ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false/' \
+  "$legacy_baseline_seeds/000001_s1_production_core.sql"
+grep -Fq \
+  'ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false' \
+  "$legacy_baseline_seeds/000001_s1_production_core.sql"
+grep -Fq \
+  'ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false' \
+  "$retry_seeds/000001_s1_production_core.sql"
+grep -Fq \
+  'ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false' \
+  "$fresh_baseline_seeds/000001_s1_production_core.sql"
 # Keep the pre-000194 fixture pinned to the production seed that originally
 # introduced the active asset scope. Later production seeds may depend on
 # schema added after 000194 and belong only in the fully migrated retry path.
 cp database/seeds/production/000007_asset_park_scope_reconcile.sql \
-  "$retry_baseline_seeds/production/000007_asset_park_scope_reconcile.sql"
+  "$legacy_baseline_seeds/production/000007_asset_park_scope_reconcile.sql"
+cp database/seeds/production/000007_asset_park_scope_reconcile.sql \
+  "$fresh_baseline_seeds/production/000007_asset_park_scope_reconcile.sql"
 
 cleanup() {
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -61,7 +80,7 @@ MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh 2>&1 | tee "$log_root/db-migrate-000193-runtime-control-baseline.log"
 
 ALLOW_PRODUCTION_SEED=yes \
-SEEDS_DIR="$retry_baseline_seeds" \
+SEEDS_DIR="$legacy_baseline_seeds" \
 POSTGRES_DB="$retry_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000194-runtime-control-baseline.log"
 
@@ -518,7 +537,7 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
       UPDATE public.schema_migrations SET status='failed'
         WHERE filename='000200_property_b_migration_compatibility_control.sql';"
 
-ALLOW_PRODUCTION_SEED=yes SEEDS_DIR="$retry_baseline_seeds" POSTGRES_DB="$fresh_order_db" \
+ALLOW_PRODUCTION_SEED=yes SEEDS_DIR="$fresh_baseline_seeds" POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-baseline.log"
 
 if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
