@@ -40,9 +40,13 @@ test("role policy binding uniqueness is park-scoped without changing tenant-wide
   assert.match(fieldPolicyEntity, /\["tenantId", "parkId", "roleId", "fieldPolicyId"\]/);
 });
 
-test("pre-000205 release fixtures adapt the copied seed to their historical unique index", () => {
+test("release fixtures select the conflict identity for their migration boundary", () => {
   const legacyConflict = "ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false";
+  const parkConflict =
+    "ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false";
   assert.match(ciWorkflow, new RegExp(legacyConflict.replace(/[()]/g, "\\$&")));
   assert.match(runtimeControlRetry, new RegExp(legacyConflict.replace(/[()]/g, "\\$&")));
-  assert.match(runtimeControlRetry, /retry_baseline_seeds\/000001_s1_production_core\.sql/);
+  assert.match(runtimeControlRetry, /legacy_baseline_seeds\/000001_s1_production_core\.sql/);
+  assert.match(runtimeControlRetry, /fresh_baseline_seeds\/000001_s1_production_core\.sql/);
+  assert.match(runtimeControlRetry, new RegExp(parkConflict.replace(/[()]/g, "\\$&")));
 });
