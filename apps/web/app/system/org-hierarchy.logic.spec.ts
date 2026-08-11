@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-const source = readFileSync(new URL("./orgs/page.tsx", import.meta.url), "utf8");
-const usersSource = readFileSync(new URL("./users/page.tsx", import.meta.url), "utf8");
+const source = readFileSync(resolve(__dirname, "orgs/page.tsx"), "utf8");
+const usersSource = readFileSync(resolve(__dirname, "users/page.tsx"), "utf8");
 
 test("organization page consumes the tree contract and maintains parent and leader fields", () => {
   assert.match(source, /\/orgs\/tree/);
@@ -18,6 +19,7 @@ test("organization page exposes desktop and mobile hierarchy records", () => {
   assert.match(source, /删除组织/);
   assert.match(source, /role="alert"/);
   assert.match(source, /上级组织不可见/);
+  assert.match(source, /负责人不可用/);
 });
 
 test("user page creates organization assignments atomically and guards stale catalogs", () => {
@@ -39,6 +41,7 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /无主组织/);
   assert.match(usersSource, /isPrimary: false/);
   assert.match(usersSource, /role="alert"/);
+  assert.match(usersSource, /catch\(\(error: Error\) => setDrawerError\(error\.message\)\)/);
 });
 
 test("organization editor preserves unavailable current leaders on unrelated updates", () => {

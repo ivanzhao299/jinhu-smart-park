@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type OrgTreeNode } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { getAccessToken } from "../../../lib/authz";
+import { getAccessToken, getAuthUser, hasPermission } from "../../../lib/authz";
 
 type OrgStatus = "enabled" | "disabled";
 interface OrgRow extends Omit<OrgTreeNode, "children"> {
@@ -81,12 +81,13 @@ export default function OrgsPage() {
 
   const load = useCallback(async () => {
     const token = getAccessToken();
+    const canListUsers = hasPermission(getAuthUser(), SYSTEM_PERMISSIONS.USER_LIST);
     const [treeResponse, leaderResponse] = await Promise.all([
       apiRequest<OrgRow[]>("/orgs/tree", { token }),
-      apiRequest<LeaderOption[]>("/orgs/leaders", { token })
+      canListUsers ? apiRequest<LeaderOption[]>("/orgs/leaders", { token }) : Promise.resolve(null)
     ]);
     setTree(treeResponse.data);
-    setLeaders(leaderResponse.data);
+    setLeaders(leaderResponse?.data ?? []);
   }, []);
   useEffect(() => { void load().catch(showError); }, [load]);
 
@@ -100,7 +101,9 @@ export default function OrgsPage() {
   const parentName = (id: string | null) => id
     ? allOrgs.find((item) => item.org.id === id)?.org.orgName ?? "上级组织不可见"
     : "根组织";
-  const leaderName = (id: string | null) => leaders.find((item) => item.id === id)?.displayName ?? "-";
+  const leaderName = (id: string | null) => id
+    ? leaders.find((item) => item.id === id)?.displayName ?? "负责人不可用"
+    : "-";
   const leaderOptions = editingOrg?.leaderUserId && !leaders.some((leader) => leader.id === editingOrg.leaderUserId)
     ? [...leaders, { id: editingOrg.leaderUserId, displayName: "当前负责人（已停用或不可选）", username: editingOrg.leaderUserId }]
     : leaders;

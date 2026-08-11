@@ -422,7 +422,7 @@ export default function UsersPage() {
                     ).then((selection) => {
                       if (editingUser || requestId !== orgCatalogRequest.current || !selection) return;
                       return loadOrgCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId });
-                    }).catch((error: Error) => setMessage(error.message));
+                    }).catch((error: Error) => setDrawerError(error.message));
                   }}
                 >
                   {tenants.items.map((item) => <option key={item.id} value={item.tenantId}>{item.tenantName} / {item.tenantId}</option>)}

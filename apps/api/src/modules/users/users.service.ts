@@ -449,13 +449,15 @@ export class UsersService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     id: string,
-    dto: ReplaceUserOrgsDto
+    dto: ReplaceUserOrgsDto,
+    onTargetScope?: (targetScope: TenantParkScope) => void
   ): Promise<UserOrgAssignment[]> {
     this.assertOrgAssignmentShape(dto.assignments);
     await this.userOrgRepository.manager.transaction(async (manager) => {
       await lockUserOrganizationScope(manager, id);
       const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
       const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+      onTargetScope?.(targetScope);
       await lockOrgHierarchy(manager, targetScope);
       await this.replaceOrgAssignmentsInTransaction(targetScope, actor, id, dto.assignments, manager);
     });
@@ -810,7 +812,7 @@ export class UsersService {
       user.updateBy = actorId;
       await repository.save(user);
       await manager.getRepository(UserOrgEntity).update(
-        { userId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { userId: id, tenantId: user.tenantId, isDeleted: false },
         { isDeleted: true, updateBy: actorId }
       );
     });

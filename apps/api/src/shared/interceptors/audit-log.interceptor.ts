@@ -7,8 +7,14 @@ import { catchError, tap, throwError, type Observable } from "rxjs";
 import { AUDIT_LOG_KEY, type AuditLogOptions } from "../../modules/audit/decorators/audit-log.decorator";
 import { AuditService } from "../../modules/audit/audit.service";
 import type { JwtPrincipal } from "../types/jwt-principal";
+import type { TenantParkScope } from "@jinhu/shared";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+export type AuditScopeRequest = Request & {
+  user?: JwtPrincipal;
+  auditScopeOverride?: TenantParkScope;
+};
 
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
@@ -19,7 +25,7 @@ export class AuditLogInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler<unknown>): Observable<unknown> {
-    const request = context.switchToHttp().getRequest<Request & { user?: JwtPrincipal }>();
+    const request = context.switchToHttp().getRequest<AuditScopeRequest>();
     if (!WRITE_METHODS.has(request.method) || !request.user) {
       return next.handle();
     }
@@ -57,11 +63,22 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
-        void this.auditService.recordOperation({ ...baseLog, success: true }).catch(() => undefined);
+        const auditScope = request.auditScopeOverride;
+        void this.auditService.recordOperation({
+          ...baseLog,
+          ...(auditScope ? { tenantId: auditScope.tenantId, parkId: auditScope.parkId } : {}),
+          success: true
+        }).catch(() => undefined);
       }),
       catchError((error: Error) => {
+        const auditScope = request.auditScopeOverride;
         void this.auditService
-          .recordOperation({ ...baseLog, success: false, errorMsg: error.message })
+          .recordOperation({
+            ...baseLog,
+            ...(auditScope ? { tenantId: auditScope.tenantId, parkId: auditScope.parkId } : {}),
+            success: false,
+            errorMsg: error.message
+          })
           .catch(() => undefined);
         return throwError(() => error);
       })

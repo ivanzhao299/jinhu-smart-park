@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -14,6 +14,7 @@ import { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
 import { UserOrgCandidatesQueryDto } from "./dto/user-org-candidates-query.dto";
 import { UsersService } from "./users.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
+import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 
 @Controller("users")
 export class UsersController {
@@ -71,13 +72,16 @@ export class UsersController {
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
   @AuditLog({ module: "用户管理", resource: "system.user_org", action: "组织岗位变更", bizType: "user", bizIdParam: "id" })
-  replaceOrgs(
+  async replaceOrgs(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: ReplaceUserOrgsDto
+    @Body() dto: ReplaceUserOrgsDto,
+    @Req() request: AuditScopeRequest
   ) {
-    return this.usersService.replaceOrgAssignments(scope, user, id, dto);
+    return this.usersService.replaceOrgAssignments(scope, user, id, dto, (targetScope) => {
+      request.auditScopeOverride = targetScope;
+    });
   }
 
   @Patch(":id")

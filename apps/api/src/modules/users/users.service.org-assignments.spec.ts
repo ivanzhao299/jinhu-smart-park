@@ -26,6 +26,7 @@ test("organization assignment replacement only deletes the target user's current
     isDeleted: false
   } as UserEntity;
   let updateWhere: unknown;
+  let auditScope: unknown;
   const lockKeys: string[] = [];
   const transactionRepository = {
     update: async (where: unknown) => { updateWhere = where; },
@@ -66,7 +67,13 @@ test("organization assignment replacement only deletes the target user's current
     { get: (_key: string, fallback?: string) => fallback } as never
   );
 
-  await service.replaceOrgAssignments(scope, { ...actor, isSuper: true, permissions: ["*"] }, target.id, { assignments: [] });
+  await service.replaceOrgAssignments(
+    scope,
+    { ...actor, isSuper: true, permissions: ["*"] },
+    target.id,
+    { assignments: [] },
+    (resolvedScope) => { auditScope = resolvedScope; }
+  );
 
   assert.deepEqual(updateWhere, {
     userId: target.id,
@@ -75,6 +82,7 @@ test("organization assignment replacement only deletes the target user's current
     isDeleted: false
   });
   assert.deepEqual(lockKeys, ["user-org-scope:user-1", "org-hierarchy:tenant-2:park-2"]);
+  assert.deepEqual(auditScope, { tenantId: target.tenantId, parkId: target.parkId });
 });
 
 test("user scope updates serialize with assignment writes and retire the previous scope", async () => {
@@ -428,7 +436,6 @@ test("user deletion serializes with assignment writes and retires active assignm
   assert.deepEqual(assignmentUpdateWhere, {
     userId: target.id,
     tenantId: scope.tenantId,
-    parkId: scope.parkId,
     isDeleted: false
   });
 });
