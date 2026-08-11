@@ -1,0 +1,30 @@
+{
+  "id": "fix-github-issues-242-244",
+  "name": "fix-github-issues-242-244",
+  "title": "修复 GitHub Issues 242-244",
+  "description": "按既有闭环流程修复并验证开放 issues #242-244，创建 PR 并处理 Codex review",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P1",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-11",
+  "completedAt": null,
+  "branch": "codex/fix-issues-242-244",
+  "base_branch": "codex/fix-issues-242-244",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-11-fix-issue-242-region-cascade",
+    "08-11-fix-issue-243-permission-limit",
+    "08-11-fix-issue-244-housing-source-domain"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

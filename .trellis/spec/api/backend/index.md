@@ -82,6 +82,50 @@ Reference files:
 - `apps/api/src/modules/leasing-payments/dto/create-leasing-payment.dto.ts`
 - `apps/api/src/modules/leasing-receivables/dto/create-leasing-receivable.dto.ts`
 
+## Scenario: Role Permission Bulk Assignment Capacity
+
+### 1. Scope / Trigger
+- Trigger: changing the system permission catalog or the role permission replacement endpoint.
+
+### 2. Signatures
+- `POST /roles/:id/permissions` accepts `{ permissionIds: UUID[] }`.
+- `AssignPermissionsDto.permissionIds` uses `ROLE_PERMISSION_ASSIGNMENT_MAX_SIZE` as its bounded capacity.
+
+### 3. Contracts
+- The DTO capacity must remain greater than or equal to the complete current system permission catalog plus documented tenant-extension headroom.
+- Keep a finite `ArrayMaxSize`; do not remove the request bound merely because the catalog grows.
+- `RolesService.assignPermissions` remains authoritative for tenant scope, active/non-deleted permission existence, and replacement semantics.
+
+### 4. Validation & Error Matrix
+- Valid UUID array at or below the capacity -> DTO accepts; the service validates every permission in the current tenant.
+- Array above the capacity -> DTO validation returns HTTP 400.
+- Unknown, deleted, or cross-tenant ID -> the service rejects the complete assignment.
+
+### 5. Good/Base/Bad Cases
+- Good: a role can select the complete seeded permission tree when it contains more than 200 entries.
+- Base: a small role assignment follows the same replacement path.
+- Bad: a hard-coded limit below the seeded catalog makes selecting a parent permission impossible to save.
+
+### 6. Tests Required
+- DTO test with a permission array larger than the retired limit and representative of the current seed count.
+- DTO test with `ROLE_PERMISSION_ASSIGNMENT_MAX_SIZE + 1` entries rejected.
+- Preserve service tests for tenant isolation and missing permission IDs.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+```ts
+@ArrayMaxSize(200) // smaller than the current permission tree
+permissionIds!: string[];
+```
+
+#### Correct
+```ts
+export const ROLE_PERMISSION_ASSIGNMENT_MAX_SIZE = 1000;
+@ArrayMaxSize(ROLE_PERMISSION_ASSIGNMENT_MAX_SIZE)
+permissionIds!: string[];
+```
+
 ## File Upload Validation
 
 Read `file-upload.md` before changing multipart upload endpoints, file metadata persistence, feature-specific attachment upload routes, or file ID validation.
