@@ -51,3 +51,34 @@ test("audit logging uses a target scope supplied by the request handler", async 
   assert.equal(recorded[0]?.userId, "super-1");
   assert.equal(recorded[0]?.success, true);
 });
+
+test("audit logging suppresses cached idempotent replays", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const request = {
+    method: "PATCH",
+    user: {
+      sub: "super-1", username: "super", tenantId: "actor-tenant", parkId: "actor-park",
+      roles: [], permissions: ["*"], isSuper: true
+    },
+    idempotencyReplay: true,
+    body: {}, params: { id: "user-1" }, headers: { "x-idempotency-key": "replay-1" },
+    route: { path: "/users/:id" }, path: "/users/user-1", originalUrl: "/api/v1/users/user-1", ip: "127.0.0.1"
+  } as unknown as AuditScopeRequest;
+  const context = {
+    switchToHttp: () => ({ getRequest: () => request }),
+    getHandler: () => function update() {},
+    getClass: () => class UsersController {}
+  } as unknown as ExecutionContext;
+  const interceptor = new AuditLogInterceptor(
+    { recordOperation: async (entry: Record<string, unknown>) => { recorded.push(entry); } } as never,
+    { getId: () => "request-replay" } as never,
+    { getAllAndOverride: () => ({ module: "用户管理", resource: "system.user", action: "修改" }) } as never
+  );
+
+  await lastValueFrom(interceptor.intercept(context, { handle: () => new Observable((subscriber) => {
+    subscriber.next({ ok: true });
+    subscriber.complete();
+  }) } as CallHandler));
+
+  assert.deepEqual(recorded, []);
+});

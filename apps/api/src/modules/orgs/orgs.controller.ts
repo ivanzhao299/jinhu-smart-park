@@ -34,8 +34,8 @@ export class OrgsController {
 
   @Get("leaders")
   @RequirePermissions(SYSTEM_PERMISSIONS.ORG_LIST, SYSTEM_PERMISSIONS.USER_LIST)
-  leaders(@CurrentScope() scope: TenantParkScope) {
-    return this.orgsService.listLeaders(scope);
+  leaders(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal) {
+    return this.orgsService.listLeaders(scope, user);
   }
 
   @Post()

@@ -14,7 +14,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
   intercept(context: ExecutionContext, next: CallHandler<unknown>): Observable<unknown> {
     const idempotencyService = getIdempotencyService();
-    const request = context.switchToHttp().getRequest<Request & { user?: JwtPrincipal }>();
+    const request = context.switchToHttp().getRequest<Request & { user?: JwtPrincipal; idempotencyReplay?: boolean }>();
     const response = context.switchToHttp().getResponse<Response>();
     const key = this.extractKey(request);
     if (!key) {
@@ -47,7 +47,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     };
 
     return from(idempotencyService.tryBegin(beginContext)).pipe(
-      mergeMap((decision) => this.handleDecision(idempotencyService, decision, beginContext, next, response))
+      mergeMap((decision) => this.handleDecision(idempotencyService, decision, beginContext, next, request, response))
     );
   }
 
@@ -76,9 +76,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
     decision: IdempotencyBeginResult,
     beginContext: IdempotencyBeginContext,
     next: CallHandler<unknown>,
+    request: Request & { idempotencyReplay?: boolean },
     response: Response
   ): Observable<unknown> {
     if (decision.outcome === "cached") {
+      request.idempotencyReplay = true;
       response.status(decision.cachedResponse!.responseStatus);
       return of(decision.cachedResponse!.responseBody);
     }

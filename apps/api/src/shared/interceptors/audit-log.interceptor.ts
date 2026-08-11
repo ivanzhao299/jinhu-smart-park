@@ -14,6 +14,7 @@ const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export type AuditScopeRequest = Request & {
   user?: JwtPrincipal;
   auditScopeOverride?: TenantParkScope;
+  idempotencyReplay?: boolean;
 };
 
 @Injectable()
@@ -63,6 +64,7 @@ export class AuditLogInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap(() => {
+        if (request.idempotencyReplay) return;
         const auditScope = request.auditScopeOverride;
         void this.auditService.recordOperation({
           ...baseLog,

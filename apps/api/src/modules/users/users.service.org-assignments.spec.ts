@@ -101,6 +101,7 @@ test("organization assignment replacement only deletes the target user's current
 test("organization assignment replacement preserves an unchanged disabled organization and post", async () => {
   const target = { id: "user-1", tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } as UserEntity;
   const retained = { orgId: "org-disabled", postId: "post-disabled", isPrimary: true };
+  const submitted = { ...retained, isPrimary: false };
   let validationRepositoryRequested = false;
   const relationshipRepository = {
     find: async () => [retained],
@@ -136,10 +137,10 @@ test("organization assignment replacement preserves an unchanged disabled organi
     scope,
     { ...actor, isSuper: true, permissions: ["*"] },
     target.id,
-    { assignments: [retained] }
+    { assignments: [submitted] }
   );
 
-  assert.equal(validationRepositoryRequested, false, "unchanged inactive assignments must not be revalidated as new choices");
+  assert.equal(validationRepositoryRequested, false, "retained inactive relationships must allow primary status changes");
   assert.deepEqual(result, [{ ...retained, orgName: undefined, postName: null }]);
 });
 

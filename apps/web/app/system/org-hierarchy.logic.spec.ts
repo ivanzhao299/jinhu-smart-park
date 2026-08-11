@@ -43,6 +43,10 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /disabled=\{loginSettingsLoading \|\| orgCatalogLoading \|\| !formParkId\}/);
   assert.match(usersSource, /function closeUserDrawer\(\)[\s\S]*clearOrgCatalog\(\)/);
   assert.match(usersSource, /mergeRetainedOrgOptions/);
+  assert.match(usersSource, /knownIds\.add\(assignment\.orgId\)/);
+  assert.match(usersSource, /knownIds\.add\(assignment\.postId\)/);
+  assert.match(usersSource, /用户更新成功/);
+  assert.match(usersSource, /但列表刷新失败/);
   assert.match(usersSource, /sameOrgAssignments\(body\.assignments, loadedOrgAssignments\)/);
   assert.match(usersSource, /添加组织关系/);
   assert.match(usersSource, /name="primaryOrg"/);

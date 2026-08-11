@@ -480,14 +480,9 @@ export class UsersService {
     manager: EntityManager,
     activeLinks: Array<Pick<UserOrgEntity, "orgId" | "postId" | "isPrimary">>
   ): Promise<string[] | null> {
-    const assignmentKey = (item: Pick<UserOrgEntity, "orgId" | "postId" | "isPrimary">) =>
-      `${item.orgId}:${item.postId ?? ""}:${item.isPrimary}`;
-    const retainedKeys = new Set(activeLinks.map(assignmentKey));
-    const assignmentsToValidate = assignments.filter((item) => !retainedKeys.has(assignmentKey({
-      orgId: item.orgId,
-      postId: item.postId ?? null,
-      isPrimary: item.isPrimary
-    })));
+    const relationshipKey = (item: { orgId: string; postId?: string | null }) => `${item.orgId}:${item.postId ?? ""}`;
+    const retainedKeys = new Set(activeLinks.map(relationshipKey));
+    const assignmentsToValidate = assignments.filter((item) => !retainedKeys.has(relationshipKey(item)));
     const orgIds = [...new Set(assignments.map((item) => item.orgId))];
     const orgIdsToValidate = [...new Set(assignmentsToValidate.map((item) => item.orgId))];
     const postIds = [...new Set(assignmentsToValidate.map((item) => item.postId).filter((id): id is string => Boolean(id)))];

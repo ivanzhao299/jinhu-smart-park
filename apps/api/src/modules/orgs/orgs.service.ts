@@ -6,6 +6,7 @@ import type { OrgPostOption, OrgTreeNode, PaginatedResult, TenantParkScope } fro
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { DataScopeService } from "../data-scopes/data-scope.service";
+import { FieldPolicyService } from "../field-policies/field-policy.service";
 import type { CreateOrgDto } from "./dto/create-org.dto";
 import type { UpdateOrgDto } from "./dto/update-org.dto";
 import { OrgEntity } from "./entities/org.entity";
@@ -31,7 +32,8 @@ export class OrgsService {
     private readonly userOrgRepository: Repository<UserOrgEntity>,
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-    private readonly dataScopeService: DataScopeService
+    private readonly dataScopeService: DataScopeService,
+    private readonly fieldPolicyService: FieldPolicyService
   ) {}
 
   async list(scope: TenantParkScope, query: PaginationQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<OrgEntity>> {
@@ -92,12 +94,21 @@ export class OrgsService {
     });
   }
 
-  async listLeaders(scope: TenantParkScope): Promise<Array<{ id: string; displayName: string; username: string }>> {
-    return this.userRepository.find({
+  async listLeaders(
+    scope: TenantParkScope,
+    actor: JwtPrincipal
+  ): Promise<Array<{ id: string; displayName: string; username: string }>> {
+    const leaders = await this.userRepository.find({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, isEnabled: true },
       select: { id: true, displayName: true, username: true },
       order: { displayName: "ASC", username: "ASC" }
     });
+    const secured = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "system", "user", leaders);
+    return secured.map((leader) => ({
+      id: leader.id,
+      displayName: typeof leader.displayName === "string" ? leader.displayName : "负责人",
+      username: typeof leader.username === "string" ? leader.username : ""
+    }));
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateOrgDto): Promise<OrgEntity> {

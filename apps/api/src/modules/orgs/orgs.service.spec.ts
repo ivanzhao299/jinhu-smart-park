@@ -39,6 +39,9 @@ function createService(
     treeWhere?: unknown;
     orgFindOptions?: unknown[];
     leaderFindOptions?: unknown[];
+    leaderRows?: Array<{ id: string; displayName: string; username: string }>;
+    securedLeaderRows?: Array<{ id: string; displayName?: string; username?: string }>;
+    fieldPolicyCalls?: unknown[][];
     userOrgCountWhere?: unknown[];
     visibleOrgIds?: string[];
   } = {}
@@ -65,7 +68,7 @@ function createService(
   const userRepository = {
     find: async (findOptions: unknown) => {
       options.leaderFindOptions?.push(findOptions);
-      return [];
+      return options.leaderRows ?? [];
     },
     exists: async () => true
   };
@@ -90,7 +93,13 @@ function createService(
     { find: async () => [] } as never,
     userOrgRepository as never,
     userRepository as never,
-    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => options.treeWhere ?? where } as never
+    { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => options.treeWhere ?? where } as never,
+    {
+      applyFieldPoliciesToList: async (...args: unknown[]) => {
+        options.fieldPolicyCalls?.push(args);
+        return options.securedLeaderRows ?? args[4];
+      }
+    } as never
   );
 }
 
@@ -168,8 +177,22 @@ test("hierarchy updates acquire the scoped transaction advisory lock", async () 
 test("leader candidates are not silently capped", async () => {
   const findOptions: unknown[] = [];
   const service = createService([], { leaderFindOptions: findOptions });
-  await service.listLeaders(scope);
+  await service.listLeaders(scope, actor);
   assert.equal(Object.hasOwn(findOptions[0] as object, "take"), false);
+});
+
+test("leader candidates apply user field policies", async () => {
+  const fieldPolicyCalls: unknown[][] = [];
+  const service = createService([], {
+    leaderRows: [{ id: "user-1", displayName: "Sensitive Name", username: "sensitive-user" }],
+    securedLeaderRows: [{ id: "user-1" }],
+    fieldPolicyCalls
+  });
+
+  const leaders = await service.listLeaders(scope, actor);
+
+  assert.deepEqual(fieldPolicyCalls[0]?.slice(0, 4), [scope, actor, "system", "user"]);
+  assert.deepEqual(leaders, [{ id: "user-1", displayName: "负责人", username: "" }]);
 });
 
 test("hierarchy migration locks writes and rejects inactive parents before adding constraints", () => {

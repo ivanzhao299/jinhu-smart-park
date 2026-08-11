@@ -285,7 +285,13 @@ export default function UsersPage() {
     setFormParkId("");
     setAccessibleParkIds([]);
     clearOrgCatalog();
-    await load(data.page);
+    const successMessage = editingUser ? "用户更新成功" : "用户创建成功";
+    setMessage(successMessage);
+    try {
+      await load(data.page);
+    } catch (error) {
+      setMessage(`${successMessage}，但列表刷新失败：${error instanceof Error ? error.message : "未知错误"}`);
+    }
   }
 
   function clearOrgCatalog() {
@@ -536,7 +542,11 @@ function mergeRetainedOrgOptions(
 ) {
   const knownIds = new Set(options.map((option) => option.id));
   return [...options, ...assignments
-    .filter((assignment) => assignment.orgId && !knownIds.has(assignment.orgId))
+    .filter((assignment) => {
+      if (!assignment.orgId || knownIds.has(assignment.orgId)) return false;
+      knownIds.add(assignment.orgId);
+      return true;
+    })
     .map((assignment) => ({
       id: assignment.orgId,
       label: `${assignment.orgName ?? assignment.orgId}（已停用或不可选）`,
@@ -549,7 +559,11 @@ function mergeRetainedPostOptions(posts: OrgPostOption[], assignments: UserOrgAs
   return [
     ...posts.map((post) => ({ id: post.id, label: post.postName, unavailable: false })),
     ...assignments
-      .filter((assignment) => assignment.postId && !knownIds.has(assignment.postId))
+      .filter((assignment) => {
+        if (!assignment.postId || knownIds.has(assignment.postId)) return false;
+        knownIds.add(assignment.postId);
+        return true;
+      })
       .map((assignment) => ({
         id: assignment.postId as string,
         label: `${assignment.postName ?? assignment.postId}（已停用或不可选）`,
