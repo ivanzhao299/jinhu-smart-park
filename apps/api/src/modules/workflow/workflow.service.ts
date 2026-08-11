@@ -547,7 +547,6 @@ export class WorkflowService {
       JOIN sys_role r
         ON r.id = ur.role_id
        AND r.tenant_id::text = u.tenant_id::text
-       AND r.park_id::text = u.park_id::text
        AND r.is_deleted = false
       LEFT JOIN rel_role_perm rp
         ON rp.role_id = r.id
@@ -557,7 +556,6 @@ export class WorkflowService {
       LEFT JOIN sys_permission p
         ON p.id = rp.permission_id
        AND p.tenant_id::text = u.tenant_id::text
-       AND p.park_id::text = u.park_id::text
        AND p.is_deleted = false
       WHERE u.tenant_id::text = $1
         AND u.park_id::text = $2

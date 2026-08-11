@@ -116,3 +116,10 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
 });
+
+test("tenant module read models deduplicate park-scoped module bindings", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+
+  assert.match(source, /enabledModuleCodes: \[\s*\.\.\.new Set\(/);
+  assert.match(source, /const enabledModuleCount = new Set\(enabledModuleRows\.map\(\(item\) => item\.moduleId\)\)\.size/);
+});

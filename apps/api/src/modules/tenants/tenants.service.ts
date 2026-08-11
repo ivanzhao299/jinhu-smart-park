@@ -245,7 +245,9 @@ export class TenantsService {
         parkName: park.parkName,
         status: park.status
       })),
-      enabledModuleCodes: modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code))
+      enabledModuleCodes: [
+        ...new Set(modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code)))
+      ]
     };
   }
 
@@ -1077,13 +1079,15 @@ export class TenantsService {
 
   private async toView(tenant: TenantEntity, manager?: EntityManager): Promise<TenantView> {
     const entityManager = manager ?? this.dataSource.manager;
-    const [userCount, parkCount, enabledModuleCount] = await Promise.all([
+    const [userCount, parkCount, enabledModuleRows] = await Promise.all([
       entityManager.getRepository(UserEntity).count({ where: { tenantId: tenant.tenantId, isDeleted: false } }),
       entityManager.getRepository(ParkEntity).count({ where: { tenantId: tenant.tenantId, isDeleted: false } }),
-      entityManager.getRepository(TenantModuleEntity).count({
-        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" }
+      entityManager.getRepository(TenantModuleEntity).find({
+        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" },
+        select: { moduleId: true }
       })
     ]);
+    const enabledModuleCount = new Set(enabledModuleRows.map((item) => item.moduleId)).size;
     return {
       id: tenant.id,
       tenantId: tenant.tenantId,

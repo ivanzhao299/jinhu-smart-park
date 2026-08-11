@@ -42,6 +42,8 @@ test("available plan catalog excludes plans that cannot provision any module", (
   const selected = result.sql.slice(result.sql.indexOf("selected AS"), result.sql.indexOf("paged AS"));
   assert.doesNotMatch(ranked, /jsonb_array_length/);
   assert.match(selected, /precedence = 1\s+AND jsonb_array_length\(COALESCE\(module_codes, '\[\]'::jsonb\)\) > 0/);
+  assert.match(selected, /jsonb_array_elements_text\(COALESCE\(module_codes, '\[\]'::jsonb\)\)/);
+  assert.match(selected, /FROM sys_module module[\s\S]+module\.module_code = requested\.module_code[\s\S]+module\.status = 1/);
 });
 
 test("available plan catalog orders the selected rows before applying offset and limit", () => {
