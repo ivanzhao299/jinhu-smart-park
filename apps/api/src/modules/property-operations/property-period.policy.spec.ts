@@ -32,6 +32,8 @@ test("operating mode accepts only its business occupancy domain", () => {
   assert.equal(occupancyDomainMatchesMode("homestay", "short_stay"), true);
   assert.equal(occupancyDomainMatchesMode("homestay", "long_rent"), false);
   assert.equal(occupancyDomainMatchesMode("housing_rental", "long_rent"), true);
+  assert.equal(occupancyDomainMatchesMode("apartment", "long_rent"), true);
+  assert.equal(occupancyDomainMatchesMode("apartment", "short_stay"), false);
   assert.equal(occupancyDomainMatchesMode("commercial_leasing", "short_stay"), false);
   assert.equal(occupancyDomainMatchesMode("maintenance", "none"), true);
   assert.equal(occupancyDomainMatchesMode("operations", "short_stay"), true);

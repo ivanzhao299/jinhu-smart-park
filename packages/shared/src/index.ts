@@ -2,9 +2,11 @@ import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_PERMISSIONS
 } from "./property-business/permissions";
+import { APARTMENT_PERMISSIONS } from "./apartment";
 
 export * from "./property-business";
 export * from "./mobile";
+export * from "./apartment";
 
 export interface ApiResponse<T> {
   code: number;
@@ -139,7 +141,12 @@ export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
   housing_handover_move_out: "image",
   housing_repair: "image",
   housing_lease_signature: "pdf",
-  housing_purchase: "receipt"
+  housing_purchase: "receipt",
+  apartment_application: "general",
+  apartment_approval: "pdf",
+  apartment_fire_commitment: "pdf",
+  apartment_move_in_handover: "general",
+  apartment_move_out_handover: "general"
 };
 
 export function resolveFileUploadPolicy(policyKeyOrBizType?: string | null): FileUploadPolicy {
@@ -303,10 +310,22 @@ export const PROPERTY_OCCUPANCY_DOMAINS = [
   "commercial_leasing",
   "homestay",
   "housing_rental",
+  "apartment",
   "maintenance",
   "operations"
 ] as const;
 export type PropertyOccupancyDomain = (typeof PROPERTY_OCCUPANCY_DOMAINS)[number];
+
+export const PROPERTY_MANAGED_OCCUPANCY_DOMAINS = [
+  "commercial_leasing",
+  "homestay",
+  "housing_rental",
+  "apartment"
+] as const satisfies readonly PropertyOccupancyDomain[];
+
+export function isPropertyManagedOccupancyDomain(domain: PropertyOccupancyDomain): boolean {
+  return (PROPERTY_MANAGED_OCCUPANCY_DOMAINS as readonly PropertyOccupancyDomain[]).includes(domain);
+}
 
 export const PARTY_TYPES = ["person", "organization"] as const;
 export type PartyType = (typeof PARTY_TYPES)[number];
@@ -823,6 +842,7 @@ export const SYSTEM_PERMISSIONS = {
   UNIT_IMPORT_TEMPLATE: "unit:import_template",
   UNIT_EXPORT: "unit:export",
   ...PROPERTY_BUSINESS_PERMISSIONS,
+  ...APARTMENT_PERMISSIONS,
   ASSET_READ: "asset:read",
   ASSET_PARTY_PAGE: "asset:party",
   ASSET_STATUS_BOARD: "asset:status_board",
@@ -1334,6 +1354,13 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.HOMESTAY_OPERATIONS_PAGE, name: "民宿运营", resource: "homestay.operations", action: "page" },
   { code: SYSTEM_PERMISSIONS.HOUSING_RENTAL_MENU, name: "住房出租", resource: "housing_rental", action: "menu" },
   { code: SYSTEM_PERMISSIONS.HOUSING_RENTAL_OPERATIONS_PAGE, name: "住房运营", resource: "housing_rental.operations", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_MENU, name: "公寓管理", resource: "apartment", action: "menu" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_DASHBOARD_PAGE, name: "公寓总览", resource: "apartment.dashboard", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_ROOMS_PAGE, name: "公寓房源", resource: "apartment.rooms", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_APPLICATIONS_PAGE, name: "入住申请", resource: "apartment.applications", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_STAYS_PAGE, name: "在住人员", resource: "apartment.stays", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_CHECKOUTS_PAGE, name: "退房办理", resource: "apartment.checkouts", action: "page" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_DOCUMENTS_PAGE, name: "公寓档案", resource: "apartment.documents", action: "page" },
   ...PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   { code: SYSTEM_PERMISSIONS.PROPERTY_OPERATION_READ, name: "房源经营配置读取", resource: "biz.property_operation_config", action: "read" },
   { code: SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE, name: "房源经营配置修改", resource: "biz.property_operation_config", action: "update" },
@@ -1343,6 +1370,16 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_ACTIVATE, name: "房源占用生效", resource: "biz.property_occupancy", action: "activate" },
   { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_RELEASE, name: "房源占用释放", resource: "biz.property_occupancy", action: "release" },
   { code: SYSTEM_PERMISSIONS.PROPERTY_OCCUPANCY_FORCE_RELEASE, name: "房源占用强制释放", resource: "biz.property_occupancy", action: "force_release" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_READ, name: "公寓业务读取", resource: "biz.apartment", action: "read" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_ROOM_MANAGE, name: "公寓房源管理", resource: "biz.apartment_room", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_APPLY, name: "提交入住申请", resource: "biz.apartment_application", action: "apply" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_APPLICATION_MANAGE, name: "入住申请管理", resource: "biz.apartment_application", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_APPROVE, name: "公寓入住审批", resource: "biz.apartment_application", action: "approve" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_ALLOCATE, name: "公寓房间分配", resource: "biz.apartment_stay", action: "allocate" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_CHECK_IN, name: "公寓入住办理", resource: "biz.apartment_stay", action: "check_in" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_CHECK_OUT, name: "公寓退房办理", resource: "biz.apartment_stay", action: "check_out" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_DOCUMENT_MANAGE, name: "公寓文档管理", resource: "biz.apartment_document", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.APARTMENT_AUDIT, name: "公寓档案审计", resource: "biz.apartment", action: "audit" },
   { code: SYSTEM_PERMISSIONS.PARTY_READ, name: "业务相对方读取", resource: "biz.party", action: "read" },
   { code: SYSTEM_PERMISSIONS.PARTY_CREATE, name: "业务相对方新增", resource: "biz.party", action: "create" },
   { code: SYSTEM_PERMISSIONS.PARTY_UPDATE, name: "业务相对方修改", resource: "biz.party", action: "update" },

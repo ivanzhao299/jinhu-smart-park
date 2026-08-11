@@ -1,0 +1,5 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"API、迁移、RBAC 和模块实现规范"}
+{"file":".trellis/spec/api/backend/shared-property-occupancy.md","reason":"跨业务房源占用与并发约束"}
+{"file":".trellis/spec/api/backend/module-access-control.md","reason":"模块、菜单和路由双门禁"}
+{"file":".trellis/spec/api/backend/file-upload.md","reason":"公寓系列文件上传策略"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"迁移、生产 seed 和部署安全"}

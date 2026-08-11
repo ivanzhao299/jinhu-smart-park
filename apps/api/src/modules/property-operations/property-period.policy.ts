@@ -65,6 +65,8 @@ export function propertyPeriodsOverlap(left: NormalizedPropertyPeriod, right: No
 export function occupancyDomainMatchesMode(domain: PropertyOccupancyDomain, mode: PropertyOperatingMode): boolean {
   if (domain === "maintenance" || domain === "operations") return true;
   if (domain === "homestay") return mode === "short_stay";
-  if (domain === "housing_rental" || domain === "commercial_leasing") return mode === "long_rent";
+  if (domain === "housing_rental" || domain === "commercial_leasing" || domain === "apartment") {
+    return mode === "long_rent";
+  }
   return false;
 }
