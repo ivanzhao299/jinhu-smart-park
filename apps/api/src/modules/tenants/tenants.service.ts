@@ -879,7 +879,7 @@ export class TenantsService {
         if (modules.has("housing_rental") && (code === "housing_rental" || code.startsWith("housing_rental:") || code.startsWith("housing:"))) return true;
         if (modules.has("leasing") && this.isLeasingPermission(code)) return true;
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
-        if (modules.has("safety") && (code === "safety" || code.startsWith("safety_"))) return true;
+        if (modules.has("safety") && (code === "safety" || code.startsWith("safety:") || code.startsWith("safety_"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
         if (modules.has("iot") && (code === "iot" || code.startsWith("iot:") || code.startsWith("iot_"))) return true;
         if (modules.has("energy") && (code === "energy" || code.startsWith("energy:") || code.startsWith("energy_"))) return true;

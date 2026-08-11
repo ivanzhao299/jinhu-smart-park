@@ -64,6 +64,7 @@ test("the safety module grants every safety permission family used by its menus 
   }).derivePermissionCodes.bind(service);
   const permissions = [
     { code: "safety" },
+    { code: "safety:dashboard" },
     { code: "safety_statistics:read" },
     { code: "safety_inspect_task:my" },
     { code: "safety_hazard:read" },
@@ -75,6 +76,7 @@ test("the safety module grants every safety permission family used by its menus 
 
   assert.deepEqual(derive(["safety"], permissions), [
     "safety",
+    "safety:dashboard",
     "safety_statistics:read",
     "safety_inspect_task:my",
     "safety_hazard:read",
@@ -97,6 +99,7 @@ test("plan module markers cannot grant permissions for a module that is not enab
     filter(["safety_hazard:read", "asset:read"], ["system", "safety"]),
     ["safety_hazard:read"]
   );
+  assert.deepEqual(filter(["safety:*", "asset:*"], ["safety"]), ["safety:*"]);
   assert.deepEqual(
     filter(["iot_alert:*", "iot_device:read", "energy_meter:*"], ["system", "iot"]),
     ["iot_alert:*", "iot_device:read"]
