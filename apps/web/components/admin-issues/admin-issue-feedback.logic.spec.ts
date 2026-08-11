@@ -22,5 +22,9 @@ test("feedback surface composes shared design-system controls and pagination", (
   assert.match(component, /buildAdminIssueHistoryPath\(view as AdminIssueHistoryView, page\)/);
   assert.match(component, /setIssues\(\[\]\);\s+setPagination\(\{ total: 0, page, pageSize: ADMIN_ISSUE_PAGE_SIZE \}\);/);
   assert.match(component, /共 \{pagination\.total\} 条/);
+  assert.match(
+    component,
+    /idempotencyKey: createIdempotencyKey\(`admin-issue-triage-\$\{issue\.issueNo\}-\$\{status\.toLowerCase\(\)\}`\)/
+  );
   assert.doesNotMatch(component, /page=1&page_size=50/);
 });
