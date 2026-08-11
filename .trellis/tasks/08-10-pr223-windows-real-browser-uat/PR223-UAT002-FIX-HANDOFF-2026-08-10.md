@@ -1,7 +1,11 @@
-# PR223 UAT-002 API 修复 → Windows Chrome 复测交接
+# 【复测前历史快照】PR223 UAT-002 API 修复 → Windows Chrome 复测交接
+
+> 本文档记录 `de92ad70` 修复完成后、Windows Chrome Profile 1 复测前的交接状态，已不再作为当前执行入口。
+> 2026-08-10 真实 Chrome 复测后，UAT-002 已解决、C-15 已通过，Chrome 15 项为 15 PASS / 0 FAIL；
+> 当前唯一剩余阻塞为 `ENV-001 / ROLE-NEG-01`。当前权威状态见同目录 `task.json`，历史 FAIL 证据继续保留且未被覆盖。
 
 交接时间：2026-08-10（Asia/Singapore）
-当前 UAT 状态：`BLOCKED`；不得在真实 Chrome 复测前将 UAT-002/C-15 改为 PASS。
+快照时 UAT 状态：`BLOCKED`；当时不得在真实 Chrome 复测前将 UAT-002/C-15 改为 PASS。
 
 ## 1. 修复权威与工作区
 

@@ -33,7 +33,7 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "2026-08-06 execution sync: Track A, Track B and Track C Codex technical delivery are complete. Track B Chrome UAT passed with product P0/P1=0 and its child remains archived. Track C final SHA 15b6e8f6edd12759dc35b1675f851c9a0bc52c0c passed formal rollback 19/19 and an unspliced fresh 30-cell performance matrix; formal evidence SHA 1a451ecf1241de7a95aa3726fe97da244971f31ecf2ed27cf4492446bdc64ff2, independent evidence/cleanup reviews approved, residual=0, product open_P0_P1=[]. Track C is archived after technical PASS. Track C Chrome delta remains honestly 15/15 environment BLOCKED by sandboxCwd local-file-URI, screenshots=0; item C-P1-CHROME-HOST-ENVIRONMENT remains an external host follow-up and is not a product P1. Parent stays in_progress only because external human UAT/signatures and production readiness remain awaiting_human_gate; Codex does not sign for those roles.",
+  "notes": "2026-08-11 execution sync: Track A, Track B and Track C Codex technical delivery are complete. Track B Chrome UAT passed with product P0/P1=0 and its child remains archived. Track C final SHA 15b6e8f6edd12759dc35b1675f851c9a0bc52c0c passed formal rollback 19/19 and an unspliced fresh 30-cell performance matrix; formal evidence SHA 1a451ecf1241de7a95aa3726fe97da244971f31ecf2ed27cf4492446bdc64ff2, independent evidence/cleanup reviews approved, residual=0, product open_P0_P1=[]. Track C is archived after technical PASS. Windows Google Chrome Profile 1 已完成 PR223 本地隔离环境复测，Chrome 15 项 15 PASS / 0 FAIL，UAT-002 已解决，C-P1-CHROME-HOST-ENVIRONMENT 已关闭；总矩阵为 47 PASS / 0 FAIL / 1 BLOCKED。唯一剩余环境阻塞为 ENV-001 / ROLE-NEG-01。Parent stays in_progress because this blocker plus external human UAT/signatures and production readiness remain awaiting_human_gate; Codex does not sign for those roles.",
   "meta": {
     "codex_execution_status": "codex_complete",
     "trackATechnicalStatus": "passed",
@@ -43,6 +43,13 @@
     "production_readiness_status": "awaiting_human_gate",
     "openProductP0": 0,
     "openProductP1": 0,
-    "openEnvironmentP1": 1
+    "openEnvironmentP1": 1,
+    "openEnvironmentItems": [
+      "ENV-001/ROLE-NEG-01"
+    ],
+    "closedEnvironmentItems": [
+      "C-P1-CHROME-HOST-ENVIRONMENT"
+    ],
+    "chrome15Status": "15_pass_0_fail"
   }
 }

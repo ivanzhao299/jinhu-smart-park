@@ -28,6 +28,3 @@ project_doc_fallback_filenames = ["AGENTS.md"]
 # config if needed.
 
 sandbox_mode = "workspace-write"
-
-[sandbox_workspace_write]
-network_access = true
