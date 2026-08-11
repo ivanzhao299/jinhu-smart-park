@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "08-10-pr223-windows-real-browser-uat"
+  ],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
   "notes": "",

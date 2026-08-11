@@ -3,7 +3,7 @@
   "name": "homestay-mvp",
   "title": "民宿MVP规划",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -11,7 +11,7 @@
   "creator": "codex",
   "assignee": "codex",
   "createdAt": "2026-07-24",
-  "completedAt": null,
+  "completedAt": "2026-08-10",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,10 @@
   "children": [],
   "parent": "07-24-property-business-domain-planning",
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": "2026-08-10 closure: superseded by 07-30-pr192-property-productization-remediation; the homestay MVP planning scope was delivered through the PR192 remediation task tree.",
+  "meta": {
+    "disposition": "superseded",
+    "supersededBy": "07-30-pr192-property-productization-remediation",
+    "supersededAt": "2026-08-10"
+  }
 }
