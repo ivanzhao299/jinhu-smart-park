@@ -678,7 +678,7 @@ Response/Exception 链和隔离 PostgreSQL 16；六张 mode/occupancy/audit/idem
 outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增量均为 0。临时容器
 和匿名卷已清理。S0 放行后进入 S1 shared/schema handoff，不直接跳过到 B-1。
 
-## 18. 2026-08-04 当前执行状态
+## 18. 执行状态（2026-08-04 快照，已由 2026-08-10 复测更新）
 
 - [x] Track A 技术交付完成。
 - [x] Track B 技术交付、最终 Chrome 全矩阵 UAT 与 Trellis 归档完成；产品 P0/P1=0，
@@ -690,10 +690,11 @@ outbox 表前后快照一致，Audit、Idempotency 与领域 Service 调用增�
   occupancy port、upload rollback flag 与 rollback/output handoff，故主动停止并 residual=0。
   技术缺口已闭合；final SHA `15b6e8f6...52c0c` rollback 19/19、fresh 30-cell
   30/30、formal gate、独立 evidence/cleanup review 与 residual=0 全部通过，未拼接 E/F。
-- [x] Track C C4：性能证据已由非实施者独立复核 APPROVE；Chrome 增量 15/15 因宿主
-  `sandboxCwd` local-file-URI 错误在插件执行前 BLOCKED，保留环境 P1
-  `C-P1-CHROME-HOST-ENVIRONMENT`，不得伪造 PASS 或误报为产品缺陷；该环境 follow-up
-  不逆转 Track C technical PASS。
+- [x] Track C C4：性能证据已由非实施者独立复核 APPROVE。2026-08-04 Chrome 增量
+  15/15 曾因宿主 `sandboxCwd` local-file-URI 错误在插件执行前 BLOCKED；
+  2026-08-10 已由 Windows Google Chrome Profile 1 在本地隔离环境复测为 15/15 PASS，
+  `C-P1-CHROME-HOST-ENVIRONMENT` 已关闭。历史 BLOCKED 证据保留，当前仅剩 P2
+  `ENV-001 / ROLE-NEG-01`；两者均不逆转 Track C technical PASS。
 - [ ] 外部真人岗位 UAT 与业务、财务、安全/审计、发布签署仍为
   `awaiting_human_gate`。父任务保持 `in_progress`，但
   `codex_execution_status=codex_complete`；不得声明 `production_ready`。
