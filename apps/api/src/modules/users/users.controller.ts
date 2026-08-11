@@ -91,9 +91,12 @@ export class UsersController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: UpdateUserDto
+    @Body() dto: UpdateUserDto,
+    @Req() request: AuditScopeRequest
   ) {
-    return this.usersService.update(scope, user, id, dto);
+    return this.usersService.update(scope, user, id, dto, (targetScope) => {
+      request.auditScopeOverride = targetScope;
+    });
   }
 
   @Delete(":id")

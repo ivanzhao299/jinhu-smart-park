@@ -27,8 +27,13 @@ test("organization assignment replacement only deletes the target user's current
   } as UserEntity;
   let updateWhere: unknown;
   let auditScope: unknown;
+  let transactionActive = false;
   const lockKeys: string[] = [];
   const transactionRepository = {
+    find: async () => {
+      assert.equal(transactionActive, true, "the response snapshot must be read before the transaction releases its lock");
+      return [{ orgId: "org-current", postId: null, isPrimary: true }];
+    },
     update: async (where: unknown) => { updateWhere = where; },
     create: (value: unknown) => value,
     save: async (value: unknown) => value
@@ -48,7 +53,14 @@ test("organization assignment replacement only deletes the target user's current
       if (entity === UserOrgEntity) return transactionRepository;
       throw new Error("Unexpected repository");
     },
-    transaction: async (callback) => callback(manager)
+    transaction: async (callback) => {
+      transactionActive = true;
+      try {
+        return await callback(manager);
+      } finally {
+        transactionActive = false;
+      }
+    }
   };
   const service = new UsersService(
     { findOne: async () => target } as never,
@@ -67,7 +79,7 @@ test("organization assignment replacement only deletes the target user's current
     { get: (_key: string, fallback?: string) => fallback } as never
   );
 
-  await service.replaceOrgAssignments(
+  const result = await service.replaceOrgAssignments(
     scope,
     { ...actor, isSuper: true, permissions: ["*"] },
     target.id,
@@ -83,6 +95,7 @@ test("organization assignment replacement only deletes the target user's current
   });
   assert.deepEqual(lockKeys, ["user-org-scope:user-1", "org-hierarchy:tenant-2:park-2"]);
   assert.deepEqual(auditScope, { tenantId: target.tenantId, parkId: target.parkId });
+  assert.deepEqual(result, [{ orgId: "org-current", postId: null, isPrimary: true, orgName: undefined, postName: null }]);
 });
 
 test("user scope updates serialize with assignment writes and retire the previous scope", async () => {
@@ -160,6 +173,14 @@ test("organization assignment reads apply the actor's organization data scope", 
   const manager = {
     getRepository: (entity: unknown) => {
       if (entity === OrgEntity) return { find: async () => [{ id: "org-visible" }] };
+      if (entity === UserOrgEntity) {
+        return {
+          find: async (options: { where: unknown }) => {
+            linkFindWhere = options.where;
+            return [];
+          }
+        };
+      }
       throw new Error("Unexpected repository");
     }
   };
@@ -168,8 +189,7 @@ test("organization assignment reads apply the actor's organization data scope", 
     {} as never,
     {} as never,
     {
-      manager,
-      find: async (options: { where: unknown }) => { linkFindWhere = options.where; return []; }
+      manager
     } as never,
     {} as never,
     {} as never,
@@ -334,6 +354,7 @@ test("user profile and organization assignment updates share one transaction", a
     status: "enabled", isEnabled: true
   } as UserEntity;
   const events: string[] = [];
+  let auditScope: unknown;
   interface AtomicUpdateManager {
     query(sql: string, parameters: unknown[]): Promise<void>;
     getRepository(entity: unknown): unknown;
@@ -378,7 +399,7 @@ test("user profile and organization assignment updates share one transaction", a
   await service.update(scope, actor, target.id, {
     displayName: "New name",
     assignments: [{ orgId: "org-visible", postId: null, isPrimary: true }]
-  });
+  }, (resolvedScope) => { auditScope = resolvedScope; });
 
   assert.deepEqual(events, [
     "transaction-start",
@@ -389,6 +410,7 @@ test("user profile and organization assignment updates share one transaction", a
     "save-assignments",
     "transaction-commit"
   ]);
+  assert.deepEqual(auditScope, scope);
 });
 
 test("user deletion serializes with assignment writes and retires active assignments", async () => {

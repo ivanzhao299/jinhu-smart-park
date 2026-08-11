@@ -359,10 +359,19 @@ export class UsersService {
   async listOrgAssignments(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<UserOrgAssignment[]> {
     const user = await this.getEntityForActor(scope, id, actor);
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
-    const visibleOrgIds = await this.resolveVisibleOrgIds(targetScope, actor);
-    const links = await this.userOrgRepository.find({
+    return this.listOrgAssignmentsInScope(targetScope, actor, id, this.userOrgRepository.manager);
+  }
+
+  private async listOrgAssignmentsInScope(
+    targetScope: TenantParkScope,
+    actor: JwtPrincipal,
+    userId: string,
+    manager: EntityManager
+  ): Promise<UserOrgAssignment[]> {
+    const visibleOrgIds = await this.resolveVisibleOrgIds(targetScope, actor, manager);
+    const links = await manager.getRepository(UserOrgEntity).find({
       where: {
-        userId: id,
+        userId,
         tenantId: targetScope.tenantId,
         parkId: targetScope.parkId,
         isDeleted: false,
@@ -453,15 +462,15 @@ export class UsersService {
     onTargetScope?: (targetScope: TenantParkScope) => void
   ): Promise<UserOrgAssignment[]> {
     this.assertOrgAssignmentShape(dto.assignments);
-    await this.userOrgRepository.manager.transaction(async (manager) => {
+    return this.userOrgRepository.manager.transaction(async (manager) => {
       await lockUserOrganizationScope(manager, id);
       const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
       const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
       onTargetScope?.(targetScope);
       await lockOrgHierarchy(manager, targetScope);
       await this.replaceOrgAssignmentsInTransaction(targetScope, actor, id, dto.assignments, manager);
+      return this.listOrgAssignmentsInScope(targetScope, actor, id, manager);
     });
-    return this.listOrgAssignments(scope, actor, id);
   }
 
   private async assertOrgAssignments(
@@ -718,7 +727,13 @@ export class UsersService {
     };
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUserDto): Promise<UserView> {
+  async update(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: UpdateUserDto,
+    onTargetScope?: (targetScope: TenantParkScope) => void
+  ): Promise<UserView> {
     if (dto.assignments !== undefined) {
       this.assertOrgAssignmentShape(dto.assignments);
     }
@@ -728,6 +743,7 @@ export class UsersService {
       const user = await this.getEntityForActor(scope, id, actor, usersRepository);
       const previousScope = { tenantId: user.tenantId, parkId: user.parkId };
       const targetScope = await this.resolveUserTargetScope(previousScope, actor, dto.tenantId, dto.parkId);
+      onTargetScope?.(targetScope);
       const scopeChanged = targetScope.tenantId !== previousScope.tenantId || targetScope.parkId !== previousScope.parkId;
       const scopesToLock = new Map<string, TenantParkScope>();
       if (scopeChanged) {

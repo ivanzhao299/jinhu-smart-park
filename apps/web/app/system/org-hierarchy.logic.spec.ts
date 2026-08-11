@@ -20,6 +20,12 @@ test("organization page exposes desktop and mobile hierarchy records", () => {
   assert.match(source, /role="alert"/);
   assert.match(source, /上级组织不可见/);
   assert.match(source, /负责人不可用/);
+  assert.match(source, /label="排序"/);
+  assert.match(source, /label="数据租户"/);
+  assert.match(source, /label="园区范围"/);
+  assert.match(source, /label="创建时间"/);
+  assert.match(source, /label="更新时间"/);
+  assert.match(source, /label="备注"/);
 });
 
 test("user page creates organization assignments atomically and guards stale catalogs", () => {
