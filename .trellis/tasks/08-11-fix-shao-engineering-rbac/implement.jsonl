@@ -1,0 +1,2 @@
+{"file":".trellis/spec/guides/project-operations.md","reason":"Production seed, migration safety, release smoke, and deployment rules."}
+{"file":".trellis/spec/api/backend/index.md","reason":"Backend RBAC scope and permission contract."}

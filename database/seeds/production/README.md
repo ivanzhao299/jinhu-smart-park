@@ -18,6 +18,7 @@ Current production-safe seed files:
 - `000007_asset_park_scope_reconcile.sql`
 - `000008_property_runtime_control_scope_reconcile.sql`
 - `000009_jh_leasing_lead_workorder_create_repair.sql`
+- `000010_jh_engineering_project_manager_rbac_reconcile.sql`
 
 This seed initializes:
 
@@ -32,6 +33,7 @@ This seed initializes:
 - A missing default-scope `asset_park` projection, using same-scope canonical data first and the globally unique active `JH` legacy-scope baseline only as a bounded fallback
 - Missing runtime controls for an asset scope created after migrations, initialized through the audited disabled v1 -> v2 -> v3 contract transition; partial or drifting states fail closed
 - The reviewed leasing-lead role aliases `INVEST_MANAGER` and `JH_LEASING_LEAD` receive the least-privilege `workorder:create` grant required by protected go-live UAT; an absent optional alias remains a safe no-op
+- The reviewed engineering project manager role is created when absent, converged to its explicit engineering permission set, and assigned exclusively to `shao_minghong` in place of the two documented broad legacy roles
 
 It does not create fixed-password users or S2 demo房源数据.
 The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,
