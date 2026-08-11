@@ -10,7 +10,7 @@ import { UserEntity } from "../users/entities/user.entity";
 
 const scope = { tenantId: "tenant-1", parkId: "park-1" };
 const hierarchyMigration = readFileSync(
-  resolve(__dirname, "../../../../../database/migrations/000202_org_hierarchy_integrity.sql"),
+  resolve(__dirname, "../../../../../database/migrations/000203_org_hierarchy_integrity.sql"),
   "utf8"
 );
 
