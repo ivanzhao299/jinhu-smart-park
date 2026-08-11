@@ -1,7 +1,11 @@
-# PR223 本地真实 Chrome UAT → WSL Codex 交接
+# 【复测前历史快照】PR223 本地真实 Chrome UAT → WSL Codex 交接
+
+> 本文档记录 UAT-002 修复及 Windows Chrome Profile 1 复测完成前的交接状态，已不再作为当前执行入口。
+> 2026-08-10 真实 Chrome 复测后，UAT-002 已解决、C-15 已通过，Chrome 15 项为 15 PASS / 0 FAIL；
+> 当前唯一剩余阻塞为 `ENV-001 / ROLE-NEG-01`。当前权威状态见同目录 `task.json`，本文后续步骤仅保留审计。
 
 交接时间：2026-08-10（Asia/Singapore）
-交接结论：**BLOCKED，禁止声明 `production_ready`**
+快照时交接结论：**BLOCKED，禁止声明 `production_ready`**
 
 ## 1. 权威对象与代码边界
 
@@ -11,7 +15,7 @@
 - 干净待测 worktree：`/home/jinhuit/JinHuCodebase/jinhu-smart-park-pr223-uat-28d5e517`
 - 原始仓库：`/home/jinhuit/JinHuCodebase/jinhu-smart-park`
 - Trellis task：`.trellis/tasks/08-10-pr223-windows-real-browser-uat`
-- Trellis 状态：`in_progress`；尚未完成，等待 P1 修复与 Chrome 复测。
+- 快照时 Trellis 状态：`in_progress`；当时尚未完成，等待 P1 修复与 Chrome 复测。
 
 原始仓库在接管时是 pre-merge HEAD，并已有约 56 个用户 dirty 路径；本次没有执行 `reset`、`checkout` 或 `clean`，也没有改动业务源码。后续 WSL Codex 必须继续保护这些用户改动。`15b6e8f…` 与 `2026-08-04` 只属历史证据，不得替代本次 PR223 结果。
 
@@ -109,7 +113,10 @@ Chrome C-01..C-15 使用了第二个本地 Web `http://localhost:3102`，仅将 
 - `local-files/UAT_PR223_20260810_upload-smoke.png`
 - `local-files/UAT_PR223_20260810_invalid-mime.txt`
 
-## 8. WSL Codex 下一步
+## 8. 快照中的 WSL Codex 下一步（已完成，不得重复执行）
+
+以下步骤已由 `de92ad70` 修复及后续 Windows Chrome Profile 1 复测闭合，仅保留当时的审计链；
+新的接管者应以同目录 `task.json` 为准，不得重新实施 UAT-002 或覆盖既有 Chrome 证据。
 
 1. 先读取本交接、`BLOCKED-UAT-002-HOUSING-REPAIR-FILE-DELETE.md`、`uat-matrix.csv` 与 `defects.csv`。
 2. 在原始仓库运行只读 `git status --short`，保护全部既有用户改动；不要 reset/checkout/clean。
