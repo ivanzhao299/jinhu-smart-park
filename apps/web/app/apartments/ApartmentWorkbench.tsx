@@ -17,7 +17,8 @@ export function ApartmentWorkbench({view='dashboard'}:{view?:string}){
  const action=async(path:string,body?:object)=>{try{await apartmentsApi.mutate(path,body,getAccessToken());await load()}catch(e){setMessage(e instanceof Error?e.message:'操作失败')}};
  const allocate=async(row:ApartmentRecord)=>{try{const beds=await apartmentsApi.availableBeds(String(row.requested_start_date),row.requested_end_date?String(row.requested_end_date):undefined,getAccessToken());const bed=beds[0];if(!bed)throw new Error('当前日期范围没有可用床位');await apartmentsApi.mutate(`/apartments/applications/${row.id}/allocate`,{room_id:bed.room_id,bed_id:bed.id,planned_end_date:row.requested_end_date||undefined},getAccessToken());await load()}catch(e){setMessage(e instanceof Error?e.message:'分配失败')}};
  const icons=[Building2,ClipboardCheck,Users,LogOut,FileArchive];
- return <PermissionGuard module="apartment" permission={view==='dashboard'?'apartment:dashboard':`apartment:${view}`}><main className="content ds-page">
+ const forbidden=<main className="content ds-page"><section className="ds-panel"><h1>无权访问公寓管理</h1><p>当前账号缺少公寓模块或页面权限，请联系系统管理员授权。</p></section></main>;
+ return <PermissionGuard module="apartment" permission={view==='dashboard'?'apartment:dashboard':`apartment:${view}`} fallback={forbidden}><main className="content ds-page">
   <section className={`ds-hero ${styles.hero}`}><div><span className={styles.muted}>集团人才公寓 · 人力资源管理</span><h1>{view==='dashboard'?'公寓管理':labels[view]}</h1><p>房源、申请、入住、退房和文书归档一条链闭环。</p></div><div className={styles.actions}><a className="secondary-button" href="/templates/apartment-import-template.xlsx" download>下载导入模板</a><button className="secondary-button" onClick={()=>void load()}><RefreshCw size={16}/>刷新</button></div></section>
   <nav className={styles.nav}>{nav.map(([n,h])=><Link href={h} key={h}>{n}</Link>)}</nav>
   {message?<p className="form-error">{message}</p>:null}

@@ -19,6 +19,8 @@ Reference files:
 
 Many routes keep `page.tsx` as a thin server component that renders a client component. Use this when a page needs local state, effects, browser APIs, forms, drawers, or API calls.
 
+Every authenticated top-level business route that lives outside the `(dashboard)` route group must provide a `layout.tsx` wrapping its children with `DashboardLayout`. A `PermissionGuard` depends on the user context supplied by that layout; omitting it can turn a valid authenticated route into a blank page. Permission-gated full pages must also provide a visible 403-style fallback instead of the default empty fallback. Add a route contract assertion whenever a new top-level business module is introduced.
+
 Reference files:
 - `apps/web/app/assets/units/page.tsx`
 - `apps/web/app/assets/units/UnitsPageClient.tsx`

@@ -42,5 +42,10 @@ export class HandoverDto {
   @IsOptional() @IsArray() @IsUUID(undefined, { each: true }) photo_file_ids?: string[];
   @IsOptional() @IsString() @MaxLength(1000) exception_note?: string;
 }
-export class CreateTemplateDto { @IsString() document_type!: string; @IsInt() @Min(1) version_no!: number; @IsOptional() @IsUUID() template_file_id?: string; @IsOptional() @IsObject() variable_schema?: Record<string, unknown>; }
+export class UpdateApartmentSettingsDto { @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(1000) default_application_reason!: string; }
+export class CreateTemplateDto { @IsString() document_type!: string; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(200) title!: string; @Transform(trim) @IsString() @IsNotEmpty() content_html!: string; @IsInt() @Min(1) version_no!: number; @IsOptional() @IsUUID() template_file_id?: string; @IsOptional() @IsObject() variable_schema?: Record<string, unknown>; }
 export class ArchiveDocumentDto { @IsUUID() template_id!: string; @IsOptional() @IsUUID() stay_id?: string; @IsOptional() @IsUUID() application_id?: string; @IsOptional() @IsObject() variables?: Record<string, unknown>; @IsOptional() @IsUUID() generated_file_id?: string; @IsOptional() @IsUUID() signed_file_id?: string; @IsOptional() @IsString() signed_sha256?: string; }
+export class GenerateApartmentDocumentDto { @IsUUID() template_id!: string; @IsOptional() @IsUUID() stay_id?: string; @IsOptional() @IsUUID() application_id?: string; @IsOptional() @IsObject() variables?: Record<string, unknown>; }
+export class OnlineSignApartmentDocumentDto { @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(100) signer_name!: string; @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(500) statement!: string; @IsOptional() @IsString() @MaxLength(200) client_label?: string; }
+export class PaperSignApartmentDocumentDto { @IsUUID() signed_file_id!: string; }
+export class VoidApartmentDocumentDto { @Transform(trim) @IsString() @IsNotEmpty() @MaxLength(500) reason!: string; }
