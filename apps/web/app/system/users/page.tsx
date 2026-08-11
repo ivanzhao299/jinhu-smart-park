@@ -473,6 +473,7 @@ export default function UsersPage() {
               <div className="field">
                 <label>组织与岗位</label>
                 <div className="checkbox-list">
+                  {orgAssignments.length > 0 ? <label className="checkbox-row"><input type="radio" name="primaryOrg" checked={!orgAssignments.some((item) => item.isPrimary)} onChange={() => setOrgAssignments((current) => current.map((item) => ({ ...item, isPrimary: false })))} /><span>无主组织</span></label> : null}
                   {orgAssignments.map((assignment, index) => (
                     <div className="task-item" style={{ flexWrap: "wrap" }} key={`${index}-${assignment.orgId}`}>
                       <select aria-label={`组织 ${index + 1}`} value={assignment.orgId} onChange={(event) => setOrgAssignments((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, orgId: event.target.value } : item))} required>

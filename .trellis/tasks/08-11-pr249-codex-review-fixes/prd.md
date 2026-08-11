@@ -33,7 +33,7 @@
 - [ ] 跨作用域创建用户时只加载并接受目标租户/园区的组织与岗位。
 - [ ] bootstrap-admin 在已有非根主组织时可重复执行，根组织关系保持活动但非主组织。
 - [ ] API/Web 目标单测、lint、typecheck、build 通过；组织专项与完整首发回归通过。
-- [ ] 8 个 review threads 均逐项回复并解决；最新 head 重新触发 Codex review 且无新增可操作反馈。
+- [ ] 所有 review threads 均逐项回复并解决；最新 head 重新触发 Codex review 且无新增可操作反馈。
 
 ## Notes
 

@@ -151,7 +151,7 @@ export class DataScopeService {
     if (roleIds.length === 0) {
       return [{ dimension: "tenant", scope_type: user.dataScope ?? "tenant", scope_config: {} }];
     }
-    const scopes = await this.getDataScopesForRoleIds(scope.tenantId, roleIds);
+    const scopes = await this.getDataScopesForRoleIds(scope.tenantId, roleIds, scope.parkId);
     return scopes.length > 0 ? scopes : [{ dimension: "tenant", scope_type: user.dataScope ?? "tenant", scope_config: {} }];
   }
 
@@ -254,7 +254,7 @@ export class DataScopeService {
       return this.resolveFallbackAllowedIds(user, dimension);
     }
     const links = await this.roleDataScopeRepository.find({
-      where: { tenantId: scope.tenantId, roleId: In(roleIds), isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: In(roleIds), isDeleted: false },
       relations: { rule: true }
     });
     const enabledRules = links
@@ -317,7 +317,7 @@ export class DataScopeService {
 
   private async resolveUserRoleIds(scope: TenantParkScope, user: JwtPrincipal): Promise<string[]> {
     const roleLinks = await this.userRoleRepository.find({
-      where: { tenantId: scope.tenantId, userId: user.sub, isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, userId: user.sub, isDeleted: false },
       relations: { role: true }
     });
     return roleLinks.filter((link) => link.role && !link.role.isDeleted && link.role.isEnabled).map((link) => link.roleId);
@@ -345,12 +345,12 @@ export class DataScopeService {
     return scopes.length > 0 ? scopes : [{ dimension: "tenant", scope_type: this.resolveRoleFallbackScope(activeLinks.map((link) => link.role.dataScope)), scope_config: {} }];
   }
 
-  private async getDataScopesForRoleIds(tenantId: string, roleIds: string[]): Promise<UserDataScopeContext[]> {
+  private async getDataScopesForRoleIds(tenantId: string, roleIds: string[], parkId?: string): Promise<UserDataScopeContext[]> {
     if (roleIds.length === 0) {
       return [];
     }
     const links = await this.roleDataScopeRepository.find({
-      where: { tenantId, roleId: In(roleIds), isDeleted: false },
+      where: { tenantId, ...(parkId ? { parkId } : {}), roleId: In(roleIds), isDeleted: false },
       relations: { rule: true },
       order: { createTime: "ASC" }
     });

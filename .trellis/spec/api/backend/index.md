@@ -141,6 +141,11 @@ Identifiers and codes belong in their dedicated fields.
   profile update.
 - Production `api` and `full` deployments stop the old API before migration and keep it stopped through the
   optional production seed until the new API starts. Migration failure remains fail-closed with API stopped.
+- Persisted user-role and role-data-scope links are park-scoped authorization inputs. Scoped resolution must filter
+  both `tenantId` and `parkId`; a stale relationship from another park must never widen the current park's data scope.
+- A user move may leave an old active organization link whose `tenantId` no longer matches the canonical user.
+  Forward migration retires that cross-tenant link, while same-tenant secondary-park links remain valid. Organization
+  deletion counts only links whose active user still belongs to the organization tenant.
 
 ### Tests Required
 
@@ -148,6 +153,9 @@ Identifiers and codes belong in their dedicated fields.
 - Reject a submitted hidden assignment even if a separate entity count would find that organization.
 - Prove profile save and relationship replacement execute inside the same transaction manager.
 - Assert deploy ordering is `stop api -> db-migrate -> up -d api` (or `api web`).
+- Assert scoped role and role-data-scope repository predicates include the current park.
+- Rehearse the organization-integrity migration with one stale cross-tenant link and one same-tenant secondary-park
+  link; only the stale cross-tenant link is retired.
 
 Pagination DTOs must validate `page` and `page_size` as integers and cap
 `page_size` at the endpoint's documented maximum before values reach

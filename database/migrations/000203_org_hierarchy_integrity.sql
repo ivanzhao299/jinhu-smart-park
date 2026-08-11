@@ -4,6 +4,16 @@ BEGIN;
 -- Block concurrent hierarchy writes before inspecting the existing graph.
 LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;
 
+-- Older user-move code could leave active organization links in the user's former tenant.
+-- Secondary-park links inside the current tenant remain valid and must be preserved.
+UPDATE rel_user_org link
+SET is_deleted = true,
+    update_time = now()
+FROM sys_user target_user
+WHERE target_user.id = link.user_id
+  AND link.is_deleted = false
+  AND link.tenant_id <> target_user.tenant_id;
+
 DO $preflight$
 DECLARE
   invalid_count integer;

@@ -17,6 +17,7 @@ test("organization page exposes desktop and mobile hierarchy records", () => {
   assert.match(source, /ds-mobile-record-list/);
   assert.match(source, /删除组织/);
   assert.match(source, /role="alert"/);
+  assert.match(source, /上级组织不可见/);
 });
 
 test("user page creates organization assignments atomically and guards stale catalogs", () => {
@@ -35,6 +36,8 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /sameOrgAssignments\(body\.assignments, loadedOrgAssignments\)/);
   assert.match(usersSource, /添加组织关系/);
   assert.match(usersSource, /name="primaryOrg"/);
+  assert.match(usersSource, /无主组织/);
+  assert.match(usersSource, /isPrimary: false/);
   assert.match(usersSource, /role="alert"/);
 });
 

@@ -4,6 +4,8 @@ import { DataScopeService } from "./data-scope.service";
 
 test("org_and_children expands descendants inside the scoped query", async () => {
   const queryCalls: Array<{ sql: string; parameters: unknown[] }> = [];
+  const roleLinkWhere: unknown[] = [];
+  const ruleLinkWhere: unknown[] = [];
   const rulesRepository = {
     query: async (sql: string, parameters: unknown[]) => {
       queryCalls.push({ sql, parameters });
@@ -11,10 +13,16 @@ test("org_and_children expands descendants inside the scoped query", async () =>
     }
   };
   const roleDataScopeRepository = {
-    find: async () => [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: { orgIds: ["00000000-0000-0000-0000-000000000001"] }, status: "enabled", isDeleted: false } }]
+    find: async (options: { where: unknown }) => {
+      ruleLinkWhere.push(options.where);
+      return [{ rule: { dimension: "org", scopeType: "org_and_children", scopeConfig: { orgIds: ["00000000-0000-0000-0000-000000000001"] }, status: "enabled", isDeleted: false } }];
+    }
   };
   const userRoleRepository = {
-    find: async () => [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }]
+    find: async (options: { where: unknown }) => {
+      roleLinkWhere.push(options.where);
+      return [{ roleId: "role-1", role: { isDeleted: false, isEnabled: true } }];
+    }
   };
   const service = new DataScopeService(rulesRepository as never, roleDataScopeRepository as never, {} as never, userRoleRepository as never);
   let applied: { sql?: string; values?: Record<string, string[]> } = {};
@@ -31,6 +39,8 @@ test("org_and_children expands descendants inside the scoped query", async () =>
   assert.deepEqual(queryCalls[0]?.parameters, ["tenant-1", "park-1", ["00000000-0000-0000-0000-000000000001"]]);
   assert.match(applied.sql ?? "", /org\.org_id IN/);
   assert.deepEqual(applied.values?.dataScopeIds_org, ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]);
+  assert.deepEqual(roleLinkWhere[0], { tenantId: "tenant-1", parkId: "park-1", userId: "user-1", isDeleted: false });
+  assert.equal((ruleLinkWhere[0] as { parkId?: string }).parkId, "park-1");
 });
 
 test("org_and_children with no roots denies access without running recursive SQL", async () => {

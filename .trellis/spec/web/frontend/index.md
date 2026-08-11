@@ -172,6 +172,12 @@ fields from update requests. Compare set-like fields after normalization so orde
 duplicates do not cause an unchanged historical binding to be revalidated against the active
 catalog. Submit the coupled fields together only when the operator actually changes them.
 
+For hierarchy editors, a non-null parent that is outside the actor's visible projection is an
+unavailable historical binding, not a root organization. Render an explicit unavailable label
+and omit that unchanged parent from the update payload. Relationship editors that allow zero or
+one primary binding must expose an explicit “no primary” choice instead of forcing one relation
+to remain primary in the browser.
+
 ## User-Facing Catalog Labels
 
 Catalog selectors must show stable business labels rather than database IDs. Keep the ID in the

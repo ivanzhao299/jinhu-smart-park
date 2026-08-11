@@ -152,7 +152,7 @@ test("delete counts only assignments belonging to active users", async () => {
     parkId: scope.parkId,
     orgId: "root",
     isDeleted: false,
-    user: { isDeleted: false }
+    user: { tenantId: scope.tenantId, isDeleted: false }
   });
 });
 
@@ -175,6 +175,7 @@ test("leader candidates are not silently capped", async () => {
 test("hierarchy migration locks writes and rejects inactive parents before adding constraints", () => {
   assert.match(hierarchyMigration, /LOCK TABLE sys_org IN SHARE ROW EXCLUSIVE MODE;[\s\S]*DO \$preflight\$/);
   assert.match(hierarchyMigration, /child\.is_deleted = false[\s\S]*parent\.is_deleted = true[\s\S]*parent\.status <> 'enabled'/);
+  assert.match(hierarchyMigration, /UPDATE rel_user_org link[\s\S]*link\.tenant_id <> target_user\.tenant_id/);
 });
 
 test("create and reparent reject parent organizations outside the actor data scope", async () => {

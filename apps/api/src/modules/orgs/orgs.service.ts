@@ -164,7 +164,7 @@ export class OrgsService {
           parkId: scope.parkId,
           orgId: id,
           isDeleted: false,
-          user: { isDeleted: false }
+          user: { tenantId: scope.tenantId, isDeleted: false }
         }
       });
       if (activeUsers > 0) {

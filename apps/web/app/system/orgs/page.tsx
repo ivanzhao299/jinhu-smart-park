@@ -97,7 +97,9 @@ export default function OrgsPage() {
   const unavailableCurrentParent = editingOrg?.parentId && !parentOptions.some(({ org }) => org.id === editingOrg.parentId)
     ? editingOrg.parentId
     : null;
-  const parentName = (id: string | null) => allOrgs.find((item) => item.org.id === id)?.org.orgName ?? "根组织";
+  const parentName = (id: string | null) => id
+    ? allOrgs.find((item) => item.org.id === id)?.org.orgName ?? "上级组织不可见"
+    : "根组织";
   const leaderName = (id: string | null) => leaders.find((item) => item.id === id)?.displayName ?? "-";
   const leaderOptions = editingOrg?.leaderUserId && !leaders.some((leader) => leader.id === editingOrg.leaderUserId)
     ? [...leaders, { id: editingOrg.leaderUserId, displayName: "当前负责人（已停用或不可选）", username: editingOrg.leaderUserId }]
