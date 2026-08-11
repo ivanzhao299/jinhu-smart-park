@@ -159,8 +159,13 @@ export default function ParksPage() {
     });
     setShowForm(false);
     setEditingId(null);
-    setMessage("保存成功");
-    await load(pageData.page);
+    try {
+      await load(pageData.page);
+      setMessage("保存成功");
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "未知错误";
+      setMessage(`保存成功，但列表刷新失败：${reason}`);
+    }
   }
 
   async function remove(row: ParkRow) {

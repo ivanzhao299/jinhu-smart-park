@@ -29,4 +29,14 @@ describe("park region cascading options", () => {
       legacy: true
     });
   });
+
+  it("includes every supported province-level region", () => {
+    const provinces = getProvinceOptions().map((option) => option.value);
+    assert.equal(provinces.length, 34);
+    assert.ok(provinces.includes("台湾省"));
+    assert.ok(provinces.includes("香港特别行政区"));
+    assert.ok(provinces.includes("澳门特别行政区"));
+    assert.ok(getDistrictOptions("香港特别行政区", "香港特别行政区").some((option) => option.value === "中西区"));
+    assert.ok(getDistrictOptions("澳门特别行政区", "澳门特别行政区").some((option) => option.value === "花地玛堂区"));
+  });
 });

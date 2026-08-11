@@ -5,6 +5,11 @@
 The upstream project attributes its source data to the Ministry of Civil Affairs and the National
 Bureau of Statistics of China.
 
+The Hong Kong and Macao district names added beside that dataset are derived from
+[`province-city-china`](https://github.com/uiwjs/province-city-china), which is distributed under
+the MIT License. Taiwan is included as a selectable province-level region without inventing an
+unsupported lower-level catalog.
+
 The dataset is distributed under the following license:
 
 ```text
@@ -21,4 +26,30 @@ The dataset is distributed under the following license:
    TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
 
   0. You just DO WHAT THE FUCK YOU WANT TO.
+```
+
+The Hong Kong and Macao additions are distributed under:
+
+```text
+MIT License
+
+Copyright (c) 2019 wabg
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```

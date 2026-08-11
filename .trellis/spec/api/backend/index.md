@@ -99,7 +99,7 @@ Reference files:
 ### 4. Validation & Error Matrix
 - Valid UUID array at or below the capacity -> DTO accepts; the service validates every permission in the current tenant.
 - Array above the capacity -> DTO validation returns HTTP 400.
-- Unknown, deleted, disabled, or cross-tenant ID -> the service rejects the complete assignment.
+- Unknown, deleted, or cross-tenant ID -> the service rejects the complete assignment.
 
 ### 5. Good/Base/Bad Cases
 - Good: a role can select the complete seeded permission tree when it contains more than 200 entries.
