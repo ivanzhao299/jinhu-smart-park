@@ -83,4 +83,8 @@ test("plan module markers cannot grant permissions for a module that is not enab
     filter(["safety_hazard:read", "asset:read"], ["system", "safety"]),
     ["safety_hazard:read"]
   );
+  assert.deepEqual(
+    filter(["iot_alert:*", "iot_device:read", "energy_meter:*"], ["system", "iot"]),
+    ["iot_alert:*", "iot_device:read"]
+  );
 });

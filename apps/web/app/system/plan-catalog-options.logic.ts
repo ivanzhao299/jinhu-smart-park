@@ -47,6 +47,17 @@ export function findPlanAuthorization<T extends PlanAuthorizationOption>(plans: 
   return plans.find((plan) => plan.planCode === planCode) ?? null;
 }
 
+export function moduleCodesForSelectedPlan<T extends PlanAuthorizationOption>(
+  plans: T[],
+  selectedPlanCode: string,
+  retainedPlanCode: string | null | undefined,
+  retainedModuleCodes: string[]
+): string[] | null {
+  const plan = findPlanAuthorization(plans, selectedPlanCode);
+  if (plan) return plan.moduleCodes;
+  return selectedPlanCode === retainedPlanCode ? retainedModuleCodes : null;
+}
+
 export function changedPlanAuthorization(
   currentPlanCode: string | null,
   currentModuleCodes: string[],

@@ -852,9 +852,9 @@ export class TenantsService {
         if (modules.has("workorder") && (code === "workorder" || code === "workorder:center" || code === "wo:read" || code.startsWith("workorder:"))) return true;
         if (modules.has("safety") && (code === "safety" || code.startsWith("safety_"))) return true;
         if (modules.has("engineering") && this.isEngineeringPermission(code)) return true;
-        if (modules.has("iot") && (code === "iot" || code === "iot:overview" || code === "iot:read")) return true;
-        if (modules.has("energy") && (code === "energy" || code === "energy:overview" || code === "energy:read")) return true;
-        if (modules.has("robot") && (code === "robot" || code === "robot:overview" || code === "robot:read")) return true;
+        if (modules.has("iot") && (code === "iot" || code.startsWith("iot:") || code.startsWith("iot_"))) return true;
+        if (modules.has("energy") && (code === "energy" || code.startsWith("energy:") || code.startsWith("energy_"))) return true;
+        if (modules.has("robot") && (code === "robot" || code.startsWith("robot:") || code.startsWith("robot_"))) return true;
         if (
           modules.has("video") &&
           (code === "video" ||
@@ -873,9 +873,9 @@ export class TenantsService {
             code.startsWith("VIDEO_SECURITY_DASHBOARD") ||
             code.startsWith("MENU_VIDEO"))
         ) return true;
-        if (modules.has("bim") && (code === "bim" || code === "bim:overview" || code === "bim:read")) return true;
-        if (modules.has("ai") && (code === "ai" || code === "ai:assistant" || code === "ai:read")) return true;
-        if (modules.has("cockpit") && (code === "cockpit" || code === "cockpit:overview" || code === "cockpit:read")) return true;
+        if (modules.has("bim") && (code === "bim" || code.startsWith("bim:") || code.startsWith("bim_"))) return true;
+        if (modules.has("ai") && (code === "ai" || code.startsWith("ai:") || code.startsWith("ai_"))) return true;
+        if (modules.has("cockpit") && (code === "cockpit" || code.startsWith("cockpit:") || code.startsWith("cockpit_"))) return true;
         return false;
       })
       .map((permission) => permission.code);

@@ -7,7 +7,13 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { isReadableUserParkName, normalizeUserParkNameInput } from "../user-park-options.logic";
-import { changedPlanAuthorization, collectAllCandidatePages, findPlanAuthorization, isRetainedCatalogValue } from "../plan-catalog-options.logic";
+import {
+  changedPlanAuthorization,
+  collectAllCandidatePages,
+  findPlanAuthorization,
+  isRetainedCatalogValue,
+  moduleCodesForSelectedPlan
+} from "../plan-catalog-options.logic";
 
 interface TenantRow {
   id: string;
@@ -174,7 +180,11 @@ export default function TenantsPage() {
         }
       });
       setShowCreate(false);
-      await load(tenants.page);
+      try {
+        await load(tenants.page);
+      } catch (error) {
+        setMessage(`租户已创建，但列表刷新失败：${error instanceof Error ? error.message : "请手动刷新页面"}`);
+      }
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "创建租户失败");
     } finally {
@@ -260,8 +270,13 @@ export default function TenantsPage() {
 
   function selectSettingsPlan(planCode: string) {
     setSettingsPlanCode(planCode);
-    const plan = findPlanAuthorization(plans.items, planCode);
-    if (plan) setSettingsModuleCodes(plan.moduleCodes);
+    const moduleCodes = moduleCodesForSelectedPlan(
+      plans.items,
+      planCode,
+      settings?.tenant.planCode,
+      settings?.enabledModuleCodes ?? []
+    );
+    if (moduleCodes) setSettingsModuleCodes(moduleCodes);
   }
 
   function toggleSettingsModule(moduleCode: string, enabled: boolean) {

@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { changedPlanAuthorization, collectAllCandidatePages, findPlanAuthorization, isRetainedCatalogValue } from "./plan-catalog-options.logic";
+import {
+  changedPlanAuthorization,
+  collectAllCandidatePages,
+  findPlanAuthorization,
+  isRetainedCatalogValue,
+  moduleCodesForSelectedPlan
+} from "./plan-catalog-options.logic";
 
 test("tenant plan selector loads every catalog page", async () => {
   const requestedPages: number[] = [];
@@ -85,9 +91,17 @@ test("tenant creation selects a concrete plan with its modules and quotas", () =
 });
 
 test("changing the plan in login settings replaces the module selection from that plan", () => {
+  const plans = [
+    { planCode: "BASIC", moduleCodes: ["system", "asset"] },
+    { planCode: "PRO", moduleCodes: ["system", "asset", "safety"] }
+  ];
+  assert.deepEqual(moduleCodesForSelectedPlan(plans, "PRO", "DISABLED_PLAN", ["system"]), ["system", "asset", "safety"]);
+  assert.deepEqual(moduleCodesForSelectedPlan(plans, "DISABLED_PLAN", "DISABLED_PLAN", ["system", "workorder"]), ["system", "workorder"]);
+  assert.equal(moduleCodesForSelectedPlan(plans, "UNKNOWN", "DISABLED_PLAN", ["system"]), null);
+
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
 
   assert.match(source, /function selectSettingsPlan/);
-  assert.match(source, /setSettingsModuleCodes\(plan\.moduleCodes\)/);
+  assert.match(source, /moduleCodesForSelectedPlan/);
   assert.match(source, /settingsPlanCode \|\| null/);
 });
