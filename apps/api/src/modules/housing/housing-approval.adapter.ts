@@ -299,6 +299,7 @@ export class HousingApprovalAdapter implements OnModuleInit {
     const rows = await manager.query(`SELECT DISTINCT actor.id::text AS "actorId" FROM sys_user actor
       JOIN rel_user_role ur ON ur.user_id=actor.id AND ur.tenant_id=actor.tenant_id AND ur.park_id=actor.park_id
       JOIN sys_role role ON role.id=ur.role_id AND role.tenant_id=ur.tenant_id
+       AND (role.role_scope='tenant' OR role.park_id=ur.park_id)
       JOIN rel_role_perm rp ON rp.role_id=role.id AND rp.tenant_id=role.tenant_id AND rp.park_id=ur.park_id
       JOIN sys_permission p ON p.id=rp.permission_id AND p.tenant_id=rp.tenant_id
       WHERE actor.tenant_id::text=$1 AND actor.park_id::text=$2 AND p.code=$3

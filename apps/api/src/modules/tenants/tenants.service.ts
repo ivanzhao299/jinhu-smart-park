@@ -951,7 +951,16 @@ export class TenantsService {
       code.startsWith("park:") ||
       code.startsWith("building:") ||
       code.startsWith("floor:") ||
-      code.startsWith("unit:")
+      code.startsWith("unit:") ||
+      code.startsWith("party:") ||
+      code.startsWith("party_role:") ||
+      code.startsWith("property:") ||
+      code.startsWith("property_operation:") ||
+      code.startsWith("property_occupancy:") ||
+      code.startsWith("property_approval:") ||
+      code.startsWith("property_event:") ||
+      code.startsWith("property_task:") ||
+      code.startsWith("property_notification:")
     );
   }
 

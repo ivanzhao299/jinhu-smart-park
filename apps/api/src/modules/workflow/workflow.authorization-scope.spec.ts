@@ -10,6 +10,7 @@ test("workflow assignee lookup reuses tenant-wide roles and permissions with par
   assert.match(query, /ur\.park_id::text = u\.park_id::text/);
   assert.match(query, /rp\.park_id::text = u\.park_id::text/);
   assert.match(query, /r\.tenant_id::text = u\.tenant_id::text/);
+  assert.match(query, /r\.role_scope = 'tenant' OR r\.park_id::text = ur\.park_id::text/);
   assert.match(query, /p\.tenant_id::text = u\.tenant_id::text/);
   assert.doesNotMatch(query, /^\s+AND r\.park_id::text = u\.park_id::text/m);
   assert.doesNotMatch(query, /^\s+AND p\.park_id::text = u\.park_id::text/m);

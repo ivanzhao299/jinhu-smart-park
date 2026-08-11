@@ -351,6 +351,7 @@ export class PropertyFoundationApprovalAdapter implements OnModuleInit {
           AND user_role.tenant_id=actor.tenant_id AND user_role.park_id=actor.park_id
          JOIN sys_role role ON role.id=user_role.role_id
           AND role.tenant_id=user_role.tenant_id
+          AND (role.role_scope='tenant' OR role.park_id=user_role.park_id)
          JOIN rel_role_perm role_permission ON role_permission.role_id=role.id
           AND role_permission.tenant_id=role.tenant_id AND role_permission.park_id=user_role.park_id
          JOIN sys_permission permission ON permission.id=role_permission.permission_id
