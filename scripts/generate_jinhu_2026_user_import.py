@@ -98,7 +98,7 @@ POSTS = (
 USERS = (
     User("zhaoyongwei", "赵永伟", "JH_EXEC", "GROUP_PRESIDENT", ("EXECUTIVE", "OPERATIONS_OWNER"), "全面负责集团发展战略、经营管理及重大事项决策"),
     User("xuwanxi", "许万玺", "JH_EXEC", "GROUP_VP", ("EXECUTIVE", "OPERATIONS_OWNER", "INVEST_MANAGER", "PROPERTY_MANAGER"), "分管重点项目、产业园招商运营、工程建设及综合协调；兼汇金智创总经理"),
-    User("wuenguo", "吴恩国", "JH_HR_ADMIN", "HR_ADMIN_MANAGER", ("SYSTEM_ADMIN",), "负责人力资源管理体系、人员规划、薪酬绩效、劳动关系、社保及综合行政管理"),
+    User("wuenguo", "吴恩国", "JH_HR_ADMIN", "HR_ADMIN_MANAGER", ("JH_HR_ADMIN_MANAGER", "APARTMENT_MANAGER"), "负责人力资源管理体系、人员规划、薪酬绩效、劳动关系、社保及综合行政管理"),
     User("yuanhaitao", "苑海涛", "JH_HR_ADMIN", "HR_ASSISTANT", ("AUDITOR",), "协助劳动关系、社会保险、人事事务及生产后勤协调"),
     User("liuxia", "刘霞", "JH_HR_ADMIN", "ADMIN_DEPUTY_DIRECTOR", ("SYSTEM_ADMIN", "AUDITOR"), "负责档案、证章、会议组织、行政支持、统计报送及后勤协调"),
     User("liuhantao", "刘汉涛", "JH_FINANCE", "FINANCE_MANAGER", ("FINANCE_MANAGER",), "负责财务管理、资金运作、税务管理、融资协调及财务监督"),
