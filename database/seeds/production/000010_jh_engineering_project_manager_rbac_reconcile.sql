@@ -15,6 +15,7 @@ INSERT INTO jh_engineering_project_manager_permissions (permission_code)
 VALUES
   ('system:user:me'),
   ('engineering'),
+  ('engineering:terminal'),
   ('engineering:dashboard'),
   ('engineering:projects'),
   ('engineering:plans'),

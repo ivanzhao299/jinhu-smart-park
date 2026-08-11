@@ -15,6 +15,7 @@ assert.match(sql, /permission\.code LIKE 'homestay:%'/, "homestay denial must be
 assert.match(sql, /permission\.code LIKE 'housing:%'/, "housing denial must be asserted");
 
 for (const permission of [
+  "engineering:terminal",
   "ENGINEERING_PROJECT_VIEW",
   "ENGINEERING_DAILY_REPORT_CREATE",
   "ENGINEERING_INSPECTION_CREATE",
