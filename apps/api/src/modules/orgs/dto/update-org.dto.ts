@@ -3,7 +3,7 @@ import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from "class
 export class UpdateOrgDto {
   @IsOptional()
   @IsUUID()
-  parentId?: string;
+  parentId?: string | null;
 
   @IsOptional()
   @IsString()
@@ -22,7 +22,7 @@ export class UpdateOrgDto {
 
   @IsOptional()
   @IsUUID()
-  leaderUserId?: string;
+  leaderUserId?: string | null;
 
   @IsOptional()
   @IsInt()

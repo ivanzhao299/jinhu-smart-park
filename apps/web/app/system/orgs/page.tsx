@@ -1,434 +1,175 @@
 "use client";
 
 import {
-  Card,
-  DataTable,
-  DataTableActions,
-  Drawer,
-  DrawerDetailGrid,
-  DrawerDetailItem,
-  DrawerFooter,
-  DrawerForm,
-  DrawerFormGrid,
-  DrawerHeader
+  Card, DataTable, DataTableActions, Drawer, DrawerDetailGrid, DrawerDetailItem,
+  DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader
 } from "@jinhu/ui";
-import { Edit3, Eye, Plus, Save, Search, X } from "lucide-react";
+import { Edit3, Eye, Plus, Save, Search, Trash2, X } from "lucide-react";
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { SYSTEM_PERMISSIONS, type OrgTreeNode } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { getAccessToken } from "../../../lib/authz";
+import { getAccessToken, getAuthUser, hasPermission } from "../../../lib/authz";
 
 type OrgStatus = "enabled" | "disabled";
-
-interface OrgRow {
-  id: string;
-  parentId: string | null;
-  orgCode: string;
-  orgName: string;
-  orgType: string;
-  leaderUserId: string | null;
-  status: OrgStatus;
-  sortOrder: number;
-  remark: string | null;
-  tenantId: string;
-  parkId: string;
-  createTime: string;
-  updateTime: string;
+interface OrgRow extends Omit<OrgTreeNode, "children"> {
+  children: OrgRow[];
+  remark?: string | null;
+  tenantId?: string;
+  parkId?: string;
+  createTime?: string;
+  updateTime?: string;
 }
-
+interface LeaderOption { id: string; displayName: string; username: string }
+interface FlatOrg { org: OrgRow; depth: number }
 interface OrgFormState {
+  parentId: string;
   orgCode: string;
   orgName: string;
   orgType: string;
+  leaderUserId: string;
   status: OrgStatus;
   sortOrder: string;
   remark: string;
 }
 
-const emptyPage: PaginatedResult<OrgRow> = { items: [], page: 1, page_size: 20, total: 0 };
-
 const emptyForm: OrgFormState = {
-  orgCode: "",
-  orgName: "",
-  orgType: "department",
-  status: "enabled",
-  sortOrder: "0",
-  remark: ""
+  parentId: "", orgCode: "", orgName: "", orgType: "department", leaderUserId: "",
+  status: "enabled", sortOrder: "0", remark: ""
 };
-
 const orgTypeOptions = [
-  { value: "park", label: "园区" },
-  { value: "group", label: "集团" },
-  { value: "company", label: "公司" },
-  { value: "department", label: "部门" },
-  { value: "project", label: "项目组" },
-  { value: "team", label: "班组" }
+  { value: "park", label: "园区" }, { value: "group", label: "集团" },
+  { value: "company", label: "公司" }, { value: "department", label: "部门" },
+  { value: "project", label: "项目组" }, { value: "team", label: "班组" }
 ];
-
 const orgTypeLabels = new Map(orgTypeOptions.map((item) => [item.value, item.label]));
 
-function toOrgFormState(org: OrgRow): OrgFormState {
+function flattenTree(nodes: OrgRow[], depth = 0): FlatOrg[] {
+  return nodes.flatMap((org) => [{ org, depth }, ...flattenTree(org.children ?? [], depth + 1)]);
+}
+function collectDescendantIds(org: OrgRow): Set<string> {
+  return new Set(flattenTree(org.children ?? []).map((item) => item.org.id));
+}
+function filterTree(nodes: OrgRow[], keyword: string, status: string): OrgRow[] {
+  const query = keyword.trim().toLowerCase();
+  return nodes.flatMap((org) => {
+    const children = filterTree(org.children ?? [], keyword, status);
+    const matches = (!status || org.status === status) && (!query || `${org.orgName} ${org.orgCode}`.toLowerCase().includes(query));
+    return matches || children.length > 0 ? [{ ...org, children }] : [];
+  });
+}
+function toForm(org: OrgRow): OrgFormState {
   return {
-    orgCode: org.orgCode,
-    orgName: org.orgName,
-    orgType: org.orgType,
-    status: org.status,
-    sortOrder: String(org.sortOrder ?? 0),
-    remark: org.remark ?? ""
+    parentId: org.parentId ?? "", orgCode: org.orgCode, orgName: org.orgName,
+    orgType: org.orgType, leaderUserId: org.leaderUserId ?? "", status: org.status as OrgStatus,
+    sortOrder: String(org.sortOrder ?? 0), remark: org.remark ?? ""
   };
 }
 
 export default function OrgsPage() {
-  const [data, setData] = useState(emptyPage);
+  const [tree, setTree] = useState<OrgRow[]>([]);
+  const [leaders, setLeaders] = useState<LeaderOption[]>([]);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState("");
+  const [drawerError, setDrawerError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingOrg, setEditingOrg] = useState<OrgRow | null>(null);
   const [viewingOrg, setViewingOrg] = useState<OrgRow | null>(null);
   const [form, setForm] = useState<OrgFormState>(emptyForm);
 
-  const load = useCallback(async (page = 1) => {
-    const params = new URLSearchParams({ page: String(page), page_size: "20" });
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    if (status) params.set("status", status);
-    const response = await apiRequest<PaginatedResult<OrgRow>>(`/orgs?${params.toString()}`, { token: getAccessToken() });
-    setData(response.data);
-  }, [keyword, status]);
+  const load = useCallback(async () => {
+    const token = getAccessToken();
+    const canListUsers = hasPermission(getAuthUser(), SYSTEM_PERMISSIONS.USER_LIST);
+    const treeResponse = await apiRequest<OrgRow[]>("/orgs/tree", { token });
+    setTree(treeResponse.data);
+    const leaderResponse = canListUsers
+      ? await apiRequest<LeaderOption[]>("/orgs/leaders", { token }).catch(() => null)
+      : null;
+    setLeaders(leaderResponse?.data ?? []);
+  }, []);
+  useEffect(() => { void load().catch(showError); }, [load]);
 
-  useEffect(() => {
-    void load().catch(showError);
-  }, [load]);
+  const allOrgs = useMemo(() => flattenTree(tree), [tree]);
+  const visibleOrgs = useMemo(() => flattenTree(filterTree(tree, keyword, status)), [tree, keyword, status]);
+  const blockedParents = editingOrg ? new Set([editingOrg.id, ...collectDescendantIds(editingOrg)]) : new Set<string>();
+  const parentOptions = allOrgs.filter(({ org }) => org.status === "enabled" && !blockedParents.has(org.id));
+  const unavailableCurrentParent = editingOrg?.parentId && !parentOptions.some(({ org }) => org.id === editingOrg.parentId)
+    ? editingOrg.parentId
+    : null;
+  const parentName = (id: string | null) => id
+    ? allOrgs.find((item) => item.org.id === id)?.org.orgName ?? "上级组织不可见"
+    : "根组织";
+  const leaderName = (id: string | null) => id
+    ? leaders.find((item) => item.id === id)?.displayName ?? "负责人不可用"
+    : "-";
+  const leaderOptions = editingOrg?.leaderUserId && !leaders.some((leader) => leader.id === editingOrg.leaderUserId)
+    ? [...leaders, { id: editingOrg.leaderUserId, displayName: "当前负责人（已停用或不可选）", username: editingOrg.leaderUserId }]
+    : leaders;
 
-  function openCreate() {
-    setEditingOrg(null);
-    setForm(emptyForm);
-    setShowForm(true);
-    setMessage("");
-  }
-
-  async function openView(row: OrgRow) {
-    setViewingOrg(row);
-    setMessage("");
-    try {
-      const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
-      setViewingOrg((current) => (current?.id === row.id ? response.data : current));
-    } catch (error) {
-      showError(error);
-    }
-  }
-
-  async function openEdit(row: OrgRow) {
-    setEditingOrg(row);
-    setForm(toOrgFormState(row));
-    setShowForm(true);
-    setMessage("");
-    try {
-      const response = await apiRequest<OrgRow>(`/orgs/${row.id}`, { token: getAccessToken() });
-      const detail = response.data;
-      setEditingOrg((current) => (current?.id === row.id ? detail : current));
-      setForm(toOrgFormState(detail));
-    } catch (error) {
-      showError(error);
-    }
-  }
+  function openCreate() { setEditingOrg(null); setForm(emptyForm); setDrawerError(""); setShowForm(true); }
+  function openEdit(org: OrgRow) { setEditingOrg(org); setForm(toForm(org)); setDrawerError(""); setShowForm(true); }
+  function closeForm() { setShowForm(false); setEditingOrg(null); setDrawerError(""); }
+  function showError(error: unknown) { setMessage(error instanceof Error ? error.message : "操作失败"); }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setDrawerError("");
     const body = {
-      orgCode: form.orgCode.trim(),
-      orgName: form.orgName.trim(),
+      ...(!editingOrg || form.parentId !== (editingOrg.parentId ?? "") ? { parentId: form.parentId || null } : {}),
+      orgCode: form.orgCode.trim(), orgName: form.orgName.trim(),
       orgType: form.orgType,
+      ...(editingOrg && form.leaderUserId === (editingOrg.leaderUserId ?? "") ? {} : { leaderUserId: form.leaderUserId || null }),
       status: form.status,
-      sortOrder: Number.parseInt(form.sortOrder || "0", 10) || 0,
-      remark: form.remark.trim() || undefined
+      sortOrder: Number.parseInt(form.sortOrder || "0", 10) || 0, remark: form.remark.trim() || undefined
     };
-
-    if (editingOrg) {
-      await apiRequest<OrgRow>(`/orgs/${editingOrg.id}`, {
-        method: "PATCH",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey("org-update"),
-        body
+    try {
+      await apiRequest(editingOrg ? `/orgs/${editingOrg.id}` : "/orgs", {
+        method: editingOrg ? "PATCH" : "POST", token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey(editingOrg ? "org-update" : "org-create"), body
       });
-      setMessage("组织已更新");
-    } else {
-      await apiRequest<OrgRow>("/orgs", {
-        method: "POST",
-        token: getAccessToken(),
-        idempotencyKey: createIdempotencyKey("org"),
-        body
-      });
-      setMessage("组织已创建");
-    }
-
-    setShowForm(false);
-    setEditingOrg(null);
-    await load(editingOrg ? data.page : 1);
+      setMessage(editingOrg ? "组织已更新" : "组织已创建"); closeForm(); await load();
+    } catch (error) { setDrawerError(error instanceof Error ? error.message : "保存失败"); }
   }
 
-  function closeForm() {
-    setShowForm(false);
-    setEditingOrg(null);
+  async function deleteOrg(org: OrgRow) {
+    if (!window.confirm(`确认删除组织「${org.orgName}」？`)) return;
+    try {
+      await apiRequest(`/orgs/${org.id}`, { method: "DELETE", token: getAccessToken(), idempotencyKey: createIdempotencyKey("org-delete") });
+      setMessage("组织已删除"); await load();
+    } catch (error) { showError(error); }
   }
 
-  function showError(error: unknown) {
-    setMessage(error instanceof Error ? error.message : "操作失败");
-  }
-
-  return (
-    <main className="page-container">
-      <header className="page-header">
-        <div className="header-title">
-          <strong>组织管理</strong>
-          <span>维护园区组织架构、层级关系和启停状态，数据范围按当前租户与园区隔离。</span>
-        </div>
-        <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ORG_CREATE} type="button" onClick={openCreate}>
-          <Plus size={16} />
-          新增组织
-        </PermissionButton>
-      </header>
-
-      <section className="filter-bar">
-        <form className="system-grid" onSubmit={(event) => { event.preventDefault(); void load(1).catch(showError); }}>
-          <div className="field">
-            <label htmlFor="orgKeyword">关键词</label>
-            <input
-              id="orgKeyword"
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-              placeholder="组织名称 / 组织编码"
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="orgStatus">状态</label>
-            <select id="orgStatus" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="">全部</option>
-              <option value="enabled">启用</option>
-              <option value="disabled">停用</option>
-            </select>
-          </div>
-          <div className="filter-actions">
-            <button className="primary-button" type="submit">
-              <Search size={16} />
-              查询
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <Card>
-        <div className="system-toolbar">
-          <h2 className="panel-title">组织列表</h2>
-          <span className="muted-text">共 {data.total} 个组织</span>
-        </div>
-        <div className="table-scroll">
-          <DataTable>
-            <thead>
-              <tr>
-                <th>编码</th>
-                <th>名称</th>
-                <th>类型</th>
-                <th>状态</th>
-                <th>排序</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((item) => (
-                <tr key={item.id}>
-                  <td>{item.orgCode}</td>
-                  <td>
-                    <strong>{item.orgName}</strong>
-                  </td>
-                  <td>{orgTypeLabels.get(item.orgType) ?? item.orgType}</td>
-                  <td><StatusBadge status={item.status} /></td>
-                  <td>{item.sortOrder}</td>
-                  <td>
-                    <DataTableActions>
-                      <PermissionButton
-                        aria-label="查看组织"
-                        className="ds-row-action ds-row-action-view"
-                        permission={SYSTEM_PERMISSIONS.ORG_DETAIL}
-                        title="查看"
-                        type="button"
-                        onClick={() => void openView(item).catch(showError)}
-                      >
-                        <Eye size={16} />
-                      </PermissionButton>
-                      <PermissionButton
-                        aria-label="编辑组织"
-                        className="ds-row-action ds-row-action-edit"
-                        permission={SYSTEM_PERMISSIONS.ORG_UPDATE}
-                        title="编辑"
-                        type="button"
-                        onClick={() => void openEdit(item).catch(showError)}
-                      >
-                        <Edit3 size={16} />
-                      </PermissionButton>
-                    </DataTableActions>
-                  </td>
-                </tr>
-              ))}
-              {data.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6}>暂无组织数据</td>
-                </tr>
-              ) : null}
-            </tbody>
-          </DataTable>
-        </div>
-        <div className="task-item">
-          <span>
-            共 {data.total} 条，第 {data.page} / {Math.max(1, Math.ceil(data.total / data.page_size))} 页
-          </span>
-          <span className="pagination-actions">
-            <button
-              className="pagination-button"
-              type="button"
-              disabled={data.page <= 1}
-              onClick={() => void load(Math.max(1, data.page - 1)).catch(showError)}
-            >
-              上一页
-            </button>
-            <button
-              className="pagination-button"
-              type="button"
-              disabled={data.page >= Math.max(1, Math.ceil(data.total / data.page_size))}
-              onClick={() => void load(data.page + 1).catch(showError)}
-            >
-              下一页
-            </button>
-          </span>
-        </div>
-      </Card>
-
-      {showForm ? (
-        <Drawer size="md" onClose={closeForm}>
-          <DrawerHeader
-            eyebrow="系统管理"
-            title={editingOrg ? "编辑组织" : "新增组织"}
-            description="维护组织编码、名称、类型、状态和排序，支持园区内部组织结构管理。"
-            onClose={closeForm}
-            closeIcon={<X size={18} />}
-          />
-          <DrawerForm key={editingOrg?.id ?? "new-org"} onSubmit={(event) => void submit(event).catch(showError)}>
-            <DrawerFormGrid>
-              <div className="field">
-                <label htmlFor="orgCode">组织编码</label>
-                <input
-                  id="orgCode"
-                  required
-                  value={form.orgCode}
-                  onChange={(event) => setForm((current) => ({ ...current, orgCode: event.target.value }))}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="orgName">组织名称</label>
-                <input
-                  id="orgName"
-                  required
-                  value={form.orgName}
-                  onChange={(event) => setForm((current) => ({ ...current, orgName: event.target.value }))}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="orgType">组织类型</label>
-                <select
-                  id="orgType"
-                  value={form.orgType}
-                  onChange={(event) => setForm((current) => ({ ...current, orgType: event.target.value }))}
-                >
-                  {orgTypeOptions.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="orgStatusForm">状态</label>
-                <select
-                  id="orgStatusForm"
-                  value={form.status}
-                  onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as OrgStatus }))}
-                >
-                  <option value="enabled">启用</option>
-                  <option value="disabled">停用</option>
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="sortOrder">排序</label>
-                <input
-                  id="sortOrder"
-                  inputMode="numeric"
-                  value={form.sortOrder}
-                  onChange={(event) => setForm((current) => ({ ...current, sortOrder: event.target.value }))}
-                />
-              </div>
-            </DrawerFormGrid>
-            <DrawerFormGrid single>
-              <div className="field">
-                <label htmlFor="orgRemark">备注</label>
-                <textarea
-                  id="orgRemark"
-                  rows={4}
-                  value={form.remark}
-                  onChange={(event) => setForm((current) => ({ ...current, remark: event.target.value }))}
-                  placeholder="可记录组织职责、适用范围或补充说明"
-                />
-              </div>
-            </DrawerFormGrid>
-            <DrawerFooter>
-              <button className="secondary-button" type="button" onClick={closeForm}>取消</button>
-              <button className="primary-button" type="submit">
-                <Save size={16} />
-                保存
-              </button>
-            </DrawerFooter>
-          </DrawerForm>
-        </Drawer>
-      ) : null}
-
-      {viewingOrg ? (
-        <Drawer size="md" onClose={() => setViewingOrg(null)}>
-          <DrawerHeader
-            eyebrow="系统管理"
-            title="组织详情"
-            description="查看当前组织的基础档案、隔离范围和最近更新时间。"
-            onClose={() => setViewingOrg(null)}
-            closeIcon={<X size={18} />}
-          />
-          <DrawerDetailGrid>
-            <DrawerDetailItem label="组织编码" value={viewingOrg.orgCode} />
-            <DrawerDetailItem label="组织名称" value={viewingOrg.orgName} />
-            <DrawerDetailItem label="组织类型" value={orgTypeLabels.get(viewingOrg.orgType) ?? viewingOrg.orgType} />
-            <DrawerDetailItem label="状态" value={<StatusBadge status={viewingOrg.status} />} />
-            <DrawerDetailItem label="排序" value={viewingOrg.sortOrder} />
-            <DrawerDetailItem label="数据租户" value={viewingOrg.tenantId} />
-            <DrawerDetailItem label="园区范围" value={viewingOrg.parkId} />
-            <DrawerDetailItem label="创建时间" value={formatDateTime(viewingOrg.createTime)} />
-            <DrawerDetailItem label="更新时间" value={formatDateTime(viewingOrg.updateTime)} />
-            <DrawerDetailItem label="备注" value={viewingOrg.remark ?? "-"} />
-          </DrawerDetailGrid>
-          <DrawerFooter>
-            <button className="secondary-button" type="button" onClick={() => setViewingOrg(null)}>关闭</button>
-          </DrawerFooter>
-        </Drawer>
-      ) : null}
-
-      {message ? <p className="status-pill">{message}</p> : null}
-    </main>
+  const actions = (org: OrgRow) => (
+    <DataTableActions>
+      <PermissionButton aria-label="查看组织" className="ds-row-action ds-row-action-view" permission={SYSTEM_PERMISSIONS.ORG_DETAIL} title="查看" type="button" onClick={() => setViewingOrg(org)}><Eye size={16} /></PermissionButton>
+      <PermissionButton aria-label="编辑组织" className="ds-row-action ds-row-action-edit" permission={SYSTEM_PERMISSIONS.ORG_UPDATE} title="编辑" type="button" onClick={() => openEdit(org)}><Edit3 size={16} /></PermissionButton>
+      <PermissionButton aria-label="删除组织" className="ds-row-action ds-row-action-delete" permission={SYSTEM_PERMISSIONS.ORG_DELETE} title="删除" type="button" onClick={() => void deleteOrg(org)}><Trash2 size={16} /></PermissionButton>
+    </DataTableActions>
   );
+
+  return <main className="ds-page page-container">
+    <header className="page-header"><div className="header-title"><strong>组织管理</strong><span>维护组织树、上下级关系、负责人和启停状态。</span></div>
+      <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ORG_CREATE} type="button" onClick={openCreate}><Plus size={16} />新增组织</PermissionButton>
+    </header>
+    <section className="filter-bar"><div className="system-grid"><div className="field"><label htmlFor="orgKeyword">关键词</label><input id="orgKeyword" value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="组织名称 / 编码" /></div><div className="field"><label htmlFor="orgStatus">状态</label><select id="orgStatus" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">全部</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div><div className="filter-actions"><button className="primary-button" type="button" onClick={() => void load().catch(showError)}><Search size={16} />刷新</button></div></div></section>
+    <Card><div className="system-toolbar"><h2 className="panel-title">组织层级</h2><span className="muted-text">共 {visibleOrgs.length} 个组织</span></div>
+      <div className="ds-table-shell"><DataTable><thead><tr><th>组织</th><th>上级</th><th>类型</th><th>负责人</th><th>状态</th><th>操作</th></tr></thead><tbody>{visibleOrgs.map(({ org, depth }) => <tr key={org.id}><td><span aria-hidden style={{ display: "inline-block", width: `${depth * 20}px` }} />{depth > 0 ? "└ " : ""}<strong>{org.orgName}</strong><br /><span className="muted-text">{org.orgCode}</span></td><td>{parentName(org.parentId)}</td><td>{orgTypeLabels.get(org.orgType) ?? org.orgType}</td><td>{leaderName(org.leaderUserId)}</td><td><StatusBadge status={org.status as OrgStatus} /></td><td>{actions(org)}</td></tr>)}{visibleOrgs.length === 0 ? <tr><td colSpan={6}>暂无组织数据</td></tr> : null}</tbody></DataTable></div>
+      <div className="ds-mobile-record-list">{visibleOrgs.map(({ org, depth }) => <article className="ds-mobile-record" key={org.id}><header><strong>{"　".repeat(depth)}{org.orgName}</strong><StatusBadge status={org.status as OrgStatus} /></header><dl><div><dt>编码</dt><dd>{org.orgCode}</dd></div><div><dt>上级</dt><dd>{parentName(org.parentId)}</dd></div><div><dt>负责人</dt><dd>{leaderName(org.leaderUserId)}</dd></div></dl><footer>{actions(org)}</footer></article>)}</div>
+    </Card>
+    {showForm ? <Drawer size="md" onClose={closeForm}><DrawerHeader eyebrow="系统管理" title={editingOrg ? "编辑组织" : "新增组织"} description="维护组织归属、负责人和基础信息。" onClose={closeForm} closeIcon={<X size={18} />} /><DrawerForm onSubmit={submit}><DrawerFormGrid>
+      <div className="field"><label>上级组织</label><select value={form.parentId} onChange={(e) => { setDrawerError(""); setForm((v) => ({ ...v, parentId: e.target.value })); }}><option value="">无（根组织）</option>{unavailableCurrentParent ? <option value={unavailableCurrentParent} disabled>当前上级（不可见或不可选）</option> : null}{parentOptions.map(({ org, depth }) => <option key={org.id} value={org.id}>{"—".repeat(depth)} {org.orgName}</option>)}</select></div>
+      <div className="field"><label>负责人</label><select value={form.leaderUserId} onChange={(e) => setForm((v) => ({ ...v, leaderUserId: e.target.value }))}><option value="">未指定</option>{leaderOptions.map((leader) => <option key={leader.id} value={leader.id} disabled={leader.id === editingOrg?.leaderUserId && !leaders.some((candidate) => candidate.id === leader.id)}>{leader.displayName}（{leader.username}）</option>)}</select></div>
+      <div className="field"><label>组织编码</label><input required maxLength={64} value={form.orgCode} onChange={(e) => setForm((v) => ({ ...v, orgCode: e.target.value }))} /></div><div className="field"><label>组织名称</label><input required maxLength={100} value={form.orgName} onChange={(e) => setForm((v) => ({ ...v, orgName: e.target.value }))} /></div>
+      <div className="field"><label>类型</label><select value={form.orgType} onChange={(e) => setForm((v) => ({ ...v, orgType: e.target.value }))}>{orgTypeOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="field"><label>状态</label><select value={form.status} onChange={(e) => setForm((v) => ({ ...v, status: e.target.value as OrgStatus }))}><option value="enabled">启用</option><option value="disabled">停用</option></select></div><div className="field"><label>排序</label><input type="number" min={0} step={1} value={form.sortOrder} onFocus={(e) => e.currentTarget.select()} onChange={(e) => setForm((v) => ({ ...v, sortOrder: e.target.value }))} /></div><div className="field"><label>备注</label><textarea maxLength={500} value={form.remark} onChange={(e) => setForm((v) => ({ ...v, remark: e.target.value }))} /></div>
+    </DrawerFormGrid>{drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}<DrawerFooter><button className="secondary-button" type="button" onClick={closeForm}><X size={16} />取消</button><button className="primary-button" type="submit"><Save size={16} />保存</button></DrawerFooter></DrawerForm></Drawer> : null}
+    {viewingOrg ? <Drawer size="md" onClose={() => setViewingOrg(null)}><DrawerHeader eyebrow="系统管理" title="组织详情" description="查看组织层级、负责人和基础档案。" onClose={() => setViewingOrg(null)} closeIcon={<X size={18} />} /><DrawerDetailGrid><DrawerDetailItem label="组织编码" value={viewingOrg.orgCode} /><DrawerDetailItem label="组织名称" value={viewingOrg.orgName} /><DrawerDetailItem label="上级组织" value={parentName(viewingOrg.parentId)} /><DrawerDetailItem label="负责人" value={leaderName(viewingOrg.leaderUserId)} /><DrawerDetailItem label="组织类型" value={orgTypeLabels.get(viewingOrg.orgType) ?? viewingOrg.orgType} /><DrawerDetailItem label="状态" value={<StatusBadge status={viewingOrg.status as OrgStatus} />} /><DrawerDetailItem label="排序" value={viewingOrg.sortOrder} /><DrawerDetailItem label="数据租户" value={viewingOrg.tenantId ?? "-"} /><DrawerDetailItem label="园区范围" value={viewingOrg.parkId ?? "-"} /><DrawerDetailItem label="创建时间" value={formatDateTime(viewingOrg.createTime)} /><DrawerDetailItem label="更新时间" value={formatDateTime(viewingOrg.updateTime)} /><DrawerDetailItem label="备注" value={viewingOrg.remark ?? "-"} /></DrawerDetailGrid><DrawerFooter><button className="secondary-button" type="button" onClick={() => setViewingOrg(null)}>关闭</button></DrawerFooter></Drawer> : null}
+    {message ? <p className="status-pill">{message}</p> : null}
+  </main>;
 }
 
-function StatusBadge({ status }: { status: OrgStatus }) {
-  return (
-    <span className={`status-pill ${status === "enabled" ? "status-success" : "status-muted"}`}>
-      {status === "enabled" ? "启用" : "停用"}
-    </span>
-  );
-}
+function StatusBadge({ status }: { status: OrgStatus }) { return <span className={`status-pill ${status === "enabled" ? "status-success" : "status-muted"}`}>{status === "enabled" ? "启用" : "停用"}</span>; }
 
 function formatDateTime(value: string | Date | null | undefined): string {
   if (!value) return "-";

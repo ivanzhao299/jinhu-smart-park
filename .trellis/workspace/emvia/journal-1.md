@@ -242,3 +242,71 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 完成 Issue 248 组织层级闭环
+
+**Date**: 2026-08-11
+**Task**: 完成 Issue 248 组织层级闭环
+**Package**: api
+**Branch**: `codex/issue-248-org-hierarchy`
+
+### Summary
+
+实现组织树与层级完整性、用户组织岗位主组织事务同步、org_and_children 递归数据权限、桌面/移动 Web 页面、迁移 000202、单测/E2E 与规范文档；类型检查、lint、构建和定向测试通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1ca72c93` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 9: Issue 248 运行态迁移与完整回归
+
+**Date**: 2026-08-11
+**Task**: Issue 248 运行态迁移与完整回归
+**Package**: api
+**Branch**: `codex/issue-248-org-hierarchy`
+
+### Summary
+
+在隔离 PostgreSQL/API 环境完成 202/202 迁移、组织层级专项与首发完整 E2E；修复 JWT 重建遗漏 system:user:me，相关单测及 API 质量门通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7767a5b0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

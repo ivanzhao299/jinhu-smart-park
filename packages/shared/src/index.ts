@@ -28,6 +28,34 @@ export interface PaginatedResult<T> {
   total: number;
 }
 
+export interface OrgTreeNode {
+  id: string;
+  parentId: string | null;
+  orgCode: string;
+  orgName: string;
+  orgType: string;
+  leaderUserId: string | null;
+  sortOrder: number;
+  status: string;
+  children: OrgTreeNode[];
+}
+
+export interface UserOrgAssignment {
+  orgId: string;
+  postId: string | null;
+  isPrimary: boolean;
+  orgName?: string;
+  postName?: string | null;
+}
+
+export interface OrgPostOption {
+  id: string;
+  postCode: string;
+  postName: string;
+  sortOrder: number;
+  status: string;
+}
+
 export type FileUploadPolicyKey =
   | "image"
   | "video"

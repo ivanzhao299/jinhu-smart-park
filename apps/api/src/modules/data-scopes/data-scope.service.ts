@@ -151,7 +151,7 @@ export class DataScopeService {
     if (roleIds.length === 0) {
       return [{ dimension: "tenant", scope_type: user.dataScope ?? "tenant", scope_config: {} }];
     }
-    const scopes = await this.getDataScopesForRoleIds(scope.tenantId, roleIds);
+    const scopes = await this.getDataScopesForRoleIds(scope.tenantId, roleIds, scope.parkId);
     return scopes.length > 0 ? scopes : [{ dimension: "tenant", scope_type: user.dataScope ?? "tenant", scope_config: {} }];
   }
 
@@ -254,7 +254,7 @@ export class DataScopeService {
       return this.resolveFallbackAllowedIds(user, dimension);
     }
     const links = await this.roleDataScopeRepository.find({
-      where: { tenantId: scope.tenantId, roleId: In(roleIds), isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: In(roleIds), isDeleted: false },
       relations: { rule: true }
     });
     const enabledRules = links
@@ -276,11 +276,32 @@ export class DataScopeService {
       if (rule.scopeType === "self") {
         ids.add(user.sub);
       }
+      if (dimension === "org" && this.normalizeScopeType(rule.scopeType) === "org_and_children") {
+        const roots = this.idsForDimension("org", rule.scopeConfig);
+        for (const id of await this.expandOrgDescendants(scope, roots)) ids.add(id);
+        continue;
+      }
       for (const id of this.idsForDimension(dimension, rule.scopeConfig)) {
         ids.add(id);
       }
     }
     return [...ids];
+  }
+
+  private async expandOrgDescendants(scope: TenantParkScope, roots: string[]): Promise<string[]> {
+    if (roots.length === 0) return [];
+    const rows = await this.rulesRepository.query<Array<{ id: string }>>(
+      `WITH RECURSIVE org_tree AS (
+         SELECT id FROM sys_org
+          WHERE tenant_id = $1 AND park_id = $2 AND is_deleted = false AND status = 'enabled' AND id = ANY($3::uuid[])
+         UNION
+         SELECT child.id FROM sys_org child
+         JOIN org_tree parent ON child.parent_id = parent.id
+          WHERE child.tenant_id = $1 AND child.park_id = $2 AND child.is_deleted = false AND child.status = 'enabled'
+       ) SELECT id FROM org_tree`,
+      [scope.tenantId, scope.parkId, roots]
+    );
+    return rows.map((row) => row.id);
   }
 
   private resolveFallbackAllowedIds(user: JwtPrincipal, dimension: DataScopeDimension): string[] | null {
@@ -296,7 +317,7 @@ export class DataScopeService {
 
   private async resolveUserRoleIds(scope: TenantParkScope, user: JwtPrincipal): Promise<string[]> {
     const roleLinks = await this.userRoleRepository.find({
-      where: { tenantId: scope.tenantId, userId: user.sub, isDeleted: false },
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, userId: user.sub, isDeleted: false },
       relations: { role: true }
     });
     return roleLinks.filter((link) => link.role && !link.role.isDeleted && link.role.isEnabled).map((link) => link.roleId);
@@ -324,12 +345,12 @@ export class DataScopeService {
     return scopes.length > 0 ? scopes : [{ dimension: "tenant", scope_type: this.resolveRoleFallbackScope(activeLinks.map((link) => link.role.dataScope)), scope_config: {} }];
   }
 
-  private async getDataScopesForRoleIds(tenantId: string, roleIds: string[]): Promise<UserDataScopeContext[]> {
+  private async getDataScopesForRoleIds(tenantId: string, roleIds: string[], parkId?: string): Promise<UserDataScopeContext[]> {
     if (roleIds.length === 0) {
       return [];
     }
     const links = await this.roleDataScopeRepository.find({
-      where: { tenantId, roleId: In(roleIds), isDeleted: false },
+      where: { tenantId, ...(parkId ? { parkId } : {}), roleId: In(roleIds), isDeleted: false },
       relations: { rule: true },
       order: { createTime: "ASC" }
     });

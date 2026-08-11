@@ -55,6 +55,60 @@ Reference files:
 - `apps/api/src/modules/leasing-payments/leasing-payments.controller.ts`
 - `packages/shared/src/index.ts`
 
+## Scenario: Current-User Permission Survives JWT Rehydration
+
+### 1. Scope / Trigger
+
+- Trigger: changing login authorization assembly, `UsersService.resolveJwtPrincipal`, or the `system:user:me` permission contract.
+
+### 2. Signatures
+
+- `POST /auth/login` returns a token for an active user even when the user has no roles.
+- Authenticated requests rehydrate `JwtPrincipal` from the database through `UsersService.resolveJwtPrincipal(scope, userId)`.
+- `GET /auth/me` requires `SYSTEM_PERMISSIONS.USER_ME`.
+
+### 3. Contracts
+
+- Every active non-super user principal includes `SYSTEM_PERMISSIONS.USER_ME`, both at login-result assembly and at database rehydration.
+- Entity-based principal assembly used by current-user context follows the same rule.
+- Super users retain the wildcard representation `permissions=["*"]`; do not append redundant base permissions to it.
+- Role and permission status, deletion, tenant, and park filtering remain fail-closed.
+
+### 4. Validation & Error Matrix
+
+- active user without roles -> login succeeds and `GET /auth/me` returns HTTP 200.
+- active user with roles -> role permissions plus `system:user:me` are available after rehydration.
+- active super user -> wildcard principal and HTTP 200.
+- missing, disabled, deleted, or cross-scope user -> authentication context is rejected.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a newly created user resets a password, logs in before role assignment, and can read only their own login context.
+- Base: a role-bearing user keeps role grants and the current-user base permission.
+- Bad: login response adds `system:user:me`, but the next JWT validation rebuilds a principal without it and returns HTTP 403.
+
+### 6. Tests Required
+
+- Unit-test database principal rehydration for an active role-less user and assert exactly `system:user:me`.
+- Preserve active-grant filtering and wildcard-super tests.
+- Run `first-release-users-assets.mjs` or the full first-release regression so login followed by `GET /auth/me` is exercised before and after role assignment.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+permissions: isSuper ? ["*"] : expand(rolePermissions)
+```
+
+#### Correct
+
+```ts
+permissions: isSuper
+  ? ["*"]
+  : expand([...rolePermissions, SYSTEM_PERMISSIONS.USER_ME])
+```
+
 ## DTO Validation
 
 Global validation is configured in `apps/api/src/main.ts` with:
@@ -72,6 +126,36 @@ fillers are themselves classified as letters. A negated number/whitespace class 
 punctuation, decimal separators, and invisible characters would pass. Reject omission, blank, number-only,
 punctuation-only, and invisible-only names at the API boundary even when the Web form also validates them.
 Identifiers and codes belong in their dedicated fields.
+
+## Scenario: Organization Hierarchy And Assignment Scope Integrity
+
+### Contracts
+
+- A submitted parent organization must be active, in the target tenant/park, cycle-safe, and visible in the
+  actor's organization data scope. Do not authorize a hidden `parentId` merely because it exists.
+- When validating submitted organization assignments, first resolve the actor-visible organization ids and
+  explicitly intersect the submitted ids with that set. Do not merge a submitted `id: In(...)` predicate with
+  a data-scope mapping for the same column because the mapped predicate can overwrite the submitted ids.
+- User profile fields and optional organization assignments in one update request commit in the same database
+  transaction under the user/scope advisory locks. A validation or relationship-write failure rolls back the
+  profile update.
+- Production `api` and `full` deployments stop the old API before migration and keep it stopped through the
+  optional production seed until the new API starts. Migration failure remains fail-closed with API stopped.
+- Persisted user-role and role-data-scope links are park-scoped authorization inputs. Scoped resolution must filter
+  both `tenantId` and `parkId`; a stale relationship from another park must never widen the current park's data scope.
+- A user move may leave an old active organization link whose `tenantId` no longer matches the canonical user.
+  Forward migration retires that cross-tenant link, while same-tenant secondary-park links remain valid. Organization
+  deletion counts only links whose active user still belongs to the organization tenant.
+
+### Tests Required
+
+- Reject an existing but actor-hidden parent for both create and reparent operations.
+- Reject a submitted hidden assignment even if a separate entity count would find that organization.
+- Prove profile save and relationship replacement execute inside the same transaction manager.
+- Assert deploy ordering is `stop api -> db-migrate -> up -d api` (or `api web`).
+- Assert scoped role and role-data-scope repository predicates include the current park.
+- Rehearse the organization-integrity migration with one stale cross-tenant link and one same-tenant secondary-park
+  link; only the stale cross-tenant link is retired.
 
 Pagination DTOs must validate `page` and `page_size` as integers and cap
 `page_size` at the endpoint's documented maximum before values reach
@@ -155,6 +239,78 @@ Reference files:
 - `packages/shared/src/index.ts`
 
 Use Nest exceptions (`BadRequestException`, `ForbiddenException`, `ConflictException`, `NotFoundException`, etc.) from services. Do not return ad hoc error objects from controllers or services.
+
+## Scenario: Organization Hierarchy And User Assignments
+
+### 1. Scope / Trigger
+
+- Trigger: changing `sys_org.parent_id`, organization tree APIs, user organization/post assignments, or `org_and_children` data-scope behavior.
+
+### 2. Signatures
+
+- `GET /orgs/tree` returns scoped `OrgTreeNode[]` with recursive `children`.
+- `GET /orgs/leaders` returns every enabled, non-deleted user in the current tenant/park; it is not a silently truncated candidate page.
+- `POST /users` optionally accepts `assignments: { orgId, postId, isPrimary }[]` for atomic account creation.
+- `GET /users/:id/org-candidates` returns enabled organizations and posts in the target user's scope.
+- `GET /users/:id/orgs` returns active `UserOrgAssignment[]`.
+- `POST /users/:id/orgs` accepts `{ assignments: { orgId, postId, isPrimary }[] }` with replacement semantics.
+- Database parent identity is `(parent_id, tenant_id, park_id) -> sys_org(id, tenant_id, park_id)`.
+
+### 3. Contracts
+
+- Existing paginated `GET /orgs` remains compatible; tree reading is a separate endpoint and applies the same `org` data-scope predicate. Authorized children whose ancestors are filtered out become projection roots; unauthorized ancestors are never restored.
+- Parent organizations must exist, be enabled, share the child's tenant/park, and must not create self or ancestor cycles.
+- Organization hierarchy writes in one tenant/park are serialized across create, update, disable, and delete before parent/child validation. A pre-transaction validation is insufficient because concurrent inverse parent changes can both pass the same old snapshot.
+- User creation saves the account, accessible-park links, and optional organization/post assignments in one database transaction. Assignment validation or persistence failure rolls back the complete create operation.
+- User-organization replacement resolves the target scope from the target user, not from the acting super administrator's current JWT scope.
+- Replacement is transactional, soft-deletes previous active relationships only for that user and target tenant/park, and creates the requested target-scope set without changing links in other parks.
+- Organization deletion is blocked only by active children or links to active users; historical links owned by soft-deleted users do not permanently block deletion.
+- At most one active primary organization exists per user and scope; duplicate organization/post assignments are rejected.
+- `org_and_children` expands only enabled, non-deleted descendants inside the current tenant/park; an empty root set denies access.
+
+### 4. Validation & Error Matrix
+
+- missing, disabled, or cross-scope parent -> HTTP 400.
+- self-parent or cycle -> HTTP 400.
+- delete organization with active child or user assignment -> HTTP 400.
+- duplicate assignment or multiple primary organizations -> HTTP 400.
+- missing, disabled, or cross-scope organization/post assignment -> HTTP 400 and no partial replacement.
+- invalid organization/post assignment during `POST /users` -> HTTP 400 and no user, accessible-park link, or organization link remains.
+- empty `org_and_children` roots -> empty allowed ID set, never unrestricted access.
+- two concurrent inverse parent updates -> at most one succeeds; the committed hierarchy remains acyclic.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a super administrator edits a user in another tenant; candidates and writes use that user's tenant/park.
+- Good: creating a user with a valid primary organization produces the account and relationship atomically; retrying after invalid assignments cannot collide with a partially created username.
+- Base: a three-level tree is returned in stable sibling order while `GET /orgs` remains paginated.
+- Bad: writing `rel_user_org.tenant_id/park_id` from the actor's current scope when the target user belongs elsewhere.
+- Bad: treating an empty recursive root set as `null`/unrestricted.
+- Bad: validating `A -> B` and `B -> A` outside a shared transaction lock, allowing both requests to commit a cycle.
+
+### 6. Tests Required
+
+- Unit-test three-level tree ordering, self/missing/disabled/cyclic parents, child/user deletion blockers.
+- Unit-test recursive scope SQL, tenant/park predicates, descendant de-duplication, and empty-root deny behavior.
+- Test replacement duplicate/primary validation, target-scope soft-delete predicates, and transaction rollback for invalid organizations/posts.
+- E2E-create a three-level tree plus siblings and test cycle rejection, concurrent inverse-parent serialization, parent deletion blocking, atomic user/primary assignment creation, invalid-assignment rollback, duplicate rejection, and cleanup.
+- Run Shared/API/Web typecheck and build; inspect organization and user pages at desktop and 390px when a browser runtime is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await links.save({ userId, tenantId: actor.tenantId, parkId: actor.parkId, orgId });
+```
+
+#### Correct
+
+```ts
+const target = await getEntityForActor(scope, userId, actor);
+const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
+await validateAndReplaceInTransaction(targetScope, userId, assignments);
+```
 
 ## Business Action Context Endpoints
 
