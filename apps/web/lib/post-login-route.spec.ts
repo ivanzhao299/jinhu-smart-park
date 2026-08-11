@@ -62,12 +62,26 @@ test("mobile super users without enabled operational modules fall back to a modu
   assert.equal(route, "/dashboard");
 });
 
+test("mobile workorder-only administrators do not enter the safety operations terminal", () => {
+  const user = createUser({
+    permissions: ["workorder:read", "workorder:create"],
+    enabled_modules: [{ module_code: "workorder", module_name: "工单管理", module_group: "operations", enabled: true }]
+  });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 800, pointerCoarse: false, touchPoints: 0, userAgent: "HeadlessChrome" });
+
+  assert.equal(route, "/dashboard");
+});
+
 test("desktop users fall back to first visible menu item", () => {
   const user = createUser({
+    permissions: ["ENGINEERING_PROJECT_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }],
     menu_tree: [
       {
         label: "工程管理",
-        children: [{ label: "工程项目", href: "/engineering/projects" }]
+        module: "engineering",
+        children: [{ label: "工程项目", href: "/engineering/projects", permission: "ENGINEERING_PROJECT_VIEW" }]
       }
     ]
   });
@@ -79,10 +93,56 @@ test("desktop users fall back to first visible menu item", () => {
 
 test("mobile users without terminal permissions fall back to their first menu", () => {
   const user = createUser({
-    menu_tree: [{ label: "系统管理", href: "/system/users" }]
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "系统管理", href: "/system/users", permission: "user:read", module: "system" }]
   });
 
   const route = resolvePostLoginPath(user, { viewportWidth: 430, pointerCoarse: true, touchPoints: 5, userAgent: "Android" });
 
   assert.equal(route, "/system/users");
+});
+
+test("desktop users skip a first menu whose permission is not granted", () => {
+  const user = createUser({
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [
+      { label: "角色管理", href: "/system/roles", permission: "role:read", module: "system" },
+      { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }
+    ]
+  });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" });
+
+  assert.equal(route, "/system/users");
+});
+
+test("post-login menu selection inherits a parent module requirement", () => {
+  const user = createUser({
+    permissions: ["user:read", "park:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [
+      {
+        label: "资产管理",
+        module: "asset",
+        children: [{ label: "园区管理", href: "/assets/parks", permission: "park:read" }]
+      },
+      { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }
+    ]
+  });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" });
+
+  assert.equal(route, "/system/users");
+});
+
+test("users without an accessible menu fall back to the module-free dashboard", () => {
+  const user = createUser({
+    menu_tree: [{ label: "角色管理", href: "/system/roles", permission: "role:read", module: "system" }]
+  });
+
+  const route = resolvePostLoginPath(user, { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" });
+
+  assert.equal(route, "/dashboard");
 });
