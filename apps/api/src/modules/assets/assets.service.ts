@@ -23,7 +23,8 @@ import { AssetUnitEntity } from "./entities/asset-unit.entity";
 import {
   ensureAssetScopeProvisioned,
   hasProtectedAssetScope,
-  lockAssetScope
+  lockAssetScope,
+  resolveCanonicalAssetParkSource
 } from "./asset-scope-provisioning";
 
 @Injectable()
@@ -89,7 +90,8 @@ export class AssetsService {
       await lockAssetScope(manager, scope);
       const repository = manager.getRepository(AssetParkEntity);
       const entity = await this.mustFind(repository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
-      this.assertCanonicalAssetParkInput(dto, entity);
+      const canonical = await resolveCanonicalAssetParkSource(manager, scope);
+      this.assertCanonicalAssetParkInput(dto, canonical);
       if (dto.status === "disabled" && await hasProtectedAssetScope(manager, scope)) {
         throw new ConflictException("Asset runtime history requires an enabled park projection");
       }
@@ -448,7 +450,10 @@ export class AssetsService {
     return String(value ?? 0);
   }
 
-  private assertCanonicalAssetParkInput(dto: CreateAssetParkDto | UpdateAssetParkDto, canonical: AssetParkEntity): void {
+  private assertCanonicalAssetParkInput(
+    dto: CreateAssetParkDto | UpdateAssetParkDto,
+    canonical: Pick<AssetParkEntity, "parkCode" | "parkName" | "address" | "totalArea">
+  ): void {
     if ((dto.parkCode !== undefined && dto.parkCode !== canonical.parkCode)
       || (dto.parkName !== undefined && dto.parkName !== canonical.parkName)
       || (dto.address !== undefined && dto.address !== canonical.address)

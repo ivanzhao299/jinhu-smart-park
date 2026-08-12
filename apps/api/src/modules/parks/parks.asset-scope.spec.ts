@@ -15,9 +15,13 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /assertCanonicalSourceSurvives/);
   assert.match(source, /park\.id <> :removedParkId/);
   assert.match(source, /dto\.status !== undefined && dto\.status !== 1/);
+  assert.match(source, /const nextActiveSources = activeSources \+ \(\(dto\.status \?\? 1\) === 1 \? 1 : 0\)/);
+  assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
+  assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
   assert.match(source, /ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
   assert.match(source, /lockAssetScope\(manager, DEFAULT_PLATFORM_SCOPE\)/);
   assert.match(source, /ensureAssetScopeProvisioned\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
+  assert.match(source, /park\.park_code = 'JH'/);
   assert.match(source, /if \(protectedScope\) await ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
   assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await ensureAssetScopeProvisioned/);
 });
@@ -51,4 +55,24 @@ test("protected park mutation permits only a single surviving active canonical s
   await assert.doesNotReject(assertSurvives.call({} as ParksService, managerForCount(1), scope, removed));
   await assert.rejects(assertSurvives.call({} as ParksService, managerForCount(0), scope, removed), /one active canonical park/);
   await assert.rejects(assertSurvives.call({} as ParksService, managerForCount(2), scope, removed), /one active canonical park/);
+
+  const counts = [3, 1];
+  const defaultFallbackManager = {
+    getRepository: () => ({
+      createQueryBuilder: () => {
+        const builder = {
+          where: () => builder,
+          andWhere: () => builder,
+          getCount: async () => counts.shift() ?? 0
+        };
+        return builder;
+      }
+    })
+  };
+  await assert.doesNotReject(assertSurvives.call(
+    {} as ParksService,
+    defaultFallbackManager,
+    { tenantId: "10000001", parkId: "20000001" },
+    { id: "auxiliary", tenantId: "10000001", parkId: "20000001" }
+  ));
 });

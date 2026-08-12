@@ -15,6 +15,7 @@
 13. Review #8：园区去重 active 优先；canonical 冗余来源允许安全清理；inactive 园区提供 system + park read/update 恢复通道；应用侧补审计时间链；retained scope 仅 final contract ready。
 14. Review #9：所有非 active 园区状态统一触发 canonical survivor 校验；删除来源后立即重投影；inactive 园区强制保留 system assignment；租户 enable 事务性补齐潜伏 asset scope。
 15. Review #10：统一识别租户 runtime inactive→active 边沿，覆盖 enable、通用更新、登录设置三条路径并复用同一 asset scope 收敛 helper。
+16. Review #11：租户恢复直接遍历 assignment scope 以保留默认 JH fallback；投影编辑校验真实 biz_park canonical；允许非 active 冗余园区和默认 scope 按 resolver 语义逐步清理。
 
 ## 验证记录
 

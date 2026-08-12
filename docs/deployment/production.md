@@ -426,7 +426,10 @@ Migration behavior:
   from the sole survivor. Every tenant runtime inactive-to-active transition—dedicated enable, generic tenant update,
   or login-settings status/expiry update—transactionally provisions each active park whose asset assignment is
   enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
-  than one remains blocked.
+  than one remains blocked. Reactivation iterates assignment scopes directly so the fixed default scope can still use
+  its reviewed globally unique `JH` fallback. Asset-projection edits validate against the locked canonical `biz_park`,
+  never against potentially drifted projection fields. Non-active auxiliary parks are allowed when they preserve the
+  canonical active-source invariant, and default-scope cleanup follows the same exact-one/global-JH-one resolver rule.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
   the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only

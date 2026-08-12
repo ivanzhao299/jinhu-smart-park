@@ -541,20 +541,13 @@ export class TenantsService {
         .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
           && (!assignment.expireTime || assignment.expireTime.getTime() > now))
         .map((assignment) => assignment.parkId));
-      if (eligibleParkIds.size > 0) {
-        const parks = await manager.getRepository(ParkEntity).find({
-          where: { tenantId: tenant.tenantId, status: 1, isDeleted: false }
-        });
-        for (const park of preferActiveTenantParkRows(parks)) {
-          if (eligibleParkIds.has(park.parkId)) {
-            const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
-            await lockAssetScope(manager, scope);
-            if (!await hasActiveAssetAssignment(manager, scope)) {
-              continue;
-            }
-            await ensureAssetScopeProvisioned(manager, scope, actorId);
-          }
+      for (const parkId of eligibleParkIds) {
+        const scope = { tenantId: tenant.tenantId, parkId };
+        await lockAssetScope(manager, scope);
+        if (!await hasActiveAssetAssignment(manager, scope)) {
+          continue;
         }
+        await ensureAssetScopeProvisioned(manager, scope, actorId);
       }
     }
   }

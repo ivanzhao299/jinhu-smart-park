@@ -80,7 +80,14 @@ export class ParksService {
     const activeSources = await manager.getRepository(ParkEntity).count({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
     });
-    if (protectedScope && ((dto.status ?? 1) !== 1 || activeSources > 0)) {
+    const nextActiveSources = activeSources + ((dto.status ?? 1) === 1 ? 1 : 0);
+    const defaultFallbackSurvives = nextActiveSources === 0
+      && scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
+      && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId
+      && await manager.getRepository(ParkEntity).count({
+        where: { parkCode: "JH", status: 1, isDeleted: false }
+      }) === 1;
+    if (protectedScope && nextActiveSources !== 1 && !defaultFallbackSurvives) {
       throw new ConflictException("Asset scope requires one active canonical park");
     }
     const repository = manager.getRepository(ParkEntity);
@@ -255,9 +262,23 @@ export class ParksService {
     if (removedPark.tenantId === protectedScope.tenantId && removedPark.parkId === protectedScope.parkId) {
       builder.andWhere("park.id <> :removedParkId", { removedParkId: removedPark.id });
     }
-    if (await builder.getCount() !== 1) {
-      throw new ConflictException("Asset scope requires one active canonical park");
+    const exactSourceCount = await builder.getCount();
+    if (exactSourceCount === 1) {
+      return;
     }
+    if (protectedScope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
+      && protectedScope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
+      const fallbackBuilder = manager.getRepository(ParkEntity)
+        .createQueryBuilder("park")
+        .where("park.park_code = 'JH'")
+        .andWhere("park.status = 1")
+        .andWhere("park.is_deleted = false")
+        .andWhere("park.id <> :removedParkId", { removedParkId: removedPark.id });
+      if (await fallbackBuilder.getCount() === 1) {
+        return;
+      }
+    }
+    throw new ConflictException("Asset scope requires one active canonical park");
   }
 
   private async assertTenantParkLimit(scope: TenantParkScope, manager?: EntityManager): Promise<void> {

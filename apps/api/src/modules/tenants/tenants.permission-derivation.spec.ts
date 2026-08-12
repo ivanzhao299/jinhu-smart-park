@@ -308,7 +308,7 @@ test("tenant reactivation provisions every currently eligible asset scope before
   assert.match(helperBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
   assert.match(helperBlock, /assignment\.startTime\.getTime\(\) <= now/);
   assert.match(helperBlock, /assignment\.expireTime\.getTime\(\) > now/);
-  assert.match(helperBlock, /where: \{ tenantId: tenant\.tenantId, status: 1, isDeleted: false \}/);
+  assert.match(helperBlock, /for \(const parkId of eligibleParkIds\)/);
   assert.match(helperBlock, /await lockAssetScope\(manager, scope\)/);
   assert.match(helperBlock, /if \(!await hasActiveAssetAssignment\(manager, scope\)\)/);
   assert.match(helperBlock, /await ensureAssetScopeProvisioned\(manager, scope, actorId\)/);
