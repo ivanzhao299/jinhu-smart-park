@@ -66,6 +66,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sys_role_managed_template_tenant
   ON sys_role (tenant_id, managed_template_code)
   WHERE is_deleted = false AND managed_template_code IS NOT NULL;
 
+/* Permission visible data reconciliation is owned by production seed 000014. */
+/*
 CREATE TEMP TABLE pr262_track_b_visible_definition (
   code varchar(128) PRIMARY KEY,
   permission_type varchar(32) NOT NULL,
@@ -128,5 +130,6 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 END $$;
+*/
 
 COMMIT;

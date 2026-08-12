@@ -257,9 +257,7 @@ export class RolesService {
     if (childRoles > 0) {
       throw new BadRequestException("Role has child roles and cannot be deleted");
     }
-    role.isDeleted = true;
-    role.updateBy = actorId;
-    await this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
     return { id };
   }
 
@@ -268,10 +266,8 @@ export class RolesService {
     if (!role.isEditable || !role.editable) {
       throw new ForbiddenException("Role is not editable");
     }
-    role.status = "enabled";
-    role.isEnabled = true;
-    role.updateBy = actorId;
-    return this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { status: "enabled", isEnabled: true, updateBy: actorId });
+    return this.detail(scope, id);
   }
 
   async disable(scope: TenantParkScope, actorId: string, id: string): Promise<RoleEntity> {
@@ -279,10 +275,8 @@ export class RolesService {
     if (!role.isEditable || !role.editable) {
       throw new ForbiddenException("Role is not editable");
     }
-    role.status = "disabled";
-    role.isEnabled = false;
-    role.updateBy = actorId;
-    return this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { status: "disabled", isEnabled: false, updateBy: actorId });
+    return this.detail(scope, id);
   }
 
   async copy(scope: TenantParkScope, actorId: string, id: string, dto: CopyRoleDto): Promise<RoleEntity> {

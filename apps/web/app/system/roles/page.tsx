@@ -161,20 +161,21 @@ export default function RolesPage() {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword.trim()) params.set("keyword", keyword.trim());
     if (status) params.set("status", status);
-    const [rolesResponse, treeResponse, permissionTreeResponse, dataScopeResponse, fieldPolicyResponse, bundleResponse] = await Promise.all([
+    const [rolesResponse, treeResponse, permissionTreeResponse, dataScopeResponse, fieldPolicyResponse] = await Promise.all([
       apiRequest<PaginatedResult<RoleNode>>(`/roles?${params.toString()}`, { token }),
       apiRequest<RoleNode[]>("/roles/tree", { token }),
       apiRequest<PermissionNode[]>("/permissions/tree", { token }),
       apiRequest<PaginatedResult<DataScopeRule>>("/data-scope-rules?page=1&page_size=100", { token }),
-      apiRequest<PaginatedResult<FieldPolicy>>("/field-policies?page=1&page_size=100", { token }),
-      apiRequest<PropertyBundleCatalogItem[]>("/roles/property-bundles", { token })
+      apiRequest<PaginatedResult<FieldPolicy>>("/field-policies?page=1&page_size=100", { token })
     ]);
     setData(rolesResponse.data);
     setRoleTree(treeResponse.data);
     setPermissionTree(permissionTreeResponse.data);
     setDataScopeRules(dataScopeResponse.data.items);
     setFieldPolicies(fieldPolicyResponse.data.items);
-    setPropertyBundles(bundleResponse.data);
+    void apiRequest<PropertyBundleCatalogItem[]>("/roles/property-bundles", { token })
+      .then((response) => setPropertyBundles(response.data))
+      .catch(() => setPropertyBundles([]));
     const nextSelectedId = keepSelectedId || flattenRoles(treeResponse.data)[0]?.id || "";
     if (nextSelectedId) {
       await selectRole(nextSelectedId);
@@ -305,6 +306,7 @@ export default function RolesPage() {
       body: { ruleIds: selectedDataScopeIds }
     });
     setMessage("数据权限规则已绑定");
+    await selectRole(selectedRole.id);
   }
 
   async function saveFieldPolicies() {
@@ -337,7 +339,7 @@ export default function RolesPage() {
       idempotencyKey: createIdempotencyKey("role-property-bundle-preview"),
       body: { bundles, mode: bundleMode }
     });
-    setBundlePreview(response.data);
+    if (roleId) setBundlePreview(response.data);
     return response.data;
   }
 
