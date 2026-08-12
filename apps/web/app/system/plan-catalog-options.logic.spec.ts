@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { apiRequest } from "../../lib/api-client";
 import {
   activeModuleSelection,
   changedPlanAuthorization,
@@ -134,6 +135,57 @@ test("a successful settings save is not reported as failed when list refresh fai
   assert.match(source, /setCatalogReady\(true\)/);
 });
 
+test("tenant login settings writes use a dedicated idempotency key", async (context) => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+  const saveStart = source.indexOf("async function saveLoginSettings");
+  const saveEnd = source.indexOf("function closeSettings", saveStart);
+  const saveSource = source.slice(saveStart, saveEnd);
+
+  assert.notEqual(saveStart, -1);
+  assert.notEqual(saveEnd, -1);
+  assert.match(saveSource, /method: "PATCH"/);
+  assert.match(
+    saveSource,
+    /settingsIdempotencyKey\.current \?\?= createIdempotencyKey\("tenant-login-settings-update"\)/
+  );
+  assert.match(saveSource, /idempotencyKey: settingsIdempotencyKey\.current/);
+  assert.match(saveSource, /settingsIdempotencyKey\.current = null/);
+
+  const originalFetch = globalThis.fetch;
+  let requestHeaders: Headers | undefined;
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestHeaders = init?.headers as Headers;
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+  context.after(() => {
+    Object.defineProperty(globalThis, "fetch", { configurable: true, value: originalFetch });
+  });
+
+  const key = "tenant-login-settings-update-contract-test";
+  await apiRequest("/tenants/tenant-id/login-settings", {
+    method: "PATCH",
+    idempotencyKey: key,
+    body: { planCode: "BASIC", moduleCodes: ["system", "asset", "workorder"] }
+  });
+
+  assert.equal(requestHeaders?.get("X-Idempotency-Key"), key);
+  assert.match(requestHeaders?.get("X-Idempotency-Key") ?? "", /^tenant-login-settings-update-/);
+});
+
+test("tenant login settings retain an idempotency key across an unchanged retry", () => {
+  const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
+
+  assert.match(source, /const settingsIdempotencyKey = useRef<string \| null>\(null\)/);
+  assert.match(source, /function resetSettingsSubmission\(\)[\s\S]*settingsIdempotencyKey\.current = null/);
+  assert.match(source, /<DrawerForm onChange=\{resetSettingsSubmission\}/);
+});
+
 test("tenant creation waits until plan and module catalogs are ready", () => {
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
 
@@ -175,7 +227,7 @@ test("tenant drawers announce submission errors and clear stale errors on edit",
   const source = readFileSync(resolve(__dirname, "tenants/page.tsx"), "utf8");
 
   assert.match(source, /onChange=\{\(\) => setCreateError\(""\)\}/);
-  assert.match(source, /onChange=\{\(\) => setSettingsError\(""\)\}/);
+  assert.match(source, /onChange=\{resetSettingsSubmission\}/);
   assert.match(source, /className="status-pill" role="alert">\{createError\}/);
   assert.match(source, /className="status-pill" role="alert">\{settingsError\}/);
 });

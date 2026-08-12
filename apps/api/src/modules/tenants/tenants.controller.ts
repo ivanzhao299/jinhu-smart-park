@@ -7,6 +7,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { Public } from "../../shared/decorators/public.decorator";
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { UploadedFilePayload } from "../files/files.service";
@@ -87,6 +88,7 @@ export class TenantsController {
   }
 
   @Patch(":id/login-settings")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.TENANT_MANAGE)
   @AuditLog({ module: "租户管理", resource: "system.tenant", action: "登录配置", bizType: "tenant", bizIdParam: "id", captureBody: true })
   updateLoginSettings(
