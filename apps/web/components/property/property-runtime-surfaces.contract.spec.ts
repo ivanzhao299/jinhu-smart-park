@@ -110,6 +110,8 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /aria-label="可用性冲突"/);
   assert.match(manualCreate, /conflict\.sourceId/);
   assert.match(manualCreate, /exactRetry = retryKey\.current !== null && retryPayload\.current === payloadFingerprint/);
+  assert.match(manualCreate, /createIdempotencyKey\("property-occupancy-availability"\)/);
+  assert.match(manualCreate, /idempotencyKey: availabilityKey\.current/);
   assert.match(foundation, /releasePayloads\.current\[mode\] !== payloadFingerprint/);
   assert.match(foundation, /releasePayloads\.current\[releaseMode\] = null/);
 });

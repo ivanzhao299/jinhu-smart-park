@@ -287,6 +287,15 @@ export class PropertyOccupanciesService {
     id: string
   ): Promise<PropertyOccupancyEntity> {
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      candidate.unitId
+    ]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }

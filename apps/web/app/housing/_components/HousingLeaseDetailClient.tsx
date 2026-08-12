@@ -78,7 +78,7 @@ function eligibilityReasonLabels(reasonCodes: string[]): string[] {
     OPERATION_CONFIG_MISSING: "尚未配置经营模式",
     OPERATION_MODE_NOT_LONG_RENT: "经营模式不是长租",
     OPERATION_STATUS_NOT_ENABLED: "经营状态不是启用",
-    LEASE_PERIOD_OCCUPIED: "拟定租期与现有占用或商业合同冲突"
+    LEASE_PERIOD_OCCUPIED: "拟定租期与现有占用、商业合同或未完成清洁/周转任务冲突"
   };
   return reasonCodes.map((code) => labels[code] ?? code);
 }

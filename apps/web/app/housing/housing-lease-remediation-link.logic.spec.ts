@@ -9,4 +9,5 @@ test("historical ineligible lease remediation link requires asset module and exa
   assert.match(source, /module="asset" permission=\{PROPERTY_BUSINESS_PERMISSIONS\.PROPERTY_OPERATIONS_PAGE\}/);
   assert.match(source, /module="asset" permission=\{PROPERTY_BUSINESS_PERMISSIONS\.PROPERTY_OPERATION_READ\}/);
   assert.match(source, /assets\/property-operations/);
+  assert.match(source, /未完成清洁\/周转任务冲突/);
 });

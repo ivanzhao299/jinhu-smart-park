@@ -213,6 +213,12 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
     "occupancy creation must acquire the advisory unit lock before the unit row lock"
   );
   assert.match(activateInTransaction, /unit\.status !== 1/);
+  assert.match(activateInTransaction, /lock_property_unit_scope/);
+  assert.ok(
+    activateInTransaction.indexOf("const candidate = await repository.findOne")
+      < activateInTransaction.indexOf("lock_property_unit_scope"),
+    "occupancy activation must read the unit id before acquiring the advisory lock"
+  );
   assert.ok(
     activateInTransaction.indexOf("lock_property_unit_scope")
       < activateInTransaction.indexOf('lock: { mode: "pessimistic_write" }'),

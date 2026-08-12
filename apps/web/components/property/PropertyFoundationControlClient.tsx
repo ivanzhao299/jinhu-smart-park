@@ -301,10 +301,14 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
   const lock = useRef(false);
   const retryKey = useRef<string | null>(null);
   const retryPayload = useRef<string | null>(null);
+  const availabilityKey = useRef<string | null>(null);
+  const availabilityPayload = useRef<string | null>(null);
 
   function payloadChanged() {
     retryKey.current = null;
     retryPayload.current = null;
+    availabilityKey.current = null;
+    availabilityPayload.current = null;
     setFeedback("");
     setAvailabilityConflicts([]);
   }
@@ -332,12 +336,16 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
     try {
       const exactRetry = retryKey.current !== null && retryPayload.current === payloadFingerprint;
       if (!exactRetry) {
+        if (availabilityPayload.current !== payloadFingerprint) availabilityKey.current = null;
+        availabilityKey.current ??= createIdempotencyKey("property-occupancy-availability");
+        availabilityPayload.current = payloadFingerprint;
         const availability = await apiRequest<{
           available: boolean;
           conflicts: AvailabilityConflict[];
         }>("/property/occupancies/availability", {
           method: "POST",
           token: getAccessToken() ?? undefined,
+          idempotencyKey: availabilityKey.current,
           body: { unitId: unitId.trim(), startAt: start.toISOString(), endAt: end.toISOString() }
         });
         if (!availability.data.available || availability.data.conflicts.length > 0) {
@@ -365,6 +373,8 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
       });
       retryKey.current = null;
       retryPayload.current = null;
+      availabilityKey.current = null;
+      availabilityPayload.current = null;
       setReference("");
       setFeedback("人工锁房已创建。");
       onCreated();
