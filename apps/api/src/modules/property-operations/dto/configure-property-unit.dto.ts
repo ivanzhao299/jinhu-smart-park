@@ -1,5 +1,5 @@
-import { Transform } from "class-transformer";
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateIf } from "class-validator";
 import { PROPERTY_OPERATING_STATUSES, type PropertyOperatingStatus } from "@jinhu/shared";
 
 const trimOptional = (value: unknown): string | undefined => {
@@ -8,10 +8,21 @@ const trimOptional = (value: unknown): string | undefined => {
   return trimmed || undefined;
 };
 
+const trimNullableOptional = (value: unknown): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return String(value).trim() || null;
+};
+
 export class ConfigurePropertyUnitDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  version!: number;
+
   @IsOptional()
   @IsUUID()
-  asset_unit_id?: string;
+  asset_unit_id?: string | null;
 
   @IsIn(PROPERTY_OPERATING_STATUSES)
   operating_status!: PropertyOperatingStatus;
@@ -23,8 +34,8 @@ export class ConfigurePropertyUnitDto {
   suspend_reason?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trimOptional(value))
+  @Transform(({ value }) => trimNullableOptional(value))
   @IsString()
   @MaxLength(500)
-  remark?: string;
+  remark?: string | null;
 }

@@ -110,6 +110,38 @@ describe("C4 property task signed contracts", () => {
     }
   });
 
+  it("enforces endpoint any-of permissions together with common required permissions", () => {
+    const endpoint = {
+      requiredPermissions: ["property:read"],
+      anyOfPermissions: ["property:release", "property:force-release"],
+      authorizationAlternatives: []
+    };
+    const facts = {
+      activeModules: true,
+      currentUserPark: true,
+      taskRead: true,
+      sourceScope: true,
+      queueScope: true,
+      currentAssignee: false,
+      queueSupervisor: false,
+      grantedPermissions: new Set(["property:read", "property:release"])
+    };
+
+    assert.equal(evaluatePropertyTaskEndpointAuthorization(endpoint, facts), true);
+    assert.equal(evaluatePropertyTaskEndpointAuthorization(endpoint, {
+      ...facts,
+      grantedPermissions: new Set(["property:read", "property:force-release"])
+    }), true);
+    assert.equal(evaluatePropertyTaskEndpointAuthorization(endpoint, {
+      ...facts,
+      grantedPermissions: new Set(["property:read"])
+    }), false);
+    assert.equal(evaluatePropertyTaskEndpointAuthorization(endpoint, {
+      ...facts,
+      grantedPermissions: new Set(["property:release"])
+    }), false);
+  });
+
   it("keeps owning/derived wire shape exact and prevents blocked/source detail leakage", () => {
     for (const authority of ["owning", "derived"] as const) {
       assert.deepEqual(validatePropertyTaskListItemWire(

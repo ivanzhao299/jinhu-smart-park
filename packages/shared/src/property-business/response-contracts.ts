@@ -305,6 +305,22 @@ export type HousingTenantListResponse =
   PaginatedResult<HousingTenantListItem>;
 export type HousingTenantResponse = HousingTenantListItem;
 
+export const HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS = {
+  UNIT_INACTIVE: "UNIT_INACTIVE",
+  OPERATION_CONFIG_MISSING: "OPERATION_CONFIG_MISSING",
+  OPERATION_MODE_NOT_LONG_RENT: "OPERATION_MODE_NOT_LONG_RENT",
+  OPERATION_STATUS_NOT_ENABLED: "OPERATION_STATUS_NOT_ENABLED",
+  LEASE_PERIOD_OCCUPIED: "LEASE_PERIOD_OCCUPIED"
+} as const;
+
+export type HousingLeaseUnitEligibilityReason =
+  (typeof HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS)[keyof typeof HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS];
+
+export interface HousingLeaseUnitEligibilityProjection {
+  eligible: boolean;
+  reasonCodes: HousingLeaseUnitEligibilityReason[];
+}
+
 export interface HousingLeaseResponse {
   id: string;
   leaseCode: string;
@@ -317,6 +333,7 @@ export interface HousingLeaseResponse {
   signatureFileId?: string | null;
   monthlyRent?: string;
   depositAmount?: string;
+  eligibility?: HousingLeaseUnitEligibilityProjection;
 }
 
 export interface HousingLeaseListQuery {

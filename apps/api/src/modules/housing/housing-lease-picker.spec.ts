@@ -73,20 +73,31 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
         return [[lease], 37];
       }
     };
+    const queryDataSource = async (sql: string, parameters: unknown[]) => {
+      enrichmentQueries += 1;
+      assert.match(sql, /lease\.tenant_id\s*=\s*\$1/u);
+      assert.deepEqual(parameters, [scope.tenantId, scope.parkId, [lease.id]]);
+      if (sql.includes('unit.unit_code AS "unitCode"')) {
+        return [{
+          id: lease.id,
+          unitCode: "A-101",
+          unitName: "101",
+          tenantDisplayName: "张三"
+        }];
+      }
+      return [{
+        id: lease.id,
+        unitStatus: 1,
+        operatingMode: "long_rent",
+        operatingStatus: "enabled",
+        conflict: false
+      }];
+    };
     const service = new HousingLeaseQueryService(
       { createQueryBuilder: () => builder } as never,
       {
-        query: async (sql: string, parameters: unknown[]) => {
-          enrichmentQueries += 1;
-          assert.match(sql, /lease\.tenant_id = \$1/u);
-          assert.deepEqual(parameters, [scope.tenantId, scope.parkId, [lease.id]]);
-          return [{
-            id: lease.id,
-            unitCode: "A-101",
-            unitName: "101",
-            tenantDisplayName: "张三"
-          }];
-        }
+        query: queryDataSource,
+        manager: { query: queryDataSource }
       } as never,
       { allowedUnitIds: async () => ["unit-1"] } as never,
       {} as never,
@@ -124,6 +135,7 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
       endDate: lease.endDate,
       status: lease.status,
       paymentCycleMonths: lease.paymentCycleMonths,
+      eligibility: { eligible: true, reasonCodes: [] },
       unitCode: "A-101",
       unitName: "101",
       tenantDisplayName: "张三"
@@ -133,9 +145,9 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
     queryCounts.push({ page: pageQueries, enrichment: enrichmentQueries });
   }
   assert.deepEqual(queryCounts, [
-    { page: 1, enrichment: 1 },
-    { page: 1, enrichment: 1 },
-    { page: 1, enrichment: 1 }
+    { page: 1, enrichment: 2 },
+    { page: 1, enrichment: 2 },
+    { page: 1, enrichment: 2 }
   ]);
 });
 

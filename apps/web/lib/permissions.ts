@@ -34,6 +34,10 @@ export function hasAnyPermission(user: PermissionSubject | null, permissions: st
   return permissions.some((permission) => hasPermission(user, permission));
 }
 
+export function hasAllPermissions(user: PermissionSubject | null, permissions: string[]): boolean {
+  return permissions.every((permission) => hasPermission(user, permission));
+}
+
 export function hasModule(user: PermissionSubject | null, moduleCode?: string): boolean {
   if (!moduleCode) {
     return true;

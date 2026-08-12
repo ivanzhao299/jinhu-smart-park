@@ -66,7 +66,7 @@ describe("property runtime controller authorization metadata", () => {
     );
   });
 
-  it("keeps all 13 approval/runtime routes exactly equivalent to the 49-row manifest", () => {
+  it("keeps all 13 approval/runtime routes exactly equivalent to the 52-row manifest", () => {
     const controllers = [
       PropertyApprovalController,
       PropertyApprovalIncidentRetryController,
@@ -118,7 +118,7 @@ describe("property runtime controller authorization metadata", () => {
         requiredModule
       }))
       .sort((a, b) => `${a.method}:${a.path}`.localeCompare(`${b.method}:${b.path}`));
-    assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 49);
+    assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 52);
     assert.equal(actual.length, 13);
     assert.deepEqual(actual, expected);
   });

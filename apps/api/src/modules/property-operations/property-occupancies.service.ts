@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  APARTMENT_PERMISSIONS,
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   isPropertyManagedOccupancyDomain,
@@ -68,7 +69,15 @@ export class PropertyOccupanciesService {
       });
     }
     const builder = this.occupanciesRepository.createQueryBuilder("occupancy")
-      .leftJoinAndSelect("occupancy.unit", "unit")
+      .leftJoinAndMapOne(
+        "occupancy.unit",
+        UnitEntity,
+        "unit",
+        `unit.id = occupancy.unit_id
+          AND unit.tenant_id = occupancy.tenant_id
+          AND unit.park_id = occupancy.park_id
+          AND unit.is_deleted = false`
+      )
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false");
@@ -92,9 +101,9 @@ export class PropertyOccupanciesService {
       builder.andWhere("occupancy.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
     const sortColumns = {
-      startAt: "occupancy.start_at",
-      endAt: "occupancy.end_at",
-      updateTime: "occupancy.update_time"
+      startAt: "occupancy.startAt",
+      endAt: "occupancy.endAt",
+      updateTime: "occupancy.updateTime"
     } as const;
     const [items, total] = await builder
       .orderBy(sortColumns[query.sort], query.order === "asc" ? "ASC" : "DESC")
@@ -183,6 +192,7 @@ export class PropertyOccupanciesService {
         throw new BadRequestException("held occupancy requires hold_expires_at in the future");
       }
     }
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: dto.unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -194,7 +204,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
     await this.releaseExpiredHolds(manager, scope, actor, dto.unit_id);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: dto.unit_id, isDeleted: false }
@@ -250,6 +259,15 @@ export class PropertyOccupanciesService {
     finalStatus: "released" | "completed" | "cancelled" = "released"
   ): Promise<PropertyOccupancyEntity> {
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      candidate.unitId
+    ]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -270,6 +288,15 @@ export class PropertyOccupanciesService {
     id: string
   ): Promise<PropertyOccupancyEntity> {
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      candidate.unitId
+    ]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -291,11 +318,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
-      scope.tenantId,
-      scope.parkId,
-      entity.unitId
-    ]);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false },
       lock: { mode: "pessimistic_read" }
@@ -328,6 +350,11 @@ export class PropertyOccupanciesService {
     const period = normalizePropertyPeriod(startAtValue, endAtValue);
     const expectedPeriod = normalizePropertyPeriod(expected.startAt, expected.endAt);
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, candidate.unitId]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -349,7 +376,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
     await this.releaseExpiredHolds(manager, scope, actor, entity.unitId);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false }
@@ -475,11 +501,9 @@ export class PropertyOccupanciesService {
     if (!dto.force && isPropertyManagedOccupancyDomain(entity.sourceDomain)) {
       throw new ConflictException("Business-owned occupancy must be released by its source workflow or force released");
     }
-    entity.status = "released";
-    entity.releaseReason = dto.reason.trim();
-    entity.releasedAt = new Date();
-    entity.updateBy = actor.sub;
-    return this.occupanciesRepository.save(entity);
+    return this.dataSource.transaction((manager) =>
+      this.releaseInTransaction(manager, scope, actor, id, dto.reason)
+    );
   }
 
   async executeApprovedForceRelease(input: {
@@ -651,10 +675,21 @@ export class PropertyOccupanciesService {
   }
 
   private async mustFindOccupancy(scope: TenantParkScope, id: string): Promise<PropertyOccupancyEntity> {
-    const entity = await this.occupanciesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      relations: { unit: true }
-    });
+    const entity = await this.occupanciesRepository.createQueryBuilder("occupancy")
+      .leftJoinAndMapOne(
+        "occupancy.unit",
+        UnitEntity,
+        "unit",
+        `unit.id = occupancy.unit_id
+          AND unit.tenant_id = occupancy.tenant_id
+          AND unit.park_id = occupancy.park_id
+          AND unit.is_deleted = false`
+      )
+      .where("occupancy.id = :id", { id })
+      .andWhere("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("occupancy.is_deleted = false")
+      .getOne();
     if (!entity) throw new NotFoundException("Property occupancy not found");
     return entity;
   }
@@ -728,12 +763,23 @@ export class PropertyOccupanciesService {
           SYSTEM_PERMISSIONS.HOUSING_LEASE_READ
         ],
         build: (id) => `/housing/leases/${encodeURIComponent(id)}`
+      },
+      apartment: {
+        permissions: [
+          APARTMENT_PERMISSIONS.APARTMENT_ROOMS_PAGE,
+          APARTMENT_PERMISSIONS.APARTMENT_READ
+        ],
+        build: () => "/apartments/rooms"
       }
     };
     const rule = rules[sourceDomain];
-    if (!rule || !rule.permissions.every((permission) =>
+    if (sourceDomain === "maintenance" || sourceDomain === "operations") {
+      return { sourceId };
+    }
+    const hasGlobalPermission = actor.isSuper === true || actor.permissions.includes("*");
+    if (!rule || (!hasGlobalPermission && !rule.permissions.every((permission) =>
       actor.permissions.includes(permission)
-    )) {
+    ))) {
       return {};
     }
     return { sourceId, deepLink: rule.build(sourceId) };
@@ -744,6 +790,7 @@ export class PropertyOccupanciesService {
       commercial_leasing: "商业租赁",
       homestay: "民宿",
       housing_rental: "住房出租",
+      apartment: "公寓",
       maintenance: "维修",
       operations: "运营"
     };

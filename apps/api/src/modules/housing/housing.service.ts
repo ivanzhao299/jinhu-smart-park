@@ -53,6 +53,7 @@ import { HousingLeaseQueryService } from "./housing-lease-query.service";
 import { HousingLeaseCommandService } from "./housing-lease-command.service";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { HOUSING_LONG_RENT_OPERATION_JOIN } from "./housing-lease-unit-eligibility";
 import { HousingBillingCommandService } from "./housing-billing-command.service";
 import { HousingFinanceCommandService } from "./housing-finance-command.service";
 import { HousingHandoverCommandService } from "./housing-handover-command.service";
@@ -145,6 +146,7 @@ export class HousingService {
     const filters = [
       "unit.tenant_id=$1",
       "unit.park_id=$2",
+      "unit.status=1",
       "unit.is_deleted=false"
     ];
     if (unitIds !== null) {
@@ -166,6 +168,7 @@ export class HousingService {
       this.dataSource.query(
         `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
          FROM biz_unit unit
+         ${HOUSING_LONG_RENT_OPERATION_JOIN}
          WHERE ${where}
          ORDER BY ${unitSort} ${unitOrder} NULLS LAST, unit.id ASC
          LIMIT $${paginationStart} OFFSET $${paginationStart + 1}`,
@@ -174,6 +177,7 @@ export class HousingService {
       this.dataSource.query(
         `SELECT count(*)::int AS total
          FROM biz_unit unit
+         ${HOUSING_LONG_RENT_OPERATION_JOIN}
          WHERE ${where}`,
         parameters
       ) as Promise<Array<{ total: number }>>

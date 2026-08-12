@@ -3,6 +3,7 @@ import test from "node:test";
 import { MODULE_METADATA } from "@nestjs/common/constants";
 import { PropertyIdentityModule } from "../property-identity/property-identity.module";
 import {
+  PropertyModeTransitionListController,
   PropertyOperationListController,
   PropertyOperationsController
 } from "./property-operations.controller";
@@ -32,6 +33,10 @@ test("PropertyOperationsModule composes identity and operation surfaces exactly 
   );
   assert.equal(
     controllers.filter((entry) => entry === PropertyOperationListController).length,
+    1
+  );
+  assert.equal(
+    controllers.filter((entry) => entry === PropertyModeTransitionListController).length,
     1
   );
 });

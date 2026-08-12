@@ -134,6 +134,7 @@ test("live source aggregates remain mode-transition blockers after occupancy rel
   assert.match(snapshot, /booking\.status IN \('confirmed', 'checked_in'\)/);
   assert.match(snapshot, /counts\.homestay_booking_count/);
   assert.match(snapshot, /targetMode !== "short_stay"/);
+  assert.match(snapshot, /source_domain IN \('commercial_leasing', 'housing_rental', 'apartment'\)/);
 });
 
 test("party role creation normalizes keys and recovers a concurrent winner", () => {
@@ -192,12 +193,52 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
     service.indexOf("async activateInTransaction"),
     service.indexOf("async replacePeriodInTransaction")
   );
+  const replaceInTransaction = service.slice(
+    service.indexOf("async replacePeriodInTransaction"),
+    service.indexOf("async activate(", service.indexOf("async replacePeriodInTransaction"))
+  );
   const activate = service.slice(
     service.indexOf("async activate("),
     service.indexOf("async release(", service.indexOf("async activate("))
   );
+  const release = service.slice(
+    service.indexOf("async release("),
+    service.indexOf("async executeApprovedForceRelease")
+  );
 
   assert.match(createInTransaction, /unit\.status !== 1/);
+  assert.ok(
+    createInTransaction.indexOf("lock_property_unit_scope")
+      < createInTransaction.indexOf('getRepository(UnitEntity).findOne'),
+    "occupancy creation must acquire the advisory unit lock before the unit row lock"
+  );
   assert.match(activateInTransaction, /unit\.status !== 1/);
+  assert.match(activateInTransaction, /lock_property_unit_scope/);
+  assert.ok(
+    activateInTransaction.indexOf("const candidate = await repository.findOne")
+      < activateInTransaction.indexOf("lock_property_unit_scope"),
+    "occupancy activation must read the unit id before acquiring the advisory lock"
+  );
+  assert.ok(
+    activateInTransaction.indexOf("lock_property_unit_scope")
+      < activateInTransaction.indexOf('lock: { mode: "pessimistic_write" }'),
+    "occupancy activation must acquire the advisory unit lock before any occupancy or unit row lock"
+  );
+  assert.ok(
+    replaceInTransaction.indexOf("lock_property_unit_scope")
+      < replaceInTransaction.indexOf('lock: { mode: "pessimistic_write" }'),
+    "occupancy replacement must acquire the advisory unit lock before any occupancy or unit row lock"
+  );
   assert.match(activate, /Business-owned occupancies must be activated by their owning domain workflow/);
+  assert.match(release, /this\.dataSource\.transaction/);
+  assert.match(release, /this\.releaseInTransaction/);
+  assert.doesNotMatch(release, /this\.occupanciesRepository\.save/);
+});
+
+test("apartment occupancy creation follows the canonical advisory-before-unit lock order", () => {
+  const service = readFileSync(resolve(__dirname, "../apartments/apartments.service.ts"), "utf8");
+  const createRoom = service.slice(service.indexOf("async createRoom"), service.indexOf("async updateRoom"));
+
+  assert.ok(createRoom.indexOf("lock_property_unit_scope") < createRoom.indexOf("FOR UPDATE"));
+  assert.ok(createRoom.indexOf("FOR UPDATE") < createRoom.indexOf("INSERT INTO biz_property_occupancy"));
 });

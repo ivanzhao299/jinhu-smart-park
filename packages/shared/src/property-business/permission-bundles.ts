@@ -59,6 +59,8 @@ export const TRACK_B_PERMISSION_BUNDLES = {
       "asset:property-mode-transitions:page", "property:notifications:page",
       "property_operation:read", "property_operation:update",
       "property_operation:transition_mode", "property_occupancy:read",
+      "property_occupancy:create", "property_occupancy:activate",
+      "property_occupancy:release",
       "property_occupancy:force_release", "property_approval:create",
       "property_approval:read", "property_approval:withdraw", "property_task:read",
       "property_notification:read", "property_notification:mark_read"

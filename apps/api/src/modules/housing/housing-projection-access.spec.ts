@@ -145,6 +145,13 @@ function leaseService() {
   ]);
   const dataSource = {
     manager: {
+      query: async () => [{
+        id: lease.id,
+        unitStatus: 1,
+        operatingMode: "long_rent",
+        operatingStatus: "enabled",
+        conflict: false
+      }],
       getRepository: () => ({
         findOne: async () => {
           record("lease");
@@ -305,7 +312,7 @@ test("lease detail without block read permissions neither queries nor returns op
   assert.deepEqual(Object.keys(result), ["lease"]);
   assert.deepEqual([...calls.entries()], [["lease", 1]]);
   assert.deepEqual(Object.keys(result.lease).sort(), [
-    "endDate", "id", "leaseCode", "paymentCycleMonths",
+    "eligibility", "endDate", "id", "leaseCode", "paymentCycleMonths",
     "startDate", "status", "tenantPartyId", "unitId"
   ]);
 });

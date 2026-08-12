@@ -1120,6 +1120,8 @@ function endpointContract(actionId: string): PropertyTaskEndpointContract {
   if (!endpoint) throw propertyTaskError("property-runtime-unavailable");
   return {
     requiredPermissions: endpoint.requiredPermissions,
+    anyOfPermissions: endpoint.anyOfPermissions,
+    requestVariants: endpoint.requestVariants,
     authorizationAlternatives: endpoint.authorizationAlternatives
   };
 }

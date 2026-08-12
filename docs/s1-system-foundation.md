@@ -158,6 +158,8 @@
 - `PATCH /api/v1/users/:id`
 - `DELETE /api/v1/users/:id`
 - `POST /api/v1/users/:id/reset-password`
+- `GET /api/v1/users/role-candidates`（新增用户时查询目标租户/园区可分配角色）
+- `GET /api/v1/users/:id/roles`（读取用户已有角色及可分配角色）
 - `POST /api/v1/users/:id/roles`
 - `GET /api/v1/users/:id/orgs`
 - `POST /api/v1/users/:id/orgs`（替换式维护组织、岗位和主组织）
@@ -172,6 +174,8 @@
 - `system:user:reset-password`
 - `system:user:assign-roles`
 - `system:user:me`
+
+用户管理中的角色配置只维护“用户属于哪些角色”。角色拥有的功能权限、数据权限和字段策略继续在角色管理中维护。角色候选只包含目标租户级角色和目标园区级角色，不包含平台角色、停用角色或已删除角色；角色替换在同一数据库事务内完成。
 
 ### 角色
 

@@ -3,7 +3,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AssignRolesDto } from "./dto/assign-roles.dto";
@@ -50,6 +50,16 @@ export class UsersController {
     return this.usersService.getCreateOrgCandidates(scope, user, query.tenantId, query.parkId);
   }
 
+  @Get("role-candidates")
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES)
+  roleCandidates(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Query() query: UserOrgCandidatesQueryDto
+  ) {
+    return this.usersService.getCreateRoleCandidates(scope, user, query.tenantId, query.parkId);
+  }
+
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_DETAIL)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -66,6 +76,12 @@ export class UsersController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_UPDATE)
   orgCandidates(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.usersService.getOrgCandidates(scope, user, id);
+  }
+
+  @Get(":id/roles")
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.USER_DETAIL, SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES)
+  listRoles(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
+    return this.usersService.getUserRoleContext(scope, user, id);
   }
 
   @Post(":id/orgs")
@@ -128,8 +144,11 @@ export class UsersController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: AssignRolesDto
+    @Body() dto: AssignRolesDto,
+    @Req() request: AuditScopeRequest
   ) {
-    return this.usersService.assignRoles(scope, user.sub, id, dto);
+    return this.usersService.assignRoles(scope, user, id, dto, (targetScope) => {
+      request.auditScopeOverride = targetScope;
+    });
   }
 }

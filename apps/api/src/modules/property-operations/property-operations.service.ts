@@ -23,6 +23,7 @@ import { UnitEntity } from "../units/entities/unit.entity";
 import type { ConfigurePropertyUnitDto } from "./dto/configure-property-unit.dto";
 import type {
   PropertyModeTransitionListQueryDto,
+  PropertyModeTransitionUnitListQueryDto,
   PropertyOperationListQueryDto
 } from "./dto/property-control.dto";
 import type { TransitionOperatingModeDto } from "./dto/transition-operating-mode.dto";
@@ -142,6 +143,7 @@ export class PropertyOperationsService {
       .addSelect("COALESCE(config.operating_status, 'enabled')", "operationStatus")
       .addSelect("config.effective_time", "effectiveTime")
       .addSelect("config.suspend_reason", "suspendReason")
+      .addSelect("config.remark", "remark")
       .addSelect("COALESCE(config.version, 0)", "version")
       .addSelect("COALESCE(config.update_time, unit.update_time)", "updateTime")
       .orderBy(sortColumns[query.sort], direction)
@@ -149,9 +151,17 @@ export class PropertyOperationsService {
       .skip((query.page - 1) * query.pageSize)
       .take(query.pageSize)
       .getRawMany<Record<string, unknown>>();
-    const items = await Promise.all(
-      rows.map((row) => this.projectOperation(scope, actor, row))
+    const snapshots = await this.buildTransitionSnapshots(
+      this.dataSource.manager,
+      scope,
+      rows.map((row) => ({
+        unitId: String(row.unitId),
+        targetMode: String(row.configuredMode ?? "none") as PropertyOperatingMode
+      }))
     );
+    const items = await Promise.all(rows.map((row) =>
+      this.projectOperation(scope, actor, row, snapshots.get(String(row.unitId)))
+    ));
     return {
       items,
       page: query.page,
@@ -181,6 +191,7 @@ export class PropertyOperationsService {
       operationStatus: config?.operatingStatus ?? "enabled",
       effectiveTime: config?.effectiveTime ?? null,
       suspendReason: config?.suspendReason ?? null,
+      remark: config?.remark ?? null,
       version: config?.version ?? 0,
       updateTime: config?.updateTime ?? unit.updateTime
     });
@@ -196,31 +207,42 @@ export class PropertyOperationsService {
       });
       if (!unit) throw new NotFoundException("Unit not found");
 
-      if (dto.asset_unit_id) {
-        const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
-          where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      const configRepository = manager.getRepository(PropertyOperationConfigEntity);
+      let config = await configRepository.findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if ((config?.version ?? 0) !== dto.version) {
+        throw new ConflictException({
+          message: "Property operation configuration version has changed",
+          errorCode: "property-operation-version-conflict",
+          currentVersion: config?.version ?? 0
         });
-        if (!assetUnit) throw new BadRequestException("asset_unit_id does not belong to current tenant and park");
-        const mapped = await manager.getRepository(UnitEntity)
-          .createQueryBuilder("unit")
-          .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
-          .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
-          .andWhere("unit.asset_unit_id = :assetUnitId", { assetUnitId: dto.asset_unit_id })
-          .andWhere("unit.id <> :unitId", { unitId })
-          .andWhere("unit.is_deleted = false")
-          .getExists();
-        if (mapped) throw new ConflictException("Physical asset unit is already mapped to another operating unit");
+      }
+
+      if (dto.asset_unit_id !== undefined) {
+        if (dto.asset_unit_id !== null) {
+          const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
+            where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+          });
+          if (!assetUnit) throw new BadRequestException("asset_unit_id does not belong to current tenant and park");
+          const mapped = await manager.getRepository(UnitEntity)
+            .createQueryBuilder("unit")
+            .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
+            .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
+            .andWhere("unit.asset_unit_id = :assetUnitId", { assetUnitId: dto.asset_unit_id })
+            .andWhere("unit.id <> :unitId", { unitId })
+            .andWhere("unit.is_deleted = false")
+            .getExists();
+          if (mapped) throw new ConflictException("Physical asset unit is already mapped to another operating unit");
+        }
         unit.assetUnitId = dto.asset_unit_id;
         unit.updateBy = actor.sub;
         await manager.getRepository(UnitEntity).save(unit);
       }
 
-      let config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
-        lock: { mode: "pessimistic_write" }
-      });
       if (!config) {
-        config = manager.getRepository(PropertyOperationConfigEntity).create({
+        config = configRepository.create({
           tenantId: scope.tenantId,
           parkId: scope.parkId,
           unitId,
@@ -236,9 +258,9 @@ export class PropertyOperationsService {
         config.operatingStatus = dto.operating_status;
         config.suspendReason = dto.operating_status === "enabled" ? null : dto.suspend_reason?.trim() ?? null;
         config.updateBy = actor.sub;
-        if (dto.remark !== undefined) config.remark = dto.remark.trim() || null;
+        if (dto.remark !== undefined) config.remark = dto.remark?.trim() || null;
       }
-      return manager.getRepository(PropertyOperationConfigEntity).save(config);
+      return configRepository.save(config);
     });
   }
 
@@ -249,6 +271,7 @@ export class PropertyOperationsService {
     dto: TransitionOperatingModeDto,
     clientKey: string
   ) {
+    this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE);
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE);
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
@@ -445,7 +468,7 @@ export class PropertyOperationsService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string,
-    query: PropertyModeTransitionListQueryDto
+    query: PropertyModeTransitionUnitListQueryDto
   ) {
     this.assertExactPageAndAction(
       actor,
@@ -498,18 +521,170 @@ export class PropertyOperationsService {
     };
   }
 
+  async transitionLogsAggregate(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: PropertyModeTransitionListQueryDto
+  ) {
+    this.assertExactPageAndAction(
+      actor,
+      SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
+      SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
+    );
+    if (query.startFrom && query.endTo && new Date(query.startFrom) >= new Date(query.endTo)) {
+      throw new BadRequestException("结束时间必须晚于开始时间");
+    }
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds?.length === 0) {
+      return { items: [], page: query.page, pageSize: query.pageSize, total: 0, allowedActions: [] };
+    }
+
+    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const where = [
+      "audit.tenant_id=$1",
+      "audit.park_id=$2",
+      "unit.is_deleted=false"
+    ];
+    const bind = (value: unknown) => {
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
+    if (allowedUnitIds !== null) {
+      where.push(`audit.unit_id=ANY(${bind(allowedUnitIds)}::uuid[])`);
+    }
+    if (query.unitId) where.push(`audit.unit_id=${bind(query.unitId)}::uuid`);
+    if (query.keyword) {
+      const placeholder = bind(`%${query.keyword}%`);
+      where.push(`(unit.unit_code ILIKE ${placeholder} OR unit.unit_name ILIKE ${placeholder})`);
+    }
+    if (query.fromMode) where.push(`audit.from_mode=${bind(query.fromMode)}`);
+    if (query.toMode) where.push(`audit.to_mode=${bind(query.toMode)}`);
+    if (query.startFrom) where.push(`audit.create_time>=${bind(query.startFrom)}::timestamptz`);
+    if (query.endTo) where.push(`audit.create_time<${bind(query.endTo)}::timestamptz`);
+    if (query.decisionStatus) {
+      where.push(`audit.decision_status=${bind(query.decisionStatus)}`);
+    }
+    if (query.executionStatus) {
+      where.push(`audit.execution_status=${bind(query.executionStatus)}`);
+    }
+    const sortColumns = {
+      createTime: "audit.create_time",
+      decisionTime: "audit.decision_time",
+      executionTime: "audit.execution_time"
+    } as const;
+    const auditCte = `WITH audit AS (
+         SELECT COALESCE(log.id, request.id) AS id,
+                request.tenant_id,
+                request.park_id,
+                config.unit_id,
+                COALESCE(log.from_mode, request.canonical_payload->>'fromMode') AS from_mode,
+                COALESCE(log.to_mode, request.canonical_payload->>'targetMode') AS to_mode,
+                COALESCE(log.reason, request.canonical_payload->>'reason') AS reason,
+                request.decision_status,
+                request.execution_status,
+                request.created_at AS create_time,
+                request.decided_at AS decision_time,
+                request.executed_at AS execution_time,
+                COALESCE(log.operator_id, request.requester_id) AS operator_id,
+                COALESCE(log.operator_name, request.canonical_payload->>'actorName') AS operator_name,
+                COALESCE(log.source_expected_version, request.source_expected_version, log.version) AS version,
+                COALESCE(log.check_snapshot, request.canonical_payload->'checkSnapshot') AS check_snapshot,
+                false AS legacy
+           FROM biz_property_approval_request request
+           JOIN biz_property_operation_config config
+             ON config.id=request.source_id
+            AND config.tenant_id=request.tenant_id
+            AND config.park_id=request.park_id
+           LEFT JOIN biz_property_mode_transition_log log
+             ON log.tenant_id=request.tenant_id
+            AND log.park_id=request.park_id
+            AND log.approval_execution_key=request.execution_idempotency_key
+            AND log.is_deleted=false
+          WHERE request.action_id='property.mode-transition.request'
+         UNION ALL
+         SELECT log.id,
+                log.tenant_id,
+                log.park_id,
+                log.unit_id,
+                log.from_mode,
+                log.to_mode,
+                log.reason,
+                'approved' AS decision_status,
+                'executed' AS execution_status,
+                log.create_time,
+                log.transition_time AS decision_time,
+                log.transition_time AS execution_time,
+                log.operator_id,
+                log.operator_name,
+                COALESCE(log.source_expected_version, log.version) AS version,
+                log.check_snapshot,
+                true AS legacy
+           FROM biz_property_mode_transition_log log
+           LEFT JOIN biz_property_approval_request request
+             ON request.tenant_id=log.tenant_id
+            AND request.park_id=log.park_id
+            AND request.execution_idempotency_key=log.approval_execution_key
+            AND request.action_id='property.mode-transition.request'
+          WHERE log.is_deleted=false AND request.id IS NULL
+       )`;
+    const filteredFrom = `FROM audit
+         JOIN biz_unit unit
+           ON unit.id=audit.unit_id
+          AND unit.tenant_id=audit.tenant_id
+          AND unit.park_id=audit.park_id
+        WHERE ${where.join(" AND ")}`;
+    const limit = `$${parameters.length + 1}`;
+    const offset = `$${parameters.length + 2}`;
+    const rows = await this.dataSource.query(
+      `${auditCte}
+       SELECT audit.id,
+              audit.unit_id AS "unitId",
+              unit.unit_code AS "unitCode",
+              unit.unit_name AS "unitName",
+              audit.from_mode AS "fromMode",
+              audit.to_mode AS "toMode",
+              audit.reason,
+              audit.decision_status AS "decisionStatus",
+              audit.execution_status AS "executionStatus",
+              audit.create_time AS "createTime",
+              audit.decision_time AS "decisionTime",
+              audit.execution_time AS "executionTime",
+              audit.operator_id AS "operatorId",
+              audit.operator_name AS "operatorName",
+              audit.version,
+              audit.check_snapshot AS "checkSnapshot",
+              audit.legacy,
+              count(*) OVER()::int AS "totalCount"
+         ${filteredFrom}
+        ORDER BY ${sortColumns[query.sort]} ${query.order === "asc" ? "ASC" : "DESC"} NULLS LAST, audit.id ASC
+        LIMIT ${limit} OFFSET ${offset}`,
+      [...parameters, query.pageSize, (query.page - 1) * query.pageSize]
+    ) as Array<Record<string, unknown>>;
+    const total = rows.length > 0
+      ? Number(rows[0]?.totalCount ?? 0)
+      : Number((await this.dataSource.query(
+        `${auditCte} SELECT count(*)::int AS total ${filteredFrom}`,
+        parameters
+      ) as Array<{ total: number | string }>)[0]?.total ?? 0);
+    return {
+      items: rows.map(({ totalCount: _totalCount, ...row }) => ({ ...row, allowedActions: [] })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total,
+      allowedActions: []
+    };
+  }
+
   private async projectOperation(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    row: Record<string, unknown>
+    row: Record<string, unknown>,
+    projectedSnapshot?: ModeTransitionCheckSnapshot
   ) {
     const unitId = String(row.unitId);
     const configuredMode = String(row.configuredMode ?? "none") as PropertyOperatingMode;
-    const snapshot = await this.buildTransitionSnapshot(
-      this.dataSource.manager,
-      scope,
-      unitId,
-      configuredMode
+    const snapshot = projectedSnapshot ?? await this.buildTransitionSnapshot(
+      this.dataSource.manager, scope, unitId, configuredMode
     );
     const blockers = this.snapshotBlockers(snapshot);
     const allowedActions = this.operationAllowedActions(actor);
@@ -523,6 +698,7 @@ export class PropertyOperationsService {
       operationStatus: String(row.operationStatus ?? "enabled"),
       effectiveTime: this.isoOrNull(row.effectiveTime),
       suspendReason: row.suspendReason ?? null,
+      remark: row.remark ?? null,
       version: Number(row.version ?? 0),
       updateTime: this.isoOrNull(row.updateTime),
       liveOwningAggregateCounts: {
@@ -538,9 +714,9 @@ export class PropertyOperationsService {
         incompatibleCount: snapshot.incompatible_occupancy_count
       },
       blockers,
-      canRequestTransition: false,
+      canRequestTransition: allowedActions.includes("property.mode-transition.request"),
       approval: null,
-      approvalAvailable: false,
+      approvalAvailable: allowedActions.includes("property.mode-transition.request"),
       allowedActions
     };
   }
@@ -568,15 +744,20 @@ export class PropertyOperationsService {
   }
 
   private operationAllowedActions(actor: JwtPrincipal): string[] {
-    if (!actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE)) {
+    if (!this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE)) {
       return [];
     }
-    return this.hasActionPermission(
-      actor,
-      SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE
-    )
-      ? ["property.operation.update"]
-      : [];
+    const actions: string[] = [];
+    if (this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE)) {
+      actions.push("property.operation.update");
+    }
+    if (
+      this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE)
+      && this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE)
+    ) {
+      actions.push("property.mode-transition.request");
+    }
+    return actions;
   }
 
   private assertExactPageAndAction(
@@ -584,7 +765,7 @@ export class PropertyOperationsService {
     pagePermission: string,
     actionPermission: string
   ): void {
-    if (!actor.permissions.includes(pagePermission)) {
+    if (!this.hasActionPermission(actor, pagePermission)) {
       throw new ForbiddenException({
         message: "Property page access is forbidden",
         errorCode: "property-action-forbidden"
@@ -621,6 +802,7 @@ export class PropertyOperationsService {
         WHERE relation.tenant_id=unit.tenant_id AND relation.park_id=unit.park_id
           AND relation.unit_id=unit.id AND relation.is_deleted=false AND relation.status=1
           AND contract.is_deleted=false AND contract.status NOT IN ('90','91')
+          AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
       )`,
       "housing-active": `EXISTS (
         SELECT 1 FROM biz_housing_lease lease
@@ -646,7 +828,7 @@ export class PropertyOperationsService {
             COALESCE(config.operating_mode, 'none')='none'
             OR (
               COALESCE(config.operating_mode, 'none')='short_stay'
-              AND occupancy.source_domain IN ('commercial_leasing','housing_rental')
+              AND occupancy.source_domain IN ('commercial_leasing','housing_rental','apartment')
             )
             OR (
               COALESCE(config.operating_mode, 'none')='long_rent'
@@ -654,10 +836,22 @@ export class PropertyOperationsService {
             )
           )
       )`,
-      "operations-blocker": `EXISTS (
-        SELECT 1 FROM biz_homestay_turnover_task task
-        WHERE task.tenant_id=unit.tenant_id AND task.park_id=unit.park_id
-          AND task.unit_id=unit.id AND task.is_deleted=false AND task.status<>'completed'
+      "operations-blocker": `(
+        EXISTS (
+          SELECT 1 FROM biz_homestay_turnover_task task
+          WHERE task.tenant_id=unit.tenant_id AND task.park_id=unit.park_id
+            AND task.unit_id=unit.id AND task.is_deleted=false AND task.status<>'completed'
+        ) OR EXISTS (
+          SELECT 1 FROM biz_property_occupancy occupancy
+          WHERE occupancy.tenant_id=unit.tenant_id AND occupancy.park_id=unit.park_id
+            AND occupancy.unit_id=unit.id AND occupancy.is_deleted=false
+            AND occupancy.end_at>now()
+            AND occupancy.source_domain IN ('maintenance','operations')
+            AND (occupancy.status='active' OR (
+              occupancy.status='held'
+              AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())
+            ))
+        )
       )`,
       "checkout-pending": `EXISTS (
         SELECT 1 FROM rel_leasing_contract_unit relation
@@ -674,12 +868,31 @@ export class PropertyOperationsService {
       )`,
       "receivable-unsettled": `(
         EXISTS (
+          SELECT 1 FROM rel_leasing_contract_unit relation
+          JOIN biz_leasing_receivable receivable ON receivable.contract_id=relation.contract_id
+          WHERE relation.tenant_id=unit.tenant_id AND relation.park_id=unit.park_id
+            AND relation.unit_id=unit.id AND relation.is_deleted=false AND relation.status=1
+            AND receivable.is_deleted=false AND receivable.status<>'90' AND receivable.amount_remain>0
+        ) OR EXISTS (
           SELECT 1 FROM biz_housing_receivable receivable
           JOIN biz_housing_lease lease ON lease.id=receivable.lease_id
           WHERE receivable.tenant_id=unit.tenant_id AND receivable.park_id=unit.park_id
             AND lease.unit_id=unit.id AND lease.is_deleted=false
             AND receivable.is_deleted=false AND receivable.status<>'void'
             AND receivable.amount>receivable.paid_amount+receivable.waived_amount
+        ) OR EXISTS (
+          SELECT 1 FROM biz_homestay_booking booking
+          JOIN biz_homestay_ledger_entry entry ON entry.booking_id=booking.id
+          WHERE booking.tenant_id=unit.tenant_id AND booking.park_id=unit.park_id
+            AND booking.unit_id=unit.id AND booking.is_deleted=false
+            AND entry.is_deleted=false AND entry.status='confirmed'
+          GROUP BY booking.id
+          HAVING sum(CASE
+            WHEN entry.entry_type='charge' THEN entry.amount
+            WHEN entry.entry_type IN ('payment','waiver') THEN -entry.amount
+            WHEN entry.entry_type='refund' THEN entry.amount
+            ELSE 0
+          END)>0
         )
       )`
     };
@@ -690,6 +903,100 @@ export class PropertyOperationsService {
     if (value === null || value === undefined) return null;
     const date = value instanceof Date ? value : new Date(String(value));
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  private async buildTransitionSnapshots(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    requests: Array<{ unitId: string; targetMode: PropertyOperatingMode }>
+  ): Promise<Map<string, ModeTransitionCheckSnapshot>> {
+    if (requests.length === 0) return new Map();
+    const rows = await manager.query(
+      `WITH requested AS (
+         SELECT * FROM unnest($3::uuid[], $4::text[]) AS input(unit_id, target_mode)
+       )
+       SELECT requested.unit_id AS "unitId",
+         (SELECT count(*)::int FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+             AND occupancy.is_deleted=false AND occupancy.end_at>now()
+             AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))) AS active_occupancy_count,
+         (SELECT count(*)::int FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+             AND occupancy.is_deleted=false AND occupancy.end_at>now()
+             AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))
+             AND (requested.target_mode='none'
+               OR (requested.target_mode='short_stay' AND occupancy.source_domain IN ('commercial_leasing','housing_rental','apartment'))
+               OR (requested.target_mode='long_rent' AND occupancy.source_domain='homestay'))) AS incompatible_occupancy_count,
+         ((SELECT count(*) FROM biz_property_occupancy occupancy
+            WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+              AND occupancy.is_deleted=false AND occupancy.end_at>now()
+              AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))
+              AND occupancy.source_domain IN ('maintenance','operations'))
+          + (SELECT count(*) FROM biz_homestay_turnover_task task
+            WHERE task.tenant_id=$1 AND task.park_id=$2 AND task.unit_id=requested.unit_id
+              AND task.is_deleted=false AND task.status<>'completed'))::int AS maintenance_or_operations_count,
+         (SELECT count(DISTINCT contract.id)::int FROM rel_leasing_contract_unit relation
+            JOIN biz_leasing_contract contract ON contract.id=relation.contract_id
+           WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+             AND relation.is_deleted=false AND relation.status=1 AND contract.is_deleted=false
+             AND contract.status NOT IN ('90','91')
+             AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date) AS commercial_contract_count,
+         (SELECT count(*)::int FROM biz_housing_lease lease
+           WHERE lease.tenant_id=$1 AND lease.park_id=$2 AND lease.unit_id=requested.unit_id
+             AND lease.is_deleted=false AND lease.status IN ('active','expiring','checkout_pending')) AS housing_lease_count,
+         (SELECT count(*)::int FROM biz_homestay_booking booking
+           WHERE booking.tenant_id=$1 AND booking.park_id=$2 AND booking.unit_id=requested.unit_id
+             AND booking.is_deleted=false AND booking.status IN ('confirmed','checked_in')) AS homestay_booking_count,
+         (SELECT count(DISTINCT checkout.id)::int FROM rel_leasing_contract_unit relation
+            JOIN biz_leasing_checkout checkout ON checkout.contract_id=relation.contract_id
+           WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+             AND relation.is_deleted=false AND relation.status=1
+             AND checkout.is_deleted=false AND checkout.status IN ('30','40','60')) AS pending_checkout_count,
+         (SELECT count(*)::int FROM biz_work_order workorder
+           WHERE workorder.tenant_id=$1 AND workorder.park_id=$2 AND workorder.unit_id=requested.unit_id
+             AND workorder.is_deleted=false AND workorder.status NOT IN ('60','70','90','100')) AS open_workorder_count,
+         (SELECT count(*)::int FROM (
+           SELECT receivable.id::text FROM rel_leasing_contract_unit relation
+             JOIN biz_leasing_receivable receivable ON receivable.contract_id=relation.contract_id
+            WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+              AND relation.is_deleted=false AND relation.status=1 AND receivable.is_deleted=false
+              AND receivable.status<>'90' AND receivable.amount_remain>0
+           UNION ALL
+           SELECT receivable.id::text FROM biz_housing_receivable receivable
+             JOIN biz_housing_lease lease ON lease.id=receivable.lease_id
+            WHERE receivable.tenant_id=$1 AND receivable.park_id=$2 AND lease.unit_id=requested.unit_id
+              AND lease.is_deleted=false AND receivable.is_deleted=false AND receivable.status<>'void'
+              AND receivable.amount>receivable.paid_amount+receivable.waived_amount
+           UNION ALL
+           SELECT booking.id::text FROM biz_homestay_booking booking
+             JOIN biz_homestay_ledger_entry entry ON entry.booking_id=booking.id
+            WHERE booking.tenant_id=$1 AND booking.park_id=$2 AND booking.unit_id=requested.unit_id
+              AND booking.is_deleted=false AND entry.is_deleted=false AND entry.status='confirmed'
+            GROUP BY booking.id HAVING sum(CASE WHEN entry.entry_type='charge' THEN entry.amount
+              WHEN entry.entry_type IN ('payment','waiver') THEN -entry.amount
+              WHEN entry.entry_type='refund' THEN entry.amount ELSE 0 END)>0
+         ) financial_item) AS unsettled_receivable_count
+       FROM requested`,
+      [scope.tenantId, scope.parkId, requests.map((item) => item.unitId), requests.map((item) => item.targetMode)]
+    ) as Array<Record<string, unknown>>;
+    const checkedAt = new Date().toISOString();
+    return new Map(rows.map((row) => {
+      const snapshot = {
+        checked_at: checkedAt,
+        active_occupancy_count: Number(row.active_occupancy_count ?? 0),
+        incompatible_occupancy_count: Number(row.incompatible_occupancy_count ?? 0),
+        maintenance_or_operations_count: Number(row.maintenance_or_operations_count ?? 0),
+        commercial_contract_count: Number(row.commercial_contract_count ?? 0),
+        housing_lease_count: Number(row.housing_lease_count ?? 0),
+        homestay_booking_count: Number(row.homestay_booking_count ?? 0),
+        pending_checkout_count: Number(row.pending_checkout_count ?? 0),
+        open_workorder_count: Number(row.open_workorder_count ?? 0),
+        unsettled_receivable_count: Number(row.unsettled_receivable_count ?? 0),
+        blocking_reasons: [] as string[]
+      };
+      snapshot.blocking_reasons = this.snapshotBlockers(snapshot).map((blocker) => blocker.label);
+      return [String(row.unitId), snapshot];
+    }));
   }
 
   private async buildTransitionSnapshot(
@@ -704,7 +1011,7 @@ export class PropertyOperationsService {
            count(*)::int AS active_occupancy_count,
            count(*) FILTER (
              WHERE ($4 = 'none')
-                OR ($4 = 'short_stay' AND source_domain IN ('commercial_leasing', 'housing_rental'))
+                OR ($4 = 'short_stay' AND source_domain IN ('commercial_leasing', 'housing_rental', 'apartment'))
                 OR ($4 = 'long_rent' AND source_domain = 'homestay')
            )::int AS incompatible_occupancy_count,
             (

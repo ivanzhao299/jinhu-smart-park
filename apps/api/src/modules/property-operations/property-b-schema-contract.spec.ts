@@ -47,7 +47,7 @@ test("B-0 four-input contract digest is exact and non-circular", () => {
   );
 });
 
-test("B-0 shared precondition freezes the 49-row endpoint authority", () => {
+test("B-0 shared precondition freezes the 52-row endpoint authority", () => {
   const contracts = readFileSync(
     resolve(repositoryRoot, "packages/shared/src/property-business/track-b-contracts.ts"),
     "utf8"
@@ -63,11 +63,11 @@ test("B-0 shared precondition freezes the 49-row endpoint authority", () => {
     contracts,
     /TRACK_B_CONTRACT_SHA256\s*=\s*\n?\s*"e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944"/
   );
-  assert.equal(endpoints.match(/\brow\("/g)?.length, 49);
-  assert.equal(endpoints.match(/^\s*row\("(?:GET|POST|PUT)"/gm)?.length, 49);
+  assert.equal(endpoints.match(/\brow\("/g)?.length, 52);
+  assert.equal(endpoints.match(/^\s*row\("(?:GET|POST|PUT)"/gm)?.length, 52);
   assert.match(
     endpoints,
-    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"6b82b875f432d4e1d1efc01ce32b958b4a8b193e764862b7886b710bb0ded2fd"/
+    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"9c65a60c6aea0b1dd296b35078574c65029b48c7b7d81700649429cdc8e88caa"/
   );
 });
 
@@ -211,4 +211,24 @@ test("000189/000190 freeze exact definitions and zero-grant/default-disabled pol
   assert.match(controls, /a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8/);
   assert.match(controls, /false,\s*'disabled',\s*NULL,\s*NULL,\s*NULL,\s*'expand-only'/);
   assert.match(controls, /REVOKE ALL ON FUNCTION public\.fn_transition_property_migration_anomaly/);
+});
+
+test("000206 forward-migrates the property asset manager bundle to the 18-member v2 definition", () => {
+  const migration = readFileSync(resolve(migrationRoot, "000206_property_asset_manager_bundle_v2.sql"), "utf8");
+  assert.match(migration, /^BEGIN;/);
+  assert.match(migration, /COMMIT;\s*$/);
+  assert.match(migration, /definition_version=1/);
+  assert.match(migration, /f1707774b18df2eb04d1d99e4160b9a02def95d3377a12187e2f663662d4f59f/);
+  assert.match(migration, /definition_version=2/);
+  assert.match(migration, /171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7/);
+  assert.match(migration, /property_occupancy:create/);
+  assert.match(migration, /property_occupancy:activate/);
+  assert.match(migration, /property_occupancy:release/);
+  assert.match(migration, /SET is_deleted=true,version=version\+1/);
+  assert.match(migration, /remark='PR192 Track B frozen permission bundle'/);
+  const bundleUpdate = migration.match(/UPDATE sys_property_permission_bundle[\s\S]*?WHERE id=target_bundle_id;/)?.[0] ?? "";
+  assert.doesNotMatch(bundleUpdate, /remark=/);
+  assert.match(migration, /property-asset-manager-bundle-preflight-failed/);
+  assert.match(migration, /property-asset-manager-bundle-definition-drift/);
+  assert.doesNotMatch(migration, /\b(?:DROP\s+(?:TABLE|SCHEMA)|TRUNCATE)\b/i);
 });

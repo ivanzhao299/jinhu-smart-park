@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
+  PROPERTY_TRACK_B_SURFACES,
   type UserMenuTreeNode
 } from "@jinhu/shared";
 import {
@@ -100,4 +102,33 @@ test("park management is reachable through both active asset and inactive system
   assert.equal(assetChildren.some((child) => child.href === "/assets/parks"), true);
   assert.equal(systemChildren.some((child) => child.href === "/assets/parks"), true);
   assert.deepEqual(findMenusByPath("/assets/parks", getDashboardMenus()).map((item) => item.module), ["asset", "system"]);
+});
+
+test("asset menu exposes the three shared property control planes", () => {
+  const readPermissions: Record<string, string> = {
+    "asset.property-operations": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ,
+    "asset.property-occupancies": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ,
+    "asset.property-mode-transitions": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ
+  };
+  const expected = PROPERTY_TRACK_B_SURFACES
+    .filter((surface) => [
+      "asset.property-operations",
+      "asset.property-occupancies",
+      "asset.property-mode-transitions"
+    ].includes(surface.surfaceId));
+  const menus = getDashboardMenus();
+
+  for (const surface of expected) {
+    const item = findMenuByPath(surface.route, menus);
+    assert.deepEqual(
+      { module: item?.module, permission: item?.permission, permissions: item?.permissions },
+      {
+        module: surface.requiredModule,
+        permission: surface.pagePermission,
+        permissions: [surface.pagePermission, readPermissions[surface.surfaceId]]
+      }
+    );
+    assert.equal(FIRST_RELEASE_MENU_PATH_SET.has(surface.route), true);
+  }
+  assert.equal(expected.length, 3);
 });

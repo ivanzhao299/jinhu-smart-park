@@ -95,8 +95,10 @@ export const PROPERTY_TRACK_B_API_ROUTES = {
   operations: "/api/v1/property/operations",
   operation: "/api/v1/property/units/:unitId/operation",
   modeTransitions: "/api/v1/property/units/:unitId/mode-transitions",
+  modeTransitionAudit: "/api/v1/property/mode-transitions",
   occupancies: "/api/v1/property/occupancies",
   occupancy: "/api/v1/property/occupancies/:occupancyId",
   occupancyAvailability: "/api/v1/property/occupancies/availability",
+  occupancyActivate: "/api/v1/property/occupancies/:occupancyId/activate",
   occupancyRelease: "/api/v1/property/occupancies/:occupancyId/release"
 } as const;
