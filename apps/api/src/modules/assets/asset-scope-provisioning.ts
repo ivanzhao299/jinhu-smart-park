@@ -72,6 +72,23 @@ export async function hasActiveAssetAssignment(
   return rows.length > 0;
 }
 
+export async function hasRetainedAssetRuntimeHistory(
+  manager: EntityManager,
+  scope: TenantParkScope
+): Promise<boolean> {
+  const rows = await manager.query(
+    `SELECT 1 FROM sys_property_runtime_control control
+      WHERE control.tenant_id=$1 AND control.park_id=$2 LIMIT 1`,
+    [scope.tenantId, scope.parkId]
+  ) as unknown[];
+  return rows.length > 0;
+}
+
+export async function hasProtectedAssetScope(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+  return await hasActiveAssetAssignment(manager, scope)
+    || await hasRetainedAssetRuntimeHistory(manager, scope);
+}
+
 export async function resolveCanonicalAssetParkSource(
   manager: EntityManager,
   scope: TenantParkScope

@@ -412,7 +412,10 @@ Migration behavior:
   SaaS tenant-module assign/enable and direct asset-park creation use the same tenant/park transaction lock and
   full projection/control provisioning, so alternate write paths cannot race or bypass this convergence. Asset-park
   update/delete use that lock too and reject disabling or deleting the required projection while the assignment is
-  active. Login-settings authorization
+  active or retained signed history exists. Canonical `biz_park` mutations take the same lock, preserve one active
+  source for protected scopes, and synchronize canonical field edits into the projection. Tenant status/expiry is
+  included when deriving current active scopes, so a disabled/expired tenant with complete history becomes retained
+  instead of an invalid active scope. Login-settings authorization
   updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
   are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
   assignment and asset-derived administrator permissions disabled.

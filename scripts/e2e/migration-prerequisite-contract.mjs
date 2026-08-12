@@ -818,6 +818,11 @@ assert.match(
   "runtime-control audit validation must run only after exact signed control-key parity"
 );
 assert.match(runtimeControlDiagnostic, /is_active AND tenant_count <> 1/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /active_scope AS \([\s\S]*?JOIN sys_tenant tenant[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "runtime-control active scopes must exclude disabled or expired tenants before retained classification"
+);
 assert.match(runtimeControlDiagnostic, /exact_source_count=1/u);
 assert.match(runtimeControlDiagnostic, /tenant_key='10000001'/u);
 assert.match(runtimeControlDiagnostic, /park_key='20000001'/u);

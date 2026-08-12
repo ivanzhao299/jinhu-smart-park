@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
-import { Brackets, type SelectQueryBuilder, type Repository } from "typeorm";
+import { Brackets, type DataSource, type EntityManager, type SelectQueryBuilder, type Repository } from "typeorm";
+import { ensureAssetScopeProvisioned, hasProtectedAssetScope, lockAssetScope } from "../assets/asset-scope-provisioning";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -19,6 +20,8 @@ export class ParksService {
     private readonly parksRepository: Repository<ParkEntity>,
     @InjectRepository(TenantEntity)
     private readonly tenantRepository: Repository<TenantEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly dataScopeService: DataScopeService
   ) {}
 
@@ -60,10 +63,20 @@ export class ParksService {
   }
 
   async create(scope: TenantParkScope, actorId: string, dto: CreateParkDto): Promise<ParkEntity> {
-    await this.assertTenantParkLimit(scope);
+    return this.dataSource.transaction(async (manager) => {
+    await lockAssetScope(manager, scope);
+    await this.assertTenantParkLimit(scope, manager);
     const parkCode = dto.parkCode.trim();
-    await this.assertParkCodeAvailable(parkCode);
-    const entity = this.parksRepository.create({
+    await this.assertParkCodeAvailable(parkCode, undefined, manager);
+    const protectedScope = await hasProtectedAssetScope(manager, scope);
+    const activeSources = await manager.getRepository(ParkEntity).count({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
+    });
+    if (protectedScope && (dto.status === 0 || activeSources > 0)) {
+      throw new ConflictException("Asset scope requires one active canonical park");
+    }
+    const repository = manager.getRepository(ParkEntity);
+    const entity = repository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
       parkCode,
@@ -81,14 +94,24 @@ export class ParksService {
       createBy: actorId,
       updateBy: actorId
     });
-    return this.parksRepository.save(entity);
+    const saved = await repository.save(entity);
+    if (protectedScope && saved.status === 1) await ensureAssetScopeProvisioned(manager, scope, actorId);
+    return saved;
+    });
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
-    const entity = await this.detail(scope, id, actor);
+    await this.detail(scope, id, actor);
+    return this.dataSource.transaction(async (manager) => {
+    await lockAssetScope(manager, scope);
+    const repository = manager.getRepository(ParkEntity);
+    const entity = await repository.findOne({ where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
+    if (!entity) throw new NotFoundException("Park not found");
+    const protectedScope = await hasProtectedAssetScope(manager, scope);
+    if (protectedScope && dto.status === 0) throw new ConflictException("Asset scope requires one active canonical park");
     const nextCode = dto.parkCode?.trim();
     if (nextCode && nextCode !== entity.parkCode) {
-      await this.assertParkCodeAvailable(nextCode, id);
+      await this.assertParkCodeAvailable(nextCode, id, manager);
       entity.parkCode = nextCode;
     }
 
@@ -105,15 +128,25 @@ export class ParksService {
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
     entity.updateBy = actor.sub;
 
-    return this.parksRepository.save(entity);
+    const saved = await repository.save(entity);
+    if (protectedScope && saved.status === 1) await ensureAssetScopeProvisioned(manager, scope, actor.sub);
+    return saved;
+    });
   }
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    const entity = await this.detail(scope, id, actor);
+    await this.detail(scope, id, actor);
+    return this.dataSource.transaction(async (manager) => {
+    await lockAssetScope(manager, scope);
+    const repository = manager.getRepository(ParkEntity);
+    const entity = await repository.findOne({ where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
+    if (!entity) throw new NotFoundException("Park not found");
+    if (await hasProtectedAssetScope(manager, scope)) throw new ConflictException("Asset scope requires one active canonical park");
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
-    await this.parksRepository.save(entity);
+    await repository.save(entity);
     return { id };
+    });
   }
 
   private scopedBuilder(scope: TenantParkScope): SelectQueryBuilder<ParkEntity> {
@@ -153,8 +186,8 @@ export class ParksService {
     builder.orderBy(`park.${this.toSnakeCase(field)}`, direction);
   }
 
-  private async assertParkCodeAvailable(parkCode: string, excludeId?: string): Promise<void> {
-    const builder = this.parksRepository
+  private async assertParkCodeAvailable(parkCode: string, excludeId?: string, manager?: EntityManager): Promise<void> {
+    const builder = (manager?.getRepository(ParkEntity) ?? this.parksRepository)
       .createQueryBuilder("park")
       .where("park.park_code = :parkCode", { parkCode })
       .andWhere("park.is_deleted = false");
@@ -167,12 +200,14 @@ export class ParksService {
     }
   }
 
-  private async assertTenantParkLimit(scope: TenantParkScope): Promise<void> {
-    const tenant = await this.tenantRepository.findOne({ where: { tenantId: scope.tenantId, isDeleted: false } });
+  private async assertTenantParkLimit(scope: TenantParkScope, manager?: EntityManager): Promise<void> {
+    const tenantRepository = manager?.getRepository(TenantEntity) ?? this.tenantRepository;
+    const parkRepository = manager?.getRepository(ParkEntity) ?? this.parksRepository;
+    const tenant = await tenantRepository.findOne({ where: { tenantId: scope.tenantId, isDeleted: false } });
     if (!tenant?.maxParks) {
       return;
     }
-    const currentParks = await this.parksRepository.count({
+    const currentParks = await parkRepository.count({
       where: { tenantId: scope.tenantId, isDeleted: false }
     });
     if (currentParks >= tenant.maxParks) {

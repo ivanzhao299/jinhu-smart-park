@@ -68,6 +68,8 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - multiple active canonical sources, multiple non-deleted projections, or partial controls/audits -> conflict; the transaction rolls back.
 - disabled existing projection on an authorized business write -> restore and synchronize it.
 - direct asset-park update/delete while the asset assignment is active and the result would remove the enabled projection -> conflict.
+- canonical `biz_park` create/update/delete uses the same scope lock; a protected active/retained asset scope keeps exactly one active source, and canonical field edits synchronize the derived projection in that transaction.
+- asset projection create/update treats code/name/address/area/status as canonical assertions rather than independent mutable data; mismatches are rejected instead of silently accepted.
 - disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
 - one enabled projection plus any additional disabled non-deleted projection -> `invalid_scope` for both active and retained scopes.
 - ambiguous/missing park source, partial controls, definition drift, seed disabled, or migration-history drift -> deployment remains blocked.
