@@ -10,6 +10,7 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { ConfigurePropertyUnitDto } from "./dto/configure-property-unit.dto";
 import {
   PropertyModeTransitionListQueryDto,
+  PropertyModeTransitionUnitListQueryDto,
   PropertyOperationListQueryDto
 } from "./dto/property-control.dto";
 import { TransitionOperatingModeDto } from "./dto/transition-operating-mode.dto";
@@ -68,7 +69,7 @@ export class PropertyOperationsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("unitId") unitId: string,
-    @Query() query: PropertyModeTransitionListQueryDto
+    @Query() query: PropertyModeTransitionUnitListQueryDto
   ) {
     return this.service.transitionLogs(scope, actor, unitId, query);
   }

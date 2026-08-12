@@ -23,6 +23,7 @@ import { UnitEntity } from "../units/entities/unit.entity";
 import type { ConfigurePropertyUnitDto } from "./dto/configure-property-unit.dto";
 import type {
   PropertyModeTransitionListQueryDto,
+  PropertyModeTransitionUnitListQueryDto,
   PropertyOperationListQueryDto
 } from "./dto/property-control.dto";
 import type { TransitionOperatingModeDto } from "./dto/transition-operating-mode.dto";
@@ -457,7 +458,7 @@ export class PropertyOperationsService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string,
-    query: PropertyModeTransitionListQueryDto
+    query: PropertyModeTransitionUnitListQueryDto
   ) {
     this.assertExactPageAndAction(
       actor,
@@ -577,6 +578,7 @@ export class PropertyOperationsService {
                 COALESCE(log.operator_id, request.requester_id) AS operator_id,
                 COALESCE(log.operator_name, request.canonical_payload->>'actorName') AS operator_name,
                 COALESCE(log.version, request.source_expected_version) AS version,
+                COALESCE(log.check_snapshot, request.canonical_payload->'checkSnapshot') AS check_snapshot,
                 false AS legacy
            FROM biz_property_approval_request request
            JOIN biz_property_operation_config config
@@ -605,6 +607,7 @@ export class PropertyOperationsService {
                 log.operator_id,
                 log.operator_name,
                 log.version,
+                log.check_snapshot,
                 true AS legacy
            FROM biz_property_mode_transition_log log
            LEFT JOIN biz_property_approval_request request
@@ -639,6 +642,7 @@ export class PropertyOperationsService {
               audit.operator_id AS "operatorId",
               audit.operator_name AS "operatorName",
               audit.version,
+              audit.check_snapshot AS "checkSnapshot",
               audit.legacy,
               count(*) OVER()::int AS "totalCount"
          ${filteredFrom}
@@ -701,8 +705,7 @@ export class PropertyOperationsService {
         incompatibleCount: snapshot.incompatible_occupancy_count
       },
       blockers,
-      canRequestTransition: blockers.length === 0
-        && allowedActions.includes("property.mode-transition.request"),
+      canRequestTransition: allowedActions.includes("property.mode-transition.request"),
       approval: null,
       approvalAvailable: allowedActions.includes("property.mode-transition.request"),
       allowedActions
@@ -843,12 +846,31 @@ export class PropertyOperationsService {
       )`,
       "receivable-unsettled": `(
         EXISTS (
+          SELECT 1 FROM rel_leasing_contract_unit relation
+          JOIN biz_leasing_receivable receivable ON receivable.contract_id=relation.contract_id
+          WHERE relation.tenant_id=unit.tenant_id AND relation.park_id=unit.park_id
+            AND relation.unit_id=unit.id AND relation.is_deleted=false AND relation.status=1
+            AND receivable.is_deleted=false AND receivable.status<>'90' AND receivable.amount_remain>0
+        ) OR EXISTS (
           SELECT 1 FROM biz_housing_receivable receivable
           JOIN biz_housing_lease lease ON lease.id=receivable.lease_id
           WHERE receivable.tenant_id=unit.tenant_id AND receivable.park_id=unit.park_id
             AND lease.unit_id=unit.id AND lease.is_deleted=false
             AND receivable.is_deleted=false AND receivable.status<>'void'
             AND receivable.amount>receivable.paid_amount+receivable.waived_amount
+        ) OR EXISTS (
+          SELECT 1 FROM biz_homestay_booking booking
+          JOIN biz_homestay_ledger_entry entry ON entry.booking_id=booking.id
+          WHERE booking.tenant_id=unit.tenant_id AND booking.park_id=unit.park_id
+            AND booking.unit_id=unit.id AND booking.is_deleted=false
+            AND entry.is_deleted=false AND entry.status='confirmed'
+          GROUP BY booking.id
+          HAVING sum(CASE
+            WHEN entry.entry_type='charge' THEN entry.amount
+            WHEN entry.entry_type IN ('payment','waiver') THEN -entry.amount
+            WHEN entry.entry_type='refund' THEN entry.amount
+            ELSE 0
+          END)>0
         )
       )`
     };

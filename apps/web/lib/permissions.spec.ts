@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasAccess, hasModule, hasPermission } from "./permissions";
+import { hasAccess, hasAllPermissions, hasModule, hasPermission } from "./permissions";
 
 test("super users bypass permissions but not tenant module availability", () => {
   const superUser = {
@@ -13,6 +13,15 @@ test("super users bypass permissions but not tenant module availability", () => 
   assert.equal(hasModule(superUser, "homestay"), true);
   assert.equal(hasModule(superUser, "housing_rental"), false);
   assert.equal(hasAccess(superUser, "housing_rental:operations", "housing_rental"), false);
+});
+
+test("compound menu permissions require every grant while preserving global bypass", () => {
+  const partial = { permissions: ["property_operations:page"] };
+  const complete = { permissions: ["property_operations:page", "property_operation:read"] };
+
+  assert.equal(hasAllPermissions(partial, ["property_operations:page", "property_operation:read"]), false);
+  assert.equal(hasAllPermissions(complete, ["property_operations:page", "property_operation:read"]), true);
+  assert.equal(hasAllPermissions({ is_super: true }, ["property_operations:page", "property_operation:read"]), true);
 });
 
 test("disabled module entries deny access for every role type", () => {

@@ -81,6 +81,10 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
           toMode: "long_rent",
           decisionStatus: "approved",
           executionStatus: "executed",
+          checkSnapshot: {
+            active_occupancy_count: 1,
+            blocking_reasons: ["存在未结清财务事项"]
+          },
           totalCount: 1
         }];
       }
@@ -112,6 +116,8 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   assert.match(calls[0]!.sql, /log\.approval_execution_key=request\.execution_idempotency_key/u);
   assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$3::uuid\[\]\)/u);
   assert.match(calls[0]!.sql, /request\.action_id='property\.mode-transition\.request'/u);
+  assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
+  assert.match(calls[0]!.sql, /audit\.check_snapshot AS "checkSnapshot"/u);
   assert.match(calls[0]!.sql, /count\(\*\) OVER\(\)::int/u);
   assert.deepEqual(calls[0]!.parameters, [
     "tenant-1",
@@ -125,6 +131,10 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   const first = result.items[0] as Record<string, unknown>;
   assert.equal(first.unitCode, "A-101");
   assert.equal(first.unitName, "101");
+  assert.deepEqual(first.checkSnapshot, {
+    active_occupancy_count: 1,
+    blocking_reasons: ["存在未结清财务事项"]
+  });
   assert.equal(result.items[0]?.allowedActions.length, 0);
 });
 
@@ -360,6 +370,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     path.join(__dirname, "property-occupancies.service.ts"),
     "utf8"
   );
+  const operationService = fs.readFileSync(
+    path.join(__dirname, "property-operations.service.ts"),
+    "utf8"
+  );
   for (const field of [
     "pageSize",
     "buildingId",
@@ -389,6 +403,17 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   }
   assert.match(service, /allowedActions/);
   assert.match(service, /addOrderBy\("occupancy\.id", "ASC"\)/);
+  assert.match(dto, /class PropertyModeTransitionUnitListQueryDto extends PropertyControlPageQueryDto/);
+  assert.match(dto, /class PropertyModeTransitionListQueryDto extends PropertyControlPageQueryDto/);
+  assert.match(operationService, /canRequestTransition: allowedActions\.includes\("property\.mode-transition\.request"\)/);
+  assert.doesNotMatch(operationService, /canRequestTransition: blockers\.length === 0/);
+  for (const financialSource of [
+    "rel_leasing_contract_unit relation",
+    "biz_housing_receivable receivable",
+    "biz_homestay_ledger_entry entry"
+  ]) {
+    assert.match(operationService, new RegExp(financialSource));
+  }
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {

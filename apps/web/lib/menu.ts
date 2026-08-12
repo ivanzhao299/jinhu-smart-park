@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
+  PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_TRACK_B_SURFACES,
   type UserMenuTreeNode
@@ -36,6 +37,7 @@ export interface MenuNode {
   label: string;
   href?: string;
   permission?: string;
+  permissions?: string[];
   module?: string;
   icon?: LucideIcon;
   children?: MenuNode[];
@@ -127,12 +129,26 @@ const ASSET_PROPERTY_CONTROL_LABELS: Readonly<Record<string, string>> = {
   "asset.property-mode-transitions": "经营模式审计"
 };
 
+function assetPropertyControlReadPermission(surfaceId: string): string {
+  switch (surfaceId) {
+    case "asset.property-operations":
+      return PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ;
+    case "asset.property-occupancies":
+      return PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ;
+    case "asset.property-mode-transitions":
+      return PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ;
+    default:
+      throw new Error(`Unsupported asset property control surface: ${surfaceId}`);
+  }
+}
+
 const assetPropertyControlMenus: MenuNode[] = PROPERTY_TRACK_B_SURFACES
   .filter((surface) => ASSET_PROPERTY_CONTROL_SURFACE_IDS.has(surface.surfaceId))
   .map((surface) => ({
     label: ASSET_PROPERTY_CONTROL_LABELS[surface.surfaceId] ?? surface.surfaceId,
     href: surface.route,
     permission: surface.pagePermission,
+    permissions: [surface.pagePermission, assetPropertyControlReadPermission(surface.surfaceId)],
     module: surface.requiredModule
   }));
 

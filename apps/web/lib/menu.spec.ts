@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_TRACK_B_SURFACES,
   type UserMenuTreeNode
@@ -90,6 +91,11 @@ test("property menu nodes require only their module and granular page permission
 });
 
 test("asset menu exposes the three shared property control planes", () => {
+  const readPermissions: Record<string, string> = {
+    "asset.property-operations": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ,
+    "asset.property-occupancies": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ,
+    "asset.property-mode-transitions": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ
+  };
   const expected = PROPERTY_TRACK_B_SURFACES
     .filter((surface) => [
       "asset.property-operations",
@@ -101,8 +107,12 @@ test("asset menu exposes the three shared property control planes", () => {
   for (const surface of expected) {
     const item = findMenuByPath(surface.route, menus);
     assert.deepEqual(
-      { module: item?.module, permission: item?.permission },
-      { module: surface.requiredModule, permission: surface.pagePermission }
+      { module: item?.module, permission: item?.permission, permissions: item?.permissions },
+      {
+        module: surface.requiredModule,
+        permission: surface.pagePermission,
+        permissions: [surface.pagePermission, readPermissions[surface.surfaceId]]
+      }
     );
     assert.equal(FIRST_RELEASE_MENU_PATH_SET.has(surface.route), true);
   }

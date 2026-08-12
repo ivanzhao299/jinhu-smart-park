@@ -78,6 +78,18 @@ interface ModeTransitionRow {
   operatorId?: string | null;
   operatorName?: string | null;
   version: number;
+  checkSnapshot?: {
+    active_occupancy_count?: number;
+    incompatible_occupancy_count?: number;
+    commercial_contract_count?: number;
+    housing_lease_count?: number;
+    homestay_booking_count?: number;
+    maintenance_or_operations_count?: number;
+    pending_checkout_count?: number;
+    open_workorder_count?: number;
+    unsettled_receivable_count?: number;
+    blocking_reasons?: unknown[];
+  } | null;
 }
 
 type FoundationRow = OperationRow | OccupancyRow | ModeTransitionRow;
@@ -411,6 +423,7 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "transition", label: "模式变更", render: (item) => `${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}` },
     { key: "decision", label: "审批状态", render: (item) => (item as ModeTransitionRow).decisionStatus },
     { key: "execution", label: "执行状态", render: (item) => (item as ModeTransitionRow).executionStatus },
+    { key: "snapshot", label: "检查快照", render: (item) => modeTransitionSnapshotSummary((item as ModeTransitionRow).checkSnapshot) },
     { key: "reason", label: "切换原因", render: (item) => (item as ModeTransitionRow).reason || "—" },
     { key: "operator", label: "操作人", render: (item) => {
       const row = item as ModeTransitionRow;
@@ -421,6 +434,18 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "executionTime", label: "执行时间", render: (item) => formatTime((item as ModeTransitionRow).executionTime) },
     { key: "version", label: "版本", render: (item) => (item as ModeTransitionRow).version }
   ];
+}
+
+function modeTransitionSnapshotSummary(snapshot: ModeTransitionRow["checkSnapshot"]): string {
+  if (!snapshot) return "—";
+  const businessRecords = Number(snapshot.commercial_contract_count ?? 0)
+    + Number(snapshot.housing_lease_count ?? 0)
+    + Number(snapshot.homestay_booking_count ?? 0)
+    + Number(snapshot.pending_checkout_count ?? 0)
+    + Number(snapshot.open_workorder_count ?? 0)
+    + Number(snapshot.unsettled_receivable_count ?? 0);
+  const blockerCount = Array.isArray(snapshot.blocking_reasons) ? snapshot.blocking_reasons.length : 0;
+  return `阻断 ${blockerCount}；业务记录 ${businessRecords}；有效占用 ${snapshot.active_occupancy_count ?? 0}；不兼容 ${snapshot.incompatible_occupancy_count ?? 0}`;
 }
 
 function operationOccupancySummary(row: OperationRow): string {

@@ -9,7 +9,7 @@ import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useAuthUser } from "../../lib/auth-context";
 import { getDashboardMenus, type MenuNode } from "../../lib/menu";
-import { hasAccess, hasAnyPermission, hasModule } from "../../lib/permissions";
+import { hasAccess, hasAllPermissions, hasAnyPermission, hasModule } from "../../lib/permissions";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -31,12 +31,15 @@ export function AppSidebar({ collapsed, onNavigate, terminalMode = false }: AppS
       sourceMenus
         .map((menu) => ({
           ...menu,
-          children: menu.children?.filter((child) => hasAccess(user, child.permission, child.module ?? menu.module))
+          children: menu.children?.filter((child) =>
+            hasAccess(user, child.permission, child.module ?? menu.module)
+              && hasAllPermissions(user, child.permissions ?? [])
+          )
         }))
         .filter(
           (menu) =>
             hasModule(user, menu.module) &&
-            ((menu.href && hasAccess(user, menu.permission, menu.module)) ||
+            ((menu.href && hasAccess(user, menu.permission, menu.module) && hasAllPermissions(user, menu.permissions ?? [])) ||
               hasAnyPermission(user, menu.children?.map((child) => child.permission ?? "") ?? []) ||
               Boolean(menu.children?.some((child) => !child.permission)))
         ),
