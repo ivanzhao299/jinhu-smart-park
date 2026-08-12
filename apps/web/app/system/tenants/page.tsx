@@ -2,7 +2,7 @@
 import { Card, DataTable, Drawer, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader } from "@jinhu/ui";
 import { CheckCircle2, Plus, Search, Settings2, X, XCircle } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
@@ -98,6 +98,7 @@ export default function TenantsPage() {
   const [settingsError, setSettingsError] = useState("");
   const [createSubmitting, setCreateSubmitting] = useState(false);
   const [settingsSubmitting, setSettingsSubmitting] = useState(false);
+  const settingsIdempotencyKey = useRef<string | null>(null);
 
   async function load(page = 1) {
     setCatalogReady(false);
@@ -213,6 +214,7 @@ export default function TenantsPage() {
     setSettingsLoading(true);
     setSettings(null);
     setSettingsError("");
+    settingsIdempotencyKey.current = null;
     setMessage("");
     try {
       const response = await apiRequest<TenantLoginSettings>(`/tenants/${row.id}/login-settings`, { token });
@@ -247,10 +249,12 @@ export default function TenantsPage() {
     );
     setSettingsError("");
     setSettingsSubmitting(true);
+    settingsIdempotencyKey.current ??= createIdempotencyKey("tenant-login-settings-update");
     try {
       const response = await apiRequest<TenantLoginSettings>(`/tenants/${settings.tenant.id}/login-settings`, {
         method: "PATCH",
         token,
+        idempotencyKey: settingsIdempotencyKey.current,
         body: {
           defaultParkId: emptyToNull(form.get("defaultParkId")),
           status: String(form.get("status") ?? "enabled"),
@@ -263,6 +267,7 @@ export default function TenantsPage() {
       setSettingsPlanCode(response.data.tenant.planCode ?? "");
       setSettingsModuleCodes(response.data.enabledModuleCodes);
       setSettingsAuthorizationTouched(false);
+      settingsIdempotencyKey.current = null;
       try {
         await load(tenants.page);
       } catch (error) {
@@ -284,6 +289,12 @@ export default function TenantsPage() {
     setSettingsModuleCodes([]);
     setSettingsAuthorizationTouched(false);
     setSettingsError("");
+    settingsIdempotencyKey.current = null;
+  }
+
+  function resetSettingsSubmission() {
+    setSettingsError("");
+    settingsIdempotencyKey.current = null;
   }
 
   function selectSettingsPlan(planCode: string) {
@@ -451,7 +462,7 @@ export default function TenantsPage() {
             closeIcon={<X size={18} />}
           />
           {settings ? (
-            <DrawerForm onChange={() => setSettingsError("")} onSubmit={(event) => void saveLoginSettings(event)}>
+            <DrawerForm onChange={resetSettingsSubmission} onSubmit={(event) => void saveLoginSettings(event)}>
               <DrawerFormGrid>
                 <div className="field">
                   <label>租户</label>

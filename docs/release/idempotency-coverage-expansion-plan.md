@@ -39,6 +39,7 @@
 | `DELETE /leasing/receivables/:id` | leasing-receivables | 是 | 是 | 是 | 是 | E2-5B-3B 已覆盖 missing key / replay / query conflict / failed retry，softDelete 保护仍生效 |
 | `DELETE /leasing/payments/:id` | leasing-payments | 是 | 是 | 是 | 是 | E2-5B-3B 已覆盖 missing key / replay / query conflict / failed retry，softDelete 保护仍生效 |
 | `POST /users` | users | 是 | 是 | 是 | 是 | `first-release-idempotency.mjs` 已覆盖 missing key / replay / conflict |
+| `PATCH /tenants/:id/login-settings` | tenants | 是 | 是 | 是 | 是 | Issue #255 覆盖路由 interceptor、请求 Header、replay / conflict 契约；隔离运行态已验证 missing key 与套餐、模块、首管权限同步 |
 
 应收 / 收款编辑删除类 P0 缺口已进入 E2-5B 专项设计，详见 [receivables-payments-idempotency-design.md](./receivables-payments-idempotency-design.md)。
 
