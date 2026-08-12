@@ -104,6 +104,24 @@ test("park management is reachable through both active asset and inactive system
   assert.deepEqual(findMenusByPath("/assets/parks", getDashboardMenus()).map((item) => item.module), ["asset", "system"]);
 });
 
+test("backend asset metadata cannot overwrite the system park recovery menu module", () => {
+  const backendMenus = [{
+    label: "资产管理",
+    module: "asset",
+    children: [{
+      label: "园区管理",
+      href: "/assets/parks",
+      permission: "park:read",
+      module: "asset"
+    }]
+  }] satisfies UserMenuTreeNode[];
+
+  assert.deepEqual(
+    findMenusByPath("/assets/parks", getDashboardMenus(backendMenus)).map((item) => item.module),
+    ["asset", "system"]
+  );
+});
+
 test("asset menu exposes the three shared property control planes", () => {
   const readPermissions: Record<string, string> = {
     "asset.property-operations": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ,

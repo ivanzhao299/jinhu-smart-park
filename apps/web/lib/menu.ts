@@ -424,7 +424,7 @@ export const dashboardMenus: MenuNode[] = [
     permission: "system:read",
     module: "system",
     children: [
-      { label: "园区管理", href: "/assets/parks", permission: "park:read" },
+      { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "system" },
       { label: "组织管理", href: "/system/orgs", permission: "org:read", module: "system" },
       { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" },
       { label: "角色管理", href: "/system/roles", permission: "role:read", module: "system" },

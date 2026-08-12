@@ -61,6 +61,12 @@ authorization authority for the signatures above.
 - Every park status mutation and standalone asset-module write must apply the same suspension
   state machine. Recovery restores only assignments whose effective time window is currently
   active; expired or not-yet-effective assignments remain suspended.
+- Tenant expiry mutations must update the persisted expiry of every non-deleted module assignment
+  in the same transaction, so extending or clearing tenant expiry cannot leave modules dormant on
+  an obsolete assignment window.
+- Writers that touch both asset projection state and module assignments acquire the asset-scope
+  advisory lock before dependency-graph and assignment row locks. Park mutations acquire the same
+  advisory lock before locking canonical park rows.
 - Web plan selectors may present module and quota projections, but the backend remains the
   authority for resolving plan modules and permission families. Browsers must not synthesize
   plan permission codes.

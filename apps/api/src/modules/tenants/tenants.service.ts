@@ -375,6 +375,12 @@ export class TenantsService {
         updateBy: actorId
       });
       await tenantRepository.save(tenant);
+      if (dto.expireTime !== undefined) {
+        await manager.getRepository(TenantModuleEntity).update(
+          { tenantId: tenant.tenantId, isDeleted: false },
+          { expireTime: tenant.expireTime, updateBy: actorId }
+        );
+      }
       if (!wasRuntimeActive && this.isTenantRuntimeActive(tenant)) {
         await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
       }
@@ -457,7 +463,7 @@ export class TenantsService {
             ? moduleCodes
             : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
           const parkModules = park.status === 1
-            ? modules
+            ? modules.filter((module) => moduleCodes.includes(module.moduleCode))
             : modules.filter((module) => module.moduleCode !== "asset" || moduleCodes.includes("asset"));
           const parkPermissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes);
           if (park.status !== 1) {

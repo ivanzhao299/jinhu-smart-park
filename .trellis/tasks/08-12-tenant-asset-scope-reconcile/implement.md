@@ -24,6 +24,7 @@
 22. Review #15 边界：园区停用期间显式从套餐或模块中移除 asset 时清除暂停标记，避免园区恢复覆盖管理员禁用意图；独立模块分配入口同样按园区状态暂停 asset、保留 system 恢复通道并收敛 TENANT_ADMIN 权限。
 23. 独立复核补强：园区 active→inactive 事务主动暂停 asset 并重建最小恢复授权；SaaS asset assign/enable 在 inactive 园区落为带标记的 suspended assignment；恢复仅处理当前有效时间窗。
 24. 独立复核补强：SaaS enable 在 inactive 园区不执行 canonical provisioning；受保护园区停用仍沿用既有 survivor/fallback fail-closed 契约，只有存在唯一 survivor 的合法变更才会继续同步投影与暂停授权。
+25. Review #16：通用租户更新同步模块到期时间；园区仅在 scope 无 active survivor 时暂停授权；混合园区按各自目标模块过滤实体；SaaS 与园区写统一 asset→dependency→row 锁序；SaaS 园区状态复用 canonical resolver；system 恢复菜单固定显式模块元数据。
 
 ## 验证记录
 

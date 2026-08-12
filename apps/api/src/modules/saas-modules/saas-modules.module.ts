@@ -1,6 +1,5 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { ParkEntity } from "../parks/entities/park.entity";
 import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanModuleEntity } from "./entities/plan-module.entity";
 import { PlanEntity } from "./entities/plan.entity";
@@ -15,8 +14,7 @@ import { SaaSModulesService } from "./saas-modules.service";
     SaaSModuleEntity,
     PlanEntity,
     PlanModuleEntity,
-    TenantModuleEntity,
-    ParkEntity
+    TenantModuleEntity
   ])],
   controllers: [SaaSModulesController],
   providers: [SaaSModulesService],

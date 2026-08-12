@@ -12,6 +12,7 @@ import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { SaaSModuleEntity } from "../saas-modules/entities/saas-module.entity";
 import { TenantModuleEntity } from "../saas-modules/entities/tenant-module.entity";
 import { TenantEntity } from "./entities/tenant.entity";
+import { UserEntity } from "../users/entities/user.entity";
 
 test("runtime module grants derive the current homestay and housing permission families", () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
@@ -239,11 +240,16 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /resolvedModuleCodes = activeTenantParks\.length === uniqueTenantParks\.length/);
   assert.match(source, /normalizeCodes\(\[\.\.\.moduleCodes\.filter\(\(code\) => code !== "asset"\), "system"\]\)/);
   assert.match(source, /const parkModules = park\.status === 1/);
+  assert.match(source, /modules\.filter\(\(module\) => moduleCodes\.includes\(module\.moduleCode\)\)/);
   assert.match(source, /module\.moduleCode !== "asset" \|\| moduleCodes\.includes\("asset"\)/);
   assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
   assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
+  assert.match(
+    source,
+    /async update\([\s\S]*dto\.expireTime !== undefined[\s\S]*getRepository\(TenantModuleEntity\)\.update\([\s\S]*expireTime: tenant\.expireTime/
+  );
   assert.match(source, /const enabled = !disabledModuleCodes\.has\(module\.moduleCode\)/);
   assert.match(
     source,
@@ -251,6 +257,57 @@ test("tenant-wide authorization changes converge every tenant park without clear
   );
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
+});
+
+test("generic tenant expiry updates every non-deleted module assignment in the same transaction", async () => {
+  const expireTime = new Date(Date.now() + 86_400_000);
+  const tenant = {
+    id: "tenant-row",
+    tenantId: "tenant-a",
+    parkId: "0",
+    tenantCode: "TENANT_A",
+    tenantName: "Tenant A",
+    tenantType: "park_operator",
+    status: 1,
+    expireTime: null,
+    maxUsers: 10,
+    maxParks: 1,
+    websites: [],
+    domains: [],
+    featureConfig: {},
+    createTime: new Date(),
+    updateTime: new Date(),
+    remark: null
+  } as unknown as TenantEntity;
+  const moduleUpdates: unknown[] = [];
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantEntity) return {
+        findOne: async () => tenant,
+        save: async (value: TenantEntity) => value
+      };
+      if (entity === TenantModuleEntity) return {
+        update: async (where: unknown, value: unknown) => moduleUpdates.push({ where, value }),
+        find: async () => []
+      };
+      if (entity === UserEntity || entity === ParkEntity) return { count: async () => 0 };
+      throw new Error("unexpected repository");
+    }
+  };
+  const dataSource = { transaction: async (work: (entityManager: unknown) => unknown) => work(manager) };
+  const service = new TenantsService({} as never, dataSource as never, {} as never, {} as never);
+
+  await service.update(
+    { isSuper: true, permissions: [] } as never,
+    "actor-a",
+    tenant.id,
+    { expireTime: expireTime.toISOString() }
+  );
+
+  assert.deepEqual(moduleUpdates, [{
+    where: { tenantId: "tenant-a", isDeleted: false },
+    value: { expireTime, updateBy: "actor-a" }
+  }]);
 });
 
 test("tenant park row convergence prefers the active duplicate regardless of row order", () => {

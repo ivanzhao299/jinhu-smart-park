@@ -18,8 +18,11 @@ import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
 import { PARK_STATUS_SUSPENDED_FEATURE, TenantModuleEntity } from "./entities/tenant-module.entity";
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
-import { ensureAssetScopeProvisioned } from "../assets/asset-scope-provisioning";
-import { ParkEntity } from "../parks/entities/park.entity";
+import {
+  ensureAssetScopeProvisioned,
+  lockAssetScope,
+  resolveCanonicalAssetParkSource
+} from "../assets/asset-scope-provisioning";
 
 @Injectable()
 export class SaaSModulesService {
@@ -229,6 +232,7 @@ export class SaaSModulesService {
 
   async assignTenantModule(scope: TenantParkScope, actorId: string, dto: AssignTenantModuleDto): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, dto.moduleId);
       if (dto.planId) await this.getPlanWithManager(manager, scope, dto.planId);
@@ -292,6 +296,7 @@ export class SaaSModulesService {
 
   async enableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, moduleId);
       await this.assertDependenciesActive(manager, scope, module.moduleCode);
@@ -339,6 +344,7 @@ export class SaaSModulesService {
 
   async disableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, moduleId);
       await this.assertNoActiveDependents(manager, scope, module.moduleCode);
@@ -627,11 +633,26 @@ export class SaaSModulesService {
   }
 
   private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
-    const park = await manager.getRepository(ParkEntity).findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
-    if (!park) throw new NotFoundException("Park not found");
-    return park.status === 1;
+    try {
+      await resolveCanonicalAssetParkSource(manager, scope);
+      return true;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        const existingRows = await manager.query(
+          `SELECT 1
+           FROM biz_park
+           WHERE tenant_id = $1
+             AND park_id = $2
+             AND is_deleted = false
+           LIMIT 1`,
+          [scope.tenantId, scope.parkId]
+        ) as unknown[];
+        if (existingRows.length > 0) {
+          return false;
+        }
+      }
+      throw error;
+    }
   }
 }
 

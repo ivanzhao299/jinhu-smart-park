@@ -75,7 +75,7 @@ export class ParksService {
   async create(scope: TenantParkScope, actorId: string, dto: CreateParkDto): Promise<ParkEntity> {
     return this.dataSource.transaction(async (manager) => {
     const parkCode = dto.parkCode.trim();
-    await this.lockMutationScopes(manager, scope, parkCode === "JH");
+    await this.lockMutationScopes(manager, scope, true);
     await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
@@ -124,6 +124,7 @@ export class ParksService {
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
+    await this.lockMutationScopes(manager, scope, true);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
@@ -133,7 +134,6 @@ export class ParksService {
     const wasActive = entity.status === 1;
     const nextCode = dto.parkCode?.trim();
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
-    await this.lockMutationScopes(manager, scope, touchesDefaultFallback);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     if (protectedScope && entity.status === 1 && dto.status !== undefined && dto.status !== 1) {
@@ -170,7 +170,9 @@ export class ParksService {
     if (defaultScopeProtected) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
-    if (wasActive && saved.status !== 1) {
+    const scopeRemainsActive = saved.status !== 1
+      && await this.hasActiveCanonicalParkSource(manager, scope);
+    if (wasActive && saved.status !== 1 && !scopeRemainsActive) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
     }
     if (!wasActive && saved.status === 1) {
@@ -183,13 +185,13 @@ export class ParksService {
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
+    await this.lockMutationScopes(manager, scope, true);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Park not found");
-    await this.lockMutationScopes(manager, scope, entity.parkCode === "JH");
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     if (protectedScope) {
@@ -217,6 +219,15 @@ export class ParksService {
       .where("park.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("park.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("park.is_deleted = false");
+  }
+
+  private async hasActiveCanonicalParkSource(
+    manager: EntityManager,
+    scope: TenantParkScope
+  ): Promise<boolean> {
+    return manager.getRepository(ParkEntity).exists({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
+    });
   }
 
   private async applyParkDataScope(builder: SelectQueryBuilder<ParkEntity>, actor?: JwtPrincipal): Promise<void> {

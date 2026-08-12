@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
+import { SaaSModulesService } from "./saas-modules.service";
 
 const source = fs.readFileSync(
   path.join(__dirname, "saas-modules.service.ts"),
@@ -70,12 +71,50 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
 });
 
+test("module writes acquire the asset scope lock before dependency and assignment locks", () => {
+  for (const [start, end] of [
+    ["async assignTenantModule", "async enableTenantModule"],
+    ["async enableTenantModule", "async disableTenantModule"],
+    ["async disableTenantModule", "async listEnabledModulesForTenant"]
+  ] as const) {
+    const block = source.slice(source.indexOf(start), source.indexOf(end));
+    const assetLock = block.indexOf("lockAssetScope(manager, scope)");
+    const dependencyLock = block.indexOf("lockModuleDependencyGraph(manager, scope)");
+    assert.ok(assetLock >= 0);
+    assert.ok(dependencyLock > assetLock);
+  }
+});
+
 test("asset module writes suspend on inactive parks while explicit disable clears the marker", () => {
   assert.match(source, /private async isParkActive/);
+  assert.match(source, /await resolveCanonicalAssetParkSource\(manager, scope\)/);
+  assert.doesNotMatch(source, /getRepository\(ParkEntity\)/);
   assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !parkActive/);
   assert.match(source, /enabled: parkActive/);
   assert.match(source, /status: parkActive \? "enabled" : "disabled"/);
   assert.match(source, /function withParkStatusSuspension/);
   assert.match(source, /delete next\[PARK_STATUS_SUSPENDED_FEATURE\]/);
   assert.equal((source.match(/withParkStatusSuspension\(/g) ?? []).length, 4);
+});
+
+test("park activity resolution accepts one active source, suspends inactive rows, and rejects missing or ambiguous sources", async () => {
+  const isParkActive = (SaaSModulesService.prototype as unknown as {
+    isParkActive(manager: unknown, scope: unknown): Promise<boolean>;
+  }).isParkActive;
+  const scope = { tenantId: "tenant-a", parkId: "park-a" };
+  const managerFor = (activeRows: unknown[], existingRows: unknown[]) => ({
+    getRepository: () => ({ find: async () => activeRows }),
+    query: async () => existingRows
+  });
+
+  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([{}], []), scope), true);
+  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([], [{}]), scope), false);
+  await assert.rejects(
+    isParkActive.call({} as SaaSModulesService, managerFor([], []), scope),
+    /Park not found/
+  );
+  await assert.rejects(
+    isParkActive.call({} as SaaSModulesService, managerFor([{}, {}], []), scope),
+    /Asset park source is ambiguous/
+  );
 });

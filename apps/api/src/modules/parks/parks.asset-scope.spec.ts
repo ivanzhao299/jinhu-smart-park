@@ -21,17 +21,46 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
   assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
   assert.match(source, /syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
-  assert.match(source, /await this\.lockMutationScopes\(manager, scope, touchesDefaultFallback\)/);
+  assert.equal((source.match(/await this\.lockMutationScopes\(manager, scope, true\)/g) ?? []).length, 3);
+  const updateBlock = source.slice(source.indexOf("async update("), source.indexOf("async softDelete("));
+  assert.ok(updateBlock.indexOf("lockMutationScopes") < updateBlock.indexOf('lock: { mode: "pessimistic_write" }'));
+  const deleteBlock = source.slice(source.indexOf("async softDelete("), source.indexOf("private scopedBuilder"));
+  assert.ok(deleteBlock.indexOf("lockMutationScopes") < deleteBlock.indexOf('lock: { mode: "pessimistic_write" }'));
   assert.match(source, /syncCanonicalAssetProjection\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.match(source, /park\.park_code = 'JH'/);
   assert.match(source, /if \(protectedScope\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
   assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await this\.syncCanonicalAssetProjection/);
   assert.match(source, /const wasActive = entity\.status === 1/);
-  assert.match(source, /if \(wasActive && saved\.status !== 1\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
+  assert.match(source, /const scopeRemainsActive = saved\.status !== 1\s+&& await this\.hasActiveCanonicalParkSource/);
+  assert.match(source, /if \(wasActive && saved\.status !== 1 && !scopeRemainsActive\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
   assert.match(source, /if \(!wasActive && saved\.status === 1\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
   assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
+});
+
+test("park deactivation detects a remaining active source in the same scope", async () => {
+  const hasActiveSource = (ParksService.prototype as unknown as {
+    hasActiveCanonicalParkSource(manager: unknown, scope: unknown): Promise<boolean>;
+  }).hasActiveCanonicalParkSource;
+  const calls: unknown[] = [];
+  const manager = {
+    getRepository: () => ({
+      exists: async (options: unknown) => {
+        calls.push(options);
+        return true;
+      }
+    })
+  };
+
+  assert.equal(await hasActiveSource.call(
+    {} as ParksService,
+    manager,
+    { tenantId: "tenant-a", parkId: "park-a" }
+  ), true);
+  assert.deepEqual(calls, [{
+    where: { tenantId: "tenant-a", parkId: "park-a", status: 1, isDeleted: false }
+  }]);
 });
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {
