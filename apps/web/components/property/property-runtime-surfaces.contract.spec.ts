@@ -91,6 +91,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "检查快照"/);
   assert.match(foundation, /modeTransitionSnapshotSummary/);
   assert.match(foundation, /blocking_reasons/);
+  assert.match(foundation, /value="not_required">无需执行/);
 });
 
 test("the authenticated shell suppresses motion globally when the user requests it", () => {

@@ -256,7 +256,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
           </select></label>
           <label className="form-field"><span>执行状态</span><select value={executionStatus}
             onChange={(event) => { setExecutionStatus(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="not_started">待执行</option><option value="executing">执行中</option><option value="retry_wait">等待重试</option><option value="executed">已执行</option><option value="execution_failed">执行失败</option><option value="infra_exhausted">基础设施重试耗尽</option>
+            <option value="">全部</option><option value="not_required">无需执行</option><option value="not_started">待执行</option><option value="executing">执行中</option><option value="retry_wait">等待重试</option><option value="executed">已执行</option><option value="execution_failed">执行失败</option><option value="infra_exhausted">基础设施重试耗尽</option>
           </select></label>
         </> : null}
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>

@@ -191,6 +191,7 @@ export class PropertyOccupanciesService {
         throw new BadRequestException("held occupancy requires hold_expires_at in the future");
       }
     }
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: dto.unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -202,7 +203,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, dto.unit_id]);
     await this.releaseExpiredHolds(manager, scope, actor, dto.unit_id);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: dto.unit_id, isDeleted: false }
@@ -288,6 +288,11 @@ export class PropertyOccupanciesService {
     if (!entity.holdExpiresAt || entity.holdExpiresAt.getTime() <= Date.now()) {
       throw new ConflictException("Occupancy hold has expired");
     }
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      entity.unitId
+    ]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -299,11 +304,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
-      scope.tenantId,
-      scope.parkId,
-      entity.unitId
-    ]);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false },
       lock: { mode: "pessimistic_read" }
@@ -346,6 +346,7 @@ export class PropertyOccupanciesService {
       startAt: expectedPeriod.startAt,
       endAt: expectedPeriod.endAt
     });
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -357,7 +358,6 @@ export class PropertyOccupanciesService {
     ) {
       throw new ConflictException("Business occupancy requires an active unit");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
     await this.releaseExpiredHolds(manager, scope, actor, entity.unitId);
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false }

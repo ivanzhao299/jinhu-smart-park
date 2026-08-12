@@ -826,10 +826,22 @@ export class PropertyOperationsService {
             )
           )
       )`,
-      "operations-blocker": `EXISTS (
-        SELECT 1 FROM biz_homestay_turnover_task task
-        WHERE task.tenant_id=unit.tenant_id AND task.park_id=unit.park_id
-          AND task.unit_id=unit.id AND task.is_deleted=false AND task.status<>'completed'
+      "operations-blocker": `(
+        EXISTS (
+          SELECT 1 FROM biz_homestay_turnover_task task
+          WHERE task.tenant_id=unit.tenant_id AND task.park_id=unit.park_id
+            AND task.unit_id=unit.id AND task.is_deleted=false AND task.status<>'completed'
+        ) OR EXISTS (
+          SELECT 1 FROM biz_property_occupancy occupancy
+          WHERE occupancy.tenant_id=unit.tenant_id AND occupancy.park_id=unit.park_id
+            AND occupancy.unit_id=unit.id AND occupancy.is_deleted=false
+            AND occupancy.end_at>now()
+            AND occupancy.source_domain IN ('maintenance','operations')
+            AND (occupancy.status='active' OR (
+              occupancy.status='held'
+              AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())
+            ))
+        )
       )`,
       "checkout-pending": `EXISTS (
         SELECT 1 FROM rel_leasing_contract_unit relation

@@ -192,12 +192,39 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
     service.indexOf("async activateInTransaction"),
     service.indexOf("async replacePeriodInTransaction")
   );
+  const replaceInTransaction = service.slice(
+    service.indexOf("async replacePeriodInTransaction"),
+    service.indexOf("async activate(", service.indexOf("async replacePeriodInTransaction"))
+  );
   const activate = service.slice(
     service.indexOf("async activate("),
     service.indexOf("async release(", service.indexOf("async activate("))
   );
 
   assert.match(createInTransaction, /unit\.status !== 1/);
+  assert.ok(
+    createInTransaction.indexOf("lock_property_unit_scope")
+      < createInTransaction.indexOf('getRepository(UnitEntity).findOne'),
+    "occupancy creation must acquire the advisory unit lock before the unit row lock"
+  );
   assert.match(activateInTransaction, /unit\.status !== 1/);
+  assert.ok(
+    activateInTransaction.indexOf("lock_property_unit_scope")
+      < activateInTransaction.indexOf('getRepository(UnitEntity).findOne'),
+    "occupancy activation must acquire the advisory unit lock before the unit row lock"
+  );
+  assert.ok(
+    replaceInTransaction.indexOf("lock_property_unit_scope")
+      < replaceInTransaction.indexOf('getRepository(UnitEntity).findOne'),
+    "occupancy replacement must acquire the advisory unit lock before the unit row lock"
+  );
   assert.match(activate, /Business-owned occupancies must be activated by their owning domain workflow/);
+});
+
+test("apartment occupancy creation follows the canonical advisory-before-unit lock order", () => {
+  const service = readFileSync(resolve(__dirname, "../apartments/apartments.service.ts"), "utf8");
+  const createRoom = service.slice(service.indexOf("async createRoom"), service.indexOf("async updateRoom"));
+
+  assert.ok(createRoom.indexOf("lock_property_unit_scope") < createRoom.indexOf("FOR UPDATE"));
+  assert.ok(createRoom.indexOf("FOR UPDATE") < createRoom.indexOf("INSERT INTO biz_property_occupancy"));
 });

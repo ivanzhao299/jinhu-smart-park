@@ -414,6 +414,14 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   ]) {
     assert.match(operationService, new RegExp(financialSource));
   }
+  const operationsBlocker = operationService.slice(
+    operationService.lastIndexOf('"operations-blocker"'),
+    operationService.lastIndexOf('"checkout-pending"')
+  );
+  assert.match(operationsBlocker, /biz_homestay_turnover_task/);
+  assert.match(operationsBlocker, /biz_property_occupancy/);
+  assert.match(operationsBlocker, /source_domain IN \('maintenance','operations'\)/);
+  assert.match(operationsBlocker, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
