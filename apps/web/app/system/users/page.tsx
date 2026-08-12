@@ -616,8 +616,10 @@ export default function UsersPage() {
                     {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
                     {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色</span> : null}
                     {roleCandidates.map((role) => {
-                      const unavailable = !role.isAssignable || !role.isEnabled || role.status !== "enabled";
-                      const selected = selectedRoleIds.includes(role.id) || !role.isAssignable;
+                      const protectedRole = !role.isAssignable && role.isEnabled && role.status === "enabled";
+                      const unavailableOrdinaryRole = !role.isAssignable && !protectedRole;
+                      const unavailable = protectedRole || unavailableOrdinaryRole;
+                      const selected = selectedRoleIds.includes(role.id) || protectedRole;
                       const selectionLimitReached = selectedRoleIds.length >= MAX_ASSIGNED_ROLES && !selected;
                       return (
                         <label key={role.id} className="checkbox-row">
@@ -629,7 +631,7 @@ export default function UsersPage() {
                               ? [...new Set([...current, role.id])]
                               : current.filter((id) => id !== role.id))}
                           />
-                          <span>{role.name}（{role.roleScope === "tenant" ? "租户角色" : role.roleScope === "park" ? "园区角色" : "系统角色"}）{unavailable ? " · 受系统保护或当前不可分配，将原样保留" : ""}</span>
+                          <span>{role.name}（{role.roleScope === "tenant" ? "租户角色" : role.roleScope === "park" ? "园区角色" : "系统角色"}）{protectedRole ? " · 受系统保护，将原样保留" : unavailableOrdinaryRole ? " · 已停用或当前不可分配，保存时将移除" : ""}</span>
                         </label>
                       );
                     })}

@@ -54,3 +54,9 @@ test("bundle preview and apply use the same enabled permission eligibility", () 
   const source = readFileSync(resolve(__dirname, "property-role-bundle.service.ts"), "utf8");
   assert.match(source, /JOIN sys_permission permission ON permission\.id=link\.permission_id[\s\S]*permission\.status='enabled'[\s\S]*permission\.is_enabled=true/);
 });
+
+test("bundle apply synchronizes the legacy role scope fallback with current_park", () => {
+  const source = readFileSync(resolve(__dirname, "property-role-bundle.service.ts"), "utf8");
+  assert.match(source, /role\.dataScope = "40"/);
+  assert.match(source, /role\.dataScopeConfig = \{\}/);
+});

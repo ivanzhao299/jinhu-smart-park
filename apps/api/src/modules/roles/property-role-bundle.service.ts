@@ -204,6 +204,8 @@ export class PropertyRoleBundleService {
       await this.replacePermissions(manager, scope, actorId, roleId, preview.final);
       role.appliedBundleCodes = preview.bundles.map((bundle) => bundle.code);
       role.appliedBundleSignature = preview.bundleSignature;
+      role.dataScope = "40";
+      role.dataScopeConfig = {};
       role.updateBy = actorId;
       const saved = await manager.getRepository(RoleEntity).save(role);
       await this.ensureCurrentParkScope(manager, scope, actorId, roleId);
