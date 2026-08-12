@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const menuPath = resolve(rootDir, "apps/web/lib/menu.ts");
+const propertyRoutesPath = resolve(rootDir, "packages/shared/src/property-business/track-b-routes.ts");
 
 function info(message) {
   console.log(`[INFO] ${message}`);
@@ -35,6 +36,7 @@ function extractWhitelistBlock(source) {
 function run() {
   info(`Reading menu definition from ${menuPath}`);
   const source = readFileSync(menuPath, "utf8");
+  const propertyRoutes = readFileSync(propertyRoutesPath, "utf8");
   const whitelistBlock = extractWhitelistBlock(source);
 
   if (!assert(source.includes("FIRST_RELEASE_MENU_PATHS"), "legacy FIRST_RELEASE_MENU_PATHS remains available for compatibility checks")) return;
@@ -51,8 +53,6 @@ function run() {
     "/leasing/contracts",
     "/leasing/receivables",
     "/leasing/payments",
-    "/homestay",
-    "/housing",
     "/workorders",
     "/workorders/list",
     "/operations/terminal",
@@ -68,6 +68,16 @@ function run() {
   for (const path of requiredPaths) {
     if (!assert(whitelistBlock.includes(path), `whitelist includes ${path}`)) return;
   }
+  if (!assert(whitelistBlock.includes("...PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route)"), "whitelist retains canonical homestay and housing surfaces")) return;
+
+  for (const path of [
+    "/assets/property-operations",
+    "/assets/property-occupancies",
+    "/assets/property-mode-transitions"
+  ]) {
+    if (!assert(propertyRoutes.includes(`route: "${path}"`), `shared property surface declares ${path}`)) return;
+  }
+  if (!assert(whitelistBlock.includes("...assetPropertyControlMenus.map((surface) => surface.href!)"), "whitelist retains the shared asset property control surfaces")) return;
 
   const expandedPaths = [
     "/iot/dashboard",

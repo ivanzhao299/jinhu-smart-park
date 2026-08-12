@@ -50,7 +50,9 @@ interface OccupancyRow {
   startAt: string;
   endAt: string;
   status: string;
+  holdExpiresAt: string | null;
   releaseReason: string | null;
+  releasedAt: string | null;
   version: number;
 }
 
@@ -96,9 +98,13 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   const config = SURFACE_CONFIG[surface];
   const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
-  const [filter, setFilter] = useState(
-    surface === "operations" ? searchParams.get("keyword") ?? "" : searchParams.get("unitId") ?? ""
-  );
+  const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
+  const [unitId, setUnitId] = useState(searchParams.get("unitId") ?? "");
+  const [sourceDomain, setSourceDomain] = useState("");
+  const [sourceType, setSourceType] = useState("");
+  const [occupancyStatus, setOccupancyStatus] = useState("");
+  const [startFrom, setStartFrom] = useState("");
+  const [endTo, setEndTo] = useState("");
   const [fromMode, setFromMode] = useState("");
   const [toMode, setToMode] = useState("");
   const [decisionStatus, setDecisionStatus] = useState("");
@@ -110,9 +116,16 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
 
   const requestPath = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: "20" });
-    if (surface === "operations" && filter.trim()) params.set("keyword", filter.trim());
-    if ((surface === "occupancies" || surface === "mode-transitions") && filter.trim()) {
-      params.set("unitId", filter.trim());
+    if ((surface === "operations" || surface === "mode-transitions") && keyword.trim()) params.set("keyword", keyword.trim());
+    if ((surface === "occupancies" || surface === "mode-transitions") && unitId.trim()) params.set("unitId", unitId.trim());
+    if (surface === "occupancies") {
+      if (sourceDomain) params.set("sourceDomain", sourceDomain);
+      if (sourceType.trim()) params.set("sourceType", sourceType.trim());
+      if (occupancyStatus) params.set("status", occupancyStatus);
+    }
+    if (surface !== "operations") {
+      if (startFrom) params.set("startFrom", new Date(startFrom).toISOString());
+      if (endTo) params.set("endTo", new Date(endTo).toISOString());
     }
     if (surface === "mode-transitions") {
       if (fromMode) params.set("fromMode", fromMode);
@@ -121,7 +134,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
       if (executionStatus) params.set("executionStatus", executionStatus);
     }
     return `${config.api}?${params}`;
-  }, [config.api, decisionStatus, executionStatus, filter, fromMode, page, surface, toMode]);
+  }, [config.api, decisionStatus, endTo, executionStatus, fromMode, keyword, occupancyStatus, page, sourceDomain, sourceType, startFrom, surface, toMode, unitId]);
 
   const load = useCallback(async () => {
     if (!requestPath) {
@@ -159,16 +172,32 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
     </header>
     <PropertyPanelSurface>
       <div className="ds-action-bar">
-        <label className="form-field">
-          <span>{surface === "operations" ? "房源关键词" : "经营房源 ID"}</span>
+        {surface !== "occupancies" ? <label className="form-field">
+          <span>房源关键词</span>
           <input
-            aria-label={surface === "operations" ? "按房源编码或名称筛选" : "按经营房源 ID 筛选"}
-            onChange={(event) => { setFilter(event.target.value); setPage(1); }}
-            placeholder={surface === "operations" ? "输入房源编码或名称" : "输入房源 UUID"}
+            aria-label="按房源编码或名称筛选"
+            onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
+            placeholder="输入房源编码或名称"
             type="search"
-            value={filter}
+            value={keyword}
           />
-        </label>
+        </label> : null}
+        {surface !== "operations" ? <label className="form-field"><span>经营房源 ID</span><input
+          aria-label="按经营房源 ID 精确筛选" onChange={(event) => { setUnitId(event.target.value); setPage(1); }}
+          placeholder="输入房源 UUID" type="search" value={unitId} /></label> : null}
+        {surface === "occupancies" ? <>
+          <label className="form-field"><span>来源域</span><select value={sourceDomain} onChange={(event) => { setSourceDomain(event.target.value); setPage(1); }}>
+            <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">住房出租</option><option value="maintenance">维修</option><option value="operations">运营</option>
+          </select></label>
+          <label className="form-field"><span>来源类型</span><input type="search" value={sourceType} onChange={(event) => { setSourceType(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>占用状态</span><select value={occupancyStatus} onChange={(event) => { setOccupancyStatus(event.target.value); setPage(1); }}>
+            <option value="">全部</option><option value="held">保留</option><option value="active">生效</option><option value="released">已释放</option><option value="completed">已完成</option><option value="cancelled">已取消</option>
+          </select></label>
+        </> : null}
+        {surface !== "operations" ? <>
+          <label className="form-field"><span>开始时间下限</span><input type="datetime-local" value={startFrom} onChange={(event) => { setStartFrom(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>结束时间上限</span><input type="datetime-local" value={endTo} onChange={(event) => { setEndTo(event.target.value); setPage(1); }} /></label>
+        </> : null}
         {surface === "mode-transitions" ? <>
           <label className="form-field"><span>原模式</span><select value={fromMode}
             onChange={(event) => { setFromMode(event.target.value); setPage(1); }}>
@@ -325,8 +354,14 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
   ];
   if (surface === "occupancies") return [
     { key: "source", label: "来源", render: (item) => (item as OccupancyRow).sourceLabel },
+    { key: "sourceType", label: "来源类型", render: (item) => (item as OccupancyRow).sourceType },
     { key: "period", label: "占用时段", render: (item) => `${formatTime((item as OccupancyRow).startAt)} — ${formatTime((item as OccupancyRow).endAt)}` },
     { key: "status", label: "状态", render: (item) => (item as OccupancyRow).status },
+    { key: "holdExpiresAt", label: "保留到期", render: (item) => formatTime((item as OccupancyRow).holdExpiresAt) },
+    { key: "release", label: "释放信息", render: (item) => {
+      const row = item as OccupancyRow;
+      return row.releasedAt ? `${formatTime(row.releasedAt)}${row.releaseReason ? ` · ${row.releaseReason}` : ""}` : "—";
+    } },
     { key: "version", label: "版本", render: (item) => (item as OccupancyRow).version }
   ];
   return [
@@ -349,7 +384,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
   const [feedback, setFeedback] = useState("");
   const [releaseMode, setReleaseMode] = useState<"normal" | "force" | null>(null);
   const [mutating, setMutating] = useState(false);
-  const releaseKey = useRef<string | null>(null);
+  const releaseKeys = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
   const api = surface === "operations"
     ? `/property/units/${encodeURIComponent(id)}/operation`
     : `/property/occupancies/${encodeURIComponent(id)}`;
@@ -372,16 +407,17 @@ export function PropertyFoundationDetailClient({ id, surface }: {
     if (surface !== "occupancies" || releaseMode === null || mutating) return;
     setMutating(true);
     setFeedback("");
-    releaseKey.current ??= createIdempotencyKey(`property-occupancy-${releaseMode}-release`);
+    const mode = releaseMode;
+    releaseKeys.current[mode] ??= createIdempotencyKey(`property-occupancy-${mode}-release`);
     try {
       await apiRequest(`/property/occupancies/${encodeURIComponent(id)}/release`, {
         method: "POST",
         token: getAccessToken() ?? undefined,
-        idempotencyKey: releaseKey.current,
-        body: { reason: reason ?? "", force: releaseMode === "force" }
+        idempotencyKey: releaseKeys.current[mode]!,
+        body: { reason: reason ?? "", force: mode === "force" }
       });
-      releaseKey.current = null;
-      setFeedback(releaseMode === "force" ? "强制释放审批已提交。" : "人工占用已释放。");
+      releaseKeys.current[mode] = null;
+      setFeedback(mode === "force" ? "强制释放审批已提交。" : "人工占用已释放。");
       await load();
     } catch (cause) {
       setFeedback(cause instanceof Error ? cause.message : "释放操作失败");

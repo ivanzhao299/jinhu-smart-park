@@ -1,11 +1,12 @@
 "use client";
 
-import type { HousingLeaseDetailResponse } from "@jinhu/shared";
+import { PROPERTY_BUSINESS_PERMISSIONS, type HousingLeaseDetailResponse } from "@jinhu/shared";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { HousingEvidenceList } from "./HousingEvidenceList";
 import { HousingHandoverForm } from "./HousingHandoverForm";
 import { HousingLeaseSecondaryActions } from "./HousingLeaseSecondaryActions";
@@ -55,7 +56,11 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
       {data.lease.status === "draft" && !eligible ? <div className="ds-alert" role="alert">
         <strong>该历史草稿当前不符合长租房源资格，暂不能提交。</strong>
         <p>{eligibilityReasonLabels(data.lease.eligibility?.reasonCodes ?? []).join("；")}</p>
-        <Link className="ds-button" href={`/assets/property-operations/${encodeURIComponent(data.lease.unitId)}`}>检查房源经营配置</Link>
+        <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATIONS_PAGE}>
+          <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ}>
+            <Link className="ds-button" href={`/assets/property-operations/${encodeURIComponent(data.lease.unitId)}`}>检查房源经营配置</Link>
+          </PermissionGuard>
+        </PermissionGuard>
       </div> : null}
       <div className={styles.actionBar}>
         {submitAllowed ? <button className="ds-button ds-button-primary" disabled={!eligible}

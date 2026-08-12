@@ -518,6 +518,9 @@ export class PropertyOperationsService {
       SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
       SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
     );
+    if (query.startFrom && query.endTo && new Date(query.startFrom) >= new Date(query.endTo)) {
+      throw new BadRequestException("结束时间必须晚于开始时间");
+    }
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds?.length === 0) {
       return { items: [], page: query.page, pageSize: query.pageSize, total: 0, allowedActions: [] };

@@ -4,6 +4,7 @@ import test from "node:test";
 import fs from "node:fs";
 import path from "node:path";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
+import { BadRequestException } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import {
   ANY_PERMISSIONS_KEY,
@@ -162,6 +163,38 @@ test("aggregate mode transition audit preserves total on an empty page and accep
   assert.deepEqual(calls[1]!.parameters, ["tenant-1", "park-1"]);
   assert.equal(result.total, 7);
   assert.deepEqual(result.items, []);
+});
+
+test("aggregate mode transition audit rejects an inverted time range before querying scope or storage", async () => {
+  let scopeQueries = 0;
+  let dataQueries = 0;
+  const service = new PropertyOperationsService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    { allowedUnitIds: async () => { scopeQueries += 1; return null; } } as never,
+    { query: async () => { dataQueries += 1; return []; } } as never
+  );
+
+  await assert.rejects(
+    service.transitionLogsAggregate(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      {
+        sub: "user-1", username: "auditor", tenantId: "tenant-1", parkId: "park-1", roles: [],
+        permissions: [SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ]
+      },
+      {
+        page: 1, pageSize: 20, order: "desc", sort: "createTime",
+        startFrom: "2026-08-12T10:00:00.000Z", endTo: "2026-08-12T09:00:00.000Z"
+      }
+    ),
+    BadRequestException
+  );
+  assert.equal(scopeQueries, 0);
+  assert.equal(dataQueries, 0);
 });
 
 test("configure rejects a stale version before mutating the unit or configuration", async () => {
