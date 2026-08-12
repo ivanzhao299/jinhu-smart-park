@@ -109,6 +109,7 @@ export default function UsersPage() {
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [loadedRoleIds, setLoadedRoleIds] = useState<string[]>([]);
   const [roleCatalogLoading, setRoleCatalogLoading] = useState(false);
+  const [roleCatalogReady, setRoleCatalogReady] = useState(false);
   const loginSettingsRequest = useRef(0);
   const orgCatalogRequest = useRef(0);
   const roleCatalogRequest = useRef(0);
@@ -177,6 +178,7 @@ export default function UsersPage() {
         const roleIds = response.data.roles.map((role) => role.id);
         setSelectedRoleIds(roleIds);
         setLoadedRoleIds(roleIds);
+        setRoleCatalogReady(true);
         return;
       }
       if (!targetScope) return;
@@ -186,6 +188,7 @@ export default function UsersPage() {
       setRoleCandidates(response.data);
       setSelectedRoleIds([]);
       setLoadedRoleIds([]);
+      setRoleCatalogReady(true);
     } finally {
       if (requestId === roleCatalogRequest.current) setRoleCatalogLoading(false);
     }
@@ -308,7 +311,7 @@ export default function UsersPage() {
     event.preventDefault();
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     if (roleOnlyEditing && editingUser) {
-      if (roleCatalogLoading) throw new Error("角色选项尚未加载完成，请稍后重试");
+      if (roleCatalogLoading || !roleCatalogReady) throw new Error("角色选项尚未成功加载，请关闭窗口后重试");
       if (selectedRoleIds.length > MAX_ASSIGNED_ROLES) throw new Error(`每个账号最多配置 ${MAX_ASSIGNED_ROLES} 个角色`);
       await apiRequest<{ id: string }>(`/users/${editingUser.id}/roles`, {
         method: "POST",
@@ -422,6 +425,7 @@ export default function UsersPage() {
     setSelectedRoleIds([]);
     setLoadedRoleIds([]);
     setRoleCatalogLoading(false);
+    setRoleCatalogReady(false);
   }
 
   function closeUserDrawer() {
@@ -679,7 +683,7 @@ export default function UsersPage() {
             {drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={closeUserDrawer}><XCircle size={16} />取消</button>
-              <button className="primary-button" type="submit" disabled={roleCatalogLoading || (!roleOnlyEditing && (loginSettingsLoading || orgCatalogLoading || !formParkId))}><CheckCircle2 size={16} />{orgCatalogLoading || roleCatalogLoading ? "配置加载中…" : "保存"}</button>
+              <button className="primary-button" type="submit" disabled={(canAssignRoles && !roleCatalogReady) || roleCatalogLoading || (!roleOnlyEditing && (loginSettingsLoading || orgCatalogLoading || !formParkId))}><CheckCircle2 size={16} />{orgCatalogLoading || roleCatalogLoading ? "配置加载中…" : "保存"}</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>

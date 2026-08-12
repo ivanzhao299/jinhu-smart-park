@@ -1018,10 +1018,20 @@ export class UsersService {
         throw new NotFoundException("Role not found in current scope");
       }
 
-      await userRoleRepository.update(
-        { userId: id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
-        { isDeleted: true, updateBy: actor.sub }
-      );
+      const currentLinks = await userRoleRepository.find({
+        where: { userId: id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
+        relations: { role: true }
+      });
+      const managedLinkIds = currentLinks
+        .filter((link) => link.role?.tenantId === targetScope.tenantId
+          && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === targetScope.parkId)))
+        .map((link) => link.id);
+      if (managedLinkIds.length > 0) {
+        await userRoleRepository.update(
+          { id: In(managedLinkIds), isDeleted: false },
+          { isDeleted: true, updateBy: actor.sub }
+        );
+      }
       if (dto.roleIds.length > 0) {
         const links = dto.roleIds.map((roleId) =>
           userRoleRepository.create({

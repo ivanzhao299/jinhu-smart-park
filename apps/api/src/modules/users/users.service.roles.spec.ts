@@ -102,6 +102,11 @@ test("role replacement reads and writes through one transaction manager", async 
   const events: string[] = [];
   let roleWhere: unknown;
   let linkWhere: unknown;
+  const managedLink = { id: "link-managed", role: selectedRole } as UserRoleEntity;
+  const protectedPlatformLink = {
+    id: "link-platform",
+    role: role({ id: "role-platform", roleScope: "platform", parkId: undefined })
+  } as UserRoleEntity;
   const roleRepository = {
     find: async (options: { where: unknown }) => {
       events.push("roles.find");
@@ -110,6 +115,7 @@ test("role replacement reads and writes through one transaction manager", async 
     }
   };
   const linkRepository = {
+    find: async () => { events.push("links.find"); return [managedLink, protectedPlatformLink]; },
     update: async (where: unknown) => { events.push("links.update"); linkWhere = where; },
     create: (value: unknown) => value,
     save: async () => { events.push("links.save"); }
@@ -141,9 +147,10 @@ test("role replacement reads and writes through one transaction manager", async 
 
   await service.assignRoles(scope, actor, target.id, { roleIds: [selectedRole.id] }, (value) => { auditScope = value; });
 
-  assert.deepEqual(events, ["transaction.begin", "user.lock", "roles.find", "links.update", "links.save", "transaction.commit"]);
+  assert.deepEqual(events, ["transaction.begin", "user.lock", "roles.find", "links.find", "links.update", "links.save", "transaction.commit"]);
   assert.deepEqual(auditScope, { tenantId: target.tenantId, parkId: target.parkId });
-  assert.deepEqual(linkWhere, { userId: target.id, tenantId: target.tenantId, parkId: target.parkId, isDeleted: false });
+  assert.deepEqual((linkWhere as { id: { value: string[] }; isDeleted: boolean }).id.value, [managedLink.id]);
+  assert.equal((linkWhere as { isDeleted: boolean }).isDeleted, false);
   const scopedRoleWhere = roleWhere as Array<{
     id: { value: string[] };
     tenantId: string;

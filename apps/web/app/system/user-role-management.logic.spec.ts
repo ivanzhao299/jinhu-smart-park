@@ -41,3 +41,10 @@ test("role selection enforces the API maximum before submission", () => {
   assert.match(source, /selectionLimitReached = selectedRoleIds\.length >= MAX_ASSIGNED_ROLES && !selected/);
   assert.match(source, /已选择 \{selectedRoleIds\.length\} \/ \{MAX_ASSIGNED_ROLES\} 个角色/);
 });
+
+test("role-only saving stays disabled unless the catalog loaded successfully", () => {
+  assert.match(source, /const \[roleCatalogReady, setRoleCatalogReady\] = useState\(false\)/);
+  assert.match(source, /setRoleCatalogReady\(true\)/);
+  assert.match(source, /if \(roleCatalogLoading \|\| !roleCatalogReady\)/);
+  assert.match(source, /disabled=\{\(canAssignRoles && !roleCatalogReady\)/);
+});
