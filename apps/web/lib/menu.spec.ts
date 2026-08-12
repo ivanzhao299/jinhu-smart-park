@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   PROPERTY_BUSINESS_SURFACES,
+  PROPERTY_TRACK_B_SURFACES,
   type UserMenuTreeNode
 } from "@jinhu/shared";
 import {
@@ -86,4 +87,24 @@ test("property menu nodes require only their module and granular page permission
     );
     assert.doesNotMatch(child.permission ?? "", /:operations$/u);
   }
+});
+
+test("asset menu exposes the three shared property control planes", () => {
+  const expected = PROPERTY_TRACK_B_SURFACES
+    .filter((surface) => [
+      "asset.property-operations",
+      "asset.property-occupancies",
+      "asset.property-mode-transitions"
+    ].includes(surface.surfaceId));
+  const menus = getDashboardMenus();
+
+  for (const surface of expected) {
+    const item = findMenuByPath(surface.route, menus);
+    assert.deepEqual(
+      { module: item?.module, permission: item?.permission },
+      { module: surface.requiredModule, permission: surface.pagePermission }
+    );
+    assert.equal(FIRST_RELEASE_MENU_PATH_SET.has(surface.route), true);
+  }
+  assert.equal(expected.length, 3);
 });

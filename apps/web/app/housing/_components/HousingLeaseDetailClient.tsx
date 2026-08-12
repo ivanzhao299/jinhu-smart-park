@@ -1,6 +1,7 @@
 "use client";
 
 import type { HousingLeaseDetailResponse } from "@jinhu/shared";
+import Link from "next/link";
 import { useRef, useState } from "react";
 import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
@@ -39,7 +40,8 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
       lock.current = false;
     }
   }
-  const canSubmit = data.lease.status === "draft" && capabilities.actionAllowed("housing.leases.submit");
+  const submitAllowed = data.lease.status === "draft" && capabilities.actionAllowed("housing.leases.submit");
+  const eligible = data.lease.eligibility?.eligible !== false;
   const canActivate = data.lease.status === "pending_signature" && Boolean(data.lease.signatureFileId)
     && capabilities.actionAllowed("housing.leases.activate");
   return (
@@ -50,13 +52,30 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
         ["月租", money(data.lease.monthlyRent)], ["押金", money(data.lease.depositAmount)],
         ["租客", data.tenant?.displayName ?? data.lease.tenantPartyId]
       ]} />
+      {data.lease.status === "draft" && !eligible ? <div className="ds-alert" role="alert">
+        <strong>该历史草稿当前不符合长租房源资格，暂不能提交。</strong>
+        <p>{eligibilityReasonLabels(data.lease.eligibility?.reasonCodes ?? []).join("；")}</p>
+        <Link className="ds-button" href={`/assets/property-operations/${encodeURIComponent(data.lease.unitId)}`}>检查房源经营配置</Link>
+      </div> : null}
       <div className={styles.actionBar}>
-        {canSubmit ? <button className="ds-button ds-button-primary" onClick={() => void run("submit")} type="button">提交租约</button> : null}
+        {submitAllowed ? <button className="ds-button ds-button-primary" disabled={!eligible}
+          onClick={() => void run("submit")} type="button">提交租约</button> : null}
         {canActivate ? <button className="ds-button ds-button-primary" onClick={() => void run("activate")} type="button">生效租约</button> : null}
       </div>
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
     </PropertyPanelSurface>
   );
+}
+
+function eligibilityReasonLabels(reasonCodes: string[]): string[] {
+  const labels: Record<string, string> = {
+    UNIT_INACTIVE: "房源已停用或不存在",
+    OPERATION_CONFIG_MISSING: "尚未配置经营模式",
+    OPERATION_MODE_NOT_LONG_RENT: "经营模式不是长租",
+    OPERATION_STATUS_NOT_ENABLED: "经营状态不是启用",
+    LEASE_PERIOD_OCCUPIED: "拟定租期与现有占用或商业合同冲突"
+  };
+  return reasonCodes.map((code) => labels[code] ?? code);
 }
 
 function LeaseRelated({ capabilities, data }: LeaseContextProps) {

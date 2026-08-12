@@ -92,3 +92,22 @@ export class PropertyOperationListController {
     return this.service.list(scope, actor, query);
   }
 }
+
+@Controller("property/mode-transitions")
+@RequireModule("asset")
+export class PropertyModeTransitionListController {
+  constructor(private readonly service: PropertyOperationsService) {}
+
+  @Get()
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
+  )
+  list(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: PropertyModeTransitionListQueryDto
+  ) {
+    return this.service.transitionLogsAggregate(scope, actor, query);
+  }
+}

@@ -13,7 +13,7 @@ test("Track B bundles match the independently frozen 16-bundle matrix", () => {
       (total, bundle) => total + bundle.permissions.length,
       0
     ),
-    125
+    128
   );
   assert.deepEqual(validateTrackBPermissionBundles(), []);
   assert.deepEqual(validatePropertyPermissionBundles(), []);

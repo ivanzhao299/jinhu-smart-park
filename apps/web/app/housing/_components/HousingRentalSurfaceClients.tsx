@@ -96,6 +96,8 @@ export function HousingLeasesClient() {
       { key: "tenant", label: "租客", render: (item) => displayHousingValue(item.tenantDisplayName) },
       { key: "period", label: "租期", render: (item) => `${item.startDate} 至 ${item.endDate}` },
       { key: "status", label: "状态", render: (item) => item.status },
+      { key: "eligibility", label: "房源资格", render: (item) => item.eligibility?.eligible === false
+        ? `不合格（${item.eligibility.reasonCodes.join("、")}）` : "合格" },
       { key: "rent", label: "月租", render: (item) => housingMoney(item.monthlyRent) }
     )}
     filters={[{ key: "keyword", label: "租约关键词", placeholder: "租约、房源或租客" },

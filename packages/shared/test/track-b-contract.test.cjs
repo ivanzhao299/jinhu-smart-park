@@ -190,7 +190,7 @@ test("identity clientKey preserves the exact shared header/body value", () => {
 });
 
 test("Track B endpoint authority is unique, canonical and signed", () => {
-  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 49);
+  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 52);
   assert.deepEqual(validatePropertyTrackBEndpointPermissionManifest(), []);
   const sorted = [...PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST].sort((left, right) => {
     const leftKey = Buffer.from(`${left.method}\t${left.path}`, "utf8");

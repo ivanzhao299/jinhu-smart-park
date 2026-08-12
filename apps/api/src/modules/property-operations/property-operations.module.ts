@@ -16,6 +16,7 @@ import { PartySensitiveDataService } from "./party-sensitive-data.service";
 import { PropertyOccupanciesController } from "./property-occupancies.controller";
 import { PropertyOccupanciesService } from "./property-occupancies.service";
 import {
+  PropertyModeTransitionListController,
   PropertyOperationListController,
   PropertyOperationsController
 } from "./property-operations.controller";
@@ -43,6 +44,7 @@ import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
   controllers: [
     PropertyOperationsController,
     PropertyOperationListController,
+    PropertyModeTransitionListController,
     PropertyOccupanciesController,
     PartiesController
   ],

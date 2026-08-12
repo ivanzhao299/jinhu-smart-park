@@ -19,6 +19,7 @@ import {
   compareHousingMoney
 } from "./housing-finance.policy";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { assertHousingLeaseUnitEligible } from "./housing-lease-unit-eligibility";
 
 type LeaseApprovalAction = "housing.leases.approve.request" | "housing.leases.void.request"
   | "housing.leases.checkout.request";
@@ -31,7 +32,7 @@ type LeaseApprovalInput = {
 
 type CheckoutSnapshot = {
   lease: { id: string; unitId: string; status: HousingLeaseEntity["status"];
-    version: number; occupancyId: string | null };
+    version: number; occupancyId: string | null; startDate?: string; endDate?: string };
   occupancy: { id: string; version: number; status: string } | null;
   handover: { id: string; version: number };
   receivables: Array<{
@@ -133,7 +134,8 @@ export class HousingLeaseApprovalExecutorService {
     const leases = snapshot ? [snapshot.lease] : typeormQueryRows<CheckoutSnapshot["lease"]>(
       await input.manager.query(
         `SELECT id::text AS id,unit_id::text AS "unitId",status,version,
-                occupancy_id::text AS "occupancyId"
+                occupancy_id::text AS "occupancyId",start_date::text AS "startDate",
+                end_date::text AS "endDate"
            FROM biz_housing_lease WHERE tenant_id=$1 AND park_id=$2 AND id=$3
             AND is_deleted=false FOR UPDATE`, [scope.tenantId, scope.parkId, leaseId]
       ));
@@ -167,6 +169,13 @@ export class HousingLeaseApprovalExecutorService {
 
   private async approveLease(input: LeaseApprovalInput, source: LeaseApprovalSource,
     decisionActor: string) {
+    if (!source.lease.startDate || !source.lease.endDate) {
+      throw new ConflictException("Housing lease period is missing");
+    }
+    await assertHousingLeaseUnitEligible(input.manager, source.scope, source.lease.unitId, {
+      startAt: this.support.businessDateStart(source.lease.startDate).toISOString(),
+      endAt: this.support.businessDateStart(this.support.addDays(source.lease.endDate, 1)).toISOString()
+    });
     const updated = typeormQueryRows<{ version: number }>(await input.manager.query(
       `UPDATE biz_housing_lease SET status='pending_signature',approval_note=$5,
               approved_by=$6,approved_at=clock_timestamp(),update_by=$6,

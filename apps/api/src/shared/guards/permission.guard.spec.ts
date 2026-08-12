@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { ForbiddenException } from "@nestjs/common";
-import { AUTHENTICATED_ONLY_KEY, PERMISSIONS_KEY } from "../decorators/permissions.decorator";
+import {
+  ANY_PERMISSIONS_KEY,
+  AUTHENTICATED_ONLY_KEY,
+  PERMISSIONS_KEY
+} from "../decorators/permissions.decorator";
 import { PermissionGuard } from "./permission.guard";
 
 function context(user?: Record<string, unknown>) {
@@ -40,5 +44,28 @@ describe("PermissionGuard authenticated-only endpoints", () => {
     };
     const guard = new PermissionGuard(reflector as never);
     assert.equal(guard.canActivate(context({ sub: "user-1", permissions: [], isSuper: false }) as never), false);
+  });
+
+  it("allows either any-permission while still enforcing combined required permissions", () => {
+    const reflector = {
+      getAllAndOverride: (key: string) => key === PERMISSIONS_KEY
+        ? ["property:read"]
+        : key === ANY_PERMISSIONS_KEY
+          ? ["property:release", "property:force-release"]
+          : undefined
+    };
+    const guard = new PermissionGuard(reflector as never);
+    assert.equal(guard.canActivate(context({
+      sub: "user-1", permissions: ["property:read", "property:release"], isSuper: false
+    }) as never), true);
+    assert.equal(guard.canActivate(context({
+      sub: "user-1", permissions: ["property:read", "property:force-release"], isSuper: false
+    }) as never), true);
+    assert.equal(guard.canActivate(context({
+      sub: "user-1", permissions: ["property:read"], isSuper: false
+    }) as never), false);
+    assert.equal(guard.canActivate(context({
+      sub: "user-1", permissions: ["property:release"], isSuper: false
+    }) as never), false);
   });
 });

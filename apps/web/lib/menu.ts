@@ -28,6 +28,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   PROPERTY_BUSINESS_SURFACES,
+  PROPERTY_TRACK_B_SURFACES,
   type UserMenuTreeNode
 } from "@jinhu/shared";
 
@@ -114,6 +115,27 @@ const PROPERTY_SURFACE_LABELS: Readonly<Record<string, string>> = {
   "housing.purchases": "采购管理"
 };
 
+const ASSET_PROPERTY_CONTROL_SURFACE_IDS = new Set([
+  "asset.property-operations",
+  "asset.property-occupancies",
+  "asset.property-mode-transitions"
+]);
+
+const ASSET_PROPERTY_CONTROL_LABELS: Readonly<Record<string, string>> = {
+  "asset.property-operations": "房源经营配置",
+  "asset.property-occupancies": "房源占用管理",
+  "asset.property-mode-transitions": "经营模式审计"
+};
+
+const assetPropertyControlMenus: MenuNode[] = PROPERTY_TRACK_B_SURFACES
+  .filter((surface) => ASSET_PROPERTY_CONTROL_SURFACE_IDS.has(surface.surfaceId))
+  .map((surface) => ({
+    label: ASSET_PROPERTY_CONTROL_LABELS[surface.surfaceId] ?? surface.surfaceId,
+    href: surface.route,
+    permission: surface.pagePermission,
+    module: surface.requiredModule
+  }));
+
 function propertySurfaceMenus(moduleCode: "homestay" | "housing_rental"): MenuNode[] {
   return PROPERTY_BUSINESS_SURFACES
     .filter((surface) => surface.moduleCode === moduleCode)
@@ -138,6 +160,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/leasing/contracts",
   "/leasing/receivables",
   "/leasing/payments",
+  ...assetPropertyControlMenus.map((surface) => surface.href!),
   ...PROPERTY_BUSINESS_SURFACES.map((surface) => surface.route),
   "/workorders",
   "/tenant/service",
@@ -206,7 +229,8 @@ export const dashboardMenus: MenuNode[] = [
       { label: "楼层管理", href: "/assets/floors", permission: "floor:read", module: "asset" },
       { label: "房间/房源管理", href: "/assets/units", permission: "unit:read", module: "asset" },
       { label: "房源状态看板", href: "/assets/unit-status-board", permission: "asset:status_board", module: "asset" },
-      { label: "资产统计", href: "/assets/statistics", permission: "asset:statistics", module: "asset" }
+      { label: "资产统计", href: "/assets/statistics", permission: "asset:statistics", module: "asset" },
+      ...assetPropertyControlMenus
     ]
   },
   {

@@ -46,6 +46,27 @@ test("property control-plane routes inherit the authenticated dashboard context"
   assert.match(layout, /<DashboardLayout>\{children\}<\/DashboardLayout>/);
 });
 
+test("shared property foundation exposes three guarded control planes and unit shortcuts", () => {
+  const foundation = readFileSync(resolve(componentRoot, "PropertyFoundationControlClient.tsx"), "utf8");
+  const operations = readFileSync(resolve(webRoot, "app/assets/property-operations/page.tsx"), "utf8");
+  const occupancies = readFileSync(resolve(webRoot, "app/assets/property-occupancies/page.tsx"), "utf8");
+  const transitions = readFileSync(resolve(webRoot, "app/assets/property-mode-transitions/page.tsx"), "utf8");
+  const unitDrawer = readFileSync(resolve(webRoot, "app/assets/units/components/UnitDetailDrawer.tsx"), "utf8");
+
+  assert.match(foundation, /<PropertyPageSurface/);
+  assert.match(foundation, /<PropertyPanelSurface/);
+  assert.match(foundation, /<PropertyResponsiveRecords/);
+  assert.match(operations, /PROPERTY_OPERATIONS_PAGE/);
+  assert.match(operations, /PROPERTY_OPERATION_READ/);
+  assert.match(occupancies, /PROPERTY_OCCUPANCIES_PAGE/);
+  assert.match(occupancies, /PROPERTY_OCCUPANCY_READ/);
+  assert.match(transitions, /PROPERTY_MODE_TRANSITIONS_PAGE/);
+  assert.match(transitions, /PROPERTY_APPROVAL_READ/);
+  assert.match(unitDrawer, /assets\/property-operations/);
+  assert.match(unitDrawer, /assets\/property-occupancies\?unitId=/);
+  assert.match(unitDrawer, /assets\/property-mode-transitions\?unitId=/);
+});
+
 test("the authenticated shell suppresses motion globally when the user requests it", () => {
   const globals = readFileSync(resolve(webRoot, "app/globals.css"), "utf8");
 

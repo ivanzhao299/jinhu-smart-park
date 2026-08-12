@@ -153,6 +153,7 @@ export type PropertyTaskSourceAccessDescriptor =
 
 export interface PropertyTaskEndpointAccess {
   requiredPermissions: readonly string[];
+  anyOfPermissions?: readonly string[];
   authorizationAlternatives: readonly PropertyTaskAuthorizationAlternative[];
 }
 
@@ -178,7 +179,11 @@ export function evaluatePropertyTaskEndpointAuthorization(
     || !facts.sourceScope
     || !facts.queueScope
     || !endpoint.requiredPermissions.every((permission) =>
-      facts.grantedPermissions.has(permission))
+      facts.grantedPermissions.has(permission)
+    )
+    || ((endpoint.anyOfPermissions?.length ?? 0) > 0
+      && endpoint.anyOfPermissions?.some((permission) =>
+        facts.grantedPermissions.has(permission)) !== true)
   ) {
     return false;
   }
@@ -1255,5 +1260,5 @@ export interface PropertyRuntimeAlertV1 {
 
 export type PropertyTaskEndpointContract = Pick<
   PropertyTrackBEndpointPermission,
-  "requiredPermissions" | "authorizationAlternatives"
+  "requiredPermissions" | "anyOfPermissions" | "authorizationAlternatives"
 >;

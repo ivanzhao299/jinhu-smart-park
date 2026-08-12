@@ -37,6 +37,7 @@ import {
 } from "./housing-finance.policy";
 import { maskHousingCredential } from "./housing-projection.policy";
 import { HousingTenantService } from "./housing-tenant.service";
+import { projectHousingLeaseUnitEligibility } from "./housing-lease-unit-eligibility";
 
 type LeaseDetailAccess = {
   tenant: boolean;
@@ -94,11 +95,17 @@ export class HousingLeaseQueryService {
       .take(query.page_size)
       .getManyAndCount();
     const displayByLease = await this.listDisplays(scope, leases);
+    const eligibilityByLease = await projectHousingLeaseUnitEligibility(
+      this.dataSource.manager,
+      scope,
+      leases
+    );
     return {
       items: leases.map((lease) => this.listItem(
         lease,
         actor,
-        displayByLease.get(lease.id) ?? this.emptyDisplay()
+        displayByLease.get(lease.id) ?? this.emptyDisplay(),
+        eligibilityByLease.get(lease.id)
       )),
       total,
       page: query.page,
@@ -112,8 +119,13 @@ export class HousingLeaseQueryService {
     const access = this.detailAccess(actor);
     const data = await this.loadDetailData(scope, lease, access);
     const occupantNames = await this.loadOccupantNames(scope, data.occupants);
+    const eligibility = (await projectHousingLeaseUnitEligibility(
+      this.dataSource.manager,
+      scope,
+      [lease]
+    )).get(lease.id);
     if (access.repairs) data.repairs = await this.filterRepairScope(data.repairs, actor);
-    return this.projectDetail(lease, actor, access, data, occupantNames);
+    return this.projectDetail(lease, actor, access, data, occupantNames, eligibility);
   }
 
   private listBuilder(scope: TenantParkScope) {
@@ -362,10 +374,11 @@ export class HousingLeaseQueryService {
     actor: JwtPrincipal,
     access: LeaseDetailAccess,
     data: LeaseDetailData,
-    occupantNames: Map<string, string>
+    occupantNames: Map<string, string>,
+    eligibility?: HousingLeaseResponse["eligibility"]
   ) {
     return {
-      lease: this.leaseResponse(lease, actor),
+      lease: this.leaseResponse(lease, actor, eligibility),
       ...(data.tenant ? { tenant: this.tenantService.project(data.tenant, actor) } : {}),
       ...(access.tenant ? { occupants: this.occupantProjection(data.occupants, occupantNames) } : {}),
       ...(access.billing ? { charge_plans: data.chargePlans.map((plan) =>
@@ -426,11 +439,20 @@ export class HousingLeaseQueryService {
     };
   }
 
-  private listItem(lease: HousingLeaseEntity, actor: JwtPrincipal, display: LeaseDisplay) {
-    return { ...this.leaseResponse(lease, actor), ...display };
+  private listItem(
+    lease: HousingLeaseEntity,
+    actor: JwtPrincipal,
+    display: LeaseDisplay,
+    eligibility?: HousingLeaseResponse["eligibility"]
+  ) {
+    return { ...this.leaseResponse(lease, actor, eligibility), ...display };
   }
 
-  private leaseResponse(lease: HousingLeaseEntity, actor: JwtPrincipal): HousingLeaseResponse {
+  private leaseResponse(
+    lease: HousingLeaseEntity,
+    actor: JwtPrincipal,
+    eligibility?: HousingLeaseResponse["eligibility"]
+  ): HousingLeaseResponse {
     const canReadFinance = this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_FINANCE_READ);
     const canReadSignature = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ)
       && (this.hasPermission(actor, SYSTEM_PERMISSIONS.HOUSING_LEASE_READ)
@@ -444,6 +466,7 @@ export class HousingLeaseQueryService {
       endDate: lease.endDate,
       status: lease.status,
       paymentCycleMonths: lease.paymentCycleMonths,
+      ...(eligibility ? { eligibility } : {}),
       ...(canReadSignature ? { signatureFileId: lease.signatureFileId } : {}),
       ...(canReadFinance ? {
         monthlyRent: formatHousingMoney(lease.monthlyRent),

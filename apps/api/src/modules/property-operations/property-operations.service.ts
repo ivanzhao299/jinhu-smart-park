@@ -249,6 +249,7 @@ export class PropertyOperationsService {
     dto: TransitionOperatingModeDto,
     clientKey: string
   ) {
+    this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE);
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE);
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
@@ -498,6 +499,146 @@ export class PropertyOperationsService {
     };
   }
 
+  async transitionLogsAggregate(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    query: PropertyModeTransitionListQueryDto
+  ) {
+    this.assertExactPageAndAction(
+      actor,
+      SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
+      SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
+    );
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds?.length === 0) {
+      return { items: [], page: query.page, pageSize: query.pageSize, total: 0, allowedActions: [] };
+    }
+
+    const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const where = [
+      "audit.tenant_id=$1",
+      "audit.park_id=$2",
+      "unit.is_deleted=false"
+    ];
+    const bind = (value: unknown) => {
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
+    if (allowedUnitIds !== null) {
+      where.push(`audit.unit_id=ANY(${bind(allowedUnitIds)}::uuid[])`);
+    }
+    if (query.unitId) where.push(`audit.unit_id=${bind(query.unitId)}::uuid`);
+    if (query.keyword) {
+      const placeholder = bind(`%${query.keyword}%`);
+      where.push(`(unit.unit_code ILIKE ${placeholder} OR unit.unit_name ILIKE ${placeholder})`);
+    }
+    if (query.fromMode) where.push(`audit.from_mode=${bind(query.fromMode)}`);
+    if (query.toMode) where.push(`audit.to_mode=${bind(query.toMode)}`);
+    if (query.startFrom) where.push(`audit.create_time>=${bind(query.startFrom)}::timestamptz`);
+    if (query.endTo) where.push(`audit.create_time<${bind(query.endTo)}::timestamptz`);
+    if (query.decisionStatus) {
+      where.push(`audit.decision_status=${bind(query.decisionStatus)}`);
+    }
+    if (query.executionStatus) {
+      where.push(`audit.execution_status=${bind(query.executionStatus)}`);
+    }
+    const sortColumns = {
+      createTime: "audit.create_time",
+      decisionTime: "audit.decision_time",
+      executionTime: "audit.execution_time"
+    } as const;
+    const limit = bind(query.pageSize);
+    const offset = bind((query.page - 1) * query.pageSize);
+    const rows = await this.dataSource.query(
+      `WITH audit AS (
+         SELECT COALESCE(log.id, request.id) AS id,
+                request.tenant_id,
+                request.park_id,
+                config.unit_id,
+                COALESCE(log.from_mode, request.canonical_payload->>'fromMode') AS from_mode,
+                COALESCE(log.to_mode, request.canonical_payload->>'targetMode') AS to_mode,
+                COALESCE(log.reason, request.canonical_payload->>'reason') AS reason,
+                request.decision_status,
+                request.execution_status,
+                request.created_at AS create_time,
+                request.decided_at AS decision_time,
+                request.executed_at AS execution_time,
+                COALESCE(log.operator_id, request.requester_id) AS operator_id,
+                COALESCE(log.operator_name, request.canonical_payload->>'actorName') AS operator_name,
+                COALESCE(log.version, request.source_expected_version) AS version,
+                false AS legacy
+           FROM biz_property_approval_request request
+           JOIN biz_property_operation_config config
+             ON config.id=request.source_id
+            AND config.tenant_id=request.tenant_id
+            AND config.park_id=request.park_id
+           LEFT JOIN biz_property_mode_transition_log log
+             ON log.tenant_id=request.tenant_id
+            AND log.park_id=request.park_id
+            AND log.approval_execution_key=request.execution_idempotency_key
+            AND log.is_deleted=false
+          WHERE request.action_id='property.mode-transition.request'
+         UNION ALL
+         SELECT log.id,
+                log.tenant_id,
+                log.park_id,
+                log.unit_id,
+                log.from_mode,
+                log.to_mode,
+                log.reason,
+                'approved' AS decision_status,
+                'executed' AS execution_status,
+                log.create_time,
+                log.transition_time AS decision_time,
+                log.transition_time AS execution_time,
+                log.operator_id,
+                log.operator_name,
+                log.version,
+                true AS legacy
+           FROM biz_property_mode_transition_log log
+           LEFT JOIN biz_property_approval_request request
+             ON request.tenant_id=log.tenant_id
+            AND request.park_id=log.park_id
+            AND request.execution_idempotency_key=log.approval_execution_key
+            AND request.action_id='property.mode-transition.request'
+          WHERE log.is_deleted=false AND request.id IS NULL
+       )
+       SELECT audit.id,
+              audit.unit_id AS "unitId",
+              unit.unit_code AS "unitCode",
+              unit.unit_name AS "unitName",
+              audit.from_mode AS "fromMode",
+              audit.to_mode AS "toMode",
+              audit.reason,
+              audit.decision_status AS "decisionStatus",
+              audit.execution_status AS "executionStatus",
+              audit.create_time AS "createTime",
+              audit.decision_time AS "decisionTime",
+              audit.execution_time AS "executionTime",
+              audit.operator_id AS "operatorId",
+              audit.operator_name AS "operatorName",
+              audit.version,
+              audit.legacy,
+              count(*) OVER()::int AS "totalCount"
+         FROM audit
+         JOIN biz_unit unit
+           ON unit.id=audit.unit_id
+          AND unit.tenant_id=audit.tenant_id
+          AND unit.park_id=audit.park_id
+        WHERE ${where.join(" AND ")}
+        ORDER BY ${sortColumns[query.sort]} ${query.order === "asc" ? "ASC" : "DESC"} NULLS LAST, audit.id ASC
+        LIMIT ${limit} OFFSET ${offset}`,
+      parameters
+    ) as Array<Record<string, unknown>>;
+    return {
+      items: rows.map(({ totalCount: _totalCount, ...row }) => ({ ...row, allowedActions: [] })),
+      page: query.page,
+      pageSize: query.pageSize,
+      total: Number(rows[0]?.totalCount ?? 0),
+      allowedActions: []
+    };
+  }
+
   private async projectOperation(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -538,9 +679,10 @@ export class PropertyOperationsService {
         incompatibleCount: snapshot.incompatible_occupancy_count
       },
       blockers,
-      canRequestTransition: false,
+      canRequestTransition: blockers.length === 0
+        && allowedActions.includes("property.mode-transition.request"),
       approval: null,
-      approvalAvailable: false,
+      approvalAvailable: allowedActions.includes("property.mode-transition.request"),
       allowedActions
     };
   }
@@ -571,12 +713,17 @@ export class PropertyOperationsService {
     if (!actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE)) {
       return [];
     }
-    return this.hasActionPermission(
-      actor,
-      SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE
-    )
-      ? ["property.operation.update"]
-      : [];
+    const actions: string[] = [];
+    if (this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE)) {
+      actions.push("property.operation.update");
+    }
+    if (
+      this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE)
+      && this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE)
+    ) {
+      actions.push("property.mode-transition.request");
+    }
+    return actions;
   }
 
   private assertExactPageAndAction(

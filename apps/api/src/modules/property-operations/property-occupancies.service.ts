@@ -67,7 +67,15 @@ export class PropertyOccupanciesService {
       });
     }
     const builder = this.occupanciesRepository.createQueryBuilder("occupancy")
-      .leftJoinAndSelect("occupancy.unit", "unit")
+      .leftJoinAndMapOne(
+        "occupancy.unit",
+        UnitEntity,
+        "unit",
+        `unit.id = occupancy.unit_id
+          AND unit.tenant_id = occupancy.tenant_id
+          AND unit.park_id = occupancy.park_id
+          AND unit.is_deleted = false`
+      )
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false");
@@ -91,9 +99,9 @@ export class PropertyOccupanciesService {
       builder.andWhere("occupancy.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
     const sortColumns = {
-      startAt: "occupancy.start_at",
-      endAt: "occupancy.end_at",
-      updateTime: "occupancy.update_time"
+      startAt: "occupancy.startAt",
+      endAt: "occupancy.endAt",
+      updateTime: "occupancy.updateTime"
     } as const;
     const [items, total] = await builder
       .orderBy(sortColumns[query.sort], query.order === "asc" ? "ASC" : "DESC")
@@ -650,10 +658,21 @@ export class PropertyOccupanciesService {
   }
 
   private async mustFindOccupancy(scope: TenantParkScope, id: string): Promise<PropertyOccupancyEntity> {
-    const entity = await this.occupanciesRepository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      relations: { unit: true }
-    });
+    const entity = await this.occupanciesRepository.createQueryBuilder("occupancy")
+      .leftJoinAndMapOne(
+        "occupancy.unit",
+        UnitEntity,
+        "unit",
+        `unit.id = occupancy.unit_id
+          AND unit.tenant_id = occupancy.tenant_id
+          AND unit.park_id = occupancy.park_id
+          AND unit.is_deleted = false`
+      )
+      .where("occupancy.id = :id", { id })
+      .andWhere("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("occupancy.is_deleted = false")
+      .getOne();
     if (!entity) throw new NotFoundException("Property occupancy not found");
     return entity;
   }

@@ -48,9 +48,9 @@ function productionResolver(overrides = {}) {
   };
 }
 
-test("Track B task endpoint v2 keeps 49 rows and exact OR authorization", () => {
+test("Track B task endpoint v2 keeps 52 rows and exact OR authorization", () => {
   const manifest = shared.PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST;
-  assert.equal(manifest.length, 49);
+  assert.equal(manifest.length, 52);
   assert.deepEqual(shared.validatePropertyTrackBEndpointPermissionManifest(), []);
 
   const release = manifest.find((row) => row.actionId === "property.task.release");
@@ -65,7 +65,8 @@ test("Track B task endpoint v2 keeps 49 rows and exact OR authorization", () => 
     { actorPredicate: "current-assignee", requiredPermissions: ["property_task:process"] },
     { actorPredicate: "queue-supervisor", requiredPermissions: ["property_task:supervise"] }
   ]);
-  assert.ok(manifest.filter((row) => ![release, unblock].includes(row))
+  assert.ok(manifest.filter((row) => ![release, unblock].includes(row)
+    && row.actionId !== "property.occupancy.release-or-force-release")
     .every((row) => row.authorizationAlternatives.length === 0));
   const identityRows = manifest.filter((row) =>
     row.path.startsWith("/api/v1/property/identity-submissions"));
@@ -74,18 +75,27 @@ test("Track B task endpoint v2 keeps 49 rows and exact OR authorization", () => 
   const controlActions = new Set([
     "property.operation.list", "property.operation.read", "property.operation.update",
     "property.mode-transition.request", "property.mode-transition.list",
+    "property.mode-transition.aggregate-list",
     "property.occupancy.list", "property.occupancy.read",
-    "property.occupancy.availability.check", "property.occupancy.force-release.request"
+    "property.occupancy.availability.check", "property.occupancy.create",
+    "property.occupancy.activate", "property.occupancy.release-or-force-release"
   ]);
   const controlRows = manifest.filter((row) => controlActions.has(row.actionId));
+  const occupancyRelease = manifest.find((row) =>
+    row.actionId === "property.occupancy.release-or-force-release");
+  assert.deepEqual(occupancyRelease.requiredPermissions, []);
+  assert.deepEqual(occupancyRelease.anyOfPermissions, [
+    "property_occupancy:force_release",
+    "property_occupancy:release"
+  ]);
   assert.deepEqual(
     [identityRows.length, controlRows.length,
       manifest.length - identityRows.length - controlRows.length - domainRows.length,
       domainRows.length],
-    [10, 9, 21, 9]
+    [10, 12, 21, 9]
   );
   const endpointKeys = manifest.map((row) => `${row.method}\t${row.path}`);
-  assert.equal(new Set(endpointKeys).size, 49);
+  assert.equal(new Set(endpointKeys).size, 52);
   for (const route of Object.values(shared.PROPERTY_TRACK_B_API_ROUTES)) {
     assert.ok(manifest.some((row) => row.path === route), `missing route ${route}`);
   }
