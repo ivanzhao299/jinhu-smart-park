@@ -53,6 +53,8 @@ test("all direct binding mutations reject protected roles and permission updates
   const fieldPolicySource = readFileSync(resolve(__dirname, "../field-policies/field-policy.service.ts"), "utf8");
 
   assert.match(rolesSource, /assignPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
+  assert.match(rolesSource, /role\.appliedBundleCodes = \[\]/);
+  assert.match(rolesSource, /role\.appliedBundleSignature = null/);
   assert.match(rolesSource, /assignFieldPermissions[\s\S]*assertBindingsEditable/);
   assert.match(dataScopeSource, /assignRoleRules[\s\S]*Protected role bindings cannot be changed/);
   assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*Protected role bindings cannot be changed/);

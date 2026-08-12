@@ -339,6 +339,8 @@ export class RolesService {
         updateBy: actorId
       }));
       await linksRepository.save(links);
+      role.appliedBundleCodes = [];
+      role.appliedBundleSignature = null;
       role.updateBy = actorId;
       await manager.getRepository(RoleEntity).save(role);
     });

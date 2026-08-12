@@ -168,10 +168,6 @@ export class DataScopeService {
   }
 
   async assignRoleRules(scope: TenantParkScope, actorId: string, roleId: string, dto: AssignRoleDataScopesDto): Promise<{ roleId: string; ruleIds: string[] }> {
-    const role = await this.mustFindRole(scope, roleId);
-    if (role.isTemplate === true || role.isSystem === true || role.isBuiltin === true || role.editable === false || role.isEditable === false) {
-      throw new ForbiddenException("Protected role bindings cannot be changed");
-    }
     const ruleIds = [...new Set(dto.ruleIds)];
     if (ruleIds.length !== dto.ruleIds.length) {
       throw new BadRequestException("Data scope rule ids must be unique");
@@ -188,6 +184,17 @@ export class DataScopeService {
       throw new NotFoundException("Data scope rule not found in current tenant");
     }
     await this.roleDataScopeRepository.manager.transaction(async (manager) => {
+      const role = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+        .setLock("pessimistic_write")
+        .where("role.id=:roleId", { roleId })
+        .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+        .andWhere("(role.role_scope='tenant' OR (role.role_scope='park' AND role.park_id=:parkId))", { parkId: scope.parkId })
+        .andWhere("role.is_deleted=false")
+        .getOne();
+      if (!role) throw new NotFoundException("Role not found in current tenant");
+      if (role.isTemplate === true || role.isSystem === true || role.isBuiltin === true || role.editable === false || role.isEditable === false) {
+        throw new ForbiddenException("Protected role bindings cannot be changed");
+      }
       const linksRepository = manager.getRepository(RoleDataScopeEntity);
       await linksRepository.update(
         { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },
@@ -283,9 +290,7 @@ export class DataScopeService {
     if (rules.some((rule) => rule.scopeType === "all" || rule.scopeType === "tenant" || rule.scopeType === "park")) {
       return null;
     }
-    if (rules.length === 0) {
-      return enabledRules.length > 0 ? [] : this.resolveFallbackAllowedIds(user, dimension);
-    }
+    if (rules.length === 0) return enabledRules.length > 0 ? null : this.resolveFallbackAllowedIds(user, dimension);
     const dimensionRules = rules.filter((rule) => rule.dimension === dimension || this.idsForDimension(dimension, rule.scopeConfig).length > 0 || rule.scopeType === "self");
     if (dimensionRules.length === 0) {
       return [];

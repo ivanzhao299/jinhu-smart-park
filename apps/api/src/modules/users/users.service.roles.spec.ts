@@ -122,10 +122,14 @@ test("role replacement reads and writes through one transaction manager", async 
     role: role({ id: "role-disabled", status: "disabled", isEnabled: false })
   } as UserRoleEntity;
   const roleRepository = {
-    find: async (options: { where: unknown }) => {
-      events.push("roles.find");
-      roleWhere = options.where;
-      return [selectedRole];
+    createQueryBuilder: () => {
+      const builder = {
+        setLock: () => builder,
+        where: (value: unknown) => { roleWhere = [value]; return builder; },
+        andWhere: (value: unknown) => { (roleWhere as unknown[]).push(value); return builder; },
+        getMany: async () => { events.push("roles.lock"); return [selectedRole]; }
+      };
+      return builder;
     }
   };
   const linkRepository = {
@@ -161,25 +165,10 @@ test("role replacement reads and writes through one transaction manager", async 
 
   await service.assignRoles(scope, actor, target.id, { roleIds: [selectedRole.id] }, (value) => { auditScope = value; });
 
-  assert.deepEqual(events, ["transaction.begin", "user.lock", "roles.find", "links.find", "links.update", "links.save", "transaction.commit"]);
+  assert.deepEqual(events, ["transaction.begin", "user.lock", "roles.lock", "links.find", "links.update", "links.save", "transaction.commit"]);
   assert.deepEqual(auditScope, { tenantId: target.tenantId, parkId: target.parkId });
-  assert.deepEqual((linkWhere as { id: { value: string[] }; isDeleted: boolean }).id.value, [managedLink.id]);
+  assert.deepEqual((linkWhere as { id: { value: string[] }; isDeleted: boolean }).id.value, [managedLink.id, protectedDisabledLink.id]);
   assert.equal((linkWhere as { isDeleted: boolean }).isDeleted, false);
-  const scopedRoleWhere = roleWhere as Array<{
-    id: { value: string[] };
-    tenantId: string;
-    parkId?: string;
-    roleScope: string;
-    status: string;
-    isEnabled: boolean;
-    isTemplate: boolean;
-    isSystem: boolean;
-    isBuiltin: boolean;
-    isDeleted: boolean;
-  }>;
-  assert.deepEqual(scopedRoleWhere.map(({ id: _id, ...where }) => where), [
-    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
-    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
-  ]);
-  assert.deepEqual(scopedRoleWhere[0]?.id.value, [selectedRole.id]);
+  assert.match((roleWhere as string[]).join(" "), /role\.status='enabled' AND role\.is_enabled=true/);
+  assert.match((roleWhere as string[]).join(" "), /role\.is_template=false AND role\.is_system=false AND role\.is_builtin=false/);
 });

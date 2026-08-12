@@ -1011,12 +1011,15 @@ export class UsersService {
       onTargetScope?.(targetScope);
       const roleRepository = manager.getRepository(RoleEntity);
       const userRoleRepository = manager.getRepository(UserRoleEntity);
-      const roles = dto.roleIds.length === 0 ? [] : await roleRepository.find({
-        where: [
-          { id: In(dto.roleIds), tenantId: targetScope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
-          { id: In(dto.roleIds), tenantId: targetScope.tenantId, parkId: targetScope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
-        ]
-      });
+      const roles = dto.roleIds.length === 0 ? [] : await roleRepository.createQueryBuilder("role")
+        .setLock("pessimistic_read")
+        .where("role.id IN (:...roleIds)", { roleIds: dto.roleIds })
+        .andWhere("role.tenant_id=:tenantId", { tenantId: targetScope.tenantId })
+        .andWhere("(role.role_scope='tenant' OR (role.role_scope='park' AND role.park_id=:parkId))", { parkId: targetScope.parkId })
+        .andWhere("role.status='enabled' AND role.is_enabled=true")
+        .andWhere("role.is_template=false AND role.is_system=false AND role.is_builtin=false")
+        .andWhere("role.is_deleted=false")
+        .getMany();
       if (roles.length !== dto.roleIds.length) {
         throw new NotFoundException("Role not found in current scope");
       }
@@ -1027,7 +1030,7 @@ export class UsersService {
       });
       const managedLinkIds = currentLinks
         .filter((link) => link.role?.tenantId === targetScope.tenantId
-          && this.isRoleAssignable(link.role)
+          && !this.isRoleAssignmentProtected(link.role)
           && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === targetScope.parkId)))
         .map((link) => link.id);
       if (managedLinkIds.length > 0) {
@@ -1081,6 +1084,10 @@ export class UsersService {
     return role.isEnabled && !role.isDeleted && role.status === "enabled"
       && !role.isTemplate && !role.isSystem && !role.isBuiltin
       && (role.roleScope === "tenant" || role.roleScope === "park");
+  }
+
+  private isRoleAssignmentProtected(role: RoleEntity): boolean {
+    return role.isTemplate || role.isSystem || role.isBuiltin || role.roleScope === "platform";
   }
 
   private toUserRoleView(role: RoleEntity, isAssignable: boolean): UserRoleView {

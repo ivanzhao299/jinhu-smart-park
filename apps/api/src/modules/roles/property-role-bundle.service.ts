@@ -291,7 +291,8 @@ export class PropertyRoleBundleService {
         SELECT permission.id,permission.code,permission.name
         FROM rel_role_perm link
         JOIN sys_permission permission ON permission.id=link.permission_id
-          AND permission.tenant_id=$2 AND permission.is_deleted=false
+          AND permission.tenant_id=$2 AND permission.status='enabled'
+          AND permission.is_enabled=true AND permission.is_deleted=false
         WHERE link.role_id=$1 AND link.tenant_id=$2 AND link.park_id=$3 AND link.is_deleted=false
         ORDER BY permission.code
       `, [roleId, scope.tenantId, scope.parkId]);

@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { useAuthUser } from "../../../lib/auth-context";
+import { hasAllPermissions } from "../../../lib/permissions";
 
 interface RoleNode {
   id: string;
@@ -125,6 +127,7 @@ const emptyForm: RoleFormState = {
 };
 
 export default function RolesPage() {
+  const authUser = useAuthUser();
   const [data, setData] = useState(emptyPage);
   const [roleTree, setRoleTree] = useState<RoleNode[]>([]);
   const [permissionTree, setPermissionTree] = useState<PermissionNode[]>([]);
@@ -412,9 +415,11 @@ export default function RolesPage() {
         <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" onClick={() => openCreateForm()}>
           <Plus size={16} />新增自定义角色
         </PermissionButton>
-        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" disabled={Boolean(selectedRole?.isTemplate)} onClick={() => void createFromBundles().catch(showError)}>
-          <Layers3 size={16} />按权限包新建
-        </PermissionButton>
+        {hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE]) ? (
+          <button type="button" disabled={Boolean(selectedRole?.isTemplate)} onClick={() => void createFromBundles().catch(showError)}>
+            <Layers3 size={16} />按权限包新建
+          </button>
+        ) : null}
       </header>
 
       <section className="filter-bar">
@@ -481,7 +486,8 @@ export default function RolesPage() {
                     selectedCodes={selectedBundleCodes}
                     mode={bundleMode}
                     preview={bundlePreview}
-                    protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)}
+                    protectedRole={Boolean(selectedRole.roleScope !== "park" || selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)}
+                    canApply={hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE])}
                     onToggle={(code, checked) => { setSelectedBundleCodes(toggleList(code, checked)); setBundlePreview(null); }}
                     onModeChange={(mode) => { setBundleMode(mode); setBundlePreview(null); }}
                     onPreview={() => void previewBundles().catch(showError)}
@@ -583,12 +589,13 @@ function PermissionBinding({ tree, selectedIds, total, protectedRole, onToggle, 
   );
 }
 
-function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protectedRole, onToggle, onModeChange, onPreview, onApply }: {
+function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protectedRole, canApply, onToggle, onModeChange, onPreview, onApply }: {
   bundles: PropertyBundleCatalogItem[];
   selectedCodes: string[];
   mode: "merge" | "sync";
   preview: PropertyBundlePreview | null;
   protectedRole: boolean;
+  canApply: boolean;
   onToggle: (code: string, checked: boolean) => void;
   onModeChange: (mode: "merge" | "sync") => void;
   onPreview: () => void;
@@ -606,7 +613,7 @@ function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protecte
         </div>
         <div className="system-actions">
           <button type="button" onClick={onPreview} disabled={protectedRole || selectedCodes.length === 0}>预览差异</button>
-          <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview}><Save size={16} />应用权限包</PermissionButton>
+          {canApply ? <button className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview}><Save size={16} />应用权限包</button> : null}
         </div>
       </div>
       {protectedRole ? <p className="status-pill status-danger" role="alert">模板、系统或内置角色不可从页面更新；请先实例化为普通角色。</p> : null}

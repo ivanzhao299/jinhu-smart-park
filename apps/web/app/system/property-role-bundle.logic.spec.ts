@@ -24,4 +24,7 @@ test("protected templates and system roles cannot be updated from the bundle pan
   assert.match(source, /function PermissionBinding\([\s\S]*protectedRole: boolean/);
   assert.match(source, /function BindingPanel[\s\S]*protectedRole: boolean/);
   assert.match(source, /受保护角色的绑定不可直接修改/);
+  assert.match(source, /selectedRole\.roleScope !== "park"/);
+  assert.match(source, /hasAllPermissions\(authUser, \[SYSTEM_PERMISSIONS\.ROLE_OPEN_CREATE, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\]\)/);
+  assert.match(source, /hasAllPermissions\(authUser, \[SYSTEM_PERMISSIONS\.ROLE_OPEN_UPDATE, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\]\)/);
 });
