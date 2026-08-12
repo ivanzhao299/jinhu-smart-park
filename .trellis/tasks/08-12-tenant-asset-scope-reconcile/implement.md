@@ -30,6 +30,9 @@
 28. 最终复核：未选中的 system assignment 同步清除陈旧 recovery-only marker，恢复判定忽略停用或删除的 system 模块。
 29. Review #18：登录设置读模型保留暂停的 asset 选择且隐藏 recovery-only system；显式 system 写入清除临时 marker；登录设置写入先按确定顺序获取 asset scope 锁并使用 canonical source 判定。
 30. 独立锁序复核：assignModules 在 canonical source 判定前获取相同 asset scope advisory lock，避免与园区停用/恢复交错提交；补充读模型禁用项与重复项矩阵。
+31. Review #19：园区停用时对未来/过期 system assignment 保存原时间窗快照，仅临时开放恢复权限，恢复后还原；权限收敛保留未过期的未来模块；租户恢复预配未来 asset；通用到期更新先锁全部 scope 再批量写 assignment。
+32. 最终复核：登录设置 expiry-only 分支同样按 scope key 获取全部 advisory lock；非法恢复快照 fail closed，不写入 Invalid Date 或清除原始快照。
+33. 并发终审：租户恢复先从候选 asset assignment 收集并锁定全部 scope，再重新读取 assignment 与判断时间窗，避免使用锁前的陈旧 expiry 进行预配。
 
 ## 验证记录
 

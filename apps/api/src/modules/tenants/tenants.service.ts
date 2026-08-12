@@ -19,7 +19,6 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   assetScopeLockKey,
   ensureAssetScopeProvisioned,
-  hasActiveAssetAssignment,
   hasCanonicalActiveAssetParkSource,
   lockAssetScope
 } from "../assets/asset-scope-provisioning";
@@ -34,6 +33,7 @@ import { PlanEntity } from "../saas-modules/entities/plan.entity";
 import { SaaSModuleEntity } from "../saas-modules/entities/saas-module.entity";
 import {
   PARK_RECOVERY_SYSTEM_FEATURE,
+  PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE,
   PARK_STATUS_SUSPENDED_FEATURE,
   TenantModuleEntity
 } from "../saas-modules/entities/tenant-module.entity";
@@ -389,6 +389,16 @@ export class TenantsService {
       });
       await tenantRepository.save(tenant);
       if (dto.expireTime !== undefined) {
+        const assignmentRows = await manager.getRepository(TenantModuleEntity).find({
+          where: { tenantId: tenant.tenantId, isDeleted: false },
+          select: { parkId: true }
+        });
+        const scopeKeys = [...new Set(assignmentRows.map((item) => item.parkId))]
+          .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
+          .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
+        for (const scope of scopeKeys) {
+          await lockAssetScope(manager, scope);
+        }
         await manager.getRepository(TenantModuleEntity).update(
           { tenantId: tenant.tenantId, isDeleted: false },
           { expireTime: tenant.expireTime, updateBy: actorId }
@@ -523,6 +533,16 @@ export class TenantsService {
         }
       }
       if (dto.expireTime !== undefined) {
+        const assignmentRows = await manager.getRepository(TenantModuleEntity).find({
+          where: { tenantId: tenant.tenantId, isDeleted: false },
+          select: { parkId: true }
+        });
+        const assignmentScopes = [...new Set(assignmentRows.map((item) => item.parkId))]
+          .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
+          .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
+        for (const scope of assignmentScopes) {
+          await lockAssetScope(manager, scope);
+        }
         await manager.getRepository(TenantModuleEntity).update(
           { tenantId: tenant.tenantId, isDeleted: false },
           { expireTime: tenant.expireTime, updateBy: actorId }
@@ -569,8 +589,23 @@ export class TenantsService {
       where: { moduleCode: "asset", status: 1, isDeleted: false }
     });
     if (assetModule) {
-      const now = Date.now();
-      const assignments = await manager.getRepository(TenantModuleEntity).find({
+      const assignmentRepository = manager.getRepository(TenantModuleEntity);
+      const candidateAssignments = await assignmentRepository.find({
+        where: {
+          tenantId: tenant.tenantId,
+          moduleId: assetModule.id,
+          enabled: true,
+          status: "enabled",
+          isDeleted: false
+        }
+      });
+      const candidateScopes = [...new Set(candidateAssignments.map((assignment) => assignment.parkId))]
+        .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
+        .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
+      for (const scope of candidateScopes) {
+        await lockAssetScope(manager, scope);
+      }
+      const assignments = await assignmentRepository.find({
         where: {
           tenantId: tenant.tenantId,
           moduleId: assetModule.id,
@@ -580,15 +615,10 @@ export class TenantsService {
         }
       });
       const eligibleParkIds = new Set(assignments
-        .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
-          && (!assignment.expireTime || assignment.expireTime.getTime() > now))
+        .filter((assignment) => this.isTenantModuleWindowRecoverable(assignment))
         .map((assignment) => assignment.parkId));
       for (const parkId of [...eligibleParkIds].sort()) {
         const scope = { tenantId: tenant.tenantId, parkId };
-        await lockAssetScope(manager, scope);
-        if (!await hasActiveAssetAssignment(manager, scope)) {
-          continue;
-        }
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       }
     }
@@ -625,15 +655,6 @@ export class TenantsService {
     if (!suspendedAsset && !recoverySystem) {
       return;
     }
-    const selectedAssignments = assignments.filter((assignment) =>
-      assignment.module
-      && assignment.module.status === 1
-      && !assignment.module.isDeleted
-      && (this.isTenantModuleWindowActive(assignment) || assignment.id === suspendedAsset?.id)
-      && (assignment.enabled || assignment.id === suspendedAsset?.id)
-      && assignment.id !== recoverySystem?.id
-    );
-    const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
     const assignmentRepository = manager.getRepository(TenantModuleEntity);
     if (suspendedAsset) {
       suspendedAsset.enabled = true;
@@ -643,12 +664,25 @@ export class TenantsService {
       await assignmentRepository.save(suspendedAsset);
     }
     if (recoverySystem) {
-      recoverySystem.enabled = false;
-      recoverySystem.status = "disabled";
+      const snapshot = this.resolveRecoverySystemSnapshot(recoverySystem.featureConfig);
+      recoverySystem.enabled = snapshot?.enabled ?? false;
+      recoverySystem.status = snapshot?.status ?? "disabled";
+      recoverySystem.startTime = snapshot ? this.restoreSnapshotDate(snapshot.startTime) : recoverySystem.startTime;
+      recoverySystem.expireTime = snapshot ? this.restoreSnapshotDate(snapshot.expireTime) : recoverySystem.expireTime;
       recoverySystem.featureConfig = this.withRecoverySystemMarker(recoverySystem.featureConfig, false);
       recoverySystem.updateBy = actorId;
       await assignmentRepository.save(recoverySystem);
     }
+
+    const selectedAssignments = assignments.filter((assignment) =>
+      assignment.module
+      && assignment.module.status === 1
+      && !assignment.module.isDeleted
+      && this.isTenantModuleWindowRecoverable(assignment)
+      && assignment.enabled
+      && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
+    );
+    const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
 
     const permissions = await manager.getRepository(PermissionEntity).find({
       where: { tenantId: scope.tenantId, isDeleted: false },
@@ -706,6 +740,7 @@ export class TenantsService {
     const systemWasSelected = Boolean(
       systemAssignment?.enabled
       && systemAssignment.status === "enabled"
+      && this.isTenantModuleWindowActive(systemAssignment)
       && systemAssignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
     );
     if (!systemAssignment) {
@@ -728,6 +763,11 @@ export class TenantsService {
       systemAssignment.plan = assetAssignment?.plan ?? null;
       assignments.push(systemAssignment);
     } else {
+      const needsRecoverySnapshot = !systemWasSelected
+        && systemAssignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true;
+      if (needsRecoverySnapshot) {
+        systemAssignment.featureConfig = this.withRecoverySystemSnapshot(systemAssignment.featureConfig, systemAssignment);
+      }
       systemAssignment.enabled = true;
       systemAssignment.status = "enabled";
       systemAssignment.startTime = !systemAssignment.startTime || systemAssignment.startTime.getTime() <= Date.now()
@@ -748,7 +788,8 @@ export class TenantsService {
       && !assignment.module.isDeleted
       && assignment.enabled
       && assignment.status === "enabled"
-      && this.isTenantModuleWindowActive(assignment)
+      && this.isTenantModuleWindowRecoverable(assignment)
+      && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
       && assignment.module.moduleCode !== "asset"
     );
     const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
@@ -1508,8 +1549,57 @@ export class TenantsService {
       next[PARK_RECOVERY_SYSTEM_FEATURE] = true;
     } else {
       delete next[PARK_RECOVERY_SYSTEM_FEATURE];
+      delete next[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE];
     }
     return next;
+  }
+
+  private withRecoverySystemSnapshot(
+    featureConfig: Record<string, unknown> | null | undefined,
+    assignment: TenantModuleEntity
+  ): Record<string, unknown> {
+    return {
+      ...(featureConfig ?? {}),
+      [PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE]: {
+        enabled: assignment.enabled,
+        status: assignment.status,
+        startTime: assignment.startTime?.toISOString() ?? null,
+        expireTime: assignment.expireTime?.toISOString() ?? null
+      }
+    };
+  }
+
+  private resolveRecoverySystemSnapshot(featureConfig: Record<string, unknown> | null | undefined): {
+    enabled: boolean;
+    status: string;
+    startTime: string | null;
+    expireTime: string | null;
+  } | null {
+    const value = featureConfig?.[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE];
+    if (value === undefined) return null;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new ConflictException("Recovery system assignment snapshot is invalid");
+    }
+    const snapshot = value as Record<string, unknown>;
+    const validStatus = snapshot.status === "enabled" || snapshot.status === "disabled";
+    const validDateValue = (date: unknown): date is string | null => date === null
+      || (typeof date === "string" && !Number.isNaN(new Date(date).getTime()));
+    if (typeof snapshot.enabled !== "boolean"
+      || !validStatus
+      || !validDateValue(snapshot.startTime)
+      || !validDateValue(snapshot.expireTime)) {
+      throw new ConflictException("Recovery system assignment snapshot is invalid");
+    }
+    return {
+      enabled: snapshot.enabled,
+      status: snapshot.status as "enabled" | "disabled",
+      startTime: snapshot.startTime,
+      expireTime: snapshot.expireTime
+    };
+  }
+
+  private restoreSnapshotDate(value: string | null): Date | null {
+    return value === null ? null : new Date(value);
   }
 
   private async resolveDefaultParkId(manager: EntityManager, tenantId: string): Promise<string> {
