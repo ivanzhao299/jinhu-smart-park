@@ -46,6 +46,7 @@ import {
   tenantMatchesBrandingHost,
   type TenantBrandingView
 } from "./tenant-branding";
+import { ensureTenantAssetRuntimeControls } from "./tenant-asset-runtime-controls";
 
 const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
@@ -297,11 +298,11 @@ export class TenantsService {
       );
 
       const park = await this.createDefaultPark(manager, tenant, parkId, actorId, dto);
-      await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
       const org = await this.createRootOrg(manager, tenant, park.parkId, actorId, dto);
       const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId, parkId: park.parkId }, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
       await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? {});
+      await this.ensureAssetScopeProvisioning(manager, { tenantId, parkId: park.parkId }, moduleCodes, actorId);
       const role = await this.createTenantAdminRole(manager, tenant, park.parkId, actorId);
       await this.applyTenantAdminPermissions(
         manager,
@@ -396,26 +397,27 @@ export class TenantsService {
           throw new BadRequestException("Plan code or module codes are required");
         }
         const tenantParks = await manager.getRepository(ParkEntity).find({
-          where: { tenantId: tenant.tenantId, isDeleted: false },
+          where: { tenantId: tenant.tenantId, status: 1, isDeleted: false },
           order: { createTime: "ASC" }
         });
-        const [firstTenantPark] = tenantParks;
+        const uniqueTenantParks = [...new Map(tenantParks.map((park) => [park.parkId, park])).values()];
+        const [firstTenantPark] = uniqueTenantParks;
         if (!firstTenantPark) {
           throw new NotFoundException("Tenant park not found");
         }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
         const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
-        const retainedDefaultParkIsActive = tenantParks.some((park) => park.parkId === configuredDefaultParkId);
+        const retainedDefaultParkIsActive = uniqueTenantParks.some((park) => park.parkId === configuredDefaultParkId);
         const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
           ? firstTenantPark.parkId
           : defaultParkId ?? firstTenantPark.parkId;
         const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
         const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
-        for (const park of tenantParks) {
+        for (const park of uniqueTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
           await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
+          await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
           await this.applyTenantAdminPermissions(
             manager,
             targetScope,
@@ -485,14 +487,8 @@ export class TenantsService {
       const permissions = await this.ensureTenantPermissions(manager, actorScope, targetScope, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
       const expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
-      const park = await manager.getRepository(ParkEntity).findOne({
-        where: { tenantId: tenant.tenantId, parkId, status: 1, isDeleted: false }
-      });
-      if (!park) {
-        throw new NotFoundException("Park not found");
-      }
-      await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
       await this.upsertTenantModules(manager, tenant, parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? tenant.featureConfig);
+      await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
       const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actorId);
       await this.applyTenantAdminPermissions(
         manager,
@@ -587,23 +583,28 @@ export class TenantsService {
     );
   }
 
-  private async ensureAssetParkProjection(
+  private async ensureAssetScopeProvisioning(
     manager: EntityManager,
-    park: ParkEntity,
+    scope: TenantParkScope,
     moduleCodes: string[],
     actorId: string
   ): Promise<void> {
     if (!moduleCodes.includes("asset")) return;
     await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-      `tenant-asset-park:${park.tenantId}:${park.parkId}`
+      `tenant-asset-park:${scope.tenantId}:${scope.parkId}`
     ]);
+    const park = await this.resolveCanonicalAssetParkSource(manager, scope);
     const repository = manager.getRepository(AssetParkEntity);
-    const existing = await repository.findOne({
-      where: { tenantId: park.tenantId, parkId: park.parkId, isDeleted: false }
+    const existingRows = await repository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      order: { createTime: "ASC", id: "ASC" }
     });
-    const projection = existing ?? repository.create({
-      tenantId: park.tenantId,
-      parkId: park.parkId,
+    if (existingRows.length > 1) {
+      throw new ConflictException("Asset park projection is ambiguous");
+    }
+    const projection = existingRows[0] ?? repository.create({
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
       sortOrder: 0,
       createBy: actorId,
       remark: "Tenant asset park projection"
@@ -617,6 +618,32 @@ export class TenantsService {
       updateBy: actorId
     });
     await repository.save(projection);
+    await ensureTenantAssetRuntimeControls(manager, scope);
+  }
+
+  private async resolveCanonicalAssetParkSource(
+    manager: EntityManager,
+    scope: TenantParkScope
+  ): Promise<ParkEntity> {
+    const repository = manager.getRepository(ParkEntity);
+    const exactSources = await repository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false },
+      order: { createTime: "ASC", id: "ASC" }
+    });
+    const [exactSource] = exactSources;
+    if (exactSources.length === 1 && exactSource) return exactSource;
+    if (scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
+      const fallbackSources = await repository.find({
+        where: { parkCode: "JH", status: 1, isDeleted: false },
+        order: { createTime: "ASC", id: "ASC" }
+      });
+      const [fallbackSource] = fallbackSources;
+      if (fallbackSources.length === 1 && fallbackSource) return fallbackSource;
+    }
+    if (exactSources.length === 0) {
+      throw new NotFoundException("Park not found");
+    }
+    throw new ConflictException("Asset park source is ambiguous");
   }
 
   private async createTenantAdminRole(

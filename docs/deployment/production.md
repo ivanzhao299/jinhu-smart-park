@@ -403,6 +403,12 @@ Migration behavior:
   Production seed order first runs `000007` to create the missing asset projection, then `000008` to create the 12
   disabled controls and 24 correction audits. Disabled or duplicate asset projections, ambiguous sources, partial
   controls, and any seed-disabled deployment remain fail-closed.
+  For scopes created after the release, the tenant create/login-settings/module-assignment transaction performs the
+  same future-data convergence itself: it requires one active same-scope `biz_park` (with only the fixed default
+  scope's reviewed unique `JH` fallback), rejects duplicate non-deleted projections, creates/restores `asset_park`,
+  and initializes the signed 12 disabled controls through both correction audits. Therefore a later deployment with
+  production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
+  originating business write instead of deferring damage to the deployment gate.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
