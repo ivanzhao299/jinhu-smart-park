@@ -419,9 +419,13 @@ Migration behavior:
   updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
   are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
   assignment and asset-derived administrator permissions disabled. To avoid a recovery deadlock, inactive parks retain
-  only `park:read` and `park:update` under the system module; park create/delete and every other asset operation remain
-  asset-gated. Duplicate canonical source repair is allowed only when the committed result leaves exactly one active
-  source; deleting the last source or leaving more than one remains blocked.
+  an enabled system assignment plus only `park:read` and `park:update`; this recovery path remains available even when
+  the selected package omits system. Park create/delete and every other asset operation remain asset-gated. Duplicate
+  canonical source repair is allowed only when the committed result leaves exactly one active source; every transition
+  away from active status is treated as source removal, and a successful delete/replacement immediately reprojects
+  from the sole survivor. Re-enabling a tenant transactionally provisions every active park whose asset assignment is
+  enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
+  than one remains blocked.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
   the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only

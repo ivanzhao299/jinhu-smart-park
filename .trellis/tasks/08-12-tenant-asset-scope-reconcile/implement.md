@@ -13,6 +13,7 @@
 11. Review #6 将 canonical biz_park create/update/delete 纳入同一锁并同步投影；active/retained history 均保护唯一 enabled 投影与 active source；资产投影 DTO 的派生字段改为 canonical 一致性断言；tenant disable/expiry 在 diagnostic/seed 中归入 retained scope。
 12. Review #7 同步 000007 的 active tenant 过滤；跨 scope 的全局 JH fallback mutation 同时获取默认 scope 锁并同步默认投影；面积一致性按数值比较以兼容 numeric 标度。
 13. Review #8：园区去重 active 优先；canonical 冗余来源允许安全清理；inactive 园区提供 system + park read/update 恢复通道；应用侧补审计时间链；retained scope 仅 final contract ready。
+14. Review #9：所有非 active 园区状态统一触发 canonical survivor 校验；删除来源后立即重投影；inactive 园区强制保留 system assignment；租户 enable 事务性补齐潜伏 asset scope。
 
 ## 验证记录
 
@@ -23,4 +24,5 @@
 - `verify-000194-runtime-control-retry.sh`：历史重试链与 fresh-order fixture 通过；覆盖停用 asset assignment 的 `ready_retained_exact`、控制签名漂移双重阻断、disabled 非删除重复投影双重阻断。
 - Review #4 完整 PG 重跑通过：active scope 审计 evidence 篡改被 diagnostic/seed 同时阻断；租户过期后的 retained scope 仍为 `ready_retained_exact`；缺失控制继续输出精确 `missing_control` 分类。
 - API 针对性 21 项测试通过；API lint、typecheck、build 通过；migration prerequisite contract 与脚本语法通过。
+- Review #9 聚焦园区/租户授权测试 21/21 通过，API lint 与 typecheck 通过；待完整 CI/Release Smoke 复跑。
 - 全仓：lint、typecheck、API 1153 项单测（1140 通过、13 跳过）、全部 Web 单测、API/Web build 通过。

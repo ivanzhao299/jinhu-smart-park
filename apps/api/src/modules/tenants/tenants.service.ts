@@ -16,7 +16,7 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { ensureAssetScopeProvisioned } from "../assets/asset-scope-provisioning";
+import { ensureAssetScopeProvisioned, hasActiveAssetAssignment, lockAssetScope } from "../assets/asset-scope-provisioning";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -416,7 +416,10 @@ export class TenantsService {
         if (!firstAuthorizationPark) {
           throw new NotFoundException("Tenant park not found");
         }
-        const modules = await this.resolveStandardModules(manager, moduleCodes);
+        const resolvedModuleCodes = activeTenantParks.length === uniqueTenantParks.length
+          ? moduleCodes
+          : this.normalizeCodes([...moduleCodes, "system"]);
+        const modules = await this.resolveStandardModules(manager, resolvedModuleCodes);
         const retainedDefaultParkIsActive = activeTenantParks.some((park) => park.parkId === configuredDefaultParkId);
         const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
           ? firstAuthorizationPark.parkId
@@ -426,7 +429,11 @@ export class TenantsService {
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of uniqueTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          const parkModuleCodes = park.status === 1 ? moduleCodes : moduleCodes.filter((code) => code !== "asset");
+          const parkModuleCodes = park.status === 1
+            ? moduleCodes
+            : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
+          const selectedParkModuleCodes = new Set(parkModuleCodes);
+          const parkModules = modules.filter((module) => selectedParkModuleCodes.has(module.moduleCode));
           const parkPermissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes);
           if (park.status !== 1) {
             parkPermissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
@@ -435,12 +442,12 @@ export class TenantsService {
             manager,
             tenant,
             park.parkId,
-            modules,
+            parkModules,
             plan,
             actorId,
             tenant.expireTime,
             tenant.featureConfig ?? {},
-            park.status === 1 ? new Set<string>() : new Set(["asset"])
+            new Set<string>()
           );
           if (park.status === 1) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
@@ -476,10 +483,59 @@ export class TenantsService {
 
   async enable(actor: JwtPrincipal, actorId: string, id: string): Promise<TenantView> {
     this.assertSuper(actor);
-    const tenant = await this.getTenantById(id);
-    tenant.status = 1;
-    tenant.updateBy = actorId;
-    return this.toView(await this.tenantRepository.save(tenant));
+    return this.dataSource.transaction(async (manager) => {
+      const tenantRepository = manager.getRepository(TenantEntity);
+      const tenant = await tenantRepository.findOne({ where: { id, isDeleted: false } });
+      if (!tenant) {
+        throw new NotFoundException("Tenant not found");
+      }
+      tenant.status = 1;
+      tenant.updateBy = actorId;
+      await tenantRepository.save(tenant);
+
+      if (tenant.expireTime && tenant.expireTime.getTime() <= Date.now()) {
+        return this.toView(tenant, manager);
+      }
+      const assetModule = await manager.getRepository(SaaSModuleEntity).findOne({
+        where: { moduleCode: "asset", status: 1, isDeleted: false }
+      });
+      if (assetModule) {
+        const now = Date.now();
+        const assignments = await manager.getRepository(TenantModuleEntity).find({
+          where: {
+            tenantId: tenant.tenantId,
+            moduleId: assetModule.id,
+            enabled: true,
+            status: "enabled",
+            isDeleted: false
+          }
+        });
+        const eligibleParkIds = new Set(assignments
+          .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
+            && (!assignment.expireTime || assignment.expireTime.getTime() > now))
+          .map((assignment) => assignment.parkId));
+        if (eligibleParkIds.size > 0) {
+          const parks = await manager.getRepository(ParkEntity).find({
+            where: { tenantId: tenant.tenantId, status: 1, isDeleted: false }
+          });
+          for (const park of preferActiveTenantParkRows(parks)) {
+            if (eligibleParkIds.has(park.parkId)) {
+              const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
+              await lockAssetScope(manager, scope);
+              if (!await hasActiveAssetAssignment(manager, scope)) {
+                continue;
+              }
+              await ensureAssetScopeProvisioned(
+                manager,
+                scope,
+                actorId
+              );
+            }
+          }
+        }
+      }
+      return this.toView(tenant, manager);
+    });
   }
 
   async disable(actor: JwtPrincipal, actorId: string, id: string): Promise<TenantView> {

@@ -22,4 +22,7 @@ GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/257
 - inactive 园区保留最小 `park:read`/`park:update` 恢复能力和 system 模块页面入口，但不保留 building/unit/property 等资产模块权限。
 - 受保护 scope 可停用或删除冗余 canonical park 行以修复歧义，但不能删除最后一个或留下多个 active 来源。
 - runtime-control 应用侧验证两轮修正审计的时间链与最终 control `update_time` 一致。
+- canonical 园区从 `status=1` 转为任意非 active 状态时均按移除来源校验；删除或替换来源后必须在同一事务从唯一 survivor 重新同步资产投影。
+- inactive 园区即使套餐未选择 system，也必须保留 system assignment 与最小园区恢复权限，避免 ModuleGuard 形成恢复死锁。
+- 租户重新启用时，必须在状态提交前事务性补齐所有当前有效 asset assignment 的 active 园区投影与运行时控制。
 - CI、Release Smoke、生产部署、健康、UAT、Docker 清理通过。

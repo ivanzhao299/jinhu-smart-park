@@ -231,9 +231,10 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /authorizationScope/);
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
   assert.match(source, /for \(const park of uniqueTenantParks\)/);
-  assert.match(source, /parkModuleCodes = park\.status === 1 \? moduleCodes : moduleCodes\.filter\(\(code\) => code !== "asset"\)/);
+  assert.match(source, /resolvedModuleCodes = activeTenantParks\.length === uniqueTenantParks\.length/);
+  assert.match(source, /normalizeCodes\(\[\.\.\.moduleCodes\.filter\(\(code\) => code !== "asset"\), "system"\]\)/);
+  assert.match(source, /const parkModules = modules\.filter\(\(module\) => selectedParkModuleCodes\.has\(module\.moduleCode\)\)/);
   assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
-  assert.match(source, /park\.status === 1 \? new Set<string>\(\) : new Set\(\["asset"\]\)/);
   assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
@@ -287,6 +288,23 @@ test("tenant asset enablement creates the canonical park projection in the tenan
   assert.match(provisioningSource, /tenant-asset-park:\$\{scope\.tenantId\}:\$\{scope\.parkId\}/);
   assert.match(provisioningSource, /remark: "Tenant asset park projection"/);
   assert.match(provisioningSource, /ensureTenantAssetRuntimeControls\(manager, scope\)/);
+});
+
+test("tenant reactivation provisions every currently eligible asset scope before commit", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const enableBlock = source.slice(source.indexOf("  async enable("), source.indexOf("  async disable("));
+
+  assert.match(enableBlock, /this\.dataSource\.transaction\(async \(manager\) =>/);
+  assert.match(enableBlock, /tenant\.expireTime && tenant\.expireTime\.getTime\(\) <= Date\.now\(\)/);
+  assert.match(enableBlock, /moduleCode: "asset", status: 1, isDeleted: false/);
+  assert.match(enableBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
+  assert.match(enableBlock, /assignment\.startTime\.getTime\(\) <= now/);
+  assert.match(enableBlock, /assignment\.expireTime\.getTime\(\) > now/);
+  assert.match(enableBlock, /where: \{ tenantId: tenant\.tenantId, status: 1, isDeleted: false \}/);
+  assert.match(enableBlock, /await lockAssetScope\(manager, scope\)/);
+  assert.match(enableBlock, /if \(!await hasActiveAssetAssignment\(manager, scope\)\)/);
+  assert.match(enableBlock, /await ensureAssetScopeProvisioned\(/);
+  assert.match(enableBlock, /return this\.toView\(tenant, manager\)/);
 });
 
 test("tenant asset projection is serialized and restores an existing disabled projection", async () => {

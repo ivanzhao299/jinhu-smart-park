@@ -14,9 +14,12 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /Asset scope requires one active canonical park/);
   assert.match(source, /assertCanonicalSourceSurvives/);
   assert.match(source, /park\.id <> :removedParkId/);
+  assert.match(source, /dto\.status !== undefined && dto\.status !== 1/);
   assert.match(source, /ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
   assert.match(source, /lockAssetScope\(manager, DEFAULT_PLATFORM_SCOPE\)/);
   assert.match(source, /ensureAssetScopeProvisioned\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
+  assert.match(source, /if \(protectedScope\) await ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
+  assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await ensureAssetScopeProvisioned/);
 });
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {
