@@ -18,7 +18,7 @@ export async function ensureAssetScopeProvisioned(
   manager: EntityManager,
   scope: TenantParkScope,
   actorId: string
-): Promise<void> {
+): Promise<AssetParkEntity> {
   await lockAssetScope(manager, scope);
   const source = await resolveCanonicalAssetParkSource(manager, scope);
   const repository = manager.getRepository(AssetParkEntity);
@@ -44,6 +44,32 @@ export async function ensureAssetScopeProvisioned(
   });
   await repository.save(projection);
   await ensureTenantAssetRuntimeControls(manager, scope);
+  return projection;
+}
+
+export async function hasActiveAssetAssignment(
+  manager: EntityManager,
+  scope: TenantParkScope
+): Promise<boolean> {
+  const rows = await manager.query(
+    `SELECT 1
+       FROM rel_tenant_module assignment
+       JOIN sys_module module
+         ON module.id=assignment.module_id
+        AND module.module_code='asset'
+        AND module.status=1
+        AND module.is_deleted=false
+      WHERE assignment.tenant_id=$1
+        AND assignment.park_id=$2
+        AND assignment.enabled=true
+        AND assignment.status='enabled'
+        AND assignment.is_deleted=false
+        AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())
+        AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
+      LIMIT 1`,
+    [scope.tenantId, scope.parkId]
+  ) as unknown[];
+  return rows.length > 0;
 }
 
 export async function resolveCanonicalAssetParkSource(
@@ -56,7 +82,7 @@ export async function resolveCanonicalAssetParkSource(
     order: { createTime: "ASC", id: "ASC" }
   });
   let source = exactSources.length === 1 ? exactSources[0] : null;
-  if (!source && exactSources.length === 0
+  if (!source
     && scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
     && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
     const fallbackSources = await parkRepository.find({

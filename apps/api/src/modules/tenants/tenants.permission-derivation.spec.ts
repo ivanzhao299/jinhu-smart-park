@@ -229,9 +229,12 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /authorizationScope/);
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
   assert.match(source, /for \(const park of uniqueTenantParks\)/);
+  assert.match(source, /parkModuleCodes = park\.status === 1 \? moduleCodes : moduleCodes\.filter\(\(code\) => code !== "asset"\)/);
+  assert.match(source, /park\.status === 1 \? new Set<string>\(\) : new Set\(\["asset"\]\)/);
   assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
+  assert.match(source, /const enabled = !disabledModuleCodes\.has\(module\.moduleCode\)/);
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
 });
@@ -344,11 +347,19 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
     /Asset park source is ambiguous/
   );
 
+  let ambiguousDefaultQueryCount = 0;
+  const ambiguousDefaultFallback = await resolveSource(
+    { getRepository: () => ({ find: async () => {
+      ambiguousDefaultQueryCount += 1;
+      return ambiguousDefaultQueryCount === 1
+        ? [{ parkCode: "A" }, { parkCode: "JH" }]
+        : [{ parkCode: "JH" }];
+    } }) },
+    { tenantId: "10000001", parkId: "20000001" }
+  );
+  assert.equal(ambiguousDefaultFallback.parkCode, "JH");
+
   let queryCount = 0;
-  await assert.rejects(resolveSource(
-      { getRepository: () => ({ find: async () => [{ parkCode: "A" }, { parkCode: "JH" }] }) },
-      { tenantId: "10000001", parkId: "20000001" }
-    ), /Asset park source is ambiguous/);
   const fallback = await resolveSource({ getRepository: () => ({ find: async () => {
     queryCount += 1;
     return queryCount === 1 ? [] : [{ parkCode: "JH" }];

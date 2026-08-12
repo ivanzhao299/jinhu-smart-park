@@ -406,7 +406,6 @@ export class TenantsService {
           throw new NotFoundException("Tenant park not found");
         }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
-        const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
         const retainedDefaultParkIsActive = activeTenantParks.some((park) => park.parkId === configuredDefaultParkId);
         const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
           ? firstAuthorizationPark.parkId
@@ -416,7 +415,18 @@ export class TenantsService {
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of uniqueTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
+          const parkModuleCodes = park.status === 1 ? moduleCodes : moduleCodes.filter((code) => code !== "asset");
+          await this.upsertTenantModules(
+            manager,
+            tenant,
+            park.parkId,
+            modules,
+            plan,
+            actorId,
+            tenant.expireTime,
+            tenant.featureConfig ?? {},
+            park.status === 1 ? new Set<string>() : new Set(["asset"])
+          );
           if (park.status === 1) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
           }
@@ -425,8 +435,8 @@ export class TenantsService {
             targetScope,
             role,
             permissions,
-            moduleCodes,
-            permissionCodes,
+            parkModuleCodes,
+            this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes),
             actorId
           );
         }
@@ -1076,7 +1086,8 @@ export class TenantsService {
     plan: PlanEntity | null,
     actorId: string,
     expireTime: Date | null,
-    featureConfig: Record<string, unknown>
+    featureConfig: Record<string, unknown>,
+    disabledModuleCodes: ReadonlySet<string> = new Set()
   ): Promise<void> {
     const tenantModuleRepository = manager.getRepository(TenantModuleEntity);
     const selectedModuleIds = new Set(modules.map((module) => module.id));
@@ -1092,6 +1103,7 @@ export class TenantsService {
       }
     }
     for (const module of modules) {
+      const enabled = !disabledModuleCodes.has(module.moduleCode);
       const entity =
         existing.find((item) => item.moduleId === module.id) ??
         tenantModuleRepository.create({
@@ -1105,9 +1117,9 @@ export class TenantsService {
         planId: plan?.id ?? entity.planId ?? null,
         startTime: entity.startTime ?? new Date(),
         expireTime,
-        enabled: true,
+        enabled,
         featureConfig,
-        status: "enabled",
+        status: enabled ? "enabled" : "disabled",
         updateBy: actorId,
         remark: "Tenant package module authorization"
       });

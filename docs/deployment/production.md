@@ -410,9 +410,12 @@ Migration behavior:
   production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
   originating business write instead of deferring damage to the deployment gate.
   SaaS tenant-module assign/enable and direct asset-park creation use the same tenant/park transaction lock and
-  projection invariant, so alternate write paths cannot race or bypass this convergence. Login-settings authorization
+  full projection/control provisioning, so alternate write paths cannot race or bypass this convergence. Asset-park
+  update/delete use that lock too and reject disabling or deleting the required projection while the assignment is
+  active. Login-settings authorization
   updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
-  are eligible for canonical asset projection/runtime-control provisioning.
+  are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
+  assignment and asset-derived administrator permissions disabled.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
   the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only

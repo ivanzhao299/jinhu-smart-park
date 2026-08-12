@@ -51,6 +51,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 
 - The tenant transaction must serialize scope convergence by tenant and park, require one active canonical `biz_park` source (except the fixed default scope's reviewed globally unique `JH` fallback), and create or restore exactly one enabled `asset_park` from those canonical fields.
 - Module and tenant-admin permission convergence covers every non-deleted tenant park so an inactive park cannot retain stale authorization. Asset projection/runtime-control provisioning remains limited to active parks.
+- An inactive park keeps its selected `asset` assignment and asset-derived TENANT_ADMIN permissions disabled; other selected modules still converge normally. Direct asset-park create performs canonical provisioning, while update/delete take the same scope lock and cannot disable or delete the projection while the asset assignment is active.
 - The same transaction must initialize the signed 12 disabled property runtime controls through the audited v1 -> v2 -> v3 contract path, yielding 24 immutable correction audits. A fully canonical scope is a no-op; partial or drifted control/audit state fails closed.
 - Disabling `asset` does not delete existing asset-domain business data.
 - Disabling or expiring an existing asset assignment also preserves the signed runtime controls and immutable audits. A scope with that historical assignment is retained for exact-set validation only; it is never interpreted as a currently enabled module or initialized by the seed.
@@ -66,6 +67,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - missing active canonical park during direct module assignment -> `Park not found`; the transaction rolls back.
 - multiple active canonical sources, multiple non-deleted projections, or partial controls/audits -> conflict; the transaction rolls back.
 - disabled existing projection on an authorized business write -> restore and synchronize it.
+- direct asset-park update/delete while the asset assignment is active and the result would remove the enabled projection -> conflict.
 - disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
 - one enabled projection plus any additional disabled non-deleted projection -> `invalid_scope` for both active and retained scopes.
 - ambiguous/missing park source, partial controls, definition drift, seed disabled, or migration-history drift -> deployment remains blocked.

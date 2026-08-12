@@ -9,6 +9,7 @@
 7. Review 生命周期补强：禁用/过期 asset assignment 后保留完整 signed history 为 validation-only scope；active/retained 均拒绝 disabled 非删除重复投影，并同步 diagnostic/000008/PG fixture。
 8. Review 授权与审计补强：所有非删除园区同步模块/TENANT_ADMIN 权限，仅 active 园区 provision asset；retained 租户过期不误判；active/retained 的修正审计内容和 evidence 均严格校验。
 9. inactive-only 租户仍以首个非删除园区作为授权参考 scope 完成模块与 TENANT_ADMIN 收敛，不把 inactive 园区当成资产 canonical source。
+10. Review #5 补齐所有资产园区 mutation：create 执行完整 canonical provisioning，update/delete 共用 scope 锁且 active assignment 下禁止破坏 enabled 投影；inactive park 强制停用 asset assignment/权限；默认 scope 多来源时与 000007 一致选择全局唯一 JH。
 
 ## 验证记录
 

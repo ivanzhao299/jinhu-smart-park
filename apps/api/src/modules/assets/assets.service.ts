@@ -20,7 +20,11 @@ import { AssetBuildingEntity } from "./entities/asset-building.entity";
 import { AssetFloorEntity } from "./entities/asset-floor.entity";
 import { AssetParkEntity } from "./entities/asset-park.entity";
 import { AssetUnitEntity } from "./entities/asset-unit.entity";
-import { lockAssetScope } from "./asset-scope-provisioning";
+import {
+  ensureAssetScopeProvisioned,
+  hasActiveAssetAssignment,
+  lockAssetScope
+} from "./asset-scope-provisioning";
 
 @Injectable()
 export class AssetsService {
@@ -67,20 +71,10 @@ export class AssetsService {
         where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
       });
       if (existingScopeRows > 0) throw new ConflictException("Asset park already exists for scope");
-      await this.assertCodeAvailable(repository, scope, "parkCode", dto.parkCode, "Park code already exists");
-      return repository.save(repository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        parkCode: dto.parkCode,
-        parkName: dto.parkName,
-        address: dto.address ?? null,
-        totalArea: this.toDecimal(dto.totalArea),
-        sortOrder: dto.sortOrder ?? 0,
-        status: dto.status ?? "enabled",
-        remark: dto.remark ?? null,
-        createBy: actorId,
-        updateBy: actorId
-      }));
+      const projection = await ensureAssetScopeProvisioned(manager, scope, actorId);
+      projection.sortOrder = dto.sortOrder ?? projection.sortOrder;
+      projection.remark = dto.remark ?? projection.remark;
+      return repository.save(projection);
     });
   }
 
@@ -90,29 +84,43 @@ export class AssetsService {
   }
 
   async updatePark(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateAssetParkDto): Promise<AssetParkEntity> {
-    const entity = await this.mustFind(this.parksRepository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
-    if (dto.parkCode && dto.parkCode !== entity.parkCode) {
-      await this.assertCodeAvailable(this.parksRepository, scope, "parkCode", dto.parkCode, "Park code already exists");
-    }
-    Object.assign(entity, {
-      parkCode: dto.parkCode ?? entity.parkCode,
-      parkName: dto.parkName ?? entity.parkName,
-      address: dto.address ?? entity.address,
-      totalArea: dto.totalArea === undefined ? entity.totalArea : this.toDecimal(dto.totalArea),
-      sortOrder: dto.sortOrder ?? entity.sortOrder,
-      status: dto.status ?? entity.status,
-      remark: dto.remark ?? entity.remark,
-      updateBy: actor.sub
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const entity = await this.mustFind(repository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
+      if (dto.status === "disabled" && await hasActiveAssetAssignment(manager, scope)) {
+        throw new ConflictException("Active asset module requires an enabled park projection");
+      }
+      if (dto.parkCode && dto.parkCode !== entity.parkCode) {
+        await this.assertCodeAvailable(repository, scope, "parkCode", dto.parkCode, "Park code already exists");
+      }
+      Object.assign(entity, {
+        parkCode: dto.parkCode ?? entity.parkCode,
+        parkName: dto.parkName ?? entity.parkName,
+        address: dto.address ?? entity.address,
+        totalArea: dto.totalArea === undefined ? entity.totalArea : this.toDecimal(dto.totalArea),
+        sortOrder: dto.sortOrder ?? entity.sortOrder,
+        status: dto.status ?? entity.status,
+        remark: dto.remark ?? entity.remark,
+        updateBy: actor.sub
+      });
+      return repository.save(entity);
     });
-    return this.parksRepository.save(entity);
   }
 
   async deletePark(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    const entity = await this.mustFind(this.parksRepository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
-    entity.isDeleted = true;
-    entity.updateBy = actor.sub;
-    await this.parksRepository.save(entity);
-    return { id };
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const entity = await this.mustFind(repository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
+      if (await hasActiveAssetAssignment(manager, scope)) {
+        throw new ConflictException("Active asset module requires an enabled park projection");
+      }
+      entity.isDeleted = true;
+      entity.updateBy = actor.sub;
+      await repository.save(entity);
+      return { id };
+    });
   }
 
   async listBuildings(scope: TenantParkScope, query: AssetQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<AssetBuildingEntity>> {
