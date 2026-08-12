@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  APARTMENT_PERMISSIONS,
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   isPropertyManagedOccupancyDomain,
@@ -762,6 +763,13 @@ export class PropertyOccupanciesService {
           SYSTEM_PERMISSIONS.HOUSING_LEASE_READ
         ],
         build: (id) => `/housing/leases/${encodeURIComponent(id)}`
+      },
+      apartment: {
+        permissions: [
+          APARTMENT_PERMISSIONS.APARTMENT_ROOMS_PAGE,
+          APARTMENT_PERMISSIONS.APARTMENT_READ
+        ],
+        build: () => "/apartments/rooms"
       }
     };
     const rule = rules[sourceDomain];
@@ -782,6 +790,7 @@ export class PropertyOccupanciesService {
       commercial_leasing: "商业租赁",
       homestay: "民宿",
       housing_rental: "住房出租",
+      apartment: "公寓",
       maintenance: "维修",
       operations: "运营"
     };

@@ -587,7 +587,7 @@ export class PropertyOperationsService {
                 request.executed_at AS execution_time,
                 COALESCE(log.operator_id, request.requester_id) AS operator_id,
                 COALESCE(log.operator_name, request.canonical_payload->>'actorName') AS operator_name,
-                COALESCE(log.version, request.source_expected_version) AS version,
+                COALESCE(log.source_expected_version, request.source_expected_version, log.version) AS version,
                 COALESCE(log.check_snapshot, request.canonical_payload->'checkSnapshot') AS check_snapshot,
                 false AS legacy
            FROM biz_property_approval_request request
@@ -616,7 +616,7 @@ export class PropertyOperationsService {
                 log.transition_time AS execution_time,
                 log.operator_id,
                 log.operator_name,
-                log.version,
+                COALESCE(log.source_expected_version, log.version) AS version,
                 log.check_snapshot,
                 true AS legacy
            FROM biz_property_mode_transition_log log

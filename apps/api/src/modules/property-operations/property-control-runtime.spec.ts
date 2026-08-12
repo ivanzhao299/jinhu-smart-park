@@ -118,6 +118,8 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$3::uuid\[\]\)/u);
   assert.match(calls[0]!.sql, /request\.action_id='property\.mode-transition\.request'/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
+  assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, request\.source_expected_version, log\.version\) AS version/u);
+  assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, log\.version\) AS version/u);
   assert.match(calls[0]!.sql, /audit\.check_snapshot AS "checkSnapshot"/u);
   assert.match(calls[0]!.sql, /count\(\*\) OVER\(\)::int/u);
   assert.deepEqual(calls[0]!.parameters, [
@@ -493,6 +495,17 @@ test("occupancy source projection honors super and wildcard grants without bypas
   assert.deepEqual(service.projectSource({ permissions: ["*"] }, "maintenance", "lock-1"), {
     sourceId: "lock-1"
   });
+  assert.deepEqual(service.projectSource({ permissions: ["*"] }, "apartment", "room-1"), {
+    sourceId: "room-1",
+    deepLink: "/apartments/rooms"
+  });
+  assert.deepEqual(service.projectSource({
+    permissions: ["apartment:rooms", "apartment:read"]
+  }, "apartment", "room-2"), {
+    sourceId: "room-2",
+    deepLink: "/apartments/rooms"
+  });
+  assert.deepEqual(service.projectSource({ permissions: ["apartment:read"] }, "apartment", "room-3"), {});
   assert.deepEqual(service.projectSource({ permissions: ["*"] }, "commercial_leasing", "contract-1"), {});
 });
 
