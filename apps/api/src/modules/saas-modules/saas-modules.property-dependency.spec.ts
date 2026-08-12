@@ -67,6 +67,12 @@ test("module assignment writes cannot create split enabled and status state", ()
 });
 
 test("system assignments cannot schedule or expire permission-only authorization", () => {
+  const assignBlock = source.slice(
+    source.indexOf("async assignTenantModule"),
+    source.indexOf("async enableTenantModule")
+  );
+  assert.match(assignBlock, /module\.moduleCode === "system" \? null : entity\.expireTime \?\? null/);
+
   const assertImmediate = (SaaSModulesService.prototype as unknown as {
     assertSystemAssignmentWindow(moduleCode: string, startTime: Date | null, expireTime: Date | null): void;
   }).assertSystemAssignmentWindow;
@@ -141,9 +147,10 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.match(source, /delete next\[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE\]/);
   assert.equal((source.match(/const promotingRecoverySystem = module\.moduleCode === "system"/g) ?? []).length, 2);
   assert.match(source, /startTime: dto\.startTime === undefined\s*\? promotingRecoverySystem \? null/);
-  assert.match(source, /expireTime: dto\.expireTime === undefined\s*\? promotingRecoverySystem \? null/);
+  assert.match(source, /expireTime: dto\.expireTime === undefined\s*\? module\.moduleCode === "system" \? null/);
   assert.match(source, /startTime: promotingRecoverySystem \? null : entity\.startTime/);
-  assert.match(source, /expireTime: promotingRecoverySystem \? null : entity\.expireTime/);
+  assert.match(source, /expireTime: module\.moduleCode === "system" \? null : entity\.expireTime/);
+  assert.match(source, /await this\.reconcileSystemAuthorizationAfterWrite\(manager, scope, actorId, false\)[\s\S]*const reconciled = await repository\.findOne/);
   assert.equal((source.match(/withExplicitModuleSelection\(/g) ?? []).length, 4);
 });
 

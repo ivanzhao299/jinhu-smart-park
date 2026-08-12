@@ -51,6 +51,7 @@
 49. Review #33：默认平台 exact 与 JH fallback 均缺失时判定 canonical inactive，允许后续 fallback 恢复；非默认未知 scope 继续 NotFound fail-closed。
 50. Review #34：园区接口已有有效 asset assignment 时直接通过模块授权，不再提前解析 canonical source；仅 system recovery 分支查询 inactive canonical 状态，使管理员可进入并修复历史多来源歧义。
 51. CI Release Smoke：多园区 seed 重跑 fixture 的第二园区改用独立 parkId，保留“同租户两个园区”覆盖，同时不再构造同 scope 双 active canonical source；生产 000007 歧义门禁保持 fail closed。
+52. Review #35：system 分配/启用均清理历史 assignment 到期时间且禁用返回最终 recovery 状态；孤立 projection 不创建恢复授权；权威模块谓词补齐 start_time。权限定义保持 000024 规定的 tenant-wide 唯一语义，park 隔离由 rel_role_perm 绑定承担。
 
 ## 验证记录
 

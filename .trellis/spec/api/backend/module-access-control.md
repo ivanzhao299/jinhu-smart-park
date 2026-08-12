@@ -9,7 +9,7 @@ menus and role grants.
 ## 2. Signatures
 
 - Database authority:
-  `rel_tenant_module(tenant_id, park_id, module_id, enabled, status, expire_time, is_deleted)`
+  `rel_tenant_module(tenant_id, park_id, module_id, enabled, status, start_time, expire_time, is_deleted)`
   joined to `sys_module(id, module_code, status, is_deleted)`.
 - Runtime projection:
   `GET /users/me -> enabled_modules[]`.
@@ -31,6 +31,7 @@ authorization authority for the signatures above.
   - `rel_tenant_module.is_deleted = false`;
   - `rel_tenant_module.enabled = true`;
   - `rel_tenant_module.status = 'enabled'`;
+  - `start_time IS NULL OR start_time <= now()`;
   - `expire_time IS NULL OR expire_time > now()`;
   - joined `sys_module.is_deleted = false`;
   - joined `sys_module.status = 1`.
@@ -54,6 +55,10 @@ authorization authority for the signatures above.
 - Plan permission markers and explicit permission patterns must be intersected with the final
   enabled module set before role grants are rebuilt. Removing a module must remove its role
   permissions even when the plan still contains a stale explicit permission code.
+- `sys_permission` definitions are tenant-wide and unique by `(tenant_id, code)`; do not clone or
+  filter them by `park_id`. Authorization binding is park-scoped through
+  `rel_role_perm(tenant_id, park_id, role_id, permission_id)`, so rebuilding one park replaces only
+  that park's links while reusing the tenant's canonical permission IDs.
 - When an inactive park temporarily suspends a selected asset module, persist an explicit
   park-status suspension marker. Reactivating that park may restore only marked assignments and
   their tenant-admin permissions; an explicit module disable must clear the marker so recovery

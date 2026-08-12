@@ -276,7 +276,7 @@ export class SaaSModulesService {
           ? promotingRecoverySystem ? null : entity.startTime ?? null
           : dto.startTime === null ? null : new Date(dto.startTime),
         expireTime: dto.expireTime === undefined
-          ? promotingRecoverySystem ? null : entity.expireTime ?? null
+          ? module.moduleCode === "system" ? null : entity.expireTime ?? null
           : dto.expireTime === null ? null : new Date(dto.expireTime),
         enabled: enabling,
         featureConfig: withExplicitModuleSelection(
@@ -341,7 +341,7 @@ export class SaaSModulesService {
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
         startTime: promotingRecoverySystem ? null : entity.startTime,
-        expireTime: promotingRecoverySystem ? null : entity.expireTime,
+        expireTime: module.moduleCode === "system" ? null : entity.expireTime,
         enabled: parkActive,
         status: parkActive ? "enabled" : "disabled",
         featureConfig: withExplicitModuleSelection(
@@ -400,6 +400,11 @@ export class SaaSModulesService {
       const saved = await repository.save(entity);
       if (module.moduleCode === "system") {
         await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, false);
+        const reconciled = await repository.findOne({
+          where: { id: saved.id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+        });
+        if (!reconciled) throw new NotFoundException("Tenant module authorization not found");
+        return reconciled;
       }
       return saved;
     });

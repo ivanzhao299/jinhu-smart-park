@@ -83,10 +83,13 @@ export class ParksService {
     await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
+    const authorizationProtectedScope = await hasProtectedAssetScope(manager, scope);
     const protectedScopeWasActive = protectedScope
       ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, scope)
       : false;
     const defaultScopeProtected = parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
+    const defaultAuthorizationProtectedScope = parkCode === "JH"
+      && await hasProtectedAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultScopeWasActive = defaultScopeProtected
       ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, DEFAULT_PLATFORM_SCOPE)
       : false;
@@ -125,7 +128,7 @@ export class ParksService {
     const saved = await repository.save(entity);
     if (protectedScope && saved.status === 1) {
       await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
-      if (!protectedScopeWasActive) {
+      if (authorizationProtectedScope && !protectedScopeWasActive) {
         await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
       }
     }
@@ -134,7 +137,7 @@ export class ParksService {
     if (defaultScopeProtected && saved.status === 1 && defaultScopeIsSecondary) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
       const defaultScopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE);
-      if (!defaultScopeWasActive && defaultScopeRemainsActive) {
+      if (defaultAuthorizationProtectedScope && !defaultScopeWasActive && defaultScopeRemainsActive) {
         await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
       }
     }
@@ -158,7 +161,10 @@ export class ParksService {
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
     this.assertDefaultFallbackMutationAllowed(scope, actor, touchesDefaultFallback);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
+    const authorizationProtectedScope = await hasProtectedAssetScope(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
+    const defaultAuthorizationProtectedScope = touchesDefaultFallback
+      && await hasProtectedAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultScopeWasActive = defaultScopeProtected
       ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, DEFAULT_PLATFORM_SCOPE)
       : false;
@@ -195,19 +201,20 @@ export class ParksService {
     if (defaultScopeProtected && defaultScopeRemainsActive) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
-    if (wasActive && saved.status !== 1 && !scopeRemainsActive) {
+    if (authorizationProtectedScope && wasActive && saved.status !== 1 && !scopeRemainsActive) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
     }
     const defaultScopeIsSecondary = scope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
       || scope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
-    if (wasActive && saved.status !== 1 && defaultScopeProtected && !defaultScopeRemainsActive && defaultScopeIsSecondary) {
+    if (wasActive && saved.status !== 1 && defaultAuthorizationProtectedScope && !defaultScopeRemainsActive && defaultScopeIsSecondary) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
-    if (!wasActive && saved.status === 1) {
+    if (authorizationProtectedScope && !wasActive && saved.status === 1) {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
     }
     if (
       defaultScopeProtected
+      && defaultAuthorizationProtectedScope
       && !defaultScopeWasActive
       && defaultScopeRemainsActive
       && defaultScopeIsSecondary

@@ -272,6 +272,17 @@ test("tenant-wide authorization changes converge every tenant park without clear
   );
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
+  const permissionSeedBlock = source.slice(
+    source.indexOf("private async ensureTenantPermissions("),
+    source.indexOf("private async applyTenantAdminPermissions(")
+  );
+  assert.doesNotMatch(permissionSeedBlock, /where: \{ tenantId: source\.tenantId, parkId: source\.parkId/);
+  assert.match(permissionSeedBlock, /where: \{ tenantId: source\.tenantId, isDeleted: false \}/);
+  const permissionSourceBlock = source.slice(
+    source.indexOf("private async resolvePermissionSourceScope("),
+    source.indexOf("private async applyTenantAdminPermissions(")
+  );
+  assert.doesNotMatch(permissionSourceBlock, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId/);
   const assignModulesBlock = source.slice(source.indexOf("async assignModules("), source.indexOf("private async getTenantById"));
   assert.match(assignModulesBlock, /await lockAssetScope\(manager, targetScope\)[\s\S]{0,120}hasCanonicalActiveAssetParkSource\(manager, targetScope\)/);
   assert.match(assignModulesBlock, /const authorizationModuleCodes = parkActive\s+\? moduleCodes\s+: moduleCodes\.filter\(\(code\) => code !== "asset"\)/);

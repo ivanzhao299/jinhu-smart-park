@@ -1190,7 +1190,7 @@ export class TenantsService {
 
     const source = await this.resolvePermissionSourceScope(manager, sourceScope);
     const sourcePermissions = await permissionRepository.find({
-      where: { tenantId: source.tenantId, parkId: source.parkId, isDeleted: false },
+      where: { tenantId: source.tenantId, isDeleted: false },
       order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
     });
     if (sourcePermissions.length === 0) {
@@ -1246,7 +1246,7 @@ export class TenantsService {
   private async resolvePermissionSourceScope(manager: EntityManager, scope: TenantParkScope): Promise<TenantParkScope> {
     const permissionRepository = manager.getRepository(PermissionEntity);
     const scopedCount = await permissionRepository.count({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { tenantId: scope.tenantId, isDeleted: false }
     });
     if (scopedCount > 0) {
       return scope;
