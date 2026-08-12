@@ -720,6 +720,17 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
         AND remark='PR192 Track B frozen permission definition'
         AND is_deleted=false;"
 
+# The duplicate logical park above is a bounded fixture for the 000009
+# multi-row repair contract. Remove it before running the complete current
+# production seed: the property-role template reconcile intentionally rejects
+# ambiguous current-park scope instead of choosing one row implicitly.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "DELETE FROM public.biz_park
+      WHERE tenant_id='10000001' AND park_id='20000001'
+        AND park_code='JH_SECOND_ACTIVE_PARK'
+        AND remark='production-seed-multi-park-scope-regression';"
+
 ALLOW_PRODUCTION_SEED=yes POSTGRES_DB="$fresh_order_db" \
   sh scripts/db-seed-prod.sh 2>&1 | tee "$log_root/db-seed-000200-fresh-order-rerun.log"
 
@@ -737,7 +748,7 @@ fresh_order_active_park_count="$(
         WHERE tenant_id='10000001' AND park_id='20000001'
           AND status=1 AND is_deleted=false;"
 )"
-test "$fresh_order_active_park_count" -eq 2
+test "$fresh_order_active_park_count" -eq 1
 
 fresh_order_permission_visibility_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
