@@ -63,9 +63,10 @@ authorization authority for the signatures above.
   a system module that was already explicitly selected remains enabled. Reassigning a plan or
   module set while the park is inactive must preserve the marker when system was added only for
   recovery, and clear it only when system is part of the administrator's explicit selection.
-- Park read/update routes may accept the system module only when its current assignment carries
-  the recovery-only marker; an ordinary system assignment must not keep asset-derived park grants
-  usable after asset is disabled.
+- Park read/update routes may accept an effective system assignment only while the canonical park
+  scope is inactive. This includes both the recovery-only marker and an administrator's explicit
+  system selection; once the canonical scope is active, a stale recovery marker or ordinary system
+  assignment must not keep asset-derived park grants usable after asset is disabled.
 - Every park status mutation and standalone asset-module write must apply the same suspension
   state machine. Recovery restores only assignments whose effective time window is currently
   unexpired. A future-dated assignment is re-enabled before its start time so the normal module

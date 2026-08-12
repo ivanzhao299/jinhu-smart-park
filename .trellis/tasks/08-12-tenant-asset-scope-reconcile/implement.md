@@ -36,6 +36,7 @@
 34. Review #20：登录设置保留带快照的计划 system；租户到期同步快照 expiry；园区 system fallback 仅限 recovery marker；默认 JH 多候选明确 Conflict；000007/000008/diagnostic 将未过期未来 asset 纳入预配。
 35. 终审：default scope 的 exact active source 超过一条时在 fallback 查询前直接 Conflict；JH fallback 仅用于 exact source 缺失，不能掩盖 exact scope 歧义。
 36. Review #21：登录设置在任何授权/到期写入前锁定 park 与 retained assignment scope 并集；显式 system 仅在 canonical scope inactive 时用于恢复；disabled system 快照不投影为已选；diagnostic/000007 fallback 仅允许 exact_source_count=0。
+37. Review #22：计划 system 重存时恢复原时间窗；通用更新与 enable 在 tenant 写前锁定全部 assignment scope；自动恢复 system 不再派生完整 system 管理权限；规范明确 system 仅在 canonical inactive 时开放园区恢复。
 
 ## 验证记录
 

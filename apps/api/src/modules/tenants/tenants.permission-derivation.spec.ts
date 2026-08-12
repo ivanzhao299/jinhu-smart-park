@@ -248,6 +248,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /modules\.filter\(\(module\) => moduleCodes\.includes\(module\.moduleCode\)\)/);
   assert.match(source, /module\.moduleCode !== "asset" \|\| moduleCodes\.includes\("asset"\)/);
   assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
+  assert.match(source, /const authorizationModuleCodes = !parkActive && !moduleCodes\.includes\("system"\)[\s\S]{0,160}filter\(\(code\) => code !== "system"\)/);
   assert.match(source, /if \(parkActive\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
@@ -268,7 +269,12 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
   const assignModulesBlock = source.slice(source.indexOf("async assignModules("), source.indexOf("private async getTenantById"));
   assert.match(assignModulesBlock, /await lockAssetScope\(manager, targetScope\)[\s\S]{0,120}hasCanonicalActiveAssetParkSource\(manager, targetScope\)/);
+  assert.match(assignModulesBlock, /const authorizationModuleCodes = parkActive\s+\? moduleCodes\s+: moduleCodes\.filter\(\(code\) => code !== "asset"\)/);
   assert.doesNotMatch(assignModulesBlock, /getRepository\(ParkEntity\)\.findOne/);
+  const updateBlock = source.slice(source.indexOf("async update("), source.indexOf("async updateLoginSettings("));
+  assert.match(updateBlock, /lockTenantModuleScopes\(manager, tenant\.tenantId\)[\s\S]*tenantRepository\.save\(tenant\)/);
+  const enableBlock = source.slice(source.indexOf("async enable("), source.indexOf("private isTenantRuntimeActive"));
+  assert.match(enableBlock, /lockTenantModuleScopes\(manager, tenant\.tenantId\)[\s\S]*tenantRepository\.save\(tenant\)/);
 });
 
 test("login settings preserve suspended asset intent without exposing recovery-only system", () => {
@@ -835,6 +841,68 @@ test("inactive park module assignment preserves only automatic system recovery a
 
   await apply(false);
   assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
+});
+
+test("resaving a scheduled recovery system selection restores its original window", async () => {
+  const now = Date.now();
+  const originalStart = new Date(now + 60_000);
+  const originalExpire = new Date(now + 120_000);
+  const systemModule = { id: "system-module", moduleCode: "system" } as SaaSModuleEntity;
+  const systemAssignment = {
+    moduleId: systemModule.id,
+    enabled: true,
+    status: "enabled",
+    startTime: new Date(now),
+    expireTime: null,
+    featureConfig: {
+      recoveryOnlyForParkStatus: true,
+      recoverySystemAssignmentSnapshot: {
+        enabled: true,
+        status: "enabled",
+        startTime: originalStart.toISOString(),
+        expireTime: originalExpire.toISOString()
+      }
+    }
+  } as unknown as TenantModuleEntity;
+  const manager = {
+    getRepository: () => ({
+      find: async () => [systemAssignment],
+      save: async (assignment: TenantModuleEntity) => assignment
+    })
+  };
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const upsert = (service as unknown as {
+    upsertTenantModules(
+      manager: unknown,
+      tenant: TenantEntity,
+      parkId: string,
+      modules: SaaSModuleEntity[],
+      plan: null,
+      actorId: string,
+      expireTime: null,
+      featureConfig: Record<string, unknown>,
+      disabledModuleCodes: ReadonlySet<string>,
+      recoveryOnlyModuleCodes: ReadonlySet<string>
+    ): Promise<void>;
+  }).upsertTenantModules.bind(service);
+
+  await upsert(
+    manager,
+    { tenantId: "tenant-a", tenantCode: "TENANT_A" } as TenantEntity,
+    "park-a",
+    [systemModule],
+    null,
+    "actor-a",
+    null,
+    {},
+    new Set(),
+    new Set()
+  );
+
+  assert.equal(systemAssignment.startTime?.toISOString(), originalStart.toISOString());
+  assert.equal(systemAssignment.expireTime?.toISOString(), originalExpire.toISOString());
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
+  assert.equal(systemAssignment.featureConfig.recoverySystemAssignmentSnapshot, undefined);
 });
 
 test("deactivating a park suspends asset and creates the system recovery authorization", async () => {
