@@ -249,6 +249,8 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /module\.moduleCode !== "asset" \|\| moduleCodes\.includes\("asset"\)/);
   assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
   assert.match(source, /const authorizationModuleCodes = !parkActive && !moduleCodes\.includes\("system"\)[\s\S]{0,160}filter\(\(code\) => code !== "system"\)/);
+  assert.doesNotMatch(source, /if \(!suspendedAsset && !recoverySystem\) \{\s*return;\s*\}/);
+  assert.match(source, /selectedAssignments = assignments\.filter\([\s\S]{0,300}assignment\.enabled[\s\S]{0,100}assignment\.status === "enabled"/);
   assert.match(source, /if \(parkActive\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
@@ -1131,6 +1133,45 @@ test("park recovery rejects malformed system assignment snapshots", () => {
   );
 });
 
+test("park reactivation rebuilds explicit-system permissions even without recovery markers", async () => {
+  const tenant = { tenantId: "tenant-a", status: 1, expireTime: null } as TenantEntity;
+  const explicitSystem = {
+    enabled: true,
+    status: "enabled",
+    expireTime: null,
+    featureConfig: {},
+    module: { moduleCode: "system", status: 1, isDeleted: false },
+    plan: null
+  } as unknown as TenantModuleEntity;
+  const applied: string[][] = [];
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantEntity) return { findOne: async () => tenant };
+      if (entity === TenantModuleEntity) return { find: async () => [explicitSystem], save: async (value: unknown) => value };
+      if (entity === PermissionEntity) return { find: async () => [{ code: "system:user:me" }] };
+      throw new Error("unexpected repository");
+    }
+  };
+  const service = Object.assign(Object.create(TenantsService.prototype), {
+    getOrCreateTenantAdminRole: async () => ({ id: "tenant-admin" }),
+    applyTenantAdminPermissions: async (
+      _manager: unknown,
+      _scope: unknown,
+      _role: unknown,
+      _permissions: unknown,
+      moduleCodes: string[]
+    ) => applied.push(moduleCodes)
+  }) as TenantsService;
+
+  await service.reconcileReactivatedParkAuthorization(
+    manager as never,
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-a"
+  );
+
+  assert.deepEqual(applied, [["system"]]);
+});
+
 test("reactivating a park does not restore an expired suspended asset assignment", async () => {
   const tenant = { tenantId: "tenant-a", status: 1, expireTime: null } as TenantEntity;
   const expiredAsset = {
@@ -1152,10 +1193,14 @@ test("reactivating a park does not restore an expired suspended asset assignment
           saveCount += 1;
         }
       };
+      if (entity === PermissionEntity) return { find: async () => [{ code: "system:user:me" }] };
       throw new Error("unexpected repository");
     }
   };
-  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const service = Object.assign(Object.create(TenantsService.prototype), {
+    getOrCreateTenantAdminRole: async () => ({ id: "tenant-admin" }),
+    applyTenantAdminPermissions: async () => undefined
+  }) as TenantsService;
 
   await service.reconcileReactivatedParkAuthorization(
     manager as never,

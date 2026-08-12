@@ -79,8 +79,9 @@ test("park status recovery uses the system module while other park routes remain
   assert.equal(Reflect.getMetadata(ANY_MODULES_KEY, ParksController.prototype.remove), undefined);
   assert.match(source, /module\.module_code='asset'[\s\S]*module\.module_code='system'/);
   assert.match(source, /const systemEnabled[\s\S]*const inactiveScopeSystem/);
-  assert.match(source, /hasCanonicalActiveAssetParkSource\(this\.dataSource\.manager, scope\)/);
+  assert.match(source, /hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.match(source, /if \(!assetEnabled && !inactiveScopeSystem\)/);
+  assert.equal((source.match(/lockMutationScopes\(manager, scope, true\);\s*await this\.assertParkModuleAccess\(scope, manager\)/g) ?? []).length, 2);
   assert.match(source, /throw new ForbiddenException\("Tenant module is not authorized"\)/);
 });
 

@@ -681,9 +681,6 @@ export class TenantsService {
       && !assignment.module.isDeleted
       && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true
     );
-    if (!suspendedAsset && !recoverySystem) {
-      return;
-    }
     const assignmentRepository = manager.getRepository(TenantModuleEntity);
     if (suspendedAsset) {
       suspendedAsset.enabled = true;
@@ -709,6 +706,7 @@ export class TenantsService {
       && !assignment.module.isDeleted
       && this.isTenantModuleWindowRecoverable(assignment)
       && assignment.enabled
+      && assignment.status === "enabled"
       && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
     );
     const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));

@@ -128,6 +128,7 @@ export class ParksService {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
     await this.lockMutationScopes(manager, scope, true);
+    await this.assertParkModuleAccess(scope, manager);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
@@ -185,8 +186,8 @@ export class ParksService {
     });
   }
 
-  private async assertParkModuleAccess(scope: TenantParkScope): Promise<void> {
-    const rows = await this.dataSource.query(
+  private async assertParkModuleAccess(scope: TenantParkScope, manager: EntityManager = this.dataSource.manager): Promise<void> {
+    const rows = await manager.query(
       `SELECT module.module_code AS "moduleCode"
          FROM rel_tenant_module assignment
          JOIN sys_module module
@@ -210,7 +211,7 @@ export class ParksService {
     const assetEnabled = rows.some((row) => row.moduleCode === "asset");
     const systemEnabled = rows.some((row) => row.moduleCode === "system");
     const inactiveScopeSystem = systemEnabled
-      && !await hasCanonicalActiveAssetParkSource(this.dataSource.manager, scope);
+      && !await hasCanonicalActiveAssetParkSource(manager, scope);
     if (!assetEnabled && !inactiveScopeSystem) {
       throw new ForbiddenException("Tenant module is not authorized");
     }
@@ -220,6 +221,7 @@ export class ParksService {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
     await this.lockMutationScopes(manager, scope, true);
+    await this.assertParkModuleAccess(scope, manager);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
