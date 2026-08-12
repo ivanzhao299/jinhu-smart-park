@@ -352,6 +352,10 @@ async function runRolesRegression(adminHeaders, userId, username, loginPassword)
   }
   const loginAfterClear = await assertLoginAndContext(username, loginPassword, []);
   if (!loginAfterClear) return false;
+  if ((loginAfterClear.meData.roles ?? []).some((entry) => entry?.role_code === primaryRole.code)) {
+    fail(`Role clear still exposed prior role ${primaryRole.code} after re-login; body=${summarizeBody(loginAfterClear.meData)}`);
+    return false;
+  }
   pass("Role clear preserved role-less user login context");
 
   return true;

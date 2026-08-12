@@ -40,7 +40,7 @@ test("user page creates organization assignments atomically and guards stale cat
   assert.match(usersSource, /await loadLoginSettings\(row\.tenantId, row\);\s*if \(requestId !== orgCatalogRequest\.current\) return;/);
   assert.match(usersSource, /catch \(error\) \{\s*if \(requestId === orgCatalogRequest\.current\) setOrgCatalogLoading\(false\);\s*throw error;/);
   assert.match(usersSource, /const \[orgCatalogLoading, setOrgCatalogLoading\] = useState\(false\)/);
-  assert.match(usersSource, /disabled=\{loginSettingsLoading \|\| orgCatalogLoading \|\| \(canAssignRoles && roleCatalogLoading\) \|\| !formParkId\}/);
+  assert.match(usersSource, /disabled=\{roleCatalogLoading \|\| \(!roleOnlyEditing && \(loginSettingsLoading \|\| orgCatalogLoading \|\| !formParkId\)\)\}/);
   assert.match(usersSource, /function closeUserDrawer\(\)[\s\S]*clearOrgCatalog\(\)/);
   assert.match(usersSource, /mergeRetainedOrgOptions/);
   assert.match(usersSource, /knownIds\.add\(assignment\.orgId\)/);
