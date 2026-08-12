@@ -19,6 +19,7 @@
 17. Review #12：投影更新执行完整 provisioning；园区 recovery API 以 park 权限为双模块共同权威并在 asset/system 菜单各提供入口；孤立 projection 只同步投影、不生成 runtime controls/audits。
 18. 独立复核：同一路由存在 asset/system 双菜单时，DashboardLayout 按任一匹配节点可访问即放行，避免首匹配 asset 节点使 inactive system recovery 误跳 403。
 19. Review #13：tenant-wide 登录授权与重新激活均按 parkId 字典序获取 scope advisory lock，消除多园区并发反序死锁。
+20. Review #14：园区恢复接口使用显式 `asset OR system` 模块策略，避免空模块元数据绕过门禁；跨默认 JH fallback 的园区写入按共享 advisory-lock key 排序，并先锁定目标 `biz_park` 行，消除反序等待。
 
 ## 验证记录
 

@@ -15,6 +15,8 @@ menus and role grants.
   `GET /users/me -> enabled_modules[]`.
 - API guard:
   `@RequireModule(...moduleCodes)` -> `ModuleGuard`.
+- API any-of guard:
+  `@RequireAnyModule(...moduleCodes)` -> `ModuleGuard` accepts at least one enabled module and overrides an inherited all-required policy.
 - Web guard:
   `hasModule(user, moduleCode)` and
   `hasAccess(user, permissionCode, moduleCode)`.
@@ -39,6 +41,8 @@ authorization authority for the signatures above.
   product availability.
 - A module-specific login destination requires the same enabled-module check as its menu and
   route guard. A module-free destination such as `/dashboard` is the safe fallback.
+- A recovery endpoint shared by two product modules must declare their explicit any-of policy;
+  empty module metadata is not a substitute because it bypasses product authorization entirely.
 - Menu materialization may derive eligible roles from existing API permissions, but it must
   intersect those roles with an active tenant-module assignment in the same tenant and park.
 - Tenant provisioning must receive either a resolvable plan or an explicit non-empty module

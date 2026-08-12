@@ -5,6 +5,7 @@ import { Brackets, type DataSource, type EntityManager, type SelectQueryBuilder,
 import {
   ensureAssetParkProjection,
   ensureAssetScopeProvisioned,
+  assetScopeLockKey,
   hasAssetParkProjection,
   hasProtectedAssetScope,
   lockAssetScope
@@ -71,10 +72,9 @@ export class ParksService {
 
   async create(scope: TenantParkScope, actorId: string, dto: CreateParkDto): Promise<ParkEntity> {
     return this.dataSource.transaction(async (manager) => {
-    await lockAssetScope(manager, scope);
-    await this.assertTenantParkLimit(scope, manager);
     const parkCode = dto.parkCode.trim();
-    if (parkCode === "JH") await lockAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
+    await this.lockMutationScopes(manager, scope, parkCode === "JH");
+    await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
@@ -122,13 +122,15 @@ export class ParksService {
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
-    await lockAssetScope(manager, scope);
     const repository = manager.getRepository(ParkEntity);
-    const entity = await repository.findOne({ where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
+    const entity = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" }
+    });
     if (!entity) throw new NotFoundException("Park not found");
     const nextCode = dto.parkCode?.trim();
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
-    if (touchesDefaultFallback) await lockAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
+    await this.lockMutationScopes(manager, scope, touchesDefaultFallback);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     if (protectedScope && entity.status === 1 && dto.status !== undefined && dto.status !== 1) {
@@ -168,11 +170,13 @@ export class ParksService {
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     await this.detail(scope, id, actor);
     return this.dataSource.transaction(async (manager) => {
-    await lockAssetScope(manager, scope);
     const repository = manager.getRepository(ParkEntity);
-    const entity = await repository.findOne({ where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false } });
+    const entity = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" }
+    });
     if (!entity) throw new NotFoundException("Park not found");
-    if (entity.parkCode === "JH") await lockAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
+    await this.lockMutationScopes(manager, scope, entity.parkCode === "JH");
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     if (protectedScope) {
@@ -247,6 +251,22 @@ export class ParksService {
 
   private async hasCanonicalProjectionContract(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
     return await hasProtectedAssetScope(manager, scope) || await hasAssetParkProjection(manager, scope);
+  }
+
+  private async lockMutationScopes(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    includeDefaultScope: boolean
+  ): Promise<void> {
+    const scopes = includeDefaultScope
+      ? [scope, DEFAULT_PLATFORM_SCOPE]
+      : [scope];
+    const uniqueScopes = [...new Map(scopes.map((item) => [assetScopeLockKey(item), item])).entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([, item]) => item);
+    for (const item of uniqueScopes) {
+      await lockAssetScope(manager, item);
+    }
   }
 
   private async syncCanonicalAssetProjection(

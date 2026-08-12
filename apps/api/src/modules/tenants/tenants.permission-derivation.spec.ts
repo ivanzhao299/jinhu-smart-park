@@ -224,7 +224,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
   assert.match(source, /const uniqueTenantParks = preferActiveTenantParkRows\(tenantParks\)/);
-  assert.match(source, /const orderedTenantParks = \[\.\.\.uniqueTenantParks\]\.sort\(\(left, right\) => left\.parkId\.localeCompare\(right\.parkId\)\)/);
+  assert.match(source, /const orderedTenantParks = \[\.\.\.uniqueTenantParks\]\.sort\(\(left, right\) =>\s+assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: left\.parkId \}\)\s+\.localeCompare\(assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: right\.parkId \}\)\)\s+\)/);
   assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => park\.status === 1\)/);
   assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
   assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);

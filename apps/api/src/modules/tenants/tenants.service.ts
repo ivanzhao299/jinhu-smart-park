@@ -16,7 +16,12 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { ensureAssetScopeProvisioned, hasActiveAssetAssignment, lockAssetScope } from "../assets/asset-scope-provisioning";
+import {
+  assetScopeLockKey,
+  ensureAssetScopeProvisioned,
+  hasActiveAssetAssignment,
+  lockAssetScope
+} from "../assets/asset-scope-provisioning";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -423,7 +428,10 @@ export class TenantsService {
           order: { createTime: "ASC" }
         });
         const uniqueTenantParks = preferActiveTenantParkRows(tenantParks);
-        const orderedTenantParks = [...uniqueTenantParks].sort((left, right) => left.parkId.localeCompare(right.parkId));
+        const orderedTenantParks = [...uniqueTenantParks].sort((left, right) =>
+          assetScopeLockKey({ tenantId: tenant.tenantId, parkId: left.parkId })
+            .localeCompare(assetScopeLockKey({ tenantId: tenant.tenantId, parkId: right.parkId }))
+        );
         const activeTenantParks = uniqueTenantParks.filter((park) => park.status === 1);
         const firstAuthorizationPark = activeTenantParks[0] ?? uniqueTenantParks[0];
         if (!firstAuthorizationPark) {

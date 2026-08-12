@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { MODULES_KEY } from "../../shared/decorators/modules.decorator";
+import { ANY_MODULES_KEY, MODULES_KEY } from "../../shared/decorators/modules.decorator";
 import { ParksController } from "./parks.controller";
 import { ParksService } from "./parks.service";
 
 test("canonical park mutations share the asset scope lock and preserve protected sources", () => {
   const source = readFileSync(resolve(__dirname, "parks.service.ts"), "utf8");
   assert.equal((source.match(/this\.dataSource\.transaction\(async \(manager\) =>/g) ?? []).length, 3);
-  assert.equal((source.match(/await lockAssetScope\(manager, scope\)/g) ?? []).length, 3);
+  assert.match(source, /assetScopeLockKey\(item\)/);
+  assert.match(source, /\.sort\(\(\[left\], \[right\]\) => left\.localeCompare\(right\)\)/);
+  assert.match(source, /lock: \{ mode: "pessimistic_write" \}/);
   assert.match(source, /hasProtectedAssetScope\(manager, scope\)/);
   assert.match(source, /Asset scope requires one active canonical park/);
   assert.match(source, /assertCanonicalSourceSurvives/);
@@ -19,7 +21,7 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
   assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
   assert.match(source, /syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
-  assert.match(source, /lockAssetScope\(manager, DEFAULT_PLATFORM_SCOPE\)/);
+  assert.match(source, /await this\.lockMutationScopes\(manager, scope, touchesDefaultFallback\)/);
   assert.match(source, /syncCanonicalAssetProjection\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.match(source, /park\.park_code = 'JH'/);
   assert.match(source, /if \(protectedScope\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
@@ -30,9 +32,50 @@ test("canonical park mutations share the asset scope lock and preserve protected
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {
   assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController), ["asset"]);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.update), []);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.list), []);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.detail), []);
+  for (const handler of [
+    ParksController.prototype.update,
+    ParksController.prototype.list,
+    ParksController.prototype.detail
+  ]) {
+    assert.deepEqual(Reflect.getMetadata(MODULES_KEY, handler), []);
+    assert.deepEqual(Reflect.getMetadata(ANY_MODULES_KEY, handler), ["asset", "system"]);
+  }
+  assert.equal(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.create), undefined);
+  assert.equal(Reflect.getMetadata(ANY_MODULES_KEY, ParksController.prototype.create), undefined);
+  assert.equal(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.remove), undefined);
+  assert.equal(Reflect.getMetadata(ANY_MODULES_KEY, ParksController.prototype.remove), undefined);
+});
+
+test("park mutation scope locks use one deterministic shared-key order", async () => {
+  const lockMutationScopes = (ParksService.prototype as unknown as {
+    lockMutationScopes(manager: unknown, scope: unknown, includeDefaultScope: boolean): Promise<void>;
+  }).lockMutationScopes;
+  const acquired: string[] = [];
+  const manager = {
+    query: async (_sql: string, parameters: [string]) => {
+      acquired.push(parameters[0]);
+    }
+  };
+
+  await lockMutationScopes.call(
+    {} as ParksService,
+    manager,
+    { tenantId: "tenant-z", parkId: "park-z" },
+    true
+  );
+  assert.deepEqual(acquired, [
+    "tenant-asset-park:10000001:20000001",
+    "tenant-asset-park:tenant-z:park-z"
+  ]);
+
+  acquired.length = 0;
+  await lockMutationScopes.call(
+    {} as ParksService,
+    manager,
+    { tenantId: "10000001", parkId: "20000001" },
+    true
+  );
+  assert.deepEqual(acquired, ["tenant-asset-park:10000001:20000001"]);
 });
 
 test("protected park mutation permits only a single surviving active canonical source", async () => {
