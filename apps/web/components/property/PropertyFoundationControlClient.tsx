@@ -63,6 +63,18 @@ interface OccupancyRow {
   version: number;
 }
 
+interface AvailabilityConflict {
+  conflictType: string;
+  sourceDomain: string;
+  sourceType: string;
+  sourceLabel: string;
+  sourceId?: string;
+  deepLink?: string;
+  startAt: string;
+  endAt: string;
+  status: string;
+}
+
 interface ModeTransitionRow {
   id: string;
   unitId: string;
@@ -284,6 +296,7 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
   const [startAt, setStartAt] = useState("");
   const [endAt, setEndAt] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [availabilityConflicts, setAvailabilityConflicts] = useState<AvailabilityConflict[]>([]);
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const retryKey = useRef<string | null>(null);
@@ -291,6 +304,7 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
   function payloadChanged() {
     retryKey.current = null;
     setFeedback("");
+    setAvailabilityConflicts([]);
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -309,8 +323,21 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
     lock.current = true;
     setBusy(true);
     setFeedback("");
-    retryKey.current ??= createIdempotencyKey("property-manual-occupancy");
     try {
+      const availability = await apiRequest<{
+        available: boolean;
+        conflicts: AvailabilityConflict[];
+      }>("/property/occupancies/availability", {
+        method: "POST",
+        token: getAccessToken() ?? undefined,
+        body: { unitId: unitId.trim(), startAt: start.toISOString(), endAt: end.toISOString() }
+      });
+      if (!availability.data.available || availability.data.conflicts.length > 0) {
+        setAvailabilityConflicts(availability.data.conflicts);
+        setFeedback("所选时段存在占用冲突，请调整房源或锁房时间。");
+        return;
+      }
+      retryKey.current ??= createIdempotencyKey("property-manual-occupancy");
       await apiRequest("/property/occupancies", {
         method: "POST",
         token: getAccessToken() ?? undefined,
@@ -361,6 +388,12 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
             onChange={(event) => { payloadChanged(); setEndAt(event.target.value); }} /></label>
         </div>
         {feedback ? <p aria-live="polite" role={feedback.includes("失败") || feedback.includes("请") ? "alert" : undefined}>{feedback}</p> : null}
+        {availabilityConflicts.length ? <ul aria-label="可用性冲突">
+          {availabilityConflicts.map((conflict, index) => <li key={`${conflict.conflictType}-${conflict.startAt}-${index}`}>
+            {conflict.deepLink?.startsWith("/") ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel}</Link> : conflict.sourceLabel}
+            {` · ${conflict.sourceType} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${conflict.status}`}
+          </li>)}
+        </ul> : null}
         <div className="ds-action-bar"><button className="ds-button" disabled={busy} type="submit">
           {busy ? "正在创建…" : "创建人工锁房"}
         </button></div>

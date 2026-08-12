@@ -134,6 +134,7 @@ test("live source aggregates remain mode-transition blockers after occupancy rel
   assert.match(snapshot, /booking\.status IN \('confirmed', 'checked_in'\)/);
   assert.match(snapshot, /counts\.homestay_booking_count/);
   assert.match(snapshot, /targetMode !== "short_stay"/);
+  assert.match(snapshot, /source_domain IN \('commercial_leasing', 'housing_rental', 'apartment'\)/);
 });
 
 test("party role creation normalizes keys and recovers a concurrent winner", () => {

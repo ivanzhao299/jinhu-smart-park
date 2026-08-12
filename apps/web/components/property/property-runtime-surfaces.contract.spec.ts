@@ -96,6 +96,17 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /remark: remark\.trim\(\) \|\| null/);
   assert.match(foundation, /label: "备注"/);
   assert.match(foundation, /!isTerminalOccupancy\(detail as OccupancyRow\) && !isManualOccupancy\(detail as OccupancyRow\)/);
+  const manualCreate = foundation.slice(
+    foundation.indexOf("function ManualOccupancyCreatePanel"),
+    foundation.indexOf("function FoundationRecords")
+  );
+  assert.ok(
+    manualCreate.indexOf('"/property/occupancies/availability"')
+      < manualCreate.indexOf('"/property/occupancies",'),
+    "manual locks must run the availability check before the create request"
+  );
+  assert.match(foundation, /availability\.data\.conflicts/);
+  assert.match(foundation, /aria-label="可用性冲突"/);
 });
 
 test("the authenticated shell suppresses motion globally when the user requests it", () => {

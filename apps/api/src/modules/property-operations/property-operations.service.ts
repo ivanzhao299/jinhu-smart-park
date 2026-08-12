@@ -821,7 +821,7 @@ export class PropertyOperationsService {
             COALESCE(config.operating_mode, 'none')='none'
             OR (
               COALESCE(config.operating_mode, 'none')='short_stay'
-              AND occupancy.source_domain IN ('commercial_leasing','housing_rental')
+              AND occupancy.source_domain IN ('commercial_leasing','housing_rental','apartment')
             )
             OR (
               COALESCE(config.operating_mode, 'none')='long_rent'
@@ -910,7 +910,7 @@ export class PropertyOperationsService {
            count(*)::int AS active_occupancy_count,
            count(*) FILTER (
              WHERE ($4 = 'none')
-                OR ($4 = 'short_stay' AND source_domain IN ('commercial_leasing', 'housing_rental'))
+                OR ($4 = 'short_stay' AND source_domain IN ('commercial_leasing', 'housing_rental', 'apartment'))
                 OR ($4 = 'long_rent' AND source_domain = 'homestay')
            )::int AS incompatible_occupancy_count,
             (

@@ -451,6 +451,7 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationsBlocker, /biz_property_occupancy/);
   assert.match(operationsBlocker, /source_domain IN \('maintenance','operations'\)/);
   assert.match(operationsBlocker, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
+  assert.match(operationService, /source_domain IN \('commercial_leasing','housing_rental','apartment'\)/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {

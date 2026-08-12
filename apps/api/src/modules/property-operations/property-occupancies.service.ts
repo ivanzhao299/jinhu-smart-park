@@ -258,6 +258,15 @@ export class PropertyOccupanciesService {
     finalStatus: "released" | "completed" | "cancelled" = "released"
   ): Promise<PropertyOccupancyEntity> {
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+      scope.tenantId,
+      scope.parkId,
+      candidate.unitId
+    ]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -288,11 +297,6 @@ export class PropertyOccupanciesService {
     if (!entity.holdExpiresAt || entity.holdExpiresAt.getTime() <= Date.now()) {
       throw new ConflictException("Occupancy hold has expired");
     }
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
-      scope.tenantId,
-      scope.parkId,
-      entity.unitId
-    ]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
