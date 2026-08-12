@@ -99,13 +99,19 @@ export function UnitDetailDrawer({
         {canViewPhotoUrls ? <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("photos")}>查看照片</button> : null}
         <button className="drawer-action-button" type="button" onClick={() => onOpenAttachments("floorplan")}>查看平面图</button>
         <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATIONS_PAGE}>
-          <Link className="drawer-action-button" href={`/assets/property-operations/${encodeURIComponent(unit.id)}`}>经营配置</Link>
+          <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ}>
+            <Link className="drawer-action-button" href={`/assets/property-operations/${encodeURIComponent(unit.id)}`}>经营配置</Link>
+          </PermissionGuard>
         </PermissionGuard>
         <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCIES_PAGE}>
-          <Link className="drawer-action-button" href={`/assets/property-occupancies?unitId=${encodeURIComponent(unit.id)}`}>占用记录</Link>
+          <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ}>
+            <Link className="drawer-action-button" href={`/assets/property-occupancies?unitId=${encodeURIComponent(unit.id)}`}>占用记录</Link>
+          </PermissionGuard>
         </PermissionGuard>
         <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE}>
-          <Link className="drawer-action-button" href={`/assets/property-mode-transitions?unitId=${encodeURIComponent(unit.id)}`}>模式审计</Link>
+          <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ}>
+            <Link className="drawer-action-button" href={`/assets/property-mode-transitions?unitId=${encodeURIComponent(unit.id)}`}>模式审计</Link>
+          </PermissionGuard>
         </PermissionGuard>
       </DrawerActions>
       <div className="system-tabs">

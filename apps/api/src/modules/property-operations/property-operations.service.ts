@@ -209,20 +209,22 @@ export class PropertyOperationsService {
         });
       }
 
-      if (dto.asset_unit_id) {
-        const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
-          where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-        });
-        if (!assetUnit) throw new BadRequestException("asset_unit_id does not belong to current tenant and park");
-        const mapped = await manager.getRepository(UnitEntity)
-          .createQueryBuilder("unit")
-          .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
-          .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
-          .andWhere("unit.asset_unit_id = :assetUnitId", { assetUnitId: dto.asset_unit_id })
-          .andWhere("unit.id <> :unitId", { unitId })
-          .andWhere("unit.is_deleted = false")
-          .getExists();
-        if (mapped) throw new ConflictException("Physical asset unit is already mapped to another operating unit");
+      if (dto.asset_unit_id !== undefined) {
+        if (dto.asset_unit_id !== null) {
+          const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
+            where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+          });
+          if (!assetUnit) throw new BadRequestException("asset_unit_id does not belong to current tenant and park");
+          const mapped = await manager.getRepository(UnitEntity)
+            .createQueryBuilder("unit")
+            .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
+            .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
+            .andWhere("unit.asset_unit_id = :assetUnitId", { assetUnitId: dto.asset_unit_id })
+            .andWhere("unit.id <> :unitId", { unitId })
+            .andWhere("unit.is_deleted = false")
+            .getExists();
+          if (mapped) throw new ConflictException("Physical asset unit is already mapped to another operating unit");
+        }
         unit.assetUnitId = dto.asset_unit_id;
         unit.updateBy = actor.sub;
         await manager.getRepository(UnitEntity).save(unit);

@@ -29,10 +29,14 @@ interface OperationRow {
   unitId: string;
   unitCode: string;
   unitName: string;
+  buildingId: string;
   configuredMode: string;
   operationStatus: string;
   assetUnitId: string | null;
   suspendReason: string | null;
+  effectiveTime: string | null;
+  liveOwningAggregateCounts: Record<string, number>;
+  sharedOccupancy: { activeCount: number; incompatibleCount: number };
   version: number;
   canRequestTransition: boolean;
   blockers: Array<{ code: string; label: string; count: number }>;
@@ -47,6 +51,8 @@ interface OccupancyRow {
   sourceDomain: string;
   sourceType: string;
   sourceLabel: string;
+  sourceId?: string;
+  deepLink?: string;
   startAt: string;
   endAt: string;
   status: string;
@@ -67,6 +73,9 @@ interface ModeTransitionRow {
   decisionStatus: string;
   executionStatus: string;
   createTime: string;
+  decisionTime?: string | null;
+  executionTime?: string | null;
+  operatorId?: string | null;
   operatorName?: string | null;
   version: number;
 }
@@ -100,6 +109,10 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
   const [unitId, setUnitId] = useState(searchParams.get("unitId") ?? "");
+  const [buildingId, setBuildingId] = useState("");
+  const [configuredMode, setConfiguredMode] = useState("");
+  const [operationStatus, setOperationStatus] = useState("");
+  const [blockerCode, setBlockerCode] = useState("");
   const [sourceDomain, setSourceDomain] = useState("");
   const [sourceType, setSourceType] = useState("");
   const [occupancyStatus, setOccupancyStatus] = useState("");
@@ -117,6 +130,12 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   const requestPath = useMemo(() => {
     const params = new URLSearchParams({ page: String(page), pageSize: "20" });
     if ((surface === "operations" || surface === "mode-transitions") && keyword.trim()) params.set("keyword", keyword.trim());
+    if (surface === "operations") {
+      if (buildingId.trim()) params.set("buildingId", buildingId.trim());
+      if (configuredMode) params.set("configuredMode", configuredMode);
+      if (operationStatus) params.set("operationStatus", operationStatus);
+      if (blockerCode) params.set("blockerCode", blockerCode);
+    }
     if ((surface === "occupancies" || surface === "mode-transitions") && unitId.trim()) params.set("unitId", unitId.trim());
     if (surface === "occupancies") {
       if (sourceDomain) params.set("sourceDomain", sourceDomain);
@@ -134,7 +153,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
       if (executionStatus) params.set("executionStatus", executionStatus);
     }
     return `${config.api}?${params}`;
-  }, [config.api, decisionStatus, endTo, executionStatus, fromMode, keyword, occupancyStatus, page, sourceDomain, sourceType, startFrom, surface, toMode, unitId]);
+  }, [blockerCode, buildingId, config.api, configuredMode, decisionStatus, endTo, executionStatus, fromMode, keyword, occupancyStatus, operationStatus, page, sourceDomain, sourceType, startFrom, surface, toMode, unitId]);
 
   const load = useCallback(async () => {
     if (!requestPath) {
@@ -182,6 +201,18 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
             value={keyword}
           />
         </label> : null}
+        {surface === "operations" ? <>
+          <label className="form-field"><span>楼栋 ID</span><input type="search" value={buildingId} onChange={(event) => { setBuildingId(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>经营模式</span><select value={configuredMode} onChange={(event) => { setConfiguredMode(event.target.value); setPage(1); }}>
+            <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
+          </select></label>
+          <label className="form-field"><span>经营状态</span><select value={operationStatus} onChange={(event) => { setOperationStatus(event.target.value); setPage(1); }}>
+            <option value="">全部</option><option value="enabled">启用</option><option value="suspended">暂停</option><option value="disabled">停用</option>
+          </select></label>
+          <label className="form-field"><span>阻断类型</span><select value={blockerCode} onChange={(event) => { setBlockerCode(event.target.value); setPage(1); }}>
+            <option value="">全部</option><option value="commercial-active">商业租赁占用</option><option value="homestay-active">民宿占用</option><option value="housing-active">住房占用</option><option value="occupancy-incompatible">不兼容占用</option><option value="operations-blocker">运营阻断</option><option value="checkout-pending">待退房</option><option value="workorder-open">未结工单</option><option value="receivable-unsettled">未结财务</option>
+          </select></label>
+        </> : null}
         {surface !== "operations" ? <label className="form-field"><span>经营房源 ID</span><input
           aria-label="按经营房源 ID 精确筛选" onChange={(event) => { setUnitId(event.target.value); setPage(1); }}
           placeholder="输入房源 UUID" type="search" value={unitId} /></label> : null}
@@ -346,6 +377,13 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
   if (surface === "operations") return [
     { key: "mode", label: "经营模式", render: (item) => (item as OperationRow).configuredMode },
     { key: "status", label: "经营状态", render: (item) => (item as OperationRow).operationStatus },
+    { key: "mapping", label: "楼栋 / 物理房源", render: (item) => {
+      const row = item as OperationRow;
+      return `${row.buildingId || "—"} / ${row.assetUnitId || "—"}`;
+    } },
+    { key: "effective", label: "生效时间", render: (item) => formatTime((item as OperationRow).effectiveTime) },
+    { key: "suspendReason", label: "暂停/停用原因", render: (item) => (item as OperationRow).suspendReason || "—" },
+    { key: "occupancy", label: "当前占用", render: (item) => operationOccupancySummary(item as OperationRow) },
     { key: "blockers", label: "阻断项", render: (item) => {
       const blockers = (item as OperationRow).blockers;
       return blockers.length ? blockers.map((blocker) => `${blocker.label}(${blocker.count})`).join("；") : "无";
@@ -353,7 +391,11 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "updated", label: "更新时间", render: (item) => formatTime((item as OperationRow).updateTime) }
   ];
   if (surface === "occupancies") return [
-    { key: "source", label: "来源", render: (item) => (item as OccupancyRow).sourceLabel },
+    { key: "source", label: "来源", render: (item) => {
+      const row = item as OccupancyRow;
+      const label = `${row.sourceLabel}${row.sourceId ? ` · ${row.sourceId}` : ""}`;
+      return row.deepLink?.startsWith("/") ? <Link href={row.deepLink as Route}>{label}</Link> : label;
+    } },
     { key: "sourceType", label: "来源类型", render: (item) => (item as OccupancyRow).sourceType },
     { key: "period", label: "占用时段", render: (item) => `${formatTime((item as OccupancyRow).startAt)} — ${formatTime((item as OccupancyRow).endAt)}` },
     { key: "status", label: "状态", render: (item) => (item as OccupancyRow).status },
@@ -369,8 +411,21 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "transition", label: "模式变更", render: (item) => `${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}` },
     { key: "decision", label: "审批状态", render: (item) => (item as ModeTransitionRow).decisionStatus },
     { key: "execution", label: "执行状态", render: (item) => (item as ModeTransitionRow).executionStatus },
-    { key: "created", label: "申请时间", render: (item) => formatTime((item as ModeTransitionRow).createTime) }
+    { key: "reason", label: "切换原因", render: (item) => (item as ModeTransitionRow).reason || "—" },
+    { key: "operator", label: "操作人", render: (item) => {
+      const row = item as ModeTransitionRow;
+      return row.operatorName || row.operatorId || "—";
+    } },
+    { key: "created", label: "申请时间", render: (item) => formatTime((item as ModeTransitionRow).createTime) },
+    { key: "decisionTime", label: "审批时间", render: (item) => formatTime((item as ModeTransitionRow).decisionTime) },
+    { key: "executionTime", label: "执行时间", render: (item) => formatTime((item as ModeTransitionRow).executionTime) },
+    { key: "version", label: "版本", render: (item) => (item as ModeTransitionRow).version }
   ];
+}
+
+function operationOccupancySummary(row: OperationRow): string {
+  const aggregates = Object.values(row.liveOwningAggregateCounts ?? {}).reduce((sum, value) => sum + Number(value || 0), 0);
+  return `业务记录 ${aggregates}；有效占用 ${row.sharedOccupancy?.activeCount ?? 0}；不兼容 ${row.sharedOccupancy?.incompatibleCount ?? 0}`;
 }
 
 export function PropertyFoundationDetailClient({ id, surface }: {
@@ -486,12 +541,15 @@ function OperationWriteControls({ item, onCompleted }: {
   const [feedback, setFeedback] = useState("");
   const configureKey = useRef<string | null>(null);
   const transitionKey = useRef<string | null>(null);
+  const transitionPayload = useRef<string | null>(null);
 
   useEffect(() => {
     setStatus(item.operationStatus);
     setAssetUnitId(item.assetUnitId ?? "");
     setSuspendReason(item.suspendReason ?? "");
     setTargetMode(item.configuredMode);
+    transitionKey.current = null;
+    transitionPayload.current = null;
   }, [item]);
 
   async function configure(event: React.FormEvent<HTMLFormElement>) {
@@ -511,7 +569,7 @@ function OperationWriteControls({ item, onCompleted }: {
         idempotencyKey: configureKey.current,
         body: {
           version: item.version,
-          ...(assetUnitId.trim() ? { asset_unit_id: assetUnitId.trim() } : {}),
+          asset_unit_id: assetUnitId.trim() || null,
           operating_status: status,
           ...(status === "enabled" ? {} : { suspend_reason: suspendReason.trim() }),
           ...(remark.trim() ? { remark: remark.trim() } : {})
@@ -531,7 +589,10 @@ function OperationWriteControls({ item, onCompleted }: {
     if (busy) return;
     setBusy(true);
     setFeedback("");
+    const payloadFingerprint = JSON.stringify({ targetMode, reason: reason?.trim() ?? "" });
+    if (transitionPayload.current !== payloadFingerprint) transitionKey.current = null;
     transitionKey.current ??= createIdempotencyKey("property-mode-transition");
+    transitionPayload.current = payloadFingerprint;
     try {
       await apiRequest(`/property/units/${encodeURIComponent(item.unitId)}/mode-transitions`, {
         method: "POST",
@@ -540,6 +601,7 @@ function OperationWriteControls({ item, onCompleted }: {
         body: { target_mode: targetMode, reason: reason ?? "" }
       });
       transitionKey.current = null;
+      transitionPayload.current = null;
       setTransitionOpen(false);
       setFeedback("经营模式切换审批已提交。");
       await onCompleted();
@@ -580,7 +642,7 @@ function OperationWriteControls({ item, onCompleted }: {
           <p>所有模式切换均进入审批；此处不会直接修改当前经营模式。</p>
           <div className="ds-action-bar">
             <label className="form-field"><span>目标模式</span><select value={targetMode}
-              onChange={(event) => { transitionKey.current = null; setTargetMode(event.target.value); }}
+              onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
             ><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">住房/商业长租</option></select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}
               onClick={() => setTransitionOpen(true)} type="button">提交切换审批</button>
@@ -594,7 +656,7 @@ function OperationWriteControls({ item, onCompleted }: {
       busy={busy}
       consequences={["当前经营模式不会立即改变", "审批执行前会重新校验占用、合同、工单和财务阻断项"]}
       onConfirm={requestTransition}
-      onOpenChange={setTransitionOpen}
+      onOpenChange={(open) => { if (!open) { transitionKey.current = null; transitionPayload.current = null; } setTransitionOpen(open); }}
       open={transitionOpen}
       reasonPolicy={{ kind: "required", minLength: 2, label: "切换原因" }}
       resultingState="等待审批"

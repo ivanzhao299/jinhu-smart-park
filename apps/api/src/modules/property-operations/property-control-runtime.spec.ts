@@ -256,6 +256,36 @@ test("configure rejects a stale version before mutating the unit or configuratio
   assert.equal(configSaveCalls, 0);
 });
 
+test("configure clears an asset mapping only when null is explicitly submitted", async () => {
+  for (const [dto, expected, expectedSaves] of [
+    [{ version: 2, operating_status: "enabled" }, "asset-1", 0],
+    [{ version: 2, operating_status: "enabled", asset_unit_id: null }, null, 1]
+  ] as const) {
+    let unitSaveCalls = 0;
+    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: "asset-1", updateBy: null };
+    const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled", suspendReason: null, updateBy: null, remark: null };
+    const manager = {
+      getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
+        ? { findOne: async () => unit, save: async () => { unitSaveCalls += 1; return unit; } }
+        : { findOne: async () => config, save: async () => config }
+    };
+    const service = new PropertyOperationsService(
+      {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+      { assertAccess: async () => unit } as never,
+      { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never
+    );
+
+    await service.configure(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      { sub: "operator-1", username: "operator", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE] },
+      "unit-1",
+      dto
+    );
+    assert.equal(unit.assetUnitId, expected);
+    assert.equal(unitSaveCalls, expectedSaves);
+  }
+});
+
 test("control reads combine exact page and action permissions", () => {
   assert.deepEqual(
     Reflect.getMetadata(

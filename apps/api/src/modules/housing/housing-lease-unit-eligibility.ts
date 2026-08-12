@@ -76,7 +76,7 @@ export async function projectHousingLeaseUnitEligibility(
                  AND occupancy.end_at > lease.start_date::timestamp AT TIME ZONE 'Asia/Shanghai'
                  AND occupancy.start_at < (lease.end_date + interval '1 day')::timestamp AT TIME ZONE 'Asia/Shanghai'
                  AND (occupancy.status='active' OR (
-                   occupancy.status='held' AND occupancy.hold_expires_at>now()
+                   occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())
                  ))
                  AND NOT (
                    occupancy.source_domain='housing_rental'
@@ -150,7 +150,7 @@ export async function assertHousingLeaseUnitEligible(
               AND occupancy.end_at>$4::timestamptz
               AND occupancy.start_at<$5::timestamptz
               AND (occupancy.status='active' OR (
-                occupancy.status='held' AND occupancy.hold_expires_at>now()
+                occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())
               ))
          ) OR EXISTS (
            SELECT 1 FROM rel_leasing_contract_unit relation

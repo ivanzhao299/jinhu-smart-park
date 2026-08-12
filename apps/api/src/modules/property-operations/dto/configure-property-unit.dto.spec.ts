@@ -20,3 +20,15 @@ test("property operation configuration requires a non-negative integer version",
     assert.ok((await validate(dto)).some((error) => error.property === "version"));
   }
 });
+
+test("property operation configuration distinguishes omitted, mapped, and explicitly cleared asset units", async () => {
+  for (const value of [undefined, null, "00000000-0000-4000-8000-000000000001"]) {
+    const dto = plainToInstance(ConfigurePropertyUnitDto, {
+      version: 1,
+      ...(value === undefined ? {} : { asset_unit_id: value }),
+      operating_status: "enabled"
+    });
+    assert.deepEqual(await validate(dto), []);
+    assert.equal(dto.asset_unit_id, value);
+  }
+});

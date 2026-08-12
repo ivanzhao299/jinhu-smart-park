@@ -65,6 +65,9 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(unitDrawer, /assets\/property-operations/);
   assert.match(unitDrawer, /assets\/property-occupancies\?unitId=/);
   assert.match(unitDrawer, /assets\/property-mode-transitions\?unitId=/);
+  assert.match(unitDrawer, /PROPERTY_OPERATIONS_PAGE[\s\S]*PROPERTY_OPERATION_READ[\s\S]*经营配置/);
+  assert.match(unitDrawer, /PROPERTY_OCCUPANCIES_PAGE[\s\S]*PROPERTY_OCCUPANCY_READ[\s\S]*占用记录/);
+  assert.match(unitDrawer, /PROPERTY_MODE_TRANSITIONS_PAGE[\s\S]*PROPERTY_APPROVAL_READ[\s\S]*模式审计/);
   assert.match(foundation, /version: item\.version/);
   assert.match(foundation, /unitCode: string/);
   assert.match(foundation, /unitName: string/);
@@ -76,6 +79,15 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "保留到期"/);
   assert.match(foundation, /label: "释放信息"/);
   assert.match(foundation, /releaseKeys = useRef/);
+  for (const parameter of ["buildingId", "configuredMode", "operationStatus", "blockerCode"]) {
+    assert.match(foundation, new RegExp(`params\\.set\\("${parameter}"`));
+  }
+  for (const label of ["楼栋 / 物理房源", "生效时间", "暂停/停用原因", "当前占用", "切换原因", "操作人", "审批时间", "执行时间"]) {
+    assert.match(foundation, new RegExp(`label: "${label}"`));
+  }
+  assert.match(foundation, /row\.deepLink\?\.startsWith\("\/"\)/);
+  assert.match(foundation, /asset_unit_id: assetUnitId\.trim\(\) \|\| null/);
+  assert.match(foundation, /transitionPayload\.current !== payloadFingerprint/);
 });
 
 test("the authenticated shell suppresses motion globally when the user requests it", () => {

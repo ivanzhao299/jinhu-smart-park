@@ -16,7 +16,7 @@ export class ConfigurePropertyUnitDto {
 
   @IsOptional()
   @IsUUID()
-  asset_unit_id?: string;
+  asset_unit_id?: string | null;
 
   @IsIn(PROPERTY_OPERATING_STATUSES)
   operating_status!: PropertyOperatingStatus;
