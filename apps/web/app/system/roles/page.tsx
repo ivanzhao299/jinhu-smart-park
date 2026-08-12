@@ -363,16 +363,16 @@ export default function RolesPage() {
   }
 
   async function createFromBundles() {
-    const availableCodes = propertyBundles.map((bundle) => bundle.code);
-    const enteredCodes = window.prompt("权限包编码（多个用逗号分隔）", availableCodes.join(","));
+    const enteredCodes = window.prompt("权限包编码（多个用逗号分隔；请显式选择）", "");
     if (!enteredCodes) return;
     const createBundleCodes = [...new Set(enteredCodes.split(",").map((code) => code.trim()).filter(Boolean))];
     if (createBundleCodes.length === 0) throw new Error("请至少选择一个权限包");
+    const preview = await previewBundles(null, createBundleCodes);
+    if (!window.confirm(`权限包：${createBundleCodes.join("、")}\n最终权限 ${preview.final.length} 项，新增 ${preview.add.length} 项。确认继续创建角色？`)) return;
     const code = window.prompt("新角色编码（大写字母、数字、下划线）");
     if (!code) return;
     const name = window.prompt("新角色名称");
     if (!name) return;
-    const preview = await previewBundles(null, createBundleCodes);
     const token = getToken();
     const response = await apiRequest<RoleNode>("/roles/property-bundles/roles", {
       method: "POST",

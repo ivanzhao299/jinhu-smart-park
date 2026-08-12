@@ -91,18 +91,35 @@ test("built-in role scope cannot be changed", async () => {
 });
 
 test("an assigned ordinary role cannot be converted into a protected template", async () => {
-  const role = { id: "role-1", roleScope: "park", isTemplate: false, isEditable: true, editable: true };
+  const role = { id: "role-1", tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isTemplate: false, isEditable: true, editable: true };
+  const queryBuilder = {
+    setLock: () => queryBuilder,
+    where: () => queryBuilder,
+    andWhere: () => queryBuilder,
+    getOne: async () => role
+  };
+  const manager = {
+    getRepository: (entity: { name: string }) => entity.name === "RoleEntity"
+      ? { createQueryBuilder: () => queryBuilder, save: async () => role }
+      : { count: async () => 1 }
+  };
+  const rolesRepository = {
+    findOne: async () => role,
+    manager: { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) }
+  };
   const service = new RolesService(
-    { findOne: async () => role } as never,
+    rolesRepository as never,
     {} as never,
     { find: async () => [] } as never,
     {} as never,
-    { count: async () => 1 } as never
+    {} as never
   );
   await assert.rejects(
     service.update({ tenantId: "tenant-a", parkId: "park-a" }, "actor", role.id, { isTemplate: true }),
     /Role with bound users cannot be converted to a template/
   );
+  const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
+  assert.match(source, /convertsToTemplate[\s\S]*manager\.transaction[\s\S]*setLock\("pessimistic_write"\)[\s\S]*getRepository\(UserRoleEntity\)\.count/);
 });
 
 test("custom tenant role scope cannot be changed directly", async () => {

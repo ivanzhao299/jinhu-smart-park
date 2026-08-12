@@ -144,14 +144,7 @@ export class RolesService {
     if (dto.code && dto.code !== role.code) {
       await this.assertCodeAvailable(scope, dto.code);
     }
-    if (dto.isTemplate === true && role.isTemplate !== true) {
-      const boundUsers = await this.userRoleRepository.count({
-        where: { tenantId: scope.tenantId, roleId: id, isDeleted: false }
-      });
-      if (boundUsers > 0) {
-        throw new BadRequestException("Role with bound users cannot be converted to a template");
-      }
-    }
+    const convertsToTemplate = dto.isTemplate === true && role.isTemplate !== true;
     const parent = dto.parentId === undefined ? undefined : dto.parentId ? await this.mustFindParent(scope, dto.parentId) : null;
     if (parent && parent.id === role.id) {
       throw new BadRequestException("Role cannot use itself as parent");
@@ -160,7 +153,7 @@ export class RolesService {
     const nextParentId = parent === undefined ? role.parentId : parent?.id ?? null;
     const nextParentPath = parent === undefined ? await this.resolveParentPath(scope, nextParentId) : parent ? parent.rolePath ?? parent.code : null;
     const nextParentLevel = parent === undefined ? await this.resolveParentLevel(scope, nextParentId) : parent ? parent.level : 0;
-    Object.assign(role, {
+    const changes = {
       code: nextCode,
       name: dto.name ?? role.name,
       parentId: nextParentId,
@@ -177,7 +170,30 @@ export class RolesService {
       isEnabled: dto.status ? dto.status === "enabled" : role.isEnabled,
       remark: dto.remark ?? role.remark,
       updateBy: actorId
-    });
+    };
+    if (convertsToTemplate) {
+      return this.rolesRepository.manager.transaction(async (manager) => {
+        const lockedRole = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+          .setLock("pessimistic_write")
+          .where("role.id=:id", { id })
+          .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+          .andWhere("(role.role_scope='tenant' OR (role.role_scope='park' AND role.park_id=:parkId))", { parkId: scope.parkId })
+          .andWhere("role.is_deleted=false")
+          .getOne();
+        if (!lockedRole) throw new NotFoundException("Role not found");
+        if (!lockedRole.isEditable || !lockedRole.editable) throw new ForbiddenException("Role is not editable");
+        if (lockedRole.isTemplate) throw new BadRequestException("Role is already a template");
+        const boundUsers = await manager.getRepository(UserRoleEntity).count({
+          where: { tenantId: scope.tenantId, roleId: id, isDeleted: false }
+        });
+        if (boundUsers > 0) {
+          throw new BadRequestException("Role with bound users cannot be converted to a template");
+        }
+        Object.assign(lockedRole, changes);
+        return manager.getRepository(RoleEntity).save(lockedRole);
+      });
+    }
+    Object.assign(role, changes);
     return this.rolesRepository.save(role);
   }
 
