@@ -43,6 +43,8 @@ test("role copy is transactional and carries permission, field and current-park 
   assert.match(source, /rolesRepository\.manager\.transaction/);
   assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
   assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: source\.id, isDeleted: false \}/);
+  assert.match(source, /overridesDataScope = !isManagedPropertyTemplate[\s\S]*dto\.dataScope !== undefined \|\| dto\.dataScopeConfig !== undefined/);
+  assert.match(source, /overridesDataScope[\s\S]*Promise\.resolve\(\[\]\)[\s\S]*dataScopeRepository\.find/);
   assert.match(source, /appliedBundleCodes: isManagedPropertyTemplate \? \[\]/);
   assert.match(source, /appliedBundleSignature: isManagedPropertyTemplate \? null/);
 });

@@ -308,10 +308,14 @@ export class RolesService {
       const permissionRepository = manager.getRepository(RolePermissionEntity);
       const fieldRepository = manager.getRepository(RoleFieldPermissionEntity);
       const dataScopeRepository = manager.getRepository(RoleDataScopeEntity);
+      const overridesDataScope = !isManagedPropertyTemplate
+        && (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined);
       const [permissions, fields, dataScopes] = await Promise.all([
         permissionRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
         fieldRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
-        dataScopeRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
+        overridesDataScope
+          ? Promise.resolve([])
+          : dataScopeRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
       ]);
       await permissionRepository.save(permissions.map((link) => permissionRepository.create({
         tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
