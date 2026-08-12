@@ -388,6 +388,14 @@ Migration behavior:
 - A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`. Only the fixed default scope may use the globally unique active `park_code=JH` baseline when the JH row retained legacy IDs or when other active business parks share the default scope. Invalid scope, duplicate assets, non-unique JH, or unbounded missing/ambiguous sources still stop deployment.
 - After initializing required Compose secrets but before an API/full deployment syncs application release source or runs migrations, GitHub Actions executes the same `000189` scope classification in read-only enforce mode. Operators can select `diagnose-000189-scope` manually to print only tenant/park identifiers, classification, and aggregate building/floor/unit/org counts. That mode does not sync source, write `.release.json`, migrate, seed, deploy, or run UAT.
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
+- A historical active scope with multiple `biz_park` sources may be reported as
+  `ready_ambiguous_source_migration_reconcile` only while `000207_asset_scope_canonical_source_reconcile.sql` is
+  absent or transactionally failed with its reviewed checksum, one enabled/non-deleted `asset_park` exists, and its
+  `park_code` matches exactly one active same-scope `biz_park`. Migration `000207` locks the scope, preserves that
+  exact source, audits and soft-disables only the non-matching sources, and then requires one active source. Missing
+  matches, multiple matches, projection duplication, control/audit drift, or ambiguity after `000207` succeeded
+  remain blocked. The repair is a forward migration rather than a production seed because it changes historical
+  business rows and must carry immutable before/after evidence.
 - The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
   `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
   and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
@@ -452,6 +460,9 @@ Migration behavior:
   updates, or deletes a runtime control. The classifier follows the immutable migration
   stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown
   history stage is `migration_stage_drift` and blocks.
+- After `db:migrate` and before any optional production seed, `prod-deploy.sh` reruns both 000189 and 000194 enforce
+  diagnostics against the migrated database. The API remains stopped unless the temporary migration-reconcile state
+  has converged to the normal exact state; production seed cannot hide a failed or partial canonical-source repair.
 - The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
   `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
   verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database

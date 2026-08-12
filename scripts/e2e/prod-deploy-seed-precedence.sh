@@ -26,6 +26,19 @@ SH
   chmod +x "$TEST_ROOT/scripts/$helper"
 done
 
+for helper in diagnose-000189-asset-scope.sh diagnose-000194-runtime-control.sh; do
+  helper_name="${helper%.sh}"
+  sed "s/HELPER_NAME/$helper_name/g" > "$TEST_ROOT/scripts/$helper" <<'SH'
+#!/usr/bin/env sh
+set -eu
+printf '%s\n' 'HELPER_NAME' >> "$PROD_DEPLOY_TEST_LOG"
+if [ "${PROD_DEPLOY_TEST_DIAGNOSTIC_FAIL:-}" = "HELPER_NAME" ]; then
+  exit 24
+fi
+SH
+  chmod +x "$TEST_ROOT/scripts/$helper"
+done
+
 sed 's/HELPER_NAME/docker/g' > "$TEST_ROOT/bin/docker" <<'SH'
 #!/usr/bin/env sh
 set -eu
@@ -66,18 +79,31 @@ run_case() {
   fi
 
   migrate_count="$(grep -c '^db-migrate$' "$log_file" || true)"
+  scope_gate_count="$(grep -c '^diagnose-000189-asset-scope$' "$log_file" || true)"
+  runtime_gate_count="$(grep -c '^diagnose-000194-runtime-control$' "$log_file" || true)"
   seed_count="$(grep -c '^db-seed-prod$' "$log_file" || true)"
   test "$migrate_count" -eq 1
+  test "$scope_gate_count" -eq 1
+  test "$runtime_gate_count" -eq 1
   test "$seed_count" -eq "$expected_seed_count"
 
   stop_line="$(grep -n ' stop api$' "$log_file" | head -1 | cut -d: -f1)"
   migrate_line="$(grep -n '^db-migrate$' "$log_file" | head -1 | cut -d: -f1)"
+  scope_gate_line="$(grep -n '^diagnose-000189-asset-scope$' "$log_file" | head -1 | cut -d: -f1)"
+  runtime_gate_line="$(grep -n '^diagnose-000194-runtime-control$' "$log_file" | head -1 | cut -d: -f1)"
   start_line="$(grep -n ' up -d api web$' "$log_file" | head -1 | cut -d: -f1)"
   test -n "$stop_line"
   test -n "$migrate_line"
   test -n "$start_line"
   test "$stop_line" -lt "$migrate_line"
-  test "$migrate_line" -lt "$start_line"
+  test "$migrate_line" -lt "$scope_gate_line"
+  test "$scope_gate_line" -lt "$runtime_gate_line"
+  test "$runtime_gate_line" -lt "$start_line"
+  if [ "$expected_seed_count" -eq 1 ]; then
+    seed_line="$(grep -n '^db-seed-prod$' "$log_file" | head -1 | cut -d: -f1)"
+    test "$runtime_gate_line" -lt "$seed_line"
+    test "$seed_line" -lt "$start_line"
+  fi
 }
 
 run_case workflow_yes_env_no no yes 1
@@ -102,6 +128,28 @@ grep -q ' stop api$' "$migration_failure_log"
 grep -q '^db-migrate$' "$migration_failure_log"
 if grep -q ' up -d api web$' "$migration_failure_log"; then
   printf 'API/Web must not start after a migration failure.\n' >&2
+  exit 1
+fi
+
+diagnostic_failure_log="$TEST_ROOT/diagnostic-failure.log"
+: > "$diagnostic_failure_log"
+if PATH="$TEST_ROOT/bin:$PATH" \
+  PROD_DEPLOY_TEST_LOG="$diagnostic_failure_log" \
+  PROD_DEPLOY_TEST_DIAGNOSTIC_FAIL=diagnose-000194-runtime-control \
+  ENV_FILE="$TEST_ROOT/workflow_yes_env_no.env" \
+  COMPOSE_FILE="$TEST_ROOT/infra/docker/docker-compose.prod.yml" \
+  PROD_DEPLOY_MODE=full \
+  RUN_PRODUCTION_SEED=yes \
+  PRUNE_DOCKER_AFTER_DEPLOY=no \
+  sh "$TEST_ROOT/scripts/prod-deploy.sh" >/dev/null 2>&1; then
+  printf 'Expected a post-migration diagnostic failure to stop the deployment.\n' >&2
+  exit 1
+fi
+grep -q '^db-migrate$' "$diagnostic_failure_log"
+grep -q '^diagnose-000189-asset-scope$' "$diagnostic_failure_log"
+grep -q '^diagnose-000194-runtime-control$' "$diagnostic_failure_log"
+if grep -Eq '^(db-seed-prod|prod-healthcheck)$| up -d api web$' "$diagnostic_failure_log"; then
+  printf 'Seed, health checks and API/Web startup must not run after a diagnostic failure.\n' >&2
   exit 1
 fi
 
