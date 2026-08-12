@@ -48,8 +48,22 @@ test("non-force release preserves the existing low-risk path with its exact acti
   };
   let accessCalls = 0;
   let saveCalls = 0;
+  const queryBuilder = {
+    leftJoinAndMapOne() {
+      return this;
+    },
+    where() {
+      return this;
+    },
+    andWhere() {
+      return this;
+    },
+    async getOne() {
+      return entity;
+    }
+  };
   const repository = {
-    findOne: async () => entity,
+    createQueryBuilder: () => queryBuilder,
     save: async (value: unknown) => {
       saveCalls += 1;
       return value;
