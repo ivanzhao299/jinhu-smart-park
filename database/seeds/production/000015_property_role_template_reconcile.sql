@@ -68,6 +68,17 @@ INSERT INTO property_role_template_expected VALUES
   ('HOUSING_FINANCE','住房财务',1,'de2cc04dedcb6416ae1ffba66f6e81d15774344dcf7b20538f9047e8d80e2f1d','4001bbd2fe4dc2b552ff493eedc141556ac107e56998e4e2c35e258c4675b593',306),
   ('PROPERTY_AUDITOR','房产业务审计',1,'30b072e062cfd05e72b89deb17238ed01fd31685d0077eb706d80b6a5c46f05b','abb2423994d193a4aff04b91cf7808bbd38dab15769733c5cbd6b6f3afd5a9d0',307);
 
+CREATE TEMP TABLE property_role_template_allowed_predecessor (
+  template_code varchar(64) NOT NULL,
+  definition_version integer NOT NULL,
+  definition_hash char(64) NOT NULL,
+  bundle_signature char(64) NOT NULL,
+  PRIMARY KEY (template_code,definition_version,definition_hash,bundle_signature)
+) ON COMMIT DROP;
+
+-- A future forward seed must enumerate each released predecessor before
+-- advancing the expected definition. Unknown metadata drift remains fail-closed.
+
 CREATE TEMP TABLE property_role_template_bundle (
   template_code varchar(64) NOT NULL,
   bundle_code varchar(128) NOT NULL,
@@ -190,8 +201,18 @@ BEGIN
      OR role.is_system IS DISTINCT FROM true
      OR role.is_builtin IS DISTINCT FROM true
      OR role.is_super IS DISTINCT FROM false
-     OR role.template_definition_version IS NULL
-     OR role.template_definition_version>expected.definition_version;
+     OR NOT (
+       (role.template_definition_version=expected.definition_version
+        AND role.template_definition_hash=expected.definition_hash
+        AND role.applied_bundle_signature=expected.bundle_signature)
+       OR EXISTS (
+         SELECT 1 FROM property_role_template_allowed_predecessor predecessor
+         WHERE predecessor.template_code=role.code
+           AND predecessor.definition_version=role.template_definition_version
+           AND predecessor.definition_hash=role.template_definition_hash
+           AND predecessor.bundle_signature=role.applied_bundle_signature
+       )
+     );
 
   IF tenant_count<>1 OR park_count<>1 OR scope_rule_count<>1
      OR bundle_drift_count<>0 OR conflicting_role_count<>0 THEN

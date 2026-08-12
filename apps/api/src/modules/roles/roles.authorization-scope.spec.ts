@@ -127,6 +127,9 @@ test("an assigned ordinary role cannot be converted into a protected template", 
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
   assert.match(source, /convertsToTemplate[\s\S]*manager\.transaction[\s\S]*setLock\("pessimistic_write"\)[\s\S]*getRepository\(UserRoleEntity\)\.count/);
   assert.match(source, /Object\.assign\(lockedRole,[\s\S]*name: dto\.name \?\? lockedRole\.name[\s\S]*status: dto\.status \?\? lockedRole\.status/);
+  assert.match(source, /lockedParentId = dto\.parentId === undefined \? lockedRole\.parentId : dto\.parentId/);
+  assert.match(source, /setLock\("pessimistic_read"\)[\s\S]*lockedParentPath[\s\S]*rolePath: lockedParentPath/);
+  assert.match(source, /role\.role_scope IN \('park','platform'\)/);
 });
 
 test("custom tenant role scope cannot be changed directly", async () => {
