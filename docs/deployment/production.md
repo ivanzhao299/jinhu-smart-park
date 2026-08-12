@@ -423,7 +423,8 @@ Migration behavior:
   the selected package omits system. Park create/delete and every other asset operation remain asset-gated. Duplicate
   canonical source repair is allowed only when the committed result leaves exactly one active source; every transition
   away from active status is treated as source removal, and a successful delete/replacement immediately reprojects
-  from the sole survivor. Re-enabling a tenant transactionally provisions every active park whose asset assignment is
+  from the sole survivor. Every tenant runtime inactive-to-active transition—dedicated enable, generic tenant update,
+  or login-settings status/expiry update—transactionally provisions each active park whose asset assignment is
   enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
   than one remains blocked.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.

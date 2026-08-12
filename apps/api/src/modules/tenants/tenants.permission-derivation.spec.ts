@@ -293,18 +293,25 @@ test("tenant asset enablement creates the canonical park projection in the tenan
 test("tenant reactivation provisions every currently eligible asset scope before commit", () => {
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const enableBlock = source.slice(source.indexOf("  async enable("), source.indexOf("  async disable("));
+  const helperBlock = source.slice(
+    source.indexOf("  private async reconcileActiveTenantAssetScopes("),
+    source.indexOf("  async disable(")
+  );
 
   assert.match(enableBlock, /this\.dataSource\.transaction\(async \(manager\) =>/);
-  assert.match(enableBlock, /tenant\.expireTime && tenant\.expireTime\.getTime\(\) <= Date\.now\(\)/);
-  assert.match(enableBlock, /moduleCode: "asset", status: 1, isDeleted: false/);
-  assert.match(enableBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
-  assert.match(enableBlock, /assignment\.startTime\.getTime\(\) <= now/);
-  assert.match(enableBlock, /assignment\.expireTime\.getTime\(\) > now/);
-  assert.match(enableBlock, /where: \{ tenantId: tenant\.tenantId, status: 1, isDeleted: false \}/);
-  assert.match(enableBlock, /await lockAssetScope\(manager, scope\)/);
-  assert.match(enableBlock, /if \(!await hasActiveAssetAssignment\(manager, scope\)\)/);
-  assert.match(enableBlock, /await ensureAssetScopeProvisioned\(/);
+  assert.match(enableBlock, /this\.isTenantRuntimeActive\(tenant\)/);
+  assert.match(enableBlock, /this\.reconcileActiveTenantAssetScopes\(manager, tenant, actorId\)/);
   assert.match(enableBlock, /return this\.toView\(tenant, manager\)/);
+  assert.equal((source.match(/!wasRuntimeActive && this\.isTenantRuntimeActive\(tenant\)/g) ?? []).length, 2);
+  assert.equal((source.match(/this\.reconcileActiveTenantAssetScopes\(manager, tenant, actorId\)/g) ?? []).length, 3);
+  assert.match(helperBlock, /moduleCode: "asset", status: 1, isDeleted: false/);
+  assert.match(helperBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
+  assert.match(helperBlock, /assignment\.startTime\.getTime\(\) <= now/);
+  assert.match(helperBlock, /assignment\.expireTime\.getTime\(\) > now/);
+  assert.match(helperBlock, /where: \{ tenantId: tenant\.tenantId, status: 1, isDeleted: false \}/);
+  assert.match(helperBlock, /await lockAssetScope\(manager, scope\)/);
+  assert.match(helperBlock, /if \(!await hasActiveAssetAssignment\(manager, scope\)\)/);
+  assert.match(helperBlock, /await ensureAssetScopeProvisioned\(manager, scope, actorId\)/);
 });
 
 test("tenant asset projection is serialized and restores an existing disabled projection", async () => {

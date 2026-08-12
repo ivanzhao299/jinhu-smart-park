@@ -6,7 +6,7 @@
 
 inactive 园区仍需可恢复，因此园区读取/更新属于 system 基础能力，并仅保留 `park:read` 与 `park:update`；创建、删除及楼栋/楼层/房源等业务能力仍受 asset 模块约束。受保护 canonical source 的破坏性变更按“变更后必须恰好剩余一个 active 来源”判断，允许清理重复或 inactive 冗余行，拒绝删除最后可信来源或保留歧义。
 
-恢复通道不依赖用户套餐是否显式包含 system：inactive 园区强制保留 enabled system assignment，并移除 asset assignment/派生权限。园区从 active 转到任意其他状态都视为移除 canonical 来源；成功删除或替换来源后，事务内立即从唯一 survivor 重建投影。租户重新启用也必须进入事务，扫描仍有效的 asset assignment 与 active 园区并运行相同 provisioning primitive，使部署期刻意忽略的 dormant scope 在重新生效前完成收敛。
+恢复通道不依赖用户套餐是否显式包含 system：inactive 园区强制保留 enabled system assignment，并移除 asset assignment/派生权限。园区从 active 转到任意其他状态都视为移除 canonical 来源；成功删除或替换来源后，事务内立即从唯一 survivor 重建投影。租户通过 enable、通用更新或登录设置的状态/到期时间从不可运行变为可运行时都必须进入事务，扫描仍有效的 asset assignment 与 active 园区并运行相同 provisioning primitive，使部署期刻意忽略的 dormant scope 在重新生效前完成收敛。
 
 历史数据不由门禁直接修改。000194 classifier 新增严格的 `ready_missing_asset_seed_reconcile` 状态，条件是 final contract、000200 兼容成功、本次 seed=yes、完全不存在非删除 asset 投影、唯一同 scope biz source（或 000007 已定义的固定默认 scope + 全局唯一 JH 回退源）、controls/audits 全空。production seed 按既有顺序先运行 000007，再运行 000008，使投影与控制审计事务性收敛。已经产生完整 12 controls/24 immutable audits、但 asset assignment 后来被禁用/过期的 scope 作为 validation-only retained scope；租户随后过期不会把这段完整历史误判为 active scope 无效。诊断与 000008 对 active/retained 同时验证控制定义、两轮审计字段和 evidence exact-set，但不重新启用模块、不新建控制数据。active/retained scope 均要求恰好一个 enabled 且非删除投影，同时存在 disabled 非删除投影、未知 scope、partial controls/audits 或定义/审计漂移仍阻断。
 

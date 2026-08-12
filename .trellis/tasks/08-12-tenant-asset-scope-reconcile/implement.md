@@ -14,6 +14,7 @@
 12. Review #7 同步 000007 的 active tenant 过滤；跨 scope 的全局 JH fallback mutation 同时获取默认 scope 锁并同步默认投影；面积一致性按数值比较以兼容 numeric 标度。
 13. Review #8：园区去重 active 优先；canonical 冗余来源允许安全清理；inactive 园区提供 system + park read/update 恢复通道；应用侧补审计时间链；retained scope 仅 final contract ready。
 14. Review #9：所有非 active 园区状态统一触发 canonical survivor 校验；删除来源后立即重投影；inactive 园区强制保留 system assignment；租户 enable 事务性补齐潜伏 asset scope。
+15. Review #10：统一识别租户 runtime inactive→active 边沿，覆盖 enable、通用更新、登录设置三条路径并复用同一 asset scope 收敛 helper。
 
 ## 验证记录
 

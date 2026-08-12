@@ -339,28 +339,39 @@ export class TenantsService {
 
   async update(actor: JwtPrincipal, actorId: string, id: string, dto: UpdateTenantDto): Promise<TenantView> {
     this.assertSuper(actor);
-    const tenant = await this.getTenantById(id);
-    if (dto.tenantCode && dto.tenantCode !== tenant.tenantCode) {
-      await this.assertTenantCodeAvailable(this.tenantRepository, dto.tenantCode, id);
-    }
-    Object.assign(tenant, {
-      tenantCode: dto.tenantCode ?? tenant.tenantCode,
-      tenantName: dto.tenantName ?? tenant.tenantName,
-      tenantType: dto.tenantType ?? tenant.tenantType,
-      contactName: dto.contactName === undefined ? tenant.contactName : this.emptyToNull(dto.contactName),
-      contactMobile: dto.contactMobile === undefined ? tenant.contactMobile : this.emptyToNull(dto.contactMobile),
-      websites: dto.websites === undefined ? tenant.websites : this.normalizeStringArray(dto.websites),
-      domains: dto.domains === undefined ? tenant.domains : this.normalizeStringArray(dto.domains),
-      status: dto.status === undefined ? tenant.status : this.toStatusNumber(dto.status),
-      expireTime: dto.expireTime === undefined ? tenant.expireTime : dto.expireTime ? new Date(dto.expireTime) : null,
-      maxUsers: dto.maxUsers ?? tenant.maxUsers,
-      maxParks: dto.maxParks ?? tenant.maxParks,
-      planCode: dto.planCode === undefined ? tenant.planCode : dto.planCode,
-      featureConfig: dto.featureConfig ?? tenant.featureConfig,
-      remark: dto.remark === undefined ? tenant.remark : this.emptyToNull(dto.remark),
-      updateBy: actorId
+    return this.dataSource.transaction(async (manager) => {
+      const tenantRepository = manager.getRepository(TenantEntity);
+      const tenant = await tenantRepository.findOne({ where: { id, isDeleted: false } });
+      if (!tenant) {
+        throw new NotFoundException("Tenant not found");
+      }
+      const wasRuntimeActive = this.isTenantRuntimeActive(tenant);
+      if (dto.tenantCode && dto.tenantCode !== tenant.tenantCode) {
+        await this.assertTenantCodeAvailable(tenantRepository, dto.tenantCode, id);
+      }
+      Object.assign(tenant, {
+        tenantCode: dto.tenantCode ?? tenant.tenantCode,
+        tenantName: dto.tenantName ?? tenant.tenantName,
+        tenantType: dto.tenantType ?? tenant.tenantType,
+        contactName: dto.contactName === undefined ? tenant.contactName : this.emptyToNull(dto.contactName),
+        contactMobile: dto.contactMobile === undefined ? tenant.contactMobile : this.emptyToNull(dto.contactMobile),
+        websites: dto.websites === undefined ? tenant.websites : this.normalizeStringArray(dto.websites),
+        domains: dto.domains === undefined ? tenant.domains : this.normalizeStringArray(dto.domains),
+        status: dto.status === undefined ? tenant.status : this.toStatusNumber(dto.status),
+        expireTime: dto.expireTime === undefined ? tenant.expireTime : dto.expireTime ? new Date(dto.expireTime) : null,
+        maxUsers: dto.maxUsers ?? tenant.maxUsers,
+        maxParks: dto.maxParks ?? tenant.maxParks,
+        planCode: dto.planCode === undefined ? tenant.planCode : dto.planCode,
+        featureConfig: dto.featureConfig ?? tenant.featureConfig,
+        remark: dto.remark === undefined ? tenant.remark : this.emptyToNull(dto.remark),
+        updateBy: actorId
+      });
+      await tenantRepository.save(tenant);
+      if (!wasRuntimeActive && this.isTenantRuntimeActive(tenant)) {
+        await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
+      }
+      return this.toView(tenant, manager);
     });
-    return this.toView(await this.tenantRepository.save(tenant));
   }
 
   async updateLoginSettings(
@@ -377,6 +388,7 @@ export class TenantsService {
       if (!tenant) {
         throw new NotFoundException("Tenant not found");
       }
+      const wasRuntimeActive = this.isTenantRuntimeActive(tenant);
       const configuredDefaultParkId = typeof tenant.featureConfig?.defaultParkId === "string"
         ? tenant.featureConfig.defaultParkId
         : null;
@@ -476,6 +488,9 @@ export class TenantsService {
       }
 
       await tenantRepository.save(tenant);
+      if (!wasRuntimeActive && this.isTenantRuntimeActive(tenant)) {
+        await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
+      }
 
       return this.toLoginSettingsView(manager, tenant);
     });
@@ -492,50 +507,56 @@ export class TenantsService {
       tenant.status = 1;
       tenant.updateBy = actorId;
       await tenantRepository.save(tenant);
-
-      if (tenant.expireTime && tenant.expireTime.getTime() <= Date.now()) {
-        return this.toView(tenant, manager);
-      }
-      const assetModule = await manager.getRepository(SaaSModuleEntity).findOne({
-        where: { moduleCode: "asset", status: 1, isDeleted: false }
-      });
-      if (assetModule) {
-        const now = Date.now();
-        const assignments = await manager.getRepository(TenantModuleEntity).find({
-          where: {
-            tenantId: tenant.tenantId,
-            moduleId: assetModule.id,
-            enabled: true,
-            status: "enabled",
-            isDeleted: false
-          }
-        });
-        const eligibleParkIds = new Set(assignments
-          .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
-            && (!assignment.expireTime || assignment.expireTime.getTime() > now))
-          .map((assignment) => assignment.parkId));
-        if (eligibleParkIds.size > 0) {
-          const parks = await manager.getRepository(ParkEntity).find({
-            where: { tenantId: tenant.tenantId, status: 1, isDeleted: false }
-          });
-          for (const park of preferActiveTenantParkRows(parks)) {
-            if (eligibleParkIds.has(park.parkId)) {
-              const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
-              await lockAssetScope(manager, scope);
-              if (!await hasActiveAssetAssignment(manager, scope)) {
-                continue;
-              }
-              await ensureAssetScopeProvisioned(
-                manager,
-                scope,
-                actorId
-              );
-            }
-          }
-        }
+      if (this.isTenantRuntimeActive(tenant)) {
+        await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
       }
       return this.toView(tenant, manager);
     });
+  }
+
+  private isTenantRuntimeActive(tenant: TenantEntity, now = Date.now()): boolean {
+    return tenant.status === 1 && (!tenant.expireTime || tenant.expireTime.getTime() > now);
+  }
+
+  private async reconcileActiveTenantAssetScopes(
+    manager: EntityManager,
+    tenant: TenantEntity,
+    actorId: string
+  ): Promise<void> {
+    const assetModule = await manager.getRepository(SaaSModuleEntity).findOne({
+      where: { moduleCode: "asset", status: 1, isDeleted: false }
+    });
+    if (assetModule) {
+      const now = Date.now();
+      const assignments = await manager.getRepository(TenantModuleEntity).find({
+        where: {
+          tenantId: tenant.tenantId,
+          moduleId: assetModule.id,
+          enabled: true,
+          status: "enabled",
+          isDeleted: false
+        }
+      });
+      const eligibleParkIds = new Set(assignments
+        .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
+          && (!assignment.expireTime || assignment.expireTime.getTime() > now))
+        .map((assignment) => assignment.parkId));
+      if (eligibleParkIds.size > 0) {
+        const parks = await manager.getRepository(ParkEntity).find({
+          where: { tenantId: tenant.tenantId, status: 1, isDeleted: false }
+        });
+        for (const park of preferActiveTenantParkRows(parks)) {
+          if (eligibleParkIds.has(park.parkId)) {
+            const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
+            await lockAssetScope(manager, scope);
+            if (!await hasActiveAssetAssignment(manager, scope)) {
+              continue;
+            }
+            await ensureAssetScopeProvisioned(manager, scope, actorId);
+          }
+        }
+      }
+    }
   }
 
   async disable(actor: JwtPrincipal, actorId: string, id: string): Promise<TenantView> {
