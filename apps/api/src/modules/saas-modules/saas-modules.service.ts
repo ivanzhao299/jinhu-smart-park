@@ -27,6 +27,7 @@ import {
   hasCanonicalActiveAssetParkSource,
   lockAssetScope
 } from "../assets/asset-scope-provisioning";
+import { TenantsService } from "../tenants/tenants.service";
 
 @Injectable()
 export class SaaSModulesService {
@@ -40,7 +41,9 @@ export class SaaSModulesService {
     @InjectRepository(TenantModuleEntity)
     private readonly tenantModuleRepository: Repository<TenantModuleEntity>,
     @Optional()
-    private readonly dataSource?: DataSource
+    private readonly dataSource?: DataSource,
+    @Optional()
+    private readonly tenantsService?: TenantsService
   ) {}
 
   async listModules(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ModuleRegistryEntity>> {
@@ -296,6 +299,8 @@ export class SaaSModulesService {
       const saved = await repository.save(entity);
       if (enabling && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
+      } else if (requestedEnabled && module.moduleCode === "asset") {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       }
       return saved;
     });
@@ -347,6 +352,8 @@ export class SaaSModulesService {
       const saved = await repository.save(entity);
       if (parkActive && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
+      } else if (module.moduleCode === "asset") {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       }
       return saved;
     });
@@ -627,6 +634,17 @@ export class SaaSModulesService {
       throw new Error("SaaSModulesService DataSource is required for module writes");
     }
     return this.dataSource;
+  }
+
+  private async reconcileInactiveAssetRecovery(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    if (!this.tenantsService) {
+      throw new Error("TenantsService is required for inactive asset recovery");
+    }
+    await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actorId);
   }
 
   private async getPlan(scope: TenantParkScope, id: string): Promise<PlanEntity> {

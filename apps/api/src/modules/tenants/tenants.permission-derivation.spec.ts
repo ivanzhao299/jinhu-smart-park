@@ -260,6 +260,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
     source,
     /async updateLoginSettings\([\s\S]*lockParkIds[\s\S]*lockedScopes[\s\S]*lockAssetScope\(manager, scope\)[\s\S]*getRepository\(TenantModuleEntity\)\.update/
   );
+  assert.match(source, /const reactivatingRuntime = !wasRuntimeActive && this\.isTenantRuntimeActive\(tenant\)[\s\S]*dto\.expireTime !== undefined \|\| reactivatingRuntime/);
   assert.match(source, /const enabled = !disabledModuleCodes\.has\(module\.moduleCode\)/);
   assert.match(
     source,
@@ -292,6 +293,11 @@ test("login settings preserve suspended asset intent without exposing recovery-o
 
   assert.deepEqual(resolveSelected([
     module("asset", { featureConfig: { suspendedByParkStatus: true } }),
+    module("asset", {
+      id: "expired-suspended-asset",
+      expireTime: new Date(Date.now() - 1_000),
+      featureConfig: { suspendedByParkStatus: true }
+    }),
     module("asset", { id: "unselected-asset" }),
     module("system", {
       enabled: true,
@@ -903,6 +909,68 @@ test("resaving a scheduled recovery system selection restores its original windo
   assert.equal(systemAssignment.expireTime?.toISOString(), originalExpire.toISOString());
   assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
   assert.equal(systemAssignment.featureConfig.recoverySystemAssignmentSnapshot, undefined);
+});
+
+test("resaving a scheduled system while the park is inactive keeps temporary recovery access", async () => {
+  const originalStart = new Date(Date.now() + 60_000);
+  const systemModule = { id: "system-module", moduleCode: "system" } as SaaSModuleEntity;
+  const systemAssignment = {
+    moduleId: systemModule.id,
+    enabled: true,
+    status: "enabled",
+    startTime: new Date(),
+    expireTime: null,
+    featureConfig: {
+      recoveryOnlyForParkStatus: true,
+      recoverySystemAssignmentSnapshot: {
+        enabled: true,
+        status: "enabled",
+        startTime: originalStart.toISOString(),
+        expireTime: null
+      }
+    }
+  } as unknown as TenantModuleEntity;
+  const manager = {
+    getRepository: () => ({
+      find: async () => [systemAssignment],
+      save: async (assignment: TenantModuleEntity) => assignment
+    })
+  };
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const upsert = (service as unknown as {
+    upsertTenantModules(
+      manager: unknown,
+      tenant: TenantEntity,
+      parkId: string,
+      modules: SaaSModuleEntity[],
+      plan: null,
+      actorId: string,
+      expireTime: null,
+      featureConfig: Record<string, unknown>,
+      disabledModuleCodes: ReadonlySet<string>,
+      recoveryOnlyModuleCodes: ReadonlySet<string>
+    ): Promise<void>;
+  }).upsertTenantModules.bind(service);
+
+  await upsert(
+    manager,
+    { tenantId: "tenant-a", tenantCode: "TENANT_A" } as TenantEntity,
+    "park-a",
+    [systemModule],
+    null,
+    "actor-a",
+    null,
+    {},
+    new Set(["asset"]),
+    new Set()
+  );
+
+  assert.equal(systemAssignment.enabled, true);
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, true);
+  assert.equal(
+    (systemAssignment.featureConfig.recoverySystemAssignmentSnapshot as { startTime: string }).startTime,
+    originalStart.toISOString()
+  );
 });
 
 test("deactivating a park suspends asset and creates the system recovery authorization", async () => {

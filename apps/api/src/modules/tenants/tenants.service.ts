@@ -279,7 +279,8 @@ export class TenantsService {
         && item.status === "enabled"
         && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true;
       const suspendedSelection = code === "asset"
-        && item.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true;
+        && item.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true
+        && this.isTenantModuleWindowRecoverable(item);
       const recoverySnapshot = item.featureConfig?.[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE] !== undefined
         ? this.resolveRecoverySystemSnapshot(item.featureConfig)
         : null;
@@ -449,6 +450,7 @@ export class TenantsService {
         defaultParkId
       };
       tenant.updateBy = actorId;
+      const reactivatingRuntime = !wasRuntimeActive && this.isTenantRuntimeActive(tenant);
       const authorizationChanged = dto.planCode !== undefined || dto.moduleCodes !== undefined;
       const tenantParks = authorizationChanged
         ? await manager.getRepository(ParkEntity).find({
@@ -456,7 +458,7 @@ export class TenantsService {
           order: { createTime: "ASC" }
         })
         : [];
-      const assignmentRows = dto.expireTime !== undefined
+      const assignmentRows = dto.expireTime !== undefined || reactivatingRuntime
         ? await manager.getRepository(TenantModuleEntity).find({
           where: { tenantId: tenant.tenantId, isDeleted: false },
           select: { parkId: true }
@@ -563,7 +565,7 @@ export class TenantsService {
       }
 
       await tenantRepository.save(tenant);
-      if (!wasRuntimeActive && this.isTenantRuntimeActive(tenant)) {
+      if (reactivatingRuntime) {
         await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
       }
 
@@ -1539,7 +1541,11 @@ export class TenantsService {
         : null;
       const restoreScheduledSystem = !recoveryOnlyModuleCodes.has("system")
         && recoverySnapshot?.enabled === true
-        && recoverySnapshot.status === "enabled";
+        && recoverySnapshot.status === "enabled"
+        && !disabledModuleCodes.has("asset");
+      const retainScheduledRecovery = recoverySnapshot?.enabled === true
+        && recoverySnapshot.status === "enabled"
+        && disabledModuleCodes.has("asset");
       const moduleFeatureConfig = this.withParkStatusSuspension(
         { ...(entity.featureConfig ?? {}), ...featureConfig },
         !enabled && module.moduleCode === "asset"
@@ -1555,7 +1561,10 @@ export class TenantsService {
           : expireTime,
         enabled: restoreScheduledSystem ? recoverySnapshot!.enabled : enabled,
         featureConfig: module.moduleCode === "system"
-          ? this.withRecoverySystemMarker(moduleFeatureConfig, recoveryOnlyModuleCodes.has("system"))
+          ? this.withRecoverySystemMarker(
+            moduleFeatureConfig,
+            recoveryOnlyModuleCodes.has("system") || retainScheduledRecovery
+          )
           : moduleFeatureConfig,
         status: restoreScheduledSystem ? recoverySnapshot!.status : enabled ? "enabled" : "disabled",
         updateBy: actorId,
