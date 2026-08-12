@@ -288,6 +288,7 @@ export class SaaSModulesService {
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      this.assertSystemAssignmentStartsImmediately(module.moduleCode, entity.startTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -343,6 +344,7 @@ export class SaaSModulesService {
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      this.assertSystemAssignmentStartsImmediately(module.moduleCode, entity.startTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -388,7 +390,11 @@ export class SaaSModulesService {
         module.moduleCode
       );
       entity.updateBy = actorId;
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (module.moduleCode === "system") {
+        await this.reconcileExplicitSystemAuthorization(manager, scope, actorId);
+      }
+      return saved;
     });
   }
 
@@ -629,6 +635,15 @@ export class SaaSModulesService {
       throw new ConflictException({
         message: "Module assignment expireTime must be later than startTime",
         errorCode: "module-dependency-conflict"
+      });
+    }
+  }
+
+  private assertSystemAssignmentStartsImmediately(moduleCode: string, startTime: Date | null | undefined): void {
+    if (moduleCode === "system" && startTime && startTime.getTime() > Date.now()) {
+      throw new ConflictException({
+        message: "System module authorization cannot start in the future",
+        errorCode: "module-window-conflict"
       });
     }
   }

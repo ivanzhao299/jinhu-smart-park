@@ -62,6 +62,20 @@ test("module assignment writes cannot create split enabled and status state", ()
   assert.match(source, /enabled: enabling,/);
   assert.match(source, /status: enabling \? "enabled" : "disabled"/);
   assert.match(source, /startTime\.getTime\(\) >= expireTime\.getTime\(\)/);
+  assert.match(source, /System module authorization cannot start in the future/);
+});
+
+test("system assignments cannot schedule permission-only authorization in the future", () => {
+  const assertImmediate = (SaaSModulesService.prototype as unknown as {
+    assertSystemAssignmentStartsImmediately(moduleCode: string, startTime: Date | null): void;
+  }).assertSystemAssignmentStartsImmediately;
+
+  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "asset", new Date(Date.now() + 60_000)));
+  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "system", null));
+  assert.throws(
+    () => assertImmediate.call({} as SaaSModulesService, "system", new Date(Date.now() + 60_000)),
+    /System module authorization cannot start in the future/
+  );
 });
 
 test("asset module assignment and enable paths provision the canonical asset scope in the same transaction", () => {
@@ -71,7 +85,7 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
   assert.equal((source.match(/reconcileInactiveAssetRecovery\(manager, scope, actorId\)/g) ?? []).length, 2);
   assert.match(source, /reconcileDeactivatedParkAuthorization\(manager, scope, actorId\)/);
-  assert.equal((source.match(/reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/g) ?? []).length, 2);
+  assert.equal((source.match(/reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/g) ?? []).length, 3);
   assert.match(source, /reconcileCurrentTenantAdminPermissions\(manager, scope, actorId\)/);
 });
 

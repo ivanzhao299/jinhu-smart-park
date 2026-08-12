@@ -251,6 +251,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /const authorizationModuleCodes = !parkActive && !moduleCodes\.includes\("system"\)[\s\S]{0,160}filter\(\(code\) => code !== "system"\)/);
   assert.doesNotMatch(source, /if \(!suspendedAsset && !recoverySystem\) \{\s*return;\s*\}/);
   assert.match(source, /selectedAssignments = assignments\.filter\([\s\S]{0,300}assignment\.enabled[\s\S]{0,100}assignment\.status === "enabled"/);
+  assert.match(source, /assignment\.module\.moduleCode !== "system" \|\| this\.isTenantModuleWindowActive\(assignment\)/);
   assert.match(source, /if \(parkActive\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
@@ -1111,7 +1112,7 @@ test("park recovery temporarily exposes a future system assignment and then rest
   assert.equal(systemAssignment.expireTime?.toISOString(), originalExpire.toISOString());
   assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
   assert.equal(systemAssignment.featureConfig.recoverySystemAssignmentSnapshot, undefined);
-  assert.deepEqual(appliedModuleCodes[1], ["system"]);
+  assert.deepEqual(appliedModuleCodes[1], []);
 });
 
 test("park recovery rejects malformed system assignment snapshots", () => {

@@ -721,6 +721,7 @@ export class TenantsService {
       && assignment.module.status === 1
       && !assignment.module.isDeleted
       && this.isTenantModuleWindowRecoverable(assignment)
+      && (assignment.module.moduleCode !== "system" || this.isTenantModuleWindowActive(assignment))
       && assignment.enabled
       && assignment.status === "enabled"
       && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true

@@ -40,6 +40,8 @@
 38. Review #23：login-settings status-only 恢复同样先锁全部 scope；inactive 计划重存保留未来 system 的临时恢复窗口；独立 SaaS asset 写入补齐恢复 system 与最小权限；过期 suspended asset 不再回显；规范区分未来预配与运行时 startTime 门禁。
 39. Review #24：园区恢复即使没有 suspension/recovery marker 也重建角色权限以撤销临时 park grants；恢复权限仅使用 enabled+status enabled assignment；园区 update/delete 在 scope 锁内重新校验模块访问，消除并发恢复 TOCTOU。
 40. Review #25：SaaS 独立 assign/enable 将 recovery-only system 显式提升为普通 system 后，在同一事务复用当前 assignment 权限收敛，确保 `/users/me` 模块与 TENANT_ADMIN 完整 system 权限一致。
+41. Review #26：允许唯一受保护 canonical park 显式停用并保留历史投影进入恢复流；SaaS system disable 同事务撤销角色权限；未来 system 仅在 startTime 生效后派生 permission-only API 权限。
+42. Review #26 生命周期闭环：独立 SaaS API 拒绝未来生效的 system assignment，避免模块窗口到达时缺少权限收敛触发器；未来 asset 仍允许提前预配并由 ModuleGuard 在 startTime 后开放。
 
 ## 验证记录
 

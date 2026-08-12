@@ -16,7 +16,6 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /Asset scope requires one active canonical park/);
   assert.match(source, /assertCanonicalSourceSurvives/);
   assert.match(source, /park\.id <> :removedParkId/);
-  assert.match(source, /dto\.status !== undefined && dto\.status !== 1/);
   assert.match(source, /const nextActiveSources = activeSources \+ \(\(dto\.status \?\? 1\) === 1 \? 1 : 0\)/);
   assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
   assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
@@ -28,10 +27,10 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.ok(deleteBlock.indexOf("lockMutationScopes") < deleteBlock.indexOf('lock: { mode: "pessimistic_write" }'));
   assert.match(source, /syncCanonicalAssetProjection\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.match(source, /park\.park_code = 'JH'/);
-  assert.match(source, /if \(protectedScope\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
-  assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await this\.syncCanonicalAssetProjection/);
+  assert.match(source, /if \(protectedScope && scopeRemainsActive\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
+  assert.match(source, /if \(defaultScopeProtected && defaultScopeRemainsActive\) \{\s+await this\.syncCanonicalAssetProjection/);
   assert.match(source, /const wasActive = entity\.status === 1/);
-  assert.match(source, /const scopeRemainsActive = saved\.status !== 1\s+&& await this\.hasActiveCanonicalParkSource/);
+  assert.match(source, /const scopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
   assert.match(source, /if \(wasActive && saved\.status !== 1 && !scopeRemainsActive\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
   assert.match(source, /if \(!wasActive && saved\.status === 1\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
@@ -117,7 +116,7 @@ test("park mutation scope locks use one deterministic shared-key order", async (
   assert.deepEqual(acquired, ["tenant-asset-park:10000001:20000001"]);
 });
 
-test("protected park mutation permits only a single surviving active canonical source", async () => {
+test("destructive protected park mutation permits only a single surviving active canonical source", async () => {
   const assertSurvives = (ParksService.prototype as unknown as {
     assertCanonicalSourceSurvives(manager: unknown, scope: unknown, park: unknown): Promise<void>;
   }).assertCanonicalSourceSurvives;

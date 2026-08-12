@@ -140,15 +140,10 @@ export class ParksService {
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
-    if (protectedScope && entity.status === 1 && dto.status !== undefined && dto.status !== 1) {
-      await this.assertCanonicalSourceSurvives(manager, scope, entity);
-    }
-    const removesDefaultSource = dto.status !== undefined && dto.status !== 1;
     const renamesCrossScopeDefaultSource = nextCode !== undefined
       && nextCode !== "JH"
       && (entity.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId || entity.parkId !== DEFAULT_PLATFORM_SCOPE.parkId);
-    if (defaultScopeProtected && entity.parkCode === "JH"
-      && (removesDefaultSource || renamesCrossScopeDefaultSource)) {
+    if (defaultScopeProtected && entity.parkCode === "JH" && renamesCrossScopeDefaultSource) {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     if (nextCode && nextCode !== entity.parkCode) {
@@ -170,12 +165,14 @@ export class ParksService {
     entity.updateBy = actor.sub;
 
     const saved = await repository.save(entity);
-    if (protectedScope) await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
-    if (defaultScopeProtected) {
+    const scopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, scope);
+    const defaultScopeRemainsActive = defaultScopeProtected
+      ? await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE)
+      : false;
+    if (protectedScope && scopeRemainsActive) await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
+    if (defaultScopeProtected && defaultScopeRemainsActive) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
-    const scopeRemainsActive = saved.status !== 1
-      && await this.hasActiveCanonicalParkSource(manager, scope);
     if (wasActive && saved.status !== 1 && !scopeRemainsActive) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
     }
