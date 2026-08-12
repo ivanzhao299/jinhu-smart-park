@@ -511,7 +511,9 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR (is_active AND tenant_count <> 1) THEN 'invalid_scope'
+      WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'
       WHEN asset_count=0 AND asset_row_count=0
+        AND is_active
         AND (
           exact_source_count=1
           OR (
@@ -529,13 +531,15 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
       WHEN missing_count=expected_count AND actual_count=0
+        AND is_active
         AND :'runtime_contract_stage'='post_000195'
         AND :'allow_seed_reconcile'='yes'
         AND :'runtime_compatibility_succeeded'='yes'
         THEN 'ready_missing_seed_reconcile'
       WHEN missing_count <> 0 AND :'runtime_contract_stage'<>'pre_000194'
         THEN 'missing_control'
-      WHEN missing_count <> 0 THEN 'ready_missing_reconcile'
+      WHEN missing_count <> 0 AND is_active THEN 'ready_missing_reconcile'
+      WHEN missing_count <> 0 THEN 'migration_stage_drift'
       WHEN is_active THEN 'ready_exact'
       ELSE 'ready_retained_exact'
     END AS classification,

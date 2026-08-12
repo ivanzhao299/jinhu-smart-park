@@ -12,7 +12,7 @@ import * as bcrypt from "bcrypt";
 import { randomInt } from "node:crypto";
 import type { DataSource, EntityManager, Repository } from "typeorm";
 import { In } from "typeorm";
-import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -49,6 +49,17 @@ import {
 
 const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
+
+export function preferActiveTenantParkRows(parks: ParkEntity[]): ParkEntity[] {
+  const byParkId = new Map<string, ParkEntity>();
+  for (const park of parks) {
+    const existing = byParkId.get(park.parkId);
+    if (!existing || (existing.status !== 1 && park.status === 1)) {
+      byParkId.set(park.parkId, park);
+    }
+  }
+  return [...byParkId.values()];
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -399,7 +410,7 @@ export class TenantsService {
           where: { tenantId: tenant.tenantId, isDeleted: false },
           order: { createTime: "ASC" }
         });
-        const uniqueTenantParks = [...new Map(tenantParks.map((park) => [park.parkId, park])).values()];
+        const uniqueTenantParks = preferActiveTenantParkRows(tenantParks);
         const activeTenantParks = uniqueTenantParks.filter((park) => park.status === 1);
         const firstAuthorizationPark = activeTenantParks[0] ?? uniqueTenantParks[0];
         if (!firstAuthorizationPark) {
@@ -416,6 +427,10 @@ export class TenantsService {
         for (const park of uniqueTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
           const parkModuleCodes = park.status === 1 ? moduleCodes : moduleCodes.filter((code) => code !== "asset");
+          const parkPermissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes);
+          if (park.status !== 1) {
+            parkPermissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
+          }
           await this.upsertTenantModules(
             manager,
             tenant,
@@ -436,7 +451,7 @@ export class TenantsService {
             role,
             permissions,
             parkModuleCodes,
-            this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes),
+            parkPermissionCodes,
             actorId
           );
         }

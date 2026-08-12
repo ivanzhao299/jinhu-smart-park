@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { TenantsService } from "./tenants.service";
+import { preferActiveTenantParkRows, TenantsService } from "./tenants.service";
 import {
   ensureAssetScopeProvisioned,
   resolveCanonicalAssetParkSource
 } from "../assets/asset-scope-provisioning";
+import { ParkEntity } from "../parks/entities/park.entity";
 
 test("runtime module grants derive the current homestay and housing permission families", () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
@@ -222,6 +223,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
 
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
+  assert.match(source, /const uniqueTenantParks = preferActiveTenantParkRows\(tenantParks\)/);
   assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => park\.status === 1\)/);
   assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
   assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
@@ -230,6 +232,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
   assert.match(source, /for \(const park of uniqueTenantParks\)/);
   assert.match(source, /parkModuleCodes = park\.status === 1 \? moduleCodes : moduleCodes\.filter\(\(code\) => code !== "asset"\)/);
+  assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
   assert.match(source, /park\.status === 1 \? new Set<string>\(\) : new Set\(\["asset"\]\)/);
   assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
@@ -237,6 +240,33 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /const enabled = !disabledModuleCodes\.has\(module\.moduleCode\)/);
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
+});
+
+test("tenant park row convergence prefers the active duplicate regardless of row order", () => {
+  const inactive = { id: "inactive", parkId: "park-a", status: 0 } as ParkEntity;
+  const active = { id: "active", parkId: "park-a", status: 1 } as ParkEntity;
+
+  assert.deepEqual(preferActiveTenantParkRows([inactive, active]), [active]);
+  assert.deepEqual(preferActiveTenantParkRows([active, inactive]), [active]);
+});
+
+test("inactive park recovery grants only its explicit read and update permissions outside asset", () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const select = (service as unknown as {
+    selectPermissions(
+      permissions: Array<{ id: string; code: string; parentId: null; isEnabled: boolean; isDeleted: boolean }>,
+      moduleCodes: string[],
+      requestedPermissionCodes: string[]
+    ): Array<{ code: string }>;
+  }).selectPermissions.bind(service);
+  const permission = (code: string) => ({ id: code, code, parentId: null, isEnabled: true, isDeleted: false });
+  const selected = select(
+    [permission("system"), permission("system:user:me"), permission("park:read"), permission("park:update"), permission("building:read")],
+    ["system"],
+    ["park:read", "park:update"]
+  );
+
+  assert.deepEqual(selected.map((item) => item.code), ["system", "system:user:me", "park:read", "park:update"]);
 });
 
 test("tenant module read models deduplicate park-scoped module bindings", () => {

@@ -63,6 +63,8 @@ async function loadRuntimeControlState(manager: EntityManager, scope: TenantPark
              AND audit.old_version=1 AND audit.new_version=2
              AND audit.old_disabled_reason='expand-only'
              AND audit.new_disabled_reason=$5
+             AND audit.new_update_time=audit.occurred_at
+             AND audit.new_update_time>=audit.old_update_time
              AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
                'runtime-control-contract-audit-v1'||E'\\n'
                ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\\t'
@@ -82,6 +84,17 @@ async function loadRuntimeControlState(manager: EntityManager, scope: TenantPark
              AND audit.new_contract_hash=$4::char(64)
              AND audit.old_version=2 AND audit.new_version=3
              AND audit.old_disabled_reason=$5 AND audit.new_disabled_reason=$6
+             AND audit.old_update_time IS NOT DISTINCT FROM (
+               SELECT prior.new_update_time
+               FROM public.sys_property_runtime_control_contract_audit prior
+               WHERE prior.tenant_id=audit.tenant_id
+                 AND prior.park_id=audit.park_id
+                 AND prior.control_id=audit.control_id
+                 AND prior.correction_key=$5
+             )
+             AND audit.new_update_time=control.update_time
+             AND audit.occurred_at=control.update_time
+             AND audit.new_update_time>=audit.old_update_time
              AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
                'runtime-control-contract-audit-v2'||E'\\n'
                ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\\t'

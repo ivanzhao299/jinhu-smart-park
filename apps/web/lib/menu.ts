@@ -207,7 +207,6 @@ export const dashboardMenus: MenuNode[] = [
     icon: Building2,
     module: "asset",
     children: [
-      { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "asset" },
       { label: "楼栋管理", href: "/assets/buildings", permission: "building:read", module: "asset" },
       { label: "楼层管理", href: "/assets/floors", permission: "floor:read", module: "asset" },
       { label: "房间/房源管理", href: "/assets/units", permission: "asset:unit:list", module: "asset" },
@@ -384,6 +383,7 @@ export const dashboardMenus: MenuNode[] = [
     permission: "system:read",
     module: "system",
     children: [
+      { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "system" },
       { label: "组织管理", href: "/system/orgs", permission: "org:read", module: "system" },
       { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" },
       { label: "角色管理", href: "/system/roles", permission: "role:read", module: "system" },

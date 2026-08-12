@@ -42,6 +42,11 @@ test("tenant asset runtime controls preserve a fully audited canonical scope", a
     { tenantId: "tenant-a", parkId: "park-a" }
   );
   assert.equal(queries.length, 1);
+  assert.match(queries[0] ?? "", /audit\.new_update_time=audit\.occurred_at/);
+  assert.match(queries[0] ?? "", /audit\.new_update_time>=audit\.old_update_time/);
+  assert.match(queries[0] ?? "", /SELECT prior\.new_update_time[\s\S]*prior\.correction_key=\$5/);
+  assert.match(queries[0] ?? "", /audit\.new_update_time=control\.update_time/);
+  assert.match(queries[0] ?? "", /audit\.occurred_at=control\.update_time/);
 });
 
 test("tenant asset runtime controls initialize only a wholly missing scope through both audited corrections", async () => {

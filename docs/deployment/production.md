@@ -418,7 +418,10 @@ Migration behavior:
   instead of an invalid active scope. Login-settings authorization
   updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
   are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
-  assignment and asset-derived administrator permissions disabled.
+  assignment and asset-derived administrator permissions disabled. To avoid a recovery deadlock, inactive parks retain
+  only `park:read` and `park:update` under the system module; park create/delete and every other asset operation remain
+  asset-gated. Duplicate canonical source repair is allowed only when the committed result leaves exactly one active
+  source; deleting the last source or leaving more than one remains blocked.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
   the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only
@@ -426,6 +429,9 @@ Migration behavior:
   evidence, and require exactly one enabled/non-deleted
   `asset_park` and exactly one non-deleted projection in total; an additional disabled non-deleted projection,
   unknown scope, or incomplete control/audit history remains fail-closed.
+  Retained scopes are ready only at `post_000195`; earlier stages are blocked because forward migration does not mutate
+  retained assignments. Runtime validation also binds the 000194 audit end time to the 000195 start time and the
+  000195 end/occurrence time to the final control update time.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The

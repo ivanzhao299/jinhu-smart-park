@@ -123,8 +123,12 @@ export class ParksService {
     if (touchesDefaultFallback) await lockAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
-    if ((protectedScope || defaultScopeProtected) && dto.status === 0) {
-      throw new ConflictException("Asset scope requires one active canonical park");
+    if (protectedScope && entity.status === 1 && dto.status === 0) {
+      await this.assertCanonicalSourceSurvives(manager, scope, entity);
+    }
+    if (defaultScopeProtected && entity.parkCode === "JH"
+      && (dto.status === 0 || (nextCode !== undefined && nextCode !== "JH"))) {
+      await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     if (nextCode && nextCode !== entity.parkCode) {
       await this.assertParkCodeAvailable(nextCode, id, manager);
@@ -162,8 +166,11 @@ export class ParksService {
     if (!entity) throw new NotFoundException("Park not found");
     if (entity.parkCode === "JH") await lockAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
-    if (await this.hasCanonicalProjectionContract(manager, scope) || protectedDefault) {
-      throw new ConflictException("Asset scope requires one active canonical park");
+    if (await this.hasCanonicalProjectionContract(manager, scope)) {
+      await this.assertCanonicalSourceSurvives(manager, scope, entity);
+    }
+    if (protectedDefault) {
+      await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
@@ -225,6 +232,25 @@ export class ParksService {
 
   private async hasCanonicalProjectionContract(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
     return await hasProtectedAssetScope(manager, scope) || await hasAssetParkProjection(manager, scope);
+  }
+
+  private async assertCanonicalSourceSurvives(
+    manager: EntityManager,
+    protectedScope: TenantParkScope,
+    removedPark: ParkEntity
+  ): Promise<void> {
+    const builder = manager.getRepository(ParkEntity)
+      .createQueryBuilder("park")
+      .where("park.tenant_id = :tenantId", { tenantId: protectedScope.tenantId })
+      .andWhere("park.park_id = :parkId", { parkId: protectedScope.parkId })
+      .andWhere("park.status = 1")
+      .andWhere("park.is_deleted = false");
+    if (removedPark.tenantId === protectedScope.tenantId && removedPark.parkId === protectedScope.parkId) {
+      builder.andWhere("park.id <> :removedParkId", { removedParkId: removedPark.id });
+    }
+    if (await builder.getCount() !== 1) {
+      throw new ConflictException("Asset scope requires one active canonical park");
+    }
   }
 
   private async assertTenantParkLimit(scope: TenantParkScope, manager?: EntityManager): Promise<void> {

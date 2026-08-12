@@ -52,6 +52,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - The tenant transaction must serialize scope convergence by tenant and park, require one active canonical `biz_park` source (except the fixed default scope's reviewed globally unique `JH` fallback), and create or restore exactly one enabled `asset_park` from those canonical fields.
 - Module and tenant-admin permission convergence covers every non-deleted tenant park so an inactive park cannot retain stale authorization. Asset projection/runtime-control provisioning remains limited to active parks.
 - An inactive park keeps its selected `asset` assignment and asset-derived TENANT_ADMIN permissions disabled; other selected modules still converge normally. Direct asset-park create performs canonical provisioning, while update/delete take the same scope lock and cannot disable or delete the projection while the asset assignment is active.
+- An inactive park retains only `park:read` and `park:update` as system-module recovery capabilities. Park list/detail/update use the system module; park create/delete and all building/floor/unit/property operations remain asset-gated.
 - The same transaction must initialize the signed 12 disabled property runtime controls through the audited v1 -> v2 -> v3 contract path, yielding 24 immutable correction audits. A fully canonical scope is a no-op; partial or drifted control/audit state fails closed.
 - Disabling `asset` does not delete existing asset-domain business data.
 - Disabling or expiring an existing asset assignment also preserves the signed runtime controls and immutable audits. A scope with that historical assignment is retained for exact-set validation only; it is never interpreted as a currently enabled module or initialized by the seed.
@@ -59,6 +60,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
   control, and correction-audit history. Active and retained scopes both validate the contents and evidence of all 24
   immutable correction audits, not only their row counts. Missing or extra control sets remain classified by the
   parity report before audit-content validation so deployment output preserves the precise repair boundary.
+- A retained scope is ready only at `post_000195`; before the final contract stage it fails closed because the forward migrations operate only on active assignments. Application-side audit validation enforces the 000194 -> 000195 -> final-control timestamp chain as well as hashes and evidence.
 - Historical convergence is ordered: production seed `000007` creates the projection, then `000008` creates the 12 disabled runtime controls and their correction audits.
 - The predeploy classifier is read-only and may allow convergence only when this release will run production seed, migration compatibility is final, no non-deleted projection exists, the source is deterministic, and controls are entirely absent.
 
@@ -68,7 +70,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - multiple active canonical sources, multiple non-deleted projections, or partial controls/audits -> conflict; the transaction rolls back.
 - disabled existing projection on an authorized business write -> restore and synchronize it.
 - direct asset-park update/delete while the asset assignment is active and the result would remove the enabled projection -> conflict.
-- canonical `biz_park` create/update/delete uses the same scope lock; a protected active/retained asset scope keeps exactly one active source, and canonical field edits synchronize the derived projection in that transaction.
+- canonical `biz_park` create/update/delete uses the same scope lock; a protected active/retained asset scope keeps exactly one active source after mutation, permits removal of redundant sources that restores that invariant, and synchronizes canonical field edits into the projection in that transaction.
 - asset projection create/update treats code/name/address/area/status as canonical assertions rather than independent mutable data; mismatches are rejected instead of silently accepted.
 - disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
 - one enabled projection plus any additional disabled non-deleted projection -> `invalid_scope` for both active and retained scopes.

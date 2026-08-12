@@ -18,4 +18,8 @@ GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/257
 - 所有启用 asset 的写入口共用同一 tenant/park 事务锁；直接创建资产园区与租户、SaaS 模块分配不能并发生成重复投影。
 - 登录授权变更收敛所有非删除园区的模块和 TENANT_ADMIN 权限；仅 active 园区创建资产投影与运行时控制。
 - 已停用 assignment 的 retained scope 即使租户已过期也继续按历史 exact-set 校验；active/retained 的 24 条修正审计内容或证据漂移均阻断。
+- retained scope 只有在 `post_000195` 最终合同阶段才允许 `ready_retained_exact`；更早阶段必须阻断，不能等待不会处理 retained scope 的 forward migration 自动修复。
+- inactive 园区保留最小 `park:read`/`park:update` 恢复能力和 system 模块页面入口，但不保留 building/unit/property 等资产模块权限。
+- 受保护 scope 可停用或删除冗余 canonical park 行以修复歧义，但不能删除最后一个或留下多个 active 来源。
+- runtime-control 应用侧验证两轮修正审计的时间链与最终 control `update_time` 一致。
 - CI、Release Smoke、生产部署、健康、UAT、Docker 清理通过。

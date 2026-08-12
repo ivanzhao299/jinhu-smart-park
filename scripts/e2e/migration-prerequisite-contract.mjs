@@ -802,6 +802,21 @@ assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'/u,
+  "retained runtime-control scopes must not be ready before the final contract stage"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN asset_count=0 AND asset_row_count=0\s+AND is_active/u,
+  "asset projection seed reconciliation must be limited to active scopes"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN missing_count=expected_count AND actual_count=0\s+AND is_active/u,
+  "runtime-control seed reconciliation must be limited to active scopes"
+);
 assert.match(runtimeControlDiagnostic, /ready_retained_exact/u);
 assert.match(runtimeControlDiagnostic, /asset_count=0 AND asset_row_count=0/u);
 assert.match(runtimeControlDiagnostic, /asset_count <> 1 OR asset_row_count <> 1/u);

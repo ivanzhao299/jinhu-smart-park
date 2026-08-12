@@ -87,3 +87,13 @@ test("property menu nodes require only their module and granular page permission
     assert.doesNotMatch(child.permission ?? "", /:operations$/u);
   }
 });
+
+test("canonical park recovery remains reachable through the system module", () => {
+  const parkMenu = findMenuByPath("/assets/parks", getDashboardMenus());
+  assert.deepEqual(
+    { module: parkMenu?.module, permission: parkMenu?.permission },
+    { module: "system", permission: "park:read" }
+  );
+  const assetChildren = getDashboardMenus().find((menu) => menu.module === "asset")?.children ?? [];
+  assert.equal(assetChildren.some((child) => child.href === "/assets/parks"), false);
+});
