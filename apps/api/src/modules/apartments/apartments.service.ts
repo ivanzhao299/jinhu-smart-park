@@ -37,6 +37,7 @@ export class ApartmentsService {
 
   async createRoom(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateApartmentRoomDto) {
     return this.dataSource.transaction(async manager => {
+      await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [...this.scope(scope), dto.unit_id]);
       const unit = await manager.query(`SELECT id FROM biz_unit WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`, [dto.unit_id, ...this.scope(scope)]);
       if (!unit.length) throw new NotFoundException("房源不存在或不在当前园区");
       const [room] = await manager.query(`INSERT INTO biz_apartment_room(tenant_id,park_id,unit_id,room_type,gender_policy,capacity,facilities,effective_from,management_status,create_by,update_by)

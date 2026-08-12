@@ -10,6 +10,7 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { ConfigurePropertyUnitDto } from "./dto/configure-property-unit.dto";
 import {
   PropertyModeTransitionListQueryDto,
+  PropertyModeTransitionUnitListQueryDto,
   PropertyOperationListQueryDto
 } from "./dto/property-control.dto";
 import { TransitionOperatingModeDto } from "./dto/transition-operating-mode.dto";
@@ -68,7 +69,7 @@ export class PropertyOperationsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("unitId") unitId: string,
-    @Query() query: PropertyModeTransitionListQueryDto
+    @Query() query: PropertyModeTransitionUnitListQueryDto
   ) {
     return this.service.transitionLogs(scope, actor, unitId, query);
   }
@@ -90,5 +91,24 @@ export class PropertyOperationListController {
     @Query() query: PropertyOperationListQueryDto
   ) {
     return this.service.list(scope, actor, query);
+  }
+}
+
+@Controller("property/mode-transitions")
+@RequireModule("asset")
+export class PropertyModeTransitionListController {
+  constructor(private readonly service: PropertyOperationsService) {}
+
+  @Get()
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
+  )
+  list(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Query() query: PropertyModeTransitionListQueryDto
+  ) {
+    return this.service.transitionLogsAggregate(scope, actor, query);
   }
 }

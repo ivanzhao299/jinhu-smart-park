@@ -28,6 +28,7 @@ import { parseHousingCalendarDate } from "./housing-billing.policy";
 import { formatHousingMoney } from "./housing-finance.policy";
 import { HousingReceivableWriterService } from "./housing-receivable-writer.service";
 import { HousingTransactionSupportService } from "./housing-transaction-support.service";
+import { assertHousingLeaseUnitEligible } from "./housing-lease-unit-eligibility";
 
 @Injectable()
 export class HousingLeaseCommandService {
@@ -49,6 +50,7 @@ export class HousingLeaseCommandService {
     parseHousingCalendarDate(dto.first_due_date);
     try {
       return await this.dataSource.transaction(async (manager) => {
+        await this.assertEligible(manager, scope, dto.unit_id, dto.start_date, dto.end_date);
         await this.support.mustParty(manager, scope, dto.tenant_party_id);
         const repository = manager.getRepository(HousingLeaseEntity);
         const lease = await repository.save(repository.create({
@@ -91,7 +93,16 @@ export class HousingLeaseCommandService {
   }
 
   submit(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
-    return this.transition(scope, actor, id, ["draft"], "pending_approval");
+    return this.dataSource.transaction(async (manager) => {
+      const lease = await this.support.lockLease(manager, scope, id);
+      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
+      if (lease.status === "pending_approval") return lease;
+      this.support.assertStatus(lease, ["draft"]);
+      await this.assertEligible(manager, scope, lease.unitId, lease.startDate, lease.endDate);
+      lease.status = "pending_approval";
+      lease.updateBy = actor.sub;
+      return manager.getRepository(HousingLeaseEntity).save(lease);
+    });
   }
 
   async approve(
@@ -106,6 +117,7 @@ export class HousingLeaseCommandService {
       const lease = await this.support.lockLease(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       this.support.assertStatus(lease, ["pending_approval"]);
+      await this.assertEligible(manager, scope, lease.unitId, lease.startDate, lease.endDate);
       return approval.createPendingRequest({ transactionContext: manager }, {
         contractVersion: PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
         scope,
@@ -136,6 +148,7 @@ export class HousingLeaseCommandService {
       const lease = await this.support.lockLease(manager, scope, id);
       await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
       this.support.assertStatus(lease, ["pending_signature"]);
+      await this.assertEligible(manager, scope, lease.unitId, lease.startDate, lease.endDate);
       await this.support.assertFiles(manager, scope, [dto.signature_file_id], {
         mimePrefix: "application/pdf",
         bizType: "housing_lease_signature",
@@ -250,6 +263,7 @@ export class HousingLeaseCommandService {
     await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
     if (lease.status === "active") return lease;
     this.support.assertStatus(lease, ["pending_signature"]);
+    await this.assertEligible(manager, scope, lease.unitId, lease.startDate, lease.endDate);
     if (!lease.signatureFileId || !lease.signedAt || !lease.approvedAt) {
       throw new ConflictException(
         "Approval and offline signature registration are required before activation"
@@ -287,6 +301,19 @@ export class HousingLeaseCommandService {
       status: "active",
       remark: `住房租约 ${lease.leaseCode}`
     }, idempotencyKey);
+  }
+
+  private assertEligible(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    startDate: string,
+    endDate: string
+  ) {
+    return assertHousingLeaseUnitEligible(manager, scope, unitId, {
+      startAt: this.support.businessDateStart(startDate).toISOString(),
+      endAt: this.support.businessDateStart(this.support.addDays(endDate, 1)).toISOString()
+    });
   }
 
   private async createDepositReceivable(
@@ -331,24 +358,6 @@ export class HousingLeaseCommandService {
       updateBy: actor.sub,
       remark: "租约创建时生成的租金计划"
     }));
-  }
-
-  private transition(
-    scope: TenantParkScope,
-    actor: JwtPrincipal,
-    id: string,
-    from: HousingLeaseEntity["status"][],
-    to: HousingLeaseEntity["status"]
-  ) {
-    return this.dataSource.transaction(async (manager) => {
-      const lease = await this.support.lockLease(manager, scope, id);
-      await this.unitAccessService.assertAccess(scope, actor, lease.unitId);
-      if (lease.status === to) return lease;
-      this.support.assertStatus(lease, from);
-      lease.status = to;
-      lease.updateBy = actor.sub;
-      return manager.getRepository(HousingLeaseEntity).save(lease);
-    });
   }
 
   private approvalPort(actionId: string) {

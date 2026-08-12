@@ -5,6 +5,7 @@ import type {
   PropertyTaskStatus
 } from "./track-b-contracts";
 import type {
+  PropertyEndpointRequestVariant,
   PropertyTaskAuthorizationAlternative,
   PropertyTrackBEndpointPermission
 } from "./track-b-endpoint-permissions";
@@ -153,6 +154,8 @@ export type PropertyTaskSourceAccessDescriptor =
 
 export interface PropertyTaskEndpointAccess {
   requiredPermissions: readonly string[];
+  anyOfPermissions?: readonly string[];
+  requestVariants?: readonly PropertyEndpointRequestVariant[];
   authorizationAlternatives: readonly PropertyTaskAuthorizationAlternative[];
 }
 
@@ -165,12 +168,16 @@ export interface PropertyTaskEndpointAuthorizationFacts {
   currentAssignee: boolean;
   queueSupervisor: boolean;
   grantedPermissions: ReadonlySet<string>;
+  requestVariant?: PropertyEndpointRequestVariant["requestVariant"];
 }
 
 export function evaluatePropertyTaskEndpointAuthorization(
   endpoint: PropertyTaskEndpointAccess,
   facts: PropertyTaskEndpointAuthorizationFacts
 ): boolean {
+  const requestVariant = endpoint.requestVariants?.find(
+    (variant) => variant.requestVariant === facts.requestVariant
+  );
   if (
     !facts.activeModules
     || !facts.currentUserPark
@@ -178,7 +185,14 @@ export function evaluatePropertyTaskEndpointAuthorization(
     || !facts.sourceScope
     || !facts.queueScope
     || !endpoint.requiredPermissions.every((permission) =>
-      facts.grantedPermissions.has(permission))
+      facts.grantedPermissions.has(permission)
+    )
+    || ((endpoint.anyOfPermissions?.length ?? 0) > 0
+      && endpoint.anyOfPermissions?.some((permission) =>
+        facts.grantedPermissions.has(permission)) !== true)
+    || ((endpoint.requestVariants?.length ?? 0) > 0
+      && (requestVariant == null || !requestVariant.requiredPermissions.every((permission) =>
+        facts.grantedPermissions.has(permission))))
   ) {
     return false;
   }
@@ -1255,5 +1269,5 @@ export interface PropertyRuntimeAlertV1 {
 
 export type PropertyTaskEndpointContract = Pick<
   PropertyTrackBEndpointPermission,
-  "requiredPermissions" | "authorizationAlternatives"
+  "requiredPermissions" | "anyOfPermissions" | "requestVariants" | "authorizationAlternatives"
 >;

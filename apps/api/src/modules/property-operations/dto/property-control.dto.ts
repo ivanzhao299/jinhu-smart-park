@@ -1,6 +1,7 @@
 import { Transform } from "class-transformer";
 import {
   IsIn,
+  IsISO8601,
   IsInt,
   IsOptional,
   IsString,
@@ -84,7 +85,43 @@ export class PropertyOperationListQueryDto extends PropertyControlPageQueryDto {
   sort: "unitCode" | "configuredMode" | "updateTime" = "updateTime";
 }
 
+export class PropertyModeTransitionUnitListQueryDto extends PropertyControlPageQueryDto {
+  @IsOptional()
+  @IsIn(APPROVAL_DECISION_STATUSES)
+  decisionStatus?: ApprovalDecisionStatus;
+
+  @IsOptional()
+  @IsIn(APPROVAL_EXECUTION_STATUSES)
+  executionStatus?: ApprovalExecutionStatus;
+}
+
 export class PropertyModeTransitionListQueryDto extends PropertyControlPageQueryDto {
+  @IsOptional()
+  @IsUUID()
+  unitId?: string;
+
+  @IsOptional()
+  @Transform(optionalTrim)
+  @IsString()
+  @MaxLength(100)
+  keyword?: string;
+
+  @IsOptional()
+  @IsIn(PROPERTY_OPERATING_MODES)
+  fromMode?: PropertyOperatingMode;
+
+  @IsOptional()
+  @IsIn(PROPERTY_OPERATING_MODES)
+  toMode?: PropertyOperatingMode;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  startFrom?: string;
+
+  @IsOptional()
+  @IsISO8601({ strict: true })
+  endTo?: string;
+
   @IsOptional()
   @IsIn(APPROVAL_DECISION_STATUSES)
   decisionStatus?: ApprovalDecisionStatus;

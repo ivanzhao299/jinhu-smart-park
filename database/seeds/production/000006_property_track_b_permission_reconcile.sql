@@ -377,9 +377,9 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
   IF bundle_count <> 16
-     OR bundle_member_count <> 125
-     OR bundle_permission_count <> 52
-     OR resolved_bundle_permission_count <> 52 THEN
+     OR bundle_member_count <> 128
+     OR bundle_permission_count <> 55
+     OR resolved_bundle_permission_count <> 55 THEN
     RAISE EXCEPTION
       'property-track-b-seed-bundle-resolution-failed: bundles=%, members=%, permissions=%, resolved=%',
       bundle_count, bundle_member_count, bundle_permission_count,

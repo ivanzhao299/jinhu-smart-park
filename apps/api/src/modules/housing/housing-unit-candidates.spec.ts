@@ -93,8 +93,16 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
     for (const statement of statements) {
       assert.match(statement.sql, /FROM biz_unit unit/u);
       assert.doesNotMatch(statement.sql, /FROM asset_unit/u);
+      assert.match(statement.sql, /JOIN biz_property_operation_config operation/u);
+      assert.match(statement.sql, /operation\.unit_id=unit\.id/u);
+      assert.match(statement.sql, /operation\.tenant_id=unit\.tenant_id/u);
+      assert.match(statement.sql, /operation\.park_id=unit\.park_id/u);
+      assert.match(statement.sql, /operation\.is_deleted=false/u);
+      assert.match(statement.sql, /operation\.operating_mode='long_rent'/u);
+      assert.match(statement.sql, /operation\.operating_status='enabled'/u);
       assert.match(statement.sql, /unit\.tenant_id=\$1/u);
       assert.match(statement.sql, /unit\.park_id=\$2/u);
+      assert.match(statement.sql, /unit\.status=1/u);
       assert.match(statement.sql, /unit\.id=ANY\(\$3::uuid\[\]\)/u);
       assert.match(statement.sql, /unit\.unit_code ILIKE \$4/u);
       assert.match(statement.sql, /unit\.unit_name ILIKE \$4/u);
