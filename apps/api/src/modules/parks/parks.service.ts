@@ -13,6 +13,7 @@ import {
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
+import { TenantsService } from "../tenants/tenants.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { CreateParkDto } from "./dto/create-park.dto";
 import type { ParkQueryDto } from "./dto/park-query.dto";
@@ -30,7 +31,8 @@ export class ParksService {
     private readonly tenantRepository: Repository<TenantEntity>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
-    private readonly dataScopeService: DataScopeService
+    private readonly dataScopeService: DataScopeService,
+    private readonly tenantsService: TenantsService
   ) {}
 
   async list(scope: TenantParkScope, query: ParkQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkEntity>> {
@@ -128,6 +130,7 @@ export class ParksService {
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Park not found");
+    const wasActive = entity.status === 1;
     const nextCode = dto.parkCode?.trim();
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
     await this.lockMutationScopes(manager, scope, touchesDefaultFallback);
@@ -136,8 +139,12 @@ export class ParksService {
     if (protectedScope && entity.status === 1 && dto.status !== undefined && dto.status !== 1) {
       await this.assertCanonicalSourceSurvives(manager, scope, entity);
     }
+    const removesDefaultSource = dto.status !== undefined && dto.status !== 1;
+    const renamesCrossScopeDefaultSource = nextCode !== undefined
+      && nextCode !== "JH"
+      && (entity.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId || entity.parkId !== DEFAULT_PLATFORM_SCOPE.parkId);
     if (defaultScopeProtected && entity.parkCode === "JH"
-      && ((dto.status !== undefined && dto.status !== 1) || (nextCode !== undefined && nextCode !== "JH"))) {
+      && (removesDefaultSource || renamesCrossScopeDefaultSource)) {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     if (nextCode && nextCode !== entity.parkCode) {
@@ -162,6 +169,12 @@ export class ParksService {
     if (protectedScope) await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
     if (defaultScopeProtected) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+    }
+    if (wasActive && saved.status !== 1) {
+      await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
+    }
+    if (!wasActive && saved.status === 1) {
+      await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
     }
     return saved;
     });

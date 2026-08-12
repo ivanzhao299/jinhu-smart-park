@@ -31,7 +31,10 @@ import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { PlanEntity } from "../saas-modules/entities/plan.entity";
 import { SaaSModuleEntity } from "../saas-modules/entities/saas-module.entity";
-import { TenantModuleEntity } from "../saas-modules/entities/tenant-module.entity";
+import {
+  PARK_STATUS_SUSPENDED_FEATURE,
+  TenantModuleEntity
+} from "../saas-modules/entities/tenant-module.entity";
 import { UserEntity } from "../users/entities/user.entity";
 import { UserParkEntity } from "../users/entities/user-park.entity";
 import {
@@ -453,8 +456,9 @@ export class TenantsService {
           const parkModuleCodes = park.status === 1
             ? moduleCodes
             : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
-          const selectedParkModuleCodes = new Set(parkModuleCodes);
-          const parkModules = modules.filter((module) => selectedParkModuleCodes.has(module.moduleCode));
+          const parkModules = park.status === 1
+            ? modules
+            : modules.filter((module) => module.moduleCode !== "asset" || moduleCodes.includes("asset"));
           const parkPermissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes);
           if (park.status !== 1) {
             parkPermissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
@@ -468,7 +472,7 @@ export class TenantsService {
             actorId,
             tenant.expireTime,
             tenant.featureConfig ?? {},
-            new Set<string>()
+            park.status === 1 ? new Set<string>() : new Set(["asset"])
           );
           if (park.status === 1) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
@@ -561,6 +565,172 @@ export class TenantsService {
     }
   }
 
+  async reconcileReactivatedParkAuthorization(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    const tenant = await manager.getRepository(TenantEntity).findOne({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
+    if (!tenant || !this.isTenantRuntimeActive(tenant)) {
+      return;
+    }
+    const assignments = await manager.getRepository(TenantModuleEntity).find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      relations: { module: true, plan: true }
+    });
+    const suspendedAsset = assignments.find((assignment) =>
+      assignment.module?.moduleCode === "asset"
+      && assignment.module.status === 1
+      && !assignment.module.isDeleted
+      && this.isTenantModuleWindowActive(assignment)
+      && assignment.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true
+    );
+    if (!suspendedAsset) {
+      return;
+    }
+    const selectedAssignments = assignments.filter((assignment) =>
+      assignment.module
+      && assignment.module.status === 1
+      && !assignment.module.isDeleted
+      && this.isTenantModuleWindowActive(assignment)
+      && (assignment.enabled || assignment.id === suspendedAsset.id)
+    );
+    const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
+    suspendedAsset.enabled = true;
+    suspendedAsset.status = "enabled";
+    suspendedAsset.featureConfig = this.withParkStatusSuspension(suspendedAsset.featureConfig, false);
+    suspendedAsset.updateBy = actorId;
+    await manager.getRepository(TenantModuleEntity).save(suspendedAsset);
+
+    const permissions = await manager.getRepository(PermissionEntity).find({
+      where: { tenantId: scope.tenantId, isDeleted: false },
+      order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
+    });
+    if (permissions.length === 0) {
+      throw new BadRequestException("Permission seed source is empty");
+    }
+    const role = await this.getOrCreateTenantAdminRole(manager, tenant, scope.parkId, actorId);
+    await this.applyTenantAdminPermissions(
+      manager,
+      scope,
+      role,
+      permissions,
+      moduleCodes,
+      this.permissionCodesForModules(this.assignmentPermissionPatterns(selectedAssignments), moduleCodes),
+      actorId
+    );
+    await this.ensureAssetScopeProvisioning(manager, scope, moduleCodes, actorId);
+  }
+
+  async reconcileDeactivatedParkAuthorization(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    const tenant = await manager.getRepository(TenantEntity).findOne({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
+    if (!tenant) {
+      throw new NotFoundException("Tenant not found");
+    }
+    const assignmentRepository = manager.getRepository(TenantModuleEntity);
+    const assignments = await assignmentRepository.find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      relations: { module: true, plan: true }
+    });
+    const assetAssignment = assignments.find((assignment) =>
+      assignment.module?.moduleCode === "asset" && assignment.enabled && assignment.status === "enabled"
+    );
+    if (assetAssignment) {
+      assetAssignment.enabled = false;
+      assetAssignment.status = "disabled";
+      assetAssignment.featureConfig = this.withParkStatusSuspension(assetAssignment.featureConfig, true);
+      assetAssignment.updateBy = actorId;
+      await assignmentRepository.save(assetAssignment);
+    }
+    const systemModule = await manager.getRepository(SaaSModuleEntity).findOne({
+      where: { moduleCode: "system", status: 1, isDeleted: false }
+    });
+    if (!systemModule) {
+      throw new NotFoundException("Module not found: system");
+    }
+    let systemAssignment = assignments.find((assignment) => assignment.moduleId === systemModule.id);
+    if (!systemAssignment) {
+      systemAssignment = assignmentRepository.create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        tenantCode: tenant.tenantCode,
+        moduleId: systemModule.id,
+        planId: assetAssignment?.planId ?? null,
+        startTime: new Date(),
+        expireTime: tenant.expireTime,
+        enabled: true,
+        status: "enabled",
+        featureConfig: {},
+        remark: "Inactive park recovery authorization",
+        createBy: actorId,
+        updateBy: actorId
+      });
+      systemAssignment.module = systemModule;
+      systemAssignment.plan = assetAssignment?.plan ?? null;
+      assignments.push(systemAssignment);
+    } else {
+      systemAssignment.enabled = true;
+      systemAssignment.status = "enabled";
+      systemAssignment.startTime = !systemAssignment.startTime || systemAssignment.startTime.getTime() <= Date.now()
+        ? systemAssignment.startTime
+        : new Date();
+      systemAssignment.expireTime = tenant.expireTime;
+      systemAssignment.featureConfig = this.withParkStatusSuspension(systemAssignment.featureConfig, false);
+      systemAssignment.updateBy = actorId;
+    }
+    await assignmentRepository.save(systemAssignment);
+
+    const selectedAssignments = assignments.filter((assignment) =>
+      assignment.module
+      && assignment.module.status === 1
+      && !assignment.module.isDeleted
+      && assignment.enabled
+      && assignment.status === "enabled"
+      && this.isTenantModuleWindowActive(assignment)
+      && assignment.module.moduleCode !== "asset"
+    );
+    const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
+    const permissions = await manager.getRepository(PermissionEntity).find({
+      where: { tenantId: scope.tenantId, isDeleted: false },
+      order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
+    });
+    if (permissions.length === 0) {
+      throw new BadRequestException("Permission seed source is empty");
+    }
+    const role = await this.getOrCreateTenantAdminRole(manager, tenant, scope.parkId, actorId);
+    const permissionCodes = this.permissionCodesForModules(
+      this.assignmentPermissionPatterns(selectedAssignments),
+      moduleCodes
+    );
+    permissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
+    await this.applyTenantAdminPermissions(
+      manager,
+      scope,
+      role,
+      permissions,
+      moduleCodes,
+      permissionCodes,
+      actorId
+    );
+  }
+
+  private isTenantModuleWindowActive(assignment: TenantModuleEntity, now = Date.now()): boolean {
+    return (!assignment.startTime || assignment.startTime.getTime() <= now)
+      && (!assignment.expireTime || assignment.expireTime.getTime() > now);
+  }
+
+  private assignmentPermissionPatterns(assignments: TenantModuleEntity[]): string[] {
+    return this.normalizeCodes(assignments.flatMap((assignment) => assignment.plan?.permissionCodes ?? []));
+  }
+
   async disable(actor: JwtPrincipal, actorId: string, id: string): Promise<TenantView> {
     this.assertSuper(actor);
     const tenant = await this.getTenantById(id);
@@ -590,22 +760,50 @@ export class TenantsService {
       }
       const parkId = dto.parkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
       const targetScope = { tenantId: tenant.tenantId, parkId };
+      const park = await manager.getRepository(ParkEntity).findOne({
+        where: { tenantId: tenant.tenantId, parkId, isDeleted: false }
+      });
+      if (!park) {
+        throw new NotFoundException("Tenant park not found");
+      }
+      const selectedModuleCodes = park.status === 1
+        ? moduleCodes
+        : this.normalizeCodes([...moduleCodes, "system"]);
+      const authorizationModuleCodes = park.status === 1
+        ? moduleCodes
+        : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
       const permissions = await this.ensureTenantPermissions(manager, actorScope, targetScope, actorId);
-      const modules = await this.resolveStandardModules(manager, moduleCodes);
+      const modules = await this.resolveStandardModules(manager, selectedModuleCodes);
       const expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
-      await this.upsertTenantModules(manager, tenant, parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? tenant.featureConfig);
-      await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
+      await this.upsertTenantModules(
+        manager,
+        tenant,
+        parkId,
+        modules,
+        plan,
+        actorId,
+        expireTime,
+        dto.featureConfig ?? tenant.featureConfig,
+        park.status === 1 ? new Set<string>() : new Set(["asset"])
+      );
+      if (park.status === 1) {
+        await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
+      }
       const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actorId);
+      const permissionCodes = this.permissionCodesForModules(
+        dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
+        authorizationModuleCodes
+      );
+      if (park.status !== 1) {
+        permissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
+      }
       await this.applyTenantAdminPermissions(
         manager,
         targetScope,
         role,
         permissions,
-        moduleCodes,
-        this.permissionCodesForModules(
-          dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
-          moduleCodes
-        ),
+        authorizationModuleCodes,
+        permissionCodes,
         actorId
       );
       tenant.planCode = plan?.planCode ?? tenant.planCode;
@@ -1192,6 +1390,7 @@ export class TenantsService {
       if (!selectedModuleIds.has(item.moduleId)) {
         item.enabled = false;
         item.status = "disabled";
+        item.featureConfig = this.withParkStatusSuspension(item.featureConfig, false);
         item.updateBy = actorId;
         await tenantModuleRepository.save(item);
       }
@@ -1212,13 +1411,26 @@ export class TenantsService {
         startTime: entity.startTime ?? new Date(),
         expireTime,
         enabled,
-        featureConfig,
+        featureConfig: this.withParkStatusSuspension(featureConfig, !enabled && module.moduleCode === "asset"),
         status: enabled ? "enabled" : "disabled",
         updateBy: actorId,
         remark: "Tenant package module authorization"
       });
       await tenantModuleRepository.save(entity);
     }
+  }
+
+  private withParkStatusSuspension(
+    featureConfig: Record<string, unknown> | null | undefined,
+    suspended: boolean
+  ): Record<string, unknown> {
+    const next = { ...(featureConfig ?? {}) };
+    if (suspended) {
+      next[PARK_STATUS_SUSPENDED_FEATURE] = true;
+    } else {
+      delete next[PARK_STATUS_SUSPENDED_FEATURE];
+    }
+    return next;
   }
 
   private async resolveDefaultParkId(manager: EntityManager, tenantId: string): Promise<string> {

@@ -54,6 +54,13 @@ authorization authority for the signatures above.
 - Plan permission markers and explicit permission patterns must be intersected with the final
   enabled module set before role grants are rebuilt. Removing a module must remove its role
   permissions even when the plan still contains a stale explicit permission code.
+- When an inactive park temporarily suspends a selected asset module, persist an explicit
+  park-status suspension marker. Reactivating that park may restore only marked assignments and
+  their tenant-admin permissions; an explicit module disable must clear the marker so recovery
+  cannot override administrator intent.
+- Every park status mutation and standalone asset-module write must apply the same suspension
+  state machine. Recovery restores only assignments whose effective time window is currently
+  active; expired or not-yet-effective assignments remain suspended.
 - Web plan selectors may present module and quota projections, but the backend remains the
   authority for resolving plan modules and permission families. Browsers must not synthesize
   plan permission codes.

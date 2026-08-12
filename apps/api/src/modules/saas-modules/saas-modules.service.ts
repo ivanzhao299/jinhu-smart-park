@@ -16,9 +16,10 @@ import type { UpdatePlanDto } from "./dto/update-plan.dto";
 import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
-import { TenantModuleEntity } from "./entities/tenant-module.entity";
+import { PARK_STATUS_SUSPENDED_FEATURE, TenantModuleEntity } from "./entities/tenant-module.entity";
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
 import { ensureAssetScopeProvisioned } from "../assets/asset-scope-provisioning";
+import { ParkEntity } from "../parks/entities/park.entity";
 
 @Injectable()
 export class SaaSModulesService {
@@ -248,8 +249,10 @@ export class SaaSModulesService {
           moduleId: dto.moduleId,
           createBy: actorId
         });
-      const enabling = (dto.status ?? entity.status ?? "enabled") === "enabled";
-      if (enabling) {
+      const requestedEnabled = (dto.status ?? entity.status ?? "enabled") === "enabled";
+      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
+      const enabling = requestedEnabled && parkActive;
+      if (requestedEnabled) {
         await this.assertDependenciesActive(manager, scope, module.moduleCode);
       }
       Object.assign(entity, {
@@ -262,7 +265,10 @@ export class SaaSModulesService {
           ? entity.expireTime ?? null
           : dto.expireTime === null ? null : new Date(dto.expireTime),
         enabled: enabling,
-        featureConfig: dto.featureConfig ?? entity.featureConfig ?? {},
+        featureConfig: withParkStatusSuspension(
+          dto.featureConfig ?? entity.featureConfig,
+          requestedEnabled && module.moduleCode === "asset" && !parkActive
+        ),
         status: enabling ? "enabled" : "disabled",
         remark: dto.remark === undefined ? entity.remark ?? null : dto.remark,
         updateBy: actorId
@@ -307,9 +313,11 @@ export class SaaSModulesService {
           moduleId,
           createBy: actorId
         });
+      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
       Object.assign(entity, {
-        enabled: true,
-        status: "enabled",
+        enabled: parkActive,
+        status: parkActive ? "enabled" : "disabled",
+        featureConfig: withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
@@ -322,7 +330,7 @@ export class SaaSModulesService {
         entity.expireTime
       );
       const saved = await repository.save(entity);
-      if (module.moduleCode === "asset") {
+      if (parkActive && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       }
       return saved;
@@ -348,6 +356,7 @@ export class SaaSModulesService {
       }
       entity.enabled = false;
       entity.status = "disabled";
+      entity.featureConfig = withParkStatusSuspension(entity.featureConfig, false);
       entity.updateBy = actorId;
       return repository.save(entity);
     });
@@ -616,4 +625,25 @@ export class SaaSModulesService {
     const exists = await this.planRepository.exists({ where: { tenantId: scope.tenantId, parkId: scope.parkId, planCode, isDeleted: false } });
     if (exists) throw new ConflictException("Plan code already exists");
   }
+
+  private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+    const park = await manager.getRepository(ParkEntity).findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!park) throw new NotFoundException("Park not found");
+    return park.status === 1;
+  }
+}
+
+function withParkStatusSuspension(
+  featureConfig: Record<string, unknown> | null | undefined,
+  suspended: boolean
+): Record<string, unknown> {
+  const next = { ...(featureConfig ?? {}) };
+  if (suspended) {
+    next[PARK_STATUS_SUSPENDED_FEATURE] = true;
+  } else {
+    delete next[PARK_STATUS_SUSPENDED_FEATURE];
+  }
+  return next;
 }

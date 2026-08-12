@@ -20,6 +20,10 @@
 18. 独立复核：同一路由存在 asset/system 双菜单时，DashboardLayout 按任一匹配节点可访问即放行，避免首匹配 asset 节点使 inactive system recovery 误跳 403。
 19. Review #13：tenant-wide 登录授权与重新激活均按 parkId 字典序获取 scope advisory lock，消除多园区并发反序死锁。
 20. Review #14：园区恢复接口使用显式 `asset OR system` 模块策略，避免空模块元数据绕过门禁；跨默认 JH fallback 的园区写入按共享 advisory-lock key 排序，并先锁定目标 `biz_park` 行，消除反序等待。
+21. Review #15：inactive 园区将套餐选中的 asset assignment 标记为园区状态暂停；园区恢复 active 时仅恢复该标记的 assignment、TENANT_ADMIN 权限与资产控制，显式模块禁用会清除恢复标记。默认 scope 唯一 exact JH 改码仍保留 canonical 来源，不再按 cross-scope fallback 删除误判。
+22. Review #15 边界：园区停用期间显式从套餐或模块中移除 asset 时清除暂停标记，避免园区恢复覆盖管理员禁用意图；独立模块分配入口同样按园区状态暂停 asset、保留 system 恢复通道并收敛 TENANT_ADMIN 权限。
+23. 独立复核补强：园区 active→inactive 事务主动暂停 asset 并重建最小恢复授权；SaaS asset assign/enable 在 inactive 园区落为带标记的 suspended assignment；恢复仅处理当前有效时间窗。
+24. 独立复核补强：SaaS enable 在 inactive 园区不执行 canonical provisioning；受保护园区停用仍沿用既有 survivor/fallback fail-closed 契约，只有存在唯一 survivor 的合法变更才会继续同步投影与暂停授权。
 
 ## 验证记录
 
@@ -32,3 +36,4 @@
 - API 针对性 21 项测试通过；API lint、typecheck、build 通过；migration prerequisite contract 与脚本语法通过。
 - Review #9 聚焦园区/租户授权测试 21/21 通过，API lint 与 typecheck 通过；待完整 CI/Release Smoke 复跑。
 - 全仓：lint、typecheck、API 1153 项单测（1140 通过、13 跳过）、全部 Web 单测、API/Web build 通过。
+- Review #15：园区状态/模块暂停聚焦测试 32/32；API 全量 1193 项单测（1180 通过、13 跳过、0 失败）；shared build、API lint/typecheck/build 通过；隔离 PostgreSQL 启动完整 Nest 应用并验证 `/api/v1/health` HTTP 200。

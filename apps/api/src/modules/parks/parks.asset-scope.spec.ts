@@ -26,6 +26,10 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /park\.park_code = 'JH'/);
   assert.match(source, /if \(protectedScope\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
   assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await this\.syncCanonicalAssetProjection/);
+  assert.match(source, /const wasActive = entity\.status === 1/);
+  assert.match(source, /if \(wasActive && saved\.status !== 1\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
+  assert.match(source, /if \(!wasActive && saved\.status === 1\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
+  assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
   assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
 });

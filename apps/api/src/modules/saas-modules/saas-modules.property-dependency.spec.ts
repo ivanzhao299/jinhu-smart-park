@@ -64,7 +64,18 @@ test("module assignment writes cannot create split enabled and status state", ()
 });
 
 test("asset module assignment and enable paths provision the canonical asset scope in the same transaction", () => {
-  assert.equal((source.match(/module\.moduleCode === "asset"/g) ?? []).length, 2);
   assert.equal((source.match(/ensureAssetScopeProvisioned\(manager, scope, actorId\)/g) ?? []).length, 2);
   assert.match(source, /const saved = await repository\.save\(entity\);[\s\S]*ensureAssetScopeProvisioned/);
+  assert.match(source, /if \(enabling && module\.moduleCode === "asset"\)/);
+  assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
+});
+
+test("asset module writes suspend on inactive parks while explicit disable clears the marker", () => {
+  assert.match(source, /private async isParkActive/);
+  assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !parkActive/);
+  assert.match(source, /enabled: parkActive/);
+  assert.match(source, /status: parkActive \? "enabled" : "disabled"/);
+  assert.match(source, /function withParkStatusSuspension/);
+  assert.match(source, /delete next\[PARK_STATUS_SUSPENDED_FEATURE\]/);
+  assert.equal((source.match(/withParkStatusSuspension\(/g) ?? []).length, 4);
 });
