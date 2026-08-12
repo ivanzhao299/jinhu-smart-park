@@ -88,6 +88,16 @@ test("Track B task endpoint v2 keeps 52 rows and exact OR authorization", () => 
     "property_occupancy:force_release",
     "property_occupancy:release"
   ]);
+  assert.deepEqual(occupancyRelease.requestVariants, [
+    {
+      requestVariant: "force",
+      requiredPermissions: ["property_approval:create", "property_occupancy:force_release"]
+    },
+    {
+      requestVariant: "normal",
+      requiredPermissions: ["property_occupancy:release"]
+    }
+  ]);
   assert.deepEqual(
     [identityRows.length, controlRows.length,
       manifest.length - identityRows.length - controlRows.length - domainRows.length,
@@ -119,6 +129,18 @@ test("Track B task endpoint v2 keeps 52 rows and exact OR authorization", () => 
   };
   assert.ok(shared.validatePropertyTrackBEndpointPermissionManifest(duplicate)
     .some((issue) => issue.includes("duplicate permission alternative")));
+  const duplicateVariant = manifest.map((row) => ({ ...row }));
+  const occupancyReleaseIndex = duplicateVariant.findIndex((row) =>
+    row.actionId === "property.occupancy.release-or-force-release");
+  duplicateVariant[occupancyReleaseIndex] = {
+    ...duplicateVariant[occupancyReleaseIndex],
+    requestVariants: [
+      { requestVariant: "normal", requiredPermissions: ["property_occupancy:release"] },
+      { requestVariant: "normal", requiredPermissions: ["property_occupancy:release"] }
+    ]
+  };
+  assert.ok(shared.validatePropertyTrackBEndpointPermissionManifest(duplicateVariant)
+    .some((issue) => issue.includes("request variants are not unique/sorted")));
 });
 
 test("task endpoint authorization preserves every common gate and either OR branch", () => {
@@ -175,6 +197,49 @@ test("task endpoint authorization preserves every common gate and either OR bran
     currentAssignee: false,
     queueSupervisor: false,
     grantedPermissions: new Set(["property_task:process", "property_task:supervise"])
+  }), false);
+});
+
+test("occupancy release authorization binds permissions to the request variant", () => {
+  const release = shared.PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.find(
+    (row) => row.actionId === "property.occupancy.release-or-force-release");
+  const facts = {
+    activeModules: true,
+    currentUserPark: true,
+    taskRead: true,
+    sourceScope: true,
+    queueScope: true,
+    currentAssignee: false,
+    queueSupervisor: false,
+    requestVariant: "normal",
+    grantedPermissions: new Set(["property_occupancy:release"])
+  };
+  assert.equal(shared.evaluatePropertyTaskEndpointAuthorization(release, facts), true);
+  assert.equal(shared.evaluatePropertyTaskEndpointAuthorization(release, {
+    ...facts,
+    grantedPermissions: new Set(["property_occupancy:force_release"])
+  }), false);
+  assert.equal(shared.evaluatePropertyTaskEndpointAuthorization(release, {
+    ...facts,
+    requestVariant: "force",
+    grantedPermissions: new Set([
+      "property_approval:create",
+      "property_occupancy:force_release"
+    ])
+  }), true);
+  assert.equal(shared.evaluatePropertyTaskEndpointAuthorization(release, {
+    ...facts,
+    requestVariant: "force",
+    grantedPermissions: new Set(["property_occupancy:force_release"])
+  }), false);
+  assert.equal(shared.evaluatePropertyTaskEndpointAuthorization(release, {
+    ...facts,
+    requestVariant: undefined,
+    grantedPermissions: new Set([
+      "property_approval:create",
+      "property_occupancy:force_release",
+      "property_occupancy:release"
+    ])
   }), false);
 });
 

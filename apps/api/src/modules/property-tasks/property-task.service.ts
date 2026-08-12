@@ -223,6 +223,7 @@ function endpointContract(actionId: string): PropertyTaskEndpointContract {
   return {
     requiredPermissions: endpoint.requiredPermissions,
     anyOfPermissions: endpoint.anyOfPermissions,
+    requestVariants: endpoint.requestVariants,
     authorizationAlternatives: endpoint.authorizationAlternatives
   };
 }

@@ -196,6 +196,19 @@ export class PropertyOperationsService {
       });
       if (!unit) throw new NotFoundException("Unit not found");
 
+      const configRepository = manager.getRepository(PropertyOperationConfigEntity);
+      let config = await configRepository.findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if ((config?.version ?? 0) !== dto.version) {
+        throw new ConflictException({
+          message: "Property operation configuration version has changed",
+          errorCode: "property-operation-version-conflict",
+          currentVersion: config?.version ?? 0
+        });
+      }
+
       if (dto.asset_unit_id) {
         const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
           where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
@@ -215,12 +228,8 @@ export class PropertyOperationsService {
         await manager.getRepository(UnitEntity).save(unit);
       }
 
-      let config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
-        lock: { mode: "pessimistic_write" }
-      });
       if (!config) {
-        config = manager.getRepository(PropertyOperationConfigEntity).create({
+        config = configRepository.create({
           tenantId: scope.tenantId,
           parkId: scope.parkId,
           unitId,
@@ -238,7 +247,7 @@ export class PropertyOperationsService {
         config.updateBy = actor.sub;
         if (dto.remark !== undefined) config.remark = dto.remark.trim() || null;
       }
-      return manager.getRepository(PropertyOperationConfigEntity).save(config);
+      return configRepository.save(config);
     });
   }
 
@@ -547,10 +556,7 @@ export class PropertyOperationsService {
       decisionTime: "audit.decision_time",
       executionTime: "audit.execution_time"
     } as const;
-    const limit = bind(query.pageSize);
-    const offset = bind((query.page - 1) * query.pageSize);
-    const rows = await this.dataSource.query(
-      `WITH audit AS (
+    const auditCte = `WITH audit AS (
          SELECT COALESCE(log.id, request.id) AS id,
                 request.tenant_id,
                 request.park_id,
@@ -602,7 +608,17 @@ export class PropertyOperationsService {
             AND request.execution_idempotency_key=log.approval_execution_key
             AND request.action_id='property.mode-transition.request'
           WHERE log.is_deleted=false AND request.id IS NULL
-       )
+       )`;
+    const filteredFrom = `FROM audit
+         JOIN biz_unit unit
+           ON unit.id=audit.unit_id
+          AND unit.tenant_id=audit.tenant_id
+          AND unit.park_id=audit.park_id
+        WHERE ${where.join(" AND ")}`;
+    const limit = `$${parameters.length + 1}`;
+    const offset = `$${parameters.length + 2}`;
+    const rows = await this.dataSource.query(
+      `${auditCte}
        SELECT audit.id,
               audit.unit_id AS "unitId",
               unit.unit_code AS "unitCode",
@@ -620,21 +636,22 @@ export class PropertyOperationsService {
               audit.version,
               audit.legacy,
               count(*) OVER()::int AS "totalCount"
-         FROM audit
-         JOIN biz_unit unit
-           ON unit.id=audit.unit_id
-          AND unit.tenant_id=audit.tenant_id
-          AND unit.park_id=audit.park_id
-        WHERE ${where.join(" AND ")}
+         ${filteredFrom}
         ORDER BY ${sortColumns[query.sort]} ${query.order === "asc" ? "ASC" : "DESC"} NULLS LAST, audit.id ASC
         LIMIT ${limit} OFFSET ${offset}`,
-      parameters
+      [...parameters, query.pageSize, (query.page - 1) * query.pageSize]
     ) as Array<Record<string, unknown>>;
+    const total = rows.length > 0
+      ? Number(rows[0]?.totalCount ?? 0)
+      : Number((await this.dataSource.query(
+        `${auditCte} SELECT count(*)::int AS total ${filteredFrom}`,
+        parameters
+      ) as Array<{ total: number | string }>)[0]?.total ?? 0);
     return {
       items: rows.map(({ totalCount: _totalCount, ...row }) => ({ ...row, allowedActions: [] })),
       page: query.page,
       pageSize: query.pageSize,
-      total: Number(rows[0]?.totalCount ?? 0),
+      total,
       allowedActions: []
     };
   }
@@ -710,7 +727,7 @@ export class PropertyOperationsService {
   }
 
   private operationAllowedActions(actor: JwtPrincipal): string[] {
-    if (!actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE)) {
+    if (!this.hasActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE)) {
       return [];
     }
     const actions: string[] = [];
@@ -731,7 +748,7 @@ export class PropertyOperationsService {
     pagePermission: string,
     actionPermission: string
   ): void {
-    if (!actor.permissions.includes(pagePermission)) {
+    if (!this.hasActionPermission(actor, pagePermission)) {
       throw new ForbiddenException({
         message: "Property page access is forbidden",
         errorCode: "property-action-forbidden"

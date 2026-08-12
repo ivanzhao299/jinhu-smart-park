@@ -65,6 +65,10 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(unitDrawer, /assets\/property-operations/);
   assert.match(unitDrawer, /assets\/property-occupancies\?unitId=/);
   assert.match(unitDrawer, /assets\/property-mode-transitions\?unitId=/);
+  assert.match(foundation, /version: item\.version/);
+  assert.match(foundation, /unitCode: string/);
+  assert.match(foundation, /unitName: string/);
+  assert.match(foundation, /label: "房源"/);
 });
 
 test("the authenticated shell suppresses motion globally when the user requests it", () => {

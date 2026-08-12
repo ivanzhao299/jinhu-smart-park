@@ -1,5 +1,5 @@
-import { Transform } from "class-transformer";
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength, ValidateIf } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { IsIn, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateIf } from "class-validator";
 import { PROPERTY_OPERATING_STATUSES, type PropertyOperatingStatus } from "@jinhu/shared";
 
 const trimOptional = (value: unknown): string | undefined => {
@@ -9,6 +9,11 @@ const trimOptional = (value: unknown): string | undefined => {
 };
 
 export class ConfigurePropertyUnitDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  version!: number;
+
   @IsOptional()
   @IsUUID()
   asset_unit_id?: string;

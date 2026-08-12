@@ -33,6 +33,7 @@ interface OperationRow {
   operationStatus: string;
   assetUnitId: string | null;
   suspendReason: string | null;
+  version: number;
   canRequestTransition: boolean;
   blockers: Array<{ code: string; label: string; count: number }>;
   updateTime: string | null;
@@ -56,6 +57,8 @@ interface OccupancyRow {
 interface ModeTransitionRow {
   id: string;
   unitId: string;
+  unitCode: string;
+  unitName: string;
   fromMode: string;
   toMode: string;
   reason: string;
@@ -327,6 +330,7 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     { key: "version", label: "版本", render: (item) => (item as OccupancyRow).version }
   ];
   return [
+    { key: "unit", label: "房源", render: (item) => `${(item as ModeTransitionRow).unitCode} · ${(item as ModeTransitionRow).unitName}` },
     { key: "transition", label: "模式变更", render: (item) => `${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}` },
     { key: "decision", label: "审批状态", render: (item) => (item as ModeTransitionRow).decisionStatus },
     { key: "execution", label: "执行状态", render: (item) => (item as ModeTransitionRow).executionStatus },
@@ -470,6 +474,7 @@ function OperationWriteControls({ item, onCompleted }: {
         token: getAccessToken() ?? undefined,
         idempotencyKey: configureKey.current,
         body: {
+          version: item.version,
           ...(assetUnitId.trim() ? { asset_unit_id: assetUnitId.trim() } : {}),
           operating_status: status,
           ...(status === "enabled" ? {} : { suspend_reason: suspendReason.trim() }),
@@ -578,7 +583,7 @@ function rowId(item: FoundationRow, surface: FoundationSurface): string {
 function rowTitle(item: FoundationRow, surface: FoundationSurface): string {
   if (surface === "operations") return `${(item as OperationRow).unitCode} · ${(item as OperationRow).unitName}`;
   if (surface === "occupancies") return `${(item as OccupancyRow).unitCode} · ${(item as OccupancyRow).sourceLabel}`;
-  return `${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}`;
+  return `${(item as ModeTransitionRow).unitCode} · ${(item as ModeTransitionRow).unitName}：${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}`;
 }
 
 function detailHref(item: FoundationRow, surface: FoundationSurface): Route {

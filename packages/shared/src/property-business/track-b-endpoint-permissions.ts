@@ -7,9 +7,15 @@ export interface PropertyTrackBEndpointPermission {
   actionId: string;
   requiredPermissions: readonly string[];
   anyOfPermissions?: readonly string[];
+  requestVariants?: readonly PropertyEndpointRequestVariant[];
   authorizationAlternatives: readonly PropertyTaskAuthorizationAlternative[];
   requiredModule: TrackBModuleCode;
   surfaceId: string | null;
+}
+
+export interface PropertyEndpointRequestVariant {
+  requestVariant: "normal" | "force";
+  requiredPermissions: readonly string[];
 }
 
 export type PropertyTaskActorPredicate = "current-assignee" | "queue-supervisor";
@@ -47,6 +53,17 @@ function normalizeAuthorizationAlternatives(
   ));
 }
 
+function normalizeRequestVariants(
+  variants: readonly PropertyEndpointRequestVariant[]
+): readonly PropertyEndpointRequestVariant[] {
+  return variants
+    .map((variant) => ({
+      requestVariant: variant.requestVariant,
+      requiredPermissions: normalizePermissions(variant.requiredPermissions)
+    }))
+    .sort((left, right) => compareUtf8(left.requestVariant, right.requestVariant));
+}
+
 function row(
   method: PropertyTrackBEndpointPermission["method"],
   path: PropertyTrackBEndpointPermission["path"],
@@ -55,7 +72,8 @@ function row(
   requiredModule: TrackBModuleCode,
   surfaceId: string | null,
   authorizationAlternatives: readonly PropertyTaskAuthorizationAlternative[] = [],
-  anyOfPermissions: readonly string[] = []
+  anyOfPermissions: readonly string[] = [],
+  requestVariants: readonly PropertyEndpointRequestVariant[] = []
 ): PropertyTrackBEndpointPermission {
   return {
     method,
@@ -64,6 +82,9 @@ function row(
     requiredPermissions: normalizePermissions(requiredPermissions),
     ...(anyOfPermissions.length > 0
       ? { anyOfPermissions: normalizePermissions(anyOfPermissions) }
+      : {}),
+    ...(requestVariants.length > 0
+      ? { requestVariants: normalizeRequestVariants(requestVariants) }
       : {}),
     authorizationAlternatives: normalizeAuthorizationAlternatives(authorizationAlternatives),
     requiredModule,
@@ -129,7 +150,13 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
   row("POST", "/api/v1/property/occupancies/:occupancyId/release",
     "property.occupancy.release-or-force-release",
     [], "asset", occupancy, [],
-    [P.PROPERTY_OCCUPANCY_RELEASE, P.PROPERTY_OCCUPANCY_FORCE_RELEASE]),
+    [P.PROPERTY_OCCUPANCY_RELEASE, P.PROPERTY_OCCUPANCY_FORCE_RELEASE], [
+      { requestVariant: "normal", requiredPermissions: [P.PROPERTY_OCCUPANCY_RELEASE] },
+      {
+        requestVariant: "force",
+        requiredPermissions: [P.PROPERTY_OCCUPANCY_FORCE_RELEASE, P.PROPERTY_APPROVAL_CREATE]
+      }
+    ]),
 
   row("GET", "/api/v1/property/approvals", "property.approval.list",
     [P.PROPERTY_APPROVAL_READ], "asset", null),
@@ -227,7 +254,7 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
 ] as const satisfies readonly PropertyTrackBEndpointPermission[];
 
 export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256 =
-  "acbabe725267edabd33844cf7319bb398cb7ec71d51d8c905192be574105e960" as const;
+  "9c65a60c6aea0b1dd296b35078574c65029b48c7b7d81700649429cdc8e88caa" as const;
 
 export function validatePropertyTrackBEndpointPermissionManifest(
   manifest: readonly PropertyTrackBEndpointPermission[] =
@@ -245,6 +272,7 @@ export function validatePropertyTrackBEndpointPermissionManifest(
     if (
       item.requiredPermissions.length === 0
       && (item.anyOfPermissions?.length ?? 0) === 0
+      && (item.requestVariants?.length ?? 0) === 0
       && item.authorizationAlternatives.length === 0
     ) {
       issues.push(`Track B endpoint has no permission or authorization alternative: ${key}`);
@@ -256,6 +284,34 @@ export function validatePropertyTrackBEndpointPermissionManifest(
         || normalizedAny.some((value, index) => value !== item.anyOfPermissions?.[index])
       ) {
         issues.push(`Track B endpoint any-of permissions are not unique/sorted: ${key}`);
+      }
+    }
+    if (item.requestVariants) {
+      const normalizedVariants = normalizeRequestVariants(item.requestVariants);
+      if (
+        new Set(item.requestVariants.map((variant) => variant.requestVariant)).size
+          !== item.requestVariants.length
+        ||
+        normalizedVariants.length !== item.requestVariants.length
+        || normalizedVariants.some((variant, index) => {
+          const current = item.requestVariants?.[index];
+          return current == null
+            || variant.requestVariant !== current.requestVariant
+            || variant.requiredPermissions.length !== current.requiredPermissions.length
+            || variant.requiredPermissions.some(
+              (permission, permissionIndex) => permission !== current.requiredPermissions[permissionIndex]
+            );
+        })
+      ) {
+        issues.push(`Track B endpoint request variants are not unique/sorted: ${key}`);
+      }
+      for (const variant of item.requestVariants) {
+        if (!["normal", "force"].includes(variant.requestVariant)) {
+          issues.push(`Track B endpoint has an unknown request variant: ${key}`);
+        }
+        if (variant.requiredPermissions.length === 0) {
+          issues.push(`Track B endpoint has an empty request variant: ${key}`);
+        }
       }
     }
     const sorted = [...new Set(item.requiredPermissions)].sort();
