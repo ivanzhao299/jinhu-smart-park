@@ -20,6 +20,7 @@ import {
   assetScopeLockKey,
   ensureAssetScopeProvisioned,
   hasActiveAssetAssignment,
+  hasCanonicalActiveAssetParkSource,
   lockAssetScope
 } from "../assets/asset-scope-provisioning";
 import { OrgEntity } from "../orgs/entities/org.entity";
@@ -32,6 +33,7 @@ import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { PlanEntity } from "../saas-modules/entities/plan.entity";
 import { SaaSModuleEntity } from "../saas-modules/entities/saas-module.entity";
 import {
+  PARK_RECOVERY_SYSTEM_FEATURE,
   PARK_STATUS_SUSPENDED_FEATURE,
   TenantModuleEntity
 } from "../saas-modules/entities/tenant-module.entity";
@@ -478,7 +480,8 @@ export class TenantsService {
             actorId,
             tenant.expireTime,
             tenant.featureConfig ?? {},
-            park.status === 1 ? new Set<string>() : new Set(["asset"])
+            park.status === 1 ? new Set<string>() : new Set(["asset"]),
+            park.status !== 1 && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
           );
           if (park.status === 1) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
@@ -590,25 +593,42 @@ export class TenantsService {
       assignment.module?.moduleCode === "asset"
       && assignment.module.status === 1
       && !assignment.module.isDeleted
-      && this.isTenantModuleWindowActive(assignment)
+      && this.isTenantModuleWindowRecoverable(assignment)
       && assignment.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true
     );
-    if (!suspendedAsset) {
+    const recoverySystem = assignments.find((assignment) =>
+      assignment.module?.moduleCode === "system"
+      && assignment.module.status === 1
+      && !assignment.module.isDeleted
+      && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true
+    );
+    if (!suspendedAsset && !recoverySystem) {
       return;
     }
     const selectedAssignments = assignments.filter((assignment) =>
       assignment.module
       && assignment.module.status === 1
       && !assignment.module.isDeleted
-      && this.isTenantModuleWindowActive(assignment)
-      && (assignment.enabled || assignment.id === suspendedAsset.id)
+      && (this.isTenantModuleWindowActive(assignment) || assignment.id === suspendedAsset?.id)
+      && (assignment.enabled || assignment.id === suspendedAsset?.id)
+      && assignment.id !== recoverySystem?.id
     );
     const moduleCodes = this.normalizeCodes(selectedAssignments.map((assignment) => assignment.module!.moduleCode));
-    suspendedAsset.enabled = true;
-    suspendedAsset.status = "enabled";
-    suspendedAsset.featureConfig = this.withParkStatusSuspension(suspendedAsset.featureConfig, false);
-    suspendedAsset.updateBy = actorId;
-    await manager.getRepository(TenantModuleEntity).save(suspendedAsset);
+    const assignmentRepository = manager.getRepository(TenantModuleEntity);
+    if (suspendedAsset) {
+      suspendedAsset.enabled = true;
+      suspendedAsset.status = "enabled";
+      suspendedAsset.featureConfig = this.withParkStatusSuspension(suspendedAsset.featureConfig, false);
+      suspendedAsset.updateBy = actorId;
+      await assignmentRepository.save(suspendedAsset);
+    }
+    if (recoverySystem) {
+      recoverySystem.enabled = false;
+      recoverySystem.status = "disabled";
+      recoverySystem.featureConfig = this.withRecoverySystemMarker(recoverySystem.featureConfig, false);
+      recoverySystem.updateBy = actorId;
+      await assignmentRepository.save(recoverySystem);
+    }
 
     const permissions = await manager.getRepository(PermissionEntity).find({
       where: { tenantId: scope.tenantId, isDeleted: false },
@@ -663,6 +683,11 @@ export class TenantsService {
       throw new NotFoundException("Module not found: system");
     }
     let systemAssignment = assignments.find((assignment) => assignment.moduleId === systemModule.id);
+    const systemWasSelected = Boolean(
+      systemAssignment?.enabled
+      && systemAssignment.status === "enabled"
+      && systemAssignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
+    );
     if (!systemAssignment) {
       systemAssignment = assignmentRepository.create({
         tenantId: scope.tenantId,
@@ -674,7 +699,7 @@ export class TenantsService {
         expireTime: tenant.expireTime,
         enabled: true,
         status: "enabled",
-        featureConfig: {},
+        featureConfig: { [PARK_RECOVERY_SYSTEM_FEATURE]: true },
         remark: "Inactive park recovery authorization",
         createBy: actorId,
         updateBy: actorId
@@ -689,7 +714,10 @@ export class TenantsService {
         ? systemAssignment.startTime
         : new Date();
       systemAssignment.expireTime = tenant.expireTime;
-      systemAssignment.featureConfig = this.withParkStatusSuspension(systemAssignment.featureConfig, false);
+      systemAssignment.featureConfig = this.withRecoverySystemMarker(
+        this.withParkStatusSuspension(systemAssignment.featureConfig, false),
+        !systemWasSelected
+      );
       systemAssignment.updateBy = actorId;
     }
     await assignmentRepository.save(systemAssignment);
@@ -733,6 +761,10 @@ export class TenantsService {
       && (!assignment.expireTime || assignment.expireTime.getTime() > now);
   }
 
+  private isTenantModuleWindowRecoverable(assignment: TenantModuleEntity, now = Date.now()): boolean {
+    return !assignment.expireTime || assignment.expireTime.getTime() > now;
+  }
+
   private assignmentPermissionPatterns(assignments: TenantModuleEntity[]): string[] {
     return this.normalizeCodes(assignments.flatMap((assignment) => assignment.plan?.permissionCodes ?? []));
   }
@@ -766,16 +798,11 @@ export class TenantsService {
       }
       const parkId = dto.parkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
       const targetScope = { tenantId: tenant.tenantId, parkId };
-      const park = await manager.getRepository(ParkEntity).findOne({
-        where: { tenantId: tenant.tenantId, parkId, isDeleted: false }
-      });
-      if (!park) {
-        throw new NotFoundException("Tenant park not found");
-      }
-      const selectedModuleCodes = park.status === 1
+      const parkActive = await hasCanonicalActiveAssetParkSource(manager, targetScope);
+      const selectedModuleCodes = parkActive
         ? moduleCodes
         : this.normalizeCodes([...moduleCodes, "system"]);
-      const authorizationModuleCodes = park.status === 1
+      const authorizationModuleCodes = parkActive
         ? moduleCodes
         : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
       const permissions = await this.ensureTenantPermissions(manager, actorScope, targetScope, actorId);
@@ -790,9 +817,10 @@ export class TenantsService {
         actorId,
         expireTime,
         dto.featureConfig ?? tenant.featureConfig,
-        park.status === 1 ? new Set<string>() : new Set(["asset"])
+        parkActive ? new Set<string>() : new Set(["asset"]),
+        !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
       );
-      if (park.status === 1) {
+      if (parkActive) {
         await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
       }
       const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actorId);
@@ -800,7 +828,7 @@ export class TenantsService {
         dto.permissionCodes?.length ? dto.permissionCodes : plan?.permissionCodes ?? [],
         authorizationModuleCodes
       );
-      if (park.status !== 1) {
+      if (!parkActive) {
         permissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
       }
       await this.applyTenantAdminPermissions(
@@ -1385,7 +1413,8 @@ export class TenantsService {
     actorId: string,
     expireTime: Date | null,
     featureConfig: Record<string, unknown>,
-    disabledModuleCodes: ReadonlySet<string> = new Set()
+    disabledModuleCodes: ReadonlySet<string> = new Set(),
+    recoveryOnlyModuleCodes: ReadonlySet<string> = new Set()
   ): Promise<void> {
     const tenantModuleRepository = manager.getRepository(TenantModuleEntity);
     const selectedModuleIds = new Set(modules.map((module) => module.id));
@@ -1396,7 +1425,11 @@ export class TenantsService {
       if (!selectedModuleIds.has(item.moduleId)) {
         item.enabled = false;
         item.status = "disabled";
-        item.featureConfig = this.withParkStatusSuspension(item.featureConfig, false);
+        const featureConfig = this.withParkStatusSuspension(item.featureConfig, false);
+        item.featureConfig = item.module?.moduleCode === "system"
+          || featureConfig[PARK_RECOVERY_SYSTEM_FEATURE] === true
+          ? this.withRecoverySystemMarker(featureConfig, false)
+          : featureConfig;
         item.updateBy = actorId;
         await tenantModuleRepository.save(item);
       }
@@ -1411,13 +1444,19 @@ export class TenantsService {
           moduleId: module.id,
           createBy: actorId
         });
+      const moduleFeatureConfig = this.withParkStatusSuspension(
+        featureConfig,
+        !enabled && module.moduleCode === "asset"
+      );
       Object.assign(entity, {
         tenantCode: tenant.tenantCode,
         planId: plan?.id ?? entity.planId ?? null,
         startTime: entity.startTime ?? new Date(),
         expireTime,
         enabled,
-        featureConfig: this.withParkStatusSuspension(featureConfig, !enabled && module.moduleCode === "asset"),
+        featureConfig: module.moduleCode === "system"
+          ? this.withRecoverySystemMarker(moduleFeatureConfig, recoveryOnlyModuleCodes.has("system"))
+          : moduleFeatureConfig,
         status: enabled ? "enabled" : "disabled",
         updateBy: actorId,
         remark: "Tenant package module authorization"
@@ -1435,6 +1474,19 @@ export class TenantsService {
       next[PARK_STATUS_SUSPENDED_FEATURE] = true;
     } else {
       delete next[PARK_STATUS_SUSPENDED_FEATURE];
+    }
+    return next;
+  }
+
+  private withRecoverySystemMarker(
+    featureConfig: Record<string, unknown> | null | undefined,
+    recoveryOnly: boolean
+  ): Record<string, unknown> {
+    const next = { ...(featureConfig ?? {}) };
+    if (recoveryOnly) {
+      next[PARK_RECOVERY_SYSTEM_FEATURE] = true;
+    } else {
+      delete next[PARK_RECOVERY_SYSTEM_FEATURE];
     }
     return next;
   }

@@ -87,7 +87,7 @@ test("module writes acquire the asset scope lock before dependency and assignmen
 
 test("asset module writes suspend on inactive parks while explicit disable clears the marker", () => {
   assert.match(source, /private async isParkActive/);
-  assert.match(source, /await resolveCanonicalAssetParkSource\(manager, scope\)/);
+  assert.match(source, /return hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.doesNotMatch(source, /getRepository\(ParkEntity\)/);
   assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !parkActive/);
   assert.match(source, /enabled: parkActive/);
@@ -102,19 +102,18 @@ test("park activity resolution accepts one active source, suspends inactive rows
     isParkActive(manager: unknown, scope: unknown): Promise<boolean>;
   }).isParkActive;
   const scope = { tenantId: "tenant-a", parkId: "park-a" };
-  const managerFor = (activeRows: unknown[], existingRows: unknown[]) => ({
-    getRepository: () => ({ find: async () => activeRows }),
-    query: async () => existingRows
+  const managerFor = (activeRows: unknown[], existing: boolean) => ({
+    getRepository: () => ({ find: async () => activeRows, exists: async () => existing })
   });
 
-  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([{}], []), scope), true);
-  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([], [{}]), scope), false);
+  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([{}], false), scope), true);
+  assert.equal(await isParkActive.call({} as SaaSModulesService, managerFor([], true), scope), false);
   await assert.rejects(
-    isParkActive.call({} as SaaSModulesService, managerFor([], []), scope),
+    isParkActive.call({} as SaaSModulesService, managerFor([], false), scope),
     /Park not found/
   );
   await assert.rejects(
-    isParkActive.call({} as SaaSModulesService, managerFor([{}, {}], []), scope),
+    isParkActive.call({} as SaaSModulesService, managerFor([{}, {}], false), scope),
     /Asset park source is ambiguous/
   );
 });

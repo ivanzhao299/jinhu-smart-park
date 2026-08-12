@@ -132,3 +132,21 @@ export async function resolveCanonicalAssetParkSource(
   }
   return source;
 }
+
+export async function hasCanonicalActiveAssetParkSource(
+  manager: EntityManager,
+  scope: TenantParkScope
+): Promise<boolean> {
+  try {
+    await resolveCanonicalAssetParkSource(manager, scope);
+    return true;
+  } catch (error) {
+    if (error instanceof NotFoundException) {
+      const exists = await manager.getRepository(ParkEntity).exists({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (exists) return false;
+    }
+    throw error;
+  }
+}

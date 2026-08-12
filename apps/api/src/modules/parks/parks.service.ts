@@ -6,6 +6,7 @@ import {
   ensureAssetParkProjection,
   ensureAssetScopeProvisioned,
   assetScopeLockKey,
+  hasCanonicalActiveAssetParkSource,
   hasAssetParkProjection,
   hasProtectedAssetScope,
   lockAssetScope
@@ -225,9 +226,7 @@ export class ParksService {
     manager: EntityManager,
     scope: TenantParkScope
   ): Promise<boolean> {
-    return manager.getRepository(ParkEntity).exists({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
-    });
+    return hasCanonicalActiveAssetParkSource(manager, scope);
   }
 
   private async applyParkDataScope(builder: SelectQueryBuilder<ParkEntity>, actor?: JwtPrincipal): Promise<void> {

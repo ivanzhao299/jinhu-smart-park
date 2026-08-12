@@ -46,6 +46,7 @@ test("park deactivation detects a remaining active source in the same scope", as
   const calls: unknown[] = [];
   const manager = {
     getRepository: () => ({
+      find: async () => [{ id: "survivor" }],
       exists: async (options: unknown) => {
         calls.push(options);
         return true;
@@ -58,9 +59,7 @@ test("park deactivation detects a remaining active source in the same scope", as
     manager,
     { tenantId: "tenant-a", parkId: "park-a" }
   ), true);
-  assert.deepEqual(calls, [{
-    where: { tenantId: "tenant-a", parkId: "park-a", status: 1, isDeleted: false }
-  }]);
+  assert.deepEqual(calls, []);
 });
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {

@@ -25,6 +25,9 @@
 23. 独立复核补强：园区 active→inactive 事务主动暂停 asset 并重建最小恢复授权；SaaS asset assign/enable 在 inactive 园区落为带标记的 suspended assignment；恢复仅处理当前有效时间窗。
 24. 独立复核补强：SaaS enable 在 inactive 园区不执行 canonical provisioning；受保护园区停用仍沿用既有 survivor/fallback fail-closed 契约，只有存在唯一 survivor 的合法变更才会继续同步投影与暂停授权。
 25. Review #16：通用租户更新同步模块到期时间；园区仅在 scope 无 active survivor 时暂停授权；混合园区按各自目标模块过滤实体；SaaS 与园区写统一 asset→dependency→row 锁序；SaaS 园区状态复用 canonical resolver；system 恢复菜单固定显式模块元数据。
+26. Review #17：园区 survivor 判定与独立模块分配统一复用包含默认 JH fallback 的 canonical active resolver；recovery-only system assignment 使用显式 marker 并在恢复后移除；未来生效但未过期的 asset assignment 在园区恢复时重新启用并预配资产 scope。
+27. 独立复核：停用园区重新分配套餐或模块时，仅自动补入的 system 保留 recovery-only marker；用户显式选择 system 时清除 marker，并增加行为回归。
+28. 最终复核：未选中的 system assignment 同步清除陈旧 recovery-only marker，恢复判定忽略停用或删除的 system 模块。
 
 ## 验证记录
 

@@ -20,8 +20,8 @@ import { PARK_STATUS_SUSPENDED_FEATURE, TenantModuleEntity } from "./entities/te
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
 import {
   ensureAssetScopeProvisioned,
+  hasCanonicalActiveAssetParkSource,
   lockAssetScope,
-  resolveCanonicalAssetParkSource
 } from "../assets/asset-scope-provisioning";
 
 @Injectable()
@@ -633,26 +633,7 @@ export class SaaSModulesService {
   }
 
   private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
-    try {
-      await resolveCanonicalAssetParkSource(manager, scope);
-      return true;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        const existingRows = await manager.query(
-          `SELECT 1
-           FROM biz_park
-           WHERE tenant_id = $1
-             AND park_id = $2
-             AND is_deleted = false
-           LIMIT 1`,
-          [scope.tenantId, scope.parkId]
-        ) as unknown[];
-        if (existingRows.length > 0) {
-          return false;
-        }
-      }
-      throw error;
-    }
+    return hasCanonicalActiveAssetParkSource(manager, scope);
   }
 }
 

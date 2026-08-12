@@ -257,6 +257,9 @@ test("tenant-wide authorization changes converge every tenant park without clear
   );
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
+  const assignModulesBlock = source.slice(source.indexOf("async assignModules("), source.indexOf("private async getTenantById"));
+  assert.match(assignModulesBlock, /hasCanonicalActiveAssetParkSource\(manager, targetScope\)/);
+  assert.doesNotMatch(assignModulesBlock, /getRepository\(ParkEntity\)\.findOne/);
 });
 
 test("generic tenant expiry updates every non-deleted module assignment in the same transaction", async () => {
@@ -557,19 +560,21 @@ test("reactivating a park restores only asset authorization suspended by park st
     id: "system-link",
     enabled: true,
     status: "enabled",
-    featureConfig: {},
+    featureConfig: { recoveryOnlyForParkStatus: true },
     module: { moduleCode: "system", status: 1, isDeleted: false }
-  } as TenantModuleEntity;
+  } as unknown as TenantModuleEntity;
   const assetAssignment = {
     id: "asset-link",
     enabled: false,
     status: "disabled",
+    startTime: new Date(Date.now() + 60_000),
+    expireTime: new Date(Date.now() + 120_000),
     featureConfig: { suspendedByParkStatus: true },
     module: { moduleCode: "asset", status: 1, isDeleted: false },
     plan: { permissionCodes: ["module:asset"] }
   } as unknown as TenantModuleEntity;
   const permissions = [{ code: "system:user:me" }, { code: "asset:read" }] as PermissionEntity[];
-  let savedAssignment: TenantModuleEntity | null = null;
+  const savedAssignments: TenantModuleEntity[] = [];
   let appliedModuleCodes: string[] = [];
   let provisionedModuleCodes: string[] = [];
   const manager = {
@@ -578,7 +583,7 @@ test("reactivating a park restores only asset authorization suspended by park st
       if (entity === TenantModuleEntity) return {
         find: async () => [systemAssignment, assetAssignment],
         save: async (assignment: TenantModuleEntity) => {
-          savedAssignment = assignment;
+          savedAssignments.push(assignment);
           return assignment;
         }
       };
@@ -612,12 +617,15 @@ test("reactivating a park restores only asset authorization suspended by park st
     "actor-a"
   );
 
-  assert.equal(savedAssignment, assetAssignment);
+  assert.deepEqual(savedAssignments, [assetAssignment, systemAssignment]);
   assert.equal(assetAssignment.enabled, true);
   assert.equal(assetAssignment.status, "enabled");
   assert.equal(assetAssignment.featureConfig.suspendedByParkStatus, undefined);
-  assert.deepEqual(appliedModuleCodes, ["system", "asset"]);
-  assert.deepEqual(provisionedModuleCodes, ["system", "asset"]);
+  assert.equal(systemAssignment.enabled, false);
+  assert.equal(systemAssignment.status, "disabled");
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
+  assert.deepEqual(appliedModuleCodes, ["asset"]);
+  assert.deepEqual(provisionedModuleCodes, ["asset"]);
 });
 
 test("removing asset while a park is inactive clears its automatic recovery marker", async () => {
@@ -657,6 +665,90 @@ test("removing asset while a park is inactive clears its automatic recovery mark
   assert.equal(assetAssignment.enabled, false);
   assert.equal(assetAssignment.status, "disabled");
   assert.equal(assetAssignment.featureConfig.suspendedByParkStatus, undefined);
+});
+
+test("removing automatic system recovery authorization clears its marker", async () => {
+  const systemAssignment = {
+    moduleId: "system-module",
+    enabled: true,
+    status: "enabled",
+    featureConfig: { recoveryOnlyForParkStatus: true }
+  } as unknown as TenantModuleEntity;
+  const manager = {
+    getRepository: () => ({
+      find: async () => [systemAssignment],
+      save: async (assignment: TenantModuleEntity) => assignment
+    })
+  };
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const upsert = (service as unknown as {
+    upsertTenantModules(
+      manager: unknown,
+      tenant: TenantEntity,
+      parkId: string,
+      modules: SaaSModuleEntity[],
+      plan: null,
+      actorId: string,
+      expireTime: null,
+      featureConfig: Record<string, unknown>
+    ): Promise<void>;
+  }).upsertTenantModules.bind(service);
+
+  await upsert(manager, { tenantId: "tenant-a" } as TenantEntity, "park-a", [], null, "actor-a", null, {});
+
+  assert.equal(systemAssignment.enabled, false);
+  assert.equal(systemAssignment.status, "disabled");
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
+});
+
+test("inactive park module assignment preserves only automatic system recovery authorization", async () => {
+  const systemModule = { id: "system-module", moduleCode: "system" } as SaaSModuleEntity;
+  const systemAssignment = {
+    moduleId: systemModule.id,
+    enabled: true,
+    status: "enabled",
+    featureConfig: { recoveryOnlyForParkStatus: true }
+  } as unknown as TenantModuleEntity;
+  const manager = {
+    getRepository: () => ({
+      find: async () => [systemAssignment],
+      save: async (assignment: TenantModuleEntity) => assignment
+    })
+  };
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const upsert = (service as unknown as {
+    upsertTenantModules(
+      manager: unknown,
+      tenant: TenantEntity,
+      parkId: string,
+      modules: SaaSModuleEntity[],
+      plan: null,
+      actorId: string,
+      expireTime: null,
+      featureConfig: Record<string, unknown>,
+      disabledModuleCodes: ReadonlySet<string>,
+      recoveryOnlyModuleCodes: ReadonlySet<string>
+    ): Promise<void>;
+  }).upsertTenantModules.bind(service);
+
+  const apply = async (recoveryOnly: boolean) => upsert(
+    manager,
+    { tenantId: "tenant-a", tenantCode: "TENANT_A" } as TenantEntity,
+    "park-a",
+    [systemModule],
+    null,
+    "actor-a",
+    null,
+    {},
+    new Set(),
+    recoveryOnly ? new Set(["system"]) : new Set()
+  );
+
+  await apply(true);
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, true);
+
+  await apply(false);
+  assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
 });
 
 test("deactivating a park suspends asset and creates the system recovery authorization", async () => {
@@ -719,6 +811,7 @@ test("deactivating a park suspends asset and creates the system recovery authori
   assert.equal(assetAssignment.featureConfig.suspendedByParkStatus, true);
   assert.equal(systemAssignment?.enabled, true);
   assert.equal(systemAssignment?.status, "enabled");
+  assert.equal(systemAssignment?.featureConfig.recoveryOnlyForParkStatus, true);
   assert.deepEqual(appliedModuleCodes, ["system"]);
   assert.deepEqual(requestedPermissionCodes, ["park:read", "park:update"]);
 });
@@ -758,4 +851,19 @@ test("reactivating a park does not restore an expired suspended asset assignment
   assert.equal(saveCount, 0);
   assert.equal(expiredAsset.enabled, false);
   assert.equal(expiredAsset.featureConfig.suspendedByParkStatus, true);
+});
+
+test("reactivating a park restores a future-dated asset assignment before its window opens", () => {
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const recoverable = (service as unknown as {
+    isTenantModuleWindowRecoverable(assignment: TenantModuleEntity, now: number): boolean;
+  }).isTenantModuleWindowRecoverable.bind(service);
+  const now = Date.now();
+  const futureAssignment = {
+    startTime: new Date(now + 60_000),
+    expireTime: new Date(now + 120_000)
+  } as TenantModuleEntity;
+
+  assert.equal(recoverable(futureAssignment, now), true);
+  assert.equal(recoverable({ ...futureAssignment, expireTime: new Date(now - 1) } as TenantModuleEntity, now), false);
 });

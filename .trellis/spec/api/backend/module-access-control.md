@@ -58,9 +58,16 @@ authorization authority for the signatures above.
   park-status suspension marker. Reactivating that park may restore only marked assignments and
   their tenant-admin permissions; an explicit module disable must clear the marker so recovery
   cannot override administrator intent.
+- A system assignment created only to expose the inactive-park recovery route carries its own
+  recovery-only marker. Reactivation disables that temporary assignment and removes its marker;
+  a system module that was already explicitly selected remains enabled. Reassigning a plan or
+  module set while the park is inactive must preserve the marker when system was added only for
+  recovery, and clear it only when system is part of the administrator's explicit selection.
 - Every park status mutation and standalone asset-module write must apply the same suspension
   state machine. Recovery restores only assignments whose effective time window is currently
-  active; expired or not-yet-effective assignments remain suspended.
+  unexpired. A future-dated assignment is re-enabled before its start time so the normal module
+  time-window predicate activates it later without a second recovery event; expired assignments
+  remain suspended.
 - Tenant expiry mutations must update the persisted expiry of every non-deleted module assignment
   in the same transaction, so extending or clearing tenant expiry cannot leave modules dormant on
   an obsolete assignment window.
