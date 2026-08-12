@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
@@ -16,13 +16,21 @@ import { CopyRoleDto } from "./dto/copy-role.dto";
 import { CreateRoleDto } from "./dto/create-role.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { RolesService } from "./roles.service";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
+import {
+  ApplyPropertyRoleBundlesDto,
+  CreatePropertyRoleFromBundlesDto,
+  PreviewPropertyRoleBundlesDto
+} from "./dto/property-role-bundle.dto";
+import { PropertyRoleBundleService } from "./property-role-bundle.service";
 
 @Controller("roles")
 export class RolesController {
   constructor(
     private readonly rolesService: RolesService,
     private readonly dataScopeService: DataScopeService,
-    private readonly fieldPolicyService: FieldPolicyService
+    private readonly fieldPolicyService: FieldPolicyService,
+    private readonly propertyRoleBundleService: PropertyRoleBundleService
   ) {}
 
   @Get()
@@ -35,6 +43,56 @@ export class RolesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_READ)
   tree(@CurrentScope() scope: TenantParkScope) {
     return this.rolesService.tree(scope);
+  }
+
+  @Get("property-bundles")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_READ)
+  propertyBundles() {
+    return this.propertyRoleBundleService.listBundles();
+  }
+
+  @Post("property-bundles/preview")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_READ)
+  previewPropertyBundles(
+    @CurrentScope() scope: TenantParkScope,
+    @Body() dto: PreviewPropertyRoleBundlesDto
+  ) {
+    return this.propertyRoleBundleService.preview(scope, dto);
+  }
+
+  @Post("property-bundles/roles")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE)
+  @AuditLog({ module: "角色管理", resource: "system.role", action: "按权限包创建", captureBody: true })
+  createFromPropertyBundles(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Body() dto: CreatePropertyRoleFromBundlesDto
+  ) {
+    return this.propertyRoleBundleService.create(scope, user.sub, dto);
+  }
+
+  @Post(":id/property-bundles/preview")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_READ)
+  previewRolePropertyBundles(
+    @CurrentScope() scope: TenantParkScope,
+    @Param("id") id: string,
+    @Body() dto: PreviewPropertyRoleBundlesDto
+  ) {
+    return this.propertyRoleBundleService.preview(scope, dto, id);
+  }
+
+  @Post(":id/property-bundles")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE)
+  @AuditLog({ module: "角色管理", resource: "system.role", action: "权限包更新", bizType: "role", bizIdParam: "id", captureBody: true })
+  applyPropertyBundles(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: ApplyPropertyRoleBundlesDto
+  ) {
+    return this.propertyRoleBundleService.apply(scope, user.sub, id, dto);
   }
 
   @Post()
@@ -89,6 +147,7 @@ export class RolesController {
   }
 
   @Post(":id/copy")
+  @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_COPY)
   @AuditLog({ module: "角色管理", resource: "system.role", action: "复制", bizType: "role", bizIdParam: "id" })
   copy(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Body() dto: CopyRoleDto) {

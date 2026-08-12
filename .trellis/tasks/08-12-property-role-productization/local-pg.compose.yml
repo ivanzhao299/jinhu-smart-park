@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jinhu-pr262-postgres
+    environment:
+      POSTGRES_DB: jinhu_smart_park
+      POSTGRES_USER: jinhu
+      POSTGRES_PASSWORD: pr262_local_only
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - pr262-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jinhu -d jinhu_smart_park"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  pr262-postgres-data:

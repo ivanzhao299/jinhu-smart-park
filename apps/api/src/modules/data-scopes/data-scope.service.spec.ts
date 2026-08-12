@@ -159,6 +159,42 @@ test("org_and_children does not re-add a disabled or deleted root excluded by re
   assert.equal(sql, "1 = 0");
 });
 
+test("a configured role with no rule for the requested dimension denies instead of becoming unrestricted", async () => {
+  const service = new DataScopeService(
+    {} as never,
+    { find: async () => [{ rule: { tenantId: "tenant-1", parkId: "park-1", dimension: "org", scopeType: "custom", scopeConfig: {}, status: "enabled", isDeleted: false } }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-1", parkId: "park-1", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  let sql = "";
+  const builder = { andWhere(value: string) { sql = value; return this; } };
+  await service.applyToQueryBuilder(
+    builder as never,
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { sub: "user-1", username: "user", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [] },
+    "unit", "unit"
+  );
+  assert.equal(sql, "1 = 0");
+});
+
+test("a constrained dimension without a mapped database column denies", async () => {
+  const service = new DataScopeService(
+    {} as never,
+    { find: async () => [{ rule: { tenantId: "tenant-1", parkId: "park-1", dimension: "tenant_company", scopeType: "custom", scopeConfig: { tenantCompanyIds: ["company-1"] }, status: "enabled", isDeleted: false } }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-1", parkId: "park-1", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  let sql = "";
+  const builder = { andWhere(value: string) { sql = value; return this; } };
+  await service.applyToQueryBuilder(
+    builder as never,
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { sub: "user-1", username: "user", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [] },
+    "tenant_company", "tenant"
+  );
+  assert.equal(sql, "1 = 0");
+});
+
 test("shared tenant role data-scope assignments update only the caller park", async () => {
   let roleWhere: unknown;
   let ruleWhere: unknown;

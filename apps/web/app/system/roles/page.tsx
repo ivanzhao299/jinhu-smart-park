@@ -25,6 +25,9 @@ interface RoleNode {
   isDeletable: boolean;
   status: string;
   remark?: string | null;
+  version: number;
+  appliedBundleCodes?: string[];
+  appliedBundleSignature?: string | null;
   permissionLinks?: RolePermissionLink[];
   children?: RoleNode[];
 }
@@ -78,6 +81,33 @@ interface RoleFormState {
   remark: string;
 }
 
+interface PropertyBundleCatalogItem {
+  code: string;
+  name: string;
+  definitionVersion: number;
+  definitionHash: string;
+  version: number;
+  permissionCount: number;
+}
+
+interface BundlePreviewPermission {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface PropertyBundlePreview {
+  roleId: string | null;
+  roleVersion: number | null;
+  mode: "merge" | "sync";
+  add: BundlePreviewPermission[];
+  keepExtra: BundlePreviewPermission[];
+  removeExtra: BundlePreviewPermission[];
+  final: BundlePreviewPermission[];
+  previewSignature: string;
+  requiresRemovalConfirmation: boolean;
+}
+
 const emptyPage: PaginatedResult<RoleNode> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyForm: RoleFormState = {
   code: "",
@@ -98,6 +128,10 @@ export default function RolesPage() {
   const [permissionTree, setPermissionTree] = useState<PermissionNode[]>([]);
   const [dataScopeRules, setDataScopeRules] = useState<DataScopeRule[]>([]);
   const [fieldPolicies, setFieldPolicies] = useState<FieldPolicy[]>([]);
+  const [propertyBundles, setPropertyBundles] = useState<PropertyBundleCatalogItem[]>([]);
+  const [selectedBundleCodes, setSelectedBundleCodes] = useState<string[]>([]);
+  const [bundleMode, setBundleMode] = useState<"merge" | "sync">("merge");
+  const [bundlePreview, setBundlePreview] = useState<PropertyBundlePreview | null>(null);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
@@ -109,7 +143,7 @@ export default function RolesPage() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formState, setFormState] = useState<RoleFormState>(emptyForm);
   const [message, setMessage] = useState("");
-  const [activeTab, setActiveTab] = useState<"permissions" | "dataScopes" | "fieldPolicies">("permissions");
+  const [activeTab, setActiveTab] = useState<"permissions" | "propertyBundles" | "dataScopes" | "fieldPolicies">("permissions");
   const [workspace, setWorkspace] = useState<"config" | "list">("config");
 
   const flatRoles = useMemo(() => flattenRoles(roleTree), [roleTree]);
@@ -121,18 +155,20 @@ export default function RolesPage() {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword.trim()) params.set("keyword", keyword.trim());
     if (status) params.set("status", status);
-    const [rolesResponse, treeResponse, permissionTreeResponse, dataScopeResponse, fieldPolicyResponse] = await Promise.all([
+    const [rolesResponse, treeResponse, permissionTreeResponse, dataScopeResponse, fieldPolicyResponse, bundleResponse] = await Promise.all([
       apiRequest<PaginatedResult<RoleNode>>(`/roles?${params.toString()}`, { token }),
       apiRequest<RoleNode[]>("/roles/tree", { token }),
       apiRequest<PermissionNode[]>("/permissions/tree", { token }),
       apiRequest<PaginatedResult<DataScopeRule>>("/data-scope-rules?page=1&page_size=100", { token }),
-      apiRequest<PaginatedResult<FieldPolicy>>("/field-policies?page=1&page_size=100", { token })
+      apiRequest<PaginatedResult<FieldPolicy>>("/field-policies?page=1&page_size=100", { token }),
+      apiRequest<PropertyBundleCatalogItem[]>("/roles/property-bundles", { token })
     ]);
     setData(rolesResponse.data);
     setRoleTree(treeResponse.data);
     setPermissionTree(permissionTreeResponse.data);
     setDataScopeRules(dataScopeResponse.data.items);
     setFieldPolicies(fieldPolicyResponse.data.items);
+    setPropertyBundles(bundleResponse.data);
     const nextSelectedId = keepSelectedId || flattenRoles(treeResponse.data)[0]?.id || "";
     if (nextSelectedId) {
       await selectRole(nextSelectedId);
@@ -155,6 +191,8 @@ export default function RolesPage() {
     setSelectedPermissionIds(detailResponse.data.permissionLinks?.map((link) => link.permissionId) ?? []);
     setSelectedDataScopeIds(dataScopeBindings.data.map((rule) => rule.id));
     setSelectedFieldPolicyIds(fieldPolicyBindings.data.map((policy) => policy.id));
+    setSelectedBundleCodes(detailResponse.data.appliedBundleCodes ?? []);
+    setBundlePreview(null);
   }
 
   function openCreateForm(parentId = "") {
@@ -275,6 +313,74 @@ export default function RolesPage() {
     setMessage("字段权限策略已绑定");
   }
 
+  function bundleReferences() {
+    return propertyBundles
+      .filter((bundle) => selectedBundleCodes.includes(bundle.code))
+      .map((bundle) => ({ code: bundle.code, version: bundle.definitionVersion, hash: bundle.definitionHash }));
+  }
+
+  async function previewBundles(roleId: string | null = selectedRole?.id ?? null) {
+    const bundles = bundleReferences();
+    if (bundles.length === 0) throw new Error("请至少选择一个权限包");
+    if (bundles.length !== selectedBundleCodes.length) throw new Error("权限包目录已变化，请刷新后重新选择");
+    const token = getToken();
+    const path = roleId ? `/roles/${roleId}/property-bundles/preview` : "/roles/property-bundles/preview";
+    const response = await apiRequest<PropertyBundlePreview>(path, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("role-property-bundle-preview"),
+      body: { bundles, mode: bundleMode }
+    });
+    setBundlePreview(response.data);
+    return response.data;
+  }
+
+  async function applyBundles() {
+    if (!selectedRole) return;
+    const preview = bundlePreview ?? await previewBundles(selectedRole.id);
+    if (preview.roleVersion !== selectedRole.version) throw new Error("角色版本已变化，请重新预览");
+    if (preview.requiresRemovalConfirmation && !window.confirm(`同步将删除 ${preview.removeExtra.length} 项额外权限，是否继续？`)) return;
+    const token = getToken();
+    const response = await apiRequest<RoleNode>(`/roles/${selectedRole.id}/property-bundles`, {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("role-property-bundles"),
+      body: {
+        bundles: bundleReferences(),
+        mode: bundleMode,
+        roleVersion: selectedRole.version,
+        previewSignature: preview.previewSignature,
+        confirmRemovals: preview.requiresRemovalConfirmation
+      }
+    });
+    setMessage("权限包已应用，角色权限与 current_park 数据范围已更新");
+    await load(data.page, response.data.id);
+  }
+
+  async function createFromBundles() {
+    if (selectedRole?.isTemplate) throw new Error("标准模板请使用“复制模板”，以保留其排除权限和 current_park 范围");
+    const code = window.prompt("新角色编码（大写字母、数字、下划线）");
+    if (!code) return;
+    const name = window.prompt("新角色名称");
+    if (!name) return;
+    const preview = await previewBundles(null);
+    const token = getToken();
+    const response = await apiRequest<RoleNode>("/roles/property-bundles/roles", {
+      method: "POST",
+      token,
+      idempotencyKey: createIdempotencyKey("role-property-bundle-create"),
+      body: {
+        code: code.trim().toUpperCase(),
+        name: name.trim(),
+        bundles: bundleReferences(),
+        mode: bundleMode,
+        previewSignature: preview.previewSignature
+      }
+    });
+    setMessage("已按权限包创建 current_park 角色");
+    await load(1, response.data.id);
+  }
+
   function togglePermission(permission: PermissionNode, checked: boolean) {
     const ids = collectPermissionIds(permission);
     setSelectedPermissionIds((current) => {
@@ -303,6 +409,9 @@ export default function RolesPage() {
         </div>
         <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" onClick={() => openCreateForm()}>
           <Plus size={16} />新增自定义角色
+        </PermissionButton>
+        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" disabled={Boolean(selectedRole?.isTemplate)} onClick={() => void createFromBundles().catch(showError)}>
+          <Layers3 size={16} />按权限包新建
         </PermissionButton>
       </header>
 
@@ -358,11 +467,25 @@ export default function RolesPage() {
 
                 <div className="system-tabs">
                   <TabButton active={activeTab === "permissions"} onClick={() => setActiveTab("permissions")}><KeyRound size={16} />权限树</TabButton>
+                  <TabButton active={activeTab === "propertyBundles"} onClick={() => setActiveTab("propertyBundles")}><Layers3 size={16} />权限包</TabButton>
                   <TabButton active={activeTab === "dataScopes"} onClick={() => setActiveTab("dataScopes")}><Layers3 size={16} />数据权限</TabButton>
                   <TabButton active={activeTab === "fieldPolicies"} onClick={() => setActiveTab("fieldPolicies")}><ShieldCheck size={16} />字段策略</TabButton>
                 </div>
 
                 {activeTab === "permissions" ? <PermissionBinding tree={permissionTree} selectedIds={selectedPermissionIds} total={flatPermissions.length} onToggle={togglePermission} onSave={() => void savePermissions().catch(showError)} /> : null}
+                {activeTab === "propertyBundles" ? (
+                  <PropertyBundleBinding
+                    bundles={propertyBundles}
+                    selectedCodes={selectedBundleCodes}
+                    mode={bundleMode}
+                    preview={bundlePreview}
+                    protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem)}
+                    onToggle={(code, checked) => { setSelectedBundleCodes(toggleList(code, checked)); setBundlePreview(null); }}
+                    onModeChange={(mode) => { setBundleMode(mode); setBundlePreview(null); }}
+                    onPreview={() => void previewBundles().catch(showError)}
+                    onApply={() => void applyBundles().catch(showError)}
+                  />
+                ) : null}
                 {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
                 {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
               </div>
@@ -453,6 +576,63 @@ function PermissionBinding({ tree, selectedIds, total, onToggle, onSave }: { tre
         <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS} className="primary-button" type="button" onClick={onSave}><Save size={16} />保存权限</PermissionButton>
       </div>
       <div className="tree-list role-binding-scroll">{tree.map((permission) => <PermissionTreeItem key={permission.id} permission={permission} selectedIds={selectedIds} onToggle={onToggle} />)}</div>
+    </section>
+  );
+}
+
+function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protectedRole, onToggle, onModeChange, onPreview, onApply }: {
+  bundles: PropertyBundleCatalogItem[];
+  selectedCodes: string[];
+  mode: "merge" | "sync";
+  preview: PropertyBundlePreview | null;
+  protectedRole: boolean;
+  onToggle: (code: string, checked: boolean) => void;
+  onModeChange: (mode: "merge" | "sync") => void;
+  onPreview: () => void;
+  onApply: () => void;
+}) {
+  return (
+    <section className="detail-stack">
+      <div className="system-toolbar">
+        <div className="field">
+          <label>更新语义</label>
+          <select value={mode} onChange={(event) => onModeChange(event.target.value as "merge" | "sync")} disabled={protectedRole}>
+            <option value="merge">安全合并（保留额外权限）</option>
+            <option value="sync">同步为权限包集合（可能删除）</option>
+          </select>
+        </div>
+        <div className="system-actions">
+          <button type="button" onClick={onPreview} disabled={protectedRole || selectedCodes.length === 0}>预览差异</button>
+          <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview}><Save size={16} />应用权限包</PermissionButton>
+        </div>
+      </div>
+      {protectedRole ? <p className="status-pill status-danger" role="alert">模板、系统或内置角色不可从页面更新；请先实例化为普通角色。</p> : null}
+      <div className="binding-list role-binding-scroll">
+        {bundles.map((bundle) => (
+          <label key={bundle.code} className="binding-row">
+            <input type="checkbox" checked={selectedCodes.includes(bundle.code)} disabled={protectedRole} onChange={(event) => onToggle(bundle.code, event.target.checked)} />
+            <span className="role-binding-content"><strong>{bundle.name}</strong><small>{bundle.code} · v{bundle.definitionVersion} · {bundle.permissionCount} 项</small></span>
+            <span className="status-pill">{bundle.definitionHash.slice(0, 8)}</span>
+          </label>
+        ))}
+      </div>
+      {preview ? (
+        <div className="detail-stack" aria-live="polite">
+          <div className="system-grid-three role-meta-grid">
+            <Meta label="新增" value={String(preview.add.length)} />
+            <Meta label="保留额外" value={String(preview.keepExtra.length)} />
+            <Meta label="删除额外" value={String(preview.removeExtra.length)} />
+          </div>
+          <p className="muted-text">最终权限 {preview.final.length} 项。{preview.requiresRemovalConfirmation ? "提交前将再次确认删除集合。" : "不会静默删除额外权限。"}</p>
+          {preview.removeExtra.length > 0 ? <div className="binding-list">{preview.removeExtra.map((permission) => <span className="status-pill status-danger" key={permission.code}>{permission.name} · {permission.code}</span>)}</div> : null}
+          <details>
+            <summary>查看最终权限集合（{preview.final.length}）</summary>
+            <div className="binding-list">
+              {preview.final.map((permission) => <span className="status-pill" key={permission.code}>{permission.name} · {permission.code}</span>)}
+            </div>
+          </details>
+        </div>
+      ) : <p className="muted-text">选择权限包并预览后才能提交；预览与写入均由服务端重算。</p>}
     </section>
   );
 }

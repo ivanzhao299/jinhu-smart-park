@@ -217,6 +217,29 @@ test("seeded property metadata is preferred and any route, type, module, or dupl
   ]), []);
 });
 
+test("visible controls menu projection while API permissions never become menu nodes", () => {
+  const surface = PROPERTY_BUSINESS_SURFACES[0];
+  const service = internals();
+  const enabledModules = [enabledModule("homestay"), enabledModule("asset")];
+  const hiddenPage = service.buildPermissionMenuTree(
+    [permission(surface.pageCode, surface.route, { visible: false })],
+    [surface.pageCode],
+    enabledModules
+  );
+  const visibleApi = service.buildPermissionMenuTree(
+    [permission("property_approval:read", null, {
+      visible: true,
+      permissionType: "api",
+      permType: 40,
+      action: "read"
+    })],
+    ["property_approval:read"],
+    enabledModules
+  );
+  assert.deepEqual(propertyChildren(hiddenPage), []);
+  assert.deepEqual(propertyChildren(visibleApi), []);
+});
+
 test("principal and menu permissions share current tenant and park relation filtering", () => {
   const dashboard = PROPERTY_BUSINESS_SURFACES[0];
   const acceptedDefinition = permission(dashboard.pageCode, dashboard.route, {

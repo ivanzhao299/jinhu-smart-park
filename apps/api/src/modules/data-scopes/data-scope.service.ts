@@ -224,9 +224,10 @@ export class DataScopeService {
     }
     const ids = await this.resolveAllowedIds(scope, user, dimension);
     const column = this.resolveFindColumn(dimension, mapping);
-    if (!ids || !column) {
+    if (ids === null) {
       return baseWhere;
     }
+    if (!column) return { ...baseWhere, id: In([]) } as FindOptionsWhere<T>;
     if (ids.length === 0) {
       return { ...baseWhere, [column]: In([]) } as FindOptionsWhere<T>;
     }
@@ -246,9 +247,10 @@ export class DataScopeService {
     }
     const ids = await this.resolveAllowedIds(scope, user, dimension);
     const column = this.resolveDatabaseColumn(dimension, mapping);
-    if (!ids || !column) {
+    if (ids === null) {
       return builder;
     }
+    if (!column) return builder.andWhere("1 = 0");
     if (ids.length === 0) {
       return builder.andWhere("1 = 0");
     }
@@ -279,11 +281,11 @@ export class DataScopeService {
       return null;
     }
     if (rules.length === 0) {
-      return enabledRules.length > 0 ? null : this.resolveFallbackAllowedIds(user, dimension);
+      return enabledRules.length > 0 ? [] : this.resolveFallbackAllowedIds(user, dimension);
     }
     const dimensionRules = rules.filter((rule) => rule.dimension === dimension || this.idsForDimension(dimension, rule.scopeConfig).length > 0 || rule.scopeType === "self");
     if (dimensionRules.length === 0) {
-      return null;
+      return [];
     }
     const ids = new Set<string>();
     for (const rule of dimensionRules) {

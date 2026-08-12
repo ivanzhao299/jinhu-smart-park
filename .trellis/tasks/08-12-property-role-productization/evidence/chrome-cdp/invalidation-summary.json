@@ -1,0 +1,21 @@
+{
+  "separation": {
+    "managerCannotDecide": {
+      "status": 403,
+      "body": "Forbidden resource"
+    },
+    "approverCannotInitiate": {
+      "status": 403,
+      "body": "Forbidden resource"
+    }
+  },
+  "roleId": "c7cbf058-8e67-424c-a69b-5b470fcc22c7",
+  "disableStatus": 201,
+  "afterDisable": {
+    "url": "http://127.0.0.1:3300/403",
+    "text": "403\n\n当前账号没有访问该页面的权限。\n\n返回首页",
+    "databases": [],
+    "storedPermissions": 1
+  },
+  "reenableStatus": 201
+}

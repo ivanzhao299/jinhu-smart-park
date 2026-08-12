@@ -175,12 +175,23 @@ SELECT
   permission.permission_type, permission.perm_type, permission.api_method,
   permission.api_path, permission.frontend_route,
   NULL, NULL, NULL, NULL, true, true, false,
-  permission.permission_type = 'api', false, false, true, 'enabled',
+  permission.permission_type = 'page', false, false, true, 'enabled',
   clock_timestamp(), clock_timestamp(), false, 1,
   'PR192 Track B frozen permission definition'
 FROM permission_scope scope
 CROSS JOIN property_track_b_expected_definition permission
 ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO NOTHING;
+
+UPDATE sys_permission permission
+SET visible = permission.permission_type = 'page',
+    update_time = clock_timestamp()
+FROM property_track_b_seed_scope scope
+WHERE permission.tenant_id = scope.tenant_id
+  AND permission.remark = 'PR192 Track B frozen permission definition'
+  AND permission.permission_type IN ('page','api')
+  AND permission.perm_type = CASE permission.permission_type WHEN 'page' THEN 20 ELSE 40 END
+  AND permission.is_deleted = false
+  AND permission.visible IS DISTINCT FROM (permission.permission_type = 'page');
 
 DO $$
 DECLARE
@@ -210,7 +221,7 @@ BEGIN
       NULL::varchar AS component_key, NULL::varchar AS icon,
       NULL::varchar AS field_key, NULL::varchar AS data_dimension,
       true AS is_system, true AS is_builtin, false AS is_tenant_custom,
-      permission.permission_type = 'api' AS visible,
+      permission.permission_type = 'page' AS visible,
       false AS keep_alive, false AS always_show, true AS is_enabled,
       'enabled'::varchar AS status, false AS is_deleted, 1 AS version,
       'PR192 Track B frozen permission definition'::varchar AS remark

@@ -1,0 +1,29 @@
+{
+  "browser": "Chrome/151.0.7922.108",
+  "roleCode": "PR262_BUNDLE_UI",
+  "roleName": "PR262 权限包验收",
+  "bundleCode": "property-bundle:property-asset-manager",
+  "bundleVersion": 2,
+  "merge": {
+    "uiPreviewCaptured": true,
+    "auditAction": "权限包更新",
+    "mode": "merge",
+    "confirmRemovals": false,
+    "roleVersion": 1
+  },
+  "sync": {
+    "uiPreviewCaptured": true,
+    "uiConfirmationAccepted": true,
+    "auditAction": "权限包更新",
+    "mode": "sync",
+    "confirmRemovals": true,
+    "roleVersion": 2
+  },
+  "finalPermissionCount": 18,
+  "appliedBundleCodes": ["property-bundle:property-asset-manager"],
+  "evidence": [
+    "bundle-merge-preview.png",
+    "bundle-sync-preview.png",
+    "bundle-sync-applied.png"
+  ]
+}

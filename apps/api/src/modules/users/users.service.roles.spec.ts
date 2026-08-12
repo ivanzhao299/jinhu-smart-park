@@ -28,6 +28,9 @@ function role(values: Partial<RoleEntity>): RoleEntity {
     roleScope: "park",
     status: "enabled",
     isEnabled: true,
+    isTemplate: false,
+    isSystem: false,
+    isBuiltin: false,
     isDeleted: false,
     ...values
   } as RoleEntity;
@@ -77,8 +80,8 @@ test("user role context uses the target user's tenant and park", async () => {
     isDeleted: false
   });
   assert.deepEqual(candidateWhere, [
-    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
-    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
+    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
   ]);
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
   assert.deepEqual(result.candidates.map((item) => item.id), [assignedRole.id]);
@@ -110,6 +113,14 @@ test("role replacement reads and writes through one transaction manager", async 
     id: "link-platform",
     role: role({ id: "role-platform", roleScope: "platform", parkId: undefined })
   } as UserRoleEntity;
+  const protectedBuiltinLink = {
+    id: "link-builtin",
+    role: role({ id: "role-builtin", isSystem: true, isBuiltin: true })
+  } as UserRoleEntity;
+  const protectedDisabledLink = {
+    id: "link-disabled",
+    role: role({ id: "role-disabled", status: "disabled", isEnabled: false })
+  } as UserRoleEntity;
   const roleRepository = {
     find: async (options: { where: unknown }) => {
       events.push("roles.find");
@@ -118,7 +129,7 @@ test("role replacement reads and writes through one transaction manager", async 
     }
   };
   const linkRepository = {
-    find: async () => { events.push("links.find"); return [managedLink, protectedPlatformLink]; },
+    find: async () => { events.push("links.find"); return [managedLink, protectedPlatformLink, protectedBuiltinLink, protectedDisabledLink]; },
     update: async (where: unknown) => { events.push("links.update"); linkWhere = where; },
     create: (value: unknown) => value,
     save: async () => { events.push("links.save"); }
@@ -161,11 +172,14 @@ test("role replacement reads and writes through one transaction manager", async 
     roleScope: string;
     status: string;
     isEnabled: boolean;
+    isTemplate: boolean;
+    isSystem: boolean;
+    isBuiltin: boolean;
     isDeleted: boolean;
   }>;
   assert.deepEqual(scopedRoleWhere.map(({ id: _id, ...where }) => where), [
-    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
-    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
+    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
   ]);
   assert.deepEqual(scopedRoleWhere[0]?.id.value, [selectedRole.id]);
 });

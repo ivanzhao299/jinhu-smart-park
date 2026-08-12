@@ -198,14 +198,14 @@ assert.equal(
 );
 
 assert.equal(
-  (seed.match(/permission\.permission_type = 'api'/g) ?? []).length,
-  2,
-  "post-seed insert and drift guard must preserve immutable migration visibility semantics"
+  (seed.match(/permission\.permission_type = 'page'/g) ?? []).length >= 3,
+  true,
+  "post-seed insert, convergence and drift guard must use page-visible semantics"
 );
 assert.equal(
-  seed.includes("permission.permission_type IN ('menu', 'page')"),
-  false,
-  "post-seed visibility must not invert the immutable migration definition"
+  seed.includes("permission.permission_type IN ('page','api')"),
+  true,
+  "post-seed visibility convergence must cover only Track B page and API definitions"
 );
 
 assert.match(
@@ -268,6 +268,7 @@ assert.deepEqual(writes, [
   "INSERT INTO property_track_b_expected_definition",
   "UPDATE sys_permission",
   "INSERT INTO sys_permission",
+  "UPDATE sys_permission",
   "INSERT INTO rel_role_perm"
 ]);
 

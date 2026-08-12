@@ -672,7 +672,7 @@ fresh_order_visibility_count="$(
     -c "SELECT count(*) FROM public.sys_permission
         WHERE tenant_id='10000001' AND park_id='20000001'
           AND remark='PR192 Track B frozen permission definition'
-          AND is_deleted=false AND visible=(permission_type='api');"
+          AND is_deleted=false AND visible=(permission_type='page');"
 )"
 test "$fresh_order_visibility_count" -eq 25
 
@@ -700,7 +700,7 @@ fresh_order_rollback_state="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -qAt -F '|' -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
     -c "SELECT
-      count(*) FILTER (WHERE visible=(permission_type='api')),
+      count(*) FILTER (WHERE visible=(permission_type='page')),
       count(*) FILTER (WHERE code='party:identity_update'
         AND name='Release Smoke Unknown Definition Drift')
     FROM public.sys_permission
@@ -727,6 +727,8 @@ grep -Fq 'Applying production seed: 000006_property_track_b_permission_reconcile
   "$log_root/db-seed-000200-fresh-order-rerun.log"
 grep -Fq 'Applying production seed: 000009_jh_leasing_lead_workorder_create_repair.sql' \
   "$log_root/db-seed-000200-fresh-order-rerun.log"
+grep -Fq 'Applying production seed: 000015_property_role_template_reconcile.sql' \
+  "$log_root/db-seed-000200-fresh-order-rerun.log"
 
 fresh_order_active_park_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
@@ -744,7 +746,7 @@ fresh_order_permission_visibility_count="$(
         WHERE tenant_id='10000001' AND park_id='20000001'
           AND remark='PR192 Track B frozen permission definition'
           AND is_deleted=false
-          AND visible=(permission_type='api');"
+          AND visible=(permission_type='page');"
 )"
 test "$fresh_order_permission_visibility_count" -eq 25
 

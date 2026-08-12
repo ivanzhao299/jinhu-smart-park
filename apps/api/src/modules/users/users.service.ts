@@ -78,6 +78,7 @@ export interface UserRoleView {
   roleScope: string;
   status: string;
   isEnabled: boolean;
+  isAssignable: boolean;
 }
 
 export interface UserRoleContext {
@@ -1012,8 +1013,8 @@ export class UsersService {
       const userRoleRepository = manager.getRepository(UserRoleEntity);
       const roles = dto.roleIds.length === 0 ? [] : await roleRepository.find({
         where: [
-          { id: In(dto.roleIds), tenantId: targetScope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
-          { id: In(dto.roleIds), tenantId: targetScope.tenantId, parkId: targetScope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+          { id: In(dto.roleIds), tenantId: targetScope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
+          { id: In(dto.roleIds), tenantId: targetScope.tenantId, parkId: targetScope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
         ]
       });
       if (roles.length !== dto.roleIds.length) {
@@ -1026,6 +1027,7 @@ export class UsersService {
       });
       const managedLinkIds = currentLinks
         .filter((link) => link.role?.tenantId === targetScope.tenantId
+          && this.isRoleAssignable(link.role)
           && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === targetScope.parkId)))
         .map((link) => link.id);
       if (managedLinkIds.length > 0) {
@@ -1054,13 +1056,13 @@ export class UsersService {
   private async listAssignableRoles(scope: TenantParkScope): Promise<UserRoleView[]> {
     const roles = await this.rolesRepository.find({
       where: [
-        { tenantId: scope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
-        { tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+        { tenantId: scope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
+        { tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
       ],
       order: { level: "ASC", sortNo: "ASC", name: "ASC" },
       take: MAX_ROLE_CANDIDATES
     });
-    return roles.map((role) => this.toUserRoleView(role));
+    return roles.map((role) => this.toUserRoleView(role, true));
   }
 
   private async listAssignedRoles(scope: TenantParkScope, userId: string): Promise<UserRoleView[]> {
@@ -1072,17 +1074,24 @@ export class UsersService {
     return links
       .filter((link) => link.role?.tenantId === scope.tenantId
         && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === scope.parkId)))
-      .map((link) => this.toUserRoleView(link.role));
+      .map((link) => this.toUserRoleView(link.role, this.isRoleAssignable(link.role)));
   }
 
-  private toUserRoleView(role: RoleEntity): UserRoleView {
+  private isRoleAssignable(role: RoleEntity): boolean {
+    return role.isEnabled && !role.isDeleted && role.status === "enabled"
+      && !role.isTemplate && !role.isSystem && !role.isBuiltin
+      && (role.roleScope === "tenant" || role.roleScope === "park");
+  }
+
+  private toUserRoleView(role: RoleEntity, isAssignable: boolean): UserRoleView {
     return {
       id: role.id,
       code: role.code,
       name: role.name,
       roleScope: role.roleScope,
       status: role.status,
-      isEnabled: role.isEnabled && !role.isDeleted
+      isEnabled: role.isEnabled && !role.isDeleted,
+      isAssignable
     };
   }
 
@@ -1290,7 +1299,7 @@ export class UsersService {
           .filter((link) => link.userId === user.id && link.tenantId === user.tenantId && link.parkId === user.parkId)
           .filter((link) => link.role?.tenantId === user.tenantId
             && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === user.parkId)))
-          .map((link) => this.toUserRoleView(link.role)),
+          .map((link) => this.toUserRoleView(link.role, this.isRoleAssignable(link.role))),
         loginContextStatus: this.resolveLoginContextStatus(user, tenant, park, explicitLinks),
         createTime: user.createTime,
         updateTime: user.updateTime,

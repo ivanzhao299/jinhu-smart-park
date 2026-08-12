@@ -35,12 +35,15 @@ test("role detail attaches only permission links from the caller's park", async 
   assert.deepEqual(result.permissionLinks, [permissionLink]);
 });
 
-test("role copy and list contracts keep role links park-scoped", () => {
+test("role copy is transactional and carries permission, field and current-park scope links", () => {
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
 
   assert.match(source, /attachPermissionLinks\(scope, items\)/);
   assert.match(source, /attachPermissionLinks\(scope, \[role\]\)/);
-  assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: sourceRoleId, isDeleted: false \}/);
+  assert.match(source, /rolesRepository\.manager\.transaction/);
+  assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
+  assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: source\.id, isDeleted: false \}/);
+  assert.match(source, /appliedBundleSignature: source\.appliedBundleSignature/);
 });
 
 test("built-in role scope cannot be changed", async () => {

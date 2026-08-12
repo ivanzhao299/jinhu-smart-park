@@ -3,6 +3,7 @@ export * from "./permission-bundles";
 export * from "./permissions";
 export * from "./property-task-contracts";
 export * from "./response-contracts";
+export * from "./role-templates";
 export * from "./routes";
 export * from "./track-b-contracts";
 export * from "./track-b-endpoint-permissions";

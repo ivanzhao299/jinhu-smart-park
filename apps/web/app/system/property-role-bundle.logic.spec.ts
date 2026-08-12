@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const source = readFileSync(new URL("./roles/page.tsx", import.meta.url), "utf8");
+
+test("role UI exposes server preview and safe merge/sync semantics", () => {
+  assert.match(source, /安全合并（保留额外权限）/);
+  assert.match(source, /同步为权限包集合（可能删除）/);
+  assert.match(source, /\/property-bundles\/preview/);
+  assert.match(source, /idempotencyKey: createIdempotencyKey\("role-property-bundle-preview"\)/);
+  assert.match(source, /previewBundles\(null\)/);
+  assert.match(source, /bundles\.length !== selectedBundleCodes\.length/);
+  assert.match(source, /preview\.requiresRemovalConfirmation/);
+  assert.match(source, /confirmRemovals: preview\.requiresRemovalConfirmation/);
+  assert.match(source, /最终权限 \{preview\.final\.length\} 项/);
+});
+
+test("protected templates and system roles cannot be updated from the bundle panel", () => {
+  assert.match(source, /selectedRole\.isTemplate \|\| selectedRole\.isBuiltin \|\| selectedRole\.isSystem/);
+  assert.match(source, /模板、系统或内置角色不可从页面更新/);
+  assert.match(source, /current_park 角色/);
+  assert.match(source, /标准模板请使用“复制模板”/);
+});

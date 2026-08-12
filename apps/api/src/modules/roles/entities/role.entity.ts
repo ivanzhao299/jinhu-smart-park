@@ -50,6 +50,21 @@ export class RoleEntity extends AuditableEntity {
   @Column({ name: "is_template", type: "boolean", default: false })
   isTemplate!: boolean;
 
+  @Column({ name: "managed_template_code", type: "varchar", length: 64, nullable: true })
+  managedTemplateCode!: string | null;
+
+  @Column({ name: "template_definition_version", type: "integer", nullable: true })
+  templateDefinitionVersion!: number | null;
+
+  @Column({ name: "template_definition_hash", type: "char", length: 64, nullable: true })
+  templateDefinitionHash!: string | null;
+
+  @Column({ name: "applied_bundle_codes", type: "jsonb", default: [] })
+  appliedBundleCodes!: string[];
+
+  @Column({ name: "applied_bundle_signature", type: "char", length: 64, nullable: true })
+  appliedBundleSignature!: string | null;
+
   @Column({ name: "is_system", type: "boolean", default: false })
   isSystem!: boolean;
 

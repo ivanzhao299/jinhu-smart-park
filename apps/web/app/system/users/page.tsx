@@ -46,6 +46,7 @@ interface UserRoleOption {
   roleScope: string;
   status: string;
   isEnabled: boolean;
+  isAssignable: boolean;
 }
 
 interface UserRoleContext {
@@ -175,7 +176,7 @@ export default function UsersPage() {
         if (requestId !== roleCatalogRequest.current) return;
         const retained = response.data.roles.filter((role) => !response.data.candidates.some((candidate) => candidate.id === role.id));
         setRoleCandidates([...response.data.candidates, ...retained]);
-        const roleIds = response.data.roles.map((role) => role.id);
+        const roleIds = response.data.roles.filter((role) => role.isAssignable).map((role) => role.id);
         setSelectedRoleIds(roleIds);
         setLoadedRoleIds(roleIds);
         setRoleCatalogReady(true);
@@ -615,25 +616,25 @@ export default function UsersPage() {
                     {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
                     {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色</span> : null}
                     {roleCandidates.map((role) => {
-                      const unavailable = !role.isEnabled || role.status !== "enabled";
-                      const selected = selectedRoleIds.includes(role.id);
+                      const unavailable = !role.isAssignable || !role.isEnabled || role.status !== "enabled";
+                      const selected = selectedRoleIds.includes(role.id) || !role.isAssignable;
                       const selectionLimitReached = selectedRoleIds.length >= MAX_ASSIGNED_ROLES && !selected;
                       return (
                         <label key={role.id} className="checkbox-row">
                           <input
                             type="checkbox"
                             checked={selected}
-                            disabled={selectionLimitReached || Boolean(!roleOnlyEditing && editingUser && (formTenantId !== editingUser.tenantId || formParkId !== editingUser.parkId))}
+                            disabled={unavailable || selectionLimitReached || Boolean(!roleOnlyEditing && editingUser && (formTenantId !== editingUser.tenantId || formParkId !== editingUser.parkId))}
                             onChange={(event) => setSelectedRoleIds((current) => event.target.checked
                               ? [...new Set([...current, role.id])]
                               : current.filter((id) => id !== role.id))}
                           />
-                          <span>{role.name}（{role.roleScope === "tenant" ? "租户角色" : "园区角色"}）{unavailable ? " · 已停用，请取消后再保存其他角色" : ""}</span>
+                          <span>{role.name}（{role.roleScope === "tenant" ? "租户角色" : role.roleScope === "park" ? "园区角色" : "系统角色"}）{unavailable ? " · 受系统保护或当前不可分配，将原样保留" : ""}</span>
                         </label>
                       );
                     })}
                   </div>
-                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
+                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。保存时将替换全部可分配角色；标记为受保护的现有角色不会删除。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
                 </div>
               </DrawerFormGrid>
             ) : null}
