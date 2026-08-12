@@ -96,12 +96,16 @@ BEGIN
          )
     ),
     count(*) FILTER (WHERE tenant_count <> 1),
-    count(*) FILTER (WHERE asset_row_count <> asset_count OR asset_count > 1),
+    count(*) FILTER (
+      WHERE exact_source_count > 1 OR asset_row_count <> asset_count OR asset_count > 1
+    ),
     count(*) FILTER (
       WHERE asset_count = 0
         AND NOT (
           exact_source_count = 1
           OR (
+            exact_source_count = 0
+            AND
             tenant_key = '10000001'
             AND park_key = '20000001'
             AND default_source_count = 1
@@ -183,7 +187,7 @@ JOIN biz_park park
      AND btrim(park.park_id) = scope.park_key
    )
    OR (
-     scope.exact_source_count <> 1
+	     scope.exact_source_count = 0
      AND scope.tenant_key = '10000001'
      AND scope.park_key = '20000001'
      AND park.park_code = 'JH'

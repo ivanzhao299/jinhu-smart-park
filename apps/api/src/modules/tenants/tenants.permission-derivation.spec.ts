@@ -230,7 +230,10 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
   assert.match(source, /const uniqueTenantParks = preferActiveTenantParkRows\(tenantParks\)/);
   assert.match(source, /const orderedTenantParks = \[\.\.\.uniqueTenantParks\]\.sort\(\(left, right\) =>\s+assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: left\.parkId \}\)\s+\.localeCompare\(assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: right\.parkId \}\)\)\s+\)/);
-  assert.match(source, /await lockAssetScope\(manager, scope\)[\s\S]{0,160}hasCanonicalActiveAssetParkSource\(manager, scope\)/);
+  assert.match(source, /const lockParkIds = new Set\([\s\S]*tenantParks\.map[\s\S]*assignmentRows\.map/);
+  assert.match(source, /const lockedScopes = \[\.\.\.lockParkIds\][\s\S]*assetScopeLockKey\(left\)\.localeCompare\(assetScopeLockKey\(right\)\)/);
+  assert.match(source, /for \(const scope of lockedScopes\) \{\s*await lockAssetScope\(manager, scope\);\s*\}/);
+  assert.match(source, /hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => activeParkIds\.has\(park\.parkId\)\)/);
   assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
   assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
@@ -254,7 +257,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   );
   assert.match(
     source,
-    /async updateLoginSettings\([\s\S]*dto\.expireTime !== undefined[\s\S]*assignmentScopes[\s\S]*lockAssetScope\(manager, scope\)[\s\S]*getRepository\(TenantModuleEntity\)\.update/
+    /async updateLoginSettings\([\s\S]*lockParkIds[\s\S]*lockedScopes[\s\S]*lockAssetScope\(manager, scope\)[\s\S]*getRepository\(TenantModuleEntity\)\.update/
   );
   assert.match(source, /const enabled = !disabledModuleCodes\.has\(module\.moduleCode\)/);
   assert.match(
@@ -304,6 +307,20 @@ test("login settings preserve suspended asset intent without exposing recovery-o
       }
     }),
     module("system", { id: "disabled-system" }),
+    module("system", {
+      id: "disabled-snapshot-system",
+      enabled: true,
+      status: "enabled",
+      featureConfig: {
+        recoveryOnlyForParkStatus: true,
+        recoverySystemAssignmentSnapshot: {
+          enabled: false,
+          status: "disabled",
+          startTime: null,
+          expireTime: null
+        }
+      }
+    }),
     module("workorder", { id: "duplicate-workorder", enabled: true, status: "enabled" }),
     module("workorder", { enabled: true, status: "enabled" })
   ]), ["asset", "system", "workorder"]);

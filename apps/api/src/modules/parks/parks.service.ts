@@ -187,7 +187,7 @@ export class ParksService {
 
   private async assertParkModuleAccess(scope: TenantParkScope): Promise<void> {
     const rows = await this.dataSource.query(
-      `SELECT 1
+      `SELECT module.module_code AS "moduleCode"
          FROM rel_tenant_module assignment
          JOIN sys_module module
            ON module.id=assignment.module_id
@@ -202,15 +202,16 @@ export class ParksService {
           AND (assignment.expire_time IS NULL OR assignment.expire_time>now())
           AND (
             module.module_code='asset'
-            OR (
-              module.module_code='system'
-              AND assignment.feature_config->>'recoveryOnlyForParkStatus'='true'
-            )
+            OR module.module_code='system'
           )
-        LIMIT 1`,
+        `,
       [scope.tenantId, scope.parkId]
-    ) as unknown[];
-    if (rows.length === 0) {
+    ) as Array<{ moduleCode: string }>;
+    const assetEnabled = rows.some((row) => row.moduleCode === "asset");
+    const systemEnabled = rows.some((row) => row.moduleCode === "system");
+    const inactiveScopeSystem = systemEnabled
+      && !await hasCanonicalActiveAssetParkSource(this.dataSource.manager, scope);
+    if (!assetEnabled && !inactiveScopeSystem) {
       throw new ForbiddenException("Tenant module is not authorized");
     }
   }

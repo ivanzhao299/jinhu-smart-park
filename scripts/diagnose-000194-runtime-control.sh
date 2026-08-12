@@ -506,17 +506,20 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   SELECT
     CASE
       WHEN NOT (SELECT stage_valid FROM expected_contract) THEN 'migration_stage_drift'
-      WHEN tenant_key IS NULL OR park_key IS NULL
+	      WHEN tenant_key IS NULL OR park_key IS NULL
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-        OR (is_active AND tenant_count <> 1) THEN 'invalid_scope'
+	        OR (is_active AND tenant_count <> 1)
+	        OR exact_source_count > 1 THEN 'invalid_scope'
       WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'
       WHEN asset_count=0 AND asset_row_count=0
         AND is_active
         AND (
           exact_source_count=1
-          OR (
-            tenant_key='10000001'
+	          OR (
+	            exact_source_count=0
+	            AND
+	            tenant_key='10000001'
             AND park_key='20000001'
             AND default_source_count=1
           )

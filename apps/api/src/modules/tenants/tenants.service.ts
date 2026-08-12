@@ -280,9 +280,13 @@ export class TenantsService {
         && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true;
       const suspendedSelection = code === "asset"
         && item.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true;
+      const recoverySnapshot = item.featureConfig?.[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE] !== undefined
+        ? this.resolveRecoverySystemSnapshot(item.featureConfig)
+        : null;
       const scheduledRecoverySelection = code === "system"
         && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true
-        && item.featureConfig?.[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE] !== undefined;
+        && recoverySnapshot?.enabled === true
+        && recoverySnapshot.status === "enabled";
       return explicitlyEnabled || suspendedSelection || scheduledRecoverySelection ? [code] : [];
     }))];
   }
@@ -452,6 +456,28 @@ export class TenantsService {
       };
       tenant.updateBy = actorId;
       const authorizationChanged = dto.planCode !== undefined || dto.moduleCodes !== undefined;
+      const tenantParks = authorizationChanged
+        ? await manager.getRepository(ParkEntity).find({
+          where: { tenantId: tenant.tenantId, isDeleted: false },
+          order: { createTime: "ASC" }
+        })
+        : [];
+      const assignmentRows = dto.expireTime !== undefined
+        ? await manager.getRepository(TenantModuleEntity).find({
+          where: { tenantId: tenant.tenantId, isDeleted: false },
+          select: { parkId: true }
+        })
+        : [];
+      const lockParkIds = new Set([
+        ...tenantParks.map((park) => park.parkId),
+        ...assignmentRows.map((assignment) => assignment.parkId)
+      ]);
+      const lockedScopes = [...lockParkIds]
+        .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
+        .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
+      for (const scope of lockedScopes) {
+        await lockAssetScope(manager, scope);
+      }
       if (authorizationChanged) {
         const requestedPlanCode = dto.planCode === undefined ? tenant.planCode : dto.planCode;
         const plan = dto.planCode === undefined ? null : await this.resolvePlan(manager, actorScope, requestedPlanCode);
@@ -459,10 +485,6 @@ export class TenantsService {
         if (moduleCodes.length === 0) {
           throw new BadRequestException("Plan code or module codes are required");
         }
-        const tenantParks = await manager.getRepository(ParkEntity).find({
-          where: { tenantId: tenant.tenantId, isDeleted: false },
-          order: { createTime: "ASC" }
-        });
         const uniqueTenantParks = preferActiveTenantParkRows(tenantParks);
         const orderedTenantParks = [...uniqueTenantParks].sort((left, right) =>
           assetScopeLockKey({ tenantId: tenant.tenantId, parkId: left.parkId })
@@ -471,7 +493,6 @@ export class TenantsService {
         const activeParkIds = new Set<string>();
         for (const park of orderedTenantParks) {
           const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          await lockAssetScope(manager, scope);
           if (await hasCanonicalActiveAssetParkSource(manager, scope)) {
             activeParkIds.add(park.parkId);
           }
@@ -537,16 +558,6 @@ export class TenantsService {
         }
       }
       if (dto.expireTime !== undefined) {
-        const assignmentRows = await manager.getRepository(TenantModuleEntity).find({
-          where: { tenantId: tenant.tenantId, isDeleted: false },
-          select: { parkId: true }
-        });
-        const assignmentScopes = [...new Set(assignmentRows.map((item) => item.parkId))]
-          .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
-          .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
-        for (const scope of assignmentScopes) {
-          await lockAssetScope(manager, scope);
-        }
         await manager.getRepository(TenantModuleEntity).update(
           { tenantId: tenant.tenantId, isDeleted: false },
           { expireTime: tenant.expireTime, updateBy: actorId }
