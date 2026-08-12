@@ -5,7 +5,7 @@ set -eu
 mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
-canonical_reconcile_checksum="9f313cb929169108bee19c2379fe9fc4c6aaee24b6bc15c0d65d377e9d88acf3"
+canonical_reconcile_checksum="fd7093cd7d9659a669d25fe5df4eb49e0401677bc3814adfa73215218e52bdf3"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -32,13 +32,38 @@ run_psql() {
 }
 
 canonical_reconcile_state="pending"
-history_state="$({
-  run_psql <<SQL
+history_tables_state="$({
+  run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
 SET LOCAL search_path = public, pg_catalog;
 SELECT CASE
   WHEN to_regclass('public.sys_schema_migration_history') IS NULL
-    OR to_regclass('public.schema_migrations') IS NULL THEN 'pending'
+   AND to_regclass('public.schema_migrations') IS NULL THEN 'absent'
+  WHEN to_regclass('public.sys_schema_migration_history') IS NOT NULL
+   AND to_regclass('public.schema_migrations') IS NOT NULL THEN 'present'
+  ELSE 'partial'
+END;
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$history_tables_state" >&2
+  exit "$rc"
+}
+
+case "$history_tables_state" in
+  absent)
+    canonical_reconcile_state="pending"
+    ;;
+  partial)
+    canonical_reconcile_state="invalid"
+    ;;
+  present)
+    history_state="$({
+  run_psql <<SQL
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT CASE
   WHEN (SELECT count(*) FROM (
       SELECT filename,checksum,status FROM public.sys_schema_migration_history
       UNION ALL SELECT filename,checksum,status FROM public.schema_migrations
@@ -66,11 +91,25 @@ END;
 COMMIT;
 SQL
 } 2>&1)" || {
-  rc=$?
-  printf '%s\n' "$history_state" >&2
-  exit "$rc"
-}
-canonical_reconcile_state="$history_state"
+      rc=$?
+      printf '%s\n' "$history_state" >&2
+      exit "$rc"
+    }
+    canonical_reconcile_state="$history_state"
+    ;;
+esac
+
+if [ "$canonical_reconcile_state" = "invalid" ]; then
+  echo "000189 asset scope diagnostic (scope identifiers and aggregate counts only)"
+  echo "classification|tenant_id|park_id|assignments|tenants|asset_parks|exact_biz_parks|default_jh_parks|buildings|floors|units|orgs|exact_biz_park_codes"
+  echo "migration_history_drift|||0|0|0|0|0|0|0|0|0|"
+  printf 'summary: scopes=1 blocked=1 mode=%s\n' "$mode"
+  if [ "$mode" = "enforce" ]; then
+    echo "ERROR: 000207 migration history gate failed before deployment" >&2
+    exit 3
+  fi
+  exit 0
+fi
 
 rows="$({
   run_psql <<'SQL'

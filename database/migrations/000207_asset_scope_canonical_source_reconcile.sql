@@ -69,6 +69,23 @@ LOCK TABLE public.biz_park IN SHARE ROW EXCLUSIVE MODE;
 LOCK TABLE public.sys_property_runtime_control IN SHARE MODE;
 LOCK TABLE public.sys_property_runtime_control_contract_audit IN SHARE MODE;
 
+CREATE TEMP TABLE reconcile_000207_signed (
+  control_key varchar(128) PRIMARY KEY
+) ON COMMIT DROP;
+INSERT INTO reconcile_000207_signed VALUES
+  ('identity.legacy-read-v1'),
+  ('identity.legacy-write-v1'),
+  ('identity.change-capture'),
+  ('identity.mutation-replay'),
+  ('identity.shadow-compare'),
+  ('identity.enforce'),
+  ('approval.shadow-compare'),
+  ('approval.enforce'),
+  ('event-notification.shadow-compare'),
+  ('event-notification.enforce'),
+  ('task.shadow-compare'),
+  ('task.enforce');
+
 CREATE TEMP TABLE reconcile_000207_scope ON COMMIT DROP AS
 WITH active_scope AS (
   SELECT btrim(assignment.tenant_id::text) AS tenant_id,
@@ -130,6 +147,101 @@ SELECT state.*,
       AND source.park_code=state.projection_code) AS matching_source_count
 FROM state WHERE state.source_count>1;
 
+CREATE TEMP TABLE reconcile_000207_runtime_audit_drift ON COMMIT DROP AS
+WITH expected AS (
+  SELECT scope.tenant_id,scope.park_id,signed.control_key,correction.correction_key
+  FROM reconcile_000207_scope scope
+  CROSS JOIN reconcile_000207_signed signed
+  CROSS JOIN (VALUES
+    ('b2a-contract-correction-000194'),('b2a-contract-correction-000195')
+  ) correction(correction_key)
+), drift AS (
+  (SELECT * FROM expected
+   EXCEPT
+   SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+   FROM public.sys_property_runtime_control_contract_audit audit
+   JOIN reconcile_000207_scope scope
+     ON scope.tenant_id=audit.tenant_id AND scope.park_id=audit.park_id
+   WHERE audit.correction_key IN (
+     'b2a-contract-correction-000194','b2a-contract-correction-000195'))
+  UNION ALL
+  (SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+   FROM public.sys_property_runtime_control_contract_audit audit
+   JOIN reconcile_000207_scope scope
+     ON scope.tenant_id=audit.tenant_id AND scope.park_id=audit.park_id
+   WHERE audit.correction_key IN (
+     'b2a-contract-correction-000194','b2a-contract-correction-000195')
+   EXCEPT
+   SELECT * FROM expected)
+  UNION ALL
+  SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+  FROM public.sys_property_runtime_control_contract_audit audit
+  JOIN reconcile_000207_scope scope
+    ON scope.tenant_id=audit.tenant_id AND scope.park_id=audit.park_id
+  JOIN public.sys_property_runtime_control control
+    ON control.tenant_id=audit.tenant_id AND control.park_id=audit.park_id
+   AND control.id=audit.control_id
+  WHERE audit.control_key IS DISTINCT FROM control.control_key
+     OR (audit.correction_key='b2a-contract-correction-000194' AND (
+       audit.old_contract_hash IS DISTINCT FROM 'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'
+       OR audit.new_contract_hash IS DISTINCT FROM '81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+       OR audit.old_version IS DISTINCT FROM 1 OR audit.new_version IS DISTINCT FROM 2
+       OR audit.old_disabled_reason IS DISTINCT FROM 'expand-only'
+       OR audit.new_disabled_reason IS DISTINCT FROM 'b2a-contract-correction-000194'
+       OR audit.new_update_time IS DISTINCT FROM audit.occurred_at
+       OR audit.new_update_time<audit.old_update_time
+       OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+         'runtime-control-contract-audit-v1'||E'\n'
+         ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+         'UTF8'),'sha256'),'hex')))
+     OR (audit.correction_key='b2a-contract-correction-000195' AND (
+       audit.old_contract_hash IS DISTINCT FROM '81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+       OR audit.new_contract_hash IS DISTINCT FROM 'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+       OR audit.new_contract_hash IS DISTINCT FROM control.contract_hash
+       OR audit.old_version IS DISTINCT FROM 2 OR audit.new_version IS DISTINCT FROM 3
+       OR audit.new_version IS DISTINCT FROM control.version
+       OR audit.old_disabled_reason IS DISTINCT FROM 'b2a-contract-correction-000194'
+       OR audit.new_disabled_reason IS DISTINCT FROM 'b2a-contract-correction-000195'
+       OR audit.new_disabled_reason IS DISTINCT FROM control.disabled_reason
+       OR audit.old_update_time IS DISTINCT FROM (
+         SELECT prior.new_update_time
+         FROM public.sys_property_runtime_control_contract_audit prior
+         WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
+           AND prior.control_id=audit.control_id
+           AND prior.correction_key='b2a-contract-correction-000194')
+       OR audit.new_update_time IS DISTINCT FROM control.update_time
+       OR audit.occurred_at IS DISTINCT FROM control.update_time
+       OR audit.new_update_time<audit.old_update_time
+       OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+         'runtime-control-contract-audit-v2'||E'\n'
+         ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+         'UTF8'),'sha256'),'hex')))
+)
+SELECT * FROM drift;
+
 DO $$
 BEGIN
   IF EXISTS (
@@ -138,7 +250,7 @@ BEGIN
        OR projection_code IS NULL OR matching_source_count<>1
        OR control_count<>12 OR total_control_count<>12
        OR audit_count<>24 OR total_audit_count<>24 OR reconcile_audit_count<>0
-  ) THEN
+  ) OR EXISTS (SELECT 1 FROM reconcile_000207_runtime_audit_drift) THEN
     RAISE EXCEPTION 'asset-scope-canonical-source-reconcile-preflight-failed'
       USING ERRCODE='23514';
   END IF;
@@ -216,6 +328,8 @@ BEGIN
     WHERE source.status<>0 OR source.is_deleted<>true
        OR source.version<>retired.before_version+1
        OR source.update_time<>retired.occurred_at OR audit.id IS NULL
+  ) OR EXISTS (
+    SELECT 1 FROM reconcile_000207_runtime_audit_drift
   ) THEN
     RAISE EXCEPTION 'asset-scope-canonical-source-reconcile-postcondition-failed'
       USING ERRCODE='23514';

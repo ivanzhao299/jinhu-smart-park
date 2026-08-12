@@ -6,7 +6,7 @@ mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
 allow_seed_reconcile="${4:-no}"
-canonical_reconcile_checksum="9f313cb929169108bee19c2379fe9fc4c6aaee24b6bc15c0d65d377e9d88acf3"
+canonical_reconcile_checksum="fd7093cd7d9659a669d25fe5df4eb49e0401677bc3814adfa73215218e52bdf3"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -49,7 +49,9 @@ SET LOCAL search_path = public, pg_catalog;
 SELECT CASE
   WHEN to_regclass('public.sys_schema_migration_history') IS NOT NULL
    AND to_regclass('public.schema_migrations') IS NOT NULL THEN 'yes'
-  ELSE 'no'
+  WHEN to_regclass('public.sys_schema_migration_history') IS NULL
+   AND to_regclass('public.schema_migrations') IS NULL THEN 'no'
+  ELSE 'partial'
 END;
 COMMIT;
 SQL
@@ -58,6 +60,11 @@ SQL
   printf '%s\n' "$history_tables_present" >&2
   exit "$rc"
 }
+
+if [ "$history_tables_present" = "partial" ]; then
+  runtime_contract_stage="invalid"
+  canonical_reconcile_state="invalid"
+fi
 
 if [ "$history_tables_present" = "yes" ]; then
   correction_history_state="$({
@@ -218,6 +225,7 @@ SQL
 }
 
 if [ "$runtime_contract_stage" = "invalid" ] \
+  || [ "$canonical_reconcile_state" = "invalid" ] \
   || { [ "$runtime_contract_stage" != "pre_000194" ] \
     && { [ "$table_present" = "no" ] || [ "$audit_table_present" = "no" ]; }; }; then
   echo "000194 runtime control diagnostic (scope identifiers and aggregate counts only)"
@@ -447,6 +455,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   WHERE assignment.enabled = true
     AND assignment.status = 'enabled'
     AND assignment.is_deleted = false
+    AND (assignment.start_time IS NULL OR assignment.start_time <= clock_timestamp())
     AND (assignment.expire_time IS NULL OR assignment.expire_time > clock_timestamp())
   GROUP BY btrim(assignment.tenant_id::text), btrim(assignment.park_id::text)
 ), retained_scope AS (
@@ -558,6 +567,10 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 ), scope_rows AS (
   SELECT
     CASE
+	      WHEN tenant_key IS NULL OR park_key IS NULL
+        OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+        OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+        THEN 'invalid_scope'
       WHEN NOT (SELECT stage_valid FROM expected_contract) THEN 'migration_stage_drift'
 	      WHEN is_active AND tenant_count=1
 	        AND asset_count=1 AND asset_row_count=1
@@ -568,10 +581,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 	        AND :'runtime_contract_stage'='post_000195'
 	        AND :'runtime_compatibility_succeeded'='yes'
 	        THEN 'ready_ambiguous_source_migration_reconcile'
-	      WHEN tenant_key IS NULL OR park_key IS NULL
-        OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-        OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-	        OR (is_active AND tenant_count <> 1)
+	      WHEN (is_active AND tenant_count <> 1)
 	        OR (is_active AND NOT (
 	          exact_source_count=1
 	          OR (

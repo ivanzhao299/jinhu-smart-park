@@ -759,6 +759,13 @@ assert.match(assetScopeDiagnostic, /ready_exact_source/u);
 assert.match(assetScopeDiagnostic, /ready_default_jh_source/u);
 assert.match(assetScopeDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
 assert.match(assetScopeDiagnostic, /canonical_reconcile_state/u);
+assert.match(assetScopeDiagnostic, /history_tables_state=/u);
+assert.match(assetScopeDiagnostic, /ELSE 'partial'/u);
+assert.ok(
+  assetScopeDiagnostic.indexOf("history_tables_state=") <
+    assetScopeDiagnostic.indexOf("history_state="),
+  "asset-scope diagnostic must probe migration-history table presence before referencing either table"
+);
 assert.match(assetScopeDiagnostic, /matching_source_count = 1/u);
 assert.match(assetScopeDiagnostic, /building_count/u);
 assert.match(assetScopeDiagnostic, /floor_count/u);
@@ -820,6 +827,28 @@ assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
 assert.match(runtimeControlDiagnostic, /canonical_reconcile_state/u);
 assert.match(runtimeControlDiagnostic, /matching_source_count=1/u);
+assert.match(runtimeControlDiagnostic, /ELSE 'partial'/u);
+assert.match(runtimeControlDiagnostic, /canonical_reconcile_state" = "invalid"/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /assignment\.start_time IS NULL OR assignment\.start_time <= clock_timestamp\(\)/u,
+  "runtime-control active scopes must honor the assignment start window"
+);
+const invalidScopeBranch = runtimeControlDiagnostic.indexOf(
+  "WHEN tenant_key IS NULL OR park_key IS NULL"
+);
+const invalidStageBranch = runtimeControlDiagnostic.indexOf(
+  "WHEN NOT (SELECT stage_valid FROM expected_contract)"
+);
+const ambiguousReadyBranch = runtimeControlDiagnostic.indexOf(
+  "THEN 'ready_ambiguous_source_migration_reconcile'"
+);
+assert.ok(
+  invalidScopeBranch !== -1 &&
+    invalidScopeBranch < invalidStageBranch &&
+    invalidScopeBranch < ambiguousReadyBranch,
+  "invalid sentinel scope identifiers must be rejected before migration-stage or reconcile-ready branches"
+);
 assert.match(
   runtimeControlDiagnostic,
   /WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'/u,
@@ -926,6 +955,10 @@ for (const diagnostic of [assetScopeDiagnostic, runtimeControlDiagnostic]) {
 assert.match(canonicalSourceMigration, /matching_source_count<>1/u);
 assert.match(canonicalSourceMigration, /control_count<>12 OR total_control_count<>12/u);
 assert.match(canonicalSourceMigration, /audit_count<>24 OR total_audit_count<>24/u);
+assert.match(canonicalSourceMigration, /reconcile_000207_runtime_audit_drift/u);
+assert.match(canonicalSourceMigration, /runtime-control-contract-audit-v1/u);
+assert.match(canonicalSourceMigration, /runtime-control-contract-audit-v2/u);
+assert.match(canonicalSourceMigration, /audit\.evidence_hash IS DISTINCT FROM encode/u);
 assert.match(canonicalSourceMigration, /sys_asset_scope_canonical_reconcile_audit/u);
 assert.match(canonicalSourceMigration, /BEFORE UPDATE OR DELETE/u);
 assert.match(canonicalSourceMigration, /status=0,is_deleted=true,version=target\.version\+1/u);
@@ -937,6 +970,12 @@ assert.match(
 );
 assert.match(canonicalSourceFixture, /ready_ambiguous_source_migration_reconcile/u);
 assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
+assert.match(canonicalSourceFixture, /failure_audit_count/u);
+assert.match(canonicalSourceFixture, /test "\$failure_audit_count" = '0'/u);
+assert.match(canonicalSourceFixture, /RELEASE_000207_AUDIT_DRIFT/u);
+assert.match(canonicalSourceFixture, /runtime-control audit evidence drift to stop 000207/u);
+assert.match(canonicalSourceFixture, /migration_history_drift/u);
+assert.match(canonicalSourceFixture, /Future asset assignments must not enter canonical reconciliation/u);
 assert.match(canonicalSourceFixture, /already succeeded, checksum matched/u);
 const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
 const enforceScopeStep = productionDeployWorkflow.indexOf(
