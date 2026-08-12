@@ -47,6 +47,7 @@ interface UserRoleOption {
   status: string;
   isEnabled: boolean;
   isAssignable: boolean;
+  isProtected: boolean;
 }
 
 interface UserRoleContext {
@@ -616,7 +617,7 @@ export default function UsersPage() {
                     {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
                     {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色</span> : null}
                     {roleCandidates.map((role) => {
-                      const protectedRole = !role.isAssignable && role.isEnabled && role.status === "enabled";
+                      const protectedRole = role.isProtected;
                       const unavailableOrdinaryRole = !role.isAssignable && !protectedRole;
                       const unavailable = protectedRole || unavailableOrdinaryRole;
                       const selected = selectedRoleIds.includes(role.id) || protectedRole;

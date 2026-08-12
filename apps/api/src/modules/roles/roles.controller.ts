@@ -156,7 +156,12 @@ export class RolesController {
 
   @Post(":id/copy")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_COPY, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.ROLE_COPY,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY
+  )
   @AuditLog({ module: "角色管理", resource: "system.role", action: "复制", bizType: "role", bizIdParam: "id" })
   copy(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Body() dto: CopyRoleDto) {
     return this.rolesService.copy(scope, user.sub, id, dto);

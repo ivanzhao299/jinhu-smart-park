@@ -79,6 +79,7 @@ export interface UserRoleView {
   status: string;
   isEnabled: boolean;
   isAssignable: boolean;
+  isProtected: boolean;
 }
 
 export interface UserRoleContext {
@@ -1098,7 +1099,8 @@ export class UsersService {
       roleScope: role.roleScope,
       status: role.status,
       isEnabled: role.isEnabled && !role.isDeleted,
-      isAssignable
+      isAssignable,
+      isProtected: this.isRoleAssignmentProtected(role)
     };
   }
 

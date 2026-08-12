@@ -48,7 +48,7 @@ test("role copy is transactional and carries permission, field and current-park 
   assert.match(source, /overridesDataScope[\s\S]*Promise\.resolve\(\[\]\)[\s\S]*dataScopeRepository\.find/);
   assert.match(source, /appliedBundleCodes: isManagedPropertyTemplate \? \[\]/);
   assert.match(source, /appliedBundleSignature: isManagedPropertyTemplate \? null/);
-  assert.match(controllerSource, /Post\(":id\/copy"\)[\s\S]*RequirePermissions\(SYSTEM_PERMISSIONS\.ROLE_COPY, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\)/);
+  assert.match(controllerSource, /Post\(":id\/copy"\)[\s\S]*RequirePermissions\([\s\S]*ROLE_COPY[\s\S]*ROLE_ASSIGN_PERMISSIONS[\s\S]*ROLE_ASSIGN_DATA_SCOPE[\s\S]*ROLE_ASSIGN_FIELD_POLICY/);
 });
 
 test("all direct binding mutations reject protected roles and permission updates share the role lock", () => {
