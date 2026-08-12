@@ -706,7 +706,8 @@ export class TenantsService {
   async reconcileCurrentTenantAdminPermissions(
     manager: EntityManager,
     scope: TenantParkScope,
-    actorId: string
+    actorId: string,
+    preserveParkRecoveryGrants = false
   ): Promise<void> {
     const tenant = await manager.getRepository(TenantEntity).findOne({
       where: { tenantId: scope.tenantId, isDeleted: false }
@@ -736,13 +737,20 @@ export class TenantsService {
       throw new BadRequestException("Permission seed source is empty");
     }
     const role = await this.getOrCreateTenantAdminRole(manager, tenant, scope.parkId, actorId);
+    const permissionCodes = this.permissionCodesForModules(
+      this.assignmentPermissionPatterns(selectedAssignments),
+      moduleCodes
+    );
+    if (preserveParkRecoveryGrants) {
+      permissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
+    }
     await this.applyTenantAdminPermissions(
       manager,
       scope,
       role,
       permissions,
       moduleCodes,
-      this.permissionCodesForModules(this.assignmentPermissionPatterns(selectedAssignments), moduleCodes),
+      permissionCodes,
       actorId
     );
     await this.ensureAssetScopeProvisioning(manager, scope, moduleCodes, actorId);

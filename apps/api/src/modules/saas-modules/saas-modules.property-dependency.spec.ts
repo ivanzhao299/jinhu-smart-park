@@ -104,10 +104,12 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
   assert.equal((source.match(/reconcileInactiveAssetRecovery\(manager, scope, actorId\)/g) ?? []).length, 3);
   assert.match(source, /reconcileDeactivatedParkAuthorization\(manager, scope, actorId\)/);
-  assert.equal((source.match(/reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/g) ?? []).length, 2);
-  assert.match(source, /reconcileCurrentTenantAdminPermissions\(manager, scope, actorId\)/);
-  assert.equal((source.match(/reconcileSystemAuthorizationAfterWrite\(manager, scope, actorId/g) ?? []).length, 2);
-  assert.match(source, /if \(!enabled && !await this\.isParkActive\(manager, scope\)\)[\s\S]*reconcileInactiveAssetRecovery/);
+  assert.doesNotMatch(source, /reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/);
+  assert.match(source, /reconcileCurrentTenantAdminPermissions\([\s\S]*?preserveParkRecoveryGrants/);
+  assert.equal((source.match(/reconcileSystemAuthorizationAfterWrite\(manager, scope, actorId/g) ?? []).length, 3);
+  assert.match(source, /const parkActive = await this\.isParkActive\(manager, scope\)/);
+  assert.match(source, /if \(!enabled && !parkActive\)[\s\S]*reconcileInactiveAssetRecovery/);
+  assert.match(source, /reconcileExplicitSystemAuthorization\(manager, scope, actorId, !parkActive\)/);
 });
 
 test("module writes acquire the asset scope lock before dependency and assignment locks", () => {

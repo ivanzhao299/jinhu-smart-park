@@ -1228,3 +1228,15 @@ test("reactivating a park restores a future-dated asset assignment before its wi
   assert.equal(recoverable(futureAssignment, now), true);
   assert.equal(recoverable({ ...futureAssignment, expireTime: new Date(now - 1) } as TenantModuleEntity, now), false);
 });
+
+test("current tenant-admin convergence preserves park recovery grants for inactive canonical scopes", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const block = source.slice(
+    source.indexOf("async reconcileCurrentTenantAdminPermissions"),
+    source.indexOf("async reconcileDeactivatedParkAuthorization")
+  );
+  assert.match(block, /preserveParkRecoveryGrants = false/);
+  assert.match(block, /if \(preserveParkRecoveryGrants\)/);
+  assert.match(block, /permissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
+  assert.ok(block.indexOf("permissionCodes.push") < block.indexOf("applyTenantAdminPermissions"));
+});

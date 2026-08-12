@@ -141,7 +141,7 @@ export class ParksService {
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultScopeWasActive = defaultScopeProtected
-      ? await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE)
+      ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, DEFAULT_PLATFORM_SCOPE)
       : false;
     const renamesCrossScopeDefaultSource = nextCode !== undefined
       && nextCode !== "JH"
@@ -276,6 +276,18 @@ export class ParksService {
     scope: TenantParkScope
   ): Promise<boolean> {
     return hasCanonicalActiveAssetParkSource(manager, scope);
+  }
+
+  private async hasValidCanonicalParkSourceBeforeMutation(
+    manager: EntityManager,
+    scope: TenantParkScope
+  ): Promise<boolean> {
+    try {
+      return await this.hasActiveCanonicalParkSource(manager, scope);
+    } catch (error) {
+      if (error instanceof ConflictException) return false;
+      throw error;
+    }
   }
 
   private async applyParkDataScope(builder: SelectQueryBuilder<ParkEntity>, actor?: JwtPrincipal): Promise<void> {

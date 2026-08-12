@@ -366,7 +366,7 @@ export class SaaSModulesService {
       } else if (module.moduleCode === "asset") {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       } else if (module.moduleCode === "system") {
-        await this.reconcileExplicitSystemAuthorization(manager, scope, actorId);
+        await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
       }
       return saved;
     });
@@ -701,12 +701,18 @@ export class SaaSModulesService {
   private async reconcileExplicitSystemAuthorization(
     manager: EntityManager,
     scope: TenantParkScope,
-    actorId: string
+    actorId: string,
+    preserveParkRecoveryGrants: boolean
   ): Promise<void> {
     if (!this.tenantsService) {
       throw new Error("TenantsService is required for system authorization convergence");
     }
-    await this.tenantsService.reconcileCurrentTenantAdminPermissions(manager, scope, actorId);
+    await this.tenantsService.reconcileCurrentTenantAdminPermissions(
+      manager,
+      scope,
+      actorId,
+      preserveParkRecoveryGrants
+    );
   }
 
   private async reconcileSystemAuthorizationAfterWrite(
@@ -715,11 +721,12 @@ export class SaaSModulesService {
     actorId: string,
     enabled: boolean
   ): Promise<void> {
-    if (!enabled && !await this.isParkActive(manager, scope)) {
+    const parkActive = await this.isParkActive(manager, scope);
+    if (!enabled && !parkActive) {
       await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       return;
     }
-    await this.reconcileExplicitSystemAuthorization(manager, scope, actorId);
+    await this.reconcileExplicitSystemAuthorization(manager, scope, actorId, !parkActive);
   }
 
   private async getPlan(scope: TenantParkScope, id: string): Promise<PlanEntity> {

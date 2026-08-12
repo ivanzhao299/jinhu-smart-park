@@ -45,6 +45,7 @@
 43. Review #27：system upsert disable 同样撤销完整权限；inactive park 的 system disable 自动重建 recovery-only system 与最小 park 权限；跨 scope JH fallback 停用时同步收敛默认平台 scope。
 44. Review #28：跨 scope JH fallback 恢复时同步恢复默认平台 scope；system standalone 授权禁止有限到期；inactive asset assignment 重试保留 suspension intent。
 45. Review #29：active 园区改为 JH 时按默认 canonical source 状态转换恢复默认 scope；显式 system 提升清除 recovery 时间窗与 snapshot；诊断对所有 active scope 强制 canonical source fail-closed。
+46. Review #30：inactive scope 的普通 system 权限收敛保留 park read/update；默认 scope 变更前允许歧义进入修复事务，但变更后仍由严格 canonical resolver fail-closed。
 
 ## 验证记录
 
