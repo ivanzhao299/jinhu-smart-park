@@ -329,6 +329,7 @@ WHERE link.tenant_id=scope.tenant_id AND link.park_id=scope.park_id
     SELECT 1 FROM property_role_template_permission expected
     WHERE expected.template_code=role.code AND expected.permission_code=permission.code
       AND permission.tenant_id=scope.tenant_id
+      AND permission.is_deleted=false AND permission.is_enabled=true AND permission.status='enabled'
   );
 
 INSERT INTO rel_role_perm (

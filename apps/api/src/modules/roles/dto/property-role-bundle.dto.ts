@@ -46,9 +46,10 @@ export class CreatePropertyRoleFromBundlesDto extends PreviewPropertyRoleBundles
   code!: string;
 
   @IsString()
-  @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @Transform(({ value }) => typeof value === "string" ? [...value].filter((character) => !/\p{Default_Ignorable_Code_Point}/u.test(character)).join("").trim() : value)
   @MinLength(1)
   @MaxLength(100)
+  @Matches(/\p{L}/u, { message: "name must contain at least one Unicode letter" })
   name!: string;
 
   @IsOptional()

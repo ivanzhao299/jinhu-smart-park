@@ -727,7 +727,7 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
   -c "DELETE FROM public.biz_park
-      WHERE tenant_id='10000001' AND park_id='20000001'
+      WHERE tenant_id='10000001' AND park_id='20000002'
         AND park_code='JH_SECOND_ACTIVE_PARK'
         AND remark='production-seed-multi-park-scope-regression';"
 
