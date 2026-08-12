@@ -18,6 +18,7 @@
 16. Review #11：租户恢复直接遍历 assignment scope 以保留默认 JH fallback；投影编辑校验真实 biz_park canonical；允许非 active 冗余园区和默认 scope 按 resolver 语义逐步清理。
 17. Review #12：投影更新执行完整 provisioning；园区 recovery API 以 park 权限为双模块共同权威并在 asset/system 菜单各提供入口；孤立 projection 只同步投影、不生成 runtime controls/audits。
 18. 独立复核：同一路由存在 asset/system 双菜单时，DashboardLayout 按任一匹配节点可访问即放行，避免首匹配 asset 节点使 inactive system recovery 误跳 403。
+19. Review #13：tenant-wide 登录授权与重新激活均按 parkId 字典序获取 scope advisory lock，消除多园区并发反序死锁。
 
 ## 验证记录
 

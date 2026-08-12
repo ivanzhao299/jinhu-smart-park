@@ -423,6 +423,7 @@ export class TenantsService {
           order: { createTime: "ASC" }
         });
         const uniqueTenantParks = preferActiveTenantParkRows(tenantParks);
+        const orderedTenantParks = [...uniqueTenantParks].sort((left, right) => left.parkId.localeCompare(right.parkId));
         const activeTenantParks = uniqueTenantParks.filter((park) => park.status === 1);
         const firstAuthorizationPark = activeTenantParks[0] ?? uniqueTenantParks[0];
         if (!firstAuthorizationPark) {
@@ -439,7 +440,7 @@ export class TenantsService {
         const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
         const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
-        for (const park of uniqueTenantParks) {
+        for (const park of orderedTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
           const parkModuleCodes = park.status === 1
             ? moduleCodes
@@ -541,7 +542,7 @@ export class TenantsService {
         .filter((assignment) => (!assignment.startTime || assignment.startTime.getTime() <= now)
           && (!assignment.expireTime || assignment.expireTime.getTime() > now))
         .map((assignment) => assignment.parkId));
-      for (const parkId of eligibleParkIds) {
+      for (const parkId of [...eligibleParkIds].sort()) {
         const scope = { tenantId: tenant.tenantId, parkId };
         await lockAssetScope(manager, scope);
         if (!await hasActiveAssetAssignment(manager, scope)) {

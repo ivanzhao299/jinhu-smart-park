@@ -224,13 +224,14 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
   assert.match(source, /const uniqueTenantParks = preferActiveTenantParkRows\(tenantParks\)/);
+  assert.match(source, /const orderedTenantParks = \[\.\.\.uniqueTenantParks\]\.sort\(\(left, right\) => left\.parkId\.localeCompare\(right\.parkId\)\)/);
   assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => park\.status === 1\)/);
   assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
   assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
   assert.match(source, /getRepository\(ParkEntity\)\.find/);
   assert.match(source, /authorizationScope/);
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
-  assert.match(source, /for \(const park of uniqueTenantParks\)/);
+  assert.match(source, /for \(const park of orderedTenantParks\)/);
   assert.match(source, /resolvedModuleCodes = activeTenantParks\.length === uniqueTenantParks\.length/);
   assert.match(source, /normalizeCodes\(\[\.\.\.moduleCodes\.filter\(\(code\) => code !== "asset"\), "system"\]\)/);
   assert.match(source, /const parkModules = modules\.filter\(\(module\) => selectedParkModuleCodes\.has\(module\.moduleCode\)\)/);
@@ -309,7 +310,7 @@ test("tenant reactivation provisions every currently eligible asset scope before
   assert.match(helperBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
   assert.match(helperBlock, /assignment\.startTime\.getTime\(\) <= now/);
   assert.match(helperBlock, /assignment\.expireTime\.getTime\(\) > now/);
-  assert.match(helperBlock, /for \(const parkId of eligibleParkIds\)/);
+  assert.match(helperBlock, /for \(const parkId of \[\.\.\.eligibleParkIds\]\.sort\(\)\)/);
   assert.match(helperBlock, /await lockAssetScope\(manager, scope\)/);
   assert.match(helperBlock, /if \(!await hasActiveAssetAssignment\(manager, scope\)\)/);
   assert.match(helperBlock, /await ensureAssetScopeProvisioned\(manager, scope, actorId\)/);
