@@ -34,7 +34,7 @@ export class ParksController {
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_CREATE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "新增", bizType: "biz_park" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateParkDto) {
-    return this.parksService.create(scope, user.sub, dto);
+    return this.parksService.create(scope, user, dto);
   }
 
   @Put(":id")

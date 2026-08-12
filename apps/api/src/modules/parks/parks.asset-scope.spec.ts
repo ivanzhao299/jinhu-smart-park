@@ -21,6 +21,12 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
   assert.match(source, /syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
   assert.equal((source.match(/await this\.lockMutationScopes\(manager, scope, true\)/g) ?? []).length, 3);
+  const createBlock = source.slice(source.indexOf("async create("), source.indexOf("async update("));
+  assert.match(createBlock, /assertDefaultFallbackMutationAllowed\(scope, actor, parkCode === "JH"\)/);
+  assert.match(createBlock, /const defaultScopeWasActive = defaultScopeProtected[\s\S]*hasValidCanonicalParkSourceBeforeMutation/);
+  assert.match(createBlock, /const defaultScopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
+  assert.match(createBlock, /defaultScopeProtected && saved\.status === 1 && defaultScopeIsSecondary[\s\S]*!defaultScopeWasActive && defaultScopeRemainsActive[\s\S]*reconcileReactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
+  assert.match(source, /Only super administrator can change the default JH fallback/);
   const updateBlock = source.slice(source.indexOf("async update("), source.indexOf("async softDelete("));
   assert.ok(updateBlock.indexOf("lockMutationScopes") < updateBlock.indexOf('lock: { mode: "pessimistic_write" }'));
   const deleteBlock = source.slice(source.indexOf("async softDelete("), source.indexOf("private scopedBuilder"));

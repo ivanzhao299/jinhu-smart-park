@@ -47,6 +47,7 @@
 45. Review #29：active 园区改为 JH 时按默认 canonical source 状态转换恢复默认 scope；显式 system 提升清除 recovery 时间窗与 snapshot；诊断对所有 active scope 强制 canonical source fail-closed。
 46. Review #30：inactive scope 的普通 system 权限收敛保留 park read/update；默认 scope 变更前允许歧义进入修复事务，但变更后仍由严格 canonical resolver fail-closed。
 47. Review #31：inactive 园区权限仅从已生效 assignment 派生；租户恢复遍历所有 assignment scope，消费 suspension/recovery marker、重建权限并预配恢复后的 asset。
+48. Review #32：跨 scope 新建唯一 active JH 时按默认 canonical source inactive→active 转换同步恢复默认平台 assignment 与 TENANT_ADMIN 权限。
 
 ## 验证记录
 

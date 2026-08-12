@@ -75,14 +75,21 @@ export class ParksService {
     return entity;
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateParkDto): Promise<ParkEntity> {
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateParkDto): Promise<ParkEntity> {
     return this.dataSource.transaction(async (manager) => {
     const parkCode = dto.parkCode.trim();
+    this.assertDefaultFallbackMutationAllowed(scope, actor, parkCode === "JH");
     await this.lockMutationScopes(manager, scope, true);
     await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
+    const protectedScopeWasActive = protectedScope
+      ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, scope)
+      : false;
     const defaultScopeProtected = parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
+    const defaultScopeWasActive = defaultScopeProtected
+      ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, DEFAULT_PLATFORM_SCOPE)
+      : false;
     const activeSources = await manager.getRepository(ParkEntity).count({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
     });
@@ -112,13 +119,24 @@ export class ParksService {
       landArea: this.numberToDecimal(dto.landArea) ?? "0",
       status: dto.status ?? 1,
       remark: this.emptyToNull(dto.remark),
-      createBy: actorId,
-      updateBy: actorId
+      createBy: actor.sub,
+      updateBy: actor.sub
     });
     const saved = await repository.save(entity);
-    if (protectedScope && saved.status === 1) await this.syncCanonicalAssetProjection(manager, scope, actorId);
-    if (defaultScopeProtected && saved.status === 1) {
-      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actorId);
+    if (protectedScope && saved.status === 1) {
+      await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
+      if (!protectedScopeWasActive) {
+        await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
+      }
+    }
+    const defaultScopeIsSecondary = scope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
+      || scope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
+    if (defaultScopeProtected && saved.status === 1 && defaultScopeIsSecondary) {
+      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+      const defaultScopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE);
+      if (!defaultScopeWasActive && defaultScopeRemainsActive) {
+        await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+      }
     }
     return saved;
     });
@@ -138,6 +156,7 @@ export class ParksService {
     const wasActive = entity.status === 1;
     const nextCode = dto.parkCode?.trim();
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
+    this.assertDefaultFallbackMutationAllowed(scope, actor, touchesDefaultFallback);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultScopeWasActive = defaultScopeProtected
@@ -242,6 +261,7 @@ export class ParksService {
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Park not found");
+    this.assertDefaultFallbackMutationAllowed(scope, actor, entity.parkCode === "JH");
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     if (protectedScope) {
@@ -287,6 +307,18 @@ export class ParksService {
     } catch (error) {
       if (error instanceof ConflictException) return false;
       throw error;
+    }
+  }
+
+  private assertDefaultFallbackMutationAllowed(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    touchesDefaultFallback: boolean
+  ): void {
+    const isDefaultScope = scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
+      && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId;
+    if (touchesDefaultFallback && !isDefaultScope && !actor.isSuper && !actor.permissions.includes("*")) {
+      throw new ForbiddenException("Only super administrator can change the default JH fallback");
     }
   }
 
