@@ -143,6 +143,7 @@ export class PropertyOperationsService {
       .addSelect("COALESCE(config.operating_status, 'enabled')", "operationStatus")
       .addSelect("config.effective_time", "effectiveTime")
       .addSelect("config.suspend_reason", "suspendReason")
+      .addSelect("config.remark", "remark")
       .addSelect("COALESCE(config.version, 0)", "version")
       .addSelect("COALESCE(config.update_time, unit.update_time)", "updateTime")
       .orderBy(sortColumns[query.sort], direction)
@@ -182,6 +183,7 @@ export class PropertyOperationsService {
       operationStatus: config?.operatingStatus ?? "enabled",
       effectiveTime: config?.effectiveTime ?? null,
       suspendReason: config?.suspendReason ?? null,
+      remark: config?.remark ?? null,
       version: config?.version ?? 0,
       updateTime: config?.updateTime ?? unit.updateTime
     });
@@ -248,7 +250,7 @@ export class PropertyOperationsService {
         config.operatingStatus = dto.operating_status;
         config.suspendReason = dto.operating_status === "enabled" ? null : dto.suspend_reason?.trim() ?? null;
         config.updateBy = actor.sub;
-        if (dto.remark !== undefined) config.remark = dto.remark.trim() || null;
+        if (dto.remark !== undefined) config.remark = dto.remark?.trim() || null;
       }
       return configRepository.save(config);
     });
@@ -690,6 +692,7 @@ export class PropertyOperationsService {
       operationStatus: String(row.operationStatus ?? "enabled"),
       effectiveTime: this.isoOrNull(row.effectiveTime),
       suspendReason: row.suspendReason ?? null,
+      remark: row.remark ?? null,
       version: Number(row.version ?? 0),
       updateTime: this.isoOrNull(row.updateTime),
       liveOwningAggregateCounts: {

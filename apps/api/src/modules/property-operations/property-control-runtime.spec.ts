@@ -16,6 +16,7 @@ import {
   PropertyOperationsController
 } from "./property-operations.controller";
 import { PropertyOccupanciesController } from "./property-occupancies.controller";
+import { PropertyOccupanciesService } from "./property-occupancies.service";
 import { PropertyOperationsService } from "./property-operations.service";
 
 test("the frozen nine property control routes expose the missing list/detail endpoints", () => {
@@ -296,6 +297,34 @@ test("configure clears an asset mapping only when null is explicitly submitted",
   }
 });
 
+test("configure preserves an omitted remark and clears an explicit null remark", async () => {
+  for (const [dto, expected] of [
+    [{ version: 2, operating_status: "enabled" }, "既有备注"],
+    [{ version: 2, operating_status: "enabled", remark: null }, null]
+  ] as const) {
+    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: null };
+    const config = { id: "config-1", unitId: "unit-1", version: 2, operatingStatus: "enabled", remark: "既有备注" as string | null };
+    const manager = {
+      getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
+        ? { findOne: async () => unit, save: async () => unit }
+        : { findOne: async () => config, save: async () => config }
+    };
+    const service = new PropertyOperationsService(
+      {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+      { assertAccess: async () => unit } as never,
+      { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never
+    );
+
+    await service.configure(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      { sub: "operator-1", username: "operator", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE] },
+      "unit-1",
+      dto
+    );
+    assert.equal(config.remark, expected);
+  }
+});
+
 test("control reads combine exact page and action permissions", () => {
   assert.deepEqual(
     Reflect.getMetadata(
@@ -433,6 +462,27 @@ test("source identifiers and deep links are emitted only by a server allowlist",
   assert.match(service, /permissions\.every/);
   assert.match(service, /encodeURIComponent\(id\)/);
   assert.match(service, /return \{\};/);
+  assert.match(service, /actor\.isSuper === true \|\| actor\.permissions\.includes\("\*"\)/);
+});
+
+test("occupancy source projection honors super and wildcard grants without bypassing the domain allowlist", () => {
+  const service = new PropertyOccupanciesService(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never
+  ) as unknown as {
+    projectSource: (
+      actor: { permissions: string[]; isSuper?: boolean },
+      sourceDomain: string,
+      sourceId: string
+    ) => { sourceId?: string; deepLink?: string };
+  };
+
+  for (const actor of [{ permissions: ["*"] }, { permissions: [], isSuper: true }]) {
+    assert.deepEqual(service.projectSource(actor, "housing_rental", "lease-1"), {
+      sourceId: "lease-1",
+      deepLink: "/housing/leases/lease-1"
+    });
+  }
+  assert.deepEqual(service.projectSource({ permissions: ["*"] }, "maintenance", "lock-1"), {});
 });
 
 test("occupancy reads join units with the full tenant and park scope instead of relation metadata", () => {

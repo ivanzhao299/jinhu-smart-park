@@ -8,6 +8,12 @@ const trimOptional = (value: unknown): string | undefined => {
   return trimmed || undefined;
 };
 
+const trimNullableOptional = (value: unknown): string | null | undefined => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return String(value).trim() || null;
+};
+
 export class ConfigurePropertyUnitDto {
   @Type(() => Number)
   @IsInt()
@@ -28,8 +34,8 @@ export class ConfigurePropertyUnitDto {
   suspend_reason?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trimOptional(value))
+  @Transform(({ value }) => trimNullableOptional(value))
   @IsString()
   @MaxLength(500)
-  remark?: string;
+  remark?: string | null;
 }

@@ -34,6 +34,7 @@ interface OperationRow {
   operationStatus: string;
   assetUnitId: string | null;
   suspendReason: string | null;
+  remark: string | null;
   effectiveTime: string | null;
   liveOwningAggregateCounts: Record<string, number>;
   sharedOccupancy: { activeCount: number; incompatibleCount: number };
@@ -395,6 +396,7 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
     } },
     { key: "effective", label: "生效时间", render: (item) => formatTime((item as OperationRow).effectiveTime) },
     { key: "suspendReason", label: "暂停/停用原因", render: (item) => (item as OperationRow).suspendReason || "—" },
+    { key: "remark", label: "备注", render: (item) => (item as OperationRow).remark || "—" },
     { key: "occupancy", label: "当前占用", render: (item) => operationOccupancySummary(item as OperationRow) },
     { key: "blockers", label: "阻断项", render: (item) => {
       const blockers = (item as OperationRow).blockers;
@@ -524,7 +526,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
         {surface === "occupancies" && isManualOccupancy(detail as OccupancyRow) ? <PermissionGuard
           module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_RELEASE}
         ><button className="ds-button" onClick={() => setReleaseMode("normal")} type="button">释放人工锁房</button></PermissionGuard> : null}
-        {surface === "occupancies" && !isTerminalOccupancy(detail as OccupancyRow) ? <PermissionGuard
+        {surface === "occupancies" && !isTerminalOccupancy(detail as OccupancyRow) && !isManualOccupancy(detail as OccupancyRow) ? <PermissionGuard
           module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE}
         ><PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_FORCE_RELEASE}>
           <button className="ds-button" onClick={() => setReleaseMode("force")} type="button">申请强制释放</button>
@@ -559,7 +561,7 @@ function OperationWriteControls({ item, onCompleted }: {
   const [status, setStatus] = useState(item.operationStatus);
   const [assetUnitId, setAssetUnitId] = useState(item.assetUnitId ?? "");
   const [suspendReason, setSuspendReason] = useState(item.suspendReason ?? "");
-  const [remark, setRemark] = useState("");
+  const [remark, setRemark] = useState(item.remark ?? "");
   const [targetMode, setTargetMode] = useState(item.configuredMode);
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -572,6 +574,7 @@ function OperationWriteControls({ item, onCompleted }: {
     setStatus(item.operationStatus);
     setAssetUnitId(item.assetUnitId ?? "");
     setSuspendReason(item.suspendReason ?? "");
+    setRemark(item.remark ?? "");
     setTargetMode(item.configuredMode);
     transitionKey.current = null;
     transitionPayload.current = null;
@@ -597,7 +600,7 @@ function OperationWriteControls({ item, onCompleted }: {
           asset_unit_id: assetUnitId.trim() || null,
           operating_status: status,
           ...(status === "enabled" ? {} : { suspend_reason: suspendReason.trim() }),
-          ...(remark.trim() ? { remark: remark.trim() } : {})
+          remark: remark.trim() || null
         }
       });
       configureKey.current = null;

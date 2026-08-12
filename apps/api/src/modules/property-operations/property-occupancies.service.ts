@@ -750,9 +750,10 @@ export class PropertyOccupanciesService {
       }
     };
     const rule = rules[sourceDomain];
-    if (!rule || !rule.permissions.every((permission) =>
+    const hasGlobalPermission = actor.isSuper === true || actor.permissions.includes("*");
+    if (!rule || (!hasGlobalPermission && !rule.permissions.every((permission) =>
       actor.permissions.includes(permission)
-    )) {
+    ))) {
       return {};
     }
     return { sourceId, deepLink: rule.build(sourceId) };
