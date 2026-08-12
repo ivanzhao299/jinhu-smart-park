@@ -225,6 +225,9 @@ test("000206 forward-migrates the property asset manager bundle to the 18-member
   assert.match(migration, /property_occupancy:activate/);
   assert.match(migration, /property_occupancy:release/);
   assert.match(migration, /SET is_deleted=true,version=version\+1/);
+  assert.match(migration, /remark='PR192 Track B frozen permission bundle'/);
+  const bundleUpdate = migration.match(/UPDATE sys_property_permission_bundle[\s\S]*?WHERE id=target_bundle_id;/)?.[0] ?? "";
+  assert.doesNotMatch(bundleUpdate, /remark=/);
   assert.match(migration, /property-asset-manager-bundle-preflight-failed/);
   assert.match(migration, /property-asset-manager-bundle-definition-drift/);
   assert.doesNotMatch(migration, /\b(?:DROP\s+(?:TABLE|SCHEMA)|TRUNCATE)\b/i);

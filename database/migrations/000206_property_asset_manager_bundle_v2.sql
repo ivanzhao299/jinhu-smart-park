@@ -81,8 +81,7 @@ BEGIN
   UPDATE sys_property_permission_bundle
   SET definition_version=2,
       definition_hash='171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7',
-      version=version+1,update_time=clock_timestamp(),
-      remark='PR259 property asset manager bundle v2'
+      version=version+1,update_time=clock_timestamp()
   WHERE id=target_bundle_id;
 
   WITH actual AS (
@@ -98,6 +97,7 @@ BEGIN
     SELECT 1 FROM sys_property_permission_bundle
     WHERE id=target_bundle_id AND definition_version=2
       AND definition_hash='171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7'
+      AND remark='PR192 Track B frozen permission bundle'
       AND status='enabled' AND is_deleted=false
   ) THEN
     RAISE EXCEPTION 'property-asset-manager-bundle-definition-drift' USING ERRCODE='23514';
