@@ -137,6 +137,7 @@ export default function RolesPage() {
   const [selectedBundleCodes, setSelectedBundleCodes] = useState<string[]>([]);
   const [bundleMode, setBundleMode] = useState<"merge" | "sync">("merge");
   const [bundlePreview, setBundlePreview] = useState<PropertyBundlePreview | null>(null);
+  const [bundleApplying, setBundleApplying] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
@@ -341,7 +342,9 @@ export default function RolesPage() {
   }
 
   async function applyBundles() {
-    if (!selectedRole) return;
+    if (!selectedRole || bundleApplying) return;
+    setBundleApplying(true);
+    try {
     const preview = bundlePreview ?? await previewBundles(selectedRole.id);
     if (preview.roleVersion !== selectedRole.version) throw new Error("角色版本已变化，请重新预览");
     if (preview.requiresRemovalConfirmation && !window.confirm(`同步将删除 ${preview.removeExtra.length} 项额外权限，是否继续？`)) return;
@@ -360,6 +363,9 @@ export default function RolesPage() {
     });
     setMessage("权限包已应用，角色权限与 current_park 数据范围已更新");
     await load(data.page, response.data.id);
+    } finally {
+      setBundleApplying(false);
+    }
   }
 
   async function createFromBundles() {
@@ -465,7 +471,7 @@ export default function RolesPage() {
                   <div className="system-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRole.isTemplate ? <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_COPY} type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</PermissionButton> : null}
+                    {selectedRole.isTemplate && hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_COPY, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE]) ? <button type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</button> : null}
                     {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
@@ -496,6 +502,7 @@ export default function RolesPage() {
                     onModeChange={(mode) => { setBundleMode(mode); setBundlePreview(null); }}
                     onPreview={() => void previewBundles().catch(showError)}
                     onApply={() => void applyBundles().catch(showError)}
+                    applying={bundleApplying}
                   />
                 ) : null}
                 {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
@@ -593,13 +600,14 @@ function PermissionBinding({ tree, selectedIds, total, protectedRole, onToggle, 
   );
 }
 
-function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protectedRole, canApply, onToggle, onModeChange, onPreview, onApply }: {
+function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protectedRole, canApply, applying, onToggle, onModeChange, onPreview, onApply }: {
   bundles: PropertyBundleCatalogItem[];
   selectedCodes: string[];
   mode: "merge" | "sync";
   preview: PropertyBundlePreview | null;
   protectedRole: boolean;
   canApply: boolean;
+  applying: boolean;
   onToggle: (code: string, checked: boolean) => void;
   onModeChange: (mode: "merge" | "sync") => void;
   onPreview: () => void;
@@ -617,7 +625,7 @@ function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protecte
         </div>
         <div className="system-actions">
           <button type="button" onClick={onPreview} disabled={protectedRole || selectedCodes.length === 0}>预览差异</button>
-          {canApply ? <button className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview}><Save size={16} />应用权限包</button> : null}
+          {canApply ? <button className="primary-button" type="button" onClick={onApply} disabled={protectedRole || !preview || applying}><Save size={16} />{applying ? "应用中…" : "应用权限包"}</button> : null}
         </div>
       </div>
       {protectedRole ? <p className="status-pill status-danger" role="alert">模板、系统或内置角色不可从页面更新；请先实例化为普通角色。</p> : null}

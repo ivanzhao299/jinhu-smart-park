@@ -209,8 +209,35 @@ export class RolesService {
         return manager.getRepository(RoleEntity).save(lockedRole);
       });
     }
-    Object.assign(role, changes);
-    return this.rolesRepository.save(role);
+    return this.rolesRepository.manager.transaction(async (manager) => {
+      const lockedRole = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+        .setLock("pessimistic_write")
+        .where("role.id=:id", { id })
+        .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+        .andWhere("(role.role_scope='tenant' OR (role.role_scope='park' AND role.park_id=:parkId))", { parkId: scope.parkId })
+        .andWhere("role.is_deleted=false")
+        .getOne();
+      if (!lockedRole) throw new NotFoundException("Role not found");
+      if (!lockedRole.isEditable || !lockedRole.editable) throw new ForbiddenException("Role is not editable");
+      Object.assign(lockedRole, {
+        code: dto.code ?? lockedRole.code,
+        name: dto.name ?? lockedRole.name,
+        sortNo: dto.sortNo ?? lockedRole.sortNo,
+        roleType: dto.roleType ?? lockedRole.roleType,
+        dataScope: dto.dataScope ?? lockedRole.dataScope,
+        dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+        isTemplate: dto.isTemplate ?? lockedRole.isTemplate,
+        status: dto.status ?? lockedRole.status,
+        isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
+        remark: dto.remark ?? lockedRole.remark,
+        parentId: dto.parentId === undefined ? lockedRole.parentId : changes.parentId,
+        rolePath: dto.parentId === undefined && dto.code === undefined ? lockedRole.rolePath : changes.rolePath,
+        roleLevel: dto.parentId === undefined ? lockedRole.roleLevel : changes.roleLevel,
+        level: dto.parentId === undefined ? lockedRole.level : changes.level,
+        updateBy: actorId
+      });
+      return manager.getRepository(RoleEntity).save(lockedRole);
+    });
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {

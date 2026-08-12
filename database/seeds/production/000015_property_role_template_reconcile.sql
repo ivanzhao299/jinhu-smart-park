@@ -190,9 +190,8 @@ BEGIN
      OR role.is_system IS DISTINCT FROM true
      OR role.is_builtin IS DISTINCT FROM true
      OR role.is_super IS DISTINCT FROM false
-     OR role.template_definition_version IS DISTINCT FROM expected.definition_version
-     OR role.template_definition_hash IS DISTINCT FROM expected.definition_hash
-     OR role.applied_bundle_signature IS DISTINCT FROM expected.bundle_signature;
+     OR role.template_definition_version IS NULL
+     OR role.template_definition_version>expected.definition_version;
 
   IF tenant_count<>1 OR park_count<>1 OR scope_rule_count<>1
      OR bundle_drift_count<>0 OR conflicting_role_count<>0 THEN
@@ -308,6 +307,7 @@ WHERE link.tenant_id=scope.tenant_id AND link.park_id=scope.park_id
   AND NOT EXISTS (
     SELECT 1 FROM property_role_template_permission expected
     WHERE expected.template_code=role.code AND expected.permission_code=permission.code
+      AND permission.tenant_id=scope.tenant_id
   );
 
 INSERT INTO rel_role_perm (
@@ -390,7 +390,8 @@ BEGIN
   LEFT JOIN sys_data_scope_rule rule ON rule.id=link.rule_id;
 
   WITH actual AS (
-    SELECT role.code AS template_code,permission.code AS permission_code
+    SELECT role.code AS template_code,
+      CASE WHEN permission.tenant_id=scope.tenant_id THEN permission.code ELSE '__cross_tenant__:' || permission.id::text END AS permission_code
     FROM property_role_template_scope scope
     JOIN sys_role role ON role.tenant_id=scope.tenant_id AND role.park_id=scope.park_id
       AND role.code IN (SELECT template_code FROM property_role_template_expected)
