@@ -37,6 +37,7 @@ test("role detail attaches only permission links from the caller's park", async 
 
 test("role copy is transactional and carries permission, field and current-park scope links", () => {
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
+  const controllerSource = readFileSync(resolve(__dirname, "roles.controller.ts"), "utf8");
 
   assert.match(source, /attachPermissionLinks\(scope, items\)/);
   assert.match(source, /attachPermissionLinks\(scope, \[role\]\)/);
@@ -47,6 +48,7 @@ test("role copy is transactional and carries permission, field and current-park 
   assert.match(source, /overridesDataScope[\s\S]*Promise\.resolve\(\[\]\)[\s\S]*dataScopeRepository\.find/);
   assert.match(source, /appliedBundleCodes: isManagedPropertyTemplate \? \[\]/);
   assert.match(source, /appliedBundleSignature: isManagedPropertyTemplate \? null/);
+  assert.match(controllerSource, /Post\(":id\/copy"\)[\s\S]*RequirePermissions\(SYSTEM_PERMISSIONS\.ROLE_COPY, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\)/);
 });
 
 test("all direct binding mutations reject protected roles and permission updates share the role lock", () => {
@@ -55,11 +57,13 @@ test("all direct binding mutations reject protected roles and permission updates
   const fieldPolicySource = readFileSync(resolve(__dirname, "../field-policies/field-policy.service.ts"), "utf8");
 
   assert.match(rolesSource, /assignPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
+  assert.match(rolesSource, /assignFieldPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
   assert.match(rolesSource, /role\.appliedBundleCodes = \[\]/);
   assert.match(rolesSource, /role\.appliedBundleSignature = null/);
   assert.match(rolesSource, /assignFieldPermissions[\s\S]*assertBindingsEditable/);
   assert.match(dataScopeSource, /assignRoleRules[\s\S]*Protected role bindings cannot be changed/);
   assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*Protected role bindings cannot be changed/);
+  assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*manager\.transaction[\s\S]*setLock\("pessimistic_write"\)[\s\S]*Protected role bindings cannot be changed/);
 });
 
 test("built-in role scope cannot be changed", async () => {
@@ -122,6 +126,7 @@ test("an assigned ordinary role cannot be converted into a protected template", 
   );
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
   assert.match(source, /convertsToTemplate[\s\S]*manager\.transaction[\s\S]*setLock\("pessimistic_write"\)[\s\S]*getRepository\(UserRoleEntity\)\.count/);
+  assert.match(source, /Object\.assign\(lockedRole,[\s\S]*name: dto\.name \?\? lockedRole\.name[\s\S]*status: dto\.status \?\? lockedRole\.status/);
 });
 
 test("custom tenant role scope cannot be changed directly", async () => {

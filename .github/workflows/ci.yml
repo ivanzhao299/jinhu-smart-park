@@ -117,6 +117,9 @@ jobs:
       - name: Build shared workspace types
         run: pnpm --filter @jinhu/shared build
 
+      - name: Test shared role template contracts
+        run: pnpm --filter @jinhu/shared test
+
       - name: Typecheck
         run: pnpm typecheck
 

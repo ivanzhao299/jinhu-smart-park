@@ -189,7 +189,23 @@ export class RolesService {
         if (boundUsers > 0) {
           throw new BadRequestException("Role with bound users cannot be converted to a template");
         }
-        Object.assign(lockedRole, changes);
+        Object.assign(lockedRole, {
+          ...changes,
+          code: dto.code ?? lockedRole.code,
+          name: dto.name ?? lockedRole.name,
+          sortNo: dto.sortNo ?? lockedRole.sortNo,
+          roleType: dto.roleType ?? lockedRole.roleType,
+          roleScope: lockedRole.roleScope,
+          dataScope: dto.dataScope ?? lockedRole.dataScope,
+          dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+          status: dto.status ?? lockedRole.status,
+          isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
+          remark: dto.remark ?? lockedRole.remark,
+          parentId: dto.parentId === undefined ? lockedRole.parentId : changes.parentId,
+          rolePath: dto.parentId === undefined && dto.code === undefined ? lockedRole.rolePath : changes.rolePath,
+          roleLevel: dto.parentId === undefined ? lockedRole.roleLevel : changes.roleLevel,
+          level: dto.parentId === undefined ? lockedRole.level : changes.level
+        });
         return manager.getRepository(RoleEntity).save(lockedRole);
       });
     }
@@ -389,14 +405,14 @@ export class RolesService {
     id: string,
     dto: AssignFieldPermissionsDto
   ): Promise<{ id: string }> {
-    const role = await this.detail(scope, id);
-    this.assertBindingsEditable(role);
-    await this.roleFieldPermissionRepository.update(
-      { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    const links = dto.fields.map((field) =>
-      this.roleFieldPermissionRepository.create({
+    await this.roleFieldPermissionRepository.manager.transaction(async (manager) => {
+      await this.lockEditableRole(manager, scope, id);
+      const repository = manager.getRepository(RoleFieldPermissionEntity);
+      await repository.update(
+        { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      const links = dto.fields.map((field) => repository.create({
         roleId: id,
         resource: field.resource,
         fieldKey: field.fieldKey,
@@ -406,9 +422,9 @@ export class RolesService {
         parkId: scope.parkId,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
-    await this.roleFieldPermissionRepository.save(links);
+      }));
+      await repository.save(links);
+    });
     return { id };
   }
 
