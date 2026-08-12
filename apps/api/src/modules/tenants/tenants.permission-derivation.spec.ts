@@ -251,7 +251,7 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /const authorizationModuleCodes = !parkActive && !moduleCodes\.includes\("system"\)[\s\S]{0,160}filter\(\(code\) => code !== "system"\)/);
   assert.doesNotMatch(source, /if \(!suspendedAsset && !recoverySystem\) \{\s*return;\s*\}/);
   assert.match(source, /selectedAssignments = assignments\.filter\([\s\S]{0,300}assignment\.enabled[\s\S]{0,100}assignment\.status === "enabled"/);
-  assert.match(source, /assignment\.module\.moduleCode !== "system" \|\| this\.isTenantModuleWindowActive\(assignment\)/);
+  assert.match(source, /selectedAssignments = assignments\.filter\([\s\S]{0,300}this\.isTenantModuleWindowActive\(assignment\)/);
   assert.match(source, /if \(parkActive\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
@@ -455,13 +455,39 @@ test("tenant reactivation provisions every currently eligible asset scope before
   assert.match(enableBlock, /return this\.toView\(tenant, manager\)/);
   assert.equal((source.match(/!wasRuntimeActive && this\.isTenantRuntimeActive\(tenant\)/g) ?? []).length, 2);
   assert.equal((source.match(/this\.reconcileActiveTenantAssetScopes\(manager, tenant, actorId\)/g) ?? []).length, 3);
-  assert.match(helperBlock, /moduleCode: "asset", status: 1, isDeleted: false/);
-  assert.match(helperBlock, /enabled: true,\s+status: "enabled",\s+isDeleted: false/);
+  assert.match(helperBlock, /where: \{ tenantId: tenant\.tenantId, isDeleted: false \}/);
+  assert.match(helperBlock, /relations: \{ module: true \}/);
+  assert.match(helperBlock, /await lockAssetScope\(manager, scope\)/);
+  assert.match(helperBlock, /reconcileReactivatedParkAuthorization\(manager, scope, actorId\)/);
+  assert.match(helperBlock, /const refreshedAssignments = await assignmentRepository\.find/);
   assert.match(helperBlock, /this\.isTenantModuleWindowRecoverable\(assignment\)/);
-  assert.match(helperBlock, /candidateScopes[\s\S]*await lockAssetScope\(manager, scope\)[\s\S]*const assignments = await assignmentRepository\.find/);
-  assert.match(helperBlock, /for \(const parkId of \[\.\.\.eligibleParkIds\]\.sort\(\)\)/);
   assert.doesNotMatch(helperBlock, /hasActiveAssetAssignment/);
   assert.match(helperBlock, /await ensureAssetScopeProvisioned\(manager, scope, actorId\)/);
+});
+
+test("tenant reactivation consumes suspended assignments and rebuilds every active park scope", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const block = source.slice(
+    source.indexOf("private async reconcileActiveTenantAssetScopes"),
+    source.indexOf("async reconcileReactivatedParkAuthorization")
+  );
+  assert.match(block, /where: \{ tenantId: tenant\.tenantId, isDeleted: false \}/);
+  assert.doesNotMatch(block, /enabled: true,\s*status: "enabled"/);
+  assert.match(block, /hasCanonicalActiveAssetParkSource\(manager, scope\)/);
+  assert.match(block, /reconcileReactivatedParkAuthorization\(manager, scope, actorId\)/);
+  assert.match(block, /const refreshedAssignments = await assignmentRepository\.find/);
+  assert.match(block, /isTenantModuleWindowRecoverable\(assignment\)/);
+  assert.match(block, /ensureAssetScopeProvisioned\(manager, scope, actorId\)/);
+});
+
+test("inactive park role convergence never grants future-dated module permissions", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const block = source.slice(
+    source.indexOf("async reconcileDeactivatedParkAuthorization"),
+    source.indexOf("private isTenantModuleWindowActive")
+  );
+  assert.match(block, /this\.isTenantModuleWindowActive\(assignment\)/);
+  assert.doesNotMatch(block, /this\.isTenantModuleWindowRecoverable\(assignment\)/);
 });
 
 test("tenant asset projection is serialized and restores an existing disabled projection", async () => {
@@ -725,8 +751,8 @@ test("reactivating a park restores only asset authorization suspended by park st
   assert.equal(systemAssignment.enabled, false);
   assert.equal(systemAssignment.status, "disabled");
   assert.equal(systemAssignment.featureConfig.recoveryOnlyForParkStatus, undefined);
-  assert.deepEqual(appliedModuleCodes, ["asset", "workorder"]);
-  assert.deepEqual(provisionedModuleCodes, ["asset", "workorder"]);
+  assert.deepEqual(appliedModuleCodes, []);
+  assert.deepEqual(provisionedModuleCodes, []);
 });
 
 test("removing asset while a park is inactive clears its automatic recovery marker", async () => {

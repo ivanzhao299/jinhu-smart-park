@@ -614,40 +614,33 @@ export class TenantsService {
     tenant: TenantEntity,
     actorId: string
   ): Promise<void> {
-    const assetModule = await manager.getRepository(SaaSModuleEntity).findOne({
-      where: { moduleCode: "asset", status: 1, isDeleted: false }
+    const assignmentRepository = manager.getRepository(TenantModuleEntity);
+    const assignments = await assignmentRepository.find({
+      where: { tenantId: tenant.tenantId, isDeleted: false },
+      relations: { module: true }
     });
-    if (assetModule) {
-      const assignmentRepository = manager.getRepository(TenantModuleEntity);
-      const candidateAssignments = await assignmentRepository.find({
-        where: {
-          tenantId: tenant.tenantId,
-          moduleId: assetModule.id,
-          enabled: true,
-          status: "enabled",
-          isDeleted: false
-        }
+    const scopes = [...new Set(assignments.map((assignment) => assignment.parkId))]
+      .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
+      .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
+    for (const scope of scopes) {
+      await lockAssetScope(manager, scope);
+    }
+    for (const scope of scopes) {
+      if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
+      const refreshedAssignments = await assignmentRepository.find({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        relations: { module: true }
       });
-      const candidateScopes = [...new Set(candidateAssignments.map((assignment) => assignment.parkId))]
-        .map((parkId) => ({ tenantId: tenant.tenantId, parkId }))
-        .sort((left, right) => assetScopeLockKey(left).localeCompare(assetScopeLockKey(right)));
-      for (const scope of candidateScopes) {
-        await lockAssetScope(manager, scope);
-      }
-      const assignments = await assignmentRepository.find({
-        where: {
-          tenantId: tenant.tenantId,
-          moduleId: assetModule.id,
-          enabled: true,
-          status: "enabled",
-          isDeleted: false
-        }
-      });
-      const eligibleParkIds = new Set(assignments
-        .filter((assignment) => this.isTenantModuleWindowRecoverable(assignment))
-        .map((assignment) => assignment.parkId));
-      for (const parkId of [...eligibleParkIds].sort()) {
-        const scope = { tenantId: tenant.tenantId, parkId };
+      const recoverableAsset = refreshedAssignments.find((assignment) =>
+        assignment.module?.moduleCode === "asset"
+        && assignment.module.status === 1
+        && !assignment.module.isDeleted
+        && assignment.enabled
+        && assignment.status === "enabled"
+        && this.isTenantModuleWindowRecoverable(assignment)
+      );
+      if (recoverableAsset) {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       }
     }
@@ -721,8 +714,7 @@ export class TenantsService {
       assignment.module
       && assignment.module.status === 1
       && !assignment.module.isDeleted
-      && this.isTenantModuleWindowRecoverable(assignment)
-      && (assignment.module.moduleCode !== "system" || this.isTenantModuleWindowActive(assignment))
+      && this.isTenantModuleWindowActive(assignment)
       && assignment.enabled
       && assignment.status === "enabled"
       && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
@@ -840,7 +832,7 @@ export class TenantsService {
       && !assignment.module.isDeleted
       && assignment.enabled
       && assignment.status === "enabled"
-      && this.isTenantModuleWindowRecoverable(assignment)
+      && this.isTenantModuleWindowActive(assignment)
       && assignment.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true
       && assignment.module.moduleCode !== "asset"
     );
