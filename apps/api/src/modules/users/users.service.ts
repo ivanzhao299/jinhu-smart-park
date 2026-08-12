@@ -64,10 +64,25 @@ export interface UserView {
   tenantName: string | null;
   parkName: string | null;
   accessibleParks: UserParkContext[];
+  roles: UserRoleView[];
   loginContextStatus: "ready" | "missing_default_park" | "default_park_not_accessible" | "tenant_disabled" | "tenant_expired";
   createTime: Date;
   updateTime: Date;
   remark: string | null;
+}
+
+export interface UserRoleView {
+  id: string;
+  code: string;
+  name: string;
+  roleScope: string;
+  status: string;
+  isEnabled: boolean;
+}
+
+export interface UserRoleContext {
+  roles: UserRoleView[];
+  candidates: UserRoleView[];
 }
 
 export interface UserLoginContextCandidate {
@@ -956,34 +971,106 @@ export class UsersService {
     return this.refreshPasswordLockoutState(user, now);
   }
 
-  async assignRoles(scope: TenantParkScope, actorId: string, id: string, dto: AssignRolesDto): Promise<{ id: string }> {
-    await this.getEntityInScope(scope, id);
+  async getCreateRoleCandidates(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    tenantId?: string,
+    parkId?: string
+  ): Promise<UserRoleView[]> {
+    const targetScope = await this.resolveUserTargetScope(scope, actor, tenantId, parkId);
+    return this.listAssignableRoles(targetScope);
+  }
+
+  async getUserRoleContext(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<UserRoleContext> {
+    const user = await this.getEntityForActor(scope, id, actor);
+    const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+    const [roles, candidates] = await Promise.all([
+      this.listAssignedRoles(targetScope, id),
+      this.listAssignableRoles(targetScope)
+    ]);
+    return { roles, candidates };
+  }
+
+  async assignRoles(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: AssignRolesDto,
+    onTargetScope?: (scope: TenantParkScope) => void
+  ): Promise<{ id: string }> {
+    if (new Set(dto.roleIds).size !== dto.roleIds.length) {
+      throw new BadRequestException("Duplicate role IDs are not allowed");
+    }
+    await this.userRoleRepository.manager.transaction(async (manager) => {
+      await lockUserOrganizationScope(manager, id);
+      const user = await this.getEntityForActor(scope, id, actor, manager.getRepository(UserEntity));
+      const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
+      onTargetScope?.(targetScope);
+      const roleRepository = manager.getRepository(RoleEntity);
+      const userRoleRepository = manager.getRepository(UserRoleEntity);
+      const roles = dto.roleIds.length === 0 ? [] : await roleRepository.find({
+        where: [
+          { id: In(dto.roleIds), tenantId: targetScope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
+          { id: In(dto.roleIds), tenantId: targetScope.tenantId, parkId: targetScope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+        ]
+      });
+      if (roles.length !== dto.roleIds.length) {
+        throw new NotFoundException("Role not found in current scope");
+      }
+
+      await userRoleRepository.update(
+        { userId: id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actor.sub }
+      );
+      if (dto.roleIds.length > 0) {
+        const links = dto.roleIds.map((roleId) =>
+          userRoleRepository.create({
+            userId: id,
+            roleId,
+            tenantId: targetScope.tenantId,
+            parkId: targetScope.parkId,
+            createBy: actor.sub,
+            updateBy: actor.sub
+          })
+        );
+        await userRoleRepository.save(links);
+      }
+    });
+    return { id };
+  }
+
+  private async listAssignableRoles(scope: TenantParkScope): Promise<UserRoleView[]> {
     const roles = await this.rolesRepository.find({
       where: [
-        { id: In(dto.roleIds), tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
-        { id: In(dto.roleIds), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-      ]
+        { tenantId: scope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
+        { tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
+      ],
+      order: { level: "ASC", sortNo: "ASC", name: "ASC" }
     });
-    if (roles.length !== dto.roleIds.length) {
-      throw new NotFoundException("Role not found in current scope");
-    }
+    return roles.map((role) => this.toUserRoleView(role));
+  }
 
-    await this.userRoleRepository.update(
-      { userId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    const links = dto.roleIds.map((roleId) =>
-      this.userRoleRepository.create({
-        userId: id,
-        roleId,
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        createBy: actorId,
-        updateBy: actorId
-      })
-    );
-    await this.userRoleRepository.save(links);
-    return { id };
+  private async listAssignedRoles(scope: TenantParkScope, userId: string): Promise<UserRoleView[]> {
+    const links = await this.userRoleRepository.find({
+      where: { userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      relations: { role: true },
+      order: { createTime: "ASC" }
+    });
+    return links
+      .filter((link) => link.role?.tenantId === scope.tenantId
+        && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === scope.parkId)))
+      .map((link) => this.toUserRoleView(link.role));
+  }
+
+  private toUserRoleView(role: RoleEntity): UserRoleView {
+    return {
+      id: role.id,
+      code: role.code,
+      name: role.name,
+      roleScope: role.roleScope,
+      status: role.status,
+      isEnabled: role.isEnabled && !role.isDeleted
+    };
   }
 
   private async getEntityForActor(
@@ -1145,10 +1232,15 @@ export class UsersService {
     }
     const tenantIds = [...new Set(users.map((user) => user.tenantId))];
     const parkIds = [...new Set(users.map((user) => user.parkId))];
-    const [tenants, parks, parkLinks] = await Promise.all([
+    const [tenants, parks, parkLinks, roleLinks] = await Promise.all([
       this.tenantRepository.find({ where: { tenantId: In(tenantIds), isDeleted: false } }),
       this.parksRepository.find({ where: { tenantId: In(tenantIds), parkId: In(parkIds), isDeleted: false } }),
-      this.userParkRepository.find({ where: { userId: In(users.map((user) => user.id)), isDeleted: false, status: "enabled" }, order: { isDefault: "DESC", createTime: "ASC" } })
+      this.userParkRepository.find({ where: { userId: In(users.map((user) => user.id)), isDeleted: false, status: "enabled" }, order: { isDefault: "DESC", createTime: "ASC" } }),
+      this.userRoleRepository.find({
+        where: { userId: In(users.map((user) => user.id)), isDeleted: false },
+        relations: { role: true },
+        order: { createTime: "ASC" }
+      })
     ]);
     const tenantMap = new Map(tenants.map((tenant) => [tenant.tenantId, tenant]));
     const parkMap = new Map(parks.map((park) => [`${park.tenantId}:${park.parkId}`, park]));
@@ -1181,6 +1273,11 @@ export class UsersService {
         tenantName: tenant?.tenantName ?? null,
         parkName: park?.parkName ?? null,
         accessibleParks,
+        roles: roleLinks
+          .filter((link) => link.userId === user.id && link.tenantId === user.tenantId && link.parkId === user.parkId)
+          .filter((link) => link.role?.tenantId === user.tenantId
+            && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === user.parkId)))
+          .map((link) => this.toUserRoleView(link.role)),
         loginContextStatus: this.resolveLoginContextStatus(user, tenant, park, explicitLinks),
         createTime: user.createTime,
         updateTime: user.updateTime,

@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type OrgPostOption, type OrgTreeNode, type PaginatedResult, type UserOrgAssignment } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { useAuthUser } from "../../../lib/auth-context";
+import { hasPermission } from "../../../lib/permissions";
 import {
   deduplicateUserParkOptions,
   resolveUserParkLabels,
@@ -33,7 +35,22 @@ interface UserRow {
   tenantName: string | null;
   parkName: string | null;
   accessibleParks: UserParkContext[];
+  roles: UserRoleOption[];
   loginContextStatus: "ready" | "missing_default_park" | "default_park_not_accessible" | "tenant_disabled" | "tenant_expired";
+}
+
+interface UserRoleOption {
+  id: string;
+  code: string;
+  name: string;
+  roleScope: string;
+  status: string;
+  isEnabled: boolean;
+}
+
+interface UserRoleContext {
+  roles: UserRoleOption[];
+  candidates: UserRoleOption[];
 }
 
 interface TenantRow {
@@ -64,6 +81,8 @@ const emptyUsers: PaginatedResult<UserRow> = { items: [], page: 1, page_size: 20
 const emptyTenants: PaginatedResult<TenantRow> = { items: [], page: 1, page_size: 100, total: 0 };
 
 export default function UsersPage() {
+  const authUser = useAuthUser();
+  const canAssignRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES);
   const [data, setData] = useState(emptyUsers);
   const [tenants, setTenants] = useState(emptyTenants);
   const [keyword, setKeyword] = useState("");
@@ -83,8 +102,13 @@ export default function UsersPage() {
   const [orgAssignments, setOrgAssignments] = useState<UserOrgAssignment[]>([]);
   const [loadedOrgAssignments, setLoadedOrgAssignments] = useState<UserOrgAssignment[]>([]);
   const [orgCatalogLoading, setOrgCatalogLoading] = useState(false);
+  const [roleCandidates, setRoleCandidates] = useState<UserRoleOption[]>([]);
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
+  const [loadedRoleIds, setLoadedRoleIds] = useState<string[]>([]);
+  const [roleCatalogLoading, setRoleCatalogLoading] = useState(false);
   const loginSettingsRequest = useRef(0);
   const orgCatalogRequest = useRef(0);
+  const roleCatalogRequest = useRef(0);
 
   const selectedTenant = useMemo(
     () => tenants.items.find((item) => item.tenantId === tenantId) ?? tenants.items[0] ?? null,
@@ -132,6 +156,35 @@ export default function UsersPage() {
       setLoadedOrgAssignments([]);
     } finally {
       if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
+    }
+  }
+
+  async function loadRoleCatalog(userId?: string, targetScope?: { tenantId: string; parkId: string }) {
+    const requestId = ++roleCatalogRequest.current;
+    clearRoleCatalog();
+    if (!canAssignRoles) return;
+    const token = localStorage.getItem("jinhu_access_token") ?? "";
+    setRoleCatalogLoading(true);
+    try {
+      if (userId) {
+        const response = await apiRequest<UserRoleContext>(`/users/${userId}/roles`, { token });
+        if (requestId !== roleCatalogRequest.current) return;
+        const retained = response.data.roles.filter((role) => !response.data.candidates.some((candidate) => candidate.id === role.id));
+        setRoleCandidates([...response.data.candidates, ...retained]);
+        const roleIds = response.data.roles.map((role) => role.id);
+        setSelectedRoleIds(roleIds);
+        setLoadedRoleIds(roleIds);
+        return;
+      }
+      if (!targetScope) return;
+      const params = new URLSearchParams(targetScope);
+      const response = await apiRequest<UserRoleOption[]>(`/users/role-candidates?${params.toString()}`, { token });
+      if (requestId !== roleCatalogRequest.current) return;
+      setRoleCandidates(response.data);
+      setSelectedRoleIds([]);
+      setLoadedRoleIds([]);
+    } finally {
+      if (requestId === roleCatalogRequest.current) setRoleCatalogLoading(false);
     }
   }
 
@@ -202,7 +255,10 @@ export default function UsersPage() {
         const selection = await loadLoginSettings(selectedTenant.tenantId);
         if (requestId !== orgCatalogRequest.current) return;
         if (!selection) { setOrgCatalogLoading(false); return; }
-        await loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId });
+        await Promise.all([
+          loadOrgCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId }),
+          loadRoleCatalog(undefined, { tenantId: selectedTenant.tenantId, parkId: selection.parkId })
+        ]);
       } catch (error) {
         if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
         throw error;
@@ -225,7 +281,7 @@ export default function UsersPage() {
     try {
       await loadLoginSettings(row.tenantId, row);
       if (requestId !== orgCatalogRequest.current) return;
-      await loadOrgCatalog(row.id);
+      await Promise.all([loadOrgCatalog(row.id), loadRoleCatalog(row.id)]);
     } catch (error) {
       if (requestId === orgCatalogRequest.current) setOrgCatalogLoading(false);
       throw error;
@@ -238,8 +294,8 @@ export default function UsersPage() {
     const token = localStorage.getItem("jinhu_access_token") ?? "";
     const targetTenantId = String(form.get("tenantId") ?? "").trim();
     const defaultParkId = String(form.get("parkId") ?? "").trim();
-    if (loginSettingsLoading || orgCatalogLoading || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
-      throw new Error("园区或组织选项尚未加载完成，请稍后重试");
+    if (loginSettingsLoading || orgCatalogLoading || (canAssignRoles && roleCatalogLoading) || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
+      throw new Error("园区、组织或角色选项尚未加载完成，请稍后重试");
     }
     const body = {
       tenantId: targetTenantId,
@@ -253,9 +309,11 @@ export default function UsersPage() {
       status: String(form.get("status") ?? "enabled"),
       assignments: orgAssignments.map(({ orgId, postId, isPrimary }) => ({ orgId, postId, isPrimary }))
     };
+    const wasEditing = Boolean(editingUser);
+    let savedUser: UserRow;
     if (editingUser) {
       const assignmentsChanged = !sameOrgAssignments(body.assignments, loadedOrgAssignments);
-      await apiRequest<UserRow>(`/users/${editingUser.id}`, {
+      const response = await apiRequest<UserRow>(`/users/${editingUser.id}`, {
         method: "PATCH",
         token,
         idempotencyKey: createIdempotencyKey("user-update"),
@@ -270,13 +328,33 @@ export default function UsersPage() {
           ...(assignmentsChanged ? { assignments: body.assignments } : {})
         }
       });
+      savedUser = response.data;
     } else {
-      await apiRequest<UserRow>("/users", {
+      const response = await apiRequest<UserRow>("/users", {
         method: "POST",
         token,
         idempotencyKey: createIdempotencyKey("user"),
         body
       });
+      savedUser = response.data;
+    }
+    const rolesChanged = !sameStringSet(selectedRoleIds, loadedRoleIds);
+    if (canAssignRoles && (!wasEditing || rolesChanged)) {
+      try {
+        await apiRequest<{ id: string }>(`/users/${savedUser.id}/roles`, {
+          method: "POST",
+          token,
+          idempotencyKey: createIdempotencyKey("user-roles"),
+          body: { roleIds: selectedRoleIds }
+        });
+      } catch (error) {
+        if (!wasEditing) {
+          setEditingUser({ ...savedUser, roles: [] });
+          setShowCreate(false);
+          setLoadedRoleIds([]);
+        }
+        throw new Error(`${wasEditing ? "用户资料已保存" : "用户已创建"}，但角色配置失败，请在当前窗口重试：${error instanceof Error ? error.message : "未知错误"}`);
+      }
     }
     setEditingUser(null);
     setShowCreate(false);
@@ -285,7 +363,8 @@ export default function UsersPage() {
     setFormParkId("");
     setAccessibleParkIds([]);
     clearOrgCatalog();
-    const successMessage = editingUser ? "用户更新成功" : "用户创建成功";
+    clearRoleCatalog();
+    const successMessage = wasEditing ? "用户更新成功" : "用户创建成功";
     setMessage(successMessage);
     try {
       await load(data.page);
@@ -302,14 +381,23 @@ export default function UsersPage() {
     setOrgCatalogLoading(false);
   }
 
+  function clearRoleCatalog() {
+    setRoleCandidates([]);
+    setSelectedRoleIds([]);
+    setLoadedRoleIds([]);
+    setRoleCatalogLoading(false);
+  }
+
   function closeUserDrawer() {
     loginSettingsRequest.current += 1;
     orgCatalogRequest.current += 1;
+    roleCatalogRequest.current += 1;
     setShowCreate(false);
     setEditingUser(null);
     setLoginSettings(null);
     setLoginSettingsLoading(false);
     clearOrgCatalog();
+    clearRoleCatalog();
     setDrawerError("");
   }
 
@@ -322,7 +410,7 @@ export default function UsersPage() {
       <header className="page-header">
         <div className="header-title">
           <strong>用户管理</strong>
-          <span>维护账号、所属租户、默认园区、可访问园区和登录上下文状态</span>
+          <span>维护账号、角色、所属租户、默认园区、可访问园区和登录上下文状态</span>
         </div>
         <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.USER_CREATE} type="button" onClick={() => void openCreate().catch((error: Error) => setMessage(error.message))}>
           <Plus size={16} />
@@ -360,7 +448,23 @@ export default function UsersPage() {
           <h2 className="panel-title">用户列表</h2>
           <span className="muted-text">共 {data.total} 个用户</span>
         </div>
-        <div className="table-scroll">
+        <div className="ds-mobile-record-list">
+          {data.items.map((item) => (
+            <article className="ds-mobile-record" key={item.id}>
+              <div className="task-item"><strong>{item.username}</strong><StatusBadge status={item.status} /></div>
+              <p className="muted-text">{item.displayName} · {item.tenantName ?? item.tenantId} · {item.parkName ?? item.parkId}</p>
+              <p><strong>角色：</strong>{formatRoleNames(item.roles)}</p>
+              <p><strong>可访问园区：</strong>{item.accessibleParks.length > 0 ? item.accessibleParks.map((park) => park.park_name).join("、") : "未绑定"}</p>
+              <div className="task-item">
+                <LoginContextBadge status={item.loginContextStatus} />
+                <PermissionButton permission={SYSTEM_PERMISSIONS.USER_UPDATE} type="button" title="编辑用户" onClick={() => void openEdit(item).catch((error: Error) => setMessage(error.message))}>
+                  <Edit3 size={16} />编辑
+                </PermissionButton>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="ds-table-shell">
           <DataTable>
             <thead>
               <tr>
@@ -368,6 +472,7 @@ export default function UsersPage() {
                 <th>所属租户</th>
                 <th>默认园区</th>
                 <th>可访问园区</th>
+                <th>角色</th>
                 <th>联系方式</th>
                 <th>状态</th>
                 <th>登录上下文</th>
@@ -381,6 +486,7 @@ export default function UsersPage() {
                   <td>{item.tenantName ?? item.tenantId}<br /><span className="muted-text">{item.tenantId}</span></td>
                   <td>{item.parkName ?? item.parkId}<br /><span className="muted-text">{item.parkId}</span></td>
                   <td>{item.accessibleParks.length > 0 ? item.accessibleParks.map((park) => park.park_name).join("、") : "未绑定"}</td>
+                  <td>{formatRoleNames(item.roles)}</td>
                   <td>{item.mobile ?? "-"}<br /><span className="muted-text">{item.email ?? "-"}</span></td>
                   <td><StatusBadge status={item.status} /></td>
                   <td><LoginContextBadge status={item.loginContextStatus} /></td>
@@ -405,7 +511,7 @@ export default function UsersPage() {
           <DrawerHeader
             eyebrow="系统管理"
             title={editingUser ? "编辑用户登录上下文" : "新增用户"}
-            description="维护用户账号、登录上下文与可访问园区。"
+            description="维护用户账号、角色、登录上下文与可访问园区。"
             onClose={closeUserDrawer}
             closeIcon={<X size={18} />}
           />
@@ -419,15 +525,20 @@ export default function UsersPage() {
                   onChange={(event) => {
                     const nextTenantId = event.target.value;
                     const requestId = ++orgCatalogRequest.current;
+                    roleCatalogRequest.current += 1;
                     setFormTenantId(nextTenantId);
                     clearOrgCatalog();
-                    if (editingUser) setDrawerError("切换租户后请先保存用户，再重新编辑以维护目标园区的组织岗位。");
+                    clearRoleCatalog();
+                    if (editingUser) setDrawerError("切换租户后请先保存用户，再重新编辑以维护目标园区的组织岗位和角色。");
                     void loadLoginSettings(
                       nextTenantId,
                       editingUser?.tenantId === nextTenantId ? editingUser : null
                     ).then((selection) => {
                       if (editingUser || requestId !== orgCatalogRequest.current || !selection) return;
-                      return loadOrgCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId });
+                      return Promise.all([
+                        loadOrgCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId }),
+                        loadRoleCatalog(undefined, { tenantId: nextTenantId, parkId: selection.parkId })
+                      ]);
                     }).catch((error: Error) => setDrawerError(error.message));
                   }}
                 >
@@ -436,7 +547,7 @@ export default function UsersPage() {
               </div>
               <div className="field">
                 <label>默认园区</label>
-                <select name="parkId" value={formParkId} onChange={(event) => { const nextParkId = event.target.value; orgCatalogRequest.current += 1; setFormParkId(nextParkId); clearOrgCatalog(); if (editingUser && nextParkId !== editingUser.parkId) { setDrawerError("切换默认园区后请先保存用户，再重新编辑以维护目标园区的组织岗位。"); } else if (!editingUser && nextParkId) { void loadOrgCatalog(undefined, { tenantId: formTenantId, parkId: nextParkId }).catch((error: Error) => setDrawerError(error.message)); } }} disabled={loginSettingsLoading || !parkOptions.length} required>
+                <select name="parkId" value={formParkId} onChange={(event) => { const nextParkId = event.target.value; orgCatalogRequest.current += 1; roleCatalogRequest.current += 1; setFormParkId(nextParkId); clearOrgCatalog(); clearRoleCatalog(); if (editingUser && nextParkId !== editingUser.parkId) { setDrawerError("切换默认园区后请先保存用户，再重新编辑以维护目标园区的组织岗位和角色。"); } else if (!editingUser && nextParkId) { void Promise.all([loadOrgCatalog(undefined, { tenantId: formTenantId, parkId: nextParkId }), loadRoleCatalog(undefined, { tenantId: formTenantId, parkId: nextParkId })]).catch((error: Error) => setDrawerError(error.message)); } }} disabled={loginSettingsLoading || !parkOptions.length} required>
                   <option value="">{loginSettingsLoading ? "园区加载中…" : "请选择园区"}</option>
                   {parkOptions.map((park) => (
                     <option key={park.parkId} value={park.parkId}>
@@ -452,6 +563,34 @@ export default function UsersPage() {
               <div className="field"><label>邮箱</label><input name="email" defaultValue={editingUser?.email ?? ""} /></div>
               <div className="field"><label>状态</label><select name="status" defaultValue={editingUser?.status ?? "enabled"}><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
             </DrawerFormGrid>
+            {canAssignRoles ? (
+              <DrawerFormGrid single>
+                <div className="field">
+                  <label>账号角色</label>
+                  <div className="checkbox-list" aria-busy={roleCatalogLoading}>
+                    {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
+                    {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色</span> : null}
+                    {roleCandidates.map((role) => {
+                      const unavailable = !role.isEnabled || role.status !== "enabled";
+                      return (
+                        <label key={role.id} className="checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={selectedRoleIds.includes(role.id)}
+                            disabled={Boolean(editingUser && (formTenantId !== editingUser.tenantId || formParkId !== editingUser.parkId))}
+                            onChange={(event) => setSelectedRoleIds((current) => event.target.checked
+                              ? [...new Set([...current, role.id])]
+                              : current.filter((id) => id !== role.id))}
+                          />
+                          <span>{role.name}（{role.roleScope === "tenant" ? "租户角色" : "园区角色"}）{unavailable ? " · 已停用，请取消后再保存其他角色" : ""}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <span className="muted-text">角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
+                </div>
+              </DrawerFormGrid>
+            ) : null}
             <DrawerFormGrid single>
               <div className="field">
                 <label>可访问园区</label>
@@ -499,7 +638,7 @@ export default function UsersPage() {
             {drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={closeUserDrawer}><XCircle size={16} />取消</button>
-              <button className="primary-button" type="submit" disabled={loginSettingsLoading || orgCatalogLoading || !formParkId}><CheckCircle2 size={16} />{orgCatalogLoading ? "组织加载中…" : "保存"}</button>
+              <button className="primary-button" type="submit" disabled={loginSettingsLoading || orgCatalogLoading || (canAssignRoles && roleCatalogLoading) || !formParkId}><CheckCircle2 size={16} />{orgCatalogLoading || roleCatalogLoading ? "配置加载中…" : "保存"}</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>
@@ -580,6 +719,16 @@ function sameOrgAssignments(
   return left.every((assignment, index) => assignment.orgId === right[index]?.orgId
     && assignment.postId === right[index]?.postId
     && assignment.isPrimary === right[index]?.isPrimary);
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
+}
+
+function formatRoleNames(roles: UserRoleOption[]): string {
+  return roles.length > 0 ? roles.map((role) => role.name).join("、") : "未配置";
 }
 
 function buildOrgTree(items: Array<Omit<OrgTreeNode, "children">>): OrgTreeNode[] {

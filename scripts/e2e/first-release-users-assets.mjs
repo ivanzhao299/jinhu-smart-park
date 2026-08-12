@@ -120,18 +120,6 @@ function assertPaginated(label, data, allowEmpty) {
   return true;
 }
 
-async function fetchRoles(authHeaders) {
-  return request("/roles?page=1&page_size=50", { headers: authHeaders });
-}
-
-function readRoleItems(body) {
-  const data = unwrapData(body);
-  if (!data || typeof data !== "object" || !Array.isArray(data.items)) {
-    return [];
-  }
-  return data.items.filter((item) => typeof item?.id === "string" && item.id.length > 0 && typeof item?.code === "string" && item.code.length > 0);
-}
-
 async function assertLoginAndContext(username, password, expectedRoleCodes = []) {
   const loginResult = await login(username, password);
   if (!expectStatus(`POST /auth/login (${username})`, loginResult.response.status, 200, loginResult.body)) return null;
@@ -238,15 +226,19 @@ async function runResetPasswordRegression(adminHeaders, userId, username) {
 }
 
 async function runRolesRegression(adminHeaders, userId, username, loginPassword) {
-  info("Running user roles idempotency regression");
-  const rolesResult = await fetchRoles(adminHeaders);
-  if (!expectStatus("GET /roles", rolesResult.response.status, 200, rolesResult.body)) return false;
-  const rolesData = unwrapData(rolesResult.body);
-  if (!assertPaginated("GET /roles response", rolesData, true)) return false;
-
-  const roleItems = readRoleItems(rolesResult.body);
+  info("Running user role management and idempotency regression");
+  const candidatesResult = await request(`/users/role-candidates?tenantId=${encodeURIComponent(tenantId)}&parkId=${encodeURIComponent(parkId)}`, {
+    headers: adminHeaders
+  });
+  if (!expectStatus("GET /users/role-candidates", candidatesResult.response.status, 200, candidatesResult.body)) return false;
+  const candidateItems = unwrapData(candidatesResult.body);
+  if (!Array.isArray(candidateItems)) {
+    fail(`GET /users/role-candidates did not return an array; body=${summarizeBody(candidatesResult.body)}`);
+    return false;
+  }
+  const roleItems = candidateItems.filter((item) => typeof item?.id === "string" && item.id.length > 0 && typeof item?.code === "string" && item.code.length > 0);
   if (roleItems.length === 0) {
-    fail("GET /roles returned no usable roles for idempotency regression");
+    fail("GET /users/role-candidates returned no usable roles for role regression");
     return false;
   }
 
@@ -285,6 +277,19 @@ async function runRolesRegression(adminHeaders, userId, username, loginPassword)
     return false;
   }
   pass(`POST /users/:id/roles affected ${username} (${userId})`);
+
+  const roleContext = await request(`/users/${userId}/roles`, { headers: adminHeaders });
+  if (!expectStatus("GET /users/:id/roles", roleContext.response.status, 200, roleContext.body)) return false;
+  const roleContextData = unwrapData(roleContext.body);
+  if (!Array.isArray(roleContextData?.roles) || !roleContextData.roles.some((role) => role?.id === primaryRole.id)) {
+    fail(`GET /users/:id/roles did not return the assigned role; body=${summarizeBody(roleContext.body)}`);
+    return false;
+  }
+  if (!Array.isArray(roleContextData?.candidates) || !roleContextData.candidates.some((role) => role?.id === primaryRole.id)) {
+    fail(`GET /users/:id/roles did not return assignable candidates; body=${summarizeBody(roleContext.body)}`);
+    return false;
+  }
+  pass("GET /users/:id/roles returned assigned roles and scoped candidates");
 
   const loginAfterRoleAssign = await assertLoginAndContext(username, loginPassword, [primaryRole.code]);
   if (!loginAfterRoleAssign) return false;
@@ -327,6 +332,27 @@ async function runRolesRegression(adminHeaders, userId, username, loginPassword)
   } else {
     info("user roles conflict skipped because no alternative role is available");
   }
+
+  const clear = await request(`/users/${userId}/roles`, {
+    method: "POST",
+    headers: {
+      ...adminHeaders,
+      "content-type": "application/json",
+      "x-idempotency-key": buildIdempotencyKey("user-roles-clear")
+    },
+    body: JSON.stringify({ roleIds: [] })
+  });
+  if (!expectStatus("POST /users/:id/roles clear", clear.response.status, [200, 201], clear.body)) return false;
+  const clearedContext = await request(`/users/${userId}/roles`, { headers: adminHeaders });
+  if (!expectStatus("GET /users/:id/roles after clear", clearedContext.response.status, 200, clearedContext.body)) return false;
+  const clearedContextData = unwrapData(clearedContext.body);
+  if (!Array.isArray(clearedContextData?.roles) || clearedContextData.roles.length !== 0) {
+    fail(`Role clear did not produce an empty role set; body=${summarizeBody(clearedContext.body)}`);
+    return false;
+  }
+  const loginAfterClear = await assertLoginAndContext(username, loginPassword, []);
+  if (!loginAfterClear) return false;
+  pass("Role clear preserved role-less user login context");
 
   return true;
 }
