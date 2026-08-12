@@ -107,6 +107,9 @@ test("shared property foundation exposes three guarded control planes and unit s
   );
   assert.match(foundation, /availability\.data\.conflicts/);
   assert.match(foundation, /aria-label="可用性冲突"/);
+  assert.match(manualCreate, /exactRetry = retryKey\.current !== null && retryPayload\.current === payloadFingerprint/);
+  assert.match(foundation, /releasePayloads\.current\[mode\] !== payloadFingerprint/);
+  assert.match(foundation, /releasePayloads\.current\[releaseMode\] = null/);
 });
 
 test("the authenticated shell suppresses motion globally when the user requests it", () => {

@@ -211,13 +211,13 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
   assert.match(activateInTransaction, /unit\.status !== 1/);
   assert.ok(
     activateInTransaction.indexOf("lock_property_unit_scope")
-      < activateInTransaction.indexOf('getRepository(UnitEntity).findOne'),
-    "occupancy activation must acquire the advisory unit lock before the unit row lock"
+      < activateInTransaction.indexOf('lock: { mode: "pessimistic_write" }'),
+    "occupancy activation must acquire the advisory unit lock before any occupancy or unit row lock"
   );
   assert.ok(
     replaceInTransaction.indexOf("lock_property_unit_scope")
-      < replaceInTransaction.indexOf('getRepository(UnitEntity).findOne'),
-    "occupancy replacement must acquire the advisory unit lock before the unit row lock"
+      < replaceInTransaction.indexOf('lock: { mode: "pessimistic_write" }'),
+    "occupancy replacement must acquire the advisory unit lock before any occupancy or unit row lock"
   );
   assert.match(activate, /Business-owned occupancies must be activated by their owning domain workflow/);
 });

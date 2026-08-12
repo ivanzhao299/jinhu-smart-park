@@ -340,6 +340,11 @@ export class PropertyOccupanciesService {
     const period = normalizePropertyPeriod(startAtValue, endAtValue);
     const expectedPeriod = normalizePropertyPeriod(expected.startAt, expected.endAt);
     const repository = manager.getRepository(PropertyOccupancyEntity);
+    const candidate = await repository.findOne({
+      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+    });
+    if (!candidate) throw new NotFoundException("Property occupancy not found");
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, candidate.unitId]);
     const entity = await repository.findOne({
       where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -350,7 +355,6 @@ export class PropertyOccupanciesService {
       startAt: expectedPeriod.startAt,
       endAt: expectedPeriod.endAt
     });
-    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, entity.unitId]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
@@ -754,6 +758,9 @@ export class PropertyOccupanciesService {
       }
     };
     const rule = rules[sourceDomain];
+    if (sourceDomain === "maintenance" || sourceDomain === "operations") {
+      return { sourceId };
+    }
     const hasGlobalPermission = actor.isSuper === true || actor.permissions.includes("*");
     if (!rule || (!hasGlobalPermission && !rule.permissions.every((permission) =>
       actor.permissions.includes(permission)

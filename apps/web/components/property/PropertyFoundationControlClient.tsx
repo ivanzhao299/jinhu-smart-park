@@ -300,9 +300,11 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const retryKey = useRef<string | null>(null);
+  const retryPayload = useRef<string | null>(null);
 
   function payloadChanged() {
     retryKey.current = null;
+    retryPayload.current = null;
     setFeedback("");
     setAvailabilityConflicts([]);
   }
@@ -323,25 +325,33 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
     lock.current = true;
     setBusy(true);
     setFeedback("");
+    const payloadFingerprint = JSON.stringify({
+      unitId: unitId.trim(), sourceDomain, reference: reference.trim(),
+      startAt: start.toISOString(), endAt: end.toISOString()
+    });
     try {
-      const availability = await apiRequest<{
-        available: boolean;
-        conflicts: AvailabilityConflict[];
-      }>("/property/occupancies/availability", {
-        method: "POST",
-        token: getAccessToken() ?? undefined,
-        body: { unitId: unitId.trim(), startAt: start.toISOString(), endAt: end.toISOString() }
-      });
-      if (!availability.data.available || availability.data.conflicts.length > 0) {
-        setAvailabilityConflicts(availability.data.conflicts);
-        setFeedback("所选时段存在占用冲突，请调整房源或锁房时间。");
-        return;
+      const exactRetry = retryKey.current !== null && retryPayload.current === payloadFingerprint;
+      if (!exactRetry) {
+        const availability = await apiRequest<{
+          available: boolean;
+          conflicts: AvailabilityConflict[];
+        }>("/property/occupancies/availability", {
+          method: "POST",
+          token: getAccessToken() ?? undefined,
+          body: { unitId: unitId.trim(), startAt: start.toISOString(), endAt: end.toISOString() }
+        });
+        if (!availability.data.available || availability.data.conflicts.length > 0) {
+          setAvailabilityConflicts(availability.data.conflicts);
+          setFeedback("所选时段存在占用冲突，请调整房源或锁房时间。");
+          return;
+        }
+        retryKey.current = createIdempotencyKey("property-manual-occupancy");
+        retryPayload.current = payloadFingerprint;
       }
-      retryKey.current ??= createIdempotencyKey("property-manual-occupancy");
       await apiRequest("/property/occupancies", {
         method: "POST",
         token: getAccessToken() ?? undefined,
-        idempotencyKey: retryKey.current,
+        idempotencyKey: retryKey.current!,
         body: {
           unit_id: unitId.trim(),
           source_domain: sourceDomain,
@@ -354,6 +364,7 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
         }
       });
       retryKey.current = null;
+      retryPayload.current = null;
       setReference("");
       setFeedback("人工锁房已创建。");
       onCreated();
@@ -500,6 +511,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
   const [releaseMode, setReleaseMode] = useState<"normal" | "force" | null>(null);
   const [mutating, setMutating] = useState(false);
   const releaseKeys = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
+  const releasePayloads = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
   const api = surface === "operations"
     ? `/property/units/${encodeURIComponent(id)}/operation`
     : `/property/occupancies/${encodeURIComponent(id)}`;
@@ -523,7 +535,10 @@ export function PropertyFoundationDetailClient({ id, surface }: {
     setMutating(true);
     setFeedback("");
     const mode = releaseMode;
+    const payloadFingerprint = JSON.stringify({ mode, reason: reason?.trim() ?? "" });
+    if (releasePayloads.current[mode] !== payloadFingerprint) releaseKeys.current[mode] = null;
     releaseKeys.current[mode] ??= createIdempotencyKey(`property-occupancy-${mode}-release`);
+    releasePayloads.current[mode] = payloadFingerprint;
     try {
       await apiRequest(`/property/occupancies/${encodeURIComponent(id)}/release`, {
         method: "POST",
@@ -532,6 +547,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
         body: { reason: reason ?? "", force: mode === "force" }
       });
       releaseKeys.current[mode] = null;
+      releasePayloads.current[mode] = null;
       setFeedback(mode === "force" ? "强制释放审批已提交。" : "人工占用已释放。");
       await load();
     } catch (cause) {
@@ -577,7 +593,13 @@ export function PropertyFoundationDetailClient({ id, surface }: {
         ? ["不会直接删除占用", "审批执行前将重新校验占用版本和状态"]
         : ["该人工锁房将停止阻止后续业务占用", "释放原因将写入审计记录"]}
       onConfirm={release}
-      onOpenChange={(open) => { if (!open) setReleaseMode(null); }}
+      onOpenChange={(open) => {
+        if (!open && releaseMode) {
+          releaseKeys.current[releaseMode] = null;
+          releasePayloads.current[releaseMode] = null;
+          setReleaseMode(null);
+        }
+      }}
       open={releaseMode !== null}
       reasonPolicy={{ kind: "required", minLength: 2, label: "释放原因" }}
       resultingState={releaseMode === "force" ? "等待审批" : "已释放"}

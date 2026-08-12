@@ -151,9 +151,17 @@ export class PropertyOperationsService {
       .skip((query.page - 1) * query.pageSize)
       .take(query.pageSize)
       .getRawMany<Record<string, unknown>>();
-    const items = await Promise.all(
-      rows.map((row) => this.projectOperation(scope, actor, row))
+    const snapshots = await this.buildTransitionSnapshots(
+      this.dataSource.manager,
+      scope,
+      rows.map((row) => ({
+        unitId: String(row.unitId),
+        targetMode: String(row.configuredMode ?? "none") as PropertyOperatingMode
+      }))
     );
+    const items = await Promise.all(rows.map((row) =>
+      this.projectOperation(scope, actor, row, snapshots.get(String(row.unitId)))
+    ));
     return {
       items,
       page: query.page,
@@ -670,15 +678,13 @@ export class PropertyOperationsService {
   private async projectOperation(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    row: Record<string, unknown>
+    row: Record<string, unknown>,
+    projectedSnapshot?: ModeTransitionCheckSnapshot
   ) {
     const unitId = String(row.unitId);
     const configuredMode = String(row.configuredMode ?? "none") as PropertyOperatingMode;
-    const snapshot = await this.buildTransitionSnapshot(
-      this.dataSource.manager,
-      scope,
-      unitId,
-      configuredMode
+    const snapshot = projectedSnapshot ?? await this.buildTransitionSnapshot(
+      this.dataSource.manager, scope, unitId, configuredMode
     );
     const blockers = this.snapshotBlockers(snapshot);
     const allowedActions = this.operationAllowedActions(actor);
@@ -796,6 +802,7 @@ export class PropertyOperationsService {
         WHERE relation.tenant_id=unit.tenant_id AND relation.park_id=unit.park_id
           AND relation.unit_id=unit.id AND relation.is_deleted=false AND relation.status=1
           AND contract.is_deleted=false AND contract.status NOT IN ('90','91')
+          AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
       )`,
       "housing-active": `EXISTS (
         SELECT 1 FROM biz_housing_lease lease
@@ -896,6 +903,100 @@ export class PropertyOperationsService {
     if (value === null || value === undefined) return null;
     const date = value instanceof Date ? value : new Date(String(value));
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  }
+
+  private async buildTransitionSnapshots(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    requests: Array<{ unitId: string; targetMode: PropertyOperatingMode }>
+  ): Promise<Map<string, ModeTransitionCheckSnapshot>> {
+    if (requests.length === 0) return new Map();
+    const rows = await manager.query(
+      `WITH requested AS (
+         SELECT * FROM unnest($3::uuid[], $4::text[]) AS input(unit_id, target_mode)
+       )
+       SELECT requested.unit_id AS "unitId",
+         (SELECT count(*)::int FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+             AND occupancy.is_deleted=false AND occupancy.end_at>now()
+             AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))) AS active_occupancy_count,
+         (SELECT count(*)::int FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+             AND occupancy.is_deleted=false AND occupancy.end_at>now()
+             AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))
+             AND (requested.target_mode='none'
+               OR (requested.target_mode='short_stay' AND occupancy.source_domain IN ('commercial_leasing','housing_rental','apartment'))
+               OR (requested.target_mode='long_rent' AND occupancy.source_domain='homestay'))) AS incompatible_occupancy_count,
+         ((SELECT count(*) FROM biz_property_occupancy occupancy
+            WHERE occupancy.tenant_id=$1 AND occupancy.park_id=$2 AND occupancy.unit_id=requested.unit_id
+              AND occupancy.is_deleted=false AND occupancy.end_at>now()
+              AND (occupancy.status='active' OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())))
+              AND occupancy.source_domain IN ('maintenance','operations'))
+          + (SELECT count(*) FROM biz_homestay_turnover_task task
+            WHERE task.tenant_id=$1 AND task.park_id=$2 AND task.unit_id=requested.unit_id
+              AND task.is_deleted=false AND task.status<>'completed'))::int AS maintenance_or_operations_count,
+         (SELECT count(DISTINCT contract.id)::int FROM rel_leasing_contract_unit relation
+            JOIN biz_leasing_contract contract ON contract.id=relation.contract_id
+           WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+             AND relation.is_deleted=false AND relation.status=1 AND contract.is_deleted=false
+             AND contract.status NOT IN ('90','91')
+             AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date) AS commercial_contract_count,
+         (SELECT count(*)::int FROM biz_housing_lease lease
+           WHERE lease.tenant_id=$1 AND lease.park_id=$2 AND lease.unit_id=requested.unit_id
+             AND lease.is_deleted=false AND lease.status IN ('active','expiring','checkout_pending')) AS housing_lease_count,
+         (SELECT count(*)::int FROM biz_homestay_booking booking
+           WHERE booking.tenant_id=$1 AND booking.park_id=$2 AND booking.unit_id=requested.unit_id
+             AND booking.is_deleted=false AND booking.status IN ('confirmed','checked_in')) AS homestay_booking_count,
+         (SELECT count(DISTINCT checkout.id)::int FROM rel_leasing_contract_unit relation
+            JOIN biz_leasing_checkout checkout ON checkout.contract_id=relation.contract_id
+           WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+             AND relation.is_deleted=false AND relation.status=1
+             AND checkout.is_deleted=false AND checkout.status IN ('30','40','60')) AS pending_checkout_count,
+         (SELECT count(*)::int FROM biz_work_order workorder
+           WHERE workorder.tenant_id=$1 AND workorder.park_id=$2 AND workorder.unit_id=requested.unit_id
+             AND workorder.is_deleted=false AND workorder.status NOT IN ('60','70','90','100')) AS open_workorder_count,
+         (SELECT count(*)::int FROM (
+           SELECT receivable.id::text FROM rel_leasing_contract_unit relation
+             JOIN biz_leasing_receivable receivable ON receivable.contract_id=relation.contract_id
+            WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=requested.unit_id
+              AND relation.is_deleted=false AND relation.status=1 AND receivable.is_deleted=false
+              AND receivable.status<>'90' AND receivable.amount_remain>0
+           UNION ALL
+           SELECT receivable.id::text FROM biz_housing_receivable receivable
+             JOIN biz_housing_lease lease ON lease.id=receivable.lease_id
+            WHERE receivable.tenant_id=$1 AND receivable.park_id=$2 AND lease.unit_id=requested.unit_id
+              AND lease.is_deleted=false AND receivable.is_deleted=false AND receivable.status<>'void'
+              AND receivable.amount>receivable.paid_amount+receivable.waived_amount
+           UNION ALL
+           SELECT booking.id::text FROM biz_homestay_booking booking
+             JOIN biz_homestay_ledger_entry entry ON entry.booking_id=booking.id
+            WHERE booking.tenant_id=$1 AND booking.park_id=$2 AND booking.unit_id=requested.unit_id
+              AND booking.is_deleted=false AND entry.is_deleted=false AND entry.status='confirmed'
+            GROUP BY booking.id HAVING sum(CASE WHEN entry.entry_type='charge' THEN entry.amount
+              WHEN entry.entry_type IN ('payment','waiver') THEN -entry.amount
+              WHEN entry.entry_type='refund' THEN entry.amount ELSE 0 END)>0
+         ) financial_item) AS unsettled_receivable_count
+       FROM requested`,
+      [scope.tenantId, scope.parkId, requests.map((item) => item.unitId), requests.map((item) => item.targetMode)]
+    ) as Array<Record<string, unknown>>;
+    const checkedAt = new Date().toISOString();
+    return new Map(rows.map((row) => {
+      const snapshot = {
+        checked_at: checkedAt,
+        active_occupancy_count: Number(row.active_occupancy_count ?? 0),
+        incompatible_occupancy_count: Number(row.incompatible_occupancy_count ?? 0),
+        maintenance_or_operations_count: Number(row.maintenance_or_operations_count ?? 0),
+        commercial_contract_count: Number(row.commercial_contract_count ?? 0),
+        housing_lease_count: Number(row.housing_lease_count ?? 0),
+        homestay_booking_count: Number(row.homestay_booking_count ?? 0),
+        pending_checkout_count: Number(row.pending_checkout_count ?? 0),
+        open_workorder_count: Number(row.open_workorder_count ?? 0),
+        unsettled_receivable_count: Number(row.unsettled_receivable_count ?? 0),
+        blocking_reasons: [] as string[]
+      };
+      snapshot.blocking_reasons = this.snapshotBlockers(snapshot).map((blocker) => blocker.label);
+      return [String(row.unitId), snapshot];
+    }));
   }
 
   private async buildTransitionSnapshot(

@@ -452,6 +452,11 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationsBlocker, /source_domain IN \('maintenance','operations'\)/);
   assert.match(operationsBlocker, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
   assert.match(operationService, /source_domain IN \('commercial_leasing','housing_rental','apartment'\)/);
+  assert.match(operationService, /private async buildTransitionSnapshots/);
+  assert.match(operationService, /unnest\(\$3::uuid\[\], \$4::text\[\]\)/);
+  assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
+  assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
+  assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
@@ -464,6 +469,8 @@ test("source identifiers and deep links are emitted only by a server allowlist",
   assert.match(service, /encodeURIComponent\(id\)/);
   assert.match(service, /return \{\};/);
   assert.match(service, /actor\.isSuper === true \|\| actor\.permissions\.includes\("\*"\)/);
+  assert.match(service, /sourceDomain === "maintenance" \|\| sourceDomain === "operations"/);
+  assert.match(service, /return \{ sourceId \}/);
 });
 
 test("occupancy source projection honors super and wildcard grants without bypassing the domain allowlist", () => {
@@ -483,7 +490,10 @@ test("occupancy source projection honors super and wildcard grants without bypas
       deepLink: "/housing/leases/lease-1"
     });
   }
-  assert.deepEqual(service.projectSource({ permissions: ["*"] }, "maintenance", "lock-1"), {});
+  assert.deepEqual(service.projectSource({ permissions: ["*"] }, "maintenance", "lock-1"), {
+    sourceId: "lock-1"
+  });
+  assert.deepEqual(service.projectSource({ permissions: ["*"] }, "commercial_leasing", "contract-1"), {});
 });
 
 test("occupancy reads join units with the full tenant and park scope instead of relation metadata", () => {

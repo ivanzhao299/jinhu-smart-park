@@ -17,6 +17,17 @@ test("Track B bundles match the independently frozen 16-bundle matrix", () => {
   );
   assert.deepEqual(validateTrackBPermissionBundles(), []);
   assert.deepEqual(validatePropertyPermissionBundles(), []);
+  assert.deepEqual(TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.permissions, [
+    "asset:property-operations:page", "asset:property-occupancies:page",
+    "asset:property-mode-transitions:page", "property:notifications:page",
+    "property_operation:read", "property_operation:update",
+    "property_operation:transition_mode", "property_occupancy:read",
+    "property_occupancy:create", "property_occupancy:activate",
+    "property_occupancy:release", "property_occupancy:force_release",
+    "property_approval:create", "property_approval:read",
+    "property_approval:withdraw", "property_task:read",
+    "property_notification:read", "property_notification:mark_read"
+  ]);
   assert.deepEqual(
     TRACK_B_PERMISSION_BUNDLES.APPROVAL_INCIDENT_OPERATOR.permissions,
     [
