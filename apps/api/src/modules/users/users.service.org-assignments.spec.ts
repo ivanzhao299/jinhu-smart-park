@@ -65,7 +65,7 @@ test("organization assignment replacement only deletes the target user's current
   const service = new UsersService(
     { findOne: async () => target } as never,
     {} as never,
-    {} as never,
+    { find: async () => [] } as never,
     {
       manager,
       find: async () => []
@@ -187,7 +187,7 @@ test("user scope updates serialize with assignment writes and retire the previou
   const service = new UsersService(
     { manager } as never,
     {} as never,
-    {} as never,
+    { find: async () => [] } as never,
     {} as never,
     { find: async () => [] } as never,
     { exists: async () => true, find: async () => [{ tenantId: "tenant-2", parkId: "park-2" }] } as never,
@@ -433,7 +433,7 @@ test("user profile and organization assignment updates share one transaction", a
     }
   };
   const service = new UsersService(
-    { manager } as never, {} as never, {} as never, {} as never,
+    { manager } as never, {} as never, { find: async () => [] } as never, {} as never,
     { find: async () => [] } as never,
     { find: async () => [] } as never,
     { find: async () => [] } as never,
