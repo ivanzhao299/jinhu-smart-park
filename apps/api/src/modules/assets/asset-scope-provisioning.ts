@@ -148,6 +148,10 @@ export async function hasCanonicalActiveAssetParkSource(
     return true;
   } catch (error) {
     if (error instanceof NotFoundException) {
+      if (scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
+        && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
+        return false;
+      }
       const exists = await manager.getRepository(ParkEntity).exists({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
       });

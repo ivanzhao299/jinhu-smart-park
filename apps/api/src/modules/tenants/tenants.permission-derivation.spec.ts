@@ -5,6 +5,7 @@ import test from "node:test";
 import { preferActiveTenantParkRows, TenantsService } from "./tenants.service";
 import {
   ensureAssetScopeProvisioned,
+  hasCanonicalActiveAssetParkSource,
   resolveCanonicalAssetParkSource
 } from "../assets/asset-scope-provisioning";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -607,6 +608,54 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
       return duplicateFallbackQueryCount === 1 ? [] : [{ parkCode: "JH" }, { parkCode: "JH" }];
     } }) }, { tenantId: "10000001", parkId: "20000001" }),
     /Asset park source is ambiguous/
+  );
+});
+
+test("missing default JH fallback is inactive while an unknown non-default scope still fails closed", async () => {
+  const defaultManager = {
+    getRepository: () => ({ find: async () => [] })
+  };
+  assert.equal(await hasCanonicalActiveAssetParkSource(
+    defaultManager as never,
+    { tenantId: "10000001", parkId: "20000001" }
+  ), false);
+
+  let inactiveDefaultQuery = 0;
+  const inactiveDefaultManager = {
+    getRepository: () => ({
+      find: async () => {
+        inactiveDefaultQuery += 1;
+        return [];
+      },
+      exists: async () => true
+    })
+  };
+  assert.equal(await hasCanonicalActiveAssetParkSource(
+    inactiveDefaultManager as never,
+    { tenantId: "10000001", parkId: "20000001" }
+  ), false);
+  assert.equal(inactiveDefaultQuery, 2);
+
+  const ambiguousDefaultManager = {
+    getRepository: () => ({ find: async () => [{ parkCode: "A" }, { parkCode: "B" }] })
+  };
+  await assert.rejects(
+    hasCanonicalActiveAssetParkSource(
+      ambiguousDefaultManager as never,
+      { tenantId: "10000001", parkId: "20000001" }
+    ),
+    /Asset park source is ambiguous/
+  );
+
+  const unknownManager = {
+    getRepository: () => ({ find: async () => [], exists: async () => false })
+  };
+  await assert.rejects(
+    hasCanonicalActiveAssetParkSource(
+      unknownManager as never,
+      { tenantId: "tenant-missing", parkId: "park-missing" }
+    ),
+    /Park not found/
   );
 });
 
