@@ -32,6 +32,13 @@
 
 - `tenant_id + park_id + is_deleted`
 - `tenant_id + park_id + org_code`
+- `tenant_id + park_id + parent_id`（仅有效组织）
+
+层级约束：
+
+- `parent_id` 引用同表组织，业务服务额外校验同租户、同园区、自引用和循环关系。
+- 存在有效下级组织或用户关系时不能删除组织。
+- 组织树采用邻接表读取，不引入物化路径或闭包表。
 
 ### 岗位
 
@@ -64,6 +71,8 @@
 
 - `tenant_id + park_id + is_deleted`
 - `tenant_id + park_id + user_id`
+- 同一用户、组织和岗位的有效关系唯一。
+- 同一租户园区内，每个用户最多一个有效主组织。
 
 ### 字典类型
 
@@ -125,6 +134,9 @@
 ### 组织
 
 - `GET /api/v1/orgs`
+- `GET /api/v1/orgs/tree`
+- `GET /api/v1/orgs/posts`
+- `GET /api/v1/orgs/leaders`
 - `POST /api/v1/orgs`
 - `GET /api/v1/orgs/:id`
 - `PATCH /api/v1/orgs/:id`
@@ -147,6 +159,8 @@
 - `DELETE /api/v1/users/:id`
 - `POST /api/v1/users/:id/reset-password`
 - `POST /api/v1/users/:id/roles`
+- `GET /api/v1/users/:id/orgs`
+- `POST /api/v1/users/:id/orgs`（替换式维护组织、岗位和主组织）
 
 权限点：
 
@@ -265,4 +279,3 @@ S1 页面统一放在系统管理分组：
 - 列表查询不能通过 query 参数覆盖 `tenant_id`、`park_id`。
 - 删除后 `is_deleted = true`，列表不再返回。
 - 写操作成功和失败均记录操作日志。
-

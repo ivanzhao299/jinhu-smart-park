@@ -309,7 +309,23 @@ export class SafetyInspectPlansService {
   private async assertRoles(scope: TenantParkScope, roleCodes: string[]): Promise<void> {
     if (roleCodes.length === 0) return;
     const count = await this.rolesRepository.count({
-      where: { code: In(roleCodes), tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
+      where: [
+        {
+          code: In(roleCodes),
+          tenantId: scope.tenantId,
+          roleScope: "tenant",
+          isDeleted: false,
+          status: "enabled"
+        },
+        {
+          code: In(roleCodes),
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          roleScope: "park",
+          isDeleted: false,
+          status: "enabled"
+        }
+      ]
     });
     if (count !== roleCodes.length) {
       throw new BadRequestException("handler_role_codes contain invalid roles");

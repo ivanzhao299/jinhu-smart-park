@@ -177,7 +177,7 @@ test("generic occupancy creation rejects aggregates owned by business workflows"
   const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
   const create = service.slice(service.indexOf("async create("), service.indexOf("async createInTransaction"));
 
-  assert.match(create, /"commercial_leasing", "housing_rental", "homestay"/);
+  assert.match(create, /isPropertyManagedOccupancyDomain/);
   assert.match(create, /throw new ForbiddenException\("Business-owned occupancies/);
   assert.ok(create.indexOf("ForbiddenException") < create.indexOf("createInTransaction"));
 });

@@ -282,7 +282,7 @@ export class IdempotencyService {
 
 let idempotencyServiceSingleton: IdempotencyService | null = null;
 
-export function setIdempotencyService(service: IdempotencyService): void {
+export function setIdempotencyService(service: IdempotencyService | null): void {
   idempotencyServiceSingleton = service;
 }
 

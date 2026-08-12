@@ -75,7 +75,7 @@ test("interceptor replays cached succeeded response", async () => {
     }
   };
   const interceptor = new IdempotencyInterceptor();
-  const { context, response } = createContext();
+  const { context, request, response } = createContext();
 
   const result = await firstValueFrom(
     interceptor.intercept(context as never, {
@@ -85,6 +85,7 @@ test("interceptor replays cached succeeded response", async () => {
 
   assert.equal(response.statusCode, 201);
   assert.deepEqual(result, { ok: true });
+  assert.equal((request as typeof request & { idempotencyReplay?: boolean }).idempotencyReplay, true);
 });
 
 test("interceptor returns conflict while request is processing", async () => {

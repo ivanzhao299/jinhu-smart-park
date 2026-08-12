@@ -1,4 +1,6 @@
-import { IsArray, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { Type } from "class-transformer";
+import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateNested } from "class-validator";
+import { UserOrgAssignmentDto } from "./replace-user-orgs.dto";
 
 export class CreateUserDto {
   @IsOptional()
@@ -15,6 +17,13 @@ export class CreateUserDto {
   @IsArray()
   @IsString({ each: true })
   accessibleParkIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => UserOrgAssignmentDto)
+  assignments?: UserOrgAssignmentDto[];
 
   @IsString()
   @MaxLength(64)

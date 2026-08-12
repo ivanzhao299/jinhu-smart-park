@@ -6,6 +6,7 @@ import { useState } from "react";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
+import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { PermissionButton } from "../../../components/permission-button";
 
 export default function AttachmentsPage() {
@@ -15,40 +16,46 @@ export default function AttachmentsPage() {
   const effectiveBizType = bizType || "system";
 
   return (
-    <main className="content">
-      <header className="header">
-        <div className="header-title">
-          <strong>附件中心</strong>
-          <span>统一管理各业务模块的附件上传、预览、下载和关联记录</span>
-        </div>
-        <PermissionButton
-          className="primary-button"
-          permission={SYSTEM_PERMISSIONS.FILE_UPLOAD}
-          type="button"
-          onClick={() => setShowCreate(true)}
-        >
-          <Plus size={16} />
-          新增附件
-        </PermissionButton>
-      </header>
-
-      <Card >
-        <div className="field">
-          <label htmlFor="bizType">业务类型</label>
-          <input id="bizType" value={bizType} onChange={(event) => setBizType(event.target.value)} placeholder="system / contract / workorder" />
-        </div>
-      </Card>
-
-      {showCreate ? (
-        <section className="login-panel floating-panel">
-          <div className="task-item">
-            <h2 className="panel-title">上传附件</h2>
-            <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>关闭</button>
+    <PermissionGuard permission={SYSTEM_PERMISSIONS.ATTACHMENT_LIST} fallback={<Forbidden />}>
+      <main className="content">
+        <header className="header">
+          <div className="header-title">
+            <strong>附件中心</strong>
+            <span>统一管理各业务模块的附件上传、预览、下载和关联记录</span>
           </div>
-          <FileUploader bizType={effectiveBizType} onUploaded={() => { setRefreshKey((value) => value + 1); setShowCreate(false); }} />
-        </section>
-      ) : null}
-      <AttachmentList bizType={effectiveBizType} refreshKey={refreshKey} />
-    </main>
+          <PermissionButton
+            className="primary-button"
+            permission={SYSTEM_PERMISSIONS.FILE_UPLOAD}
+            type="button"
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus size={16} />
+            新增附件
+          </PermissionButton>
+        </header>
+
+        <Card >
+          <div className="field">
+            <label htmlFor="bizType">业务类型</label>
+            <input id="bizType" value={bizType} onChange={(event) => setBizType(event.target.value)} placeholder="system / contract / workorder" />
+          </div>
+        </Card>
+
+        {showCreate ? (
+          <section className="login-panel floating-panel">
+            <div className="task-item">
+              <h2 className="panel-title">上传附件</h2>
+              <button className="secondary-button" type="button" onClick={() => setShowCreate(false)}>关闭</button>
+            </div>
+            <FileUploader bizType={effectiveBizType} onUploaded={() => { setRefreshKey((value) => value + 1); setShowCreate(false); }} />
+          </section>
+        ) : null}
+        <AttachmentList bizType={effectiveBizType} refreshKey={refreshKey} />
+      </main>
+    </PermissionGuard>
   );
+}
+
+function Forbidden() {
+  return <main className="content"><div className="form-error">无权访问附件中心</div></main>;
 }

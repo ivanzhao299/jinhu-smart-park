@@ -536,6 +536,14 @@ jobs:
           mkdir -p "$retry_seeds/production"
           : > "$retry_aliases"
           cp database/seeds/000001_s1_production_core.sql "$retry_seeds/000001_s1_production_core.sql"
+          # This fixture intentionally stops before 000189, so 000205 has not
+          # yet made role-data-scope binding uniqueness park-scoped.
+          sed -i \
+            's/ON CONFLICT (tenant_id, park_id, role_id, rule_id) WHERE is_deleted = false/ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false/' \
+            "$retry_seeds/000001_s1_production_core.sql"
+          grep -Fq \
+            'ON CONFLICT (tenant_id, role_id, rule_id) WHERE is_deleted = false' \
+            "$retry_seeds/000001_s1_production_core.sql"
 
           cleanup_retry_db() {
             docker compose -f "$COMPOSE_FILE" exec -T postgres \

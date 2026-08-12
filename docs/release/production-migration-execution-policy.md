@@ -255,6 +255,11 @@ docker compose -f infra/docker/docker-compose.prod.yml up -d postgres
 
 ### 8.3 执行 migration
 
+通过 `scripts/prod-deploy.sh` 执行 `api` 或 `full` 发布时，必须先停止旧 API，再执行 migration 和可选
+production seed，并保持 API 停止直到新 API 容器启动。这样可以避免旧版本在 migration 提交后、
+新版本切换前继续写入已变化的 schema。migration 或 seed 失败时 API 保持停止，操作人员必须先核查
+history、数据库现场和版本兼容性，不得盲目恢复旧 API。
+
 ```bash
 COMPOSE_FILE=infra/docker/docker-compose.prod.yml \
 POSTGRES_DB=<POSTGRES_DB> \

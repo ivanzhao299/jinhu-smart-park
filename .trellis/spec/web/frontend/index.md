@@ -19,6 +19,8 @@ Reference files:
 
 Many routes keep `page.tsx` as a thin server component that renders a client component. Use this when a page needs local state, effects, browser APIs, forms, drawers, or API calls.
 
+Every authenticated top-level business route that lives outside the `(dashboard)` route group must provide a `layout.tsx` wrapping its children with `DashboardLayout`. A `PermissionGuard` depends on the user context supplied by that layout; omitting it can turn a valid authenticated route into a blank page. Permission-gated full pages must also provide a visible 403-style fallback instead of the default empty fallback. Add a route contract assertion whenever a new top-level business module is introduced.
+
 Reference files:
 - `apps/web/app/assets/units/page.tsx`
 - `apps/web/app/assets/units/UnitsPageClient.tsx`
@@ -171,6 +173,12 @@ example, a disabled tenant plan), omit the unchanged binding and its coupled aut
 fields from update requests. Compare set-like fields after normalization so ordering and
 duplicates do not cause an unchanged historical binding to be revalidated against the active
 catalog. Submit the coupled fields together only when the operator actually changes them.
+
+For hierarchy editors, a non-null parent that is outside the actor's visible projection is an
+unavailable historical binding, not a root organization. Render an explicit unavailable label
+and omit that unchanged parent from the update payload. Relationship editors that allow zero or
+one primary binding must expose an explicit “no primary” choice instead of forcing one relation
+to remain primary in the browser.
 
 ## User-Facing Catalog Labels
 

@@ -18,26 +18,29 @@ const ENGINEERING_PERMISSIONS = [
   "ENGINEERING_ACCEPTANCE_VIEW"
 ];
 
-const OPERATIONS_PERMISSIONS = [
-  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY,
-  SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_READ,
-  SYSTEM_PERMISSIONS.WORKORDER_CREATE,
-  SYSTEM_PERMISSIONS.WORKORDER_READ
-];
-
 function hasAnyPermission(user: UserContext | null, permissions: string[]): boolean {
   return permissions.some((permission) => hasPermission(user, permission));
 }
 
-function findFirstMenuHref(items?: UserMenuTreeNode[]): string | null {
+function findFirstAccessibleMenuHref(
+  user: UserContext | null,
+  items?: UserMenuTreeNode[],
+  inheritedModule?: string
+): string | null {
   if (!items) {
     return null;
   }
   for (const item of items) {
-    if (item.href && item.href !== "/login") {
+    const moduleCode = item.module ?? inheritedModule;
+    if (
+      item.href &&
+      item.href !== "/login" &&
+      hasPermission(user, item.permission) &&
+      hasModule(user, moduleCode)
+    ) {
       return item.href;
     }
-    const nested = findFirstMenuHref(item.children);
+    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode);
     if (nested) {
       return nested;
     }
@@ -68,11 +71,10 @@ export function prefersMobileWorkbench(signals: PostLoginDeviceSignals): boolean
 }
 
 export function resolvePostLoginPath(user: UserContext | null, signals: PostLoginDeviceSignals = detectPostLoginDeviceSignals()): string {
-  const firstMenuHref = findFirstMenuHref(user?.menu_tree ?? user?.menus);
+  const firstMenuHref = findFirstAccessibleMenuHref(user, user?.menu_tree ?? user?.menus);
   const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
   const hasOperationsAccess =
-    (hasModule(user, "safety") && hasAnyPermission(user, OPERATIONS_PERMISSIONS)) ||
-    (hasModule(user, "workorder") && hasAnyPermission(user, OPERATIONS_PERMISSIONS));
+    hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);
 
   if (prefersMobileWorkbench(signals)) {
     if (hasEngineeringAccess) {
@@ -83,7 +85,6 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
     }
     return firstMenuHref ?? "/dashboard";
   }
-
   if (firstMenuHref) {
     return firstMenuHref;
   }

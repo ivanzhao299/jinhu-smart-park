@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NotFoundException } from "@nestjs/common";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { UsersService } from "./users.service";
 
 const TENANT_ID = "10000001";
@@ -68,11 +69,39 @@ test("JWT principal query binds the current user scope and selects only active l
   assert.deepEqual(capturedParameters, [USER_ID, TENANT_ID, PARK_ID]);
   assert.match(capturedSql, /usr\.id = \$1::uuid/);
   assert.match(capturedSql, /user_role\.tenant_id = usr\.tenant_id/);
-  assert.match(capturedSql, /active_role\.park_id = usr\.park_id/);
+  assert.match(capturedSql, /active_role\.role_scope = 'tenant' OR active_role\.park_id = usr\.park_id/);
+  assert.match(capturedSql, /role\.role_scope = 'tenant' OR role\.park_id = usr\.park_id/);
+  assert.match(capturedSql, /role_permission\.park_id = usr\.park_id/);
   assert.match(capturedSql, /active_permission\.tenant_id = usr\.tenant_id/);
   assert.deepEqual(principal.roles, ["PROPERTY_OPERATOR", "TENANT_AUDITOR"]);
-  assert.deepEqual(principal.permissions, ["homestay:booking:read", "housing:lease:read"]);
+  assert.deepEqual(principal.permissions, [
+    "homestay:booking:read",
+    "housing:lease:read",
+    SYSTEM_PERMISSIONS.USER_ME
+  ]);
   assert.equal(principal.dataScope, "tenant");
+  assert.equal(principal.isSuper, false);
+});
+
+test("JWT principal grants the current-user permission to an active user without roles", async () => {
+  const service = createService(async () => [
+    row({
+      role_link_id: null,
+      role_code: null,
+      role_is_super: null,
+      role_data_scope: null,
+      permission_code: null
+    })
+  ]);
+
+  const principal = await service.resolveJwtPrincipal(
+    { tenantId: TENANT_ID, parkId: PARK_ID },
+    USER_ID
+  );
+
+  assert.deepEqual(principal.roles, []);
+  assert.deepEqual(principal.permissions, [SYSTEM_PERMISSIONS.USER_ME]);
+  assert.equal(principal.dataScope, "self");
   assert.equal(principal.isSuper, false);
 });
 

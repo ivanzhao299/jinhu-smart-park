@@ -211,11 +211,20 @@ ensure_binding_user_org() {
     printf 'WARN: no root organization found for tenant_id=%s park_id=%s, skipped rel_user_org binding\n' "$TENANT_ID" "$PARK_ID" >&2
     return
   fi
-  existing_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND org_id = '$org_id' ORDER BY create_time ASC LIMIT 1;")
+  existing_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND org_id = '$org_id' ORDER BY is_deleted ASC, create_time ASC LIMIT 1;")
   if [ -n "$existing_id" ]; then
-    psql_exec "UPDATE rel_user_org SET is_deleted = false, is_primary = true, update_by = NULL, remark = 'bootstrap-admin binding' WHERE id = '$existing_id';"
+    other_primary_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND id <> '$existing_id' AND is_deleted = false AND is_primary = true ORDER BY create_time ASC LIMIT 1;")
   else
-    psql_exec "INSERT INTO rel_user_org (tenant_id, park_id, user_id, org_id, post_id, is_primary, create_by, update_by, is_deleted, remark) VALUES ('$TENANT_ID', '$PARK_ID', '$user_id', '$org_id', NULL, true, NULL, NULL, false, 'bootstrap-admin binding');"
+    other_primary_id=$(psql_scalar "SELECT id FROM rel_user_org WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND user_id = '$user_id' AND is_deleted = false AND is_primary = true ORDER BY create_time ASC LIMIT 1;")
+  fi
+  root_is_primary=true
+  if [ -n "$other_primary_id" ]; then
+    root_is_primary=false
+  fi
+  if [ -n "$existing_id" ]; then
+    psql_exec "UPDATE rel_user_org SET is_deleted = false, is_primary = $root_is_primary, update_by = NULL, remark = 'bootstrap-admin binding' WHERE id = '$existing_id';"
+  else
+    psql_exec "INSERT INTO rel_user_org (tenant_id, park_id, user_id, org_id, post_id, is_primary, create_by, update_by, is_deleted, remark) VALUES ('$TENANT_ID', '$PARK_ID', '$user_id', '$org_id', NULL, $root_is_primary, NULL, NULL, false, 'bootstrap-admin binding');"
   fi
 }
 

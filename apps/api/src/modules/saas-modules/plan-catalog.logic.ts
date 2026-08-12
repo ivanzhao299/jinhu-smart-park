@@ -19,6 +19,7 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
           plan.id,
           plan.plan_code,
           plan.plan_name,
+          plan.module_codes,
           plan.sort_no,
           ROW_NUMBER() OVER (
             PARTITION BY plan.plan_code
@@ -39,6 +40,18 @@ export function buildAvailablePlanCatalogQuery(scope: TenantParkScope, query: Av
         SELECT id, plan_code, sort_no
         FROM ranked
         WHERE precedence = 1
+          AND jsonb_array_length(COALESCE(module_codes, '[]'::jsonb)) > 0
+          AND NOT EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(COALESCE(module_codes, '[]'::jsonb)) requested(module_code)
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM sys_module module
+              WHERE module.module_code = requested.module_code
+                AND module.is_deleted = false
+                AND module.status = 1
+            )
+          )
           AND ($5::text IS NULL OR plan_code ILIKE $5 OR plan_name ILIKE $5)
       ),
       paged AS (
