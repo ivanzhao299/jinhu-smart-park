@@ -6,7 +6,7 @@ const sharedSource = readFileSync(
   "utf8"
 );
 const migration = readFileSync(
-  new URL("../../database/migrations/000207_property_role_template_metadata_visible.sql", import.meta.url),
+  new URL("../../database/migrations/000208_property_role_template_metadata_visible.sql", import.meta.url),
   "utf8"
 );
 const seed = readFileSync(
