@@ -95,6 +95,13 @@ export async function projectHousingLeaseUnitEligibility(
                        > lease.start_date::timestamp AT TIME ZONE 'Asia/Shanghai'
                  AND relation.start_date::timestamp AT TIME ZONE 'Asia/Shanghai'
                        < (lease.end_date + interval '1 day')::timestamp AT TIME ZONE 'Asia/Shanghai'
+            ) OR EXISTS (
+              SELECT 1 FROM biz_homestay_turnover_task task
+               WHERE task.tenant_id=lease.tenant_id
+                 AND task.park_id=lease.park_id
+                 AND task.unit_id=lease.unit_id
+                 AND task.is_deleted=false
+                 AND task.status<>'completed'
             ) AS conflict
        FROM biz_housing_lease lease
        LEFT JOIN biz_unit unit
@@ -162,6 +169,11 @@ export async function assertHousingLeaseUnitEligible(
                     AT TIME ZONE 'Asia/Shanghai' > $4::timestamptz
               AND relation.start_date::timestamp
                     AT TIME ZONE 'Asia/Shanghai' < $5::timestamptz
+         ) OR EXISTS (
+           SELECT 1 FROM biz_homestay_turnover_task task
+            WHERE task.tenant_id=$1 AND task.park_id=$2
+              AND task.unit_id=$3 AND task.is_deleted=false
+              AND task.status<>'completed'
          )
        ) AS conflict`,
       [scope.tenantId, scope.parkId, unitId, period.startAt, period.endAt]

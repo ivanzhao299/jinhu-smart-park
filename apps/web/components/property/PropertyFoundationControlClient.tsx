@@ -243,7 +243,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
           placeholder="输入房源 UUID" type="search" value={unitId} /></label> : null}
         {surface === "occupancies" ? <>
           <label className="form-field"><span>来源域</span><select value={sourceDomain} onChange={(event) => { setSourceDomain(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">住房出租</option><option value="maintenance">维修</option><option value="operations">运营</option>
+            <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">住房出租</option><option value="apartment">公寓</option><option value="maintenance">维修</option><option value="operations">运营</option>
           </select></label>
           <label className="form-field"><span>来源类型</span><input type="search" value={sourceType} onChange={(event) => { setSourceType(event.target.value); setPage(1); }} /></label>
           <label className="form-field"><span>占用状态</span><select value={occupancyStatus} onChange={(event) => { setOccupancyStatus(event.target.value); setPage(1); }}>
@@ -401,7 +401,9 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
         {feedback ? <p aria-live="polite" role={feedback.includes("失败") || feedback.includes("请") ? "alert" : undefined}>{feedback}</p> : null}
         {availabilityConflicts.length ? <ul aria-label="可用性冲突">
           {availabilityConflicts.map((conflict, index) => <li key={`${conflict.conflictType}-${conflict.startAt}-${index}`}>
-            {conflict.deepLink?.startsWith("/") ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel}</Link> : conflict.sourceLabel}
+            {conflict.deepLink?.startsWith("/")
+              ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</Link>
+              : <>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</>}
             {` · ${conflict.sourceType} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${conflict.status}`}
           </li>)}
         </ul> : null}

@@ -46,6 +46,8 @@ test("active enabled long-rent unit passes base and period eligibility", async (
   assert.match(statements[2]!.sql, /FROM biz_property_occupancy occupancy/u);
   assert.match(statements[2]!.sql, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/u);
   assert.match(statements[2]!.sql, /FROM rel_leasing_contract_unit relation/u);
+  assert.match(statements[2]!.sql, /FROM biz_homestay_turnover_task task/u);
+  assert.match(statements[2]!.sql, /task\.status<>'completed'/u);
   assert.match(statements[2]!.sql, /AT TIME ZONE 'Asia\/Shanghai'/u);
   assert.deepEqual(statements[2]!.parameters, [
     scope.tenantId,
@@ -139,5 +141,7 @@ test("historical draft eligibility is projected in one scoped batch without coun
   assert.match(statements[0]!.sql, /lease\.id=ANY\(\$3::uuid\[\]\)/u);
   assert.match(statements[0]!.sql, /occupancy\.source_id=lease\.id::text/u);
   assert.match(statements[0]!.sql, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/u);
+  assert.match(statements[0]!.sql, /FROM biz_homestay_turnover_task task/u);
+  assert.match(statements[0]!.sql, /task\.status<>'completed'/u);
   assert.deepEqual(statements[0]!.parameters, [scope.tenantId, scope.parkId, ["lease-1", "lease-2"]]);
 });

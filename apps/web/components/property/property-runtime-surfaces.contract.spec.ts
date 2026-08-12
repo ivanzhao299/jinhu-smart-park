@@ -74,6 +74,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "房源"/);
   assert.match(foundation, /params\.set\("keyword", keyword\.trim\(\)\)/);
   assert.match(foundation, /params\.set\("sourceDomain", sourceDomain\)/);
+  assert.match(foundation, /value="apartment">公寓/);
   assert.match(foundation, /params\.set\("sourceType", sourceType\.trim\(\)\)/);
   assert.match(foundation, /params\.set\("status", occupancyStatus\)/);
   assert.match(foundation, /label: "保留到期"/);
@@ -107,6 +108,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   );
   assert.match(foundation, /availability\.data\.conflicts/);
   assert.match(foundation, /aria-label="可用性冲突"/);
+  assert.match(manualCreate, /conflict\.sourceId/);
   assert.match(manualCreate, /exactRetry = retryKey\.current !== null && retryPayload\.current === payloadFingerprint/);
   assert.match(foundation, /releasePayloads\.current\[mode\] !== payloadFingerprint/);
   assert.match(foundation, /releasePayloads\.current\[releaseMode\] = null/);
