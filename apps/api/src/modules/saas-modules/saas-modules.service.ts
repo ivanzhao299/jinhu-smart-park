@@ -16,12 +16,16 @@ import type { UpdatePlanDto } from "./dto/update-plan.dto";
 import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
-import { PARK_STATUS_SUSPENDED_FEATURE, TenantModuleEntity } from "./entities/tenant-module.entity";
+import {
+  PARK_RECOVERY_SYSTEM_FEATURE,
+  PARK_STATUS_SUSPENDED_FEATURE,
+  TenantModuleEntity
+} from "./entities/tenant-module.entity";
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
 import {
   ensureAssetScopeProvisioned,
   hasCanonicalActiveAssetParkSource,
-  lockAssetScope,
+  lockAssetScope
 } from "../assets/asset-scope-provisioning";
 
 @Injectable()
@@ -269,9 +273,12 @@ export class SaaSModulesService {
           ? entity.expireTime ?? null
           : dto.expireTime === null ? null : new Date(dto.expireTime),
         enabled: enabling,
-        featureConfig: withParkStatusSuspension(
-          dto.featureConfig ?? entity.featureConfig,
-          requestedEnabled && module.moduleCode === "asset" && !parkActive
+        featureConfig: withExplicitModuleSelection(
+          withParkStatusSuspension(
+            dto.featureConfig ?? entity.featureConfig,
+            requestedEnabled && module.moduleCode === "asset" && !parkActive
+          ),
+          module.moduleCode
         ),
         status: enabling ? "enabled" : "disabled",
         remark: dto.remark === undefined ? entity.remark ?? null : dto.remark,
@@ -322,7 +329,10 @@ export class SaaSModulesService {
       Object.assign(entity, {
         enabled: parkActive,
         status: parkActive ? "enabled" : "disabled",
-        featureConfig: withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
+        featureConfig: withExplicitModuleSelection(
+          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
+          module.moduleCode
+        ),
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
@@ -362,7 +372,10 @@ export class SaaSModulesService {
       }
       entity.enabled = false;
       entity.status = "disabled";
-      entity.featureConfig = withParkStatusSuspension(entity.featureConfig, false);
+      entity.featureConfig = withExplicitModuleSelection(
+        withParkStatusSuspension(entity.featureConfig, false),
+        module.moduleCode
+      );
       entity.updateBy = actorId;
       return repository.save(entity);
     });
@@ -647,5 +660,12 @@ function withParkStatusSuspension(
   } else {
     delete next[PARK_STATUS_SUSPENDED_FEATURE];
   }
+  return next;
+}
+
+function withExplicitModuleSelection(featureConfig: Record<string, unknown>, moduleCode: string): Record<string, unknown> {
+  if (moduleCode !== "system") return featureConfig;
+  const next = { ...featureConfig };
+  delete next[PARK_RECOVERY_SYSTEM_FEATURE];
   return next;
 }

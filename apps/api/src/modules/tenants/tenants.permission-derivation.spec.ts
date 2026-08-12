@@ -230,7 +230,8 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
   assert.match(source, /const uniqueTenantParks = preferActiveTenantParkRows\(tenantParks\)/);
   assert.match(source, /const orderedTenantParks = \[\.\.\.uniqueTenantParks\]\.sort\(\(left, right\) =>\s+assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: left\.parkId \}\)\s+\.localeCompare\(assetScopeLockKey\(\{ tenantId: tenant\.tenantId, parkId: right\.parkId \}\)\)\s+\)/);
-  assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => park\.status === 1\)/);
+  assert.match(source, /await lockAssetScope\(manager, scope\)[\s\S]{0,160}hasCanonicalActiveAssetParkSource\(manager, scope\)/);
+  assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => activeParkIds\.has\(park\.parkId\)\)/);
   assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
   assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
   assert.match(source, /getRepository\(ParkEntity\)\.find/);
@@ -239,11 +240,12 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.match(source, /for \(const park of orderedTenantParks\)/);
   assert.match(source, /resolvedModuleCodes = activeTenantParks\.length === uniqueTenantParks\.length/);
   assert.match(source, /normalizeCodes\(\[\.\.\.moduleCodes\.filter\(\(code\) => code !== "asset"\), "system"\]\)/);
-  assert.match(source, /const parkModules = park\.status === 1/);
+  assert.match(source, /const parkActive = activeParkIds\.has\(park\.parkId\)/);
+  assert.match(source, /const parkModules = parkActive/);
   assert.match(source, /modules\.filter\(\(module\) => moduleCodes\.includes\(module\.moduleCode\)\)/);
   assert.match(source, /module\.moduleCode !== "asset" \|\| moduleCodes\.includes\("asset"\)/);
   assert.match(source, /parkPermissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
-  assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
+  assert.match(source, /if \(parkActive\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
   assert.match(
@@ -258,8 +260,35 @@ test("tenant-wide authorization changes converge every tenant park without clear
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
   assert.doesNotMatch(source, /where: \{ tenantId: targetScope\.tenantId, parkId: targetScope\.parkId, isDeleted: false \}/);
   const assignModulesBlock = source.slice(source.indexOf("async assignModules("), source.indexOf("private async getTenantById"));
-  assert.match(assignModulesBlock, /hasCanonicalActiveAssetParkSource\(manager, targetScope\)/);
+  assert.match(assignModulesBlock, /await lockAssetScope\(manager, targetScope\)[\s\S]{0,120}hasCanonicalActiveAssetParkSource\(manager, targetScope\)/);
   assert.doesNotMatch(assignModulesBlock, /getRepository\(ParkEntity\)\.findOne/);
+});
+
+test("login settings preserve suspended asset intent without exposing recovery-only system", () => {
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const resolveSelected = (service as unknown as {
+    resolveSelectedModuleCodes(modules: TenantModuleEntity[]): string[];
+  }).resolveSelectedModuleCodes.bind(service);
+  const module = (moduleCode: string, values: Partial<TenantModuleEntity>) => ({
+    enabled: false,
+    status: "disabled",
+    featureConfig: {},
+    module: { moduleCode },
+    ...values
+  } as unknown as TenantModuleEntity);
+
+  assert.deepEqual(resolveSelected([
+    module("asset", { featureConfig: { suspendedByParkStatus: true } }),
+    module("asset", { id: "unselected-asset" }),
+    module("system", {
+      enabled: true,
+      status: "enabled",
+      featureConfig: { recoveryOnlyForParkStatus: true }
+    }),
+    module("system", { id: "disabled-system" }),
+    module("workorder", { id: "duplicate-workorder", enabled: true, status: "enabled" }),
+    module("workorder", { enabled: true, status: "enabled" })
+  ]), ["asset", "workorder"]);
 });
 
 test("generic tenant expiry updates every non-deleted module assignment in the same transaction", async () => {
@@ -343,7 +372,8 @@ test("inactive park recovery grants only its explicit read and update permission
 test("tenant module read models deduplicate park-scoped module bindings", () => {
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
 
-  assert.match(source, /enabledModuleCodes: \[\s*\.\.\.new Set\(/);
+  assert.match(source, /enabledModuleCodes: this\.resolveSelectedModuleCodes\(modules\)/);
+  assert.match(source, /return \[\.\.\.new Set\(modules\.flatMap/);
   assert.match(source, /const enabledModuleCount = new Set\(enabledModuleRows\.map\(\(item\) => item\.moduleId\)\)\.size/);
 });
 

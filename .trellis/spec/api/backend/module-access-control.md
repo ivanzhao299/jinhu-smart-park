@@ -73,7 +73,8 @@ authorization authority for the signatures above.
   an obsolete assignment window.
 - Writers that touch both asset projection state and module assignments acquire the asset-scope
   advisory lock before dependency-graph and assignment row locks. Park mutations acquire the same
-  advisory lock before locking canonical park rows.
+  advisory lock before locking canonical park rows. Tenant login-settings and standalone tenant
+  module assignment paths must acquire that lock before resolving canonical source activity.
 - Web plan selectors may present module and quota projections, but the backend remains the
   authority for resolving plan modules and permission families. Browsers must not synthesize
   plan permission codes.

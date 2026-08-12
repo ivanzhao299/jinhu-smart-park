@@ -28,6 +28,8 @@
 26. Review #17：园区 survivor 判定与独立模块分配统一复用包含默认 JH fallback 的 canonical active resolver；recovery-only system assignment 使用显式 marker 并在恢复后移除；未来生效但未过期的 asset assignment 在园区恢复时重新启用并预配资产 scope。
 27. 独立复核：停用园区重新分配套餐或模块时，仅自动补入的 system 保留 recovery-only marker；用户显式选择 system 时清除 marker，并增加行为回归。
 28. 最终复核：未选中的 system assignment 同步清除陈旧 recovery-only marker，恢复判定忽略停用或删除的 system 模块。
+29. Review #18：登录设置读模型保留暂停的 asset 选择且隐藏 recovery-only system；显式 system 写入清除临时 marker；登录设置写入先按确定顺序获取 asset scope 锁并使用 canonical source 判定。
+30. 独立锁序复核：assignModules 在 canonical source 判定前获取相同 asset scope advisory lock，避免与园区停用/恢复交错提交；补充读模型禁用项与重复项矩阵。
 
 ## 验证记录
 

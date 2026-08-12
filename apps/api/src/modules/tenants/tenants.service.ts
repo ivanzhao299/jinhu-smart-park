@@ -252,7 +252,7 @@ export class TenantsService {
         order: { createTime: "ASC" }
       }),
       manager.getRepository(TenantModuleEntity).find({
-        where: { tenantId: tenant.tenantId, isDeleted: false, enabled: true, status: "enabled" },
+        where: { tenantId: tenant.tenantId, isDeleted: false },
         relations: { module: true },
         order: { createTime: "ASC" }
       })
@@ -267,10 +267,21 @@ export class TenantsService {
         parkName: park.parkName,
         status: park.status
       })),
-      enabledModuleCodes: [
-        ...new Set(modules.map((item) => item.module?.moduleCode).filter((code): code is string => Boolean(code)))
-      ]
+      enabledModuleCodes: this.resolveSelectedModuleCodes(modules)
     };
+  }
+
+  private resolveSelectedModuleCodes(modules: TenantModuleEntity[]): string[] {
+    return [...new Set(modules.flatMap((item) => {
+      const code = item.module?.moduleCode;
+      if (!code) return [];
+      const explicitlyEnabled = item.enabled
+        && item.status === "enabled"
+        && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true;
+      const suspendedSelection = code === "asset"
+        && item.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true;
+      return explicitlyEnabled || suspendedSelection ? [code] : [];
+    }))];
   }
 
   async create(actorScope: TenantParkScope, actorId: string, actor: JwtPrincipal, dto: CreateTenantDto): Promise<TenantView> {
@@ -443,7 +454,15 @@ export class TenantsService {
           assetScopeLockKey({ tenantId: tenant.tenantId, parkId: left.parkId })
             .localeCompare(assetScopeLockKey({ tenantId: tenant.tenantId, parkId: right.parkId }))
         );
-        const activeTenantParks = uniqueTenantParks.filter((park) => park.status === 1);
+        const activeParkIds = new Set<string>();
+        for (const park of orderedTenantParks) {
+          const scope = { tenantId: tenant.tenantId, parkId: park.parkId };
+          await lockAssetScope(manager, scope);
+          if (await hasCanonicalActiveAssetParkSource(manager, scope)) {
+            activeParkIds.add(park.parkId);
+          }
+        }
+        const activeTenantParks = uniqueTenantParks.filter((park) => activeParkIds.has(park.parkId));
         const firstAuthorizationPark = activeTenantParks[0] ?? uniqueTenantParks[0];
         if (!firstAuthorizationPark) {
           throw new NotFoundException("Tenant park not found");
@@ -461,14 +480,15 @@ export class TenantsService {
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of orderedTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
-          const parkModuleCodes = park.status === 1
+          const parkActive = activeParkIds.has(park.parkId);
+          const parkModuleCodes = parkActive
             ? moduleCodes
             : this.normalizeCodes([...moduleCodes.filter((code) => code !== "asset"), "system"]);
-          const parkModules = park.status === 1
+          const parkModules = parkActive
             ? modules.filter((module) => moduleCodes.includes(module.moduleCode))
             : modules.filter((module) => module.moduleCode !== "asset" || moduleCodes.includes("asset"));
           const parkPermissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], parkModuleCodes);
-          if (park.status !== 1) {
+          if (!parkActive) {
             parkPermissionCodes.push(SYSTEM_PERMISSIONS.PARK_READ, SYSTEM_PERMISSIONS.PARK_UPDATE);
           }
           await this.upsertTenantModules(
@@ -480,10 +500,10 @@ export class TenantsService {
             actorId,
             tenant.expireTime,
             tenant.featureConfig ?? {},
-            park.status === 1 ? new Set<string>() : new Set(["asset"]),
-            park.status !== 1 && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
+            parkActive ? new Set<string>() : new Set(["asset"]),
+            !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
           );
-          if (park.status === 1) {
+          if (parkActive) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
           }
           await this.applyTenantAdminPermissions(
@@ -798,6 +818,7 @@ export class TenantsService {
       }
       const parkId = dto.parkId ?? (await this.resolveDefaultParkId(manager, tenant.tenantId));
       const targetScope = { tenantId: tenant.tenantId, parkId };
+      await lockAssetScope(manager, targetScope);
       const parkActive = await hasCanonicalActiveAssetParkSource(manager, targetScope);
       const selectedModuleCodes = parkActive
         ? moduleCodes

@@ -95,6 +95,9 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.match(source, /function withParkStatusSuspension/);
   assert.match(source, /delete next\[PARK_STATUS_SUSPENDED_FEATURE\]/);
   assert.equal((source.match(/withParkStatusSuspension\(/g) ?? []).length, 4);
+  assert.match(source, /function withExplicitModuleSelection/);
+  assert.match(source, /delete next\[PARK_RECOVERY_SYSTEM_FEATURE\]/);
+  assert.equal((source.match(/withExplicitModuleSelection\(/g) ?? []).length, 4);
 });
 
 test("park activity resolution accepts one active source, suspends inactive rows, and rejects missing or ambiguous sources", async () => {
