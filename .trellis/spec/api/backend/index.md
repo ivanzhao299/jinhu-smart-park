@@ -33,6 +33,64 @@ Reference files:
 
 Avoid placing business rules in controllers. Controllers should delegate to services after binding `@CurrentScope`, `@CurrentUser`, `@Param`, `@Query`, and `@Body`.
 
+## Scenario: Tenant Asset Projection Provisioning
+
+### 1. Scope / Trigger
+
+- Trigger: creating a tenant or changing tenant module authorization so the `asset` module becomes enabled.
+
+### 2. Signatures
+
+- Tenant service writes originate from `create`, `updateLoginSettings`, or `assignModules`.
+- Canonical source is the active `biz_park` row; the derived destination is `asset_park(tenant_id, park_id)`.
+- The production diagnostic may emit `ready_missing_asset_seed_reconcile` before the production seed runs.
+
+### 3. Contracts
+
+- The tenant transaction must serialize projection convergence by tenant and park, then create or restore one enabled `asset_park` from the canonical park fields.
+- Disabling `asset` does not delete existing asset-domain business data.
+- Historical convergence is ordered: production seed `000007` creates the projection, then `000008` creates the 12 disabled runtime controls and their correction audits.
+- The predeploy classifier is read-only and may allow convergence only when this release will run production seed, migration compatibility is final, no non-deleted projection exists, the source is deterministic, and controls are entirely absent.
+
+### 4. Validation & Error Matrix
+
+- missing active canonical park during direct module assignment -> `Park not found`; the transaction rolls back.
+- disabled existing projection on an authorized business write -> restore and synchronize it.
+- disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
+- ambiguous/missing park source, partial controls, definition drift, seed disabled, or migration-history drift -> deployment remains blocked.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a system-only tenant enables `asset`; the same transaction creates one enabled projection.
+- Base: an already valid projection is synchronized without creating a duplicate.
+- Bad: a deployment gate treats every missing projection as repairable or copies an arbitrary park across scopes.
+
+### 6. Tests Required
+
+- Unit-test serialization plus create/restore behavior and every tenant module-write entry point.
+- In isolated PostgreSQL, assert missing projection -> diagnostic reconcile state -> `000007`/`000008` -> `ready_exact`.
+- Assert disabled/duplicate projections and partial controls stay fail-closed.
+- Run the complete `verify-000194-runtime-control-retry.sh` historical and fresh-order fixture.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+if (moduleCodes.includes("asset") && !(await repository.findOne(...))) {
+  await repository.save(repository.create(...));
+}
+```
+
+#### Correct
+
+```ts
+await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [scopeKey]);
+const projection = (await repository.findOne(...)) ?? repository.create(...);
+projection.status = "enabled";
+await repository.save(projection);
+```
+
 ## Authentication, Permissions, And Scope
 
 Non-public endpoints must declare permission metadata. `PermissionGuard` rejects endpoints with neither `@RequirePermissions` nor `@RequireAnyPermissions`.

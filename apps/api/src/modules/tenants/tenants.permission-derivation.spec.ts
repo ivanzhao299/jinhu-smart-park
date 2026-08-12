@@ -236,6 +236,81 @@ test("tenant module read models deduplicate park-scoped module bindings", () => 
   assert.match(source, /const enabledModuleCount = new Set\(enabledModuleRows\.map\(\(item\) => item\.moduleId\)\)\.size/);
 });
 
+test("tenant asset enablement creates the canonical park projection in the tenant transaction", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+
+  assert.match(source, /await this\.ensureAssetParkProjection\(manager, park, moduleCodes, actorId\)/);
+  assert.match(source, /if \(!moduleCodes\.includes\("asset"\)\) return/);
+  assert.match(source, /manager\.getRepository\(AssetParkEntity\)/);
+  assert.match(source, /tenant-asset-park:\$\{park\.tenantId\}:\$\{park\.parkId\}/);
+  assert.match(source, /remark: "Tenant asset park projection"/);
+});
+
+test("tenant asset projection is serialized and restores an existing disabled projection", async () => {
+  const saved: Array<Record<string, unknown>> = [];
+  const queries: Array<{ sql: string; parameters: unknown[] }> = [];
+  const existing = {
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    parkCode: "OLD",
+    parkName: "Old park",
+    address: null,
+    totalArea: "0",
+    status: "disabled"
+  };
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const ensureProjection = (service as unknown as {
+    ensureAssetParkProjection(
+      manager: {
+        query(sql: string, parameters: unknown[]): Promise<unknown>;
+        getRepository(): {
+          findOne(): Promise<Record<string, unknown> | null>;
+          create(value: Record<string, unknown>): Record<string, unknown>;
+          save(value: Record<string, unknown>): Promise<Record<string, unknown>>;
+        };
+      },
+      park: Record<string, unknown>,
+      moduleCodes: string[],
+      actorId: string
+    ): Promise<void>;
+  }).ensureAssetParkProjection.bind(service);
+
+  await ensureProjection(
+    {
+      query: async (sql, parameters) => {
+        queries.push({ sql, parameters });
+        return [];
+      },
+      getRepository: () => ({
+        findOne: async () => existing,
+        create: (value) => value,
+        save: async (value) => {
+          saved.push({ ...value });
+          return value;
+        }
+      })
+    },
+    {
+      tenantId: "tenant-a",
+      parkId: "park-a",
+      parkCode: "PARK-A",
+      parkName: "Park A",
+      address: "No. 1",
+      totalArea: "100.00"
+    },
+    ["system", "asset"],
+    "actor-a"
+  );
+
+  assert.match(queries[0]?.sql ?? "", /pg_advisory_xact_lock/);
+  assert.deepEqual(queries[0]?.parameters, ["tenant-asset-park:tenant-a:park-a"]);
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0]?.status, "enabled");
+  assert.equal(saved[0]?.parkCode, "PARK-A");
+  assert.equal(saved[0]?.parkName, "Park A");
+  assert.equal(saved[0]?.updateBy, "actor-a");
+});
+
 test("tenant authorization rejects a malformed park-scoped administrator role", async () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
   const getOrCreate = (service as unknown as {

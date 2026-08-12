@@ -1,4 +1,5 @@
--- Production-safe convergence for the asset-domain park projection.
+-- Production-safe convergence for the asset-domain park projection, including
+-- tenant parks that received the asset module after their initial creation.
 -- Existing asset_park rows are preserved. A missing projection prefers one
 -- active same-scope biz_park. If that scope contains multiple business parks,
 -- the fixed production default scope may still select the globally unique
@@ -58,6 +59,13 @@ BEGIN
       ) AS asset_count,
       (
         SELECT count(*)
+        FROM asset_park park
+        WHERE btrim(park.tenant_id) = scope.tenant_key
+          AND btrim(park.park_id) = scope.park_key
+          AND park.is_deleted = false
+      ) AS asset_row_count,
+      (
+        SELECT count(*)
         FROM biz_park park
         WHERE btrim(park.tenant_id) = scope.tenant_key
           AND btrim(park.park_id) = scope.park_key
@@ -84,7 +92,7 @@ BEGIN
          )
     ),
     count(*) FILTER (WHERE tenant_count <> 1),
-    count(*) FILTER (WHERE asset_count > 1),
+    count(*) FILTER (WHERE asset_row_count <> asset_count OR asset_count > 1),
     count(*) FILTER (
       WHERE asset_count = 0
         AND NOT (

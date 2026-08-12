@@ -1,0 +1,2 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"租户服务、事务、测试与授权边界规范"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"production seed、部署门禁、历史 fixture 与 fail-closed 规范"}

@@ -292,6 +292,17 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHERE btrim(park.tenant_id::text) = scope.tenant_key
         AND btrim(park.park_id::text) = scope.park_key
         AND park.status = 'enabled' AND park.is_deleted = false) AS asset_count,
+    (SELECT count(*) FROM asset_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.is_deleted = false) AS asset_row_count,
+    (SELECT count(*) FROM biz_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.status = 1 AND park.is_deleted = false) AS exact_source_count,
+    (SELECT count(*) FROM biz_park park
+      WHERE park.park_code = 'JH'
+        AND park.status = 1 AND park.is_deleted = false) AS default_source_count,
     (SELECT count(*) FROM expected e
       WHERE e.tenant_key = scope.tenant_key AND e.park_key = scope.park_key) AS expected_count,
     (SELECT count(*) FROM sys_property_runtime_control control
@@ -339,7 +350,22 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN tenant_key IS NULL OR park_key IS NULL
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-        OR tenant_count <> 1 OR asset_count <> 1 THEN 'invalid_scope'
+        OR tenant_count <> 1 THEN 'invalid_scope'
+      WHEN asset_count=0 AND asset_row_count=0
+        AND (
+          exact_source_count=1
+          OR (
+            tenant_key='10000001'
+            AND park_key='20000001'
+            AND default_source_count=1
+          )
+        )
+        AND missing_count=expected_count AND actual_count=0
+        AND :'runtime_contract_stage'='post_000195'
+        AND :'allow_seed_reconcile'='yes'
+        AND :'runtime_compatibility_succeeded'='yes'
+        THEN 'ready_missing_asset_seed_reconcile'
+      WHEN asset_count <> 1 THEN 'invalid_scope'
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
       WHEN missing_count=expected_count AND actual_count=0

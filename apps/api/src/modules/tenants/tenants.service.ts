@@ -16,6 +16,7 @@ import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { AssetParkEntity } from "../assets/entities/asset-park.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -296,6 +297,7 @@ export class TenantsService {
       );
 
       const park = await this.createDefaultPark(manager, tenant, parkId, actorId, dto);
+      await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
       const org = await this.createRootOrg(manager, tenant, park.parkId, actorId, dto);
       const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId, parkId: park.parkId }, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
@@ -412,6 +414,7 @@ export class TenantsService {
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of tenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
+          await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
           await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
           await this.applyTenantAdminPermissions(
             manager,
@@ -482,6 +485,13 @@ export class TenantsService {
       const permissions = await this.ensureTenantPermissions(manager, actorScope, targetScope, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
       const expireTime = dto.expireTime ? new Date(dto.expireTime) : null;
+      const park = await manager.getRepository(ParkEntity).findOne({
+        where: { tenantId: tenant.tenantId, parkId, status: 1, isDeleted: false }
+      });
+      if (!park) {
+        throw new NotFoundException("Park not found");
+      }
+      await this.ensureAssetParkProjection(manager, park, moduleCodes, actorId);
       await this.upsertTenantModules(manager, tenant, parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? tenant.featureConfig);
       const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actorId);
       await this.applyTenantAdminPermissions(
@@ -575,6 +585,38 @@ export class TenantsService {
         remark: "Tenant default root organization"
       })
     );
+  }
+
+  private async ensureAssetParkProjection(
+    manager: EntityManager,
+    park: ParkEntity,
+    moduleCodes: string[],
+    actorId: string
+  ): Promise<void> {
+    if (!moduleCodes.includes("asset")) return;
+    await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
+      `tenant-asset-park:${park.tenantId}:${park.parkId}`
+    ]);
+    const repository = manager.getRepository(AssetParkEntity);
+    const existing = await repository.findOne({
+      where: { tenantId: park.tenantId, parkId: park.parkId, isDeleted: false }
+    });
+    const projection = existing ?? repository.create({
+      tenantId: park.tenantId,
+      parkId: park.parkId,
+      sortOrder: 0,
+      createBy: actorId,
+      remark: "Tenant asset park projection"
+    });
+    Object.assign(projection, {
+      parkCode: park.parkCode,
+      parkName: park.parkName,
+      address: park.address,
+      totalArea: park.totalArea,
+      status: "enabled",
+      updateBy: actorId
+    });
+    await repository.save(projection);
   }
 
   private async createTenantAdminRole(

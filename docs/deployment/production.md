@@ -397,6 +397,12 @@ Migration behavior:
   approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
   seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
   migration execution precedes seed execution.
+  When that final scope also has no non-deleted `asset_park`, it is
+  `ready_missing_asset_seed_reconcile` only under the same migration/seed conditions and only when `000007` can
+  resolve one active same-scope `biz_park` (or the fixed default scope's globally unique active `JH` fallback).
+  Production seed order first runs `000007` to create the missing asset projection, then `000008` to create the 12
+  disabled controls and 24 correction audits. Disabled or duplicate asset projections, ambiguous sources, partial
+  controls, and any seed-disabled deployment remain fail-closed.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The

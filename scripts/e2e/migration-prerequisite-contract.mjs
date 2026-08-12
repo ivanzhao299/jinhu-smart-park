@@ -558,6 +558,7 @@ for (const requiredSeedContract of [
   "FROM sys_tenant tenant",
   "module.module_code = 'asset'",
   "asset_count = 0",
+  "asset_row_count <> asset_count",
   "exact_source_count = 1",
   "scope.exact_source_count <> 1",
   "scope.tenant_key = '10000001'",
@@ -787,6 +788,12 @@ assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catal
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /asset_count=0 AND asset_row_count=0/u);
+assert.match(runtimeControlDiagnostic, /exact_source_count=1/u);
+assert.match(runtimeControlDiagnostic, /tenant_key='10000001'/u);
+assert.match(runtimeControlDiagnostic, /park_key='20000001'/u);
+assert.match(runtimeControlDiagnostic, /default_source_count=1/u);
 assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /runtime_compatibility_succeeded/u);
 assert.match(runtimeControlDiagnostic, /d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b/u);
