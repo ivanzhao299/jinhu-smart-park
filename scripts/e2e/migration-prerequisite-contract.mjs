@@ -774,6 +774,18 @@ for (const requiredSeedContract of [
 assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
+assert.match(propertyRuntimeControlSeed, /is_active boolean NOT NULL/u);
+assert.match(propertyRuntimeControlSeed, /scope\.is_active[\s\S]*?NOT EXISTS/u);
+assert.match(
+  propertyRuntimeControlSeed,
+  /park\.status='enabled' AND park\.is_deleted=false\)<>1[\s\S]*?park\.is_deleted=false\)<>1/u,
+  "runtime-control seed must reject enabled plus disabled non-deleted asset projections"
+);
+assert.match(
+  propertyRuntimeControlSeed,
+  /sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment[\s\S]*?module\.module_code='asset'/u,
+  "runtime-control seed must retain and validate immutable histories after asset is disabled"
+);
 assert.match(
   propertyRuntimeControlSeed,
   /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
@@ -789,7 +801,16 @@ assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_retained_exact/u);
 assert.match(runtimeControlDiagnostic, /asset_count=0 AND asset_row_count=0/u);
+assert.match(runtimeControlDiagnostic, /asset_count <> 1 OR asset_row_count <> 1/u);
+assert.match(runtimeControlDiagnostic, /retained_audit_drift_count/u);
+assert.match(runtimeControlDiagnostic, /SELECT count\(\*\) FROM drift/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /retained_scope AS \([\s\S]*?sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment/u,
+  "runtime-control diagnostic must retain only scopes with persisted signed history and an asset assignment"
+);
 assert.match(runtimeControlDiagnostic, /exact_source_count=1/u);
 assert.match(runtimeControlDiagnostic, /tenant_key='10000001'/u);
 assert.match(runtimeControlDiagnostic, /park_key='20000001'/u);

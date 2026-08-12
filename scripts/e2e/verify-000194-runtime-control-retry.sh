@@ -796,4 +796,96 @@ grep -Fq 'ready_exact|10000001|20000001|12|12|0|0|0||' \
 grep -Fq 'summary: scopes=1 blocked=0 mode=enforce table=present contract_stage=post_000195' \
   "$log_root/db-migrate-000200-fresh-order-gate.log"
 
+# Disabling the asset assignment must preserve its immutable signed control
+# history as a validation-only scope. It must not become extra_control_scope,
+# and the production seed must remain a no-op for the retained scope.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.rel_tenant_module assignment
+      SET enabled=false, update_time=clock_timestamp()
+      FROM public.sys_module module
+      WHERE module.id=assignment.module_id
+        AND module.module_code='asset'
+        AND assignment.tenant_id='10000001'
+        AND assignment.park_id='20000001'
+        AND assignment.is_deleted=false;"
+
+COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" no \
+  > "$log_root/db-migrate-000200-retained-scope-gate.log"
+grep -Fq 'ready_retained_exact|10000001|20000001|12|12|0|0|0||' \
+  "$log_root/db-migrate-000200-retained-scope-gate.log"
+if grep -Fq 'extra_control_scope|10000001|20000001' \
+  "$log_root/db-migrate-000200-retained-scope-gate.log"; then
+  echo 'A disabled asset assignment was incorrectly classified as an extra control scope' >&2
+  exit 1
+fi
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  < database/seeds/production/000008_property_runtime_control_scope_reconcile.sql
+
+# A retained scope with the right row counts but drifted signed content must
+# fail both readers. The production seed's postcondition is intentionally as
+# strict as the deployment diagnostic; it must not accept a 12/24 count-only
+# false positive or try to repair immutable history.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_property_runtime_control
+      SET contract_hash=repeat('0',64)::char(64)
+      WHERE tenant_id='10000001'
+        AND park_id='20000001'
+        AND control_key='identity.legacy-read-v1';"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" no \
+    > "$log_root/db-migrate-000200-retained-definition-drift.log" 2>&1; then
+  echo 'Expected a retained scope with signed control drift to fail the gate' >&2
+  exit 1
+fi
+grep -Fq 'retained runtime control scope has incomplete or drifted correction audits' \
+  "$log_root/db-migrate-000200-retained-definition-drift.log"
+if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  < database/seeds/production/000008_property_runtime_control_scope_reconcile.sql \
+  > "$log_root/db-seed-000200-retained-definition-drift.log" 2>&1; then
+  echo 'Expected the production seed to reject signed control drift' >&2
+  exit 1
+fi
+grep -Fq 'production-runtime-control-postcondition-failed' \
+  "$log_root/db-seed-000200-retained-definition-drift.log"
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "UPDATE public.sys_property_runtime_control
+      SET contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'::char(64)
+      WHERE tenant_id='10000001'
+        AND park_id='20000001'
+        AND control_key='identity.legacy-read-v1';"
+
+# One enabled projection plus another disabled, non-deleted projection is
+# ambiguous and must fail both the read-only gate and the production seed.
+docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  -c "INSERT INTO public.asset_park (
+        tenant_id,park_id,park_code,park_name,status,remark
+      ) VALUES (
+        '10000001','20000001','RETAINED_DISABLED','Retained disabled duplicate','disabled',
+        'release smoke duplicate projection guard'
+      );"
+if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
+  scripts/diagnose-000194-runtime-control.sh enforce . "$fresh_order_db" no \
+    > "$log_root/db-migrate-000200-retained-duplicate-projection.log" 2>&1; then
+  echo 'Expected a retained scope with a disabled duplicate projection to fail the gate' >&2
+  exit 1
+fi
+grep -Fq 'invalid_scope|10000001|20000001|12|12|0|0|0||' \
+  "$log_root/db-migrate-000200-retained-duplicate-projection.log"
+if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+  psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
+  < database/seeds/production/000008_property_runtime_control_scope_reconcile.sql \
+  > "$log_root/db-seed-000200-retained-duplicate-projection.log" 2>&1; then
+  echo 'Expected the production seed to reject a disabled duplicate projection' >&2
+  exit 1
+fi
+grep -Fq 'production-runtime-control-scope-preflight-failed' \
+  "$log_root/db-seed-000200-retained-duplicate-projection.log"
+
 echo '[PASS] production-shaped 000194-000200 runtime-control migration chain'

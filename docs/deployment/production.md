@@ -409,6 +409,11 @@ Migration behavior:
   and initializes the signed 12 disabled controls through both correction audits. Therefore a later deployment with
   production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
   originating business write instead of deferring damage to the deployment gate.
+  If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
+  The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
+  the module or seeding new controls. Both active and retained scopes require exactly one enabled/non-deleted
+  `asset_park` and exactly one non-deleted projection in total; an additional disabled non-deleted projection,
+  unknown scope, or incomplete control/audit history remains fail-closed.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The

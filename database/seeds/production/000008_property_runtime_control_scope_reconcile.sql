@@ -37,10 +37,11 @@ INSERT INTO production_runtime_control_signed VALUES
 CREATE TEMP TABLE production_runtime_control_scope (
   tenant_key varchar(64) NOT NULL,
   park_key varchar(64) NOT NULL,
+  is_active boolean NOT NULL,
   PRIMARY KEY (tenant_key, park_key)
 ) ON COMMIT DROP;
-INSERT INTO production_runtime_control_scope (tenant_key, park_key)
-SELECT btrim(assignment.tenant_id), btrim(assignment.park_id)
+INSERT INTO production_runtime_control_scope (tenant_key, park_key, is_active)
+SELECT btrim(assignment.tenant_id), btrim(assignment.park_id), true
 FROM public.rel_tenant_module assignment
 JOIN public.sys_module module
   ON module.id=assignment.module_id
@@ -53,6 +54,27 @@ WHERE assignment.enabled=true
   AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())
   AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
 GROUP BY btrim(assignment.tenant_id), btrim(assignment.park_id);
+
+-- Runtime-control audits are immutable and their controls are protected by a
+-- restrictive foreign key. If an asset assignment is later disabled, retain
+-- that scope in the signed contract instead of treating its canonical history
+-- as an extra scope. Retained scopes are validation-only and are never seeded.
+INSERT INTO production_runtime_control_scope (tenant_key, park_key, is_active)
+SELECT persisted.tenant_key, persisted.park_key, false
+FROM (
+  SELECT control.tenant_id AS tenant_key, control.park_id AS park_key
+  FROM public.sys_property_runtime_control control
+) persisted
+JOIN public.rel_tenant_module assignment
+  ON btrim(assignment.tenant_id)=persisted.tenant_key
+ AND btrim(assignment.park_id)=persisted.park_key
+ AND assignment.is_deleted=false
+JOIN public.sys_module module
+  ON module.id=assignment.module_id
+ AND module.module_code='asset'
+ AND module.is_deleted=false
+GROUP BY persisted.tenant_key, persisted.park_key
+ON CONFLICT (tenant_key,park_key) DO NOTHING;
 
 DO $preflight$
 DECLARE
@@ -89,6 +111,10 @@ BEGIN
            WHERE btrim(park.tenant_id)=scope.tenant_key
              AND btrim(park.park_id)=scope.park_key
              AND park.status='enabled' AND park.is_deleted=false)<>1
+       OR (SELECT count(*) FROM public.asset_park park
+           WHERE btrim(park.tenant_id)=scope.tenant_key
+             AND btrim(park.park_id)=scope.park_key
+             AND park.is_deleted=false)<>1
   ) THEN
     RAISE EXCEPTION 'production-runtime-control-scope-preflight-failed'
       USING ERRCODE='23514';
@@ -136,7 +162,8 @@ CREATE TEMP TABLE production_runtime_control_missing_scope
 ON COMMIT DROP AS
 SELECT scope.*
 FROM production_runtime_control_scope scope
-WHERE NOT EXISTS (
+WHERE scope.is_active
+  AND NOT EXISTS (
   SELECT 1 FROM public.sys_property_runtime_control control
   WHERE control.tenant_id=scope.tenant_key AND control.park_id=scope.park_key
 );

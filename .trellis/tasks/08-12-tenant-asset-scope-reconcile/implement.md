@@ -6,6 +6,7 @@
 4. 在隔离 PostgreSQL 验证 missing asset → seed → ready_exact。
 5. 执行单测、lint、typecheck、build、Release Smoke。
 6. 中文 PR、Codex Review、合并并监控部署成功。
+7. Review 生命周期补强：禁用/过期 asset assignment 后保留完整 signed history 为 validation-only scope；active/retained 均拒绝 disabled 非删除重复投影，并同步 diagnostic/000008/PG fixture。
 
 ## 验证记录
 
@@ -13,5 +14,5 @@
 - Review 修复隔离验证：新租户创建响应 201，同一事务落库 `asset_park=1`、runtime controls=12、contract audits=24、final v3 controls=12；在 `RUN_PRODUCTION_SEED=no` 语义下诊断仍为 `ready_exact`、blocked=0。
 - 独立模块分配：从 system-only 租户启用 asset 后生成唯一 enabled 投影；disabled 投影由业务写路径恢复。
 - 历史收敛：删除投影后分类为 `ready_missing_asset_seed_reconcile`；运行 production seed 后 13 个 scope 全部 `ready_exact`；disabled 投影保持 `invalid_scope`。
-- `verify-000194-runtime-control-retry.sh`：历史重试链与 fresh-order fixture 通过。
-- 全仓：lint、typecheck、API 1147 项单测（1134 通过、13 跳过）、全部 Web 单测、API/Web build 通过。
+- `verify-000194-runtime-control-retry.sh`：历史重试链与 fresh-order fixture 通过；覆盖停用 asset assignment 的 `ready_retained_exact`、控制签名漂移双重阻断、disabled 非删除重复投影双重阻断。
+- 全仓：lint、typecheck、API 1153 项单测（1140 通过、13 跳过）、全部 Web 单测、API/Web build 通过。

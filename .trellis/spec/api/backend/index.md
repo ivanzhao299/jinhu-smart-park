@@ -50,6 +50,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - The tenant transaction must serialize scope convergence by tenant and park, require one active canonical `biz_park` source (except the fixed default scope's reviewed globally unique `JH` fallback), and create or restore exactly one enabled `asset_park` from those canonical fields.
 - The same transaction must initialize the signed 12 disabled property runtime controls through the audited v1 -> v2 -> v3 contract path, yielding 24 immutable correction audits. A fully canonical scope is a no-op; partial or drifted control/audit state fails closed.
 - Disabling `asset` does not delete existing asset-domain business data.
+- Disabling or expiring an existing asset assignment also preserves the signed runtime controls and immutable audits. A scope with that historical assignment is retained for exact-set validation only; it is never interpreted as a currently enabled module or initialized by the seed.
 - Historical convergence is ordered: production seed `000007` creates the projection, then `000008` creates the 12 disabled runtime controls and their correction audits.
 - The predeploy classifier is read-only and may allow convergence only when this release will run production seed, migration compatibility is final, no non-deleted projection exists, the source is deterministic, and controls are entirely absent.
 
@@ -59,6 +60,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - multiple active canonical sources, multiple non-deleted projections, or partial controls/audits -> conflict; the transaction rolls back.
 - disabled existing projection on an authorized business write -> restore and synchronize it.
 - disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
+- one enabled projection plus any additional disabled non-deleted projection -> `invalid_scope` for both active and retained scopes.
 - ambiguous/missing park source, partial controls, definition drift, seed disabled, or migration-history drift -> deployment remains blocked.
 
 ### 5. Good / Base / Bad Cases
@@ -72,6 +74,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - Unit-test serialization, deterministic source selection, duplicate rejection, create/restore behavior, signed controls, audited correction, partial-state rejection, and every tenant module-write entry point.
 - In isolated PostgreSQL, assert missing projection -> diagnostic reconcile state -> `000007`/`000008` -> `ready_exact`.
 - Assert disabled/duplicate projections and partial controls stay fail-closed.
+- Assert a disabled assignment with exact 12 controls/24 audits is `ready_retained_exact`, while unknown scopes and retained partial/unknown controls or audits remain blocked.
 - Run the complete `verify-000194-runtime-control-retry.sh` historical and fresh-order fixture.
 
 ### 7. Wrong vs Correct
