@@ -16,6 +16,8 @@
 14. Review #9：所有非 active 园区状态统一触发 canonical survivor 校验；删除来源后立即重投影；inactive 园区强制保留 system assignment；租户 enable 事务性补齐潜伏 asset scope。
 15. Review #10：统一识别租户 runtime inactive→active 边沿，覆盖 enable、通用更新、登录设置三条路径并复用同一 asset scope 收敛 helper。
 16. Review #11：租户恢复直接遍历 assignment scope 以保留默认 JH fallback；投影编辑校验真实 biz_park canonical；允许非 active 冗余园区和默认 scope 按 resolver 语义逐步清理。
+17. Review #12：投影更新执行完整 provisioning；园区 recovery API 以 park 权限为双模块共同权威并在 asset/system 菜单各提供入口；孤立 projection 只同步投影、不生成 runtime controls/audits。
+18. 独立复核：同一路由存在 asset/system 双菜单时，DashboardLayout 按任一匹配节点可访问即放行，避免首匹配 asset 节点使 inactive system recovery 误跳 403。
 
 ## 验证记录
 

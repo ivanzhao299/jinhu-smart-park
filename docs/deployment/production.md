@@ -428,7 +428,12 @@ Migration behavior:
   enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
   than one remains blocked. Reactivation iterates assignment scopes directly so the fixed default scope can still use
   its reviewed globally unique `JH` fallback. Asset-projection edits validate against the locked canonical `biz_park`,
-  never against potentially drifted projection fields. Non-active auxiliary parks are allowed when they preserve the
+  never against potentially drifted projection fields, then run full provisioning so enabled/canonical values persist.
+  Park list/detail/update are permission-gated recovery surfaces exposed under both asset and system menus; create/delete
+  remain asset-only. When a route has both module-specific menu nodes, the page guard accepts any matching node whose
+  permission and module are both available, so inactive system recovery is not shadowed by the asset menu. A legacy
+  projection without active/retained asset assignment is synchronized without creating
+  unowned runtime controls/audits. Non-active auxiliary parks are allowed when they preserve the
   canonical active-source invariant, and default-scope cleanup follows the same exact-one/global-JH-one resolver rule.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling

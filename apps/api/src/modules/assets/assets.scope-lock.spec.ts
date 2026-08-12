@@ -15,6 +15,8 @@ test("every asset park mutation shares the scope transaction lock and active pro
   assert.match(source, /assertCanonicalAssetParkInput\(dto, projection\)/);
   assert.match(source, /const canonical = await resolveCanonicalAssetParkSource\(manager, scope\)/);
   assert.match(source, /assertCanonicalAssetParkInput\(dto, canonical\)/);
+  assert.match(source, /const projection = await ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
+  assert.match(source, /return repository\.save\(projection\)/);
   assert.match(source, /Asset park fields must match the canonical park/);
   assert.match(source, /Number\(dto\.totalArea\) !== Number\(canonical\.totalArea\)/);
   assert.match(helper, /tenant-asset-park:\$\{scope\.tenantId\}:\$\{scope\.parkId\}/);

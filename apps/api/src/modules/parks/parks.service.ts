@@ -3,6 +3,7 @@ import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { Brackets, type DataSource, type EntityManager, type SelectQueryBuilder, type Repository } from "typeorm";
 import {
+  ensureAssetParkProjection,
   ensureAssetScopeProvisioned,
   hasAssetParkProjection,
   hasProtectedAssetScope,
@@ -110,9 +111,9 @@ export class ParksService {
       updateBy: actorId
     });
     const saved = await repository.save(entity);
-    if (protectedScope && saved.status === 1) await ensureAssetScopeProvisioned(manager, scope, actorId);
+    if (protectedScope && saved.status === 1) await this.syncCanonicalAssetProjection(manager, scope, actorId);
     if (defaultScopeProtected && saved.status === 1) {
-      await ensureAssetScopeProvisioned(manager, DEFAULT_PLATFORM_SCOPE, actorId);
+      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actorId);
     }
     return saved;
     });
@@ -156,9 +157,9 @@ export class ParksService {
     entity.updateBy = actor.sub;
 
     const saved = await repository.save(entity);
-    if (protectedScope) await ensureAssetScopeProvisioned(manager, scope, actor.sub);
+    if (protectedScope) await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
     if (defaultScopeProtected) {
-      await ensureAssetScopeProvisioned(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     return saved;
     });
@@ -184,10 +185,10 @@ export class ParksService {
     entity.updateBy = actor.sub;
     await repository.save(entity);
     if (protectedScope) {
-      await ensureAssetScopeProvisioned(manager, scope, actor.sub);
+      await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
     }
     if (protectedDefault) {
-      await ensureAssetScopeProvisioned(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     return { id };
     });
@@ -246,6 +247,18 @@ export class ParksService {
 
   private async hasCanonicalProjectionContract(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
     return await hasProtectedAssetScope(manager, scope) || await hasAssetParkProjection(manager, scope);
+  }
+
+  private async syncCanonicalAssetProjection(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    if (await hasProtectedAssetScope(manager, scope)) {
+      await ensureAssetScopeProvisioned(manager, scope, actorId);
+      return;
+    }
+    await ensureAssetParkProjection(manager, scope, actorId);
   }
 
   private async assertCanonicalSourceSurvives(

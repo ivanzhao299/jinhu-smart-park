@@ -17,14 +17,14 @@ export class ParksController {
   constructor(private readonly parksService: ParksService) {}
 
   @Get()
-  @RequireModule("system")
+  @RequireModule()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: ParkQueryDto) {
     return this.parksService.list(scope, query, user);
   }
 
   @Get(":id")
-  @RequireModule("system")
+  @RequireModule()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.parksService.detail(scope, id, user);
@@ -38,7 +38,7 @@ export class ParksController {
   }
 
   @Put(":id")
-  @RequireModule("system")
+  @RequireModule()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_UPDATE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "修改", bizType: "biz_park", bizIdParam: "id" })
   update(

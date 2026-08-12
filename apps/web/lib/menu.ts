@@ -207,6 +207,7 @@ export const dashboardMenus: MenuNode[] = [
     icon: Building2,
     module: "asset",
     children: [
+      { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "asset" },
       { label: "楼栋管理", href: "/assets/buildings", permission: "building:read", module: "asset" },
       { label: "楼层管理", href: "/assets/floors", permission: "floor:read", module: "asset" },
       { label: "房间/房源管理", href: "/assets/units", permission: "asset:unit:list", module: "asset" },
@@ -383,7 +384,7 @@ export const dashboardMenus: MenuNode[] = [
     permission: "system:read",
     module: "system",
     children: [
-      { label: "园区管理", href: "/assets/parks", permission: "park:read", module: "system" },
+      { label: "园区管理", href: "/assets/parks", permission: "park:read" },
       { label: "组织管理", href: "/system/orgs", permission: "org:read", module: "system" },
       { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" },
       { label: "角色管理", href: "/system/roles", permission: "role:read", module: "system" },
@@ -626,26 +627,31 @@ function resolveMenuIcon(icon?: string | null): LucideIcon | undefined {
 }
 
 export function findMenuByPath(pathname: string, menus: MenuNode[] = dashboardMenus): MenuNode | undefined {
+  return findMenusByPath(pathname, menus)[0];
+}
+
+export function findMenusByPath(pathname: string, menus: MenuNode[] = dashboardMenus): MenuNode[] {
   if (pathname === "/system/attachments") {
-    return { label: "附件中心", href: "/system/attachments", permission: "file:read", module: "system" };
+    return [{ label: "附件中心", href: "/system/attachments", permission: "file:read", module: "system" }];
   }
   if (pathname === "/system/permissions") {
-    return { label: "权限点", href: "/system/permissions", permission: "permission:read", module: "system" };
+    return [{ label: "权限点", href: "/system/permissions", permission: "permission:read", module: "system" }];
   }
   if (pathname === "/system/audit") {
-    return { label: "审计中心", href: "/system/audit", permission: "audit:read", module: "system" };
+    return [{ label: "审计中心", href: "/system/audit", permission: "audit:read", module: "system" }];
   }
   if (pathname === "/assets/rooms") {
-    return { label: "房间/房源管理", href: "/assets/rooms", permission: "unit:read", module: "asset" };
+    return [{ label: "房间/房源管理", href: "/assets/rooms", permission: "unit:read", module: "asset" }];
   }
+  const matches: MenuNode[] = [];
   for (const menu of menus) {
     if (menu.href === pathname) {
-      return menu;
+      matches.push(menu);
     }
-    const child = menu.children ? findMenuByPath(pathname, menu.children) : undefined;
-    if (child) {
-      return child.module || !menu.module ? child : { ...child, module: menu.module };
+    const children = menu.children ? findMenusByPath(pathname, menu.children) : [];
+    for (const child of children) {
+      matches.push(child.module || !menu.module ? child : { ...child, module: menu.module });
     }
   }
-  return undefined;
+  return matches;
 }

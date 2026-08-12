@@ -285,6 +285,7 @@ test("tenant asset enablement creates the canonical park projection in the tenan
   assert.match(source, /await this\.ensureAssetScopeProvisioning\(manager, targetScope, moduleCodes, actorId\)/);
   assert.match(source, /if \(!moduleCodes\.includes\("asset"\)\) return/);
   assert.match(provisioningSource, /manager\.getRepository\(AssetParkEntity\)/);
+  assert.match(provisioningSource, /const projection = await ensureAssetParkProjection\(manager, scope, actorId\)/);
   assert.match(provisioningSource, /tenant-asset-park:\$\{scope\.tenantId\}:\$\{scope\.parkId\}/);
   assert.match(provisioningSource, /remark: "Tenant asset park projection"/);
   assert.match(provisioningSource, /ensureTenantAssetRuntimeControls\(manager, scope\)/);

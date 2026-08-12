@@ -18,19 +18,21 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const nextActiveSources = activeSources \+ \(\(dto\.status \?\? 1\) === 1 \? 1 : 0\)/);
   assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
   assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
-  assert.match(source, /ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
+  assert.match(source, /syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
   assert.match(source, /lockAssetScope\(manager, DEFAULT_PLATFORM_SCOPE\)/);
-  assert.match(source, /ensureAssetScopeProvisioned\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
+  assert.match(source, /syncCanonicalAssetProjection\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.match(source, /park\.park_code = 'JH'/);
-  assert.match(source, /if \(protectedScope\) await ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
-  assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await ensureAssetScopeProvisioned/);
+  assert.match(source, /if \(protectedScope\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
+  assert.match(source, /await repository\.save\(entity\);\s+if \(protectedScope\) \{\s+await this\.syncCanonicalAssetProjection/);
+  assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
+  assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
 });
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {
   assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController), ["asset"]);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.update), ["system"]);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.list), ["system"]);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.detail), ["system"]);
+  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.update), []);
+  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.list), []);
+  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.detail), []);
 });
 
 test("protected park mutation permits only a single surviving active canonical source", async () => {

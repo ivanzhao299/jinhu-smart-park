@@ -7,6 +7,7 @@ import {
 import {
   FIRST_RELEASE_MENU_PATH_SET,
   findMenuByPath,
+  findMenusByPath,
   getDashboardMenus
 } from "./menu";
 
@@ -88,12 +89,15 @@ test("property menu nodes require only their module and granular page permission
   }
 });
 
-test("canonical park recovery remains reachable through the system module", () => {
+test("park management is reachable through both active asset and inactive system recovery menus", () => {
   const parkMenu = findMenuByPath("/assets/parks", getDashboardMenus());
   assert.deepEqual(
     { module: parkMenu?.module, permission: parkMenu?.permission },
-    { module: "system", permission: "park:read" }
+    { module: "asset", permission: "park:read" }
   );
   const assetChildren = getDashboardMenus().find((menu) => menu.module === "asset")?.children ?? [];
-  assert.equal(assetChildren.some((child) => child.href === "/assets/parks"), false);
+  const systemChildren = getDashboardMenus().find((menu) => menu.module === "system")?.children ?? [];
+  assert.equal(assetChildren.some((child) => child.href === "/assets/parks"), true);
+  assert.equal(systemChildren.some((child) => child.href === "/assets/parks"), true);
+  assert.deepEqual(findMenusByPath("/assets/parks", getDashboardMenus()).map((item) => item.module), ["asset", "system"]);
 });

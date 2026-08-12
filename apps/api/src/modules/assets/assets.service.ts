@@ -98,12 +98,13 @@ export class AssetsService {
       if (dto.parkCode && dto.parkCode !== entity.parkCode) {
         await this.assertCodeAvailable(repository, scope, "parkCode", dto.parkCode, "Park code already exists");
       }
-      Object.assign(entity, {
-        sortOrder: dto.sortOrder ?? entity.sortOrder,
-        remark: dto.remark ?? entity.remark,
+      const projection = await ensureAssetScopeProvisioned(manager, scope, actor.sub);
+      Object.assign(projection, {
+        sortOrder: dto.sortOrder ?? projection.sortOrder,
+        remark: dto.remark ?? projection.remark,
         updateBy: actor.sub
       });
-      return repository.save(entity);
+      return repository.save(projection);
     });
   }
 

@@ -10,6 +10,8 @@ inactive 园区仍需可恢复，因此园区读取/更新属于 system 基础�
 
 重新激活按有效 assignment 的 tenant/park scope 迭代，不预先要求 same-scope active biz_park，使固定默认 scope 仍能走已审查的全局唯一 JH fallback。投影编辑在锁内解析 biz_park canonical，而不是信任可能漂移的 asset_park 自身。创建非 active 冗余园区不改变 active source 数量时允许；默认 scope 的创建与逐行清理都用与 canonical resolver 相同的 exact-one，否则 global-JH-one 语义判断。
 
+园区 list/detail/update 由 `park:read`/`park:update` 本身作为 active asset 与 inactive system recovery 的共同权威，前端分别在 asset、system 模块菜单提供同一路由，避免模块 AND/单侧死锁。资产投影 update 在 canonical 校验后执行完整 provisioning，确保 disabled/drifted projection 真正恢复。biz_park mutation 若只有孤立 asset_park、没有 active 或 retained assignment，则只同步 canonical projection，不初始化诊断无法归属的 controls/audits。
+
 历史数据不由门禁直接修改。000194 classifier 新增严格的 `ready_missing_asset_seed_reconcile` 状态，条件是 final contract、000200 兼容成功、本次 seed=yes、完全不存在非删除 asset 投影、唯一同 scope biz source（或 000007 已定义的固定默认 scope + 全局唯一 JH 回退源）、controls/audits 全空。production seed 按既有顺序先运行 000007，再运行 000008，使投影与控制审计事务性收敛。已经产生完整 12 controls/24 immutable audits、但 asset assignment 后来被禁用/过期的 scope 作为 validation-only retained scope；租户随后过期不会把这段完整历史误判为 active scope 无效。诊断与 000008 对 active/retained 同时验证控制定义、两轮审计字段和 evidence exact-set，但不重新启用模块、不新建控制数据。active/retained scope 均要求恰好一个 enabled 且非删除投影，同时存在 disabled 非删除投影、未知 scope、partial controls/audits 或定义/审计漂移仍阻断。
 
 retained scope 仅在 `post_000195` 阶段可成为 ready；更早阶段没有 forward migration 会处理它，必须输出阻断分类。应用侧与 seed/diagnostic 使用同一审计时间合同：000194 的完成时间等于其发生时间，000195 的起点等于 000194 的终点，000195 的完成/发生时间等于最终 control `update_time`，且每段时间单调不倒退。

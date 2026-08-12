@@ -19,6 +19,16 @@ export async function ensureAssetScopeProvisioned(
   scope: TenantParkScope,
   actorId: string
 ): Promise<AssetParkEntity> {
+  const projection = await ensureAssetParkProjection(manager, scope, actorId);
+  await ensureTenantAssetRuntimeControls(manager, scope);
+  return projection;
+}
+
+export async function ensureAssetParkProjection(
+  manager: EntityManager,
+  scope: TenantParkScope,
+  actorId: string
+): Promise<AssetParkEntity> {
   await lockAssetScope(manager, scope);
   const source = await resolveCanonicalAssetParkSource(manager, scope);
   const repository = manager.getRepository(AssetParkEntity);
@@ -43,7 +53,6 @@ export async function ensureAssetScopeProvisioned(
     updateBy: actorId
   });
   await repository.save(projection);
-  await ensureTenantAssetRuntimeControls(manager, scope);
   return projection;
 }
 
