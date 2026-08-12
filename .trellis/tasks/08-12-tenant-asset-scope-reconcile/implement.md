@@ -42,6 +42,7 @@
 40. Review #25：SaaS 独立 assign/enable 将 recovery-only system 显式提升为普通 system 后，在同一事务复用当前 assignment 权限收敛，确保 `/users/me` 模块与 TENANT_ADMIN 完整 system 权限一致。
 41. Review #26：允许唯一受保护 canonical park 显式停用并保留历史投影进入恢复流；SaaS system disable 同事务撤销角色权限；未来 system 仅在 startTime 生效后派生 permission-only API 权限。
 42. Review #26 生命周期闭环：独立 SaaS API 拒绝未来生效的 system assignment，避免模块窗口到达时缺少权限收敛触发器；未来 asset 仍允许提前预配并由 ModuleGuard 在 startTime 后开放。
+43. Review #27：system upsert disable 同样撤销完整权限；inactive park 的 system disable 自动重建 recovery-only system 与最小 park 权限；跨 scope JH fallback 停用时同步收敛默认平台 scope。
 
 ## 验证记录
 

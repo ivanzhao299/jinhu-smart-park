@@ -176,6 +176,11 @@ export class ParksService {
     if (wasActive && saved.status !== 1 && !scopeRemainsActive) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
     }
+    const defaultScopeIsSecondary = scope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
+      || scope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
+    if (wasActive && saved.status !== 1 && defaultScopeProtected && !defaultScopeRemainsActive && defaultScopeIsSecondary) {
+      await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+    }
     if (!wasActive && saved.status === 1) {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
     }

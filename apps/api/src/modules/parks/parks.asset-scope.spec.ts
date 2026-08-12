@@ -32,6 +32,7 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const wasActive = entity\.status === 1/);
   assert.match(source, /const scopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
   assert.match(source, /if \(wasActive && saved\.status !== 1 && !scopeRemainsActive\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
+  assert.match(source, /defaultScopeProtected && !defaultScopeRemainsActive && defaultScopeIsSecondary[\s\S]*reconcileDeactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
   assert.match(source, /if \(!wasActive && saved\.status === 1\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
