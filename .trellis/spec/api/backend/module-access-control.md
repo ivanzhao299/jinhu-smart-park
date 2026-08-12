@@ -63,11 +63,16 @@ authorization authority for the signatures above.
   a system module that was already explicitly selected remains enabled. Reassigning a plan or
   module set while the park is inactive must preserve the marker when system was added only for
   recovery, and clear it only when system is part of the administrator's explicit selection.
+- Park read/update routes may accept the system module only when its current assignment carries
+  the recovery-only marker; an ordinary system assignment must not keep asset-derived park grants
+  usable after asset is disabled.
 - Every park status mutation and standalone asset-module write must apply the same suspension
   state machine. Recovery restores only assignments whose effective time window is currently
   unexpired. A future-dated assignment is re-enabled before its start time so the normal module
   time-window predicate activates it later without a second recovery event; expired assignments
   remain suspended.
+- Production reconciliation treats an enabled, unexpired future asset assignment as a provisioning
+  candidate, while runtime module visibility continues to enforce its start time.
 - Tenant expiry mutations must update the persisted expiry of every non-deleted module assignment
   in the same transaction, so extending or clearing tenant expiry cannot leave modules dormant on
   an obsolete assignment window.

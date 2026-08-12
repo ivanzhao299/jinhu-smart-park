@@ -33,6 +33,8 @@
 31. Review #19：园区停用时对未来/过期 system assignment 保存原时间窗快照，仅临时开放恢复权限，恢复后还原；权限收敛保留未过期的未来模块；租户恢复预配未来 asset；通用到期更新先锁全部 scope 再批量写 assignment。
 32. 最终复核：登录设置 expiry-only 分支同样按 scope key 获取全部 advisory lock；非法恢复快照 fail closed，不写入 Invalid Date 或清除原始快照。
 33. 并发终审：租户恢复先从候选 asset assignment 收集并锁定全部 scope，再重新读取 assignment 与判断时间窗，避免使用锁前的陈旧 expiry 进行预配。
+34. Review #20：登录设置保留带快照的计划 system；租户到期同步快照 expiry；园区 system fallback 仅限 recovery marker；默认 JH 多候选明确 Conflict；000007/000008/diagnostic 将未过期未来 asset 纳入预配。
+35. 终审：default scope 的 exact active source 超过一条时在 fallback 查询前直接 Conflict；JH fallback 仅用于 exact source 缺失，不能掩盖 exact scope 歧义。
 
 ## 验证记录
 

@@ -63,6 +63,7 @@ test("park deactivation detects a remaining active source in the same scope", as
 });
 
 test("park status recovery uses the system module while other park routes remain asset-gated", () => {
+  const source = readFileSync(resolve(__dirname, "parks.service.ts"), "utf8");
   assert.deepEqual(Reflect.getMetadata(MODULES_KEY, ParksController), ["asset"]);
   for (const handler of [
     ParksController.prototype.update,
@@ -76,6 +77,8 @@ test("park status recovery uses the system module while other park routes remain
   assert.equal(Reflect.getMetadata(ANY_MODULES_KEY, ParksController.prototype.create), undefined);
   assert.equal(Reflect.getMetadata(MODULES_KEY, ParksController.prototype.remove), undefined);
   assert.equal(Reflect.getMetadata(ANY_MODULES_KEY, ParksController.prototype.remove), undefined);
+  assert.match(source, /module\.module_code='asset'[\s\S]*module\.module_code='system'[\s\S]*recoveryOnlyForParkStatus/);
+  assert.match(source, /throw new ForbiddenException\("Tenant module is not authorized"\)/);
 });
 
 test("park mutation scope locks use one deterministic shared-key order", async () => {

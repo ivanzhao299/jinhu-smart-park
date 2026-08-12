@@ -56,7 +56,6 @@ JOIN public.sys_tenant tenant
 WHERE assignment.enabled=true
   AND assignment.status='enabled'
   AND assignment.is_deleted=false
-  AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())
   AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
 GROUP BY btrim(assignment.tenant_id), btrim(assignment.park_id);
 

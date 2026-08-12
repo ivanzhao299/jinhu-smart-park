@@ -280,7 +280,10 @@ export class TenantsService {
         && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] !== true;
       const suspendedSelection = code === "asset"
         && item.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true;
-      return explicitlyEnabled || suspendedSelection ? [code] : [];
+      const scheduledRecoverySelection = code === "system"
+        && item.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true
+        && item.featureConfig?.[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE] !== undefined;
+      return explicitlyEnabled || suspendedSelection || scheduledRecoverySelection ? [code] : [];
     }))];
   }
 
@@ -403,6 +406,7 @@ export class TenantsService {
           { tenantId: tenant.tenantId, isDeleted: false },
           { expireTime: tenant.expireTime, updateBy: actorId }
         );
+        await this.synchronizeRecoverySnapshotExpiry(manager, tenant.tenantId, tenant.expireTime, actorId);
       }
       if (!wasRuntimeActive && this.isTenantRuntimeActive(tenant)) {
         await this.reconcileActiveTenantAssetScopes(manager, tenant, actorId);
@@ -547,6 +551,7 @@ export class TenantsService {
           { tenantId: tenant.tenantId, isDeleted: false },
           { expireTime: tenant.expireTime, updateBy: actorId }
         );
+        await this.synchronizeRecoverySnapshotExpiry(manager, tenant.tenantId, tenant.expireTime, actorId);
       }
 
       await tenantRepository.save(tenant);
@@ -1600,6 +1605,29 @@ export class TenantsService {
 
   private restoreSnapshotDate(value: string | null): Date | null {
     return value === null ? null : new Date(value);
+  }
+
+  private async synchronizeRecoverySnapshotExpiry(
+    manager: EntityManager,
+    tenantId: string,
+    expireTime: Date | null,
+    actorId: string
+  ): Promise<void> {
+    const repository = manager.getRepository(TenantModuleEntity);
+    const assignments = await repository.find({ where: { tenantId, isDeleted: false } });
+    for (const assignment of assignments) {
+      const snapshot = this.resolveRecoverySystemSnapshot(assignment.featureConfig);
+      if (!snapshot) continue;
+      assignment.featureConfig = {
+        ...assignment.featureConfig,
+        [PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE]: {
+          ...snapshot,
+          expireTime: expireTime?.toISOString() ?? null
+        }
+      };
+      assignment.updateBy = actorId;
+      await repository.save(assignment);
+    }
   }
 
   private async resolveDefaultParkId(manager: EntityManager, tenantId: string): Promise<string> {

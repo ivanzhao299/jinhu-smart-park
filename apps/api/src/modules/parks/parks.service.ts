@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { Brackets, type DataSource, type EntityManager, type SelectQueryBuilder, type Repository } from "typeorm";
@@ -37,6 +37,7 @@ export class ParksService {
   ) {}
 
   async list(scope: TenantParkScope, query: ParkQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkEntity>> {
+    await this.assertParkModuleAccess(scope);
     const builder = this.scopedBuilder(scope);
     await this.applyParkDataScope(builder, actor);
 
@@ -64,6 +65,7 @@ export class ParksService {
   }
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<ParkEntity> {
+    await this.assertParkModuleAccess(scope);
     const builder = this.scopedBuilder(scope).andWhere("park.id = :id", { id });
     await this.applyParkDataScope(builder, actor);
     const entity = await builder.getOne();
@@ -181,6 +183,36 @@ export class ParksService {
     }
     return saved;
     });
+  }
+
+  private async assertParkModuleAccess(scope: TenantParkScope): Promise<void> {
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM rel_tenant_module assignment
+         JOIN sys_module module
+           ON module.id=assignment.module_id
+          AND module.status=1
+          AND module.is_deleted=false
+        WHERE assignment.tenant_id=$1
+          AND assignment.park_id=$2
+          AND assignment.enabled=true
+          AND assignment.status='enabled'
+          AND assignment.is_deleted=false
+          AND (assignment.start_time IS NULL OR assignment.start_time<=now())
+          AND (assignment.expire_time IS NULL OR assignment.expire_time>now())
+          AND (
+            module.module_code='asset'
+            OR (
+              module.module_code='system'
+              AND assignment.feature_config->>'recoveryOnlyForParkStatus'='true'
+            )
+          )
+        LIMIT 1`,
+      [scope.tenantId, scope.parkId]
+    ) as unknown[];
+    if (rows.length === 0) {
+      throw new ForbiddenException("Tenant module is not authorized");
+    }
   }
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {

@@ -116,7 +116,11 @@ export async function resolveCanonicalAssetParkSource(
     where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false },
     order: { createTime: "ASC", id: "ASC" }
   });
+  if (exactSources.length > 1) {
+    throw new ConflictException("Asset park source is ambiguous");
+  }
   let source = exactSources.length === 1 ? exactSources[0] : null;
+  let fallbackSourceCount = 0;
   if (!source
     && scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
     && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
@@ -124,9 +128,11 @@ export async function resolveCanonicalAssetParkSource(
       where: { parkCode: "JH", status: 1, isDeleted: false },
       order: { createTime: "ASC", id: "ASC" }
     });
+    fallbackSourceCount = fallbackSources.length;
     source = fallbackSources.length === 1 ? fallbackSources[0] : null;
   }
   if (!source) {
+    if (fallbackSourceCount > 1) throw new ConflictException("Asset park source is ambiguous");
     if (exactSources.length === 0) throw new NotFoundException("Park not found");
     throw new ConflictException("Asset park source is ambiguous");
   }

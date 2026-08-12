@@ -289,10 +289,24 @@ test("login settings preserve suspended asset intent without exposing recovery-o
       status: "enabled",
       featureConfig: { recoveryOnlyForParkStatus: true }
     }),
+    module("system", {
+      id: "scheduled-system",
+      enabled: true,
+      status: "enabled",
+      featureConfig: {
+        recoveryOnlyForParkStatus: true,
+        recoverySystemAssignmentSnapshot: {
+          enabled: true,
+          status: "enabled",
+          startTime: new Date(Date.now() + 60_000).toISOString(),
+          expireTime: null
+        }
+      }
+    }),
     module("system", { id: "disabled-system" }),
     module("workorder", { id: "duplicate-workorder", enabled: true, status: "enabled" }),
     module("workorder", { enabled: true, status: "enabled" })
-  ]), ["asset", "workorder"]);
+  ]), ["asset", "system", "workorder"]);
 });
 
 test("generic tenant expiry updates every non-deleted module assignment in the same transaction", async () => {
@@ -507,7 +521,8 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
   );
 
   let ambiguousDefaultQueryCount = 0;
-  const ambiguousDefaultFallback = await resolveSource(
+  await assert.rejects(
+    resolveSource(
     { getRepository: () => ({ find: async () => {
       ambiguousDefaultQueryCount += 1;
       return ambiguousDefaultQueryCount === 1
@@ -515,8 +530,10 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
         : [{ parkCode: "JH" }];
     } }) },
     { tenantId: "10000001", parkId: "20000001" }
+    ),
+    /Asset park source is ambiguous/
   );
-  assert.equal(ambiguousDefaultFallback.parkCode, "JH");
+  assert.equal(ambiguousDefaultQueryCount, 1);
 
   let queryCount = 0;
   const fallback = await resolveSource({ getRepository: () => ({ find: async () => {
@@ -524,6 +541,15 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
     return queryCount === 1 ? [] : [{ parkCode: "JH" }];
   } }) }, { tenantId: "10000001", parkId: "20000001" });
   assert.equal(fallback.parkCode, "JH");
+
+  let duplicateFallbackQueryCount = 0;
+  await assert.rejects(
+    resolveSource({ getRepository: () => ({ find: async () => {
+      duplicateFallbackQueryCount += 1;
+      return duplicateFallbackQueryCount === 1 ? [] : [{ parkCode: "JH" }, { parkCode: "JH" }];
+    } }) }, { tenantId: "10000001", parkId: "20000001" }),
+    /Asset park source is ambiguous/
+  );
 });
 
 test("tenant asset provisioning rejects duplicate non-deleted projections before mutation", async () => {
