@@ -14,6 +14,12 @@ test("shared tenant role field-policy assignments update only the caller park", 
     create: (value: unknown) => value,
     save: async (value: unknown) => value
   };
+  const roleQuery = {
+    setLock: () => roleQuery,
+    where: (_sql: string, values: unknown) => { roleWhere = values; return roleQuery; },
+    andWhere: () => roleQuery,
+    getOne: async () => ({ id: "role-1", roleScope: "tenant", isTemplate: false, isSystem: false, isBuiltin: false, editable: true, isEditable: true })
+  };
   const service = new FieldPolicyService(
     {
       find: async (options: { where: unknown }) => {
@@ -23,9 +29,13 @@ test("shared tenant role field-policy assignments update only the caller park", 
     } as never,
     {
       manager: {
-        transaction: async (callback: (manager: { getRepository: () => typeof linksRepository }) => Promise<void>) => {
+        transaction: async (callback: (manager: { getRepository: (entity: { name: string }) => unknown }) => Promise<void>) => {
           transactionCount += 1;
-          await callback({ getRepository: () => linksRepository });
+          await callback({
+            getRepository: (entity) => entity.name === "RoleEntity"
+              ? { createQueryBuilder: () => roleQuery }
+              : linksRepository
+          });
         }
       }
     } as never,
@@ -45,10 +55,7 @@ test("shared tenant role field-policy assignments update only the caller park", 
     { fieldPolicyIds: ["policy-b"] }
   );
 
-  assert.deepEqual(roleWhere, [
-    { id: "role-1", tenantId: "tenant-a", roleScope: "tenant", isDeleted: false },
-    { id: "role-1", tenantId: "tenant-a", parkId: "park-b", roleScope: "park", isDeleted: false }
-  ]);
+  assert.deepEqual(roleWhere, { roleId: "role-1" });
   assert.equal((policyWhere as { tenantId?: string }).tenantId, "tenant-a");
   assert.equal((policyWhere as { parkId?: string }).parkId, undefined);
   assert.deepEqual(linkUpdateWhere, {
