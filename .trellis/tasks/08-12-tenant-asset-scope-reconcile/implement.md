@@ -43,6 +43,7 @@
 41. Review #26：允许唯一受保护 canonical park 显式停用并保留历史投影进入恢复流；SaaS system disable 同事务撤销角色权限；未来 system 仅在 startTime 生效后派生 permission-only API 权限。
 42. Review #26 生命周期闭环：独立 SaaS API 拒绝未来生效的 system assignment，避免模块窗口到达时缺少权限收敛触发器；未来 asset 仍允许提前预配并由 ModuleGuard 在 startTime 后开放。
 43. Review #27：system upsert disable 同样撤销完整权限；inactive park 的 system disable 自动重建 recovery-only system 与最小 park 权限；跨 scope JH fallback 停用时同步收敛默认平台 scope。
+44. Review #28：跨 scope JH fallback 恢复时同步恢复默认平台 scope；system standalone 授权禁止有限到期；inactive asset assignment 重试保留 suspension intent。
 
 ## 验证记录
 

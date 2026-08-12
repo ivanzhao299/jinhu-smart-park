@@ -260,7 +260,7 @@ export class SaaSModulesService {
           moduleId: dto.moduleId,
           createBy: actorId
         });
-      const requestedEnabled = (dto.status ?? entity.status ?? "enabled") === "enabled";
+      const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
       const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
       const enabling = requestedEnabled && parkActive;
       if (requestedEnabled) {
@@ -288,7 +288,7 @@ export class SaaSModulesService {
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
-      this.assertSystemAssignmentStartsImmediately(module.moduleCode, entity.startTime);
+      this.assertSystemAssignmentWindow(module.moduleCode, entity.startTime, entity.expireTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -344,7 +344,7 @@ export class SaaSModulesService {
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
-      this.assertSystemAssignmentStartsImmediately(module.moduleCode, entity.startTime);
+      this.assertSystemAssignmentWindow(module.moduleCode, entity.startTime, entity.expireTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -639,10 +639,35 @@ export class SaaSModulesService {
     }
   }
 
-  private assertSystemAssignmentStartsImmediately(moduleCode: string, startTime: Date | null | undefined): void {
+  private resolveRequestedEnabled(
+    moduleCode: string,
+    requestedStatus: string | undefined,
+    entity: TenantModuleEntity
+  ): boolean {
+    if (
+      moduleCode === "asset"
+      && requestedStatus === undefined
+      && entity.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true
+    ) {
+      return true;
+    }
+    return (requestedStatus ?? entity.status ?? "enabled") === "enabled";
+  }
+
+  private assertSystemAssignmentWindow(
+    moduleCode: string,
+    startTime: Date | null | undefined,
+    expireTime: Date | null | undefined
+  ): void {
     if (moduleCode === "system" && startTime && startTime.getTime() > Date.now()) {
       throw new ConflictException({
         message: "System module authorization cannot start in the future",
+        errorCode: "module-window-conflict"
+      });
+    }
+    if (moduleCode === "system" && expireTime) {
+      throw new ConflictException({
+        message: "System module authorization cannot expire automatically",
         errorCode: "module-window-conflict"
       });
     }

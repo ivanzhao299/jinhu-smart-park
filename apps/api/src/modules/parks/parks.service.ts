@@ -140,6 +140,9 @@ export class ParksService {
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
     const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
+    const defaultScopeWasActive = defaultScopeProtected
+      ? await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE)
+      : false;
     const renamesCrossScopeDefaultSource = nextCode !== undefined
       && nextCode !== "JH"
       && (entity.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId || entity.parkId !== DEFAULT_PLATFORM_SCOPE.parkId);
@@ -183,6 +186,17 @@ export class ParksService {
     }
     if (!wasActive && saved.status === 1) {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
+    }
+    if (
+      !wasActive
+      && saved.status === 1
+      && defaultScopeProtected
+      && !defaultScopeWasActive
+      && defaultScopeRemainsActive
+      && defaultScopeIsSecondary
+      && saved.parkCode === "JH"
+    ) {
+      await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     return saved;
     });

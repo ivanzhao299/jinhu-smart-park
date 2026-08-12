@@ -63,19 +63,38 @@ test("module assignment writes cannot create split enabled and status state", ()
   assert.match(source, /status: enabling \? "enabled" : "disabled"/);
   assert.match(source, /startTime\.getTime\(\) >= expireTime\.getTime\(\)/);
   assert.match(source, /System module authorization cannot start in the future/);
+  assert.match(source, /System module authorization cannot expire automatically/);
 });
 
-test("system assignments cannot schedule permission-only authorization in the future", () => {
+test("system assignments cannot schedule or expire permission-only authorization", () => {
   const assertImmediate = (SaaSModulesService.prototype as unknown as {
-    assertSystemAssignmentStartsImmediately(moduleCode: string, startTime: Date | null): void;
-  }).assertSystemAssignmentStartsImmediately;
+    assertSystemAssignmentWindow(moduleCode: string, startTime: Date | null, expireTime: Date | null): void;
+  }).assertSystemAssignmentWindow;
 
-  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "asset", new Date(Date.now() + 60_000)));
-  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "system", null));
+  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "asset", new Date(Date.now() + 60_000), new Date(Date.now() + 120_000)));
+  assert.doesNotThrow(() => assertImmediate.call({} as SaaSModulesService, "system", null, null));
   assert.throws(
-    () => assertImmediate.call({} as SaaSModulesService, "system", new Date(Date.now() + 60_000)),
+    () => assertImmediate.call({} as SaaSModulesService, "system", new Date(Date.now() + 60_000), null),
     /System module authorization cannot start in the future/
   );
+  assert.throws(
+    () => assertImmediate.call({} as SaaSModulesService, "system", null, new Date(Date.now() + 60_000)),
+    /System module authorization cannot expire automatically/
+  );
+});
+
+test("inactive asset assignment retries preserve the suspended authorization intent", () => {
+  const resolveRequestedEnabled = (SaaSModulesService.prototype as unknown as {
+    resolveRequestedEnabled(moduleCode: string, requestedStatus: string | undefined, entity: unknown): boolean;
+  }).resolveRequestedEnabled;
+  const suspended = {
+    status: "disabled",
+    featureConfig: { suspendedByParkStatus: true }
+  };
+
+  assert.equal(resolveRequestedEnabled.call({} as SaaSModulesService, "asset", undefined, suspended), true);
+  assert.equal(resolveRequestedEnabled.call({} as SaaSModulesService, "asset", "disabled", suspended), false);
+  assert.equal(resolveRequestedEnabled.call({} as SaaSModulesService, "system", undefined, suspended), false);
 });
 
 test("asset module assignment and enable paths provision the canonical asset scope in the same transaction", () => {
