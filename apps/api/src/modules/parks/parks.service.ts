@@ -188,9 +188,7 @@ export class ParksService {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
     }
     if (
-      !wasActive
-      && saved.status === 1
-      && defaultScopeProtected
+      defaultScopeProtected
       && !defaultScopeWasActive
       && defaultScopeRemainsActive
       && defaultScopeIsSecondary

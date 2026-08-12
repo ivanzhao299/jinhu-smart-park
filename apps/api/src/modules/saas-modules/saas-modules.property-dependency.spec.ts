@@ -136,6 +136,12 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.equal((source.match(/withParkStatusSuspension\(/g) ?? []).length, 4);
   assert.match(source, /function withExplicitModuleSelection/);
   assert.match(source, /delete next\[PARK_RECOVERY_SYSTEM_FEATURE\]/);
+  assert.match(source, /delete next\[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE\]/);
+  assert.equal((source.match(/const promotingRecoverySystem = module\.moduleCode === "system"/g) ?? []).length, 2);
+  assert.match(source, /startTime: dto\.startTime === undefined\s*\? promotingRecoverySystem \? null/);
+  assert.match(source, /expireTime: dto\.expireTime === undefined\s*\? promotingRecoverySystem \? null/);
+  assert.match(source, /startTime: promotingRecoverySystem \? null : entity\.startTime/);
+  assert.match(source, /expireTime: promotingRecoverySystem \? null : entity\.expireTime/);
   assert.equal((source.match(/withExplicitModuleSelection\(/g) ?? []).length, 4);
 });
 

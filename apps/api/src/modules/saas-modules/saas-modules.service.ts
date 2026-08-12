@@ -18,6 +18,7 @@ import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
 import {
   PARK_RECOVERY_SYSTEM_FEATURE,
+  PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE,
   PARK_STATUS_SUSPENDED_FEATURE,
   TenantModuleEntity
 } from "./entities/tenant-module.entity";
@@ -263,6 +264,8 @@ export class SaaSModulesService {
       const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
       const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
       const enabling = requestedEnabled && parkActive;
+      const promotingRecoverySystem = module.moduleCode === "system"
+        && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       if (requestedEnabled) {
         await this.assertDependenciesActive(manager, scope, module.moduleCode);
       }
@@ -270,10 +273,10 @@ export class SaaSModulesService {
         tenantCode: dto.tenantCode ?? entity.tenantCode ?? null,
         planId: dto.planId === undefined ? entity.planId ?? null : dto.planId,
         startTime: dto.startTime === undefined
-          ? entity.startTime ?? null
+          ? promotingRecoverySystem ? null : entity.startTime ?? null
           : dto.startTime === null ? null : new Date(dto.startTime),
         expireTime: dto.expireTime === undefined
-          ? entity.expireTime ?? null
+          ? promotingRecoverySystem ? null : entity.expireTime ?? null
           : dto.expireTime === null ? null : new Date(dto.expireTime),
         enabled: enabling,
         featureConfig: withExplicitModuleSelection(
@@ -334,7 +337,11 @@ export class SaaSModulesService {
           createBy: actorId
         });
       const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
+      const promotingRecoverySystem = module.moduleCode === "system"
+        && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
+        startTime: promotingRecoverySystem ? null : entity.startTime,
+        expireTime: promotingRecoverySystem ? null : entity.expireTime,
         enabled: parkActive,
         status: parkActive ? "enabled" : "disabled",
         featureConfig: withExplicitModuleSelection(
@@ -753,5 +760,6 @@ function withExplicitModuleSelection(featureConfig: Record<string, unknown>, mod
   if (moduleCode !== "system") return featureConfig;
   const next = { ...featureConfig };
   delete next[PARK_RECOVERY_SYSTEM_FEATURE];
+  delete next[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE];
   return next;
 }

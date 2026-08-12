@@ -838,7 +838,11 @@ assert.match(
   "runtime-control audit validation must run only after exact signed control-key parity"
 );
 assert.match(runtimeControlDiagnostic, /is_active AND tenant_count <> 1/u);
-assert.match(runtimeControlDiagnostic, /OR exact_source_count > 1 THEN 'invalid_scope'/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /OR \(is_active AND NOT \([\s\S]*?exact_source_count=1[\s\S]*?exact_source_count=0[\s\S]*?tenant_key='10000001'[\s\S]*?park_key='20000001'[\s\S]*?default_source_count=1[\s\S]*?\)\) THEN 'invalid_scope'/u,
+  "runtime-control diagnostic must reject every active scope without a canonical exact source or the fixed unique JH fallback"
+);
 assert.match(
   runtimeControlDiagnostic,
   /active_scope AS \([\s\S]*?JOIN sys_tenant tenant[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
