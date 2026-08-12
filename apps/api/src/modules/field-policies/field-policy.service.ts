@@ -130,7 +130,7 @@ export class FieldPolicyService {
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
     const role = await this.mustFindRole(scope, roleId);
-    if (role.isTemplate || role.isSystem || role.isBuiltin || !role.editable || !role.isEditable) {
+    if (role.isTemplate === true || role.isSystem === true || role.isBuiltin === true || role.editable === false || role.isEditable === false) {
       throw new ForbiddenException("Protected role bindings cannot be changed");
     }
     const fieldPolicyIds = [...new Set(dto.fieldPolicyIds)];
