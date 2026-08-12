@@ -940,6 +940,9 @@ jobs:
       - name: Verify failed 000194 runtime-control retry from production-shaped state
         run: scripts/e2e/verify-000194-runtime-control-retry.sh
 
+      - name: Verify 000207 canonical-source reconciliation
+        run: scripts/e2e/verify-000207-canonical-source-reconcile.sh
+
       - name: Verify repaired core-role permissions
         run: |
           repaired_grant_count="$(

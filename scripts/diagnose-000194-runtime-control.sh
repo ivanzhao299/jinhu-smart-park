@@ -6,6 +6,7 @@ mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
 allow_seed_reconcile="${4:-no}"
+canonical_reconcile_checksum="9f313cb929169108bee19c2379fe9fc4c6aaee24b6bc15c0d65d377e9d88acf3"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -29,17 +30,18 @@ cd "$deploy_path"
 run_psql() {
   if [ -n "$env_file" ]; then
     docker compose --env-file "$env_file" -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -v "canonical_reconcile_state=$5" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded" "$canonical_reconcile_state"
   else
     docker compose -f "$compose_file" exec -T postgres \
-      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
-      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded"
+      sh -c 'database_name="${1:-$POSTGRES_DB}"; exec psql -X -qAt -v ON_ERROR_STOP=1 -v "runtime_contract_stage=$2" -v "allow_seed_reconcile=$3" -v "runtime_compatibility_succeeded=$4" -v "canonical_reconcile_state=$5" -F "|" -U "$POSTGRES_USER" -d "$database_name"' \
+      sh "$database_name" "$runtime_contract_stage" "$allow_seed_reconcile" "$runtime_compatibility_succeeded" "$canonical_reconcile_state"
   fi
 }
 
 runtime_contract_stage="pre_000194"
 runtime_compatibility_succeeded="no"
+canonical_reconcile_state="pending"
 history_tables_present="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
@@ -150,6 +152,43 @@ SQL
     exit "$rc"
   }
   [ "$compatibility_history_state" = "2|2|2|0" ] && runtime_compatibility_succeeded="yes"
+
+  canonical_reconcile_state="$({
+    run_psql <<SQL
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT CASE
+  WHEN (SELECT count(*) FROM (
+      SELECT filename,checksum,status FROM public.sys_schema_migration_history
+      UNION ALL SELECT filename,checksum,status FROM public.schema_migrations
+    ) history WHERE filename='000207_asset_scope_canonical_source_reconcile.sql')=0 THEN 'pending'
+  WHEN (SELECT count(*) FROM (
+      SELECT filename,checksum,status FROM public.sys_schema_migration_history
+      UNION ALL SELECT filename,checksum,status FROM public.schema_migrations
+    ) history WHERE filename='000207_asset_scope_canonical_source_reconcile.sql'
+      AND checksum='$canonical_reconcile_checksum' AND status='succeeded')=2
+    AND NOT EXISTS (
+      SELECT 1 FROM public.sys_schema_migration_history primary_history
+      FULL JOIN public.schema_migrations standard_history USING (filename)
+      WHERE coalesce(primary_history.filename,standard_history.filename)=
+        '000207_asset_scope_canonical_source_reconcile.sql'
+        AND (primary_history.filename IS NULL OR standard_history.filename IS NULL
+          OR primary_history.status IS DISTINCT FROM standard_history.status
+          OR primary_history.checksum IS DISTINCT FROM standard_history.checksum)) THEN 'succeeded'
+  WHEN (SELECT count(*) FROM (
+      SELECT filename,checksum,status FROM public.sys_schema_migration_history
+      UNION ALL SELECT filename,checksum,status FROM public.schema_migrations
+    ) history WHERE filename='000207_asset_scope_canonical_source_reconcile.sql'
+      AND checksum='$canonical_reconcile_checksum' AND status='failed')=2 THEN 'pending'
+  ELSE 'invalid'
+END;
+COMMIT;
+SQL
+  } 2>&1)" || {
+    rc=$?
+    printf '%s\n' "$canonical_reconcile_state" >&2
+    exit "$rc"
+  }
 fi
 
 table_present="$({
@@ -455,10 +494,24 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHERE btrim(park.tenant_id::text) = scope.tenant_key
         AND btrim(park.park_id::text) = scope.park_key
         AND park.is_deleted = false) AS asset_row_count,
+    (SELECT min(park.park_code) FROM asset_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.status = 'enabled' AND park.is_deleted = false) AS projection_code,
     (SELECT count(*) FROM biz_park park
       WHERE btrim(park.tenant_id::text) = scope.tenant_key
         AND btrim(park.park_id::text) = scope.park_key
         AND park.status = 1 AND park.is_deleted = false) AS exact_source_count,
+    (SELECT count(*) FROM biz_park source
+      WHERE btrim(source.tenant_id::text) = scope.tenant_key
+        AND btrim(source.park_id::text) = scope.park_key
+        AND source.status = 1 AND source.is_deleted = false
+        AND source.park_code = (
+          SELECT min(projection.park_code) FROM asset_park projection
+          WHERE btrim(projection.tenant_id::text) = scope.tenant_key
+            AND btrim(projection.park_id::text) = scope.park_key
+            AND projection.status = 'enabled' AND projection.is_deleted = false
+        )) AS matching_source_count,
     (SELECT count(*) FROM biz_park park
       WHERE park.park_code = 'JH'
         AND park.status = 1 AND park.is_deleted = false) AS default_source_count,
@@ -506,6 +559,15 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   SELECT
     CASE
       WHEN NOT (SELECT stage_valid FROM expected_contract) THEN 'migration_stage_drift'
+	      WHEN is_active AND tenant_count=1
+	        AND asset_count=1 AND asset_row_count=1
+	        AND exact_source_count>1 AND matching_source_count=1
+	        AND :'canonical_reconcile_state'='pending'
+	        AND actual_count=expected_count AND missing_count=0
+	        AND extra_count=0 AND definition_drift_count=0
+	        AND :'runtime_contract_stage'='post_000195'
+	        AND :'runtime_compatibility_succeeded'='yes'
+	        THEN 'ready_ambiguous_source_migration_reconcile'
 	      WHEN tenant_key IS NULL OR park_key IS NULL
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')

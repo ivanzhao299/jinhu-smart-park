@@ -105,6 +105,15 @@ const propertyCompatibilityReplacementPatchPath = resolve(
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
+const canonicalSourceMigrationPath = resolve(
+  root,
+  "database/migrations/000207_asset_scope_canonical_source_reconcile.sql"
+);
+const productionDeployScriptPath = resolve(root, "scripts/prod-deploy.sh");
+const canonicalSourceFixturePath = resolve(
+  root,
+  "scripts/e2e/verify-000207-canonical-source-reconcile.sh"
+);
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -114,6 +123,9 @@ const assetParkScopeIdPrerequisite = readFileSync(assetParkScopeIdPrerequisitePa
 const assetParkScopePrerequisite = readFileSync(assetParkScopePrerequisitePath, "utf8");
 const assetParkScopeSeed = readFileSync(assetParkScopeSeedPath, "utf8");
 const propertyRuntimeControlSeed = readFileSync(propertyRuntimeControlSeedPath, "utf8");
+const canonicalSourceMigration = readFileSync(canonicalSourceMigrationPath, "utf8");
+const productionDeployScript = readFileSync(productionDeployScriptPath, "utf8");
+const canonicalSourceFixture = readFileSync(canonicalSourceFixturePath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
@@ -745,6 +757,9 @@ assert.match(assetScopeDiagnostic, /unresolved_source/u);
 assert.match(assetScopeDiagnostic, /ready_existing_asset/u);
 assert.match(assetScopeDiagnostic, /ready_exact_source/u);
 assert.match(assetScopeDiagnostic, /ready_default_jh_source/u);
+assert.match(assetScopeDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(assetScopeDiagnostic, /canonical_reconcile_state/u);
+assert.match(assetScopeDiagnostic, /matching_source_count = 1/u);
 assert.match(assetScopeDiagnostic, /building_count/u);
 assert.match(assetScopeDiagnostic, /floor_count/u);
 assert.match(assetScopeDiagnostic, /unit_count/u);
@@ -802,6 +817,9 @@ assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(runtimeControlDiagnostic, /canonical_reconcile_state/u);
+assert.match(runtimeControlDiagnostic, /matching_source_count=1/u);
 assert.match(
   runtimeControlDiagnostic,
   /WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'/u,
@@ -884,6 +902,42 @@ assert.doesNotMatch(
   /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
   "production runtime-control diagnostic must remain read-only"
 );
+assert.match(canonicalSourceMigration, /pg_advisory_xact_lock/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_module/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.rel_tenant_module/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_tenant/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.asset_park/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.biz_park/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_property_runtime_control IN SHARE MODE/u);
+assert.match(
+  canonicalSourceMigration,
+  /LOCK TABLE public\.sys_property_runtime_control_contract_audit IN SHARE MODE/u
+);
+const canonicalSourceMigrationChecksum = createHash("sha256")
+  .update(canonicalSourceMigration)
+  .digest("hex");
+for (const diagnostic of [assetScopeDiagnostic, runtimeControlDiagnostic]) {
+  assert.match(
+    diagnostic,
+    new RegExp(`canonical_reconcile_checksum="${canonicalSourceMigrationChecksum}"`, "u"),
+    "canonical-source diagnostics must pin the exact 000207 migration checksum"
+  );
+}
+assert.match(canonicalSourceMigration, /matching_source_count<>1/u);
+assert.match(canonicalSourceMigration, /control_count<>12 OR total_control_count<>12/u);
+assert.match(canonicalSourceMigration, /audit_count<>24 OR total_audit_count<>24/u);
+assert.match(canonicalSourceMigration, /sys_asset_scope_canonical_reconcile_audit/u);
+assert.match(canonicalSourceMigration, /BEFORE UPDATE OR DELETE/u);
+assert.match(canonicalSourceMigration, /status=0,is_deleted=true,version=target\.version\+1/u);
+assert.match(canonicalSourceMigration, /asset-scope-canonical-source-reconcile-postcondition-failed/u);
+assert.match(
+  productionDeployScript,
+  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
+  "production deployment must re-run both scope gates after migrations and before seed"
+);
+assert.match(canonicalSourceFixture, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
+assert.match(canonicalSourceFixture, /already succeeded, checksum matched/u);
 const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
 const enforceScopeStep = productionDeployWorkflow.indexOf(
   "Enforce 000189 asset scope parity before deployment"

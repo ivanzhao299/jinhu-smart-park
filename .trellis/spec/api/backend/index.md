@@ -80,6 +80,7 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 - disabled, duplicate, or otherwise non-deleted historical projection at predeploy -> `invalid_scope`.
 - one enabled projection plus any additional disabled non-deleted projection -> `invalid_scope` for both active and retained scopes.
 - ambiguous/missing park source, partial controls, definition drift, seed disabled, or migration-history drift -> deployment remains blocked.
+- A legacy scope with multiple active canonical sources may enter a migration-only reconcile state only before the reviewed canonical-source migration succeeds, when exactly one enabled projection exists and its `park_code` uniquely identifies the survivor. The migration must lock, immutably audit, and soft-disable only non-matching sources; after migration, both scope and runtime-control gates must be rerun before seed or API startup, and any repeated ambiguity is invalid.
 
 ### 5. Good / Base / Bad Cases
 
