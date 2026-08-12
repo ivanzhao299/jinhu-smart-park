@@ -85,6 +85,8 @@ export interface UserRoleContext {
   candidates: UserRoleView[];
 }
 
+const MAX_ROLE_CANDIDATES = 200;
+
 export interface UserLoginContextCandidate {
   id: string;
   username: string;
@@ -1055,7 +1057,8 @@ export class UsersService {
         { tenantId: scope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isDeleted: false },
         { tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isDeleted: false }
       ],
-      order: { level: "ASC", sortNo: "ASC", name: "ASC" }
+      order: { level: "ASC", sortNo: "ASC", name: "ASC" },
+      take: MAX_ROLE_CANDIDATES
     });
     return roles.map((role) => this.toUserRoleView(role));
   }

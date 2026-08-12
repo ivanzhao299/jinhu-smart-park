@@ -331,7 +331,8 @@ export default function UsersPage() {
     const form = new FormData(event.currentTarget);
     const targetTenantId = String(form.get("tenantId") ?? "").trim();
     const defaultParkId = String(form.get("parkId") ?? "").trim();
-    if (loginSettingsLoading || orgCatalogLoading || (canAssignRoles && roleCatalogLoading) || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
+    const requiresRoleCatalog = canAssignRoles && (!editingUser || roleOnlyEditing);
+    if (loginSettingsLoading || orgCatalogLoading || (requiresRoleCatalog && (roleCatalogLoading || !roleCatalogReady)) || loginSettings?.tenant.tenantId !== targetTenantId || !defaultParkId) {
       throw new Error("园区、组织或角色选项尚未加载完成，请稍后重试");
     }
     const body = {
@@ -683,7 +684,7 @@ export default function UsersPage() {
             {drawerError ? <p className="status-pill status-danger" role="alert">{drawerError}</p> : null}
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={closeUserDrawer}><XCircle size={16} />取消</button>
-              <button className="primary-button" type="submit" disabled={(canAssignRoles && !roleCatalogReady) || roleCatalogLoading || (!roleOnlyEditing && (loginSettingsLoading || orgCatalogLoading || !formParkId))}><CheckCircle2 size={16} />{orgCatalogLoading || roleCatalogLoading ? "配置加载中…" : "保存"}</button>
+              <button className="primary-button" type="submit" disabled={(canAssignRoles && (!editingUser || roleOnlyEditing) && !roleCatalogReady) || roleCatalogLoading || (!roleOnlyEditing && (loginSettingsLoading || orgCatalogLoading || !formParkId))}><CheckCircle2 size={16} />{orgCatalogLoading || roleCatalogLoading ? "配置加载中…" : "保存"}</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>

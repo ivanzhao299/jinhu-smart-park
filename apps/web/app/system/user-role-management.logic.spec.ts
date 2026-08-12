@@ -46,5 +46,7 @@ test("role-only saving stays disabled unless the catalog loaded successfully", (
   assert.match(source, /const \[roleCatalogReady, setRoleCatalogReady\] = useState\(false\)/);
   assert.match(source, /setRoleCatalogReady\(true\)/);
   assert.match(source, /if \(roleCatalogLoading \|\| !roleCatalogReady\)/);
-  assert.match(source, /disabled=\{\(canAssignRoles && !roleCatalogReady\)/);
+  assert.match(source, /const requiresRoleCatalog = canAssignRoles && \(!editingUser \|\| roleOnlyEditing\)/);
+  assert.match(source, /requiresRoleCatalog && \(roleCatalogLoading \|\| !roleCatalogReady\)/);
+  assert.match(source, /disabled=\{\(canAssignRoles && \(!editingUser \|\| roleOnlyEditing\) && !roleCatalogReady\)/);
 });

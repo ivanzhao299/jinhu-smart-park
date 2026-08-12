@@ -51,10 +51,12 @@ test("user role context uses the target user's tenant and park", async () => {
   const assignedRole = role({});
   let assignedWhere: unknown;
   let candidateWhere: unknown;
+  let candidateTake: unknown;
   const service = createService({
     rolesRepository: {
-      find: async (options: { where: unknown }) => {
+      find: async (options: { where: unknown; take: number }) => {
         candidateWhere = options.where;
+        candidateTake = options.take;
         return [assignedRole];
       }
     },
@@ -80,6 +82,7 @@ test("user role context uses the target user's tenant and park", async () => {
   ]);
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
   assert.deepEqual(result.candidates.map((item) => item.id), [assignedRole.id]);
+  assert.equal(candidateTake, 200);
 });
 
 test("role replacement rejects duplicate IDs before changing persisted links", async () => {
