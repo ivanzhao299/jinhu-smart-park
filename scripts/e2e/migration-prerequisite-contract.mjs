@@ -558,8 +558,9 @@ for (const requiredSeedContract of [
   "FROM sys_tenant tenant",
   "module.module_code = 'asset'",
   "asset_count = 0",
+  "asset_row_count <> asset_count",
   "exact_source_count = 1",
-  "scope.exact_source_count <> 1",
+  "scope.exact_source_count = 0",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -773,6 +774,19 @@ for (const requiredSeedContract of [
 assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
+assert.match(propertyRuntimeControlSeed, /is_active boolean NOT NULL/u);
+assert.match(propertyRuntimeControlSeed, /scope\.is_active AND \(SELECT count\(\*\) FROM public\.sys_tenant/u);
+assert.match(propertyRuntimeControlSeed, /scope\.is_active[\s\S]*?NOT EXISTS/u);
+assert.match(
+  propertyRuntimeControlSeed,
+  /park\.status='enabled' AND park\.is_deleted=false\)<>1[\s\S]*?park\.is_deleted=false\)<>1/u,
+  "runtime-control seed must reject enabled plus disabled non-deleted asset projections"
+);
+assert.match(
+  propertyRuntimeControlSeed,
+  /sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment[\s\S]*?module\.module_code='asset'/u,
+  "runtime-control seed must retain and validate immutable histories after asset is disabled"
+);
 assert.match(
   propertyRuntimeControlSeed,
   /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
@@ -787,6 +801,58 @@ assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catal
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'/u,
+  "retained runtime-control scopes must not be ready before the final contract stage"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN asset_count=0 AND asset_row_count=0\s+AND is_active/u,
+  "asset projection seed reconciliation must be limited to active scopes"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN missing_count=expected_count AND actual_count=0\s+AND is_active/u,
+  "runtime-control seed reconciliation must be limited to active scopes"
+);
+assert.match(runtimeControlDiagnostic, /ready_retained_exact/u);
+assert.match(runtimeControlDiagnostic, /asset_count=0 AND asset_row_count=0/u);
+assert.match(runtimeControlDiagnostic, /asset_count <> 1 OR asset_row_count <> 1/u);
+assert.match(runtimeControlDiagnostic, /retained_audit_drift_count/u);
+assert.match(runtimeControlDiagnostic, /SELECT count\(\*\) FROM drift/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /contract_scope AS \([\s\S]*?sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment/u,
+  "runtime-control diagnostic must validate correction audits for active and retained signed scopes"
+);
+assert.match(
+  assetParkScopeSeed,
+  /JOIN sys_tenant tenant[\s\S]*?tenant\.status = 1[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "asset projection seed must exclude disabled or expired tenants just like the deployment classifier"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /HAVING count\(\*\) = 12[\s\S]*?count\(DISTINCT control\.control_key\) = 12/u,
+  "runtime-control audit validation must run only after exact signed control-key parity"
+);
+assert.match(runtimeControlDiagnostic, /is_active AND tenant_count <> 1/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /OR \(is_active AND NOT \([\s\S]*?exact_source_count=1[\s\S]*?exact_source_count=0[\s\S]*?tenant_key='10000001'[\s\S]*?park_key='20000001'[\s\S]*?default_source_count=1[\s\S]*?\)\) THEN 'invalid_scope'/u,
+  "runtime-control diagnostic must reject every active scope without a canonical exact source or the fixed unique JH fallback"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /active_scope AS \([\s\S]*?JOIN sys_tenant tenant[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "runtime-control active scopes must exclude disabled or expired tenants before retained classification"
+);
+assert.match(runtimeControlDiagnostic, /exact_source_count=1/u);
+assert.match(runtimeControlDiagnostic, /exact_source_count=0/u);
+assert.match(runtimeControlDiagnostic, /tenant_key='10000001'/u);
+assert.match(runtimeControlDiagnostic, /park_key='20000001'/u);
+assert.match(runtimeControlDiagnostic, /default_source_count=1/u);
 assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /runtime_compatibility_succeeded/u);
 assert.match(runtimeControlDiagnostic, /d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b/u);

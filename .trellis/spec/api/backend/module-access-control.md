@@ -9,12 +9,14 @@ menus and role grants.
 ## 2. Signatures
 
 - Database authority:
-  `rel_tenant_module(tenant_id, park_id, module_id, enabled, status, expire_time, is_deleted)`
+  `rel_tenant_module(tenant_id, park_id, module_id, enabled, status, start_time, expire_time, is_deleted)`
   joined to `sys_module(id, module_code, status, is_deleted)`.
 - Runtime projection:
   `GET /users/me -> enabled_modules[]`.
 - API guard:
   `@RequireModule(...moduleCodes)` -> `ModuleGuard`.
+- API any-of guard:
+  `@RequireAnyModule(...moduleCodes)` -> `ModuleGuard` accepts at least one enabled module and overrides an inherited all-required policy.
 - Web guard:
   `hasModule(user, moduleCode)` and
   `hasAccess(user, permissionCode, moduleCode)`.
@@ -29,6 +31,7 @@ authorization authority for the signatures above.
   - `rel_tenant_module.is_deleted = false`;
   - `rel_tenant_module.enabled = true`;
   - `rel_tenant_module.status = 'enabled'`;
+  - `start_time IS NULL OR start_time <= now()`;
   - `expire_time IS NULL OR expire_time > now()`;
   - joined `sys_module.is_deleted = false`;
   - joined `sys_module.status = 1`.
@@ -39,6 +42,8 @@ authorization authority for the signatures above.
   product availability.
 - A module-specific login destination requires the same enabled-module check as its menu and
   route guard. A module-free destination such as `/dashboard` is the safe fallback.
+- A recovery endpoint shared by two product modules must declare their explicit any-of policy;
+  empty module metadata is not a substitute because it bypasses product authorization entirely.
 - Menu materialization may derive eligible roles from existing API permissions, but it must
   intersect those roles with an active tenant-module assignment in the same tenant and park.
 - Tenant provisioning must receive either a resolvable plan or an explicit non-empty module
@@ -50,6 +55,37 @@ authorization authority for the signatures above.
 - Plan permission markers and explicit permission patterns must be intersected with the final
   enabled module set before role grants are rebuilt. Removing a module must remove its role
   permissions even when the plan still contains a stale explicit permission code.
+- `sys_permission` definitions are tenant-wide and unique by `(tenant_id, code)`; do not clone or
+  filter them by `park_id`. Authorization binding is park-scoped through
+  `rel_role_perm(tenant_id, park_id, role_id, permission_id)`, so rebuilding one park replaces only
+  that park's links while reusing the tenant's canonical permission IDs.
+- When an inactive park temporarily suspends a selected asset module, persist an explicit
+  park-status suspension marker. Reactivating that park may restore only marked assignments and
+  their tenant-admin permissions; an explicit module disable must clear the marker so recovery
+  cannot override administrator intent.
+- A system assignment created only to expose the inactive-park recovery route carries its own
+  recovery-only marker. Reactivation disables that temporary assignment and removes its marker;
+  a system module that was already explicitly selected remains enabled. Reassigning a plan or
+  module set while the park is inactive must preserve the marker when system was added only for
+  recovery, and clear it only when system is part of the administrator's explicit selection.
+- Park read/update routes may accept an effective system assignment only while the canonical park
+  scope is inactive. This includes both the recovery-only marker and an administrator's explicit
+  system selection; once the canonical scope is active, a stale recovery marker or ordinary system
+  assignment must not keep asset-derived park grants usable after asset is disabled.
+- Every park status mutation and standalone asset-module write must apply the same suspension
+  state machine. Recovery restores only assignments whose effective time window is currently
+  unexpired. A future-dated assignment is re-enabled before its start time so the normal module
+  time-window predicate activates it later without a second recovery event; expired assignments
+  remain suspended.
+- Production reconciliation treats an enabled, unexpired future asset assignment as a provisioning
+  candidate, while runtime module visibility continues to enforce its start time.
+- Tenant expiry mutations must update the persisted expiry of every non-deleted module assignment
+  in the same transaction, so extending or clearing tenant expiry cannot leave modules dormant on
+  an obsolete assignment window.
+- Writers that touch both asset projection state and module assignments acquire the asset-scope
+  advisory lock before dependency-graph and assignment row locks. Park mutations acquire the same
+  advisory lock before locking canonical park rows. Tenant login-settings and standalone tenant
+  module assignment paths must acquire that lock before resolving canonical source activity.
 - Web plan selectors may present module and quota projections, but the backend remains the
   authority for resolving plan modules and permission families. Browsers must not synthesize
   plan permission codes.

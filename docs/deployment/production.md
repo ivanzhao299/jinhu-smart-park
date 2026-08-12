@@ -397,6 +397,54 @@ Migration behavior:
   approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
   seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
   migration execution precedes seed execution.
+  When that final scope also has no non-deleted `asset_park`, it is
+  `ready_missing_asset_seed_reconcile` only under the same migration/seed conditions and only when `000007` can
+  resolve one active same-scope `biz_park` (or the fixed default scope's globally unique active `JH` fallback).
+  Production seed order first runs `000007` to create the missing asset projection, then `000008` to create the 12
+  disabled controls and 24 correction audits. Disabled or duplicate asset projections, ambiguous sources, partial
+  controls, and any seed-disabled deployment remain fail-closed.
+  For scopes created after the release, the tenant create/login-settings/module-assignment transaction performs the
+  same future-data convergence itself: it requires one active same-scope `biz_park` (with only the fixed default
+  scope's reviewed unique `JH` fallback), rejects duplicate non-deleted projections, creates/restores `asset_park`,
+  and initializes the signed 12 disabled controls through both correction audits. Therefore a later deployment with
+  production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
+  originating business write instead of deferring damage to the deployment gate.
+  SaaS tenant-module assign/enable and direct asset-park creation use the same tenant/park transaction lock and
+  full projection/control provisioning, so alternate write paths cannot race or bypass this convergence. Asset-park
+  update/delete use that lock too and reject disabling or deleting the required projection while the assignment is
+  active or retained signed history exists. Canonical `biz_park` mutations take the same lock, preserve one active
+  source for protected scopes, and synchronize canonical field edits into the projection. Tenant status/expiry is
+  included when deriving current active scopes, so a disabled/expired tenant with complete history becomes retained
+  instead of an invalid active scope. Login-settings authorization
+  updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
+  are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
+  assignment and asset-derived administrator permissions disabled. To avoid a recovery deadlock, inactive parks retain
+  an enabled system assignment plus only `park:read` and `park:update`; this recovery path remains available even when
+  the selected package omits system. Park create/delete and every other asset operation remain asset-gated. Duplicate
+  canonical source repair is allowed only when the committed result leaves exactly one active source; every transition
+  away from active status is treated as source removal, and a successful delete/replacement immediately reprojects
+  from the sole survivor. Every tenant runtime inactive-to-active transition—dedicated enable, generic tenant update,
+  or login-settings status/expiry update—transactionally provisions each active park whose asset assignment is
+  enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
+  than one remains blocked. Reactivation iterates assignment scopes directly so the fixed default scope can still use
+  its reviewed globally unique `JH` fallback. Asset-projection edits validate against the locked canonical `biz_park`,
+  never against potentially drifted projection fields, then run full provisioning so enabled/canonical values persist.
+  Park list/detail/update are permission-gated recovery surfaces exposed under both asset and system menus; create/delete
+  remain asset-only. When a route has both module-specific menu nodes, the page guard accepts any matching node whose
+  permission and module are both available, so inactive system recovery is not shadowed by the asset menu. A legacy
+  projection without active/retained asset assignment is synchronized without creating
+  unowned runtime controls/audits. Non-active auxiliary parks are allowed when they preserve the
+  canonical active-source invariant, and default-scope cleanup follows the same exact-one/global-JH-one resolver rule.
+  If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
+  The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
+  the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only
+  to current active scopes. Both active and retained scopes validate the complete 24-row correction-audit content and
+  evidence, and require exactly one enabled/non-deleted
+  `asset_park` and exactly one non-deleted projection in total; an additional disabled non-deleted projection,
+  unknown scope, or incomplete control/audit history remains fail-closed.
+  Retained scopes are ready only at `post_000195`; earlier stages are blocked because forward migration does not mutate
+  retained assignments. Runtime validation also binds the 000194 audit end time to the 000195 start time and the
+  000195 end/occurrence time to the final control update time.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The

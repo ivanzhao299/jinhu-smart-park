@@ -3,7 +3,7 @@ import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequireModule } from "../../shared/decorators/modules.decorator";
+import { RequireAnyModule, RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CreateParkDto } from "./dto/create-park.dto";
@@ -17,12 +17,14 @@ export class ParksController {
   constructor(private readonly parksService: ParksService) {}
 
   @Get()
+  @RequireAnyModule("asset", "system")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
   list(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: ParkQueryDto) {
     return this.parksService.list(scope, query, user);
   }
 
   @Get(":id")
+  @RequireAnyModule("asset", "system")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.parksService.detail(scope, id, user);
@@ -32,10 +34,11 @@ export class ParksController {
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_CREATE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "新增", bizType: "biz_park" })
   create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateParkDto) {
-    return this.parksService.create(scope, user.sub, dto);
+    return this.parksService.create(scope, user, dto);
   }
 
   @Put(":id")
+  @RequireAnyModule("asset", "system")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_UPDATE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "修改", bizType: "biz_park", bizIdParam: "id" })
   update(

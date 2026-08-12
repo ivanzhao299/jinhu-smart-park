@@ -9,6 +9,7 @@ import {
 import {
   FIRST_RELEASE_MENU_PATH_SET,
   findMenuByPath,
+  findMenusByPath,
   getDashboardMenus
 } from "./menu";
 
@@ -88,6 +89,37 @@ test("property menu nodes require only their module and granular page permission
     );
     assert.doesNotMatch(child.permission ?? "", /:operations$/u);
   }
+});
+
+test("park management is reachable through both active asset and inactive system recovery menus", () => {
+  const parkMenu = findMenuByPath("/assets/parks", getDashboardMenus());
+  assert.deepEqual(
+    { module: parkMenu?.module, permission: parkMenu?.permission },
+    { module: "asset", permission: "park:read" }
+  );
+  const assetChildren = getDashboardMenus().find((menu) => menu.module === "asset")?.children ?? [];
+  const systemChildren = getDashboardMenus().find((menu) => menu.module === "system")?.children ?? [];
+  assert.equal(assetChildren.some((child) => child.href === "/assets/parks"), true);
+  assert.equal(systemChildren.some((child) => child.href === "/assets/parks"), true);
+  assert.deepEqual(findMenusByPath("/assets/parks", getDashboardMenus()).map((item) => item.module), ["asset", "system"]);
+});
+
+test("backend asset metadata cannot overwrite the system park recovery menu module", () => {
+  const backendMenus = [{
+    label: "资产管理",
+    module: "asset",
+    children: [{
+      label: "园区管理",
+      href: "/assets/parks",
+      permission: "park:read",
+      module: "asset"
+    }]
+  }] satisfies UserMenuTreeNode[];
+
+  assert.deepEqual(
+    findMenusByPath("/assets/parks", getDashboardMenus(backendMenus)).map((item) => item.module),
+    ["asset", "system"]
+  );
 });
 
 test("asset menu exposes the three shared property control planes", () => {

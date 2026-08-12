@@ -224,6 +224,135 @@ SQL
     echo "ERROR: runtime control correction audit contains orphan rows" >&2
     exit 3
   fi
+
+  retained_audit_drift_count="$({
+    run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+WITH signed(control_key) AS (VALUES
+  ('identity.legacy-read-v1'),('identity.legacy-write-v1'),('identity.change-capture'),
+  ('identity.mutation-replay'),('identity.shadow-compare'),('identity.enforce'),
+  ('approval.shadow-compare'),('approval.enforce'),
+  ('event-notification.shadow-compare'),('event-notification.enforce'),
+  ('task.shadow-compare'),('task.enforce')
+), contract_scope AS (
+  SELECT control.tenant_id AS tenant_key, control.park_id AS park_key
+  FROM sys_property_runtime_control control
+  JOIN rel_tenant_module assignment
+    ON btrim(assignment.tenant_id::text) = control.tenant_id
+   AND btrim(assignment.park_id::text) = control.park_id
+   AND assignment.is_deleted = false
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.module_code = 'asset'
+   AND module.is_deleted = false
+  GROUP BY control.tenant_id, control.park_id
+  HAVING count(*) = 12
+     AND count(DISTINCT control.control_key) = 12
+     AND count(*) FILTER (WHERE control.control_key IN (SELECT control_key FROM signed)) = 12
+), expected AS (
+  SELECT scope.tenant_key, scope.park_key, signed.control_key, correction.correction_key
+  FROM contract_scope scope
+  CROSS JOIN signed
+  CROSS JOIN (VALUES
+    ('b2a-contract-correction-000194'),('b2a-contract-correction-000195')
+  ) correction(correction_key)
+), drift AS (
+  (SELECT * FROM expected
+   EXCEPT
+   SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+   FROM sys_property_runtime_control_contract_audit audit
+   JOIN contract_scope scope
+     ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
+   WHERE audit.correction_key IN (
+     'b2a-contract-correction-000194','b2a-contract-correction-000195'))
+  UNION ALL
+  (SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+   FROM sys_property_runtime_control_contract_audit audit
+   JOIN contract_scope scope
+     ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
+   WHERE audit.correction_key IN (
+     'b2a-contract-correction-000194','b2a-contract-correction-000195')
+   EXCEPT
+   SELECT * FROM expected)
+  UNION ALL
+  SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
+  FROM sys_property_runtime_control_contract_audit audit
+  JOIN contract_scope scope
+    ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
+  JOIN sys_property_runtime_control control
+    ON control.tenant_id=audit.tenant_id AND control.park_id=audit.park_id
+   AND control.id=audit.control_id
+  WHERE audit.control_key IS DISTINCT FROM control.control_key
+     OR (audit.correction_key='b2a-contract-correction-000194' AND (
+       audit.old_contract_hash<>'a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'
+       OR audit.new_contract_hash<>'81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+       OR audit.old_version<>1 OR audit.new_version<>2
+       OR audit.old_disabled_reason<>'expand-only'
+       OR audit.new_disabled_reason<>'b2a-contract-correction-000194'
+       OR audit.new_update_time<>audit.occurred_at
+       OR audit.new_update_time<audit.old_update_time
+       OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+         'runtime-control-contract-audit-v1'||E'\n'
+         ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+         'UTF8'),'sha256'),'hex')))
+     OR (audit.correction_key='b2a-contract-correction-000195' AND (
+       audit.old_contract_hash<>'81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+       OR audit.new_contract_hash<>'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+       OR audit.new_contract_hash<>control.contract_hash
+       OR audit.old_version<>2 OR audit.new_version<>3 OR audit.new_version<>control.version
+       OR audit.old_disabled_reason<>'b2a-contract-correction-000194'
+       OR audit.new_disabled_reason<>'b2a-contract-correction-000195'
+       OR audit.new_disabled_reason<>control.disabled_reason
+       OR audit.old_update_time IS DISTINCT FROM (
+         SELECT prior.new_update_time
+         FROM sys_property_runtime_control_contract_audit prior
+         WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
+           AND prior.control_id=audit.control_id
+           AND prior.correction_key='b2a-contract-correction-000194')
+       OR audit.new_update_time<>control.update_time
+       OR audit.occurred_at<>control.update_time
+       OR audit.new_update_time<audit.old_update_time
+       OR audit.evidence_hash IS DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+         'runtime-control-contract-audit-v2'||E'\n'
+         ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+         ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+         'UTF8'),'sha256'),'hex')))
+)
+SELECT count(*) FROM drift;
+COMMIT;
+SQL
+  } 2>&1)" || {
+    rc=$?
+    printf '%s\n' "$retained_audit_drift_count" >&2
+    exit "$rc"
+  }
+  if [ "$retained_audit_drift_count" != "0" ]; then
+    echo "ERROR: runtime control scope has incomplete or drifted correction audits" >&2
+    exit 3
+  fi
 fi
 
 rows="$({
@@ -261,7 +390,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
        WHEN :'runtime_contract_stage'='post_000194' THEN 2
        ELSE 1 END,
   :'runtime_contract_stage'<>'invalid'
-)), target_scope AS (
+)), active_scope AS (
   SELECT
     btrim(assignment.tenant_id::text) AS tenant_key,
     btrim(assignment.park_id::text) AS park_key
@@ -271,12 +400,41 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
    AND module.module_code = 'asset'
    AND module.status = 1
    AND module.is_deleted = false
+  JOIN sys_tenant tenant
+    ON btrim(tenant.tenant_id::text) = btrim(assignment.tenant_id::text)
+   AND tenant.status = 1
+   AND tenant.is_deleted = false
+   AND (tenant.expire_time IS NULL OR tenant.expire_time > clock_timestamp())
   WHERE assignment.enabled = true
     AND assignment.status = 'enabled'
     AND assignment.is_deleted = false
-    AND (assignment.start_time IS NULL OR assignment.start_time <= clock_timestamp())
     AND (assignment.expire_time IS NULL OR assignment.expire_time > clock_timestamp())
   GROUP BY btrim(assignment.tenant_id::text), btrim(assignment.park_id::text)
+), retained_scope AS (
+  SELECT persisted.tenant_key, persisted.park_key
+  FROM (
+    SELECT control.tenant_id AS tenant_key, control.park_id AS park_key
+    FROM sys_property_runtime_control control
+  ) persisted
+  JOIN rel_tenant_module assignment
+    ON btrim(assignment.tenant_id::text) = persisted.tenant_key
+   AND btrim(assignment.park_id::text) = persisted.park_key
+   AND assignment.is_deleted = false
+  JOIN sys_module module
+    ON module.id = assignment.module_id
+   AND module.module_code = 'asset'
+   AND module.is_deleted = false
+  GROUP BY persisted.tenant_key, persisted.park_key
+), target_scope AS (
+  SELECT active.tenant_key, active.park_key, true AS is_active
+  FROM active_scope active
+  UNION ALL
+  SELECT retained.tenant_key, retained.park_key, false AS is_active
+  FROM retained_scope retained
+  WHERE NOT EXISTS (
+    SELECT 1 FROM active_scope active
+    WHERE active.tenant_key = retained.tenant_key AND active.park_key = retained.park_key
+  )
 ), expected AS (
   SELECT scope.tenant_key, scope.park_key, signed.*
   FROM target_scope scope CROSS JOIN signed
@@ -284,6 +442,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   SELECT
     scope.tenant_key,
     scope.park_key,
+    scope.is_active,
     (SELECT count(*) FROM sys_tenant tenant
       WHERE btrim(tenant.tenant_id::text) = scope.tenant_key
         AND tenant.status = 1 AND tenant.is_deleted = false
@@ -292,6 +451,17 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHERE btrim(park.tenant_id::text) = scope.tenant_key
         AND btrim(park.park_id::text) = scope.park_key
         AND park.status = 'enabled' AND park.is_deleted = false) AS asset_count,
+    (SELECT count(*) FROM asset_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.is_deleted = false) AS asset_row_count,
+    (SELECT count(*) FROM biz_park park
+      WHERE btrim(park.tenant_id::text) = scope.tenant_key
+        AND btrim(park.park_id::text) = scope.park_key
+        AND park.status = 1 AND park.is_deleted = false) AS exact_source_count,
+    (SELECT count(*) FROM biz_park park
+      WHERE park.park_code = 'JH'
+        AND park.status = 1 AND park.is_deleted = false) AS default_source_count,
     (SELECT count(*) FROM expected e
       WHERE e.tenant_key = scope.tenant_key AND e.park_key = scope.park_key) AS expected_count,
     (SELECT count(*) FROM sys_property_runtime_control control
@@ -336,21 +506,52 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   SELECT
     CASE
       WHEN NOT (SELECT stage_valid FROM expected_contract) THEN 'migration_stage_drift'
-      WHEN tenant_key IS NULL OR park_key IS NULL
+	      WHEN tenant_key IS NULL OR park_key IS NULL
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-        OR tenant_count <> 1 OR asset_count <> 1 THEN 'invalid_scope'
+	        OR (is_active AND tenant_count <> 1)
+	        OR (is_active AND NOT (
+	          exact_source_count=1
+	          OR (
+	            exact_source_count=0
+	            AND tenant_key='10000001'
+	            AND park_key='20000001'
+	            AND default_source_count=1
+	          )
+	        )) THEN 'invalid_scope'
+      WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'
+      WHEN asset_count=0 AND asset_row_count=0
+        AND is_active
+        AND (
+          exact_source_count=1
+	          OR (
+	            exact_source_count=0
+	            AND
+	            tenant_key='10000001'
+            AND park_key='20000001'
+            AND default_source_count=1
+          )
+        )
+        AND missing_count=expected_count AND actual_count=0
+        AND :'runtime_contract_stage'='post_000195'
+        AND :'allow_seed_reconcile'='yes'
+        AND :'runtime_compatibility_succeeded'='yes'
+        THEN 'ready_missing_asset_seed_reconcile'
+      WHEN asset_count <> 1 OR asset_row_count <> 1 THEN 'invalid_scope'
       WHEN extra_count <> 0 THEN 'extra_control'
       WHEN definition_drift_count <> 0 THEN 'definition_drift'
       WHEN missing_count=expected_count AND actual_count=0
+        AND is_active
         AND :'runtime_contract_stage'='post_000195'
         AND :'allow_seed_reconcile'='yes'
         AND :'runtime_compatibility_succeeded'='yes'
         THEN 'ready_missing_seed_reconcile'
       WHEN missing_count <> 0 AND :'runtime_contract_stage'<>'pre_000194'
         THEN 'missing_control'
-      WHEN missing_count <> 0 THEN 'ready_missing_reconcile'
-      ELSE 'ready_exact'
+      WHEN missing_count <> 0 AND is_active THEN 'ready_missing_reconcile'
+      WHEN missing_count <> 0 THEN 'migration_stage_drift'
+      WHEN is_active THEN 'ready_exact'
+      ELSE 'ready_retained_exact'
     END AS classification,
     tenant_key, park_key, expected_count, actual_count, missing_count, extra_count,
     definition_drift_count, missing_keys, extra_keys

@@ -7,9 +7,16 @@ import { SaaSModuleEntity } from "./entities/saas-module.entity";
 import { TenantModuleEntity } from "./entities/tenant-module.entity";
 import { SaaSModulesController } from "./saas-modules.controller";
 import { SaaSModulesService } from "./saas-modules.service";
+import { TenantsModule } from "../tenants/tenants.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ModuleRegistryEntity, SaaSModuleEntity, PlanEntity, PlanModuleEntity, TenantModuleEntity])],
+  imports: [TenantsModule, TypeOrmModule.forFeature([
+    ModuleRegistryEntity,
+    SaaSModuleEntity,
+    PlanEntity,
+    PlanModuleEntity,
+    TenantModuleEntity
+  ])],
   controllers: [SaaSModulesController],
   providers: [SaaSModulesService],
   exports: [SaaSModulesService]

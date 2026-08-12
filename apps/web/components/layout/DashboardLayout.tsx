@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
 import { AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
-import { findMenuByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
-import { hasModule, hasPermission } from "../../lib/permissions";
+import { findMenusByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
+import { hasAccess, hasPermission } from "../../lib/permissions";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
@@ -98,7 +98,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   };
 
   const authorizationMenus = useMemo(() => getDashboardAuthorizationMenus(user?.menus ?? user?.menu_tree), [user]);
-  const requiredMenu = useMemo(() => findMenuByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
+  const requiredMenus = useMemo(() => findMenusByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
 
   useEffect(() => {
     if (mobileNavigation) setSidebarCollapsed(true);
@@ -108,13 +108,15 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     if (!ready || !user) {
       return;
     }
-    if (requiredMenu && !hasPermission(user, requiredMenu.permission)) {
-      router.replace("/403");
+    if (requiredMenus.length > 0 && requiredMenus.some((menu) => hasAccess(user, menu.permission, menu.module))) {
+      return;
     }
-    if (requiredMenu && hasPermission(user, requiredMenu.permission) && !hasModule(user, requiredMenu.module)) {
+    if (requiredMenus.length > 0 && !requiredMenus.some((menu) => hasPermission(user, menu.permission))) {
+      router.replace("/403");
+    } else if (requiredMenus.length > 0) {
       router.replace("/403?reason=module");
     }
-  }, [ready, requiredMenu, router, user]);
+  }, [ready, requiredMenus, router, user]);
 
   if (!ready || !user) {
     return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
