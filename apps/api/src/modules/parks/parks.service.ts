@@ -243,7 +243,7 @@ export class ParksService {
     ) as Array<{ moduleCode: string }>;
     const assetEnabled = rows.some((row) => row.moduleCode === "asset");
     const systemEnabled = rows.some((row) => row.moduleCode === "system");
-    const inactiveScopeSystem = systemEnabled
+    const inactiveScopeSystem = !assetEnabled && systemEnabled
       && !await hasCanonicalActiveAssetParkSource(manager, scope);
     if (!assetEnabled && !inactiveScopeSystem) {
       throw new ForbiddenException("Tenant module is not authorized");

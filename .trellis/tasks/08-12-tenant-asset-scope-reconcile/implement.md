@@ -49,6 +49,7 @@
 47. Review #31：inactive 园区权限仅从已生效 assignment 派生；租户恢复遍历所有 assignment scope，消费 suspension/recovery marker、重建权限并预配恢复后的 asset。
 48. Review #32：跨 scope 新建唯一 active JH 时按默认 canonical source inactive→active 转换同步恢复默认平台 assignment 与 TENANT_ADMIN 权限。
 49. Review #33：默认平台 exact 与 JH fallback 均缺失时判定 canonical inactive，允许后续 fallback 恢复；非默认未知 scope 继续 NotFound fail-closed。
+50. Review #34：园区接口已有有效 asset assignment 时直接通过模块授权，不再提前解析 canonical source；仅 system recovery 分支查询 inactive canonical 状态，使管理员可进入并修复历史多来源歧义。
 
 ## 验证记录
 
