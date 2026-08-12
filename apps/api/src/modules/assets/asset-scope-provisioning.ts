@@ -89,6 +89,15 @@ export async function hasProtectedAssetScope(manager: EntityManager, scope: Tena
     || await hasRetainedAssetRuntimeHistory(manager, scope);
 }
 
+export async function hasAssetParkProjection(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+  const rows = await manager.query(
+    `SELECT 1 FROM asset_park park
+      WHERE park.tenant_id=$1 AND park.park_id=$2 AND park.is_deleted=false LIMIT 1`,
+    [scope.tenantId, scope.parkId]
+  ) as unknown[];
+  return rows.length > 0;
+}
+
 export async function resolveCanonicalAssetParkSource(
   manager: EntityManager,
   scope: TenantParkScope

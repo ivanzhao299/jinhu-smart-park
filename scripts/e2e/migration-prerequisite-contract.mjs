@@ -813,6 +813,11 @@ assert.match(
   "runtime-control diagnostic must validate correction audits for active and retained signed scopes"
 );
 assert.match(
+  assetParkScopeSeed,
+  /JOIN sys_tenant tenant[\s\S]*?tenant\.status = 1[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "asset projection seed must exclude disabled or expired tenants just like the deployment classifier"
+);
+assert.match(
   runtimeControlDiagnostic,
   /HAVING count\(\*\) = 12[\s\S]*?count\(DISTINCT control\.control_key\) = 12/u,
   "runtime-control audit validation must run only after exact signed control-key parity"

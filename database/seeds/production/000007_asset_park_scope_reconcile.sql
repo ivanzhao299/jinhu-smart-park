@@ -23,6 +23,11 @@ JOIN sys_module module
  AND module.module_code = 'asset'
  AND module.status = 1
  AND module.is_deleted = false
+JOIN sys_tenant tenant
+  ON btrim(tenant.tenant_id) = btrim(assignment.tenant_id)
+ AND tenant.status = 1
+ AND tenant.is_deleted = false
+ AND (tenant.expire_time IS NULL OR tenant.expire_time > clock_timestamp())
 WHERE assignment.enabled = true
   AND assignment.status = 'enabled'
   AND assignment.is_deleted = false

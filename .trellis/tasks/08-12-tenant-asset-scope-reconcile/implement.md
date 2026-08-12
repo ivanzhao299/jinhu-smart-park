@@ -11,6 +11,7 @@
 9. inactive-only 租户仍以首个非删除园区作为授权参考 scope 完成模块与 TENANT_ADMIN 收敛，不把 inactive 园区当成资产 canonical source。
 10. Review #5 补齐所有资产园区 mutation：create 执行完整 canonical provisioning，update/delete 共用 scope 锁且 active assignment 下禁止破坏 enabled 投影；inactive park 强制停用 asset assignment/权限；默认 scope 多来源时与 000007 一致选择全局唯一 JH。
 11. Review #6 将 canonical biz_park create/update/delete 纳入同一锁并同步投影；active/retained history 均保护唯一 enabled 投影与 active source；资产投影 DTO 的派生字段改为 canonical 一致性断言；tenant disable/expiry 在 diagnostic/seed 中归入 retained scope。
+12. Review #7 同步 000007 的 active tenant 过滤；跨 scope 的全局 JH fallback mutation 同时获取默认 scope 锁并同步默认投影；面积一致性按数值比较以兼容 numeric 标度。
 
 ## 验证记录
 

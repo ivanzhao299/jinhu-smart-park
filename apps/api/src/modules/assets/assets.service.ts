@@ -452,7 +452,7 @@ export class AssetsService {
     if ((dto.parkCode !== undefined && dto.parkCode !== canonical.parkCode)
       || (dto.parkName !== undefined && dto.parkName !== canonical.parkName)
       || (dto.address !== undefined && dto.address !== canonical.address)
-      || (dto.totalArea !== undefined && this.toDecimal(dto.totalArea) !== canonical.totalArea)
+      || (dto.totalArea !== undefined && Number(dto.totalArea) !== Number(canonical.totalArea))
       || (dto.status !== undefined && dto.status !== "enabled")) {
       throw new ConflictException("Asset park fields must match the canonical park");
     }

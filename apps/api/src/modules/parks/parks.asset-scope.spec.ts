@@ -10,4 +10,6 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /hasProtectedAssetScope\(manager, scope\)/);
   assert.match(source, /Asset scope requires one active canonical park/);
   assert.match(source, /ensureAssetScopeProvisioned\(manager, scope, actor\.sub\)/);
+  assert.match(source, /lockAssetScope\(manager, DEFAULT_PLATFORM_SCOPE\)/);
+  assert.match(source, /ensureAssetScopeProvisioned\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
 });
