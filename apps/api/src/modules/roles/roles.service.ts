@@ -144,6 +144,14 @@ export class RolesService {
     if (dto.code && dto.code !== role.code) {
       await this.assertCodeAvailable(scope, dto.code);
     }
+    if (dto.isTemplate === true && role.isTemplate !== true) {
+      const boundUsers = await this.userRoleRepository.count({
+        where: { tenantId: scope.tenantId, roleId: id, isDeleted: false }
+      });
+      if (boundUsers > 0) {
+        throw new BadRequestException("Role with bound users cannot be converted to a template");
+      }
+    }
     const parent = dto.parentId === undefined ? undefined : dto.parentId ? await this.mustFindParent(scope, dto.parentId) : null;
     if (parent && parent.id === role.id) {
       throw new BadRequestException("Role cannot use itself as parent");

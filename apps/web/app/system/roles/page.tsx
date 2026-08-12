@@ -318,16 +318,16 @@ export default function RolesPage() {
     setMessage("字段权限策略已绑定");
   }
 
-  function bundleReferences() {
+  function bundleReferences(codes = selectedBundleCodes) {
     return propertyBundles
-      .filter((bundle) => selectedBundleCodes.includes(bundle.code))
+      .filter((bundle) => codes.includes(bundle.code))
       .map((bundle) => ({ code: bundle.code, version: bundle.definitionVersion, hash: bundle.definitionHash }));
   }
 
-  async function previewBundles(roleId: string | null = selectedRole?.id ?? null) {
-    const bundles = bundleReferences();
+  async function previewBundles(roleId: string | null = selectedRole?.id ?? null, codes = selectedBundleCodes) {
+    const bundles = bundleReferences(codes);
     if (bundles.length === 0) throw new Error("请至少选择一个权限包");
-    if (bundles.length !== selectedBundleCodes.length) throw new Error("权限包目录已变化，请刷新后重新选择");
+    if (bundles.length !== codes.length) throw new Error("权限包目录已变化，请刷新后重新选择");
     const token = getToken();
     const path = roleId ? `/roles/${roleId}/property-bundles/preview` : "/roles/property-bundles/preview";
     const response = await apiRequest<PropertyBundlePreview>(path, {
@@ -363,12 +363,16 @@ export default function RolesPage() {
   }
 
   async function createFromBundles() {
-    if (selectedRole?.isTemplate) throw new Error("标准模板请使用“复制模板”，以保留其排除权限和 current_park 范围");
+    const availableCodes = propertyBundles.map((bundle) => bundle.code);
+    const enteredCodes = window.prompt("权限包编码（多个用逗号分隔）", availableCodes.join(","));
+    if (!enteredCodes) return;
+    const createBundleCodes = [...new Set(enteredCodes.split(",").map((code) => code.trim()).filter(Boolean))];
+    if (createBundleCodes.length === 0) throw new Error("请至少选择一个权限包");
     const code = window.prompt("新角色编码（大写字母、数字、下划线）");
     if (!code) return;
     const name = window.prompt("新角色名称");
     if (!name) return;
-    const preview = await previewBundles(null);
+    const preview = await previewBundles(null, createBundleCodes);
     const token = getToken();
     const response = await apiRequest<RoleNode>("/roles/property-bundles/roles", {
       method: "POST",
@@ -377,7 +381,7 @@ export default function RolesPage() {
       body: {
         code: code.trim().toUpperCase(),
         name: name.trim(),
-        bundles: bundleReferences(),
+        bundles: bundleReferences(createBundleCodes),
         mode: bundleMode,
         previewSignature: preview.previewSignature
       }
@@ -416,7 +420,7 @@ export default function RolesPage() {
           <Plus size={16} />新增自定义角色
         </PermissionButton>
         {hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE]) ? (
-          <button type="button" disabled={Boolean(selectedRole?.isTemplate)} onClick={() => void createFromBundles().catch(showError)}>
+          <button type="button" onClick={() => void createFromBundles().catch(showError)}>
             <Layers3 size={16} />按权限包新建
           </button>
         ) : null}

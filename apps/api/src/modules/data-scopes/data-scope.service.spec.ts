@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { DataScopeService } from "./data-scope.service";
 import { RoleEntity } from "../roles/entities/role.entity";
@@ -209,6 +211,7 @@ test("shared tenant role data-scope assignments update only the caller park", as
     save: async (value: unknown) => value
   };
   const roleRepository = {
+    save: async (value: unknown) => value,
     createQueryBuilder: () => {
       const builder = {
         setLock: () => builder,
@@ -261,6 +264,12 @@ test("shared tenant role data-scope assignments update only the caller park", as
     isDeleted: false
   });
   assert.equal(transactionCount, 1);
+});
+
+test("data-scope replacement saves the locked role to invalidate stale bundle previews", () => {
+  const source = readFileSync(resolve(__dirname, "data-scope.service.ts"), "utf8");
+  assert.match(source, /role\.updateBy = actorId/);
+  assert.match(source, /manager\.getRepository\(RoleEntity\)\.save\(role\)/);
 });
 
 test("data-scope definitions are tenant-wide while bindings stay park-scoped", async () => {

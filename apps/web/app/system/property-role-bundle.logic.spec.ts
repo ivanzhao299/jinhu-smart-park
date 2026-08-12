@@ -27,4 +27,6 @@ test("protected templates and system roles cannot be updated from the bundle pan
   assert.match(source, /selectedRole\.roleScope !== "park"/);
   assert.match(source, /hasAllPermissions\(authUser, \[SYSTEM_PERMISSIONS\.ROLE_OPEN_CREATE, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\]\)/);
   assert.match(source, /hasAllPermissions\(authUser, \[SYSTEM_PERMISSIONS\.ROLE_OPEN_UPDATE, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE\]\)/);
+  assert.match(source, /权限包编码（多个用逗号分隔）/);
+  assert.match(source, /previewBundles\(null, createBundleCodes\)/);
 });

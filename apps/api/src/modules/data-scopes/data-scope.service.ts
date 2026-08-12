@@ -214,6 +214,8 @@ export class DataScopeService {
           )
         );
       }
+      role.updateBy = actorId;
+      await manager.getRepository(RoleEntity).save(role);
     });
     return { roleId, ruleIds };
   }

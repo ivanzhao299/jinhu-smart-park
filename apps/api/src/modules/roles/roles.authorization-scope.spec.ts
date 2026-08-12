@@ -90,6 +90,21 @@ test("built-in role scope cannot be changed", async () => {
   );
 });
 
+test("an assigned ordinary role cannot be converted into a protected template", async () => {
+  const role = { id: "role-1", roleScope: "park", isTemplate: false, isEditable: true, editable: true };
+  const service = new RolesService(
+    { findOne: async () => role } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    { count: async () => 1 } as never
+  );
+  await assert.rejects(
+    service.update({ tenantId: "tenant-a", parkId: "park-a" }, "actor", role.id, { isTemplate: true }),
+    /Role with bound users cannot be converted to a template/
+  );
+});
+
 test("custom tenant role scope cannot be changed directly", async () => {
   const role = {
     id: "role-1",
