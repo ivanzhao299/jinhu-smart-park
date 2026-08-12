@@ -609,7 +609,7 @@ INSERT INTO public.biz_park (
   tenant_id, park_id, park_code, park_name, status, is_deleted, remark
 )
 VALUES (
-  '10000001', '20000001', 'JH_SECOND_ACTIVE_PARK',
+  '10000001', '20000002', 'JH_SECOND_ACTIVE_PARK',
   'Release Smoke Second Active Park', 1, false,
   'production-seed-multi-park-scope-regression'
 );
@@ -732,7 +732,7 @@ fresh_order_active_park_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
     psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
     -c "SELECT count(*) FROM public.biz_park
-        WHERE tenant_id='10000001' AND park_id='20000001'
+        WHERE tenant_id='10000001'
           AND status=1 AND is_deleted=false;"
 )"
 test "$fresh_order_active_park_count" -eq 2
