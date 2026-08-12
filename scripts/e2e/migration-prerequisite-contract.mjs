@@ -105,6 +105,15 @@ const propertyCompatibilityReplacementPatchPath = resolve(
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
+const canonicalSourceMigrationPath = resolve(
+  root,
+  "database/migrations/000207_asset_scope_canonical_source_reconcile.sql"
+);
+const productionDeployScriptPath = resolve(root, "scripts/prod-deploy.sh");
+const canonicalSourceFixturePath = resolve(
+  root,
+  "scripts/e2e/verify-000207-canonical-source-reconcile.sh"
+);
 
 const migration = readFileSync(migrationPath);
 const prerequisite = readFileSync(prerequisitePath, "utf8");
@@ -114,6 +123,9 @@ const assetParkScopeIdPrerequisite = readFileSync(assetParkScopeIdPrerequisitePa
 const assetParkScopePrerequisite = readFileSync(assetParkScopePrerequisitePath, "utf8");
 const assetParkScopeSeed = readFileSync(assetParkScopeSeedPath, "utf8");
 const propertyRuntimeControlSeed = readFileSync(propertyRuntimeControlSeedPath, "utf8");
+const canonicalSourceMigration = readFileSync(canonicalSourceMigrationPath, "utf8");
+const productionDeployScript = readFileSync(productionDeployScriptPath, "utf8");
+const canonicalSourceFixture = readFileSync(canonicalSourceFixturePath, "utf8");
 const adminIssueRunnerMigration = readFileSync(adminIssueRunnerMigrationPath);
 const propertyRuntimeIntegrityMigration = readFileSync(propertyRuntimeIntegrityMigrationPath);
 const propertyRuntimeCheckpointPrerequisite = readFileSync(
@@ -558,8 +570,9 @@ for (const requiredSeedContract of [
   "FROM sys_tenant tenant",
   "module.module_code = 'asset'",
   "asset_count = 0",
+  "asset_row_count <> asset_count",
   "exact_source_count = 1",
-  "scope.exact_source_count <> 1",
+  "scope.exact_source_count = 0",
   "scope.tenant_key = '10000001'",
   "scope.park_key = '20000001'",
   "park.park_code = 'JH'",
@@ -744,6 +757,16 @@ assert.match(assetScopeDiagnostic, /unresolved_source/u);
 assert.match(assetScopeDiagnostic, /ready_existing_asset/u);
 assert.match(assetScopeDiagnostic, /ready_exact_source/u);
 assert.match(assetScopeDiagnostic, /ready_default_jh_source/u);
+assert.match(assetScopeDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(assetScopeDiagnostic, /canonical_reconcile_state/u);
+assert.match(assetScopeDiagnostic, /history_tables_state=/u);
+assert.match(assetScopeDiagnostic, /ELSE 'partial'/u);
+assert.ok(
+  assetScopeDiagnostic.indexOf("history_tables_state=") <
+    assetScopeDiagnostic.indexOf("history_state="),
+  "asset-scope diagnostic must probe migration-history table presence before referencing either table"
+);
+assert.match(assetScopeDiagnostic, /matching_source_count = 1/u);
 assert.match(assetScopeDiagnostic, /building_count/u);
 assert.match(assetScopeDiagnostic, /floor_count/u);
 assert.match(assetScopeDiagnostic, /unit_count/u);
@@ -773,6 +796,19 @@ for (const requiredSeedContract of [
 assert.match(propertyRuntimeControlSeed, /LOCK TABLE public\.sys_property_runtime_control/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=0 AND audits\.audit_count=0/u);
 assert.match(propertyRuntimeControlSeed, /controls\.control_count=12 AND audits\.audit_count=24/u);
+assert.match(propertyRuntimeControlSeed, /is_active boolean NOT NULL/u);
+assert.match(propertyRuntimeControlSeed, /scope\.is_active AND \(SELECT count\(\*\) FROM public\.sys_tenant/u);
+assert.match(propertyRuntimeControlSeed, /scope\.is_active[\s\S]*?NOT EXISTS/u);
+assert.match(
+  propertyRuntimeControlSeed,
+  /park\.status='enabled' AND park\.is_deleted=false\)<>1[\s\S]*?park\.is_deleted=false\)<>1/u,
+  "runtime-control seed must reject enabled plus disabled non-deleted asset projections"
+);
+assert.match(
+  propertyRuntimeControlSeed,
+  /sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment[\s\S]*?module\.module_code='asset'/u,
+  "runtime-control seed must retain and validate immutable histories after asset is disabled"
+);
 assert.match(
   propertyRuntimeControlSeed,
   /audit\.old_update_time IS DISTINCT FROM \([\s\S]*?prior\.new_update_time[\s\S]*?b2a-contract-correction-000194/u,
@@ -787,6 +823,83 @@ assert.match(runtimeControlDiagnostic, /SET LOCAL search_path = public, pg_catal
 assert.match(runtimeControlDiagnostic, /ready_table_absent_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_reconcile/u);
 assert.match(runtimeControlDiagnostic, /ready_missing_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_missing_asset_seed_reconcile/u);
+assert.match(runtimeControlDiagnostic, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(runtimeControlDiagnostic, /canonical_reconcile_state/u);
+assert.match(runtimeControlDiagnostic, /matching_source_count=1/u);
+assert.match(runtimeControlDiagnostic, /ELSE 'partial'/u);
+assert.match(runtimeControlDiagnostic, /canonical_reconcile_state" = "invalid"/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /assignment\.start_time IS NULL OR assignment\.start_time <= clock_timestamp\(\)/u,
+  "runtime-control active scopes must honor the assignment start window"
+);
+const invalidScopeBranch = runtimeControlDiagnostic.indexOf(
+  "WHEN tenant_key IS NULL OR park_key IS NULL"
+);
+const invalidStageBranch = runtimeControlDiagnostic.indexOf(
+  "WHEN NOT (SELECT stage_valid FROM expected_contract)"
+);
+const ambiguousReadyBranch = runtimeControlDiagnostic.indexOf(
+  "THEN 'ready_ambiguous_source_migration_reconcile'"
+);
+assert.ok(
+  invalidScopeBranch !== -1 &&
+    invalidScopeBranch < invalidStageBranch &&
+    invalidScopeBranch < ambiguousReadyBranch,
+  "invalid sentinel scope identifiers must be rejected before migration-stage or reconcile-ready branches"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN NOT is_active AND :'runtime_contract_stage'<>'post_000195' THEN 'migration_stage_drift'/u,
+  "retained runtime-control scopes must not be ready before the final contract stage"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN asset_count=0 AND asset_row_count=0\s+AND is_active/u,
+  "asset projection seed reconciliation must be limited to active scopes"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /WHEN missing_count=expected_count AND actual_count=0\s+AND is_active/u,
+  "runtime-control seed reconciliation must be limited to active scopes"
+);
+assert.match(runtimeControlDiagnostic, /ready_retained_exact/u);
+assert.match(runtimeControlDiagnostic, /asset_count=0 AND asset_row_count=0/u);
+assert.match(runtimeControlDiagnostic, /asset_count <> 1 OR asset_row_count <> 1/u);
+assert.match(runtimeControlDiagnostic, /retained_audit_drift_count/u);
+assert.match(runtimeControlDiagnostic, /SELECT count\(\*\) FROM drift/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /contract_scope AS \([\s\S]*?sys_property_runtime_control control[\s\S]*?rel_tenant_module assignment/u,
+  "runtime-control diagnostic must validate correction audits for active and retained signed scopes"
+);
+assert.match(
+  assetParkScopeSeed,
+  /JOIN sys_tenant tenant[\s\S]*?tenant\.status = 1[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "asset projection seed must exclude disabled or expired tenants just like the deployment classifier"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /HAVING count\(\*\) = 12[\s\S]*?count\(DISTINCT control\.control_key\) = 12/u,
+  "runtime-control audit validation must run only after exact signed control-key parity"
+);
+assert.match(runtimeControlDiagnostic, /is_active AND tenant_count <> 1/u);
+assert.match(
+  runtimeControlDiagnostic,
+  /OR \(is_active AND NOT \([\s\S]*?exact_source_count=1[\s\S]*?exact_source_count=0[\s\S]*?tenant_key='10000001'[\s\S]*?park_key='20000001'[\s\S]*?default_source_count=1[\s\S]*?\)\) THEN 'invalid_scope'/u,
+  "runtime-control diagnostic must reject every active scope without a canonical exact source or the fixed unique JH fallback"
+);
+assert.match(
+  runtimeControlDiagnostic,
+  /active_scope AS \([\s\S]*?JOIN sys_tenant tenant[\s\S]*?tenant\.expire_time > clock_timestamp\(\)/u,
+  "runtime-control active scopes must exclude disabled or expired tenants before retained classification"
+);
+assert.match(runtimeControlDiagnostic, /exact_source_count=1/u);
+assert.match(runtimeControlDiagnostic, /exact_source_count=0/u);
+assert.match(runtimeControlDiagnostic, /tenant_key='10000001'/u);
+assert.match(runtimeControlDiagnostic, /park_key='20000001'/u);
+assert.match(runtimeControlDiagnostic, /default_source_count=1/u);
 assert.match(runtimeControlDiagnostic, /allow_seed_reconcile/u);
 assert.match(runtimeControlDiagnostic, /runtime_compatibility_succeeded/u);
 assert.match(runtimeControlDiagnostic, /d7dff444c2c7969618ee7de846b8a0fdccb02d57844477e916c2b2742d0d004b/u);
@@ -818,6 +931,70 @@ assert.doesNotMatch(
   /(?:INSERT\s+INTO|UPDATE\s+|DELETE\s+FROM|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+)/u,
   "production runtime-control diagnostic must remain read-only"
 );
+assert.match(canonicalSourceMigration, /pg_advisory_xact_lock/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_module/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.rel_tenant_module/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_tenant/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.asset_park/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.biz_park/u);
+assert.match(canonicalSourceMigration, /LOCK TABLE public\.sys_property_runtime_control IN SHARE MODE/u);
+assert.match(
+  canonicalSourceMigration,
+  /LOCK TABLE public\.sys_property_runtime_control_contract_audit IN SHARE MODE/u
+);
+const canonicalSourceMigrationChecksum = createHash("sha256")
+  .update(canonicalSourceMigration)
+  .digest("hex");
+for (const diagnostic of [assetScopeDiagnostic, runtimeControlDiagnostic]) {
+  assert.match(
+    diagnostic,
+    new RegExp(`canonical_reconcile_checksum="${canonicalSourceMigrationChecksum}"`, "u"),
+    "canonical-source diagnostics must pin the exact 000207 migration checksum"
+  );
+}
+assert.match(canonicalSourceMigration, /matching_source_count<>1/u);
+assert.match(canonicalSourceMigration, /control_count<>12 OR total_control_count<>12/u);
+assert.match(canonicalSourceMigration, /control\.control_kind=signed\.control_kind/u);
+assert.match(canonicalSourceMigration, /control\.target=signed\.target/u);
+assert.match(canonicalSourceMigration, /control\.adapter_version IS NOT DISTINCT FROM signed\.adapter_version/u);
+assert.match(canonicalSourceMigration, /control\.enabled_by IS NULL AND control\.enabled_at IS NULL/u);
+assert.match(canonicalSourceMigration, /lower\(tenant_id\) IN/u);
+assert.match(canonicalSourceMigration, /lower\(park_id\) IN/u);
+assert.ok(
+  canonicalSourceMigration.indexOf("FROM reconcile_000207_active_scope") <
+    canonicalSourceMigration.indexOf("WHERE state.source_count>1"),
+  "000207 must reject sentinel identifiers across every active scope before selecting ambiguous candidates"
+);
+assert.doesNotMatch(
+  canonicalSourceMigration,
+  /remark='000207 canonical source superseded by asset projection'/u,
+  "canonical reconciliation must preserve operator-entered biz_park remarks"
+);
+assert.match(canonicalSourceMigration, /audit_count<>24 OR total_audit_count<>24/u);
+assert.match(canonicalSourceMigration, /reconcile_000207_runtime_audit_drift/u);
+assert.match(canonicalSourceMigration, /runtime-control-contract-audit-v1/u);
+assert.match(canonicalSourceMigration, /runtime-control-contract-audit-v2/u);
+assert.match(canonicalSourceMigration, /audit\.evidence_hash IS DISTINCT FROM encode/u);
+assert.match(canonicalSourceMigration, /sys_asset_scope_canonical_reconcile_audit/u);
+assert.match(canonicalSourceMigration, /BEFORE UPDATE OR DELETE/u);
+assert.match(canonicalSourceMigration, /status=0,is_deleted=true,version=target\.version\+1/u);
+assert.match(canonicalSourceMigration, /asset-scope-canonical-source-reconcile-postcondition-failed/u);
+assert.match(
+  productionDeployScript,
+  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
+  "production deployment must re-run both scope gates after migrations and before seed"
+);
+assert.match(canonicalSourceFixture, /ready_ambiguous_source_migration_reconcile/u);
+assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
+assert.match(canonicalSourceFixture, /failure_audit_count/u);
+assert.match(canonicalSourceFixture, /test "\$failure_audit_count" = '0'/u);
+assert.match(canonicalSourceFixture, /RELEASE_000207_AUDIT_DRIFT/u);
+assert.match(canonicalSourceFixture, /preserved operator remark/u);
+assert.match(canonicalSourceFixture, /SET control_kind='compatibility_write'/u);
+assert.match(canonicalSourceFixture, /runtime-control audit evidence drift to stop 000207/u);
+assert.match(canonicalSourceFixture, /migration_history_drift/u);
+assert.match(canonicalSourceFixture, /Future asset assignments must not enter canonical reconciliation/u);
+assert.match(canonicalSourceFixture, /already succeeded, checksum matched/u);
 const ensureSecretsStep = productionDeployWorkflow.indexOf("Ensure required production secrets");
 const enforceScopeStep = productionDeployWorkflow.indexOf(
   "Enforce 000189 asset scope parity before deployment"

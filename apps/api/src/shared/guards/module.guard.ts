@@ -3,7 +3,7 @@ import { ForbiddenException, Injectable } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 import { IS_PUBLIC_KEY } from "../decorators/public.decorator";
-import { MODULES_KEY } from "../decorators/modules.decorator";
+import { ANY_MODULES_KEY, MODULES_KEY } from "../decorators/modules.decorator";
 import type { JwtPrincipal } from "../types/jwt-principal";
 import { SaaSModulesService } from "../../modules/saas-modules/saas-modules.service";
 
@@ -27,7 +27,12 @@ export class ModuleGuard implements CanActivate {
       context.getHandler(),
       context.getClass()
     ]);
-    if (!requiredModules || requiredModules.length === 0) {
+    const requiredAnyModules = this.reflector.getAllAndOverride<string[]>(ANY_MODULES_KEY, [
+      context.getHandler(),
+      context.getClass()
+    ]);
+    if ((!requiredModules || requiredModules.length === 0)
+      && (!requiredAnyModules || requiredAnyModules.length === 0)) {
       return true;
     }
 
@@ -39,7 +44,8 @@ export class ModuleGuard implements CanActivate {
 
     const enabledModules = await this.modulesService.listEnabledModulesForTenant(user.tenantId, user.parkId);
     const enabledModuleCodes = new Set(enabledModules.map((module) => module.module_code));
-    const allowed = requiredModules.every((moduleCode) => enabledModuleCodes.has(moduleCode));
+    const allowed = (requiredModules ?? []).every((moduleCode) => enabledModuleCodes.has(moduleCode))
+      && (!requiredAnyModules?.length || requiredAnyModules.some((moduleCode) => enabledModuleCodes.has(moduleCode)));
     if (!allowed) {
       throw new ForbiddenException("Tenant module is not authorized");
     }

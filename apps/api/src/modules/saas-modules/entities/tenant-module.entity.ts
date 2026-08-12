@@ -3,6 +3,10 @@ import { AuditableEntity } from "../../../shared/entities/auditable.entity";
 import { PlanEntity } from "./plan.entity";
 import { SaaSModuleEntity } from "./saas-module.entity";
 
+export const PARK_STATUS_SUSPENDED_FEATURE = "suspendedByParkStatus";
+export const PARK_RECOVERY_SYSTEM_FEATURE = "recoveryOnlyForParkStatus";
+export const PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE = "recoverySystemAssignmentSnapshot";
+
 @Entity("rel_tenant_module")
 @Index("idx_rel_tenant_module_entity_scope_deleted", ["tenantId", "parkId", "isDeleted"])
 @Index("idx_rel_tenant_module_entity_unique", ["tenantId", "parkId", "moduleId"], {

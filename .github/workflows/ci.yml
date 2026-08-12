@@ -671,9 +671,9 @@ jobs:
           grep -Fq 'unresolved_source=1' \
             /tmp/release-smoke-logs/db-migrate-000189-missing-source.log
 
-          # Production can contain multiple active biz parks under the fixed
-          # default scope. The globally unique JH key remains the deterministic
-          # source; no other scope receives this fallback.
+          # Multiple exact active sources are ambiguous even in the fixed
+          # default scope. The bounded JH fallback applies only when the exact
+          # scope has no active source.
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
             psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" <<'SQL'
           BEGIN;
@@ -686,6 +686,25 @@ jobs:
              'release-smoke same-scope non-default source');
           COMMIT;
           SQL
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql
+          if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+              < database/seeds/production/000007_asset_park_scope_reconcile.sql \
+              > /tmp/release-smoke-logs/db-seed-000189-default-ambiguous.log 2>&1; then
+            echo "Expected production seed to reject multiple exact default-scope sources" >&2
+            exit 1
+          fi
+          grep -Fq 'ambiguous_asset=1' \
+            /tmp/release-smoke-logs/db-seed-000189-default-ambiguous.log
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
+            -c "DELETE FROM public.biz_park
+                WHERE tenant_id = '10000001'
+                  AND park_id = '20000001'
+                  AND park_code = 'JH-AUXILIARY'
+                  AND is_deleted = false;"
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
             psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$retry_db" \
             < database/migration-prerequisites/000189_property_b_module_rbac_definitions/003_asset_park_scope_reconcile.sql
@@ -926,6 +945,9 @@ jobs:
 
       - name: Verify failed 000194 runtime-control retry from production-shaped state
         run: scripts/e2e/verify-000194-runtime-control-retry.sh
+
+      - name: Verify 000207 canonical-source reconciliation
+        run: scripts/e2e/verify-000207-canonical-source-reconcile.sh
 
       - name: Verify repaired core-role permissions
         run: |

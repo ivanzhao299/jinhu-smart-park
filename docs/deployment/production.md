@@ -388,6 +388,14 @@ Migration behavior:
 - A newly added prerequisite can repair a narrowly defined missing precondition before retrying an unchanged failed migration. The `000189` asset scope repair is insert-only and requires one active tenant plus an active asset module assignment. One existing active `asset_park` already satisfies the projection without a duplicate `biz_park`; a missing projection prefers one active same-scope `biz_park`. Only the fixed default scope may use the globally unique active `park_code=JH` baseline when the JH row retained legacy IDs or when other active business parks share the default scope. Invalid scope, duplicate assets, non-unique JH, or unbounded missing/ambiguous sources still stop deployment.
 - After initializing required Compose secrets but before an API/full deployment syncs application release source or runs migrations, GitHub Actions executes the same `000189` scope classification in read-only enforce mode. Operators can select `diagnose-000189-scope` manually to print only tenant/park identifiers, classification, and aggregate building/floor/unit/org counts. That mode does not sync source, write `.release.json`, migrate, seed, deploy, or run UAT.
 - An `unresolved_source` report is evidence of missing trusted metadata, not permission to copy an arbitrary park across tenant scopes. Inspect the reported non-sensitive footprint, choose an audited deterministic repair, add that production shape to Release Smoke, and rerun the gate before deployment.
+- A historical active scope with multiple `biz_park` sources may be reported as
+  `ready_ambiguous_source_migration_reconcile` only while `000207_asset_scope_canonical_source_reconcile.sql` is
+  absent or transactionally failed with its reviewed checksum, one enabled/non-deleted `asset_park` exists, and its
+  `park_code` matches exactly one active same-scope `biz_park`. Migration `000207` locks the scope, preserves that
+  exact source, audits and soft-disables only the non-matching sources, and then requires one active source. Missing
+  matches, multiple matches, projection duplication, control/audit drift, or ambiguity after `000207` succeeded
+  remain blocked. The repair is a forward migration rather than a production seed because it changes historical
+  business rows and must carry immutable before/after evidence.
 - The same pre-release boundary also runs the `000194` runtime-control parity classifier. Select
   `diagnose-000194-runtime-control` for a read-only report of expected/actual/missing/extra/definition-drift counts
   and non-sensitive control keys. Only before `000194`, `ready_missing_reconcile` means the ordered insert-only
@@ -397,6 +405,54 @@ Migration behavior:
   approved succeeded checksum in both history tables and the resolved deployment will execute the reviewed production
   seed; `000008` then creates both continuous correction audits. A pending/failed `000200` remains blocked because
   migration execution precedes seed execution.
+  When that final scope also has no non-deleted `asset_park`, it is
+  `ready_missing_asset_seed_reconcile` only under the same migration/seed conditions and only when `000007` can
+  resolve one active same-scope `biz_park` (or the fixed default scope's globally unique active `JH` fallback).
+  Production seed order first runs `000007` to create the missing asset projection, then `000008` to create the 12
+  disabled controls and 24 correction audits. Disabled or duplicate asset projections, ambiguous sources, partial
+  controls, and any seed-disabled deployment remain fail-closed.
+  For scopes created after the release, the tenant create/login-settings/module-assignment transaction performs the
+  same future-data convergence itself: it requires one active same-scope `biz_park` (with only the fixed default
+  scope's reviewed unique `JH` fallback), rejects duplicate non-deleted projections, creates/restores `asset_park`,
+  and initializes the signed 12 disabled controls through both correction audits. Therefore a later deployment with
+  production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
+  originating business write instead of deferring damage to the deployment gate.
+  SaaS tenant-module assign/enable and direct asset-park creation use the same tenant/park transaction lock and
+  full projection/control provisioning, so alternate write paths cannot race or bypass this convergence. Asset-park
+  update/delete use that lock too and reject disabling or deleting the required projection while the assignment is
+  active or retained signed history exists. Canonical `biz_park` mutations take the same lock, preserve one active
+  source for protected scopes, and synchronize canonical field edits into the projection. Tenant status/expiry is
+  included when deriving current active scopes, so a disabled/expired tenant with complete history becomes retained
+  instead of an invalid active scope. Login-settings authorization
+  updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
+  are eligible for canonical asset projection/runtime-control provisioning, and inactive parks keep the asset
+  assignment and asset-derived administrator permissions disabled. To avoid a recovery deadlock, inactive parks retain
+  an enabled system assignment plus only `park:read` and `park:update`; this recovery path remains available even when
+  the selected package omits system. Park create/delete and every other asset operation remain asset-gated. Duplicate
+  canonical source repair is allowed only when the committed result leaves exactly one active source; every transition
+  away from active status is treated as source removal, and a successful delete/replacement immediately reprojects
+  from the sole survivor. Every tenant runtime inactive-to-active transition—dedicated enable, generic tenant update,
+  or login-settings status/expiry update—transactionally provisions each active park whose asset assignment is
+  enabled and within its validity window before the tenant becomes usable. Deleting the last source or leaving more
+  than one remains blocked. Reactivation iterates assignment scopes directly so the fixed default scope can still use
+  its reviewed globally unique `JH` fallback. Asset-projection edits validate against the locked canonical `biz_park`,
+  never against potentially drifted projection fields, then run full provisioning so enabled/canonical values persist.
+  Park list/detail/update are permission-gated recovery surfaces exposed under both asset and system menus; create/delete
+  remain asset-only. When a route has both module-specific menu nodes, the page guard accepts any matching node whose
+  permission and module are both available, so inactive system recovery is not shadowed by the asset menu. A legacy
+  projection without active/retained asset assignment is synchronized without creating
+  unowned runtime controls/audits. Non-active auxiliary parks are allowed when they preserve the
+  canonical active-source invariant, and default-scope cleanup follows the same exact-one/global-JH-one resolver rule.
+  If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
+  The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
+  the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only
+  to current active scopes. Both active and retained scopes validate the complete 24-row correction-audit content and
+  evidence, and require exactly one enabled/non-deleted
+  `asset_park` and exactly one non-deleted projection in total; an additional disabled non-deleted projection,
+  unknown scope, or incomplete control/audit history remains fail-closed.
+  Retained scopes are ready only at `post_000195`; earlier stages are blocked because forward migration does not mutate
+  retained assignments. Runtime validation also binds the 000194 audit end time to the 000195 start time and the
+  000195 end/occurrence time to the final control update time.
   The same state remains blocked when seed execution is disabled. `extra_control`,
   `extra_control_scope`,
   `definition_drift`, or `invalid_scope` also stop before release sync and require audited investigation. The
@@ -404,6 +460,9 @@ Migration behavior:
   updates, or deletes a runtime control. The classifier follows the immutable migration
   stage: expand v1 before `000194`, correction v2 after `000194`, and final v3 after `000195`. A partial/unknown
   history stage is `migration_stage_drift` and blocks.
+- After `db:migrate` and before any optional production seed, `prod-deploy.sh` reruns both 000189 and 000194 enforce
+  diagnostics against the migrated database. The API remains stopped unless the temporary migration-reconcile state
+  has converged to the normal exact state; production seed cannot hide a failed or partial canonical-source repair.
 - The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
   `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
   verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database

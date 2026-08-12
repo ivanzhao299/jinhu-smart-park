@@ -16,8 +16,19 @@ import type { UpdatePlanDto } from "./dto/update-plan.dto";
 import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
-import { TenantModuleEntity } from "./entities/tenant-module.entity";
+import {
+  PARK_RECOVERY_SYSTEM_FEATURE,
+  PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE,
+  PARK_STATUS_SUSPENDED_FEATURE,
+  TenantModuleEntity
+} from "./entities/tenant-module.entity";
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
+import {
+  ensureAssetScopeProvisioned,
+  hasCanonicalActiveAssetParkSource,
+  lockAssetScope
+} from "../assets/asset-scope-provisioning";
+import { TenantsService } from "../tenants/tenants.service";
 
 @Injectable()
 export class SaaSModulesService {
@@ -31,7 +42,9 @@ export class SaaSModulesService {
     @InjectRepository(TenantModuleEntity)
     private readonly tenantModuleRepository: Repository<TenantModuleEntity>,
     @Optional()
-    private readonly dataSource?: DataSource
+    private readonly dataSource?: DataSource,
+    @Optional()
+    private readonly tenantsService?: TenantsService
   ) {}
 
   async listModules(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ModuleRegistryEntity>> {
@@ -227,6 +240,7 @@ export class SaaSModulesService {
 
   async assignTenantModule(scope: TenantParkScope, actorId: string, dto: AssignTenantModuleDto): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, dto.moduleId);
       if (dto.planId) await this.getPlanWithManager(manager, scope, dto.planId);
@@ -247,26 +261,37 @@ export class SaaSModulesService {
           moduleId: dto.moduleId,
           createBy: actorId
         });
-      const enabling = (dto.status ?? entity.status ?? "enabled") === "enabled";
-      if (enabling) {
+      const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
+      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
+      const enabling = requestedEnabled && parkActive;
+      const promotingRecoverySystem = module.moduleCode === "system"
+        && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
+      if (requestedEnabled) {
         await this.assertDependenciesActive(manager, scope, module.moduleCode);
       }
       Object.assign(entity, {
         tenantCode: dto.tenantCode ?? entity.tenantCode ?? null,
         planId: dto.planId === undefined ? entity.planId ?? null : dto.planId,
         startTime: dto.startTime === undefined
-          ? entity.startTime ?? null
+          ? promotingRecoverySystem ? null : entity.startTime ?? null
           : dto.startTime === null ? null : new Date(dto.startTime),
         expireTime: dto.expireTime === undefined
-          ? entity.expireTime ?? null
+          ? module.moduleCode === "system" ? null : entity.expireTime ?? null
           : dto.expireTime === null ? null : new Date(dto.expireTime),
         enabled: enabling,
-        featureConfig: dto.featureConfig ?? entity.featureConfig ?? {},
+        featureConfig: withExplicitModuleSelection(
+          withParkStatusSuspension(
+            dto.featureConfig ?? entity.featureConfig,
+            requestedEnabled && module.moduleCode === "asset" && !parkActive
+          ),
+          module.moduleCode
+        ),
         status: enabling ? "enabled" : "disabled",
         remark: dto.remark === undefined ? entity.remark ?? null : dto.remark,
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      this.assertSystemAssignmentWindow(module.moduleCode, entity.startTime, entity.expireTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -275,12 +300,21 @@ export class SaaSModulesService {
         entity.startTime,
         entity.expireTime
       );
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (enabling && module.moduleCode === "asset") {
+        await ensureAssetScopeProvisioned(manager, scope, actorId);
+      } else if (requestedEnabled && module.moduleCode === "asset") {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      } else if (module.moduleCode === "system") {
+        await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
+      }
+      return saved;
     });
   }
 
   async enableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, moduleId);
       await this.assertDependenciesActive(manager, scope, module.moduleCode);
@@ -302,12 +336,22 @@ export class SaaSModulesService {
           moduleId,
           createBy: actorId
         });
+      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
+      const promotingRecoverySystem = module.moduleCode === "system"
+        && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
-        enabled: true,
-        status: "enabled",
+        startTime: promotingRecoverySystem ? null : entity.startTime,
+        expireTime: module.moduleCode === "system" ? null : entity.expireTime,
+        enabled: parkActive,
+        status: parkActive ? "enabled" : "disabled",
+        featureConfig: withExplicitModuleSelection(
+          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
+          module.moduleCode
+        ),
         updateBy: actorId
       });
       this.assertAssignmentWindow(entity.startTime, entity.expireTime);
+      this.assertSystemAssignmentWindow(module.moduleCode, entity.startTime, entity.expireTime);
       await this.assertProspectiveAssignmentSupportsDependents(
         manager,
         scope,
@@ -316,12 +360,21 @@ export class SaaSModulesService {
         entity.startTime,
         entity.expireTime
       );
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (parkActive && module.moduleCode === "asset") {
+        await ensureAssetScopeProvisioned(manager, scope, actorId);
+      } else if (module.moduleCode === "asset") {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      } else if (module.moduleCode === "system") {
+        await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
+      }
+      return saved;
     });
   }
 
   async disableTenantModule(scope: TenantParkScope, actorId: string, moduleId: string): Promise<TenantModuleEntity> {
     return this.writeDataSource().transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
       await this.lockModuleDependencyGraph(manager, scope);
       const module = await this.getActiveStandardModule(manager, moduleId);
       await this.assertNoActiveDependents(manager, scope, module.moduleCode);
@@ -339,8 +392,21 @@ export class SaaSModulesService {
       }
       entity.enabled = false;
       entity.status = "disabled";
+      entity.featureConfig = withExplicitModuleSelection(
+        withParkStatusSuspension(entity.featureConfig, false),
+        module.moduleCode
+      );
       entity.updateBy = actorId;
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (module.moduleCode === "system") {
+        await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, false);
+        const reconciled = await repository.findOne({
+          where: { id: saved.id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+        });
+        if (!reconciled) throw new NotFoundException("Tenant module authorization not found");
+        return reconciled;
+      }
+      return saved;
     });
   }
 
@@ -585,11 +651,87 @@ export class SaaSModulesService {
     }
   }
 
+  private resolveRequestedEnabled(
+    moduleCode: string,
+    requestedStatus: string | undefined,
+    entity: TenantModuleEntity
+  ): boolean {
+    if (
+      moduleCode === "asset"
+      && requestedStatus === undefined
+      && entity.featureConfig?.[PARK_STATUS_SUSPENDED_FEATURE] === true
+    ) {
+      return true;
+    }
+    return (requestedStatus ?? entity.status ?? "enabled") === "enabled";
+  }
+
+  private assertSystemAssignmentWindow(
+    moduleCode: string,
+    startTime: Date | null | undefined,
+    expireTime: Date | null | undefined
+  ): void {
+    if (moduleCode === "system" && startTime && startTime.getTime() > Date.now()) {
+      throw new ConflictException({
+        message: "System module authorization cannot start in the future",
+        errorCode: "module-window-conflict"
+      });
+    }
+    if (moduleCode === "system" && expireTime) {
+      throw new ConflictException({
+        message: "System module authorization cannot expire automatically",
+        errorCode: "module-window-conflict"
+      });
+    }
+  }
+
   private writeDataSource(): DataSource {
     if (!this.dataSource) {
       throw new Error("SaaSModulesService DataSource is required for module writes");
     }
     return this.dataSource;
+  }
+
+  private async reconcileInactiveAssetRecovery(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    if (!this.tenantsService) {
+      throw new Error("TenantsService is required for inactive asset recovery");
+    }
+    await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actorId);
+  }
+
+  private async reconcileExplicitSystemAuthorization(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string,
+    preserveParkRecoveryGrants: boolean
+  ): Promise<void> {
+    if (!this.tenantsService) {
+      throw new Error("TenantsService is required for system authorization convergence");
+    }
+    await this.tenantsService.reconcileCurrentTenantAdminPermissions(
+      manager,
+      scope,
+      actorId,
+      preserveParkRecoveryGrants
+    );
+  }
+
+  private async reconcileSystemAuthorizationAfterWrite(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string,
+    enabled: boolean
+  ): Promise<void> {
+    const parkActive = await this.isParkActive(manager, scope);
+    if (!enabled && !parkActive) {
+      await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      return;
+    }
+    await this.reconcileExplicitSystemAuthorization(manager, scope, actorId, !parkActive);
   }
 
   private async getPlan(scope: TenantParkScope, id: string): Promise<PlanEntity> {
@@ -607,4 +749,29 @@ export class SaaSModulesService {
     const exists = await this.planRepository.exists({ where: { tenantId: scope.tenantId, parkId: scope.parkId, planCode, isDeleted: false } });
     if (exists) throw new ConflictException("Plan code already exists");
   }
+
+  private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+    return hasCanonicalActiveAssetParkSource(manager, scope);
+  }
+}
+
+function withParkStatusSuspension(
+  featureConfig: Record<string, unknown> | null | undefined,
+  suspended: boolean
+): Record<string, unknown> {
+  const next = { ...(featureConfig ?? {}) };
+  if (suspended) {
+    next[PARK_STATUS_SUSPENDED_FEATURE] = true;
+  } else {
+    delete next[PARK_STATUS_SUSPENDED_FEATURE];
+  }
+  return next;
+}
+
+function withExplicitModuleSelection(featureConfig: Record<string, unknown>, moduleCode: string): Record<string, unknown> {
+  if (moduleCode !== "system") return featureConfig;
+  const next = { ...featureConfig };
+  delete next[PARK_RECOVERY_SYSTEM_FEATURE];
+  delete next[PARK_RECOVERY_SYSTEM_SNAPSHOT_FEATURE];
+  return next;
 }

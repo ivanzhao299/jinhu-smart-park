@@ -61,6 +61,11 @@
   - `000200` immutable source 原先只接受 expand v1，但实际 runner 会先执行 immutable `000194/000195`
     并把控制合同推进到 v3。受审 replacement 在 000194/000195 双 history 与 correction audit 完整时
     保留并验证 v3；在历史直跑顺序中仍建立 v1。混合阶段、定义、集合或 audit 漂移继续阻断。
+  - `000207` 仅收敛历史 active asset scope 的 canonical `biz_park` 来源歧义。它要求唯一 enabled
+    `asset_park.park_code` 在同 scope 多个 active 来源中恰好匹配一行，事务内锁定并重新验证租户、投影、
+    controls/audits 后，保留匹配来源、不可变审计并软停用其余来源。无匹配、多匹配、重复投影、合同漂移
+    或迁移成功后再次出现歧义全部 fail closed。生产部署在 migration 后、seed 前重跑 000189/000194
+    enforce，未收敛为正常 exact 状态时 API 保持停止。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 

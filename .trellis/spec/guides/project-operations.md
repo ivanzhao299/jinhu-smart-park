@@ -110,6 +110,11 @@ Reference files:
 - A production seed that writes only tenant/park-scoped metadata must treat multiple active business rows inside
   that same validated scope as valid unless it actually selects one row as a source. Require at least one scoped
   row for existence; reserve exact-one checks for logic whose output depends on a unique source record.
+- A forward migration that retires ambiguous historical source rows may proceed only when an existing unique derived
+  projection identifies exactly one matching survivor. Lock and revalidate the scope in the migration transaction,
+  record immutable before/after evidence for every retired row, and rerun the read-only parity gates after migration
+  and before seed. A migration-only ready classification must be checksum/history bound and disappear permanently
+  after that migration succeeds; future ambiguity is drift, not an automatic repair opportunity.
 - Immutable migration and production-seed copies of one signed metadata manifest must preserve the same field
   semantics and be checked by a source-level contract. Production-order fixtures must exercise rows created by
   the migration, not approximate that state by changing one field on rows created by the seed.

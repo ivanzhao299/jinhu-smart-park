@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import type { FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import type { DataSource, FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from "typeorm";
 import { ILike } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -20,6 +20,12 @@ import { AssetBuildingEntity } from "./entities/asset-building.entity";
 import { AssetFloorEntity } from "./entities/asset-floor.entity";
 import { AssetParkEntity } from "./entities/asset-park.entity";
 import { AssetUnitEntity } from "./entities/asset-unit.entity";
+import {
+  ensureAssetScopeProvisioned,
+  hasProtectedAssetScope,
+  lockAssetScope,
+  resolveCanonicalAssetParkSource
+} from "./asset-scope-provisioning";
 
 @Injectable()
 export class AssetsService {
@@ -32,6 +38,8 @@ export class AssetsService {
     private readonly floorsRepository: Repository<AssetFloorEntity>,
     @InjectRepository(AssetUnitEntity)
     private readonly unitsRepository: Repository<AssetUnitEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService
   ) {}
@@ -57,22 +65,19 @@ export class AssetsService {
   }
 
   async createPark(scope: TenantParkScope, actorId: string, dto: CreateAssetParkDto): Promise<AssetParkEntity> {
-    await this.assertCodeAvailable(this.parksRepository, scope, "parkCode", dto.parkCode, "Park code already exists");
-    return this.parksRepository.save(
-      this.parksRepository.create({
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        parkCode: dto.parkCode,
-        parkName: dto.parkName,
-        address: dto.address ?? null,
-        totalArea: this.toDecimal(dto.totalArea),
-        sortOrder: dto.sortOrder ?? 0,
-        status: dto.status ?? "enabled",
-        remark: dto.remark ?? null,
-        createBy: actorId,
-        updateBy: actorId
-      })
-    );
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const existingScopeRows = await repository.count({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (existingScopeRows > 0) throw new ConflictException("Asset park already exists for scope");
+      const projection = await ensureAssetScopeProvisioned(manager, scope, actorId);
+      this.assertCanonicalAssetParkInput(dto, projection);
+      projection.sortOrder = dto.sortOrder ?? projection.sortOrder;
+      projection.remark = dto.remark ?? projection.remark;
+      return repository.save(projection);
+    });
   }
 
   async detailPark(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<AssetParkEntity> {
@@ -81,29 +86,41 @@ export class AssetsService {
   }
 
   async updatePark(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateAssetParkDto): Promise<AssetParkEntity> {
-    const entity = await this.mustFind(this.parksRepository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
-    if (dto.parkCode && dto.parkCode !== entity.parkCode) {
-      await this.assertCodeAvailable(this.parksRepository, scope, "parkCode", dto.parkCode, "Park code already exists");
-    }
-    Object.assign(entity, {
-      parkCode: dto.parkCode ?? entity.parkCode,
-      parkName: dto.parkName ?? entity.parkName,
-      address: dto.address ?? entity.address,
-      totalArea: dto.totalArea === undefined ? entity.totalArea : this.toDecimal(dto.totalArea),
-      sortOrder: dto.sortOrder ?? entity.sortOrder,
-      status: dto.status ?? entity.status,
-      remark: dto.remark ?? entity.remark,
-      updateBy: actor.sub
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const entity = await this.mustFind(repository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
+      const canonical = await resolveCanonicalAssetParkSource(manager, scope);
+      this.assertCanonicalAssetParkInput(dto, canonical);
+      if (dto.status === "disabled" && await hasProtectedAssetScope(manager, scope)) {
+        throw new ConflictException("Asset runtime history requires an enabled park projection");
+      }
+      if (dto.parkCode && dto.parkCode !== entity.parkCode) {
+        await this.assertCodeAvailable(repository, scope, "parkCode", dto.parkCode, "Park code already exists");
+      }
+      const projection = await ensureAssetScopeProvisioned(manager, scope, actor.sub);
+      Object.assign(projection, {
+        sortOrder: dto.sortOrder ?? projection.sortOrder,
+        remark: dto.remark ?? projection.remark,
+        updateBy: actor.sub
+      });
+      return repository.save(projection);
     });
-    return this.parksRepository.save(entity);
   }
 
   async deletePark(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    const entity = await this.mustFind(this.parksRepository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
-    entity.isDeleted = true;
-    entity.updateBy = actor.sub;
-    await this.parksRepository.save(entity);
-    return { id };
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const entity = await this.mustFind(repository, scope, id, "Park not found", undefined, actor, "park", { park: "parkId" });
+      if (await hasProtectedAssetScope(manager, scope)) {
+        throw new ConflictException("Asset runtime history requires an enabled park projection");
+      }
+      entity.isDeleted = true;
+      entity.updateBy = actor.sub;
+      await repository.save(entity);
+      return { id };
+    });
   }
 
   async listBuildings(scope: TenantParkScope, query: AssetQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<AssetBuildingEntity>> {
@@ -432,5 +449,18 @@ export class AssetsService {
 
   private toDecimal(value: number | undefined): string {
     return String(value ?? 0);
+  }
+
+  private assertCanonicalAssetParkInput(
+    dto: CreateAssetParkDto | UpdateAssetParkDto,
+    canonical: Pick<AssetParkEntity, "parkCode" | "parkName" | "address" | "totalArea">
+  ): void {
+    if ((dto.parkCode !== undefined && dto.parkCode !== canonical.parkCode)
+      || (dto.parkName !== undefined && dto.parkName !== canonical.parkName)
+      || (dto.address !== undefined && dto.address !== canonical.address)
+      || (dto.totalArea !== undefined && Number(dto.totalArea) !== Number(canonical.totalArea))
+      || (dto.status !== undefined && dto.status !== "enabled")) {
+      throw new ConflictException("Asset park fields must match the canonical park");
+    }
   }
 }

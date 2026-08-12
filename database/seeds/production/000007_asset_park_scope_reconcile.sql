@@ -1,4 +1,5 @@
--- Production-safe convergence for the asset-domain park projection.
+-- Production-safe convergence for the asset-domain park projection, including
+-- tenant parks that received the asset module after their initial creation.
 -- Existing asset_park rows are preserved. A missing projection prefers one
 -- active same-scope biz_park. If that scope contains multiple business parks,
 -- the fixed production default scope may still select the globally unique
@@ -22,10 +23,14 @@ JOIN sys_module module
  AND module.module_code = 'asset'
  AND module.status = 1
  AND module.is_deleted = false
+JOIN sys_tenant tenant
+  ON btrim(tenant.tenant_id) = btrim(assignment.tenant_id)
+ AND tenant.status = 1
+ AND tenant.is_deleted = false
+ AND (tenant.expire_time IS NULL OR tenant.expire_time > clock_timestamp())
 WHERE assignment.enabled = true
   AND assignment.status = 'enabled'
   AND assignment.is_deleted = false
-  AND (assignment.start_time IS NULL OR assignment.start_time <= clock_timestamp())
   AND (assignment.expire_time IS NULL OR assignment.expire_time > clock_timestamp())
 GROUP BY btrim(assignment.tenant_id), btrim(assignment.park_id);
 
@@ -58,6 +63,13 @@ BEGIN
       ) AS asset_count,
       (
         SELECT count(*)
+        FROM asset_park park
+        WHERE btrim(park.tenant_id) = scope.tenant_key
+          AND btrim(park.park_id) = scope.park_key
+          AND park.is_deleted = false
+      ) AS asset_row_count,
+      (
+        SELECT count(*)
         FROM biz_park park
         WHERE btrim(park.tenant_id) = scope.tenant_key
           AND btrim(park.park_id) = scope.park_key
@@ -84,12 +96,16 @@ BEGIN
          )
     ),
     count(*) FILTER (WHERE tenant_count <> 1),
-    count(*) FILTER (WHERE asset_count > 1),
+    count(*) FILTER (
+      WHERE exact_source_count > 1 OR asset_row_count <> asset_count OR asset_count > 1
+    ),
     count(*) FILTER (
       WHERE asset_count = 0
         AND NOT (
           exact_source_count = 1
           OR (
+            exact_source_count = 0
+            AND
             tenant_key = '10000001'
             AND park_key = '20000001'
             AND default_source_count = 1
@@ -171,7 +187,7 @@ JOIN biz_park park
      AND btrim(park.park_id) = scope.park_key
    )
    OR (
-     scope.exact_source_count <> 1
+	     scope.exact_source_count = 0
      AND scope.tenant_key = '10000001'
      AND scope.park_key = '20000001'
      AND park.park_code = 'JH'
