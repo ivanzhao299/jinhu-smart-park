@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 
-const source = readFileSync(new URL("./roles/page.tsx", import.meta.url), "utf8");
+const source = readFileSync(resolve(__dirname, "roles/page.tsx"), "utf8");
 
 test("role UI exposes server preview and safe merge/sync semantics", () => {
   assert.match(source, /安全合并（保留额外权限）/);

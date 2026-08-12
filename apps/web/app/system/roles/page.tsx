@@ -473,7 +473,7 @@ export default function RolesPage() {
                   <div className="system-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRole.isTemplate && hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_COPY, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE]) ? <button type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</button> : null}
+                    {selectedRole.isTemplate && hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_COPY, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY]) ? <button type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</button> : null}
                     {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
