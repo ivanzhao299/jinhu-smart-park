@@ -301,6 +301,8 @@ export class SaaSModulesService {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       } else if (requestedEnabled && module.moduleCode === "asset") {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      } else if (enabling && module.moduleCode === "system") {
+        await this.reconcileExplicitSystemAuthorization(manager, scope, actorId);
       }
       return saved;
     });
@@ -354,6 +356,8 @@ export class SaaSModulesService {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       } else if (module.moduleCode === "asset") {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      } else if (module.moduleCode === "system") {
+        await this.reconcileExplicitSystemAuthorization(manager, scope, actorId);
       }
       return saved;
     });
@@ -645,6 +649,17 @@ export class SaaSModulesService {
       throw new Error("TenantsService is required for inactive asset recovery");
     }
     await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actorId);
+  }
+
+  private async reconcileExplicitSystemAuthorization(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    if (!this.tenantsService) {
+      throw new Error("TenantsService is required for system authorization convergence");
+    }
+    await this.tenantsService.reconcileCurrentTenantAdminPermissions(manager, scope, actorId);
   }
 
   private async getPlan(scope: TenantParkScope, id: string): Promise<PlanEntity> {

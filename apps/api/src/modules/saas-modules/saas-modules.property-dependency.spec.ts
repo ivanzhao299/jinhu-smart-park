@@ -71,6 +71,8 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
   assert.equal((source.match(/reconcileInactiveAssetRecovery\(manager, scope, actorId\)/g) ?? []).length, 2);
   assert.match(source, /reconcileDeactivatedParkAuthorization\(manager, scope, actorId\)/);
+  assert.equal((source.match(/reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/g) ?? []).length, 2);
+  assert.match(source, /reconcileCurrentTenantAdminPermissions\(manager, scope, actorId\)/);
 });
 
 test("module writes acquire the asset scope lock before dependency and assignment locks", () => {

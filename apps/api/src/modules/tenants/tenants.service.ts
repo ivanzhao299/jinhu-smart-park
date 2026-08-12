@@ -700,6 +700,22 @@ export class TenantsService {
       await assignmentRepository.save(recoverySystem);
     }
 
+    await this.reconcileCurrentTenantAdminPermissions(manager, scope, actorId);
+  }
+
+  async reconcileCurrentTenantAdminPermissions(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actorId: string
+  ): Promise<void> {
+    const tenant = await manager.getRepository(TenantEntity).findOne({
+      where: { tenantId: scope.tenantId, isDeleted: false }
+    });
+    if (!tenant || !this.isTenantRuntimeActive(tenant)) return;
+    const assignments = await manager.getRepository(TenantModuleEntity).find({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      relations: { module: true, plan: true }
+    });
     const selectedAssignments = assignments.filter((assignment) =>
       assignment.module
       && assignment.module.status === 1
