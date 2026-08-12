@@ -1,12 +1,14 @@
 # 实施计划
 
-1. TenantsService 在 create/updateLoginSettings/assignModules 的 asset 模块路径调用统一、串行化的 scope provisioning：确定唯一有效园区来源、拒绝重复投影、恢复 disabled 投影，并初始化 12 controls/24 audits。
+1. 抽取统一、串行化的 asset scope provisioning；TenantsService create/updateLoginSettings/assignModules、SaaS tenant-module assign/enable 及 AssetsService createPark 共用同一 tenant/park 事务锁，确定唯一有效园区来源、拒绝重复投影、恢复 disabled 投影，并初始化 12 controls/24 audits。
 2. 扩展 000194 classifier 的严格 seed-reconcile 状态。
 3. 更新 production seed 000007 的动态租户修复契约并触发本次生产 seed。
 4. 在隔离 PostgreSQL 验证 missing asset → seed → ready_exact。
 5. 执行单测、lint、typecheck、build、Release Smoke。
 6. 中文 PR、Codex Review、合并并监控部署成功。
 7. Review 生命周期补强：禁用/过期 asset assignment 后保留完整 signed history 为 validation-only scope；active/retained 均拒绝 disabled 非删除重复投影，并同步 diagnostic/000008/PG fixture。
+8. Review 授权与审计补强：所有非删除园区同步模块/TENANT_ADMIN 权限，仅 active 园区 provision asset；retained 租户过期不误判；active/retained 的修正审计内容和 evidence 均严格校验。
+9. inactive-only 租户仍以首个非删除园区作为授权参考 scope 完成模块与 TENANT_ADMIN 收敛，不把 inactive 园区当成资产 canonical source。
 
 ## 验证记录
 
@@ -15,4 +17,6 @@
 - 独立模块分配：从 system-only 租户启用 asset 后生成唯一 enabled 投影；disabled 投影由业务写路径恢复。
 - 历史收敛：删除投影后分类为 `ready_missing_asset_seed_reconcile`；运行 production seed 后 13 个 scope 全部 `ready_exact`；disabled 投影保持 `invalid_scope`。
 - `verify-000194-runtime-control-retry.sh`：历史重试链与 fresh-order fixture 通过；覆盖停用 asset assignment 的 `ready_retained_exact`、控制签名漂移双重阻断、disabled 非删除重复投影双重阻断。
+- Review #4 完整 PG 重跑通过：active scope 审计 evidence 篡改被 diagnostic/seed 同时阻断；租户过期后的 retained scope 仍为 `ready_retained_exact`；缺失控制继续输出精确 `missing_control` 分类。
+- API 针对性 21 项测试通过；API lint、typecheck、build 通过；migration prerequisite contract 与脚本语法通过。
 - 全仓：lint、typecheck、API 1153 项单测（1140 通过、13 跳过）、全部 Web 单测、API/Web build 通过。

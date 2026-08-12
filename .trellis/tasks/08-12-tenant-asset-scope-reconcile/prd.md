@@ -15,4 +15,7 @@ GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/257
 - production seed 000007 补 asset 投影，000008 补 12 条 disabled controls 与完整审计，复跑为 `ready_exact`。
 - ambiguous/partial/invalid scope 继续 fail closed。
 - active/retained scope 均只允许一个 enabled 且非删除投影；一个 enabled 加一个 disabled 非删除投影仍为 invalid。
+- 所有启用 asset 的写入口共用同一 tenant/park 事务锁；直接创建资产园区与租户、SaaS 模块分配不能并发生成重复投影。
+- 登录授权变更收敛所有非删除园区的模块和 TENANT_ADMIN 权限；仅 active 园区创建资产投影与运行时控制。
+- 已停用 assignment 的 retained scope 即使租户已过期也继续按历史 exact-set 校验；active/retained 的 24 条修正审计内容或证据漂移均阻断。
 - CI、Release Smoke、生产部署、健康、UAT、Docker 清理通过。

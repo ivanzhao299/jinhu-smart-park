@@ -16,7 +16,7 @@ import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { AssetParkEntity } from "../assets/entities/asset-park.entity";
+import { ensureAssetScopeProvisioned } from "../assets/asset-scope-provisioning";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
@@ -46,7 +46,6 @@ import {
   tenantMatchesBrandingHost,
   type TenantBrandingView
 } from "./tenant-branding";
-import { ensureTenantAssetRuntimeControls } from "./tenant-asset-runtime-controls";
 
 const DEFAULT_TENANT_CODE = "JH_DEFAULT";
 const TENANT_ADMIN_ROLE_CODE = "TENANT_ADMIN";
@@ -397,27 +396,30 @@ export class TenantsService {
           throw new BadRequestException("Plan code or module codes are required");
         }
         const tenantParks = await manager.getRepository(ParkEntity).find({
-          where: { tenantId: tenant.tenantId, status: 1, isDeleted: false },
+          where: { tenantId: tenant.tenantId, isDeleted: false },
           order: { createTime: "ASC" }
         });
         const uniqueTenantParks = [...new Map(tenantParks.map((park) => [park.parkId, park])).values()];
-        const [firstTenantPark] = uniqueTenantParks;
-        if (!firstTenantPark) {
+        const activeTenantParks = uniqueTenantParks.filter((park) => park.status === 1);
+        const firstAuthorizationPark = activeTenantParks[0] ?? uniqueTenantParks[0];
+        if (!firstAuthorizationPark) {
           throw new NotFoundException("Tenant park not found");
         }
         const modules = await this.resolveStandardModules(manager, moduleCodes);
         const permissionCodes = this.permissionCodesForModules(plan?.permissionCodes ?? [], moduleCodes);
-        const retainedDefaultParkIsActive = uniqueTenantParks.some((park) => park.parkId === configuredDefaultParkId);
+        const retainedDefaultParkIsActive = activeTenantParks.some((park) => park.parkId === configuredDefaultParkId);
         const authorizationParkId = dto.defaultParkId === undefined && !retainedDefaultParkIsActive
-          ? firstTenantPark.parkId
-          : defaultParkId ?? firstTenantPark.parkId;
+          ? firstAuthorizationPark.parkId
+          : defaultParkId ?? firstAuthorizationPark.parkId;
         const authorizationScope = { tenantId: tenant.tenantId, parkId: authorizationParkId };
         const permissions = await this.ensureTenantPermissions(manager, actorScope, authorizationScope, actorId);
         const role = await this.getOrCreateTenantAdminRole(manager, tenant, authorizationParkId, actorId);
         for (const park of uniqueTenantParks) {
           const targetScope = { tenantId: tenant.tenantId, parkId: park.parkId };
           await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, tenant.expireTime, tenant.featureConfig ?? {});
-          await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
+          if (park.status === 1) {
+            await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
+          }
           await this.applyTenantAdminPermissions(
             manager,
             targetScope,
@@ -590,60 +592,7 @@ export class TenantsService {
     actorId: string
   ): Promise<void> {
     if (!moduleCodes.includes("asset")) return;
-    await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
-      `tenant-asset-park:${scope.tenantId}:${scope.parkId}`
-    ]);
-    const park = await this.resolveCanonicalAssetParkSource(manager, scope);
-    const repository = manager.getRepository(AssetParkEntity);
-    const existingRows = await repository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      order: { createTime: "ASC", id: "ASC" }
-    });
-    if (existingRows.length > 1) {
-      throw new ConflictException("Asset park projection is ambiguous");
-    }
-    const projection = existingRows[0] ?? repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      sortOrder: 0,
-      createBy: actorId,
-      remark: "Tenant asset park projection"
-    });
-    Object.assign(projection, {
-      parkCode: park.parkCode,
-      parkName: park.parkName,
-      address: park.address,
-      totalArea: park.totalArea,
-      status: "enabled",
-      updateBy: actorId
-    });
-    await repository.save(projection);
-    await ensureTenantAssetRuntimeControls(manager, scope);
-  }
-
-  private async resolveCanonicalAssetParkSource(
-    manager: EntityManager,
-    scope: TenantParkScope
-  ): Promise<ParkEntity> {
-    const repository = manager.getRepository(ParkEntity);
-    const exactSources = await repository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false },
-      order: { createTime: "ASC", id: "ASC" }
-    });
-    const [exactSource] = exactSources;
-    if (exactSources.length === 1 && exactSource) return exactSource;
-    if (scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
-      const fallbackSources = await repository.find({
-        where: { parkCode: "JH", status: 1, isDeleted: false },
-        order: { createTime: "ASC", id: "ASC" }
-      });
-      const [fallbackSource] = fallbackSources;
-      if (fallbackSources.length === 1 && fallbackSource) return fallbackSource;
-    }
-    if (exactSources.length === 0) {
-      throw new NotFoundException("Park not found");
-    }
-    throw new ConflictException("Asset park source is ambiguous");
+    await ensureAssetScopeProvisioned(manager, scope, actorId);
   }
 
   private async createTenantAdminRole(

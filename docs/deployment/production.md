@@ -409,9 +409,15 @@ Migration behavior:
   and initializes the signed 12 disabled controls through both correction audits. Therefore a later deployment with
   production seed disabled still classifies the scope as `ready_exact`; partial or drifted state rolls back the
   originating business write instead of deferring damage to the deployment gate.
+  SaaS tenant-module assign/enable and direct asset-park creation use the same tenant/park transaction lock and
+  projection invariant, so alternate write paths cannot race or bypass this convergence. Login-settings authorization
+  updates converge module assignments and tenant-admin permission links for every non-deleted park; only active parks
+  are eligible for canonical asset projection/runtime-control provisioning.
   If that asset assignment is later disabled or expires, its runtime controls and immutable audits are preserved.
   The diagnostic and `000008` retain the scope for exact-set validation as `ready_retained_exact`, without re-enabling
-  the module or seeding new controls. Both active and retained scopes require exactly one enabled/non-deleted
+  the module or seeding new controls. A retained tenant may itself be expired; tenant active/expiry checks apply only
+  to current active scopes. Both active and retained scopes validate the complete 24-row correction-audit content and
+  evidence, and require exactly one enabled/non-deleted
   `asset_park` and exactly one non-deleted projection in total; an additional disabled non-deleted projection,
   unknown scope, or incomplete control/audit history remains fail-closed.
   The same state remains blocked when seed execution is disabled. `extra_control`,

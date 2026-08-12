@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import type { FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import type { DataSource, FindOptionsRelations, FindOptionsWhere, ObjectLiteral, Repository } from "typeorm";
 import { ILike } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -20,6 +20,7 @@ import { AssetBuildingEntity } from "./entities/asset-building.entity";
 import { AssetFloorEntity } from "./entities/asset-floor.entity";
 import { AssetParkEntity } from "./entities/asset-park.entity";
 import { AssetUnitEntity } from "./entities/asset-unit.entity";
+import { lockAssetScope } from "./asset-scope-provisioning";
 
 @Injectable()
 export class AssetsService {
@@ -32,6 +33,8 @@ export class AssetsService {
     private readonly floorsRepository: Repository<AssetFloorEntity>,
     @InjectRepository(AssetUnitEntity)
     private readonly unitsRepository: Repository<AssetUnitEntity>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     private readonly dataScopeService: DataScopeService,
     private readonly fieldPolicyService: FieldPolicyService
   ) {}
@@ -57,9 +60,15 @@ export class AssetsService {
   }
 
   async createPark(scope: TenantParkScope, actorId: string, dto: CreateAssetParkDto): Promise<AssetParkEntity> {
-    await this.assertCodeAvailable(this.parksRepository, scope, "parkCode", dto.parkCode, "Park code already exists");
-    return this.parksRepository.save(
-      this.parksRepository.create({
+    return this.dataSource.transaction(async (manager) => {
+      await lockAssetScope(manager, scope);
+      const repository = manager.getRepository(AssetParkEntity);
+      const existingScopeRows = await repository.count({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (existingScopeRows > 0) throw new ConflictException("Asset park already exists for scope");
+      await this.assertCodeAvailable(repository, scope, "parkCode", dto.parkCode, "Park code already exists");
+      return repository.save(repository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         parkCode: dto.parkCode,
@@ -71,8 +80,8 @@ export class AssetsService {
         remark: dto.remark ?? null,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
+      }));
+    });
   }
 
   async detailPark(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<AssetParkEntity> {

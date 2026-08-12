@@ -3,6 +3,10 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { TenantsService } from "./tenants.service";
+import {
+  ensureAssetScopeProvisioned,
+  resolveCanonicalAssetParkSource
+} from "../assets/asset-scope-provisioning";
 
 test("runtime module grants derive the current homestay and housing permission families", () => {
   const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
@@ -218,11 +222,14 @@ test("tenant-wide authorization changes converge every tenant park without clear
 
   assert.match(source, /dto\.defaultParkId === undefined\s+\? configuredDefaultParkId/);
   assert.match(source, /dto\.defaultParkId !== undefined && defaultParkId/);
-  assert.match(source, /uniqueTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
+  assert.match(source, /const activeTenantParks = uniqueTenantParks\.filter\(\(park\) => park\.status === 1\)/);
+  assert.match(source, /const firstAuthorizationPark = activeTenantParks\[0\] \?\? uniqueTenantParks\[0\]/);
+  assert.match(source, /activeTenantParks\.some\(\(park\) => park\.parkId === configuredDefaultParkId\)/);
   assert.match(source, /getRepository\(ParkEntity\)\.find/);
   assert.match(source, /authorizationScope/);
   assert.match(source, /getOrCreateTenantAdminRole\(manager, tenant, authorizationParkId/);
   assert.match(source, /for \(const park of uniqueTenantParks\)/);
+  assert.match(source, /if \(park\.status === 1\) \{\s*await this\.ensureAssetScopeProvisioning/);
   assert.match(source, /parkId: park\.parkId/);
   assert.match(source, /getRepository\(TenantModuleEntity\)\.update/);
   assert.doesNotMatch(source, /where: \{ tenantId: tenant\.tenantId, parkId, code: TENANT_ADMIN_ROLE_CODE/);
@@ -238,14 +245,15 @@ test("tenant module read models deduplicate park-scoped module bindings", () => 
 
 test("tenant asset enablement creates the canonical park projection in the tenant transaction", () => {
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const provisioningSource = readFileSync(resolve(__dirname, "../assets/asset-scope-provisioning.ts"), "utf8");
 
   assert.match(source, /await this\.ensureAssetScopeProvisioning\(manager, \{ tenantId, parkId: park\.parkId \}, moduleCodes, actorId\)/);
   assert.match(source, /await this\.ensureAssetScopeProvisioning\(manager, targetScope, moduleCodes, actorId\)/);
   assert.match(source, /if \(!moduleCodes\.includes\("asset"\)\) return/);
-  assert.match(source, /manager\.getRepository\(AssetParkEntity\)/);
-  assert.match(source, /tenant-asset-park:\$\{scope\.tenantId\}:\$\{scope\.parkId\}/);
-  assert.match(source, /remark: "Tenant asset park projection"/);
-  assert.match(source, /ensureTenantAssetRuntimeControls\(manager, scope\)/);
+  assert.match(provisioningSource, /manager\.getRepository\(AssetParkEntity\)/);
+  assert.match(provisioningSource, /tenant-asset-park:\$\{scope\.tenantId\}:\$\{scope\.parkId\}/);
+  assert.match(provisioningSource, /remark: "Tenant asset park projection"/);
+  assert.match(provisioningSource, /ensureTenantAssetRuntimeControls\(manager, scope\)/);
 });
 
 test("tenant asset projection is serialized and restores an existing disabled projection", async () => {
@@ -260,9 +268,7 @@ test("tenant asset projection is serialized and restores an existing disabled pr
     totalArea: "0",
     status: "disabled"
   };
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
-  const ensureProjection = (service as unknown as {
-    ensureAssetScopeProvisioning(
+  const ensureProjection = ensureAssetScopeProvisioned as unknown as (
       manager: {
         query(sql: string, parameters: unknown[]): Promise<unknown>;
         getRepository(): {
@@ -272,10 +278,8 @@ test("tenant asset projection is serialized and restores an existing disabled pr
         };
       },
       scope: { tenantId: string; parkId: string },
-      moduleCodes: string[],
       actorId: string
-    ): Promise<void>;
-  }).ensureAssetScopeProvisioning.bind(service);
+    ) => Promise<void>;
 
   let repositoryCall = 0;
 
@@ -314,7 +318,6 @@ test("tenant asset projection is serialized and restores an existing disabled pr
       }
     },
     { tenantId: "tenant-a", parkId: "park-a" },
-    ["system", "asset"],
     "actor-a"
   );
 
@@ -328,13 +331,10 @@ test("tenant asset projection is serialized and restores an existing disabled pr
 });
 
 test("tenant asset source resolution fails closed for ambiguous parks and keeps the reviewed default JH fallback", async () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
-  const resolveSource = (service as unknown as {
-    resolveCanonicalAssetParkSource(
+  const resolveSource = resolveCanonicalAssetParkSource as unknown as (
       manager: { getRepository(): { find(): Promise<Array<Record<string, unknown>>> } },
       scope: { tenantId: string; parkId: string }
-    ): Promise<Record<string, unknown>>;
-  }).resolveCanonicalAssetParkSource.bind(service);
+    ) => Promise<Record<string, unknown>>;
 
   await assert.rejects(
     resolveSource(
@@ -345,33 +345,26 @@ test("tenant asset source resolution fails closed for ambiguous parks and keeps 
   );
 
   let queryCount = 0;
-  const fallback = await resolveSource(
-    {
-      getRepository: () => ({
-        find: async () => {
-          queryCount += 1;
-          return queryCount === 1 ? [{ parkCode: "A" }, { parkCode: "JH" }] : [{ parkCode: "JH" }];
-        }
-      })
-    },
-    { tenantId: "10000001", parkId: "20000001" }
-  );
+  await assert.rejects(resolveSource(
+      { getRepository: () => ({ find: async () => [{ parkCode: "A" }, { parkCode: "JH" }] }) },
+      { tenantId: "10000001", parkId: "20000001" }
+    ), /Asset park source is ambiguous/);
+  const fallback = await resolveSource({ getRepository: () => ({ find: async () => {
+    queryCount += 1;
+    return queryCount === 1 ? [] : [{ parkCode: "JH" }];
+  } }) }, { tenantId: "10000001", parkId: "20000001" });
   assert.equal(fallback.parkCode, "JH");
 });
 
 test("tenant asset provisioning rejects duplicate non-deleted projections before mutation", async () => {
-  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
-  const ensureProjection = (service as unknown as {
-    ensureAssetScopeProvisioning(
+  const ensureProjection = ensureAssetScopeProvisioned as unknown as (
       manager: {
         query(): Promise<unknown>;
         getRepository(): { find(): Promise<Array<Record<string, unknown>>> };
       },
       scope: { tenantId: string; parkId: string },
-      moduleCodes: string[],
       actorId: string
-    ): Promise<void>;
-  }).ensureAssetScopeProvisioning.bind(service);
+    ) => Promise<void>;
   let repositoryCall = 0;
 
   await assert.rejects(
@@ -388,7 +381,6 @@ test("tenant asset provisioning rejects duplicate non-deleted projections before
         })
       },
       { tenantId: "tenant-a", parkId: "park-a" },
-      ["asset"],
       "actor-a"
     ),
     /Asset park projection is ambiguous/

@@ -62,3 +62,9 @@ test("module assignment writes cannot create split enabled and status state", ()
   assert.match(source, /status: enabling \? "enabled" : "disabled"/);
   assert.match(source, /startTime\.getTime\(\) >= expireTime\.getTime\(\)/);
 });
+
+test("asset module assignment and enable paths provision the canonical asset scope in the same transaction", () => {
+  assert.equal((source.match(/module\.moduleCode === "asset"/g) ?? []).length, 2);
+  assert.equal((source.match(/ensureAssetScopeProvisioned\(manager, scope, actorId\)/g) ?? []).length, 2);
+  assert.match(source, /const saved = await repository\.save\(entity\);[\s\S]*ensureAssetScopeProvisioned/);
+});

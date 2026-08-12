@@ -103,10 +103,10 @@ BEGIN
       ('','0','all','global','*','00000000-0000-0000-0000-000000000000')
        OR lower(scope.park_key) IN
       ('','0','all','global','*','00000000-0000-0000-0000-000000000000')
-       OR (SELECT count(*) FROM public.sys_tenant tenant
+       OR (scope.is_active AND (SELECT count(*) FROM public.sys_tenant tenant
            WHERE btrim(tenant.tenant_id)=scope.tenant_key
              AND tenant.status=1 AND tenant.is_deleted=false
-             AND (tenant.expire_time IS NULL OR tenant.expire_time>clock_timestamp()))<>1
+             AND (tenant.expire_time IS NULL OR tenant.expire_time>clock_timestamp()))<>1)
        OR (SELECT count(*) FROM public.asset_park park
            WHERE btrim(park.tenant_id)=scope.tenant_key
              AND btrim(park.park_id)=scope.park_key

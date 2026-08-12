@@ -18,6 +18,7 @@ import { PlanEntity } from "./entities/plan.entity";
 import { SaaSModuleEntity } from "./entities/saas-module.entity";
 import { TenantModuleEntity } from "./entities/tenant-module.entity";
 import { buildAvailablePlanCatalogQuery } from "./plan-catalog.logic";
+import { ensureAssetScopeProvisioned } from "../assets/asset-scope-provisioning";
 
 @Injectable()
 export class SaaSModulesService {
@@ -275,7 +276,11 @@ export class SaaSModulesService {
         entity.startTime,
         entity.expireTime
       );
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (enabling && module.moduleCode === "asset") {
+        await ensureAssetScopeProvisioned(manager, scope, actorId);
+      }
+      return saved;
     });
   }
 
@@ -316,7 +321,11 @@ export class SaaSModulesService {
         entity.startTime,
         entity.expireTime
       );
-      return repository.save(entity);
+      const saved = await repository.save(entity);
+      if (module.moduleCode === "asset") {
+        await ensureAssetScopeProvisioned(manager, scope, actorId);
+      }
+      return saved;
     });
   }
 

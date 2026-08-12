@@ -235,7 +235,7 @@ WITH signed(control_key) AS (VALUES
   ('approval.shadow-compare'),('approval.enforce'),
   ('event-notification.shadow-compare'),('event-notification.enforce'),
   ('task.shadow-compare'),('task.enforce')
-), retained_scope AS (
+), contract_scope AS (
   SELECT control.tenant_id AS tenant_key, control.park_id AS park_key
   FROM sys_property_runtime_control control
   JOIN rel_tenant_module assignment
@@ -246,26 +246,13 @@ WITH signed(control_key) AS (VALUES
     ON module.id = assignment.module_id
    AND module.module_code = 'asset'
    AND module.is_deleted = false
-  WHERE NOT EXISTS (
-    SELECT 1
-    FROM rel_tenant_module active_assignment
-    JOIN sys_module active_module
-      ON active_module.id = active_assignment.module_id
-     AND active_module.module_code = 'asset'
-     AND active_module.status = 1
-     AND active_module.is_deleted = false
-    WHERE btrim(active_assignment.tenant_id::text) = control.tenant_id
-      AND btrim(active_assignment.park_id::text) = control.park_id
-      AND active_assignment.enabled = true
-      AND active_assignment.status = 'enabled'
-      AND active_assignment.is_deleted = false
-      AND (active_assignment.start_time IS NULL OR active_assignment.start_time <= clock_timestamp())
-      AND (active_assignment.expire_time IS NULL OR active_assignment.expire_time > clock_timestamp())
-  )
   GROUP BY control.tenant_id, control.park_id
+  HAVING count(*) = 12
+     AND count(DISTINCT control.control_key) = 12
+     AND count(*) FILTER (WHERE control.control_key IN (SELECT control_key FROM signed)) = 12
 ), expected AS (
   SELECT scope.tenant_key, scope.park_key, signed.control_key, correction.correction_key
-  FROM retained_scope scope
+  FROM contract_scope scope
   CROSS JOIN signed
   CROSS JOIN (VALUES
     ('b2a-contract-correction-000194'),('b2a-contract-correction-000195')
@@ -275,14 +262,14 @@ WITH signed(control_key) AS (VALUES
    EXCEPT
    SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
    FROM sys_property_runtime_control_contract_audit audit
-   JOIN retained_scope scope
+   JOIN contract_scope scope
      ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
    WHERE audit.correction_key IN (
      'b2a-contract-correction-000194','b2a-contract-correction-000195'))
   UNION ALL
   (SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
    FROM sys_property_runtime_control_contract_audit audit
-   JOIN retained_scope scope
+   JOIN contract_scope scope
      ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
    WHERE audit.correction_key IN (
      'b2a-contract-correction-000194','b2a-contract-correction-000195')
@@ -291,7 +278,7 @@ WITH signed(control_key) AS (VALUES
   UNION ALL
   SELECT audit.tenant_id,audit.park_id,audit.control_key,audit.correction_key
   FROM sys_property_runtime_control_contract_audit audit
-  JOIN retained_scope scope
+  JOIN contract_scope scope
     ON scope.tenant_key=audit.tenant_id AND scope.park_key=audit.park_id
   JOIN sys_property_runtime_control control
     ON control.tenant_id=audit.tenant_id AND control.park_id=audit.park_id
@@ -363,7 +350,7 @@ SQL
     exit "$rc"
   }
   if [ "$retained_audit_drift_count" != "0" ]; then
-    echo "ERROR: retained runtime control scope has incomplete or drifted correction audits" >&2
+    echo "ERROR: runtime control scope has incomplete or drifted correction audits" >&2
     exit 3
   fi
 fi
@@ -518,7 +505,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN tenant_key IS NULL OR park_key IS NULL
         OR lower(tenant_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
         OR lower(park_key) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-        OR tenant_count <> 1 THEN 'invalid_scope'
+        OR (is_active AND tenant_count <> 1) THEN 'invalid_scope'
       WHEN asset_count=0 AND asset_row_count=0
         AND (
           exact_source_count=1

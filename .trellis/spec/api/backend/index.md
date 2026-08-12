@@ -41,16 +41,23 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 
 ### 2. Signatures
 
-- Tenant service writes originate from `create`, `updateLoginSettings`, or `assignModules`.
+- Asset provisioning is a shared transaction primitive used by tenant `create`, `updateLoginSettings`, `assignModules`,
+  public SaaS tenant-module assign/enable, and direct asset-park creation. Every writer uses the same tenant/park
+  advisory lock before reading or writing `asset_park`.
 - Canonical source is the active `biz_park` row; the derived destination is `asset_park(tenant_id, park_id)`.
 - The production diagnostic may emit `ready_missing_asset_seed_reconcile` before the production seed runs.
 
 ### 3. Contracts
 
 - The tenant transaction must serialize scope convergence by tenant and park, require one active canonical `biz_park` source (except the fixed default scope's reviewed globally unique `JH` fallback), and create or restore exactly one enabled `asset_park` from those canonical fields.
+- Module and tenant-admin permission convergence covers every non-deleted tenant park so an inactive park cannot retain stale authorization. Asset projection/runtime-control provisioning remains limited to active parks.
 - The same transaction must initialize the signed 12 disabled property runtime controls through the audited v1 -> v2 -> v3 contract path, yielding 24 immutable correction audits. A fully canonical scope is a no-op; partial or drifted control/audit state fails closed.
 - Disabling `asset` does not delete existing asset-domain business data.
 - Disabling or expiring an existing asset assignment also preserves the signed runtime controls and immutable audits. A scope with that historical assignment is retained for exact-set validation only; it is never interpreted as a currently enabled module or initialized by the seed.
+- Retained validation does not require the tenant to remain active or unexpired, but it still requires the exact projection,
+  control, and correction-audit history. Active and retained scopes both validate the contents and evidence of all 24
+  immutable correction audits, not only their row counts. Missing or extra control sets remain classified by the
+  parity report before audit-content validation so deployment output preserves the precise repair boundary.
 - Historical convergence is ordered: production seed `000007` creates the projection, then `000008` creates the 12 disabled runtime controls and their correction audits.
 - The predeploy classifier is read-only and may allow convergence only when this release will run production seed, migration compatibility is final, no non-deleted projection exists, the source is deterministic, and controls are entirely absent.
 
@@ -71,10 +78,10 @@ Avoid placing business rules in controllers. Controllers should delegate to serv
 
 ### 6. Tests Required
 
-- Unit-test serialization, deterministic source selection, duplicate rejection, create/restore behavior, signed controls, audited correction, partial-state rejection, and every tenant module-write entry point.
+- Unit-test serialization, deterministic source selection, duplicate rejection, create/restore behavior, signed controls, audited correction, partial-state rejection, and every tenant/module/asset write entry point.
 - In isolated PostgreSQL, assert missing projection -> diagnostic reconcile state -> `000007`/`000008` -> `ready_exact`.
 - Assert disabled/duplicate projections and partial controls stay fail-closed.
-- Assert a disabled assignment with exact 12 controls/24 audits is `ready_retained_exact`, while unknown scopes and retained partial/unknown controls or audits remain blocked.
+- Assert a disabled assignment on an expired tenant with exact 12 controls/24 audits is `ready_retained_exact`, while unknown scopes and active/retained partial, altered, or unknown controls/audits remain blocked.
 - Run the complete `verify-000194-runtime-control-retry.sh` historical and fresh-order fixture.
 
 ### 7. Wrong vs Correct
