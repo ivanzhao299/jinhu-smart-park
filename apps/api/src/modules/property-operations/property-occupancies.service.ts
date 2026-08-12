@@ -491,11 +491,9 @@ export class PropertyOccupanciesService {
     if (!dto.force && isPropertyManagedOccupancyDomain(entity.sourceDomain)) {
       throw new ConflictException("Business-owned occupancy must be released by its source workflow or force released");
     }
-    entity.status = "released";
-    entity.releaseReason = dto.reason.trim();
-    entity.releasedAt = new Date();
-    entity.updateBy = actor.sub;
-    return this.occupanciesRepository.save(entity);
+    return this.dataSource.transaction((manager) =>
+      this.releaseInTransaction(manager, scope, actor, id, dto.reason)
+    );
   }
 
   async executeApprovedForceRelease(input: {

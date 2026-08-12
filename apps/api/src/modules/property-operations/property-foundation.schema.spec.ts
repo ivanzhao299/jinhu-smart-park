@@ -201,6 +201,10 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
     service.indexOf("async activate("),
     service.indexOf("async release(", service.indexOf("async activate("))
   );
+  const release = service.slice(
+    service.indexOf("async release("),
+    service.indexOf("async executeApprovedForceRelease")
+  );
 
   assert.match(createInTransaction, /unit\.status !== 1/);
   assert.ok(
@@ -220,6 +224,9 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
     "occupancy replacement must acquire the advisory unit lock before any occupancy or unit row lock"
   );
   assert.match(activate, /Business-owned occupancies must be activated by their owning domain workflow/);
+  assert.match(release, /this\.dataSource\.transaction/);
+  assert.match(release, /this\.releaseInTransaction/);
+  assert.doesNotMatch(release, /this\.occupanciesRepository\.save/);
 });
 
 test("apartment occupancy creation follows the canonical advisory-before-unit lock order", () => {

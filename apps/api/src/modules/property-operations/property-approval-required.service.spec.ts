@@ -48,6 +48,8 @@ test("non-force release preserves the existing low-risk path with its exact acti
   };
   let accessCalls = 0;
   let saveCalls = 0;
+  let advisoryCalls = 0;
+  let lockedReads = 0;
   const queryBuilder = {
     leftJoinAndMapOne() {
       return this;
@@ -69,6 +71,23 @@ test("non-force release preserves the existing low-risk path with its exact acti
       return value;
     }
   };
+  const managerRepository = {
+    findOne: async (options: { lock?: { mode?: string } }) => {
+      if (options.lock?.mode === "pessimistic_write") lockedReads += 1;
+      return entity;
+    },
+    save: repository.save
+  };
+  const manager = {
+    getRepository: () => managerRepository,
+    query: async () => {
+      advisoryCalls += 1;
+      return [];
+    }
+  };
+  const dataSource = {
+    transaction: async (callback: (transactionManager: typeof manager) => unknown) => callback(manager)
+  };
   const access = {
     assertAccess: async () => {
       accessCalls += 1;
@@ -80,7 +99,7 @@ test("non-force release preserves the existing low-risk path with its exact acti
     {} as never,
     {} as never,
     access as never,
-    {} as never
+    dataSource as never
   );
 
   const result = await service.release(
@@ -95,6 +114,8 @@ test("non-force release preserves the existing low-risk path with its exact acti
   assert.equal(result.status, "released");
   assert.equal(result.releaseReason, "normal release");
   assert.equal(accessCalls, 1);
+  assert.equal(advisoryCalls, 1);
+  assert.equal(lockedReads, 1);
   assert.equal(saveCalls, 1);
 });
 
