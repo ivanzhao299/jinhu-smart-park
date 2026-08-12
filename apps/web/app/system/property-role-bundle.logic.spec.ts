@@ -21,4 +21,7 @@ test("protected templates and system roles cannot be updated from the bundle pan
   assert.match(source, /模板、系统或内置角色不可从页面更新/);
   assert.match(source, /current_park 角色/);
   assert.match(source, /标准模板请使用“复制模板”/);
+  assert.match(source, /function PermissionBinding\([\s\S]*protectedRole: boolean/);
+  assert.match(source, /function BindingPanel[\s\S]*protectedRole: boolean/);
+  assert.match(source, /受保护角色的绑定不可直接修改/);
 });

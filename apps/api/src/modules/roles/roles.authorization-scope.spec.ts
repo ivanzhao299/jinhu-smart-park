@@ -43,7 +43,19 @@ test("role copy is transactional and carries permission, field and current-park 
   assert.match(source, /rolesRepository\.manager\.transaction/);
   assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
   assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: source\.id, isDeleted: false \}/);
-  assert.match(source, /appliedBundleSignature: source\.appliedBundleSignature/);
+  assert.match(source, /appliedBundleCodes: isManagedPropertyTemplate \? \[\]/);
+  assert.match(source, /appliedBundleSignature: isManagedPropertyTemplate \? null/);
+});
+
+test("all direct binding mutations reject protected roles and permission updates share the role lock", () => {
+  const rolesSource = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
+  const dataScopeSource = readFileSync(resolve(__dirname, "../data-scopes/data-scope.service.ts"), "utf8");
+  const fieldPolicySource = readFileSync(resolve(__dirname, "../field-policies/field-policy.service.ts"), "utf8");
+
+  assert.match(rolesSource, /assignPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
+  assert.match(rolesSource, /assignFieldPermissions[\s\S]*assertBindingsEditable/);
+  assert.match(dataScopeSource, /assignRoleRules[\s\S]*Protected role bindings cannot be changed/);
+  assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*Protected role bindings cannot be changed/);
 });
 
 test("built-in role scope cannot be changed", async () => {

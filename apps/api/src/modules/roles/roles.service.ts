@@ -265,8 +265,10 @@ export class RolesService {
         managedTemplateCode: null,
         templateDefinitionVersion: null,
         templateDefinitionHash: null,
-        appliedBundleCodes: source.appliedBundleCodes ?? [],
-        appliedBundleSignature: source.appliedBundleSignature ?? null,
+        // Managed templates can intentionally exclude permissions from their source bundle.
+        // A copy inherits the effective links, not raw bundle metadata that would re-add them.
+        appliedBundleCodes: isManagedPropertyTemplate ? [] : source.appliedBundleCodes ?? [],
+        appliedBundleSignature: isManagedPropertyTemplate ? null : source.appliedBundleSignature ?? null,
         isSystem: false,
         isBuiltin: false,
         isSuper: false,
@@ -314,33 +316,32 @@ export class RolesService {
     id: string,
     dto: AssignPermissionsDto
   ): Promise<{ id: string }> {
-    await this.detail(scope, id);
-    const permissions = await this.permissionsRepository.find({
-      where: {
-        id: In(dto.permissionIds),
-        tenantId: scope.tenantId,
-        isDeleted: false
+    await this.rolePermissionRepository.manager.transaction(async (manager) => {
+      const role = await this.lockEditableRole(manager, scope, id);
+      const permissionsRepository = manager.getRepository(PermissionEntity);
+      const linksRepository = manager.getRepository(RolePermissionEntity);
+      const permissions = await permissionsRepository.find({
+        where: { id: In(dto.permissionIds), tenantId: scope.tenantId, isDeleted: false }
+      });
+      if (permissions.length !== dto.permissionIds.length) {
+        throw new NotFoundException("Permission not found in current scope");
       }
-    });
-    if (permissions.length !== dto.permissionIds.length) {
-      throw new NotFoundException("Permission not found in current scope");
-    }
-
-    await this.rolePermissionRepository.update(
-      { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    const links = dto.permissionIds.map((permissionId) =>
-      this.rolePermissionRepository.create({
+      await linksRepository.update(
+        { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      const links = dto.permissionIds.map((permissionId) => linksRepository.create({
         roleId: id,
         permissionId,
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
-    await this.rolePermissionRepository.save(links);
+      }));
+      await linksRepository.save(links);
+      role.updateBy = actorId;
+      await manager.getRepository(RoleEntity).save(role);
+    });
     return { id };
   }
 
@@ -358,7 +359,8 @@ export class RolesService {
     id: string,
     dto: AssignFieldPermissionsDto
   ): Promise<{ id: string }> {
-    await this.detail(scope, id);
+    const role = await this.detail(scope, id);
+    this.assertBindingsEditable(role);
     await this.roleFieldPermissionRepository.update(
       { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       { isDeleted: true, updateBy: actorId }
@@ -378,6 +380,29 @@ export class RolesService {
     );
     await this.roleFieldPermissionRepository.save(links);
     return { id };
+  }
+
+  private assertBindingsEditable(role: RoleEntity): void {
+    if (role.isTemplate || role.isSystem || role.isBuiltin || !role.editable || !role.isEditable) {
+      throw new ForbiddenException("Protected role bindings cannot be changed");
+    }
+  }
+
+  private async lockEditableRole(
+    manager: import("typeorm").EntityManager,
+    scope: TenantParkScope,
+    id: string
+  ): Promise<RoleEntity> {
+    const role = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+      .setLock("pessimistic_write")
+      .where("role.id=:id", { id })
+      .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("(role.role_scope='tenant' OR role.park_id=:parkId)", { parkId: scope.parkId })
+      .andWhere("role.is_deleted=false")
+      .getOne();
+    if (!role) throw new NotFoundException("Role not found");
+    this.assertBindingsEditable(role);
+    return role;
   }
 
   private async assertCodeAvailable(scope: TenantParkScope, code: string): Promise<void> {

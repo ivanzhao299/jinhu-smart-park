@@ -23,6 +23,8 @@ interface RoleNode {
   isSystem?: boolean;
   isTemplate: boolean;
   isDeletable: boolean;
+  editable?: boolean;
+  isEditable?: boolean;
   status: string;
   remark?: string | null;
   version: number;
@@ -472,22 +474,22 @@ export default function RolesPage() {
                   <TabButton active={activeTab === "fieldPolicies"} onClick={() => setActiveTab("fieldPolicies")}><ShieldCheck size={16} />字段策略</TabButton>
                 </div>
 
-                {activeTab === "permissions" ? <PermissionBinding tree={permissionTree} selectedIds={selectedPermissionIds} total={flatPermissions.length} onToggle={togglePermission} onSave={() => void savePermissions().catch(showError)} /> : null}
+                {activeTab === "permissions" ? <PermissionBinding tree={permissionTree} selectedIds={selectedPermissionIds} total={flatPermissions.length} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || !selectedRole.editable || !selectedRole.isEditable)} onToggle={togglePermission} onSave={() => void savePermissions().catch(showError)} /> : null}
                 {activeTab === "propertyBundles" ? (
                   <PropertyBundleBinding
                     bundles={propertyBundles}
                     selectedCodes={selectedBundleCodes}
                     mode={bundleMode}
                     preview={bundlePreview}
-                    protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem)}
+                    protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || !selectedRole.editable || !selectedRole.isEditable)}
                     onToggle={(code, checked) => { setSelectedBundleCodes(toggleList(code, checked)); setBundlePreview(null); }}
                     onModeChange={(mode) => { setBundleMode(mode); setBundlePreview(null); }}
                     onPreview={() => void previewBundles().catch(showError)}
                     onApply={() => void applyBundles().catch(showError)}
                   />
                 ) : null}
-                {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
-                {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
+                {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || !selectedRole.editable || !selectedRole.isEditable)} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
+                {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || !selectedRole.editable || !selectedRole.isEditable)} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
               </div>
             ) : <p className="status-pill">请选择一个角色</p>}
           </Card>
@@ -568,14 +570,15 @@ function RoleTreeItem({ role, selectedId, onSelect, onCreateChild }: { role: Rol
   );
 }
 
-function PermissionBinding({ tree, selectedIds, total, onToggle, onSave }: { tree: PermissionNode[]; selectedIds: string[]; total: number; onToggle: (permission: PermissionNode, checked: boolean) => void; onSave: () => void }) {
+function PermissionBinding({ tree, selectedIds, total, protectedRole, onToggle, onSave }: { tree: PermissionNode[]; selectedIds: string[]; total: number; protectedRole: boolean; onToggle: (permission: PermissionNode, checked: boolean) => void; onSave: () => void }) {
   return (
     <section className="detail-stack">
       <div className="system-toolbar">
         <span className="status-pill">已选择 {selectedIds.length} / {total}</span>
-        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS} className="primary-button" type="button" onClick={onSave}><Save size={16} />保存权限</PermissionButton>
+        <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS} className="primary-button" type="button" disabled={protectedRole} onClick={onSave}><Save size={16} />保存权限</PermissionButton>
       </div>
-      <div className="tree-list role-binding-scroll">{tree.map((permission) => <PermissionTreeItem key={permission.id} permission={permission} selectedIds={selectedIds} onToggle={onToggle} />)}</div>
+      {protectedRole ? <p className="status-pill status-danger" role="alert">受保护角色的绑定不可直接修改；请先实例化为普通角色。</p> : null}
+      <div className="tree-list role-binding-scroll">{tree.map((permission) => <PermissionTreeItem key={permission.id} permission={permission} selectedIds={selectedIds} disabled={protectedRole} onToggle={onToggle} />)}</div>
     </section>
   );
 }
@@ -637,31 +640,31 @@ function PropertyBundleBinding({ bundles, selectedCodes, mode, preview, protecte
   );
 }
 
-function PermissionTreeItem({ permission, selectedIds, onToggle }: { permission: PermissionNode; selectedIds: string[]; onToggle: (permission: PermissionNode, checked: boolean) => void }) {
+function PermissionTreeItem({ permission, selectedIds, disabled, onToggle }: { permission: PermissionNode; selectedIds: string[]; disabled: boolean; onToggle: (permission: PermissionNode, checked: boolean) => void }) {
   return (
     <div className="tree-list">
       <label className="permission-row">
-        <input type="checkbox" checked={selectedIds.includes(permission.id)} onChange={(event) => onToggle(permission, event.target.checked)} />
+        <input type="checkbox" checked={selectedIds.includes(permission.id)} disabled={disabled} onChange={(event) => onToggle(permission, event.target.checked)} />
         <span className="role-binding-content"><strong>{permission.name}</strong><small>{permission.code}</small></span>
         <span className="status-pill">{permission.permissionType ?? `type-${permission.permType ?? 40}`}</span>
       </label>
-      {permission.children && permission.children.length > 0 ? <div className="tree-children">{permission.children.map((child) => <PermissionTreeItem key={child.id} permission={child} selectedIds={selectedIds} onToggle={onToggle} />)}</div> : null}
+      {permission.children && permission.children.length > 0 ? <div className="tree-children">{permission.children.map((child) => <PermissionTreeItem key={child.id} permission={child} selectedIds={selectedIds} disabled={disabled} onToggle={onToggle} />)}</div> : null}
     </div>
   );
 }
 
-function BindingPanel<T extends { id: string; status: string }>({ title, emptyText, items, selectedIds, onToggle, onSave, savePermission, renderItem }: { title: string; emptyText: string; items: T[]; selectedIds: string[]; onToggle: (id: string, checked: boolean) => void; onSave: () => void; savePermission: string; renderItem: (item: T) => ReactNode }) {
+function BindingPanel<T extends { id: string; status: string }>({ title, emptyText, items, selectedIds, protectedRole, onToggle, onSave, savePermission, renderItem }: { title: string; emptyText: string; items: T[]; selectedIds: string[]; protectedRole: boolean; onToggle: (id: string, checked: boolean) => void; onSave: () => void; savePermission: string; renderItem: (item: T) => ReactNode }) {
   return (
     <section className="detail-stack">
       <div className="system-toolbar">
         <span className="status-pill">{title}：已选择 {selectedIds.length} / {items.length}</span>
-        <PermissionButton permission={savePermission} className="primary-button" type="button" onClick={onSave}><Save size={16} />保存绑定</PermissionButton>
+        <PermissionButton permission={savePermission} className="primary-button" type="button" disabled={protectedRole} onClick={onSave}><Save size={16} />保存绑定</PermissionButton>
       </div>
       <div className="binding-list role-binding-scroll">
         {items.length === 0 ? <p className="status-pill">{emptyText}</p> : null}
         {items.map((item) => (
           <label key={item.id} className="binding-row">
-            <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={(event) => onToggle(item.id, event.target.checked)} />
+            <input type="checkbox" checked={selectedIds.includes(item.id)} disabled={protectedRole} onChange={(event) => onToggle(item.id, event.target.checked)} />
             <span className="role-binding-content">{renderItem(item)}</span>
             <StatusBadge status={item.status} />
           </label>

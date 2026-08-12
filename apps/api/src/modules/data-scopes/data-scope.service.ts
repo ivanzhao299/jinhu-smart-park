@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { FindOptionsWhere, ObjectLiteral, Repository, SelectQueryBuilder } from "typeorm";
 import { In } from "typeorm";
@@ -168,7 +168,10 @@ export class DataScopeService {
   }
 
   async assignRoleRules(scope: TenantParkScope, actorId: string, roleId: string, dto: AssignRoleDataScopesDto): Promise<{ roleId: string; ruleIds: string[] }> {
-    await this.mustFindRole(scope, roleId);
+    const role = await this.mustFindRole(scope, roleId);
+    if (role.isTemplate || role.isSystem || role.isBuiltin || !role.editable || !role.isEditable) {
+      throw new ForbiddenException("Protected role bindings cannot be changed");
+    }
     const ruleIds = [...new Set(dto.ruleIds)];
     if (ruleIds.length !== dto.ruleIds.length) {
       throw new BadRequestException("Data scope rule ids must be unique");

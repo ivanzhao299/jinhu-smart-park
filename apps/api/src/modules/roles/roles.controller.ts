@@ -62,7 +62,11 @@ export class RolesController {
 
   @Post("property-bundles/roles")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE
+  )
   @AuditLog({ module: "角色管理", resource: "system.role", action: "按权限包创建", captureBody: true })
   createFromPropertyBundles(
     @CurrentScope() scope: TenantParkScope,
@@ -84,7 +88,11 @@ export class RolesController {
 
   @Post(":id/property-bundles")
   @UseInterceptors(new IdempotencyInterceptor())
-  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS,
+    SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE
+  )
   @AuditLog({ module: "角色管理", resource: "system.role", action: "权限包更新", bizType: "role", bizIdParam: "id", captureBody: true })
   applyPropertyBundles(
     @CurrentScope() scope: TenantParkScope,
@@ -162,7 +170,7 @@ export class RolesController {
   }
 
   @Post(":id/permissions")
-  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE)
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS)
   @AuditLog({ module: "角色管理", resource: "system.role", action: "权限变更", bizType: "role", bizIdParam: "id" })
   assignPermissions(
     @CurrentScope() scope: TenantParkScope,
@@ -180,7 +188,7 @@ export class RolesController {
   }
 
   @Post(":id/field-permissions")
-  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE)
+  @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY)
   @AuditLog({ module: "角色管理", resource: "system.role", action: "字段权限变更", bizType: "role", bizIdParam: "id" })
   assignFieldPermissions(
     @CurrentScope() scope: TenantParkScope,

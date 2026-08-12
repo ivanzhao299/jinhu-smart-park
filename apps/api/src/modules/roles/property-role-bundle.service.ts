@@ -205,7 +205,6 @@ export class PropertyRoleBundleService {
       role.appliedBundleCodes = preview.bundles.map((bundle) => bundle.code);
       role.appliedBundleSignature = preview.bundleSignature;
       role.updateBy = actorId;
-      role.remark = "PR262 property permission bundles applied";
       const saved = await manager.getRepository(RoleEntity).save(role);
       await this.ensureCurrentParkScope(manager, scope, actorId, roleId);
       return saved;

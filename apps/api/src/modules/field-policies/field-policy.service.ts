@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { In } from "typeorm";
@@ -129,7 +129,10 @@ export class FieldPolicyService {
     roleId: string,
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
-    await this.mustFindRole(scope, roleId);
+    const role = await this.mustFindRole(scope, roleId);
+    if (role.isTemplate || role.isSystem || role.isBuiltin || !role.editable || !role.isEditable) {
+      throw new ForbiddenException("Protected role bindings cannot be changed");
+    }
     const fieldPolicyIds = [...new Set(dto.fieldPolicyIds)];
     if (fieldPolicyIds.length !== dto.fieldPolicyIds.length) {
       throw new BadRequestException("Field policy ids must be unique");
