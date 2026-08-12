@@ -5,7 +5,7 @@ set -eu
 mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
-canonical_reconcile_checksum="fd7093cd7d9659a669d25fe5df4eb49e0401677bc3814adfa73215218e52bdf3"
+canonical_reconcile_checksum="b11d3af7e1bf2f3d63a2a8260e44beb41e3bfcec2be5ae955aa47b8755ac04f4"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 

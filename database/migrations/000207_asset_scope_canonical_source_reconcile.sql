@@ -70,36 +70,54 @@ LOCK TABLE public.sys_property_runtime_control IN SHARE MODE;
 LOCK TABLE public.sys_property_runtime_control_contract_audit IN SHARE MODE;
 
 CREATE TEMP TABLE reconcile_000207_signed (
-  control_key varchar(128) PRIMARY KEY
+  control_key varchar(128) PRIMARY KEY,
+  control_kind varchar(32) NOT NULL,
+  target varchar(64) NOT NULL,
+  adapter_version integer
 ) ON COMMIT DROP;
 INSERT INTO reconcile_000207_signed VALUES
-  ('identity.legacy-read-v1'),
-  ('identity.legacy-write-v1'),
-  ('identity.change-capture'),
-  ('identity.mutation-replay'),
-  ('identity.shadow-compare'),
-  ('identity.enforce'),
-  ('approval.shadow-compare'),
-  ('approval.enforce'),
-  ('event-notification.shadow-compare'),
-  ('event-notification.enforce'),
-  ('task.shadow-compare'),
-  ('task.enforce');
+  ('identity.legacy-read-v1','compatibility_read','identity',1),
+  ('identity.legacy-write-v1','compatibility_write','identity',1),
+  ('identity.change-capture','change_capture','identity',NULL),
+  ('identity.mutation-replay','mutation_replay','identity',NULL),
+  ('identity.shadow-compare','shadow_compare','identity',NULL),
+  ('identity.enforce','enforce','identity',NULL),
+  ('approval.shadow-compare','shadow_compare','approval',NULL),
+  ('approval.enforce','enforce','approval',NULL),
+  ('event-notification.shadow-compare','shadow_compare','event_notification',NULL),
+  ('event-notification.enforce','enforce','event_notification',NULL),
+  ('task.shadow-compare','shadow_compare','task',NULL),
+  ('task.enforce','enforce','task',NULL);
+
+CREATE TEMP TABLE reconcile_000207_active_scope ON COMMIT DROP AS
+SELECT btrim(assignment.tenant_id::text) AS tenant_id,
+       btrim(assignment.park_id::text) AS park_id
+FROM public.rel_tenant_module assignment
+JOIN public.sys_module module
+  ON module.id=assignment.module_id
+ AND module.module_code='asset' AND module.status=1 AND module.is_deleted=false
+WHERE assignment.enabled=true AND assignment.status='enabled'
+  AND assignment.is_deleted=false
+  AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())
+  AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
+GROUP BY btrim(assignment.tenant_id::text),btrim(assignment.park_id::text);
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM reconcile_000207_active_scope
+    WHERE tenant_id IS NULL OR park_id IS NULL
+       OR lower(tenant_id) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+       OR lower(park_id) IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+  ) THEN
+    RAISE EXCEPTION 'asset-scope-canonical-source-reconcile-preflight-failed'
+      USING ERRCODE='23514';
+  END IF;
+END;
+$$;
 
 CREATE TEMP TABLE reconcile_000207_scope ON COMMIT DROP AS
-WITH active_scope AS (
-  SELECT btrim(assignment.tenant_id::text) AS tenant_id,
-         btrim(assignment.park_id::text) AS park_id
-  FROM public.rel_tenant_module assignment
-  JOIN public.sys_module module
-    ON module.id=assignment.module_id
-   AND module.module_code='asset' AND module.status=1 AND module.is_deleted=false
-  WHERE assignment.enabled=true AND assignment.status='enabled'
-    AND assignment.is_deleted=false
-    AND (assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp())
-    AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
-  GROUP BY btrim(assignment.tenant_id::text),btrim(assignment.park_id::text)
-), state AS (
+WITH state AS (
   SELECT scope.tenant_id,scope.park_id,
     (SELECT count(*) FROM public.sys_tenant tenant
       WHERE btrim(tenant.tenant_id::text)=scope.tenant_id
@@ -122,10 +140,16 @@ WITH active_scope AS (
         AND btrim(source.park_id::text)=scope.park_id
         AND source.status=1 AND source.is_deleted=false) AS source_count,
     (SELECT count(*) FROM public.sys_property_runtime_control control
+      JOIN reconcile_000207_signed signed ON signed.control_key=control.control_key
       WHERE control.tenant_id=scope.tenant_id AND control.park_id=scope.park_id
+        AND control.control_kind=signed.control_kind
+        AND control.target=signed.target
+        AND control.adapter_version IS NOT DISTINCT FROM signed.adapter_version
         AND control.version=3
         AND control.contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
         AND control.enabled=false AND control.control_mode='disabled'
+        AND control.enabled_by IS NULL AND control.enabled_at IS NULL
+        AND control.approval_reference IS NULL
         AND control.disabled_reason='b2a-contract-correction-000195') AS control_count,
     (SELECT count(*) FROM public.sys_property_runtime_control control
       WHERE control.tenant_id=scope.tenant_id AND control.park_id=scope.park_id) AS total_control_count,
@@ -137,7 +161,7 @@ WITH active_scope AS (
     (SELECT count(*) FROM public.sys_asset_scope_canonical_reconcile_audit audit
       WHERE audit.tenant_id=scope.tenant_id AND audit.park_id=scope.park_id
         AND audit.migration_key='000207-canonical-source-v1') AS reconcile_audit_count
-  FROM active_scope scope
+  FROM reconcile_000207_active_scope scope
 )
 SELECT state.*,
   (SELECT count(*) FROM public.biz_park source
@@ -297,8 +321,7 @@ ON CONFLICT (migration_key,tenant_id,park_id,retired_biz_park_id) DO NOTHING;
 
 UPDATE public.biz_park target
 SET status=0,is_deleted=true,version=target.version+1,
-    update_by='migration:000207',update_time=retired.occurred_at,
-    remark='000207 canonical source superseded by asset projection'
+    update_by='migration:000207',update_time=retired.occurred_at
 FROM reconcile_000207_retired retired
 WHERE target.id=retired.retired_id
   AND target.status=retired.before_status

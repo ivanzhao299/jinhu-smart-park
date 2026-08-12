@@ -38,7 +38,7 @@ INSERT INTO public.biz_park (
   tenant_id,park_id,park_code,park_name,status,remark
 ) VALUES (
   '10000001','20000001','RELEASE_000207_REDUNDANT','Release 000207 redundant source',1,
-  'release-smoke 000207 deterministic ambiguity'
+  'release-smoke 000207 preserved operator remark'
 );
 SQL
 
@@ -78,6 +78,14 @@ success_state="$(
         WHERE tenant_id='10000001' AND park_id='20000001';"
 )"
 test "$success_state" = '1|JH|1|1'
+retired_remark="$(
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    psql -X -qAt -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$success_db" \
+    -c "SELECT remark FROM public.biz_park
+        WHERE tenant_id='10000001' AND park_id='20000001'
+          AND park_code='RELEASE_000207_REDUNDANT';"
+)"
+test "$retired_remark" = 'release-smoke 000207 preserved operator remark'
 
 POSTGRES_DB="$success_db" MIGRATION_BASELINE_ON_NONEMPTY_DB=no \
   sh scripts/db-migrate.sh > "$log_root/db-migrate-000207-retry.log" 2>&1
@@ -206,6 +214,10 @@ WHERE id=(
 );
 ALTER TABLE public.sys_property_runtime_control_contract_audit
   ENABLE TRIGGER trg_sys_property_runtime_control_contract_audit_immutable;
+UPDATE public.sys_property_runtime_control
+SET control_kind='compatibility_write'
+WHERE tenant_id='10000001' AND park_id='20000001'
+  AND control_key='identity.legacy-read-v1';
 SQL
 
 if POSTGRES_DB="$audit_drift_db" MIGRATION_BASELINE_ON_NONEMPTY_DB=no \

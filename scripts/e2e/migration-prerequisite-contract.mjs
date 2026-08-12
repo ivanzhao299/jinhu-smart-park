@@ -954,6 +954,22 @@ for (const diagnostic of [assetScopeDiagnostic, runtimeControlDiagnostic]) {
 }
 assert.match(canonicalSourceMigration, /matching_source_count<>1/u);
 assert.match(canonicalSourceMigration, /control_count<>12 OR total_control_count<>12/u);
+assert.match(canonicalSourceMigration, /control\.control_kind=signed\.control_kind/u);
+assert.match(canonicalSourceMigration, /control\.target=signed\.target/u);
+assert.match(canonicalSourceMigration, /control\.adapter_version IS NOT DISTINCT FROM signed\.adapter_version/u);
+assert.match(canonicalSourceMigration, /control\.enabled_by IS NULL AND control\.enabled_at IS NULL/u);
+assert.match(canonicalSourceMigration, /lower\(tenant_id\) IN/u);
+assert.match(canonicalSourceMigration, /lower\(park_id\) IN/u);
+assert.ok(
+  canonicalSourceMigration.indexOf("FROM reconcile_000207_active_scope") <
+    canonicalSourceMigration.indexOf("WHERE state.source_count>1"),
+  "000207 must reject sentinel identifiers across every active scope before selecting ambiguous candidates"
+);
+assert.doesNotMatch(
+  canonicalSourceMigration,
+  /remark='000207 canonical source superseded by asset projection'/u,
+  "canonical reconciliation must preserve operator-entered biz_park remarks"
+);
 assert.match(canonicalSourceMigration, /audit_count<>24 OR total_audit_count<>24/u);
 assert.match(canonicalSourceMigration, /reconcile_000207_runtime_audit_drift/u);
 assert.match(canonicalSourceMigration, /runtime-control-contract-audit-v1/u);
@@ -973,6 +989,8 @@ assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
 assert.match(canonicalSourceFixture, /failure_audit_count/u);
 assert.match(canonicalSourceFixture, /test "\$failure_audit_count" = '0'/u);
 assert.match(canonicalSourceFixture, /RELEASE_000207_AUDIT_DRIFT/u);
+assert.match(canonicalSourceFixture, /preserved operator remark/u);
+assert.match(canonicalSourceFixture, /SET control_kind='compatibility_write'/u);
 assert.match(canonicalSourceFixture, /runtime-control audit evidence drift to stop 000207/u);
 assert.match(canonicalSourceFixture, /migration_history_drift/u);
 assert.match(canonicalSourceFixture, /Future asset assignments must not enter canonical reconciliation/u);
