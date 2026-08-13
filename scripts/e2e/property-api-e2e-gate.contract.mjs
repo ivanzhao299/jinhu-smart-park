@@ -58,6 +58,8 @@ for (const dependency of ["auth", "files", "property-approvals", "property-ident
   assert.match(ci, new RegExp(`modules/\\([^)]*${dependency}`), `release-smoke scope must include ${dependency}`);
 }
 assert.match(ci, /field-policies/, "release-smoke scope must include field policy changes because property responses enforce sensitive-field projection");
+assert.ok(ci.includes("app\\.module\\.ts$"), "release-smoke scope must include app.module.ts because it wires global request guards into mutating property routes");
+assert.ok(ci.includes("guards/idempotency-key\\.guard\\.ts"), "release-smoke scope must include the global idempotency key guard exercised by every mutating property request");
 assert.ok(ci.includes("interceptors/idempotency\\.interceptor\\.ts"), "release-smoke scope must include the idempotency interceptor exercised by high-risk routes");
 assert.ok(ci.includes("services/idempotency\\.service\\.ts"), "release-smoke scope must include the idempotency service exercised by high-risk route replay and conflict semantics");
 assert.match(ci, /packages\/shared\/src\/\(index\\\.ts\$/, "release-smoke scope must include package shared runtime exports");
@@ -91,6 +93,7 @@ assert.ok(bootstrapIndex >= 0, "release smoke must bootstrap admin before post-b
 assert.ok(baselineIndex > bootstrapIndex, "release smoke must run post-bootstrap baseline after bootstrap admin");
 assert.ok(fixturesIndex > baselineIndex, "release smoke must provision disposable E2E fixtures only after post-bootstrap baseline verification");
 assert.ok(startApiIndex > fixturesIndex, "release smoke must start API after disposable E2E fixtures are provisioned");
+assert.match(ci, /Provision disposable property operation fixtures[\s\S]*run: \|[\s\S]*set -o pipefail[\s\S]*property-api-e2e-fixtures\.log/, "release smoke fixture provisioning must propagate docker compose and psql failures through tee");
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {
