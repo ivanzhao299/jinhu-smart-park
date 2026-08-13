@@ -142,6 +142,10 @@ BEGIN
       AND idempotent_source.park_code = NEW.park_code
       AND idempotent_source.status = 1
       AND idempotent_source.is_deleted = false
+  ) AND NOT (
+    NEW.tenant_id = '10000001' AND NEW.park_id = '20000001' AND NEW.park_code = 'JH'
+    AND (SELECT count(*) FROM biz_park fallback
+         WHERE fallback.park_code = 'JH' AND fallback.status = 1 AND fallback.is_deleted = false) = 1
   ) AND EXISTS (
     SELECT 1 FROM biz_park source
     WHERE source.tenant_id = NEW.tenant_id AND source.park_id = NEW.park_id
