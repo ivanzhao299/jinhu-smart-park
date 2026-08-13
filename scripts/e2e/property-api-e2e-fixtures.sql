@@ -352,3 +352,56 @@ WHERE tenant_id = :'tenant_id'
   \echo 'Property API E2E requires one active identity verification queue.'
   \quit 4
 \endif
+
+WITH scope AS (
+  SELECT :'tenant_id' AS tenant_id, :'park_id' AS park_id
+), enabler AS (
+  SELECT id
+  FROM sys_user
+  WHERE tenant_id = :'tenant_id'
+    AND park_id = :'park_id'
+    AND username = :'approver_username'
+    AND is_enabled = true
+    AND status = 'enabled'
+    AND is_deleted = false
+  LIMIT 1
+)
+UPDATE sys_property_runtime_control control
+SET enabled = true,
+    control_mode = 'enforce',
+    enabled_by = enabler.id,
+    enabled_at = clock_timestamp(),
+    approval_reference = 'property-api-e2e-fixture',
+    disabled_reason = 'property-api-e2e-fixture-enabled',
+    update_time = clock_timestamp(),
+    version = control.version + 1
+FROM scope
+CROSS JOIN enabler
+WHERE control.tenant_id = scope.tenant_id
+  AND control.park_id = scope.park_id
+  AND control.control_key IN ('approval.enforce', 'event-notification.enforce')
+  AND control.control_kind = 'enforce'
+  AND control.target IN ('approval', 'event_notification')
+  AND control.contract_hash = 'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+  AND control.version >= 3;
+
+SELECT count(*) = 2 AS runtime_control_ready
+FROM sys_property_runtime_control
+WHERE tenant_id = :'tenant_id'
+  AND park_id = :'park_id'
+  AND control_key IN ('approval.enforce', 'event-notification.enforce')
+  AND control_kind = 'enforce'
+  AND target IN ('approval', 'event_notification')
+  AND contract_hash = 'e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+  AND enabled = true
+  AND control_mode = 'enforce'
+  AND enabled_by IS NOT NULL
+  AND enabled_at IS NOT NULL
+  AND approval_reference = 'property-api-e2e-fixture'
+\gset
+\if :runtime_control_ready
+  \echo 'Disposable property approval runtime controls: PASS'
+\else
+  \echo 'Property API E2E requires approval/event runtime controls enabled for the disposable scope.'
+  \quit 6
+\endif

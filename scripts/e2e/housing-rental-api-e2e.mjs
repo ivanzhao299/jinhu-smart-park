@@ -15,6 +15,7 @@ const transferApproverUsername = process.env.APPROVER_2_USERNAME;
 const transferApproverPassword = process.env.APPROVER_2_PASSWORD;
 const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
+const requestTimeoutMs = 10000;
 
 function unwrap(body) {
   return body && typeof body === "object" && "data" in body ? body.data : body;
@@ -26,35 +27,57 @@ function key(action) {
 }
 
 async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
-  if (options.body && !(options.body instanceof FormData)) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
+    if (options.body && !(options.body instanceof FormData)) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    }
+    console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
+    return unwrap(body);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? await response.json().catch(() => null)
-    : await response.text().catch(() => "");
-  if (!response.ok) {
-    throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
-  }
-  console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
-  return unwrap(body);
 }
 
 async function expectRequestStatus(path, expectedStatus, { token, idempotent = false, ...options } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
-  if (options.body && !(options.body instanceof FormData)) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+    if (options.body && !(options.body instanceof FormData)) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    assert(response.status === expectedStatus, `${options.method ?? "GET"} ${path} rejects with ${expectedStatus}`);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  assert(response.status === expectedStatus, `${options.method ?? "GET"} ${path} rejects with ${expectedStatus}`);
 }
 
 function assert(condition, message) {

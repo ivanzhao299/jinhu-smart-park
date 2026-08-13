@@ -2,6 +2,20 @@ const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resol
 const approvalWaitDeadlineMs = 40000;
 const approvalDetailTimeoutMs = 5000;
 
+function summarizeApproval(current) {
+  const request = current?.request ?? {};
+  return JSON.stringify({
+    requestId: request.requestId ?? request.id ?? null,
+    decisionStatus: request.decisionStatus ?? null,
+    executionStatus: request.executionStatus ?? null,
+    executionAttempts: request.executionAttempts ?? request.attemptCount ?? null,
+    nextRetryAt: request.nextRetryAt ?? null,
+    lastErrorCode: request.lastErrorCode ?? null,
+    lastErrorMessage: request.lastErrorMessage ?? null,
+    workerId: request.workerId ?? null
+  });
+}
+
 async function requestApprovalDetail({ request, requestId, token, label, attempt, deadlineAt }) {
   const remainingMs = deadlineAt - Date.now();
   if (remainingMs <= 0) throw new Error(`${label} approval did not execute within 40 seconds`);
@@ -44,16 +58,18 @@ export async function approveAndWait({ request, token, createKey, assert, submis
       expectedRequestVersion: detail.request.decisionVersion
     }
   });
+  let lastDetail = detail;
   for (let attempt = 1; Date.now() < deadlineAt; attempt += 1) {
     const current = await requestApprovalDetail({ request, requestId, token, label, attempt, deadlineAt });
+    lastDetail = current;
     if (current.request.decisionStatus === "approved" && current.request.executionStatus === "executed") {
       assert(true, `${label} approval executed`);
       return current;
     }
     if (["execution_failed", "infra_exhausted", "not_required"].includes(current.request.executionStatus)) {
-      throw new Error(`${label} approval ended with ${current.request.executionStatus}`);
+      throw new Error(`${label} approval ended with ${current.request.executionStatus}: ${summarizeApproval(current)}`);
     }
     await delay(Math.min(250, Math.max(0, deadlineAt - Date.now())));
   }
-  throw new Error(`${label} approval did not execute within 40 seconds`);
+  throw new Error(`${label} approval did not execute within 40 seconds: ${summarizeApproval(lastDetail)}`);
 }

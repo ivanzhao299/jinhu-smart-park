@@ -83,8 +83,16 @@ export function requirePropertyApiE2eDockerBinding(url) {
   const apiNetworks = inspection.NetworkSettings?.Networks ?? {};
   const postgresNetworks = postgresInspection.NetworkSettings?.Networks ?? {};
   const sharedNetworkNames = Object.keys(apiNetworks).filter((networkName) => postgresNetworks[networkName]);
+  const postgresContainerNames = [
+    postgresInspection.Name,
+    postgresInspection.Config?.Hostname
+  ].filter(Boolean).map((name) => String(name).replace(/^\//, ""));
   const postgresAliases = new Set(
-    sharedNetworkNames.flatMap((networkName) => postgresNetworks[networkName]?.Aliases ?? [])
+    sharedNetworkNames.flatMap((networkName) => [
+      ...(postgresNetworks[networkName]?.Aliases ?? []),
+      postgresNetworks[networkName]?.IPAddress,
+      ...postgresContainerNames
+    ].filter(Boolean).map(String))
   );
   if (!postgresAliases.has(postgresHost)) {
     fail("the target API container POSTGRES_HOST is not an alias of the inspected disposable PostgreSQL container on a shared Docker network.");

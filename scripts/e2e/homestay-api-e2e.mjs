@@ -12,6 +12,7 @@ const approverUsername = process.env.APPROVER_USERNAME;
 const approverPassword = process.env.APPROVER_PASSWORD;
 const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
+const requestTimeoutMs = 10000;
 
 function unwrap(body) {
   return body && typeof body === "object" && "data" in body ? body.data : body;
@@ -28,39 +29,63 @@ function assert(condition, message) {
 }
 
 async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
-  if (options.body) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
+    if (options.body) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    }
+    console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
+    return unwrap(body);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? await response.json().catch(() => null)
-    : await response.text().catch(() => "");
-  if (!response.ok) {
-    throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
-  }
-  console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
-  return unwrap(body);
 }
 
 async function tryRequest(path, { token, idempotent = false, ...options } = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
-  if (options.body) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+    if (options.body) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const body = await response.json().catch(() => null);
+    return { ok: response.ok, status: response.status, body: unwrap(body) };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  const body = await response.json().catch(() => null);
-  return { ok: response.ok, status: response.status, body: unwrap(body) };
 }
 
 async function uploadTurnoverPhoto(token, turnoverId) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const form = new FormData();
   form.append("biz_type", "homestay_turnover");
   form.append("biz_id", turnoverId);
@@ -69,20 +94,30 @@ async function uploadTurnoverPhoto(token, turnoverId) {
     new Blob([Buffer.from("homestay-turnover-evidence")], { type: "image/png" }),
     `turnover-${runId}.png`
   );
-  const response = await fetch(`${apiBaseUrl}/files`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "x-idempotency-key": key("turnover-photo")
-    },
-    body: form
-  });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(`POST /files -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+  try {
+    const response = await fetch(`${apiBaseUrl}/files`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-idempotency-key": key("turnover-photo")
+      },
+      body: form,
+      signal: controller.signal
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(`POST /files -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    }
+    console.log(`[PASS] POST /files (${response.status})`);
+    return unwrap(body);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`POST /files timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  console.log(`[PASS] POST /files (${response.status})`);
-  return unwrap(body);
 }
 
 async function run() {

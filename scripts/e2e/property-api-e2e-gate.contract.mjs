@@ -23,6 +23,8 @@ assert.match(safety, /POSTGRES_DB does not match/, "gate must bind the inspected
 assert.match(safety, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "gate must inspect the disposable PostgreSQL container");
 assert.match(safety, /POSTGRES_HOST/, "gate must bind the API container database host to the inspected PostgreSQL container");
 assert.match(safety, /postgresAliases\.has\(postgresHost\)/, "gate must reject API containers pointing at an external or shared PostgreSQL host");
+assert.match(safety, /postgresInspection\.Name/, "gate must accept only names that resolve to the inspected disposable PostgreSQL container");
+assert.match(safety, /IPAddress/, "gate must bind the API database host to the inspected PostgreSQL container network identity");
 assert.match(safety, /TEST_RUN_ID is required/, "each suite must receive a gate-controlled run id");
 assert.match(gate, /--suite requires a nonempty suite name/, "gate must reject an empty --suite argument instead of widening scope");
 assert.match(gate, /unknown argument/, "gate must reject unknown command-line arguments instead of silently widening scope");
@@ -30,6 +32,7 @@ assert.match(gate, /\.trim\(\)/, "gate must reject whitespace-only suite argumen
 assert.match(gate, /health/, "gate must check API health");
 assert.match(gate, /ready/, "gate must check API readiness");
 assert.match(packageJson, /test:e2e:property-api/, "package scripts must expose the aggregate property API E2E gate");
+assert.match(ci, /package\\\.json\$/, "release-smoke scope must include package.json because it owns the property API E2E command mapping");
 assert.match(ci, /Run property API E2E gate/, "release smoke must invoke the real property API E2E gate");
 assert.match(ci, /Assert disposable property E2E cleanup/, "release smoke must assert cleanup after the disposable run");
 assert.doesNotMatch(ci, /Bootstrap separated property approver/, "release smoke must not create a second bootstrap admin as the approval actor");
@@ -43,9 +46,13 @@ assert.match(fixtures, /short_stay/, "fixtures must provision a short-stay unit"
 assert.match(fixtures, /long_rent/, "fixtures must provision a long-rent unit");
 assert.match(fixtures, /biz_party_identity_verification_queue/, "fixtures must provision an identity verification queue");
 assert.match(fixtures, /eligibleVerifierUserIds/, "the identity queue must freeze the separated approver eligibility");
+assert.match(fixtures, /approval\.enforce/, "fixtures must enable approval runtime control for the disposable scope");
+assert.match(fixtures, /event-notification\.enforce/, "fixtures must enable event notification runtime control for the disposable scope");
 for (const dependency of ["auth", "files", "property-approvals", "property-identity", "units", "work-orders"]) {
   assert.match(ci, new RegExp(`modules/\\([^)]*${dependency}`), `release-smoke scope must include ${dependency}`);
 }
+assert.match(ci, /shared\/interceptors\/idempotency\\\.interceptor\\\.ts/, "release-smoke scope must include the idempotency interceptor exercised by high-risk routes");
+assert.match(ci, /packages\/shared\/src\/\(index\\\.ts\$/, "release-smoke scope must include package shared runtime exports");
 assert.match(ci, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "release smoke must pass the disposable PostgreSQL container identity to the property API E2E gate");
 assert.match(ci, /APPROVER_2_USERNAME/, "release smoke must pass the second disposable approver to housing E2E");
 assert.match(gate, /AbortController/, "readiness checks must be bounded by a response timeout");
@@ -56,6 +63,8 @@ assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /controller\.abo
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {
+  assert.match(suite, /requestTimeoutMs = 10000/, "mutating suite requests must use a bounded per-request deadline");
+  assert.match(suite, /AbortController/, "mutating suite requests must abort hung workflow endpoints");
   assert.doesNotMatch(suite, /unit_id: candidate\.id/, "availability checks must use the current camelCase DTO contract");
   assert.match(suite, /unitId: candidate\.id/, "availability checks must send unitId");
   assert.match(suite, /version: currentOperation\.version/, "operation writes must use the current optimistic-concurrency version");
