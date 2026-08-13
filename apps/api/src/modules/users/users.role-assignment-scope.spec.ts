@@ -20,7 +20,7 @@ test("role assignment resolves the target user scope and replaces links transact
 test("JWT and in-memory authorization reject foreign park-scoped roles", () => {
   const source = readFileSync(resolve(__dirname, "users.service.ts"), "utf8");
 
-  assert.match(source, /active_role\.role_scope = 'tenant' OR active_role\.park_id = usr\.park_id/);
-  assert.match(source, /role\.role_scope = 'tenant' OR role\.park_id = usr\.park_id/);
+  assert.match(source, /active_role\.role_scope = 'tenant' OR active_role\.park_id = \$3/);
+  assert.match(source, /role\.role_scope = 'tenant' OR role\.park_id = \$3/);
   assert.match(source, /link\.role\.roleScope === "tenant" \|\| link\.role\.parkId === user\.parkId/);
 });
