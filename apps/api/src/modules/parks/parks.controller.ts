@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -6,6 +6,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireAnyModule, RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 import { CreateParkDto } from "./dto/create-park.dto";
 import { ParkQueryDto } from "./dto/park-query.dto";
 import { UpdateParkDto } from "./dto/update-park.dto";
@@ -33,8 +34,8 @@ export class ParksController {
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_CREATE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "新增", bizType: "biz_park" })
-  create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateParkDto) {
-    return this.parksService.create(scope, user, dto);
+  create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateParkDto, @Req() request: AuditScopeRequest) {
+    return this.parksService.create(scope, user, dto, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 
   @Put(":id")
@@ -45,15 +46,16 @@ export class ParksController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: UpdateParkDto
+    @Body() dto: UpdateParkDto,
+    @Req() request: AuditScopeRequest
   ) {
-    return this.parksService.update(scope, user, id, dto);
+    return this.parksService.update(scope, user, id, dto, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 
   @Delete(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.PARK_DELETE)
   @AuditLog({ module: "园区管理", resource: "biz.park", action: "删除", bizType: "biz_park", bizIdParam: "id" })
-  remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.parksService.softDelete(scope, user, id);
+  remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Req() request: AuditScopeRequest) {
+    return this.parksService.softDelete(scope, user, id, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 }

@@ -16,16 +16,13 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /Asset scope requires one active canonical park/);
   assert.match(source, /assertCanonicalSourceSurvives/);
   assert.match(source, /park\.id <> :removedParkId/);
-  assert.match(source, /const nextActiveSources = activeSources \+ \(\(dto\.status \?\? 1\) === 1 \? 1 : 0\)/);
-  assert.match(source, /const defaultFallbackSurvives = nextActiveSources === 0/);
-  assert.match(source, /where: \{ parkCode: "JH", status: 1, isDeleted: false \}/);
-  assert.match(source, /syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
-  assert.equal((source.match(/await this\.lockMutationScopes\(manager, scope, true\)/g) ?? []).length, 3);
+  assert.match(source, /provisionAdditionalPark\(manager, scope, actor, dto\)/);
+  assert.match(source, /syncCanonicalAssetProjection\(manager, targetScope, actor\.sub\)/);
+  assert.equal((source.match(/await this\.lockMutationScopes\(manager, (?:scope|targetScope), true\)/g) ?? []).length, 3);
   const createBlock = source.slice(source.indexOf("async create("), source.indexOf("async update("));
   assert.match(createBlock, /assertDefaultFallbackMutationAllowed\(scope, actor, parkCode === "JH"\)/);
-  assert.match(createBlock, /const defaultScopeWasActive = defaultScopeProtected[\s\S]*hasValidCanonicalParkSourceBeforeMutation/);
-  assert.match(createBlock, /const defaultScopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
-  assert.match(createBlock, /defaultScopeProtected && saved\.status === 1 && defaultScopeIsSecondary[\s\S]*!defaultScopeWasActive && defaultScopeRemainsActive[\s\S]*reconcileReactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
+  assert.ok(createBlock.indexOf("assertTenantParkManager") < createBlock.indexOf("assertTenantParkLimit"));
+  assert.doesNotMatch(createBlock, /nextActiveSources/);
   assert.match(source, /Only super administrator can change the default JH fallback/);
   const updateBlock = source.slice(source.indexOf("async update("), source.indexOf("async softDelete("));
   assert.ok(updateBlock.indexOf("lockMutationScopes") < updateBlock.indexOf('lock: { mode: "pessimistic_write" }'));
@@ -33,7 +30,7 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.ok(deleteBlock.indexOf("lockMutationScopes") < deleteBlock.indexOf('lock: { mode: "pessimistic_write" }'));
   assert.match(source, /syncCanonicalAssetProjection\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.match(source, /park\.park_code = 'JH'/);
-  assert.match(source, /if \(protectedScope && scopeRemainsActive\) await this\.syncCanonicalAssetProjection\(manager, scope, actor\.sub\)/);
+  assert.match(source, /if \(protectedScope && scopeRemainsActive\) await this\.syncCanonicalAssetProjection\(manager, targetScope, actor\.sub\)/);
   assert.match(source, /if \(defaultScopeProtected && defaultScopeRemainsActive\) \{\s+await this\.syncCanonicalAssetProjection/);
   assert.match(source, /const wasActive = entity\.status === 1/);
   assert.match(source, /const scopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
@@ -47,6 +44,13 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
   assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
+  assert.match(source, /retireIndependentAssetScope/);
+  assert.match(source, /Asset module must be disabled before park retirement/);
+});
+
+test("park controller writes cross-scope mutations to the target audit scope", () => {
+  const source = readFileSync(resolve(__dirname, "parks.controller.ts"), "utf8");
+  assert.equal((source.match(/request\.auditScopeOverride = targetScope/g) ?? []).length, 3);
 });
 
 test("park deactivation detects a remaining active source in the same scope", async () => {
@@ -91,7 +95,7 @@ test("park status recovery uses the system module while other park routes remain
   assert.match(source, /const systemEnabled[\s\S]*const inactiveScopeSystem = !assetEnabled && systemEnabled/);
   assert.match(source, /hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.match(source, /if \(!assetEnabled && !inactiveScopeSystem\)/);
-  assert.equal((source.match(/lockMutationScopes\(manager, scope, true\);\s*await this\.assertParkModuleAccess\(scope, manager\)/g) ?? []).length, 2);
+  assert.equal((source.match(/lockMutationScopes\(manager, targetScope, true\);\s*await this\.assertParkModuleAccess\(scope, manager\)/g) ?? []).length, 2);
   assert.match(source, /throw new ForbiddenException\("Tenant module is not authorized"\)/);
 });
 

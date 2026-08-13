@@ -46,6 +46,7 @@ import {
 } from "../files/files.service";
 import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
+import type { CreateParkDto } from "../parks/dto/create-park.dto";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
@@ -300,6 +301,7 @@ export class TenantsService {
       await this.assertTenantCodeAvailable(tenantRepository, tenantCode);
 
       const tenantId = dto.tenantId?.trim() || (await this.generateScopeId(tenantRepository, "1", "tenantId"));
+      await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["biz-park-scope-id-allocation"]);
       const parkId = dto.parkId?.trim() || (await this.generateScopeId(tenantRepository, "2", "parkId"));
       await this.assertTenantIdAvailable(tenantRepository, tenantId);
       await this.assertParkIdAvailable(manager.getRepository(ParkEntity), parkId);
@@ -364,6 +366,93 @@ export class TenantsService {
 
       return this.toView(tenant, manager);
     });
+  }
+
+  async provisionAdditionalPark(
+    manager: EntityManager,
+    sourceScope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreateParkDto
+  ): Promise<ParkEntity> {
+    if (actor.tenantId !== sourceScope.tenantId) {
+      throw new ForbiddenException("Cannot create a park outside the current tenant");
+    }
+    const tenant = await manager.getRepository(TenantEntity).findOne({
+      where: { tenantId: sourceScope.tenantId, isDeleted: false }
+    });
+    if (!tenant) throw new NotFoundException("Tenant not found");
+
+    const actorRoleCodes = new Set(actor.roles);
+    if (!actor.isSuper && !actor.permissions.includes("*") && !actorRoleCodes.has(TENANT_ADMIN_ROLE_CODE)) {
+      throw new ForbiddenException("Only tenant administrator can create a new park scope");
+    }
+    if ((dto.status ?? 1) !== 1) {
+      throw new BadRequestException("Additional park must be active when created");
+    }
+
+    const parkRepository = manager.getRepository(ParkEntity);
+    await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["biz-park-scope-id-allocation"]);
+    const parkId = await this.generateParkScopeId(parkRepository);
+    const targetScope = { tenantId: tenant.tenantId, parkId };
+    await lockAssetScope(manager, targetScope);
+    const park = await parkRepository.save(parkRepository.create({
+      tenantId: sourceScope.tenantId,
+      parkId,
+      parkCode: dto.parkCode.trim(),
+      parkName: dto.parkName.trim(),
+      address: this.emptyToNull(dto.address),
+      province: this.emptyToNull(dto.province),
+      city: this.emptyToNull(dto.city),
+      district: this.emptyToNull(dto.district),
+      lng: dto.lng === undefined ? null : String(dto.lng),
+      lat: dto.lat === undefined ? null : String(dto.lat),
+      totalArea: dto.totalArea === undefined ? "0" : String(dto.totalArea),
+      landArea: dto.landArea === undefined ? "0" : String(dto.landArea),
+      status: dto.status ?? 1,
+      remark: this.emptyToNull(dto.remark),
+      createBy: actor.sub,
+      updateBy: actor.sub
+    }));
+
+    const rootOrg = await this.createRootOrg(manager, tenant, parkId, actor.sub, {
+      parkName: dto.parkName
+    } as CreateTenantDto);
+    const sourceAssignments = await manager.getRepository(TenantModuleEntity).find({
+      where: { tenantId: sourceScope.tenantId, parkId: sourceScope.parkId, isDeleted: false },
+      relations: { module: true, plan: true }
+    });
+    const moduleCodes = this.resolveSelectedModuleCodes(sourceAssignments);
+    if (moduleCodes.length === 0) {
+      throw new BadRequestException("Current park has no modules available for provisioning");
+    }
+    const modules = await this.resolveStandardModules(manager, moduleCodes);
+    await this.cloneTenantParkModules(manager, tenant, parkId, sourceAssignments, modules, actor.sub);
+
+    await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
+    const permissions = await this.ensureTenantPermissions(manager, sourceScope, targetScope, actor.sub);
+    const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actor.sub);
+    await this.applyTenantAdminPermissions(
+      manager,
+      targetScope,
+      role,
+      permissions,
+      moduleCodes,
+      this.permissionCodesForModules([], moduleCodes),
+      actor.sub
+    );
+
+    const sourceUser = await manager.getRepository(UserEntity).findOne({
+      where: { id: actor.sub, tenantId: tenant.tenantId, isDeleted: false }
+    });
+    if (!sourceUser) throw new ForbiddenException("Tenant administrator identity not found in current park");
+    const sourceAccess = await manager.getRepository(UserParkEntity).exists({
+      where: { userId: actor.sub, tenantId: tenant.tenantId, parkId: sourceScope.parkId, status: "enabled", isDeleted: false }
+    });
+    if (sourceUser.parkId !== sourceScope.parkId && !sourceAccess) {
+      throw new ForbiddenException("Tenant administrator identity not found in current park");
+    }
+    await this.bindAdditionalTenantAdmin(manager, tenant, parkId, rootOrg.id, role.id, sourceUser.id, actor.sub);
+    return park;
   }
 
   async update(actor: JwtPrincipal, actorId: string, id: string, dto: UpdateTenantDto): Promise<TenantView> {
@@ -1037,6 +1126,37 @@ export class TenantsService {
     await ensureAssetScopeProvisioned(manager, scope, actorId);
   }
 
+  private async cloneTenantParkModules(
+    manager: EntityManager,
+    tenant: TenantEntity,
+    parkId: string,
+    sourceAssignments: TenantModuleEntity[],
+    modules: SaaSModuleEntity[],
+    actorId: string
+  ): Promise<void> {
+    const repository = manager.getRepository(TenantModuleEntity);
+    const sourceByModuleId = new Map(sourceAssignments.map((item) => [item.moduleId, item]));
+    for (const module of modules) {
+      const source = sourceByModuleId.get(module.id);
+      if (!source) throw new BadRequestException(`Current park module assignment not found: ${module.moduleCode}`);
+      await repository.save(repository.create({
+        tenantId: tenant.tenantId,
+        parkId,
+        tenantCode: tenant.tenantCode,
+        moduleId: source.moduleId,
+        planId: source.planId,
+        startTime: source.startTime,
+        expireTime: source.expireTime,
+        enabled: source.enabled,
+        featureConfig: { ...(source.featureConfig ?? {}) },
+        status: source.status,
+        createBy: actorId,
+        updateBy: actorId,
+        remark: "Copied from source park module authorization"
+      }));
+    }
+  }
+
   private async createTenantAdminRole(
     manager: EntityManager,
     tenant: TenantEntity,
@@ -1173,6 +1293,29 @@ export class TenantsService {
     );
   }
 
+  private async bindAdditionalTenantAdmin(
+    manager: EntityManager,
+    tenant: TenantEntity,
+    parkId: string,
+    orgId: string,
+    roleId: string,
+    userId: string,
+    actorId: string
+  ): Promise<void> {
+    await manager.getRepository(UserRoleEntity).save(manager.getRepository(UserRoleEntity).create({
+      tenantId: tenant.tenantId, parkId, userId, roleId, createBy: actorId, updateBy: actorId,
+      remark: "Additional park tenant administrator role binding"
+    }));
+    await manager.getRepository(UserParkEntity).save(manager.getRepository(UserParkEntity).create({
+      tenantId: tenant.tenantId, parkId, userId, isDefault: false, status: "enabled", createBy: actorId, updateBy: actorId,
+      remark: "Additional park access binding"
+    }));
+    await manager.getRepository(UserOrgEntity).save(manager.getRepository(UserOrgEntity).create({
+      tenantId: tenant.tenantId, parkId, userId, orgId, postId: null, isPrimary: true, createBy: actorId, updateBy: actorId,
+      remark: "Additional park organization binding"
+    }));
+  }
+
   private async ensureTenantPermissions(
     manager: EntityManager,
     sourceScope: TenantParkScope,
@@ -1242,6 +1385,7 @@ export class TenantsService {
     }
     return [...targetByCode.values()].sort((left, right) => left.level - right.level || left.sortNo - right.sortNo);
   }
+
 
   private async resolvePermissionSourceScope(manager: EntityManager, scope: TenantParkScope): Promise<TenantParkScope> {
     const permissionRepository = manager.getRepository(PermissionEntity);
@@ -1818,6 +1962,16 @@ export class TenantsService {
       if (!exists) return value;
     }
     throw new ConflictException("Unable to generate unique scope id");
+  }
+
+  private async generateParkScopeId(repository: Repository<ParkEntity>): Promise<string> {
+    for (let index = 0; index < 10; index += 1) {
+      const value = `2${randomInt(1000000, 9999999)}`;
+      if (!await repository.createQueryBuilder("park").where("park.park_id = :parkId", { parkId: value }).getExists()) {
+        return value;
+      }
+    }
+    throw new ConflictException("Unable to generate unique park scope id");
   }
 
   private toStatusNumber(status: string | number): number {

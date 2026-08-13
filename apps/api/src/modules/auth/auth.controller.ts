@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
+import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 import { ClsService } from "nestjs-cls";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
@@ -25,6 +26,7 @@ import { MobileLoginDto } from "./dto/mobile-login.dto";
 import { MobileSendCodeDto } from "./dto/mobile-send-code.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { SelectContextDto } from "./dto/select-context.dto";
+import { SwitchContextDto } from "./dto/switch-context.dto";
 import { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
 import { WechatBindDto } from "./dto/wechat-bind.dto";
 import { WechatCallbackDto } from "./dto/wechat-callback.dto";
@@ -76,7 +78,7 @@ export class AuthController {
   @HttpCode(200)
   async mobileLogin(
     @Body() dto: MobileLoginDto,
-    @Req() request: Request,
+    @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<LoginResult> {
     if (this.authService.isSmsLoginEnabled()) {
@@ -109,7 +111,7 @@ export class AuthController {
   @HttpCode(200)
   async wechatCallback(
     @Body() dto: WechatCallbackDto,
-    @Req() request: Request,
+    @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<WechatCallbackResult> {
     if (this.authService.isWechatLoginEnabled()) {
@@ -179,6 +181,25 @@ export class AuthController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
   me(@CurrentUser() user: JwtPrincipal) {
     return this.usersService.getCurrentUserContext({ tenantId: user.tenantId, parkId: user.parkId }, user.sub);
+  }
+
+  @Post("switch-context")
+  @HttpCode(200)
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
+  @AuditLog({ module: "认证中心", resource: "system.auth", action: "切换园区上下文" })
+  async switchContext(
+    @CurrentUser() user: JwtPrincipal,
+    @Body() dto: SwitchContextDto,
+    @Req() request: AuditScopeRequest,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<LoginResult> {
+    const cookieConfig = getRefreshCookieConfig(this.configService);
+    const cookieRefreshToken = readRefreshTokenCookie(request, cookieConfig);
+    this.assertRefreshCookieOriginAllowed(request, Boolean(cookieRefreshToken));
+    const refreshToken = this.resolveRefreshTokenForRefresh(cookieRefreshToken, dto.refreshToken, response, cookieConfig);
+    const result = await this.authService.switchContext(user, dto.parkId, refreshToken, this.getMeta(request));
+    request.auditScopeOverride = { tenantId: user.tenantId, parkId: dto.parkId };
+    return this.withRefreshCookie(result, response, cookieConfig);
   }
 
   @Post("logout")

@@ -115,6 +115,64 @@ projection.status = "enabled";
 await repository.save(projection);
 ```
 
+## Scenario: Additional Tenant Park Scope Provisioning
+
+### 1. Scope / Trigger
+
+- Trigger: `POST /parks` by a tenant administrator creates an additional park for the current tenant.
+
+### 2. Signatures
+
+- Request remains `CreateParkDto`; clients never submit trusted `tenantId` or `parkId`.
+- Response is the created `ParkEntity`, including the server-generated `parkId`.
+
+### 3. Contracts
+
+- An additional park is a new `(tenantId, parkId)` scope, never a second `biz_park` canonical source inside the JWT's current park scope.
+- The server generates a globally unused `parkId`; the database permits only one non-deleted `biz_park` per `parkId`.
+- Park, root organization, target-park RBAC binding rows, the existing administrator's secondary user-park/org links, module assignments, and active asset projection/runtime controls commit in one transaction. Permission and TENANT_ADMIN role entities remain tenant-wide and are reused.
+- The target asset-scope advisory lock is acquired before target-dependent writes. Existing source/default scope lock ordering remains deterministic.
+- The existing administrator remains the single login identity; additional park links are non-default and must not force the current Web client into an unsupported context-selection login.
+- Tenant administrators may list and manage all parks in their tenant; other users remain restricted to the JWT park and normal data scope.
+- Every module assignment preserves the source park's exact start/expiry window, enabled/status state, plan, and feature configuration; park creation must not extend, activate early, or revive a scheduled/expired module.
+
+### 4. Validation & Error Matrix
+
+- non-tenant-admin with `park:create` -> forbidden before provisioning.
+- duplicate park code or tenant park limit -> conflict/bad request and full rollback.
+- duplicate active `parkId` history before the uniqueness migration -> deployment fails closed.
+- missing source modules/permissions/administrator identity -> request fails and full rollback.
+- inactive initial status -> bad request; an additional park starts active so its module/asset provisioning is complete.
+
+### 5. Good / Base / Bad Cases
+
+- Good: tenant admin creates a second active park; both scopes have one canonical source and independent authorization/projection rows.
+- Base: existing first-park tenant onboarding remains unchanged.
+- Bad: insert a second active `biz_park` with the current JWT `parkId`, or link a target role to source-park permission entities.
+
+### 6. Tests Required
+
+- Assert generated target scope, target lock, root organization, modules, tenant-wide role/permission reuse, the single login identity, and all three target-park binding relations.
+- Assert ordinary users cannot widen list/detail scope and inactive parks do not receive asset authorization.
+- Rehearse the forward-only uniqueness migration against clean data, active duplicates, and soft-deleted historical canonical rows.
+- Run API unit/type/lint/build plus a PostgreSQL/API E2E that creates and logs into the second park context.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+repository.create({ tenantId: current.tenantId, parkId: current.parkId, ...dto });
+```
+
+#### Correct
+
+```ts
+const targetScope = { tenantId: current.tenantId, parkId: await generateParkScopeId(manager) };
+await lockAssetScope(manager, targetScope);
+await provisionAdditionalPark(manager, current, targetScope, actor, dto);
+```
+
 ## Authentication, Permissions, And Scope
 
 Non-public endpoints must declare permission metadata. `PermissionGuard` rejects endpoints with neither `@RequirePermissions` nor `@RequireAnyPermissions`.
@@ -647,6 +705,11 @@ For API changes, choose the smallest reliable verification:
 - `pnpm db:migrate` only when migration behavior is in scope and a database is available
 
 For first-release behavior, prefer the documented smoke/regression entry related to the touched module.
+
+Multi-park identities remain one `sys_user` row. Context switching must validate an enabled
+`rel_user_park` link, resolve RBAC bindings against the requested park, and issue both access and
+refresh tokens scoped to that park. Cross-park mutations must set the audit scope override to the
+target park.
 
 Reference files:
 - `package.json`

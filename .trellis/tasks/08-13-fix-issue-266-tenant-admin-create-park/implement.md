@@ -1,0 +1,27 @@
+# Implementation plan
+
+- [x] 加载 API、Web、Shared 和项目运维规范，完整阅读即将修改的代码。
+- [x] 复用 tenant onboarding 的园区作用域 provisioning primitives，避免复制 asset 初始化合同。
+- [x] 收紧 `POST /parks` 的租户管理员授权并生成独立 `parkId`。
+- [x] 原子创建根组织、管理员身份/访问、园区角色/权限、模块和 asset scope。
+- [x] 调整同租户多园区列表/详情/写入目标作用域；前端请求响应合同不变。
+- [x] 增加服务合同测试、唯一性迁移测试和 PostgreSQL 16 回放。
+- [x] 运行定向测试、API 全量单测、lint、typecheck、build。
+- [x] 执行 Trellis check、独立审查并更新 API 规范。
+- [ ] 创建 `codex/` 分支，提交、推送并创建 Draft PR（Closes #266）。
+- [ ] 针对每个最新 head 仅触发一次 Codex Review，处理并解决全部可操作 threads，复跑 CI。
+- [ ] CI/Release Smoke/Codex Review 全绿后转 Ready 并自动合并。
+- [ ] 监控生产 Deploy、health、login 与 Docker cleanup；失败时从首个真实错误继续同一闭环。
+
+## Validation
+
+- API parks/tenants/assets/orgs/users 定向单测。
+- first-release 多园区专项 E2E 与 first-release regression。
+- `pnpm lint`, `pnpm typecheck`, `pnpm build`。
+- GitHub Verify、Release Smoke、Codex Review、Deploy production。
+
+## Rollback points
+
+- 若 schema 无法在单一 `sys_user` 身份下正确绑定新园区管理员，停止并拆分身份模型设计，不写半兼容逻辑。
+- 若同租户列表放宽会泄漏普通用户数据，只为 tenant-admin 增加专用管理查询。
+- 不修改已执行迁移，不放宽 canonical exact-one invariant。

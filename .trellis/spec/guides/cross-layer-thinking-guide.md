@@ -593,6 +593,39 @@ sibling before the next commit. Do not stop at the named line.
 
 ## Event Log / Projection Boundary
 
+## Scoped Aggregate Lifecycle Matrix
+
+When a write creates a new tenant/park/org or other authorization scope, treating the
+insert as the feature is an incomplete mental model. Before implementation, write one
+matrix whose rows are lifecycle actions and whose columns are all consumers:
+
+| Action | Canonical row | Projection/modules | Identity/access | Token/bootstrap | Audit | Retirement |
+| --- | --- | --- | --- | --- | --- | --- |
+| create | unique scope ID | atomic provisioning | bindings exist | target context can be issued | target scope | rollback is complete |
+| switch/read | active source | target modules | enabled link | JWT, refresh, `/me` agree | target scope | deleted scope rejected |
+| update/deactivate | locked target | authorization reconciled | access policy explicit | stale tokens fail closed | target scope | recovery path tested |
+| delete | inactive/no dependents | projections retired | links revoked or rejected | no new token/refresh | target scope | immutable history kept |
+
+Required pre-review evidence:
+
+- [ ] Trace the full runtime journey: create → list/detail → switch context → refresh →
+      current-user bootstrap → mutate from the new context → deactivate → delete.
+- [ ] Search every resolver that equates identity home scope with request/JWT scope;
+      shared identities must validate an explicit access relation instead.
+- [ ] Verify guards and authorization execute before quota, uniqueness, or existence
+      probes that could leak protected state.
+- [ ] For cross-scope writes, propagate the resolved target scope to audit logging.
+- [ ] A retirement test proves canonical rows, projections, module authorization,
+      access links, refresh/JWT resolution, and current-user bootstrap all fail closed.
+- [ ] Run the repository's full unit command locally or in the CI-equivalent container;
+      targeted tests are necessary but cannot be the final gate after changing a shared
+      resolver or controller contract.
+- [ ] Put uniqueness on the semantic aggregate identity. Do not add a row-level unique
+      index when several source/history rows may legitimately share that scope key;
+      serialize the allocator and check all historical allocations instead.
+
+Review the matrix, not only the diff. A fix is incomplete while any cell is implicit.
+
 Append-only logs are cross-layer contracts. A single event travels through:
 
 ```

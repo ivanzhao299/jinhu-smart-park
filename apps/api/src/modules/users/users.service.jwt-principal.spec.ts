@@ -69,9 +69,12 @@ test("JWT principal query binds the current user scope and selects only active l
   assert.deepEqual(capturedParameters, [USER_ID, TENANT_ID, PARK_ID]);
   assert.match(capturedSql, /usr\.id = \$1::uuid/);
   assert.match(capturedSql, /user_role\.tenant_id = usr\.tenant_id/);
-  assert.match(capturedSql, /active_role\.role_scope = 'tenant' OR active_role\.park_id = usr\.park_id/);
-  assert.match(capturedSql, /role\.role_scope = 'tenant' OR role\.park_id = usr\.park_id/);
-  assert.match(capturedSql, /role_permission\.park_id = usr\.park_id/);
+  assert.match(capturedSql, /user_role\.park_id = \$3/);
+  assert.match(capturedSql, /active_role\.role_scope = 'tenant' OR active_role\.park_id = \$3/);
+  assert.match(capturedSql, /role\.role_scope = 'tenant' OR role\.park_id = \$3/);
+  assert.match(capturedSql, /role_permission\.park_id = \$3/);
+  assert.match(capturedSql, /FROM rel_user_park access/);
+  assert.match(capturedSql, /NOT EXISTS \([\s\S]*FROM rel_user_park explicit_home/);
   assert.match(capturedSql, /active_permission\.tenant_id = usr\.tenant_id/);
   assert.deepEqual(principal.roles, ["PROPERTY_OPERATOR", "TENANT_AUDITOR"]);
   assert.deepEqual(principal.permissions, [
@@ -81,6 +84,15 @@ test("JWT principal query binds the current user scope and selects only active l
   ]);
   assert.equal(principal.dataScope, "tenant");
   assert.equal(principal.isSuper, false);
+});
+
+test("JWT principal adopts an enabled secondary park access scope", async () => {
+  const service = createService(async () => [row({ user_park_id: "source-park" })]);
+  const principal = await service.resolveJwtPrincipal(
+    { tenantId: TENANT_ID, parkId: "secondary-park" },
+    USER_ID
+  );
+  assert.equal(principal.parkId, "secondary-park");
 });
 
 test("JWT principal grants the current-user permission to an active user without roles", async () => {

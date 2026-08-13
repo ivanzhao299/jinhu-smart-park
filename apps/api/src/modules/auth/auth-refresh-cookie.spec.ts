@@ -21,6 +21,7 @@ interface ControllerFixture {
   controller: AuthController;
   authService: {
     refreshTokens: string[];
+    switchTokens: string[];
     logoutTokens: Array<string | undefined>;
     logoutCookieTokens: string[];
     logoutCookieError: Error | null;
@@ -98,6 +99,7 @@ function loginResult(refreshToken = "refresh-next"): LoginResult {
 function createFixture(config: Record<string, string> = {}): ControllerFixture {
   const authService = {
     refreshTokens: [] as string[],
+    switchTokens: [] as string[],
     logoutTokens: [] as Array<string | undefined>,
     logoutCookieTokens: [] as string[],
     logoutCookieError: null,
@@ -112,6 +114,10 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
         throw authService.refreshError;
       }
       return loginResult("rotated-refresh");
+    },
+    switchContext: async (_user: unknown, _parkId: string, refreshToken: string) => {
+      authService.switchTokens.push(refreshToken);
+      return loginResult("switched-refresh");
     },
     logout: async (_user: unknown, refreshToken?: string) => {
       authService.logoutTokens.push(refreshToken);
@@ -296,6 +302,20 @@ test("refresh accepts matching cookie and body tokens and rotates the cookie", a
   assert.equal(result.refreshToken, "rotated-refresh");
   assert.deepEqual(authService.refreshTokens, ["cookie-refresh"]);
   assert.equal(response.cookieCalls[0]?.value, "rotated-refresh");
+});
+
+test("context switch accepts the HttpOnly refresh cookie and rotates it", async () => {
+  const { controller, authService, response } = createFixture();
+  const request = createRequest(`sp_refresh_token=${"s".repeat(32)}`, { origin: "http://localhost:3000" });
+  const result = await controller.switchContext(
+    loginResult().user as never,
+    { parkId: "20000002" },
+    request as never,
+    response as never
+  );
+  assert.deepEqual(authService.switchTokens, ["s".repeat(32)]);
+  assert.equal(result.refreshToken, "switched-refresh");
+  assert.equal(response.cookieCalls[0]?.value, "switched-refresh");
 });
 
 test("refresh falls back to body token when cookie is absent", async () => {

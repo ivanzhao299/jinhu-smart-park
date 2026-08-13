@@ -305,6 +305,10 @@ export class UsersService {
     });
   }
 
+  findByIdForIdentity(id: string, tenantId: string): Promise<UserEntity | null> {
+    return this.usersRepository.findOne({ where: { id, tenantId, isDeleted: false, isEnabled: true } });
+  }
+
   findByMobileInScope(mobile: string, scope: TenantParkScope): Promise<UserEntity | null> {
     return this.usersRepository.findOne({
       where: {
@@ -584,7 +588,14 @@ export class UsersService {
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {
-    const user = await this.getEntityInScope(scope, id);
+    const user = await this.usersRepository.findOne({
+      where: { id, tenantId: scope.tenantId, isDeleted: false },
+      relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
+    });
+    if (!user) throw new NotFoundException("User not found");
+    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
+    const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
+    if (user.parkId !== scope.parkId && !currentPark) throw new NotFoundException("User not found");
     const primaryOrg = await this.userOrgRepository.findOne({
       where: {
         userId: id,
@@ -595,20 +606,19 @@ export class UsersService {
       },
       relations: { org: true }
     });
-    const principal = this.buildJwtPrincipal(user);
-    const activeRoleLinks = this.getActiveRoleLinks(user);
+    const scopedUser = { ...user, parkId: scope.parkId } as UserEntity;
+    const principal = this.buildJwtPrincipal(scopedUser);
+    const activeRoleLinks = this.getActiveRoleLinks(scopedUser);
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
-      this.getActivePermissionLinks(link.role, user.tenantId, user.parkId)
+      this.getActivePermissionLinks(link.role, user.tenantId, scope.parkId)
         .map((permissionLink) => permissionLink.permission)
     );
     const { permissions } = principal;
     const dataScope = principal.dataScope ?? "self";
     const isSuper = principal.isSuper ?? false;
-    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
-    const currentPark = accessibleParks.find((park) => park.is_default) ?? accessibleParks[0] ?? null;
     const fieldPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, principal);
     const dataScopes = await this.dataScopeService.getUserDataScopes(scope, principal);
-    const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, user.parkId);
+    const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, scope.parkId);
     const menuTree = this.buildPermissionMenuTree(activePermissionEntities, permissions, enabledModules);
     const securedSelf = await this.fieldPolicyService.applyFieldPolicies(
       scope,
@@ -632,7 +642,7 @@ export class UsersService {
       last_login_ip: user.lastLoginIp,
       last_login_time: user.lastLoginTime?.toISOString() ?? null,
       tenant_id: currentPark?.tenant_id ?? user.tenantId,
-      park_id: currentPark?.park_id ?? user.parkId,
+      park_id: currentPark?.park_id ?? scope.parkId,
       park_name: currentPark?.park_name ?? "当前园区",
       accessible_parks: accessibleParks,
       current_park: currentPark,
@@ -671,7 +681,7 @@ export class UsersService {
          ON user_role.user_id = usr.id
         AND user_role.is_deleted = false
         AND user_role.tenant_id = usr.tenant_id
-        AND user_role.park_id = usr.park_id
+        AND user_role.park_id = $3
         AND EXISTS (
           SELECT 1
           FROM sys_role active_role
@@ -680,7 +690,7 @@ export class UsersService {
             AND active_role.is_enabled = true
             AND active_role.status = 'enabled'
             AND active_role.tenant_id = usr.tenant_id
-            AND (active_role.role_scope = 'tenant' OR active_role.park_id = usr.park_id)
+            AND (active_role.role_scope = 'tenant' OR active_role.park_id = $3)
         )
        LEFT JOIN sys_role role
          ON role.id = user_role.role_id
@@ -688,12 +698,12 @@ export class UsersService {
         AND role.is_enabled = true
         AND role.status = 'enabled'
         AND role.tenant_id = usr.tenant_id
-        AND (role.role_scope = 'tenant' OR role.park_id = usr.park_id)
+        AND (role.role_scope = 'tenant' OR role.park_id = $3)
        LEFT JOIN rel_role_perm role_permission
          ON role_permission.role_id = role.id
         AND role_permission.is_deleted = false
         AND role_permission.tenant_id = usr.tenant_id
-        AND role_permission.park_id = usr.park_id
+        AND role_permission.park_id = $3
         AND EXISTS (
           SELECT 1
           FROM sys_permission active_permission
@@ -711,8 +721,27 @@ export class UsersService {
         AND permission.tenant_id = usr.tenant_id
        WHERE usr.id = $1::uuid
          AND usr.tenant_id = $2
-         AND usr.park_id = $3
+         AND (
+           (
+             usr.park_id = $3
+             AND NOT EXISTS (
+               SELECT 1 FROM rel_user_park explicit_home
+                WHERE explicit_home.user_id=usr.id AND explicit_home.tenant_id=usr.tenant_id
+                  AND explicit_home.park_id=$3
+             )
+           )
+           OR EXISTS (
+             SELECT 1 FROM rel_user_park access
+              WHERE access.user_id=usr.id AND access.tenant_id=usr.tenant_id AND access.park_id=$3
+                AND access.status='enabled' AND access.is_deleted=false
+           )
+         )
          AND usr.is_deleted = false
+         AND EXISTS (
+           SELECT 1 FROM biz_park live_park
+            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
+              AND live_park.is_deleted=false
+         )
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]
     );
@@ -743,7 +772,7 @@ export class UsersService {
       username: first.user_username,
       realName: first.user_display_name,
       tenantId: first.user_tenant_id,
-      parkId: first.user_park_id,
+      parkId: scope.parkId,
       roles: activeRoles.map((role) => role.code),
       permissions: isSuper
         ? ["*"]
@@ -873,7 +902,7 @@ export class UsersService {
 
   async recordSuccessfulLogin(scope: TenantParkScope, id: string, ipAddress: string | null): Promise<void> {
     await this.usersRepository.update(
-      { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      { id, tenantId: scope.tenantId, isDeleted: false },
       { lastLoginIp: ipAddress, lastLoginTime: new Date() }
     );
   }
