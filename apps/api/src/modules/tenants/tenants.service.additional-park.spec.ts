@@ -15,7 +15,7 @@ test("additional park provisioning creates an independent, atomic tenant scope",
   assert.match(block, /tenantId: sourceScope\.tenantId,[\s\S]*parkId,/);
   assert.match(block, /createRootOrg\(manager, tenant, parkId/);
   assert.match(block, /where: \{ tenantId: sourceScope\.tenantId, parkId: sourceScope\.parkId/);
-  assert.match(block, /upsertTenantModules\(/);
+  assert.match(block, /cloneTenantParkModules\(manager, tenant, parkId, sourceAssignments, modules/);
   assert.match(block, /ensureAssetScopeProvisioning\(manager, targetScope, moduleCodes/);
   assert.match(block, /ensureTenantPermissions\(manager, sourceScope, targetScope/);
   assert.match(block, /getOrCreateTenantAdminRole\(manager, tenant, parkId/);
@@ -27,12 +27,26 @@ test("additional park provisioning creates an independent, atomic tenant scope",
 test("park scope identities are globally unique and fail closed on historical duplicates", () => {
   const entity = readFileSync(resolve(__dirname, "../parks/entities/park.entity.ts"), "utf8");
   const migration = readFileSync(
-    resolve(__dirname, "../../../../../database/migrations/000208_biz_park_scope_identity.sql"),
+    resolve(__dirname, "../../../../../database/migrations/000209_biz_park_scope_identity.sql"),
     "utf8"
   );
   assert.match(entity, /uq_biz_park_entity_park_id_active[\s\S]*unique: true[\s\S]*is_deleted = false/);
   assert.match(migration, /GROUP BY park_id[\s\S]*HAVING COUNT\(\*\) > 1/);
   assert.match(migration, /CREATE UNIQUE INDEX uq_biz_park_park_id_active[\s\S]*WHERE is_deleted = false/);
+});
+
+test("additional parks preserve each source module authorization window", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const block = source.slice(
+    source.indexOf("private async cloneTenantParkModules("),
+    source.indexOf("private async createTenantAdminRole(")
+  );
+  assert.match(block, /startTime: source\.startTime/);
+  assert.match(block, /expireTime: source\.expireTime/);
+  assert.match(block, /enabled: source\.enabled/);
+  assert.match(block, /status: source\.status/);
+  assert.match(block, /featureConfig: \{ \.\.\.\(source\.featureConfig \?\? \{\}\) \}/);
+  assert.doesNotMatch(block, /tenant\.expireTime|new Date\(\)/);
 });
 
 test("additional park access keeps one login identity and adds non-default secondary relations", () => {

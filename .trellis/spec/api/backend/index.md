@@ -134,6 +134,7 @@ await repository.save(projection);
 - The target asset-scope advisory lock is acquired before target-dependent writes. Existing source/default scope lock ordering remains deterministic.
 - The existing administrator remains the single login identity; additional park links are non-default and must not force the current Web client into an unsupported context-selection login.
 - Tenant administrators may list and manage all parks in their tenant; other users remain restricted to the JWT park and normal data scope.
+- Every module assignment preserves the source park's exact start/expiry window, enabled/status state, plan, and feature configuration; park creation must not extend, activate early, or revive a scheduled/expired module.
 
 ### 4. Validation & Error Matrix
 

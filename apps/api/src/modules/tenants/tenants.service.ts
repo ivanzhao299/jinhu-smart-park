@@ -424,18 +424,7 @@ export class TenantsService {
       throw new BadRequestException("Current park has no modules available for provisioning");
     }
     const modules = await this.resolveStandardModules(manager, moduleCodes);
-    const sourcePlan = sourceAssignments.find((item) => item.plan)?.plan ?? null;
-    await this.upsertTenantModules(
-      manager,
-      tenant,
-      parkId,
-      modules,
-      sourcePlan,
-      actor.sub,
-      tenant.expireTime,
-      tenant.featureConfig ?? {},
-      new Set()
-    );
+    await this.cloneTenantParkModules(manager, tenant, parkId, sourceAssignments, modules, actor.sub);
 
     await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
     const permissions = await this.ensureTenantPermissions(manager, sourceScope, targetScope, actor.sub);
@@ -1127,6 +1116,37 @@ export class TenantsService {
   ): Promise<void> {
     if (!moduleCodes.includes("asset")) return;
     await ensureAssetScopeProvisioned(manager, scope, actorId);
+  }
+
+  private async cloneTenantParkModules(
+    manager: EntityManager,
+    tenant: TenantEntity,
+    parkId: string,
+    sourceAssignments: TenantModuleEntity[],
+    modules: SaaSModuleEntity[],
+    actorId: string
+  ): Promise<void> {
+    const repository = manager.getRepository(TenantModuleEntity);
+    const sourceByModuleId = new Map(sourceAssignments.map((item) => [item.moduleId, item]));
+    for (const module of modules) {
+      const source = sourceByModuleId.get(module.id);
+      if (!source) throw new BadRequestException(`Current park module assignment not found: ${module.moduleCode}`);
+      await repository.save(repository.create({
+        tenantId: tenant.tenantId,
+        parkId,
+        tenantCode: tenant.tenantCode,
+        moduleId: source.moduleId,
+        planId: source.planId,
+        startTime: source.startTime,
+        expireTime: source.expireTime,
+        enabled: source.enabled,
+        featureConfig: { ...(source.featureConfig ?? {}) },
+        status: source.status,
+        createBy: actorId,
+        updateBy: actorId,
+        remark: "Copied from source park module authorization"
+      }));
+    }
   }
 
   private async createTenantAdminRole(
