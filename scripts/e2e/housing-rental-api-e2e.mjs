@@ -157,9 +157,9 @@ async function run() {
           token,
           idempotent: true,
           body: {
-            unit_id: candidate.id,
-            start_at: `${candidateStartDate}T00:00:00+08:00`,
-            end_at: `${candidateEndDate}T23:59:59+08:00`
+            unitId: candidate.id,
+            startAt: `${candidateStartDate}T00:00:00+08:00`,
+            endAt: `${candidateEndDate}T23:59:59+08:00`
           }
         });
         if (availability.available) {

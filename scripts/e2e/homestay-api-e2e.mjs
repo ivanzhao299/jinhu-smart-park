@@ -106,9 +106,9 @@ async function run() {
       token,
       idempotent: true,
       body: {
-        unit_id: candidate.id,
-        start_at: `${today}T00:00:00+08:00`,
-        end_at: `${tomorrow}T00:00:00+08:00`
+        unitId: candidate.id,
+        startAt: `${today}T00:00:00+08:00`,
+        endAt: `${tomorrow}T00:00:00+08:00`
       }
     });
     if (!availability.available) continue;

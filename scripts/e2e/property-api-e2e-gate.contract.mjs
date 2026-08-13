@@ -22,5 +22,9 @@ assert.match(gate, /ready/, "gate must check API readiness");
 assert.match(packageJson, /test:e2e:property-api/, "package scripts must expose the aggregate property API E2E gate");
 assert.match(ci, /Run property API E2E gate/, "release smoke must invoke the real property API E2E gate");
 assert.match(ci, /Assert disposable property E2E cleanup/, "release smoke must assert cleanup after the disposable run");
+for (const suite of [homestay, housing]) {
+  assert.doesNotMatch(suite, /unit_id: candidate\.id/, "availability checks must use the current camelCase DTO contract");
+  assert.match(suite, /unitId: candidate\.id/, "availability checks must send unitId");
+}
 
 console.log("[PASS] property API E2E gate contract");
