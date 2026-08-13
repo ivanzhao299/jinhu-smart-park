@@ -588,6 +588,13 @@ sibling before the next commit. Do not stop at the named line.
       dataset-specific error is cleared by that dataset's next successful load.
 - [ ] If one retryable action needs a stable idempotency key, scan every transition on
       the surface—including pay/refund and secondary actions—not only create forms.
+- [ ] When multiple manifest variants share one HTTP method/path, separate controller-level
+      permissions from payload-dependent service policy. Shared route permissions must be
+      identical across variants; high-risk permission branches belong in the service and
+      require positive and negative contract tests for every discriminator value.
+- [ ] Run consumer contract tests against the current worktree's freshly built producer
+      artifact. Resolve workspace package paths first; a test importing another worktree's
+      `dist` is a false-green result even when its assertions pass.
 
 ---
 

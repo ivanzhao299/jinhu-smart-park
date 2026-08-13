@@ -8,6 +8,7 @@ import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorato
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { HousingFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import { CreatePartyDto, PartyQueryDto } from "../property-operations/dto/party.dto";
 import {
   AddHousingOccupantDto,
@@ -38,6 +39,7 @@ import { HousingWorkbenchQueryService } from "./housing-workbench-query.service"
 
 @Controller("housing")
 @RequireModule("housing_rental")
+@UseInterceptors(HousingFieldPolicyInterceptor)
 export class HousingController {
   constructor(
     private readonly service: HousingService,

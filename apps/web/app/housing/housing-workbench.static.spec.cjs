@@ -52,21 +52,23 @@ test("legacy universal client is removed", () => {
   assert.equal(fs.existsSync(path.join(housingRoot, "housing-operations.logic.ts")), false);
 });
 
-test("Track B high-risk endpoints are absent from housing client mutations", () => {
+test("approved high-risk endpoints are wired through guarded housing mutations", () => {
   const source = readAllComponents();
-  for (const endpoint of [
-    "/approve",
-    "/void",
-    "/checkout",
-    "/actions",
-    "/transfer"
+  for (const contract of [
+    '"approve"',
+    '"void"',
+    '"checkout"',
+    "/actions`",
+    "/transfer`",
+    '"refund"',
+    '"waiver"',
+    '"deposit_refund"',
+    "housing.handovers.complete-move-out-financial"
   ]) {
-    assert.equal(source.includes(`\`${endpoint}`), false, endpoint);
-    assert.equal(source.includes(`/${endpoint.slice(1)}\``), false, endpoint);
+    assert.equal(source.includes(contract), true, contract);
   }
-  for (const entryType of ["refund", "waiver", "deposit_refund", "deposit_deduction"]) {
-    assert.doesNotMatch(source, new RegExp(`value=["']${entryType}["']`), entryType);
-  }
+  assert.match(source, /idempotency\.keyFor\(/);
+  assert.match(source, /审批申请已提交/);
 });
 
 test("Track A mutation panels use exact actions and owning aggregates", () => {
@@ -146,6 +148,9 @@ test("finance selection follows the refreshed receivable set", () => {
   assert.match(source, /setEntryKind\(entryKinds\[0\] \?\? "payment"\);/);
   assert.match(source, /!receivables\.some\(\(receivable\) => receivable\.id === receivableId\)/);
   assert.equal((source.match(/setReceivableId\(""\)/g) ?? []).length >= 3, true);
+  assert.match(source, /isPositiveMoney\(receivable\.balance\)/);
+  assert.match(source, /isPositiveMoney\(receivable\.paidAmount\)/);
+  assert.match(source, /isPositiveMoney\(item\.summary\.deposit_balance\)/);
 });
 
 test("async housing forms capture the form element before awaiting", () => {

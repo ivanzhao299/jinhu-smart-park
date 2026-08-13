@@ -344,30 +344,20 @@ test("housing mixed high-risk variants enforce exact permission intersections be
     undefined, undefined, undefined, undefined, undefined, undefined,
     finance, handover
   );
-  const financeDenied = [
-    actor,
-    { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE] },
-    { ...actor, permissions: [SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] },
-    {
-      ...actor,
-      permissions: [
-        SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER,
-        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
-      ]
-    }
-  ];
-  const financeAllowed = [
-    {
-      ...actor,
-      permissions: [
-        SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE,
-        SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
-      ]
-    },
-    { ...actor, isSuper: true },
-    { ...actor, permissions: ["*"] }
-  ];
   for (const entryType of ["refund", "waiver", "deposit_refund"] as const) {
+    const requiredPermissions = entryType === "waiver"
+      ? [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE]
+      : [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE, SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER];
+    const financeDenied = [
+      actor,
+      { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE] },
+      { ...actor, permissions: [SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] }
+    ];
+    const financeAllowed = [
+      { ...actor, permissions: [...requiredPermissions, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] },
+      { ...actor, isSuper: true },
+      { ...actor, permissions: ["*"] }
+    ];
     for (const principal of financeDenied) {
       await assert.rejects(
         service.registerLedger(scope, principal, "lease-1", {

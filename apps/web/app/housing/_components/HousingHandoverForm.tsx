@@ -63,6 +63,8 @@ export function HousingHandoverForm({
     handoverType: type, damageAmount: amounts.damage,
     unsettledAmount: amounts.unsettled, depositDeductionAmount: amounts.deduction
   });
+  const financialAllowed = capabilities.actionAllowed("housing.handovers.complete-move-out-financial")
+    && hasAccess(user, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE, "asset");
   useEffect(() => {
     if (!allowedTypes.includes(type)) setType(allowedTypes[0] ?? "move_in");
   }, [allowedTypes, type]);
@@ -70,15 +72,17 @@ export function HousingHandoverForm({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (lock.current || uploading || removing || financial) return;
+    if (lock.current || uploading || removing || (financial && !financialAllowed)) return;
     lock.current = true; setSubmitting(true); setMessage("");
     const operation = "housing-handover-complete";
     const body = handoverBody(new FormData(event.currentTarget), {
       amounts, files, meter, reading, type
     });
     try {
-      await executeHandover(leaseId, body, idempotency.keyFor(operation, body));
-      idempotency.complete(operation); setMessage("交割记录已完成。");
+      const response = await executeHandover(leaseId, body, idempotency.keyFor(operation, body));
+      idempotency.complete(operation);
+      const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
+      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "交割记录已完成。");
       setFiles([]); await onCompleted();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "交割提交失败");
@@ -108,7 +112,7 @@ export function HousingHandoverForm({
 
   if (!capabilities.actionAllowed("housing.handovers.complete") || allowedTypes.length === 0) return null;
   return (
-    <HandoverFormView allowedTypes={allowedTypes} amounts={amounts} bizType={bizType} capabilities={capabilities} energyAllowed={energyAllowed} fileCapability={fileCapability} files={files} financial={financial} leaseId={leaseId} meter={meter} message={message} onAmounts={setAmounts} onFiles={setFiles} onMeter={setMeter} onReading={setReading} onRemoveFile={removeFile} onSubmit={submit} onType={(value) => { setType(value); setMeter(null); setReading(""); setAmounts({ damage: "0.00", unsettled: "0.00", deduction: "0.00" }); }} onUploading={setUploading} reading={reading} removing={removing} submitting={submitting} type={type} uploading={uploading} />
+    <HandoverFormView allowedTypes={allowedTypes} amounts={amounts} bizType={bizType} capabilities={capabilities} energyAllowed={energyAllowed} fileCapability={fileCapability} files={files} financial={financial} financialAllowed={financialAllowed} leaseId={leaseId} meter={meter} message={message} onAmounts={setAmounts} onFiles={setFiles} onMeter={setMeter} onReading={setReading} onRemoveFile={removeFile} onSubmit={submit} onType={(value) => { setType(value); setMeter(null); setReading(""); setAmounts({ damage: "0.00", unsettled: "0.00", deduction: "0.00" }); }} onUploading={setUploading} reading={reading} removing={removing} submitting={submitting} type={type} uploading={uploading} />
   );
 }
 
@@ -131,7 +135,7 @@ async function executeHandover(
   body: ReturnType<typeof handoverBody>,
   idempotencyKey: string
 ) {
-  await apiRequest(`/housing/leases/${encodeURIComponent(leaseId)}/handovers`, {
+  return apiRequest(`/housing/leases/${encodeURIComponent(leaseId)}/handovers`, {
     method: "POST", token: getAccessToken(), idempotencyKey, body
   });
 }
@@ -159,7 +163,7 @@ function HandoverFormView(props: {
   amounts: { damage: string; unsettled: string; deduction: string }; bizType: string;
   capabilities: PropertyCapabilityProjection; energyAllowed: boolean;
   fileCapability: ReturnType<PropertyCapabilityProjection["fileCapability"]>;
-  files: FileRecord[]; financial: boolean; leaseId: string;
+  files: FileRecord[]; financial: boolean; financialAllowed: boolean; leaseId: string;
   meter: RemoteEntityOption | null; message: string;
   onAmounts(value: { damage: string; unsettled: string; deduction: string }): void;
   onFiles(value: FileRecord[]): void; onMeter(value: RemoteEntityOption | null): void;
@@ -174,8 +178,8 @@ function HandoverFormView(props: {
         <fieldset className={styles.fieldset} disabled={props.submitting || props.removing}>
           <HandoverFields {...props} />
           <HandoverAttachments {...props} />
-          <HandoverConfirmation financial={props.financial} />
-          <button className="ds-button ds-button-primary" disabled={props.submitting || props.uploading || props.removing || props.financial} type="submit">{props.uploading ? "等待照片上传…" : props.submitting ? "提交中…" : "确认完成交割"}</button>
+          <HandoverConfirmation financial={props.financial} financialAllowed={props.financialAllowed} />
+          <button className="ds-button ds-button-primary" disabled={props.submitting || props.uploading || props.removing || (props.financial && !props.financialAllowed)} type="submit">{props.uploading ? "等待照片上传…" : props.submitting ? "提交中…" : props.financial ? "提交财务退租审批" : "确认完成交割"}</button>
         </fieldset>
       </form>
       <MutationFeedback message={props.message} />
@@ -196,10 +200,13 @@ function HandoverAttachments(props: Parameters<typeof HandoverFormView>[0]) {
   </>;
 }
 
-function HandoverConfirmation({ financial }: { financial: boolean }) {
-  return financial
-    ? <p className={styles.dangerNotice} role="alert">本次退租包含财务金额，Track B 审批接入前不可提交。</p>
-    : <label><input name="confirmed" required type="checkbox" /> 我已核对租约、房源、物品、表底和钥匙信息。</label>;
+function HandoverConfirmation({ financial, financialAllowed }: { financial: boolean; financialAllowed: boolean }) {
+  if (financial && !financialAllowed) {
+    return <p className={styles.dangerNotice} role="alert">当前岗位缺少财务退租审批申请权限，操作保持关闭。</p>;
+  }
+  return <label><input name="confirmed" required type="checkbox" />
+    {financial ? "我已核对金额与证据，并确认提交审批。" : "我已核对租约、房源、物品、表底和钥匙信息。"}
+  </label>;
 }
 
 function HandoverFields(props: Parameters<typeof HandoverFormView>[0]) {

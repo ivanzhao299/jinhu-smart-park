@@ -213,6 +213,26 @@ Reference files:
 
 The repository uses focused smoke scripts for first-release slices. Prefer the narrow script related to the touched module before running the full first-release regression.
 
+### Worktree Dependency And Generated-Artifact Provenance
+
+- Never validate a linked worktree through `node_modules` symlinks that point at another worktree. A clean test can
+  otherwise import that worktree's built workspace package and report a false pass.
+- Before CI-equivalent checks, resolve each touched workspace dependency (for example
+  `apps/api/node_modules/@jinhu/shared`) with `realpath`. Every resolved local workspace package must remain under the
+  current Git worktree root; fail closed when it escapes that root.
+- Use an isolated `pnpm install --frozen-lockfile` for release evidence. Building a workspace package in the current
+  worktree is insufficient if a consumer resolves the package from another worktree.
+- Build touched producer packages before testing consumers, then run at least one consumer-owned contract test that
+  imports the built package. Type-checking the producer alone does not prove the API/Web runtime sees the same artifact.
+- CI-equivalent evidence must record the current commit, worktree root, resolved workspace dependency paths, and the
+  command sequence. A pass without artifact provenance is developer feedback, not release evidence.
+
+Reference files:
+- `pnpm-workspace.yaml`
+- `packages/shared/package.json`
+- `apps/api/package.json`
+- `.github/workflows/ci.yml`
+
 Reference files:
 - `package.json`
 - `docs/testing/how-to-run-tests.md`

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -22,6 +23,7 @@ import {
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { HomestayFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
@@ -47,6 +49,7 @@ import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.servic
 
 @Controller("homestay")
 @RequireModule("homestay")
+@UseInterceptors(HomestayFieldPolicyInterceptor)
 export class HomestayController {
   constructor(
     private readonly service: HomestayService,
@@ -213,6 +216,28 @@ export class HomestayController {
     @Query() query: HomestayFinanceQueryDto
   ) {
     return this.workbenchQuery.listFinance(scope, actor, query);
+  }
+
+  @Get("bookings/:id/finance-sources")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
+    SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
+  )
+  approvalSources(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) bookingId: string,
+    @Query("entry_type") entryType: string
+  ) {
+    if (entryType !== "refund" && entryType !== "waiver") {
+      throw new BadRequestException("entry_type must be refund or waiver");
+    }
+    return this.service.listFinanceApprovalSources(scope, actor, bookingId, entryType);
   }
 
   @Post("bookings")

@@ -422,6 +422,15 @@ export class HomestayService {
     return this.mustFinance().registerLedgerEntry(scope, actor, bookingId, dto, clientKey);
   }
 
+  async listFinanceApprovalSources(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string,
+    entryType: "refund" | "waiver"
+  ) {
+    return this.mustFinance().listApprovalSources(scope, actor, bookingId, entryType);
+  }
+
   async executeApprovedFinance(input: HomestayApprovedFinanceInput): Promise<void> {
     return this.mustFinance().executeApprovedFinance(input);
   }

@@ -200,6 +200,15 @@ export class FieldPolicyService {
   ): Promise<T> {
     if (!user || user.isSuper) return record;
     const policies = await this.getUserFieldPolicies(scope, user);
+    return this.applyResolvedFieldPolicies(moduleName, entityName, record, policies);
+  }
+
+  applyResolvedFieldPolicies<T extends object>(
+    moduleName: string,
+    entityName: string,
+    record: T,
+    policies: readonly FieldPolicyContext[]
+  ): T {
     const relevant = policies.filter((policy) => policy.module === moduleName && policy.entity === entityName);
     if (relevant.length === 0) {
       return record;
@@ -225,6 +234,33 @@ export class FieldPolicyService {
     records: T[]
   ): Promise<T[]> {
     return Promise.all(records.map((record) => this.applyFieldPolicies(scope, user, moduleName, entityName, record)));
+  }
+
+  async applyFieldPoliciesToProjection<T>(
+    scope: TenantParkScope,
+    user: JwtPrincipal | undefined,
+    moduleName: string,
+    projection: T,
+    primaryEntity?: string
+  ): Promise<T> {
+    if (!user || user.isSuper) return projection;
+    const policies = (await this.getUserFieldPolicies(scope, user))
+      .filter((policy) => policy.module === moduleName && ["hidden", "masked"].includes(policy.policy_type));
+    if (!policies.length) return projection;
+    const cloned = structuredClone(projection) as T;
+    for (const policy of policies) {
+      this.applyProjectionPolicy(
+        cloned,
+        policy.field_key,
+        policy.policy_type,
+        policy.mask_rule,
+        policy.entity === primaryEntity
+      );
+      this.applyProjectionPolicyInEntityContainers(
+        cloned, policy.entity, policy.field_key, policy.policy_type, policy.mask_rule
+      );
+    }
+    return cloned;
   }
 
   maskValue(value: unknown, maskRule?: string | null): unknown {
@@ -256,6 +292,106 @@ export class FieldPolicyService {
 
   private resolveRecordFieldKey(record: Record<string, unknown>, fieldKey: string): string | null {
     return this.fieldKeyCandidates(fieldKey).find((candidate) => candidate in record) ?? null;
+  }
+
+  private applyProjectionPolicy(
+    value: unknown,
+    fieldKey: string,
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null,
+    allowPrimaryEntityFallback = false
+  ): void {
+    const segments = fieldKey.split(".").filter(Boolean);
+    if (!segments.length) return;
+    const applyAt = (target: unknown, index: number): boolean => {
+      if (Array.isArray(target)) {
+        let matched = false;
+        for (const item of target) matched = applyAt(item, index) || matched;
+        return matched;
+      }
+      if (!target || typeof target !== "object") return false;
+      const record = target as Record<string, unknown>;
+      const segment = segments[index]!;
+      const key = [segment, this.toCamelCase(segment)].find((candidate) => candidate in record);
+      if (!key) return false;
+      if (index < segments.length - 1) return applyAt(record[key], index + 1);
+      if (policyType === "hidden") delete record[key];
+      else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
+      return true;
+    };
+    if (!applyAt(value, 0) && allowPrimaryEntityFallback) {
+      const leaf = segments.at(-1)!;
+      const visited = new WeakSet<object>();
+      const applyLeafEverywhere = (target: unknown): void => {
+        if (Array.isArray(target)) {
+          for (const item of target) applyLeafEverywhere(item);
+          return;
+        }
+        if (!target || typeof target !== "object") return;
+        if (visited.has(target)) return;
+        visited.add(target);
+        const record = target as Record<string, unknown>;
+        const key = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in record);
+        if (key) {
+          if (policyType === "hidden") delete record[key];
+          else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
+        }
+        for (const child of Object.values(record)) applyLeafEverywhere(child);
+      };
+      applyLeafEverywhere(value);
+    }
+  }
+
+  private applyProjectionPolicyInEntityContainers(
+    value: unknown,
+    entity: string,
+    fieldKey: string,
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null
+  ): void {
+    const containerKeys: Record<string, readonly string[]> = {
+      booking: ["booking", "items"], ledger: ["ledger"], receivable: ["receivables"],
+      lease: ["lease", "items"], handover: ["handovers"], purchase: ["purchase", "items"],
+      repair: ["repairs", "items"], tenant: ["tenant", "tenants", "items"]
+    };
+    const keys = containerKeys[entity];
+    if (!keys) return;
+    const leaf = fieldKey.split(".").filter(Boolean).at(-1);
+    if (!leaf) return;
+    const visit = (target: unknown): void => {
+      if (Array.isArray(target)) return void target.forEach(visit);
+      if (!target || typeof target !== "object") return;
+      const record = target as Record<string, unknown>;
+      for (const key of keys) {
+        const child = record[key];
+        if (!child) continue;
+        const apply = (item: unknown): void => {
+          if (!item || typeof item !== "object") return;
+          const row = item as Record<string, unknown>;
+          const rowKey = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in row);
+          if (!rowKey) return;
+          if (policyType === "hidden") delete row[rowKey];
+          else if (policyType === "masked") row[rowKey] = this.maskProjectionValue(row[rowKey], maskRule);
+        };
+        if (Array.isArray(child)) child.forEach(apply);
+        else apply(child);
+      }
+      Object.values(record).forEach(visit);
+    };
+    visit(value);
+  }
+
+  private maskProjectionValue(value: unknown, maskRule?: string | null): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.maskProjectionValue(item, maskRule));
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+        key,
+        this.maskProjectionValue(item, maskRule)
+      ]));
+    }
+    return this.maskValue(value, maskRule);
   }
 
   private fieldKeyCandidates(fieldKey: string): string[] {

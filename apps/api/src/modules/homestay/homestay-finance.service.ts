@@ -10,6 +10,7 @@ import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
+  type HomestayFinanceApprovalSource,
   type PropertyApprovalCommandPort,
   type PropertyApprovalJsonValue,
   type TenantParkScope
@@ -110,6 +111,47 @@ export class HomestayFinanceService {
     });
   }
 
+  async listApprovalSources(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string,
+    entryType: "refund" | "waiver"
+  ): Promise<HomestayFinanceApprovalSource[]> {
+    assertPropertyHighRiskActionPermissions(actor, [
+      SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+      SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+    ]);
+    const requiredPermission = entryType === "refund"
+      ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER
+      : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE;
+    if (!this.hasPermission(actor, requiredPermission)) {
+      throw new ForbiddenException(`${requiredPermission} permission is required`);
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(manager, scope, bookingId);
+      await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
+      const sourceEntryType = entryType === "refund" ? "payment" : "charge";
+      const candidates = ledger.filter((entry) => entry.entryType === sourceEntryType);
+      const sources = await Promise.all(candidates.map(async (source) => {
+        const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
+          manager, scope, source, ledger, entryType
+        );
+        const availableCents = toMoneyCents(source.amount) - allocation.allocatedCents;
+        return availableCents > 0n ? {
+          id: source.id,
+          entryType: sourceEntryType,
+          chargeType: source.chargeType,
+          amount: formatHomestayMoney(source.amount),
+          availableAmount: formatMoneyCents(availableCents),
+          occurredAt: source.occurredAt
+        } satisfies HomestayFinanceApprovalSource : null;
+      }));
+      return sources.filter((source): source is HomestayFinanceApprovalSource => source !== null);
+    });
+  }
+
   async executeApprovedFinance(input: HomestayApprovedFinanceInput): Promise<void> {
     const payload = input.canonicalPayload;
     if (!Array.isArray(payload.lines) || payload.lines.length !== 1) {
@@ -154,6 +196,12 @@ export class HomestayFinanceService {
     const remaining = toMoneyCents(source!.amount) - allocation.allocatedCents;
     this.assertApprovedAllocationUnchanged(allocation, remaining, line);
     await this.insertApprovedLedgerEffect(input, scope, bookingId, sourceId, line, entryType);
+    const updated = await input.manager.query(
+      `UPDATE biz_homestay_booking SET version=version+1,update_by=$4,update_time=clock_timestamp()
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$5 RETURNING version`,
+      [scope.tenantId, scope.parkId, bookingId, input.request.requesterId, input.sourceExpectedVersion]
+    ) as Array<{ version: number }>;
+    if (updated.length !== 1) throw new ConflictException("Approval source changed");
   }
 
   private async requestApprovedRefundOrWaiver(
@@ -221,7 +269,10 @@ export class HomestayFinanceService {
             sourceExpectedVersion: source.version,
             sourceEntryType: source.entryType,
             sourceAmount: source.amount,
-            chargeType: dto.charge_type.trim(),
+            // A reversal inherits the authoritative source classification.  The
+            // client field is retained for the normal charge/payment contract,
+            // but must not be able to relabel an approved reversal.
+            chargeType: source.chargeType,
             amount,
             currency: source.currency,
             paymentRecorderId: source.recordedBy,

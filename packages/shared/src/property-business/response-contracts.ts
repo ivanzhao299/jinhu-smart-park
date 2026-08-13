@@ -202,6 +202,15 @@ export interface HomestayLedgerSummaryResponse {
   balance: string;
 }
 
+export interface HomestayFinanceApprovalSource {
+  id: string;
+  entryType: "charge" | "payment";
+  chargeType: string;
+  amount: string;
+  availableAmount: string;
+  occurredAt: string;
+}
+
 export interface HomestayBookingDetailResponse {
   booking: HomestayBookingResponse;
   nights: HomestayBookingNightResponse[];

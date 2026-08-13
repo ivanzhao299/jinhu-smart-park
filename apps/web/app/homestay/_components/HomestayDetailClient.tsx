@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  CreatePendingPropertyApprovalResult,
   HomestayBookingDetailResponse,
   HomestayTurnoverDetailResponse
 } from "@jinhu/shared";
@@ -78,13 +79,16 @@ function useDetailMutation(
       retry.current = { signature, key: createIdempotencyKey("homestay-action") };
     }
     try {
-      await apiRequest(endpoint, {
+      const response = await apiRequest<CreatePendingPropertyApprovalResult | object>(endpoint, {
         method: "POST",
         token: getAccessToken() ?? undefined,
         idempotencyKey: retry.current.key,
         body: body ?? {}
       });
-      setMessage("操作已完成。");
+      const result = response.data as Partial<CreatePendingPropertyApprovalResult>;
+      setMessage(result.request?.requestId
+        ? `审批申请已提交（${result.request.requestId}；决策 ${result.request.decisionStatus}；执行 ${result.request.executionStatus}）。`
+        : "操作已完成。");
       retry.current = null;
       await load();
     } catch (actionError) {
@@ -244,15 +248,25 @@ function BookingActions({ booking, capability, isStay, mutate }: {
   capability: ReturnType<typeof projectPropertyCapabilities>; isStay: boolean;
   mutate(endpoint: string, body?: unknown): Promise<void>;
 }) {
+  const [cancelReason, setCancelReason] = useState("");
   const canConfirm = !isStay && capability.actionAllowed("homestay.bookings.confirm") && booking.status === "draft";
   const canCheckIn = isStay && capability.actionAllowed("homestay.stays.check-in") && booking.status === "confirmed";
   const canCheckOut = isStay && capability.actionAllowed("homestay.stays.check-out") && booking.status === "checked_in";
+  const canCancel = !isStay && capability.actionAllowed("homestay.bookings.cancel")
+    && ["draft", "confirmed"].includes(booking.status);
   return <section className="ds-panel"><h2>可执行操作</h2><div className="ds-action-bar">
     {canConfirm ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/confirm`)}>确认订单</button> : null}
     {canCheckIn ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-in`)}>办理入住</button> : null}
     {canCheckOut ? <button className="primary-button" type="button" onClick={() => void mutate(`/homestay/bookings/${booking.id}/check-out`)}>办理退房</button> : null}
-    {capability.actionCapability("homestay.bookings.cancel").blockedUntilTrackB ? <button className="secondary-button" disabled type="button">取消订单（等待审批能力启用）</button> : null}
-  </div></section>;
+  </div>
+  {canCancel ? <form className={styles.toolbar} onSubmit={(event) => {
+    event.preventDefault();
+    if (cancelReason.trim()) void mutate(`/homestay/bookings/${booking.id}/cancel`, { reason: cancelReason.trim() });
+  }}>
+    <label>取消原因<input required maxLength={500} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></label>
+    <button className="secondary-button" type="submit">提交取消审批</button>
+  </form> : null}
+  </section>;
 }
 
 function TurnoverDetail({

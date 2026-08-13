@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { FileEntity } from "../files/entities/file.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { FieldPoliciesModule } from "../field-policies/field-policies.module";
+import { HousingFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import { PropertyOperationsModule } from "../property-operations/property-operations.module";
 import { PropertyApprovalModule } from "../property-approvals/property-approval.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
@@ -55,6 +57,7 @@ import {
       FileEntity
     ]),
     DataScopesModule,
+    FieldPoliciesModule,
     PropertyOperationsModule,
     PropertyApprovalModule,
     WorkOrdersModule
@@ -78,6 +81,7 @@ import {
     HousingLeaseApprovalExecutorService,
     HousingWorkbenchQueryService,
     HousingApprovalAdapter,
+    HousingFieldPolicyInterceptor,
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },
     { provide: HOUSING_HANDOVER_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().handover },
     { provide: HOUSING_BILLING_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().billing },

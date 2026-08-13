@@ -217,11 +217,12 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
   ] };
 
   await service.registerLedgerEntry(scope, financeActor, booking.id, {
-    entry_type: "refund", charge_type: "room", amount: "40.00", reason: "refund",
+    entry_type: "refund", charge_type: "client-supplied-value", amount: "40.00", reason: "refund",
     source_ledger_entry_id: sourceId
   }, "finance-key");
 
   const line = (request?.canonicalPayload as { lines: Array<Record<string, unknown>> }).lines[0]!;
+  assert.equal(line.chargeType, "room");
   assert.equal(line.allocatedAmount, "50.00");
   assert.equal(line.remainingAvailableBalance, "50.00");
   assert.deepEqual(line.allocationContributors, [
