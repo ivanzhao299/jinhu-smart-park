@@ -44,13 +44,14 @@ export class HousingTenantService {
   async create(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    dto: CreatePartyDto
+    dto: CreatePartyDto,
+    clientKey?: string
   ): Promise<HousingTenantResponse> {
     const tenant = await this.partiesService.create(scope, actor, {
       ...dto,
       party_type: "person",
       source_domain: "housing_rental"
-    });
+    }, clientKey);
     return this.project(tenant, actor);
   }
 

@@ -54,7 +54,8 @@ function tenantService(partiesService: {
   create: (
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    dto: CreatePartyDto
+    dto: CreatePartyDto,
+    clientKey?: string
   ) => Promise<PartyListItemResponse>;
 }, allowedUnitIds: string[] | null = null) {
   return new HousingTenantService(
@@ -176,10 +177,12 @@ test("housing tenant identity mask requires exact party sensitive read", async (
 test("housing tenant creation fixes Party ownership and masks short or null contacts", async () => {
   const created = partyResponse({ mobile: "123", email: "a@b" });
   let receivedDto: CreatePartyDto | undefined;
+  let receivedClientKey: string | undefined;
   const service = tenantService({
     list: async () => ({ items: [], total: 0, page: 1, page_size: 20 }),
-    create: async (_scope, _actor, dto) => {
+    create: async (_scope, _actor, dto, clientKey) => {
       receivedDto = dto;
+      receivedClientKey = clientKey;
       return created;
     }
   });
@@ -190,10 +193,11 @@ test("housing tenant creation fixes Party ownership and masks short or null cont
     display_name: "Tenant",
     mobile: "123",
     email: "a@b"
-  });
+  }, "housing-tenant-create-key");
 
   assert.equal(receivedDto?.party_type, "person");
   assert.equal(receivedDto?.source_domain, "housing_rental");
+  assert.equal(receivedClientKey, "housing-tenant-create-key");
   assert.equal(result.mobile, "****");
   assert.equal(result.email, "a***@b");
   assert.doesNotMatch(JSON.stringify(result), /"mobile":"123"|"email":"a@b"/u);
@@ -238,12 +242,13 @@ test("HousingService tenant methods are façade-only delegations", async () => {
   );
   const query = { page: 1, page_size: 20 };
   const dto = { party_type: "person" as const, display_name: "Tenant" };
+  const clientKey = "housing-service-tenant-create-key";
 
   await service.listTenants(scope, actor, query);
-  await service.createTenant(scope, actor, dto);
+  await service.createTenant(scope, actor, dto, clientKey);
 
   assert.deepEqual(calls, [
     { kind: "list", args: [scope, actor, query] },
-    { kind: "create", args: [scope, actor, dto] }
+    { kind: "create", args: [scope, actor, dto, clientKey] }
   ]);
 });
