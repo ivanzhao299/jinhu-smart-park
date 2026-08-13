@@ -147,6 +147,12 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [randomUUID(), ids.bookingOccupancy]
     ), /reverse owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT mutate_linked_occupancy");
+    await query("SAVEPOINT soft_delete_linked_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_property_occupancy SET is_deleted=true WHERE id=$1",
+      [ids.bookingOccupancy]
+    ), /cannot be soft-deleted/u);
+    await query("ROLLBACK TO SAVEPOINT soft_delete_linked_occupancy");
     await query("SAVEPOINT mutate_booking_id");
     await assert.rejects(query(
       "UPDATE biz_homestay_booking SET id=$1 WHERE id=$2",

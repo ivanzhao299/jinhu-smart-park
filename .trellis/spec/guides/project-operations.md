@@ -102,6 +102,11 @@ Reference files:
 - A historyless-baseline catalog gate must prove every migration-owned constraint and trigger by
   schema/table, ordered local and referenced columns, validation/enabled state, and trigger function;
   checking a small set of globally matching object names is not sufficient evidence.
+- Online migration preflights that precede trigger installation must hold write-blocking locks on all
+  scanned owner/reference tables through installation and validation; otherwise a concurrent import can
+  create drift after the scan. Logical deletion fields belong to the reverse-owner mutation matrix too.
+- Trigger catalog evidence must compare exact timing/event/row bits and exact `tgattr` columns, not
+  substrings of `pg_get_triggerdef`; a same-named UPDATE-only trigger must not satisfy an INSERT+UPDATE contract.
 - Projection migrations whose target scopes come from production assignments require a read-only parity
   diagnostic and an API/full deployment gate after required secret initialization but before application release
   source sync, migration, seed, or image build.

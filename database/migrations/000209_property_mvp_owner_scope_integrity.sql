@@ -3,6 +3,11 @@ BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
 
+-- Freeze every table participating in the owner scan until the constraints and
+-- inverse triggers are installed, closing the online preflight/write window.
+LOCK TABLE biz_homestay_booking, biz_homestay_turnover_task, biz_housing_lease,
+  biz_property_occupancy IN SHARE ROW EXCLUSIVE MODE;
+
 DO $$
 DECLARE
   mismatch record;
@@ -46,7 +51,7 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_turnover_task.occupancy_id',child.id,parent.id
       FROM biz_homestay_turnover_task child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id,child.unit_id,'homestay','homestay_turnover',child.id::text)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'operations','homestay_turnover',child.id::text)
        IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
     UNION ALL SELECT 'biz_homestay_booking_action_log.booking_id',child.id,parent.id
       FROM biz_homestay_booking_action_log child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
@@ -231,6 +236,13 @@ FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
 CREATE OR REPLACE FUNCTION enforce_property_mvp_occupancy_reverse_owner()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.is_deleted AND NOT OLD.is_deleted AND (
+    EXISTS (SELECT 1 FROM biz_homestay_booking owner WHERE owner.occupancy_id=OLD.id)
+    OR EXISTS (SELECT 1 FROM biz_homestay_turnover_task owner WHERE owner.occupancy_id=OLD.id)
+    OR EXISTS (SELECT 1 FROM biz_housing_lease owner WHERE owner.occupancy_id=OLD.id)
+  ) THEN
+    RAISE EXCEPTION 'linked property occupancy cannot be soft-deleted' USING ERRCODE='23503';
+  END IF;
   IF EXISTS (
     SELECT 1 FROM biz_homestay_booking owner
      WHERE owner.occupancy_id=OLD.id
@@ -259,7 +271,7 @@ BEGIN
 END $$;
 
 CREATE TRIGGER trg_property_occupancy_reverse_owner
-BEFORE UPDATE OF id,tenant_id,park_id,unit_id,source_domain,source_type,source_id
+BEFORE UPDATE OF id,tenant_id,park_id,unit_id,source_domain,source_type,source_id,is_deleted
 ON biz_property_occupancy
 FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_reverse_owner();
 

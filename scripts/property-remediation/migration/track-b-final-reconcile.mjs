@@ -58,10 +58,10 @@ export const REQUIRED_OWNER_CONSTRAINTS = Object.freeze({
 });
 
 export const REQUIRED_OWNER_TRIGGERS = Object.freeze({
-  trg_homestay_booking_occupancy_owner: Object.freeze({ table: "biz_homestay_booking", functionName: "enforce_property_mvp_occupancy_owner", columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
-  trg_homestay_turnover_occupancy_owner: Object.freeze({ table: "biz_homestay_turnover_task", functionName: "enforce_property_mvp_occupancy_owner", columns: ["id","tenant_id","park_id","booking_id","unit_id","occupancy_id"] }),
-  trg_housing_lease_occupancy_owner: Object.freeze({ table: "biz_housing_lease", functionName: "enforce_property_mvp_occupancy_owner", columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
-  trg_property_occupancy_reverse_owner: Object.freeze({ table: "biz_property_occupancy", functionName: "enforce_property_mvp_occupancy_reverse_owner", columns: ["id","tenant_id","park_id","unit_id","source_domain","source_type","source_id"] })
+  trg_homestay_booking_occupancy_owner: Object.freeze({ table: "biz_homestay_booking", functionName: "enforce_property_mvp_occupancy_owner", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
+  trg_homestay_turnover_occupancy_owner: Object.freeze({ table: "biz_homestay_turnover_task", functionName: "enforce_property_mvp_occupancy_owner", triggerType: 23, columns: ["id","tenant_id","park_id","booking_id","unit_id","occupancy_id"] }),
+  trg_housing_lease_occupancy_owner: Object.freeze({ table: "biz_housing_lease", functionName: "enforce_property_mvp_occupancy_owner", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
+  trg_property_occupancy_reverse_owner: Object.freeze({ table: "biz_property_occupancy", functionName: "enforce_property_mvp_occupancy_reverse_owner", triggerType: 19, columns: ["id","tenant_id","park_id","unit_id","source_domain","source_type","source_id","is_deleted"] })
 });
 
 export const CHECKPOINTS = Object.freeze([
@@ -260,7 +260,11 @@ async function validateTrackBConstraints(client, dryRun) {
   const triggerNames = Object.keys(REQUIRED_OWNER_TRIGGERS);
   const triggers = await client.query(`
     SELECT trigger_row.tgname, relation.relname AS table_name, trigger_row.tgenabled,
-      procedure_row.proname AS function_name, pg_get_triggerdef(trigger_row.oid,true) AS definition
+      trigger_row.tgtype,
+      to_json(ARRAY(SELECT attribute.attname FROM unnest(trigger_row.tgattr::smallint[]) WITH ORDINALITY key(attnum,ord)
+        JOIN pg_attribute attribute ON attribute.attrelid=trigger_row.tgrelid AND attribute.attnum=key.attnum
+        ORDER BY key.ord)) AS columns,
+      procedure_row.proname AS function_name
     FROM pg_trigger trigger_row
     JOIN pg_class relation ON relation.oid=trigger_row.tgrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace AND namespace.nspname='public'
@@ -272,7 +276,8 @@ async function validateTrackBConstraints(client, dryRun) {
     const actual = triggersByName.get(name);
     if (!actual) triggerDrift.push({ name, reason: "missing" });
     else if (actual.table_name !== expected.table || actual.function_name !== expected.functionName
-      || actual.tgenabled !== "O" || !expected.columns.every((column) => actual.definition.includes(column))) {
+      || actual.tgenabled !== "O" || actual.tgtype !== expected.triggerType
+      || JSON.stringify(actual.columns) !== JSON.stringify(expected.columns)) {
       triggerDrift.push({ name, reason: "definition", expected, actual });
     }
   }
