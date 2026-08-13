@@ -102,6 +102,10 @@ BEGIN
   IF NEW.is_deleted THEN
     RETURN NEW;
   END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id,
+    0
+  ));
   IF NOT (
     (SELECT count(*) FROM biz_park p
      WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
@@ -129,6 +133,14 @@ RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   removes_active_jh boolean;
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'asset-park-scope:' || OLD.tenant_id || ':' || OLD.park_id,
+    0
+  ));
+  IF OLD.park_code = 'JH' THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:10000001:20000001', 0));
+  END IF;
+
   removes_active_jh := TG_OP = 'DELETE';
   IF TG_OP = 'UPDATE' THEN
     removes_active_jh := NEW.park_code <> 'JH' OR NEW.status <> 1 OR NEW.is_deleted = true;
@@ -192,7 +204,7 @@ BEGIN
 END $$;
 
 CREATE TRIGGER trg_biz_park_building_scope
-BEFORE UPDATE OF tenant_id, park_id, status, is_deleted ON biz_park
+BEFORE UPDATE OF tenant_id, park_id, park_code, status, is_deleted ON biz_park
 FOR EACH ROW EXECUTE FUNCTION protect_biz_park_building_scope();
 
 CREATE TRIGGER trg_biz_park_building_scope_delete

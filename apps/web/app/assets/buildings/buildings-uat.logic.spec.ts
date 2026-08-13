@@ -33,3 +33,9 @@ test("park switch failures are visible inside the building drawer", () => {
   assert.match(page, /setFormMessage\(error instanceof Error \? error\.message : "楼栋保存失败"\)/u);
   assert.match(page, /formMessage \? <p className="status-pill" role="alert">\{formMessage\}<\/p>/u);
 });
+
+test("a committed save reports a later list refresh failure as partial success", () => {
+  const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+
+  assert.match(page, /保存成功，但列表刷新失败：/u);
+});

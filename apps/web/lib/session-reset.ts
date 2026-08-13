@@ -7,6 +7,7 @@ const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api/v1";
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
+const PARK_SWITCH_KEY = "jinhu_park_context_switch";
 
 const AUTH_SESSION_RESET_EXCLUDED_PATHS = new Set([
   "/auth/login",
@@ -68,6 +69,7 @@ export async function clearLocalSessionStorage(): Promise<void> {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(PARK_SWITCH_KEY);
   await purgePropertyOfflineState();
 }
 

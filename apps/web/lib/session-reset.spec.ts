@@ -110,6 +110,7 @@ test("handleUnauthorizedSessionReset resets when localStorage token is the faile
   local.setItem("jinhu_access_token", "current-token");
   local.setItem("jinhu_auth_user", "{\"id\":\"current\"}");
   local.setItem("jinhu_refresh_token", "legacy-refresh");
+  local.setItem("jinhu_park_context_switch", "in-flight-switch");
   const calls = installFetchRecorder();
 
   const handled = await handleUnauthorizedSessionReset({
@@ -126,6 +127,7 @@ test("handleUnauthorizedSessionReset resets when localStorage token is the faile
   assert.equal(local.getItem("jinhu_access_token"), null);
   assert.equal(local.getItem("jinhu_auth_user"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+  assert.equal(local.getItem("jinhu_park_context_switch"), null);
   assert.equal(location.href, "/login");
 });
 

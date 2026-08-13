@@ -168,7 +168,11 @@ export default function BuildingsPage() {
       if (switchedPark) {
         window.location.reload();
       } else {
-        await load(pageData.page);
+        try {
+          await load(pageData.page);
+        } catch (refreshError) {
+          setMessage(`保存成功，但列表刷新失败：${refreshError instanceof Error ? refreshError.message : "未知错误"}`);
+        }
       }
     } catch (error) {
       if (switchedPark) {
