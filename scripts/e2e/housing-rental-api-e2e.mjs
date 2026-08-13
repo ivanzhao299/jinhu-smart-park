@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
+import { approveAndWait } from "./property-api-e2e-approval.mjs";
 
 requirePropertyApiE2eIsolation();
 
@@ -8,6 +9,8 @@ const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "1000
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const username = process.env.ADMIN_USERNAME ?? "admin";
 const password = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
+const approverUsername = process.env.APPROVER_USERNAME;
+const approverPassword = process.env.APPROVER_PASSWORD;
 const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
 
@@ -20,10 +23,10 @@ function key(action) {
   return `housing-api-e2e-${action}-${runId}-${sequence}`;
 }
 
-async function request(path, { token, idempotent = false, ...options } = {}) {
+async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
   const headers = { ...(options.headers ?? {}) };
   if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+  if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
   if (options.body && !(options.body instanceof FormData)) {
     headers["content-type"] = "application/json";
     options.body = JSON.stringify(options.body);
@@ -130,6 +133,13 @@ async function run() {
   });
   const token = login.accessToken;
   assert(typeof token === "string" && token.length > 0, "authenticated through the real login API");
+  assert(approverUsername && approverPassword, "separated approval credentials are configured");
+  const approverLogin = await request("/auth/login", {
+    method: "POST",
+    body: { tenantId, parkId, username: approverUsername, password: approverPassword }
+  });
+  const approverToken = approverLogin.accessToken;
+  assert(typeof approverToken === "string" && approverToken.length > 0, "authenticated a separate approval actor");
 
   const start = new Date();
   start.setUTCDate(start.getUTCDate() + 2);
@@ -144,7 +154,7 @@ async function run() {
   if (!unit) {
     for (const candidate of unitList.items) {
       const candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
-      if (candidateOperation.operating_mode !== "long_rent") continue;
+      if (candidateOperation.configuredMode !== "long_rent") continue;
       for (let yearOffset = 0; yearOffset < 5; yearOffset += 1) {
         const candidateStart = new Date(start);
         candidateStart.setUTCFullYear(candidateStart.getUTCFullYear() + yearOffset);
@@ -182,14 +192,7 @@ async function run() {
     body: { version: currentOperation.version, operating_status: "enabled", remark: "Housing real API E2E" }
   });
   const operation = await request(`/property/units/${unit.id}/operation`, { token });
-  if (operation.operating_mode !== "long_rent") {
-    await request(`/property/units/${unit.id}/mode-transitions`, {
-      method: "POST",
-      token,
-      idempotent: true,
-      body: { target_mode: "long_rent", reason: "住房出租真实 API E2E" }
-    });
-  }
+  assert(operation.configuredMode === "long_rent", "selected unit retains its explicit long-rent fixture mode");
 
   await expectRequestStatus("/property/occupancies", 403, {
     method: "POST",
@@ -285,12 +288,13 @@ async function run() {
   assert(listedLease?.tenantDisplayName === tenant.displayName, "lease list owns its stable tenant label");
 
   await request(`/housing/leases/${lease.id}/submit`, { method: "POST", token, idempotent: true });
-  await request(`/housing/leases/${lease.id}/approve`, {
+  const leaseApproval = await request(`/housing/leases/${lease.id}/approve`, {
     method: "POST",
     token,
     idempotent: true,
     body: { approval_note: "真实 API E2E 审批通过" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: leaseApproval, label: "lease approval" });
   const signature = await uploadSignature(token, lease.id);
   await request(`/housing/leases/${lease.id}/sign`, {
     method: "POST",
@@ -466,14 +470,16 @@ async function run() {
       ]
     }
   });
-  await request(`/housing/purchases/${purchase.id}/actions`, {
+  const purchaseApproval = await request(`/housing/purchases/${purchase.id}/actions`, {
     method: "POST", token, idempotent: true, body: { action: "approve", reason: "E2E 审批" }
   });
-  await request(`/housing/purchases/${purchase.id}/actions`, {
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: purchaseApproval, label: "purchase approval" });
+  const purchasePayment = await request(`/housing/purchases/${purchase.id}/actions`, {
     method: "POST", token, idempotent: true, body: { action: "pay", reason: "E2E 人工付款登记" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: purchasePayment, label: "purchase payment" });
   const purchaseDetail = await request(`/housing/purchases/${purchase.id}`, { token });
-  const firstTransfer = await request(`/housing/purchases/${purchase.id}/transfer`, {
+  const firstTransferRequest = await request(`/housing/purchases/${purchase.id}/transfer`, {
     method: "POST",
     token,
     idempotent: true,
@@ -484,7 +490,11 @@ async function run() {
       reason: "租客责任维修耗材受控转收费"
     }
   });
-  const secondTransfer = await request(`/housing/purchases/${purchase.id}/transfer`, {
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: firstTransferRequest, label: "first purchase transfer" });
+  let transferLeaseDetail = await request(`/housing/leases/${lease.id}`, { token });
+  const firstTransferReceivable = transferLeaseDetail.receivables.find((item) => item.chargeType === "purchase_recharge");
+  assert(Boolean(firstTransferReceivable), "first purchase transfer creates the tenant receivable");
+  const secondTransferRequest = await request(`/housing/purchases/${purchase.id}/transfer`, {
     method: "POST",
     token,
     idempotent: true,
@@ -495,8 +505,11 @@ async function run() {
       reason: "后续采购明细追加转收费"
     }
   });
-  assert(firstTransfer.receivable.id === secondTransfer.receivable.id, "partial transfers reuse one source receivable");
-  assert(Number(secondTransfer.receivable.amount) === 35.15, "later transferred items accumulate into the receivable");
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: secondTransferRequest, label: "second purchase transfer" });
+  transferLeaseDetail = await request(`/housing/leases/${lease.id}`, { token });
+  const secondTransferReceivable = transferLeaseDetail.receivables.find((item) => item.chargeType === "purchase_recharge");
+  assert(firstTransferReceivable.id === secondTransferReceivable?.id, "partial transfers reuse one source receivable");
+  assert(Number(secondTransferReceivable?.amount) === 35.15, "later transferred items accumulate into the receivable");
   const transferredPurchasePage = await request("/housing/purchases?page=1&page_size=100", { token });
   const transferredPurchase = transferredPurchasePage.items.find((item) => item.id === purchase.id);
   assert(
@@ -571,7 +584,7 @@ async function run() {
     idempotent: true,
     body: { reason: "押金尚未退还时不得完成退租" }
   });
-  const depositRefund = await request(`/housing/leases/${lease.id}/ledger`, {
+  const depositRefundRequest = await request(`/housing/leases/${lease.id}/ledger`, {
     method: "POST",
     token,
     idempotent: true,
@@ -584,16 +597,22 @@ async function run() {
       reason: "真实 API E2E 押金退还"
     }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: depositRefundRequest, label: "deposit refund" });
+  const financePage = await request(`/housing/finance?page=1&page_size=100`, { token });
+  const refundedFinance = financePage.items.find((item) => item.lease.id === lease.id);
   assert(
-    depositRefund.entryType === "deposit_refund",
-    "deposit receivable refund is normalized without reopening the settled receivable"
+    Number(refundedFinance?.summary?.deposit_balance) === 0,
+    "approved deposit refund clears the deposit balance without reopening the settled receivable"
   );
-  const terminated = await request(`/housing/leases/${lease.id}/checkout`, {
+  const checkoutRequest = await request(`/housing/leases/${lease.id}/checkout`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "真实 API E2E 退租结清" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: checkoutRequest, label: "lease checkout" });
+  const terminated = await request(`/housing/leases/${lease.id}`, { token });
+  assert(terminated.status === "terminated", "approved checkout terminates the lease");
   await expectRequestStatus(`/housing/leases/${lease.id}/ledger`, 409, {
     method: "POST",
     token,

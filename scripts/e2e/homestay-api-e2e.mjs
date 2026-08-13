@@ -1,4 +1,5 @@
 import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
+import { approveAndWait } from "./property-api-e2e-approval.mjs";
 
 requirePropertyApiE2eIsolation();
 
@@ -7,6 +8,8 @@ const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "1000
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const username = process.env.ADMIN_USERNAME ?? "admin";
 const password = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
+const approverUsername = process.env.APPROVER_USERNAME;
+const approverPassword = process.env.APPROVER_PASSWORD;
 const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
 
@@ -24,10 +27,10 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
-async function request(path, { token, idempotent = false, ...options } = {}) {
+async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
   const headers = { ...(options.headers ?? {}) };
   if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+  if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
   if (options.body) {
     headers["content-type"] = "application/json";
     options.body = JSON.stringify(options.body);
@@ -90,6 +93,13 @@ async function run() {
   });
   const token = login.accessToken;
   assert(typeof token === "string" && token.length > 0, "authenticated through the real login API");
+  assert(approverUsername && approverPassword, "separated approval credentials are configured");
+  const approverLogin = await request("/auth/login", {
+    method: "POST",
+    body: { tenantId, parkId, username: approverUsername, password: approverPassword }
+  });
+  const approverToken = approverLogin.accessToken;
+  assert(typeof approverToken === "string" && approverToken.length > 0, "authenticated a separate approval actor");
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
   const departure = new Date(`${today}T00:00:00+08:00`);
@@ -120,23 +130,12 @@ async function run() {
       body: { version: currentOperation.version, operating_status: "enabled", remark: "Homestay real API E2E" }
     });
     const operation = await request(`/property/units/${candidate.id}/operation`, { token });
-    if (operation.operating_mode === "short_stay") {
-      unit = candidate;
-      break;
-    }
-    const transition = await tryRequest(`/property/units/${candidate.id}/mode-transitions`, {
-      method: "POST",
-      token,
-      idempotent: true,
-      body: { target_mode: "short_stay", reason: "Homestay real API E2E" }
-    });
-    if (transition.ok) {
-      console.log(`[PASS] POST /property/units/${candidate.id}/mode-transitions (${transition.status})`);
+    if (operation.configuredMode === "short_stay") {
       unit = candidate;
       break;
     }
   }
-  assert(Boolean(unit?.id), "selected an available whole-unit property that can enter short-stay mode");
+  assert(Boolean(unit?.id), "selected an explicitly configured available short-stay unit");
   const candidates = await request("/homestay/unit-candidates?page=1&page_size=100", { token });
   assert(candidates.items.some((candidate) => candidate.id === unit.id), "candidate API includes the enabled short-stay unit");
 
@@ -300,12 +299,13 @@ async function run() {
     body: { reason: "must be rejected before arrival" }
   });
   assert(earlyNoShow.status === 409, "future booking cannot be marked no-show before arrival");
-  await request(`/homestay/bookings/${futureBooking.id}/cancel`, {
+  const futureCancellation = await request(`/homestay/bookings/${futureBooking.id}/cancel`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "clean up future no-show boundary E2E" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: futureCancellation, label: "future booking cancellation" });
 
   const releasedOccupancyBooking = await request("/homestay/bookings", {
     method: "POST",
@@ -364,12 +364,13 @@ async function run() {
     releasedOccupancyCheckIn.status === 409,
     "booking cannot check in after its occupancy was force released"
   );
-  await request(`/homestay/bookings/${releasedOccupancyBooking.id}/cancel`, {
+  const releasedOccupancyCancellation = await request(`/homestay/bookings/${releasedOccupancyBooking.id}/cancel`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "clean up forced occupancy release E2E" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: releasedOccupancyCancellation, label: "released occupancy booking cancellation" });
 
   const booking = await request("/homestay/bookings", {
     method: "POST",

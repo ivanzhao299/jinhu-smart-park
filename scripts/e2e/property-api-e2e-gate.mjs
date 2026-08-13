@@ -27,7 +27,9 @@ async function requireReady() {
   for (const endpoint of ["health", "ready"]) {
     const url = new URL(endpoint, base.href.endsWith("/") ? base.href : `${base.href}/`);
     const response = await fetch(url);
-    if (!response.ok) fail(`${url} returned ${response.status}; run migrations, seed, bootstrap, and start the API first.`);
+    if (!response.ok) {
+      throw new Error(`Property API E2E gate refused to run: ${url} returned ${response.status}; run migrations, seed, bootstrap, and start the API first.`);
+    }
   }
 }
 
@@ -48,16 +50,19 @@ function runSuite(name) {
 
 const report = { runId, startedAt, suites: [], isolation: { database: process.env.POSTGRES_DB ?? null, teardown: "workflow-required" } };
 let failure;
+let activeSuite = null;
 try {
   validateEnvironment();
   await requireReady();
   for (const suite of selectedSuites) {
+    activeSuite = suite;
     await runSuite(suite);
     report.suites.push({ name: suite, status: "passed" });
+    activeSuite = null;
   }
 } catch (error) {
   failure = error;
-  report.suites.push({ name: report.suites.length < selectedSuites.length ? selectedSuites[report.suites.length] : "gate", status: "failed", error: error instanceof Error ? error.message : String(error) });
+  report.suites.push({ name: activeSuite ?? "gate", status: "failed", error: error instanceof Error ? error.message : String(error) });
 } finally {
   report.finishedAt = new Date().toISOString();
   report.status = failure ? "failed" : "passed";

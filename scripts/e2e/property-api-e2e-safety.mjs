@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+
 const disposableDatabasePattern = /^jinhu_(?:property_api_e2e_[a-z0-9_]+|release_smoke)$/;
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 
@@ -23,11 +25,41 @@ export function requirePropertyApiE2eIsolation({ requireRunId = true } = {}) {
   } catch {
     fail("API_BASE_URL must be an absolute URL.");
   }
-  if (!loopbackHosts.has(url.hostname)) {
+  const normalizedHostname = url.hostname.replace(/^\[|\]$/g, "");
+  if (!loopbackHosts.has(normalizedHostname)) {
     fail("API_BASE_URL must target a loopback API, never a shared UAT or production service.");
   }
   if (process.env.NODE_ENV === "production" && process.env.APP_ENV !== "ci") {
     fail("NODE_ENV=production is allowed only when APP_ENV=ci and the database is disposable.");
   }
+  requirePropertyApiE2eDockerBinding(url);
   return url;
+}
+
+export function requirePropertyApiE2eDockerBinding(url) {
+  const container = process.env.PROPERTY_API_E2E_API_CONTAINER ?? "";
+  if (!container) fail("PROPERTY_API_E2E_API_CONTAINER must identify the disposable API container.");
+  let inspection;
+  try {
+    inspection = JSON.parse(execFileSync("docker", ["inspect", container], { encoding: "utf8" }))[0];
+  } catch {
+    fail("the disposable API container could not be inspected through the local Docker control plane.");
+  }
+  if (!inspection?.State?.Running) fail("the disposable API container is not running.");
+  const containerEnvironment = new Map(
+    (inspection.Config?.Env ?? []).map((entry) => {
+      const separator = entry.indexOf("=");
+      return [entry.slice(0, separator), entry.slice(separator + 1)];
+    })
+  );
+  if (containerEnvironment.get("POSTGRES_DB") !== process.env.POSTGRES_DB) {
+    fail("POSTGRES_DB does not match the database configured in the target API container.");
+  }
+  const requestedPort = url.port || (url.protocol === "https:" ? "443" : "80");
+  const bindings = inspection.NetworkSettings?.Ports?.["3001/tcp"] ?? [];
+  const matchingBinding = bindings.some((binding) => {
+    const host = String(binding.HostIp ?? "").replace(/^\[|\]$/g, "");
+    return binding.HostPort === requestedPort && (loopbackHosts.has(host) || host === "0.0.0.0");
+  });
+  if (!matchingBinding) fail("API_BASE_URL is not published by the inspected disposable API container.");
 }

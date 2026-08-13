@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(apps/api/src/modules/(homestay|housing|property-operations)/|packages/shared/src/property-business/|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(gate(\.contract)?|safety))|db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.(mjs|sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(apps/api/src/modules/(files|homestay|housing|property-approvals|property-identity|property-operations|work-orders)/|packages/shared/src/property-business/|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -1041,6 +1041,22 @@ jobs:
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log
 
+      - name: Bootstrap separated property approver
+        env:
+          ADMIN_USERNAME: property_approver_ci
+          ADMIN_PASSWORD: JinhuReleaseSmokeApprover#2026
+          ADMIN_NAME: Property Approver CI
+          ADMIN_EMAIL: property.approver.ci@example.com
+          ADMIN_PHONE: 13800005678
+        run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-property-approver.log
+
+      - name: Provision disposable property operation fixtures
+        run: |
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -v ON_ERROR_STOP=1 -v tenant_id="$TENANT_ID" -v park_id="$PARK_ID" \
+              -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              < scripts/e2e/property-api-e2e-fixtures.sql
+
       - name: Check init baseline
         run: pnpm db:check:init 2>&1 | tee /tmp/release-smoke-logs/check-init-baseline.log
 
@@ -1065,7 +1081,10 @@ jobs:
       - name: Run property API E2E gate
         env:
           PROPERTY_API_E2E_ISOLATED: "yes"
+          PROPERTY_API_E2E_API_CONTAINER: ${{ env.API_CTN }}
           API_BASE_URL: ${{ env.API_BASE }}
+          APPROVER_USERNAME: property_approver_ci
+          APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
           PROPERTY_API_E2E_REPORT_PATH: /tmp/release-smoke-logs/property-api-e2e-report.json
         run: |
           set -o pipefail
