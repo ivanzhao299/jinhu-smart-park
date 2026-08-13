@@ -271,7 +271,7 @@ export default function BuildingsPage() {
             />
             <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
-                <TextField label="楼栋编码" value={form.buildingCode} required placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
+                <TextField label="楼栋编码" value={form.buildingCode} required={Boolean(editingId)} placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
                 <TextField label="楼栋名称" value={form.buildingName} required onChange={(value) => setForm((current) => ({ ...current, buildingName: value }))} />
                 <NumberField label="楼层数" value={form.floorCount} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorCount: value }))} />
                 <NumberField label="建筑面积" value={form.buildArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, buildArea: value }))} />

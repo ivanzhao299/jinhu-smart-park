@@ -60,7 +60,7 @@ export function UnitFormDialog({
               <option key={floor.id} value={floor.id}>{floor.floorCode} {floor.floorName}</option>
             ))}
           </SelectField>
-          <TextField label="房源编码" value={form.unitCode} required placeholder="请输入或生成房源编码" onChange={(value) => onFormChange("unitCode", value)} />
+          <TextField label="房源编码" value={form.unitCode} required={Boolean(editingId)} placeholder="请输入或生成房源编码" onChange={(value) => onFormChange("unitCode", value)} />
           <TextField label="房源名称" value={form.unitName} required onChange={(value) => onFormChange("unitName", value)} />
           <DictSelect label="用途" value={form.usageType} required items={dicts.unit_usage_type} onChange={(value) => onFormChange("usageType", value)} />
           <NumberField label="建筑面积" value={form.unitArea} required step="0.01" onChange={(value) => onFormChange("unitArea", value)} />
