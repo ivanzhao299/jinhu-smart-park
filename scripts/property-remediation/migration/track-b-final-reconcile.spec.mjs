@@ -5,6 +5,7 @@ import test from "node:test";
 import {
   CHECKPOINTS,
   REQUIRED_OWNER_CONSTRAINTS,
+  REQUIRED_OWNER_TRIGGERS,
   REQUIRED_MIGRATIONS,
   migrationSetHash,
   parseArgs,
@@ -21,11 +22,14 @@ test("freezes the complete forward Track B migration set and ordered B4 checkpoi
     "backfill","change_capture","mutation_replay","shadow_compare","reconcile","constraint_validate"
   ]);
   assert.match(migrationSetHash(), /^[0-9a-f]{64}$/u);
-  assert.deepEqual(REQUIRED_OWNER_CONSTRAINTS, [
-    "uq_biz_unit_scope_id", "fk_homestay_booking_occupancy_scope",
-    "fk_homestay_turnover_occupancy_scope", "fk_housing_lease_occupancy_scope",
-    "fk_housing_receivable_charge_plan_scope"
-  ]);
+  assert.equal(Object.keys(REQUIRED_OWNER_CONSTRAINTS).length, 23);
+  assert.deepEqual(REQUIRED_OWNER_CONSTRAINTS.fk_homestay_turnover_booking_scope, {
+    table: "biz_homestay_turnover_task", type: "f",
+    localColumns: ["tenant_id","park_id","booking_id","unit_id"],
+    referencedTable: "biz_homestay_booking",
+    referencedColumns: ["tenant_id","park_id","id","unit_id"]
+  });
+  assert.equal(Object.keys(REQUIRED_OWNER_TRIGGERS).length, 4);
 });
 
 test("fails closed without database authority and rejects output outside the repository", async () => {
@@ -40,7 +44,8 @@ test("keeps every hard-difference family and atomic checkpoint write in the exec
     "activeIdentityDuplicates","verifiedIdentityWithoutSnapshot","illegalApprovalStatusPair",
     "staleExecutingApproval","activeTaskDuplicates","taskProjectionScopeDrift",
     "eventInboxScopeDrift","openMigrationAnomalies","validateTrackBConstraints",
-    "VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
+    "MVP owner constraint catalog drift","MVP owner trigger catalog drift",
+    "convalidated","tgenabled","VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
     "BEGIN","COMMIT","ROLLBACK","openP0P1"
   ]) assert.match(source, new RegExp(token));
 });

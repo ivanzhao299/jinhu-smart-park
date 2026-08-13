@@ -95,6 +95,13 @@ Reference files:
   wrong unit/source identities, plus the legal same-owner path. Trigger `UPDATE OF` lists must include
   every `NEW` field read by the trigger function; linked owner fields on the referenced row must be
   protected by inverse validation or made immutable.
+- Derive polymorphic owner tuples from the current producer call site, including its exact
+  `source_domain`, rather than inferring the domain from the consumer table name. Forward trigger
+  lookups must lock the referenced owner row so concurrent forward/reverse mutations serialize, and
+  an established nullable pointer must not be cleared while the referenced occupancy still names it.
+- A historyless-baseline catalog gate must prove every migration-owned constraint and trigger by
+  schema/table, ordered local and referenced columns, validation/enabled state, and trigger function;
+  checking a small set of globally matching object names is not sufficient evidence.
 - Projection migrations whose target scopes come from production assignments require a read-only parity
   diagnostic and an API/full deployment gate after required secret initialization but before application release
   source sync, migration, seed, or image build.

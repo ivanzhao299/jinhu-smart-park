@@ -83,6 +83,8 @@ END $$;
 
 ALTER TABLE biz_unit
   ADD CONSTRAINT uq_biz_unit_scope_id UNIQUE (tenant_id, park_id, id);
+ALTER TABLE biz_homestay_booking
+  ADD CONSTRAINT uq_homestay_booking_scope_unit UNIQUE (tenant_id,park_id,id,unit_id);
 
 ALTER TABLE biz_homestay_rate_config DROP CONSTRAINT biz_homestay_rate_config_unit_id_fkey;
 ALTER TABLE biz_homestay_rate_override DROP CONSTRAINT biz_homestay_rate_override_unit_id_fkey;
@@ -118,7 +120,7 @@ ALTER TABLE rel_homestay_booking_guest
 ALTER TABLE biz_homestay_stay_credential ADD CONSTRAINT fk_homestay_credential_booking_scope
   FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID;
 ALTER TABLE biz_homestay_turnover_task
-  ADD CONSTRAINT fk_homestay_turnover_booking_scope FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_turnover_booking_scope FOREIGN KEY (tenant_id,park_id,booking_id,unit_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id,unit_id) NOT VALID,
   ADD CONSTRAINT fk_homestay_turnover_unit_scope FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID,
   ADD CONSTRAINT fk_homestay_turnover_occupancy_scope FOREIGN KEY (tenant_id,park_id,occupancy_id) REFERENCES biz_property_occupancy(tenant_id,park_id,id) NOT VALID;
 ALTER TABLE biz_homestay_booking_action_log ADD CONSTRAINT fk_homestay_action_booking_scope
@@ -187,9 +189,15 @@ BEGIN
       RAISE EXCEPTION 'homestay turnover booking/unit owner mismatch' USING ERRCODE='23503';
     END IF;
   END IF;
-  IF NEW.occupancy_id IS NULL THEN RETURN NEW; END IF;
+  IF NEW.occupancy_id IS NULL THEN
+    IF TG_OP='UPDATE' AND OLD.occupancy_id IS NOT NULL THEN
+      RAISE EXCEPTION 'property occupancy owner link cannot be cleared' USING ERRCODE='23503';
+    END IF;
+    RETURN NEW;
+  END IF;
   SELECT * INTO occupancy_row FROM biz_property_occupancy
-   WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.occupancy_id;
+   WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.occupancy_id
+   FOR UPDATE;
   IF NOT FOUND THEN RETURN NEW; END IF;
   IF occupancy_row.unit_id IS DISTINCT FROM NEW.unit_id THEN
     RAISE EXCEPTION 'property occupancy unit owner mismatch' USING ERRCODE='23503';
@@ -200,7 +208,7 @@ BEGIN
     RAISE EXCEPTION 'homestay booking occupancy owner mismatch' USING ERRCODE='23503';
   ELSIF TG_TABLE_NAME = 'biz_homestay_turnover_task'
      AND (occupancy_row.source_domain,occupancy_row.source_type,occupancy_row.source_id)
-       IS DISTINCT FROM ('homestay','homestay_turnover',NEW.id::text) THEN
+       IS DISTINCT FROM ('operations','homestay_turnover',NEW.id::text) THEN
     RAISE EXCEPTION 'homestay turnover occupancy owner mismatch' USING ERRCODE='23503';
   ELSIF TG_TABLE_NAME = 'biz_housing_lease'
      AND (occupancy_row.source_domain,occupancy_row.source_type,occupancy_row.source_id)
@@ -234,7 +242,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM biz_homestay_turnover_task owner
      WHERE owner.occupancy_id=OLD.id
-       AND (owner.tenant_id,owner.park_id,owner.unit_id,'homestay','homestay_turnover',owner.id::text)
+       AND (owner.tenant_id,owner.park_id,owner.unit_id,'operations','homestay_turnover',owner.id::text)
          IS DISTINCT FROM (NEW.tenant_id,NEW.park_id,NEW.unit_id,NEW.source_domain,NEW.source_type,NEW.source_id)
   ) THEN
     RAISE EXCEPTION 'homestay turnover occupancy reverse owner mismatch' USING ERRCODE='23503';

@@ -50,6 +50,7 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       `SELECT conname FROM pg_constraint WHERE conname = ANY($1::text[]) ORDER BY conname`,
       [[
         "uq_biz_unit_scope_id", "fk_homestay_rate_config_unit_scope",
+        "uq_homestay_booking_scope_unit", "uq_housing_charge_plan_owner",
         "fk_homestay_booking_night_booking_scope", "fk_housing_lease_unit_scope",
         "fk_housing_receivable_charge_plan_scope", "fk_housing_purchase_unit_scope"
       ]]
@@ -57,7 +58,8 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
     assert.deepEqual(installedConstraints.map((row: { conname: string }) => row.conname), [
       "fk_homestay_booking_night_booking_scope", "fk_homestay_rate_config_unit_scope",
       "fk_housing_lease_unit_scope", "fk_housing_purchase_unit_scope",
-      "fk_housing_receivable_charge_plan_scope", "uq_biz_unit_scope_id"
+      "fk_housing_receivable_charge_plan_scope", "uq_biz_unit_scope_id",
+      "uq_homestay_booking_scope_unit", "uq_housing_charge_plan_owner"
     ]);
     await createUnit(parkA, ids.buildingA!, ids.floorA!, ids.unitA!);
     await createUnit(parkB, ids.buildingB!, ids.floorB!, ids.unitB!);
@@ -155,7 +157,7 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
     await query(
       `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
           source_id,start_at,end_at,status)
-       VALUES($1,$2,$3,$4,'homestay','homestay_turnover',$5,'2026-09-02','2026-09-03','active')`,
+       VALUES($1,$2,$3,$4,'operations','homestay_turnover',$5,'2026-09-02','2026-09-03','active')`,
       [ids.turnoverOccupancy, tenantId, parkA, ids.unitA, ids.turnoverA]
     );
     await query(
@@ -170,6 +172,18 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.unitB, ids.turnoverOccupancy]
     ), /reverse owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT mutate_turnover_occupancy");
+    await query("SAVEPOINT mutate_turnover_booking_unit");
+    await assert.rejects(query(
+      "UPDATE biz_homestay_booking SET unit_id=$1 WHERE id=$2",
+      [ids.unitB, ids.bookingA]
+    ), /foreign key constraint|occupancy unit owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT mutate_turnover_booking_unit");
+    await query("SAVEPOINT clear_turnover_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_homestay_turnover_task SET occupancy_id=NULL WHERE id=$1",
+      [ids.turnoverA]
+    ), /owner link cannot be cleared/u);
+    await query("ROLLBACK TO SAVEPOINT clear_turnover_occupancy");
 
     for (const [leaseId, code] of [[ids.leaseA, "A"], [ids.leaseB, "B"]]) {
       await query(
