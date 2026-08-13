@@ -11,10 +11,10 @@ import {
 } from "./track-b-final-reconcile.mjs";
 
 test("freezes the complete forward Track B migration set and ordered B4 checkpoints", () => {
-  assert.equal(REQUIRED_MIGRATIONS.length, 13);
+  assert.equal(REQUIRED_MIGRATIONS.length, 14);
   assert.deepEqual(REQUIRED_MIGRATIONS.map((name) => name.slice(0, 6)), [
-    "000185","000186","000187","000188","000189","000190","000191",
-    "000192","000193","000194","000195","000197","000198"
+    "000185","000186","000187","000188","000189","000200","000191",
+    "000192","000193","000194","000195","000197","000198","000209"
   ]);
   assert.deepEqual(CHECKPOINTS.map(([kind]) => kind), [
     "backfill","change_capture","mutation_replay","shadow_compare","reconcile","constraint_validate"

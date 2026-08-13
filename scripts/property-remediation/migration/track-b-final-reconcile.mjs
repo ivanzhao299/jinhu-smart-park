@@ -22,7 +22,8 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "000194_property_task_projection_contract_correction.sql",
   "000195_property_mutation_receipt_contract_v2.sql",
   "000197_property_approval_active_source_index_forward_fix.sql",
-  "000198_property_finance_owner_integrity_forward_fix.sql"
+  "000198_property_finance_owner_integrity_forward_fix.sql",
+  "000209_property_mvp_owner_scope_integrity.sql"
 ]);
 
 export const CHECKPOINTS = Object.freeze([

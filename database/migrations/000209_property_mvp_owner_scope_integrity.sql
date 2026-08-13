@@ -1,0 +1,168 @@
+BEGIN;
+
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '120s';
+
+DO $$
+DECLARE
+  mismatch record;
+BEGIN
+  SELECT relation_name, child_id, parent_id INTO mismatch
+  FROM (
+    SELECT 'biz_homestay_rate_config.unit_id' relation_name, child.id child_id, parent.id parent_id
+      FROM biz_homestay_rate_config child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_rate_override.unit_id',child.id,parent.id
+      FROM biz_homestay_rate_override child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_booking.unit_id',child.id,parent.id
+      FROM biz_homestay_booking child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_booking.booker_party_id',child.id,parent.id
+      FROM biz_homestay_booking child JOIN biz_party parent ON parent.id=child.booker_party_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_booking.occupancy_id',child.id,parent.id
+      FROM biz_homestay_booking child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_booking_night.booking_id',child.id,parent.id
+      FROM biz_homestay_booking_night child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'rel_homestay_booking_guest.booking_id',child.id,parent.id
+      FROM rel_homestay_booking_guest child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'rel_homestay_booking_guest.party_id',child.id,parent.id
+      FROM rel_homestay_booking_guest child JOIN biz_party parent ON parent.id=child.party_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_stay_credential.booking_id',child.id,parent.id
+      FROM biz_homestay_stay_credential child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_turnover_task.booking_id',child.id,parent.id
+      FROM biz_homestay_turnover_task child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_turnover_task.unit_id',child.id,parent.id
+      FROM biz_homestay_turnover_task child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_turnover_task.occupancy_id',child.id,parent.id
+      FROM biz_homestay_turnover_task child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_homestay_booking_action_log.booking_id',child.id,parent.id
+      FROM biz_homestay_booking_action_log child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_housing_lease.unit_id',child.id,parent.id
+      FROM biz_housing_lease child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_housing_lease.tenant_party_id',child.id,parent.id
+      FROM biz_housing_lease child JOIN biz_party parent ON parent.id=child.tenant_party_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_housing_lease.occupancy_id',child.id,parent.id
+      FROM biz_housing_lease child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'rel_housing_lease_occupant.lease_id',child.id,parent.id
+      FROM rel_housing_lease_occupant child JOIN biz_housing_lease parent ON parent.id=child.lease_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'rel_housing_lease_occupant.party_id',child.id,parent.id
+      FROM rel_housing_lease_occupant child JOIN biz_party parent ON parent.id=child.party_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_housing_purchase.unit_id',child.id,parent.id
+      FROM biz_housing_purchase child JOIN biz_unit parent ON parent.id=child.unit_id
+     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+  ) drift LIMIT 1;
+  IF FOUND THEN
+    RAISE EXCEPTION '000209 owner scope mismatch: relation=%, child_id=%, parent_id=%',
+      mismatch.relation_name, mismatch.child_id, mismatch.parent_id;
+  END IF;
+END $$;
+
+ALTER TABLE biz_unit
+  ADD CONSTRAINT uq_biz_unit_scope_id UNIQUE (tenant_id, park_id, id);
+
+ALTER TABLE biz_homestay_rate_config DROP CONSTRAINT biz_homestay_rate_config_unit_id_fkey;
+ALTER TABLE biz_homestay_rate_override DROP CONSTRAINT biz_homestay_rate_override_unit_id_fkey;
+ALTER TABLE biz_homestay_booking
+  DROP CONSTRAINT biz_homestay_booking_unit_id_fkey,
+  DROP CONSTRAINT biz_homestay_booking_booker_party_id_fkey,
+  DROP CONSTRAINT biz_homestay_booking_occupancy_id_fkey;
+ALTER TABLE biz_homestay_booking_night DROP CONSTRAINT biz_homestay_booking_night_booking_id_fkey;
+ALTER TABLE rel_homestay_booking_guest
+  DROP CONSTRAINT rel_homestay_booking_guest_booking_id_fkey,
+  DROP CONSTRAINT rel_homestay_booking_guest_party_id_fkey;
+ALTER TABLE biz_homestay_stay_credential DROP CONSTRAINT biz_homestay_stay_credential_booking_id_fkey;
+ALTER TABLE biz_homestay_ledger_entry DROP CONSTRAINT biz_homestay_ledger_entry_booking_id_fkey;
+ALTER TABLE biz_homestay_turnover_task
+  DROP CONSTRAINT biz_homestay_turnover_task_booking_id_fkey,
+  DROP CONSTRAINT biz_homestay_turnover_task_unit_id_fkey,
+  DROP CONSTRAINT biz_homestay_turnover_task_occupancy_id_fkey;
+ALTER TABLE biz_homestay_booking_action_log DROP CONSTRAINT biz_homestay_booking_action_log_booking_id_fkey;
+
+ALTER TABLE biz_homestay_rate_config ADD CONSTRAINT fk_homestay_rate_config_unit_scope
+  FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_rate_override ADD CONSTRAINT fk_homestay_rate_override_unit_scope
+  FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_booking
+  ADD CONSTRAINT fk_homestay_booking_unit_scope FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_booking_party_scope FOREIGN KEY (tenant_id,park_id,booker_party_id) REFERENCES biz_party(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_booking_occupancy_scope FOREIGN KEY (tenant_id,park_id,occupancy_id) REFERENCES biz_property_occupancy(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_booking_night ADD CONSTRAINT fk_homestay_booking_night_booking_scope
+  FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE rel_homestay_booking_guest
+  ADD CONSTRAINT fk_homestay_booking_guest_booking_scope FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_booking_guest_party_scope FOREIGN KEY (tenant_id,park_id,party_id) REFERENCES biz_party(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_stay_credential ADD CONSTRAINT fk_homestay_credential_booking_scope
+  FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_turnover_task
+  ADD CONSTRAINT fk_homestay_turnover_booking_scope FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_turnover_unit_scope FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_homestay_turnover_occupancy_scope FOREIGN KEY (tenant_id,park_id,occupancy_id) REFERENCES biz_property_occupancy(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_homestay_booking_action_log ADD CONSTRAINT fk_homestay_action_booking_scope
+  FOREIGN KEY (tenant_id,park_id,booking_id) REFERENCES biz_homestay_booking(tenant_id,park_id,id) NOT VALID;
+
+ALTER TABLE biz_housing_lease
+  DROP CONSTRAINT biz_housing_lease_unit_id_fkey,
+  DROP CONSTRAINT biz_housing_lease_tenant_party_id_fkey,
+  DROP CONSTRAINT biz_housing_lease_occupancy_id_fkey,
+  ADD CONSTRAINT fk_housing_lease_unit_scope FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_housing_lease_party_scope FOREIGN KEY (tenant_id,park_id,tenant_party_id) REFERENCES biz_party(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_housing_lease_occupancy_scope FOREIGN KEY (tenant_id,park_id,occupancy_id) REFERENCES biz_property_occupancy(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE rel_housing_lease_occupant
+  DROP CONSTRAINT rel_housing_lease_occupant_lease_id_fkey,
+  DROP CONSTRAINT rel_housing_lease_occupant_party_id_fkey,
+  ADD CONSTRAINT fk_housing_occupant_lease_scope FOREIGN KEY (tenant_id,park_id,lease_id) REFERENCES biz_housing_lease(tenant_id,park_id,id) NOT VALID,
+  ADD CONSTRAINT fk_housing_occupant_party_scope FOREIGN KEY (tenant_id,park_id,party_id) REFERENCES biz_party(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_housing_charge_plan DROP CONSTRAINT biz_housing_charge_plan_lease_id_fkey;
+-- 000192 already installed and validated the replacement lease/currency owner FK.
+ALTER TABLE biz_housing_receivable
+  DROP CONSTRAINT biz_housing_receivable_lease_id_fkey,
+  DROP CONSTRAINT biz_housing_receivable_charge_plan_id_fkey,
+  ADD CONSTRAINT fk_housing_receivable_charge_plan_scope FOREIGN KEY (tenant_id,park_id,charge_plan_id,currency)
+    REFERENCES biz_housing_charge_plan(tenant_id,park_id,id,currency) NOT VALID;
+ALTER TABLE biz_housing_ledger_entry
+  DROP CONSTRAINT biz_housing_ledger_entry_lease_id_fkey,
+  DROP CONSTRAINT biz_housing_ledger_entry_receivable_id_fkey;
+ALTER TABLE biz_housing_handover DROP CONSTRAINT biz_housing_handover_lease_id_fkey;
+-- 000192/000198 already installed the replacement lease/receivable/purchase owner FKs.
+ALTER TABLE biz_housing_purchase
+  DROP CONSTRAINT biz_housing_purchase_unit_id_fkey,
+  ADD CONSTRAINT fk_housing_purchase_unit_scope FOREIGN KEY (tenant_id,park_id,unit_id) REFERENCES biz_unit(tenant_id,park_id,id) NOT VALID;
+ALTER TABLE biz_housing_purchase_item
+  DROP CONSTRAINT biz_housing_purchase_item_purchase_id_fkey;
+
+DO $$
+DECLARE item record;
+BEGIN
+  FOR item IN SELECT conrelid::regclass AS table_name, conname
+    FROM pg_constraint
+   WHERE conname = ANY(ARRAY[
+     'fk_homestay_rate_config_unit_scope','fk_homestay_rate_override_unit_scope',
+     'fk_homestay_booking_unit_scope','fk_homestay_booking_party_scope','fk_homestay_booking_occupancy_scope',
+     'fk_homestay_booking_night_booking_scope','fk_homestay_booking_guest_booking_scope',
+     'fk_homestay_booking_guest_party_scope','fk_homestay_credential_booking_scope',
+     'fk_homestay_turnover_booking_scope','fk_homestay_turnover_unit_scope',
+     'fk_homestay_turnover_occupancy_scope','fk_homestay_action_booking_scope',
+     'fk_housing_lease_unit_scope','fk_housing_lease_party_scope','fk_housing_lease_occupancy_scope',
+     'fk_housing_occupant_lease_scope','fk_housing_occupant_party_scope',
+     'fk_housing_receivable_charge_plan_scope','fk_housing_purchase_unit_scope'
+   ])
+  LOOP EXECUTE format('ALTER TABLE %s VALIDATE CONSTRAINT %I',item.table_name,item.conname); END LOOP;
+END $$;
+
+COMMIT;
