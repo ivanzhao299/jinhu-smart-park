@@ -23,7 +23,8 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_booking.occupancy_id',child.id,parent.id
       FROM biz_homestay_booking child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'homestay','homestay_booking',child.id::text)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
     UNION ALL SELECT 'biz_homestay_booking_night.booking_id',child.id,parent.id
       FROM biz_homestay_booking_night child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -38,13 +39,15 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_turnover_task.booking_id',child.id,parent.id
       FROM biz_homestay_turnover_task child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
-     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id)
     UNION ALL SELECT 'biz_homestay_turnover_task.unit_id',child.id,parent.id
       FROM biz_homestay_turnover_task child JOIN biz_unit parent ON parent.id=child.unit_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_turnover_task.occupancy_id',child.id,parent.id
       FROM biz_homestay_turnover_task child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'homestay','homestay_turnover',child.id::text)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
     UNION ALL SELECT 'biz_homestay_booking_action_log.booking_id',child.id,parent.id
       FROM biz_homestay_booking_action_log child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -56,7 +59,8 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_housing_lease.occupancy_id',child.id,parent.id
       FROM biz_housing_lease child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'housing_rental','housing_lease',child.id::text)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
     UNION ALL SELECT 'rel_housing_lease_occupant.lease_id',child.id,parent.id
       FROM rel_housing_lease_occupant child JOIN biz_housing_lease parent ON parent.id=child.lease_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -66,6 +70,10 @@ BEGIN
     UNION ALL SELECT 'biz_housing_purchase.unit_id',child.id,parent.id
       FROM biz_housing_purchase child JOIN biz_unit parent ON parent.id=child.unit_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
+    UNION ALL SELECT 'biz_housing_receivable.charge_plan_id',child.id,parent.id
+      FROM biz_housing_receivable child JOIN biz_housing_charge_plan parent ON parent.id=child.charge_plan_id
+     WHERE (child.tenant_id,child.park_id,child.lease_id,child.currency)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.lease_id,parent.currency)
   ) drift LIMIT 1;
   IF FOUND THEN
     RAISE EXCEPTION '000209 owner scope mismatch: relation=%, child_id=%, parent_id=%',
@@ -130,11 +138,13 @@ ALTER TABLE rel_housing_lease_occupant
   ADD CONSTRAINT fk_housing_occupant_party_scope FOREIGN KEY (tenant_id,park_id,party_id) REFERENCES biz_party(tenant_id,park_id,id) NOT VALID;
 ALTER TABLE biz_housing_charge_plan DROP CONSTRAINT biz_housing_charge_plan_lease_id_fkey;
 -- 000192 already installed and validated the replacement lease/currency owner FK.
+ALTER TABLE biz_housing_charge_plan
+  ADD CONSTRAINT uq_housing_charge_plan_owner UNIQUE (tenant_id,park_id,id,lease_id,currency);
 ALTER TABLE biz_housing_receivable
   DROP CONSTRAINT biz_housing_receivable_lease_id_fkey,
   DROP CONSTRAINT biz_housing_receivable_charge_plan_id_fkey,
-  ADD CONSTRAINT fk_housing_receivable_charge_plan_scope FOREIGN KEY (tenant_id,park_id,charge_plan_id,currency)
-    REFERENCES biz_housing_charge_plan(tenant_id,park_id,id,currency) NOT VALID;
+  ADD CONSTRAINT fk_housing_receivable_charge_plan_scope FOREIGN KEY (tenant_id,park_id,charge_plan_id,lease_id,currency)
+    REFERENCES biz_housing_charge_plan(tenant_id,park_id,id,lease_id,currency) NOT VALID;
 ALTER TABLE biz_housing_ledger_entry
   DROP CONSTRAINT biz_housing_ledger_entry_lease_id_fkey,
   DROP CONSTRAINT biz_housing_ledger_entry_receivable_id_fkey;
@@ -164,5 +174,50 @@ BEGIN
    ])
   LOOP EXECUTE format('ALTER TABLE %s VALIDATE CONSTRAINT %I',item.table_name,item.conname); END LOOP;
 END $$;
+
+CREATE OR REPLACE FUNCTION enforce_property_mvp_occupancy_owner()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE occupancy_row biz_property_occupancy%ROWTYPE;
+DECLARE booking_unit_id uuid;
+BEGIN
+  IF TG_TABLE_NAME = 'biz_homestay_turnover_task' THEN
+    SELECT unit_id INTO booking_unit_id FROM biz_homestay_booking
+     WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.booking_id;
+    IF booking_unit_id IS DISTINCT FROM NEW.unit_id THEN
+      RAISE EXCEPTION 'homestay turnover booking/unit owner mismatch' USING ERRCODE='23503';
+    END IF;
+  END IF;
+  IF NEW.occupancy_id IS NULL THEN RETURN NEW; END IF;
+  SELECT * INTO occupancy_row FROM biz_property_occupancy
+   WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.occupancy_id;
+  IF NOT FOUND THEN RETURN NEW; END IF;
+  IF occupancy_row.unit_id IS DISTINCT FROM NEW.unit_id THEN
+    RAISE EXCEPTION 'property occupancy unit owner mismatch' USING ERRCODE='23503';
+  END IF;
+  IF TG_TABLE_NAME = 'biz_homestay_booking'
+     AND (occupancy_row.source_domain,occupancy_row.source_type,occupancy_row.source_id)
+       IS DISTINCT FROM ('homestay','homestay_booking',NEW.id::text) THEN
+    RAISE EXCEPTION 'homestay booking occupancy owner mismatch' USING ERRCODE='23503';
+  ELSIF TG_TABLE_NAME = 'biz_homestay_turnover_task'
+     AND (occupancy_row.source_domain,occupancy_row.source_type,occupancy_row.source_id)
+       IS DISTINCT FROM ('homestay','homestay_turnover',NEW.id::text) THEN
+    RAISE EXCEPTION 'homestay turnover occupancy owner mismatch' USING ERRCODE='23503';
+  ELSIF TG_TABLE_NAME = 'biz_housing_lease'
+     AND (occupancy_row.source_domain,occupancy_row.source_type,occupancy_row.source_id)
+       IS DISTINCT FROM ('housing_rental','housing_lease',NEW.id::text) THEN
+    RAISE EXCEPTION 'housing lease occupancy owner mismatch' USING ERRCODE='23503';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_homestay_booking_occupancy_owner
+BEFORE INSERT OR UPDATE OF tenant_id,park_id,unit_id,occupancy_id ON biz_homestay_booking
+FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
+CREATE TRIGGER trg_homestay_turnover_occupancy_owner
+BEFORE INSERT OR UPDATE OF tenant_id,park_id,booking_id,unit_id,occupancy_id ON biz_homestay_turnover_task
+FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
+CREATE TRIGGER trg_housing_lease_occupancy_owner
+BEFORE INSERT OR UPDATE OF tenant_id,park_id,unit_id,occupancy_id ON biz_housing_lease
+FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
 
 COMMIT;

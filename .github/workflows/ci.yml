@@ -219,6 +219,11 @@ jobs:
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
 
+      - name: Verify property MVP owner scope constraints
+        env:
+          DATABASE_URL: postgresql://jinhu:JinhuReleaseSmokeDb%232026@127.0.0.1:5432/jinhu_release_smoke
+        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/homestay/property-mvp-owner-scope.pg.spec.ts
+
       - name: Verify migration history filename alias replay
         run: |
           docker compose -f "$COMPOSE_FILE" exec -T postgres \

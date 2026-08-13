@@ -26,6 +26,14 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "000209_property_mvp_owner_scope_integrity.sql"
 ]);
 
+export const REQUIRED_OWNER_CONSTRAINTS = Object.freeze([
+  "uq_biz_unit_scope_id",
+  "fk_homestay_booking_occupancy_scope",
+  "fk_homestay_turnover_occupancy_scope",
+  "fk_housing_lease_occupancy_scope",
+  "fk_housing_receivable_charge_plan_scope"
+]);
+
 export const CHECKPOINTS = Object.freeze([
   ["backfill", "inventory"],
   ["change_capture", "change_capture"],
@@ -186,6 +194,15 @@ async function rollbackProbe(client, scope) {
 }
 
 async function validateTrackBConstraints(client, dryRun) {
+  const installed = await client.query(
+    `SELECT conname FROM pg_constraint WHERE conname=ANY($1::text[])`,
+    [REQUIRED_OWNER_CONSTRAINTS]
+  );
+  const installedNames = new Set(installed.rows.map((row) => row.conname));
+  const missingOwnerConstraints = REQUIRED_OWNER_CONSTRAINTS.filter((name) => !installedNames.has(name));
+  if (missingOwnerConstraints.length > 0) {
+    throw new Error(`missing MVP owner constraints: ${missingOwnerConstraints.join(",")}`);
+  }
   const pending = await client.query(`
     SELECT relation.relname AS table_name,constraint_row.conname AS constraint_name
     FROM pg_constraint constraint_row

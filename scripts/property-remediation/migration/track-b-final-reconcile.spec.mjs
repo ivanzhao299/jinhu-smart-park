@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   CHECKPOINTS,
+  REQUIRED_OWNER_CONSTRAINTS,
   REQUIRED_MIGRATIONS,
   migrationSetHash,
   parseArgs,
@@ -20,6 +21,11 @@ test("freezes the complete forward Track B migration set and ordered B4 checkpoi
     "backfill","change_capture","mutation_replay","shadow_compare","reconcile","constraint_validate"
   ]);
   assert.match(migrationSetHash(), /^[0-9a-f]{64}$/u);
+  assert.deepEqual(REQUIRED_OWNER_CONSTRAINTS, [
+    "uq_biz_unit_scope_id", "fk_homestay_booking_occupancy_scope",
+    "fk_homestay_turnover_occupancy_scope", "fk_housing_lease_occupancy_scope",
+    "fk_housing_receivable_charge_plan_scope"
+  ]);
 });
 
 test("fails closed without database authority and rejects output outside the repository", async () => {

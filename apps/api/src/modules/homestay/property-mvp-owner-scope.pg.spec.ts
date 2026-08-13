@@ -19,7 +19,9 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
   const parkB = `pg-209-b-${suffix}`;
   const ids = Object.fromEntries([
     "buildingA", "floorA", "unitA", "buildingB", "floorB", "unitB", "partyA",
-    "bookingA", "nightA", "rateA", "purchaseA"
+    "bookingA", "nightA", "rateA", "purchaseA", "occupancyWrongUnit",
+    "occupancyWrongSource", "housingOccupancyWrongSource", "turnoverA",
+    "leaseA", "leaseB", "chargePlanB", "receivableA"
   ].map((key) => [key, randomUUID()])) as Record<string, string>;
 
   const createUnit = async (parkId: string, buildingId: string, floorId: string, unitId: string) => {
@@ -97,6 +99,70 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.purchaseA, tenantId, parkA, `PUR-${suffix}`, ids.unitB]
     ), /foreign key constraint/u);
     await query("ROLLBACK TO SAVEPOINT cross_scope_purchase");
+
+    for (const [occupancyId, unitId, sourceId] of [
+      [ids.occupancyWrongUnit, ids.unitB, ids.bookingA],
+      [ids.occupancyWrongSource, ids.unitA, randomUUID()]
+    ]) {
+      await query(
+        `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+            source_id,start_at,end_at,status)
+         VALUES($1,$2,$3,$4,'homestay','homestay_booking',$5,'2026-09-01','2026-09-02','active')`,
+        [occupancyId, tenantId, parkA, unitId, sourceId]
+      );
+      await query("SAVEPOINT wrong_booking_occupancy");
+      await assert.rejects(query(
+        "UPDATE biz_homestay_booking SET occupancy_id=$1 WHERE id=$2",
+        [occupancyId, ids.bookingA]
+      ), /occupancy owner mismatch|occupancy unit owner mismatch/u);
+      await query("ROLLBACK TO SAVEPOINT wrong_booking_occupancy");
+    }
+    await query("SAVEPOINT wrong_turnover_occupancy");
+    await assert.rejects(query(
+      `INSERT INTO biz_homestay_turnover_task(id,tenant_id,park_id,booking_id,unit_id,
+          occupancy_id,status)
+       VALUES($1,$2,$3,$4,$5,$6,'pending')`,
+      [ids.turnoverA, tenantId, parkA, ids.bookingA, ids.unitA, ids.occupancyWrongSource]
+    ), /turnover occupancy owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT wrong_turnover_occupancy");
+
+    for (const [leaseId, code] of [[ids.leaseA, "A"], [ids.leaseB, "B"]]) {
+      await query(
+        `INSERT INTO biz_housing_lease(id,tenant_id,park_id,lease_code,unit_id,tenant_party_id,
+            status,start_date,end_date,monthly_rent,deposit_amount,first_due_date,currency)
+         VALUES($1,$2,$3,$4,$5,$6,'draft','2026-09-01','2027-09-01',1000,1000,
+            '2026-09-01','CNY')`,
+        [leaseId, tenantId, parkA, `LEASE-${code}-${suffix}`, ids.unitA, ids.partyA]
+      );
+    }
+    await query(
+      `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+          source_id,start_at,end_at,status)
+       VALUES($1,$2,$3,$4,'housing_rental','housing_lease',$5,
+          '2027-09-01','2028-09-01','active')`,
+      [ids.housingOccupancyWrongSource, tenantId, parkA, ids.unitA, ids.leaseB]
+    );
+    await query("SAVEPOINT wrong_lease_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_housing_lease SET occupancy_id=$1 WHERE id=$2",
+      [ids.housingOccupancyWrongSource, ids.leaseA]
+    ), /housing lease occupancy owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT wrong_lease_occupancy");
+    await query(
+      `INSERT INTO biz_housing_charge_plan(id,tenant_id,park_id,lease_id,charge_type,
+          billing_source,cycle_months,amount,currency)
+       VALUES($1,$2,$3,$4,'rent','fixed',1,1000,'CNY')`,
+      [ids.chargePlanB, tenantId, parkA, ids.leaseB]
+    );
+    await query("SAVEPOINT wrong_charge_plan_lease");
+    await assert.rejects(query(
+      `INSERT INTO biz_housing_receivable(id,tenant_id,park_id,lease_id,charge_plan_id,
+          source_type,source_id,charge_type,period_start,period_end,due_date,amount,currency)
+       VALUES($1,$2,$3,$4,$5,'charge_plan',$5,'rent','2026-09-01','2026-10-01',
+          '2026-09-01',1000,'CNY')`,
+      [ids.receivableA, tenantId, parkA, ids.leaseA, ids.chargePlanB]
+    ), /foreign key constraint/u);
+    await query("ROLLBACK TO SAVEPOINT wrong_charge_plan_lease");
   } finally {
     if (runner.isTransactionActive) await runner.rollbackTransaction().catch(() => undefined);
     await runner.release();
