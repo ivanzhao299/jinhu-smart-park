@@ -157,11 +157,12 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   if (current.park_id === parkId) return current;
   const target = current.accessible_parks?.find((park) => park.park_id === parkId);
   if (!target || target.status !== "enabled") throw new Error("所选园区不可访问或未启用");
+  const originalToken = getToken();
   const switchId = crypto.randomUUID();
   localStorage.setItem(PARK_SWITCH_KEY, switchId);
   const response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
     method: "POST",
-    token: getToken(),
+    token: originalToken,
     body: { parkId }
   });
   try {
@@ -175,7 +176,11 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     localStorage.removeItem(PARK_SWITCH_KEY);
     return nextUser;
   } catch (error) {
-    await logoutSession();
+    const latestToken = getToken();
+    const newerSessionPublished = Boolean(
+      latestToken && latestToken !== originalToken && latestToken !== response.data.accessToken
+    );
+    if (!newerSessionPublished) await logoutSession();
     throw error;
   }
 }

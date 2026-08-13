@@ -54,6 +54,7 @@ interface BuildingFormState {
 }
 
 const emptyPage: PaginatedResult<BuildingRow> = { items: [], page: 1, page_size: 20, total: 0 };
+const BUILDING_FLASH_KEY = "jinhu_building_flash_message";
 
 const emptyForm: BuildingFormState = {
   parkId: "",
@@ -97,6 +98,11 @@ export default function BuildingsPage() {
   }, [keyword, status]);
 
   useEffect(() => {
+    const flashMessage = sessionStorage.getItem(BUILDING_FLASH_KEY);
+    if (flashMessage) {
+      sessionStorage.removeItem(BUILDING_FLASH_KEY);
+      setMessage(flashMessage);
+    }
     void load().catch((error: Error) => setMessage(error.message));
   }, [load]);
 
@@ -160,7 +166,10 @@ export default function BuildingsPage() {
       }
     } catch (error) {
       if (switchedPark) {
-        setMessage(`已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`);
+        sessionStorage.setItem(
+          BUILDING_FLASH_KEY,
+          `已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`
+        );
         window.location.reload();
         return;
       }
