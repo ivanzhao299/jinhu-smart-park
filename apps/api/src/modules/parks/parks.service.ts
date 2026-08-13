@@ -169,6 +169,14 @@ export class ParksService {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     return saved;
+    }).catch((error: unknown) => {
+      const databaseError = error as { code?: unknown; driverError?: { code?: unknown; message?: unknown }; message?: unknown };
+      const code = databaseError.code ?? databaseError.driverError?.code;
+      const message = databaseError.driverError?.message ?? databaseError.message;
+      if (code === "23503" && typeof message === "string" && message.includes("active park scope with buildings")) {
+        throw new ConflictException("Park has active buildings and cannot be disabled");
+      }
+      throw error;
     });
   }
 

@@ -117,6 +117,7 @@ test("setSession stores access token and user but removes legacy refresh token s
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_refresh_token", "old-session-refresh");
   local.setItem("jinhu_refresh_token", "old-local-refresh");
+  local.setItem("jinhu_park_context_switch", "stale-switch");
 
   await setSession("access-token", user, "new-refresh-token");
 
@@ -126,6 +127,7 @@ test("setSession stores access token and user but removes legacy refresh token s
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "admin");
   assert.equal(session.getItem("jinhu_refresh_token"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+  assert.equal(local.getItem("jinhu_park_context_switch"), null);
   assert.equal(getRefreshToken(), "");
 });
 
@@ -500,7 +502,8 @@ test("switchParkContext preserves a newer cross-tab login after publishing its p
 
   await assert.rejects(switching, /新的会话操作取消/u);
   assert.equal(calls.some((call) => call.input.endsWith("/auth/logout-cookie")), false);
-  assert.equal(session.getItem("jinhu_access_token"), "rotated-token");
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
   assert.equal(local.getItem("jinhu_access_token"), "cross-tab-login-token");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "cross-tab-login");
 });

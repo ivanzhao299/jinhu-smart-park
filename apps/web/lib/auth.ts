@@ -54,12 +54,14 @@ export async function setSession(token: string, user: UserContext, _refreshToken
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
   localStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  localStorage.removeItem(PARK_SWITCH_KEY);
   removeRefreshTokenStorage();
 }
 
-export function setToken(token: string): void {
+export function setToken(token: string, options: { preserveParkSwitch?: boolean } = {}): void {
   sessionStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(TOKEN_KEY, token);
+  if (!options.preserveParkSwitch) localStorage.removeItem(PARK_SWITCH_KEY);
 }
 
 export function setRefreshToken(token: string): void {
@@ -168,7 +170,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   try {
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
-    setToken(response.data.accessToken);
+    setToken(response.data.accessToken, { preserveParkSwitch: true });
     const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false });
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
@@ -183,8 +185,15 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
       || (sharedToken && sharedToken !== originalToken && sharedToken !== response.data.accessToken)
     );
     if (!newerSessionPublished) await logoutSession();
+    else if (latestToken === response.data.accessToken && sharedToken !== latestToken) clearSessionStorageOnly();
     throw error;
   }
+}
+
+function clearSessionStorageOnly(): void {
+  sessionStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+  sessionStorage.removeItem(USER_KEY);
 }
 
 async function withCrossTabParkSwitchLock<T>(operation: () => Promise<T>): Promise<T> {
