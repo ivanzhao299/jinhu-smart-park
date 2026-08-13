@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|units|work-orders)/|shared/interceptors/idempotency\.interceptor\.ts$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|units|work-orders)/|shared/(interceptors/idempotency\.interceptor\.ts|services/idempotency\.service\.ts)$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -1042,6 +1042,9 @@ jobs:
       - name: Bootstrap admin
         run: pnpm db:bootstrap:admin 2>&1 | tee /tmp/release-smoke-logs/bootstrap-admin.log
 
+      - name: Check init baseline
+        run: pnpm db:check:init 2>&1 | tee /tmp/release-smoke-logs/check-init-baseline.log
+
       - name: Provision disposable property operation fixtures
         env:
           APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
@@ -1073,9 +1076,6 @@ jobs:
               -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
               < scripts/e2e/property-api-e2e-fixtures.sql \
               2>&1 | tee /tmp/release-smoke-logs/property-api-e2e-fixtures.log
-
-      - name: Check init baseline
-        run: pnpm db:check:init 2>&1 | tee /tmp/release-smoke-logs/check-init-baseline.log
 
       - name: Start API
         run: docker compose -f "$COMPOSE_FILE" up -d api

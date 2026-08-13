@@ -58,11 +58,17 @@ for (const dependency of ["auth", "files", "property-approvals", "property-ident
   assert.match(ci, new RegExp(`modules/\\([^)]*${dependency}`), `release-smoke scope must include ${dependency}`);
 }
 assert.match(ci, /field-policies/, "release-smoke scope must include field policy changes because property responses enforce sensitive-field projection");
-assert.match(ci, /shared\/interceptors\/idempotency\\\.interceptor\\\.ts/, "release-smoke scope must include the idempotency interceptor exercised by high-risk routes");
+assert.ok(ci.includes("interceptors/idempotency\\.interceptor\\.ts"), "release-smoke scope must include the idempotency interceptor exercised by high-risk routes");
+assert.ok(ci.includes("services/idempotency\\.service\\.ts"), "release-smoke scope must include the idempotency service exercised by high-risk route replay and conflict semantics");
 assert.match(ci, /packages\/shared\/src\/\(index\\\.ts\$/, "release-smoke scope must include package shared runtime exports");
 assert.match(ci, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "release smoke must pass the disposable PostgreSQL container identity to the property API E2E gate");
 assert.match(ci, /COMPOSE_PROJECT_NAME: property-api-e2e-\$\{\{ github\.run_id \}\}/, "release smoke must isolate Docker resources under a per-run compose project");
 assert.match(ci, /PROPERTY_API_E2E_DOCKER_PROJECT: \$\{\{ env\.COMPOSE_PROJECT_NAME \}\}/, "release smoke must pass the disposable Docker project identity to the E2E gate");
+assert.match(safety, /requireComposeProjectLabel\(inspection, expectedProject, "API"\)/, "gate must require the API container to belong to this run's disposable Compose project");
+assert.match(safety, /requireComposeProjectLabel\(postgresInspection, expectedProject, "PostgreSQL"\)/, "gate must require the PostgreSQL container to belong to this run's disposable Compose project");
+assert.match(safety, /postgresInspection\.Mounts/, "gate must inspect PostgreSQL mounts instead of trusting only network and environment identity");
+assert.match(safety, /postgresDataMount\.Type !== "volume"/, "gate must reject bind-mounted or shared-host PostgreSQL data directories");
+assert.match(safety, /_postgres-data/, "gate must require this run's disposable PostgreSQL data volume");
 assert.match(ci, /FILE_STORAGE_LOCAL_ROOT: \/var\/lib\/jinhu\/files/, "release smoke must store API files in the disposable container volume path");
 assert.match(ci, /"\$\{COMPOSE_PROJECT_NAME\}_api-files-data"/, "release smoke teardown must assert the disposable API files volume was removed");
 assert.match(ci, /APPROVER_2_USERNAME/, "release smoke must pass the second disposable approver to housing E2E");
@@ -77,6 +83,14 @@ assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /controller\.abo
 assert.match(read("docs/release/property-api-e2e-gate.md"), /PROPERTY_API_E2E_DOCKER_PROJECT/, "release docs must document the Docker project safety variable");
 assert.match(read("docs/release/property-api-e2e-gate.md"), /api-files-data/, "release docs must document disposable API file storage cleanup");
 assert.match(read("docs/release/property-api-e2e-gate.md"), /PROPERTY_API_E2E_APPROVAL_WAIT_MS/, "release docs must document the approval polling deadline override");
+const bootstrapIndex = ci.indexOf("- name: Bootstrap admin");
+const baselineIndex = ci.indexOf("- name: Check init baseline");
+const fixturesIndex = ci.indexOf("- name: Provision disposable property operation fixtures");
+const startApiIndex = ci.indexOf("- name: Start API");
+assert.ok(bootstrapIndex >= 0, "release smoke must bootstrap admin before post-bootstrap baseline verification");
+assert.ok(baselineIndex > bootstrapIndex, "release smoke must run post-bootstrap baseline after bootstrap admin");
+assert.ok(fixturesIndex > baselineIndex, "release smoke must provision disposable E2E fixtures only after post-bootstrap baseline verification");
+assert.ok(startApiIndex > fixturesIndex, "release smoke must start API after disposable E2E fixtures are provisioned");
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {

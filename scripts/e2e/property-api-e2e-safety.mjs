@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 const disposableDatabasePattern = /^jinhu_(?:property_api_e2e_[a-z0-9_]+|release_smoke)$/;
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
 const defaultFileStorageRoot = "/var/lib/jinhu/files";
+const defaultPostgresDataRoot = "/var/lib/postgresql/data";
 
 function fail(message) {
   throw new Error(`Property API E2E gate refused to run: ${message}`);
@@ -102,6 +103,21 @@ export function requirePropertyApiE2eDockerBinding(url) {
   if (!expectedProject) {
     fail("PROPERTY_API_E2E_DOCKER_PROJECT or COMPOSE_PROJECT_NAME must identify the disposable Docker project.");
   }
+  requireComposeProjectLabel(inspection, expectedProject, "API");
+  requireComposeProjectLabel(postgresInspection, expectedProject, "PostgreSQL");
+  const postgresDataMount = (postgresInspection.Mounts ?? []).find((mount) =>
+    normalizeContainerPath(mount.Destination) === defaultPostgresDataRoot
+  );
+  if (!postgresDataMount) {
+    fail("the inspected PostgreSQL data directory is not backed by an inspected Docker mount.");
+  }
+  if (postgresDataMount.Type !== "volume") {
+    fail("the inspected PostgreSQL data directory must be backed by a disposable Docker volume, not a bind mount or shared host path.");
+  }
+  const expectedPostgresVolumeName = `${expectedProject}_postgres-data`;
+  if (postgresDataMount.Name !== expectedPostgresVolumeName) {
+    fail("the inspected PostgreSQL data directory is not backed by this run's disposable PostgreSQL volume.");
+  }
   const fileStorageRoot = normalizeContainerPath(containerEnvironment.get("FILE_STORAGE_LOCAL_ROOT") ?? defaultFileStorageRoot);
   const fileStorageMount = (inspection.Mounts ?? []).find((mount) =>
     normalizeContainerPath(mount.Destination) === fileStorageRoot
@@ -123,6 +139,13 @@ export function requirePropertyApiE2eDockerBinding(url) {
     return binding.HostPort === requestedPort && (loopbackHosts.has(host) || host === "0.0.0.0");
   });
   if (!matchingBinding) fail("API_BASE_URL is not published by the inspected disposable API container.");
+}
+
+function requireComposeProjectLabel(inspection, expectedProject, role) {
+  const projectLabel = inspection?.Config?.Labels?.["com.docker.compose.project"] ?? "";
+  if (projectLabel !== expectedProject) {
+    fail(`the inspected ${role} container does not belong to this run's disposable Docker project.`);
+  }
 }
 
 function normalizeContainerPath(path) {
