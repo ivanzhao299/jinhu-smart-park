@@ -1044,14 +1044,15 @@ jobs:
       - name: Provision disposable property operation fixtures
         env:
           APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
+          APPROVER_2_PASSWORD: JinhuReleaseSmokeTransferApprover#2026
         run: |
-          approver_hash="$(
+          hash_password() {
             cd apps/api
-            node -e '
+            PASSWORD_TO_HASH="$1" node -e '
               const bcrypt = require("bcrypt");
-              const password = process.env.APPROVER_PASSWORD;
+              const password = process.env.PASSWORD_TO_HASH;
               const rounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
-              if (!password) throw new Error("missing APPROVER_PASSWORD");
+              if (!password) throw new Error("missing password");
               bcrypt.hash(password, rounds)
                 .then((hash) => process.stdout.write(hash))
                 .catch((error) => {
@@ -1059,11 +1060,15 @@ jobs:
                   process.exit(1);
                 });
             '
-          )"
+          }
+          approver_hash="$(hash_password "$APPROVER_PASSWORD")"
+          transfer_approver_hash="$(hash_password "$APPROVER_2_PASSWORD")"
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
             psql -X -v ON_ERROR_STOP=1 -v tenant_id="$TENANT_ID" -v park_id="$PARK_ID" \
               -v approver_username="property_approver_ci" \
               -v approver_password_hash="$approver_hash" \
+              -v approver_2_username="property_transfer_approver_ci" \
+              -v approver_2_password_hash="$transfer_approver_hash" \
               -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
               < scripts/e2e/property-api-e2e-fixtures.sql \
               2>&1 | tee /tmp/release-smoke-logs/property-api-e2e-fixtures.log
@@ -1097,6 +1102,8 @@ jobs:
           API_BASE_URL: ${{ env.API_BASE }}
           APPROVER_USERNAME: property_approver_ci
           APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
+          APPROVER_2_USERNAME: property_transfer_approver_ci
+          APPROVER_2_PASSWORD: JinhuReleaseSmokeTransferApprover#2026
           PROPERTY_API_E2E_REPORT_PATH: /tmp/release-smoke-logs/property-api-e2e-report.json
         run: |
           set -o pipefail

@@ -11,6 +11,8 @@ const username = process.env.ADMIN_USERNAME ?? "admin";
 const password = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
 const approverUsername = process.env.APPROVER_USERNAME;
 const approverPassword = process.env.APPROVER_PASSWORD;
+const transferApproverUsername = process.env.APPROVER_2_USERNAME;
+const transferApproverPassword = process.env.APPROVER_2_PASSWORD;
 const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
 
@@ -140,6 +142,14 @@ async function run() {
   });
   const approverToken = approverLogin.accessToken;
   assert(typeof approverToken === "string" && approverToken.length > 0, "authenticated a separate approval actor");
+  assert(transferApproverUsername && transferApproverPassword, "separated transfer approval credentials are configured");
+  assert(transferApproverUsername !== approverUsername, "purchase transfer approver is distinct from the purchase lifecycle approver");
+  const transferApproverLogin = await request("/auth/login", {
+    method: "POST",
+    body: { tenantId, parkId, username: transferApproverUsername, password: transferApproverPassword }
+  });
+  const transferApproverToken = transferApproverLogin.accessToken;
+  assert(typeof transferApproverToken === "string" && transferApproverToken.length > 0, "authenticated a separate purchase transfer approval actor");
 
   const start = new Date();
   start.setUTCDate(start.getUTCDate() + 2);
@@ -490,7 +500,7 @@ async function run() {
       reason: "租客责任维修耗材受控转收费"
     }
   });
-  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: firstTransferRequest, label: "first purchase transfer" });
+  await approveAndWait({ request, token: transferApproverToken, createKey: key, assert, submission: firstTransferRequest, label: "first purchase transfer" });
   let transferLeaseDetail = await request(`/housing/leases/${lease.id}`, { token });
   const firstTransferReceivable = transferLeaseDetail.receivables.find((item) => item.chargeType === "purchase_recharge");
   assert(Boolean(firstTransferReceivable), "first purchase transfer creates the tenant receivable");
@@ -505,7 +515,7 @@ async function run() {
       reason: "后续采购明细追加转收费"
     }
   });
-  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: secondTransferRequest, label: "second purchase transfer" });
+  await approveAndWait({ request, token: transferApproverToken, createKey: key, assert, submission: secondTransferRequest, label: "second purchase transfer" });
   transferLeaseDetail = await request(`/housing/leases/${lease.id}`, { token });
   const secondTransferReceivable = transferLeaseDetail.receivables.find((item) => item.chargeType === "purchase_recharge");
   assert(firstTransferReceivable.id === secondTransferReceivable?.id, "partial transfers reuse one source receivable");

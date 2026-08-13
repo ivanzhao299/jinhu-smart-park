@@ -69,6 +69,20 @@ DO UPDATE SET
 
 WITH scope AS (
   SELECT :'tenant_id' AS tenant_id, :'park_id' AS park_id
+), approver_inputs AS (
+  SELECT :'approver_username' AS username,
+         :'approver_password_hash' AS password_hash,
+         'Property Approver CI' AS display_name,
+         '13800005678' AS mobile,
+         'property.approver.ci@example.com' AS email,
+         'Disposable Release Smoke property API approver' AS remark
+  UNION ALL
+  SELECT :'approver_2_username',
+         :'approver_2_password_hash',
+         'Property Transfer Approver CI',
+         '13800005679',
+         'property.transfer.approver.ci@example.com',
+         'Disposable Release Smoke property API transfer approver'
 ), root_org AS (
   SELECT org.id
   FROM scope
@@ -83,11 +97,12 @@ WITH scope AS (
     tenant_id, park_id, username, display_name, password_hash,
     mobile, email, is_enabled, status, create_by, update_by, remark
   )
-  SELECT tenant_id, park_id, :'approver_username', 'Property Approver CI',
-         :'approver_password_hash', '13800005678', 'property.approver.ci@example.com',
+  SELECT scope.tenant_id, scope.park_id, approver_inputs.username, approver_inputs.display_name,
+         approver_inputs.password_hash, approver_inputs.mobile, approver_inputs.email,
          true, 'enabled', NULL, NULL,
-         'Disposable Release Smoke property API approver'
+         approver_inputs.remark
   FROM scope
+  CROSS JOIN approver_inputs
   ON CONFLICT (tenant_id, park_id, username) WHERE is_deleted = false
   DO UPDATE SET
     display_name = EXCLUDED.display_name,
@@ -131,7 +146,7 @@ WITH scope AS (
   FROM sys_user
   WHERE tenant_id = :'tenant_id'
     AND park_id = :'park_id'
-    AND username = :'approver_username'
+    AND username IN (:'approver_username', :'approver_2_username')
     AND is_enabled = true
     AND status = 'enabled'
     AND is_deleted = false
@@ -156,7 +171,7 @@ WITH scope AS (
   FROM sys_user
   WHERE tenant_id = :'tenant_id'
     AND park_id = :'park_id'
-    AND username = :'approver_username'
+    AND username IN (:'approver_username', :'approver_2_username')
     AND is_enabled = true
     AND status = 'enabled'
     AND is_deleted = false
@@ -187,42 +202,47 @@ WHERE NOT EXISTS (
     AND existing.is_deleted = false
 );
 
-SELECT count(*) = 4 AS approver_permissions_ready
-FROM sys_user app_user
-JOIN rel_user_role user_role
-  ON user_role.user_id = app_user.id
- AND user_role.tenant_id = app_user.tenant_id
- AND user_role.park_id = app_user.park_id
- AND user_role.is_deleted = false
-JOIN sys_role role
-  ON role.id = user_role.role_id
- AND role.tenant_id = app_user.tenant_id
- AND role.park_id = app_user.park_id
- AND role.code = 'PROPERTY_API_E2E_APPROVER'
- AND role.is_super = false
- AND role.is_deleted = false
-JOIN rel_role_perm role_permission
-  ON role_permission.role_id = role.id
- AND role_permission.tenant_id = role.tenant_id
- AND role_permission.park_id = role.park_id
- AND role_permission.is_deleted = false
-JOIN sys_permission permission
-  ON permission.id = role_permission.permission_id
- AND permission.tenant_id = role.tenant_id
- AND permission.park_id = role.park_id
- AND permission.code IN (
-   'asset:identity-submissions:page',
-   'party:identity_verify',
-   'property_approval:read',
-   'property_approval:decide'
- )
- AND permission.is_deleted = false
-WHERE app_user.tenant_id = :'tenant_id'
-  AND app_user.park_id = :'park_id'
-  AND app_user.username = :'approver_username'
-  AND app_user.is_enabled = true
-  AND app_user.status = 'enabled'
-  AND app_user.is_deleted = false
+SELECT count(*) = 2 AS approver_permissions_ready
+FROM (
+  SELECT app_user.username
+  FROM sys_user app_user
+  JOIN rel_user_role user_role
+    ON user_role.user_id = app_user.id
+   AND user_role.tenant_id = app_user.tenant_id
+   AND user_role.park_id = app_user.park_id
+   AND user_role.is_deleted = false
+  JOIN sys_role role
+    ON role.id = user_role.role_id
+   AND role.tenant_id = app_user.tenant_id
+   AND role.park_id = app_user.park_id
+   AND role.code = 'PROPERTY_API_E2E_APPROVER'
+   AND role.is_super = false
+   AND role.is_deleted = false
+  JOIN rel_role_perm role_permission
+    ON role_permission.role_id = role.id
+   AND role_permission.tenant_id = role.tenant_id
+   AND role_permission.park_id = role.park_id
+   AND role_permission.is_deleted = false
+  JOIN sys_permission permission
+    ON permission.id = role_permission.permission_id
+   AND permission.tenant_id = role.tenant_id
+   AND permission.park_id = role.park_id
+   AND permission.code IN (
+     'asset:identity-submissions:page',
+     'party:identity_verify',
+     'property_approval:read',
+     'property_approval:decide'
+   )
+   AND permission.is_deleted = false
+  WHERE app_user.tenant_id = :'tenant_id'
+    AND app_user.park_id = :'park_id'
+    AND app_user.username IN (:'approver_username', :'approver_2_username')
+    AND app_user.is_enabled = true
+    AND app_user.status = 'enabled'
+    AND app_user.is_deleted = false
+  GROUP BY app_user.username
+  HAVING count(DISTINCT permission.code) = 4
+) ready_approver
 \gset
 \if :approver_permissions_ready
   \echo 'Disposable least-privilege property approver: PASS'

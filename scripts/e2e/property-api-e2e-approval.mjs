@@ -5,15 +5,16 @@ const approvalDetailTimeoutMs = 5000;
 async function requestApprovalDetail({ request, requestId, token, label, attempt, deadlineAt }) {
   const remainingMs = deadlineAt - Date.now();
   if (remainingMs <= 0) throw new Error(`${label} approval did not execute within 40 seconds`);
+  const controller = new AbortController();
   let timeout;
   try {
     return await Promise.race([
-      request(`/property/approvals/${requestId}`, { token }),
+      request(`/property/approvals/${requestId}`, { token, signal: controller.signal }),
       new Promise((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error(`${label} approval detail request timed out on attempt ${attempt}`)),
-          Math.min(approvalDetailTimeoutMs, remainingMs)
-        );
+        timeout = setTimeout(() => {
+          controller.abort();
+          reject(new Error(`${label} approval detail request timed out on attempt ${attempt}`));
+        }, Math.min(approvalDetailTimeoutMs, remainingMs));
       })
     ]);
   } finally {

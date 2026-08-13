@@ -25,6 +25,9 @@ export function requirePropertyApiE2eIsolation({ requireRunId = true } = {}) {
   } catch {
     fail("API_BASE_URL must be an absolute URL.");
   }
+  if (url.username || url.password) {
+    fail("API_BASE_URL must not include credentials.");
+  }
   const normalizedHostname = url.hostname.replace(/^\[|\]$/g, "");
   if (!loopbackHosts.has(normalizedHostname)) {
     fail("API_BASE_URL must target a loopback API, never a shared UAT or production service.");

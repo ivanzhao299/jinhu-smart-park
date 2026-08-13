@@ -9,10 +9,13 @@ const suites = new Map([
   ["homestay", "scripts/e2e/homestay-api-e2e.mjs"],
   ["housing", "scripts/e2e/housing-rental-api-e2e.mjs"]
 ]);
-if (process.argv[2] === "--suite" && !process.argv[3]) {
+if (process.argv.length > 4 || (process.argv[2] && process.argv[2] !== "--suite")) {
+  throw new Error(`Property API E2E gate refused to run: unknown argument ${JSON.stringify(process.argv[2])}.`);
+}
+if (process.argv[2] === "--suite" && (!process.argv[3] || !process.argv[3].trim())) {
   throw new Error("Property API E2E gate refused to run: --suite requires a nonempty suite name.");
 }
-const suiteArgument = process.argv[2] === "--suite" ? process.argv[3] : undefined;
+const suiteArgument = process.argv[2] === "--suite" ? process.argv[3].trim() : undefined;
 const selectedSuites = suiteArgument ? [suiteArgument] : [...suites.keys()];
 const startedAt = new Date().toISOString();
 const runId = process.env.TEST_RUN_ID ?? `property-api-${Date.now()}-${randomUUID().slice(0, 8)}`;
