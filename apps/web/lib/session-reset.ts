@@ -49,7 +49,12 @@ export async function handleUnauthorizedSessionReset({
     return false;
   }
 
-  await withAuthSessionLock(async () => {
+  return withAuthSessionLock(async () => {
+    if (requestToken) {
+      if (!isCurrentAccessToken(requestToken)) return false;
+    } else if (hasStoredAccessToken()) {
+      return false;
+    }
     await clearLocalSessionStorage();
     try {
       await postLogoutCookie();
@@ -60,8 +65,8 @@ export async function handleUnauthorizedSessionReset({
         window.location.href = "/login";
       }
     }
+    return true;
   });
-  return true;
 }
 
 async function withAuthSessionLock<T>(operation: () => Promise<T>): Promise<T> {

@@ -176,6 +176,9 @@ export class ParksService {
       if (code === "23503" && typeof message === "string" && message.includes("active park scope with buildings")) {
         throw new ConflictException("Park has active buildings and cannot be disabled");
       }
+      if (code === "23505" && typeof message === "string" && message.includes("already has a canonical park")) {
+        throw new ConflictException("Park scope already has an active canonical park");
+      }
       throw error;
     });
   }

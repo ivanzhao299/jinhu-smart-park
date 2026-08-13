@@ -1235,7 +1235,7 @@ export class UsersService {
     if (tenant.status === 2 || (tenant.expireTime && tenant.expireTime.getTime() <= Date.now())) {
       return "tenant_expired";
     }
-    if (!park) {
+    if (!park || park.status !== 1) {
       return "missing_default_park";
     }
     const hasDefaultAccess = explicitLinks.length === 0 || explicitLinks.some((link) => link.parkId === user.parkId && link.status === "enabled");
