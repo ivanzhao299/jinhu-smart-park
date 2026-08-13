@@ -1054,6 +1054,7 @@ jobs:
         run: |
           docker compose -f "$COMPOSE_FILE" exec -T postgres \
             psql -X -v ON_ERROR_STOP=1 -v tenant_id="$TENANT_ID" -v park_id="$PARK_ID" \
+              -v approver_username="property_approver_ci" \
               -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
               < scripts/e2e/property-api-e2e-fixtures.sql
 
