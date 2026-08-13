@@ -172,6 +172,7 @@ test("high-risk refund freezes the locked financial snapshot without direct ledg
     ...actor,
     permissions: [
       SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER,
+      SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE,
       SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
     ]
   };
