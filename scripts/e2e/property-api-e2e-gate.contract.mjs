@@ -59,9 +59,11 @@ for (const dependency of ["auth", "files", "property-approvals", "property-ident
 }
 assert.match(ci, /field-policies/, "release-smoke scope must include field policy changes because property responses enforce sensitive-field projection");
 assert.ok(ci.includes("app\\.module\\.ts$"), "release-smoke scope must include app.module.ts because it wires global request guards into mutating property routes");
-assert.ok(ci.includes("guards/idempotency-key\\.guard\\.ts"), "release-smoke scope must include the global idempotency key guard exercised by every mutating property request");
+assert.match(ci, /guards\/\(idempotency-key\|property-high-risk-action\)\\\.guard\\\.ts/, "release-smoke scope must include the global idempotency key guard exercised by every mutating property request");
+assert.match(ci, /guards\/\(idempotency-key\|property-high-risk-action\)\\\.guard\\\.ts/, "release-smoke scope must include the high-risk action guard exercised by approval-gated property routes");
 assert.ok(ci.includes("interceptors/idempotency\\.interceptor\\.ts"), "release-smoke scope must include the idempotency interceptor exercised by high-risk routes");
 assert.ok(ci.includes("services/idempotency\\.service\\.ts"), "release-smoke scope must include the idempotency service exercised by high-risk route replay and conflict semantics");
+assert.ok(ci.includes("property-workbench/property-high-risk-stopship\\.ts"), "release-smoke scope must include the high-risk stopship helper used by approval-gated property services");
 assert.match(ci, /packages\/shared\/src\/\(index\\\.ts\$/, "release-smoke scope must include package shared runtime exports");
 assert.match(ci, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "release smoke must pass the disposable PostgreSQL container identity to the property API E2E gate");
 assert.match(ci, /COMPOSE_PROJECT_NAME: property-api-e2e-\$\{\{ github\.run_id \}\}/, "release smoke must isolate Docker resources under a per-run compose project");
