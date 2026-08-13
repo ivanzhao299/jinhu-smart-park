@@ -382,7 +382,7 @@ export default function FloorsPage() {
                     ))}
                   </select>
                 </div>
-                <TextField label="楼层编码" value={form.floorCode} required placeholder="请输入或生成楼层编码" onChange={(value) => setForm((current) => ({ ...current, floorCode: value }))} />
+                <TextField label="楼层编码" value={form.floorCode} required={Boolean(editingId)} placeholder="请输入或生成楼层编码" onChange={(value) => setForm((current) => ({ ...current, floorCode: value }))} />
                 <TextField label="楼层名称" value={form.floorName} required onChange={(value) => setForm((current) => ({ ...current, floorName: value }))} />
                 <NumberField label="楼层号" value={form.floorNo} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorNo: value }))} />
                 <NumberField label="面积" value={form.floorArea} required step="0.01" onChange={(value) => setForm((current) => ({ ...current, floorArea: value }))} />

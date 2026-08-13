@@ -28,7 +28,8 @@
     "07-30-contract-change-dicts",
     "07-30-checkout-dicts",
     "07-30-iot-alert-rule-device-crash",
-    "07-30-energy-adjustment-billing-item-picker"
+    "07-30-energy-adjustment-billing-item-picker",
+    "08-13-08-13-fix-issue-267-asset-code-autogeneration"
   ],
   "parent": null,
   "relatedFiles": [],
