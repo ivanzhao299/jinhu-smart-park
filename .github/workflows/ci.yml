@@ -196,7 +196,9 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # The job runs with NODE_ENV=production, but its database-backed
+        # regression specs still require test-only tooling such as ts-node.
+        run: pnpm install --frozen-lockfile --prod=false
 
       - name: Create release smoke log directory
         run: mkdir -p /tmp/release-smoke-logs
