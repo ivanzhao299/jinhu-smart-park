@@ -151,7 +151,14 @@ function createFixture(candidates: UserEntity[], config: Record<string, string> 
       loginTicketRepository.savedTickets.push({ used: ticket.used, usedTime: ticket.usedTime });
       return ticket;
     },
-    create: (value: unknown) => value
+    create: (value: unknown) => value,
+    manager: {
+      transaction: async (work: (manager: unknown) => Promise<unknown>) =>
+        work({
+          getRepository: () => loginTicketRepository,
+          query: async () => [{ id: "park-id" }]
+        })
+    }
   };
   const service = new AuthService(
     usersService as never,

@@ -567,77 +567,91 @@ export class AuthService implements OnModuleInit {
 
   async selectContext(dto: SelectContextDto, meta: LoginRequestMeta): Promise<LoginResult> {
     await this.tenantsService.assertTenantActive(dto.tenantId);
-    const ticket = await this.loginTicketRepository.findOne({
-      where: {
+    const { selectedUser, loginMethod } = await this.loginTicketRepository.manager.transaction(async (manager) => {
+      const ticketRepository = manager.getRepository(AuthLoginTicketEntity);
+      const ticket = await ticketRepository.findOne({
+        where: {
+          tenantId: dto.tenantId,
+          ticket: dto.ticket,
+          used: false,
+          isDeleted: false,
+          expiresAt: MoreThan(new Date())
+        },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!ticket) {
+        throw new UnauthorizedException("Login ticket expired");
+      }
+
+      const userIds = this.getTicketUserIds(ticket.contextPayload);
+      if (!userIds.includes(dto.userId)) {
+        throw new BadRequestException("Selected context is not allowed");
+      }
+
+      const user = await this.usersService.findByIdInScope(dto.userId, {
         tenantId: dto.tenantId,
-        ticket: dto.ticket,
-        used: false,
-        isDeleted: false,
-        expiresAt: MoreThan(new Date())
+        parkId: dto.parkId
+      });
+      if (!user || !user.isEnabled || user.isDeleted) {
+        throw new UnauthorizedException("Selected user context is unavailable");
       }
-    });
-    if (!ticket) {
-      throw new UnauthorizedException("Login ticket expired");
-    }
-
-    const userIds = this.getTicketUserIds(ticket.contextPayload);
-    if (!userIds.includes(dto.userId)) {
-      throw new BadRequestException("Selected context is not allowed");
-    }
-
-    const user = await this.usersService.findByIdInScope(dto.userId, {
-      tenantId: dto.tenantId,
-      parkId: dto.parkId
-    });
-    if (!user || !user.isEnabled || user.isDeleted) {
-      throw new UnauthorizedException("Selected user context is unavailable");
-    }
-    try {
-      const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
-      if (resolveJwtPrincipal) {
-        await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+      const activePark = await manager.query<Array<{ id: string }>>(
+        `SELECT id FROM biz_park
+         WHERE tenant_id=$1 AND park_id=$2 AND status=1 AND is_deleted=false
+         FOR SHARE`,
+        [user.tenantId, user.parkId]
+      );
+      if (activePark.length !== 1) {
+        throw new UnauthorizedException("Selected user context is unavailable");
       }
-    } catch (error) {
-      if (error instanceof NotFoundException) throw new UnauthorizedException("Selected user context is unavailable");
-      throw error;
-    }
+      try {
+        const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
+        if (resolveJwtPrincipal) {
+          await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+        }
+      } catch (error) {
+        if (error instanceof NotFoundException) throw new UnauthorizedException("Selected user context is unavailable");
+        throw error;
+      }
 
-    const loginMethod = ticket.provider;
-    let selectedUser = user;
-    if (loginMethod === "password") {
-      const passwordLockoutConfig = this.getPasswordLockoutConfig();
-      const now = new Date();
-      if (passwordLockoutConfig.enabled) {
-        selectedUser = await this.usersService.refreshPasswordLockoutState(selectedUser, now);
-        if (this.usersService.isPasswordLocked(selectedUser, now)) {
+      const loginMethod = ticket.provider;
+      let selectedUser = user;
+      if (loginMethod === "password") {
+        const passwordLockoutConfig = this.getPasswordLockoutConfig();
+        const now = new Date();
+        if (passwordLockoutConfig.enabled) {
+          selectedUser = await this.usersService.refreshPasswordLockoutState(selectedUser, now);
+          if (this.usersService.isPasswordLocked(selectedUser, now)) {
+            await this.recordLoginEvent(
+              { tenantId: selectedUser.tenantId, parkId: selectedUser.parkId, username: selectedUser.username, loginMethod: "password" },
+              meta,
+              selectedUser.id,
+              false,
+              "Password lockout active"
+            );
+            throw new UnauthorizedException("账号或密码错误");
+          }
+        }
+        const finalized = await this.usersService.finalizePasswordLoginSuccess(selectedUser, passwordLockoutConfig, now);
+        if (!finalized.allowed) {
           await this.recordLoginEvent(
-            { tenantId: selectedUser.tenantId, parkId: selectedUser.parkId, username: selectedUser.username, loginMethod: "password" },
+            { tenantId: finalized.user.tenantId, parkId: finalized.user.parkId, username: finalized.user.username, loginMethod: "password" },
             meta,
-            selectedUser.id,
+            finalized.user.id,
             false,
-            "Password lockout active"
+            finalized.lockoutActive ? "Password lockout active" : "Invalid username or password"
           );
           throw new UnauthorizedException("账号或密码错误");
         }
+        selectedUser = finalized.user;
       }
-      const finalized = await this.usersService.finalizePasswordLoginSuccess(selectedUser, passwordLockoutConfig, now);
-      if (!finalized.allowed) {
-        await this.recordLoginEvent(
-          { tenantId: finalized.user.tenantId, parkId: finalized.user.parkId, username: finalized.user.username, loginMethod: "password" },
-          meta,
-          finalized.user.id,
-          false,
-          finalized.lockoutActive ? "Password lockout active" : "Invalid username or password"
-        );
-        throw new UnauthorizedException("账号或密码错误");
-      }
-      selectedUser = finalized.user;
-    }
 
-    ticket.used = true;
-    ticket.usedTime = new Date();
-    await this.loginTicketRepository.save(ticket);
-    return this.issueLoginResult(selectedUser, meta, loginMethod, selectedUser.username);
+      ticket.used = true;
+      ticket.usedTime = new Date();
+      await ticketRepository.save(ticket);
+      return { selectedUser, loginMethod };
+    });
+    return this.issueLoginResult(selectedUser, meta, loginMethod, selectedUser.username, false);
   }
 
   async refresh(dto: RefreshTokenDto, meta: LoginRequestMeta): Promise<LoginResult> {
@@ -740,11 +754,12 @@ export class AuthService implements OnModuleInit {
     user: UserEntity,
     meta: LoginRequestMeta,
     loginMethod: string,
-    loginUsername: string
+    loginUsername: string,
+    validatePrincipal = true
   ): Promise<LoginResult> {
     try {
       const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
-      if (resolveJwtPrincipal) {
+      if (validatePrincipal && resolveJwtPrincipal) {
         await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
       }
     } catch (error) {
