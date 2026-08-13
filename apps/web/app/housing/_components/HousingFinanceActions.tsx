@@ -55,18 +55,19 @@ export function HousingFinanceActions({
         return receivable.receivableType !== "deposit" && isPositiveMoney(receivable.balance);
       }
       if (entryKind === "deposit_refund") {
-        return receivable.receivableType === "deposit" && isPositiveMoney(receivable.paidAmount);
+        return receivable.receivableType === "deposit" && isPositiveMoney(item.summary.deposit_balance);
       }
       return receivable.entryKind === entryKind && isPositiveMoney(receivable.balance);
     }),
-    [available, entryKind]
+    [available, entryKind, item.summary.deposit_balance]
   );
   const entryKinds = useMemo(() => [
     ...(ordinaryAllowed ? (["payment", "deposit_receipt"] as const)
       .filter((kind) => available.some((receivable) => receivable.entryKind === kind)) : []),
-    ...(refundAllowed ? (["refund", "deposit_refund"] as const) : []),
+    ...(refundAllowed ? (["refund", ...(isPositiveMoney(item.summary.deposit_balance)
+      ? ["deposit_refund" as const] : [])] as const) : []),
     ...(waiverAllowed ? (["waiver"] as const) : [])
-  ], [available, ordinaryAllowed, refundAllowed, waiverAllowed]);
+  ], [available, item.summary.deposit_balance, ordinaryAllowed, refundAllowed, waiverAllowed]);
   useEffect(() => {
     if (!entryKinds.includes(entryKind)) {
       setEntryKind(entryKinds[0] ?? "payment");

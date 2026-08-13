@@ -10,6 +10,7 @@ import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
+  type HomestayFinanceApprovalSource,
   type PropertyApprovalCommandPort,
   type PropertyApprovalJsonValue,
   type TenantParkScope
@@ -107,6 +108,47 @@ export class HomestayFinanceService {
         summarizeHomestayLedger(ledger)
       );
       return this.transactionSupport.createLedgerEntry(manager, scope, actor, bookingId, dto);
+    });
+  }
+
+  async listApprovalSources(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string,
+    entryType: "refund" | "waiver"
+  ): Promise<HomestayFinanceApprovalSource[]> {
+    assertPropertyHighRiskActionPermissions(actor, [
+      SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+      SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+    ]);
+    const requiredPermission = entryType === "refund"
+      ? SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER
+      : SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE;
+    if (!this.hasPermission(actor, requiredPermission)) {
+      throw new ForbiddenException(`${requiredPermission} permission is required`);
+    }
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(manager, scope, bookingId);
+      await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
+      const sourceEntryType = entryType === "refund" ? "payment" : "charge";
+      const candidates = ledger.filter((entry) => entry.entryType === sourceEntryType);
+      const sources = await Promise.all(candidates.map(async (source) => {
+        const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
+          manager, scope, source, ledger, entryType
+        );
+        const availableCents = toMoneyCents(source.amount) - allocation.allocatedCents;
+        return availableCents > 0n ? {
+          id: source.id,
+          entryType: sourceEntryType,
+          chargeType: source.chargeType,
+          amount: formatHomestayMoney(source.amount),
+          availableAmount: formatMoneyCents(availableCents),
+          occurredAt: source.occurredAt
+        } satisfies HomestayFinanceApprovalSource : null;
+      }));
+      return sources.filter((source): source is HomestayFinanceApprovalSource => source !== null);
     });
   }
 

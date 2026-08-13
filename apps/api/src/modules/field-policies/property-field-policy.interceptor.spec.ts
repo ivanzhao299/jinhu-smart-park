@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { firstValueFrom, of } from "rxjs";
 import { HomestayFieldPolicyInterceptor, HousingFieldPolicyInterceptor } from "./property-field-policy.interceptor";
+import { FieldPolicyService } from "./field-policy.service";
 
 const actor = {
   sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a",
@@ -44,4 +45,9 @@ test("property field-policy interceptors leave mutations and unauthenticated rea
   assert.equal(await firstValueFrom(interceptor.intercept(context("POST", actor), { handle: () => of(payload) })), payload);
   assert.equal(await firstValueFrom(interceptor.intercept(context("GET", undefined), { handle: () => of(payload) })), payload);
   assert.equal(calls, 0);
+});
+
+test("property field-policy interceptors declare their injectable policy dependency", () => {
+  assert.deepEqual(Reflect.getMetadata("design:paramtypes", HomestayFieldPolicyInterceptor), [FieldPolicyService]);
+  assert.deepEqual(Reflect.getMetadata("design:paramtypes", HousingFieldPolicyInterceptor), [FieldPolicyService]);
 });

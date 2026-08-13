@@ -32,6 +32,7 @@ export interface HomestayLedgerSnapshotRow {
   status: "confirmed";
   sourceLedgerEntryId: string | null;
   recordedBy: string | null;
+  occurredAt: string;
 }
 
 interface HomestayLegacyFinanceMappingRow {
@@ -251,7 +252,7 @@ export class HomestayTransactionSupportService {
       `SELECT id::text AS id, version, entry_type AS "entryType", charge_type AS "chargeType",
               amount::text AS amount, currency, status,
               source_ledger_entry_id::text AS "sourceLedgerEntryId",
-              create_by::text AS "recordedBy"
+              create_by::text AS "recordedBy",create_time::text AS "occurredAt"
          FROM biz_homestay_ledger_entry
         WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3
           AND status='confirmed' AND is_deleted=false
@@ -308,7 +309,7 @@ export class HomestayTransactionSupportService {
       `SELECT id::text AS id,version,entry_type AS "entryType",charge_type AS "chargeType",
               amount::text AS amount,currency,status,
               source_ledger_entry_id::text AS "sourceLedgerEntryId",
-              create_by::text AS "recordedBy"
+              create_by::text AS "recordedBy",create_time::text AS "occurredAt"
          FROM biz_homestay_ledger_entry
         WHERE tenant_id=$1 AND park_id=$2 AND booking_id=$3 AND id=$4
           AND status='confirmed' AND is_deleted=false

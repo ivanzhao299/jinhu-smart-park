@@ -150,6 +150,7 @@ test("finance selection follows the refreshed receivable set", () => {
   assert.equal((source.match(/setReceivableId\(""\)/g) ?? []).length >= 3, true);
   assert.match(source, /isPositiveMoney\(receivable\.balance\)/);
   assert.match(source, /isPositiveMoney\(receivable\.paidAmount\)/);
+  assert.match(source, /isPositiveMoney\(item\.summary\.deposit_balance\)/);
 });
 
 test("async housing forms capture the form element before awaiting", () => {

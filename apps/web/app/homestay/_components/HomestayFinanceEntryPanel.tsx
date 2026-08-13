@@ -1,6 +1,6 @@
 "use client";
 
-import { PROPERTY_BUSINESS_PERMISSIONS, type CreatePendingPropertyApprovalResult, type HomestayBookingDetailResponse, type HomestayFinanceItem } from "@jinhu/shared";
+import { PROPERTY_BUSINESS_PERMISSIONS, type CreatePendingPropertyApprovalResult, type HomestayFinanceApprovalSource, type HomestayFinanceItem } from "@jinhu/shared";
 import { useEffect, useRef, useState } from "react";
 import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
@@ -83,7 +83,7 @@ export function HomestayFinanceEntryPanel({
   const waiverAllowed = approvalAllowed
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const highRiskAllowed = refundAllowed || waiverAllowed;
-  const [ledger, setLedger] = useState<HomestayBookingDetailResponse["ledger"]>([]);
+  const [sources, setSources] = useState<HomestayFinanceApprovalSource[]>([]);
   const ledgerRequestId = useRef(0);
   useEffect(() => {
     if (!ordinaryAllowed && highRiskAllowed && ["charge", "payment"].includes(form.entryType)) {
@@ -93,19 +93,17 @@ export function HomestayFinanceEntryPanel({
   useEffect(() => {
     const requestId = ++ledgerRequestId.current;
     form.setSourceLedgerId("");
-    setLedger([]);
-    if (!form.bookingId || !highRiskAllowed) return;
-    void apiRequest<HomestayBookingDetailResponse>(`/homestay/bookings/${form.bookingId}`, {
+    setSources([]);
+    if (!form.bookingId || !highRiskAllowed || !["refund", "waiver"].includes(form.entryType)) return;
+    void apiRequest<HomestayFinanceApprovalSource[]>(`/homestay/bookings/${form.bookingId}/finance-sources?entry_type=${form.entryType}`, {
       token: getAccessToken() ?? undefined
     }).then((response) => {
-      if (requestId === ledgerRequestId.current) setLedger(response.data.ledger ?? []);
+      if (requestId === ledgerRequestId.current) setSources(response.data);
     }).catch(() => {
-      if (requestId === ledgerRequestId.current) setLedger([]);
+      if (requestId === ledgerRequestId.current) setSources([]);
     });
-  }, [form.bookingId, highRiskAllowed]);
+  }, [form.bookingId, form.entryType, highRiskAllowed]);
   if (!ordinaryAllowed && !highRiskAllowed) return null;
-  const sources = (ledger ?? []).filter((entry) => entry.status === "confirmed"
-    && (form.entryType === "refund" ? entry.entryType === "payment" : entry.entryType === "charge"));
   return (
     <PropertyPanelSurface title="登记财务流水" description="退款与减免将提交审批；审批完成前不会写入财务流水。">
       <form onSubmit={form.submit}>
@@ -121,7 +119,7 @@ export function HomestayFinanceEntryPanel({
           </select></label>
           {["refund", "waiver"].includes(form.entryType) ? <label>来源流水<select required value={form.sourceLedgerId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); form.setSourceLedgerId(event.target.value); if (source?.chargeType) form.setChargeType(source.chargeType); }}>
             <option value="">请选择来源流水</option>
-            {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.entryType} · {entry.amount} · {entry.occurredAt}</option>)}
+            {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.entryType} · 可退/减 ¥{entry.availableAmount} · {entry.occurredAt || "已确认"}</option>)}
           </select></label> : null}
           <label>费用类型<input required maxLength={32} readOnly={["refund", "waiver"].includes(form.entryType)} value={form.chargeType} onChange={(event) => form.setChargeType(event.target.value)} /></label>
           <label>金额<input required type="number" min="0.01" step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>

@@ -37,9 +37,17 @@ abstract class PropertyFieldPolicyInterceptor implements NestInterceptor {
 @Injectable()
 export class HomestayFieldPolicyInterceptor extends PropertyFieldPolicyInterceptor {
   protected readonly moduleName = "homestay";
+
+  constructor(fieldPolicies: FieldPolicyService) {
+    super(fieldPolicies);
+  }
 }
 
 @Injectable()
 export class HousingFieldPolicyInterceptor extends PropertyFieldPolicyInterceptor {
   protected readonly moduleName = "housing_rental";
+
+  constructor(fieldPolicies: FieldPolicyService) {
+    super(fieldPolicies);
+  }
 }

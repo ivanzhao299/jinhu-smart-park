@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -215,6 +216,25 @@ export class HomestayController {
     @Query() query: HomestayFinanceQueryDto
   ) {
     return this.workbenchQuery.listFinance(scope, actor, query);
+  }
+
+  @Get("bookings/:bookingId/finance-sources")
+  @RequireModule("homestay", "asset")
+  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
+    SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
+  )
+  approvalSources(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("bookingId", new ParseUUIDPipe({ version: "4" })) bookingId: string,
+    @Query("entry_type") entryType: string
+  ) {
+    if (entryType !== "refund" && entryType !== "waiver") {
+      throw new BadRequestException("entry_type must be refund or waiver");
+    }
+    return this.service.listFinanceApprovalSources(scope, actor, bookingId, entryType);
   }
 
   @Post("bookings")
