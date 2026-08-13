@@ -221,7 +221,10 @@ export class HomestayFinanceService {
             sourceExpectedVersion: source.version,
             sourceEntryType: source.entryType,
             sourceAmount: source.amount,
-            chargeType: dto.charge_type.trim(),
+            // A reversal inherits the authoritative source classification.  The
+            // client field is retained for the normal charge/payment contract,
+            // but must not be able to relabel an approved reversal.
+            chargeType: source.chargeType,
             amount,
             currency: source.currency,
             paymentRecorderId: source.recordedBy,

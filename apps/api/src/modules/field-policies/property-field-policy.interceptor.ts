@@ -22,13 +22,14 @@ abstract class PropertyFieldPolicyInterceptor implements NestInterceptor {
 
   private resolvePrimaryEntity(url?: string): string | undefined {
     if (!url) return undefined;
-    const segment = url.split("?")[0]?.split("/").filter(Boolean)[1];
     const entities: Record<string, string> = {
       availability: "availability", billing: "receivable", bookings: "booking",
       finance: "ledger", handovers: "handover", leases: "lease", purchases: "purchase",
       rates: "rate", repairs: "repair", stays: "stay", tasks: "task", tenants: "tenant",
       turnovers: "turnover"
     };
+    const segments = url.split("?")[0]?.split("/").filter(Boolean) ?? [];
+    const segment = segments.find((value) => value in entities);
     return segment ? entities[segment] : undefined;
   }
 }

@@ -99,13 +99,14 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
   const purchase = data.purchase;
+  const hasTransferredItem = data.items.some((item) => Boolean(item.transferredReceivableId));
   const actions = ([
     ["approve", "提交审批", purchase.approvalStatus === "draft"],
     ["reject", "驳回采购", purchase.approvalStatus === "draft"],
     ["pay", "提交付款审批", purchase.approvalStatus === "approved" && purchase.paymentStatus === "unpaid"],
-    ["refund", "提交退款审批", purchase.paymentStatus === "paid"],
+    ["refund", "提交退款审批", purchase.paymentStatus === "paid" && !hasTransferredItem],
     ["void", "提交作废审批", purchase.paymentStatus === "unpaid"
-      && ["draft", "approved", "rejected"].includes(purchase.approvalStatus)]
+      && !hasTransferredItem && ["draft", "approved", "rejected"].includes(purchase.approvalStatus)]
   ] as const).filter(([_action, _label, allowed]) => allowed);
   const lifecycleAllowed = capabilities.actionAllowed("housing.purchases.lifecycle");
   const transferAllowed = capabilities.actionAllowed("housing.purchases.transfer")

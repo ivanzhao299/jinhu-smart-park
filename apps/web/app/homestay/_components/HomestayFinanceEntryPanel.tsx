@@ -84,18 +84,24 @@ export function HomestayFinanceEntryPanel({
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const highRiskAllowed = refundAllowed || waiverAllowed;
   const [ledger, setLedger] = useState<HomestayBookingDetailResponse["ledger"]>([]);
+  const ledgerRequestId = useRef(0);
   useEffect(() => {
     if (!ordinaryAllowed && highRiskAllowed && ["charge", "payment"].includes(form.entryType)) {
-      form.setEntryType("refund");
+      form.setEntryType(refundAllowed ? "refund" : "waiver");
     }
-  }, [form.entryType, highRiskAllowed, ordinaryAllowed]);
+  }, [form.entryType, highRiskAllowed, ordinaryAllowed, refundAllowed]);
   useEffect(() => {
+    const requestId = ++ledgerRequestId.current;
     form.setSourceLedgerId("");
     setLedger([]);
     if (!form.bookingId || !highRiskAllowed) return;
     void apiRequest<HomestayBookingDetailResponse>(`/homestay/bookings/${form.bookingId}`, {
       token: getAccessToken() ?? undefined
-    }).then((response) => setLedger(response.data.ledger ?? [])).catch(() => setLedger([]));
+    }).then((response) => {
+      if (requestId === ledgerRequestId.current) setLedger(response.data.ledger ?? []);
+    }).catch(() => {
+      if (requestId === ledgerRequestId.current) setLedger([]);
+    });
   }, [form.bookingId, highRiskAllowed]);
   if (!ordinaryAllowed && !highRiskAllowed) return null;
   const sources = (ledger ?? []).filter((entry) => entry.status === "confirmed"
@@ -113,11 +119,11 @@ export function HomestayFinanceEntryPanel({
             {refundAllowed ? <option value="refund">退款（需审批）</option> : null}
             {waiverAllowed ? <option value="waiver">减免（需审批）</option> : null}
           </select></label>
-          {["refund", "waiver"].includes(form.entryType) ? <label>来源流水<select required value={form.sourceLedgerId} onChange={(event) => form.setSourceLedgerId(event.target.value)}>
+          {["refund", "waiver"].includes(form.entryType) ? <label>来源流水<select required value={form.sourceLedgerId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); form.setSourceLedgerId(event.target.value); if (source?.chargeType) form.setChargeType(source.chargeType); }}>
             <option value="">请选择来源流水</option>
             {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.entryType} · {entry.amount} · {entry.occurredAt}</option>)}
           </select></label> : null}
-          <label>费用类型<input required maxLength={32} value={form.chargeType} onChange={(event) => form.setChargeType(event.target.value)} /></label>
+          <label>费用类型<input required maxLength={32} readOnly={["refund", "waiver"].includes(form.entryType)} value={form.chargeType} onChange={(event) => form.setChargeType(event.target.value)} /></label>
           <label>金额<input required type="number" min="0.01" step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>
           {form.entryType === "payment" ? <label>收款方式<input required maxLength={32} value={form.paymentMethod} onChange={(event) => form.setPaymentMethod(event.target.value)} /></label> : null}
           <label>说明<input required maxLength={500} value={form.reason} onChange={(event) => form.setReason(event.target.value)} /></label>

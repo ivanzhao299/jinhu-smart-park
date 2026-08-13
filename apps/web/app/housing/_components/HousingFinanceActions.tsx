@@ -48,10 +48,16 @@ export function HousingFinanceActions({
   const idempotency = useStableIdempotency();
   const receivables = useMemo(
     () => available.filter((receivable) => {
-      if (entryKind === "refund") return receivable.receivableType !== "deposit";
-      if (entryKind === "waiver") return receivable.receivableType !== "deposit";
-      if (entryKind === "deposit_refund") return receivable.receivableType === "deposit";
-      return receivable.entryKind === entryKind;
+      if (entryKind === "refund") {
+        return receivable.receivableType !== "deposit" && isPositiveMoney(receivable.paidAmount);
+      }
+      if (entryKind === "waiver") {
+        return receivable.receivableType !== "deposit" && isPositiveMoney(receivable.balance);
+      }
+      if (entryKind === "deposit_refund") {
+        return receivable.receivableType === "deposit" && isPositiveMoney(receivable.paidAmount);
+      }
+      return receivable.entryKind === entryKind && isPositiveMoney(receivable.balance);
     }),
     [available, entryKind]
   );
@@ -125,6 +131,10 @@ export function HousingFinanceActions({
       <MutationFeedback message={message} />
     </>
   );
+}
+
+function isPositiveMoney(value: string) {
+  return /^(?:0\.(?:0*[1-9]\d*)|[1-9]\d*(?:\.\d+)?)$/.test(value);
 }
 
 function financeBody(form: FormData) {
