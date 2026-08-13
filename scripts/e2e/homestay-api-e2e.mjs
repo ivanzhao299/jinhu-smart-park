@@ -399,11 +399,19 @@ async function run() {
     idempotent: true,
     body: { party_id: guest.id, is_primary: true, verification_status: "verified" }
   });
-  await request(`/property/occupancies/${releasedOccupancyBooking.occupancyId}/release`, {
+  const forcedOccupancyRelease = await request(`/property/occupancies/${releasedOccupancyBooking.occupancyId}/release`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "Homestay forced release regression", force: true }
+  });
+  await approveAndWait({
+    request,
+    token: approverToken,
+    createKey: key,
+    assert,
+    submission: forcedOccupancyRelease,
+    label: "homestay forced occupancy release"
   });
   const releasedOccupancyReschedule = await tryRequest(
     `/homestay/bookings/${releasedOccupancyBooking.id}/reschedule`,

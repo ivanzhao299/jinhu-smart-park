@@ -76,6 +76,7 @@ assert.match(housing, /transferApproverToken/, "purchase transfer approvals must
 assert.match(housing, /transferApproverUsername !== approverUsername/, "housing E2E must prove purchase lifecycle and transfer approvers are different users");
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
+assert.match(homestay, /submission: forcedOccupancyRelease/, "homestay force-release approval must execute before released-occupancy terminal assertions");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/claim/, "a separate actor must claim submitted identity work before verification");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/decisions/, "a separate actor must verify submitted identity work through the current identity-submission decision endpoint");
