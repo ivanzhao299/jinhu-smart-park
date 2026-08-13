@@ -107,6 +107,9 @@ export class ParksService {
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
     this.assertDefaultFallbackMutationAllowed(targetScope, actor, touchesDefaultFallback);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, targetScope);
+    if (targetScope.parkId !== scope.parkId) {
+      throw new ConflictException("Independent park scope retirement is not supported");
+    }
     const authorizationProtectedScope = await hasProtectedAssetScope(manager, targetScope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultAuthorizationProtectedScope = touchesDefaultFallback

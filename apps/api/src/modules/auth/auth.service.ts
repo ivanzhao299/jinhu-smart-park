@@ -665,6 +665,7 @@ export class AuthService implements OnModuleInit {
   }
 
   async switchContext(user: JwtPrincipal, parkId: string, meta: LoginRequestMeta): Promise<LoginResult> {
+    if (parkId === user.parkId) throw new BadRequestException("Already in selected park context");
     const target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
     return this.issuePrincipalLoginResult(target, meta, "context_switch");
   }
@@ -760,12 +761,14 @@ export class AuthService implements OnModuleInit {
     meta: LoginRequestMeta,
     loginMethod: string
   ): Promise<LoginResult> {
+    const profile = await this.usersService.findByIdForIdentity(principal.sub, principal.tenantId);
+    if (!profile) throw new UnauthorizedException("User context is unavailable");
     const authUser: AuthUser = {
       id: principal.sub,
       username: principal.username,
       realName: principal.realName ?? principal.username,
-      avatar_url: null,
-      gender: null,
+      avatar_url: profile.avatarUrl,
+      gender: profile.gender,
       tenantId: principal.tenantId,
       parkId: principal.parkId,
       roles: principal.roles,

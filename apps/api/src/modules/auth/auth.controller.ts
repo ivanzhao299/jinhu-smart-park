@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
+import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 import { ClsService } from "nestjs-cls";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
@@ -77,7 +78,7 @@ export class AuthController {
   @HttpCode(200)
   async mobileLogin(
     @Body() dto: MobileLoginDto,
-    @Req() request: Request,
+    @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<LoginResult> {
     if (this.authService.isSmsLoginEnabled()) {
@@ -110,7 +111,7 @@ export class AuthController {
   @HttpCode(200)
   async wechatCallback(
     @Body() dto: WechatCallbackDto,
-    @Req() request: Request,
+    @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<WechatCallbackResult> {
     if (this.authService.isWechatLoginEnabled()) {
@@ -189,10 +190,11 @@ export class AuthController {
   async switchContext(
     @CurrentUser() user: JwtPrincipal,
     @Body() dto: SwitchContextDto,
-    @Req() request: Request,
+    @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<LoginResult> {
     const result = await this.authService.switchContext(user, dto.parkId, this.getMeta(request));
+    request.auditScopeOverride = { tenantId: user.tenantId, parkId: dto.parkId };
     return this.withRefreshCookie(result, response);
   }
 
