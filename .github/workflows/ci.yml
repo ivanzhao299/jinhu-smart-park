@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(apps/api/src/modules/(homestay|housing|property-operations)/|packages/shared/src/property-business/|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(gate(\.contract)?|safety))|db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.(mjs|sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -107,6 +107,9 @@ jobs:
 
       - name: Verify property role template contracts
         run: pnpm test:e2e:property-role-template
+
+      - name: Verify property API E2E gate contract
+        run: pnpm test:e2e:property-api-gate-contract
 
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
@@ -1059,6 +1062,15 @@ jobs:
       - name: Verify release smoke login flow
         run: bash scripts/verify-api-login-dockerexec.sh 2>&1 | tee /tmp/release-smoke-logs/verify-api-login.log
 
+      - name: Run property API E2E gate
+        env:
+          PROPERTY_API_E2E_ISOLATED: "yes"
+          API_BASE_URL: ${{ env.API_BASE }}
+          PROPERTY_API_E2E_REPORT_PATH: /tmp/release-smoke-logs/property-api-e2e-report.json
+        run: |
+          set -o pipefail
+          pnpm test:e2e:property-api 2>&1 | tee /tmp/release-smoke-logs/property-api-e2e.log
+
       - name: Collect docker diagnostics
         if: always()
         run: |
@@ -1077,4 +1089,14 @@ jobs:
 
       - name: Tear down release smoke containers
         if: always()
-        run: docker compose -f "$COMPOSE_FILE" down -v
+        run: |
+          docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
+          remaining_containers="$(docker compose -f "$COMPOSE_FILE" ps -aq)"
+          test -z "$remaining_containers"
+          for volume in jinhu-smart-park-prod_postgres-data jinhu-smart-park-prod_api-files-data; do
+            if docker volume inspect "$volume" >/dev/null 2>&1; then
+              echo "Disposable property E2E volume was not removed: $volume" >&2
+              exit 1
+            fi
+          done
+          echo "Assert disposable property E2E cleanup: PASS"

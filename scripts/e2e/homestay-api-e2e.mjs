@@ -1,11 +1,13 @@
-import { randomUUID } from "node:crypto";
+import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
+
+requirePropertyApiE2eIsolation();
 
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001/api/v1";
 const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "10000001";
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const username = process.env.ADMIN_USERNAME ?? "admin";
 const password = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
-const runId = process.env.TEST_RUN_ID ?? `${Date.now()}-${randomUUID().slice(0, 8)}`;
+const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
 
 function unwrap(body) {
