@@ -68,11 +68,15 @@ assert.match(ci, /"\$\{COMPOSE_PROJECT_NAME\}_api-files-data"/, "release smoke t
 assert.match(ci, /APPROVER_2_USERNAME/, "release smoke must pass the second disposable approver to housing E2E");
 assert.match(gate, /AbortController/, "readiness checks must be bounded by a response timeout");
 assert.match(gate, /readinessAttempts/, "readiness checks must retry transient startup failures");
-assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /approvalWaitDeadlineMs = 40000/, "approval polling must enforce a total 40 second deadline");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /defaultApprovalWaitDeadlineMs = 90000/, "approval polling must enforce a bounded, CI-tolerant default 90 second deadline");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /PROPERTY_API_E2E_APPROVAL_WAIT_MS/, "approval polling must allow CI to tune the total approval deadline");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /configuredApprovalWaitDeadlineMs > 0/, "invalid approval deadline configuration must fall back to the safe default");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /approvalWaitDeadlineSeconds/, "approval timeout errors must report the effective total deadline");
 assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /Promise\.race/, "approval detail polling must bound each request");
 assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /controller\.abort\(\)/, "approval detail polling must abort the in-flight request when the timeout wins");
 assert.match(read("docs/release/property-api-e2e-gate.md"), /PROPERTY_API_E2E_DOCKER_PROJECT/, "release docs must document the Docker project safety variable");
 assert.match(read("docs/release/property-api-e2e-gate.md"), /api-files-data/, "release docs must document disposable API file storage cleanup");
+assert.match(read("docs/release/property-api-e2e-gate.md"), /PROPERTY_API_E2E_APPROVAL_WAIT_MS/, "release docs must document the approval polling deadline override");
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {

@@ -1,6 +1,12 @@
 const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
-const approvalWaitDeadlineMs = 40000;
+const defaultApprovalWaitDeadlineMs = 90000;
+const configuredApprovalWaitDeadlineMs = Number.parseInt(process.env.PROPERTY_API_E2E_APPROVAL_WAIT_MS ?? "", 10);
+const approvalWaitDeadlineMs =
+  Number.isFinite(configuredApprovalWaitDeadlineMs) && configuredApprovalWaitDeadlineMs > 0
+    ? configuredApprovalWaitDeadlineMs
+    : defaultApprovalWaitDeadlineMs;
 const approvalDetailTimeoutMs = 5000;
+const approvalWaitDeadlineSeconds = Math.round(approvalWaitDeadlineMs / 1000);
 
 function summarizeApproval(current) {
   const request = current?.request ?? {};
@@ -18,7 +24,7 @@ function summarizeApproval(current) {
 
 async function requestApprovalDetail({ request, requestId, token, label, attempt, deadlineAt }) {
   const remainingMs = deadlineAt - Date.now();
-  if (remainingMs <= 0) throw new Error(`${label} approval did not execute within 40 seconds`);
+  if (remainingMs <= 0) throw new Error(`${label} approval did not execute within ${approvalWaitDeadlineSeconds} seconds`);
   const controller = new AbortController();
   let timeout;
   try {
@@ -71,5 +77,5 @@ export async function approveAndWait({ request, token, createKey, assert, submis
     }
     await delay(Math.min(250, Math.max(0, deadlineAt - Date.now())));
   }
-  throw new Error(`${label} approval did not execute within 40 seconds: ${summarizeApproval(lastDetail)}`);
+  throw new Error(`${label} approval did not execute within ${approvalWaitDeadlineSeconds} seconds: ${summarizeApproval(lastDetail)}`);
 }

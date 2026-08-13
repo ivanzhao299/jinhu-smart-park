@@ -15,6 +15,8 @@
 - `APPROVER_USERNAME` / `APPROVER_PASSWORD` 必须是独立的非超级审批账号；住房采购转收费还需要 `APPROVER_2_USERNAME` / `APPROVER_2_PASSWORD`，用于验证付款人与转收费审批人分离；
 - API 的 `/health` 和 `/ready` 均成功，且已完成迁移、生产安全 seed 与临时管理员初始化。
 
+审批执行是异步的，E2E 会在每个审批决策后轮询到 `executionStatus=executed` 才继续；默认总等待窗口为 90 秒。仅在 CI 环境确有执行器排队抖动时，才可用 `PROPERTY_API_E2E_APPROVAL_WAIT_MS` 调整该窗口；该值只影响审批轮询等待，不会把 `execution_failed`、`infra_exhausted` 或业务冲突视为通过。
+
 本地最小准备方式是：启动一次性 Docker Postgres/API，执行迁移、生产安全 seed、bootstrap admin，再以 `scripts/e2e/property-api-e2e-fixtures.sql` 创建两个审批账号、身份审核队列、审批运行时控制和 `short_stay` / `long_rent` 房源 fixture。随后导出上述环境变量，运行 `pnpm test:e2e:property-api`；若只验证单模块，可运行 `pnpm test:e2e:homestay-api` 或 `pnpm test:e2e:housing-rental-api`。
 
 CI 的 Release Smoke 在一次性 Docker 数据库和一次性 API 文件卷中运行该门禁，并设置 `COMPOSE_PROJECT_NAME=property-api-e2e-${{ github.run_id }}`、`FILE_STORAGE_LOCAL_ROOT=/var/lib/jinhu/files`。运行前会创建相互分离的申请人与审批人，并用 `scripts/e2e/property-api-e2e-fixtures.sql` 显式启用 disposable scope 的审批/事件运行时控制，在两个独立房源上配置 `short_stay` / `long_rent`；高风险流程必须提交审批、由独立审批人决策并等待执行成功后才能继续。完成或失败后均执行 `docker compose down -v --remove-orphans`，并断言容器与本轮 `postgres-data` / `api-files-data` 命名卷不存在。日志和 `property-api-e2e-report.json` 会作为 Release Smoke artifact 上传。普通 PR 的 verify 只执行门禁契约测试；当民宿、住房、文件、字段策略、物业身份、物业审批、工单、API 幂等拦截器、共享导出/共享房产业务契约、迁移、E2E 脚本或 `package.json` 的 E2E 命令变更时，范围检测会自动要求 Release Smoke。
