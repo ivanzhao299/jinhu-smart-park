@@ -645,7 +645,7 @@ async function run() {
   });
   await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: checkoutRequest, label: "lease checkout" });
   const terminated = await request(`/housing/leases/${lease.id}`, { token });
-  assert(terminated.status === "terminated", "approved checkout terminates the lease");
+  assert(terminated.lease?.status === "terminated", "approved checkout terminates the lease");
   await expectRequestStatus(`/housing/leases/${lease.id}/ledger`, 409, {
     method: "POST",
     token,
@@ -680,7 +680,7 @@ async function run() {
       enabled: true
     }
   });
-  assert(terminated.status === "terminated", "tenant-to-checkout real API workflow completed");
+  assert(terminated.lease?.status === "terminated", "tenant-to-checkout real API workflow completed");
   console.log(`[PASS] Housing rental real API E2E completed: lease=${lease.id}, workOrder=${repair.id}`);
 }
 
