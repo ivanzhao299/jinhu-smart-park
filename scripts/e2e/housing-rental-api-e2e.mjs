@@ -140,7 +140,7 @@ async function payReceivable(token, leaseId, receivable) {
     idempotent: true,
     body: {
       receivable_id: receivable.id,
-      entry_type: "payment",
+      entry_type: receivable.chargeType === "deposit" ? "deposit_receipt" : "payment",
       charge_type: receivable.chargeType,
       amount: outstanding.toFixed(2),
       payment_method: "bank_transfer",
@@ -414,7 +414,7 @@ async function run() {
     idempotent: true,
     body: {
       receivable_id: depositReceivable.id,
-      entry_type: "payment",
+      entry_type: "deposit_receipt",
       charge_type: "deposit",
       amount: "2500.00",
       payment_method: "bank_transfer",
@@ -423,7 +423,7 @@ async function run() {
   });
   assert(
     depositReceipt.entryType === "deposit_receipt",
-    "deposit receivable payment is normalized to a deposit receipt"
+    "deposit receivable payment is registered as a deposit receipt"
   );
 
   await expectRequestStatus("/files", 403, {

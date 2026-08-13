@@ -88,6 +88,8 @@ assert.match(housing, /submission: purchasePayment/, "purchase payment must exec
 assert.match(housing, /transferApproverToken/, "purchase transfer approvals must use a distinct approval actor after payment mutates the source purchase");
 assert.match(housing, /transferApproverUsername !== approverUsername/, "housing E2E must prove purchase lifecycle and transfer approvers are different users");
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
+assert.match(housing, /entry_type: receivable\.chargeType === "deposit" \? "deposit_receipt" : "payment"/, "housing E2E must pay deposit receivables with the explicit deposit receipt entry type");
+assert.match(housing, /entry_type: "deposit_receipt"/, "housing E2E must register the lease deposit receivable through the explicit deposit receipt path");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
 assert.match(homestay, /submission: forcedOccupancyRelease/, "homestay force-release approval must execute before released-occupancy terminal assertions");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
