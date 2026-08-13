@@ -385,6 +385,9 @@ export class TenantsService {
     if (!actor.isSuper && !actor.permissions.includes("*") && !actorRoleCodes.has(TENANT_ADMIN_ROLE_CODE)) {
       throw new ForbiddenException("Only tenant administrator can create a new park scope");
     }
+    if ((dto.status ?? 1) !== 1) {
+      throw new BadRequestException("Additional park must be active when created");
+    }
 
     const parkRepository = manager.getRepository(ParkEntity);
     const parkId = await this.generateParkScopeId(parkRepository);
@@ -431,24 +434,19 @@ export class TenantsService {
       actor.sub,
       tenant.expireTime,
       tenant.featureConfig ?? {},
-      park.status === 1 ? new Set() : new Set(["asset"])
+      new Set()
     );
 
-    if (park.status === 1) {
-      await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
-    }
-    const permissions = await this.ensureTenantParkPermissions(manager, sourceScope, targetScope, actor.sub);
-    const role = await this.createTenantAdminRole(manager, tenant, parkId, actor.sub);
-    const authorizationModuleCodes = park.status === 1
-      ? moduleCodes
-      : moduleCodes.filter((code) => code !== "asset");
+    await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
+    const permissions = await this.ensureTenantPermissions(manager, sourceScope, targetScope, actor.sub);
+    const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actor.sub);
     await this.applyTenantAdminPermissions(
       manager,
       targetScope,
       role,
       permissions,
-      authorizationModuleCodes,
-      this.permissionCodesForModules([], authorizationModuleCodes),
+      moduleCodes,
+      this.permissionCodesForModules([], moduleCodes),
       actor.sub
     );
 
@@ -456,23 +454,7 @@ export class TenantsService {
       where: { id: actor.sub, tenantId: tenant.tenantId, parkId: sourceScope.parkId, isDeleted: false }
     });
     if (!sourceUser) throw new ForbiddenException("Tenant administrator identity not found in current park");
-    const targetUser = await manager.getRepository(UserEntity).save(manager.getRepository(UserEntity).create({
-      tenantId: tenant.tenantId,
-      parkId,
-      username: sourceUser.username,
-      displayName: sourceUser.displayName,
-      passwordHash: sourceUser.passwordHash,
-      mobile: sourceUser.mobile,
-      email: sourceUser.email,
-      avatarUrl: sourceUser.avatarUrl,
-      gender: sourceUser.gender,
-      isEnabled: sourceUser.isEnabled,
-      status: sourceUser.status,
-      createBy: actor.sub,
-      updateBy: actor.sub,
-      remark: "Tenant administrator identity provisioned for additional park"
-    }));
-    await this.bindAdditionalTenantAdmin(manager, tenant, parkId, rootOrg.id, role.id, targetUser.id, actor.sub);
+    await this.bindAdditionalTenantAdmin(manager, tenant, parkId, rootOrg.id, role.id, sourceUser.id, actor.sub);
     return park;
   }
 
@@ -1297,12 +1279,12 @@ export class TenantsService {
       remark: "Additional park tenant administrator role binding"
     }));
     await manager.getRepository(UserParkEntity).save(manager.getRepository(UserParkEntity).create({
-      tenantId: tenant.tenantId, parkId, userId, isDefault: true, status: "enabled", createBy: actorId, updateBy: actorId,
-      remark: "Additional park default access binding"
+      tenantId: tenant.tenantId, parkId, userId, isDefault: false, status: "enabled", createBy: actorId, updateBy: actorId,
+      remark: "Additional park access binding"
     }));
     await manager.getRepository(UserOrgEntity).save(manager.getRepository(UserOrgEntity).create({
-      tenantId: tenant.tenantId, parkId, userId, orgId, postId: null, isPrimary: true, createBy: actorId, updateBy: actorId,
-      remark: "Additional park primary organization binding"
+      tenantId: tenant.tenantId, parkId, userId, orgId, postId: null, isPrimary: false, createBy: actorId, updateBy: actorId,
+      remark: "Additional park organization binding"
     }));
   }
 
@@ -1376,47 +1358,6 @@ export class TenantsService {
     return [...targetByCode.values()].sort((left, right) => left.level - right.level || left.sortNo - right.sortNo);
   }
 
-  private async ensureTenantParkPermissions(
-    manager: EntityManager,
-    sourceScope: TenantParkScope,
-    targetScope: TenantParkScope,
-    actorId: string
-  ): Promise<PermissionEntity[]> {
-    const permissionRepository = manager.getRepository(PermissionEntity);
-    const existing = await permissionRepository.find({
-      where: { tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
-      order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
-    });
-    if (existing.length > 0) return existing;
-
-    const sourcePermissions = await permissionRepository.find({
-      where: { tenantId: sourceScope.tenantId, parkId: sourceScope.parkId, isDeleted: false },
-      order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
-    });
-    if (sourcePermissions.length === 0) {
-      throw new BadRequestException("Current park permission source is empty");
-    }
-    const sourceById = new Map(sourcePermissions.map((permission) => [permission.id, permission]));
-    const targetByCode = new Map<string, PermissionEntity>();
-    for (const sourcePermission of sourcePermissions) {
-      const parentCode = sourcePermission.parentId ? sourceById.get(sourcePermission.parentId)?.code : null;
-      const clone = await permissionRepository.save(permissionRepository.create({
-        ...sourcePermission,
-        id: undefined,
-        tenantId: targetScope.tenantId,
-        parkId: targetScope.parkId,
-        parentId: parentCode ? targetByCode.get(parentCode)?.id ?? null : null,
-        createBy: actorId,
-        updateBy: actorId,
-        createTime: undefined,
-        updateTime: undefined,
-        version: undefined,
-        remark: "Cloned for additional park scope"
-      }));
-      targetByCode.set(clone.code, clone);
-    }
-    return [...targetByCode.values()].sort((left, right) => left.level - right.level || left.sortNo - right.sortNo);
-  }
 
   private async resolvePermissionSourceScope(manager: EntityManager, scope: TenantParkScope): Promise<TenantParkScope> {
     const permissionRepository = manager.getRepository(PermissionEntity);

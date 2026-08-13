@@ -17,9 +17,9 @@ test("additional park provisioning creates an independent, atomic tenant scope",
   assert.match(block, /where: \{ tenantId: sourceScope\.tenantId, parkId: sourceScope\.parkId/);
   assert.match(block, /upsertTenantModules\(/);
   assert.match(block, /ensureAssetScopeProvisioning\(manager, targetScope, moduleCodes/);
-  assert.match(block, /createTenantAdminRole\(manager, tenant, parkId/);
-  assert.match(block, /ensureTenantParkPermissions\(manager, sourceScope, targetScope/);
-  assert.match(block, /passwordHash: sourceUser\.passwordHash/);
+  assert.match(block, /ensureTenantPermissions\(manager, sourceScope, targetScope/);
+  assert.match(block, /getOrCreateTenantAdminRole\(manager, tenant, parkId/);
+  assert.doesNotMatch(block, /passwordHash: sourceUser\.passwordHash/);
   assert.match(block, /bindAdditionalTenantAdmin\(manager, tenant, parkId/);
   assert.doesNotMatch(block, /dto\.parkId|dto\.tenantId/);
 });
@@ -35,15 +35,26 @@ test("park scope identities are globally unique and fail closed on historical du
   assert.match(migration, /CREATE UNIQUE INDEX uq_biz_park_park_id_active[\s\S]*WHERE is_deleted = false/);
 });
 
-test("additional park access creates a separate default identity context", () => {
+test("additional park access keeps one login identity and adds non-default secondary relations", () => {
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const block = source.slice(
     source.indexOf("private async bindAdditionalTenantAdmin("),
     source.indexOf("private async ensureTenantPermissions(")
   );
   assert.match(block, /UserRoleEntity/);
-  assert.match(block, /UserParkEntity[\s\S]*isDefault: true/);
-  assert.match(block, /UserOrgEntity[\s\S]*isPrimary: true/);
+  assert.match(block, /UserParkEntity[\s\S]*isDefault: false/);
+  assert.match(block, /UserOrgEntity[\s\S]*isPrimary: false/);
+});
+
+test("additional parks start active so asset authorization has a complete provisioning path", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const block = source.slice(
+    source.indexOf("async provisionAdditionalPark("),
+    source.indexOf("async update(", source.indexOf("async provisionAdditionalPark("))
+  );
+  assert.match(block, /\(dto\.status \?\? 1\) !== 1/);
+  assert.match(block, /Additional park must be active when created/);
+  assert.match(block, /ensureAssetScopeProvisioning\(manager, targetScope, moduleCodes/);
 });
 
 test("park management widens only for tenant administrators", () => {

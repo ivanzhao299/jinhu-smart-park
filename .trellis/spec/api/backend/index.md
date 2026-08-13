@@ -130,9 +130,9 @@ await repository.save(projection);
 
 - An additional park is a new `(tenantId, parkId)` scope, never a second `biz_park` canonical source inside the JWT's current park scope.
 - The server generates a globally unused `parkId`; the database permits only one non-deleted `biz_park` per `parkId`.
-- Park, root organization, park-scoped permissions and TENANT_ADMIN role, matching administrator identity, user-role/park/org links, module assignments, and active asset projection/runtime controls commit in one transaction.
+- Park, root organization, target-park RBAC binding rows, the existing administrator's secondary user-park/org links, module assignments, and active asset projection/runtime controls commit in one transaction. Permission and TENANT_ADMIN role entities remain tenant-wide and are reused.
 - The target asset-scope advisory lock is acquired before target-dependent writes. Existing source/default scope lock ordering remains deterministic.
-- The new administrator identity may reuse the verified password hash and profile fields, but never copies lockout counters, login timestamps, refresh sessions, or failure state.
+- The existing administrator remains the single login identity; additional park links are non-default and must not force the current Web client into an unsupported context-selection login.
 - Tenant administrators may list and manage all parks in their tenant; other users remain restricted to the JWT park and normal data scope.
 
 ### 4. Validation & Error Matrix
@@ -141,7 +141,7 @@ await repository.save(projection);
 - duplicate park code or tenant park limit -> conflict/bad request and full rollback.
 - duplicate active `parkId` history before the uniqueness migration -> deployment fails closed.
 - missing source modules/permissions/administrator identity -> request fails and full rollback.
-- inactive new park -> no active asset projection or asset-derived permission grant.
+- inactive initial status -> bad request; an additional park starts active so its module/asset provisioning is complete.
 
 ### 5. Good / Base / Bad Cases
 
@@ -151,7 +151,7 @@ await repository.save(projection);
 
 ### 6. Tests Required
 
-- Assert generated target scope, target lock, root organization, modules, independent permission/role entities, new login identity, and all three user relations.
+- Assert generated target scope, target lock, root organization, modules, tenant-wide role/permission reuse, the single login identity, and all three target-park binding relations.
 - Assert ordinary users cannot widen list/detail scope and inactive parks do not receive asset authorization.
 - Rehearse the forward-only uniqueness migration against clean data, active duplicates, and soft-deleted historical canonical rows.
 - Run API unit/type/lint/build plus a PostgreSQL/API E2E that creates and logs into the second park context.
