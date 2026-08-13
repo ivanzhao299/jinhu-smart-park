@@ -26,3 +26,10 @@ test("post-switch creation failures survive the required page reload", () => {
   assert.match(page, /current \? `\$\{current\}；列表加载失败：\$\{error\.message\}` : error\.message/u);
   assert.ok(page.indexOf("sessionStorage.setItem(") < page.indexOf("window.location.reload();", page.indexOf("catch (error)")));
 });
+
+test("park switch failures are visible inside the building drawer", () => {
+  const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+
+  assert.match(page, /setFormMessage\(error instanceof Error \? error\.message : "楼栋保存失败"\)/u);
+  assert.match(page, /formMessage \? <p className="status-pill" role="alert">\{formMessage\}<\/p>/u);
+});

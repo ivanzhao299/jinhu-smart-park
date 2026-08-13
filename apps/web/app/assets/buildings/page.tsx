@@ -77,6 +77,7 @@ export default function BuildingsPage() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [message, setMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
   const [form, setForm] = useState<BuildingFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<BuildingRow | null>(null);
@@ -113,6 +114,7 @@ export default function BuildingsPage() {
     setForm({ ...emptyForm, parkId: storedUser?.park_id ?? "" });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
   }
 
   function openEdit(row: BuildingRow) {
@@ -129,6 +131,7 @@ export default function BuildingsPage() {
     });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -136,6 +139,7 @@ export default function BuildingsPage() {
     if (submitting) return;
     setSubmitting(true);
     setMessage("");
+    setFormMessage("");
     let switchedPark = false;
     try {
       if (!editingId && !form.parkId) throw new Error("请选择所属园区");
@@ -175,7 +179,8 @@ export default function BuildingsPage() {
         window.location.reload();
         return;
       }
-      throw error;
+      setFormMessage(error instanceof Error ? error.message : "楼栋保存失败");
+      return;
     } finally {
       setSubmitting(false);
     }
@@ -360,6 +365,7 @@ export default function BuildingsPage() {
               <DrawerFormGrid single>
                 <TextField label="备注" value={form.remark} onChange={(value) => setForm((current) => ({ ...current, remark: value }))} />
               </DrawerFormGrid>
+              {formMessage ? <p className="status-pill" role="alert">{formMessage}</p> : null}
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
                 <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存"}</button>

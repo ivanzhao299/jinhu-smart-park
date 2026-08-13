@@ -318,6 +318,7 @@ test("switchParkContext rotates context, fetches the authoritative user, and pub
   assert.equal(calls[0]?.input, "/api/v1/auth/switch-context");
   assert.equal(calls[0]?.init?.credentials, "include");
   assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer old-token");
+  assert.match(new Headers(calls[0]?.init?.headers).get("X-Idempotency-Key") ?? "", /^park-context-switch-/u);
   assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { parkId: "20000002" });
   assert.equal(calls[1]?.input, "/api/v1/users/me");
   assert.equal(new Headers(calls[1]?.init?.headers).get("Authorization"), "Bearer new-token");

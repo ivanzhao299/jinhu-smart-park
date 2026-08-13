@@ -67,6 +67,25 @@ export async function setSession(
   removeRefreshTokenStorage();
 }
 
+export async function completeLoginSession(
+  token: string,
+  refreshToken?: string,
+  options: { lockAlreadyHeld?: boolean } = {}
+): Promise<UserContext> {
+  const publish = async () => {
+    localStorage.removeItem(PARK_SWITCH_KEY);
+    setToken(token, { preserveParkSwitch: true });
+    const currentUser = await fetchCurrentUser({ requestToken: token, persist: false });
+    await setSession(token, currentUser, refreshToken);
+    return currentUser;
+  };
+  return options.lockAlreadyHeld ? publish() : withAuthSessionLock(publish);
+}
+
+export function withAuthSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+  return withCrossTabParkSwitchLock(operation);
+}
+
 export function setToken(token: string, options: { preserveParkSwitch?: boolean } = {}): void {
   sessionStorage.setItem(TOKEN_KEY, token);
   localStorage.setItem(TOKEN_KEY, token);
@@ -174,6 +193,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   const response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
     method: "POST",
     token: originalToken,
+    idempotencyKey: createIdempotencyKey("park-context-switch"),
     body: { parkId }
   });
   try {
