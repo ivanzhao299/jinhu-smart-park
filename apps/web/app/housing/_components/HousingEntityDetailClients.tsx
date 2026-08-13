@@ -104,10 +104,13 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
     ["reject", "驳回采购", purchase.approvalStatus === "draft"],
     ["pay", "提交付款审批", purchase.approvalStatus === "approved" && purchase.paymentStatus === "unpaid"],
     ["refund", "提交退款审批", purchase.paymentStatus === "paid"],
-    ["void", "提交作废审批", purchase.paymentStatus === "unpaid"]
+    ["void", "提交作废审批", purchase.paymentStatus === "unpaid"
+      && ["draft", "approved", "rejected"].includes(purchase.approvalStatus)]
   ] as const).filter(([_action, _label, allowed]) => allowed);
   const lifecycleAllowed = capabilities.actionAllowed("housing.purchases.lifecycle");
   const transferAllowed = capabilities.actionAllowed("housing.purchases.transfer")
+    && purchase.approvalStatus === "approved"
+    && purchase.paymentStatus !== "refunded"
     && data.items.some((item) => !item.transferredReceivableId);
   async function submit(operation: string, endpoint: string, body: object) {
     if (lock.current) return;

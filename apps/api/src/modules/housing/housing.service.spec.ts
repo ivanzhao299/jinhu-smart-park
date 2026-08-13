@@ -345,16 +345,16 @@ test("housing mixed high-risk variants enforce exact permission intersections be
     finance, handover
   );
   for (const entryType of ["refund", "waiver", "deposit_refund"] as const) {
-    const requiredPermission = entryType === "waiver"
-      ? SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE
-      : SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER;
+    const requiredPermissions = entryType === "waiver"
+      ? [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE]
+      : [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE, SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER];
     const financeDenied = [
       actor,
-      { ...actor, permissions: [requiredPermission] },
+      { ...actor, permissions: [SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE] },
       { ...actor, permissions: [SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] }
     ];
     const financeAllowed = [
-      { ...actor, permissions: [requiredPermission, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] },
+      { ...actor, permissions: [...requiredPermissions, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE] },
       { ...actor, isSuper: true },
       { ...actor, permissions: ["*"] }
     ];

@@ -3,7 +3,8 @@
 import { PROPERTY_BUSINESS_PERMISSIONS, type HousingLeaseDetailResponse } from "@jinhu/shared";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
+import { PropertyPanelSurface, projectPropertyCapabilities, type PropertyCapabilityProjection } from "../../../features/property-shared";
+import { useAuthUser } from "../../../lib/auth-context";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
@@ -128,12 +129,14 @@ function LeaseRelated({ capabilities, data }: LeaseContextProps) {
 }
 
 function LeaseDetail(props: LeaseContextProps) {
+  const user = useAuthUser();
+  const handoverCapabilities = projectPropertyCapabilities(user, "housing.handovers");
   return (
     <div className={styles.stack}>
       <LeasePrimary {...props} />
       <LeaseRelated {...props} />
       <HousingLeaseSecondaryActions capabilities={props.capabilities} data={props.data} reload={props.reload} />
-      <HousingHandoverForm capabilities={props.capabilities} leaseId={props.data.lease.id} leaseStatus={props.data.lease.status} onCompleted={props.reload} />
+      <HousingHandoverForm capabilities={handoverCapabilities} leaseId={props.data.lease.id} leaseStatus={props.data.lease.status} onCompleted={props.reload} />
     </div>
   );
 }

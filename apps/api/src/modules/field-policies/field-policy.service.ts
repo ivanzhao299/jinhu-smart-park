@@ -240,7 +240,8 @@ export class FieldPolicyService {
     scope: TenantParkScope,
     user: JwtPrincipal | undefined,
     moduleName: string,
-    projection: T
+    projection: T,
+    primaryEntity?: string
   ): Promise<T> {
     if (!user || user.isSuper) return projection;
     const policies = (await this.getUserFieldPolicies(scope, user))
@@ -248,7 +249,13 @@ export class FieldPolicyService {
     if (!policies.length) return projection;
     const cloned = structuredClone(projection) as T;
     for (const policy of policies) {
-      this.applyProjectionPolicy(cloned, policy.field_key, policy.policy_type, policy.mask_rule);
+      this.applyProjectionPolicy(
+        cloned,
+        policy.field_key,
+        policy.policy_type,
+        policy.mask_rule,
+        policy.entity === primaryEntity
+      );
     }
     return cloned;
   }
@@ -288,7 +295,8 @@ export class FieldPolicyService {
     value: unknown,
     fieldKey: string,
     policyType: FieldPolicyContext["policy_type"],
-    maskRule?: string | null
+    maskRule?: string | null,
+    allowPrimaryEntityFallback = false
   ): void {
     const segments = fieldKey.split(".").filter(Boolean);
     if (!segments.length) return;
@@ -305,10 +313,10 @@ export class FieldPolicyService {
       if (!key) return false;
       if (index < segments.length - 1) return applyAt(record[key], index + 1);
       if (policyType === "hidden") delete record[key];
-      else if (policyType === "masked") record[key] = this.maskValue(record[key], maskRule);
+      else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
       return true;
     };
-    if (!applyAt(value, 0)) {
+    if (!applyAt(value, 0) && allowPrimaryEntityFallback) {
       const leaf = segments.at(-1)!;
       const visited = new WeakSet<object>();
       const applyLeafEverywhere = (target: unknown): void => {
@@ -323,12 +331,25 @@ export class FieldPolicyService {
         const key = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in record);
         if (key) {
           if (policyType === "hidden") delete record[key];
-          else if (policyType === "masked") record[key] = this.maskValue(record[key], maskRule);
+          else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
         }
         for (const child of Object.values(record)) applyLeafEverywhere(child);
       };
       applyLeafEverywhere(value);
     }
+  }
+
+  private maskProjectionValue(value: unknown, maskRule?: string | null): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.maskProjectionValue(item, maskRule));
+    }
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+        key,
+        this.maskProjectionValue(item, maskRule)
+      ]));
+    }
+    return this.maskValue(value, maskRule);
   }
 
   private fieldKeyCandidates(fieldKey: string): string[] {

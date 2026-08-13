@@ -167,11 +167,8 @@ export class HousingFinanceCommandService {
 
   private assertEntryPermission(actor: JwtPrincipal, entryType: string) {
     if (this.isApprovalEntry(entryType)) {
-      const domainPermission = entryType === "waiver"
-        ? SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE
-        : SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER;
       assertPropertyHighRiskActionPermissions(actor, [
-        domainPermission,
+        SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE,
         SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
       ]);
       if (!this.approvalCommands) {

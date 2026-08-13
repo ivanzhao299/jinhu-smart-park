@@ -15,8 +15,21 @@ abstract class PropertyFieldPolicyInterceptor implements NestInterceptor {
     const actor = request.user;
     if (request.method !== "GET" || !actor) return next.handle();
     return next.handle().pipe(mergeMap((projection) => this.fieldPolicies.applyFieldPoliciesToProjection(
-      { tenantId: actor.tenantId, parkId: actor.parkId }, actor, this.moduleName, projection
+      { tenantId: actor.tenantId, parkId: actor.parkId }, actor, this.moduleName, projection,
+      this.resolvePrimaryEntity(request.originalUrl ?? request.url)
     )));
+  }
+
+  private resolvePrimaryEntity(url?: string): string | undefined {
+    if (!url) return undefined;
+    const segment = url.split("?")[0]?.split("/").filter(Boolean)[1];
+    const entities: Record<string, string> = {
+      availability: "availability", billing: "receivable", bookings: "booking",
+      finance: "ledger", handovers: "handover", leases: "lease", purchases: "purchase",
+      rates: "rate", repairs: "repair", stays: "stay", tasks: "task", tenants: "tenant",
+      turnovers: "turnover"
+    };
+    return segment ? entities[segment] : undefined;
   }
 }
 

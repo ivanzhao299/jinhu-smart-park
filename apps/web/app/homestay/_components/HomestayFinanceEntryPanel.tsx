@@ -78,7 +78,8 @@ export function HomestayFinanceEntryPanel({
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ, "homestay")
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE, "asset");
   const refundAllowed = approvalAllowed
-    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER, "homestay");
+    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER, "homestay")
+    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const waiverAllowed = approvalAllowed
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const highRiskAllowed = refundAllowed || waiverAllowed;

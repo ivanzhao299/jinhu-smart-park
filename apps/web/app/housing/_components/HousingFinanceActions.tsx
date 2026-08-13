@@ -35,7 +35,8 @@ export function HousingFinanceActions({
   const approvalAllowed = capabilities.pageAllowed && capabilities.moduleAvailable
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE, "asset");
   const refundAllowed = approvalAllowed
-    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_REGISTER, "housing_rental");
+    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_REGISTER, "housing_rental")
+    && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_WAIVE, "housing_rental");
   const waiverAllowed = approvalAllowed
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_WAIVE, "housing_rental");
   const highRiskAllowed = refundAllowed || waiverAllowed;

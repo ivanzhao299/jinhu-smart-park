@@ -192,9 +192,39 @@ test("nested property projections enforce hidden and masked policies without mut
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
     "homestay",
-    { items: [{ roomAmount: "90.00" }] }
+    { items: [{ roomAmount: "90.00" }] },
+    "booking"
   );
   assert.equal(listProjected.items[0]!.roomAmount, "***");
+});
+
+test("projection fallback is limited to the policy entity and masks composite values structurally", async () => {
+  const policies = [
+    { tenantId: "tenant-a", module: "housing_rental", entity: "ledger", fieldKey: "ledger.amount", fieldName: "流水金额", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "housing_rental", entity: "handover", fieldKey: "handover.credentials", fieldName: "凭证", policyType: "masked", maskRule: "custom", status: "enabled", isDeleted: false }
+  ];
+  const service = new FieldPolicyService(
+    {} as never,
+    { find: async () => policies.map((fieldPolicy) => ({ fieldPolicy })) } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  const purchase = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "housing_rental",
+    { items: [{ amount: "88.00" }] },
+    "purchase"
+  );
+  assert.equal(purchase.items[0]!.amount, "88.00");
+  const handover = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "housing_rental",
+    { handover: { credentials: [{ code: "ABCD1234", label: "门禁卡" }] } },
+    "handover"
+  );
+  assert.deepEqual(handover.handover.credentials, [{ code: "AB***34", label: "****" }]);
 });
 
 test("field policies cannot weaken an already masked credential projection", async () => {
