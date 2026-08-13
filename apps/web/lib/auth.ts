@@ -200,7 +200,6 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     });
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
-    setToken(response.data.accessToken, { preserveParkSwitch: true });
     const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false });
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
@@ -219,7 +218,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
       || (sharedToken && sharedToken !== originalToken && sharedToken !== rotatedToken)
     );
     if (!newerSessionPublished) await logoutSession();
-    else if (privateToken === rotatedToken && sharedToken !== rotatedToken) clearSessionStorageOnly();
+    else if (privateToken && privateToken !== sharedToken) clearSessionStorageOnly();
     throw error;
   }
 }

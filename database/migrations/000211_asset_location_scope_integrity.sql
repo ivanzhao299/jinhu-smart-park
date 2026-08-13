@@ -128,6 +128,33 @@ CREATE TRIGGER trg_biz_building_active_park_scope
 BEFORE INSERT OR UPDATE OF tenant_id, park_id, is_deleted ON biz_building
 FOR EACH ROW EXECUTE FUNCTION enforce_biz_building_active_park_scope();
 
+CREATE OR REPLACE FUNCTION protect_biz_park_active_scope_insert()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.status <> 1 OR NEW.is_deleted THEN
+    RETURN NEW;
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(
+    'asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id,
+    0
+  ));
+  IF EXISTS (
+    SELECT 1 FROM biz_building b
+    WHERE b.tenant_id = NEW.tenant_id AND b.park_id = NEW.park_id AND b.is_deleted = false
+  ) AND EXISTS (
+    SELECT 1 FROM biz_park source
+    WHERE source.tenant_id = NEW.tenant_id AND source.park_id = NEW.park_id
+      AND source.status = 1 AND source.is_deleted = false
+  ) THEN
+    RAISE EXCEPTION 'active park scope with buildings already has a canonical park' USING ERRCODE = '23505';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_biz_park_active_scope_insert
+BEFORE INSERT ON biz_park
+FOR EACH ROW EXECUTE FUNCTION protect_biz_park_active_scope_insert();
+
 CREATE OR REPLACE FUNCTION protect_biz_park_building_scope()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE

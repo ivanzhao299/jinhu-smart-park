@@ -538,6 +538,8 @@ test("switchParkContext preserves a newer cross-tab login after publishing its p
 
   const switching = switchParkContext("20000002");
   while (calls.length < 2) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  assert.equal(session.getItem("jinhu_access_token"), "old-token");
+  assert.equal(local.getItem("jinhu_access_token"), "old-token");
   local.setItem("jinhu_access_token", "cross-tab-login-token");
   local.setItem("jinhu_auth_user", JSON.stringify({ ...user, username: "cross-tab-login" }));
   local.removeItem("jinhu_park_context_switch");
