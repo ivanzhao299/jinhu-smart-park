@@ -582,12 +582,14 @@ export class UsersService {
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {
-    await this.resolveJwtPrincipal(scope, id);
     const user = await this.usersRepository.findOne({
       where: { id, tenantId: scope.tenantId, isDeleted: false },
       relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
     });
     if (!user) throw new NotFoundException("User not found");
+    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
+    const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
+    if (user.parkId !== scope.parkId && !currentPark) throw new NotFoundException("User not found");
     const primaryOrg = await this.userOrgRepository.findOne({
       where: {
         userId: id,
@@ -608,8 +610,6 @@ export class UsersService {
     const { permissions } = principal;
     const dataScope = principal.dataScope ?? "self";
     const isSuper = principal.isSuper ?? false;
-    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
-    const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
     const fieldPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, principal);
     const dataScopes = await this.dataScopeService.getUserDataScopes(scope, principal);
     const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, scope.parkId);
