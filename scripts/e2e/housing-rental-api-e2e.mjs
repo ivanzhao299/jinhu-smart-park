@@ -174,11 +174,12 @@ async function run() {
   }
   assert(Boolean(unit?.id), "selected an actual operating unit");
 
+  const currentOperation = await request(`/property/units/${unit.id}/operation`, { token });
   await request(`/property/units/${unit.id}/operation`, {
     method: "PUT",
     token,
     idempotent: true,
-    body: { operating_status: "enabled", remark: "Housing real API E2E" }
+    body: { version: currentOperation.version, operating_status: "enabled", remark: "Housing real API E2E" }
   });
   const operation = await request(`/property/units/${unit.id}/operation`, { token });
   if (operation.operating_mode !== "long_rent") {

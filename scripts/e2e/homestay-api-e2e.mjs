@@ -112,11 +112,12 @@ async function run() {
       }
     });
     if (!availability.available) continue;
+    const currentOperation = await request(`/property/units/${candidate.id}/operation`, { token });
     await request(`/property/units/${candidate.id}/operation`, {
       method: "PUT",
       token,
       idempotent: true,
-      body: { operating_status: "enabled", remark: "Homestay real API E2E" }
+      body: { version: currentOperation.version, operating_status: "enabled", remark: "Homestay real API E2E" }
     });
     const operation = await request(`/property/units/${candidate.id}/operation`, { token });
     if (operation.operating_mode === "short_stay") {

@@ -25,6 +25,7 @@ assert.match(ci, /Assert disposable property E2E cleanup/, "release smoke must a
 for (const suite of [homestay, housing]) {
   assert.doesNotMatch(suite, /unit_id: candidate\.id/, "availability checks must use the current camelCase DTO contract");
   assert.match(suite, /unitId: candidate\.id/, "availability checks must send unitId");
+  assert.match(suite, /version: currentOperation\.version/, "operation writes must use the current optimistic-concurrency version");
 }
 
 console.log("[PASS] property API E2E gate contract");
