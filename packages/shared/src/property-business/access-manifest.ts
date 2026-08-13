@@ -429,7 +429,10 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         "/homestay/bookings/:id/finance-sources",
         PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
         {
-          requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
+          requiredPermissions: [
+            PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
+            PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+          ],
           anyPermissions: [
             PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
             PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE

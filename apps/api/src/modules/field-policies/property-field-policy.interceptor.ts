@@ -29,6 +29,7 @@ abstract class PropertyFieldPolicyInterceptor implements NestInterceptor {
       turnovers: "turnover"
     };
     const segments = url.split("?")[0]?.split("/").filter(Boolean) ?? [];
+    if (segments.includes("finance-sources")) return "ledger";
     const segment = segments.find((value) => value in entities);
     return segment ? entities[segment] : undefined;
   }

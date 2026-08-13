@@ -196,6 +196,12 @@ export class HomestayFinanceService {
     const remaining = toMoneyCents(source!.amount) - allocation.allocatedCents;
     this.assertApprovedAllocationUnchanged(allocation, remaining, line);
     await this.insertApprovedLedgerEffect(input, scope, bookingId, sourceId, line, entryType);
+    const updated = await input.manager.query(
+      `UPDATE biz_homestay_booking SET version=version+1,update_by=$4,update_time=clock_timestamp()
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$5 RETURNING version`,
+      [scope.tenantId, scope.parkId, bookingId, input.request.requesterId, input.sourceExpectedVersion]
+    ) as Array<{ version: number }>;
+    if (updated.length !== 1) throw new ConflictException("Approval source changed");
   }
 
   private async requestApprovedRefundOrWaiver(

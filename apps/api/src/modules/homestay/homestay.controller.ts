@@ -220,7 +220,10 @@ export class HomestayController {
 
   @Get("bookings/:id/finance-sources")
   @RequireModule("homestay", "asset")
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+  )
   @RequireAnyPermissions(
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
     SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_WAIVE

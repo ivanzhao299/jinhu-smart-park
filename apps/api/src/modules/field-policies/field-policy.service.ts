@@ -256,6 +256,9 @@ export class FieldPolicyService {
         policy.mask_rule,
         policy.entity === primaryEntity
       );
+      this.applyProjectionPolicyInEntityContainers(
+        cloned, policy.entity, policy.field_key, policy.policy_type, policy.mask_rule
+      );
     }
     return cloned;
   }
@@ -337,6 +340,44 @@ export class FieldPolicyService {
       };
       applyLeafEverywhere(value);
     }
+  }
+
+  private applyProjectionPolicyInEntityContainers(
+    value: unknown,
+    entity: string,
+    fieldKey: string,
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null
+  ): void {
+    const containerKeys: Record<string, readonly string[]> = {
+      booking: ["booking", "items"], ledger: ["ledger"], receivable: ["receivables"],
+      lease: ["lease", "items"], handover: ["handovers"], purchase: ["purchase", "items"],
+      repair: ["repairs", "items"], tenant: ["tenant", "tenants", "items"]
+    };
+    const keys = containerKeys[entity];
+    if (!keys) return;
+    const leaf = fieldKey.split(".").filter(Boolean).at(-1);
+    if (!leaf) return;
+    const visit = (target: unknown): void => {
+      if (Array.isArray(target)) return void target.forEach(visit);
+      if (!target || typeof target !== "object") return;
+      const record = target as Record<string, unknown>;
+      for (const key of keys) {
+        const child = record[key];
+        if (!child) continue;
+        const apply = (item: unknown): void => {
+          if (!item || typeof item !== "object") return;
+          const row = item as Record<string, unknown>;
+          const rowKey = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in row);
+          if (!rowKey) return;
+          if (policyType === "hidden") delete row[rowKey];
+          else if (policyType === "masked") row[rowKey] = this.maskProjectionValue(row[rowKey], maskRule);
+        };
+        Array.isArray(child) ? child.forEach(apply) : apply(child);
+      }
+      Object.values(record).forEach(visit);
+    };
+    visit(value);
   }
 
   private maskProjectionValue(value: unknown, maskRule?: string | null): unknown {

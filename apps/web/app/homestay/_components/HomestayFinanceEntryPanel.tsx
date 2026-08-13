@@ -57,7 +57,7 @@ function useFinanceEntry(onSaved: () => void) {
   }
   return {
     amount, bookingId, chargeType, entryType, message, paymentMethod, reason, sourceLedgerId,
-    setAmount, setBookingId, setChargeType, setEntryType, setPaymentMethod, setReason, setSourceLedgerId,
+    setAmount, setBookingId, setChargeType, setEntryType, setMessage, setPaymentMethod, setReason, setSourceLedgerId,
     submit, submitting
   };
 }
@@ -99,8 +99,11 @@ export function HomestayFinanceEntryPanel({
       token: getAccessToken() ?? undefined
     }).then((response) => {
       if (requestId === ledgerRequestId.current) setSources(response.data);
-    }).catch(() => {
-      if (requestId === ledgerRequestId.current) setSources([]);
+    }).catch((error) => {
+      if (requestId === ledgerRequestId.current) {
+        setSources([]);
+        form.setMessage(error instanceof Error ? error.message : "加载可操作来源失败");
+      }
     });
   }, [form.bookingId, form.entryType, highRiskAllowed]);
   if (!ordinaryAllowed && !highRiskAllowed) return null;
