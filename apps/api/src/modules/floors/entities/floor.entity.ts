@@ -14,7 +14,7 @@ import { FileEntity } from "../../files/entities/file.entity";
 
 @Entity("biz_floor")
 @Index("idx_biz_floor_entity_scope_deleted", ["tenantId", "parkId", "isDeleted"])
-@Index("idx_biz_floor_entity_code", ["floorCode"], { unique: true, where: "is_deleted = false" })
+@Index("uq_biz_floor_code_active", ["tenantId", "parkId", "floorCode"], { unique: true, where: "is_deleted = false" })
 export class FloorEntity {
   @PrimaryGeneratedColumn("uuid")
   id!: string;

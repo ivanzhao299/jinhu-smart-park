@@ -13,11 +13,13 @@ import {
 
 import { Edit3, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult, type UserParkContext } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { useAuthUser } from "../../../lib/auth-context";
+import { getStoredUser, switchParkContext } from "../../../lib/auth";
 import {
   getCommittedDeleteRefreshError,
   removeCommittedItem
@@ -41,6 +43,7 @@ interface BuildingRow {
 }
 
 interface BuildingFormState {
+  parkId: string;
   buildingCode: string;
   buildingName: string;
   floorCount: string;
@@ -53,6 +56,7 @@ interface BuildingFormState {
 const emptyPage: PaginatedResult<BuildingRow> = { items: [], page: 1, page_size: 20, total: 0 };
 
 const emptyForm: BuildingFormState = {
+  parkId: "",
   buildingCode: "",
   buildingName: "",
   floorCount: "0",
@@ -76,6 +80,11 @@ export default function BuildingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [detail, setDetail] = useState<BuildingRow | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const authUser = useAuthUser();
+  const storedUser = authUser ?? getStoredUser();
+  const accessibleParks = enabledParks(storedUser?.accessible_parks, storedUser?.park_id, storedUser?.park_name);
+  const currentParkName = resolveParkName(accessibleParks, storedUser?.park_id, storedUser?.park_name);
 
   const load = useCallback(async (page = 1) => {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
@@ -93,7 +102,7 @@ export default function BuildingsPage() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm({ ...emptyForm, parkId: storedUser?.park_id ?? "" });
     setShowForm(true);
     setMessage("");
   }
@@ -101,6 +110,7 @@ export default function BuildingsPage() {
   function openEdit(row: BuildingRow) {
     setEditingId(row.id);
     setForm({
+      parkId: row.parkId,
       buildingCode: row.buildingCode,
       buildingName: row.buildingName,
       floorCount: String(row.floorCount ?? 0),
@@ -115,6 +125,16 @@ export default function BuildingsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
+    setMessage("");
+    let switchedPark = false;
+    try {
+      if (!editingId && !form.parkId) throw new Error("请选择所属园区");
+      if (!editingId && form.parkId !== getStoredUser()?.park_id) {
+        await switchParkContext(form.parkId);
+        switchedPark = true;
+      }
     const body = {
       buildingCode: form.buildingCode.trim(),
       buildingName: form.buildingName.trim(),
@@ -124,16 +144,28 @@ export default function BuildingsPage() {
       sortNo: Number(form.sortNo || 0),
       remark: form.remark.trim()
     };
-    await apiRequest<BuildingRow>(editingId ? `/buildings/${editingId}` : "/buildings", {
+      await apiRequest<BuildingRow>(editingId ? `/buildings/${editingId}` : "/buildings", {
       method: editingId ? "PUT" : "POST",
       token: getAccessToken(),
       idempotencyKey: createIdempotencyKey(editingId ? "building-update" : "building-create"),
       body
-    });
-    setShowForm(false);
-    setEditingId(null);
-    setMessage("保存成功");
-    await load(pageData.page);
+      });
+      setShowForm(false);
+      setEditingId(null);
+      setMessage("保存成功");
+      if (switchedPark) {
+        window.location.reload();
+      } else {
+        await load(pageData.page);
+      }
+    } catch (error) {
+      if (switchedPark) {
+        throw new Error(`已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`);
+      }
+      throw error;
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   async function remove(row: BuildingRow) {
@@ -163,7 +195,7 @@ export default function BuildingsPage() {
         <header className="header">
           <div className="header-title">
             <strong>楼栋管理</strong>
-            <span>维护园区楼栋空间档案，作为楼层与房源的上级对象</span>
+            <span>当前园区：{currentParkName} · 维护园区楼栋空间档案，作为楼层与房源的上级对象</span>
           </div>
           <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.BUILDING_CREATE} type="button" onClick={openCreate}>
             <Plus size={16} />
@@ -201,6 +233,7 @@ export default function BuildingsPage() {
               <tr>
                 <th>楼栋编码</th>
                 <th>楼栋名称</th>
+                <th>所属园区</th>
                 <th>楼层数</th>
                 <th>建筑面积</th>
                 <th>状态</th>
@@ -214,6 +247,7 @@ export default function BuildingsPage() {
                 <tr key={row.id}>
                   <td>{row.buildingCode}</td>
                   <td>{row.buildingName}</td>
+                  <td>{resolveParkName(accessibleParks, row.parkId, currentParkName)}</td>
                   <td>{row.floorCount}</td>
                   <td>{formatArea(row.buildArea)}</td>
                   <td><StatusBadge status={row.status} /></td>
@@ -239,7 +273,7 @@ export default function BuildingsPage() {
               ))}
               {pageData.items.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>暂无楼栋数据</td>
+                  <td colSpan={9}>暂无楼栋数据</td>
                 </tr>
               ) : null}
             </tbody>
@@ -271,6 +305,27 @@ export default function BuildingsPage() {
             />
             <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
+                {!editingId ? (
+                  <div className="field">
+                    <label htmlFor="buildingFormPark">所属园区</label>
+                    <select
+                      id="buildingFormPark"
+                      required
+                      value={form.parkId}
+                      onChange={(event) => setForm((current) => ({ ...current, parkId: event.target.value }))}
+                    >
+                      <option value="">请选择园区</option>
+                      {accessibleParks.map((park) => (
+                        <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} · ` : ""}{park.park_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="field">
+                    <label>所属园区</label>
+                    <input disabled value={resolveParkName(accessibleParks, form.parkId, currentParkName)} />
+                  </div>
+                )}
                 <TextField label="楼栋编码" value={form.buildingCode} required={Boolean(editingId)} placeholder="请输入或生成楼栋编码" onChange={(value) => setForm((current) => ({ ...current, buildingCode: value }))} />
                 <TextField label="楼栋名称" value={form.buildingName} required onChange={(value) => setForm((current) => ({ ...current, buildingName: value }))} />
                 <NumberField label="楼层数" value={form.floorCount} required step="1" onChange={(value) => setForm((current) => ({ ...current, floorCount: value }))} />
@@ -294,7 +349,7 @@ export default function BuildingsPage() {
               </DrawerFormGrid>
               <DrawerFooter>
                 <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
-                <button className="primary-button" type="submit">保存</button>
+                <button className="primary-button" type="submit" disabled={submitting}>{submitting ? "保存中…" : "保存"}</button>
               </DrawerFooter>
             </DrawerForm>
           </Drawer>
@@ -312,6 +367,7 @@ export default function BuildingsPage() {
             <DrawerDetailGrid>
               <DrawerDetailItem label="楼栋编码" value={detail.buildingCode} />
               <DrawerDetailItem label="楼栋名称" value={detail.buildingName} />
+              <DrawerDetailItem label="所属园区" value={resolveParkName(accessibleParks, detail.parkId, currentParkName)} />
               <DrawerDetailItem label="楼层数" value={detail.floorCount} />
               <DrawerDetailItem label="建筑面积" value={formatArea(detail.buildArea)} />
               <DrawerDetailItem label="状态" value={<StatusBadge status={detail.status} />} />
@@ -329,6 +385,21 @@ export default function BuildingsPage() {
       </main>
     </PermissionGuard>
   );
+}
+
+function enabledParks(
+  parks: UserParkContext[] | undefined,
+  currentParkId: string | undefined,
+  currentParkName: string | null | undefined
+): UserParkContext[] {
+  const enabled = (parks ?? []).filter((park) => park.status === "enabled");
+  if (enabled.length > 0 || !currentParkId) return enabled;
+  return [{ park_id: currentParkId, park_name: currentParkName ?? currentParkId, is_default: true, status: "enabled" }];
+}
+
+function resolveParkName(parks: UserParkContext[], parkId: string | undefined, fallback?: string | null): string {
+  if (!parkId) return fallback || "未选择园区";
+  return parks.find((park) => park.park_id === parkId)?.park_name ?? fallback ?? parkId;
 }
 
 function TextField({

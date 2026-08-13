@@ -2,7 +2,7 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Update
 
 @Entity("biz_building")
 @Index("idx_biz_building_entity_scope_deleted", ["tenantId", "parkId", "isDeleted"])
-@Index("idx_biz_building_entity_code", ["buildingCode"], { unique: true, where: "is_deleted = false" })
+@Index("uq_biz_building_code_active", ["tenantId", "parkId", "buildingCode"], { unique: true, where: "is_deleted = false" })
 export class BuildingEntity {
   @PrimaryGeneratedColumn("uuid")
   id!: string;

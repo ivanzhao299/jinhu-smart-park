@@ -13,6 +13,7 @@ const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
 
 let currentUserRequest: { token: string; promise: Promise<UserContext> } | null = null;
+let parkContextSwitch: { parkId: string; promise: Promise<UserContext> } | null = null;
 
 export function getToken(): string {
   if (typeof window === "undefined") {
@@ -128,6 +129,41 @@ export async function fetchCurrentUser(options: { requestToken?: string } = {}):
     currentUserRequest = { token, promise };
   }
   return currentUserRequest.promise;
+}
+
+interface SwitchContextResult {
+  accessToken?: string;
+  refreshToken?: string;
+}
+
+export function switchParkContext(parkId: string): Promise<UserContext> {
+  if (parkContextSwitch) {
+    if (parkContextSwitch.parkId === parkId) return parkContextSwitch.promise;
+    return Promise.reject(new Error("园区上下文正在切换，请稍后重试"));
+  }
+  const promise = performParkContextSwitch(parkId).finally(() => {
+    if (parkContextSwitch?.promise === promise) parkContextSwitch = null;
+  });
+  parkContextSwitch = { parkId, promise };
+  return promise;
+}
+
+async function performParkContextSwitch(parkId: string): Promise<UserContext> {
+  const current = getStoredUser();
+  if (!parkId || !current) throw new Error("园区上下文不可用，请重新登录");
+  if (current.park_id === parkId) return current;
+  const target = current.accessible_parks?.find((park) => park.park_id === parkId);
+  if (!target || target.status !== "enabled") throw new Error("所选园区不可访问或未启用");
+  const response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
+    method: "POST",
+    token: getToken(),
+    body: { parkId }
+  });
+  if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
+  const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken });
+  if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
+  await setSession(response.data.accessToken, nextUser, response.data.refreshToken);
+  return nextUser;
 }
 
 function removeRefreshTokenStorage(): void {

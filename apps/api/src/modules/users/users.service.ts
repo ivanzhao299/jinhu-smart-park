@@ -1518,6 +1518,7 @@ export class UsersService {
       where: {
         tenantId: In(tenantIds),
         parkId: In(parkIds),
+        status: 1,
         isDeleted: false
       }
     });
@@ -1534,7 +1535,7 @@ export class UsersService {
         park_code: park.parkCode,
         park_name: park.parkName,
         is_default: link.isDefault,
-        status: link.status
+        status: "enabled"
       };
     });
   }
