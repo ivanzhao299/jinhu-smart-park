@@ -14,6 +14,11 @@ const selectedSuites = suiteArgument ? [suiteArgument] : [...suites.keys()];
 const startedAt = new Date().toISOString();
 const runId = process.env.TEST_RUN_ID ?? `property-api-${Date.now()}-${randomUUID().slice(0, 8)}`;
 const reportPath = resolve(root, process.env.PROPERTY_API_E2E_REPORT_PATH ?? "artifacts/property-api-e2e-report.json");
+const readinessAttempts = 24;
+const readinessDelayMs = 2500;
+const readinessRequestTimeoutMs = 5000;
+
+const delay = (milliseconds) => new Promise((resolvePromise) => setTimeout(resolvePromise, milliseconds));
 
 function validateEnvironment() {
   requirePropertyApiE2eIsolation({ requireRunId: false });
@@ -24,11 +29,30 @@ function validateEnvironment() {
 
 async function requireReady() {
   const base = requirePropertyApiE2eIsolation({ requireRunId: false });
+  const failures = [];
   for (const endpoint of ["health", "ready"]) {
     const url = new URL(endpoint, base.href.endsWith("/") ? base.href : `${base.href}/`);
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Property API E2E gate refused to run: ${url} returned ${response.status}; run migrations, seed, bootstrap, and start the API first.`);
+    let ready = false;
+    for (let attempt = 1; attempt <= readinessAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), readinessRequestTimeoutMs);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (response.ok) {
+          ready = true;
+          break;
+        }
+        failures.push(`${url} attempt ${attempt}/${readinessAttempts} returned ${response.status}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failures.push(`${url} attempt ${attempt}/${readinessAttempts} failed: ${message}`);
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (attempt < readinessAttempts) await delay(readinessDelayMs);
+    }
+    if (!ready) {
+      throw new Error(`Property API E2E gate refused to run: ${url} did not become ready within the bounded retry budget; run migrations, seed, bootstrap, and start the API first. Last checks: ${failures.slice(-4).join("; ")}`);
     }
   }
 }

@@ -184,12 +184,24 @@ async function run() {
   assert(typeof identitySubmissionId === "string", "party creation owns a draft identity submission");
   const identityDraft = await request(`/property/identity-submissions/${identitySubmissionId}`, { token });
   const identitySubmitKey = key("identity-submit");
-  await request(`/property/identity-submissions/${identitySubmissionId}/submit`, {
+  const submittedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/submit`, {
     method: "POST",
     token,
     idempotent: true,
     idempotencyKey: identitySubmitKey,
     body: { clientKey: identitySubmitKey, expectedVersion: identityDraft.version }
+  });
+  const identityClaimKey = key("identity-claim");
+  await request(`/property/identity-submissions/${identitySubmissionId}/claim`, {
+    method: "POST",
+    token: approverToken,
+    idempotent: true,
+    idempotencyKey: identityClaimKey,
+    body: {
+      clientKey: identityClaimKey,
+      expectedVersion: submittedIdentity.version,
+      expectedAssignmentVersion: submittedIdentity.assignmentVersion
+    }
   });
   await request(`/property/parties/${guest.id}/verification`, {
     method: "POST",

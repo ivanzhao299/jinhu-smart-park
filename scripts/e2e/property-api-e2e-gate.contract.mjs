@@ -25,15 +25,19 @@ assert.match(gate, /ready/, "gate must check API readiness");
 assert.match(packageJson, /test:e2e:property-api/, "package scripts must expose the aggregate property API E2E gate");
 assert.match(ci, /Run property API E2E gate/, "release smoke must invoke the real property API E2E gate");
 assert.match(ci, /Assert disposable property E2E cleanup/, "release smoke must assert cleanup after the disposable run");
-assert.match(ci, /Bootstrap separated property approver/, "release smoke must preserve requester/approver separation");
+assert.doesNotMatch(ci, /Bootstrap separated property approver/, "release smoke must not create a second bootstrap admin as the approval actor");
 assert.match(ci, /Provision disposable property operation fixtures/, "release smoke must provision explicit operation-mode fixtures");
+assert.match(fixtures, /PROPERTY_API_E2E_APPROVER/, "fixtures must provision a disposable least-privilege approval role");
+assert.match(fixtures, /approver_password_hash/, "fixtures must create a login-capable disposable approver without bootstrap-admin");
 assert.match(fixtures, /short_stay/, "fixtures must provision a short-stay unit");
 assert.match(fixtures, /long_rent/, "fixtures must provision a long-rent unit");
 assert.match(fixtures, /biz_party_identity_verification_queue/, "fixtures must provision an identity verification queue");
 assert.match(fixtures, /eligibleVerifierUserIds/, "the identity queue must freeze the separated approver eligibility");
-for (const dependency of ["files", "property-approvals", "property-identity", "work-orders"]) {
+for (const dependency of ["files", "property-approvals", "property-identity", "units", "work-orders"]) {
   assert.match(ci, new RegExp(`modules/\\([^)]*${dependency}`), `release-smoke scope must include ${dependency}`);
 }
+assert.match(gate, /AbortController/, "readiness checks must be bounded by a response timeout");
+assert.match(gate, /readinessAttempts/, "readiness checks must retry transient startup failures");
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {
@@ -47,6 +51,7 @@ assert.match(housing, /submission: purchasePayment/, "purchase payment must exec
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
+assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/claim/, "a separate actor must claim submitted identity work before legacy verification");
 assert.match(homestay, /token: approverToken,[\s\S]*verification_status: "verified"/, "identity verification must preserve maker-checker separation");
 
 console.log("[PASS] property API E2E gate contract");
