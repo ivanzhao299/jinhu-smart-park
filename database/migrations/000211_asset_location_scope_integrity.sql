@@ -135,6 +135,13 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM biz_building b
     WHERE b.tenant_id = NEW.tenant_id AND b.park_id = NEW.park_id AND b.is_deleted = false
+  ) AND NOT EXISTS (
+    SELECT 1 FROM biz_park idempotent_source
+    WHERE idempotent_source.tenant_id = NEW.tenant_id
+      AND idempotent_source.park_id = NEW.park_id
+      AND idempotent_source.park_code = NEW.park_code
+      AND idempotent_source.status = 1
+      AND idempotent_source.is_deleted = false
   ) AND EXISTS (
     SELECT 1 FROM biz_park source
     WHERE source.tenant_id = NEW.tenant_id AND source.park_id = NEW.park_id
