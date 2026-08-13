@@ -235,6 +235,20 @@ test("business occupancy lifecycle requires an active unit and owning-domain act
   assert.doesNotMatch(release, /this\.occupanciesRepository\.save/);
 });
 
+test("force release approval SQL pins parameter types before inserting approval-owned audit rows", () => {
+  const service = readFileSync(resolve(__dirname, "property-occupancies.service.ts"), "utf8");
+  const executeApprovedForceRelease = service.slice(
+    service.indexOf("async executeApprovedForceRelease"),
+    service.indexOf("private requiredUuidPayload")
+  );
+
+  assert.match(executeApprovedForceRelease, /lock_property_unit_scope\(\$1::varchar, \$2::varchar, \$3::uuid\)/);
+  assert.match(executeApprovedForceRelease, /request_id=\$3::uuid/);
+  assert.match(executeApprovedForceRelease, /id=\$3::uuid AND version=\$4::integer/);
+  assert.match(executeApprovedForceRelease, /SELECT \$1::varchar,\$2::varchar,\$3::uuid,\$4::varchar/);
+  assert.match(executeApprovedForceRelease, /request\.id=\$14::uuid/);
+});
+
 test("apartment occupancy creation follows the canonical advisory-before-unit lock order", () => {
   const service = readFileSync(resolve(__dirname, "../apartments/apartments.service.ts"), "utf8");
   const createRoom = service.slice(service.indexOf("async createRoom"), service.indexOf("async updateRoom"));

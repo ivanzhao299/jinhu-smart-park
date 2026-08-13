@@ -529,14 +529,14 @@ export class PropertyOccupanciesService {
       || occupancyId !== input.request.sourceId
       || input.sourceExpectedVersion !== input.request.sourceExpectedVersion
     ) throw new ConflictException("Approval source changed");
-    await input.manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [
+    await input.manager.query("SELECT lock_property_unit_scope($1::varchar, $2::varchar, $3::uuid)", [
       scope.tenantId, scope.parkId, unitId
     ]);
     const rows = await input.manager.query(
       `SELECT id::text AS id, unit_id::text AS "unitId", source_domain AS "sourceDomain",
               source_type AS "sourceType", source_id AS "sourceId", status, version
          FROM biz_property_occupancy
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,
+        WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND id=$3::uuid AND is_deleted=false FOR UPDATE`,
       [scope.tenantId, scope.parkId, occupancyId]
     ) as Array<{
       id: string; unitId: string; sourceDomain: string; sourceType: string;
@@ -557,7 +557,7 @@ export class PropertyOccupanciesService {
     const manifests = await input.manager.query(
       `SELECT invariant_hash AS "effectHash", effect_line_key AS "effectLineKey"
          FROM biz_property_execution_effect_manifest
-        WHERE tenant_id=$1 AND park_id=$2 AND request_id=$3
+        WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND request_id=$3::uuid
           AND effect_kind='property.occupancy.force.release'`,
       [scope.tenantId, scope.parkId, input.requestId]
     ) as Array<{ effectHash: string; effectLineKey: string }>;
@@ -568,9 +568,9 @@ export class PropertyOccupanciesService {
           SET status='released', release_reason=$5, released_at=clock_timestamp(),
               update_time=clock_timestamp(),
               update_by=(SELECT requester_id FROM biz_property_approval_request
-                          WHERE tenant_id=$1 AND park_id=$2 AND id=$6),
+                          WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND id=$6::uuid),
               version=version+1
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4
+        WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND id=$3::uuid AND version=$4::integer
         RETURNING version`,
       [
         scope.tenantId,
@@ -590,10 +590,11 @@ export class PropertyOccupanciesService {
          source_domain,source_type,source_id,from_status,to_status,
          source_expected_version,resulting_version,approval_execution_key,
          approval_effect_kind,approval_effect_line_key,approval_effect_hash)
-       SELECT $1,$2,$3,$4,request.requester_id,clock_timestamp(),$5,$6,$7,$8,'released',
-              $9,$10,$11,'property.occupancy.force.release',$12,$13
+       SELECT $1::varchar,$2::varchar,$3::uuid,$4::varchar,request.requester_id,clock_timestamp(),
+              $5::varchar,$6::varchar,$7::varchar,$8::varchar,'released',
+              $9::integer,$10::integer,$11::varchar,'property.occupancy.force.release',$12::varchar,$13::char(64)
          FROM biz_property_approval_request request
-        WHERE request.tenant_id=$1 AND request.park_id=$2 AND request.id=$14
+        WHERE request.tenant_id=$1::varchar AND request.park_id=$2::varchar AND request.id=$14::uuid
        RETURNING id::text AS id`,
       [
         scope.tenantId, scope.parkId, occupancyId, reason, occupancy.sourceDomain,
