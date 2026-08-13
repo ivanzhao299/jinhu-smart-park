@@ -193,7 +193,7 @@ export class AuthController {
     @Req() request: AuditScopeRequest,
     @Res({ passthrough: true }) response: Response
   ): Promise<LoginResult> {
-    const result = await this.authService.switchContext(user, dto.parkId, this.getMeta(request));
+    const result = await this.authService.switchContext(user, dto.parkId, dto.refreshToken, this.getMeta(request));
     request.auditScopeOverride = { tenantId: user.tenantId, parkId: dto.parkId };
     return this.withRefreshCookie(result, response);
   }

@@ -1310,7 +1310,7 @@ export class TenantsService {
       remark: "Additional park access binding"
     }));
     await manager.getRepository(UserOrgEntity).save(manager.getRepository(UserOrgEntity).create({
-      tenantId: tenant.tenantId, parkId, userId, orgId, postId: null, isPrimary: false, createBy: actorId, updateBy: actorId,
+      tenantId: tenant.tenantId, parkId, userId, orgId, postId: null, isPrimary: true, createBy: actorId, updateBy: actorId,
       remark: "Additional park organization binding"
     }));
   }

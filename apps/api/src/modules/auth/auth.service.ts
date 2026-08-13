@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, OnModuleInit, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, OnModuleInit, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -654,7 +654,8 @@ export class AuthService implements OnModuleInit {
         { tenantId: refreshToken.tenantId, parkId: refreshToken.parkId },
         refreshToken.userId
       );
-    } catch {
+    } catch (error) {
+      if (!(error instanceof NotFoundException)) throw error;
       throw new UnauthorizedException("Refresh token user unavailable");
     }
 
@@ -664,9 +665,20 @@ export class AuthService implements OnModuleInit {
     return this.issuePrincipalLoginResult(principal, meta, "refresh_token");
   }
 
-  async switchContext(user: JwtPrincipal, parkId: string, meta: LoginRequestMeta): Promise<LoginResult> {
+  async switchContext(user: JwtPrincipal, parkId: string, currentRefreshToken: string, meta: LoginRequestMeta): Promise<LoginResult> {
     if (parkId === user.parkId) throw new BadRequestException("Already in selected park context");
+    const token = await this.refreshTokenRepository.findOne({
+      where: {
+        tokenHash: this.hashToken(currentRefreshToken), tenantId: user.tenantId,
+        parkId: user.parkId, userId: user.sub, revoked: false, isDeleted: false,
+        expiresAt: MoreThan(new Date())
+      }
+    });
+    if (!token) throw new UnauthorizedException("Refresh token expired");
     const target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
+    token.revoked = true;
+    token.revokedTime = new Date();
+    await this.refreshTokenRepository.save(token);
     return this.issuePrincipalLoginResult(target, meta, "context_switch");
   }
 
