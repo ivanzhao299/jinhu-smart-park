@@ -720,7 +720,14 @@ export class UsersService {
        WHERE usr.id = $1::uuid
          AND usr.tenant_id = $2
          AND (
-           usr.park_id = $3
+           (
+             usr.park_id = $3
+             AND NOT EXISTS (
+               SELECT 1 FROM rel_user_park explicit_home
+                WHERE explicit_home.user_id=usr.id AND explicit_home.tenant_id=usr.tenant_id
+                  AND explicit_home.park_id=$3
+             )
+           )
            OR EXISTS (
              SELECT 1 FROM rel_user_park access
               WHERE access.user_id=usr.id AND access.tenant_id=usr.tenant_id AND access.park_id=$3

@@ -301,6 +301,7 @@ export class TenantsService {
       await this.assertTenantCodeAvailable(tenantRepository, tenantCode);
 
       const tenantId = dto.tenantId?.trim() || (await this.generateScopeId(tenantRepository, "1", "tenantId"));
+      await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["biz-park-scope-id-allocation"]);
       const parkId = dto.parkId?.trim() || (await this.generateScopeId(tenantRepository, "2", "parkId"));
       await this.assertTenantIdAvailable(tenantRepository, tenantId);
       await this.assertParkIdAvailable(manager.getRepository(ParkEntity), parkId);

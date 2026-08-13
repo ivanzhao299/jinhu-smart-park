@@ -74,6 +74,7 @@ test("JWT principal query binds the current user scope and selects only active l
   assert.match(capturedSql, /role\.role_scope = 'tenant' OR role\.park_id = \$3/);
   assert.match(capturedSql, /role_permission\.park_id = \$3/);
   assert.match(capturedSql, /FROM rel_user_park access/);
+  assert.match(capturedSql, /NOT EXISTS \([\s\S]*FROM rel_user_park explicit_home/);
   assert.match(capturedSql, /active_permission\.tenant_id = usr\.tenant_id/);
   assert.deepEqual(principal.roles, ["PROPERTY_OPERATOR", "TENANT_AUDITOR"]);
   assert.deepEqual(principal.permissions, [

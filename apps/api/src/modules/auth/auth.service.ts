@@ -667,18 +667,25 @@ export class AuthService implements OnModuleInit {
 
   async switchContext(user: JwtPrincipal, parkId: string, currentRefreshToken: string, meta: LoginRequestMeta): Promise<LoginResult> {
     if (parkId === user.parkId) throw new BadRequestException("Already in selected park context");
+    const tokenHash = this.hashToken(currentRefreshToken);
     const token = await this.refreshTokenRepository.findOne({
       where: {
-        tokenHash: this.hashToken(currentRefreshToken), tenantId: user.tenantId,
+        tokenHash, tenantId: user.tenantId,
         parkId: user.parkId, userId: user.sub, revoked: false, isDeleted: false,
         expiresAt: MoreThan(new Date())
       }
     });
     if (!token) throw new UnauthorizedException("Refresh token expired");
     const target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
-    token.revoked = true;
-    token.revokedTime = new Date();
-    await this.refreshTokenRepository.save(token);
+    const revokedTime = new Date();
+    const claim = await this.refreshTokenRepository.update(
+      {
+        id: token.id, tokenHash, tenantId: user.tenantId, parkId: user.parkId,
+        userId: user.sub, revoked: false, isDeleted: false, expiresAt: MoreThan(revokedTime)
+      },
+      { revoked: true, revokedTime, updateBy: user.sub }
+    );
+    if (claim.affected !== 1) throw new UnauthorizedException("Refresh token expired");
     return this.issuePrincipalLoginResult(target, meta, "context_switch");
   }
 
