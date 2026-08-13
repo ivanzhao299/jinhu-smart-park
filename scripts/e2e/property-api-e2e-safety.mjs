@@ -39,13 +39,22 @@ export function requirePropertyApiE2eIsolation({ requireRunId = true } = {}) {
 export function requirePropertyApiE2eDockerBinding(url) {
   const container = process.env.PROPERTY_API_E2E_API_CONTAINER ?? "";
   if (!container) fail("PROPERTY_API_E2E_API_CONTAINER must identify the disposable API container.");
+  const postgresContainer = process.env.PROPERTY_API_E2E_POSTGRES_CONTAINER ?? "";
+  if (!postgresContainer) fail("PROPERTY_API_E2E_POSTGRES_CONTAINER must identify the disposable PostgreSQL container.");
   let inspection;
+  let postgresInspection;
   try {
     inspection = JSON.parse(execFileSync("docker", ["inspect", container], { encoding: "utf8" }))[0];
   } catch {
     fail("the disposable API container could not be inspected through the local Docker control plane.");
   }
+  try {
+    postgresInspection = JSON.parse(execFileSync("docker", ["inspect", postgresContainer], { encoding: "utf8" }))[0];
+  } catch {
+    fail("the disposable PostgreSQL container could not be inspected through the local Docker control plane.");
+  }
   if (!inspection?.State?.Running) fail("the disposable API container is not running.");
+  if (!postgresInspection?.State?.Running) fail("the disposable PostgreSQL container is not running.");
   const containerEnvironment = new Map(
     (inspection.Config?.Env ?? []).map((entry) => {
       const separator = entry.indexOf("=");
@@ -54,6 +63,28 @@ export function requirePropertyApiE2eDockerBinding(url) {
   );
   if (containerEnvironment.get("POSTGRES_DB") !== process.env.POSTGRES_DB) {
     fail("POSTGRES_DB does not match the database configured in the target API container.");
+  }
+  const postgresEnvironment = new Map(
+    (postgresInspection.Config?.Env ?? []).map((entry) => {
+      const separator = entry.indexOf("=");
+      return [entry.slice(0, separator), entry.slice(separator + 1)];
+    })
+  );
+  if (postgresEnvironment.get("POSTGRES_DB") !== process.env.POSTGRES_DB) {
+    fail("POSTGRES_DB does not match the inspected disposable PostgreSQL container.");
+  }
+  const postgresHost = containerEnvironment.get("POSTGRES_HOST");
+  if (!postgresHost || loopbackHosts.has(postgresHost) || postgresHost === "0.0.0.0") {
+    fail("the target API container must connect to the disposable PostgreSQL service by container-network hostname.");
+  }
+  const apiNetworks = inspection.NetworkSettings?.Networks ?? {};
+  const postgresNetworks = postgresInspection.NetworkSettings?.Networks ?? {};
+  const sharedNetworkNames = Object.keys(apiNetworks).filter((networkName) => postgresNetworks[networkName]);
+  const postgresAliases = new Set(
+    sharedNetworkNames.flatMap((networkName) => postgresNetworks[networkName]?.Aliases ?? [])
+  );
+  if (!postgresAliases.has(postgresHost)) {
+    fail("the target API container POSTGRES_HOST is not an alias of the inspected disposable PostgreSQL container on a shared Docker network.");
   }
   const requestedPort = url.port || (url.protocol === "https:" ? "443" : "80");
   const bindings = inspection.NetworkSettings?.Ports?.["3001/tcp"] ?? [];

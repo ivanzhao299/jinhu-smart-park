@@ -19,7 +19,11 @@ assert.match(safety, /jinhu_\(\?:property_api_e2e_/, "gate must only allow dispo
 assert.match(safety, /loopback API/, "gate must reject shared UAT and production API URLs");
 assert.match(safety, /docker.*inspect|execFileSync\("docker", \["inspect"/s, "gate must bind the loopback endpoint to an inspected API container");
 assert.match(safety, /POSTGRES_DB does not match/, "gate must bind the inspected API container to the declared disposable database");
+assert.match(safety, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "gate must inspect the disposable PostgreSQL container");
+assert.match(safety, /POSTGRES_HOST/, "gate must bind the API container database host to the inspected PostgreSQL container");
+assert.match(safety, /postgresAliases\.has\(postgresHost\)/, "gate must reject API containers pointing at an external or shared PostgreSQL host");
 assert.match(safety, /TEST_RUN_ID is required/, "each suite must receive a gate-controlled run id");
+assert.match(gate, /--suite requires a nonempty suite name/, "gate must reject an empty --suite argument instead of widening scope");
 assert.match(gate, /health/, "gate must check API health");
 assert.match(gate, /ready/, "gate must check API readiness");
 assert.match(packageJson, /test:e2e:property-api/, "package scripts must expose the aggregate property API E2E gate");
@@ -35,11 +39,14 @@ assert.match(fixtures, /short_stay/, "fixtures must provision a short-stay unit"
 assert.match(fixtures, /long_rent/, "fixtures must provision a long-rent unit");
 assert.match(fixtures, /biz_party_identity_verification_queue/, "fixtures must provision an identity verification queue");
 assert.match(fixtures, /eligibleVerifierUserIds/, "the identity queue must freeze the separated approver eligibility");
-for (const dependency of ["files", "property-approvals", "property-identity", "units", "work-orders"]) {
+for (const dependency of ["auth", "files", "property-approvals", "property-identity", "units", "work-orders"]) {
   assert.match(ci, new RegExp(`modules/\\([^)]*${dependency}`), `release-smoke scope must include ${dependency}`);
 }
+assert.match(ci, /PROPERTY_API_E2E_POSTGRES_CONTAINER/, "release smoke must pass the disposable PostgreSQL container identity to the property API E2E gate");
 assert.match(gate, /AbortController/, "readiness checks must be bounded by a response timeout");
 assert.match(gate, /readinessAttempts/, "readiness checks must retry transient startup failures");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /approvalWaitDeadlineMs = 40000/, "approval polling must enforce a total 40 second deadline");
+assert.match(read("scripts/e2e/property-api-e2e-approval.mjs"), /Promise\.race/, "approval detail polling must bound each request");
 assert.match(gate, /activeSuite \?\? "gate"/, "preflight failures must be attributed to the gate");
 assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failure helper");
 for (const suite of [homestay, housing]) {

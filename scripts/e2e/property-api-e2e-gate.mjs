@@ -9,6 +9,9 @@ const suites = new Map([
   ["homestay", "scripts/e2e/homestay-api-e2e.mjs"],
   ["housing", "scripts/e2e/housing-rental-api-e2e.mjs"]
 ]);
+if (process.argv[2] === "--suite" && !process.argv[3]) {
+  throw new Error("Property API E2E gate refused to run: --suite requires a nonempty suite name.");
+}
 const suiteArgument = process.argv[2] === "--suite" ? process.argv[3] : undefined;
 const selectedSuites = suiteArgument ? [suiteArgument] : [...suites.keys()];
 const startedAt = new Date().toISOString();
