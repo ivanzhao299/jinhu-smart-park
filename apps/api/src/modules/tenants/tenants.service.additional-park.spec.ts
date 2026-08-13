@@ -28,7 +28,7 @@ test("park scope allocation serializes globally without forbidding canonical sou
   const service = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const entity = readFileSync(resolve(__dirname, "../parks/entities/park.entity.ts"), "utf8");
   const migration = readFileSync(
-    resolve(__dirname, "../../../../../database/migrations/000209_biz_park_scope_identity.sql"),
+    resolve(__dirname, "../../../../../database/migrations/000210_biz_park_scope_identity.sql"),
     "utf8"
   );
   assert.match(service, /pg_advisory_xact_lock[\s\S]*biz-park-scope-id-allocation[\s\S]*generateParkScopeId/);
