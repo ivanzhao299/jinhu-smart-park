@@ -26,9 +26,26 @@ function key(action) {
   return `housing-api-e2e-${action}-${runId}-${sequence}`;
 }
 
-async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+function createRequestSignal(externalSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const abortFromExternal = () => controller.abort(externalSignal.reason);
+  if (externalSignal?.aborted) {
+    abortFromExternal();
+  } else {
+    externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromExternal);
+    }
+  };
+}
+
+async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
   try {
     if (token) headers.authorization = `Bearer ${token}`;
@@ -37,7 +54,7 @@ async function request(path, { token, idempotent = false, idempotencyKey, ...opt
       headers["content-type"] = "application/json";
       options.body = JSON.stringify(options.body);
     }
-    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
     const contentType = response.headers.get("content-type") ?? "";
     const body = contentType.includes("application/json")
       ? await response.json().catch(() => null)
@@ -53,13 +70,12 @@ async function request(path, { token, idempotent = false, idempotencyKey, ...opt
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    cleanup();
   }
 }
 
 async function expectRequestStatus(path, expectedStatus, { token, idempotent = false, ...options } = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
   try {
     if (token) headers.authorization = `Bearer ${token}`;
@@ -68,7 +84,7 @@ async function expectRequestStatus(path, expectedStatus, { token, idempotent = f
       headers["content-type"] = "application/json";
       options.body = JSON.stringify(options.body);
     }
-    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
     assert(response.status === expectedStatus, `${options.method ?? "GET"} ${path} rejects with ${expectedStatus}`);
   } catch (error) {
     if (error?.name === "AbortError") {
@@ -76,7 +92,7 @@ async function expectRequestStatus(path, expectedStatus, { token, idempotent = f
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    cleanup();
   }
 }
 

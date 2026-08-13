@@ -136,7 +136,7 @@ export function requirePropertyApiE2eDockerBinding(url) {
   const bindings = inspection.NetworkSettings?.Ports?.["3001/tcp"] ?? [];
   const matchingBinding = bindings.some((binding) => {
     const host = String(binding.HostIp ?? "").replace(/^\[|\]$/g, "");
-    return binding.HostPort === requestedPort && (loopbackHosts.has(host) || host === "0.0.0.0");
+    return binding.HostPort === requestedPort && loopbackHosts.has(host);
   });
   if (!matchingBinding) fail("API_BASE_URL is not published by the inspected disposable API container.");
 }

@@ -28,9 +28,26 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
-async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+function createRequestSignal(externalSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const abortFromExternal = () => controller.abort(externalSignal.reason);
+  if (externalSignal?.aborted) {
+    abortFromExternal();
+  } else {
+    externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromExternal);
+    }
+  };
+}
+
+async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
   try {
     if (token) headers.authorization = `Bearer ${token}`;
@@ -39,7 +56,7 @@ async function request(path, { token, idempotent = false, idempotencyKey, ...opt
       headers["content-type"] = "application/json";
       options.body = JSON.stringify(options.body);
     }
-    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
     const contentType = response.headers.get("content-type") ?? "";
     const body = contentType.includes("application/json")
       ? await response.json().catch(() => null)
@@ -55,13 +72,12 @@ async function request(path, { token, idempotent = false, idempotencyKey, ...opt
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    cleanup();
   }
 }
 
 async function tryRequest(path, { token, idempotent = false, ...options } = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
   try {
     if (token) headers.authorization = `Bearer ${token}`;
@@ -70,7 +86,7 @@ async function tryRequest(path, { token, idempotent = false, ...options } = {}) 
       headers["content-type"] = "application/json";
       options.body = JSON.stringify(options.body);
     }
-    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal: controller.signal });
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
     const body = await response.json().catch(() => null);
     return { ok: response.ok, status: response.status, body: unwrap(body) };
   } catch (error) {
@@ -79,7 +95,7 @@ async function tryRequest(path, { token, idempotent = false, ...options } = {}) 
     }
     throw error;
   } finally {
-    clearTimeout(timeout);
+    cleanup();
   }
 }
 

@@ -71,6 +71,8 @@ assert.match(safety, /requireComposeProjectLabel\(postgresInspection, expectedPr
 assert.match(safety, /postgresInspection\.Mounts/, "gate must inspect PostgreSQL mounts instead of trusting only network and environment identity");
 assert.match(safety, /postgresDataMount\.Type !== "volume"/, "gate must reject bind-mounted or shared-host PostgreSQL data directories");
 assert.match(safety, /_postgres-data/, "gate must require this run's disposable PostgreSQL data volume");
+assert.match(safety, /binding\.HostPort === requestedPort && loopbackHosts\.has\(host\)/, "gate must accept only loopback API port bindings from the inspected container");
+assert.doesNotMatch(safety, /loopbackHosts\.has\(host\) \|\| host === "0\.0\.0\.0"/, "gate must reject wildcard API port bindings even when API_BASE_URL targets loopback");
 assert.match(ci, /FILE_STORAGE_LOCAL_ROOT: \/var\/lib\/jinhu\/files/, "release smoke must store API files in the disposable container volume path");
 assert.match(ci, /"\$\{COMPOSE_PROJECT_NAME\}_api-files-data"/, "release smoke teardown must assert the disposable API files volume was removed");
 assert.match(ci, /APPROVER_2_USERNAME/, "release smoke must pass the second disposable approver to housing E2E");
@@ -99,6 +101,8 @@ assert.doesNotMatch(gate, /\bfail\(/, "the gate must not call an undefined failu
 for (const suite of [homestay, housing]) {
   assert.match(suite, /requestTimeoutMs = 10000/, "mutating suite requests must use a bounded per-request deadline");
   assert.match(suite, /AbortController/, "mutating suite requests must abort hung workflow endpoints");
+  assert.match(suite, /createRequestSignal\(options\.signal\)/, "mutating suite request helpers must compose approval helper abort signals with their own timeout");
+  assert.doesNotMatch(suite, /fetch\(`\$\{apiBaseUrl\}\$\{path\}`,\s*\{\s*\.\.\.options,\s*headers,\s*signal: controller\.signal\s*\}\)/, "mutating suite request helpers must not overwrite caller-supplied abort signals");
   assert.doesNotMatch(suite, /unit_id: candidate\.id/, "availability checks must use the current camelCase DTO contract");
   assert.match(suite, /unitId: candidate\.id/, "availability checks must send unitId");
   assert.match(suite, /version: currentOperation\.version/, "operation writes must use the current optimistic-concurrency version");
