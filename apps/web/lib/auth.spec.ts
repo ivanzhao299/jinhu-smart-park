@@ -111,7 +111,7 @@ function installCurrentUserFetchRecorder(
   return calls as FetchCall[] & { release: (index: number) => void };
 }
 
-type FetchCurrentUserWithOptions = (options?: { requestToken?: string }) => ReturnType<typeof fetchCurrentUser>;
+type FetchCurrentUserWithOptions = (options?: { requestToken?: string; persist?: boolean }) => ReturnType<typeof fetchCurrentUser>;
 
 test("setSession stores access token and user but removes legacy refresh token storage", async () => {
   const { session, local } = installBrowserStorage();
@@ -457,6 +457,52 @@ test("switchParkContext preserves a newer login when a canceled switch unwinds",
   assert.equal(session.getItem("jinhu_access_token"), "new-login-token");
   assert.equal(local.getItem("jinhu_access_token"), "new-login-token");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "new-login");
+});
+
+test("switchParkContext preserves a newer cross-tab login after publishing its private rotated token", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    accessible_parks: [
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  let releaseCurrentUser: (() => void) | undefined;
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      if (String(input).endsWith("/auth/switch-context")) {
+        return new Response(JSON.stringify({ data: { accessToken: "rotated-token" } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      await new Promise<void>((resolve) => { releaseCurrentUser = resolve; });
+      return new Response(JSON.stringify({ data: { ...current, park_id: "20000002" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const switching = switchParkContext("20000002");
+  while (calls.length < 2) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  local.setItem("jinhu_access_token", "cross-tab-login-token");
+  local.setItem("jinhu_auth_user", JSON.stringify({ ...user, username: "cross-tab-login" }));
+  local.removeItem("jinhu_park_context_switch");
+  releaseCurrentUser?.();
+
+  await assert.rejects(switching, /新的会话操作取消/u);
+  assert.equal(calls.some((call) => call.input.endsWith("/auth/logout-cookie")), false);
+  assert.equal(session.getItem("jinhu_access_token"), "rotated-token");
+  assert.equal(local.getItem("jinhu_access_token"), "cross-tab-login-token");
+  assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "cross-tab-login");
 });
 
 test("logoutSession clears cookie before sending legacy refresh token body for old sessions", async () => {

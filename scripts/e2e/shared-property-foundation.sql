@@ -2,6 +2,9 @@
 
 BEGIN;
 
+INSERT INTO biz_park (tenant_id, park_id, park_code, park_name)
+VALUES ('property-foundation-test', 'property-foundation-park', 'PF-TEST', 'Property Foundation Test Park');
+
 INSERT INTO biz_building (
   id,
   tenant_id,

@@ -23,5 +23,6 @@ test("post-switch creation failures survive the required page reload", () => {
   assert.match(page, /sessionStorage\.setItem\([\s\S]*BUILDING_FLASH_KEY/u);
   assert.match(page, /sessionStorage\.getItem\(BUILDING_FLASH_KEY\)/u);
   assert.match(page, /sessionStorage\.removeItem\(BUILDING_FLASH_KEY\)/u);
+  assert.match(page, /current \? `\$\{current\}；列表加载失败：\$\{error\.message\}` : error\.message/u);
   assert.ok(page.indexOf("sessionStorage.setItem(") < page.indexOf("window.location.reload();", page.indexOf("catch (error)")));
 });

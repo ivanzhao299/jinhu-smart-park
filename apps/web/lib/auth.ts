@@ -104,7 +104,7 @@ export async function logoutSession(): Promise<void> {
   }
 }
 
-export async function fetchCurrentUser(options: { requestToken?: string } = {}): Promise<UserContext> {
+export async function fetchCurrentUser(options: { requestToken?: string; persist?: boolean } = {}): Promise<UserContext> {
   const token = options.requestToken ?? getToken();
   if (!token) {
     throw new Error("Unauthorized");
@@ -112,13 +112,13 @@ export async function fetchCurrentUser(options: { requestToken?: string } = {}):
   if (!currentUserRequest || currentUserRequest.token !== token) {
     const promise = apiRequest<UserContext>("/users/me", { token })
       .then(async (response) => {
-        if (token === getToken()) {
+        if (options.persist !== false && token === getToken()) {
           const previous = getStoredUser();
           if (previous && sessionScope(previous) !== sessionScope(response.data)) {
             await purgePropertyOfflineState();
           }
         }
-        if (token === getToken()) {
+        if (options.persist !== false && token === getToken()) {
           sessionStorage.setItem(USER_KEY, JSON.stringify(response.data));
           localStorage.setItem(USER_KEY, JSON.stringify(response.data));
         }
@@ -169,7 +169,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     setToken(response.data.accessToken);
-    const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken });
+    const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false });
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     await setSession(response.data.accessToken, nextUser, response.data.refreshToken);
@@ -177,8 +177,10 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     return nextUser;
   } catch (error) {
     const latestToken = getToken();
+    const sharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
     const newerSessionPublished = Boolean(
-      latestToken && latestToken !== originalToken && latestToken !== response.data.accessToken
+      (latestToken && latestToken !== originalToken && latestToken !== response.data.accessToken)
+      || (sharedToken && sharedToken !== originalToken && sharedToken !== response.data.accessToken)
     );
     if (!newerSessionPublished) await logoutSession();
     throw error;

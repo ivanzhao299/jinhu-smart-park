@@ -103,7 +103,9 @@ export default function BuildingsPage() {
       sessionStorage.removeItem(BUILDING_FLASH_KEY);
       setMessage(flashMessage);
     }
-    void load().catch((error: Error) => setMessage(error.message));
+    void load().catch((error: Error) => setMessage((current) => (
+      current ? `${current}；列表加载失败：${error.message}` : error.message
+    )));
   }, [load]);
 
   function openCreate() {
