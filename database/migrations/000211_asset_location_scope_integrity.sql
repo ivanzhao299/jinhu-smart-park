@@ -102,7 +102,7 @@ BEGIN
   IF NEW.is_deleted THEN
     RETURN NEW;
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id, 0));
   IF NOT (
     (SELECT count(*) FROM biz_park p
      WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
@@ -131,7 +131,7 @@ BEGIN
   IF NEW.status <> 1 OR NEW.is_deleted THEN
     RETURN NEW;
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id, 0));
   IF EXISTS (
     SELECT 1 FROM biz_building b
     WHERE b.tenant_id = NEW.tenant_id AND b.park_id = NEW.park_id AND b.is_deleted = false
@@ -161,7 +161,13 @@ RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   removes_active_jh boolean;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:' || OLD.tenant_id || ':' || OLD.park_id, 0));
+  IF TG_OP = 'UPDATE' AND (NEW.tenant_id, NEW.park_id) IS DISTINCT FROM (OLD.tenant_id, OLD.park_id) THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id, 0));
+  END IF;
+  IF OLD.park_code = 'JH' OR (TG_OP = 'UPDATE' AND NEW.park_code = 'JH') THEN
+    PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:10000001:20000001', 0));
+  END IF;
 
   IF TG_OP = 'UPDATE'
      AND NEW.status = 1 AND NEW.is_deleted = false
@@ -218,6 +224,9 @@ BEGIN
       WHERE survivor.tenant_id = OLD.tenant_id AND survivor.park_id = OLD.park_id
         AND survivor.id <> OLD.id AND survivor.status = 1 AND survivor.is_deleted = false
       FOR KEY SHARE
+    ) AND NOT (
+      OLD.tenant_id = '10000001' AND OLD.park_id = '20000001'
+      AND EXISTS (SELECT 1 FROM biz_park fallback WHERE fallback.park_code='JH' AND fallback.status=1 AND fallback.is_deleted=false AND fallback.id <> OLD.id)
     ) THEN
       RAISE EXCEPTION 'active park scope with buildings requires a surviving canonical park' USING ERRCODE = '23503';
     END IF;
@@ -237,6 +246,10 @@ BEGIN
        WHERE survivor.tenant_id = OLD.tenant_id AND survivor.park_id = OLD.park_id
          AND survivor.id <> OLD.id AND survivor.status = 1 AND survivor.is_deleted = false
        FOR KEY SHARE
+     )
+     AND NOT (
+       OLD.tenant_id = '10000001' AND OLD.park_id = '20000001'
+       AND EXISTS (SELECT 1 FROM biz_park fallback WHERE fallback.park_code='JH' AND fallback.status=1 AND fallback.is_deleted=false AND fallback.id <> OLD.id)
      )
   THEN
     RAISE EXCEPTION 'active park scope with buildings requires a surviving canonical park' USING ERRCODE = '23503';
