@@ -29,6 +29,8 @@ assert.doesNotMatch(ci, /Bootstrap separated property approver/, "release smoke 
 assert.match(ci, /Provision disposable property operation fixtures/, "release smoke must provision explicit operation-mode fixtures");
 assert.match(fixtures, /PROPERTY_API_E2E_APPROVER/, "fixtures must provision a disposable least-privilege approval role");
 assert.match(fixtures, /approver_password_hash/, "fixtures must create a login-capable disposable approver without bootstrap-admin");
+assert.match(fixtures, /ON CONFLICT \(tenant_id, code\) WHERE is_deleted = false/, "approver role upsert must match the current tenant-scoped sys_role unique index");
+assert.doesNotMatch(fixtures, /ON CONFLICT \(tenant_id, park_id, code\)/, "approver role upsert must not use the retired park-scoped sys_role conflict target");
 assert.match(fixtures, /short_stay/, "fixtures must provision a short-stay unit");
 assert.match(fixtures, /long_rent/, "fixtures must provision a long-rent unit");
 assert.match(fixtures, /biz_party_identity_verification_queue/, "fixtures must provision an identity verification queue");

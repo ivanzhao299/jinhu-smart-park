@@ -15,8 +15,9 @@ WITH scope AS (
          false, false, false, false, false, false, true, true, 'enabled',
          'Disposable Release Smoke property API approval actor'
   FROM scope
-  ON CONFLICT (tenant_id, park_id, code) WHERE is_deleted = false
+  ON CONFLICT (tenant_id, code) WHERE is_deleted = false
   DO UPDATE SET
+    park_id = EXCLUDED.park_id,
     name = EXCLUDED.name,
     role_path = EXCLUDED.role_path,
     role_level = EXCLUDED.role_level,
