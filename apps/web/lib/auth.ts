@@ -45,10 +45,19 @@ export function getRefreshToken(): string {
   return sessionStorage.getItem(REFRESH_TOKEN_KEY) ?? localStorage.getItem(REFRESH_TOKEN_KEY) ?? "";
 }
 
-export async function setSession(token: string, user: UserContext, _refreshToken?: string): Promise<void> {
+export async function setSession(
+  token: string,
+  user: UserContext,
+  _refreshToken?: string,
+  options: { expectedParkSwitchId?: string } = {}
+): Promise<void> {
+  if (!options.expectedParkSwitchId) localStorage.removeItem(PARK_SWITCH_KEY);
   const previous = getStoredUser();
   if (previous && sessionScope(previous) !== sessionScope(user)) {
     await purgePropertyOfflineState();
+  }
+  if (options.expectedParkSwitchId && localStorage.getItem(PARK_SWITCH_KEY) !== options.expectedParkSwitchId) {
+    throw new Error("园区切换已被新的会话操作取消");
   }
   sessionStorage.setItem(TOKEN_KEY, token);
   sessionStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -174,7 +183,9 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false });
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
-    await setSession(response.data.accessToken, nextUser, response.data.refreshToken);
+    await setSession(response.data.accessToken, nextUser, response.data.refreshToken, {
+      expectedParkSwitchId: switchId
+    });
     localStorage.removeItem(PARK_SWITCH_KEY);
     return nextUser;
   } catch (error) {
