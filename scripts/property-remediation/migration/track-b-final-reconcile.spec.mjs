@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   CHECKPOINTS,
+  REQUIRED_OWNER_CONSTRAINTS,
+  REQUIRED_OWNER_TRIGGERS,
   REQUIRED_MIGRATIONS,
   migrationSetHash,
   parseArgs,
@@ -11,15 +13,26 @@ import {
 } from "./track-b-final-reconcile.mjs";
 
 test("freezes the complete forward Track B migration set and ordered B4 checkpoints", () => {
-  assert.equal(REQUIRED_MIGRATIONS.length, 13);
+  assert.equal(REQUIRED_MIGRATIONS.length, 14);
   assert.deepEqual(REQUIRED_MIGRATIONS.map((name) => name.slice(0, 6)), [
-    "000185","000186","000187","000188","000189","000190","000191",
-    "000192","000193","000194","000195","000197","000198"
+    "000185","000186","000187","000188","000189","000200","000191",
+    "000192","000193","000194","000195","000197","000198","000209"
   ]);
   assert.deepEqual(CHECKPOINTS.map(([kind]) => kind), [
     "backfill","change_capture","mutation_replay","shadow_compare","reconcile","constraint_validate"
   ]);
   assert.match(migrationSetHash(), /^[0-9a-f]{64}$/u);
+  assert.equal(Object.keys(REQUIRED_OWNER_CONSTRAINTS).length, 23);
+  assert.deepEqual(REQUIRED_OWNER_CONSTRAINTS.fk_homestay_turnover_booking_scope, {
+    table: "biz_homestay_turnover_task", type: "f",
+    localColumns: ["tenant_id","park_id","booking_id","unit_id"],
+    referencedTable: "biz_homestay_booking",
+    referencedColumns: ["tenant_id","park_id","id","unit_id"]
+  });
+  assert.equal(Object.keys(REQUIRED_OWNER_TRIGGERS).length, 4);
+  for (const trigger of Object.values(REQUIRED_OWNER_TRIGGERS)) {
+    assert.match(trigger.functionHash, /^[0-9a-f]{64}$/u);
+  }
 });
 
 test("fails closed without database authority and rejects output outside the repository", async () => {
@@ -34,7 +47,9 @@ test("keeps every hard-difference family and atomic checkpoint write in the exec
     "activeIdentityDuplicates","verifiedIdentityWithoutSnapshot","illegalApprovalStatusPair",
     "staleExecutingApproval","activeTaskDuplicates","taskProjectionScopeDrift",
     "eventInboxScopeDrift","openMigrationAnomalies","validateTrackBConstraints",
-    "VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
+    "MVP owner constraint catalog drift","MVP owner trigger catalog drift",
+    "confdeltype","confupdtype","confmatchtype","condeferrable","condeferred",
+    "function_definition","convalidated","tgenabled","VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
     "BEGIN","COMMIT","ROLLBACK","openP0P1"
   ]) assert.match(source, new RegExp(token));
 });

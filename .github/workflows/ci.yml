@@ -196,7 +196,9 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # The job runs with NODE_ENV=production, but its database-backed
+        # regression specs still require test-only tooling such as ts-node.
+        run: pnpm install --frozen-lockfile --prod=false
 
       - name: Create release smoke log directory
         run: mkdir -p /tmp/release-smoke-logs
@@ -218,6 +220,11 @@ jobs:
 
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
+
+      - name: Verify property MVP owner scope constraints
+        env:
+          DATABASE_URL: postgresql://jinhu:JinhuReleaseSmokeDb%232026@127.0.0.1:5432/jinhu_release_smoke
+        run: pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/homestay/property-mvp-owner-scope.pg.spec.ts
 
       - name: Verify migration history filename alias replay
         run: |

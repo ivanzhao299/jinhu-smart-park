@@ -86,7 +86,17 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
 
 说明：
 
-- `release-smoke` 负责校验 migration、production seed、bootstrap-admin、基线检查、健康检查和登录验证
+- `release-smoke` 负责校验 migration、民宿/住房 owner-scope PostgreSQL 约束、production seed、bootstrap-admin、基线检查、健康检查和登录验证
+- owner-scope 门禁要求迁移完成后的真实 PostgreSQL，并在 `NODE_ENV=production` 的 Release Smoke job 中显式安装 devDependencies；本地同构复现命令为：
+
+  ```bash
+  NODE_ENV=production pnpm install --frozen-lockfile --prod=false
+  DATABASE_URL='postgresql://<user>:<password>@127.0.0.1:5432/<fresh_db>' \
+    pnpm --filter @jinhu/api exec node --test --require ts-node/register \
+    src/modules/homestay/property-mvp-owner-scope.pg.spec.ts
+  ```
+
+  `<fresh_db>` 必须从 PostgreSQL `template0` 创建并完成当前全量 migration；不得使用开发库结果代替 Release Smoke 证据。
 - 当前 `first-release regression runner` 尚未纳入 CI
 - 如未来要接入 CI，建议单独提交 PR 评估稳定性、耗时和环境依赖
 
