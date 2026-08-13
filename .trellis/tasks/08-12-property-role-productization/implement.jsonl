@@ -1,0 +1,9 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/api/backend/index.md", "reason": "API权限、作用域、迁移和角色写入规范"}
+{"file": ".trellis/spec/api/backend/property-business-controls.md", "reason": "房产业务字段、财务与细粒度权限合同"}
+{"file": ".trellis/spec/api/backend/module-access-control.md", "reason": "菜单、模块与登录上下文跨层合同"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web权限、设计系统、移动端与幂等规范"}
+{"file": ".trellis/spec/shared/backend/index.md", "reason": "Shared跨应用合同所有权"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨数据库/API/Web数据流设计"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "migration、seed、release-smoke与生产安全"}
+{"file": ".trellis/tasks/08-12-property-role-productization/research/evidence-audit.md", "reason": "origin/main只读审计证据与产品决策"}

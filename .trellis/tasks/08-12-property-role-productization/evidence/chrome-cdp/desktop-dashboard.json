@@ -1,0 +1,16 @@
+{
+  "url": "http://127.0.0.1:3300/dashboard",
+  "title": "",
+  "text": "",
+  "viewport": {
+    "width": 1440,
+    "height": 1000,
+    "devicePixelRatio": 1
+  },
+  "layout": {
+    "clientWidth": 1440,
+    "scrollWidth": 1440,
+    "bodyScrollWidth": 0,
+    "horizontalOverflow": false
+  }
+}

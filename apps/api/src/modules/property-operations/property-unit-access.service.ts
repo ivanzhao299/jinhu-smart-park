@@ -28,6 +28,9 @@ export class PropertyUnitAccessService {
 
   async allowedUnitIds(scope: TenantParkScope, actor: JwtPrincipal): Promise<string[] | null> {
     if (actor.isSuper || actor.permissions.includes("*")) return null;
+    if (actor.tenantId !== scope.tenantId || actor.parkId !== scope.parkId) {
+      throw new ForbiddenException("Actor scope does not match requested property scope");
+    }
     const filters = await Promise.all([
       this.dataScopeService.buildScopeFilter(actor, "park"),
       this.dataScopeService.buildScopeFilter(actor, "building"),

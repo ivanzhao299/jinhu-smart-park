@@ -42,6 +42,12 @@ test("role selection enforces the API maximum before submission", () => {
   assert.match(source, /已选择 \{selectedRoleIds\.length\} \/ \{MAX_ASSIGNED_ROLES\} 个角色/);
 });
 
+test("disabled ordinary roles are removed while protected roles are retained", () => {
+  assert.match(source, /const protectedRole = role\.isProtected/);
+  assert.match(source, /已停用或当前不可分配，保存时将移除/);
+  assert.match(source, /selectedRoleIds\.includes\(role\.id\) \|\| protectedRole/);
+});
+
 test("role-only saving stays disabled unless the catalog loaded successfully", () => {
   assert.match(source, /const \[roleCatalogReady, setRoleCatalogReady\] = useState\(false\)/);
   assert.match(source, /setRoleCatalogReady\(true\)/);

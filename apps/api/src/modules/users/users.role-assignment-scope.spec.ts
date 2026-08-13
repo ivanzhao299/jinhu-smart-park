@@ -11,10 +11,11 @@ test("role assignment resolves the target user scope and replaces links transact
   assert.match(assignRoles, /tenantId: user\.tenantId/);
   assert.match(assignRoles, /parkId: user\.parkId/);
   assert.match(assignRoles, /userRoleRepository\.manager\.transaction/);
-  assert.match(assignRoles, /roleScope: "tenant"/);
-  assert.match(assignRoles, /roleScope: "park"/);
-  assert.match(assignRoles, /status: "enabled"/);
-  assert.match(assignRoles, /isEnabled: true/);
+  assert.match(assignRoles, /setLock\("pessimistic_read"\)/);
+  assert.match(assignRoles, /role\.role_scope='tenant'/);
+  assert.match(assignRoles, /role\.role_scope='park'/);
+  assert.match(assignRoles, /role\.status='enabled' AND role\.is_enabled=true/);
+  assert.match(assignRoles, /!this\.isRoleAssignmentProtected\(link\.role\)/);
 });
 
 test("JWT and in-memory authorization reject foreign park-scoped roles", () => {

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { DataScopeService } from "./data-scope.service";
+import { RoleEntity } from "../roles/entities/role.entity";
 
 test("org_and_children expands descendants inside the scoped query", async () => {
   const queryCalls: Array<{ sql: string; parameters: unknown[] }> = [];
@@ -159,6 +162,42 @@ test("org_and_children does not re-add a disabled or deleted root excluded by re
   assert.equal(sql, "1 = 0");
 });
 
+test("a valid scope on another dimension does not deny sibling composite filters", async () => {
+  const service = new DataScopeService(
+    {} as never,
+    { find: async () => [{ rule: { tenantId: "tenant-1", parkId: "park-1", dimension: "org", scopeType: "custom", scopeConfig: {}, status: "enabled", isDeleted: false } }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-1", parkId: "park-1", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  let sql = "";
+  const builder = { andWhere(value: string) { sql = value; return this; } };
+  await service.applyToQueryBuilder(
+    builder as never,
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { sub: "user-1", username: "user", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [] },
+    "unit", "unit"
+  );
+  assert.equal(sql, "");
+});
+
+test("a constrained dimension without a mapped database column denies", async () => {
+  const service = new DataScopeService(
+    {} as never,
+    { find: async () => [{ rule: { tenantId: "tenant-1", parkId: "park-1", dimension: "tenant_company", scopeType: "custom", scopeConfig: { tenantCompanyIds: ["company-1"] }, status: "enabled", isDeleted: false } }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-1", parkId: "park-1", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  let sql = "";
+  const builder = { andWhere(value: string) { sql = value; return this; } };
+  await service.applyToQueryBuilder(
+    builder as never,
+    { tenantId: "tenant-1", parkId: "park-1" },
+    { sub: "user-1", username: "user", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions: [] },
+    "tenant_company", "tenant"
+  );
+  assert.equal(sql, "1 = 0");
+});
+
 test("shared tenant role data-scope assignments update only the caller park", async () => {
   let roleWhere: unknown;
   let ruleWhere: unknown;
@@ -171,6 +210,18 @@ test("shared tenant role data-scope assignments update only the caller park", as
     create: (value: unknown) => value,
     save: async (value: unknown) => value
   };
+  const roleRepository = {
+    save: async (value: unknown) => value,
+    createQueryBuilder: () => {
+      const builder = {
+        setLock: () => builder,
+        where: (value: unknown) => { roleWhere = [value]; return builder; },
+        andWhere: (value: unknown) => { (roleWhere as unknown[]).push(value); return builder; },
+        getOne: async () => ({ id: "role-1", roleScope: "tenant" })
+      };
+      return builder;
+    }
+  };
   const service = new DataScopeService(
     {
       find: async (options: { where: unknown }) => {
@@ -180,9 +231,9 @@ test("shared tenant role data-scope assignments update only the caller park", as
     } as never,
     {
       manager: {
-        transaction: async (callback: (manager: { getRepository: () => typeof linksRepository }) => Promise<void>) => {
+        transaction: async (callback: (manager: { getRepository: (entity: unknown) => typeof linksRepository | typeof roleRepository }) => Promise<void>) => {
           transactionCount += 1;
-          await callback({ getRepository: () => linksRepository });
+          await callback({ getRepository: (entity: unknown) => entity === RoleEntity ? roleRepository : linksRepository });
         }
       }
     } as never,
@@ -202,10 +253,8 @@ test("shared tenant role data-scope assignments update only the caller park", as
     { ruleIds: ["rule-b"] }
   );
 
-  assert.deepEqual(roleWhere, [
-    { id: "role-1", tenantId: "tenant-a", roleScope: "tenant", isDeleted: false },
-    { id: "role-1", tenantId: "tenant-a", parkId: "park-b", roleScope: "park", isDeleted: false }
-  ]);
+  assert.match((roleWhere as string[]).join(" "), /role\.role_scope='tenant'/);
+  assert.match((roleWhere as string[]).join(" "), /role\.role_scope='park' AND role\.park_id=:parkId/);
   assert.equal((ruleWhere as { tenantId?: string }).tenantId, "tenant-a");
   assert.equal((ruleWhere as { parkId?: string }).parkId, undefined);
   assert.deepEqual(linkUpdateWhere, {
@@ -215,6 +264,12 @@ test("shared tenant role data-scope assignments update only the caller park", as
     isDeleted: false
   });
   assert.equal(transactionCount, 1);
+});
+
+test("data-scope replacement saves the locked role to invalidate stale bundle previews", () => {
+  const source = readFileSync(resolve(__dirname, "data-scope.service.ts"), "utf8");
+  assert.match(source, /role\.updateBy = actorId/);
+  assert.match(source, /manager\.getRepository\(RoleEntity\)\.save\(role\)/);
 });
 
 test("data-scope definitions are tenant-wide while bindings stay park-scoped", async () => {

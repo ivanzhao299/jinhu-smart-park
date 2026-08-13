@@ -9,11 +9,12 @@ import { RoleEntity } from "./entities/role.entity";
 import { UserRoleEntity } from "./entities/user-role.entity";
 import { RolesController } from "./roles.controller";
 import { RolesService } from "./roles.service";
+import { PropertyRoleBundleService } from "./property-role-bundle.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([RoleEntity, PermissionEntity, RolePermissionEntity, RoleFieldPermissionEntity, UserRoleEntity]), DataScopesModule, FieldPoliciesModule],
   controllers: [RolesController],
-  providers: [RolesService],
-  exports: [RolesService]
+  providers: [RolesService, PropertyRoleBundleService],
+  exports: [RolesService, PropertyRoleBundleService]
 })
 export class RolesModule {}

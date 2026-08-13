@@ -7,6 +7,7 @@ import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
+import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
 import type { AssignPermissionsDto } from "./dto/assign-permissions.dto";
 import type { AssignFieldPermissionsDto } from "./dto/assign-field-permissions.dto";
 import type { CreateRoleDto } from "./dto/create-role.dto";
@@ -143,6 +144,7 @@ export class RolesService {
     if (dto.code && dto.code !== role.code) {
       await this.assertCodeAvailable(scope, dto.code);
     }
+    const convertsToTemplate = dto.isTemplate === true && role.isTemplate !== true;
     const parent = dto.parentId === undefined ? undefined : dto.parentId ? await this.mustFindParent(scope, dto.parentId) : null;
     if (parent && parent.id === role.id) {
       throw new BadRequestException("Role cannot use itself as parent");
@@ -151,7 +153,7 @@ export class RolesService {
     const nextParentId = parent === undefined ? role.parentId : parent?.id ?? null;
     const nextParentPath = parent === undefined ? await this.resolveParentPath(scope, nextParentId) : parent ? parent.rolePath ?? parent.code : null;
     const nextParentLevel = parent === undefined ? await this.resolveParentLevel(scope, nextParentId) : parent ? parent.level : 0;
-    Object.assign(role, {
+    const changes = {
       code: nextCode,
       name: dto.name ?? role.name,
       parentId: nextParentId,
@@ -168,8 +170,98 @@ export class RolesService {
       isEnabled: dto.status ? dto.status === "enabled" : role.isEnabled,
       remark: dto.remark ?? role.remark,
       updateBy: actorId
+    };
+    if (convertsToTemplate) {
+      return this.rolesRepository.manager.transaction(async (manager) => {
+        const lockedRole = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+          .setLock("pessimistic_write")
+          .where("role.id=:id", { id })
+          .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+          .andWhere("(role.role_scope='tenant' OR (role.role_scope IN ('park','platform') AND role.park_id=:parkId))", { parkId: scope.parkId })
+          .andWhere("role.is_deleted=false")
+          .getOne();
+        if (!lockedRole) throw new NotFoundException("Role not found");
+        if (!lockedRole.isEditable || !lockedRole.editable) throw new ForbiddenException("Role is not editable");
+        if (lockedRole.isTemplate) throw new BadRequestException("Role is already a template");
+        const boundUsers = await manager.getRepository(UserRoleEntity).count({
+          where: { tenantId: scope.tenantId, roleId: id, isDeleted: false }
+        });
+        if (boundUsers > 0) {
+          throw new BadRequestException("Role with bound users cannot be converted to a template");
+        }
+        const lockedParentId = dto.parentId === undefined ? lockedRole.parentId : dto.parentId;
+        const lockedParent = lockedParentId ? await manager.getRepository(RoleEntity).createQueryBuilder("parent")
+          .setLock("pessimistic_read")
+          .where("parent.id=:parentId", { parentId: lockedParentId })
+          .andWhere("parent.tenant_id=:tenantId", { tenantId: scope.tenantId })
+          .andWhere("(parent.role_scope='tenant' OR (parent.role_scope IN ('park','platform') AND parent.park_id=:parkId))", { parkId: scope.parkId })
+          .andWhere("parent.is_deleted=false")
+          .getOne() : null;
+        if (lockedParentId && !lockedParent) throw new NotFoundException("Parent role not found in current scope");
+        const lockedCode = dto.code ?? lockedRole.code;
+        const lockedParentPath = lockedParent ? lockedParent.rolePath ?? lockedParent.code : null;
+        const lockedParentLevel = lockedParent ? lockedParent.level : 0;
+        Object.assign(lockedRole, {
+          ...changes,
+          code: dto.code ?? lockedRole.code,
+          name: dto.name ?? lockedRole.name,
+          sortNo: dto.sortNo ?? lockedRole.sortNo,
+          roleType: dto.roleType ?? lockedRole.roleType,
+          roleScope: lockedRole.roleScope,
+          dataScope: dto.dataScope ?? lockedRole.dataScope,
+          dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+          status: dto.status ?? lockedRole.status,
+          isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
+          remark: dto.remark ?? lockedRole.remark,
+          parentId: lockedParentId,
+          rolePath: lockedParentPath ? `${lockedParentPath}/${lockedCode}` : lockedCode,
+          roleLevel: lockedParentLevel + 1,
+          level: lockedParentLevel + 1
+        });
+        return manager.getRepository(RoleEntity).save(lockedRole);
+      });
+    }
+    return this.rolesRepository.manager.transaction(async (manager) => {
+      const lockedRole = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+        .setLock("pessimistic_write")
+        .where("role.id=:id", { id })
+        .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+        .andWhere("(role.role_scope='tenant' OR (role.role_scope IN ('park','platform') AND role.park_id=:parkId))", { parkId: scope.parkId })
+        .andWhere("role.is_deleted=false")
+        .getOne();
+      if (!lockedRole) throw new NotFoundException("Role not found");
+      if (!lockedRole.isEditable || !lockedRole.editable) throw new ForbiddenException("Role is not editable");
+      const lockedParentId = dto.parentId === undefined ? lockedRole.parentId : dto.parentId;
+      const lockedParent = lockedParentId ? await manager.getRepository(RoleEntity).createQueryBuilder("parent")
+        .setLock("pessimistic_read")
+        .where("parent.id=:parentId", { parentId: lockedParentId })
+        .andWhere("parent.tenant_id=:tenantId", { tenantId: scope.tenantId })
+        .andWhere("(parent.role_scope='tenant' OR (parent.role_scope IN ('park','platform') AND parent.park_id=:parkId))", { parkId: scope.parkId })
+        .andWhere("parent.is_deleted=false")
+        .getOne() : null;
+      if (lockedParentId && !lockedParent) throw new NotFoundException("Parent role not found in current scope");
+      const lockedCode = dto.code ?? lockedRole.code;
+      const lockedParentPath = lockedParent ? lockedParent.rolePath ?? lockedParent.code : null;
+      const lockedParentLevel = lockedParent ? lockedParent.level : 0;
+      Object.assign(lockedRole, {
+        code: dto.code ?? lockedRole.code,
+        name: dto.name ?? lockedRole.name,
+        sortNo: dto.sortNo ?? lockedRole.sortNo,
+        roleType: dto.roleType ?? lockedRole.roleType,
+        dataScope: dto.dataScope ?? lockedRole.dataScope,
+        dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+        isTemplate: dto.isTemplate ?? lockedRole.isTemplate,
+        status: dto.status ?? lockedRole.status,
+        isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
+        remark: dto.remark ?? lockedRole.remark,
+        parentId: lockedParentId,
+        rolePath: lockedParentPath ? `${lockedParentPath}/${lockedCode}` : lockedCode,
+        roleLevel: lockedParentLevel + 1,
+        level: lockedParentLevel + 1,
+        updateBy: actorId
+      });
+      return manager.getRepository(RoleEntity).save(lockedRole);
     });
-    return this.rolesRepository.save(role);
   }
 
   async softDelete(scope: TenantParkScope, actorId: string, id: string): Promise<{ id: string }> {
@@ -189,9 +281,7 @@ export class RolesService {
     if (childRoles > 0) {
       throw new BadRequestException("Role has child roles and cannot be deleted");
     }
-    role.isDeleted = true;
-    role.updateBy = actorId;
-    await this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { isDeleted: true, updateBy: actorId });
     return { id };
   }
 
@@ -200,10 +290,8 @@ export class RolesService {
     if (!role.isEditable || !role.editable) {
       throw new ForbiddenException("Role is not editable");
     }
-    role.status = "enabled";
-    role.isEnabled = true;
-    role.updateBy = actorId;
-    return this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { status: "enabled", isEnabled: true, updateBy: actorId });
+    return this.detail(scope, id);
   }
 
   async disable(scope: TenantParkScope, actorId: string, id: string): Promise<RoleEntity> {
@@ -211,18 +299,40 @@ export class RolesService {
     if (!role.isEditable || !role.editable) {
       throw new ForbiddenException("Role is not editable");
     }
-    role.status = "disabled";
-    role.isEnabled = false;
-    role.updateBy = actorId;
-    return this.rolesRepository.save(role);
+    await this.rolesRepository.update({ id, tenantId: scope.tenantId, isDeleted: false }, { status: "disabled", isEnabled: false, updateBy: actorId });
+    return this.detail(scope, id);
   }
 
   async copy(scope: TenantParkScope, actorId: string, id: string, dto: CopyRoleDto): Promise<RoleEntity> {
-    const source = await this.detail(scope, id);
-    await this.assertCodeAvailable(scope, dto.code);
-    const parent = dto.parentId ? await this.mustFindParent(scope, dto.parentId) : null;
-    const copied = await this.rolesRepository.save(
-      this.rolesRepository.create({
+    const copiedId = await this.rolesRepository.manager.transaction(async (manager) => {
+      const roleRepository = manager.getRepository(RoleEntity);
+      const source = await roleRepository.findOne({
+        where: [
+          { id, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+          { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+        ],
+        lock: { mode: "pessimistic_read" }
+      });
+      if (!source) throw new NotFoundException("Role not found");
+      const isManagedPropertyTemplate = source.isTemplate && Boolean(source.managedTemplateCode);
+      if (isManagedPropertyTemplate && (dto.roleScope && dto.roleScope !== "park")) {
+        throw new ForbiddenException("Standard property templates can only create park roles");
+      }
+      if (isManagedPropertyTemplate && dto.dataScope && dto.dataScope !== source.dataScope) {
+        throw new ForbiddenException("Standard property template data scope cannot be expanded while copying");
+      }
+      if (await roleRepository.exists({ where: { tenantId: scope.tenantId, code: dto.code, isDeleted: false } })) {
+        throw new ConflictException("Role code already exists");
+      }
+      const parent = dto.parentId ? await roleRepository.findOne({
+        where: [
+          { id: dto.parentId, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
+          { id: dto.parentId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+        ],
+        lock: { mode: "pessimistic_read" }
+      }) : null;
+      if (dto.parentId && !parent) throw new NotFoundException("Parent role not found in current scope");
+      const copied = await roleRepository.save(roleRepository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         code: dto.code,
@@ -233,10 +343,17 @@ export class RolesService {
         level: parent ? parent.level + 1 : 1,
         sortNo: source.sortNo,
         roleType: "custom",
-        roleScope: dto.roleScope ?? source.roleScope,
-        dataScope: dto.dataScope ?? source.dataScope,
+        roleScope: isManagedPropertyTemplate ? "park" : dto.roleScope ?? source.roleScope,
+        dataScope: isManagedPropertyTemplate ? source.dataScope : dto.dataScope ?? source.dataScope,
         dataScopeConfig: dto.dataScopeConfig ?? source.dataScopeConfig ?? {},
         isTemplate: false,
+        managedTemplateCode: null,
+        templateDefinitionVersion: null,
+        templateDefinitionHash: null,
+        // Managed templates can intentionally exclude permissions from their source bundle.
+        // A copy inherits the effective links, not raw bundle metadata that would re-add them.
+        appliedBundleCodes: isManagedPropertyTemplate ? [] : source.appliedBundleCodes ?? [],
+        appliedBundleSignature: isManagedPropertyTemplate ? null : source.appliedBundleSignature ?? null,
         isSystem: false,
         isBuiltin: false,
         isSuper: false,
@@ -248,11 +365,38 @@ export class RolesService {
         remark: `Copied from role ${source.code}`,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
-    await this.copyPermissions(scope, actorId, source.id, copied.id);
-    await this.copyFieldPermissions(scope, actorId, source.id, copied.id);
-    return this.detail(scope, copied.id);
+      }));
+      const permissionRepository = manager.getRepository(RolePermissionEntity);
+      const fieldRepository = manager.getRepository(RoleFieldPermissionEntity);
+      const dataScopeRepository = manager.getRepository(RoleDataScopeEntity);
+      const overridesDataScope = !isManagedPropertyTemplate
+        && (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined);
+      const [permissions, fields, dataScopes] = await Promise.all([
+        permissionRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
+        fieldRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
+        overridesDataScope
+          ? Promise.resolve([])
+          : dataScopeRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
+      ]);
+      await permissionRepository.save(permissions.map((link) => permissionRepository.create({
+        tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
+        permissionId: link.permissionId, createBy: actorId, updateBy: actorId,
+        remark: "Copied from role template"
+      })));
+      await fieldRepository.save(fields.map((field) => fieldRepository.create({
+        tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
+        resource: field.resource, fieldKey: field.fieldKey, fieldName: field.fieldName,
+        accessMode: field.accessMode, createBy: actorId, updateBy: actorId,
+        remark: "Copied from role template"
+      })));
+      await dataScopeRepository.save(dataScopes.map((link) => dataScopeRepository.create({
+        tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
+        ruleId: link.ruleId, createBy: actorId, updateBy: actorId,
+        remark: "Copied from role template"
+      })));
+      return copied.id;
+    });
+    return this.detail(scope, copiedId);
   }
 
   async assignPermissions(
@@ -261,33 +405,34 @@ export class RolesService {
     id: string,
     dto: AssignPermissionsDto
   ): Promise<{ id: string }> {
-    await this.detail(scope, id);
-    const permissions = await this.permissionsRepository.find({
-      where: {
-        id: In(dto.permissionIds),
-        tenantId: scope.tenantId,
-        isDeleted: false
+    await this.rolePermissionRepository.manager.transaction(async (manager) => {
+      const role = await this.lockEditableRole(manager, scope, id);
+      const permissionsRepository = manager.getRepository(PermissionEntity);
+      const linksRepository = manager.getRepository(RolePermissionEntity);
+      const permissions = await permissionsRepository.find({
+        where: { id: In(dto.permissionIds), tenantId: scope.tenantId, isDeleted: false }
+      });
+      if (permissions.length !== dto.permissionIds.length) {
+        throw new NotFoundException("Permission not found in current scope");
       }
-    });
-    if (permissions.length !== dto.permissionIds.length) {
-      throw new NotFoundException("Permission not found in current scope");
-    }
-
-    await this.rolePermissionRepository.update(
-      { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    const links = dto.permissionIds.map((permissionId) =>
-      this.rolePermissionRepository.create({
+      await linksRepository.update(
+        { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      const links = dto.permissionIds.map((permissionId) => linksRepository.create({
         roleId: id,
         permissionId,
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
-    await this.rolePermissionRepository.save(links);
+      }));
+      await linksRepository.save(links);
+      role.appliedBundleCodes = [];
+      role.appliedBundleSignature = null;
+      role.updateBy = actorId;
+      await manager.getRepository(RoleEntity).save(role);
+    });
     return { id };
   }
 
@@ -305,13 +450,14 @@ export class RolesService {
     id: string,
     dto: AssignFieldPermissionsDto
   ): Promise<{ id: string }> {
-    await this.detail(scope, id);
-    await this.roleFieldPermissionRepository.update(
-      { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-      { isDeleted: true, updateBy: actorId }
-    );
-    const links = dto.fields.map((field) =>
-      this.roleFieldPermissionRepository.create({
+    await this.roleFieldPermissionRepository.manager.transaction(async (manager) => {
+      await this.lockEditableRole(manager, scope, id);
+      const repository = manager.getRepository(RoleFieldPermissionEntity);
+      await repository.update(
+        { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        { isDeleted: true, updateBy: actorId }
+      );
+      const links = dto.fields.map((field) => repository.create({
         roleId: id,
         resource: field.resource,
         fieldKey: field.fieldKey,
@@ -321,10 +467,33 @@ export class RolesService {
         parkId: scope.parkId,
         createBy: actorId,
         updateBy: actorId
-      })
-    );
-    await this.roleFieldPermissionRepository.save(links);
+      }));
+      await repository.save(links);
+    });
     return { id };
+  }
+
+  private assertBindingsEditable(role: RoleEntity): void {
+    if (role.isTemplate === true || role.isSystem === true || role.isBuiltin === true || role.editable === false || role.isEditable === false) {
+      throw new ForbiddenException("Protected role bindings cannot be changed");
+    }
+  }
+
+  private async lockEditableRole(
+    manager: import("typeorm").EntityManager,
+    scope: TenantParkScope,
+    id: string
+  ): Promise<RoleEntity> {
+    const role = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+      .setLock("pessimistic_write")
+      .where("role.id=:id", { id })
+      .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("(role.role_scope='tenant' OR role.park_id=:parkId)", { parkId: scope.parkId })
+      .andWhere("role.is_deleted=false")
+      .getOne();
+    if (!role) throw new NotFoundException("Role not found");
+    this.assertBindingsEditable(role);
+    return role;
   }
 
   private async assertCodeAvailable(scope: TenantParkScope, code: string): Promise<void> {
@@ -359,47 +528,6 @@ export class RolesService {
     if (!parentId) return 0;
     const parent = await this.mustFindParent(scope, parentId);
     return parent.level;
-  }
-
-  private async copyPermissions(scope: TenantParkScope, actorId: string, sourceRoleId: string, targetRoleId: string): Promise<void> {
-    const links = await this.rolePermissionRepository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: sourceRoleId, isDeleted: false }
-    });
-    await this.rolePermissionRepository.save(
-      links.map((link) =>
-        this.rolePermissionRepository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          roleId: targetRoleId,
-          permissionId: link.permissionId,
-          createBy: actorId,
-          updateBy: actorId,
-          remark: "Copied from role template"
-        })
-      )
-    );
-  }
-
-  private async copyFieldPermissions(scope: TenantParkScope, actorId: string, sourceRoleId: string, targetRoleId: string): Promise<void> {
-    const fields = await this.roleFieldPermissionRepository.find({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: sourceRoleId, isDeleted: false }
-    });
-    await this.roleFieldPermissionRepository.save(
-      fields.map((field) =>
-        this.roleFieldPermissionRepository.create({
-          tenantId: scope.tenantId,
-          parkId: scope.parkId,
-          roleId: targetRoleId,
-          resource: field.resource,
-          fieldKey: field.fieldKey,
-          fieldName: field.fieldName,
-          accessMode: field.accessMode,
-          createBy: actorId,
-          updateBy: actorId,
-          remark: "Copied from role template"
-        })
-      )
-    );
   }
 
   private async attachPermissionLinks(scope: TenantParkScope, roles: RoleEntity[]): Promise<void> {

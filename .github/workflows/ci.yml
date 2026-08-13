@@ -105,6 +105,9 @@ jobs:
       - name: Verify Track B production seed contracts
         run: pnpm test:e2e:property-track-b-seed-reconcile
 
+      - name: Verify property role template contracts
+        run: pnpm test:e2e:property-role-template
+
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
 
@@ -113,6 +116,9 @@ jobs:
 
       - name: Build shared workspace types
         run: pnpm --filter @jinhu/shared build
+
+      - name: Test shared role template contracts
+        run: pnpm --filter @jinhu/shared test
 
       - name: Typecheck
         run: pnpm typecheck

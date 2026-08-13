@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { In } from "typeorm";
@@ -129,7 +129,6 @@ export class FieldPolicyService {
     roleId: string,
     dto: AssignRoleFieldPoliciesDto
   ): Promise<{ roleId: string; fieldPolicyIds: string[] }> {
-    await this.mustFindRole(scope, roleId);
     const fieldPolicyIds = [...new Set(dto.fieldPolicyIds)];
     if (fieldPolicyIds.length !== dto.fieldPolicyIds.length) {
       throw new BadRequestException("Field policy ids must be unique");
@@ -148,6 +147,17 @@ export class FieldPolicyService {
       }
     }
     await this.roleFieldPoliciesRepository.manager.transaction(async (manager) => {
+      const role = await manager.getRepository(RoleEntity).createQueryBuilder("role")
+        .setLock("pessimistic_write")
+        .where("role.id=:roleId", { roleId })
+        .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+        .andWhere("(role.role_scope='tenant' OR role.park_id=:parkId)", { parkId: scope.parkId })
+        .andWhere("role.is_deleted=false")
+        .getOne();
+      if (!role) throw new NotFoundException("Role not found");
+      if (role.isTemplate === true || role.isSystem === true || role.isBuiltin === true || role.editable === false || role.isEditable === false) {
+        throw new ForbiddenException("Protected role bindings cannot be changed");
+      }
       const linksRepository = manager.getRepository(RoleFieldPolicyEntity);
       await linksRepository.update(
         { tenantId: scope.tenantId, parkId: scope.parkId, roleId, isDeleted: false },

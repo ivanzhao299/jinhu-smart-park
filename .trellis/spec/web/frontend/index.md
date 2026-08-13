@@ -39,6 +39,35 @@ Use `apiRequest` for JSON APIs and `apiFormRequest` for `FormData`. Do not hand-
 
 Write operations that map to idempotent API routes should pass `createIdempotencyKey("<domain-action>")`.
 
+### POST previews behind the global write guard
+
+1. **Scope / Trigger**: apply this when a server-authoritative preview uses `POST`, even if the
+   endpoint itself performs no durable domain mutation.
+2. **Signature**: call `apiRequest(path, { method: "POST", idempotencyKey:
+   createIdempotencyKey("<domain-preview>"), body })`.
+3. **Contract**: the global write guard requires `X-Idempotency-Key` for every POST; the browser
+   must not infer that a semantic preview is exempt. The service still recomputes the preview and
+   returns a signed snapshot for the later write.
+4. **Validation / errors**: missing key -> HTTP 400 before controller execution; stale bundle
+   version/hash or stale preview signature -> fail closed in the domain service.
+5. **Cases**: good = preview POST has its own action-specific key; base = GET catalog needs no key;
+   bad = preview works in a mocked component test but returns 400 against the real API guard.
+6. **Tests**: source/ component contract asserts the preview key, API integration asserts real
+   preview success, and Chrome acceptance reaches the rendered difference before applying it.
+7. **Wrong vs correct**:
+
+```tsx
+// Wrong
+apiRequest(path, { method: "POST", body });
+
+// Correct
+apiRequest(path, {
+  method: "POST",
+  idempotencyKey: createIdempotencyKey("role-property-bundle-preview"),
+  body
+});
+```
+
 Reference files:
 - `apps/web/lib/api-client.ts`
 - `apps/web/components/assets/AssetCrudPage.tsx`
