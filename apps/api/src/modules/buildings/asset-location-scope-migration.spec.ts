@@ -8,6 +8,7 @@ const migration = readFileSync(resolve(process.cwd(), "../../database/migrations
 test("asset location migration fails closed before installing scoped constraints", () => {
   assert.match(migration, /LOCK TABLE biz_park, biz_building, biz_floor, biz_unit IN SHARE ROW EXCLUSIVE MODE/u);
   assert.match(migration, /building .* references missing active park scope/u);
+  assert.match(migration, /10000001[\s\S]*20000001[\s\S]*park_code = 'JH'/u);
   assert.match(migration, /floor .* scope differs from building/u);
   assert.match(migration, /unit .* scope\/building differs from floor/u);
   assert.ok(migration.indexOf("preflight failed") < migration.indexOf("ADD CONSTRAINT uq_biz_building_scope_id"));
@@ -23,5 +24,6 @@ test("asset location migration constrains the complete tenant park parent chain"
   assert.match(migration, /CREATE TRIGGER trg_biz_building_active_park_scope/u);
   assert.match(migration, /CREATE TRIGGER trg_biz_park_building_scope/u);
   assert.match(migration, /CREATE TRIGGER trg_biz_park_building_scope_delete/u);
+  assert.match(migration, /OLD\.park_code = 'JH'[\s\S]*b\.tenant_id = '10000001'[\s\S]*b\.park_id = '20000001'/u);
   assert.match(migration, /UPDATE OF tenant_id, park_id, is_deleted ON biz_building/u);
 });

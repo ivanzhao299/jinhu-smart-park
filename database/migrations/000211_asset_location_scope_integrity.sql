@@ -14,14 +14,19 @@ BEGIN
   SELECT b.id, b.tenant_id, b.park_id INTO drift
   FROM biz_building b
   WHERE b.is_deleted = false
-    AND NOT EXISTS (
-    SELECT 1
-    FROM biz_park p
-    WHERE p.tenant_id = b.tenant_id
-      AND p.park_id = b.park_id
-      AND p.status = 1
-      AND p.is_deleted = false
-  )
+    AND NOT (
+      (SELECT count(*) FROM biz_park p
+       WHERE p.tenant_id = b.tenant_id AND p.park_id = b.park_id
+         AND p.status = 1 AND p.is_deleted = false) = 1
+      OR (
+        b.tenant_id = '10000001' AND b.park_id = '20000001'
+        AND (SELECT count(*) FROM biz_park exact_source
+             WHERE exact_source.tenant_id = b.tenant_id AND exact_source.park_id = b.park_id
+               AND exact_source.status = 1 AND exact_source.is_deleted = false) = 0
+        AND (SELECT count(*) FROM biz_park fallback
+             WHERE fallback.park_code = 'JH' AND fallback.status = 1 AND fallback.is_deleted = false) = 1
+      )
+    )
   LIMIT 1;
   IF FOUND THEN
     RAISE EXCEPTION 'asset location scope preflight failed: building % references missing active park scope %/%', drift.id, drift.tenant_id, drift.park_id;
@@ -97,11 +102,18 @@ BEGIN
   IF NEW.is_deleted THEN
     RETURN NEW;
   END IF;
-  IF NOT EXISTS (
-    SELECT 1 FROM biz_park p
-    WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
-      AND p.status = 1 AND p.is_deleted = false
-    FOR KEY SHARE
+  IF NOT (
+    (SELECT count(*) FROM biz_park p
+     WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
+       AND p.status = 1 AND p.is_deleted = false) = 1
+    OR (
+      NEW.tenant_id = '10000001' AND NEW.park_id = '20000001'
+      AND (SELECT count(*) FROM biz_park exact_source
+           WHERE exact_source.tenant_id = NEW.tenant_id AND exact_source.park_id = NEW.park_id
+             AND exact_source.status = 1 AND exact_source.is_deleted = false) = 0
+      AND (SELECT count(*) FROM biz_park fallback
+           WHERE fallback.park_code = 'JH' AND fallback.status = 1 AND fallback.is_deleted = false) = 1
+    )
   ) THEN
     RAISE EXCEPTION 'building requires an active park scope' USING ERRCODE = '23503';
   END IF;
@@ -114,7 +126,35 @@ FOR EACH ROW EXECUTE FUNCTION enforce_biz_building_active_park_scope();
 
 CREATE OR REPLACE FUNCTION protect_biz_park_building_scope()
 RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  removes_active_jh boolean;
 BEGIN
+  removes_active_jh := TG_OP = 'DELETE';
+  IF TG_OP = 'UPDATE' THEN
+    removes_active_jh := NEW.park_code <> 'JH' OR NEW.status <> 1 OR NEW.is_deleted = true;
+  END IF;
+
+  IF OLD.park_code = 'JH' AND OLD.status = 1 AND OLD.is_deleted = false
+     AND EXISTS (
+       SELECT 1 FROM biz_building b
+       WHERE b.tenant_id = '10000001' AND b.park_id = '20000001' AND b.is_deleted = false
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM biz_park exact_source
+       WHERE exact_source.tenant_id = '10000001' AND exact_source.park_id = '20000001'
+         AND exact_source.status = 1 AND exact_source.is_deleted = false
+         AND exact_source.id <> OLD.id
+     )
+     AND removes_active_jh
+     AND NOT EXISTS (
+       SELECT 1 FROM biz_park fallback
+       WHERE fallback.park_code = 'JH' AND fallback.status = 1 AND fallback.is_deleted = false
+         AND fallback.id <> OLD.id
+     )
+  THEN
+    RAISE EXCEPTION 'active park scope with buildings requires a surviving canonical park' USING ERRCODE = '23503';
+  END IF;
+
   IF TG_OP = 'DELETE' THEN
     IF EXISTS (
       SELECT 1 FROM biz_building b

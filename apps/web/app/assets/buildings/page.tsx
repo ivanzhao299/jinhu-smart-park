@@ -180,6 +180,7 @@ export default function BuildingsPage() {
         return;
       }
       setFormMessage(error instanceof Error ? error.message : "楼栋保存失败");
+      if (!getAccessToken()) window.location.href = "/login";
       return;
     } finally {
       setSubmitting(false);

@@ -20,14 +20,14 @@ export function getToken(): string {
   if (typeof window === "undefined") {
     return "";
   }
-  return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY) ?? "";
+  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY) ?? "";
 }
 
 export function getStoredUser(): UserContext | null {
   if (typeof window === "undefined") {
     return null;
   }
-  const raw = sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY);
+  const raw = localStorage.getItem(USER_KEY) ?? sessionStorage.getItem(USER_KEY);
   if (!raw) {
     return null;
   }
@@ -190,13 +190,14 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   const originalToken = getToken();
   const switchId = crypto.randomUUID();
   localStorage.setItem(PARK_SWITCH_KEY, switchId);
-  const response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
-    method: "POST",
-    token: originalToken,
-    idempotencyKey: createIdempotencyKey("park-context-switch"),
-    body: { parkId }
-  });
+  let response: { data: SwitchContextResult } | undefined;
   try {
+    response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
+      method: "POST",
+      token: originalToken,
+      idempotencyKey: createIdempotencyKey("park-context-switch"),
+      body: { parkId }
+    });
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     setToken(response.data.accessToken, { preserveParkSwitch: true });
@@ -211,12 +212,14 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   } catch (error) {
     const latestToken = getToken();
     const sharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
+    const privateToken = sessionStorage.getItem(TOKEN_KEY) ?? "";
+    const rotatedToken = response?.data.accessToken;
     const newerSessionPublished = Boolean(
-      (latestToken && latestToken !== originalToken && latestToken !== response.data.accessToken)
-      || (sharedToken && sharedToken !== originalToken && sharedToken !== response.data.accessToken)
+      (latestToken && latestToken !== originalToken && latestToken !== rotatedToken)
+      || (sharedToken && sharedToken !== originalToken && sharedToken !== rotatedToken)
     );
     if (!newerSessionPublished) await logoutSession();
-    else if (latestToken === response.data.accessToken && sharedToken !== latestToken) clearSessionStorageOnly();
+    else if (privateToken === rotatedToken && sharedToken !== rotatedToken) clearSessionStorageOnly();
     throw error;
   }
 }

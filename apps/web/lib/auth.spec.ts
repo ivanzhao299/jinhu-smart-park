@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { clearSession, fetchCurrentUser, getRefreshToken, logoutSession, setSession, switchParkContext } from "./auth";
+import { clearSession, fetchCurrentUser, getRefreshToken, getStoredUser, getToken, logoutSession, setSession, switchParkContext } from "./auth";
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -148,6 +148,17 @@ test("clearSession removes legacy refresh token storage", async () => {
   assert.equal(local.getItem("jinhu_access_token"), null);
   assert.equal(local.getItem("jinhu_auth_user"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+});
+
+test("shared session supersedes stale per-tab credentials after another tab advances it", () => {
+  const { session, local } = installBrowserStorage();
+  session.setItem("jinhu_access_token", "stale-tab-token");
+  session.setItem("jinhu_auth_user", JSON.stringify({ ...user, username: "stale-tab" }));
+  local.setItem("jinhu_access_token", "shared-new-token");
+  local.setItem("jinhu_auth_user", JSON.stringify({ ...user, username: "shared-new" }));
+
+  assert.equal(getToken(), "shared-new-token");
+  assert.equal(getStoredUser()?.username, "shared-new");
 });
 
 test("account switch awaits the serialized offline cleanup barrier before publishing the new session", async () => {
@@ -341,6 +352,37 @@ test("switchParkContext rejects a forged or disabled park before making a reques
   await assert.rejects(switchParkContext("20000002"), /不可访问或未启用/u);
   await assert.rejects(switchParkContext("forged-park"), /不可访问或未启用/u);
   assert.equal(calls.length, 0);
+});
+
+test("switchParkContext clears an ambiguously rotated session when the response is unreadable", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    accessible_parks: [{ park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      if (String(input).endsWith("/auth/switch-context")) {
+        return new Response("{truncated", { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  await assert.rejects(switchParkContext("20000002"));
+  assert.equal(calls.some((call) => call.input.endsWith("/auth/logout-cookie")), true);
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_access_token"), null);
 });
 
 test("switchParkContext coalesces the same target and rejects a competing target", async () => {
