@@ -918,7 +918,7 @@ export class PropertyIdentityService {
     if (this.hasPermission(actor, PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY)) {
       return `(s.assigned_verifier_id=$3::uuid OR (
         s.status='pending_verification' AND s.assigned_verifier_id IS NULL
-      ) OR s.drafted_by=$3::uuid OR s.submitted_by=$3::uuid)`;
+      ) OR s.decided_by=$3::uuid OR s.drafted_by=$3::uuid OR s.submitted_by=$3::uuid)`;
     }
     return "(s.drafted_by=$3::uuid OR s.submitted_by=$3::uuid)";
   }

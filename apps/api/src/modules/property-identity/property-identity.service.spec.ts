@@ -257,6 +257,31 @@ test("super identity detail keeps the actor placeholder typed for PostgreSQL", a
   assert.match(detailSql, /\$3::uuid IS NOT NULL/);
 });
 
+test("identity verifier can read the submission they just decided after assignment is cleared", async () => {
+  let detailSql = "";
+  const manager = {
+    query: async (statement: string) => {
+      detailSql = statement;
+      return [submissionRow(submissionId, "superseded", null)];
+    }
+  };
+  const service = new PropertyIdentityService(
+    { manager } as never,
+    { decrypt: () => null, mask: () => null } as never
+  );
+
+  const result = await service.detail(scope, {
+    ...actor,
+    permissions: [
+      "asset:identity-submissions:page",
+      "party:identity_verify"
+    ]
+  }, submissionId);
+
+  assert.equal(result.id, submissionId);
+  assert.match(detailSql, /s\.decided_by=\$3::uuid/);
+});
+
 test("identity runtime source never directly mutates 000185 authority tables", () => {
   const source = readFileSync(
     resolve(__dirname, "property-identity.service.ts"),
