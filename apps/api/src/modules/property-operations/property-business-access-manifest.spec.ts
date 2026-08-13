@@ -81,6 +81,7 @@ const EXPECTED_GET_ACTION_IDS = [
   "homestay.bookings.list",
   "homestay.dashboard.read",
   "homestay.finance.list",
+  "homestay.finance.approval-sources",
   "homestay.rates.read",
   "homestay.rates.unit-candidates",
   "homestay.stays.detail",

@@ -218,7 +218,7 @@ export class HomestayController {
     return this.workbenchQuery.listFinance(scope, actor, query);
   }
 
-  @Get("bookings/:bookingId/finance-sources")
+  @Get("bookings/:id/finance-sources")
   @RequireModule("homestay", "asset")
   @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ)
   @RequireAnyPermissions(
@@ -228,7 +228,7 @@ export class HomestayController {
   approvalSources(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("bookingId", new ParseUUIDPipe({ version: "4" })) bookingId: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) bookingId: string,
     @Query("entry_type") entryType: string
   ) {
     if (entryType !== "refund" && entryType !== "waiver") {

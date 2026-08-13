@@ -424,6 +424,18 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         "/homestay/finance",
         PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_READ
       ),
+      read(
+        "homestay.finance.approval-sources",
+        "/homestay/bookings/:id/finance-sources",
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE,
+        {
+          requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
+          anyPermissions: [
+            PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
+            PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
+          ]
+        }
+      ),
       mutation("homestay.finance.register", "POST", "/homestay/bookings/:id/ledger", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
         anyPermissions: [
@@ -862,6 +874,7 @@ export const PROPERTY_WORKBENCH_REQUIRED_GET_ACTION_IDS = [
   "homestay.turnovers.detail",
   "homestay.turnovers.work-order-candidates",
   "homestay.finance.list",
+  "homestay.finance.approval-sources",
   "housing.dashboard.read",
   "housing.tasks.list",
   "housing.tenants.list",
