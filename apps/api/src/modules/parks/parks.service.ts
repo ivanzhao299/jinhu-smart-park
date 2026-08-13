@@ -38,8 +38,8 @@ export class ParksService {
 
   async list(scope: TenantParkScope, query: ParkQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<ParkEntity>> {
     await this.assertParkModuleAccess(scope);
-    const builder = this.scopedBuilder(scope);
-    await this.applyParkDataScope(builder, actor);
+    const builder = this.parkManagementBuilder(scope, actor);
+    if (!actor || !this.canManageTenantParks(actor)) await this.applyParkDataScope(builder, actor);
 
     if (query.status !== undefined) {
       builder.andWhere("park.status = :status", { status: query.status });
@@ -66,8 +66,8 @@ export class ParksService {
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<ParkEntity> {
     await this.assertParkModuleAccess(scope);
-    const builder = this.scopedBuilder(scope).andWhere("park.id = :id", { id });
-    await this.applyParkDataScope(builder, actor);
+    const builder = this.parkManagementBuilder(scope, actor).andWhere("park.id = :id", { id });
+    if (!actor || !this.canManageTenantParks(actor)) await this.applyParkDataScope(builder, actor);
     const entity = await builder.getOne();
     if (!entity) {
       throw new NotFoundException("Park not found");
@@ -82,86 +82,28 @@ export class ParksService {
     await this.lockMutationScopes(manager, scope, true);
     await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
-    const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
-    const authorizationProtectedScope = await hasProtectedAssetScope(manager, scope);
-    const protectedScopeWasActive = protectedScope
-      ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, scope)
-      : false;
-    const defaultScopeProtected = parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
-    const defaultAuthorizationProtectedScope = parkCode === "JH"
-      && await hasProtectedAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
-    const defaultScopeWasActive = defaultScopeProtected
-      ? await this.hasValidCanonicalParkSourceBeforeMutation(manager, DEFAULT_PLATFORM_SCOPE)
-      : false;
-    const activeSources = await manager.getRepository(ParkEntity).count({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, status: 1, isDeleted: false }
-    });
-    const nextActiveSources = activeSources + ((dto.status ?? 1) === 1 ? 1 : 0);
-    const defaultFallbackSurvives = nextActiveSources === 0
-      && scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
-      && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId
-      && await manager.getRepository(ParkEntity).count({
-        where: { parkCode: "JH", status: 1, isDeleted: false }
-      }) === 1;
-    if (protectedScope && nextActiveSources !== 1 && !defaultFallbackSurvives) {
-      throw new ConflictException("Asset scope requires one active canonical park");
-    }
-    const repository = manager.getRepository(ParkEntity);
-    const entity = repository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      parkCode,
-      parkName: dto.parkName.trim(),
-      address: this.emptyToNull(dto.address),
-      province: this.emptyToNull(dto.province),
-      city: this.emptyToNull(dto.city),
-      district: this.emptyToNull(dto.district),
-      lng: this.numberToDecimal(dto.lng),
-      lat: this.numberToDecimal(dto.lat),
-      totalArea: this.numberToDecimal(dto.totalArea) ?? "0",
-      landArea: this.numberToDecimal(dto.landArea) ?? "0",
-      status: dto.status ?? 1,
-      remark: this.emptyToNull(dto.remark),
-      createBy: actor.sub,
-      updateBy: actor.sub
-    });
-    const saved = await repository.save(entity);
-    if (protectedScope && saved.status === 1) {
-      await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
-      if (authorizationProtectedScope && !protectedScopeWasActive) {
-        await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
-      }
-    }
-    const defaultScopeIsSecondary = scope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
-      || scope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
-    if (defaultScopeProtected && saved.status === 1 && defaultScopeIsSecondary) {
-      await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
-      const defaultScopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE);
-      if (defaultAuthorizationProtectedScope && !defaultScopeWasActive && defaultScopeRemainsActive) {
-        await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
-      }
-    }
-    return saved;
+    return this.tenantsService.provisionAdditionalPark(manager, scope, actor, dto);
     });
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
-    await this.detail(scope, id, actor);
+    const target = await this.detail(scope, id, actor);
+    const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
     return this.dataSource.transaction(async (manager) => {
-    await this.lockMutationScopes(manager, scope, true);
+    await this.lockMutationScopes(manager, targetScope, true);
     await this.assertParkModuleAccess(scope, manager);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      where: { id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Park not found");
     const wasActive = entity.status === 1;
     const nextCode = dto.parkCode?.trim();
     const touchesDefaultFallback = entity.parkCode === "JH" || nextCode === "JH";
-    this.assertDefaultFallbackMutationAllowed(scope, actor, touchesDefaultFallback);
-    const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
-    const authorizationProtectedScope = await hasProtectedAssetScope(manager, scope);
+    this.assertDefaultFallbackMutationAllowed(targetScope, actor, touchesDefaultFallback);
+    const protectedScope = await this.hasCanonicalProjectionContract(manager, targetScope);
+    const authorizationProtectedScope = await hasProtectedAssetScope(manager, targetScope);
     const defaultScopeProtected = touchesDefaultFallback && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const defaultAuthorizationProtectedScope = touchesDefaultFallback
       && await hasProtectedAssetScope(manager, DEFAULT_PLATFORM_SCOPE);
@@ -193,24 +135,24 @@ export class ParksService {
     entity.updateBy = actor.sub;
 
     const saved = await repository.save(entity);
-    const scopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, scope);
+    const scopeRemainsActive = await this.hasActiveCanonicalParkSource(manager, targetScope);
     const defaultScopeRemainsActive = defaultScopeProtected
       ? await this.hasActiveCanonicalParkSource(manager, DEFAULT_PLATFORM_SCOPE)
       : false;
-    if (protectedScope && scopeRemainsActive) await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
+    if (protectedScope && scopeRemainsActive) await this.syncCanonicalAssetProjection(manager, targetScope, actor.sub);
     if (defaultScopeProtected && defaultScopeRemainsActive) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     if (authorizationProtectedScope && wasActive && saved.status !== 1 && !scopeRemainsActive) {
-      await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, scope, actor.sub);
+      await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, targetScope, actor.sub);
     }
-    const defaultScopeIsSecondary = scope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
-      || scope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
+    const defaultScopeIsSecondary = targetScope.tenantId !== DEFAULT_PLATFORM_SCOPE.tenantId
+      || targetScope.parkId !== DEFAULT_PLATFORM_SCOPE.parkId;
     if (wasActive && saved.status !== 1 && defaultAuthorizationProtectedScope && !defaultScopeRemainsActive && defaultScopeIsSecondary) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     if (authorizationProtectedScope && !wasActive && saved.status === 1) {
-      await this.tenantsService.reconcileReactivatedParkAuthorization(manager, scope, actor.sub);
+      await this.tenantsService.reconcileReactivatedParkAuthorization(manager, targetScope, actor.sub);
     }
     if (
       defaultScopeProtected
@@ -258,21 +200,22 @@ export class ParksService {
   }
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    await this.detail(scope, id, actor);
+    const target = await this.detail(scope, id, actor);
+    const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
     return this.dataSource.transaction(async (manager) => {
-    await this.lockMutationScopes(manager, scope, true);
+    await this.lockMutationScopes(manager, targetScope, true);
     await this.assertParkModuleAccess(scope, manager);
     const repository = manager.getRepository(ParkEntity);
     const entity = await repository.findOne({
-      where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      where: { id, tenantId: targetScope.tenantId, parkId: targetScope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
     if (!entity) throw new NotFoundException("Park not found");
-    this.assertDefaultFallbackMutationAllowed(scope, actor, entity.parkCode === "JH");
+    this.assertDefaultFallbackMutationAllowed(targetScope, actor, entity.parkCode === "JH");
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
-    const protectedScope = await this.hasCanonicalProjectionContract(manager, scope);
+    const protectedScope = await this.hasCanonicalProjectionContract(manager, targetScope);
     if (protectedScope) {
-      await this.assertCanonicalSourceSurvives(manager, scope, entity);
+      await this.assertCanonicalSourceSurvives(manager, targetScope, entity);
     }
     if (protectedDefault) {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
@@ -281,7 +224,7 @@ export class ParksService {
     entity.updateBy = actor.sub;
     await repository.save(entity);
     if (protectedScope) {
-      await this.syncCanonicalAssetProjection(manager, scope, actor.sub);
+      await this.syncCanonicalAssetProjection(manager, targetScope, actor.sub);
     }
     if (protectedDefault) {
       await this.syncCanonicalAssetProjection(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
@@ -290,12 +233,18 @@ export class ParksService {
     });
   }
 
-  private scopedBuilder(scope: TenantParkScope): SelectQueryBuilder<ParkEntity> {
-    return this.parksRepository
-      .createQueryBuilder("park")
+  private parkManagementBuilder(scope: TenantParkScope, actor?: JwtPrincipal): SelectQueryBuilder<ParkEntity> {
+    const builder = this.parksRepository.createQueryBuilder("park")
       .where("park.tenant_id = :tenantId", { tenantId: scope.tenantId })
-      .andWhere("park.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("park.is_deleted = false");
+    if (!actor || !this.canManageTenantParks(actor)) {
+      builder.andWhere("park.park_id = :parkId", { parkId: scope.parkId });
+    }
+    return builder;
+  }
+
+  private canManageTenantParks(actor: JwtPrincipal): boolean {
+    return actor.isSuper || actor.permissions.includes("*") || actor.roles.includes("TENANT_ADMIN");
   }
 
   private async hasActiveCanonicalParkSource(
