@@ -20,7 +20,7 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
   const ids = Object.fromEntries([
     "buildingA", "floorA", "unitA", "buildingB", "floorB", "unitB", "partyA",
     "bookingA", "nightA", "rateA", "purchaseA", "occupancyWrongUnit",
-    "occupancyWrongSource", "bookingOccupancy", "turnoverOccupancy",
+    "occupancyWrongSource", "bookingOccupancy", "deletedOccupancy", "turnoverOccupancy",
     "housingOccupancy", "housingOccupancyWrongSource", "turnoverA",
     "leaseA", "leaseB", "chargePlanB", "receivableA"
   ].map((key) => [key, randomUUID()])) as Record<string, string>;
@@ -153,6 +153,19 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.bookingOccupancy]
     ), /cannot be soft-deleted/u);
     await query("ROLLBACK TO SAVEPOINT soft_delete_linked_occupancy");
+    await query(
+      `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+          source_id,start_at,end_at,status,is_deleted)
+       VALUES($1,$2,$3,$4,'homestay','homestay_booking',$5,
+          '2028-09-01','2028-09-02','released',true)`,
+      [ids.deletedOccupancy, tenantId, parkA, ids.unitA, randomUUID()]
+    );
+    await query("SAVEPOINT link_deleted_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_homestay_booking SET occupancy_id=$1 WHERE id=$2",
+      [ids.deletedOccupancy, ids.bookingA]
+    ), /deleted property occupancy cannot be linked/u);
+    await query("ROLLBACK TO SAVEPOINT link_deleted_occupancy");
     await query("SAVEPOINT mutate_booking_id");
     await assert.rejects(query(
       "UPDATE biz_homestay_booking SET id=$1 WHERE id=$2",

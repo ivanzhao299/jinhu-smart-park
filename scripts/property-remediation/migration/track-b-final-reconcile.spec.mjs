@@ -30,6 +30,9 @@ test("freezes the complete forward Track B migration set and ordered B4 checkpoi
     referencedColumns: ["tenant_id","park_id","id","unit_id"]
   });
   assert.equal(Object.keys(REQUIRED_OWNER_TRIGGERS).length, 4);
+  for (const trigger of Object.values(REQUIRED_OWNER_TRIGGERS)) {
+    assert.match(trigger.functionHash, /^[0-9a-f]{64}$/u);
+  }
 });
 
 test("fails closed without database authority and rejects output outside the repository", async () => {
@@ -45,7 +48,8 @@ test("keeps every hard-difference family and atomic checkpoint write in the exec
     "staleExecutingApproval","activeTaskDuplicates","taskProjectionScopeDrift",
     "eventInboxScopeDrift","openMigrationAnomalies","validateTrackBConstraints",
     "MVP owner constraint catalog drift","MVP owner trigger catalog drift",
-    "convalidated","tgenabled","VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
+    "confdeltype","confupdtype","confmatchtype","condeferrable","condeferred",
+    "function_definition","convalidated","tgenabled","VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
     "BEGIN","COMMIT","ROLLBACK","openP0P1"
   ]) assert.match(source, new RegExp(token));
 });

@@ -28,8 +28,8 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_booking.occupancy_id',child.id,parent.id
       FROM biz_homestay_booking child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id,child.unit_id,'homestay','homestay_booking',child.id::text)
-       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'homestay','homestay_booking',child.id::text,false)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id,parent.is_deleted)
     UNION ALL SELECT 'biz_homestay_booking_night.booking_id',child.id,parent.id
       FROM biz_homestay_booking_night child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -51,8 +51,8 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_homestay_turnover_task.occupancy_id',child.id,parent.id
       FROM biz_homestay_turnover_task child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id,child.unit_id,'operations','homestay_turnover',child.id::text)
-       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'operations','homestay_turnover',child.id::text,false)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id,parent.is_deleted)
     UNION ALL SELECT 'biz_homestay_booking_action_log.booking_id',child.id,parent.id
       FROM biz_homestay_booking_action_log child JOIN biz_homestay_booking parent ON parent.id=child.booking_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -64,8 +64,8 @@ BEGIN
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
     UNION ALL SELECT 'biz_housing_lease.occupancy_id',child.id,parent.id
       FROM biz_housing_lease child JOIN biz_property_occupancy parent ON parent.id=child.occupancy_id
-     WHERE (child.tenant_id,child.park_id,child.unit_id,'housing_rental','housing_lease',child.id::text)
-       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id)
+     WHERE (child.tenant_id,child.park_id,child.unit_id,'housing_rental','housing_lease',child.id::text,false)
+       IS DISTINCT FROM (parent.tenant_id,parent.park_id,parent.unit_id,parent.source_domain,parent.source_type,parent.source_id,parent.is_deleted)
     UNION ALL SELECT 'rel_housing_lease_occupant.lease_id',child.id,parent.id
       FROM rel_housing_lease_occupant child JOIN biz_housing_lease parent ON parent.id=child.lease_id
      WHERE (child.tenant_id,child.park_id) IS DISTINCT FROM (parent.tenant_id,parent.park_id)
@@ -204,6 +204,9 @@ BEGIN
    WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.occupancy_id
    FOR UPDATE;
   IF NOT FOUND THEN RETURN NEW; END IF;
+  IF occupancy_row.is_deleted THEN
+    RAISE EXCEPTION 'deleted property occupancy cannot be linked' USING ERRCODE='23503';
+  END IF;
   IF occupancy_row.unit_id IS DISTINCT FROM NEW.unit_id THEN
     RAISE EXCEPTION 'property occupancy unit owner mismatch' USING ERRCODE='23503';
   END IF;
