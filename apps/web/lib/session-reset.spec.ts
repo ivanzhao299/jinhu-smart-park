@@ -245,3 +245,22 @@ test("handleUnauthorizedSessionReset excludes public wechat authorize auth failu
   assert.equal(local.getItem("jinhu_refresh_token"), "legacy-refresh");
   assert.equal(location.href, "");
 });
+
+test("handleUnauthorizedSessionReset ignores a stale switch-context 401 from another tab", async () => {
+  const { session, local, location } = installBrowserStorage();
+  session.setItem("jinhu_access_token", "new-token");
+  local.setItem("jinhu_access_token", "new-token");
+  const calls = installFetchRecorder();
+
+  const handled = await handleUnauthorizedSessionReset({
+    path: "/auth/switch-context",
+    requestToken: "old-token",
+    redirect: true
+  });
+
+  assert.equal(handled, false);
+  assert.equal(calls.length, 0);
+  assert.equal(session.getItem("jinhu_access_token"), "new-token");
+  assert.equal(local.getItem("jinhu_access_token"), "new-token");
+  assert.equal(location.href, "");
+});

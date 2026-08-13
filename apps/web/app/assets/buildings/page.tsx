@@ -160,7 +160,9 @@ export default function BuildingsPage() {
       }
     } catch (error) {
       if (switchedPark) {
-        throw new Error(`已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`);
+        setMessage(`已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`);
+        window.location.reload();
+        return;
       }
       throw error;
     } finally {

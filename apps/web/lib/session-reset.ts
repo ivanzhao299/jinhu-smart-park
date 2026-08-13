@@ -15,6 +15,7 @@ const AUTH_SESSION_RESET_EXCLUDED_PATHS = new Set([
   "/auth/wechat/authorize",
   "/auth/wechat/callback",
   "/auth/select-context",
+  "/auth/switch-context",
   "/auth/token/refresh",
   "/auth/logout-cookie"
 ]);

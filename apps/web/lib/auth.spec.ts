@@ -375,6 +375,50 @@ test("switchParkContext coalesces the same target and rejects a competing target
   assert.equal(callCount, 2);
 });
 
+test("switchParkContext revokes the rotated cookie when a concurrent session clear cancels publication", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    accessible_parks: [
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  let releaseSwitch: (() => void) | undefined;
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      if (String(input).endsWith("/auth/switch-context")) {
+        await new Promise<void>((resolve) => { releaseSwitch = resolve; });
+        return new Response(JSON.stringify({ data: { accessToken: "rotated-token" } }), {
+          status: 200,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  const switching = switchParkContext("20000002");
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await clearSession();
+  releaseSwitch?.();
+
+  await assert.rejects(switching, /新的会话操作取消/u);
+  assert.equal(calls.some((call) => call.input.endsWith("/auth/logout-cookie")), true);
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_auth_user"), null);
+});
+
 test("logoutSession clears cookie before sending legacy refresh token body for old sessions", async () => {
   const { session, local } = installBrowserStorage();
   session.setItem("jinhu_access_token", "access-token");

@@ -20,4 +20,8 @@ test("asset location migration constrains the complete tenant park parent chain"
   assert.match(migration, /ON biz_floor \(tenant_id, park_id, floor_code\)[\s\S]*WHERE is_deleted = false/u);
   assert.match(migration, /DROP INDEX IF EXISTS idx_biz_building_entity_code/u);
   assert.match(migration, /DROP INDEX IF EXISTS idx_biz_floor_entity_code/u);
+  assert.match(migration, /CREATE TRIGGER trg_biz_building_active_park_scope/u);
+  assert.match(migration, /CREATE TRIGGER trg_biz_park_building_scope/u);
+  assert.match(migration, /CREATE TRIGGER trg_biz_park_building_scope_delete/u);
+  assert.match(migration, /UPDATE OF tenant_id, park_id, is_deleted ON biz_building/u);
 });

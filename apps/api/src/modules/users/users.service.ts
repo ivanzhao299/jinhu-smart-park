@@ -739,8 +739,8 @@ export class UsersService {
          AND usr.is_deleted = false
          AND EXISTS (
            SELECT 1 FROM biz_park live_park
-            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
-              AND live_park.is_deleted=false
+           WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
+              AND live_park.status=1 AND live_park.is_deleted=false
          )
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]

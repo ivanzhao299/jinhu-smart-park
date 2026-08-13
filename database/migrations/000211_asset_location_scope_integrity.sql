@@ -13,7 +13,8 @@ DECLARE
 BEGIN
   SELECT b.id, b.tenant_id, b.park_id INTO drift
   FROM biz_building b
-  WHERE NOT EXISTS (
+  WHERE b.is_deleted = false
+    AND NOT EXISTS (
     SELECT 1
     FROM biz_park p
     WHERE p.tenant_id = b.tenant_id
@@ -89,5 +90,73 @@ CREATE UNIQUE INDEX uq_biz_floor_code_active
 ALTER TABLE biz_floor VALIDATE CONSTRAINT fk_biz_floor_building_scope;
 ALTER TABLE biz_unit VALIDATE CONSTRAINT fk_biz_unit_building_scope;
 ALTER TABLE biz_unit VALIDATE CONSTRAINT fk_biz_unit_floor_scope;
+
+CREATE OR REPLACE FUNCTION enforce_biz_building_active_park_scope()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.is_deleted THEN
+    RETURN NEW;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM biz_park p
+    WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
+      AND p.status = 1 AND p.is_deleted = false
+    FOR KEY SHARE
+  ) THEN
+    RAISE EXCEPTION 'building requires an active park scope' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_biz_building_active_park_scope
+BEFORE INSERT OR UPDATE OF tenant_id, park_id, is_deleted ON biz_building
+FOR EACH ROW EXECUTE FUNCTION enforce_biz_building_active_park_scope();
+
+CREATE OR REPLACE FUNCTION protect_biz_park_building_scope()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF EXISTS (
+      SELECT 1 FROM biz_building b
+      WHERE b.tenant_id = OLD.tenant_id AND b.park_id = OLD.park_id
+        AND b.is_deleted = false
+    ) AND NOT EXISTS (
+      SELECT 1 FROM biz_park survivor
+      WHERE survivor.tenant_id = OLD.tenant_id AND survivor.park_id = OLD.park_id
+        AND survivor.id <> OLD.id AND survivor.status = 1 AND survivor.is_deleted = false
+      FOR KEY SHARE
+    ) THEN
+      RAISE EXCEPTION 'active park scope with buildings requires a surviving canonical park' USING ERRCODE = '23503';
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  IF (OLD.tenant_id, OLD.park_id, OLD.status, OLD.is_deleted)
+     IS DISTINCT FROM (NEW.tenant_id, NEW.park_id, NEW.status, NEW.is_deleted)
+     AND OLD.status = 1 AND OLD.is_deleted = false
+     AND EXISTS (
+       SELECT 1 FROM biz_building b
+       WHERE b.tenant_id = OLD.tenant_id AND b.park_id = OLD.park_id
+         AND b.is_deleted = false
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM biz_park survivor
+       WHERE survivor.tenant_id = OLD.tenant_id AND survivor.park_id = OLD.park_id
+         AND survivor.id <> OLD.id AND survivor.status = 1 AND survivor.is_deleted = false
+       FOR KEY SHARE
+     )
+  THEN
+    RAISE EXCEPTION 'active park scope with buildings requires a surviving canonical park' USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_biz_park_building_scope
+BEFORE UPDATE OF tenant_id, park_id, status, is_deleted ON biz_park
+FOR EACH ROW EXECUTE FUNCTION protect_biz_park_building_scope();
+
+CREATE TRIGGER trg_biz_park_building_scope_delete
+BEFORE DELETE ON biz_park
+FOR EACH ROW EXECUTE FUNCTION protect_biz_park_building_scope();
 
 COMMIT;
