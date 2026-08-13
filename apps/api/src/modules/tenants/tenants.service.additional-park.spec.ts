@@ -50,7 +50,7 @@ test("additional parks preserve each source module authorization window", () => 
   assert.doesNotMatch(block, /tenant\.expireTime|new Date\(\)/);
 });
 
-test("additional park access keeps one login identity and adds non-default secondary relations", () => {
+test("additional park access keeps one login identity and adds scoped secondary relations", () => {
   const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const block = source.slice(
     source.indexOf("private async bindAdditionalTenantAdmin("),
@@ -58,7 +58,7 @@ test("additional park access keeps one login identity and adds non-default secon
   );
   assert.match(block, /UserRoleEntity/);
   assert.match(block, /UserParkEntity[\s\S]*isDefault: false/);
-  assert.match(block, /UserOrgEntity[\s\S]*isPrimary: false/);
+  assert.match(block, /UserOrgEntity[\s\S]*isPrimary: true/);
 });
 
 test("additional parks start active so asset authorization has a complete provisioning path", () => {
