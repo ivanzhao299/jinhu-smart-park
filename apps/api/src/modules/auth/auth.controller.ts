@@ -25,6 +25,7 @@ import { MobileLoginDto } from "./dto/mobile-login.dto";
 import { MobileSendCodeDto } from "./dto/mobile-send-code.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { SelectContextDto } from "./dto/select-context.dto";
+import { SwitchContextDto } from "./dto/switch-context.dto";
 import { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
 import { WechatBindDto } from "./dto/wechat-bind.dto";
 import { WechatCallbackDto } from "./dto/wechat-callback.dto";
@@ -179,6 +180,20 @@ export class AuthController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
   me(@CurrentUser() user: JwtPrincipal) {
     return this.usersService.getCurrentUserContext({ tenantId: user.tenantId, parkId: user.parkId }, user.sub);
+  }
+
+  @Post("switch-context")
+  @HttpCode(200)
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
+  @AuditLog({ module: "认证中心", resource: "system.auth", action: "切换园区上下文" })
+  async switchContext(
+    @CurrentUser() user: JwtPrincipal,
+    @Body() dto: SwitchContextDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<LoginResult> {
+    const result = await this.authService.switchContext(user, dto.parkId, this.getMeta(request));
+    return this.withRefreshCookie(result, response);
   }
 
   @Post("logout")

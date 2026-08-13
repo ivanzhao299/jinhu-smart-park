@@ -669,7 +669,7 @@ export class UsersService {
          ON user_role.user_id = usr.id
         AND user_role.is_deleted = false
         AND user_role.tenant_id = usr.tenant_id
-        AND user_role.park_id = usr.park_id
+        AND user_role.park_id = $3
         AND EXISTS (
           SELECT 1
           FROM sys_role active_role
@@ -678,7 +678,7 @@ export class UsersService {
             AND active_role.is_enabled = true
             AND active_role.status = 'enabled'
             AND active_role.tenant_id = usr.tenant_id
-            AND (active_role.role_scope = 'tenant' OR active_role.park_id = usr.park_id)
+            AND (active_role.role_scope = 'tenant' OR active_role.park_id = $3)
         )
        LEFT JOIN sys_role role
          ON role.id = user_role.role_id
@@ -686,12 +686,12 @@ export class UsersService {
         AND role.is_enabled = true
         AND role.status = 'enabled'
         AND role.tenant_id = usr.tenant_id
-        AND (role.role_scope = 'tenant' OR role.park_id = usr.park_id)
+        AND (role.role_scope = 'tenant' OR role.park_id = $3)
        LEFT JOIN rel_role_perm role_permission
          ON role_permission.role_id = role.id
         AND role_permission.is_deleted = false
         AND role_permission.tenant_id = usr.tenant_id
-        AND role_permission.park_id = usr.park_id
+        AND role_permission.park_id = $3
         AND EXISTS (
           SELECT 1
           FROM sys_permission active_permission
@@ -709,7 +709,14 @@ export class UsersService {
         AND permission.tenant_id = usr.tenant_id
        WHERE usr.id = $1::uuid
          AND usr.tenant_id = $2
-         AND usr.park_id = $3
+         AND (
+           usr.park_id = $3
+           OR EXISTS (
+             SELECT 1 FROM rel_user_park access
+              WHERE access.user_id=usr.id AND access.tenant_id=usr.tenant_id AND access.park_id=$3
+                AND access.status='enabled' AND access.is_deleted=false
+           )
+         )
          AND usr.is_deleted = false
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]
@@ -741,7 +748,7 @@ export class UsersService {
       username: first.user_username,
       realName: first.user_display_name,
       tenantId: first.user_tenant_id,
-      parkId: first.user_park_id,
+      parkId: scope.parkId,
       roles: activeRoles.map((role) => role.code),
       permissions: isSuper
         ? ["*"]

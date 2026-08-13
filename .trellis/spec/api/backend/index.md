@@ -706,6 +706,11 @@ For API changes, choose the smallest reliable verification:
 
 For first-release behavior, prefer the documented smoke/regression entry related to the touched module.
 
+Multi-park identities remain one `sys_user` row. Context switching must validate an enabled
+`rel_user_park` link, resolve RBAC bindings against the requested park, and issue both access and
+refresh tokens scoped to that park. Cross-park mutations must set the audit scope override to the
+target park.
+
 Reference files:
 - `package.json`
 - `docs/testing/how-to-run-tests.md`

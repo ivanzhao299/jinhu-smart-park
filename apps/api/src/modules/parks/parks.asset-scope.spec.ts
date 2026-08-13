@@ -21,6 +21,7 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.equal((source.match(/await this\.lockMutationScopes\(manager, (?:scope|targetScope), true\)/g) ?? []).length, 3);
   const createBlock = source.slice(source.indexOf("async create("), source.indexOf("async update("));
   assert.match(createBlock, /assertDefaultFallbackMutationAllowed\(scope, actor, parkCode === "JH"\)/);
+  assert.ok(createBlock.indexOf("assertTenantParkManager") < createBlock.indexOf("assertTenantParkLimit"));
   assert.doesNotMatch(createBlock, /nextActiveSources/);
   assert.match(source, /Only super administrator can change the default JH fallback/);
   const updateBlock = source.slice(source.indexOf("async update("), source.indexOf("async softDelete("));
@@ -43,6 +44,13 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);
   assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
+  assert.match(source, /retireIndependentAssetScope/);
+  assert.match(source, /Asset module must be disabled before park retirement/);
+});
+
+test("park controller writes cross-scope mutations to the target audit scope", () => {
+  const source = readFileSync(resolve(__dirname, "parks.controller.ts"), "utf8");
+  assert.equal((source.match(/request\.auditScopeOverride = targetScope/g) ?? []).length, 3);
 });
 
 test("park deactivation detects a remaining active source in the same scope", async () => {

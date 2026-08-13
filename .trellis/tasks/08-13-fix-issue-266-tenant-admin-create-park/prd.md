@@ -13,7 +13,8 @@
 - 新作用域包含根组织、当前租户超级管理员的非默认园区访问/组织/角色关系、租户已启用模块的园区级授权。
 - asset 模块启用时，同事务创建唯一 `asset_park` 投影、disabled runtime controls 与审计。
 - 保留 canonical source、默认 JH fallback、停用/删除 survivor 与 fail-closed 校验。
-- 创建者继续使用原 JWT 作用域；本次不新增园区切换和重新签发 token 能力。
+- 创建者默认继续使用原 JWT 作用域；可通过已认证的上下文切换接口选择已授权的次园区并重新签发目标作用域 token。
+- 跨园区写操作记录到目标园区审计作用域；独立园区仅允许在停用且资产授权已暂停后受控退役。
 - 普通园区管理员及无 `park:create` 权限用户不得创建新作用域。
 - 并发创建、重复编码或任一初始化失败时整笔事务回滚，不留下半初始化园区。
 - 修复过程关联并关闭 GitHub Issue #266。
@@ -33,7 +34,7 @@
 
 ## Out of scope
 
-- 登录后的园区切换器、`/auth/select-context` Web 流程及 token 重新签发。
+- Web 端园区切换器 UI；本任务提供后端安全 token 切换合同。
 - 批量创建园区或跨租户创建。
 - 放宽或绕过 canonical asset scope 校验。
 

@@ -75,20 +75,24 @@ export class ParksService {
     return entity;
   }
 
-  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateParkDto): Promise<ParkEntity> {
+  async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateParkDto, onTargetScope?: (scope: TenantParkScope) => void): Promise<ParkEntity> {
+    this.assertTenantParkManager(scope, actor);
     return this.dataSource.transaction(async (manager) => {
     const parkCode = dto.parkCode.trim();
     this.assertDefaultFallbackMutationAllowed(scope, actor, parkCode === "JH");
     await this.lockMutationScopes(manager, scope, true);
     await this.assertTenantParkLimit(scope, manager);
     await this.assertParkCodeAvailable(parkCode, undefined, manager);
-    return this.tenantsService.provisionAdditionalPark(manager, scope, actor, dto);
+    const park = await this.tenantsService.provisionAdditionalPark(manager, scope, actor, dto);
+    onTargetScope?.({ tenantId: park.tenantId, parkId: park.parkId });
+    return park;
     });
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto): Promise<ParkEntity> {
+  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateParkDto, onTargetScope?: (scope: TenantParkScope) => void): Promise<ParkEntity> {
     const target = await this.detail(scope, id, actor);
     const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
+    onTargetScope?.(targetScope);
     return this.dataSource.transaction(async (manager) => {
     await this.lockMutationScopes(manager, targetScope, true);
     await this.assertParkModuleAccess(scope, manager);
@@ -199,9 +203,10 @@ export class ParksService {
     }
   }
 
-  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
+  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string, onTargetScope?: (scope: TenantParkScope) => void): Promise<{ id: string }> {
     const target = await this.detail(scope, id, actor);
     const targetScope = { tenantId: target.tenantId, parkId: target.parkId };
+    onTargetScope?.(targetScope);
     return this.dataSource.transaction(async (manager) => {
     await this.lockMutationScopes(manager, targetScope, true);
     await this.assertParkModuleAccess(scope, manager);
@@ -214,7 +219,10 @@ export class ParksService {
     this.assertDefaultFallbackMutationAllowed(targetScope, actor, entity.parkCode === "JH");
     const protectedDefault = entity.parkCode === "JH" && await this.hasCanonicalProjectionContract(manager, DEFAULT_PLATFORM_SCOPE);
     const protectedScope = await this.hasCanonicalProjectionContract(manager, targetScope);
-    if (protectedScope) {
+    const retiresIndependentScope = protectedScope
+      && entity.status !== 1
+      && targetScope.parkId !== scope.parkId;
+    if (protectedScope && !retiresIndependentScope) {
       await this.assertCanonicalSourceSurvives(manager, targetScope, entity);
     }
     if (protectedDefault) {
@@ -223,7 +231,9 @@ export class ParksService {
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
     await repository.save(entity);
-    if (protectedScope) {
+    if (retiresIndependentScope) {
+      await this.retireIndependentAssetScope(manager, targetScope, actor.sub);
+    } else if (protectedScope) {
       await this.syncCanonicalAssetProjection(manager, targetScope, actor.sub);
     }
     if (protectedDefault) {
@@ -245,6 +255,30 @@ export class ParksService {
 
   private canManageTenantParks(actor: JwtPrincipal): boolean {
     return actor.isSuper || actor.permissions.includes("*") || actor.roles.includes("TENANT_ADMIN");
+  }
+
+  private assertTenantParkManager(scope: TenantParkScope, actor: JwtPrincipal): void {
+    if (actor.tenantId !== scope.tenantId || !this.canManageTenantParks(actor)) {
+      throw new ForbiddenException("Only tenant administrator can create a new park scope");
+    }
+  }
+
+  private async retireIndependentAssetScope(manager: EntityManager, scope: TenantParkScope, actorId: string): Promise<void> {
+    if (await hasCanonicalActiveAssetParkSource(manager, scope)) {
+      throw new ConflictException("Park must be inactive before retirement");
+    }
+    const activeAssetAssignments = await manager.query(
+      `SELECT 1 FROM rel_tenant_module assignment JOIN sys_module module ON module.id=assignment.module_id
+        WHERE assignment.tenant_id=$1 AND assignment.park_id=$2 AND assignment.is_deleted=false
+          AND assignment.enabled=true AND assignment.status='enabled' AND module.module_code='asset' LIMIT 1`,
+      [scope.tenantId, scope.parkId]
+    ) as unknown[];
+    if (activeAssetAssignments.length > 0) throw new ConflictException("Asset module must be disabled before park retirement");
+    await manager.query(
+      `UPDATE asset_park SET is_deleted=true, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
+        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
+      [scope.tenantId, scope.parkId, actorId]
+    );
   }
 
   private async hasActiveCanonicalParkSource(

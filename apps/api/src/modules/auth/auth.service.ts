@@ -648,18 +648,25 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException("Refresh token expired");
     }
 
-    const user = await this.usersService.findByIdInScope(refreshToken.userId, {
-      tenantId: refreshToken.tenantId,
-      parkId: refreshToken.parkId
-    });
-    if (!user || !user.isEnabled || user.isDeleted) {
+    let principal: JwtPrincipal;
+    try {
+      principal = await this.usersService.resolveJwtPrincipal(
+        { tenantId: refreshToken.tenantId, parkId: refreshToken.parkId },
+        refreshToken.userId
+      );
+    } catch {
       throw new UnauthorizedException("Refresh token user unavailable");
     }
 
     refreshToken.revoked = true;
     refreshToken.revokedTime = new Date();
     await this.refreshTokenRepository.save(refreshToken);
-    return this.issueLoginResult(user, meta, "refresh_token", user.username);
+    return this.issuePrincipalLoginResult(principal, meta, "refresh_token");
+  }
+
+  async switchContext(user: JwtPrincipal, parkId: string, meta: LoginRequestMeta): Promise<LoginResult> {
+    const target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
+    return this.issuePrincipalLoginResult(target, meta, "context_switch");
   }
 
   isSmsLoginEnabled(): boolean {
@@ -746,6 +753,48 @@ export class AuthService implements OnModuleInit {
       "success"
     );
     return result;
+  }
+
+  private async issuePrincipalLoginResult(
+    principal: JwtPrincipal,
+    meta: LoginRequestMeta,
+    loginMethod: string
+  ): Promise<LoginResult> {
+    const authUser: AuthUser = {
+      id: principal.sub,
+      username: principal.username,
+      realName: principal.realName ?? principal.username,
+      avatar_url: null,
+      gender: null,
+      tenantId: principal.tenantId,
+      parkId: principal.parkId,
+      roles: principal.roles,
+      permissions: principal.permissions,
+      data_scope: principal.dataScope,
+      is_super: principal.isSuper
+    };
+    const accessToken = await this.jwtService.signAsync({
+      sub: principal.sub,
+      username: principal.username,
+      tenantId: principal.tenantId,
+      parkId: principal.parkId
+    } satisfies JwtSessionClaims);
+    const refreshToken = await this.createScopedRefreshToken(principal, meta);
+    await this.usersService.recordSuccessfulLogin({ tenantId: principal.tenantId, parkId: principal.parkId }, principal.sub, meta.ipAddress);
+    await this.recordLoginEvent(
+      { tenantId: principal.tenantId, parkId: principal.parkId, username: principal.username, loginMethod },
+      meta,
+      principal.sub,
+      true,
+      "success"
+    );
+    return {
+      accessToken,
+      refreshToken,
+      tokenType: "Bearer",
+      expiresIn: this.configService.get<string>("JWT_EXPIRES_IN", "2h"),
+      user: authUser
+    };
   }
 
   private resolveUserAuthorization(user: UserEntity): {
@@ -858,19 +907,26 @@ export class AuthService implements OnModuleInit {
   }
 
   private async createRefreshToken(user: UserEntity, meta: LoginRequestMeta): Promise<string> {
+    return this.createScopedRefreshToken({ sub: user.id, tenantId: user.tenantId, parkId: user.parkId }, meta);
+  }
+
+  private async createScopedRefreshToken(
+    user: Pick<JwtPrincipal, "sub" | "tenantId" | "parkId">,
+    meta: LoginRequestMeta
+  ): Promise<string> {
     const rawToken = randomBytes(48).toString("hex");
     const expiresDays = Number(this.configService.get<string>("AUTH_REFRESH_EXPIRES_DAYS", "30"));
     await this.refreshTokenRepository.save(
       this.refreshTokenRepository.create({
         tenantId: user.tenantId,
         parkId: user.parkId,
-        userId: user.id,
+        userId: user.sub,
         tokenHash: this.hashToken(rawToken),
         userAgent: this.normalizeUserAgent(meta.userAgent),
         ipAddress: meta.ipAddress,
         expiresAt: new Date(Date.now() + expiresDays * 24 * 60 * 60 * 1000),
-        createBy: user.id,
-        updateBy: user.id
+        createBy: user.sub,
+        updateBy: user.sub
       })
     );
     return rawToken;
