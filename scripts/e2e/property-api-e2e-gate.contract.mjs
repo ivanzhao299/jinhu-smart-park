@@ -90,6 +90,8 @@ assert.match(housing, /transferApproverUsername !== approverUsername/, "housing 
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
 assert.match(housing, /entry_type: receivable\.chargeType === "deposit" \? "deposit_receipt" : "payment"/, "housing E2E must pay deposit receivables with the explicit deposit receipt entry type");
 assert.match(housing, /entry_type: "deposit_receipt"/, "housing E2E must register the lease deposit receivable through the explicit deposit receipt path");
+assert.match(housing, /entry_type: "deposit_refund"/, "housing E2E must refund deposit receivables with the explicit deposit refund entry type");
+assert.doesNotMatch(housing, /receivable_id: depositReceivable\.id,[\s\S]{0,120}entry_type: "refund"/, "housing E2E must not use generic refunds against deposit receivables");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
 assert.match(homestay, /submission: forcedOccupancyRelease/, "homestay force-release approval must execute before released-occupancy terminal assertions");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");

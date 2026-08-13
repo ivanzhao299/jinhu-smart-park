@@ -623,7 +623,7 @@ async function run() {
     idempotent: true,
     body: {
       receivable_id: depositReceivable.id,
-      entry_type: "refund",
+      entry_type: "deposit_refund",
       charge_type: "deposit",
       amount: "2500.00",
       payment_method: "bank_transfer",
@@ -652,7 +652,7 @@ async function run() {
     idempotent: true,
     body: {
       receivable_id: depositReceivable.id,
-      entry_type: "refund",
+      entry_type: "deposit_refund",
       charge_type: "deposit",
       amount: "1.00",
       reason: "terminated lease is immutable"
