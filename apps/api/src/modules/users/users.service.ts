@@ -582,7 +582,12 @@ export class UsersService {
   }
 
   async getCurrentUserContext(scope: TenantParkScope, id: string): Promise<UserContext> {
-    const user = await this.getEntityInScope(scope, id);
+    await this.resolveJwtPrincipal(scope, id);
+    const user = await this.usersRepository.findOne({
+      where: { id, tenantId: scope.tenantId, isDeleted: false },
+      relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
+    });
+    if (!user) throw new NotFoundException("User not found");
     const primaryOrg = await this.userOrgRepository.findOne({
       where: {
         userId: id,
@@ -593,20 +598,21 @@ export class UsersService {
       },
       relations: { org: true }
     });
-    const principal = this.buildJwtPrincipal(user);
-    const activeRoleLinks = this.getActiveRoleLinks(user);
+    const scopedUser = { ...user, parkId: scope.parkId } as UserEntity;
+    const principal = this.buildJwtPrincipal(scopedUser);
+    const activeRoleLinks = this.getActiveRoleLinks(scopedUser);
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
-      this.getActivePermissionLinks(link.role, user.tenantId, user.parkId)
+      this.getActivePermissionLinks(link.role, user.tenantId, scope.parkId)
         .map((permissionLink) => permissionLink.permission)
     );
     const { permissions } = principal;
     const dataScope = principal.dataScope ?? "self";
     const isSuper = principal.isSuper ?? false;
     const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
-    const currentPark = accessibleParks.find((park) => park.is_default) ?? accessibleParks[0] ?? null;
+    const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
     const fieldPolicies = await this.fieldPolicyService.getUserFieldPolicies(scope, principal);
     const dataScopes = await this.dataScopeService.getUserDataScopes(scope, principal);
-    const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, user.parkId);
+    const enabledModules = await this.saasModulesService.listEnabledModulesForTenant(user.tenantId, scope.parkId);
     const menuTree = this.buildPermissionMenuTree(activePermissionEntities, permissions, enabledModules);
     const securedSelf = await this.fieldPolicyService.applyFieldPolicies(
       scope,
@@ -630,7 +636,7 @@ export class UsersService {
       last_login_ip: user.lastLoginIp,
       last_login_time: user.lastLoginTime?.toISOString() ?? null,
       tenant_id: currentPark?.tenant_id ?? user.tenantId,
-      park_id: currentPark?.park_id ?? user.parkId,
+      park_id: currentPark?.park_id ?? scope.parkId,
       park_name: currentPark?.park_name ?? "当前园区",
       accessible_parks: accessibleParks,
       current_park: currentPark,
@@ -718,6 +724,11 @@ export class UsersService {
            )
          )
          AND usr.is_deleted = false
+         AND EXISTS (
+           SELECT 1 FROM biz_park live_park
+            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
+              AND live_park.status=1 AND live_park.is_deleted=false
+         )
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]
     );

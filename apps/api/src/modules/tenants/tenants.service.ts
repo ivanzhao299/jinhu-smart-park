@@ -440,9 +440,15 @@ export class TenantsService {
     );
 
     const sourceUser = await manager.getRepository(UserEntity).findOne({
-      where: { id: actor.sub, tenantId: tenant.tenantId, parkId: sourceScope.parkId, isDeleted: false }
+      where: { id: actor.sub, tenantId: tenant.tenantId, isDeleted: false }
     });
     if (!sourceUser) throw new ForbiddenException("Tenant administrator identity not found in current park");
+    const sourceAccess = await manager.getRepository(UserParkEntity).exists({
+      where: { userId: actor.sub, tenantId: tenant.tenantId, parkId: sourceScope.parkId, status: "enabled", isDeleted: false }
+    });
+    if (sourceUser.parkId !== sourceScope.parkId && !sourceAccess) {
+      throw new ForbiddenException("Tenant administrator identity not found in current park");
+    }
     await this.bindAdditionalTenantAdmin(manager, tenant, parkId, rootOrg.id, role.id, sourceUser.id, actor.sub);
     return park;
   }
