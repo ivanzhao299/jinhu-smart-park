@@ -390,6 +390,7 @@ export class TenantsService {
     }
 
     const parkRepository = manager.getRepository(ParkEntity);
+    await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", ["biz-park-scope-id-allocation"]);
     const parkId = await this.generateParkScopeId(parkRepository);
     const targetScope = { tenantId: tenant.tenantId, parkId };
     await lockAssetScope(manager, targetScope);

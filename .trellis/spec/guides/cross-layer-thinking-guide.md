@@ -620,6 +620,9 @@ Required pre-review evidence:
 - [ ] Run the repository's full unit command locally or in the CI-equivalent container;
       targeted tests are necessary but cannot be the final gate after changing a shared
       resolver or controller contract.
+- [ ] Put uniqueness on the semantic aggregate identity. Do not add a row-level unique
+      index when several source/history rows may legitimately share that scope key;
+      serialize the allocator and check all historical allocations instead.
 
 Review the matrix, not only the diff. A fix is incomplete while any cell is implicit.
 

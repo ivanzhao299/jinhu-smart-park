@@ -24,15 +24,16 @@ test("additional park provisioning creates an independent, atomic tenant scope",
   assert.doesNotMatch(block, /dto\.parkId|dto\.tenantId/);
 });
 
-test("park scope identities are globally unique and fail closed on historical duplicates", () => {
+test("park scope allocation serializes globally without forbidding canonical source history", () => {
+  const service = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const entity = readFileSync(resolve(__dirname, "../parks/entities/park.entity.ts"), "utf8");
   const migration = readFileSync(
     resolve(__dirname, "../../../../../database/migrations/000209_biz_park_scope_identity.sql"),
     "utf8"
   );
-  assert.match(entity, /uq_biz_park_entity_park_id_active[\s\S]*unique: true[\s\S]*is_deleted = false/);
-  assert.match(migration, /GROUP BY park_id[\s\S]*HAVING COUNT\(\*\) > 1/);
-  assert.match(migration, /CREATE UNIQUE INDEX uq_biz_park_park_id_active[\s\S]*WHERE is_deleted = false/);
+  assert.match(service, /pg_advisory_xact_lock[\s\S]*biz-park-scope-id-allocation[\s\S]*generateParkScopeId/);
+  assert.doesNotMatch(entity, /uq_biz_park_entity_park_id_active/);
+  assert.match(migration, /DROP INDEX IF EXISTS uq_biz_park_park_id_active/);
 });
 
 test("additional parks preserve each source module authorization window", () => {
