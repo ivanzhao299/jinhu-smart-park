@@ -200,6 +200,15 @@ export class FieldPolicyService {
   ): Promise<T> {
     if (!user || user.isSuper) return record;
     const policies = await this.getUserFieldPolicies(scope, user);
+    return this.applyResolvedFieldPolicies(moduleName, entityName, record, policies);
+  }
+
+  applyResolvedFieldPolicies<T extends object>(
+    moduleName: string,
+    entityName: string,
+    record: T,
+    policies: readonly FieldPolicyContext[]
+  ): T {
     const relevant = policies.filter((policy) => policy.module === moduleName && policy.entity === entityName);
     if (relevant.length === 0) {
       return record;
@@ -225,6 +234,23 @@ export class FieldPolicyService {
     records: T[]
   ): Promise<T[]> {
     return Promise.all(records.map((record) => this.applyFieldPolicies(scope, user, moduleName, entityName, record)));
+  }
+
+  async applyFieldPoliciesToProjection<T>(
+    scope: TenantParkScope,
+    user: JwtPrincipal | undefined,
+    moduleName: string,
+    projection: T
+  ): Promise<T> {
+    if (!user || user.isSuper) return projection;
+    const policies = (await this.getUserFieldPolicies(scope, user))
+      .filter((policy) => policy.module === moduleName && ["hidden", "masked"].includes(policy.policy_type));
+    if (!policies.length) return projection;
+    const cloned = structuredClone(projection) as T;
+    for (const policy of policies) {
+      this.applyProjectionPolicy(cloned, policy.field_key, policy.policy_type, policy.mask_rule);
+    }
+    return cloned;
   }
 
   maskValue(value: unknown, maskRule?: string | null): unknown {
@@ -256,6 +282,53 @@ export class FieldPolicyService {
 
   private resolveRecordFieldKey(record: Record<string, unknown>, fieldKey: string): string | null {
     return this.fieldKeyCandidates(fieldKey).find((candidate) => candidate in record) ?? null;
+  }
+
+  private applyProjectionPolicy(
+    value: unknown,
+    fieldKey: string,
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null
+  ): void {
+    const segments = fieldKey.split(".").filter(Boolean);
+    if (!segments.length) return;
+    const applyAt = (target: unknown, index: number): boolean => {
+      if (Array.isArray(target)) {
+        let matched = false;
+        for (const item of target) matched = applyAt(item, index) || matched;
+        return matched;
+      }
+      if (!target || typeof target !== "object") return false;
+      const record = target as Record<string, unknown>;
+      const segment = segments[index]!;
+      const key = [segment, this.toCamelCase(segment)].find((candidate) => candidate in record);
+      if (!key) return false;
+      if (index < segments.length - 1) return applyAt(record[key], index + 1);
+      if (policyType === "hidden") delete record[key];
+      else if (policyType === "masked") record[key] = this.maskValue(record[key], maskRule);
+      return true;
+    };
+    if (!applyAt(value, 0)) {
+      const leaf = segments.at(-1)!;
+      const visited = new WeakSet<object>();
+      const applyLeafEverywhere = (target: unknown): void => {
+        if (Array.isArray(target)) {
+          for (const item of target) applyLeafEverywhere(item);
+          return;
+        }
+        if (!target || typeof target !== "object") return;
+        if (visited.has(target)) return;
+        visited.add(target);
+        const record = target as Record<string, unknown>;
+        const key = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in record);
+        if (key) {
+          if (policyType === "hidden") delete record[key];
+          else if (policyType === "masked") record[key] = this.maskValue(record[key], maskRule);
+        }
+        for (const child of Object.values(record)) applyLeafEverywhere(child);
+      };
+      applyLeafEverywhere(value);
+    }
   }
 
   private fieldKeyCandidates(fieldKey: string): string[] {

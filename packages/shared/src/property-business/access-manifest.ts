@@ -433,7 +433,10 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         variant: "charge-or-payment"
       }),
       mutation("homestay.finance.refund-or-waive", "POST", "/homestay/bookings/:id/ledger", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, {
-        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ],
+        requiredPermissions: [
+          PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ,
+          PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE
+        ],
         anyPermissions: [
           PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_REGISTER,
           PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE
@@ -648,6 +651,7 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
               "deposit_deduction_amount"
             ]
           },
+          requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
           highRiskPolicyId: "housing.handover.move-out-financial"
         }
       )
@@ -735,6 +739,7 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
         variant: "charge-or-payment"
       }),
       mutation("housing.finance.refund-waive-or-deposit-refund", "POST", "/housing/leases/:id/ledger", PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_WAIVE, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE],
         anyPermissions: [
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_REGISTER,
           PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_WAIVE

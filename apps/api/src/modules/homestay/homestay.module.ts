@@ -2,6 +2,8 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { FileEntity } from "../files/entities/file.entity";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { FieldPoliciesModule } from "../field-policies/field-policies.module";
+import { HomestayFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import { WorkOrderEntity } from "../work-orders/entities/work-order.entity";
 import { PropertyOperationsModule } from "../property-operations/property-operations.module";
 import { PropertyApprovalModule } from "../property-approvals/property-approval.module";
@@ -51,6 +53,7 @@ import {
       WorkOrderEntity
     ]),
     DataScopesModule,
+    FieldPoliciesModule,
     PropertyOperationsModule,
     PropertyApprovalModule,
     PropertyIdentityModule
@@ -70,6 +73,7 @@ import {
     HomestayTransactionSupportService,
     HomestayApprovalAdapter,
     HomestayTurnoverTaskResolver,
+    HomestayFieldPolicyInterceptor,
     { provide: HOMESTAY_TURNOVER_TASK_RESOLVER, useExisting: HomestayTurnoverTaskResolver }
   ],
   exports: [HomestayService, HOMESTAY_TURNOVER_TASK_RESOLVER]

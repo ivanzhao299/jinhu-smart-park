@@ -22,6 +22,7 @@ import {
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
+import { HomestayFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import {
   AddHomestayGuestDto,
   CreateHomestayBookingDto,
@@ -47,6 +48,7 @@ import { HomestayWorkbenchQueryService } from "./homestay-workbench-query.servic
 
 @Controller("homestay")
 @RequireModule("homestay")
+@UseInterceptors(HomestayFieldPolicyInterceptor)
 export class HomestayController {
   constructor(
     private readonly service: HomestayService,

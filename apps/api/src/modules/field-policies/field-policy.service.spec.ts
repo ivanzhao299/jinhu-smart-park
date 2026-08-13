@@ -161,3 +161,56 @@ test("invalid field-policy assignment preserves existing park bindings", async (
   );
   assert.equal(linkUpdateCount, 0);
 });
+
+test("nested property projections enforce hidden and masked policies without mutating input", async () => {
+  const policies = [
+    { tenantId: "tenant-a", module: "homestay", entity: "booking", fieldKey: "booking.room_amount", fieldName: "房费", policyType: "masked", maskRule: "amount", status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "homestay", entity: "ledger", fieldKey: "ledger.amount", fieldName: "流水金额", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "homestay", entity: "ledger", fieldKey: "ledger_summary", fieldName: "汇总", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false }
+  ];
+  const service = new FieldPolicyService(
+    {} as never,
+    { find: async () => policies.map((fieldPolicy) => ({ fieldPolicy })) } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  const input = { booking: { roomAmount: "120.00", status: "confirmed" }, ledger: [{ id: "one", amount: "20.00" }, { id: "two", amount: "30.00" }], ledger_summary: { balance: "50.00" } };
+  const projected = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "homestay",
+    input
+  );
+
+  assert.equal(projected.booking.roomAmount, "***");
+  assert.equal("amount" in projected.ledger[0]!, false);
+  assert.equal("amount" in projected.ledger[1]!, false);
+  assert.equal("ledger_summary" in projected, false);
+  assert.equal(input.booking.roomAmount, "120.00");
+  assert.equal(input.ledger[0]!.amount, "20.00");
+  const listProjected = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "homestay",
+    { items: [{ roomAmount: "90.00" }] }
+  );
+  assert.equal(listProjected.items[0]!.roomAmount, "***");
+});
+
+test("field policies cannot weaken an already masked credential projection", async () => {
+  const policy = { tenantId: "tenant-a", module: "housing_rental", entity: "handover", fieldKey: "handover.credentials", fieldName: "凭证", policyType: "visible", maskRule: null, status: "enabled", isDeleted: false };
+  const service = new FieldPolicyService(
+    {} as never,
+    { find: async () => [{ fieldPolicy: policy }] } as never,
+    {} as never,
+    { find: async () => [{ roleId: "role-1", role: { tenantId: "tenant-a", parkId: "park-a", roleScope: "park", isDeleted: false, isEnabled: true } }] } as never
+  );
+  const input = { handover: { credentials: ["AB***YZ"] } };
+  const projected = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "housing_rental",
+    input
+  );
+  assert.deepEqual(projected, input);
+});

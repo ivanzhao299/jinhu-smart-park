@@ -52,21 +52,23 @@ test("legacy universal client is removed", () => {
   assert.equal(fs.existsSync(path.join(housingRoot, "housing-operations.logic.ts")), false);
 });
 
-test("Track B high-risk endpoints are absent from housing client mutations", () => {
+test("approved high-risk endpoints are wired through guarded housing mutations", () => {
   const source = readAllComponents();
-  for (const endpoint of [
-    "/approve",
-    "/void",
-    "/checkout",
-    "/actions",
-    "/transfer"
+  for (const contract of [
+    '"approve"',
+    '"void"',
+    '"checkout"',
+    "/actions`",
+    "/transfer`",
+    '"refund"',
+    '"waiver"',
+    '"deposit_refund"',
+    "housing.handovers.complete-move-out-financial"
   ]) {
-    assert.equal(source.includes(`\`${endpoint}`), false, endpoint);
-    assert.equal(source.includes(`/${endpoint.slice(1)}\``), false, endpoint);
+    assert.equal(source.includes(contract), true, contract);
   }
-  for (const entryType of ["refund", "waiver", "deposit_refund", "deposit_deduction"]) {
-    assert.doesNotMatch(source, new RegExp(`value=["']${entryType}["']`), entryType);
-  }
+  assert.match(source, /idempotency\.keyFor\(/);
+  assert.match(source, /审批申请已提交/);
 });
 
 test("Track A mutation panels use exact actions and owning aggregates", () => {

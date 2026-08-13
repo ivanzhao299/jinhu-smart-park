@@ -10,7 +10,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { HousingEvidenceList } from "./HousingEvidenceList";
 import { HousingHandoverForm } from "./HousingHandoverForm";
 import { HousingLeaseSecondaryActions } from "./HousingLeaseSecondaryActions";
-import { BlockedHighRiskActions, DetailGrid, DetailPage, money } from "./HousingDetailShell";
+import { DetailGrid, DetailPage, money } from "./HousingDetailShell";
 import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
 
@@ -24,16 +24,24 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const [feedback, setFeedback] = useState("");
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
-  async function run(action: "submit" | "activate") {
+  const [reason, setReason] = useState("");
+  async function run(action: "submit" | "activate" | "approve" | "void" | "checkout") {
     const operation = `housing-lease-${action}`;
     if (lock.current || !capabilities.actionAllowed(`housing.leases.${action}`)) return;
     lock.current = true; setFeedback("");
     try {
-      await apiRequest(`/housing/leases/${encodeURIComponent(data.lease.id)}/${action}`, {
+      const body = action === "approve"
+        ? { approval_note: reason.trim() || undefined }
+        : ["void", "checkout"].includes(action) ? { reason: reason.trim() } : undefined;
+      const response = await apiRequest(`/housing/leases/${encodeURIComponent(data.lease.id)}/${action}`, {
         method: "POST", token: getAccessToken(),
-        idempotencyKey: idempotency.keyFor(operation, { action, leaseId: data.lease.id })
+        idempotencyKey: idempotency.keyFor(operation, { action, leaseId: data.lease.id, body }),
+        ...(body ? { body } : {})
       });
-      idempotency.complete(operation); setFeedback(action === "submit" ? "租约已提交。" : "租约已生效。");
+      idempotency.complete(operation);
+      const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
+      setFeedback(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。`
+        : action === "submit" ? "租约已提交。" : "租约已生效。");
       await reload();
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "操作失败");
@@ -45,6 +53,12 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const eligible = data.lease.eligibility?.eligible !== false;
   const canActivate = data.lease.status === "pending_signature" && Boolean(data.lease.signatureFileId)
     && capabilities.actionAllowed("housing.leases.activate");
+  const highRiskActions = ([
+    ["approve", "审批租约", data.lease.status === "pending_approval"],
+    ["void", "作废租约", ["draft", "pending_approval", "pending_signature"].includes(data.lease.status)],
+    ["checkout", "提交退租结清", data.lease.status === "checkout_pending"]
+  ] as const).filter(([action, _label, stateAllowed]) => stateAllowed
+    && capabilities.actionAllowed(`housing.leases.${action}`));
   return (
     <PropertyPanelSurface>
       <DetailGrid rows={[
@@ -67,6 +81,13 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
           onClick={() => void run("submit")} type="button">提交租约</button> : null}
         {canActivate ? <button className="ds-button ds-button-primary" onClick={() => void run("activate")} type="button">生效租约</button> : null}
       </div>
+      {highRiskActions.length ? <div className={styles.stack}>
+        <label>审批说明 / 原因<input maxLength={500} required={highRiskActions.some(([action]) => action !== "approve")}
+          value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+        <div className={styles.actionBar}>{highRiskActions.map(([action, label]) =>
+          <button className="ds-button" disabled={action !== "approve" && !reason.trim()}
+            key={action} onClick={() => void run(action)} type="button">{label}</button>)}</div>
+      </div> : null}
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
     </PropertyPanelSurface>
   );
@@ -113,7 +134,6 @@ function LeaseDetail(props: LeaseContextProps) {
       <LeaseRelated {...props} />
       <HousingLeaseSecondaryActions capabilities={props.capabilities} data={props.data} reload={props.reload} />
       <HousingHandoverForm capabilities={props.capabilities} leaseId={props.data.lease.id} leaseStatus={props.data.lease.status} onCompleted={props.reload} />
-      <BlockedHighRiskActions labels={["租约审批", "作废", "提前退租或结清"]} />
     </div>
   );
 }
