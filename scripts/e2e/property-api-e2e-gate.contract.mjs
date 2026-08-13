@@ -44,5 +44,7 @@ assert.match(housing, /submission: leaseApproval/, "lease approval must execute 
 assert.match(housing, /submission: purchasePayment/, "purchase payment must execute before transfer");
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
+assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
+assert.match(homestay, /token: approverToken,[\s\S]*verification_status: "verified"/, "identity verification must preserve maker-checker separation");
 
 console.log("[PASS] property API E2E gate contract");

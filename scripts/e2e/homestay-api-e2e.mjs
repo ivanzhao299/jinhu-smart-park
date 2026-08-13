@@ -180,9 +180,20 @@ async function run() {
       consent_status: "granted"
     }
   });
-  await request(`/property/parties/${guest.id}/verification`, {
+  const identitySubmissionId = guest.identitySummary?.currentSubmissionId;
+  assert(typeof identitySubmissionId === "string", "party creation owns a draft identity submission");
+  const identityDraft = await request(`/property/identity-submissions/${identitySubmissionId}`, { token });
+  const identitySubmitKey = key("identity-submit");
+  await request(`/property/identity-submissions/${identitySubmissionId}/submit`, {
     method: "POST",
     token,
+    idempotent: true,
+    idempotencyKey: identitySubmitKey,
+    body: { clientKey: identitySubmitKey, expectedVersion: identityDraft.version }
+  });
+  await request(`/property/parties/${guest.id}/verification`, {
+    method: "POST",
+    token: approverToken,
     idempotent: true,
     body: { verification_status: "verified", remark: "Homestay API E2E identity verification" }
   });
