@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(modules/(auth|files|homestay|housing|property-approvals|property-identity|property-operations|units|work-orders)/|shared/interceptors/idempotency\.interceptor\.ts$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|units|work-orders)/|shared/interceptors/idempotency\.interceptor\.ts$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -141,6 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
+      COMPOSE_PROJECT_NAME: property-api-e2e-${{ github.run_id }}
       COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
       NPM_REGISTRY: https://registry.npmjs.org
       NODE_ENV: production
@@ -170,7 +171,7 @@ jobs:
       PARTY_DATA_ENCRYPTION_KEY: ${{ github.sha }}
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
-      FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
+      FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/files
       AUTH_SMS_FIXED_CODE: ""
       AUTH_SMS_CODE_VISIBLE: "false"
       AUTH_WECHAT_MOCK_ENABLED: "false"
@@ -1097,6 +1098,7 @@ jobs:
       - name: Run property API E2E gate
         env:
           PROPERTY_API_E2E_ISOLATED: "yes"
+          PROPERTY_API_E2E_DOCKER_PROJECT: ${{ env.COMPOSE_PROJECT_NAME }}
           PROPERTY_API_E2E_API_CONTAINER: ${{ env.API_CTN }}
           PROPERTY_API_E2E_POSTGRES_CONTAINER: ${{ env.POSTGRES_CTN }}
           API_BASE_URL: ${{ env.API_BASE }}
@@ -1131,7 +1133,7 @@ jobs:
           docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
           remaining_containers="$(docker compose -f "$COMPOSE_FILE" ps -aq)"
           test -z "$remaining_containers"
-          for volume in jinhu-smart-park-prod_postgres-data jinhu-smart-park-prod_api-files-data; do
+          for volume in "${COMPOSE_PROJECT_NAME}_postgres-data" "${COMPOSE_PROJECT_NAME}_api-files-data"; do
             if docker volume inspect "$volume" >/dev/null 2>&1; then
               echo "Disposable property E2E volume was not removed: $volume" >&2
               exit 1

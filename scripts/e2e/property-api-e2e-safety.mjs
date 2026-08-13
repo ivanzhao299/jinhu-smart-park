@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 
 const disposableDatabasePattern = /^jinhu_(?:property_api_e2e_[a-z0-9_]+|release_smoke)$/;
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "::1"]);
+const defaultFileStorageRoot = "/var/lib/jinhu/files";
 
 function fail(message) {
   throw new Error(`Property API E2E gate refused to run: ${message}`);
@@ -97,6 +98,24 @@ export function requirePropertyApiE2eDockerBinding(url) {
   if (!postgresAliases.has(postgresHost)) {
     fail("the target API container POSTGRES_HOST is not an alias of the inspected disposable PostgreSQL container on a shared Docker network.");
   }
+  const expectedProject = process.env.PROPERTY_API_E2E_DOCKER_PROJECT ?? process.env.COMPOSE_PROJECT_NAME ?? "";
+  if (!expectedProject) {
+    fail("PROPERTY_API_E2E_DOCKER_PROJECT or COMPOSE_PROJECT_NAME must identify the disposable Docker project.");
+  }
+  const fileStorageRoot = normalizeContainerPath(containerEnvironment.get("FILE_STORAGE_LOCAL_ROOT") ?? defaultFileStorageRoot);
+  const fileStorageMount = (inspection.Mounts ?? []).find((mount) =>
+    normalizeContainerPath(mount.Destination) === fileStorageRoot
+  );
+  if (!fileStorageMount) {
+    fail("FILE_STORAGE_LOCAL_ROOT is not backed by an inspected Docker mount in the target API container.");
+  }
+  if (fileStorageMount.Type !== "volume") {
+    fail("FILE_STORAGE_LOCAL_ROOT must be backed by a disposable Docker volume, not a bind mount or shared host path.");
+  }
+  const expectedFileVolumeName = `${expectedProject}_api-files-data`;
+  if (fileStorageMount.Name !== expectedFileVolumeName) {
+    fail("FILE_STORAGE_LOCAL_ROOT is not backed by this run's disposable API files volume.");
+  }
   const requestedPort = url.port || (url.protocol === "https:" ? "443" : "80");
   const bindings = inspection.NetworkSettings?.Ports?.["3001/tcp"] ?? [];
   const matchingBinding = bindings.some((binding) => {
@@ -104,4 +123,10 @@ export function requirePropertyApiE2eDockerBinding(url) {
     return binding.HostPort === requestedPort && (loopbackHosts.has(host) || host === "0.0.0.0");
   });
   if (!matchingBinding) fail("API_BASE_URL is not published by the inspected disposable API container.");
+}
+
+function normalizeContainerPath(path) {
+  const value = String(path ?? "").trim();
+  if (!value.startsWith("/")) fail("container paths used by the safety gate must be absolute.");
+  return value.replace(/\/+$/g, "") || "/";
 }
