@@ -592,6 +592,15 @@ export class AuthService implements OnModuleInit {
     if (!user || !user.isEnabled || user.isDeleted) {
       throw new UnauthorizedException("Selected user context is unavailable");
     }
+    try {
+      const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
+      if (resolveJwtPrincipal) {
+        await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+      }
+    } catch (error) {
+      if (error instanceof NotFoundException) throw new UnauthorizedException("Selected user context is unavailable");
+      throw error;
+    }
 
     const loginMethod = ticket.provider;
     let selectedUser = user;

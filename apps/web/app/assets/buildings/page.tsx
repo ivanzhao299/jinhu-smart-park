@@ -417,8 +417,8 @@ function enabledParks(
   currentParkName: string | null | undefined
 ): UserParkContext[] {
   const enabled = (parks ?? []).filter((park) => park.status === "enabled");
-  if (enabled.length > 0 || !currentParkId) return enabled;
-  return [{ park_id: currentParkId, park_name: currentParkName ?? currentParkId, is_default: true, status: "enabled" }];
+  if (!currentParkId || enabled.some((park) => park.park_id === currentParkId)) return enabled;
+  return [{ park_id: currentParkId, park_name: currentParkName ?? currentParkId, is_default: true, status: "enabled" }, ...enabled];
 }
 
 function resolveParkName(parks: UserParkContext[], parkId: string | undefined, fallback?: string | null): string {
