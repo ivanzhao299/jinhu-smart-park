@@ -63,7 +63,8 @@ export function HousingHandoverForm({
     handoverType: type, damageAmount: amounts.damage,
     unsettledAmount: amounts.unsettled, depositDeductionAmount: amounts.deduction
   });
-  const financialAllowed = capabilities.actionAllowed("housing.handovers.complete-move-out-financial");
+  const financialAllowed = capabilities.actionAllowed("housing.handovers.complete-move-out-financial")
+    && hasAccess(user, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE, "asset");
   useEffect(() => {
     if (!allowedTypes.includes(type)) setType(allowedTypes[0] ?? "move_in");
   }, [allowedTypes, type]);
