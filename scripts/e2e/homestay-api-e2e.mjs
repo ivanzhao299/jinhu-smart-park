@@ -136,13 +136,17 @@ async function run() {
   const approverToken = approverLogin.accessToken;
   assert(typeof approverToken === "string" && approverToken.length > 0, "authenticated a separate approval actor");
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-  const departure = new Date(`${today}T00:00:00+08:00`);
-  departure.setDate(departure.getDate() + 1);
-  const tomorrow = departure.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-  const dayAfterTomorrowDate = new Date(departure);
-  dayAfterTomorrowDate.setDate(dayAfterTomorrowDate.getDate() + 1);
-  const dayAfterTomorrow = dayAfterTomorrowDate.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const formatShanghaiDate = (date) => date.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const addShanghaiDays = (date, days) => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+  };
+  const businessDate = formatShanghaiDate(new Date());
+  const businessDateStart = new Date(`${businessDate}T00:00:00+08:00`);
+  const operationalDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
+  const futureArrival = formatShanghaiDate(addShanghaiDays(businessDateStart, 2));
+  const futureDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
   const units = await request("/park-units?page=1&page_size=100", { token });
   let unit;
   for (const candidate of units.items) {
@@ -152,8 +156,8 @@ async function run() {
       idempotent: true,
       body: {
         unitId: candidate.id,
-        startAt: `${today}T00:00:00+08:00`,
-        endAt: `${tomorrow}T00:00:00+08:00`
+        startAt: `${businessDate}T00:00:00+08:00`,
+        endAt: `${operationalDeparture}T00:00:00+08:00`
       }
     });
     if (!availability.available) continue;
@@ -195,7 +199,7 @@ async function run() {
   ));
   assert(rateResults.length === 2, "concurrent homestay rate writes both succeed");
   const rate = await request(
-    `/homestay/rates/${unit.id}?date_from=${today}&date_to=${tomorrow}`,
+    `/homestay/rates/${unit.id}?date_from=${businessDate}&date_to=${operationalDeparture}`,
     { token }
   );
   assert(["301.00", "302.00"].includes(rate.base_daily_rate), "persisted rate is one complete concurrent write");
@@ -262,7 +266,7 @@ async function run() {
   let inactiveUnitBooking;
   try {
     const inactiveRoomStates = await request(
-      `/homestay/availability?date_from=${today}&date_to=${tomorrow}`,
+      `/homestay/availability?date_from=${businessDate}&date_to=${operationalDeparture}`,
       { token }
     );
     const inactiveRoomState = inactiveRoomStates.find((item) => item.unit_id === unit.id);
@@ -278,8 +282,8 @@ async function run() {
         booking_code: `HS-INACTIVE-${runId}`.slice(0, 64),
         unit_id: unit.id,
         booker_party_id: guest.id,
-        arrival_date: today,
-        departure_date: tomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         source_type: "direct",
         guest_count: 1
       }
@@ -316,8 +320,8 @@ async function run() {
         booking_code: `HS-OVERFLOW-${runId}`.slice(0, 64),
         unit_id: unit.id,
         booker_party_id: guest.id,
-        arrival_date: today,
-        departure_date: dayAfterTomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         source_type: "direct",
         guest_count: 1
       }
@@ -346,8 +350,8 @@ async function run() {
       booking_code: `HS-FUTURE-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: tomorrow,
-      departure_date: dayAfterTomorrow,
+      arrival_date: futureArrival,
+      departure_date: futureDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Future no-show boundary E2E"
@@ -381,8 +385,8 @@ async function run() {
       booking_code: `HS-RELEASED-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: today,
-      departure_date: tomorrow,
+      arrival_date: businessDate,
+      departure_date: operationalDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Forced occupancy release E2E"
@@ -420,8 +424,8 @@ async function run() {
       token,
       idempotent: true,
       body: {
-        arrival_date: today,
-        departure_date: tomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         reason: "force-released occupancy must not be resurrected"
       }
     }
@@ -454,8 +458,8 @@ async function run() {
       booking_code: `HS-E2E-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: today,
-      departure_date: tomorrow,
+      arrival_date: businessDate,
+      departure_date: operationalDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Homestay real API E2E"

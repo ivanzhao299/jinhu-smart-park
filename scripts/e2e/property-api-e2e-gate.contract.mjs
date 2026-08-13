@@ -113,6 +113,9 @@ assert.doesNotMatch(housing, /receivable_id: depositReceivable\.id,[\s\S]{0,120}
 assert.match(housing, /terminated\.lease\?\.status === "terminated"/, "housing E2E must read terminal lease status from the lease detail container");
 assert.doesNotMatch(housing, /terminated\.status === "terminated"/, "housing E2E must not read lease status from the detail response top level");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
+assert.match(homestay, /addShanghaiDays\(businessDateStart, 2\)/, "homestay future-boundary booking must stay safely in the future across Shanghai midnight");
+assert.match(homestay, /operationalDeparture = formatShanghaiDate\(addShanghaiDays\(businessDateStart, 3\)\)/, "homestay operational booking window must remain active if the suite crosses Shanghai midnight once");
+assert.doesNotMatch(homestay, /\btomorrow\b/, "homestay E2E must not use a one-day future boundary that can collapse at Shanghai midnight");
 assert.match(homestay, /submission: forcedOccupancyRelease/, "homestay force-release approval must execute before released-occupancy terminal assertions");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/claim/, "a separate actor must claim submitted identity work before verification");
