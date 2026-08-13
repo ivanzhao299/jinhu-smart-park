@@ -102,10 +102,7 @@ BEGIN
   IF NEW.is_deleted THEN
     RETURN NEW;
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended(
-    'asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id,
-    0
-  ));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
   IF NOT (
     (SELECT count(*) FROM biz_park p
      WHERE p.tenant_id = NEW.tenant_id AND p.park_id = NEW.park_id
@@ -134,10 +131,7 @@ BEGIN
   IF NEW.status <> 1 OR NEW.is_deleted THEN
     RETURN NEW;
   END IF;
-  PERFORM pg_advisory_xact_lock(hashtextextended(
-    'asset-park-scope:' || NEW.tenant_id || ':' || NEW.park_id,
-    0
-  ));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
   IF EXISTS (
     SELECT 1 FROM biz_building b
     WHERE b.tenant_id = NEW.tenant_id AND b.park_id = NEW.park_id AND b.is_deleted = false
@@ -160,12 +154,25 @@ RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   removes_active_jh boolean;
 BEGIN
-  PERFORM pg_advisory_xact_lock(hashtextextended(
-    'asset-park-scope:' || OLD.tenant_id || ':' || OLD.park_id,
-    0
-  ));
-  IF OLD.park_code = 'JH' THEN
-    PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-scope:10000001:20000001', 0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('asset-park-canonical-source', 0));
+
+  IF TG_OP = 'UPDATE'
+     AND NEW.status = 1 AND NEW.is_deleted = false
+     AND (
+       OLD.status <> 1 OR OLD.is_deleted = true
+       OR (OLD.tenant_id, OLD.park_id) IS DISTINCT FROM (NEW.tenant_id, NEW.park_id)
+     )
+     AND EXISTS (
+       SELECT 1 FROM biz_building b
+       WHERE b.tenant_id = NEW.tenant_id AND b.park_id = NEW.park_id AND b.is_deleted = false
+     )
+     AND EXISTS (
+       SELECT 1 FROM biz_park source
+       WHERE source.tenant_id = NEW.tenant_id AND source.park_id = NEW.park_id
+         AND source.status = 1 AND source.is_deleted = false AND source.id <> OLD.id
+     )
+  THEN
+    RAISE EXCEPTION 'active park scope with buildings already has a canonical park' USING ERRCODE = '23505';
   END IF;
 
   removes_active_jh := TG_OP = 'DELETE';

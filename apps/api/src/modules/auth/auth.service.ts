@@ -733,6 +733,17 @@ export class AuthService implements OnModuleInit {
     loginMethod: string,
     loginUsername: string
   ): Promise<LoginResult> {
+    try {
+      const resolveJwtPrincipal = this.usersService.resolveJwtPrincipal?.bind(this.usersService);
+      if (resolveJwtPrincipal) {
+        await resolveJwtPrincipal({ tenantId: user.tenantId, parkId: user.parkId }, user.id);
+      }
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new UnauthorizedException("当前园区不可用，请联系管理员调整默认园区");
+      }
+      throw error;
+    }
     const { activeRoleLinks, permissions, isSuper } = this.resolveUserAuthorization(user);
     const grantedPermissions = isSuper ? ["*"] : [...new Set([...permissions, SYSTEM_PERMISSIONS.USER_ME])];
     const dataScope = isSuper ? "all" : this.resolveDataScope(activeRoleLinks.map((link) => link.role.dataScope));

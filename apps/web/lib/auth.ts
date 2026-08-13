@@ -74,10 +74,14 @@ export async function completeLoginSession(
 ): Promise<UserContext> {
   const publish = async () => {
     localStorage.removeItem(PARK_SWITCH_KEY);
-    setToken(token, { preserveParkSwitch: true });
-    const currentUser = await fetchCurrentUser({ requestToken: token, persist: false });
-    await setSession(token, currentUser, refreshToken);
-    return currentUser;
+    try {
+      const currentUser = await fetchCurrentUser({ requestToken: token, persist: false, skipUnauthorizedReset: true });
+      await setSession(token, currentUser, refreshToken);
+      return currentUser;
+    } catch (error) {
+      await logoutSession({ lockAlreadyHeld: true });
+      throw error;
+    }
   };
   return options.lockAlreadyHeld ? publish() : withAuthSessionLock(publish);
 }
@@ -97,17 +101,20 @@ export function setRefreshToken(token: string): void {
   removeRefreshTokenStorage();
 }
 
-export async function clearSession(): Promise<void> {
-  currentUserRequest = null;
-  parkContextSwitch = null;
-  sessionStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-  sessionStorage.removeItem(USER_KEY);
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  localStorage.removeItem(PARK_SWITCH_KEY);
-  await purgePropertyOfflineState();
+export async function clearSession(options: { lockAlreadyHeld?: boolean } = {}): Promise<void> {
+  const clear = async () => {
+    currentUserRequest = null;
+    parkContextSwitch = null;
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(PARK_SWITCH_KEY);
+    await purgePropertyOfflineState();
+  };
+  return options.lockAlreadyHeld ? clear() : withAuthSessionLock(clear);
 }
 
 function sessionScope(user: UserContext): string {
@@ -121,26 +128,29 @@ function sessionScope(user: UserContext): string {
   ]);
 }
 
-export async function logoutSession(): Promise<void> {
-  const token = getToken();
-  const legacyRefreshToken = getRefreshToken();
-  try {
-    await postLogoutCookie().catch(() => undefined);
-    if (token) {
-      await postLogout(token, legacyRefreshToken).catch(() => undefined);
+export async function logoutSession(options: { lockAlreadyHeld?: boolean } = {}): Promise<void> {
+  const logout = async () => {
+    const token = getToken();
+    const legacyRefreshToken = getRefreshToken();
+    try {
+      await postLogoutCookie().catch(() => undefined);
+      if (token) {
+        await postLogout(token, legacyRefreshToken).catch(() => undefined);
+      }
+    } finally {
+      await clearSession({ lockAlreadyHeld: true });
     }
-  } finally {
-    await clearSession();
-  }
+  };
+  return options.lockAlreadyHeld ? logout() : withAuthSessionLock(logout);
 }
 
-export async function fetchCurrentUser(options: { requestToken?: string; persist?: boolean } = {}): Promise<UserContext> {
+export async function fetchCurrentUser(options: { requestToken?: string; persist?: boolean; skipUnauthorizedReset?: boolean } = {}): Promise<UserContext> {
   const token = options.requestToken ?? getToken();
   if (!token) {
     throw new Error("Unauthorized");
   }
   if (!currentUserRequest || currentUserRequest.token !== token) {
-    const promise = apiRequest<UserContext>("/users/me", { token })
+    const promise = apiRequest<UserContext>("/users/me", { token, skipUnauthorizedReset: options.skipUnauthorizedReset })
       .then(async (response) => {
         if (options.persist !== false && token === getToken()) {
           const previous = getStoredUser();
@@ -200,7 +210,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     });
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
-    const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false });
+    const nextUser = await fetchCurrentUser({ requestToken: response.data.accessToken, persist: false, skipUnauthorizedReset: true });
     if (nextUser.park_id !== parkId) throw new Error("切换后的园区上下文与选择不一致");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
     await setSession(response.data.accessToken, nextUser, response.data.refreshToken, {
@@ -217,7 +227,7 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
       (latestToken && latestToken !== originalToken && latestToken !== rotatedToken)
       || (sharedToken && sharedToken !== originalToken && sharedToken !== rotatedToken)
     );
-    if (!newerSessionPublished) await logoutSession();
+    if (!newerSessionPublished) await logoutSession({ lockAlreadyHeld: true });
     else if (privateToken && privateToken !== sharedToken) clearSessionStorageOnly();
     throw error;
   }

@@ -1307,7 +1307,7 @@ export class UsersService {
     const accessibleByUser = new Map<string, UserParkContext[]>();
     await Promise.all(
       users.map(async (user) => {
-        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId));
+        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, { activeOnly: false }));
       })
     );
 
@@ -1485,7 +1485,11 @@ export class UsersService {
     return [...new Set(permissions.flatMap((permission) => [permission, ...(aliases[permission] ?? [])]))];
   }
 
-  private async resolveAccessibleParks(userId: string, tenantId: string): Promise<UserParkContext[]> {
+  private async resolveAccessibleParks(
+    userId: string,
+    tenantId: string,
+    options: { activeOnly?: boolean } = {}
+  ): Promise<UserParkContext[]> {
     let links = await this.userParkRepository.find({
       where: {
         tenantId,
@@ -1518,7 +1522,7 @@ export class UsersService {
       where: {
         tenantId: In(tenantIds),
         parkId: In(parkIds),
-        status: 1,
+        ...(options.activeOnly === false ? {} : { status: 1 }),
         isDeleted: false
       }
     });
@@ -1535,7 +1539,7 @@ export class UsersService {
         park_code: park.parkCode,
         park_name: park.parkName,
         is_default: link.isDefault,
-        status: "enabled"
+        status: park.status === 1 ? "enabled" : "disabled"
       };
     });
   }

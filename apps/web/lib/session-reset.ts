@@ -49,17 +49,26 @@ export async function handleUnauthorizedSessionReset({
     return false;
   }
 
-  await clearLocalSessionStorage();
-  try {
-    await postLogoutCookie();
-  } catch {
-    // Cookie cleanup is best-effort; local session reset must still complete.
-  } finally {
-    if (redirect) {
-      window.location.href = "/login";
+  await withAuthSessionLock(async () => {
+    await clearLocalSessionStorage();
+    try {
+      await postLogoutCookie();
+    } catch {
+      // Cookie cleanup is best-effort; local session reset must still complete.
+    } finally {
+      if (redirect) {
+        window.location.href = "/login";
+      }
     }
-  }
+  });
   return true;
+}
+
+async function withAuthSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("jinhu-park-context-switch", operation);
+  }
+  return operation();
 }
 
 export async function clearLocalSessionStorage(): Promise<void> {

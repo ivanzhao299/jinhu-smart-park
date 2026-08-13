@@ -26,7 +26,7 @@ test("asset location migration constrains the complete tenant park parent chain"
   assert.match(migration, /CREATE TRIGGER trg_biz_park_active_scope_insert/u);
   assert.match(migration, /CREATE TRIGGER trg_biz_park_building_scope_delete/u);
   assert.match(migration, /OLD\.park_code = 'JH'[\s\S]*b\.tenant_id = '10000001'[\s\S]*b\.park_id = '20000001'/u);
-  assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\([\s\S]*asset-park-scope:/u);
+  assert.match(migration, /pg_advisory_xact_lock\(hashtextextended\('asset-park-canonical-source'/u);
   assert.match(migration, /BEFORE UPDATE OF tenant_id, park_id, park_code, status, is_deleted ON biz_park/u);
   assert.match(migration, /UPDATE OF tenant_id, park_id, is_deleted ON biz_building/u);
 });
