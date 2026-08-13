@@ -211,13 +211,48 @@ BEGIN
 END $$;
 
 CREATE TRIGGER trg_homestay_booking_occupancy_owner
-BEFORE INSERT OR UPDATE OF tenant_id,park_id,unit_id,occupancy_id ON biz_homestay_booking
+BEFORE INSERT OR UPDATE OF id,tenant_id,park_id,unit_id,occupancy_id ON biz_homestay_booking
 FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
 CREATE TRIGGER trg_homestay_turnover_occupancy_owner
-BEFORE INSERT OR UPDATE OF tenant_id,park_id,booking_id,unit_id,occupancy_id ON biz_homestay_turnover_task
+BEFORE INSERT OR UPDATE OF id,tenant_id,park_id,booking_id,unit_id,occupancy_id ON biz_homestay_turnover_task
 FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
 CREATE TRIGGER trg_housing_lease_occupancy_owner
-BEFORE INSERT OR UPDATE OF tenant_id,park_id,unit_id,occupancy_id ON biz_housing_lease
+BEFORE INSERT OR UPDATE OF id,tenant_id,park_id,unit_id,occupancy_id ON biz_housing_lease
 FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_owner();
+
+CREATE OR REPLACE FUNCTION enforce_property_mvp_occupancy_reverse_owner()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM biz_homestay_booking owner
+     WHERE owner.occupancy_id=OLD.id
+       AND (owner.tenant_id,owner.park_id,owner.unit_id,'homestay','homestay_booking',owner.id::text)
+         IS DISTINCT FROM (NEW.tenant_id,NEW.park_id,NEW.unit_id,NEW.source_domain,NEW.source_type,NEW.source_id)
+  ) THEN
+    RAISE EXCEPTION 'homestay booking occupancy reverse owner mismatch' USING ERRCODE='23503';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM biz_homestay_turnover_task owner
+     WHERE owner.occupancy_id=OLD.id
+       AND (owner.tenant_id,owner.park_id,owner.unit_id,'homestay','homestay_turnover',owner.id::text)
+         IS DISTINCT FROM (NEW.tenant_id,NEW.park_id,NEW.unit_id,NEW.source_domain,NEW.source_type,NEW.source_id)
+  ) THEN
+    RAISE EXCEPTION 'homestay turnover occupancy reverse owner mismatch' USING ERRCODE='23503';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM biz_housing_lease owner
+     WHERE owner.occupancy_id=OLD.id
+       AND (owner.tenant_id,owner.park_id,owner.unit_id,'housing_rental','housing_lease',owner.id::text)
+         IS DISTINCT FROM (NEW.tenant_id,NEW.park_id,NEW.unit_id,NEW.source_domain,NEW.source_type,NEW.source_id)
+  ) THEN
+    RAISE EXCEPTION 'housing lease occupancy reverse owner mismatch' USING ERRCODE='23503';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER trg_property_occupancy_reverse_owner
+BEFORE UPDATE OF id,tenant_id,park_id,unit_id,source_domain,source_type,source_id
+ON biz_property_occupancy
+FOR EACH ROW EXECUTE FUNCTION enforce_property_mvp_occupancy_reverse_owner();
 
 COMMIT;

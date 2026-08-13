@@ -82,6 +82,19 @@ Reference files:
 - Pull requests touching migrations, production seeds, database release scripts, or Release Smoke
   workflow definitions must trigger fresh-schema Release Smoke automatically, not by reviewer memory
   or an optional label.
+- Reproduce Release Smoke locally with the workflow's effective environment, not the developer shell's
+  defaults. In particular, a job-level `NODE_ENV=production` changes dependency installation; any
+  database-backed TypeScript spec must explicitly install its test runner (for example with
+  `pnpm install --frozen-lockfile --prod=false`) before invoking it.
+- A fresh-schema rehearsal must create its database from PostgreSQL `template0` and pass the exact
+  `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB` variables
+  consumed by `scripts/db-migrate.sh`. A database inherited from a polluted `template1`, or a
+  `DATABASE_URL` ignored by the migration runner, is not fresh-schema evidence.
+- Owner/scope constraints must be tested as a bidirectional mutation matrix. Cover child-side owner
+  changes, parent/owner-side changes after linking, source primary-key changes, cross-tenant/park and
+  wrong unit/source identities, plus the legal same-owner path. Trigger `UPDATE OF` lists must include
+  every `NEW` field read by the trigger function; linked owner fields on the referenced row must be
+  protected by inverse validation or made immutable.
 - Projection migrations whose target scopes come from production assignments require a read-only parity
   diagnostic and an API/full deployment gate after required secret initialization but before application release
   source sync, migration, seed, or image build.

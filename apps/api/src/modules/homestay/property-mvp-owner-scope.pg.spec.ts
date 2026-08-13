@@ -20,7 +20,8 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
   const ids = Object.fromEntries([
     "buildingA", "floorA", "unitA", "buildingB", "floorB", "unitB", "partyA",
     "bookingA", "nightA", "rateA", "purchaseA", "occupancyWrongUnit",
-    "occupancyWrongSource", "housingOccupancyWrongSource", "turnoverA",
+    "occupancyWrongSource", "bookingOccupancy", "turnoverOccupancy",
+    "housingOccupancy", "housingOccupancyWrongSource", "turnoverA",
     "leaseA", "leaseB", "chargePlanB", "receivableA"
   ].map((key) => [key, randomUUID()])) as Record<string, string>;
 
@@ -125,6 +126,50 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.turnoverA, tenantId, parkA, ids.bookingA, ids.unitA, ids.occupancyWrongSource]
     ), /turnover occupancy owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT wrong_turnover_occupancy");
+    await query("DELETE FROM biz_property_occupancy WHERE id = ANY($1::uuid[])", [[
+      ids.occupancyWrongUnit, ids.occupancyWrongSource
+    ]]);
+
+    await query(
+      `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+          source_id,start_at,end_at,status)
+       VALUES($1,$2,$3,$4,'homestay','homestay_booking',$5,'2026-09-01','2026-09-02','active')`,
+      [ids.bookingOccupancy, tenantId, parkA, ids.unitA, ids.bookingA]
+    );
+    await query("UPDATE biz_homestay_booking SET occupancy_id=$1 WHERE id=$2", [
+      ids.bookingOccupancy, ids.bookingA
+    ]);
+    await query("SAVEPOINT mutate_linked_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_property_occupancy SET source_id=$1 WHERE id=$2",
+      [randomUUID(), ids.bookingOccupancy]
+    ), /reverse owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT mutate_linked_occupancy");
+    await query("SAVEPOINT mutate_booking_id");
+    await assert.rejects(query(
+      "UPDATE biz_homestay_booking SET id=$1 WHERE id=$2",
+      [randomUUID(), ids.bookingA]
+    ), /occupancy owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT mutate_booking_id");
+
+    await query(
+      `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+          source_id,start_at,end_at,status)
+       VALUES($1,$2,$3,$4,'homestay','homestay_turnover',$5,'2026-09-02','2026-09-03','active')`,
+      [ids.turnoverOccupancy, tenantId, parkA, ids.unitA, ids.turnoverA]
+    );
+    await query(
+      `INSERT INTO biz_homestay_turnover_task(id,tenant_id,park_id,booking_id,unit_id,
+          occupancy_id,status)
+       VALUES($1,$2,$3,$4,$5,$6,'pending')`,
+      [ids.turnoverA, tenantId, parkA, ids.bookingA, ids.unitA, ids.turnoverOccupancy]
+    );
+    await query("SAVEPOINT mutate_turnover_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_property_occupancy SET unit_id=$1 WHERE id=$2",
+      [ids.unitB, ids.turnoverOccupancy]
+    ), /reverse owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT mutate_turnover_occupancy");
 
     for (const [leaseId, code] of [[ids.leaseA, "A"], [ids.leaseB, "B"]]) {
       await query(
@@ -148,6 +193,23 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.housingOccupancyWrongSource, ids.leaseA]
     ), /housing lease occupancy owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT wrong_lease_occupancy");
+    await query("DELETE FROM biz_property_occupancy WHERE id=$1", [ids.housingOccupancyWrongSource]);
+    await query(
+      `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
+          source_id,start_at,end_at,status)
+       VALUES($1,$2,$3,$4,'housing_rental','housing_lease',$5,
+          '2027-09-01','2028-09-01','active')`,
+      [ids.housingOccupancy, tenantId, parkA, ids.unitA, ids.leaseA]
+    );
+    await query("UPDATE biz_housing_lease SET occupancy_id=$1 WHERE id=$2", [
+      ids.housingOccupancy, ids.leaseA
+    ]);
+    await query("SAVEPOINT mutate_housing_occupancy");
+    await assert.rejects(query(
+      "UPDATE biz_property_occupancy SET source_type='housing_other' WHERE id=$1",
+      [ids.housingOccupancy]
+    ), /reverse owner mismatch/u);
+    await query("ROLLBACK TO SAVEPOINT mutate_housing_occupancy");
     await query(
       `INSERT INTO biz_housing_charge_plan(id,tenant_id,park_id,lease_id,charge_type,
           billing_source,cycle_months,amount,currency)
