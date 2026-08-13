@@ -34,12 +34,14 @@ done
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$success_db" <<'SQL'
+ALTER TABLE public.biz_park DISABLE TRIGGER trg_biz_park_active_scope_insert;
 INSERT INTO public.biz_park (
   tenant_id,park_id,park_code,park_name,status,remark
 ) VALUES (
   '10000001','20000001','RELEASE_000207_REDUNDANT','Release 000207 redundant source',1,
   'release-smoke 000207 preserved operator remark'
 );
+ALTER TABLE public.biz_park ENABLE TRIGGER trg_biz_park_active_scope_insert;
 SQL
 
 COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
@@ -94,6 +96,7 @@ grep -Fq "SKIP: $migration_name (already succeeded, checksum matched)" \
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$failure_db" <<'SQL'
+ALTER TABLE public.biz_park DISABLE TRIGGER trg_biz_park_active_scope_insert;
 UPDATE public.asset_park
 SET park_code='RELEASE_000207_NO_MATCH'
 WHERE tenant_id='10000001' AND park_id='20000001'
@@ -104,6 +107,7 @@ INSERT INTO public.biz_park (
   '10000001','20000001','RELEASE_000207_UNMATCHED','Release 000207 unmatched source',1,
   'release-smoke 000207 ambiguous failure'
 );
+ALTER TABLE public.biz_park ENABLE TRIGGER trg_biz_park_active_scope_insert;
 SQL
 
 if COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE= \
@@ -168,12 +172,14 @@ docker compose -f "$COMPOSE_FILE" exec -T postgres \
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$audit_drift_db" <<'SQL'
+ALTER TABLE public.biz_park DISABLE TRIGGER trg_biz_park_active_scope_insert;
 INSERT INTO public.biz_park (
   tenant_id,park_id,park_code,park_name,status,remark
 ) VALUES (
   '10000001','20000001','RELEASE_000207_AUDIT_DRIFT','Release 000207 audit drift source',1,
   'release-smoke 000207 runtime audit drift rollback'
 );
+ALTER TABLE public.biz_park ENABLE TRIGGER trg_biz_park_active_scope_insert;
 UPDATE public.rel_tenant_module assignment
 SET start_time=clock_timestamp()+interval '1 day'
 WHERE assignment.tenant_id='10000001' AND assignment.park_id='20000001'

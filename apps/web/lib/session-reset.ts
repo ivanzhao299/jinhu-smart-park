@@ -7,6 +7,7 @@ const API_PREFIX = process.env.NEXT_PUBLIC_API_PREFIX ?? "/api/v1";
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
+const PARK_SWITCH_KEY = "jinhu_park_context_switch";
 
 const AUTH_SESSION_RESET_EXCLUDED_PATHS = new Set([
   "/auth/login",
@@ -15,6 +16,7 @@ const AUTH_SESSION_RESET_EXCLUDED_PATHS = new Set([
   "/auth/wechat/authorize",
   "/auth/wechat/callback",
   "/auth/select-context",
+  "/auth/switch-context",
   "/auth/token/refresh",
   "/auth/logout-cookie"
 ]);
@@ -47,17 +49,31 @@ export async function handleUnauthorizedSessionReset({
     return false;
   }
 
-  await clearLocalSessionStorage();
-  try {
-    await postLogoutCookie();
-  } catch {
-    // Cookie cleanup is best-effort; local session reset must still complete.
-  } finally {
-    if (redirect) {
-      window.location.href = "/login";
+  return withAuthSessionLock(async () => {
+    if (requestToken) {
+      if (!isCurrentAccessToken(requestToken)) return false;
+    } else if (hasStoredAccessToken()) {
+      return false;
     }
+    await clearLocalSessionStorage();
+    try {
+      await postLogoutCookie();
+    } catch {
+      // Cookie cleanup is best-effort; local session reset must still complete.
+    } finally {
+      if (redirect) {
+        window.location.href = "/login";
+      }
+    }
+    return true;
+  });
+}
+
+async function withAuthSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("jinhu-park-context-switch", operation);
   }
-  return true;
+  return operation();
 }
 
 export async function clearLocalSessionStorage(): Promise<void> {
@@ -67,6 +83,7 @@ export async function clearLocalSessionStorage(): Promise<void> {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(PARK_SWITCH_KEY);
   await purgePropertyOfflineState();
 }
 

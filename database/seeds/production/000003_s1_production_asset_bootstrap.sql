@@ -49,7 +49,7 @@ SELECT
 FROM buildings
 CROSS JOIN seed_scope
 JOIN building_seed_guard ON true
-ON CONFLICT (building_code) WHERE is_deleted = false DO NOTHING;
+ON CONFLICT (tenant_id, park_id, building_code) WHERE is_deleted = false DO NOTHING;
 
 WITH seed_scope AS (
   SELECT
@@ -107,7 +107,7 @@ JOIN biz_building building
  AND building.park_id = seed_scope.park_id
  AND building.building_code = floors.building_code
  AND building.is_deleted = false
-ON CONFLICT (floor_code) WHERE is_deleted = false DO NOTHING;
+ON CONFLICT (tenant_id, park_id, floor_code) WHERE is_deleted = false DO NOTHING;
 
 WITH seed_scope AS (
   SELECT

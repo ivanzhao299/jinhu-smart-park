@@ -356,7 +356,7 @@ SELECT
   'S2-02 dev-only test building seed'
 FROM buildings
 CROSS JOIN seed_scope
-ON CONFLICT (building_code) WHERE is_deleted = false DO UPDATE SET
+ON CONFLICT (tenant_id, park_id, building_code) WHERE is_deleted = false DO UPDATE SET
   building_name = EXCLUDED.building_name,
   floor_count = EXCLUDED.floor_count,
   build_area = EXCLUDED.build_area,
@@ -408,7 +408,7 @@ JOIN biz_building building
  AND building.park_id = seed_scope.park_id
  AND building.building_code = floors.building_code
  AND building.is_deleted = false
-ON CONFLICT (floor_code) WHERE is_deleted = false DO UPDATE SET
+ON CONFLICT (tenant_id, park_id, floor_code) WHERE is_deleted = false DO UPDATE SET
   building_id = EXCLUDED.building_id,
   floor_no = EXCLUDED.floor_no,
   floor_name = EXCLUDED.floor_name,

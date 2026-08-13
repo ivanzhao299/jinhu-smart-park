@@ -89,7 +89,14 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
         router.replace("/login");
       });
     void loadCurrentUser(token);
-    return () => media.removeEventListener("change", applyNavigationMode);
+    const handleSharedSessionChange = (event: StorageEvent) => {
+      if (event.key === "jinhu_access_token" && event.newValue !== event.oldValue) window.location.reload();
+    };
+    window.addEventListener("storage", handleSharedSessionChange);
+    return () => {
+      media.removeEventListener("change", applyNavigationMode);
+      window.removeEventListener("storage", handleSharedSessionChange);
+    };
   }, [router]);
 
   const handleSidebarCollapsedChange = (collapsed: boolean) => {

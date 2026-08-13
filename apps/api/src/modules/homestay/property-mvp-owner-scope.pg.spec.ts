@@ -61,6 +61,11 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       "fk_housing_receivable_charge_plan_scope", "uq_biz_unit_scope_id",
       "uq_homestay_booking_scope_unit", "uq_housing_charge_plan_owner"
     ]);
+    await query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'000209 park A'),($1,$4,$5,'000209 park B')`,
+      [tenantId, parkA, `P-A-${suffix}`, parkB, `P-B-${suffix}`]
+    );
     await createUnit(parkA, ids.buildingA!, ids.floorA!, ids.unitA!);
     await createUnit(parkB, ids.buildingB!, ids.floorB!, ids.unitB!);
     await query(

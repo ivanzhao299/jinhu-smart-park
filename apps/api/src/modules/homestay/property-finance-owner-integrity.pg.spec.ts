@@ -26,6 +26,11 @@ test("000198 enforces finance owners and permits deferred aggregate purchase tra
   try {
     await runner.startTransaction();
     await query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'000198 park')`,
+      [tenantId, parkId, `P-${suffix}`]
+    );
+    await query(
       `INSERT INTO biz_building(id,tenant_id,park_id,building_code,building_name)
        VALUES($1,$2,$3,$4,'000198 building')`,
       [id.building, tenantId, parkId, `B-${suffix}`]

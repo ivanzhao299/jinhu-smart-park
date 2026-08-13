@@ -67,6 +67,11 @@ test("DEC-01 cancellation is atomic and DEC-02 counts direct plus mapped legacy 
     ) as Array<{ cancellationEvaluationAt: string }>;
     payload.cancellationEvaluationAt = evaluation[0]!.cancellationEvaluationAt;
     await query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'Atomic park')`,
+      [tenantId, parkId, `P-${suffix}`]
+    );
+    await query(
       `INSERT INTO biz_building(id,tenant_id,park_id,building_code,building_name)
        VALUES($1,$2,$3,$4,$5)`,
       [ids.building, tenantId, parkId, `B-${suffix}`, "Atomic building"]

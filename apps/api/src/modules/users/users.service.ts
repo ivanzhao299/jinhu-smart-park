@@ -739,8 +739,8 @@ export class UsersService {
          AND usr.is_deleted = false
          AND EXISTS (
            SELECT 1 FROM biz_park live_park
-            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
-              AND live_park.is_deleted=false
+           WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
+              AND live_park.status=1 AND live_park.is_deleted=false
          )
        ORDER BY user_role.create_time ASC, role_permission.create_time ASC`,
       [id, scope.tenantId, scope.parkId]
@@ -1235,7 +1235,7 @@ export class UsersService {
     if (tenant.status === 2 || (tenant.expireTime && tenant.expireTime.getTime() <= Date.now())) {
       return "tenant_expired";
     }
-    if (!park) {
+    if (!park || park.status !== 1) {
       return "missing_default_park";
     }
     const hasDefaultAccess = explicitLinks.length === 0 || explicitLinks.some((link) => link.parkId === user.parkId && link.status === "enabled");
@@ -1307,7 +1307,7 @@ export class UsersService {
     const accessibleByUser = new Map<string, UserParkContext[]>();
     await Promise.all(
       users.map(async (user) => {
-        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId));
+        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, { activeOnly: false }));
       })
     );
 
@@ -1485,7 +1485,11 @@ export class UsersService {
     return [...new Set(permissions.flatMap((permission) => [permission, ...(aliases[permission] ?? [])]))];
   }
 
-  private async resolveAccessibleParks(userId: string, tenantId: string): Promise<UserParkContext[]> {
+  private async resolveAccessibleParks(
+    userId: string,
+    tenantId: string,
+    options: { activeOnly?: boolean } = {}
+  ): Promise<UserParkContext[]> {
     let links = await this.userParkRepository.find({
       where: {
         tenantId,
@@ -1518,6 +1522,7 @@ export class UsersService {
       where: {
         tenantId: In(tenantIds),
         parkId: In(parkIds),
+        ...(options.activeOnly === false ? {} : { status: 1 }),
         isDeleted: false
       }
     });
@@ -1534,7 +1539,7 @@ export class UsersService {
         park_code: park.parkCode,
         park_name: park.parkName,
         is_default: link.isDefault,
-        status: link.status
+        status: park.status === 1 ? "enabled" : "disabled"
       };
     });
   }

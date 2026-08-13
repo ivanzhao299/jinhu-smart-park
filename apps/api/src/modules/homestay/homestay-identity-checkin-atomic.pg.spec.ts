@@ -81,6 +81,11 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
     await admin.transaction(async (manager) => {
       await manager.query("SET CONSTRAINTS ALL DEFERRED");
       await manager.query(
+        `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+         VALUES($1,$2,$3,'Identity PG park')`,
+        [ids.tenant, ids.park, `P-ID-${suffix}`]
+      );
+      await manager.query(
         `INSERT INTO biz_building(id,tenant_id,park_id,building_code,building_name)
          VALUES($1,$2,$3,$4,'Identity PG building')`,
         [ids.building, ids.tenant, ids.park, `B-ID-${suffix}`]

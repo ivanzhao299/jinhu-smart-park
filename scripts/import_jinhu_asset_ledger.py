@@ -283,7 +283,7 @@ DO UPDATE SET
                 "update_by",
                 "remark",
             ],
-            conflict="(building_code) WHERE is_deleted = false",
+            conflict="(tenant_id, park_id, building_code) WHERE is_deleted = false",
             update_columns=["building_name", "floor_count", "build_area", "status", "sort_no", "remark"],
         ),
         values_insert(
@@ -298,7 +298,8 @@ DO UPDATE SET
                 f"{q(TENANT_ID)}, {q(PARK_ID)}, b.id, src.floor_code, src.floor_no, src.floor_name, "
                 "src.floor_area, 1, src.sort_no, "
                 f"{q(IMPORT_USER)}, {q(IMPORT_USER)}, src.remark "
-                "FROM src JOIN biz_building b ON b.building_code = src.building_code AND b.is_deleted = false"
+                f"FROM src JOIN biz_building b ON b.tenant_id = {q(TENANT_ID)} AND b.park_id = {q(PARK_ID)} "
+                "AND b.building_code = src.building_code AND b.is_deleted = false"
             ),
             insert_columns=[
                 "tenant_id",
@@ -314,7 +315,7 @@ DO UPDATE SET
                 "update_by",
                 "remark",
             ],
-            conflict="(floor_code) WHERE is_deleted = false",
+            conflict="(tenant_id, park_id, floor_code) WHERE is_deleted = false",
             update_columns=["building_id", "floor_no", "floor_name", "floor_area", "status", "sort_no", "remark"],
         ),
         values_insert(
@@ -357,8 +358,10 @@ DO UPDATE SET
                 "src.rental_status, src.fitting_status, src.ref_price, src.status, "
                 f"{q(IMPORT_USER)}, {q(IMPORT_USER)}, now(), {q(IMPORT_USER)}, src.remark "
                 "FROM src "
-                "JOIN biz_building b ON b.building_code = src.building_code AND b.is_deleted = false "
-                "JOIN biz_floor f ON f.floor_code = src.floor_code AND f.is_deleted = false"
+                f"JOIN biz_building b ON b.tenant_id = {q(TENANT_ID)} AND b.park_id = {q(PARK_ID)} "
+                "AND b.building_code = src.building_code AND b.is_deleted = false "
+                f"JOIN biz_floor f ON f.tenant_id = {q(TENANT_ID)} AND f.park_id = {q(PARK_ID)} "
+                "AND f.floor_code = src.floor_code AND f.building_id = b.id AND f.is_deleted = false"
             ),
             insert_columns=[
                 "tenant_id",

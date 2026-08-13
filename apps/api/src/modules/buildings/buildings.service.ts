@@ -77,7 +77,17 @@ export class BuildingsService {
       createBy: actorId,
       updateBy: actorId
     });
-    return this.buildingsRepository.save(entity);
+    try {
+      return await this.buildingsRepository.save(entity);
+    } catch (error) {
+      const databaseError = error as { code?: unknown; driverError?: { code?: unknown; message?: unknown }; message?: unknown };
+      const code = databaseError.code ?? databaseError.driverError?.code;
+      const message = databaseError.driverError?.message ?? databaseError.message;
+      if (code === "23503" && typeof message === "string" && message.includes("building requires an active park scope")) {
+        throw new ConflictException("Selected park is no longer active");
+      }
+      throw error;
+    }
   }
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateBuildingDto): Promise<BuildingEntity> {

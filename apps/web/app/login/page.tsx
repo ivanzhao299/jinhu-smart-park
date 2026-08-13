@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { useAppBranding } from "../../components/branding/useAppBranding";
 import { apiRequest } from "../../lib/api-client";
-import { fetchCurrentUser, setSession, setToken } from "../../lib/auth";
+import { completeLoginSession, withAuthSessionLock } from "../../lib/auth";
 import { resolvePostLoginPath } from "../../lib/post-login-route";
 import { resolveBrandLogo } from "../../lib/app-branding";
 
@@ -39,16 +39,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   const completeLogin = useCallback(
-    async (result: LoginResult) => {
+    async (result: LoginResult, options: { lockAlreadyHeld?: boolean } = {}) => {
       if (!result.accessToken) {
         if (result.requiresContextSelection) {
           throw new Error("该账号关联多个园区，请联系管理员设置默认登录园区");
         }
         throw new Error("登录响应缺少访问令牌");
       }
-      setToken(result.accessToken);
-      const currentUser = await fetchCurrentUser();
-      await setSession(result.accessToken, currentUser, result.refreshToken);
+      const currentUser = await completeLoginSession(result.accessToken, result.refreshToken, options);
       setMessage(`登录成功，欢迎 ${result.user?.username ?? currentUser.username}`);
       router.replace(resolvePostLoginPath(currentUser) as Route);
     },
@@ -60,11 +58,13 @@ export default function LoginPage() {
     setMessage("");
 
     try {
-      const response = await apiRequest<LoginResult>("/auth/login", {
-        method: "POST",
-        body: payload
+      await withAuthSessionLock(async () => {
+        const response = await apiRequest<LoginResult>("/auth/login", {
+          method: "POST",
+          body: payload
+        });
+        await completeLogin(response.data, { lockAlreadyHeld: true });
       });
-      await completeLogin(response.data);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "登录失败");
     } finally {

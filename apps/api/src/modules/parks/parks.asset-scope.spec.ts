@@ -46,6 +46,7 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /await ensureAssetParkProjection\(manager, scope, actorId\)/);
   assert.match(source, /retireIndependentAssetScope/);
   assert.match(source, /Asset module must be disabled before park retirement/);
+  assert.match(updateBlock, /code === "23503"[\s\S]*active park scope with buildings[\s\S]*ConflictException/);
 });
 
 test("park controller writes cross-scope mutations to the target audit scope", () => {

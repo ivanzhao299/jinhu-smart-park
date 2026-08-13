@@ -1,5 +1,7 @@
 # @jinhu/api Backend Specs
 
+Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-context-writes.md).
+
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
 ## Package Boundary

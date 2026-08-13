@@ -68,6 +68,11 @@ suite("property runtime control PostgreSQL rollback and re-enable drill", () => 
     identitySnapshotId = randomUUID();
 
     await dataSource.query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'Runtime rollback park')`,
+      [tenantId, parkId, `RC-P-${buildingId}`]
+    );
+    await dataSource.query(
       `INSERT INTO biz_building(id,tenant_id,park_id,building_code,building_name)
        VALUES($1,$2,$3,$4,'Runtime rollback building')`,
       [buildingId, tenantId, parkId, `RC-${buildingId}`]

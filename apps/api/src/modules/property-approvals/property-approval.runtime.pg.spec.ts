@@ -57,6 +57,11 @@ suite("property approval core PostgreSQL atomic gate", () => {
     buildingId = randomUUID();
     floorId = randomUUID();
     await dataSource.query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'Approval PG park')`,
+      [tenantId, parkId, `AP-P-${buildingId}`]
+    );
+    await dataSource.query(
       `INSERT INTO biz_building(id,tenant_id,park_id,building_code,building_name)
        VALUES($1,$2,$3,$4,'Approval PG building')`,
       [buildingId, tenantId, parkId, `AP-${buildingId}`]

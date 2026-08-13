@@ -41,6 +41,11 @@ test("property foundation proof and reconcile require both audit and matching ag
   };
 
   try {
+    await manager.query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'Foundation PG park')`,
+      [tenantId, parkId, `P-${suffix}`]
+    );
     const modeComplete = await createModeFixture(manager, {
       tenantId, parkId, actorId, suffix: `${suffix}-mc`, aggregate: "complete", audit: true
     });

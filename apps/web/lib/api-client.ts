@@ -17,6 +17,7 @@ export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   token?: string;
   idempotencyKey?: string;
   body?: object | number | boolean | null;
+  skipUnauthorizedReset?: boolean;
 }
 
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<ApiResponse<T>> {
@@ -39,8 +40,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     headers.set("X-Idempotency-Key", options.idempotencyKey);
   }
 
+  const { skipUnauthorizedReset, ...requestOptions } = options;
   const response = await fetch(`${API_PREFIX}${path}`, {
-    ...options,
+    ...requestOptions,
     credentials: "include",
     headers,
     body: options.body === undefined ? undefined : JSON.stringify(options.body)
@@ -48,7 +50,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const payload = (await readApiResponse<T>(response));
   if (!response.ok) {
-    await handleUnauthorized(response.status, path, options.token);
+    if (!skipUnauthorizedReset) await handleUnauthorized(response.status, path, options.token);
     throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
   }
 
