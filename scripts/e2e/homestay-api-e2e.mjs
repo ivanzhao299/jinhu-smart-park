@@ -192,7 +192,7 @@ async function run() {
     body: { clientKey: identitySubmitKey, expectedVersion: identityDraft.version }
   });
   const identityClaimKey = key("identity-claim");
-  await request(`/property/identity-submissions/${identitySubmissionId}/claim`, {
+  const claimedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/claim`, {
     method: "POST",
     token: approverToken,
     idempotent: true,
@@ -203,11 +203,19 @@ async function run() {
       expectedAssignmentVersion: submittedIdentity.assignmentVersion
     }
   });
-  await request(`/property/parties/${guest.id}/verification`, {
+  const identityDecisionKey = key("identity-decision");
+  await request(`/property/identity-submissions/${identitySubmissionId}/decisions`, {
     method: "POST",
     token: approverToken,
     idempotent: true,
-    body: { verification_status: "verified", remark: "Homestay API E2E identity verification" }
+    idempotencyKey: identityDecisionKey,
+    body: {
+      clientKey: identityDecisionKey,
+      decision: "verified",
+      expectedVersion: claimedIdentity.version,
+      expectedAssignmentVersion: claimedIdentity.assignmentVersion,
+      reason: "Homestay API E2E identity verification"
+    }
   });
 
   await request(`/park-units/${unit.id}`, {

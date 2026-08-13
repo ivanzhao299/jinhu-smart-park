@@ -60,7 +60,9 @@ assert.match(housing, /submission: purchasePayment/, "purchase payment must exec
 assert.match(housing, /submission: checkoutRequest/, "checkout must execute before terminal assertions");
 assert.match(homestay, /submission: futureCancellation/, "homestay cancellation must execute before the suite continues");
 assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/submit/, "identity drafts must be submitted before a separate actor verifies them");
-assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/claim/, "a separate actor must claim submitted identity work before legacy verification");
-assert.match(homestay, /token: approverToken,[\s\S]*verification_status: "verified"/, "identity verification must preserve maker-checker separation");
+assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/claim/, "a separate actor must claim submitted identity work before verification");
+assert.match(homestay, /identity-submissions\/\$\{identitySubmissionId\}\/decisions/, "a separate actor must verify submitted identity work through the current identity-submission decision endpoint");
+assert.doesNotMatch(homestay, /\/property\/parties\/\$\{guest\.id\}\/verification/, "homestay E2E must not rely on the legacy party verification endpoint");
+assert.match(homestay, /token: approverToken,[\s\S]*decision: "verified"/, "identity verification must preserve maker-checker separation");
 
 console.log("[PASS] property API E2E gate contract");
