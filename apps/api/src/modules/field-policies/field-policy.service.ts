@@ -373,7 +373,8 @@ export class FieldPolicyService {
           if (policyType === "hidden") delete row[rowKey];
           else if (policyType === "masked") row[rowKey] = this.maskProjectionValue(row[rowKey], maskRule);
         };
-        Array.isArray(child) ? child.forEach(apply) : apply(child);
+        if (Array.isArray(child)) child.forEach(apply);
+        else apply(child);
       }
       Object.values(record).forEach(visit);
     };
