@@ -23,6 +23,11 @@
   ],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "",
-  "meta": {}
+  "notes": "2026-08-14: technical remediation lane #270-#273 plus review follow-up #284, main CI, production deploy, health probes, and Docker cleanup are captured in handoff/2026-08-14-technical-closure-to-human-gate.md. Human UAT/signoff remains awaiting_human_gate; do not mark production_ready.",
+  "meta": {
+    "technical_handoff_artifact": "handoff/2026-08-14-technical-closure-to-human-gate.md",
+    "technical_candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
+    "human_readiness_status": "awaiting_human_gate",
+    "production_readiness_status": "awaiting_human_gate"
+  }
 }
