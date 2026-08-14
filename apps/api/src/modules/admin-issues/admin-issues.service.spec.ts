@@ -79,6 +79,7 @@ describe("AdminIssuesService", () => {
     assert.match(activation, /ssh-keyscan/);
     assert.match(activation, /trap cleanup_remote_runner_activation EXIT HUP INT TERM/);
     assert.match(activation, /trap cleanup_runner_activation EXIT HUP INT TERM/);
+    assert.match(activation, /pnpm --filter @jinhu\/api exec node -e/);
     assert.match(activation, /Remove local credential artifacts/);
     assert.match(deployment, /cleanup_rollback_snapshot/);
     assert.match(deployment, /run_production_seed/);
