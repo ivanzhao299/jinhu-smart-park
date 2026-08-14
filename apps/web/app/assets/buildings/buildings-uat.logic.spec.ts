@@ -29,9 +29,11 @@ test("post-switch creation failures survive the required page reload", () => {
 
 test("park switch failures are visible inside the building drawer", () => {
   const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+  const submit = page.slice(page.indexOf("async function submit"), page.indexOf("async function remove"));
 
   assert.match(page, /setFormMessage\(error instanceof Error \? error\.message : "楼栋保存失败"\)/u);
   assert.match(page, /formMessage \? <p className="status-pill" role="alert">\{formMessage\}<\/p>/u);
+  assert.doesNotMatch(submit, /catch \(error\) \{[\s\S]*window\.location\.href = "\/login";[\s\S]*setFormMessage/u);
 });
 
 test("a committed save reports a later list refresh failure as partial success", () => {

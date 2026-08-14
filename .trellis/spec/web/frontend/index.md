@@ -79,6 +79,88 @@ Reference files:
 - `apps/web/lib/authz.ts`
 - `apps/web/lib/auth-context.tsx`
 
+## Scenario: Browser Park Context Switch Before Scoped Writes
+
+### 1. Scope / Trigger
+
+- Trigger: a browser form writes scoped business data into a park different from the current JWT park, such as creating a building from the building management page after selecting another accessible park.
+
+### 2. Signatures
+
+- Client helper: `switchParkContext(parkId: string): Promise<UserContext>`.
+- API request: `POST /auth/switch-context` with body `{ parkId: string, refreshToken?: string }`.
+- Pre-rotation rejection marker: `X-Auth-Context-Switch-Rotation: not-started`.
+- Cross-origin requirement: API CORS must expose the pre-rotation marker header, otherwise
+  `ApiError.headers.get(...)` returns `null` in browsers even when the response header exists.
+- Follow-up write: the business request uses `getAccessToken()` after `switchParkContext` resolves, never the pre-switch token.
+
+### 3. Contracts
+
+- The browser must validate the target against enabled `accessible_parks` before calling the API.
+- When a legacy JS-readable refresh token exists during the compatibility period, `switchParkContext` sends it in the request body so the API's no-cookie fallback remains usable.
+- Legacy refresh-token fallback values must satisfy the same coarse length bounds as the DTO before
+  being included in the body; malformed stale storage must not break cookie-first switching.
+- If the switch request returns the explicit `X-Auth-Context-Switch-Rotation: not-started` marker, keep the current session, clear only the in-flight park-switch marker, and surface the error in the owning form. Do not clear tokens or redirect to `/login`.
+- If that marked rejection arrives after another tab has already published a different shared token,
+  clear this tab's stale private `sessionStorage` credentials before preserving the newer shared
+  session.
+- A malformed successful response, transport failure, or 5xx is not a definite rejection; keep the ambiguous-session cleanup path because the server may already have rotated credentials.
+- An unmarked 401 is also ambiguous for `switch-context`; the API may have already claimed the old refresh token before failing to issue the replacement session.
+- If a rotated token has been received but cannot be safely published, preserve the existing half-published-session protection: revoke/clear the ambiguous session unless a newer login or cross-tab session has already superseded it.
+- The owning form must not submit the business write after switch failure.
+
+### 4. Validation & Error Matrix
+
+- target park absent or disabled -> reject locally with a visible form error; no API request.
+- switch-context response with `X-Auth-Context-Switch-Rotation: not-started` -> visible form error, current token preserved, no `/login` redirect, no follow-up business write.
+- malformed successful response / transport failure / 5xx / unmarked 401 -> ambiguous cleanup path remains active.
+- switch-context success + `/users/me` confirms target park -> publish new session, then submit the business write with the new token.
+- post-rotation publication conflict -> keep the existing session-safety cleanup behavior.
+
+### 5. Good / Base / Bad Cases
+
+- Good: building create selects another accessible park, context switch succeeds, then `POST /buildings` uses the new token.
+- Base: building create targets the current park and writes without context switch.
+- Bad: a failed switch-context request clears the old session and sends the user to `/login` before the form can report the real error.
+
+### 6. Tests Required
+
+- Unit-test body `refreshToken` fallback, pre-rotation failure session preservation, post-rotation cancellation cleanup, and same-target switch coalescing.
+- Page regression must assert switch failure remains drawer-local and does not execute the business create.
+- Browser acceptance should cover desktop and a 390px viewport: route remains on the source page, error text is visible, no horizontal document overflow, and the mock API records no follow-up create.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+try {
+  await apiRequest("/auth/switch-context", { method: "POST", body: { parkId } });
+} catch (error) {
+  await logoutSession();
+  window.location.href = "/login";
+  throw error;
+}
+```
+
+#### Correct
+
+```ts
+try {
+  const refreshToken = getRefreshToken();
+  await apiRequest("/auth/switch-context", {
+    method: "POST",
+    body: refreshToken ? { parkId, refreshToken } : { parkId }
+  });
+} catch (error) {
+  if (error instanceof ApiError && error.headers?.get("X-Auth-Context-Switch-Rotation") === "not-started") {
+    clearInFlightSwitchMarker();
+    throw error;
+  }
+  await cleanupAmbiguousSwitchSession();
+}
+```
+
 ## Stateful Business Action Entries
 
 An action-labelled list control must perform or resume that action; it must not merely preload

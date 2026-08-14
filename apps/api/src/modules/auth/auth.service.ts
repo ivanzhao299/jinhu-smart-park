@@ -45,6 +45,11 @@ export interface LoginResult {
   contexts?: LoginContextOption[];
 }
 
+export const AUTH_CONTEXT_SWITCH_ROTATION_HEADER = "X-Auth-Context-Switch-Rotation";
+export const AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED = "not-started";
+
+export class PreRotationSwitchContextException extends UnauthorizedException {}
+
 export interface MobileCodeResult {
   mobile: string;
   expiresIn: number;
@@ -691,15 +696,34 @@ export class AuthService implements OnModuleInit {
   async switchContext(user: JwtPrincipal, parkId: string, currentRefreshToken: string, meta: LoginRequestMeta): Promise<LoginResult> {
     if (parkId === user.parkId) throw new BadRequestException("Already in selected park context");
     const tokenHash = this.hashToken(currentRefreshToken);
+    const tokenLookupTime = new Date();
     const token = await this.refreshTokenRepository.findOne({
       where: {
         tokenHash, tenantId: user.tenantId,
         parkId: user.parkId, userId: user.sub, revoked: false, isDeleted: false,
-        expiresAt: MoreThan(new Date())
+        expiresAt: MoreThan(tokenLookupTime)
       }
     });
-    if (!token) throw new UnauthorizedException("Refresh token expired");
-    const target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
+    if (!token) {
+      const revokedToken = await this.refreshTokenRepository.findOne({
+        where: {
+          tokenHash, tenantId: user.tenantId,
+          parkId: user.parkId, userId: user.sub, revoked: true, isDeleted: false,
+          expiresAt: MoreThan(tokenLookupTime)
+        }
+      });
+      if (revokedToken) throw new UnauthorizedException("Refresh token expired");
+      throw new PreRotationSwitchContextException("Refresh token expired");
+    }
+    let target: JwtPrincipal;
+    try {
+      target = await this.usersService.resolveJwtPrincipal({ tenantId: user.tenantId, parkId }, user.sub);
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw new UnauthorizedException("Refresh token expired");
+      }
+      throw error;
+    }
     const revokedTime = new Date();
     const claim = await this.refreshTokenRepository.update(
       {

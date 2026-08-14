@@ -777,7 +777,19 @@ For first-release behavior, prefer the documented smoke/regression entry related
 Multi-park identities remain one `sys_user` row. Context switching must validate an enabled
 `rel_user_park` link, resolve RBAC bindings against the requested park, and issue both access and
 refresh tokens scoped to that park. Cross-park mutations must set the audit scope override to the
-target park.
+target park. `POST /auth/switch-context` must mark refresh-token failures that occur before the
+old refresh token is claimed with `X-Auth-Context-Switch-Rotation: not-started`; do not set that
+header for errors after the old token may have been revoked or replacement credentials may have
+been issued. A conditional refresh-token claim conflict (`affected !== 1`) or a lookup that finds
+the same token already revoked but unexpired is ambiguous, not `not-started`, because another
+request may already have revoked the token. Target-principal lookup failures must remain ambiguous
+unless the old refresh-token row is locked through target resolution; a post-failure active read is
+not enough because another request can still revoke the token before the response is emitted.
+Same-context switch rejections are still `not-started` because no refresh token has to be inspected
+or claimed. Because Web can call API on a different origin, switch-context refresh-cookie Origin
+rejections also happen before token claim and must carry the same marker. This marker must also be listed in
+the API CORS `exposedHeaders`; otherwise browser Fetch cannot read it and will incorrectly treat a
+definite pre-rotation rejection as ambiguous.
 
 Reference files:
 - `package.json`

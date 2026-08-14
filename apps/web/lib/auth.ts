@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserContext } from "@jinhu/shared";
-import { API_PREFIX, apiRequest, createIdempotencyKey } from "./api-client";
+import { API_PREFIX, ApiError, apiRequest, createIdempotencyKey } from "./api-client";
 import { purgePropertyOfflineState } from "../features/property-shared/offline/property-draft-store";
 import {
   propertyDataScopeFingerprint,
@@ -12,6 +12,8 @@ const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
 const USER_KEY = "jinhu_auth_user";
 const PARK_SWITCH_KEY = "jinhu_park_context_switch";
+const AUTH_CONTEXT_SWITCH_ROTATION_HEADER = "X-Auth-Context-Switch-Rotation";
+const AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED = "not-started";
 
 let currentUserRequest: { token: string; promise: Promise<UserContext> } | null = null;
 let parkContextSwitch: { parkId: string; promise: Promise<UserContext> } | null = null;
@@ -198,15 +200,19 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
   const target = current.accessible_parks?.find((park) => park.park_id === parkId);
   if (!target || target.status !== "enabled") throw new Error("所选园区不可访问或未启用");
   const originalToken = getToken();
+  const originalSharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
   const switchId = crypto.randomUUID();
   localStorage.setItem(PARK_SWITCH_KEY, switchId);
   let response: { data: SwitchContextResult } | undefined;
   try {
+    const legacyRefreshToken = getValidLegacyRefreshTokenForSwitch();
+    const body: { parkId: string; refreshToken?: string } = { parkId };
+    if (legacyRefreshToken) body.refreshToken = legacyRefreshToken;
     response = await apiRequest<SwitchContextResult>("/auth/switch-context", {
       method: "POST",
       token: originalToken,
       idempotencyKey: createIdempotencyKey("park-context-switch"),
-      body: { parkId }
+      body
     });
     if (!response.data.accessToken) throw new Error("切换园区响应缺少访问令牌");
     if (localStorage.getItem(PARK_SWITCH_KEY) !== switchId) throw new Error("园区切换已被新的会话操作取消");
@@ -219,10 +225,28 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     localStorage.removeItem(PARK_SWITCH_KEY);
     return nextUser;
   } catch (error) {
+    const rotatedToken = response?.data.accessToken;
+    if (!rotatedToken && isDefiniteSwitchRejection(error)) {
+      if (localStorage.getItem(PARK_SWITCH_KEY) === switchId) {
+        localStorage.removeItem(PARK_SWITCH_KEY);
+      }
+      const sharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
+      const privateToken = sessionStorage.getItem(TOKEN_KEY) ?? "";
+      const sharedSessionCleared = !sharedToken && originalSharedToken === originalToken;
+      if (
+        privateToken
+        && (
+          sharedSessionCleared
+          || (sharedToken && privateToken !== sharedToken)
+        )
+      ) {
+        clearSessionStorageOnly();
+      }
+      throw error;
+    }
     const latestToken = getToken();
     const sharedToken = localStorage.getItem(TOKEN_KEY) ?? "";
     const privateToken = sessionStorage.getItem(TOKEN_KEY) ?? "";
-    const rotatedToken = response?.data.accessToken;
     const newerSessionPublished = Boolean(
       (latestToken && latestToken !== originalToken && latestToken !== rotatedToken)
       || (sharedToken && sharedToken !== originalToken && sharedToken !== rotatedToken)
@@ -231,6 +255,23 @@ async function performParkContextSwitch(parkId: string): Promise<UserContext> {
     else if (privateToken && privateToken !== sharedToken) clearSessionStorageOnly();
     throw error;
   }
+}
+
+function isDefiniteSwitchRejection(error: unknown): boolean {
+  return error instanceof ApiError
+    && error.headers?.get(AUTH_CONTEXT_SWITCH_ROTATION_HEADER) === AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED;
+}
+
+function isValidLegacyRefreshToken(token: string | null): token is string {
+  return typeof token === "string" && token.length >= 32 && token.length <= 256;
+}
+
+function getValidLegacyRefreshTokenForSwitch(): string {
+  const sessionToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  if (isValidLegacyRefreshToken(sessionToken)) return sessionToken;
+  const localToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (isValidLegacyRefreshToken(localToken)) return localToken;
+  return "";
 }
 
 function clearSessionStorageOnly(): void {

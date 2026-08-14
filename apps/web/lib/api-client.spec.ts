@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { apiFormRequest, apiRequest } from "./api-client";
+import { ApiError, apiFormRequest, apiRequest } from "./api-client";
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -137,6 +137,25 @@ test("apiRequest does not clear refresh cookie on auth login failures", async ()
   assert.equal(session.getItem("jinhu_access_token"), "existing-token");
   assert.equal(local.getItem("jinhu_refresh_token"), "legacy-refresh");
   assert.equal(location.href, "");
+});
+
+test("apiRequest exposes response headers on ApiError", async () => {
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async () => new Response(JSON.stringify({ message: "Refresh token expired" }), {
+      status: 401,
+      headers: {
+        "content-type": "application/json",
+        "x-auth-context-switch-rotation": "not-started"
+      }
+    })
+  });
+
+  await assert.rejects(
+    apiRequest("/auth/switch-context", { method: "POST", skipUnauthorizedReset: true }),
+    (error) => error instanceof ApiError
+      && error.headers?.get("x-auth-context-switch-rotation") === "not-started"
+  );
 });
 
 test("apiRequest awaits refresh cookie cleanup before redirecting unauthorized current sessions", async () => {
