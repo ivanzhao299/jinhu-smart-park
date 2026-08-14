@@ -65,6 +65,20 @@ export const HOUSING_DETAIL_ROUTES = {
   purchases: "/housing/purchases/[purchaseId]"
 } as const;
 
+export const HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES = [
+  "housing-lease",
+  "housing-handover",
+  "housing-purchase"
+] as const;
+
+export const HOUSING_RUNTIME_TASK_SOURCE_TYPES = [
+  "housing_lease",
+  "housing_handover",
+  "housing_repair",
+  "housing_billing",
+  "housing_purchase"
+] as const;
+
 export const HOUSING_RETURN_CONTEXT_POLICY: ReturnContextPolicy = {
   origin: "https://workbench.local",
   fallbackHref: "/housing/dashboard",

@@ -7,6 +7,8 @@ import {
 } from "@nestjs/common";
 import type { PropertyTaskSourceResolver } from "@jinhu/shared";
 import { PropertyApprovalModule } from "../property-approvals/property-approval.module";
+import { DataScopesModule } from "../data-scopes/data-scopes.module";
+import { PropertyOperationsModule } from "../property-operations/property-operations.module";
 import { PropertyTaskAccessEvaluatorService } from "./property-task.access";
 import { PropertyTaskAssignmentRepository } from
   "./property-task.assignment.repository";
@@ -30,7 +32,7 @@ export interface PropertyTaskSourceComposition {
 }
 
 @Module({
-  imports: [PropertyApprovalModule],
+  imports: [PropertyApprovalModule, DataScopesModule, PropertyOperationsModule],
   controllers: [PropertyTaskController],
   providers: [
     PropertyTaskService,

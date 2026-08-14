@@ -95,6 +95,47 @@ test("Track A mutation panels use exact actions and owning aggregates", () => {
   }
 });
 
+test("housing shared runtime slots include repair tasks from the backend projection", () => {
+  const tasksPage = fs.readFileSync(path.join(housingRoot, "tasks", "page.tsx"), "utf8");
+  const contract = read("housing-workbench-contract.ts");
+  const backend = fs.readFileSync(
+    path.join(housingRoot, "..", "..", "..", "api", "src", "modules", "housing", "housing-workbench-query.service.ts"),
+    "utf8"
+  );
+  const taskAdapter = fs.readFileSync(
+    path.join(housingRoot, "..", "..", "..", "api", "src", "modules", "housing", "housing-task.adapter.ts"),
+    "utf8"
+  );
+  const overview = read("HousingOverviewSurfaceClients.tsx");
+
+  assert.match(backend, /SELECT work_order\.id, 'housing_repair'/);
+  assert.match(backend, /work_order\.source_type='tenant_request'/);
+  assert.match(backend, /task\."sourceType"<>'housing_repair'/);
+  assert.match(taskAdapter, /sourceType: "housing_repair"/);
+  assert.match(taskAdapter, /detailPermission: "housing:repair:read"/);
+  assert.match(taskAdapter, /deepLink: \(id\) => `\/housing\/repairs\/\$\{id\}`/);
+  assert.match(taskAdapter, /source\.status IN \('10','20','30','40','45','50','80','91'\)/);
+  assert.match(taskAdapter, /source\.create_time \+ \(\(COALESCE\(source\.sla_dispatch_min,30\)\)/);
+  assert.match(taskAdapter, /COALESCE\(source\.accept_time,source\.dispatch_time,source\.create_time\)/);
+  assert.match(taskAdapter, /COALESCE\(source\.sla_finish_min,240\)/);
+  assert.doesNotMatch(taskAdapter, /COALESCE\(source\.finish_time,source\.create_time\) AS "dueAt"/);
+  assert.doesNotMatch(taskAdapter, /WHEN source\.status IN \('80','90'\) THEN 'cancelled'/);
+  assert.match(overview, /housing_repair: \{ feature: "housing\.repairs"/);
+  assert.match(contract, /HOUSING_RUNTIME_TASK_SOURCE_TYPES = \[/);
+  for (const sourceType of [
+    "housing_lease",
+    "housing_handover",
+    "housing_repair",
+    "housing_billing",
+    "housing_purchase"
+  ]) {
+    assert.match(contract, new RegExp(`"${sourceType}"`), sourceType);
+  }
+  assert.match(tasksPage, /HOUSING_RUNTIME_TASK_SOURCE_TYPES/);
+  assert.match(tasksPage, /taskSourceTypes=\{HOUSING_RUNTIME_TASK_SOURCE_TYPES\}/);
+  assert.doesNotMatch(tasksPage, /taskSourceTypes=\{\[\s*"housing_lease"/);
+});
+
 test("attachment removal uses synchronous locks on every Track A workflow", () => {
   for (const name of [
     "HousingPurchaseCreatePanel.tsx",
