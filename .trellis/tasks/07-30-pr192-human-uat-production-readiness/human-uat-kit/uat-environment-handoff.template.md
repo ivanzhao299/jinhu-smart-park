@@ -10,7 +10,9 @@ Passwords/tokens/secrets allowed in this file: no
 - `uat_coordinator`: `<fill-human-owner>`
 - `technical_handoff_ref`: `../handoff/2026-08-14-technical-closure-to-human-gate.md`
 - `technical_candidate_sha`: `97669ed2df810c9bc1da0e1abeb271187a7b70a4`
-- `kit_authoring_commit`: `5987b14526443ee638aa27134485b12b681ef5b8`
+- `kit_authoring_commit`: `<fill-with-final-merge-commit-containing-this-kit>`
+- `kit_content_manifest_ref`: `<fill-with-hash-manifest-for-human-uat-kit-files>`
+- `kit_content_manifest_hash`: `<sha256-of-kit-content-manifest>`
 - `threshold_version`: `<fill>`
 - `threshold_hash`: `<fill>`
 - `task_card_version`: `<fill>`
@@ -31,8 +33,15 @@ Passwords/tokens/secrets allowed in this file: no
 - `profile_checksum`: `<fill>`
 - `business_clock`: `<fill>`
 - `production_data_present`: `must_be_false`
+- `production_data_isolation_evidence_ref`: `<fill-with-machine-scan-evidence>`
+- `production_data_isolation_evidence_hash`: `<sha256-of-machine-scan-evidence>`
 - `real_secrets_present`: `must_be_false`
+- `real_secret_isolation_evidence_ref`: `<fill-with-config/secret-scope-scan-evidence>`
+- `real_secret_isolation_evidence_hash`: `<sha256-of-config/secret-scope-scan-evidence>`
 - `production_identity_present`: `must_be_false`
+- `production_identity_isolation_evidence_ref`: `<fill-with-identity/account-scope-scan-evidence>`
+- `production_identity_isolation_evidence_hash`: `<sha256-of-identity/account-scope-scan-evidence>`
+- `uat_environment_isolation_verified`: `must_be_true`
 
 ## 3. Role Accounts
 
@@ -92,6 +101,8 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - [ ] Technical handoff SHA and PR evidence verified.
 - [ ] Non-production UAT environment verified.
 - [ ] No production data, production identity, or real secrets present.
+- [ ] Machine evidence proves no production data, production identity, or real secrets are present; all three evidence hashes are recorded.
+- [ ] Kit authoring commit or kit content manifest hash points to artifacts containing this exact H0 template and the referenced human-uat-kit files.
 - [ ] Role accounts are exact, no superuser/wildcard.
 - [ ] Exact account manifest, tenant/park scope manifest, permission bundle manifest, and their checksums are recorded.
 - [ ] Credential distribution channel is external and secret-safe.
