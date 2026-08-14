@@ -2,6 +2,15 @@
   "schema_version": "pr192-production-readiness-input-v1",
   "candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
   "kit_provenance_commit": "<fill-with-final-merge-commit-containing-this-kit>",
+  "scope_coverage": {
+    "matrix_ref": "scope-coverage-matrix.md",
+    "matrix_hash": "<sha256-of-frozen-scope-coverage-matrix>",
+    "candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
+    "all_pr192_to_current_homestay_housing_scope_rows_mapped": "<true|required>",
+    "all_covered_rows_have_task_or_gate_or_signoff_binding": "<true|required>",
+    "all_follow_up_rows_fail_closed_with_issue_or_task_ref": "<true|required>",
+    "no_unclassified_homestay_or_housing_changes_after_candidate_freeze": "<true|required>"
+  },
   "technical": {
     "track_a": {
       "verdict": "<passed|required>",
@@ -300,6 +309,10 @@
       "cleanup"
     ],
     "required_true_fields": [
+      "scope_coverage.all_pr192_to_current_homestay_housing_scope_rows_mapped",
+      "scope_coverage.all_covered_rows_have_task_or_gate_or_signoff_binding",
+      "scope_coverage.all_follow_up_rows_fail_closed_with_issue_or_task_ref",
+      "scope_coverage.no_unclassified_homestay_or_housing_changes_after_candidate_freeze",
       "technical.track_a.evidence_matches_candidate_sha",
       "technical.track_b.evidence_matches_candidate_sha",
       "technical.track_c.evidence_matches_candidate_sha",

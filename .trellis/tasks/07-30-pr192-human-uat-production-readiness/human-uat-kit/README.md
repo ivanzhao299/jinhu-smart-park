@@ -15,6 +15,7 @@ This kit prepares the external PR192 human UAT lane. It does not contain real pa
 | --- | --- |
 | `task-cards.md` | Human-facing task-card templates. Cards describe business goals and start points, but intentionally do not provide step-by-step answers. |
 | `observation-ledger.csv` | Append-only observation ledger header for real participant runs. |
+| `scope-coverage-matrix.md` | PR192-to-current homestay/housing scope coverage matrix. Every covered row must bind to technical evidence, UAT task cards, readiness gates, or a named follow-up/out-of-scope decision before production readiness can be claimed. |
 | `threshold-freeze.template.json` | Product/operations threshold freeze template. Must be approved before human observations can be evaluated. |
 | `signoff-ledger.csv` | Append-only named signoff ledger header for H4. |
 | `uat-environment-handoff.template.md` | H0 environment/account/privacy/reset handoff template. Must not store passwords or tokens. |
