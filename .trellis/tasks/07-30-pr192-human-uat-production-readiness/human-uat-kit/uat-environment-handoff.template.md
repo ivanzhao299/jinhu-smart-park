@@ -52,24 +52,24 @@ Do not store passwords, tokens, recovery codes, private phone numbers, or identi
 
 The exact account aliases and scopes must live in a secret-safe account manifest. This H0 handoff stores only manifest references and checksums, not passwords or tokens. A naming pattern alone is not acceptable H0 evidence.
 
-| Role | Exact account manifest ref | Account manifest sha256 | Tenant/park scope manifest ref | Permission bundle manifest ref | Credential channel ref | Recovery owner | Superuser/wildcard? |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Park admin | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay front desk | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay cleaner | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay inspector | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay finance | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing leasing specialist | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing handover staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing billing staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Cashier | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Finance approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Purchase requester | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Purchase approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Payment staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Repair staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Auditor | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Role | Exact account manifest ref | Account manifest sha256 | Tenant/park scope manifest ref | Tenant/park scope manifest sha256 | Permission bundle manifest ref | Permission bundle manifest sha256 | Credential channel ref | Recovery owner | Superuser/wildcard? |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Park admin | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay front desk | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay cleaner | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay inspector | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay finance | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing leasing specialist | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing handover staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing billing staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Cashier | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Finance approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Purchase requester | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Purchase approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Payment staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Repair staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Auditor | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 
 ## 4. Data And Cleanup
 

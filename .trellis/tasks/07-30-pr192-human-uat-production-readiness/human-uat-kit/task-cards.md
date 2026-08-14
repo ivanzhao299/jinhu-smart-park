@@ -40,6 +40,8 @@ Every row in this catalog is a complete frozen task card. Every participant in a
 
 The detailed examples after the table are coordinator notes only; they do not reduce the required four-card-per-role matrix. A readiness evaluator must derive coverage from the 64 task IDs below, not from the example section.
 
+Expected-denial tasks score as successful only when the participant reaches the denial from the frozen discoverable start point, the denial matches the role/scope/field/action boundary under test, no superuser or coordinator workaround is used, and the observation records the denial message plus route/action context. A denied task that blocks an allowed role action, hides unrelated required context, or requires a hidden deep link is a failed attempt, not a passed expected denial.
+
 | Task ID | Role | Start point | Goal | Completion evidence |
 | --- | --- | --- | --- | --- |
 | PARK-ADMIN-01 | Park admin | Primary navigation after login | Verify role-scoped property-business entry and menu availability. | Visible modules and denied areas recorded. |
@@ -54,7 +56,7 @@ The detailed examples after the table are coordinator notes only; they do not re
 | HOMESTAY-CLEANER-02 | Homestay cleaner | Turnover detail | Record supply/consumable or exception details. | Submitted detail or validation block recorded. |
 | HOMESTAY-CLEANER-03 | Homestay cleaner | Upload control | Exercise upload retry/recovery path. | Success or expected failure recorded. |
 | HOMESTAY-CLEANER-04 | Homestay cleaner | Phone-width task list | Locate assigned work and complete field update on phone. | Mobile completion and help count recorded. |
-| HOMESTAY-INSPECTOR-01 | Homestay inspector | Turnover exception review | Review exception and record follow-up decision. | Decision or blocker recorded. |
+| HOMESTAY-INSPECTOR-01 | Homestay inspector | Homestay tasks queue or inspector dashboard entry filtered to turnover exceptions | Review exception and record follow-up decision. | Decision or blocker recorded. |
 | HOMESTAY-INSPECTOR-02 | Homestay inspector | Turnover evidence panel | Inspect file preview/download permission. | File behavior recorded. |
 | HOMESTAY-INSPECTOR-03 | Homestay inspector | Completed turnover detail | Verify final state and audit trail. | Audit/evidence visibility recorded. |
 | HOMESTAY-INSPECTOR-04 | Homestay inspector | Cross-scope direct link | Confirm inaccessible turnover is denied. | Deny route/message recorded. |
