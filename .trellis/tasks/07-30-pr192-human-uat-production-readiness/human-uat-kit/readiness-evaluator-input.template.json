@@ -5,25 +5,35 @@
   "technical": {
     "track_a": {
       "verdict": "<passed|required>",
+      "evidence_sha": "<40-char-git-sha-required>",
+      "evidence_matches_candidate_sha": "<true|required>",
       "evidence_refs": []
     },
     "track_b": {
       "verdict": "<passed|required>",
+      "evidence_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
+      "evidence_matches_candidate_sha": "<true|required>",
       "evidence_refs": [
         "../handoff/2026-08-14-technical-closure-to-human-gate.md"
       ]
     },
     "track_c": {
       "verdict": "<passed|required>",
+      "evidence_sha": "<40-char-git-sha-required>",
+      "evidence_matches_candidate_sha": "<true|required>",
       "evidence_refs": []
     },
     "main_ci": {
       "verdict": "<passed|required>",
-      "run_id": "<fill>"
+      "run_id": "<fill>",
+      "head_sha": "<40-char-git-sha-required>",
+      "head_sha_matches_candidate_sha": "<true|required>"
     },
     "production_deploy": {
       "verdict": "<passed|required>",
-      "run_id": "<fill>"
+      "run_id": "<fill>",
+      "deployed_sha": "<40-char-git-sha-required>",
+      "deployed_sha_matches_candidate_sha": "<true|required>"
     }
   },
   "human_uat": {
@@ -47,6 +57,10 @@
     "minimum_first_use_attempts_per_role_task": 5,
     "minimum_repeat_use_attempts_per_role_task": 5,
     "per_role_observed_counts_ref": "<fill>",
+    "participant_qualification_matrix_ref": "<ledger-derived-role-participant-qualification-matrix>",
+    "all_counted_participants_have_valid_qualification_ref": "<true|required>",
+    "all_counted_participants_qualified_for_claimed_role": "<true|required>",
+    "no_same_participant_counted_as_multiple_required_roles_without_role-owner-exception": "<true|required>",
     "per_role_task_completion_matrix_ref": "<fill>",
     "per_role_first_repeat_matrix_ref": "<ledger-derived-first-repeat-sufficiency-matrix>",
     "per_role_device_coverage_matrix_ref": "<ledger-derived-task-device-coverage-matrix>",
@@ -90,6 +104,10 @@
     ],
     "signoff_ledger_refs": [],
     "signoff_ledger_hashes": [],
+    "effective_signoff_matrix_ref": "<ledger-derived-latest-non-superseded-decision-by-domain>",
+    "supersession_chain_valid": "<true|required>",
+    "all_superseded_signoffs_excluded_from_effective_decision": "<true|required>",
+    "all_effective_domain_decisions_are_approved": "<true|required>",
     "all_required_approved": "<true|required>",
     "open_conditions": "<0|required>",
     "expired_conditions": "<0|required>",
@@ -113,11 +131,17 @@
     "high_risk_production_enforce_approved": "<true|required>",
     "all_high_risk_flags_match_freeze": "<true|required>",
     "monitoring_ref": "<fill>",
+    "monitoring_verified_for_candidate_and_window": "<true|required>",
     "alerting_ref": "<fill>",
+    "alerting_verified_for_candidate_and_window": "<true|required>",
     "on_call_ref": "<fill>",
+    "on_call_verified_for_window": "<true|required>",
     "backup_ref": "<fill>",
+    "backup_verified_for_candidate_and_window": "<true|required>",
     "rpo_rto_ref": "<fill>",
+    "rpo_rto_verified_for_candidate_and_window": "<true|required>",
     "rollback_drill_ref": "<fill>",
+    "rollback_drill_verified_for_candidate_and_window": "<true|required>",
     "release_go_decision_ref": "<fill>",
     "backup_restore_drill_ref": "<fill>",
     "backup_restore_drill_successful": "<true|required>",
@@ -162,10 +186,18 @@
   "computed_contract": {
     "production_ready": false,
     "required_true_fields": [
+      "technical.track_a.evidence_matches_candidate_sha",
+      "technical.track_b.evidence_matches_candidate_sha",
+      "technical.track_c.evidence_matches_candidate_sha",
+      "technical.main_ci.head_sha_matches_candidate_sha",
+      "technical.production_deploy.deployed_sha_matches_candidate_sha",
       "human_uat.all_observation_rows_match_candidate_sha",
       "human_uat.all_observation_rows_match_h0_build_sha",
       "human_uat.all_observation_rows_match_h0_profile_checksum",
       "human_uat.all_contaminated_attempts_excluded_from_metrics",
+      "human_uat.all_counted_participants_have_valid_qualification_ref",
+      "human_uat.all_counted_participants_qualified_for_claimed_role",
+      "human_uat.no_same_participant_counted_as_multiple_required_roles_without_role-owner-exception",
       "human_uat.all_roles_minimum_participants_met",
       "human_uat.all_participants_completed_four_standard_tasks",
       "human_uat.all_required_task_ids_observed_per_role",
@@ -176,11 +208,20 @@
       "human_uat.all_frozen_metric_thresholds_met",
       "human_uat.no_open_stopship_defects",
       "signoffs.all_required_approved",
+      "signoffs.supersession_chain_valid",
+      "signoffs.all_superseded_signoffs_excluded_from_effective_decision",
+      "signoffs.all_effective_domain_decisions_are_approved",
       "signoffs.all_signoffs_bound_to_candidate",
       "signoffs.all_signoffs_bound_to_cohort_hash",
       "signoffs.all_signoffs_bound_to_threshold_hash",
       "rollout_ops.high_risk_production_enforce_approved",
       "rollout_ops.all_high_risk_flags_match_freeze",
+      "rollout_ops.monitoring_verified_for_candidate_and_window",
+      "rollout_ops.alerting_verified_for_candidate_and_window",
+      "rollout_ops.on_call_verified_for_window",
+      "rollout_ops.backup_verified_for_candidate_and_window",
+      "rollout_ops.rpo_rto_verified_for_candidate_and_window",
+      "rollout_ops.rollback_drill_verified_for_candidate_and_window",
       "rollout_ops.backup_restore_drill_successful",
       "rollout_ops.uat_cleanup_residuals_zero",
       "release_owner_go.decision_active",
@@ -199,7 +240,61 @@
       "cleanup.residual_files",
       "cleanup.residual_active_accounts"
     ],
-    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass AND human_uat must pass from ledger-derived candidate-bound observations with immutable task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, all frozen metric thresholds met, contaminated attempts excluded, and defect-derived open_p0/open_p1 zero AND all required signoffs must approve with signer attestation, no expiry, and no open conditions AND rollout_ops/high-risk flag freeze must pass with approved flag state, successful restore drill evidence, and completed UAT cleanup evidence AND release_owner_go must be active, unconditional, explicit go for the candidate AND restore_drill must pass AND cleanup residuals must be zero",
+    "required_value_fields": [
+      {
+        "path": "technical.track_a.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.track_b.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.track_c.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.main_ci.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.production_deploy.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "human_uat.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "signoffs.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "rollout_ops.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "release_owner_go.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "release_owner_go.decision",
+        "equals": "go"
+      },
+      {
+        "path": "release_owner_go.explicit_go_for_candidate_sha",
+        "equals_path": "candidate_sha"
+      },
+      {
+        "path": "restore_drill.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "cleanup.verdict",
+        "equals": "passed"
+      }
+    ],
+    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass and each technical evidence SHA must match candidate_sha AND human_uat must pass from ledger-derived candidate-bound observations with verified participant qualifications, immutable task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, all frozen metric thresholds met, contaminated attempts excluded, and defect-derived open_p0/open_p1 zero AND all required signoffs must approve using the latest non-superseded effective domain decision with signer attestation, no expiry, and no open conditions AND rollout_ops/high-risk flag freeze must pass with candidate/window-bound monitoring, alerting, on-call, backup, RPO/RTO, rollback, approved flag state, successful restore drill evidence, and completed UAT cleanup evidence AND release_owner_go must be active, unconditional, explicit go for the candidate AND restore_drill must pass AND cleanup residuals must be zero",
     "codex_may_override": false
   }
 }
