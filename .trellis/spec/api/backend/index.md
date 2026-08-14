@@ -184,7 +184,7 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 
 ### 2. Signatures
 
-- Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction.
+- Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction. Tenant create/update/reactivation, additional-park creation, tenant login/module settings, and direct SaaS module assign/enable writers must all use it after persisting or restoring assignments.
 - Standard source: enabled, non-deleted `sys_code_rule` rows in fixed platform scope `10000001/20000001`, selected by persisted enabled module assignments.
 - Migration entry point: forward-only `database/migrations/000212_code_rule_scope_provisioning.sql` with the same source, eligibility, sequence-reset, and history-preservation semantics.
 
@@ -193,7 +193,8 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 - Never trust raw DTO `moduleCodes`; read persisted `rel_tenant_module JOIN sys_module` in the transaction. Both rows must be enabled and non-deleted, and the assignment must not be expired.
 - Provision future-start assignments ahead of activation. Runtime module visibility still enforces `start_time`; provisioning must not grant permissions or activate a module early.
 - Copy rule definitions and examples, but reset `current_seq/current_sequence` to `0` and `next_reset_time` to `NULL` so each park has an independent sequence.
-- If any target row with the same `rule_code` exists, including disabled or soft-deleted history, do not insert, update, enable, or resurrect it.
+- If any target row has the same `rule_code` **or the same `entity_type`**, including disabled or soft-deleted history, do not insert, update, enable, or resurrect it. Both identities are database-unique for non-deleted rows, and administrators may use a custom rule code for a standard entity.
+- Lock the validated fixed-source core rows through the copy statement. A preflight and insert under separate unlocked `READ COMMITTED` snapshots may otherwise commit a partial asset rule set.
 - The fixed source must contain enabled `BUILDING_CODE`, `FLOOR_CODE`, and `UNIT_CODE` when asset provisioning is required. A missing core source is a configuration conflict, not a reason to use another tenant or park as fallback.
 - New code-rule-backed modules extend the fixed standard source and persisted module assignment data; do not add a second application-only rule-code list.
 
@@ -204,6 +205,7 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 - future-start enabled assignment -> rules provisioned, module remains unavailable until its normal start-time gate passes.
 - target disabled/deleted/customized history -> preserve it exactly and skip the matching rule.
 - concurrent or repeated provisioning -> advisory-lock serialized, idempotent result with no duplicate rule.
+- tenant reactivation/expiry extension and direct SaaS module assign/enable -> provision in the same transaction after assignments become active; no entry point may rely only on the one-time migration.
 - unknown target scope or source in another tenant/park -> never infer or cross-scope copy.
 
 ### 5. Good / Base / Bad Cases

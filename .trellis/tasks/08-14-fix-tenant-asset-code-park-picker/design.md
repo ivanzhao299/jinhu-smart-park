@@ -14,11 +14,12 @@
 - 标准来源固定为平台标准 scope `10000001/20000001` 中 `status='enabled' AND is_deleted=false` 的规则。
 - helper 不信任 DTO 的 raw `moduleCodes`，而是在同一事务内读取已持久化的 `rel_tenant_module + sys_module`：assignment/module 必须启用、未删除且尚未过期；未来生效的 assignment 提前完成规则投影，但模块运行时可见性仍继续校验 start time。`system` 等没有标准规则的模块自然为空。
 - 新记录复制规则结构和示例，但 `current_seq/current_sequence=0`、`next_reset_time=NULL`，审计人为当前操作人。
-- 若目标 scope 已存在同 `rule_code` 的任何历史记录（包括 disabled/soft-deleted），跳过该规则，避免复活管理员明确停用或删除的配置。
+- 若目标 scope 已存在同 `rule_code` 或同 `entity_type` 的任何历史记录（包括 disabled/soft-deleted），跳过该规则，避免复活管理员明确停用、删除或以自定义 rule code 管理的配置，并满足数据库双重唯一约束。
+- asset 核心来源校验使用行锁保护到复制完成，避免 `READ COMMITTED` 下校验后并发停用源规则而提交半套规则。
 - 依靠目标 scope 的 active rule 唯一索引和事务锁/幂等 `INSERT ... SELECT ... WHERE NOT EXISTS` 防止重复。
 - provisioning 前验证固定来源至少包含 asset 的 `BUILDING_CODE/FLOOR_CODE/UNIT_CODE` 核心规则；asset 已启用但标准来源不完整时 fail-fast，避免创建半可用 scope。
 
-该 helper 是防复发的唯一动态入口：标准规则集合由固定平台 scope 的数据驱动，而不是在服务代码再维护一份易漂移的 entity 列表。新模块迁移把规则写入固定标准 scope 后，任何新 scope 或后续模块启用都会自动投影；契约测试扫描标准规则与有效模块分配，防止新增任务只更新 seed 而遗漏 runtime provisioning。
+该 helper 是防复发的唯一动态入口：标准规则集合由固定平台 scope 的数据驱动，而不是在服务代码再维护一份易漂移的 entity 列表。新模块迁移把规则写入固定标准 scope 后，任何新 scope、租户恢复激活或后续模块启用（包括直接 SaaS module assign/enable）都会自动投影；契约测试扫描标准规则与所有写入口，防止新增任务只更新 seed 而遗漏 runtime provisioning。
 
 ## Existing Scope Migration
 
@@ -32,7 +33,7 @@
 
 ## User Park Projection Contract
 
-`resolveAccessibleParks` 继续以当前 tenant 内 enabled `rel_user_park` 为主要授权来源，并移除“当前 tenant 无关系时查询同一用户所有 tenant 关系”的跨 tenant fallback。仅当调用者自身 `user.parkId` 属于当前 tenant 的 exact home scope，且该 active/non-deleted park 未出现在关系结果中时，追加这一条 home projection。该兼容不接受任意 parkId，也不扩大其他园区访问；停用/删除 home park 不投影。
+`resolveAccessibleParks` 继续以当前 tenant 内 enabled `rel_user_park` 为主要授权来源，并移除“当前 tenant 无关系时查询同一用户所有 tenant 关系”的跨 tenant fallback。仅当调用者自身 `user.parkId` 属于当前 tenant 的 exact home scope、且数据库中完全不存在该 home relation 历史时，追加 active home projection；disabled/soft-deleted relation 表示显式撤销，必须抑制 fallback。该兼容不接受任意 parkId，也不扩大其他园区访问；停用/删除 home park 不投影。
 
 `getCurrentUserContext` 必须从 projection 返回真实 `park_name` 和 `current_park`；前端不再依赖“当前园区”作为选项标签。
 

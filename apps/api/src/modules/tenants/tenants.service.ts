@@ -721,6 +721,7 @@ export class TenantsService {
     for (const scope of scopes) {
       if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
+      await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       const refreshedAssignments = await assignmentRepository.find({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         relations: { module: true }

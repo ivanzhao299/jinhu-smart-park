@@ -19,7 +19,8 @@ test("accessible parks use only current-tenant links and add the exact active ho
       find: async (options: unknown) => {
         linkQueries.push(options);
         return [];
-      }
+      },
+      findOne: async () => null
     },
     parksRepository: {
       find: async () => [{
@@ -52,7 +53,7 @@ test("accessible parks use only current-tenant links and add the exact active ho
 test("an inactive or deleted home park is not projected into the authenticated context", async () => {
   const parkQueries: Array<{ where?: { status?: number } }> = [];
   const service = {
-    userParkRepository: { find: async () => [] },
+    userParkRepository: { find: async () => [], findOne: async () => null },
     parksRepository: {
       find: async (options: { where?: { status?: number } }) => {
         parkQueries.push(options);
@@ -80,7 +81,10 @@ test("cross-tenant links never widen the current tenant and an explicit home lin
         tenantId: "tenant-b",
         parkId: "park-foreign",
         isDefault: true
-      }]
+      }],
+      findOne: async () => {
+        throw new Error("active home relation must not trigger legacy fallback lookup");
+      }
     },
     parksRepository: {
       find: async (options: { where: { tenantId: string; parkId: unknown } }) => {
@@ -104,4 +108,38 @@ test("cross-tenant links never widen the current tenant and an explicit home lin
   assert.deepEqual(parks.map((park) => park.park_id), ["park-home"]);
   assert.equal(parks.filter((park) => park.park_id === "park-home").length, 1);
   assert.equal(parks.some((park) => park.park_id === "park-foreign"), false);
+});
+
+test("a disabled or deleted explicit home relation suppresses legacy home projection", async () => {
+  for (const explicitRelation of [
+    { tenantId: "tenant-a", userId: "user-a", parkId: "park-home", status: "disabled", isDeleted: false },
+    { tenantId: "tenant-a", userId: "user-a", parkId: "park-home", status: "enabled", isDeleted: true }
+  ]) {
+    const exactQueries: unknown[] = [];
+    let parkReads = 0;
+    const service = {
+      userParkRepository: {
+        find: async () => [],
+        findOne: async (options: unknown) => {
+          exactQueries.push(options);
+          return explicitRelation;
+        }
+      },
+      parksRepository: {
+        find: async () => {
+          parkReads += 1;
+          return [];
+        }
+      }
+    };
+
+    assert.deepEqual(
+      await resolveAccessibleParks.call(service, "user-a", "tenant-a", { homeParkId: "park-home" }),
+      []
+    );
+    assert.deepEqual(exactQueries, [{
+      where: { tenantId: "tenant-a", userId: "user-a", parkId: "park-home" }
+    }]);
+    assert.equal(parkReads, 0);
+  }
 });

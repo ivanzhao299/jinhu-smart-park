@@ -189,7 +189,7 @@ test("user scope updates serialize with assignment writes and retire the previou
     {} as never,
     { find: async () => [] } as never,
     {} as never,
-    { find: async () => [] } as never,
+    { find: async () => [], findOne: async () => null } as never,
     { exists: async () => true, find: async () => [{ tenantId: "tenant-2", parkId: "park-2" }] } as never,
     { find: async () => [] } as never,
     {} as never,
@@ -434,7 +434,7 @@ test("user profile and organization assignment updates share one transaction", a
   };
   const service = new UsersService(
     { manager } as never, {} as never, { find: async () => [] } as never, {} as never,
-    { find: async () => [] } as never,
+    { find: async () => [], findOne: async () => null } as never,
     { find: async () => [] } as never,
     { find: async () => [] } as never,
     { buildFindWhere: async (_scope: unknown, _actor: unknown, _dimension: unknown, where: unknown) => where } as never,

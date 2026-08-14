@@ -41,10 +41,13 @@ test("code-rule scope provisioning derives every rule from persisted provisionab
   assert.match(calls[1]!.sql, /assignment\.status = 'enabled'/);
   assert.match(calls[1]!.sql, /assignment\.expire_time IS NULL OR assignment\.expire_time > now\(\)/);
   assert.doesNotMatch(calls[1]!.sql, /assignment\.start_time/);
+  assert.match(calls[2]!.sql, /FOR SHARE/);
   assert.deepEqual(calls[3]?.parameters[2], ["asset", "workorder"]);
+  assert.match(calls[3]!.sql, /source\.is_deleted = false\s+FOR SHARE/);
   assert.match(calls[3]!.sql, /current_seq, current_sequence/);
   assert.match(calls[3]!.sql, /source\.sequence_length, 0, 0/);
   assert.match(calls[3]!.sql, /target\.rule_code = source\.rule_code/);
+  assert.match(calls[3]!.sql, /target\.entity_type = source\.entity_type/);
   assert.doesNotMatch(calls[3]!.sql, /target\.is_deleted/);
 });
 

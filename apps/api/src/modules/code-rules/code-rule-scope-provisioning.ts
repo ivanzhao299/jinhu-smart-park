@@ -51,7 +51,8 @@ export async function ensureCodeRuleScopeProvisioned(
           AND park_id = $2
           AND rule_code = ANY($3::text[])
           AND status = 'enabled'
-          AND is_deleted = false`,
+          AND is_deleted = false
+        FOR SHARE`,
       [DEFAULT_PLATFORM_SCOPE.tenantId, DEFAULT_PLATFORM_SCOPE.parkId, ASSET_CORE_RULE_CODES]
     );
     const sourceCodes = new Set(sourceRows.map((row) => row.ruleCode));
@@ -69,6 +70,7 @@ export async function ensureCodeRuleScopeProvisioned(
           AND source.target_module = ANY($3::text[])
           AND source.status = 'enabled'
           AND source.is_deleted = false
+        FOR SHARE
      ), inserted AS (
        INSERT INTO sys_code_rule (
          tenant_id, park_id, entity_type, rule_code, rule_name, target_module, target_entity,
@@ -121,7 +123,10 @@ export async function ensureCodeRuleScopeProvisioned(
            FROM sys_code_rule target
           WHERE target.tenant_id = $4::varchar
             AND target.park_id = $5::varchar
-            AND target.rule_code = source.rule_code
+            AND (
+              target.rule_code = source.rule_code
+              OR target.entity_type = source.entity_type
+            )
        )
        RETURNING rule_code AS "ruleCode"
      )

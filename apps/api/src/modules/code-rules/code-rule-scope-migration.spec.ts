@@ -22,6 +22,7 @@ test("000212 backfills only live scopes and persisted provisionable modules", ()
 
 test("000212 preserves every target history shape and resets only newly inserted sequences", () => {
   assert.match(migration, /target\.rule_code = source\.rule_code/);
+  assert.match(migration, /target\.entity_type = source\.entity_type/);
   assert.doesNotMatch(migration, /target\.is_deleted/);
   assert.match(migration, /source\.sequence_length, 0, 0/);
   assert.doesNotMatch(migration, /ON CONFLICT[\s\S]*DO UPDATE/);

@@ -1504,9 +1504,21 @@ export class UsersService {
       order: { isDefault: "DESC", createTime: "ASC" }
     });
 
+    const hasActiveHomeLink = options.homeParkId
+      ? links.some((link) => link.parkId === options.homeParkId)
+      : false;
+    const explicitHomeRelation = options.homeParkId && !hasActiveHomeLink
+      ? await this.userParkRepository.findOne({
+          where: { tenantId, userId, parkId: options.homeParkId }
+        })
+      : null;
+    const fallbackHomeParkId = options.homeParkId && !hasActiveHomeLink && !explicitHomeRelation
+      ? options.homeParkId
+      : null;
+
     const parkIds = [...new Set([
       ...links.map((link) => link.parkId),
-      ...(options.homeParkId ? [options.homeParkId] : [])
+      ...(fallbackHomeParkId ? [fallbackHomeParkId] : [])
     ])];
     if (parkIds.length === 0) {
       return [];
@@ -1535,8 +1547,8 @@ export class UsersService {
         status: park.status === 1 ? "enabled" : "disabled"
       };
     });
-    const homePark = options.homeParkId
-      ? parkMap.get(`${tenantId}:${options.homeParkId}`)
+    const homePark = fallbackHomeParkId
+      ? parkMap.get(`${tenantId}:${fallbackHomeParkId}`)
       : null;
     if (homePark && !contexts.some((park) => park.park_id === homePark.parkId)) {
       contexts.unshift({

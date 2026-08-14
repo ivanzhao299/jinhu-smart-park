@@ -136,7 +136,10 @@ WHERE NOT EXISTS (
   FROM sys_code_rule target
   WHERE target.tenant_id = scope.tenant_id
     AND target.park_id = scope.park_id
-    AND target.rule_code = source.rule_code
+    AND (
+      target.rule_code = source.rule_code
+      OR target.entity_type = source.entity_type
+    )
 );
 
 COMMIT;
