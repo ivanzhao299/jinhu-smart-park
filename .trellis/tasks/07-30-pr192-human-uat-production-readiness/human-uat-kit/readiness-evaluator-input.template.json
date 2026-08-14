@@ -16,7 +16,10 @@
       "verdict": "<passed|required>",
       "evidence_sha": "<40-char-git-sha-required>",
       "evidence_matches_candidate_sha": "<true|required>",
-      "evidence_refs": []
+      "evidence_refs": [],
+      "evidence_hashes": [],
+      "evidence_refs_non_empty": "<true|required>",
+      "evidence_refs_immutable_and_independently_verified": "<true|required>"
     },
     "track_b": {
       "verdict": "<passed|required>",
@@ -24,13 +27,21 @@
       "evidence_matches_candidate_sha": "<true|required>",
       "evidence_refs": [
         "../handoff/2026-08-14-technical-closure-to-human-gate.md"
-      ]
+      ],
+      "evidence_hashes": [
+        "<sha256-of-bound-track-b-handoff>"
+      ],
+      "evidence_refs_non_empty": "<true|required>",
+      "evidence_refs_immutable_and_independently_verified": "<true|required>"
     },
     "track_c": {
       "verdict": "<passed|required>",
       "evidence_sha": "<40-char-git-sha-required>",
       "evidence_matches_candidate_sha": "<true|required>",
-      "evidence_refs": []
+      "evidence_refs": [],
+      "evidence_hashes": [],
+      "evidence_refs_non_empty": "<true|required>",
+      "evidence_refs_immutable_and_independently_verified": "<true|required>"
     },
     "main_ci": {
       "verdict": "<passed|required>",
@@ -42,19 +53,28 @@
       "verdict": "<passed|required>",
       "run_id": "<fill>",
       "deployed_sha": "<40-char-git-sha-required>",
-      "deployed_sha_matches_candidate_sha": "<true|required>"
+      "deployed_sha_matches_candidate_sha": "<true|required>",
+      "post_health_docker_cleanup_ref": "<fill-with-run-log-or-ops-evidence>",
+      "post_health_docker_cleanup_hash": "<sha256-of-candidate-and-run-bound-cleanup-evidence>",
+      "post_health_docker_cleanup_completed": "<true|required>",
+      "post_health_docker_cleanup_bound_to_run_and_deployed_sha": "<true|required>"
     }
   },
   "human_uat": {
     "verdict": "missing",
     "cohort_ids": [],
     "cohort_hashes": [],
-    "cohort_hash_payload_schema": "sha256 over canonical payload containing accepted_h0_handoff_hash, candidate_sha, environment_id, profile_checksum, task_card_hash, threshold_hash, participant_anonymous_ids, role list, first/repeat strata, observation ledger final head hash, and excludes cohort_hash/cohort_hashes and any signature envelope",
+    "accepted_cohort_manifest_ref": "<pre-observation-cohort-manifest-ref>",
+    "accepted_cohort_manifest_hash": "<sha256-of-pre-observation-cohort-manifest>",
+    "cohort_hash_payload_schema": "sha256 over canonical pre-observation cohort manifest containing accepted_h0_handoff_hash, candidate_sha, environment_id, profile_checksum, task_card_hash, threshold_hash, role list, participant anonymous IDs, stable participant identity hashes for separation checks, required task IDs, first/repeat plan, device plan, and excludes cohort_hash/cohort_hashes, observation ledger final head, row hashes, attempt outcomes, metrics, defects, and any signature envelope",
     "cohort_hashes_match_canonical_payload": "<true|required>",
+    "cohort_manifest_frozen_before_first_observation": "<true|required>",
+    "cohort_hashes_exclude_observation_ledger_head_and_attempt_outcomes": "<true|required>",
     "accepted_h0_handoff_id": "<fill>",
     "accepted_h0_handoff_ref": "<approved-h0-handoff-ref>",
     "accepted_h0_handoff_hash": "<sha256-of-approved-h0-handoff>",
     "accepted_h0_build_sha": "<40-char-git-sha-from-approved-h0>",
+    "accepted_h0_build_sha_matches_candidate_sha": "<true|required>",
     "accepted_h0_profile_checksum": "<profile-checksum-from-approved-h0>",
     "accepted_h0_environment_id": "<environment-id-from-approved-h0>",
     "all_observation_rows_match_accepted_h0_handoff": "<true|required>",
@@ -81,6 +101,7 @@
     "all_media_evidence_redaction_completed": "<true|required>",
     "all_unredacted_sensitive_media_excluded_from_metrics": "<true|required>",
     "all_contaminated_attempts_excluded_from_metrics": "<true|required>",
+    "all_excluded_contaminated_attempts_have_permitted_reason_and_review_evidence": "<true|required>",
     "task_card_version": "<fill>",
     "task_card_hash": "<sha256-of-frozen-task-cards>",
     "threshold_version": "<fill>",
@@ -104,13 +125,17 @@
     "all_counted_participants_have_valid_qualification_ref": "<true|required>",
     "all_counted_participants_qualified_for_claimed_role": "<true|required>",
     "no_same_participant_counted_as_multiple_required_roles_without_role-owner-exception": "<true|required>",
+    "conflicting_maker_checker_role_pairs_separated_by_stable_participant_identity": "<true|required>",
+    "no_role_owner_exception_for_maker_checker_conflicting_pairs": "<true|required>",
     "per_role_task_completion_matrix_ref": "<fill>",
     "per_role_first_repeat_matrix_ref": "<ledger-derived-first-repeat-sufficiency-matrix>",
     "deduplicated_attempt_matrix_ref": "<ledger-derived-deduplicated-role-participant-task-attempt-matrix>",
     "duplicate_attempts_excluded_from_sample_minima": "<true|required>",
+    "all_metric_inputs_use_deduplicated_valid_attempt_matrix": "<true|required>",
     "per_role_device_coverage_matrix_ref": "<ledger-derived-task-device-coverage-matrix>",
     "per_metric_threshold_result_ref": "<ledger-derived-role-task-metric-result-matrix>",
     "metrics_summary_hash": "<sha256-of-ledger-derived-metrics-summary>",
+    "metrics_summary_derived_from_deduplicated_valid_attempt_matrix": "<true|required>",
     "all_roles_minimum_participants_met": "<true|required>",
     "all_participants_completed_four_standard_tasks": "<true|required>",
     "all_required_task_ids_observed_per_role": "<true|required>",
@@ -162,6 +187,8 @@
     "signoff_ledger_final_head_checkpoint_ref": "<immutable-external-signoff-checkpoint-ref>",
     "signoff_ledger_final_head_checkpoint_hash": "<sha256-of-final-signoff-checkpoint>",
     "signoff_ledger_final_head_matches_external_checkpoint": "<true|required>",
+    "signoff_ledger_chain_complete_against_external_checkpoint": "<true|required>",
+    "signoff_ledger_row_hash_chain_valid_through_final_head": "<true|required>",
     "effective_signoff_matrix_ref": "<ledger-derived-latest-non-superseded-decision-by-domain>",
     "domain_owner_registry_ref": "<approved-domain-owner-registry-at-decision-time>",
     "domain_owner_registry_hash": "<sha256-of-domain-owner-registry>",
@@ -215,6 +242,8 @@
     "rollback_drill_verified_for_candidate_and_window": "<true|required>",
     "release_go_decision_ref": "<fill>",
     "rollout_evidence_bundle_hash": "<sha256-of-rollout-window-scope-monitoring-alerting-oncall-backup-rpo-rollback-flag-bundle>",
+    "rollout_observation_criteria_ref": "<approved-expansion-rollback-criteria-ref>",
+    "rollout_observation_criteria_hash": "<sha256-of-approved-expansion-rollback-criteria>",
     "backup_restore_drill_ref": "<fill>",
     "backup_restore_drill_successful": "<true|required>",
     "uat_cleanup_completed_ref": "<fill>",
@@ -287,6 +316,8 @@
       "observation_hash": "<sha256-of-rollout-observation>",
       "observation_window_complete": "<true|required>",
       "observation_bound_to_deployed_sha_and_rollout_scope": "<true|required>",
+      "observation_bound_to_frozen_expansion_rollback_criteria": "<true|required>",
+      "all_frozen_rollout_observation_criteria_met": "<true|required>",
       "no_unresolved_p0_p1_during_observation": "<true|required>"
     },
     "allowed_readiness_states": [
@@ -308,18 +339,26 @@
       "restore_drill",
       "cleanup"
     ],
-    "required_true_fields": [
+    "required_true_fields_for_ready_for_production_deploy": [
       "scope_coverage.all_pr192_to_current_homestay_housing_scope_rows_mapped",
       "scope_coverage.all_covered_rows_have_task_or_gate_or_signoff_binding",
       "scope_coverage.all_follow_up_rows_fail_closed_with_issue_or_task_ref",
       "scope_coverage.no_unclassified_homestay_or_housing_changes_after_candidate_freeze",
       "technical.track_a.evidence_matches_candidate_sha",
+      "technical.track_a.evidence_refs_non_empty",
+      "technical.track_a.evidence_refs_immutable_and_independently_verified",
       "technical.track_b.evidence_matches_candidate_sha",
+      "technical.track_b.evidence_refs_non_empty",
+      "technical.track_b.evidence_refs_immutable_and_independently_verified",
       "technical.track_c.evidence_matches_candidate_sha",
+      "technical.track_c.evidence_refs_non_empty",
+      "technical.track_c.evidence_refs_immutable_and_independently_verified",
       "technical.main_ci.head_sha_matches_candidate_sha",
-      "technical.production_deploy.deployed_sha_matches_candidate_sha",
       "human_uat.all_observation_rows_match_accepted_h0_handoff",
+      "human_uat.accepted_h0_build_sha_matches_candidate_sha",
       "human_uat.threshold_matches_accepted_h0_handoff",
+      "human_uat.cohort_manifest_frozen_before_first_observation",
+      "human_uat.cohort_hashes_exclude_observation_ledger_head_and_attempt_outcomes",
       "human_uat.cohort_hashes_match_accepted_h0_handoff",
       "human_uat.cohort_hashes_match_canonical_payload",
       "human_uat.signoffs_match_accepted_h0_handoff",
@@ -339,9 +378,12 @@
       "human_uat.threshold_role_owner_approval_signatures_valid",
       "human_uat.h0_uat_environment_isolation_verified",
       "human_uat.all_contaminated_attempts_excluded_from_metrics",
+      "human_uat.all_excluded_contaminated_attempts_have_permitted_reason_and_review_evidence",
       "human_uat.all_counted_participants_have_valid_qualification_ref",
       "human_uat.all_counted_participants_qualified_for_claimed_role",
       "human_uat.no_same_participant_counted_as_multiple_required_roles_without_role-owner-exception",
+      "human_uat.conflicting_maker_checker_role_pairs_separated_by_stable_participant_identity",
+      "human_uat.no_role_owner_exception_for_maker_checker_conflicting_pairs",
       "human_uat.all_roles_minimum_participants_met",
       "human_uat.all_participants_completed_four_standard_tasks",
       "human_uat.all_required_task_ids_observed_per_role",
@@ -349,8 +391,10 @@
       "human_uat.all_required_first_use_samples_met",
       "human_uat.all_required_repeat_use_samples_met",
       "human_uat.duplicate_attempts_excluded_from_sample_minima",
+      "human_uat.all_metric_inputs_use_deduplicated_valid_attempt_matrix",
       "human_uat.all_phone_required_tasks_observed_on_phone_390px_class",
       "human_uat.all_device_requirements_match_frozen_task_cards",
+      "human_uat.metrics_summary_derived_from_deduplicated_valid_attempt_matrix",
       "human_uat.all_frozen_metric_thresholds_met",
       "human_uat.no_open_stopship_defects",
       "human_uat.post_cohort_defect_snapshot_taken_after_all_observations",
@@ -368,6 +412,93 @@
       "signoffs.all_effective_domain_decisions_are_approved",
       "signoffs.all_effective_signer_attestations_valid",
       "signoffs.signoff_ledger_final_head_matches_external_checkpoint",
+      "signoffs.signoff_ledger_chain_complete_against_external_checkpoint",
+      "signoffs.signoff_ledger_row_hash_chain_valid_through_final_head",
+      "signoffs.all_signoffs_bound_to_candidate",
+      "signoffs.all_signoffs_bound_to_cohort_hash",
+      "signoffs.all_signoffs_bound_to_threshold_hash",
+      "signoffs.human_signoffs_bound_to_metrics_summary_hash",
+      "signoffs.human_signoffs_bound_to_post_cohort_defect_snapshot_hash",
+      "computed_contract.readiness_state_is_derived_from_required_fields"
+    ],
+    "required_true_fields_for_production_ready": [
+      "scope_coverage.all_pr192_to_current_homestay_housing_scope_rows_mapped",
+      "scope_coverage.all_covered_rows_have_task_or_gate_or_signoff_binding",
+      "scope_coverage.all_follow_up_rows_fail_closed_with_issue_or_task_ref",
+      "scope_coverage.no_unclassified_homestay_or_housing_changes_after_candidate_freeze",
+      "technical.track_a.evidence_matches_candidate_sha",
+      "technical.track_a.evidence_refs_non_empty",
+      "technical.track_a.evidence_refs_immutable_and_independently_verified",
+      "technical.track_b.evidence_matches_candidate_sha",
+      "technical.track_b.evidence_refs_non_empty",
+      "technical.track_b.evidence_refs_immutable_and_independently_verified",
+      "technical.track_c.evidence_matches_candidate_sha",
+      "technical.track_c.evidence_refs_non_empty",
+      "technical.track_c.evidence_refs_immutable_and_independently_verified",
+      "technical.main_ci.head_sha_matches_candidate_sha",
+      "technical.production_deploy.deployed_sha_matches_candidate_sha",
+      "technical.production_deploy.post_health_docker_cleanup_completed",
+      "technical.production_deploy.post_health_docker_cleanup_bound_to_run_and_deployed_sha",
+      "human_uat.all_observation_rows_match_accepted_h0_handoff",
+      "human_uat.accepted_h0_build_sha_matches_candidate_sha",
+      "human_uat.threshold_matches_accepted_h0_handoff",
+      "human_uat.cohort_manifest_frozen_before_first_observation",
+      "human_uat.cohort_hashes_exclude_observation_ledger_head_and_attempt_outcomes",
+      "human_uat.cohort_hashes_match_accepted_h0_handoff",
+      "human_uat.cohort_hashes_match_canonical_payload",
+      "human_uat.signoffs_match_accepted_h0_handoff",
+      "human_uat.observation_chain_complete_against_external_checkpoint",
+      "human_uat.observation_final_head_matches_external_checkpoint",
+      "human_uat.all_observation_rows_match_candidate_sha",
+      "human_uat.all_observation_rows_match_h0_build_sha",
+      "human_uat.all_observation_rows_match_h0_profile_checksum",
+      "human_uat.all_observation_rows_match_task_card_hash",
+      "human_uat.all_observation_rows_match_threshold_hash",
+      "human_uat.all_observation_rows_match_accepted_cohort_hashes",
+      "human_uat.all_media_evidence_has_valid_consent",
+      "human_uat.all_media_evidence_redaction_completed",
+      "human_uat.all_unredacted_sensitive_media_excluded_from_metrics",
+      "human_uat.threshold_signature_valid",
+      "human_uat.threshold_all_role_owners_approved",
+      "human_uat.threshold_role_owner_approval_signatures_valid",
+      "human_uat.h0_uat_environment_isolation_verified",
+      "human_uat.all_contaminated_attempts_excluded_from_metrics",
+      "human_uat.all_excluded_contaminated_attempts_have_permitted_reason_and_review_evidence",
+      "human_uat.all_counted_participants_have_valid_qualification_ref",
+      "human_uat.all_counted_participants_qualified_for_claimed_role",
+      "human_uat.no_same_participant_counted_as_multiple_required_roles_without_role-owner-exception",
+      "human_uat.conflicting_maker_checker_role_pairs_separated_by_stable_participant_identity",
+      "human_uat.no_role_owner_exception_for_maker_checker_conflicting_pairs",
+      "human_uat.all_roles_minimum_participants_met",
+      "human_uat.all_participants_completed_four_standard_tasks",
+      "human_uat.all_required_task_ids_observed_per_role",
+      "human_uat.first_repeat_separated",
+      "human_uat.all_required_first_use_samples_met",
+      "human_uat.all_required_repeat_use_samples_met",
+      "human_uat.duplicate_attempts_excluded_from_sample_minima",
+      "human_uat.all_metric_inputs_use_deduplicated_valid_attempt_matrix",
+      "human_uat.all_phone_required_tasks_observed_on_phone_390px_class",
+      "human_uat.all_device_requirements_match_frozen_task_cards",
+      "human_uat.metrics_summary_derived_from_deduplicated_valid_attempt_matrix",
+      "human_uat.all_frozen_metric_thresholds_met",
+      "human_uat.no_open_stopship_defects",
+      "human_uat.post_cohort_defect_snapshot_taken_after_all_observations",
+      "human_uat.all_observed_defect_ids_present_in_post_cohort_snapshot",
+      "human_uat.post_cohort_defect_snapshot_bound_to_candidate_and_cohorts",
+      "human_uat.all_stopship_observations_have_defect_id",
+      "human_uat.all_resolved_stopships_have_closure_evidence",
+      "human_uat.all_stopship_closure_evidence_bound_to_fix_and_rerun",
+      "signoffs.all_required_approved",
+      "signoffs.all_effective_signers_authorized_for_domain_at_decision_time",
+      "signoffs.threshold_approvers_authorized_for_domain_at_approval_time",
+      "signoffs.release_go_signer_authorized_at_decision_time",
+      "signoffs.supersession_chain_valid",
+      "signoffs.all_superseded_signoffs_excluded_from_effective_decision",
+      "signoffs.all_effective_domain_decisions_are_approved",
+      "signoffs.all_effective_signer_attestations_valid",
+      "signoffs.signoff_ledger_final_head_matches_external_checkpoint",
+      "signoffs.signoff_ledger_chain_complete_against_external_checkpoint",
+      "signoffs.signoff_ledger_row_hash_chain_valid_through_final_head",
       "signoffs.all_signoffs_bound_to_candidate",
       "signoffs.all_signoffs_bound_to_cohort_hash",
       "signoffs.all_signoffs_bound_to_threshold_hash",
@@ -387,6 +518,8 @@
       "rollout_ops.rollback_drill_verified_for_candidate_and_window",
       "rollout_ops.backup_restore_drill_successful",
       "rollout_ops.uat_cleanup_residuals_zero",
+      "computed_contract.rollout_observation.observation_bound_to_frozen_expansion_rollback_criteria",
+      "computed_contract.rollout_observation.all_frozen_rollout_observation_criteria_met",
       "release_owner_go.decision_active",
       "release_owner_go.decision_unconditional",
       "release_owner_go.decision_bound_to_reviewed_evidence_bundle_hash",
@@ -400,8 +533,7 @@
       "cleanup.all_role_accounts_revoked_or_reconciled",
       "cleanup.residual_scan_bound_to_cohort_hashes",
       "cleanup.residual_scan_timestamp_after_all_cohorts",
-      "computed_contract.readiness_state_is_derived_from_required_fields"
-      ,
+      "computed_contract.readiness_state_is_derived_from_required_fields",
       "computed_contract.rollout_observation.observation_window_complete",
       "computed_contract.rollout_observation.observation_bound_to_deployed_sha_and_rollout_scope",
       "computed_contract.rollout_observation.no_unresolved_p0_p1_during_observation"
@@ -416,7 +548,49 @@
       "cleanup.residual_files",
       "cleanup.residual_active_accounts"
     ],
-    "required_value_fields": [
+    "required_value_fields_for_ready_for_production_deploy": [
+      {
+        "path": "technical.track_a.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.track_b.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.track_c.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "technical.main_ci.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "human_uat.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "signoffs.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "rollout_ops.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "release_owner_go.verdict",
+        "equals": "passed"
+      },
+      {
+        "path": "release_owner_go.decision",
+        "equals": "go"
+      },
+      {
+        "path": "release_owner_go.explicit_go_for_candidate_sha",
+        "equals_path": "candidate_sha"
+      }
+    ],
+    "required_value_fields_for_production_ready": [
       {
         "path": "technical.track_a.verdict",
         "equals": "passed"
@@ -470,7 +644,7 @@
         "equals": "passed"
       }
     ],
-    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass and each technical evidence SHA must match candidate_sha AND human_uat must pass from ledger-derived candidate-bound observations with verified participant qualifications, immutable task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, all frozen metric thresholds met, contaminated attempts excluded, and defect-derived open_p0/open_p1 zero AND all required signoffs must approve using the latest non-superseded effective domain decision with signer attestation, no expiry, and no open conditions AND rollout_ops/high-risk flag freeze must pass with candidate/window-bound monitoring, alerting, on-call, backup, RPO/RTO, rollback, approved flag state, successful restore drill evidence, and completed UAT cleanup evidence AND release_owner_go must be active, unconditional, explicit go for the candidate AND restore_drill must pass AND cleanup residuals must be zero",
+    "rule": "ready_for_production_deploy uses required_true_fields_for_ready_for_production_deploy plus required_value_fields_for_ready_for_production_deploy and must not require production_deploy or post-deploy rollout observation. production_ready uses required_true_fields_for_production_ready plus required_value_fields_for_production_ready: technical.track_a/b/c/main_ci/production_deploy must pass with non-empty immutable evidence refs, each technical evidence SHA must match candidate_sha, production_deploy must include candidate/run-bound post-health Docker cleanup evidence, and human_uat must pass from ledger-derived candidate-bound observations with H0 build equal to candidate_sha, verified participant qualifications, pre-observation immutable cohort manifests, task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, metrics derived only from the deduplicated valid-attempt matrix, permitted contamination evidence for every excluded attempt, all frozen metric thresholds met, and defect-derived open_p0/open_p1 zero. All required signoffs must approve using a complete checkpointed append-only signoff ledger, latest non-superseded effective domain decision, signer attestation, no expiry, and no open conditions. Rollout/high-risk flag freeze must pass with candidate/window-bound monitoring, alerting, on-call, backup, RPO/RTO, rollback, approved flag state, rollout observation criteria met, successful restore drill evidence, and completed UAT cleanup evidence. release_owner_go must be active, unconditional, explicit go for the candidate; restore_drill must pass; cleanup residuals must be zero.",
     "codex_may_override": false
   }
 }

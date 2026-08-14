@@ -34,7 +34,12 @@
     "minimum_repeat_use_attempts_per_role_task": 5,
     "first_and_repeat_are_separate": true,
     "superuser_or_wildcard_accounts_forbidden": true,
-    "host_step_by_step_answers_forbidden": true
+    "host_step_by_step_answers_forbidden": true,
+    "cohort_manifest_frozen_before_observations": true,
+    "cohort_hash_excludes_observation_ledger_head": true,
+    "cohort_hash_excludes_row_hashes_and_attempt_outcomes": true,
+    "stable_participant_identity_required_for_maker_checker_separation": true,
+    "role_owner_exceptions_for_maker_checker_conflicts_forbidden": true
   },
   "metrics": {
     "calculation_algorithm": {
@@ -45,7 +50,10 @@
       "error_rate_denominator_rule": "valid_attempts_for_role_or_task",
       "help_rate_denominator_rule": "valid_attempts_for_role_or_task",
       "repeat_use_strata_calculated_separately": true,
-      "contaminated_attempts_excluded_from_metrics": true
+      "contaminated_attempts_excluded_from_metrics": true,
+      "duplicate_attempts_excluded_from_all_metric_inputs": true,
+      "metrics_use_only_deduplicated_valid_attempt_matrix": true,
+      "contamination_exclusion_requires_permitted_reason_and_review_evidence": true
     },
     "success_rate_minimum_by_role": "<fill-before-human-uat>",
     "p90_duration_seconds_max_by_task": "<fill-before-human-uat>",
@@ -74,6 +82,8 @@
     "observation_build_sha_must_match_handoff_build_sha": true,
     "observation_profile_checksum_must_match_handoff_profile_checksum": true,
     "forbidden_assistance_invalidates_attempt_for_metrics": true,
+    "duplicate_attempts_invalidated_for_all_metrics": true,
+    "contamination_reason_evidence_required_before_metric_exclusion": true,
     "threshold_digest_excludes_self_reference_and_signature_fields": true,
     "role_owner_approval_change_requires_new_threshold_version": true
   },

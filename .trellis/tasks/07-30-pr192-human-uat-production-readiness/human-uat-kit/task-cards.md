@@ -11,7 +11,8 @@ These cards are templates for external real-user execution. They state goals and
 - `allowed_devices`: `desktop`, `phone_390px_class`
 - `forbidden_assistance`: prefilled UUIDs, super-admin borrowing, host clicking for participant, step-by-step navigation answers
 - `record_required`: success/failure, duration, interaction count, error count, help count, permitted-help type, forbidden-assistance type, contaminated/valid marker, device, first/repeat marker, anonymized participant ID, evidence references, consent status
-- `invalid_attempt_rule`: attempts with host clicking, step-by-step navigation answers, coordinator-provided UUIDs, super-admin/wildcard credentials, or any other forbidden assistance must remain in the append-only observation ledger with `attempt_valid_for_metrics=false` and must not count toward cohort sufficiency or threshold metrics.
+- `invalid_attempt_rule`: attempts with host clicking, step-by-step navigation answers, coordinator-provided UUIDs, super-admin/wildcard credentials, or any other forbidden assistance must remain in the append-only observation ledger with `attempt_valid_for_metrics=false` and must not count toward cohort sufficiency or threshold metrics. Each exclusion must record a permitted contamination reason and independently reviewable evidence; slow or failed attempts cannot be excluded merely by labeling them contaminated.
+- `maker_checker_identity_rule`: purchase requester, purchase approver, payment staff, housing approver, finance approver, homestay finance maker, and any approver/decision role must be separated by stable human participant identity for the same business case. Role-owner exceptions are forbidden for conflicting maker-checker pairs.
 
 ## Role Coverage Matrix
 
@@ -32,13 +33,14 @@ These cards are templates for external real-user execution. They state goals and
 | Purchase approver | 5 | 4 | Desktop |
 | Payment staff | 5 | 4 | Desktop |
 | Repair staff | 5 | 4 | Phone-first required |
+| Shared property asset manager | 5 | 4 | Desktop plus phone detail review |
 | Auditor | 5 | 4 | Desktop plus permission-deny task |
 
 ## Frozen Task Card Catalog
 
 Every row in this catalog is a complete frozen task card. Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`. Every start point below must be reached from a discoverable role entry in the product navigation, dashboard, queue, or list; coordinator-provided hidden deep links are not valid task starts.
 
-The detailed examples after the table are coordinator notes only; they do not reduce the required four-card-per-role matrix. A readiness evaluator must derive coverage from the 64 task IDs below, not from the example section.
+The detailed examples after the table are coordinator notes only; they do not reduce the required four-card-per-role matrix. A readiness evaluator must derive coverage from the 68 task IDs below, not from the example section.
 
 Expected-denial tasks score as successful only when the participant reaches the denial from the frozen discoverable start point, the denial matches the role/scope/field/action boundary under test, no superuser or coordinator workaround is used, and the observation records the denial message plus route/action context. A denied task that blocks an allowed role action, hides unrelated required context, or requires a hidden deep link is a failed attempt, not a passed expected denial.
 
@@ -104,6 +106,10 @@ Expected-denial tasks score as successful only when the participant reaches the 
 | REPAIR-STAFF-02 | Repair staff | Repair file control | Verify pending attachment retry/removal path. | File behavior recorded. |
 | REPAIR-STAFF-03 | Repair staff | Bound repair evidence | Confirm protected bound file cannot be deleted. | Expected block recorded. |
 | REPAIR-STAFF-04 | Repair staff | Phone-width repair page | Complete field update on phone. | Mobile completion recorded. |
+| SHARED-PROPERTY-01 | Shared property asset manager | Shared property dashboard or asset/unit list | Verify property foundation entry, scoped assets, and allowed operating-mode context. | Visible scope and mode context recorded. |
+| SHARED-PROPERTY-02 | Shared property asset manager | Unit or occupancy detail | Review occupancy/party relationship without exposing unauthorized sensitive fields. | Occupancy-party projection and masking recorded. |
+| SHARED-PROPERTY-03 | Shared property asset manager | Operating-mode or foundation workflow entry | Attempt allowed mode/foundation handoff and confirm permission/audit behavior. | Resulting state or expected permission block recorded. |
+| SHARED-PROPERTY-04 | Shared property asset manager | Cross-scope or unauthorized shared-property route on desktop and phone-width detail | Confirm cross-tenant/park and unauthorized shared-property access is denied. | Deny route/message and phone usability recorded. |
 | AUDITOR-01 | Auditor | Discoverable audit or task entry from primary navigation | Trace one action to approval/effect/audit. | Audit evidence recorded. |
 | AUDITOR-02 | Auditor | Direct write/action control | Confirm write actions are unavailable. | Denied write path recorded. |
 | AUDITOR-03 | Auditor | File/evidence route | Verify sensitive field/file projection. | Masking/permission result recorded. |
@@ -230,6 +236,14 @@ Expected-denial tasks score as successful only when the participant reaches the 
 - Goal: open assigned repair, record handling progress, and verify attachment preview/download behavior.
 - Completion condition: repair status/evidence state is visible.
 - Recovery condition: no-manage, cross-park, or protected-file delete attempts must be recorded as expected blocks.
+
+### SHARED-PROPERTY-01 — Shared property foundation and scope review
+
+- Role: Shared property asset manager
+- Start point: shared property dashboard or asset/unit list
+- Goal: verify the shared property foundation entry, inspect scoped assets or units, and confirm operating-mode context without crossing tenant/park scope.
+- Completion condition: visible asset/unit scope, operating-mode context, and any expected denied area are recorded.
+- Recovery condition: cross-scope, missing menu, unauthorized sensitive field, or phone usability issues are recorded with route and message.
 
 ### AUDITOR-01 — Trace audit and permission boundary
 
