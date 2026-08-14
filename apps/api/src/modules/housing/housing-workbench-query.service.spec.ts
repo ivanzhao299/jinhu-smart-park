@@ -527,7 +527,8 @@ test("billing omits financial blocks without finance-read and finance stays in h
       paidAmount: "200.00",
       waivedAmount: "0.00",
       balance: "800.00",
-      status: "partial"
+      status: "partial",
+      lastPaymentRecorderId: null
     },
     {
       id: "r-deposit",
@@ -539,7 +540,8 @@ test("billing omits financial blocks without finance-read and finance stays in h
       paidAmount: "0.00",
       waivedAmount: "0.00",
       balance: "2000.00",
-      status: "unpaid"
+      status: "unpaid",
+      lastPaymentRecorderId: null
     }
   ]);
   assert.deepEqual(Object.keys(finance.items[0]!).sort(), [
@@ -551,6 +553,7 @@ test("billing omits financial blocks without finance-read and finance stays in h
   assert.ok(statements.some((sql) =>
     sql.includes("jsonb_agg(jsonb_build_object(")
     && sql.includes("'chargeType', r.charge_type")
+    && sql.includes("'lastPaymentRecorderId'")
   ));
   assert.equal(statements.some((sql) => /leasing/i.test(sql)), false);
 });
