@@ -1,11 +1,11 @@
 {
   "schema_version": "pr192-production-readiness-input-v1",
-  "candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
-  "kit_provenance_commit": "<fill-with-final-merge-commit-containing-this-kit>",
+  "candidate_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
+  "kit_provenance_commit": "<fill-with-merge-commit-containing-this-postmerge-kit>",
   "scope_coverage": {
     "matrix_ref": "scope-coverage-matrix.md",
     "matrix_hash": "<sha256-of-frozen-scope-coverage-matrix>",
-    "candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
+    "candidate_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
     "candidate_sha_matches_top_level_candidate": "<true|required>",
     "matrix_hash_bound_to_candidate_sha": "<true|required>",
     "all_pr192_to_current_homestay_housing_scope_rows_mapped": "<true|required>",
@@ -25,7 +25,7 @@
     },
     "track_b": {
       "verdict": "<passed|required>",
-      "evidence_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
+      "evidence_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
       "evidence_matches_candidate_sha": "<true|required>",
       "evidence_refs": [
         "../handoff/2026-08-14-technical-closure-to-human-gate.md"
@@ -47,14 +47,14 @@
     },
     "main_ci": {
       "verdict": "<passed|required>",
-      "run_id": "<fill>",
-      "head_sha": "<40-char-git-sha-required>",
+      "run_id": "<fill-with-pr290-main-ci-run-after-merge>",
+      "head_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
       "head_sha_matches_candidate_sha": "<true|required>"
     },
     "production_deploy": {
       "verdict": "<passed|required>",
-      "run_id": "<fill>",
-      "deployed_sha": "<40-char-git-sha-required>",
+      "run_id": "<fill-with-pr290-production-deploy-run-after-merge>",
+      "deployed_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
       "deployed_sha_matches_candidate_sha": "<true|required>",
       "post_health_docker_cleanup_ref": "<fill-with-run-log-or-ops-evidence>",
       "post_health_docker_cleanup_hash": "<sha256-of-candidate-and-run-bound-cleanup-evidence>",
@@ -95,7 +95,7 @@
     "observation_ledger_hash_contract_applied": "<true|required>",
     "observation_final_head_matches_external_checkpoint": "<true|required>",
     "observation_chain_complete_against_external_checkpoint": "<true|required>",
-    "accepted_observation_ledger_candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
+    "accepted_observation_ledger_candidate_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
     "all_observation_rows_match_candidate_sha": "<true|required>",
     "all_observation_rows_match_h0_build_sha": "<true|required>",
     "all_observation_rows_match_h0_profile_checksum": "<true|required>",
@@ -323,13 +323,13 @@
     "decision_expires_at": "<iso8601-required>",
     "decision_active": "<true|required>",
     "decision_unconditional": "<true|required>",
-    "explicit_go_for_candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8"
+    "explicit_go_for_candidate_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>"
   },
   "restore_drill": {
     "verdict": "missing",
     "backup_restore_drill_ref": "<fill>",
     "backup_restore_drill_hash": "<sha256-of-restore-drill-evidence>",
-    "candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
+    "candidate_sha": "<fill-with-current-main-merge-commit-after-pr290-deploy>",
     "target_environment_id": "<must-match-rollout-production-environment>",
     "tenant_park_scope_ref": "<must-match-rollout-tenant-park-scope-freeze-ref>",
     "source_backup_bundle_ref": "<candidate-and-window-bound-backup-bundle-ref>",

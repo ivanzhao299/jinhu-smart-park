@@ -9,8 +9,8 @@ Passwords/tokens/secrets allowed in this file: no
 - `created_at`: `<fill>`
 - `uat_coordinator`: `<fill-human-owner>`
 - `technical_handoff_ref`: `../handoff/2026-08-14-technical-closure-to-human-gate.md`
-- `technical_candidate_sha`: `5987b14526443ee638aa27134485b12b681ef5b8`
-- `kit_authoring_commit`: `<fill-with-final-merge-commit-containing-this-kit>`
+- `technical_candidate_sha`: `<fill-with-current-main-merge-commit-after-pr290-deploy>`
+- `kit_authoring_commit`: `<fill-with-merge-commit-containing-this-postmerge-kit>`
 - `kit_content_manifest_ref`: `<fill-with-hash-manifest-for-human-uat-kit-files>`
 - `kit_content_manifest_hash`: `<sha256-of-kit-content-manifest>`
 - `threshold_version`: `<fill>`
