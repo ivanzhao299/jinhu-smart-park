@@ -54,6 +54,7 @@ function installBrowserStorage() {
   Object.defineProperty(globalThis, "window", { configurable: true, value: windowLike });
   Object.defineProperty(globalThis, "sessionStorage", { configurable: true, value: session });
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: local });
+  Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
   return { session, local };
 }
 
@@ -335,6 +336,287 @@ test("switchParkContext rotates context, fetches the authoritative user, and pub
   assert.equal(new Headers(calls[1]?.init?.headers).get("Authorization"), "Bearer new-token");
   assert.equal(session.getItem("jinhu_access_token"), "new-token");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").park_id, "20000002");
+});
+
+test("switchParkContext sends the legacy refresh token fallback when present", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  const legacyRefreshToken = "r".repeat(32);
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_refresh_token", legacyRefreshToken);
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      const data = calls.length === 1
+        ? { accessToken: "new-token" }
+        : { ...current, park_id: "20000002", park_name: "园区二" };
+      return new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+  });
+
+  await switchParkContext("20000002");
+
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { parkId: "20000002", refreshToken: legacyRefreshToken });
+  assert.equal(session.getItem("jinhu_refresh_token"), null);
+});
+
+test("switchParkContext omits malformed legacy refresh token fallback values", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_refresh_token", "short");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      const data = calls.length === 1
+        ? { accessToken: "new-token" }
+        : { ...current, park_id: "20000002", park_name: "园区二" };
+      return new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+  });
+
+  await switchParkContext("20000002");
+
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), { parkId: "20000002" });
+});
+
+test("switchParkContext uses a valid local legacy refresh token when the session value is malformed", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  const localLegacyRefreshToken = "l".repeat(32);
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_refresh_token", "short");
+  local.setItem("jinhu_refresh_token", localLegacyRefreshToken);
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      const data = calls.length === 1
+        ? { accessToken: "new-token" }
+        : { ...current, park_id: "20000002", park_name: "园区二" };
+      return new Response(JSON.stringify({ data }), { status: 200, headers: { "content-type": "application/json" } });
+    }
+  });
+
+  await switchParkContext("20000002");
+
+  assert.deepEqual(JSON.parse(String(calls[0]?.init?.body)), {
+    parkId: "20000002",
+    refreshToken: localLegacyRefreshToken
+  });
+});
+
+test("switchParkContext preserves the current session when the switch request fails before rotation", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      return new Response(JSON.stringify({ message: "Refresh token expired" }), {
+        status: 401,
+        headers: { "content-type": "application/json", "x-auth-context-switch-rotation": "not-started" }
+      });
+    }
+  });
+
+  await assert.rejects(switchParkContext("20000002"), /Refresh token expired/u);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.input, "/api/v1/auth/switch-context");
+  assert.equal(session.getItem("jinhu_access_token"), "old-token");
+  assert.equal(local.getItem("jinhu_access_token"), "old-token");
+  assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").park_id, "20000001");
+  assert.equal(local.getItem("jinhu_park_context_switch"), null);
+});
+
+test("switchParkContext clears stale private credentials when a marked rejection sees a newer shared session", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async () => {
+      local.setItem("jinhu_access_token", "new-cross-tab-token");
+      local.setItem("jinhu_auth_user", JSON.stringify({ ...current, username: "new-cross-tab" }));
+      return new Response(JSON.stringify({ message: "Refresh token expired" }), {
+        status: 401,
+        headers: { "content-type": "application/json", "x-auth-context-switch-rotation": "not-started" }
+      });
+    }
+  });
+
+  await assert.rejects(switchParkContext("20000002"), /Refresh token expired/u);
+
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(local.getItem("jinhu_access_token"), "new-cross-tab-token");
+  assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "new-cross-tab");
+});
+
+test("switchParkContext clears private credentials when a marked rejection sees a cross-tab logout", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async () => {
+      local.removeItem("jinhu_access_token");
+      local.removeItem("jinhu_auth_user");
+      return new Response(JSON.stringify({ message: "Refresh token expired" }), {
+        status: 401,
+        headers: { "content-type": "application/json", "x-auth-context-switch-rotation": "not-started" }
+      });
+    }
+  });
+
+  await assert.rejects(switchParkContext("20000002"), /Refresh token expired/u);
+
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(local.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_auth_user"), null);
+});
+
+test("switchParkContext clears pre-existing private credentials that disagree with the shared session", async () => {
+  const { session, local } = installBrowserStorage();
+  const staleUser = {
+    ...user,
+    username: "stale-private",
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  const sharedUser = {
+    ...staleUser,
+    username: "shared-current"
+  };
+  session.setItem("jinhu_access_token", "stale-private-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(staleUser));
+  local.setItem("jinhu_access_token", "shared-current-token");
+  local.setItem("jinhu_auth_user", JSON.stringify(sharedUser));
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async () => new Response(JSON.stringify({ message: "Refresh token expired" }), {
+      status: 401,
+      headers: { "content-type": "application/json", "x-auth-context-switch-rotation": "not-started" }
+    })
+  });
+
+  await assert.rejects(switchParkContext("20000002"), /Refresh token expired/u);
+
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(local.getItem("jinhu_access_token"), "shared-current-token");
+  assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "shared-current");
+});
+
+test("switchParkContext clears an unmarked 401 because rotation may already have been claimed", async () => {
+  const { session, local } = installBrowserStorage();
+  const current = {
+    ...user,
+    park_name: "园区一",
+    accessible_parks: [
+      { park_id: "20000001", park_name: "园区一", is_default: true, status: "enabled" },
+      { park_id: "20000002", park_name: "园区二", is_default: false, status: "enabled" }
+    ]
+  };
+  session.setItem("jinhu_access_token", "old-token");
+  local.setItem("jinhu_access_token", "old-token");
+  session.setItem("jinhu_auth_user", JSON.stringify(current));
+  local.setItem("jinhu_auth_user", JSON.stringify(current));
+  const calls: FetchCall[] = [];
+  Object.defineProperty(globalThis, "fetch", {
+    configurable: true,
+    value: async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ input: String(input), init });
+      if (String(input).endsWith("/auth/switch-context")) {
+        return new Response(JSON.stringify({ message: "User context is unavailable" }), {
+          status: 401,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      return new Response(JSON.stringify({ data: { ok: true } }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }
+  });
+
+  await assert.rejects(switchParkContext("20000002"), /User context is unavailable/u);
+
+  assert.equal(calls.some((call) => call.input.endsWith("/auth/logout-cookie")), true);
+  assert.equal(session.getItem("jinhu_access_token"), null);
+  assert.equal(local.getItem("jinhu_access_token"), null);
 });
 
 test("switchParkContext rejects a forged or disabled park before making a request", async () => {

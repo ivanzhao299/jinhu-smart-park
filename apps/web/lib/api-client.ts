@@ -7,7 +7,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
-    readonly response?: ApiResponse<unknown>
+    readonly response?: ApiResponse<unknown>,
+    readonly headers?: Headers
   ) {
     super(message);
   }
@@ -51,11 +52,11 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   const payload = (await readApiResponse<T>(response));
   if (!response.ok) {
     if (!skipUnauthorizedReset) await handleUnauthorized(response.status, path, options.token);
-    throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
+    throw new ApiError(payload?.message ?? "Request failed", response.status, payload, response.headers);
   }
 
   if (!payload) {
-    throw new ApiError("Invalid API response payload", response.status);
+    throw new ApiError("Invalid API response payload", response.status, undefined, response.headers);
   }
 
   return payload;
@@ -94,10 +95,10 @@ export async function apiFormRequest<T>(path: string, options: ApiFormRequestOpt
   const payload = await readApiResponse<T>(response);
   if (!response.ok) {
     await handleUnauthorized(response.status, path, options.token);
-    throw new ApiError(payload?.message ?? "Request failed", response.status, payload);
+    throw new ApiError(payload?.message ?? "Request failed", response.status, payload, response.headers);
   }
   if (!payload) {
-    throw new ApiError("Invalid API response payload", response.status);
+    throw new ApiError("Invalid API response payload", response.status, undefined, response.headers);
   }
   return payload;
 }

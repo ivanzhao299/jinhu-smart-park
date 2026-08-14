@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ForbiddenException, InternalServerErrorException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, InternalServerErrorException, UnauthorizedException, ValidationPipe } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import {
   applyRefreshTokenCookie,
@@ -8,7 +8,13 @@ import {
   getRefreshCookieConfig,
   readRefreshTokenCookie
 } from "./auth-refresh-cookie";
-import type { LoginResult, WechatCallbackResult } from "./auth.service";
+import {
+  AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
+  AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED,
+  PreRotationSwitchContextException,
+  type LoginResult,
+  type WechatCallbackResult
+} from "./auth.service";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 
 interface CookieCall {
@@ -26,11 +32,13 @@ interface ControllerFixture {
     logoutCookieTokens: string[];
     logoutCookieError: Error | null;
     refreshError: Error | null;
+    switchError: Error | null;
     wechatCallback: () => Promise<WechatCallbackResult>;
   };
   response: {
     cookieCalls: CookieCall[];
     clearCookieCalls: CookieCall[];
+    headerCalls: Array<{ name: string; value: string }>;
   };
   rateLimitCalls: Array<{ endpoint: string; bucket: string; ipAddress: string | null }>;
 }
@@ -45,12 +53,17 @@ function createResponse(): ControllerFixture["response"] {
   return {
     cookieCalls: [],
     clearCookieCalls: [],
+    headerCalls: [],
     cookie(name: string, value: string, options: Record<string, unknown>) {
       this.cookieCalls.push({ name, value, options });
       return this;
     },
     clearCookie(name: string, options: Record<string, unknown>) {
       this.clearCookieCalls.push({ name, options });
+      return this;
+    },
+    setHeader(name: string, value: string) {
+      this.headerCalls.push({ name, value });
       return this;
     }
   } as ControllerFixture["response"];
@@ -104,6 +117,7 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
     logoutCookieTokens: [] as string[],
     logoutCookieError: null,
     refreshError: null,
+    switchError: null,
     login: async () => loginResult("login-refresh"),
     mobileLogin: async () => loginResult("mobile-refresh"),
     selectContext: async () => loginResult("context-refresh"),
@@ -117,6 +131,9 @@ function createFixture(config: Record<string, string> = {}): ControllerFixture {
     },
     switchContext: async (_user: unknown, _parkId: string, refreshToken: string) => {
       authService.switchTokens.push(refreshToken);
+      if (authService.switchError) {
+        throw authService.switchError;
+      }
       return loginResult("switched-refresh");
     },
     logout: async (_user: unknown, refreshToken?: string) => {
@@ -316,6 +333,89 @@ test("context switch accepts the HttpOnly refresh cookie and rotates it", async 
   assert.deepEqual(authService.switchTokens, ["s".repeat(32)]);
   assert.equal(result.refreshToken, "switched-refresh");
   assert.equal(response.cookieCalls[0]?.value, "switched-refresh");
+});
+
+test("context switch marks same-context rejection as pre-rotation without token resolution", async () => {
+  const { controller, authService, response } = createFixture();
+  const request = createRequest(`sp_refresh_token=${"s".repeat(32)}`, { origin: "http://localhost:3000" });
+
+  await assert.rejects(
+    controller.switchContext(
+      loginResult().user as never,
+      { parkId: "20000001" },
+      request as never,
+      response as never
+    ),
+    BadRequestException
+  );
+
+  assert.deepEqual(authService.switchTokens, []);
+  assert.deepEqual(response.headerCalls, [{
+    name: AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
+    value: AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED
+  }]);
+});
+
+test("context switch marks pre-rotation refresh failures for browser session preservation", async () => {
+  const { controller, authService, response } = createFixture();
+  const request = createRequest(`sp_refresh_token=${"s".repeat(32)}`, { origin: "http://localhost:3000" });
+  authService.switchError = new PreRotationSwitchContextException("Refresh token expired");
+
+  await assert.rejects(
+    controller.switchContext(
+      loginResult().user as never,
+      { parkId: "20000002" },
+      request as never,
+      response as never
+    ),
+    PreRotationSwitchContextException
+  );
+
+  assert.deepEqual(response.headerCalls, [{
+    name: AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
+    value: AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED
+  }]);
+});
+
+test("context switch marks missing refresh token as pre-rotation and does not switch", async () => {
+  const { controller, authService, response } = createFixture();
+
+  await assert.rejects(
+    controller.switchContext(
+      loginResult().user as never,
+      { parkId: "20000002" },
+      createRequest() as never,
+      response as never
+    ),
+    UnauthorizedException
+  );
+
+  assert.deepEqual(authService.switchTokens, []);
+  assert.equal(response.clearCookieCalls[0]?.name, "sp_refresh_token");
+  assert.deepEqual(response.headerCalls, [{
+    name: AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
+    value: AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED
+  }]);
+});
+
+test("context switch marks invalid Origin rejection as pre-rotation and does not switch", async () => {
+  const { controller, authService, response } = createFixture({ WEB_ORIGIN: "https://app.example" });
+
+  await assert.rejects(
+    controller.switchContext(
+      loginResult().user as never,
+      { parkId: "20000002" },
+      createRequest(`sp_refresh_token=${"s".repeat(32)}`, { origin: "https://evil.example" }) as never,
+      response as never
+    ),
+    ForbiddenException
+  );
+
+  assert.deepEqual(authService.switchTokens, []);
+  assert.deepEqual(response.headerCalls, [{
+    name: AUTH_CONTEXT_SWITCH_ROTATION_HEADER,
+    value: AUTH_CONTEXT_SWITCH_ROTATION_NOT_STARTED
+  }]);
 });
 
 test("refresh falls back to body token when cookie is absent", async () => {
