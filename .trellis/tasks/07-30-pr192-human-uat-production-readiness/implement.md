@@ -96,9 +96,22 @@ Owner: `production-readiness-facilitator`，仅在 H4 证据齐备后短时启�
 - Candidate handoff artifact:
   `handoff/2026-08-14-technical-closure-to-human-gate.md`.
 - Bound production candidate:
-  `97669ed2df810c9bc1da0e1abeb271187a7b70a4`.
+  `5987b14526443ee638aa27134485b12b681ef5b8`.
 - Technical remediation lane `#270 -> #271 -> #272 -> #273`, Codex Review
   follow-up `#284`, main CI, production deployment, immediate production
   health, and Docker cleanup are recorded as machine evidence.
 - External human UAT, named signoffs, and final `production_ready` remain
   explicitly missing. Current next state remains `awaiting_human_gate`.
+
+## 2026-08-14 Human UAT Kit
+
+- External execution kit:
+  `human-uat-kit/README.md`.
+- Included templates:
+  task cards, observation ledger, threshold freeze, H0 environment handoff,
+  signoff ledger, and production readiness evaluator input.
+- The kit contains no real participants, credentials, signoff decisions, or
+  production go/no-go. It only prepares H1/H2/H4 evidence capture for external
+  human coordinators.
+- Current next state remains `awaiting_human_gate` until the templates are
+  filled by authorized external humans and validated against the PR192 AND gate.

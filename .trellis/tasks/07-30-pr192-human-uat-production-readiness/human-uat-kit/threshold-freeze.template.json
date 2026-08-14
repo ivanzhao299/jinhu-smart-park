@@ -1,0 +1,102 @@
+{
+  "schema_version": "pr192-human-uat-threshold-freeze-v1",
+  "threshold_version": "<fill-before-human-uat>",
+  "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-threshold_signature_ref-role_owner_approval_refs-role_owner_approval_hashes-human_signature_envelopes-and-handoff_hash>",
+  "threshold_payload_complete_and_schema_valid": "<true|required-before-signature>",
+  "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
+  "threshold_digest_algorithm": "sha256 over canonical JSON after removing threshold_payload_sha256, threshold_signature_ref, role_owner_approval_refs, role_owner_approval_hashes, human signature envelopes, and handoff_hash",
+  "role_owner_approval_refs": [],
+  "role_owner_approval_hashes": [],
+  "handoff_id": "<fill-from-approved-handoff>",
+  "handoff_hash": "<sha256-of-approved-handoff>",
+  "hash_order": "H0 handoff hash is frozen first without threshold_hash; threshold hash then references handoff_hash. H0 must not include threshold_hash in its own canonical hash payload.",
+  "owner_domain": "product_operations",
+  "approved_by_human_name": "<required-human-owner>",
+  "approved_by_role": "<required-human-role>",
+  "approved_at": "<iso8601-required>",
+  "role_owner_approvals": [
+    {
+      "role": "<required-for-each-role-in-task-cards>",
+      "approved_by_human_name": "<required-role-owner>",
+      "approved_by_role": "<required-role-owner-title>",
+      "approved_at": "<iso8601-required>",
+      "approval_ref": "<append-only-role-owner-approval-ref>"
+    }
+  ],
+  "all_role_owners_approved": "<true|required-before-H1>",
+  "applies_to_build_sha": "<40-char-git-sha>",
+  "applies_to_environment_id": "<isolated-uat-env-id>",
+  "task_card_version": "<fill-before-human-uat>",
+  "task_card_hash": "<sha256-of-frozen-task-cards>",
+  "cohort_rules": {
+    "minimum_participants_per_role": 5,
+    "minimum_tasks_per_participant": 4,
+    "minimum_first_use_attempts_per_role_task": 5,
+    "minimum_repeat_use_attempts_per_role_task": 5,
+    "first_and_repeat_are_separate": true,
+    "superuser_or_wildcard_accounts_forbidden": true,
+    "host_step_by_step_answers_forbidden": true,
+    "cohort_manifest_frozen_before_observations": true,
+    "cohort_hash_excludes_observation_ledger_head": true,
+    "cohort_hash_excludes_row_hashes_and_attempt_outcomes": true,
+    "stable_participant_identity_required_for_maker_checker_separation": true,
+    "role_owner_exceptions_for_maker_checker_conflicts_forbidden": true
+  },
+  "metrics": {
+    "calculation_algorithm": {
+      "calculator_version": "<required-version-or-script-hash>",
+      "percentile_convention": "nearest_rank",
+      "duration_denominator_rule": "valid_attempts_only_unless_failure_duration_policy_includes_failed_attempts",
+      "failure_duration_policy": "<include_or_exclude_failed_attempts-required>",
+      "error_rate_denominator_rule": "valid_attempts_for_role_or_task",
+      "help_rate_denominator_rule": "valid_attempts_for_role_or_task",
+      "repeat_use_strata_calculated_separately": true,
+      "contaminated_attempts_excluded_from_metrics": true,
+      "duplicate_attempts_excluded_from_all_metric_inputs": true,
+      "metrics_use_only_deduplicated_valid_attempt_matrix": true,
+      "contamination_exclusion_requires_permitted_reason_and_review_evidence": true
+    },
+    "success_rate_minimum_by_role": "<fill-before-human-uat>",
+    "p90_duration_seconds_max_by_task": "<fill-before-human-uat>",
+    "p90_interaction_count_max_by_task": "<fill-before-human-uat>",
+    "error_rate_max_by_role": "<fill-before-human-uat>",
+    "help_rate_max_by_role": "<fill-before-human-uat>",
+    "all_metric_threshold_maps_complete_and_numeric": "<true|required-before-signature>",
+    "failure_duration_policy_resolved": "<true|required-before-signature>"
+  },
+  "stopship": {
+    "open_p0_allowed": 0,
+    "open_p1_allowed": 0,
+    "cross_tenant_or_cross_park_access": "P0",
+    "identity_or_file_leak": "P0",
+    "financial_duplicate_or_loss": "P0",
+    "maker_checker_bypass": "P0",
+    "uat_contaminates_production_data_or_real_users": "P0",
+    "irrecoverable_migration_or_rollback_failure": "P0",
+    "approved_role_bundle_menu_or_permission_mismatch": "P1",
+    "cross_scope_role_menu_or_data_visibility": "P0",
+    "missing_required_h0_account_scope_or_profile_checksum": "P1",
+    "critical_role_flow_unusable": "P1",
+    "mobile_key_task_unusable": "P1",
+    "missing_required_signoff": "P1"
+  },
+  "change_control": {
+    "task_card_change_requires_new_cohort": true,
+    "build_or_profile_change_requires_new_h0": true,
+    "threshold_change_after_execution_invalidates_prior_evaluation": true,
+    "threshold_hash_must_match_observation_ledger": true,
+    "threshold_hash_must_match_readiness_input": true,
+    "observation_candidate_sha_must_match_readiness_candidate_sha": true,
+    "observation_build_sha_must_match_handoff_build_sha": true,
+    "observation_profile_checksum_must_match_handoff_profile_checksum": true,
+    "forbidden_assistance_invalidates_attempt_for_metrics": true,
+    "duplicate_attempts_invalidated_for_all_metrics": true,
+    "contamination_reason_evidence_required_before_metric_exclusion": true,
+    "threshold_digest_excludes_self_reference_and_signature_fields": true,
+    "role_owner_approval_change_requires_new_threshold_version": true
+  },
+  "non_claims": [
+    "This template is not an approval until filled and signed by the required human owner.",
+    "Codex cannot fill approved_by_human_name or infer approval from missing response."
+  ]
+}
