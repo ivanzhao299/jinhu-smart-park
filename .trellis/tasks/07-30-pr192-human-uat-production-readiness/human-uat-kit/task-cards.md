@@ -33,6 +33,77 @@ These cards are templates for external real-user execution. They state goals and
 | Repair staff | 5 | 4 | Phone-first required |
 | Auditor | 5 | 4 | Desktop plus permission-deny task |
 
+## Frozen Task Card Catalog
+
+Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`.
+
+| Task ID | Role | Start point | Goal | Completion evidence |
+| --- | --- | --- | --- | --- |
+| PARK-ADMIN-01 | Park admin | Primary navigation after login | Verify role-scoped property-business entry and menu availability. | Visible modules and denied areas recorded. |
+| PARK-ADMIN-02 | Park admin | User/role or module visibility page | Verify exact role bundle and absence of superuser/wildcard capability. | Bundle and scope evidence recorded. |
+| PARK-ADMIN-03 | Park admin | Dashboard/task list | Assign or inspect a scoped property task without crossing tenant/park. | Scoped task visibility recorded. |
+| PARK-ADMIN-04 | Park admin | Direct deep link supplied by coordinator | Confirm cross-scope or unauthorized page is denied. | Deny message and route recorded. |
+| HOMESTAY-FRONTDESK-01 | Homestay front desk | Homestay dashboard or bookings queue | Locate a due arrival and prepare check-in readiness. | Booking state and next action recorded. |
+| HOMESTAY-FRONTDESK-02 | Homestay front desk | Booking detail | Handle missing identity/stay readiness without bypass. | Blocker and handoff target recorded. |
+| HOMESTAY-FRONTDESK-03 | Homestay front desk | Stay detail | Complete an allowed check-in/check-out transition. | Resulting state and audit cue recorded. |
+| HOMESTAY-FRONTDESK-04 | Homestay front desk | Phone-width booking/stay page | Complete the same queue lookup on 390px-class device. | Mobile usability and any overflow recorded. |
+| HOMESTAY-CLEANER-01 | Homestay cleaner | Assigned turnover task | Start and complete turnover with required evidence. | Turnover state and evidence state recorded. |
+| HOMESTAY-CLEANER-02 | Homestay cleaner | Turnover detail | Record supply/consumable or exception details. | Submitted detail or validation block recorded. |
+| HOMESTAY-CLEANER-03 | Homestay cleaner | Upload control | Exercise upload retry/recovery path. | Success or expected failure recorded. |
+| HOMESTAY-CLEANER-04 | Homestay cleaner | Phone-width task list | Locate assigned work and complete field update on phone. | Mobile completion and help count recorded. |
+| HOMESTAY-INSPECTOR-01 | Homestay inspector | Turnover exception review | Review exception and record follow-up decision. | Decision or blocker recorded. |
+| HOMESTAY-INSPECTOR-02 | Homestay inspector | Turnover evidence panel | Inspect file preview/download permission. | File behavior recorded. |
+| HOMESTAY-INSPECTOR-03 | Homestay inspector | Completed turnover detail | Verify final state and audit trail. | Audit/evidence visibility recorded. |
+| HOMESTAY-INSPECTOR-04 | Homestay inspector | Cross-scope direct link | Confirm inaccessible turnover is denied. | Deny route/message recorded. |
+| HOMESTAY-FINANCE-01 | Homestay finance | Booking finance detail | Create valid refund or waiver approval request. | Pending approval or validation result recorded. |
+| HOMESTAY-FINANCE-02 | Homestay finance | Booking finance detail | Attempt over-limit refund/waiver and confirm block. | Expected error recorded. |
+| HOMESTAY-FINANCE-03 | Homestay finance | Approval or finance source view | Verify source ledger, recorder, and amount projection. | Source/effective available amount recorded. |
+| HOMESTAY-FINANCE-04 | Homestay finance | Finance list/detail | Trace ledger effect to booking/audit evidence. | Trace references recorded. |
+| HOUSING-LEASING-01 | Housing leasing specialist | Tenants or leases page | Prepare eligible tenant/unit lease lifecycle. | Lease state and eligibility recorded. |
+| HOUSING-LEASING-02 | Housing leasing specialist | Lease create/edit form | Validate blocked ineligible tenant/unit case. | Blocker and message recorded. |
+| HOUSING-LEASING-03 | Housing leasing specialist | Lease detail | Submit lease to approval/signature handoff. | Pending state recorded. |
+| HOUSING-LEASING-04 | Housing leasing specialist | Phone-width lease detail | Review lease summary on 390px-class device. | Mobile usability recorded. |
+| HOUSING-APPROVER-01 | Housing approver | Approval task or lease detail | Decide eligible lease approval request. | Decision and audit trail recorded. |
+| HOUSING-APPROVER-02 | Housing approver | Approval task | Confirm same-actor maker-checker block. | Expected denial recorded. |
+| HOUSING-APPROVER-03 | Housing approver | Stale lease approval | Confirm stale/version conflict handling. | Conflict message recorded. |
+| HOUSING-APPROVER-04 | Housing approver | Lease audit/effect view | Trace approval result to source/effect evidence. | Trace references recorded. |
+| HOUSING-HANDOVER-01 | Housing handover staff | Assigned handover task | Complete move-in or move-out handover fields. | Handover record linked to lease. |
+| HOUSING-HANDOVER-02 | Housing handover staff | Handover file control | Attach or verify handover photo evidence. | Evidence state recorded. |
+| HOUSING-HANDOVER-03 | Housing handover staff | Financial move-out case | Confirm financial amounts require approval flow. | Expected approval/block recorded. |
+| HOUSING-HANDOVER-04 | Housing handover staff | Phone-width handover form | Complete field workflow on phone. | Mobile completion recorded. |
+| HOUSING-BILLING-01 | Housing billing staff | Housing billing page | Generate or review bills for eligible lease. | Receivable state recorded. |
+| HOUSING-BILLING-02 | Housing billing staff | Billing action | Confirm duplicate bill generation is blocked. | Conflict/duplicate message recorded. |
+| HOUSING-BILLING-03 | Housing billing staff | Charge plan editor | Save allowed charge plan change. | Plan version/state recorded. |
+| HOUSING-BILLING-04 | Housing billing staff | Receivable detail | Trace receivable to lease and billing source. | Trace evidence recorded. |
+| CASHIER-01 | Cashier | Housing finance/billing detail | Register allowed payment against receivable. | Ledger and balance recorded. |
+| CASHIER-02 | Cashier | Payment form | Attempt overpayment and confirm block. | Expected validation recorded. |
+| CASHIER-03 | Cashier | Voided/invalid receivable | Confirm payment cannot target invalid source. | Expected denial recorded. |
+| CASHIER-04 | Cashier | Finance detail | Trace payment to recorder and receivable balance. | Trace evidence recorded. |
+| FINANCE-APPROVER-01 | Finance approver | Approval task or finance detail | Decide refund/waiver/deposit-return request. | Decision and linked ledger recorded. |
+| FINANCE-APPROVER-02 | Finance approver | Approval task | Confirm same-actor or missing-recorder block. | Expected denial recorded. |
+| FINANCE-APPROVER-03 | Finance approver | Stale source case | Confirm stale source conflict handling. | Conflict recorded. |
+| FINANCE-APPROVER-04 | Finance approver | Finance audit view | Trace approval execution to ledger/effect audit. | Trace references recorded. |
+| PURCHASE-REQUESTER-01 | Purchase requester | Housing purchases page | Create or review purchase request with evidence. | Purchase/evidence state recorded. |
+| PURCHASE-REQUESTER-02 | Purchase requester | Receipt upload | Upload and remove pending receipt in UAT scope. | Pending file behavior recorded. |
+| PURCHASE-REQUESTER-03 | Purchase requester | Purchase detail | Confirm protected bound receipt cannot be deleted. | Expected block recorded. |
+| PURCHASE-REQUESTER-04 | Purchase requester | Phone or desktop list | Locate request and verify status handoff. | Status and usability recorded. |
+| PURCHASE-APPROVER-01 | Purchase approver | Approval task or purchase detail | Decide purchase approval/rejection. | Lifecycle and audit recorded. |
+| PURCHASE-APPROVER-02 | Purchase approver | Transferred/refunded purchase | Confirm invalid lifecycle action blocks. | Expected block recorded. |
+| PURCHASE-APPROVER-03 | Purchase approver | Stale purchase case | Confirm stale/version conflict handling. | Conflict recorded. |
+| PURCHASE-APPROVER-04 | Purchase approver | Purchase audit view | Trace lifecycle decision to source/effect. | Trace references recorded. |
+| PAYMENT-STAFF-01 | Payment staff | Purchase detail | Pay approved purchase. | Payment effect recorded. |
+| PAYMENT-STAFF-02 | Payment staff | Purchase transfer action | Transfer eligible purchase items to tenant charge. | Transfer/charge effect recorded. |
+| PAYMENT-STAFF-03 | Payment staff | Already-transferred/refunded item | Confirm duplicate or invalid transfer blocks. | Expected block recorded. |
+| PAYMENT-STAFF-04 | Payment staff | Finance trace view | Trace purchase payment/transfer to ledger. | Trace evidence recorded. |
+| REPAIR-STAFF-01 | Repair staff | Assigned repair task | Process repair with attachment review. | Repair state/evidence recorded. |
+| REPAIR-STAFF-02 | Repair staff | Repair file control | Verify pending attachment retry/removal path. | File behavior recorded. |
+| REPAIR-STAFF-03 | Repair staff | Bound repair evidence | Confirm protected bound file cannot be deleted. | Expected block recorded. |
+| REPAIR-STAFF-04 | Repair staff | Phone-width repair page | Complete field update on phone. | Mobile completion recorded. |
+| AUDITOR-01 | Auditor | Dashboard/task/approval/detail route | Trace one action to approval/effect/audit. | Audit evidence recorded. |
+| AUDITOR-02 | Auditor | Direct write/action control | Confirm write actions are unavailable. | Denied write path recorded. |
+| AUDITOR-03 | Auditor | File/evidence route | Verify sensitive field/file projection. | Masking/permission result recorded. |
+| AUDITOR-04 | Auditor | Cross-scope route | Confirm cross-tenant/park data is denied. | Deny route/message recorded. |
+
 ## Task Templates
 
 ### PARK-ADMIN-01 — Verify role-scoped work entry

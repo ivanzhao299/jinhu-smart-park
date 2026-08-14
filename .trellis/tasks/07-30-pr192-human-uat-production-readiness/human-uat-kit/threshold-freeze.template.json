@@ -1,13 +1,18 @@
 {
   "schema_version": "pr192-human-uat-threshold-freeze-v1",
   "threshold_version": "<fill-before-human-uat>",
+  "threshold_content_sha256": "<sha256-of-this-frozen-threshold-document>",
+  "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
   "handoff_id": "<fill-from-approved-handoff>",
+  "handoff_hash": "<sha256-of-approved-handoff>",
   "owner_domain": "product_operations",
   "approved_by_human_name": "<required-human-owner>",
   "approved_by_role": "<required-human-role>",
   "approved_at": "<iso8601-required>",
   "applies_to_build_sha": "<40-char-git-sha>",
   "applies_to_environment_id": "<isolated-uat-env-id>",
+  "task_card_version": "<fill-before-human-uat>",
+  "task_card_hash": "<sha256-of-frozen-task-cards>",
   "cohort_rules": {
     "minimum_participants_per_role": 5,
     "minimum_tasks_per_participant": 4,
@@ -36,7 +41,9 @@
   "change_control": {
     "task_card_change_requires_new_cohort": true,
     "build_or_profile_change_requires_new_h0": true,
-    "threshold_change_after_execution_invalidates_prior_evaluation": true
+    "threshold_change_after_execution_invalidates_prior_evaluation": true,
+    "threshold_hash_must_match_observation_ledger": true,
+    "threshold_hash_must_match_readiness_input": true
   },
   "non_claims": [
     "This template is not an approval until filled and signed by the required human owner.",

@@ -9,9 +9,12 @@ Passwords/tokens/secrets allowed in this file: no
 - `created_at`: `<fill>`
 - `uat_coordinator`: `<fill-human-owner>`
 - `technical_handoff_ref`: `../handoff/2026-08-14-technical-closure-to-human-gate.md`
-- `technical_candidate_sha`: `5987b14526443ee638aa27134485b12b681ef5b8`
+- `technical_candidate_sha`: `97669ed2df810c9bc1da0e1abeb271187a7b70a4`
+- `kit_authoring_commit`: `5987b14526443ee638aa27134485b12b681ef5b8`
 - `threshold_version`: `<fill>`
+- `threshold_hash`: `<fill>`
 - `task_card_version`: `<fill>`
+- `task_card_hash`: `<fill>`
 
 ## 2. Environment
 
@@ -29,24 +32,26 @@ Passwords/tokens/secrets allowed in this file: no
 
 Do not store passwords, tokens, recovery codes, private phone numbers, or identity documents here.
 
-| Role | Account alias pattern | Credential channel ref | Recovery owner | Superuser/wildcard? |
-| --- | --- | --- | --- | --- |
-| Park admin | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay front desk | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay cleaner | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay inspector | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Homestay finance | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing leasing specialist | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing approver | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing handover staff | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Housing billing staff | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Cashier | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Finance approver | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Purchase requester | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Purchase approver | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Payment staff | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Repair staff | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
-| Auditor | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+The exact account aliases and scopes must live in a secret-safe account manifest. This H0 handoff stores only manifest references and checksums, not passwords or tokens. A naming pattern alone is not acceptable H0 evidence.
+
+| Role | Exact account manifest ref | Account manifest sha256 | Tenant/park scope manifest ref | Permission bundle manifest ref | Credential channel ref | Recovery owner | Superuser/wildcard? |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Park admin | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay front desk | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay cleaner | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay inspector | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Homestay finance | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing leasing specialist | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing handover staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Housing billing staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Cashier | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Finance approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Purchase requester | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Purchase approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Payment staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Repair staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Auditor | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 
 ## 4. Data And Cleanup
 
@@ -81,6 +86,7 @@ Do not store passwords, tokens, recovery codes, private phone numbers, or identi
 - [ ] Non-production UAT environment verified.
 - [ ] No production data, production identity, or real secrets present.
 - [ ] Role accounts are exact, no superuser/wildcard.
+- [ ] Exact account manifest, tenant/park scope manifest, permission bundle manifest, and their checksums are recorded.
 - [ ] Credential distribution channel is external and secret-safe.
 - [ ] Threshold freeze approved by human product/operations owner.
 - [ ] Task-card version frozen.
