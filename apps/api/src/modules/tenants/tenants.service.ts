@@ -47,6 +47,7 @@ import {
 import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
 import type { CreateParkDto } from "../parks/dto/create-park.dto";
+import { ensureCodeRuleScopeProvisioned } from "../code-rules/code-rule-scope-provisioning";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
@@ -343,6 +344,7 @@ export class TenantsService {
       const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId, parkId: park.parkId }, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
       await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? {});
+      await ensureCodeRuleScopeProvisioned(manager, { tenantId, parkId: park.parkId }, actorId);
       await this.ensureAssetScopeProvisioning(manager, { tenantId, parkId: park.parkId }, moduleCodes, actorId);
       const role = await this.createTenantAdminRole(manager, tenant, park.parkId, actorId);
       await this.applyTenantAdminPermissions(
@@ -428,6 +430,7 @@ export class TenantsService {
     const modules = await this.resolveStandardModules(manager, moduleCodes);
     await this.cloneTenantParkModules(manager, tenant, parkId, sourceAssignments, modules, actor.sub);
 
+    await ensureCodeRuleScopeProvisioned(manager, targetScope, actor.sub);
     await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
     const permissions = await this.ensureTenantPermissions(manager, sourceScope, targetScope, actor.sub);
     const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actor.sub);
@@ -626,6 +629,7 @@ export class TenantsService {
             parkActive ? new Set<string>() : new Set(["asset"]),
             !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
           );
+          await ensureCodeRuleScopeProvisioned(manager, targetScope, actorId);
           if (parkActive) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
           }
@@ -717,6 +721,7 @@ export class TenantsService {
     for (const scope of scopes) {
       if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
+      await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       const refreshedAssignments = await assignmentRepository.find({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         relations: { module: true }
@@ -1015,6 +1020,7 @@ export class TenantsService {
         parkActive ? new Set<string>() : new Set(["asset"]),
         !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
       );
+      await ensureCodeRuleScopeProvisioned(manager, targetScope, actorId);
       if (parkActive) {
         await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
       }

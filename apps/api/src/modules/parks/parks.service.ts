@@ -13,6 +13,7 @@ import {
 } from "../assets/asset-scope-provisioning";
 import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import { DataScopeService } from "../data-scopes/data-scope.service";
+import { ensureCodeRuleScopeProvisioned } from "../code-rules/code-rule-scope-provisioning";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
 import { TenantsService } from "../tenants/tenants.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -155,18 +156,24 @@ export class ParksService {
     if (wasActive && saved.status !== 1 && defaultAuthorizationProtectedScope && !defaultScopeRemainsActive && defaultScopeIsSecondary) {
       await this.tenantsService.reconcileDeactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
-    if (authorizationProtectedScope && !wasActive && saved.status === 1) {
+    const targetScopeReactivated = !wasActive && saved.status === 1;
+    if (authorizationProtectedScope && targetScopeReactivated) {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, targetScope, actor.sub);
     }
-    if (
+    if (targetScopeReactivated) {
+      await ensureCodeRuleScopeProvisioned(manager, targetScope, actor.sub);
+    }
+    const defaultScopeReactivated =
       defaultScopeProtected
-      && defaultAuthorizationProtectedScope
       && !defaultScopeWasActive
       && defaultScopeRemainsActive
       && defaultScopeIsSecondary
-      && saved.parkCode === "JH"
-    ) {
+      && saved.parkCode === "JH";
+    if (defaultAuthorizationProtectedScope && defaultScopeReactivated) {
       await this.tenantsService.reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
+    }
+    if (defaultScopeReactivated) {
+      await ensureCodeRuleScopeProvisioned(manager, DEFAULT_PLATFORM_SCOPE, actor.sub);
     }
     return saved;
     }).catch((error: unknown) => {

@@ -175,6 +175,72 @@ await lockAssetScope(manager, targetScope);
 await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 ```
 
+## Scenario: Tenant Code-Rule Scope Provisioning
+
+### 1. Scope / Trigger
+
+- Trigger: tenant creation, additional-park creation, login/module settings update, or direct module assignment creates or changes a `(tenantId, parkId)` module scope.
+- Trigger: a forward migration must repair pre-existing active scopes that predate runtime provisioning.
+
+### 2. Signatures
+
+- Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction. Tenant create/update/reactivation, park reactivation (including bounded default-scope recovery), additional-park creation, tenant login/module settings, and direct SaaS module assign/enable writers must all use it after persisting or restoring assignments.
+- Standard source: enabled, non-deleted `sys_code_rule` rows in fixed platform scope `10000001/20000001`, selected by persisted enabled module assignments.
+- Migration entry point: forward-only `database/migrations/000213_code_rule_scope_provisioning.sql` with the same source, eligibility, sequence-reset, and history-preservation semantics.
+
+### 3. Contracts
+
+- Never trust raw DTO `moduleCodes`; read persisted `rel_tenant_module JOIN sys_module` in the transaction. Both rows must be enabled and non-deleted, and the assignment must not be expired.
+- Provision future-start assignments ahead of activation. Runtime module visibility still enforces `start_time`; provisioning must not grant permissions or activate a module early.
+- Copy rule definitions and examples, but reset `current_seq/current_sequence` to `0` and `next_reset_time` to `NULL` so each park has an independent sequence.
+- If any target row has the same `rule_code` **or the same `entity_type`**, including disabled or soft-deleted history, do not insert, update, enable, or resurrect it. Both identities are database-unique for non-deleted rows, and administrators may use a custom rule code for a standard entity.
+- Lock the validated fixed-source core rows through the copy statement. A preflight and insert under separate unlocked `READ COMMITTED` snapshots may otherwise commit a partial asset rule set.
+- The fixed source must contain enabled `BUILDING_CODE`, `FLOOR_CODE`, and `UNIT_CODE` when asset provisioning is required. A missing core source is a configuration conflict, not a reason to use another tenant or park as fallback.
+- Validate each asset core source by its complete identity tuple (`rule_code`, `target_module`, `entity_type`, `target_entity`); an enabled but remapped platform rule is incomplete and must fail before target writes.
+- Every park inactive-to-active transition runs provisioning, including future-start assignments. Current asset-runtime protection gates authorization restoration only and must not gate rule projection.
+- New code-rule-backed modules extend the fixed standard source and persisted module assignment data; do not add a second application-only rule-code list.
+
+### 4. Validation & Error Matrix
+
+- asset assignment plus incomplete fixed core source -> conflict and full transaction rollback.
+- disabled/deleted/expired assignment or disabled/deleted module -> no new target rules.
+- future-start enabled assignment -> rules provisioned, module remains unavailable until its normal start-time gate passes.
+- target disabled/deleted/customized history -> preserve it exactly and skip the matching rule.
+- concurrent or repeated provisioning -> advisory-lock serialized, idempotent result with no duplicate rule.
+- tenant or park reactivation/expiry extension and direct SaaS module assign/enable -> provision in the same transaction after assignments become active; no entry point may rely only on the one-time migration.
+- unknown target scope or source in another tenant/park -> never infer or cross-scope copy.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a newly provisioned tenant creates building, floor, and unit with empty user codes; generated values begin at sequence 1 in that park.
+- Base: rerunning provisioning or migration inserts zero additional rows and preserves the current sequence.
+- Bad: production seed initializes only the default scope while tenant/park creation omits runtime rule provisioning.
+
+### 6. Tests Required
+
+- Unit-test source module filtering, future-start provisioning, expired/disabled exclusion, core-source conflict, history preservation, sequence reset, and idempotency.
+- Contract-test every tenant/module/park writer so no onboarding or module-change entry point bypasses the shared helper.
+- In disposable PostgreSQL, run migration, production seed, legacy-scope fixtures, migration replay, runtime helper replay, and independent building/floor/unit generation assertions.
+- API/browser regression must cover: new tenant -> real current park name -> create building/floor/unit -> add park -> refreshed accessible park list -> switch context -> create a second park's building without `Enabled code rule not found`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+// Seed-only initialization leaves every future tenant/park incomplete.
+if (scopeIsPlatformDefault) await insertDefaultRules();
+```
+
+#### Correct
+
+```ts
+await manager.transaction(async (transaction) => {
+  await persistTenantModuleAssignments(transaction, scope, moduleCodes);
+  await ensureCodeRuleScopeProvisioned(transaction, scope, actorId);
+});
+```
+
 ## Authentication, Permissions, And Scope
 
 Non-public endpoints must declare permission metadata. `PermissionGuard` rejects endpoints with neither `@RequirePermissions` nor `@RequireAnyPermissions`.

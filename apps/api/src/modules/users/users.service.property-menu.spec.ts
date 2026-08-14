@@ -334,8 +334,17 @@ test("current user context resolves enabled modules for the current park before 
   const service = createService({
     usersRepository: { findOne: async () => user },
     userOrgRepository: { findOne: async () => null },
-    userParkRepository: { find: async () => [] },
-    parksRepository: { find: async () => [] },
+    userParkRepository: { find: async () => [], findOne: async () => null },
+    parksRepository: {
+      find: async () => [{
+        tenantId: TENANT_ID,
+        parkId: PARK_ID,
+        parkCode: "PARK-001",
+        parkName: "测试园区",
+        status: 1,
+        isDeleted: false
+      }]
+    },
     dataScopeService: { getUserDataScopes: async () => [] },
     fieldPolicyService: {
       getUserFieldPolicies: async () => [],

@@ -36,10 +36,14 @@ test("canonical park mutations share the asset scope lock and preserve protected
   assert.match(source, /const scopeRemainsActive = await this\.hasActiveCanonicalParkSource/);
   assert.match(source, /if \(authorizationProtectedScope && wasActive && saved\.status !== 1 && !scopeRemainsActive\) \{\s+await this\.tenantsService\.reconcileDeactivatedParkAuthorization/);
   assert.match(source, /defaultAuthorizationProtectedScope && !defaultScopeRemainsActive && defaultScopeIsSecondary[\s\S]*reconcileDeactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
-  assert.match(source, /if \(authorizationProtectedScope && !wasActive && saved\.status === 1\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
+  assert.match(source, /const targetScopeReactivated = !wasActive && saved\.status === 1/);
+  assert.match(source, /if \(authorizationProtectedScope && targetScopeReactivated\) \{\s+await this\.tenantsService\.reconcileReactivatedParkAuthorization/);
+  assert.match(source, /if \(targetScopeReactivated\) \{\s+await ensureCodeRuleScopeProvisioned\(manager, targetScope, actor\.sub\)/);
   assert.match(source, /const defaultScopeWasActive = defaultScopeProtected[\s\S]*hasValidCanonicalParkSourceBeforeMutation\(manager, DEFAULT_PLATFORM_SCOPE\)/);
   assert.match(source, /private async hasValidCanonicalParkSourceBeforeMutation[\s\S]*error instanceof ConflictException[\s\S]*return false/);
-  assert.match(source, /defaultScopeProtected[\s\S]*defaultAuthorizationProtectedScope[\s\S]*!defaultScopeWasActive[\s\S]*defaultScopeRemainsActive[\s\S]*reconcileReactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
+  assert.match(source, /const defaultScopeReactivated =[\s\S]*defaultScopeProtected[\s\S]*!defaultScopeWasActive[\s\S]*defaultScopeRemainsActive/);
+  assert.match(source, /if \(defaultAuthorizationProtectedScope && defaultScopeReactivated\)[\s\S]*reconcileReactivatedParkAuthorization\(manager, DEFAULT_PLATFORM_SCOPE/);
+  assert.match(source, /if \(defaultScopeReactivated\) \{\s+await ensureCodeRuleScopeProvisioned\(manager, DEFAULT_PLATFORM_SCOPE, actor\.sub\)/);
   assert.doesNotMatch(source, /!wasActive[\s\S]{0,80}!defaultScopeWasActive/);
   assert.match(source, /const renamesCrossScopeDefaultSource = nextCode !== undefined[\s\S]*entity\.tenantId !== DEFAULT_PLATFORM_SCOPE\.tenantId/);
   assert.match(source, /if \(await hasProtectedAssetScope\(manager, scope\)\)/);

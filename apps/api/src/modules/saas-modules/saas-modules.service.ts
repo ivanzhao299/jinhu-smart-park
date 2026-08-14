@@ -28,6 +28,7 @@ import {
   hasCanonicalActiveAssetParkSource,
   lockAssetScope
 } from "../assets/asset-scope-provisioning";
+import { ensureCodeRuleScopeProvisioned } from "../code-rules/code-rule-scope-provisioning";
 import { TenantsService } from "../tenants/tenants.service";
 
 @Injectable()
@@ -301,6 +302,7 @@ export class SaaSModulesService {
         entity.expireTime
       );
       const saved = await repository.save(entity);
+      await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       if (enabling && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       } else if (requestedEnabled && module.moduleCode === "asset") {
@@ -361,6 +363,7 @@ export class SaaSModulesService {
         entity.expireTime
       );
       const saved = await repository.save(entity);
+      await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       if (parkActive && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       } else if (module.moduleCode === "asset") {
