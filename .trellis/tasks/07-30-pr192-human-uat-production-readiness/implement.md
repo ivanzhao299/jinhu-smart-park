@@ -90,3 +90,15 @@ Owner: `production-readiness-facilitator`，仅在 H4 证据齐备后短时启�
 ## Completion
 
 完成定义是 `production_ready` 的全部机器和真人条件真实满足。若参与者或签署尚未到位，正确结果是发布 handoff、记录 `awaiting_human_gate` 并释放 Codex agent；不得为了关闭任务伪造真人结论。
+
+## 2026-08-14 Technical Closure Handoff
+
+- Candidate handoff artifact:
+  `handoff/2026-08-14-technical-closure-to-human-gate.md`.
+- Bound production candidate:
+  `97669ed2df810c9bc1da0e1abeb271187a7b70a40e756e419da`.
+- Technical remediation lane `#270 -> #271 -> #272 -> #273`, Codex Review
+  follow-up `#284`, main CI, production deployment, immediate production
+  health, and Docker cleanup are recorded as machine evidence.
+- External human UAT, named signoffs, and final `production_ready` remain
+  explicitly missing. Current next state remains `awaiting_human_gate`.
