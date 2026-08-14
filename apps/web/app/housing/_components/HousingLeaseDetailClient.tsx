@@ -54,7 +54,8 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const eligible = data.lease.eligibility?.eligible !== false;
   const canActivate = data.lease.status === "pending_signature" && Boolean(data.lease.signatureFileId)
     && capabilities.actionAllowed("housing.leases.activate");
-  const checkoutFinanciallyReady = !isPositiveMoney(data.finance_summary?.outstanding ?? "0")
+  const checkoutFinanciallyReady = Boolean(data.finance_summary)
+    && !isPositiveMoney(data.finance_summary?.outstanding ?? "0")
     && !isPositiveMoney(data.finance_summary?.deposit_balance ?? "0");
   const highRiskActions = ([
     ["approve", "审批租约", data.lease.status === "pending_approval" && eligible],

@@ -335,20 +335,24 @@ export class FieldPolicyService {
     maskRule?: string | null
   ): void {
     const containerKeys: Record<string, readonly string[]> = {
-      booking: ["booking", "items"], ledger: ["ledger"], receivable: ["receivables"],
-      lease: ["lease", "items"], handover: ["handovers"], purchase: ["purchase", "items"],
-      repair: ["repairs", "items"], tenant: ["tenant", "tenants", "items"]
+      availability: ["availability", "items"], booking: ["booking", "items"],
+      handover: ["handover", "handovers"], ledger: ["ledger"], lease: ["lease", "items"],
+      purchase: ["purchase", "items"], rate: ["rate", "rates", "items"], receivable: ["receivables"],
+      repair: ["repair", "repairs", "items"], stay: ["stay", "stays", "items"],
+      task: ["task", "tasks", "items"], tenant: ["tenant", "tenants", "items"],
+      turnover: ["turnover", "turnovers", "items"]
     };
     const keys = containerKeys[entity];
     if (!keys) return;
     const leaf = fieldKey.split(".").filter(Boolean).at(-1);
     if (!leaf) return;
     const candidateKeys = this.projectionFieldAliases(entity, leaf);
-    const visit = (target: unknown): void => {
-      if (Array.isArray(target)) return void target.forEach(visit);
+    const visit = (target: unknown, depth = 0): void => {
+      if (Array.isArray(target)) return void target.forEach((item) => visit(item, depth));
       if (!target || typeof target !== "object") return;
       const record = target as Record<string, unknown>;
       for (const key of keys) {
+        if (key === "items" && depth > 0) continue;
         const child = record[key];
         if (!child) continue;
         const apply = (item: unknown): void => {
@@ -359,7 +363,7 @@ export class FieldPolicyService {
         if (Array.isArray(child)) child.forEach(apply);
         else apply(child);
       }
-      Object.values(record).forEach(visit);
+      Object.values(record).forEach((child) => visit(child, depth + 1));
     };
     visit(value);
   }
