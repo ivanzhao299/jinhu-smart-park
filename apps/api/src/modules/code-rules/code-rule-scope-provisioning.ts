@@ -11,7 +11,16 @@ interface ModuleCodeRow {
 
 interface RuleCodeRow {
   ruleCode: string;
+  targetModule: string;
+  entityType: string;
+  targetEntity: string;
 }
+
+const ASSET_CORE_RULE_IDENTITIES = new Map<string, readonly [string, string, string]>([
+  ["BUILDING_CODE", ["asset", "building", "building"]],
+  ["FLOOR_CODE", ["asset", "floor", "floor"]],
+  ["UNIT_CODE", ["asset", "unit", "unit"]]
+]);
 
 export function codeRuleScopeLockKey(scope: TenantParkScope): string {
   return `tenant-code-rule:${scope.tenantId}:${scope.parkId}`;
@@ -45,7 +54,10 @@ export async function ensureCodeRuleScopeProvisioned(
 
   if (moduleCodes.includes("asset")) {
     const sourceRows = await manager.query<RuleCodeRow[]>(
-      `SELECT rule_code AS "ruleCode"
+      `SELECT rule_code AS "ruleCode",
+              target_module AS "targetModule",
+              entity_type AS "entityType",
+              target_entity AS "targetEntity"
          FROM sys_code_rule
         WHERE tenant_id = $1
           AND park_id = $2
@@ -55,8 +67,15 @@ export async function ensureCodeRuleScopeProvisioned(
         FOR SHARE`,
       [DEFAULT_PLATFORM_SCOPE.tenantId, DEFAULT_PLATFORM_SCOPE.parkId, ASSET_CORE_RULE_CODES]
     );
-    const sourceCodes = new Set(sourceRows.map((row) => row.ruleCode));
-    if (ASSET_CORE_RULE_CODES.some((ruleCode) => !sourceCodes.has(ruleCode))) {
+    const sourceIdentities = new Map(sourceRows.map((row) => [
+      row.ruleCode,
+      [row.targetModule, row.entityType, row.targetEntity]
+    ]));
+    if (ASSET_CORE_RULE_CODES.some((ruleCode) => {
+      const actual = sourceIdentities.get(ruleCode);
+      const expected = ASSET_CORE_RULE_IDENTITIES.get(ruleCode);
+      return !actual || !expected || actual.some((value, index) => value !== expected[index]);
+    })) {
       throw new ConflictException("平台标准资产编码规则配置不完整");
     }
   }

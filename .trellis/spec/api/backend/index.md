@@ -196,6 +196,8 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 - If any target row has the same `rule_code` **or the same `entity_type`**, including disabled or soft-deleted history, do not insert, update, enable, or resurrect it. Both identities are database-unique for non-deleted rows, and administrators may use a custom rule code for a standard entity.
 - Lock the validated fixed-source core rows through the copy statement. A preflight and insert under separate unlocked `READ COMMITTED` snapshots may otherwise commit a partial asset rule set.
 - The fixed source must contain enabled `BUILDING_CODE`, `FLOOR_CODE`, and `UNIT_CODE` when asset provisioning is required. A missing core source is a configuration conflict, not a reason to use another tenant or park as fallback.
+- Validate each asset core source by its complete identity tuple (`rule_code`, `target_module`, `entity_type`, `target_entity`); an enabled but remapped platform rule is incomplete and must fail before target writes.
+- Every park inactive-to-active transition runs provisioning, including future-start assignments. Current asset-runtime protection gates authorization restoration only and must not gate rule projection.
 - New code-rule-backed modules extend the fixed standard source and persisted module assignment data; do not add a second application-only rule-code list.
 
 ### 4. Validation & Error Matrix

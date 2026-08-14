@@ -17,9 +17,9 @@ test("code-rule scope provisioning derives every rule from persisted provisionab
       }
       if (sql.includes('rule_code AS "ruleCode"') && !sql.includes("WITH source_rules")) {
         return [
-          { ruleCode: "BUILDING_CODE" },
-          { ruleCode: "FLOOR_CODE" },
-          { ruleCode: "UNIT_CODE" }
+          { ruleCode: "BUILDING_CODE", targetModule: "asset", entityType: "building", targetEntity: "building" },
+          { ruleCode: "FLOOR_CODE", targetModule: "asset", entityType: "floor", targetEntity: "floor" },
+          { ruleCode: "UNIT_CODE", targetModule: "asset", entityType: "unit", targetEntity: "unit" }
         ];
       }
       if (sql.includes("WITH source_rules")) {
@@ -56,6 +56,28 @@ test("code-rule scope provisioning fails closed when the standard asset core is 
     query: async (sql: string) => {
       if (sql.includes('module.module_code AS "moduleCode"')) return [{ moduleCode: "asset" }];
       if (sql.includes('rule_code AS "ruleCode"')) return [{ ruleCode: "BUILDING_CODE" }];
+      return [];
+    }
+  } as unknown as EntityManager;
+
+  await assert.rejects(
+    () => ensureCodeRuleScopeProvisioned(manager, { tenantId: "tenant-a", parkId: "park-a" }, null),
+    (error: unknown) => error instanceof ConflictException
+      && error.message === "平台标准资产编码规则配置不完整"
+  );
+});
+
+test("code-rule scope provisioning fails closed when a standard asset core mapping drifts", async () => {
+  const manager = {
+    query: async (sql: string) => {
+      if (sql.includes('module.module_code AS "moduleCode"')) return [{ moduleCode: "asset" }];
+      if (sql.includes('rule_code AS "ruleCode"')) {
+        return [
+          { ruleCode: "BUILDING_CODE", targetModule: "workorder", entityType: "building", targetEntity: "building" },
+          { ruleCode: "FLOOR_CODE", targetModule: "asset", entityType: "floor", targetEntity: "floor" },
+          { ruleCode: "UNIT_CODE", targetModule: "asset", entityType: "unit", targetEntity: "unit" }
+        ];
+      }
       return [];
     }
   } as unknown as EntityManager;

@@ -42,7 +42,11 @@ BEGIN
       FROM sys_code_rule
      WHERE tenant_id = '10000001'
        AND park_id = '20000001'
-       AND rule_code IN ('BUILDING_CODE', 'FLOOR_CODE', 'UNIT_CODE')
+       AND (rule_code, target_module, entity_type, target_entity) IN (
+         ('BUILDING_CODE', 'asset', 'building', 'building'),
+         ('FLOOR_CODE', 'asset', 'floor', 'floor'),
+         ('UNIT_CODE', 'asset', 'unit', 'unit')
+       )
        AND status = 'enabled'
        AND is_deleted = false;
     IF source_core_count <> 3 THEN

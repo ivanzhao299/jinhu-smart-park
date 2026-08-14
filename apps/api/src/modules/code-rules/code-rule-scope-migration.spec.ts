@@ -33,5 +33,9 @@ test("000212 preserves every target history shape and resets only newly inserted
 test("000212 fails closed only when non-default asset targets require a missing standard core", () => {
   assert.match(migration, /\(park\.tenant_id, park\.park_id\) <> \('10000001', '20000001'\)/);
   assert.match(migration, /source_core_count <> 3/);
+  assert.match(migration, /\(rule_code, target_module, entity_type, target_entity\) IN/);
+  assert.match(migration, /\('BUILDING_CODE', 'asset', 'building', 'building'\)/);
+  assert.match(migration, /\('FLOOR_CODE', 'asset', 'floor', 'floor'\)/);
+  assert.match(migration, /\('UNIT_CODE', 'asset', 'unit', 'unit'\)/);
   assert.match(migration, /000212-code-rule-source-preflight-failed/);
 });
