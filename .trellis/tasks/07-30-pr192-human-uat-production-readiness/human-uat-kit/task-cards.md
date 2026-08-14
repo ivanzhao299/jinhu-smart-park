@@ -10,7 +10,8 @@ These cards are templates for external real-user execution. They state goals and
 - `threshold_version`: `<fill-before-release>`
 - `allowed_devices`: `desktop`, `phone_390px_class`
 - `forbidden_assistance`: prefilled UUIDs, super-admin borrowing, host clicking for participant, step-by-step navigation answers
-- `record_required`: success/failure, duration, interaction count, error count, help count, device, first/repeat marker, anonymized participant ID, evidence references, consent status
+- `record_required`: success/failure, duration, interaction count, error count, help count, permitted-help type, forbidden-assistance type, contaminated/valid marker, device, first/repeat marker, anonymized participant ID, evidence references, consent status
+- `invalid_attempt_rule`: attempts with host clicking, step-by-step navigation answers, coordinator-provided UUIDs, super-admin/wildcard credentials, or any other forbidden assistance must remain in the append-only observation ledger with `attempt_valid_for_metrics=false` and must not count toward cohort sufficiency or threshold metrics.
 
 ## Role Coverage Matrix
 
@@ -35,7 +36,9 @@ These cards are templates for external real-user execution. They state goals and
 
 ## Frozen Task Card Catalog
 
-Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`. Every start point below must be reached from a discoverable role entry in the product navigation, dashboard, queue, or list; coordinator-provided hidden deep links are not valid task starts.
+Every row in this catalog is a complete frozen task card. Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`. Every start point below must be reached from a discoverable role entry in the product navigation, dashboard, queue, or list; coordinator-provided hidden deep links are not valid task starts.
+
+The detailed examples after the table are coordinator notes only; they do not reduce the required four-card-per-role matrix. A readiness evaluator must derive coverage from the 64 task IDs below, not from the example section.
 
 | Task ID | Role | Start point | Goal | Completion evidence |
 | --- | --- | --- | --- | --- |

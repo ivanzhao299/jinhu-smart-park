@@ -17,6 +17,10 @@ Passwords/tokens/secrets allowed in this file: no
 - `task_card_hash`: `<fill>`
 - `task_ui_reachability_matrix_ref`: `<fill>`
 - `task_ui_reachability_matrix_hash`: `<fill>`
+- `defect_tracker_snapshot_ref`: `<fill-before-H1>`
+- `defect_tracker_snapshot_hash`: `<sha256-of-authoritative-defect-ledger-before-H1>`
+- `open_p0_before_h1`: `must_be_0`
+- `open_p1_before_h1`: `must_be_0`
 
 ## 2. Environment
 
@@ -95,6 +99,8 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - [ ] Threshold freeze approved by required role owners.
 - [ ] Task-card version frozen.
 - [ ] Every frozen task card has UI reachability evidence from a discoverable role entry on desktop and required 390px-class mobile paths.
+- [ ] Task reachability evidence covers every frozen task ID, including failure states, attachment states, and mobile-only/phone-designated paths where required.
+- [ ] Authoritative defect tracker snapshot is attached, hashed, and shows `open_p0_before_h1=0` and `open_p1_before_h1=0`.
 - [ ] Observation, consent, defect, signoff, reset, cleanup, and residual scan paths ready.
 - [ ] High-risk production enforce remains off until final readiness.
 

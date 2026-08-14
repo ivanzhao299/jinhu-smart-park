@@ -3,6 +3,9 @@
   "threshold_version": "<fill-before-human-uat>",
   "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-and-signature-fields>",
   "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
+  "threshold_digest_algorithm": "sha256 over canonical JSON after removing threshold_payload_sha256, threshold_signature_ref, role_owner_approval_refs, role_owner_approval_hashes, and human signature envelopes",
+  "role_owner_approval_refs": [],
+  "role_owner_approval_hashes": [],
   "handoff_id": "<fill-from-approved-handoff>",
   "handoff_hash": "<sha256-of-approved-handoff>",
   "owner_domain": "product_operations",
@@ -26,6 +29,8 @@
   "cohort_rules": {
     "minimum_participants_per_role": 5,
     "minimum_tasks_per_participant": 4,
+    "minimum_first_use_attempts_per_role_task": 5,
+    "minimum_repeat_use_attempts_per_role_task": 5,
     "first_and_repeat_are_separate": true,
     "superuser_or_wildcard_accounts_forbidden": true,
     "host_step_by_step_answers_forbidden": true
@@ -54,6 +59,10 @@
     "threshold_change_after_execution_invalidates_prior_evaluation": true,
     "threshold_hash_must_match_observation_ledger": true,
     "threshold_hash_must_match_readiness_input": true,
+    "observation_candidate_sha_must_match_readiness_candidate_sha": true,
+    "observation_build_sha_must_match_handoff_build_sha": true,
+    "observation_profile_checksum_must_match_handoff_profile_checksum": true,
+    "forbidden_assistance_invalidates_attempt_for_metrics": true,
     "threshold_digest_excludes_self_reference_and_signature_fields": true,
     "role_owner_approval_change_requires_new_threshold_version": true
   },
