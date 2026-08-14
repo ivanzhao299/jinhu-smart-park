@@ -23,6 +23,9 @@ Passwords/tokens/secrets allowed in this file: no
 - `defect_tracker_snapshot_hash`: `<sha256-of-authoritative-defect-ledger-before-H1>`
 - `open_p0_before_h1`: `must_be_0`
 - `open_p1_before_h1`: `must_be_0`
+- `high_risk_flag_h1_freeze_ref`: `<fill-with-machine-read-flag-state-before-H1>`
+- `high_risk_flag_h1_freeze_hash`: `<sha256-of-H1-flag-state>`
+- `all_high_risk_production_enforce_flags_off_before_h1`: `must_be_true`
 
 ## 2. Environment
 
@@ -74,6 +77,12 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - `seed_manifest_ref`: `<fill>`
 - `reset_script_ref`: `<fill>`
 - `cleanup_script_ref`: `<fill>`
+- `reset_execution_ref`: `<fill-with-candidate/profile-bound-preflight-execution-evidence>`
+- `reset_execution_hash`: `<sha256-of-reset-execution-evidence>`
+- `reset_execution_successful`: `must_be_true`
+- `cleanup_preflight_execution_ref`: `<fill-with-candidate/profile-bound-preflight-execution-evidence>`
+- `cleanup_preflight_execution_hash`: `<sha256-of-cleanup-preflight-execution-evidence>`
+- `cleanup_preflight_execution_successful`: `must_be_true`
 - `residual_scan_ref`: `<fill>`
 - `file_storage_scope`: `<fill>`
 - `cleanup_residual_required`: `0`
@@ -113,6 +122,8 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - [ ] Task reachability evidence covers every frozen task ID, including failure states, attachment states, and mobile-only/phone-designated paths where required.
 - [ ] Authoritative defect tracker snapshot is attached, hashed, and shows `open_p0_before_h1=0` and `open_p1_before_h1=0`.
 - [ ] Observation, consent, defect, signoff, reset, cleanup, and residual scan paths ready.
+- [ ] Reset and cleanup preflight scripts have executed successfully against the exact UAT candidate/profile before H1.
+- [ ] Machine-read high-risk flag evidence proves production-enforcement flags are off for the H1 environment and tenant/park scope.
 - [ ] High-risk production enforce remains off until final readiness.
 
 Until all boxes are checked by the external coordinator, H1 must not begin.

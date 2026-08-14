@@ -36,6 +36,16 @@
     "host_step_by_step_answers_forbidden": true
   },
   "metrics": {
+    "calculation_algorithm": {
+      "calculator_version": "<required-version-or-script-hash>",
+      "percentile_convention": "nearest_rank",
+      "duration_denominator_rule": "valid_attempts_only_unless_failure_duration_policy_includes_failed_attempts",
+      "failure_duration_policy": "<include_or_exclude_failed_attempts-required>",
+      "error_rate_denominator_rule": "valid_attempts_for_role_or_task",
+      "help_rate_denominator_rule": "valid_attempts_for_role_or_task",
+      "repeat_use_strata_calculated_separately": true,
+      "contaminated_attempts_excluded_from_metrics": true
+    },
     "success_rate_minimum_by_role": "<fill-before-human-uat>",
     "p90_duration_seconds_max_by_task": "<fill-before-human-uat>",
     "p90_interaction_count_max_by_task": "<fill-before-human-uat>",
