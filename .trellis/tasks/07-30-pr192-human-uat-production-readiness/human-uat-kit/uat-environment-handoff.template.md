@@ -15,6 +15,8 @@ Passwords/tokens/secrets allowed in this file: no
 - `threshold_hash`: `<fill>`
 - `task_card_version`: `<fill>`
 - `task_card_hash`: `<fill>`
+- `task_ui_reachability_matrix_ref`: `<fill>`
+- `task_ui_reachability_matrix_hash`: `<fill>`
 
 ## 2. Environment
 
@@ -68,6 +70,7 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - `consent_form_ref`: `<fill>`
 - `observation_ledger_ref`: `observation-ledger.csv`
 - `defect_tracker_ref`: `<fill>`
+- `evidence_redaction_checklist_ref`: `<fill>`
 - `screenshot_policy`: consent required, redact sensitive fields
 - `recording_policy`: consent required, redact sensitive fields
 - `retention_policy_ref`: `<fill>`
@@ -89,7 +92,9 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 - [ ] Exact account manifest, tenant/park scope manifest, permission bundle manifest, and their checksums are recorded.
 - [ ] Credential distribution channel is external and secret-safe.
 - [ ] Threshold freeze approved by human product/operations owner.
+- [ ] Threshold freeze approved by required role owners.
 - [ ] Task-card version frozen.
+- [ ] Every frozen task card has UI reachability evidence from a discoverable role entry on desktop and required 390px-class mobile paths.
 - [ ] Observation, consent, defect, signoff, reset, cleanup, and residual scan paths ready.
 - [ ] High-risk production enforce remains off until final readiness.
 

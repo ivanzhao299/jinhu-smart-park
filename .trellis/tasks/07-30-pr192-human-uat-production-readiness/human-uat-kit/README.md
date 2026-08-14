@@ -35,4 +35,4 @@ This kit prepares the external PR192 human UAT lane. It does not contain real pa
 
 ## Current Next Step
 
-An external UAT coordinator must copy these templates into a controlled evidence location, fill H0 environment details, freeze thresholds with product/operations owners, distribute role-scoped credentials through the approved secret channel, and start real participant observations.
+An external UAT coordinator must copy these templates into a controlled evidence location, fill H0 environment details, freeze thresholds with product/operations and required role owners, publish the secret-safe exact account manifest, verify task UI reachability from discoverable role entries, distribute role-scoped credentials through the approved secret channel, and only then start real participant observations.

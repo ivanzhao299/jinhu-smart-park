@@ -54,7 +54,9 @@
     "verdict": "missing",
     "required_domains": [
       "product_operations",
-      "business_homestay_housing",
+      "business_homestay",
+      "business_housing",
+      "business_shared_property",
       "finance",
       "security_privacy",
       "technical_operations",
@@ -79,6 +81,7 @@
     "high_risk_feature_flag_freeze_ref": "<fill>",
     "high_risk_feature_flag_state_hash": "<sha256-of-approved-flag-state>",
     "high_risk_production_enforce_approved": "<true|required>",
+    "all_high_risk_flags_match_freeze": "<true|required>",
     "monitoring_ref": "<fill>",
     "alerting_ref": "<fill>",
     "on_call_ref": "<fill>",
@@ -96,7 +99,8 @@
     "residual_scan_hash": "<sha256-of-final-residual-scan>",
     "residual_business_rows": "<0|required>",
     "residual_files": "<0|required>",
-    "residual_active_accounts": "<0|required>"
+    "residual_active_accounts": "<0|required>",
+    "all_role_accounts_revoked_or_reconciled": "<true|required>"
   },
   "computed_contract": {
     "production_ready": false,

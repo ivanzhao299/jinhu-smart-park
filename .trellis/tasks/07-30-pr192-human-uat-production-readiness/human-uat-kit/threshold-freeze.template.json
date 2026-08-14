@@ -9,6 +9,16 @@
   "approved_by_human_name": "<required-human-owner>",
   "approved_by_role": "<required-human-role>",
   "approved_at": "<iso8601-required>",
+  "role_owner_approvals": [
+    {
+      "role": "<required-for-each-role-in-task-cards>",
+      "approved_by_human_name": "<required-role-owner>",
+      "approved_by_role": "<required-role-owner-title>",
+      "approved_at": "<iso8601-required>",
+      "approval_ref": "<append-only-role-owner-approval-ref>"
+    }
+  ],
+  "all_role_owners_approved": "<true|required-before-H1>",
   "applies_to_build_sha": "<40-char-git-sha>",
   "applies_to_environment_id": "<isolated-uat-env-id>",
   "task_card_version": "<fill-before-human-uat>",
@@ -43,7 +53,8 @@
     "build_or_profile_change_requires_new_h0": true,
     "threshold_change_after_execution_invalidates_prior_evaluation": true,
     "threshold_hash_must_match_observation_ledger": true,
-    "threshold_hash_must_match_readiness_input": true
+    "threshold_hash_must_match_readiness_input": true,
+    "role_owner_approval_change_requires_new_threshold_version": true
   },
   "non_claims": [
     "This template is not an approval until filled and signed by the required human owner.",

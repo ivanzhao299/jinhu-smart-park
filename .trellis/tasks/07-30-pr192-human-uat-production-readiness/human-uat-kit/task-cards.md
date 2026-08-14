@@ -99,7 +99,7 @@ Every participant in a role must attempt the four task IDs assigned to that role
 | REPAIR-STAFF-02 | Repair staff | Repair file control | Verify pending attachment retry/removal path. | File behavior recorded. |
 | REPAIR-STAFF-03 | Repair staff | Bound repair evidence | Confirm protected bound file cannot be deleted. | Expected block recorded. |
 | REPAIR-STAFF-04 | Repair staff | Phone-width repair page | Complete field update on phone. | Mobile completion recorded. |
-| AUDITOR-01 | Auditor | Dashboard/task/approval/detail route | Trace one action to approval/effect/audit. | Audit evidence recorded. |
+| AUDITOR-01 | Auditor | Discoverable audit or task entry from primary navigation | Trace one action to approval/effect/audit. | Audit evidence recorded. |
 | AUDITOR-02 | Auditor | Direct write/action control | Confirm write actions are unavailable. | Denied write path recorded. |
 | AUDITOR-03 | Auditor | File/evidence route | Verify sensitive field/file projection. | Masking/permission result recorded. |
 | AUDITOR-04 | Auditor | Cross-scope route | Confirm cross-tenant/park data is denied. | Deny route/message recorded. |
@@ -229,7 +229,7 @@ Every participant in a role must attempt the four task IDs assigned to that role
 ### AUDITOR-01 — Trace audit and permission boundary
 
 - Role: Auditor
-- Start point: dashboard, task list, approval list, or detail route provided by coordinator
+- Start point: discoverable audit, dashboard, task, or approval entry reached from primary navigation; coordinator must not provide an undiscoverable deep link as the starting point
 - Goal: trace one business action from source record to approval/effect/audit evidence while confirming write actions are unavailable.
 - Completion condition: participant records visible audit evidence and denied write paths.
 - Recovery condition: any overbroad write access is P0/P1 and must stop the affected cohort.
