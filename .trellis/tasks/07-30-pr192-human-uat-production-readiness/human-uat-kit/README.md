@@ -2,8 +2,9 @@
 
 Status: template package only  
 Bound technical handoff: `../handoff/2026-08-14-technical-closure-to-human-gate.md`  
-Bound technical candidate: `5987b14526443ee638aa27134485b12b681ef5b8`
-Kit provenance: fill with the final merge commit that contains this exact kit before H0 approval.
+Bound deployed candidate: pending PR `#290` merge and production deployment.
+Last verified pre-PR290 deployed candidate: `717d264275df7ba81b031413c211a4125ca432a5`.
+Kit provenance: pending PR `#290` merge commit. Do not use `717d264275df7ba81b031413c211a4125ca432a5` as the kit provenance commit because that deployed candidate predates this post-merge evidence patch.
 Human readiness status: `awaiting_human_gate`  
 Production readiness status: `awaiting_human_gate`
 
@@ -17,6 +18,7 @@ This kit prepares the external PR192 human UAT lane. It does not contain real pa
 | `observation-ledger.csv` | Append-only observation ledger header for real participant runs. |
 | `ledger-hash-contract.md` | Canonical row-hash and chain algorithm for observation/signoff ledgers. |
 | `scope-coverage-matrix.md` | PR192-to-current homestay/housing scope coverage matrix. Every covered row must bind to technical evidence, UAT task cards, readiness gates, or a named follow-up/out-of-scope decision before production readiness can be claimed. |
+| `content-manifest.sha256` | SHA-256 manifest for this template package, excluding the manifest file itself. The task metadata records the manifest file hash. |
 | `threshold-freeze.template.json` | Product/operations threshold freeze template. Must be approved before human observations can be evaluated. |
 | `signoff-ledger.csv` | Append-only named signoff ledger header for H4. |
 | `uat-environment-handoff.template.md` | H0 environment/account/privacy/reset handoff template. Must not store passwords or tokens. |
