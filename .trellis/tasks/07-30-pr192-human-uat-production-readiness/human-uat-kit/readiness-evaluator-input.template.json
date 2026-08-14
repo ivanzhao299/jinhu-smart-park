@@ -1,0 +1,70 @@
+{
+  "schema_version": "pr192-production-readiness-input-v1",
+  "candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
+  "technical": {
+    "track_a": {
+      "verdict": "<passed|required>",
+      "evidence_refs": []
+    },
+    "track_b": {
+      "verdict": "<passed|required>",
+      "evidence_refs": [
+        "../handoff/2026-08-14-technical-closure-to-human-gate.md"
+      ]
+    },
+    "track_c": {
+      "verdict": "<passed|required>",
+      "evidence_refs": []
+    },
+    "main_ci": {
+      "verdict": "<passed|required>",
+      "run_id": "<fill>"
+    },
+    "production_deploy": {
+      "verdict": "<passed|required>",
+      "run_id": "<fill>"
+    }
+  },
+  "human_uat": {
+    "verdict": "missing",
+    "cohort_ids": [],
+    "observation_ledger_refs": [],
+    "minimum_participants_per_role": 5,
+    "minimum_tasks_per_participant": 4,
+    "first_repeat_separated": "<true|required>",
+    "metrics_summary_refs": [],
+    "open_p0": "<0|required>",
+    "open_p1": "<0|required>"
+  },
+  "signoffs": {
+    "verdict": "missing",
+    "required_domains": [
+      "product_operations",
+      "business_homestay_housing",
+      "finance",
+      "security_privacy",
+      "technical_operations",
+      "release_owner"
+    ],
+    "signoff_ledger_refs": [],
+    "all_required_approved": "<true|required>",
+    "open_conditions": "<0|required>",
+    "expired_conditions": "<0|required>"
+  },
+  "rollout_ops": {
+    "verdict": "missing",
+    "gray_scope_ref": "<fill>",
+    "monitoring_ref": "<fill>",
+    "alerting_ref": "<fill>",
+    "on_call_ref": "<fill>",
+    "backup_ref": "<fill>",
+    "rpo_rto_ref": "<fill>",
+    "rollback_drill_ref": "<fill>",
+    "release_go_decision_ref": "<fill>"
+  },
+  "computed_contract": {
+    "production_ready": false,
+    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass AND human_uat must pass AND all required signoffs must approve AND open_p0/open_p1 must be zero AND rollout_ops must pass",
+    "codex_may_override": false
+  }
+}

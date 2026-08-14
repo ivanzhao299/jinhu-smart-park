@@ -102,3 +102,16 @@ Owner: `production-readiness-facilitator`，仅在 H4 证据齐备后短时启�
   health, and Docker cleanup are recorded as machine evidence.
 - External human UAT, named signoffs, and final `production_ready` remain
   explicitly missing. Current next state remains `awaiting_human_gate`.
+
+## 2026-08-14 Human UAT Kit
+
+- External execution kit:
+  `human-uat-kit/README.md`.
+- Included templates:
+  task cards, observation ledger, threshold freeze, H0 environment handoff,
+  signoff ledger, and production readiness evaluator input.
+- The kit contains no real participants, credentials, signoff decisions, or
+  production go/no-go. It only prepares H1/H2/H4 evidence capture for external
+  human coordinators.
+- Current next state remains `awaiting_human_gate` until the templates are
+  filled by authorized external humans and validated against the PR192 AND gate.

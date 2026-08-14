@@ -1,0 +1,45 @@
+{
+  "schema_version": "pr192-human-uat-threshold-freeze-v1",
+  "threshold_version": "<fill-before-human-uat>",
+  "handoff_id": "<fill-from-approved-handoff>",
+  "owner_domain": "product_operations",
+  "approved_by_human_name": "<required-human-owner>",
+  "approved_by_role": "<required-human-role>",
+  "approved_at": "<iso8601-required>",
+  "applies_to_build_sha": "<40-char-git-sha>",
+  "applies_to_environment_id": "<isolated-uat-env-id>",
+  "cohort_rules": {
+    "minimum_participants_per_role": 5,
+    "minimum_tasks_per_participant": 4,
+    "first_and_repeat_are_separate": true,
+    "superuser_or_wildcard_accounts_forbidden": true,
+    "host_step_by_step_answers_forbidden": true
+  },
+  "metrics": {
+    "success_rate_minimum_by_role": "<fill-before-human-uat>",
+    "p90_duration_seconds_max_by_task": "<fill-before-human-uat>",
+    "p90_interaction_count_max_by_task": "<fill-before-human-uat>",
+    "error_rate_max_by_role": "<fill-before-human-uat>",
+    "help_rate_max_by_role": "<fill-before-human-uat>"
+  },
+  "stopship": {
+    "open_p0_allowed": 0,
+    "open_p1_allowed": 0,
+    "cross_tenant_or_cross_park_access": "P0",
+    "identity_or_file_leak": "P0",
+    "financial_duplicate_or_loss": "P0",
+    "maker_checker_bypass": "P0",
+    "critical_role_flow_unusable": "P1",
+    "mobile_key_task_unusable": "P1",
+    "missing_required_signoff": "P1"
+  },
+  "change_control": {
+    "task_card_change_requires_new_cohort": true,
+    "build_or_profile_change_requires_new_h0": true,
+    "threshold_change_after_execution_invalidates_prior_evaluation": true
+  },
+  "non_claims": [
+    "This template is not an approval until filled and signed by the required human owner.",
+    "Codex cannot fill approved_by_human_name or infer approval from missing response."
+  ]
+}
