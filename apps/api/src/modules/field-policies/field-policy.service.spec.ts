@@ -165,6 +165,7 @@ test("invalid field-policy assignment preserves existing park bindings", async (
 test("nested property projections enforce hidden and masked policies without mutating input", async () => {
   const policies = [
     { tenantId: "tenant-a", module: "homestay", entity: "booking", fieldKey: "booking.room_amount", fieldName: "房费", policyType: "masked", maskRule: "amount", status: "enabled", isDeleted: false },
+    { tenantId: "tenant-a", module: "homestay", entity: "turnover", fieldKey: "turnover.room_amount", fieldName: "周转房费", policyType: "masked", maskRule: "amount", status: "enabled", isDeleted: false },
     { tenantId: "tenant-a", module: "homestay", entity: "ledger", fieldKey: "ledger.amount", fieldName: "流水金额", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false },
     { tenantId: "tenant-a", module: "homestay", entity: "ledger", fieldKey: "ledger_summary", fieldName: "汇总", policyType: "hidden", maskRule: null, status: "enabled", isDeleted: false }
   ];
@@ -196,6 +197,15 @@ test("nested property projections enforce hidden and masked policies without mut
     "booking"
   );
   assert.equal(listProjected.items[0]!.roomAmount, "***");
+  const turnoverProjected = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "homestay",
+    { items: [{ roomAmount: "80.00", nested: { items: [{ roomAmount: "60.00" }] } }] },
+    "turnover"
+  );
+  assert.equal(turnoverProjected.items[0]!.roomAmount, "***");
+  assert.equal(turnoverProjected.items[0]!.nested.items[0]!.roomAmount, "60.00");
 });
 
 test("projection fallback is limited to the policy entity and masks composite values structurally", async () => {
@@ -213,10 +223,21 @@ test("projection fallback is limited to the policy entity and masks composite va
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
     "housing_rental",
-    { items: [{ amount: "88.00" }] },
+    { items: [{ amount: "88.00" }], nested: { amount: "66.00" } },
     "purchase"
   );
   assert.equal(purchase.items[0]!.amount, "88.00");
+  assert.equal(purchase.nested.amount, "66.00");
+  const ledgerSources = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "housing_rental",
+    [{ id: "source-1", amount: "88.00", availableAmount: "12.00", unrelated: { amount: "66.00" } }],
+    "ledger"
+  );
+  assert.equal("amount" in ledgerSources[0]!, false);
+  assert.equal("availableAmount" in ledgerSources[0]!, false);
+  assert.equal(ledgerSources[0]!.unrelated.amount, "66.00");
   const handover = await service.applyFieldPoliciesToProjection(
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },

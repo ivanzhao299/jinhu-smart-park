@@ -585,6 +585,7 @@ export interface HousingFinanceReceivableRef {
   receivableType: HousingFinanceReceivableType;
   entryKind: HousingFinanceEntryKind;
   chargeType: string;
+  lastPaymentRecorderId?: string | null;
   dueDate: string;
   amount: string;
   paidAmount: string;

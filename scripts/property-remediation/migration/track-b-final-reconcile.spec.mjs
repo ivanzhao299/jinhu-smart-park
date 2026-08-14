@@ -13,10 +13,10 @@ import {
 } from "./track-b-final-reconcile.mjs";
 
 test("freezes the complete forward Track B migration set and ordered B4 checkpoints", () => {
-  assert.equal(REQUIRED_MIGRATIONS.length, 14);
+  assert.equal(REQUIRED_MIGRATIONS.length, 15);
   assert.deepEqual(REQUIRED_MIGRATIONS.map((name) => name.slice(0, 6)), [
     "000185","000186","000187","000188","000189","000200","000191",
-    "000192","000193","000194","000195","000197","000198","000209"
+    "000192","000193","000194","000195","000197","000198","000209","000212"
   ]);
   assert.deepEqual(CHECKPOINTS.map(([kind]) => kind), [
     "backfill","change_capture","mutation_replay","shadow_compare","reconcile","constraint_validate"
@@ -33,6 +33,9 @@ test("freezes the complete forward Track B migration set and ordered B4 checkpoi
   for (const trigger of Object.values(REQUIRED_OWNER_TRIGGERS)) {
     assert.match(trigger.functionHash, /^[0-9a-f]{64}$/u);
   }
+  assert.deepEqual(REQUIRED_OWNER_TRIGGERS.trg_homestay_booking_occupancy_owner.columns, [
+    "id","tenant_id","park_id","unit_id","occupancy_id","is_deleted"
+  ]);
 });
 
 test("fails closed without database authority and rejects output outside the repository", async () => {
@@ -48,7 +51,7 @@ test("keeps every hard-difference family and atomic checkpoint write in the exec
     "staleExecutingApproval","activeTaskDuplicates","taskProjectionScopeDrift",
     "eventInboxScopeDrift","openMigrationAnomalies","validateTrackBConstraints",
     "MVP owner constraint catalog drift","MVP owner trigger catalog drift",
-    "confdeltype","confupdtype","confmatchtype","condeferrable","condeferred",
+    "confdeltype","confupdtype","confmatchtype","condeferrable","condeferred","referenced_schema",
     "function_definition","convalidated","tgenabled","VALIDATE CONSTRAINT","pg_advisory_xact_lock","rollbackProbe","rpo: 0",
     "BEGIN","COMMIT","ROLLBACK","openP0P1"
   ]) assert.match(source, new RegExp(token));

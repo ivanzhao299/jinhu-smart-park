@@ -61,6 +61,19 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       "fk_housing_receivable_charge_plan_scope", "uq_biz_unit_scope_id",
       "uq_homestay_booking_scope_unit", "uq_housing_charge_plan_owner"
     ]);
+    const ownerTriggers = await query(
+      `SELECT trigger_row.tgname,
+          to_json(ARRAY(SELECT attribute.attname FROM unnest(trigger_row.tgattr::smallint[]) WITH ORDINALITY key(attnum,ord)
+            JOIN pg_attribute attribute ON attribute.attrelid=trigger_row.tgrelid AND attribute.attnum=key.attnum
+            ORDER BY key.ord)) AS columns,
+          procedure_row.proconfig AS proconfig
+       FROM pg_trigger trigger_row
+       JOIN pg_proc procedure_row ON procedure_row.oid=trigger_row.tgfoid
+       WHERE trigger_row.tgname IN ('trg_homestay_booking_occupancy_owner','trg_housing_lease_occupancy_owner')
+       ORDER BY trigger_row.tgname`
+    ) as Array<{ tgname: string; columns: string[]; proconfig: string[] }>;
+    assert.deepEqual(ownerTriggers.map((row) => row.columns.at(-1)), ["is_deleted", "is_deleted"]);
+    assert.equal(ownerTriggers.every((row) => row.proconfig.includes("search_path=public, pg_temp")), true);
     await query(
       `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
        VALUES($1,$2,$3,'000209 park A'),($1,$4,$5,'000209 park B')`,
@@ -177,6 +190,12 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [randomUUID(), ids.bookingA]
     ), /occupancy owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT mutate_booking_id");
+    await query("SAVEPOINT soft_delete_linked_booking");
+    await assert.rejects(query(
+      "UPDATE biz_homestay_booking SET is_deleted=true WHERE id=$1",
+      [ids.bookingA]
+    ), /owner cannot be soft-deleted/u);
+    await query("ROLLBACK TO SAVEPOINT soft_delete_linked_booking");
 
     await query(
       `INSERT INTO biz_property_occupancy(id,tenant_id,park_id,unit_id,source_domain,source_type,
@@ -248,6 +267,12 @@ test("000209 rejects cross-scope MVP owners while preserving same-scope writes",
       [ids.housingOccupancy]
     ), /reverse owner mismatch/u);
     await query("ROLLBACK TO SAVEPOINT mutate_housing_occupancy");
+    await query("SAVEPOINT soft_delete_linked_lease");
+    await assert.rejects(query(
+      "UPDATE biz_housing_lease SET is_deleted=true WHERE id=$1",
+      [ids.leaseA]
+    ), /owner cannot be soft-deleted/u);
+    await query("ROLLBACK TO SAVEPOINT soft_delete_linked_lease");
     await query(
       `INSERT INTO biz_housing_charge_plan(id,tenant_id,park_id,lease_id,charge_type,
           billing_source,cycle_months,amount,currency)

@@ -49,18 +49,28 @@ export function HousingFinanceActions({
   const receivables = useMemo(
     () => available.filter((receivable) => {
       if (entryKind === "refund") {
-        return receivable.receivableType !== "deposit" && isPositiveMoney(receivable.paidAmount);
+        return receivable.receivableType !== "deposit" && Boolean(receivable.lastPaymentRecorderId)
+          && isPositiveMoney(receivable.paidAmount);
       }
       if (entryKind === "waiver") {
-        return receivable.receivableType !== "deposit" && isPositiveMoney(receivable.balance);
+        return receivable.receivableType !== "deposit" && Boolean(receivable.lastPaymentRecorderId)
+          && isPositiveMoney(receivable.balance);
       }
       if (entryKind === "deposit_refund") {
-        return receivable.receivableType === "deposit" && isPositiveMoney(item.summary.deposit_balance);
+        return receivable.receivableType === "deposit" && Boolean(receivable.lastPaymentRecorderId)
+          && isPositiveMoney(item.summary.deposit_balance);
       }
       return receivable.entryKind === entryKind && isPositiveMoney(receivable.balance);
     }),
     [available, entryKind, item.summary.deposit_balance]
   );
+  const selectedReceivable = receivables.find((receivable) => receivable.id === receivableId);
+  const amountMax = selectedReceivable
+    ? entryKind === "refund" ? selectedReceivable.paidAmount
+      : entryKind === "waiver" ? selectedReceivable.balance
+        : entryKind === "deposit_refund" ? item.summary.deposit_balance
+          : selectedReceivable.balance
+    : undefined;
   const entryKinds = useMemo(() => [
     ...(ordinaryAllowed ? (["payment", "deposit_receipt"] as const)
       .filter((kind) => available.some((receivable) => receivable.entryKind === kind)) : []),
@@ -121,7 +131,7 @@ export function HousingFinanceActions({
             } as const)[kind]}</option>)}</select></label>
             <label>目标应收<select name="receivable_id" onChange={(event) => setReceivableId(event.target.value)} required value={receivableId}><option value="">请选择应收</option>{receivables.map((receivable) => <option key={receivable.id} value={receivable.id}>{receivable.chargeType} · 到期 {receivable.dueDate} · 待收 ¥{receivable.balance}</option>)}</select></label>
             <label>费用类型<input maxLength={32} name="charge_type" required /></label>
-            <MoneyField label="金额" name="amount" positive />
+            <MoneyField label="金额" max={amountMax} name="amount" positive />
             <label>支付方式<input maxLength={32} name="payment_method" /></label>
             <label>交易参考号<input maxLength={100} name="transaction_reference" /></label>
             <label>登记原因<input maxLength={500} name="reason" required /></label>

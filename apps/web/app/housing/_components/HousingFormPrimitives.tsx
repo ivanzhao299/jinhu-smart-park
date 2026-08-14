@@ -17,17 +17,19 @@ export function MutationFeedback({ message }: { message: string }) {
 export function MoneyField({
   label,
   name,
+  max,
   positive = false,
   required = true
 }: {
   label: string;
   name: string;
+  max?: string;
   positive?: boolean;
   required?: boolean;
 }) {
   return (
     <label>{label}
-      <input inputMode="decimal" min={positive ? "0.01" : "0"} name={name} onFocus={(event) => event.target.select()} required={required} step="0.01" type="number" />
+      <input inputMode="decimal" max={max} min={positive ? "0.01" : "0"} name={name} onFocus={(event) => event.target.select()} required={required} step="0.01" type="number" />
     </label>
   );
 }

@@ -634,6 +634,14 @@ export class HousingWorkbenchQueryService {
       sum(r.waived_amount) FILTER (WHERE r.status<>'void') AS waived,
       jsonb_agg(jsonb_build_object(
         'id', r.id, 'chargeType', r.charge_type, 'sourceType', r.source_type,
+        'lastPaymentRecorderId', (
+          SELECT l.create_by::text FROM biz_housing_ledger_entry l
+          WHERE l.tenant_id=r.tenant_id AND l.park_id=r.park_id
+            AND l.lease_id=r.lease_id AND l.receivable_id=r.id
+            AND l.entry_type IN ('payment','deposit_receipt')
+            AND l.status='confirmed' AND l.is_deleted=false
+          ORDER BY l.occurred_at DESC,l.id DESC LIMIT 1
+        ),
         'dueDate', r.due_date,
         'amount', r.amount, 'paidAmount', r.paid_amount,
         'waivedAmount', r.waived_amount, 'status', r.status
@@ -698,6 +706,7 @@ export class HousingWorkbenchQueryService {
           ? "deposit_receipt" as const
           : "payment" as const,
         chargeType: receivable.chargeType,
+        lastPaymentRecorderId: receivable.lastPaymentRecorderId ?? null,
         dueDate: receivable.dueDate,
         amount: formatHousingMoney(receivable.amount),
         paidAmount: formatHousingMoney(receivable.paidAmount),
@@ -864,6 +873,7 @@ type FinanceRawRow = LeaseRawRow & {
     id: string;
     chargeType: string;
     sourceType: string;
+    lastPaymentRecorderId: string | null;
     dueDate: string;
     amount: string;
     paidAmount: string;

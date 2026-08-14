@@ -54,10 +54,13 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const eligible = data.lease.eligibility?.eligible !== false;
   const canActivate = data.lease.status === "pending_signature" && Boolean(data.lease.signatureFileId)
     && capabilities.actionAllowed("housing.leases.activate");
+  const checkoutFinanciallyReady = Boolean(data.finance_summary)
+    && !isPositiveMoney(data.finance_summary?.outstanding ?? "0")
+    && !isPositiveMoney(data.finance_summary?.deposit_balance ?? "0");
   const highRiskActions = ([
-    ["approve", "审批租约", data.lease.status === "pending_approval"],
+    ["approve", "审批租约", data.lease.status === "pending_approval" && eligible],
     ["void", "作废租约", ["draft", "pending_approval", "pending_signature"].includes(data.lease.status)],
-    ["checkout", "提交退租结清", data.lease.status === "checkout_pending"]
+    ["checkout", "提交退租结清", data.lease.status === "checkout_pending" && checkoutFinanciallyReady]
   ] as const).filter(([action, _label, stateAllowed]) => stateAllowed
     && capabilities.actionAllowed(`housing.leases.${action}`));
   return (
@@ -103,6 +106,10 @@ function eligibilityReasonLabels(reasonCodes: string[]): string[] {
     LEASE_PERIOD_OCCUPIED: "拟定租期与现有占用、商业合同或未完成清洁/周转任务冲突"
   };
   return reasonCodes.map((code) => labels[code] ?? code);
+}
+
+function isPositiveMoney(value: string) {
+  return /^(?:0\.(?:0*[1-9]\d*)|[1-9]\d*(?:\.\d+)?)$/.test(value);
 }
 
 function LeaseRelated({ capabilities, data }: LeaseContextProps) {
