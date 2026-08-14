@@ -243,6 +243,7 @@ test("approved waiver uses locked CAS state and persists the frozen execution au
       }
       if (sql.includes("UPDATE biz_housing_receivable")) return [{ version: 5 }];
       if (sql.includes("INSERT INTO biz_housing_ledger_entry")) return [{ id: "ledger-1" }];
+      if (sql.includes("UPDATE biz_housing_lease")) return [{ version: 4 }];
       throw new Error(`unexpected query: ${sql}`);
     }
   };
@@ -297,5 +298,13 @@ test("approved waiver uses locked CAS state and persists the frozen execution au
     "housing.ledger.waiver",
     `ledger:${receivableId}:waiver`,
     "a".repeat(64)
+  ]);
+  const leaseUpdate = statements.find((entry) => entry.sql.includes("UPDATE biz_housing_lease"));
+  assert.deepEqual(leaseUpdate?.parameters, [
+    scope.tenantId,
+    scope.parkId,
+    leaseId,
+    actor.sub,
+    3
   ]);
 });

@@ -84,6 +84,7 @@ export function HomestayFinanceEntryPanel({
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const highRiskAllowed = refundAllowed || waiverAllowed;
   const [sources, setSources] = useState<HomestayFinanceApprovalSource[]>([]);
+  const selectedSource = sources.find((item) => item.id === form.sourceLedgerId);
   const ledgerRequestId = useRef(0);
   useEffect(() => {
     if (!ordinaryAllowed && highRiskAllowed && ["charge", "payment"].includes(form.entryType)) {
@@ -125,7 +126,7 @@ export function HomestayFinanceEntryPanel({
             {sources.map((entry) => <option key={entry.id} value={entry.id}>{entry.entryType} · 可退/减 ¥{entry.availableAmount} · {entry.occurredAt || "已确认"}</option>)}
           </select></label> : null}
           <label>费用类型<input required maxLength={32} readOnly={["refund", "waiver"].includes(form.entryType)} value={form.chargeType} onChange={(event) => form.setChargeType(event.target.value)} /></label>
-          <label>金额<input required type="number" min="0.01" step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>
+          <label>金额<input required type="number" min="0.01" max={selectedSource?.availableAmount} step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>
           {form.entryType === "payment" ? <label>收款方式<input required maxLength={32} value={form.paymentMethod} onChange={(event) => form.setPaymentMethod(event.target.value)} /></label> : null}
           <label>说明<input required maxLength={500} value={form.reason} onChange={(event) => form.setReason(event.target.value)} /></label>
           <button className="primary-button" type="submit">{["refund", "waiver"].includes(form.entryType) ? "提交审批" : "登记流水"}</button>

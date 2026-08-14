@@ -133,7 +133,7 @@ export class HomestayFinanceService {
       const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(manager, scope, bookingId);
       await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
       const sourceEntryType = entryType === "refund" ? "payment" : "charge";
-      const candidates = ledger.filter((entry) => entry.entryType === sourceEntryType);
+      const candidates = ledger.filter((entry) => entry.entryType === sourceEntryType && Boolean(entry.recordedBy));
       const sources = await Promise.all(candidates.map(async (source) => {
         const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
           manager, scope, source, ledger, entryType
@@ -234,6 +234,9 @@ export class HomestayFinanceService {
     if (!source || source.id !== lockedSource.id || source.version !== lockedSource.version
       || source.currency !== lockedSource.currency || source.entryType !== expectedSourceType) {
       throw new ConflictException(`${entryType} must reference a confirmed ${expectedSourceType} entry`);
+    }
+    if (!source.recordedBy) {
+      throw new ConflictException("A linked payment recorder is required before approval");
     }
     const allocation = await this.transactionSupport.homestayFinanceAllocationSnapshot(
       manager, scope, source, ledger, entryType

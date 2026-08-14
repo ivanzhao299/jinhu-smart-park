@@ -131,6 +131,7 @@ export class HousingFinanceCommandService {
       entryType,
       effect
     );
+    await this.advanceApprovedLeaseVersion(input, leaseId);
   }
 
   private async registerInTransaction(
@@ -560,6 +561,19 @@ export class HousingFinanceCommandService {
     if (inserted.length !== 1) {
       throw new ConflictException("Approval effect cardinality mismatch");
     }
+  }
+
+  private async advanceApprovedLeaseVersion(
+    input: ExecuteApprovedHousingFinanceInput,
+    leaseId: string
+  ) {
+    const scope = input.request;
+    const updated = typeormQueryRows<{ version: number }>(await input.manager.query(
+      `UPDATE biz_housing_lease SET version=version+1,update_by=$4,update_time=clock_timestamp()
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$5 RETURNING version`,
+      [scope.tenantId, scope.parkId, leaseId, scope.requesterId, input.sourceExpectedVersion]
+    ));
+    if (updated.length !== 1) throw new ConflictException("Approval source changed");
   }
 
   private applyReceivableEntry(

@@ -251,6 +251,7 @@ export class FieldPolicyService {
     for (const policy of policies) {
       this.applyProjectionPolicy(
         cloned,
+        policy.entity,
         policy.field_key,
         policy.policy_type,
         policy.mask_rule,
@@ -296,6 +297,7 @@ export class FieldPolicyService {
 
   private applyProjectionPolicy(
     value: unknown,
+    entity: string,
     fieldKey: string,
     policyType: FieldPolicyContext["policy_type"],
     maskRule?: string | null,
@@ -321,24 +323,7 @@ export class FieldPolicyService {
     };
     if (!applyAt(value, 0) && allowPrimaryEntityFallback) {
       const leaf = segments.at(-1)!;
-      const visited = new WeakSet<object>();
-      const applyLeafEverywhere = (target: unknown): void => {
-        if (Array.isArray(target)) {
-          for (const item of target) applyLeafEverywhere(item);
-          return;
-        }
-        if (!target || typeof target !== "object") return;
-        if (visited.has(target)) return;
-        visited.add(target);
-        const record = target as Record<string, unknown>;
-        const key = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in record);
-        if (key) {
-          if (policyType === "hidden") delete record[key];
-          else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
-        }
-        for (const child of Object.values(record)) applyLeafEverywhere(child);
-      };
-      applyLeafEverywhere(value);
+      this.applyProjectionAliasesAtEntityRoot(value, this.projectionFieldAliases(entity, leaf), policyType, maskRule);
     }
   }
 
@@ -358,6 +343,7 @@ export class FieldPolicyService {
     if (!keys) return;
     const leaf = fieldKey.split(".").filter(Boolean).at(-1);
     if (!leaf) return;
+    const candidateKeys = this.projectionFieldAliases(entity, leaf);
     const visit = (target: unknown): void => {
       if (Array.isArray(target)) return void target.forEach(visit);
       if (!target || typeof target !== "object") return;
@@ -368,10 +354,7 @@ export class FieldPolicyService {
         const apply = (item: unknown): void => {
           if (!item || typeof item !== "object") return;
           const row = item as Record<string, unknown>;
-          const rowKey = [leaf, this.toCamelCase(leaf)].find((candidate) => candidate in row);
-          if (!rowKey) return;
-          if (policyType === "hidden") delete row[rowKey];
-          else if (policyType === "masked") row[rowKey] = this.maskProjectionValue(row[rowKey], maskRule);
+          this.applyProjectionAliasKeys(row, candidateKeys, policyType, maskRule);
         };
         if (Array.isArray(child)) child.forEach(apply);
         else apply(child);
@@ -379,6 +362,43 @@ export class FieldPolicyService {
       Object.values(record).forEach(visit);
     };
     visit(value);
+  }
+
+  private applyProjectionAliasesAtEntityRoot(
+    value: unknown,
+    candidateKeys: string[],
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null
+  ): void {
+    const apply = (target: unknown): void => {
+      if (!target || typeof target !== "object") return;
+      this.applyProjectionAliasKeys(target as Record<string, unknown>, candidateKeys, policyType, maskRule);
+    };
+    if (Array.isArray(value)) value.forEach(apply);
+    else apply(value);
+  }
+
+  private applyProjectionAliasKeys(
+    record: Record<string, unknown>,
+    candidateKeys: string[],
+    policyType: FieldPolicyContext["policy_type"],
+    maskRule?: string | null
+  ): void {
+    for (const candidate of candidateKeys) {
+      const key = [candidate, this.toCamelCase(candidate)].find((item) => item in record);
+      if (!key) continue;
+      if (policyType === "hidden") delete record[key];
+      else if (policyType === "masked") record[key] = this.maskProjectionValue(record[key], maskRule);
+    }
+  }
+
+  private projectionFieldAliases(entity: string, leaf: string): string[] {
+    const aliases: Record<string, Record<string, readonly string[]>> = {
+      ledger: {
+        amount: ["available_amount", "availableAmount"]
+      }
+    };
+    return [...new Set([leaf, ...(aliases[entity]?.[leaf] ?? [])])];
   }
 
   private maskProjectionValue(value: unknown, maskRule?: string | null): unknown {

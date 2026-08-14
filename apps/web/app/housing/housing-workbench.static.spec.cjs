@@ -69,6 +69,10 @@ test("approved high-risk endpoints are wired through guarded housing mutations",
   }
   assert.match(source, /idempotency\.keyFor\(/);
   assert.match(source, /审批申请已提交/);
+  assert.match(read("HousingLeaseDetailClient.tsx"), /pending_approval" && eligible/);
+  assert.match(read("HousingLeaseDetailClient.tsx"), /checkoutFinanciallyReady/);
+  assert.match(read("HousingFinanceActions.tsx"), /lastPaymentRecorderId/);
+  assert.match(read("HousingFinanceActions.tsx"), /max=\{amountMax\}/);
 });
 
 test("Track A mutation panels use exact actions and owning aggregates", () => {

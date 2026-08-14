@@ -213,10 +213,21 @@ test("projection fallback is limited to the policy entity and masks composite va
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
     "housing_rental",
-    { items: [{ amount: "88.00" }] },
+    { items: [{ amount: "88.00" }], nested: { amount: "66.00" } },
     "purchase"
   );
   assert.equal(purchase.items[0]!.amount, "88.00");
+  assert.equal(purchase.nested.amount, "66.00");
+  const ledgerSources = await service.applyFieldPoliciesToProjection(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },
+    "housing_rental",
+    [{ id: "source-1", amount: "88.00", availableAmount: "12.00", unrelated: { amount: "66.00" } }],
+    "ledger"
+  );
+  assert.equal("amount" in ledgerSources[0]!, false);
+  assert.equal("availableAmount" in ledgerSources[0]!, false);
+  assert.equal(ledgerSources[0]!.unrelated.amount, "66.00");
   const handover = await service.applyFieldPoliciesToProjection(
     { tenantId: "tenant-a", parkId: "park-a" },
     { sub: "user-1", username: "operator", tenantId: "tenant-a", parkId: "park-a", roles: [], permissions: [] },

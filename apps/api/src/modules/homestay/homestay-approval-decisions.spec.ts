@@ -161,7 +161,10 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
   const mappedId = "80000000-0000-4000-8000-000000000003";
   const events: string[] = [];
   let mappingExpectedVersion = 2;
-  const ledger = [
+  const ledger: Array<{
+    id: string; version: number; entryType: string; chargeType: string; amount: string;
+    currency: string; status: string; sourceLedgerEntryId: string | null; recordedBy: string | null;
+  }> = [
     { id: sourceId, version: 2, entryType: "payment", chargeType: "room",
       amount: "100.00", currency: "CNY", status: "confirmed", sourceLedgerEntryId: null,
       recordedBy: actor.sub },
@@ -236,6 +239,12 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
     "source", "ledger", "unresolved", "mapped"
   ]);
 
+  ledger[0]!.recordedBy = null;
+  await assert.rejects(service.registerLedgerEntry(scope, financeActor, booking.id, {
+    entry_type: "refund", charge_type: "room", amount: "10.00", reason: "missing recorder",
+    source_ledger_entry_id: sourceId
+  }, "missing-recorder-key"), /linked payment recorder is required/);
+  ledger[0]!.recordedBy = actor.sub;
   mappingExpectedVersion = 3;
   await assert.rejects(service.registerLedgerEntry(scope, financeActor, booking.id, {
     entry_type: "refund", charge_type: "room", amount: "10.00", reason: "stale mapping",

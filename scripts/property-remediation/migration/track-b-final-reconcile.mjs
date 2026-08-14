@@ -23,7 +23,8 @@ export const REQUIRED_MIGRATIONS = Object.freeze([
   "000195_property_mutation_receipt_contract_v2.sql",
   "000197_property_approval_active_source_index_forward_fix.sql",
   "000198_property_finance_owner_integrity_forward_fix.sql",
-  "000209_property_mvp_owner_scope_integrity.sql"
+  "000209_property_mvp_owner_scope_integrity.sql",
+  "000212_property_mvp_owner_scope_followup.sql"
 ]);
 
 const fk = (table, localColumns, referencedTable, referencedColumns) =>
@@ -58,10 +59,10 @@ export const REQUIRED_OWNER_CONSTRAINTS = Object.freeze({
 });
 
 export const REQUIRED_OWNER_TRIGGERS = Object.freeze({
-  trg_homestay_booking_occupancy_owner: Object.freeze({ table: "biz_homestay_booking", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "4f998d3f4d6474faf66b3e6d45ea09b58e18104a679302325443d020275c5b98", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
-  trg_homestay_turnover_occupancy_owner: Object.freeze({ table: "biz_homestay_turnover_task", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "4f998d3f4d6474faf66b3e6d45ea09b58e18104a679302325443d020275c5b98", triggerType: 23, columns: ["id","tenant_id","park_id","booking_id","unit_id","occupancy_id"] }),
-  trg_housing_lease_occupancy_owner: Object.freeze({ table: "biz_housing_lease", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "4f998d3f4d6474faf66b3e6d45ea09b58e18104a679302325443d020275c5b98", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id"] }),
-  trg_property_occupancy_reverse_owner: Object.freeze({ table: "biz_property_occupancy", functionName: "enforce_property_mvp_occupancy_reverse_owner", functionHash: "10027996e767092404bd77524a890d1f0aaf1277595006d74d06e8311ef35103", triggerType: 19, columns: ["id","tenant_id","park_id","unit_id","source_domain","source_type","source_id","is_deleted"] })
+  trg_homestay_booking_occupancy_owner: Object.freeze({ table: "biz_homestay_booking", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "2c4073d825231a26e82c663160431a85e0721b1b71ce91e4637db5139da79ea3", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id","is_deleted"] }),
+  trg_homestay_turnover_occupancy_owner: Object.freeze({ table: "biz_homestay_turnover_task", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "2c4073d825231a26e82c663160431a85e0721b1b71ce91e4637db5139da79ea3", triggerType: 23, columns: ["id","tenant_id","park_id","booking_id","unit_id","occupancy_id","is_deleted"] }),
+  trg_housing_lease_occupancy_owner: Object.freeze({ table: "biz_housing_lease", functionName: "enforce_property_mvp_occupancy_owner", functionHash: "2c4073d825231a26e82c663160431a85e0721b1b71ce91e4637db5139da79ea3", triggerType: 23, columns: ["id","tenant_id","park_id","unit_id","occupancy_id","is_deleted"] }),
+  trg_property_occupancy_reverse_owner: Object.freeze({ table: "biz_property_occupancy", functionName: "enforce_property_mvp_occupancy_reverse_owner", functionHash: "ebe9142be8d85ce2db49515616da6bcddd1f8fa0ce283549bef6e88f0674726f", triggerType: 19, columns: ["id","tenant_id","park_id","unit_id","source_domain","source_type","source_id","is_deleted"] })
 });
 
 export const CHECKPOINTS = Object.freeze([
@@ -235,6 +236,7 @@ async function validateTrackBConstraints(client, dryRun) {
       constraint_row.confmatchtype,
       constraint_row.condeferrable,
       constraint_row.condeferred,
+      referenced_namespace.nspname AS referenced_schema,
       referenced.relname AS referenced_table,
       to_json(ARRAY(SELECT attribute.attname FROM unnest(constraint_row.conkey) WITH ORDINALITY key(attnum,ord)
         JOIN pg_attribute attribute ON attribute.attrelid=constraint_row.conrelid AND attribute.attnum=key.attnum
@@ -246,6 +248,7 @@ async function validateTrackBConstraints(client, dryRun) {
     JOIN pg_class relation ON relation.oid=constraint_row.conrelid
     JOIN pg_namespace namespace ON namespace.oid=relation.relnamespace AND namespace.nspname='public'
     LEFT JOIN pg_class referenced ON referenced.oid=constraint_row.confrelid
+    LEFT JOIN pg_namespace referenced_namespace ON referenced_namespace.oid=referenced.relnamespace
     WHERE constraint_row.conname=ANY($1::text[])`, [constraintNames]);
   const installedByName = new Map(installed.rows.map((row) => [row.conname, row]));
   const constraintDrift = [];
@@ -254,6 +257,7 @@ async function validateTrackBConstraints(client, dryRun) {
     if (!actual) constraintDrift.push({ name, reason: "missing" });
     else if (actual.table_name !== expected.table || actual.contype !== expected.type
       || actual.convalidated !== true || actual.referenced_table !== expected.referencedTable
+      || (expected.type === "f" && actual.referenced_schema !== "public")
       || JSON.stringify(actual.local_columns) !== JSON.stringify(expected.localColumns)
       || JSON.stringify(actual.referenced_columns) !== JSON.stringify(expected.referencedColumns)
       || (expected.type === "f" && (actual.confupdtype !== "a" || actual.confdeltype !== "a"
