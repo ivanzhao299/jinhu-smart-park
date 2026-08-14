@@ -1,7 +1,7 @@
 {
   "schema_version": "pr192-production-readiness-input-v1",
   "candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
-  "kit_authoring_commit": "5987b14526443ee638aa27134485b12b681ef5b8",
+  "kit_provenance_commit": "<fill-with-final-merge-commit-containing-this-kit>",
   "technical": {
     "track_a": {
       "verdict": "<passed|required>",
@@ -39,6 +39,11 @@
     "threshold_signature_ref": "<fill>",
     "minimum_participants_per_role": 5,
     "minimum_tasks_per_participant": 4,
+    "per_role_observed_counts_ref": "<fill>",
+    "per_role_task_completion_matrix_ref": "<fill>",
+    "all_roles_minimum_participants_met": "<true|required>",
+    "all_participants_completed_four_standard_tasks": "<true|required>",
+    "all_required_task_ids_observed_per_role": "<true|required>",
     "first_repeat_separated": "<true|required>",
     "metrics_summary_refs": [],
     "defect_tracker_ref": "<fill>",
@@ -90,6 +95,25 @@
     "rollback_drill_ref": "<fill>",
     "release_go_decision_ref": "<fill>"
   },
+  "release_owner_go": {
+    "verdict": "missing",
+    "release_owner_human_name": "<required>",
+    "release_owner_role": "<required>",
+    "decision": "<go|required>",
+    "decision_time": "<iso8601-required>",
+    "decision_ref": "<append-only-release-go-decision-ref>",
+    "decision_hash": "<sha256-of-release-go-decision>",
+    "signer_attestation_ref": "<fill>",
+    "explicit_go_for_candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4"
+  },
+  "restore_drill": {
+    "verdict": "missing",
+    "backup_restore_drill_ref": "<fill>",
+    "backup_restore_drill_hash": "<sha256-of-restore-drill-evidence>",
+    "restore_drill_successful": "<true|required>",
+    "rpo_rto_met": "<true|required>",
+    "drill_completed_at": "<iso8601-required>"
+  },
   "cleanup": {
     "verdict": "missing",
     "uat_account_revocation_ref": "<fill>",
@@ -104,7 +128,7 @@
   },
   "computed_contract": {
     "production_ready": false,
-    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass AND human_uat must pass with immutable task/threshold/cohort hashes AND defect-derived open_p0/open_p1 must be zero AND all required signoffs must approve without expiry or open conditions AND rollout_ops/high-risk flag freeze must pass AND cleanup residuals must be zero",
+    "rule": "technical.track_a/b/c/main_ci/production_deploy must pass AND human_uat must pass with immutable task/threshold/cohort hashes and observed cohort sufficiency AND defect-derived open_p0/open_p1 must be zero AND all required signoffs must approve with signer attestation, no expiry, and no open conditions AND rollout_ops/high-risk flag freeze must pass AND release_owner_go must be explicit for the candidate AND restore_drill must pass AND cleanup residuals must be zero",
     "codex_may_override": false
   }
 }

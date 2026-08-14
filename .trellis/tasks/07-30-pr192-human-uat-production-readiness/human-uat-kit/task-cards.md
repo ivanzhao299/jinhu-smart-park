@@ -35,14 +35,14 @@ These cards are templates for external real-user execution. They state goals and
 
 ## Frozen Task Card Catalog
 
-Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`.
+Every participant in a role must attempt the four task IDs assigned to that role. Repeating one task four times, improvising an unlisted task, or changing a task after threshold freeze creates an invalid cohort and requires a new `task_card_version`. Every start point below must be reached from a discoverable role entry in the product navigation, dashboard, queue, or list; coordinator-provided hidden deep links are not valid task starts.
 
 | Task ID | Role | Start point | Goal | Completion evidence |
 | --- | --- | --- | --- | --- |
 | PARK-ADMIN-01 | Park admin | Primary navigation after login | Verify role-scoped property-business entry and menu availability. | Visible modules and denied areas recorded. |
 | PARK-ADMIN-02 | Park admin | User/role or module visibility page | Verify exact role bundle and absence of superuser/wildcard capability. | Bundle and scope evidence recorded. |
 | PARK-ADMIN-03 | Park admin | Dashboard/task list | Assign or inspect a scoped property task without crossing tenant/park. | Scoped task visibility recorded. |
-| PARK-ADMIN-04 | Park admin | Direct deep link supplied by coordinator | Confirm cross-scope or unauthorized page is denied. | Deny message and route recorded. |
+| PARK-ADMIN-04 | Park admin | Discoverable role page with an unauthorized action or route entry | Confirm cross-scope or unauthorized page is denied. | Deny message and route recorded. |
 | HOMESTAY-FRONTDESK-01 | Homestay front desk | Homestay dashboard or bookings queue | Locate a due arrival and prepare check-in readiness. | Booking state and next action recorded. |
 | HOMESTAY-FRONTDESK-02 | Homestay front desk | Booking detail | Handle missing identity/stay readiness without bypass. | Blocker and handoff target recorded. |
 | HOMESTAY-FRONTDESK-03 | Homestay front desk | Stay detail | Complete an allowed check-in/check-out transition. | Resulting state and audit cue recorded. |

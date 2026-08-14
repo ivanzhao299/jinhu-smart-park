@@ -1,7 +1,7 @@
 {
   "schema_version": "pr192-human-uat-threshold-freeze-v1",
   "threshold_version": "<fill-before-human-uat>",
-  "threshold_content_sha256": "<sha256-of-this-frozen-threshold-document>",
+  "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-and-signature-fields>",
   "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
   "handoff_id": "<fill-from-approved-handoff>",
   "handoff_hash": "<sha256-of-approved-handoff>",
@@ -54,6 +54,7 @@
     "threshold_change_after_execution_invalidates_prior_evaluation": true,
     "threshold_hash_must_match_observation_ledger": true,
     "threshold_hash_must_match_readiness_input": true,
+    "threshold_digest_excludes_self_reference_and_signature_fields": true,
     "role_owner_approval_change_requires_new_threshold_version": true
   },
   "non_claims": [
