@@ -26,7 +26,7 @@
   "notes": "2026-08-14: technical remediation lane #270-#273 plus review follow-up #284, main CI, production deploy, health probes, and Docker cleanup are captured in handoff/2026-08-14-technical-closure-to-human-gate.md. Human UAT execution templates are captured in human-uat-kit/README.md. Human UAT/signoff remains awaiting_human_gate; do not mark production_ready.",
   "meta": {
     "technical_handoff_artifact": "handoff/2026-08-14-technical-closure-to-human-gate.md",
-    "technical_handoff_candidate_sha": "97669ed2df810c9bc1da0e1abeb271187a7b70a4",
+    "technical_handoff_candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
     "human_uat_kit": "human-uat-kit/README.md",
     "human_uat_kit_commit": "<fill-with-final-merge-commit-containing-human-uat-kit>",
     "human_uat_kit_content_manifest_hash": "<sha256-of-human-uat-kit-content-manifest>",

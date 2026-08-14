@@ -2,7 +2,7 @@
 
 Status: template package only  
 Bound technical handoff: `../handoff/2026-08-14-technical-closure-to-human-gate.md`  
-Bound technical candidate: `97669ed2df810c9bc1da0e1abeb271187a7b70a4`
+Bound technical candidate: `5987b14526443ee638aa27134485b12b681ef5b8`
 Kit provenance: fill with the final merge commit that contains this exact kit before H0 approval.
 Human readiness status: `awaiting_human_gate`  
 Production readiness status: `awaiting_human_gate`

@@ -2,7 +2,7 @@
 
 Created at: 2026-08-14T04:10:28Z  
 Authoring lane: Codex technical facilitator  
-Bound production candidate: `97669ed2df810c9bc1da0e1abeb271187a7b70a4`
+Bound production candidate: `5987b14526443ee638aa27134485b12b681ef5b8`
 Status: `technical_closure_verified`, `human_readiness_status=awaiting_human_gate`, `production_readiness_status=awaiting_human_gate`
 
 This handoff is an append-only status artifact for PR192. It records the current technical closure and the remaining external human gates. It is not a human role UAT result, not a business/finance/security/release signoff, and not a `production_ready` decision.
@@ -28,8 +28,10 @@ It deliberately does not create or infer any human participant observation, name
 | `#272` | Issue `https://github.com/ivanzhao299/jinhu-smart-park/issues/272` closed at 2026-08-14T00:53:38Z; PR `#279` merged at 2026-08-14T00:53:37Z; merge commit `000ee1dd388fda4a640f4fc9f00af26d52d3f293`; PR checks all `SUCCESS`. | Proved technical closed |
 | `#273` | Issue `https://github.com/ivanzhao299/jinhu-smart-park/issues/273` closed at 2026-08-14T02:14:15Z; PR `#281` merged at 2026-08-14T02:14:14Z; merge commit `6ba98a417bee34d61dee4755d70a40e756e419da`; PR checks all `SUCCESS`. | Proved technical closed |
 | Review follow-up | PR `#284` merged at 2026-08-14T03:38:22Z; merge commit `97669ed2df810c9bc1da0e1abeb271187a7b70a4`; PR checks all `SUCCESS`; Codex Review final comment at `https://github.com/ivanzhao299/jinhu-smart-park/pull/284#issuecomment-5289100183`: no major issues; unresolved review threads `[]`. | Proved review closure |
-| Main CI | GitHub Actions run `31767406846` on `main`/`97669ed2` completed `SUCCESS`; jobs `Detect Release Smoke Scope`, `Lint, Typecheck, Build`, `Release Smoke` all `SUCCESS`. | Proved merged-branch gate |
-| Production deploy | GitHub Actions run `31767406823` on `main`/`97669ed2` completed `SUCCESS`; `000212_property_mvp_owner_scope_followup.sql` applied successfully; production Docker cleanup started and finished. | Proved deploy gate |
+| PR283 foundation follow-up | PR `#283` merged at 2026-08-14T04:21:28Z; merge commit `7c5db355ee8e8903dfc63101cfc646eaea2821d8`; fixes new tenant/new park code-rule provisioning, property-menu authorization, and multi-park asset UI refresh that can affect homestay/housing H0 setup, asset/unit creation, role menu reachability, and scope evidence. | Included in candidate scope |
+| PR285 handoff merge | PR `#285` merged at 2026-08-14T04:30:54Z; merge commit `5987b14526443ee638aa27134485b12b681ef5b8`; this is the current main candidate baseline containing PR284, PR283, and the technical handoff artifact. | Candidate advanced |
+| Main CI | GitHub Actions run `31770101332` on `main`/`5987b145` completed `SUCCESS`; jobs include `Detect Release Smoke Scope`, `Lint, Typecheck, Build`, and `Release Smoke`. | Proved merged-branch gate |
+| Production deploy | GitHub Actions run `31770101405` on `main`/`5987b145` completed `SUCCESS`; production deployment reached the current main candidate. The readiness template still requires candidate/run-bound post-health Docker cleanup evidence before final `production_ready`. | Proved deploy gate |
 | Production health snapshot | 2026-08-14T04:10:28Z public probes: `https://park.cnjinhu.com/api/v1/health` returned API status `ok`; `https://park.cnjinhu.com/api/v1/ready` returned status `ready` with `database`, `defaultTenant`, `defaultPark`, `tenantModuleAuthorization`, `bootstrapAdmin`, and `workorderReleaseDicts` all `ok`; `https://park.cnjinhu.com/login` returned HTTP `200`. | Proved immediate health |
 
 ## 3. H0/H1 Human Gate Readiness Status

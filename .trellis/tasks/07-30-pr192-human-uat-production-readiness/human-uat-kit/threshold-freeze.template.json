@@ -68,6 +68,11 @@
     "identity_or_file_leak": "P0",
     "financial_duplicate_or_loss": "P0",
     "maker_checker_bypass": "P0",
+    "uat_contaminates_production_data_or_real_users": "P0",
+    "irrecoverable_migration_or_rollback_failure": "P0",
+    "approved_role_bundle_menu_or_permission_mismatch": "P1",
+    "cross_scope_role_menu_or_data_visibility": "P0",
+    "missing_required_h0_account_scope_or_profile_checksum": "P1",
     "critical_role_flow_unusable": "P1",
     "mobile_key_task_unusable": "P1",
     "missing_required_signoff": "P1"
