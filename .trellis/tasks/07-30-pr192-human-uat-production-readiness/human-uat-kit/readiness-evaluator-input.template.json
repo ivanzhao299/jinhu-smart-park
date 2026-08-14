@@ -189,6 +189,12 @@
     "post_cohort_defect_snapshot_taken_after_all_observations": "<true|required>",
     "all_observed_defect_ids_present_in_post_cohort_snapshot": "<true|required>",
     "post_cohort_defect_snapshot_bound_to_candidate_and_cohorts": "<true|required>",
+    "frozen_stopship_classification_ref": "threshold-freeze.template.json#stopship",
+    "frozen_stopship_classification_hash": "<sha256-of-frozen-stopship-classification-table>",
+    "observation_defect_severity_classification_matrix_ref": "<ledger-derived-observation-defect-severity-classification-matrix>",
+    "observation_defect_severity_classification_matrix_hash": "<sha256-of-ledger-derived-severity-classification-matrix>",
+    "all_observation_and_defect_severities_match_frozen_stopship_classification": "<true|required>",
+    "open_p0_p1_counts_derived_after_frozen_severity_classification": "<true|required>",
     "all_stopship_observations_have_defect_id": "<true|required>",
     "all_resolved_stopships_have_closure_evidence": "<true|required>",
     "all_stopship_closure_evidence_bound_to_fix_and_rerun": "<true|required>",
@@ -479,6 +485,8 @@
       "human_uat.post_cohort_defect_snapshot_taken_after_all_observations",
       "human_uat.all_observed_defect_ids_present_in_post_cohort_snapshot",
       "human_uat.post_cohort_defect_snapshot_bound_to_candidate_and_cohorts",
+      "human_uat.all_observation_and_defect_severities_match_frozen_stopship_classification",
+      "human_uat.open_p0_p1_counts_derived_after_frozen_severity_classification",
       "human_uat.all_stopship_observations_have_defect_id",
       "human_uat.all_resolved_stopships_have_closure_evidence",
       "human_uat.all_stopship_closure_evidence_bound_to_fix_and_rerun",
@@ -601,6 +609,8 @@
       "human_uat.post_cohort_defect_snapshot_taken_after_all_observations",
       "human_uat.all_observed_defect_ids_present_in_post_cohort_snapshot",
       "human_uat.post_cohort_defect_snapshot_bound_to_candidate_and_cohorts",
+      "human_uat.all_observation_and_defect_severities_match_frozen_stopship_classification",
+      "human_uat.open_p0_p1_counts_derived_after_frozen_severity_classification",
       "human_uat.all_stopship_observations_have_defect_id",
       "human_uat.all_resolved_stopships_have_closure_evidence",
       "human_uat.all_stopship_closure_evidence_bound_to_fix_and_rerun",
@@ -776,7 +786,7 @@
         "equals": "passed"
       }
     ],
-    "rule": "ready_for_production_deploy uses required_true_fields_for_ready_for_production_deploy plus required_value_fields_for_ready_for_production_deploy and must not require production_deploy or post-deploy rollout observation. production_ready uses required_true_fields_for_production_ready plus required_value_fields_for_production_ready: technical.track_a/b/c/main_ci/production_deploy must pass with non-empty immutable evidence refs, each technical evidence SHA must match candidate_sha, production_deploy must include candidate/run-bound post-health Docker cleanup evidence, and human_uat must pass from ledger-derived candidate-bound observations with H0 build equal to candidate_sha, verified participant qualifications, pre-observation immutable cohort manifests, task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, metrics derived only from the deduplicated valid-attempt matrix, permitted contamination evidence for every excluded attempt, all frozen metric thresholds met, and defect-derived open_p0/open_p1 zero. All required signoffs must approve using a complete checkpointed append-only signoff ledger, latest non-superseded effective domain decision, signer attestation, no expiry, and no open conditions. Rollout/high-risk flag freeze must pass with candidate/window-bound monitoring, alerting, on-call, backup, RPO/RTO, rollback, approved flag state, rollout observation criteria met, successful restore drill evidence, and completed UAT cleanup evidence. release_owner_go must be active, unconditional, explicit go for the candidate; restore_drill must pass; cleanup residuals must be zero.",
+    "rule": "ready_for_production_deploy uses required_true_fields_for_ready_for_production_deploy plus required_value_fields_for_ready_for_production_deploy and must not require production_deploy or post-deploy rollout observation. production_ready uses required_true_fields_for_production_ready plus required_value_fields_for_production_ready: technical.track_a/b/c/main_ci/production_deploy must pass with non-empty immutable evidence refs, each technical evidence SHA must match candidate_sha, production_deploy must include candidate/run-bound post-health Docker cleanup evidence, and human_uat must pass from ledger-derived candidate-bound observations with H0 build equal to candidate_sha, verified participant qualifications, pre-observation immutable cohort manifests, task/threshold/cohort hashes, first/repeat sufficiency, phone-device coverage, metrics derived only from the deduplicated valid-attempt matrix, permitted contamination evidence for every excluded attempt, all frozen metric thresholds met, observation and defect severities classified against the frozen stopship table, and defect-derived open_p0/open_p1 zero after that classification. All required signoffs must approve using a complete checkpointed append-only signoff ledger, latest non-superseded effective domain decision, signer attestation, no expiry, and no open conditions. Rollout/high-risk flag freeze must pass with candidate/window-bound monitoring, alerting, on-call, backup, RPO/RTO, rollback, approved flag state, rollout observation criteria met, successful restore drill evidence, and completed UAT cleanup evidence. release_owner_go must be active, unconditional, explicit go for the candidate; restore_drill must pass; cleanup residuals must be zero.",
     "codex_may_override": false
   }
 }
