@@ -38,7 +38,7 @@ jobs:
           SMART_PARK_RUNNER_PASSWORD: ${{ secrets.SMART_PARK_RUNNER_PASSWORD }}
         run: |
           test -n "$SMART_PARK_RUNNER_PASSWORD"
-          node -e "import('bcrypt').then(async b => process.stdout.write(await b.hash(process.env.SMART_PARK_RUNNER_PASSWORD, 12)))" > /tmp/smart-park-runner.hash
+          pnpm --filter @jinhu/api exec node -e "import('bcrypt').then(async b => process.stdout.write(await b.hash(process.env.SMART_PARK_RUNNER_PASSWORD, 12)))" > /tmp/smart-park-runner.hash
           chmod 600 /tmp/smart-park-runner.hash
       - name: Activate dedicated production account
         env:
