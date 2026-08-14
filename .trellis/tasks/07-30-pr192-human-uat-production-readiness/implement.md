@@ -96,7 +96,7 @@ Owner: `production-readiness-facilitator`，仅在 H4 证据齐备后短时启�
 - Candidate handoff artifact:
   `handoff/2026-08-14-technical-closure-to-human-gate.md`.
 - Bound production candidate:
-  `97669ed2df810c9bc1da0e1abeb271187a7b70a40e756e419da`.
+  `97669ed2df810c9bc1da0e1abeb271187a7b70a4`.
 - Technical remediation lane `#270 -> #271 -> #272 -> #273`, Codex Review
   follow-up `#284`, main CI, production deployment, immediate production
   health, and Docker cleanup are recorded as machine evidence.

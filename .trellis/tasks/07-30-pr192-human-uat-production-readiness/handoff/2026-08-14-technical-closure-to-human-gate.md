@@ -2,7 +2,7 @@
 
 Created at: 2026-08-14T04:10:28Z  
 Authoring lane: Codex technical facilitator  
-Bound production candidate: `97669ed2df810c9bc1da0e1abeb271187a7b70a40e756e419da`  
+Bound production candidate: `97669ed2df810c9bc1da0e1abeb271187a7b70a4`
 Status: `technical_closure_verified`, `human_readiness_status=awaiting_human_gate`, `production_readiness_status=awaiting_human_gate`
 
 This handoff is an append-only status artifact for PR192. It records the current technical closure and the remaining external human gates. It is not a human role UAT result, not a business/finance/security/release signoff, and not a `production_ready` decision.
@@ -27,7 +27,7 @@ It deliberately does not create or infer any human participant observation, name
 | `#271` | Issue `https://github.com/ivanzhao299/jinhu-smart-park/issues/271` closed at 2026-08-13T08:04:07Z; PR `#276` merged at 2026-08-13T08:04:05Z; merge commit `073bbb3e02b5f25d6cba41f321ee5a2b026d5a0b`; PR checks all `SUCCESS`. | Proved technical closed |
 | `#272` | Issue `https://github.com/ivanzhao299/jinhu-smart-park/issues/272` closed at 2026-08-14T00:53:38Z; PR `#279` merged at 2026-08-14T00:53:37Z; merge commit `000ee1dd388fda4a640f4fc9f00af26d52d3f293`; PR checks all `SUCCESS`. | Proved technical closed |
 | `#273` | Issue `https://github.com/ivanzhao299/jinhu-smart-park/issues/273` closed at 2026-08-14T02:14:15Z; PR `#281` merged at 2026-08-14T02:14:14Z; merge commit `6ba98a417bee34d61dee4755d70a40e756e419da`; PR checks all `SUCCESS`. | Proved technical closed |
-| Review follow-up | PR `#284` merged at 2026-08-14T03:38:22Z; merge commit `97669ed2df810c9bc1da0e1abeb271187a7b70a40e756e419da`; PR checks all `SUCCESS`; Codex Review final comment at `https://github.com/ivanzhao299/jinhu-smart-park/pull/284#issuecomment-5289100183`: no major issues; unresolved review threads `[]`. | Proved review closure |
+| Review follow-up | PR `#284` merged at 2026-08-14T03:38:22Z; merge commit `97669ed2df810c9bc1da0e1abeb271187a7b70a4`; PR checks all `SUCCESS`; Codex Review final comment at `https://github.com/ivanzhao299/jinhu-smart-park/pull/284#issuecomment-5289100183`: no major issues; unresolved review threads `[]`. | Proved review closure |
 | Main CI | GitHub Actions run `31767406846` on `main`/`97669ed2` completed `SUCCESS`; jobs `Detect Release Smoke Scope`, `Lint, Typecheck, Build`, `Release Smoke` all `SUCCESS`. | Proved merged-branch gate |
 | Production deploy | GitHub Actions run `31767406823` on `main`/`97669ed2` completed `SUCCESS`; `000212_property_mvp_owner_scope_followup.sql` applied successfully; production Docker cleanup started and finished. | Proved deploy gate |
 | Production health snapshot | 2026-08-14T04:10:28Z public probes: `https://park.cnjinhu.com/api/v1/health` returned API status `ok`; `https://park.cnjinhu.com/api/v1/ready` returned status `ready` with `database`, `defaultTenant`, `defaultPark`, `tenantModuleAuthorization`, `bootstrapAdmin`, and `workorderReleaseDicts` all `ok`; `https://park.cnjinhu.com/login` returned HTTP `200`. | Proved immediate health |
