@@ -1,12 +1,18 @@
-import { randomUUID } from "node:crypto";
+import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
+import { approveAndWait } from "./property-api-e2e-approval.mjs";
+
+requirePropertyApiE2eIsolation();
 
 const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3001/api/v1";
 const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "10000001";
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const username = process.env.ADMIN_USERNAME ?? "admin";
 const password = process.env.ADMIN_PASSWORD ?? "Jinhu@123456";
-const runId = process.env.TEST_RUN_ID ?? `${Date.now()}-${randomUUID().slice(0, 8)}`;
+const approverUsername = process.env.APPROVER_USERNAME;
+const approverPassword = process.env.APPROVER_PASSWORD;
+const runId = process.env.TEST_RUN_ID;
 let sequence = 0;
+const requestTimeoutMs = 10000;
 
 function unwrap(body) {
   return body && typeof body === "object" && "data" in body ? body.data : body;
@@ -22,40 +28,80 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
-async function request(path, { token, idempotent = false, ...options } = {}) {
+function createRequestSignal(externalSignal) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  const abortFromExternal = () => controller.abort(externalSignal.reason);
+  if (externalSignal?.aborted) {
+    abortFromExternal();
+  } else {
+    externalSignal?.addEventListener("abort", abortFromExternal, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout);
+      externalSignal?.removeEventListener("abort", abortFromExternal);
+    }
+  };
+}
+
+async function request(path, { token, idempotent = false, idempotencyKey, ...options } = {}) {
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
-  if (options.body) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = idempotencyKey ?? key(options.method ?? "request");
+    if (options.body) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => "");
+    if (!response.ok) {
+      throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    }
+    console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
+    return unwrap(body);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    cleanup();
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json")
-    ? await response.json().catch(() => null)
-    : await response.text().catch(() => "");
-  if (!response.ok) {
-    throw new Error(`${options.method ?? "GET"} ${path} -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
-  }
-  console.log(`[PASS] ${options.method ?? "GET"} ${path} (${response.status})`);
-  return unwrap(body);
 }
 
 async function tryRequest(path, { token, idempotent = false, ...options } = {}) {
+  const { signal, cleanup } = createRequestSignal(options.signal);
   const headers = { ...(options.headers ?? {}) };
-  if (token) headers.authorization = `Bearer ${token}`;
-  if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
-  if (options.body) {
-    headers["content-type"] = "application/json";
-    options.body = JSON.stringify(options.body);
+  try {
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (idempotent) headers["x-idempotency-key"] = key(options.method ?? "request");
+    if (options.body) {
+      headers["content-type"] = "application/json";
+      options.body = JSON.stringify(options.body);
+    }
+    const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers, signal });
+    const body = await response.json().catch(() => null);
+    return { ok: response.ok, status: response.status, body: unwrap(body) };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${options.method ?? "GET"} ${path} timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    cleanup();
   }
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...options, headers });
-  const body = await response.json().catch(() => null);
-  return { ok: response.ok, status: response.status, body: unwrap(body) };
 }
 
 async function uploadTurnoverPhoto(token, turnoverId) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
   const form = new FormData();
   form.append("biz_type", "homestay_turnover");
   form.append("biz_id", turnoverId);
@@ -64,20 +110,30 @@ async function uploadTurnoverPhoto(token, turnoverId) {
     new Blob([Buffer.from("homestay-turnover-evidence")], { type: "image/png" }),
     `turnover-${runId}.png`
   );
-  const response = await fetch(`${apiBaseUrl}/files`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "x-idempotency-key": key("turnover-photo")
-    },
-    body: form
-  });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(`POST /files -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+  try {
+    const response = await fetch(`${apiBaseUrl}/files`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "x-idempotency-key": key("turnover-photo")
+      },
+      body: form,
+      signal: controller.signal
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(`POST /files -> ${response.status}: ${JSON.stringify(body).slice(0, 500)}`);
+    }
+    console.log(`[PASS] POST /files (${response.status})`);
+    return unwrap(body);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`POST /files timed out after ${requestTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  console.log(`[PASS] POST /files (${response.status})`);
-  return unwrap(body);
 }
 
 async function run() {
@@ -88,14 +144,25 @@ async function run() {
   });
   const token = login.accessToken;
   assert(typeof token === "string" && token.length > 0, "authenticated through the real login API");
+  assert(approverUsername && approverPassword, "separated approval credentials are configured");
+  const approverLogin = await request("/auth/login", {
+    method: "POST",
+    body: { tenantId, parkId, username: approverUsername, password: approverPassword }
+  });
+  const approverToken = approverLogin.accessToken;
+  assert(typeof approverToken === "string" && approverToken.length > 0, "authenticated a separate approval actor");
 
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-  const departure = new Date(`${today}T00:00:00+08:00`);
-  departure.setDate(departure.getDate() + 1);
-  const tomorrow = departure.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
-  const dayAfterTomorrowDate = new Date(departure);
-  dayAfterTomorrowDate.setDate(dayAfterTomorrowDate.getDate() + 1);
-  const dayAfterTomorrow = dayAfterTomorrowDate.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const formatShanghaiDate = (date) => date.toLocaleDateString("en-CA", { timeZone: "Asia/Shanghai" });
+  const addShanghaiDays = (date, days) => {
+    const next = new Date(date);
+    next.setDate(next.getDate() + days);
+    return next;
+  };
+  const businessDate = formatShanghaiDate(new Date());
+  const businessDateStart = new Date(`${businessDate}T00:00:00+08:00`);
+  const operationalDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
+  const futureArrival = formatShanghaiDate(addShanghaiDays(businessDateStart, 2));
+  const futureDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
   const units = await request("/park-units?page=1&page_size=100", { token });
   let unit;
   for (const candidate of units.items) {
@@ -104,36 +171,26 @@ async function run() {
       token,
       idempotent: true,
       body: {
-        unit_id: candidate.id,
-        start_at: `${today}T00:00:00+08:00`,
-        end_at: `${tomorrow}T00:00:00+08:00`
+        unitId: candidate.id,
+        startAt: `${businessDate}T00:00:00+08:00`,
+        endAt: `${operationalDeparture}T00:00:00+08:00`
       }
     });
     if (!availability.available) continue;
+    const currentOperation = await request(`/property/units/${candidate.id}/operation`, { token });
     await request(`/property/units/${candidate.id}/operation`, {
       method: "PUT",
       token,
       idempotent: true,
-      body: { operating_status: "enabled", remark: "Homestay real API E2E" }
+      body: { version: currentOperation.version, operating_status: "enabled", remark: "Homestay real API E2E" }
     });
     const operation = await request(`/property/units/${candidate.id}/operation`, { token });
-    if (operation.operating_mode === "short_stay") {
-      unit = candidate;
-      break;
-    }
-    const transition = await tryRequest(`/property/units/${candidate.id}/mode-transitions`, {
-      method: "POST",
-      token,
-      idempotent: true,
-      body: { target_mode: "short_stay", reason: "Homestay real API E2E" }
-    });
-    if (transition.ok) {
-      console.log(`[PASS] POST /property/units/${candidate.id}/mode-transitions (${transition.status})`);
+    if (operation.configuredMode === "short_stay") {
       unit = candidate;
       break;
     }
   }
-  assert(Boolean(unit?.id), "selected an available whole-unit property that can enter short-stay mode");
+  assert(Boolean(unit?.id), "selected an explicitly configured available short-stay unit");
   const candidates = await request("/homestay/unit-candidates?page=1&page_size=100", { token });
   assert(candidates.items.some((candidate) => candidate.id === unit.id), "candidate API includes the enabled short-stay unit");
 
@@ -158,7 +215,7 @@ async function run() {
   ));
   assert(rateResults.length === 2, "concurrent homestay rate writes both succeed");
   const rate = await request(
-    `/homestay/rates/${unit.id}?date_from=${today}&date_to=${tomorrow}`,
+    `/homestay/rates/${unit.id}?date_from=${businessDate}&date_to=${operationalDeparture}`,
     { token }
   );
   assert(["301.00", "302.00"].includes(rate.base_daily_rate), "persisted rate is one complete concurrent write");
@@ -178,11 +235,42 @@ async function run() {
       consent_status: "granted"
     }
   });
-  await request(`/property/parties/${guest.id}/verification`, {
+  const identitySubmissionId = guest.identitySummary?.currentSubmissionId;
+  assert(typeof identitySubmissionId === "string", "party creation owns a draft identity submission");
+  const identityDraft = await request(`/property/identity-submissions/${identitySubmissionId}`, { token });
+  const identitySubmitKey = key("identity-submit");
+  const submittedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/submit`, {
     method: "POST",
     token,
     idempotent: true,
-    body: { verification_status: "verified", remark: "Homestay API E2E identity verification" }
+    idempotencyKey: identitySubmitKey,
+    body: { clientKey: identitySubmitKey, expectedVersion: identityDraft.version }
+  });
+  const identityClaimKey = key("identity-claim");
+  const claimedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/claim`, {
+    method: "POST",
+    token: approverToken,
+    idempotent: true,
+    idempotencyKey: identityClaimKey,
+    body: {
+      clientKey: identityClaimKey,
+      expectedVersion: submittedIdentity.version,
+      expectedAssignmentVersion: submittedIdentity.assignmentVersion
+    }
+  });
+  const identityDecisionKey = key("identity-decision");
+  await request(`/property/identity-submissions/${identitySubmissionId}/decisions`, {
+    method: "POST",
+    token: approverToken,
+    idempotent: true,
+    idempotencyKey: identityDecisionKey,
+    body: {
+      clientKey: identityDecisionKey,
+      decision: "verified",
+      expectedVersion: claimedIdentity.version,
+      expectedAssignmentVersion: claimedIdentity.assignmentVersion,
+      reason: "Homestay API E2E identity verification"
+    }
   });
 
   await request(`/park-units/${unit.id}`, {
@@ -194,7 +282,7 @@ async function run() {
   let inactiveUnitBooking;
   try {
     const inactiveRoomStates = await request(
-      `/homestay/availability?date_from=${today}&date_to=${tomorrow}`,
+      `/homestay/availability?date_from=${businessDate}&date_to=${operationalDeparture}`,
       { token }
     );
     const inactiveRoomState = inactiveRoomStates.find((item) => item.unit_id === unit.id);
@@ -210,8 +298,8 @@ async function run() {
         booking_code: `HS-INACTIVE-${runId}`.slice(0, 64),
         unit_id: unit.id,
         booker_party_id: guest.id,
-        arrival_date: today,
-        departure_date: tomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         source_type: "direct",
         guest_count: 1
       }
@@ -248,8 +336,8 @@ async function run() {
         booking_code: `HS-OVERFLOW-${runId}`.slice(0, 64),
         unit_id: unit.id,
         booker_party_id: guest.id,
-        arrival_date: today,
-        departure_date: dayAfterTomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         source_type: "direct",
         guest_count: 1
       }
@@ -278,8 +366,8 @@ async function run() {
       booking_code: `HS-FUTURE-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: tomorrow,
-      departure_date: dayAfterTomorrow,
+      arrival_date: futureArrival,
+      departure_date: futureDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Future no-show boundary E2E"
@@ -297,12 +385,13 @@ async function run() {
     body: { reason: "must be rejected before arrival" }
   });
   assert(earlyNoShow.status === 409, "future booking cannot be marked no-show before arrival");
-  await request(`/homestay/bookings/${futureBooking.id}/cancel`, {
+  const futureCancellation = await request(`/homestay/bookings/${futureBooking.id}/cancel`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "clean up future no-show boundary E2E" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: futureCancellation, label: "future booking cancellation" });
 
   const releasedOccupancyBooking = await request("/homestay/bookings", {
     method: "POST",
@@ -312,8 +401,8 @@ async function run() {
       booking_code: `HS-RELEASED-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: today,
-      departure_date: tomorrow,
+      arrival_date: businessDate,
+      departure_date: operationalDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Forced occupancy release E2E"
@@ -330,11 +419,19 @@ async function run() {
     idempotent: true,
     body: { party_id: guest.id, is_primary: true, verification_status: "verified" }
   });
-  await request(`/property/occupancies/${releasedOccupancyBooking.occupancyId}/release`, {
+  const forcedOccupancyRelease = await request(`/property/occupancies/${releasedOccupancyBooking.occupancyId}/release`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "Homestay forced release regression", force: true }
+  });
+  await approveAndWait({
+    request,
+    token: approverToken,
+    createKey: key,
+    assert,
+    submission: forcedOccupancyRelease,
+    label: "homestay forced occupancy release"
   });
   const releasedOccupancyReschedule = await tryRequest(
     `/homestay/bookings/${releasedOccupancyBooking.id}/reschedule`,
@@ -343,8 +440,8 @@ async function run() {
       token,
       idempotent: true,
       body: {
-        arrival_date: today,
-        departure_date: tomorrow,
+        arrival_date: businessDate,
+        departure_date: operationalDeparture,
         reason: "force-released occupancy must not be resurrected"
       }
     }
@@ -361,12 +458,13 @@ async function run() {
     releasedOccupancyCheckIn.status === 409,
     "booking cannot check in after its occupancy was force released"
   );
-  await request(`/homestay/bookings/${releasedOccupancyBooking.id}/cancel`, {
+  const releasedOccupancyCancellation = await request(`/homestay/bookings/${releasedOccupancyBooking.id}/cancel`, {
     method: "POST",
     token,
     idempotent: true,
     body: { reason: "clean up forced occupancy release E2E" }
   });
+  await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: releasedOccupancyCancellation, label: "released occupancy booking cancellation" });
 
   const booking = await request("/homestay/bookings", {
     method: "POST",
@@ -376,8 +474,8 @@ async function run() {
       booking_code: `HS-E2E-${runId}`.slice(0, 64),
       unit_id: unit.id,
       booker_party_id: guest.id,
-      arrival_date: today,
-      departure_date: tomorrow,
+      arrival_date: businessDate,
+      departure_date: operationalDeparture,
       source_type: "direct",
       guest_count: 1,
       remark: "Homestay real API E2E"

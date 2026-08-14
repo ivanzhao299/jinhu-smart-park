@@ -67,7 +67,7 @@ jobs:
                   ;;
               esac
             fi
-            if printf '%s\n' "$changed_files" | grep -Eq '^(database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
+            if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json$|apps/api/src/(app\.module\.ts$|modules/(auth|field-policies|files|homestay|housing|property-approvals|property-identity|property-operations|units|work-orders)/|shared/(guards/(idempotency-key|property-high-risk-action)\.guard\.ts|interceptors/idempotency\.interceptor\.ts|services/idempotency\.service\.ts|property-workbench/property-high-risk-stopship\.ts)$)|packages/shared/src/(index\.ts$|property-business/)|database/(migrations|migration-prerequisites|migration-replacements|seeds)/|database/(migration-history-aliases|migration-replacements)\.txt$|scripts/(e2e/(homestay-api-e2e|housing-rental-api-e2e|property-api-e2e-(approval|gate(\.contract)?|safety))\.mjs|e2e/property-api-e2e-fixtures\.sql|(db-migrate|db-seed-prod|bootstrap-admin|check-init-baseline|prod-deploy|prod-healthcheck|prod-docker-cleanup)\.sh)$|infra/docker/docker-compose\.prod\.yml$|\.github/workflows/(ci|deploy-production)\.yml$)'; then
               required=true
             fi
           fi
@@ -108,6 +108,9 @@ jobs:
       - name: Verify property role template contracts
         run: pnpm test:e2e:property-role-template
 
+      - name: Verify property API E2E gate contract
+        run: pnpm test:e2e:property-api-gate-contract
+
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
 
@@ -138,6 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
+      COMPOSE_PROJECT_NAME: property-api-e2e-${{ github.run_id }}
       COMPOSE_FILE: /home/runner/work/jinhu-smart-park/jinhu-smart-park/infra/docker/docker-compose.prod.yml
       NPM_REGISTRY: https://registry.npmjs.org
       NODE_ENV: production
@@ -167,7 +171,7 @@ jobs:
       PARTY_DATA_ENCRYPTION_KEY: ${{ github.sha }}
       JWT_EXPIRES_IN: 8h
       BCRYPT_SALT_ROUNDS: 10
-      FILE_STORAGE_LOCAL_ROOT: /tmp/jinhu-files
+      FILE_STORAGE_LOCAL_ROOT: /var/lib/jinhu/files
       AUTH_SMS_FIXED_CODE: ""
       AUTH_SMS_CODE_VISIBLE: "false"
       AUTH_WECHAT_MOCK_ENABLED: "false"
@@ -1041,6 +1045,39 @@ jobs:
       - name: Check init baseline
         run: pnpm db:check:init 2>&1 | tee /tmp/release-smoke-logs/check-init-baseline.log
 
+      - name: Provision disposable property operation fixtures
+        env:
+          APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
+          APPROVER_2_PASSWORD: JinhuReleaseSmokeTransferApprover#2026
+        run: |
+          set -o pipefail
+          hash_password() {
+            cd apps/api
+            PASSWORD_TO_HASH="$1" node -e '
+              const bcrypt = require("bcrypt");
+              const password = process.env.PASSWORD_TO_HASH;
+              const rounds = Number(process.env.BCRYPT_SALT_ROUNDS || "12");
+              if (!password) throw new Error("missing password");
+              bcrypt.hash(password, rounds)
+                .then((hash) => process.stdout.write(hash))
+                .catch((error) => {
+                  console.error(error && error.stack ? error.stack : String(error));
+                  process.exit(1);
+                });
+            '
+          }
+          approver_hash="$(hash_password "$APPROVER_PASSWORD")"
+          transfer_approver_hash="$(hash_password "$APPROVER_2_PASSWORD")"
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -X -v ON_ERROR_STOP=1 -v tenant_id="$TENANT_ID" -v park_id="$PARK_ID" \
+              -v approver_username="property_approver_ci" \
+              -v approver_password_hash="$approver_hash" \
+              -v approver_2_username="property_transfer_approver_ci" \
+              -v approver_2_password_hash="$transfer_approver_hash" \
+              -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+              < scripts/e2e/property-api-e2e-fixtures.sql \
+              2>&1 | tee /tmp/release-smoke-logs/property-api-e2e-fixtures.log
+
       - name: Start API
         run: docker compose -f "$COMPOSE_FILE" up -d api
 
@@ -1058,6 +1095,22 @@ jobs:
 
       - name: Verify release smoke login flow
         run: bash scripts/verify-api-login-dockerexec.sh 2>&1 | tee /tmp/release-smoke-logs/verify-api-login.log
+
+      - name: Run property API E2E gate
+        env:
+          PROPERTY_API_E2E_ISOLATED: "yes"
+          PROPERTY_API_E2E_DOCKER_PROJECT: ${{ env.COMPOSE_PROJECT_NAME }}
+          PROPERTY_API_E2E_API_CONTAINER: ${{ env.API_CTN }}
+          PROPERTY_API_E2E_POSTGRES_CONTAINER: ${{ env.POSTGRES_CTN }}
+          API_BASE_URL: ${{ env.API_BASE }}
+          APPROVER_USERNAME: property_approver_ci
+          APPROVER_PASSWORD: JinhuReleaseSmokeApprover#2026
+          APPROVER_2_USERNAME: property_transfer_approver_ci
+          APPROVER_2_PASSWORD: JinhuReleaseSmokeTransferApprover#2026
+          PROPERTY_API_E2E_REPORT_PATH: /tmp/release-smoke-logs/property-api-e2e-report.json
+        run: |
+          set -o pipefail
+          pnpm test:e2e:property-api 2>&1 | tee /tmp/release-smoke-logs/property-api-e2e.log
 
       - name: Collect docker diagnostics
         if: always()
@@ -1077,4 +1130,14 @@ jobs:
 
       - name: Tear down release smoke containers
         if: always()
-        run: docker compose -f "$COMPOSE_FILE" down -v
+        run: |
+          docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
+          remaining_containers="$(docker compose -f "$COMPOSE_FILE" ps -aq)"
+          test -z "$remaining_containers"
+          for volume in "${COMPOSE_PROJECT_NAME}_postgres-data" "${COMPOSE_PROJECT_NAME}_api-files-data"; do
+            if docker volume inspect "$volume" >/dev/null 2>&1; then
+              echo "Disposable property E2E volume was not removed: $volume" >&2
+              exit 1
+            fi
+          done
+          echo "Assert disposable property E2E cleanup: PASS"

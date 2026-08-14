@@ -262,6 +262,21 @@ Reference files:
   the command's exact persisted stdout/stderr log paths. All non-allowlisted
   URLs, non-build logs, and path masquerades remain fail-closed.
 
+### Mutating Property API E2E Isolation
+
+- A real API E2E that creates bookings, leases, approvals, financial entries,
+  occupancies, or files must refuse to start unless it receives an explicit
+  isolated-run flag, a per-run identifier, a disposable database identity, and
+  a loopback API origin. A default localhost URL alone is not a safety boundary.
+- The release workflow must run these suites only after migration, production
+  seed, bootstrap, and both health/readiness checks. It must retain a redacted
+  report and tear down the entire disposable database/files volume on both
+  success and failure, then assert no named resources remain.
+- Keep the full mutating suite out of ordinary PR verification. Its static
+  contract belongs in the fast path; changed property API/shared contracts,
+  migrations, or E2E harnesses must automatically require the disposable
+  Release Smoke path rather than rely on a reviewer-applied label.
+
 ## Documentation Sync
 
 When changing environment variables, scripts, release flow, first-release scope, menu visibility, auth behavior, database initialization, financial behavior, or idempotency behavior, update the matching docs in the same task.

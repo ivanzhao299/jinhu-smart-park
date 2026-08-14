@@ -146,9 +146,10 @@ export class HousingController {
   createTenant(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
+    @Headers("x-idempotency-key") clientKey: string | undefined,
     @Body() dto: CreatePartyDto
   ) {
-    return this.service.createTenant(scope, actor, dto);
+    return this.service.createTenant(scope, actor, dto, clientKey);
   }
 
   @Get("leases")

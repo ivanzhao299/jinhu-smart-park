@@ -112,9 +112,10 @@ export class HousingService {
   async createTenant(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    dto: CreatePartyDto
+    dto: CreatePartyDto,
+    clientKey?: string
   ): Promise<HousingTenantResponse> {
-    return this.tenantService.create(scope, actor, dto);
+    return this.tenantService.create(scope, actor, dto, clientKey);
   }
 
   dashboard(scope: TenantParkScope, actor: JwtPrincipal) {

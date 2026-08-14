@@ -233,8 +233,8 @@ export class HousingLeaseApprovalExecutorService {
     const toStatus = actionId === "housing.leases.void.request" ? "void" : "terminated";
     const payload = input.canonicalPayload;
     const updated = typeormQueryRows<{ version: number; checkoutAt: Date | null }>(await input.manager.query(
-      `UPDATE biz_housing_lease SET status=$5,termination_reason=$6,
-              checkout_at=CASE WHEN $5='terminated' THEN clock_timestamp() ELSE checkout_at END,
+      `UPDATE biz_housing_lease SET status=$5::varchar,termination_reason=$6,
+              checkout_at=CASE WHEN $5::varchar='terminated' THEN clock_timestamp() ELSE checkout_at END,
               update_by=$7,update_time=clock_timestamp(),version=version+1
         WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND version=$4 RETURNING version,checkout_at AS "checkoutAt"`,
       [source.scope.tenantId, source.scope.parkId, source.leaseId, input.sourceExpectedVersion,
