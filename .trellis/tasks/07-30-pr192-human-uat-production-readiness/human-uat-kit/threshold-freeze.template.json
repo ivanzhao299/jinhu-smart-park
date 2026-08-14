@@ -2,6 +2,7 @@
   "schema_version": "pr192-human-uat-threshold-freeze-v1",
   "threshold_version": "<fill-before-human-uat>",
   "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-threshold_signature_ref-role_owner_approval_refs-role_owner_approval_hashes-human_signature_envelopes-and-handoff_hash>",
+  "threshold_payload_complete_and_schema_valid": "<true|required-before-signature>",
   "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
   "threshold_digest_algorithm": "sha256 over canonical JSON after removing threshold_payload_sha256, threshold_signature_ref, role_owner_approval_refs, role_owner_approval_hashes, human signature envelopes, and handoff_hash",
   "role_owner_approval_refs": [],
@@ -59,7 +60,9 @@
     "p90_duration_seconds_max_by_task": "<fill-before-human-uat>",
     "p90_interaction_count_max_by_task": "<fill-before-human-uat>",
     "error_rate_max_by_role": "<fill-before-human-uat>",
-    "help_rate_max_by_role": "<fill-before-human-uat>"
+    "help_rate_max_by_role": "<fill-before-human-uat>",
+    "all_metric_threshold_maps_complete_and_numeric": "<true|required-before-signature>",
+    "failure_duration_policy_resolved": "<true|required-before-signature>"
   },
   "stopship": {
     "open_p0_allowed": 0,

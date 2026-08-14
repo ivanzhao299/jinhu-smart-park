@@ -69,6 +69,7 @@ The exact account aliases and scopes must live in a secret-safe account manifest
 | Purchase approver | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 | Payment staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 | Repair staff | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
+| Shared property asset manager | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 | Auditor | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<fill>` | `<external-secret-channel-ref>` | `<fill>` | must be no |
 
 ## 4. Data And Cleanup

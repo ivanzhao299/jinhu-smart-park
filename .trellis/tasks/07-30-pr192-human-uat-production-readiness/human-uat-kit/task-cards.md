@@ -42,7 +42,7 @@ Every row in this catalog is a complete frozen task card. Every participant in a
 
 The detailed examples after the table are coordinator notes only; they do not reduce the required four-card-per-role matrix. A readiness evaluator must derive coverage from the 68 task IDs below, not from the example section.
 
-Expected-denial tasks score as successful only when the participant reaches the denial from the frozen discoverable start point, the denial matches the role/scope/field/action boundary under test, no superuser or coordinator workaround is used, and the observation records the denial message plus route/action context. A denied task that blocks an allowed role action, hides unrelated required context, or requires a hidden deep link is a failed attempt, not a passed expected denial.
+Expected-denial tasks score as successful only when `expected_outcome_met=true`: the participant reaches the denial from the frozen discoverable start point, the denial matches the role/scope/field/action boundary under test, no superuser or coordinator workaround is used, and the observation records the denial message plus route/action context. A denied task that blocks an allowed role action, hides unrelated required context, or requires a hidden deep link is a failed attempt, not a passed expected denial. The success-rate metric must use the frozen expected outcome, not the attempted business mutation result.
 
 | Task ID | Role | Start point | Goal | Completion evidence |
 | --- | --- | --- | --- | --- |
@@ -61,7 +61,7 @@ Expected-denial tasks score as successful only when the participant reaches the 
 | HOMESTAY-INSPECTOR-01 | Homestay inspector | Homestay tasks queue or inspector dashboard entry filtered to turnover exceptions | Review exception and record follow-up decision. | Decision or blocker recorded. |
 | HOMESTAY-INSPECTOR-02 | Homestay inspector | Turnover evidence panel | Inspect file preview/download permission. | File behavior recorded. |
 | HOMESTAY-INSPECTOR-03 | Homestay inspector | Completed turnover detail | Verify final state and audit trail. | Audit/evidence visibility recorded. |
-| HOMESTAY-INSPECTOR-04 | Homestay inspector | Cross-scope direct link | Confirm inaccessible turnover is denied. | Deny route/message recorded. |
+| HOMESTAY-INSPECTOR-04 | Homestay inspector | Discoverable unauthorized turnover entry from homestay tasks/list filtering or role navigation | Confirm inaccessible turnover is denied. | Deny route/message recorded. |
 | HOMESTAY-FINANCE-01 | Homestay finance | Booking finance detail | Create valid refund or waiver approval request. | Pending approval or validation result recorded. |
 | HOMESTAY-FINANCE-02 | Homestay finance | Booking finance detail | Attempt over-limit refund/waiver and confirm block. | Expected error recorded. |
 | HOMESTAY-FINANCE-03 | Homestay finance | Approval or finance source view | Verify source ledger, recorder, and amount projection. | Source/effective available amount recorded. |
