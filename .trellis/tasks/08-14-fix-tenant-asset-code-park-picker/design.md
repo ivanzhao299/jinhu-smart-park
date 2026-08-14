@@ -5,6 +5,7 @@
 缺陷由两个独立但连续的状态缺口组成：
 
 1. 平台标准编码规则只存在于固定 seed scope。新 tenant/park 创建事务没有复制规则；前端允许编码留空后，楼栋服务在目标 scope 查不到 `building` 规则并返回英文 404。floor/unit 以及其他依赖 code rule 的启用模块同样受影响。
+   迁移只处理当时活跃 scope，因此 tenant/park 从停用恢复、模块从未授权恢复等所有“由不可用转为可用”的事务入口也必须复用同一 provisioning 原语，不能依赖一次性迁移。
 2. 楼栋选择器依赖 `/users/me.accessible_parks`。历史 home park 用户缺少关系行时后端使用“当前园区”占位；新增园区后页面未刷新用户上下文，导致新关系虽已提交但浏览器仍使用旧列表。
 
 ## Code Rule Provisioning Contract

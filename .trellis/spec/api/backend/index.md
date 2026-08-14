@@ -184,7 +184,7 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 
 ### 2. Signatures
 
-- Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction. Tenant create/update/reactivation, additional-park creation, tenant login/module settings, and direct SaaS module assign/enable writers must all use it after persisting or restoring assignments.
+- Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction. Tenant create/update/reactivation, park reactivation (including bounded default-scope recovery), additional-park creation, tenant login/module settings, and direct SaaS module assign/enable writers must all use it after persisting or restoring assignments.
 - Standard source: enabled, non-deleted `sys_code_rule` rows in fixed platform scope `10000001/20000001`, selected by persisted enabled module assignments.
 - Migration entry point: forward-only `database/migrations/000212_code_rule_scope_provisioning.sql` with the same source, eligibility, sequence-reset, and history-preservation semantics.
 
@@ -205,7 +205,7 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 - future-start enabled assignment -> rules provisioned, module remains unavailable until its normal start-time gate passes.
 - target disabled/deleted/customized history -> preserve it exactly and skip the matching rule.
 - concurrent or repeated provisioning -> advisory-lock serialized, idempotent result with no duplicate rule.
-- tenant reactivation/expiry extension and direct SaaS module assign/enable -> provision in the same transaction after assignments become active; no entry point may rely only on the one-time migration.
+- tenant or park reactivation/expiry extension and direct SaaS module assign/enable -> provision in the same transaction after assignments become active; no entry point may rely only on the one-time migration.
 - unknown target scope or source in another tenant/park -> never infer or cross-scope copy.
 
 ### 5. Good / Base / Bad Cases

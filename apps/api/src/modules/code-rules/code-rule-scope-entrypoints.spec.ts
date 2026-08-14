@@ -6,6 +6,7 @@ import test from "node:test";
 test("every tenant scope or module assignment entry point provisions code rules", () => {
   const source = readFileSync(resolve(__dirname, "../tenants/tenants.service.ts"), "utf8");
   const saasSource = readFileSync(resolve(__dirname, "../saas-modules/saas-modules.service.ts"), "utf8");
+  const parksSource = readFileSync(resolve(__dirname, "../parks/parks.service.ts"), "utf8");
   const createBlock = source.slice(source.indexOf("async create("), source.indexOf("async provisionAdditionalPark("));
   const parkBlock = source.slice(source.indexOf("async provisionAdditionalPark("), source.indexOf("async update("));
   const loginBlock = source.slice(source.indexOf("async updateLoginSettings("), source.indexOf("async enable("));
@@ -22,8 +23,12 @@ test("every tenant scope or module assignment entry point provisions code rules"
     saasSource.indexOf("async enableTenantModule("),
     saasSource.indexOf("async disableTenantModule(")
   );
+  const parkUpdateBlock = parksSource.slice(
+    parksSource.indexOf("async update("),
+    parksSource.indexOf("async softDelete(")
+  );
 
-  for (const block of [createBlock, parkBlock, loginBlock, assignBlock, reactivateBlock, directAssignBlock, directEnableBlock]) {
+  for (const block of [createBlock, parkBlock, loginBlock, assignBlock, reactivateBlock, directAssignBlock, directEnableBlock, parkUpdateBlock]) {
     assert.match(block, /ensureCodeRuleScopeProvisioned\(manager,/);
   }
   assert.ok(createBlock.indexOf("upsertTenantModules") < createBlock.indexOf("ensureCodeRuleScopeProvisioned"));
@@ -33,4 +38,7 @@ test("every tenant scope or module assignment entry point provisions code rules"
   assert.ok(reactivateBlock.indexOf("reconcileReactivatedParkAuthorization") < reactivateBlock.indexOf("ensureCodeRuleScopeProvisioned"));
   assert.ok(directAssignBlock.indexOf("repository.save(entity)") < directAssignBlock.indexOf("ensureCodeRuleScopeProvisioned"));
   assert.ok(directEnableBlock.indexOf("repository.save(entity)") < directEnableBlock.indexOf("ensureCodeRuleScopeProvisioned"));
+  assert.equal((parkUpdateBlock.match(/ensureCodeRuleScopeProvisioned\(manager,/g) ?? []).length, 2);
+  assert.ok(parkUpdateBlock.indexOf("reconcileReactivatedParkAuthorization(manager, targetScope") < parkUpdateBlock.indexOf("ensureCodeRuleScopeProvisioned(manager, targetScope"));
+  assert.ok(parkUpdateBlock.indexOf("reconcileReactivatedParkAuthorization(manager, DEFAULT_PLATFORM_SCOPE") < parkUpdateBlock.indexOf("ensureCodeRuleScopeProvisioned(manager, DEFAULT_PLATFORM_SCOPE"));
 });
