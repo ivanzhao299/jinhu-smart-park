@@ -186,7 +186,7 @@ await provisionAdditionalPark(manager, current, targetScope, actor, dto);
 
 - Runtime entry point: `ensureCodeRuleScopeProvisioned(manager, scope, actorId)` inside the caller's existing transaction. Tenant create/update/reactivation, park reactivation (including bounded default-scope recovery), additional-park creation, tenant login/module settings, and direct SaaS module assign/enable writers must all use it after persisting or restoring assignments.
 - Standard source: enabled, non-deleted `sys_code_rule` rows in fixed platform scope `10000001/20000001`, selected by persisted enabled module assignments.
-- Migration entry point: forward-only `database/migrations/000212_code_rule_scope_provisioning.sql` with the same source, eligibility, sequence-reset, and history-preservation semantics.
+- Migration entry point: forward-only `database/migrations/000213_code_rule_scope_provisioning.sql` with the same source, eligibility, sequence-reset, and history-preservation semantics.
 
 ### 3. Contracts
 

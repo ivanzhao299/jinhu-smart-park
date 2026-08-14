@@ -24,7 +24,7 @@
 
 ## Existing Scope Migration
 
-新增下一编号的 forward-only migration（当前主干最新为 `000211`）：
+新增下一编号的 forward-only migration（同步后的当前主干最新为 `000212`，本任务使用 `000213`）：
 
 - 获取 advisory lock，并在明确锁窗口内运行。
 - 对 active `biz_park` 且拥有 enabled、未删除、尚未过期的 `rel_tenant_module + sys_module` 分配（包括未来生效 assignment）的 scope，从固定标准 scope 补齐缺失规则。

@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
 
-SELECT pg_advisory_xact_lock(hashtextextended('000212-code-rule-scope-provisioning', 0));
+SELECT pg_advisory_xact_lock(hashtextextended('000213-code-rule-scope-provisioning', 0));
 LOCK TABLE sys_code_rule IN SHARE ROW EXCLUSIVE MODE;
 
 DO $$
@@ -50,7 +50,7 @@ BEGIN
        AND status = 'enabled'
        AND is_deleted = false;
     IF source_core_count <> 3 THEN
-      RAISE EXCEPTION '000212-code-rule-source-preflight-failed: expected 3 asset core rules, found %', source_core_count;
+      RAISE EXCEPTION '000213-code-rule-source-preflight-failed: expected 3 asset core rules, found %', source_core_count;
     END IF;
   END IF;
 END $$;
@@ -131,7 +131,7 @@ SELECT
     'g'
   ),
   'enabled', NULL, NULL,
-  left(coalesce(source.remark || ' | ', '') || '000212 tenant scope standard code rule backfill', 500)
+  left(coalesce(source.remark || ' | ', '') || '000213 tenant scope standard code rule backfill', 500)
 FROM provisionable_scopes scope
 JOIN source_rules source
   ON source.target_module = scope.module_code

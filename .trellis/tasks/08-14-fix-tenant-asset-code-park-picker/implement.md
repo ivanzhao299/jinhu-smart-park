@@ -3,7 +3,7 @@
 1. 读取 API/Web/数据库/测试规范，确认 migration、scope、auth session 和前端移动端约束。
 2. 新增编码规则 scope provisioning helper：事务内读取实际有效 module assignments，覆盖固定标准来源、序列归零、active/custom/disabled/deleted 历史保护和 asset 核心 fail-fast。
 3. 在新租户默认园区、新增园区及后续套餐/模块变更事务中调用 helper，并增加数据驱动的防复发契约/行为测试。
-4. 新增 `000212` forward-only migration，补齐现有 active tenant/park scopes，并增加 SQL 契约及 disposable PostgreSQL 测试。
+4. 新增 `000213` forward-only migration，补齐现有 active tenant/park scopes，并增加 SQL 契约及 disposable PostgreSQL 测试（`000212` 已由同步后的 main 占用）。
 5. 删除 `resolveAccessibleParks` 跨 tenant link fallback；为历史 home park 缺少关系行增加 active exact-scope projection 兼容，补充其他 tenant、disabled/deleted、未绑定园区不越权测试。
 6. 园区创建成功后刷新 `/users/me`、持久化并 controlled reload；补充 storage/React context 不陈旧、partial-success 文案和 flash 恢复测试。
 7. 运行定向 API/Web 单测、真实 PostgreSQL migration、资产创建 E2E、完整 lint/typecheck/build/test 与 `git diff --check`。
