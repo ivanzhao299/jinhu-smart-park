@@ -1,9 +1,9 @@
 {
   "schema_version": "pr192-human-uat-threshold-freeze-v1",
   "threshold_version": "<fill-before-human-uat>",
-  "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-signature-fields-and-handoff_hash>",
+  "threshold_payload_sha256": "<sha256-of-canonical-threshold-payload-excluding-threshold_payload_sha256-threshold_signature_ref-role_owner_approval_refs-role_owner_approval_hashes-human_signature_envelopes-and-handoff_hash>",
   "threshold_signature_ref": "<append-only-human-owner-signature-ref>",
-  "threshold_digest_algorithm": "sha256 over canonical JSON after removing threshold_payload_sha256, threshold_signature_ref, role_owner_approval_refs, role_owner_approval_hashes, and human signature envelopes",
+  "threshold_digest_algorithm": "sha256 over canonical JSON after removing threshold_payload_sha256, threshold_signature_ref, role_owner_approval_refs, role_owner_approval_hashes, human signature envelopes, and handoff_hash",
   "role_owner_approval_refs": [],
   "role_owner_approval_hashes": [],
   "handoff_id": "<fill-from-approved-handoff>",
