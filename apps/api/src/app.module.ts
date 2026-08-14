@@ -44,7 +44,8 @@ import {
   HOUSING_BILLING_TASK_RESOLVER,
   HOUSING_HANDOVER_TASK_RESOLVER,
   HOUSING_LEASE_TASK_RESOLVER,
-  HOUSING_PURCHASE_TASK_RESOLVER
+  HOUSING_PURCHASE_TASK_RESOLVER,
+  HOUSING_REPAIR_TASK_RESOLVER
 } from "./modules/housing/housing-task.adapter";
 import { PropertyOperationsModule } from "./modules/property-operations/property-operations.module";
 import { RolesModule } from "./modules/roles/roles.module";
@@ -189,7 +190,8 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
         HOUSING_LEASE_TASK_RESOLVER,
         HOUSING_HANDOVER_TASK_RESOLVER,
         HOUSING_BILLING_TASK_RESOLVER,
-        HOUSING_PURCHASE_TASK_RESOLVER
+        HOUSING_PURCHASE_TASK_RESOLVER,
+        HOUSING_REPAIR_TASK_RESOLVER
       ]
     }),
     PropertyOperationsModule,

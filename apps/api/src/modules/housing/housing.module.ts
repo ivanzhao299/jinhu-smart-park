@@ -40,7 +40,8 @@ import {
   HOUSING_BILLING_TASK_RESOLVER,
   HOUSING_HANDOVER_TASK_RESOLVER,
   HOUSING_LEASE_TASK_RESOLVER,
-  HOUSING_PURCHASE_TASK_RESOLVER
+  HOUSING_PURCHASE_TASK_RESOLVER,
+  HOUSING_REPAIR_TASK_RESOLVER
 } from "./housing-task.adapter";
 
 @Module({
@@ -85,14 +86,16 @@ import {
     { provide: HOUSING_LEASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().lease },
     { provide: HOUSING_HANDOVER_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().handover },
     { provide: HOUSING_BILLING_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().billing },
-    { provide: HOUSING_PURCHASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().purchase }
+    { provide: HOUSING_PURCHASE_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().purchase },
+    { provide: HOUSING_REPAIR_TASK_RESOLVER, useFactory: () => createHousingTaskResolvers().repair }
   ],
   exports: [
     HousingService,
     HOUSING_LEASE_TASK_RESOLVER,
     HOUSING_HANDOVER_TASK_RESOLVER,
     HOUSING_BILLING_TASK_RESOLVER,
-    HOUSING_PURCHASE_TASK_RESOLVER
+    HOUSING_PURCHASE_TASK_RESOLVER,
+    HOUSING_REPAIR_TASK_RESOLVER
   ]
 })
 export class HousingModule {}

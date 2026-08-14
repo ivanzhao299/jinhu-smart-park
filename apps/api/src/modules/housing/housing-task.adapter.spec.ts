@@ -15,10 +15,10 @@ function port(query: (sql: string, parameters: unknown[]) => Promise<unknown>): 
 }
 
 describe("housing derived property-task resolvers", () => {
-  test("registers the four non-owning housing queues with exact access boundaries", () => {
+  test("registers the five non-owning housing queues with exact access boundaries", () => {
     const resolvers = Object.values(createHousingTaskResolvers());
     assert.deepEqual(resolvers.map((resolver) => resolver.sourceType), [
-      "housing_lease", "housing_handover", "housing_billing", "housing_purchase"
+      "housing_lease", "housing_handover", "housing_billing", "housing_purchase", "housing_repair"
     ]);
     for (const resolver of resolvers) {
       assert.equal(resolver.assignmentAuthority, "derived");
@@ -89,5 +89,45 @@ describe("housing derived property-task resolvers", () => {
       sourceId,
       businessOccurrenceKey: `housing-purchase:${sourceId}`
     });
+  });
+
+  test("projects tenant repair work orders into the shared task runtime", async () => {
+    const statements: string[] = [];
+    const resolver = createHousingTaskResolvers().repair;
+    const manager = port(async (sql) => {
+      statements.push(sql);
+      return [{
+        id: sourceId,
+        version: 6,
+        lifecycle: "eligible",
+        title: "报修 · WO-001 · 水管漏水",
+        sourceLabel: "WO-001 · 水管漏水",
+        priority: 70,
+        dueAt: "2026-08-03T01:00:00.000Z",
+        createTime: "2026-08-03T01:00:00.000Z",
+        updateTime: "2026-08-03T02:00:00.000Z"
+      }];
+    });
+
+    const snapshot = await resolver.lockAndResolve({
+      manager,
+      scope,
+      sourceId,
+      businessOccurrenceKey: `housing-repair:${sourceId}`,
+      expectedSourceVersion: 6,
+      taskKey: "b".repeat(64)
+    });
+
+    if (resolver.access.tag !== "workspace") assert.fail("housing repair task must use workspace access");
+    assert.equal(resolver.access.sourceDetailPermission, "housing:repair:read");
+    assert.equal(resolver.taskKind, "repair");
+    assert.equal(snapshot?.sourceDeepLink, `/housing/repairs/${sourceId}`);
+    assert.equal(snapshot?.kindLabel, "住房报修");
+    assert.match(statements[0] ?? "", /biz_work_order source/);
+    assert.match(statements[0] ?? "", /source\.source_type='tenant_request'/);
+    assert.match(statements[0] ?? "", /source\.create_time \+ \(\(COALESCE\(source\.sla_dispatch_min,30\)\)/);
+    assert.match(statements[0] ?? "", /COALESCE\(source\.accept_time,source\.dispatch_time,source\.create_time\)/);
+    assert.match(statements[0] ?? "", /COALESCE\(source\.sla_finish_min,240\)/);
+    assert.match(statements[0] ?? "", /FOR UPDATE OF source/);
   });
 });

@@ -13,6 +13,7 @@ export const HOUSING_LEASE_TASK_RESOLVER = Symbol("HOUSING_LEASE_TASK_RESOLVER")
 export const HOUSING_HANDOVER_TASK_RESOLVER = Symbol("HOUSING_HANDOVER_TASK_RESOLVER");
 export const HOUSING_BILLING_TASK_RESOLVER = Symbol("HOUSING_BILLING_TASK_RESOLVER");
 export const HOUSING_PURCHASE_TASK_RESOLVER = Symbol("HOUSING_PURCHASE_TASK_RESOLVER");
+export const HOUSING_REPAIR_TASK_RESOLVER = Symbol("HOUSING_REPAIR_TASK_RESOLVER");
 
 type DerivedRow = {
   id: string;
@@ -27,7 +28,7 @@ type DerivedRow = {
 };
 
 type HousingTaskConfig = {
-  sourceType: "housing_lease" | "housing_handover" | "housing_billing" | "housing_purchase";
+  sourceType: "housing_lease" | "housing_handover" | "housing_billing" | "housing_purchase" | "housing_repair";
   taskKind: string;
   queueCode: string;
   kindLabel: string;
@@ -183,6 +184,25 @@ const PURCHASE_SQL = `SELECT source.id::text AS id,source.version,
  FROM biz_housing_purchase source
  WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false`;
 
+const REPAIR_SQL = `SELECT source.id::text AS id,source.version,
+  'eligible'::text AS lifecycle,
+  ('报修 · ' || source.wo_code || ' · ' || source.title) AS title,
+  (source.wo_code || ' · ' || source.title) AS "sourceLabel",
+  CASE WHEN source.overdue_flag THEN 95 ELSE 70 END AS priority,
+  CASE WHEN source.status='10'
+       THEN source.create_time + ((COALESCE(source.sla_dispatch_min,30))::text || ' minutes')::interval
+       WHEN source.status IN ('20','30','40','45','80')
+       THEN COALESCE(source.accept_time,source.dispatch_time,source.create_time)
+            + ((COALESCE(source.sla_finish_min,240))::text || ' minutes')::interval
+       ELSE NULL END AS "dueAt",
+  source.create_time AS "createTime",source.update_time AS "updateTime"
+ FROM biz_work_order source
+ JOIN biz_housing_lease lease ON lease.id::text=source.source_id
+  AND lease.tenant_id=source.tenant_id AND lease.park_id=source.park_id AND lease.is_deleted=false
+ WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false
+   AND source.source_type='tenant_request'
+   AND source.status IN ('10','20','30','40','45','50','80','91')`;
+
 export function createHousingTaskResolvers() {
   return {
     lease: new HousingDerivedTaskResolver({
@@ -204,6 +224,11 @@ export function createHousingTaskResolvers() {
       sourceType: "housing_purchase", taskKind: "purchase", queueCode: "housing_purchase",
       kindLabel: "住房采购", detailPermission: "housing:purchase:read",
       deepLink: (id) => `/housing/purchases/${id}`, selectSql: PURCHASE_SQL
+    }),
+    repair: new HousingDerivedTaskResolver({
+      sourceType: "housing_repair", taskKind: "repair", queueCode: "housing_repair",
+      kindLabel: "住房报修", detailPermission: "housing:repair:read",
+      deepLink: (id) => `/housing/repairs/${id}`, selectSql: REPAIR_SQL
     })
   };
 }

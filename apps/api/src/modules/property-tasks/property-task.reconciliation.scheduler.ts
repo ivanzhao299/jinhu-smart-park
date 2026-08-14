@@ -106,6 +106,13 @@ implements OnApplicationBootstrap, OnApplicationShutdown {
            FROM biz_housing_receivable
          UNION ALL SELECT tenant_id,park_id,'housing_purchase',id,update_time,is_deleted
            FROM biz_housing_purchase
+         UNION ALL SELECT work_order.tenant_id,work_order.park_id,'housing_repair',
+                work_order.id,work_order.update_time,work_order.is_deleted
+           FROM biz_work_order work_order
+           JOIN biz_housing_lease lease ON lease.id::text=work_order.source_id
+            AND lease.tenant_id=work_order.tenant_id
+            AND lease.park_id=work_order.park_id AND lease.is_deleted=false
+          WHERE work_order.source_type='tenant_request'
        ), projection_counts AS (
          SELECT tenant_id,park_id,source_type,source_id,count(*)::integer projected_count
            FROM biz_property_task_projection

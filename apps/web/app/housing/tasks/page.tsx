@@ -1,13 +1,14 @@
 import { HousingTasksClient } from "../_components/HousingSurfaceClients";
 import { PropertyRuntimeSlots } from "../../../components/property/PropertyRuntimeSlots";
+import {
+  HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES,
+  HOUSING_RUNTIME_TASK_SOURCE_TYPES
+} from "../_components/housing-workbench-contract";
 
 export default function HousingTasksPage() {
   return <>
     <HousingTasksClient />
-    <PropertyRuntimeSlots approvalSourceTypes={[
-      "housing-lease", "housing-handover", "housing-purchase"
-    ]} module="housing_rental" taskSourceTypes={[
-      "housing_lease", "housing_handover", "housing_billing", "housing_purchase"
-    ]} />
+    <PropertyRuntimeSlots approvalSourceTypes={HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES}
+      module="housing_rental" taskSourceTypes={HOUSING_RUNTIME_TASK_SOURCE_TYPES} />
   </>;
 }
