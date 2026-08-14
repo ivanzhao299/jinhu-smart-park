@@ -593,9 +593,10 @@ export class UsersService {
       relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
     });
     if (!user) throw new NotFoundException("User not found");
-    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId);
+    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId });
     const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
-    if (user.parkId !== scope.parkId && !currentPark) throw new NotFoundException("User not found");
+    const currentParkName = currentPark?.park_name?.trim();
+    if (!currentPark || !currentParkName) throw new NotFoundException("User not found");
     const primaryOrg = await this.userOrgRepository.findOne({
       where: {
         userId: id,
@@ -641,9 +642,9 @@ export class UsersService {
       gender: user.gender,
       last_login_ip: user.lastLoginIp,
       last_login_time: user.lastLoginTime?.toISOString() ?? null,
-      tenant_id: currentPark?.tenant_id ?? user.tenantId,
-      park_id: currentPark?.park_id ?? scope.parkId,
-      park_name: currentPark?.park_name ?? "当前园区",
+      tenant_id: user.tenantId,
+      park_id: scope.parkId,
+      park_name: currentParkName,
       accessible_parks: accessibleParks,
       current_park: currentPark,
       org_id: primaryOrg?.orgId ?? null,
@@ -1307,7 +1308,10 @@ export class UsersService {
     const accessibleByUser = new Map<string, UserParkContext[]>();
     await Promise.all(
       users.map(async (user) => {
-        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, { activeOnly: false }));
+        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, {
+          activeOnly: false,
+          homeParkId: user.parkId
+        }));
       })
     );
 
@@ -1488,9 +1492,9 @@ export class UsersService {
   private async resolveAccessibleParks(
     userId: string,
     tenantId: string,
-    options: { activeOnly?: boolean } = {}
+    options: { activeOnly?: boolean; homeParkId?: string } = {}
   ): Promise<UserParkContext[]> {
-    let links = await this.userParkRepository.find({
+    const links = await this.userParkRepository.find({
       where: {
         tenantId,
         userId,
@@ -1500,27 +1504,16 @@ export class UsersService {
       order: { isDefault: "DESC", createTime: "ASC" }
     });
 
-    if (links.length === 0) {
-      links = await this.userParkRepository.find({
-        where: {
-          userId,
-          isDeleted: false,
-          status: "enabled"
-        },
-        order: { isDefault: "DESC", createTime: "ASC" }
-      });
-    }
-
-    const activeLinks = links.length > 0 ? links : [];
-    if (activeLinks.length === 0) {
+    const parkIds = [...new Set([
+      ...links.map((link) => link.parkId),
+      ...(options.homeParkId ? [options.homeParkId] : [])
+    ])];
+    if (parkIds.length === 0) {
       return [];
     }
-
-    const parkIds = [...new Set(activeLinks.map((link) => link.parkId))];
-    const tenantIds = [...new Set(activeLinks.map((link) => link.tenantId))];
     const parks = await this.parksRepository.find({
       where: {
-        tenantId: In(tenantIds),
+        tenantId,
         parkId: In(parkIds),
         ...(options.activeOnly === false ? {} : { status: 1 }),
         isDeleted: false
@@ -1528,7 +1521,7 @@ export class UsersService {
     });
     const parkMap = new Map(parks.map((park) => [`${park.tenantId}:${park.parkId}`, park]));
 
-    return activeLinks.flatMap((link) => {
+    const contexts = links.flatMap((link) => {
       const park = parkMap.get(`${link.tenantId}:${link.parkId}`);
       if (!park) {
         return [];
@@ -1542,6 +1535,20 @@ export class UsersService {
         status: park.status === 1 ? "enabled" : "disabled"
       };
     });
+    const homePark = options.homeParkId
+      ? parkMap.get(`${tenantId}:${options.homeParkId}`)
+      : null;
+    if (homePark && !contexts.some((park) => park.park_id === homePark.parkId)) {
+      contexts.unshift({
+        tenant_id: tenantId,
+        park_id: homePark.parkId,
+        park_code: homePark.parkCode,
+        park_name: homePark.parkName,
+        is_default: true,
+        status: homePark.status === 1 ? "enabled" : "disabled"
+      });
+    }
+    return contexts;
   }
 
   private resolveDataScope(scopes: string[]): string {

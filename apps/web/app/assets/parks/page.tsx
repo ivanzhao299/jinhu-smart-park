@@ -8,6 +8,7 @@ import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { fetchCurrentUser } from "../../../lib/auth";
 import { getCityOptions, getDistrictOptions, getProvinceOptions } from "./park-region-options";
 
 interface ParkRow {
@@ -48,6 +49,7 @@ interface ParkFormState {
 }
 
 const emptyPage: PaginatedResult<ParkRow> = { items: [], page: 1, page_size: 20, total: 0 };
+const PARK_FLASH_KEY = "jinhu_park_flash_message";
 
 const emptyForm: ParkFormState = {
   parkCode: "",
@@ -92,6 +94,11 @@ export default function ParksPage() {
   }, [keyword, status]);
 
   useEffect(() => {
+    const flashMessage = sessionStorage.getItem(PARK_FLASH_KEY);
+    if (flashMessage) {
+      sessionStorage.removeItem(PARK_FLASH_KEY);
+      setMessage(flashMessage);
+    }
     void load().catch((error: Error) => setMessage(error.message));
   }, [load]);
 
@@ -136,6 +143,7 @@ export default function ParksPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const creating = editingId === null;
     const body = {
       parkCode: form.parkCode.trim(),
       parkName: form.parkName.trim(),
@@ -159,6 +167,19 @@ export default function ParksPage() {
     });
     setShowForm(false);
     setEditingId(null);
+    if (creating) {
+      try {
+        await fetchCurrentUser({ requestToken: getAccessToken() });
+        sessionStorage.setItem(PARK_FLASH_KEY, "园区保存成功，可在楼栋管理中选择该园区");
+        window.location.reload();
+        return;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "未知错误";
+        setMessage(`园区已保存，但可访问园区刷新失败：${reason}。请刷新页面后重试。`);
+        await load(pageData.page).catch(() => undefined);
+        return;
+      }
+    }
     try {
       await load(pageData.page);
       setMessage("保存成功");
