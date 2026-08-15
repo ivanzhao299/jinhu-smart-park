@@ -240,8 +240,7 @@ export class ParksService {
     if (entity.status === 1 && targetScope.parkId !== scope.parkId) {
       throw new ConflictException("Park must be inactive before retirement");
     }
-    const retiresIndependentScope = protectedScope
-      && entity.status !== 1
+    const retiresIndependentScope = entity.status !== 1
       && targetScope.parkId !== scope.parkId;
     if (protectedScope && !retiresIndependentScope) {
       await this.assertCanonicalSourceSurvives(manager, targetScope, entity);
@@ -250,7 +249,7 @@ export class ParksService {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     if (retiresIndependentScope) {
-      await this.retireIndependentAssetScope(manager, targetScope, actor.sub);
+      await this.retireIndependentAssetScope(manager, targetScope, actor.sub, protectedScope);
     }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
@@ -285,7 +284,7 @@ export class ParksService {
     }
   }
 
-  private async retireIndependentAssetScope(manager: EntityManager, scope: TenantParkScope, actorId: string): Promise<void> {
+  private async retireIndependentAssetScope(manager: EntityManager, scope: TenantParkScope, actorId: string, retireAssetProjection = true): Promise<void> {
     if (await hasCanonicalActiveAssetParkSource(manager, scope)) {
       throw new ConflictException("Park must be inactive before retirement");
     }
@@ -296,11 +295,13 @@ export class ParksService {
       [scope.tenantId, scope.parkId]
     ) as unknown[];
     if (activeAssetAssignments.length > 0) throw new ConflictException("Asset module must be disabled before park retirement");
-    await manager.query(
-      `UPDATE asset_park SET is_deleted=true, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
-        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
-      [scope.tenantId, scope.parkId, actorId]
-    );
+    if (retireAssetProjection) {
+      await manager.query(
+        `UPDATE asset_park SET is_deleted=true, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
+          WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
+        [scope.tenantId, scope.parkId, actorId]
+      );
+    }
     await manager.query(
       `UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,

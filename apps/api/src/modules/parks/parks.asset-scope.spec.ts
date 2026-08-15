@@ -203,7 +203,7 @@ test("cross-scope park retirement requires prior deactivation even without an as
 });
 
 test("inactive cross-scope protected park deletion reaches independent retirement", async () => {
-  const retiredScopes: unknown[] = [];
+  const retiredScopes: Array<{ scope: unknown; retireAssetProjection: unknown }> = [];
   const entity = {
     id: "park-row-b",
     tenantId: "tenant-a",
@@ -226,9 +226,9 @@ test("inactive cross-scope protected park deletion reaches independent retiremen
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => true,
-    retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown) => {
+    retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
       assert.equal(entity.isDeleted, false);
-      retiredScopes.push(targetScope);
+      retiredScopes.push({ scope: targetScope, retireAssetProjection });
     },
     syncCanonicalAssetProjection: async () => {
       throw new Error("independent retired scope must not resync projection");
@@ -242,7 +242,46 @@ test("inactive cross-scope protected park deletion reaches independent retiremen
   ));
   assert.equal(entity.isDeleted, true);
   assert.equal(entity.updateBy, "actor-a");
-  assert.deepEqual(retiredScopes, [{ tenantId: "tenant-a", parkId: "park-b" }]);
+  assert.deepEqual(retiredScopes, [{ scope: { tenantId: "tenant-a", parkId: "park-b" }, retireAssetProjection: true }]);
+});
+
+test("inactive cross-scope park retirement clears authorization even without asset projection", async () => {
+  const retiredScopes: Array<{ scope: unknown; retireAssetProjection: unknown }> = [];
+  const entity = {
+    id: "park-row-b",
+    tenantId: "tenant-a",
+    parkId: "park-b",
+    parkCode: "PARK-B",
+    status: 0,
+    isDeleted: false,
+    updateBy: null
+  };
+  const service = Object.assign(Object.create(ParksService.prototype), {
+    detail: async () => entity,
+    dataSource: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) => callback({
+        getRepository: () => ({
+          findOne: async () => entity,
+          save: async (value: unknown) => value
+        })
+      })
+    },
+    lockMutationScopes: async () => undefined,
+    assertParkModuleAccess: async () => undefined,
+    hasCanonicalProjectionContract: async () => false,
+    retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
+      assert.equal(entity.isDeleted, false);
+      retiredScopes.push({ scope: targetScope, retireAssetProjection });
+    }
+  }) as ParksService;
+
+  await assert.doesNotReject(() => service.softDelete(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "actor-a", tenantId: "tenant-a", roles: ["TENANT_ADMIN"], permissions: [] } as never,
+    "park-row-b"
+  ));
+  assert.equal(entity.isDeleted, true);
+  assert.deepEqual(retiredScopes, [{ scope: { tenantId: "tenant-a", parkId: "park-b" }, retireAssetProjection: false }]);
 });
 
 test("independent asset scope retirement blocks active asset assignment before soft-deleting projection", async () => {
@@ -250,7 +289,8 @@ test("independent asset scope retirement blocks active asset assignment before s
     retireIndependentAssetScope(
       manager: { query(sql: string, parameters: unknown[]): Promise<unknown[]> },
       scope: { tenantId: string; parkId: string },
-      actorId: string
+      actorId: string,
+      retireAssetProjection?: boolean
     ): Promise<void>;
   }).retireIndependentAssetScope;
   const scope = { tenantId: "tenant-a", parkId: "park-b" };
@@ -287,6 +327,11 @@ test("independent asset scope retirement blocks active asset assignment before s
   assert.deepEqual(queries[1]!.parameters, ["tenant-a", "park-b", "actor-a"]);
   assert.match(queries[2]!.sql, /UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled'/);
   assert.deepEqual(queries[2]!.parameters, ["tenant-a", "park-b", "actor-a"]);
+
+  queries.length = 0;
+  await assert.doesNotReject(() => retire.call({} as ParksService, inactiveAssetManager, scope, "actor-a", false));
+  assert.equal(queries.length, 2);
+  assert.match(queries[1]!.sql, /UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled'/);
 });
 
 test("park mutation scope locks use one deterministic shared-key order", async () => {
