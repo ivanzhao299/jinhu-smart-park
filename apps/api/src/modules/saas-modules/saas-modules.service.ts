@@ -738,7 +738,9 @@ export class SaaSModulesService {
   ): Promise<void> {
     const parkActive = await this.isParkActive(manager, scope);
     if (!enabled && !parkActive) {
-      await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      if (await this.hasRecoverableParkSource(manager, scope)) {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      }
       return;
     }
     await this.reconcileExplicitSystemAuthorization(manager, scope, actorId, !parkActive);
@@ -769,7 +771,7 @@ export class SaaSModulesService {
     scope: TenantParkScope,
     moduleCode: string
   ): Promise<boolean> {
-    if (moduleCode === "system") return true;
+    if (moduleCode === "system") return this.hasRecoverableParkSource(manager, scope);
     const parkActive = await this.isParkActive(manager, scope).catch((error: unknown) => {
       if (error instanceof NotFoundException) return false;
       throw error;
