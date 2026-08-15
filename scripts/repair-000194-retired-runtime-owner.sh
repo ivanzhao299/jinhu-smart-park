@@ -536,7 +536,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   FROM repair_counts
 )
 SELECT scope_count, asset_park_count, assignment_count, asset_park_versions, assignment_versions
-FROM repair_counts, repair_guard;
+FROM repair_counts, repair_guard
+WHERE repair_guard.guard=1;
 
 COMMIT;
 SQL

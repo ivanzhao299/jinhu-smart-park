@@ -1023,6 +1023,7 @@ assert.match(retiredRuntimeOwnerRepair, /repair_counts AS/u);
 assert.match(retiredRuntimeOwnerRepair, /repair_guard AS/u);
 assert.match(retiredRuntimeOwnerRepair, /scope_count=\$\{ready_count\}/u);
 assert.match(retiredRuntimeOwnerRepair, /1 \/ \(scope_count - scope_count\)/u);
+assert.match(retiredRuntimeOwnerRepair, /WHERE repair_guard\.guard=1/u);
 assert.match(retiredRuntimeOwnerRepair, /repaired_scopes="\$\(printf '%s\\n' "\$repair_output"/u);
 assert.match(retiredRuntimeOwnerRepair, /retired runtime owner repair scope changed after classification/u);
 assert.match(retiredRuntimeOwnerRepair, /repaired_asset_parks"\s+!=\s+"\$ready_count"/u);

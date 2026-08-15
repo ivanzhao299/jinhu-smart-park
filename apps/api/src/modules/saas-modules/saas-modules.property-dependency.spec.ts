@@ -116,6 +116,10 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.match(source, /const parkActive = await this\.isParkActive\(manager, scope\)/);
   assert.match(source, /if \(!enabled && !parkActive\)[\s\S]*reconcileInactiveAssetRecovery/);
   assert.match(source, /reconcileExplicitSystemAuthorization\(manager, scope, actorId, !parkActive\)/);
+  assert.equal((source.match(/const parkRecoverable = module\.moduleCode === "asset" && !moduleCanBeEnabled/g) ?? []).length, 2);
+  assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && parkRecoverable/);
+  assert.match(source, /module\.moduleCode === "asset" && parkRecoverable/);
+  assert.doesNotMatch(source, /else if \(module\.moduleCode === "asset"\) \{/);
 });
 
 test("module writes acquire the asset scope lock before dependency and assignment locks", () => {

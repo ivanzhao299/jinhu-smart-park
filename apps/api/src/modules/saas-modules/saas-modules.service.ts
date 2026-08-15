@@ -265,6 +265,9 @@ export class SaaSModulesService {
       const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
       const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
       const enabling = requestedEnabled && moduleCanBeEnabled;
+      const parkRecoverable = module.moduleCode === "asset" && !moduleCanBeEnabled
+        ? await this.hasRecoverableParkSource(manager, scope)
+        : false;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       if (requestedEnabled) {
@@ -305,7 +308,7 @@ export class SaaSModulesService {
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       if (enabling && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
-      } else if (requestedEnabled && module.moduleCode === "asset") {
+      } else if (requestedEnabled && module.moduleCode === "asset" && parkRecoverable) {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       } else if (module.moduleCode === "system") {
         await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
@@ -339,6 +342,9 @@ export class SaaSModulesService {
           createBy: actorId
         });
       const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
+      const parkRecoverable = module.moduleCode === "asset" && !moduleCanBeEnabled
+        ? await this.hasRecoverableParkSource(manager, scope)
+        : false;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
@@ -366,7 +372,7 @@ export class SaaSModulesService {
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       if (moduleCanBeEnabled && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
-      } else if (module.moduleCode === "asset") {
+      } else if (module.moduleCode === "asset" && parkRecoverable) {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       } else if (module.moduleCode === "system") {
         await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
