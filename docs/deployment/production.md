@@ -466,8 +466,10 @@ Migration behavior:
 - Before the 000194 enforce gate, deployment may run `scripts/repair-000194-retired-runtime-owner.sh repair` to repair
   only the reviewed retired-owner shape produced by independent park retirement: exactly 12 final v3 disabled runtime
   controls, exactly 24 fully validated 000194/000195 correction audits including evidence hashes, zero live
-  `asset_park`, exactly one deleted `asset_park`, zero live asset assignment, exactly one deleted asset assignment,
-  zero live `biz_park`, and exactly one deleted `biz_park`. The script restores only the retained owner rows
+  `asset_park`, exactly one deleted disabled `asset_park`, zero live asset assignment, exactly one deleted disabled
+  asset assignment, zero live `biz_park`, and exactly one deleted `biz_park`. The script runs only after the
+  `000195` final contract is recorded; earlier stages no-op so pending migrations can still advance. It restores
+  only the retained owner rows
   (`asset_park` enabled, asset assignment non-deleted but disabled); it never undeletes `biz_park`, never rewrites
   runtime controls/audits, and exits without mutation when runtime-control tables are not present yet. Any drift,
   ambiguity, partial history, or extra candidate is blocked before repair.

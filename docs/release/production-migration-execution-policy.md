@@ -68,10 +68,10 @@
     enforce，未收敛为正常 exact 状态时 API 保持停止。
   - `repair-000194-retired-runtime-owner.sh` 是部署门禁期的有界生产数据修复，只处理独立园区退役误删
     runtime owner rows 的既知形态：完整 final v3 controls、完整 000194/000195 correction audit evidence、
-    恰好一条 deleted `asset_park`、恰好一条 deleted asset assignment、恰好一条 deleted `biz_park`，
-    且没有 live owner/source rows。它只恢复 `asset_park` 与 disabled asset assignment 作为 retained
-    owner，不恢复 `biz_park`，不改 runtime controls/audits；pre-000194 表不存在时 no-op，任何漂移或歧义
-    都阻断部署。
+    恰好一条 deleted disabled `asset_park`、恰好一条 deleted disabled asset assignment、恰好一条
+    deleted `biz_park`，且没有 live owner/source rows。它只恢复 `asset_park` 与 disabled asset
+    assignment 作为 retained owner，不恢复 `biz_park`，不改 runtime controls/audits；runtime 表不存在或
+    `000195` final contract 尚未记录时 no-op，任何漂移或歧义都阻断部署。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 

@@ -56,6 +56,78 @@ case "$table_state" in
     ;;
 esac
 
+history_table_state="$({
+  run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT CASE
+  WHEN to_regclass('public.sys_schema_migration_history') IS NOT NULL
+   AND to_regclass('public.schema_migrations') IS NOT NULL THEN 'yes'
+  ELSE 'no'
+END;
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$history_table_state" >&2
+  exit "$rc"
+}
+
+if [ "$history_table_state" != "yes" ]; then
+  echo "000194 retired runtime owner repair diagnostic"
+  echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
+  echo "ready_contract_not_final_reconcile|||||||||||||"
+  printf 'summary: ready=0 blocked=0 mode=%s contract_stage=pre_000195\n' "$mode"
+  exit 0
+fi
+
+contract_state="$({
+  run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT CASE
+  WHEN (
+    SELECT count(*)
+    FROM (
+      SELECT filename, checksum, status FROM public.sys_schema_migration_history
+      UNION ALL
+      SELECT filename, checksum, status FROM public.schema_migrations
+    ) history
+    WHERE filename='000195_property_mutation_receipt_contract_v2.sql'
+      AND status='succeeded'
+      AND checksum='9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4'
+  )=2
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.sys_schema_migration_history primary_history
+    FULL JOIN public.schema_migrations standard_history USING (filename)
+    WHERE coalesce(primary_history.filename,standard_history.filename)=
+      '000195_property_mutation_receipt_contract_v2.sql'
+      AND (primary_history.filename IS NULL OR standard_history.filename IS NULL
+        OR primary_history.status IS DISTINCT FROM standard_history.status
+        OR primary_history.checksum IS DISTINCT FROM standard_history.checksum)
+  ) THEN 'post_000195'
+  ELSE 'pre_000195'
+END;
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$contract_state" >&2
+  exit "$rc"
+}
+
+case "$contract_state" in
+  post_000195) ;;
+  *)
+    echo "000194 retired runtime owner repair diagnostic"
+    echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
+    echo "ready_contract_not_final_reconcile|||||||||||||"
+    printf 'summary: ready=0 blocked=0 mode=%s contract_stage=%s\n' "$mode" "$contract_state"
+    exit 0
+    ;;
+esac
+
 rows="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
@@ -175,9 +247,9 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     (SELECT count(*) FROM public.asset_park park
       WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
         AND park.is_deleted=false) AS live_asset_parks,
-	    (SELECT count(*) FROM public.asset_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
-	        AND park.is_deleted=true) AS deleted_asset_parks,
+		    (SELECT count(*) FROM public.asset_park park
+		      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+		        AND park.is_deleted=true AND park.status='disabled') AS deleted_asset_parks,
 	    (SELECT count(*) FROM public.biz_park park
 	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
 	        AND park.is_deleted=false) AS live_biz_parks,
@@ -189,11 +261,11 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 	      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=false) AS live_asset_assignments,
-	    (SELECT count(*) FROM public.rel_tenant_module assignment
-	      JOIN public.sys_module module ON module.id=assignment.module_id
-	      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
-	        AND module.module_code='asset' AND module.is_deleted=false
-	        AND assignment.is_deleted=true) AS deleted_asset_assignments
+		    (SELECT count(*) FROM public.rel_tenant_module assignment
+		      JOIN public.sys_module module ON module.id=assignment.module_id
+		      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
+		        AND module.module_code='asset' AND module.is_deleted=false
+		        AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled') AS deleted_asset_assignments
   FROM control_scope
   LEFT JOIN audit_scope USING (tenant_id, park_id)
   WHERE NOT EXISTS (
@@ -375,9 +447,9 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     AND (SELECT count(*) FROM public.asset_park park
       WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
         AND park.is_deleted=false)=0
-	    AND (SELECT count(*) FROM public.asset_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
-	        AND park.is_deleted=true)=1
+		    AND (SELECT count(*) FROM public.asset_park park
+		      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+		        AND park.is_deleted=true AND park.status='disabled')=1
 	    AND (SELECT count(*) FROM public.biz_park park
 	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
 	        AND park.is_deleted=false)=0
@@ -393,14 +465,15 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       JOIN public.sys_module module ON module.id=assignment.module_id
       WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
         AND module.module_code='asset' AND module.is_deleted=false
-        AND assignment.is_deleted=true)=1
+        AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled')=1
 ), restored_asset_park AS (
   UPDATE public.asset_park park
   SET is_deleted=false, status='enabled', update_time=clock_timestamp(), version=park.version+1
   FROM repair_scope scope
-  WHERE park.tenant_id=scope.tenant_id
-    AND park.park_id=scope.park_id
-    AND park.is_deleted=true
+	  WHERE park.tenant_id=scope.tenant_id
+	    AND park.park_id=scope.park_id
+	    AND park.is_deleted=true
+	    AND park.status='disabled'
   RETURNING park.tenant_id, park.park_id
 ), restored_assignment AS (
   UPDATE public.rel_tenant_module assignment
@@ -409,9 +482,11 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   WHERE assignment.tenant_id=scope.tenant_id
     AND assignment.park_id=scope.park_id
     AND assignment.module_id=module.id
-    AND module.module_code='asset'
-    AND module.is_deleted=false
-    AND assignment.is_deleted=true
+	    AND module.module_code='asset'
+	    AND module.is_deleted=false
+	    AND assignment.is_deleted=true
+	    AND assignment.enabled=false
+	    AND assignment.status='disabled'
   RETURNING assignment.tenant_id, assignment.park_id
 )
 SELECT (SELECT count(*) FROM repair_scope),
