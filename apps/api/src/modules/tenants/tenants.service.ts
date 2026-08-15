@@ -719,7 +719,17 @@ export class TenantsService {
       await lockAssetScope(manager, scope);
     }
     for (const scope of scopes) {
-      if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      try {
+        if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          const retiredParkExists = await manager.getRepository(ParkEntity).exists({
+            where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: true }
+          });
+          if (retiredParkExists) continue;
+        }
+        throw error;
+      }
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       const refreshedAssignments = await assignmentRepository.find({
@@ -1210,10 +1220,51 @@ export class TenantsService {
     const existing = await roleRepository.findOne({
       where: { tenantId: tenant.tenantId, code: TENANT_ADMIN_ROLE_CODE, isDeleted: false }
     });
-    if (existing && (existing.roleScope !== "tenant" || !existing.isBuiltin || !existing.isSystem)) {
+    if (existing && existing.roleScope !== "tenant") {
       throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
     }
-    return existing ?? this.createTenantAdminRole(manager, tenant, parkId, actorId);
+    if (!existing) return this.createTenantAdminRole(manager, tenant, parkId, actorId);
+    const needsRepair =
+      !existing.isBuiltin
+      || !existing.isSystem
+      || existing.isDeletable
+      || existing.roleType !== "tenant"
+      || existing.dataScope !== "tenant"
+      || existing.rolePath !== TENANT_ADMIN_ROLE_CODE;
+    if (needsRepair) {
+      if (!this.isRepairableLegacyTenantAdminRole(existing)) {
+        throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
+      }
+      existing.roleType = "tenant";
+      existing.rolePath = TENANT_ADMIN_ROLE_CODE;
+      existing.roleLevel = 1;
+      existing.level = 1;
+      existing.dataScope = "tenant";
+      existing.dataScopeConfig = {};
+      existing.isBuiltin = true;
+      existing.isSystem = true;
+      existing.isDeletable = false;
+      existing.updateBy = actorId;
+      return roleRepository.save(existing);
+    }
+    return existing;
+  }
+
+  private isRepairableLegacyTenantAdminRole(role: RoleEntity): boolean {
+    const legacyRemark = typeof role.remark === "string"
+      && role.remark.includes("Phase-1 tenant portal role template");
+    return role.roleScope === "tenant"
+      && role.roleType === "tenant"
+      && role.rolePath === TENANT_ADMIN_ROLE_CODE
+      && role.roleLevel === 1
+      && role.level === 1
+      && role.dataScope === "10"
+      && JSON.stringify(role.dataScopeConfig ?? {}) === "{}"
+      && role.isTemplate === true
+      && role.isSystem === false
+      && role.isBuiltin === false
+      && role.isDeletable === true
+      && legacyRemark;
   }
 
   private async createTenantAdminUser(

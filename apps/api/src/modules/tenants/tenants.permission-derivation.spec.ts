@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { preferActiveTenantParkRows, TenantsService } from "./tenants.service";
+import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import {
   ensureAssetScopeProvisioned,
   hasCanonicalActiveAssetParkSource,
@@ -731,6 +732,107 @@ test("tenant authorization rejects a malformed park-scoped administrator role", 
   );
 });
 
+test("tenant authorization repairs legacy tenant-scoped administrator role flags", async () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const getOrCreate = (service as unknown as {
+    getOrCreateTenantAdminRole(
+      manager: { getRepository(): { findOne(): Promise<unknown>; save(role: unknown): Promise<unknown> } },
+      tenant: { tenantId: string },
+      parkId: string,
+      actorId: string
+    ): Promise<unknown>;
+  }).getOrCreateTenantAdminRole.bind(service);
+  const legacyRole = {
+    id: "role-legacy",
+    roleScope: "tenant",
+    roleType: "tenant",
+    rolePath: "TENANT_ADMIN",
+    roleLevel: 1,
+    level: 1,
+    dataScope: "10",
+    dataScopeConfig: {},
+    isTemplate: true,
+    isBuiltin: false,
+    isSystem: false,
+    isDeletable: true,
+    remark: "Phase-1 tenant portal role template",
+    updateBy: null
+  };
+  const saved: unknown[] = [];
+
+  const role = await getOrCreate(
+    {
+      getRepository: () => ({
+        findOne: async () => legacyRole,
+        save: async (value: unknown) => {
+          saved.push(value);
+          return value;
+        }
+      })
+    },
+    { tenantId: "tenant-a" },
+    "park-b",
+    "actor-1"
+  ) as typeof legacyRole;
+
+  assert.equal(role, legacyRole);
+  assert.equal(legacyRole.roleType, "tenant");
+  assert.equal(legacyRole.rolePath, "TENANT_ADMIN");
+  assert.equal(legacyRole.roleLevel, 1);
+  assert.equal(legacyRole.level, 1);
+  assert.equal(legacyRole.dataScope, "tenant");
+  assert.deepEqual(legacyRole.dataScopeConfig, {});
+  assert.equal(legacyRole.isBuiltin, true);
+  assert.equal(legacyRole.isSystem, true);
+  assert.equal(legacyRole.isDeletable, false);
+  assert.equal(legacyRole.updateBy, "actor-1");
+  assert.deepEqual(saved, [legacyRole]);
+});
+
+test("tenant authorization rejects user-created tenant admin role collisions", async () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const getOrCreate = (service as unknown as {
+    getOrCreateTenantAdminRole(
+      manager: { getRepository(): { findOne(): Promise<unknown>; save(role: unknown): Promise<unknown> } },
+      tenant: { tenantId: string },
+      parkId: string,
+      actorId: string
+    ): Promise<unknown>;
+  }).getOrCreateTenantAdminRole.bind(service);
+  const customRole = {
+    id: "role-custom",
+    roleScope: "tenant",
+    roleType: "custom",
+    rolePath: "TENANT_ADMIN",
+    roleLevel: 1,
+    level: 1,
+    dataScope: "50",
+    dataScopeConfig: {},
+    isTemplate: false,
+    isBuiltin: false,
+    isSystem: false,
+    isDeletable: true,
+    remark: "User-created role"
+  };
+
+  await assert.rejects(
+    () => getOrCreate(
+      {
+        getRepository: () => ({
+          findOne: async () => customRole,
+          save: async () => {
+            throw new Error("custom collision must not be repaired");
+          }
+        })
+      },
+      { tenantId: "tenant-a" },
+      "park-b",
+      "actor-1"
+    ),
+    /Tenant administrator role must be a tenant-scoped built-in role/
+  );
+});
+
 test("reactivating a park restores only asset authorization suspended by park status", async () => {
   const tenant = { tenantId: "tenant-a", status: 1, expireTime: null } as TenantEntity;
   const systemAssignment = {
@@ -1325,4 +1427,118 @@ test("current tenant-admin convergence preserves park recovery grants for inacti
   assert.match(block, /if \(preserveParkRecoveryGrants\)/);
   assert.match(block, /permissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
   assert.ok(block.indexOf("permissionCodes.push") < block.indexOf("applyTenantAdminPermissions"));
+});
+
+test("tenant reactivation skips retired parks that still have historical module assignments", async () => {
+  const assignment = {
+    parkId: "retired-park",
+    module: { moduleCode: "asset", status: 1, isDeleted: false }
+  } as unknown as TenantModuleEntity;
+  const service = Object.assign(Object.create(TenantsService.prototype), {
+    reconcileReactivatedParkAuthorization: async () => {
+      throw new Error("retired park must not be reactivated");
+    }
+  }) as TenantsService;
+  const reconcile = (service as unknown as {
+    reconcileActiveTenantAssetScopes(
+      manager: unknown,
+      tenant: TenantEntity,
+      actorId: string
+    ): Promise<void>;
+  }).reconcileActiveTenantAssetScopes.bind(service);
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantModuleEntity) return {
+        find: async () => [assignment]
+      };
+      if (entity === ParkEntity) return {
+        find: async () => [],
+        exists: async () => true
+      };
+      throw new Error("unexpected repository");
+    },
+    query: async () => []
+  };
+
+  await assert.doesNotReject(() =>
+    reconcile(manager as never, { tenantId: "tenant-a" } as TenantEntity, "actor-a")
+  );
+});
+
+test("tenant reactivation rejects orphan module assignments without retired park evidence", async () => {
+  const assignment = {
+    parkId: "orphan-park",
+    module: { moduleCode: "asset", status: 1, isDeleted: false }
+  } as unknown as TenantModuleEntity;
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const reconcile = (service as unknown as {
+    reconcileActiveTenantAssetScopes(
+      manager: unknown,
+      tenant: TenantEntity,
+      actorId: string
+    ): Promise<void>;
+  }).reconcileActiveTenantAssetScopes.bind(service);
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantModuleEntity) return {
+        find: async () => [assignment]
+      };
+      if (entity === ParkEntity) return {
+        find: async () => [],
+        exists: async () => false
+      };
+      throw new Error("unexpected repository");
+    },
+    query: async () => []
+  };
+
+  await assert.rejects(
+    () => reconcile(manager as never, { tenantId: "tenant-a" } as TenantEntity, "actor-a"),
+    /Park not found/
+  );
+});
+
+test("tenant reactivation preserves default scope JH fallback authorization", async () => {
+  const assignment = {
+    parkId: DEFAULT_PLATFORM_SCOPE.parkId,
+    module: { moduleCode: "system", status: 1, isDeleted: false },
+    enabled: true,
+    status: "enabled",
+    featureConfig: {}
+  } as unknown as TenantModuleEntity;
+  const restoredScopes: unknown[] = [];
+  const service = Object.assign(Object.create(TenantsService.prototype), {
+    reconcileReactivatedParkAuthorization: async (_manager: unknown, scope: unknown) => {
+      restoredScopes.push(scope);
+    }
+  }) as TenantsService;
+  const reconcile = (service as unknown as {
+    reconcileActiveTenantAssetScopes(
+      manager: unknown,
+      tenant: TenantEntity,
+      actorId: string
+    ): Promise<void>;
+  }).reconcileActiveTenantAssetScopes.bind(service);
+  let parkFindCalls = 0;
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantModuleEntity) return {
+        find: async () => [assignment]
+      };
+      if (entity === ParkEntity) return {
+        find: async () => {
+          parkFindCalls += 1;
+          return parkFindCalls === 1 ? [] : [{ parkCode: "JH" }];
+        },
+        exists: async () => false
+      };
+      throw new Error("unexpected repository");
+    },
+    query: async () => []
+  };
+
+  await reconcile(manager as never, { tenantId: DEFAULT_PLATFORM_SCOPE.tenantId } as TenantEntity, "actor-a");
+
+  assert.deepEqual(restoredScopes, [DEFAULT_PLATFORM_SCOPE]);
+  assert.equal(parkFindCalls, 2);
 });
