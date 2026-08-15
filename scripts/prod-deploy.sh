@@ -47,6 +47,8 @@ run_migrations_and_optional_seed() {
   COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE="$ENV_FILE" \
     "$ROOT_DIR/scripts/diagnose-000189-asset-scope.sh" enforce "$ROOT_DIR"
   COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE="$ENV_FILE" \
+    "$ROOT_DIR/scripts/repair-000194-retired-runtime-owner.sh" repair "$ROOT_DIR"
+  COMPOSE_FILE="$COMPOSE_FILE" ENV_FILE="$ENV_FILE" \
     "$ROOT_DIR/scripts/diagnose-000194-runtime-control.sh" \
       enforce "$ROOT_DIR" "" "$RUN_PRODUCTION_SEED"
 

@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, In, type EntityManager, type Repository } from "typeorm";
 import type { EnabledModuleContext, PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { AssignTenantModuleDto } from "./dto/assign-tenant-module.dto";
 import type { CreateModuleDto } from "./dto/create-module.dto";
@@ -263,8 +264,11 @@ export class SaaSModulesService {
           createBy: actorId
         });
       const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
-      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
-      const enabling = requestedEnabled && parkActive;
+      const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
+      const enabling = requestedEnabled && moduleCanBeEnabled;
+      const parkRecoverable = module.moduleCode === "asset" && !moduleCanBeEnabled
+        ? await this.hasRecoverableParkSource(manager, scope)
+        : false;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       if (requestedEnabled) {
@@ -283,7 +287,7 @@ export class SaaSModulesService {
         featureConfig: withExplicitModuleSelection(
           withParkStatusSuspension(
             dto.featureConfig ?? entity.featureConfig,
-            requestedEnabled && module.moduleCode === "asset" && !parkActive
+            requestedEnabled && module.moduleCode === "asset" && !moduleCanBeEnabled
           ),
           module.moduleCode
         ),
@@ -305,7 +309,7 @@ export class SaaSModulesService {
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       if (enabling && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
-      } else if (requestedEnabled && module.moduleCode === "asset") {
+      } else if (requestedEnabled && module.moduleCode === "asset" && parkRecoverable) {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       } else if (module.moduleCode === "system") {
         await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
@@ -338,16 +342,19 @@ export class SaaSModulesService {
           moduleId,
           createBy: actorId
         });
-      const parkActive = module.moduleCode !== "asset" || await this.isParkActive(manager, scope);
+      const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
+      const parkRecoverable = module.moduleCode === "asset" && !moduleCanBeEnabled
+        ? await this.hasRecoverableParkSource(manager, scope)
+        : false;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
         startTime: promotingRecoverySystem ? null : entity.startTime,
         expireTime: module.moduleCode === "system" ? null : entity.expireTime,
-        enabled: parkActive,
-        status: parkActive ? "enabled" : "disabled",
+        enabled: moduleCanBeEnabled,
+        status: moduleCanBeEnabled ? "enabled" : "disabled",
         featureConfig: withExplicitModuleSelection(
-          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
+          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !moduleCanBeEnabled),
           module.moduleCode
         ),
         updateBy: actorId
@@ -364,9 +371,9 @@ export class SaaSModulesService {
       );
       const saved = await repository.save(entity);
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
-      if (parkActive && module.moduleCode === "asset") {
+      if (moduleCanBeEnabled && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
-      } else if (module.moduleCode === "asset") {
+      } else if (module.moduleCode === "asset" && parkRecoverable) {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
       } else if (module.moduleCode === "system") {
         await this.reconcileSystemAuthorizationAfterWrite(manager, scope, actorId, saved.enabled);
@@ -731,7 +738,9 @@ export class SaaSModulesService {
   ): Promise<void> {
     const parkActive = await this.isParkActive(manager, scope);
     if (!enabled && !parkActive) {
-      await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      if (await this.hasRecoverableParkSource(manager, scope)) {
+        await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
+      }
       return;
     }
     await this.reconcileExplicitSystemAuthorization(manager, scope, actorId, !parkActive);
@@ -755,6 +764,41 @@ export class SaaSModulesService {
 
   private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
     return hasCanonicalActiveAssetParkSource(manager, scope);
+  }
+
+  private async canEnableTenantModuleInPark(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    moduleCode: string
+  ): Promise<boolean> {
+    if (moduleCode === "system") return this.hasRecoverableParkSource(manager, scope);
+    const parkActive = await this.isParkActive(manager, scope).catch((error: unknown) => {
+      if (error instanceof NotFoundException) return false;
+      throw error;
+    });
+    if (parkActive) return true;
+    if (moduleCode === "asset") return false;
+    return this.hasRecoverableParkSource(manager, scope);
+  }
+
+  private async hasRecoverableParkSource(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+    const rows = await manager.query(
+      `SELECT 1
+       FROM biz_park park
+       WHERE park.is_deleted = false
+         AND (
+           (park.tenant_id = $1 AND park.park_id = $2)
+           OR ($1 = $3 AND $2 = $4 AND park.park_code = 'JH')
+         )
+       LIMIT 1`,
+      [
+        scope.tenantId,
+        scope.parkId,
+        DEFAULT_PLATFORM_SCOPE.tenantId,
+        DEFAULT_PLATFORM_SCOPE.parkId
+      ]
+    ) as unknown[];
+    return rows.length > 0;
   }
 }
 

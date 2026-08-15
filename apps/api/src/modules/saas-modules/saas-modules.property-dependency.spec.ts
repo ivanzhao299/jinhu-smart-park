@@ -107,15 +107,19 @@ test("asset module assignment and enable paths provision the canonical asset sco
   assert.equal((source.match(/ensureAssetScopeProvisioned\(manager, scope, actorId\)/g) ?? []).length, 2);
   assert.match(source, /const saved = await repository\.save\(entity\);[\s\S]*ensureAssetScopeProvisioned/);
   assert.match(source, /if \(enabling && module\.moduleCode === "asset"\)/);
-  assert.match(source, /if \(parkActive && module\.moduleCode === "asset"\)/);
+  assert.match(source, /if \(moduleCanBeEnabled && module\.moduleCode === "asset"\)/);
   assert.equal((source.match(/reconcileInactiveAssetRecovery\(manager, scope, actorId\)/g) ?? []).length, 3);
   assert.match(source, /reconcileDeactivatedParkAuthorization\(manager, scope, actorId\)/);
   assert.doesNotMatch(source, /reconcileExplicitSystemAuthorization\(manager, scope, actorId\)/);
   assert.match(source, /reconcileCurrentTenantAdminPermissions\([\s\S]*?preserveParkRecoveryGrants/);
   assert.equal((source.match(/reconcileSystemAuthorizationAfterWrite\(manager, scope, actorId/g) ?? []).length, 3);
   assert.match(source, /const parkActive = await this\.isParkActive\(manager, scope\)/);
-  assert.match(source, /if \(!enabled && !parkActive\)[\s\S]*reconcileInactiveAssetRecovery/);
+  assert.match(source, /if \(!enabled && !parkActive\)[\s\S]*hasRecoverableParkSource[\s\S]*reconcileInactiveAssetRecovery/);
   assert.match(source, /reconcileExplicitSystemAuthorization\(manager, scope, actorId, !parkActive\)/);
+  assert.equal((source.match(/const parkRecoverable = module\.moduleCode === "asset" && !moduleCanBeEnabled/g) ?? []).length, 2);
+  assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && parkRecoverable/);
+  assert.match(source, /module\.moduleCode === "asset" && parkRecoverable/);
+  assert.doesNotMatch(source, /else if \(module\.moduleCode === "asset"\) \{/);
 });
 
 test("module writes acquire the asset scope lock before dependency and assignment locks", () => {
@@ -134,11 +138,23 @@ test("module writes acquire the asset scope lock before dependency and assignmen
 
 test("asset module writes suspend on inactive parks while explicit disable clears the marker", () => {
   assert.match(source, /private async isParkActive/);
+  assert.match(source, /private async canEnableTenantModuleInPark/);
+  assert.match(source, /private async hasRecoverableParkSource/);
   assert.match(source, /return hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.doesNotMatch(source, /getRepository\(ParkEntity\)/);
-  assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !parkActive/);
-  assert.match(source, /enabled: parkActive/);
-  assert.match(source, /status: parkActive \? "enabled" : "disabled"/);
+  assert.doesNotMatch(source, /module\.moduleCode !== "asset" \|\| await this\.isParkActive/);
+  assert.equal((source.match(/canEnableTenantModuleInPark\(manager, scope, module\.moduleCode\)/g) ?? []).length, 2);
+  assert.equal((source.match(/const parkActive = await this\.isParkActive\(manager, scope\)/g) ?? []).length, 2);
+  assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !moduleCanBeEnabled/);
+  assert.match(source, /enabled: moduleCanBeEnabled/);
+  assert.match(source, /status: moduleCanBeEnabled \? "enabled" : "disabled"/);
+  assert.match(source, /FROM biz_park park/);
+  assert.match(source, /park\.is_deleted = false/);
+  assert.match(source, /DEFAULT_PLATFORM_SCOPE\.tenantId/);
+  assert.match(source, /DEFAULT_PLATFORM_SCOPE\.parkId/);
+  assert.match(source, /park\.park_code = 'JH'/);
+  assert.match(source, /if \(moduleCode === "asset"\) return false/);
+  assert.match(source, /if \(moduleCode === "system"\) return this\.hasRecoverableParkSource\(manager, scope\)/);
   assert.match(source, /function withParkStatusSuspension/);
   assert.match(source, /delete next\[PARK_STATUS_SUSPENDED_FEATURE\]/);
   assert.equal((source.match(/withParkStatusSuspension\(/g) ?? []).length, 4);
@@ -152,6 +168,39 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.match(source, /expireTime: module\.moduleCode === "system" \? null : entity\.expireTime/);
   assert.match(source, /await this\.reconcileSystemAuthorizationAfterWrite\(manager, scope, actorId, false\)[\s\S]*const reconciled = await repository\.findOne/);
   assert.equal((source.match(/withExplicitModuleSelection\(/g) ?? []).length, 4);
+});
+
+test("non-asset module writes preserve selections on inactive but recoverable parks", async () => {
+  const canEnableTenantModuleInPark = (SaaSModulesService.prototype as unknown as {
+    canEnableTenantModuleInPark(manager: unknown, scope: unknown, moduleCode: string): Promise<boolean>;
+  }).canEnableTenantModuleInPark;
+  const service = Object.create(SaaSModulesService.prototype) as SaaSModulesService;
+  const scope = { tenantId: "tenant-a", parkId: "park-a" };
+  const managerFor = (activeRows: unknown[], existing: boolean, recoverableRows: unknown[]) => ({
+    getRepository: () => ({ find: async () => activeRows, exists: async () => existing }),
+    query: async () => recoverableRows
+  });
+
+  assert.equal(
+    await canEnableTenantModuleInPark.call(service, managerFor([], false, []), scope, "system"),
+    false
+  );
+  assert.equal(
+    await canEnableTenantModuleInPark.call(service, managerFor([], false, [{}]), scope, "system"),
+    true
+  );
+  assert.equal(
+    await canEnableTenantModuleInPark.call(service, managerFor([], true, [{}]), scope, "leasing"),
+    true
+  );
+  assert.equal(
+    await canEnableTenantModuleInPark.call(service, managerFor([], true, [{}]), scope, "asset"),
+    false
+  );
+  assert.equal(
+    await canEnableTenantModuleInPark.call(service, managerFor([], false, []), scope, "leasing"),
+    false
+  );
 });
 
 test("park activity resolution accepts one active source, suspends inactive rows, and rejects missing or ambiguous sources", async () => {

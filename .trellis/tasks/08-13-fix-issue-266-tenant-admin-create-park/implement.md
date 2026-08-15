@@ -57,6 +57,24 @@
 - `pnpm --filter @jinhu/api lint` — pass.
 - `git diff --check` — pass.
 
+### 2026-08-15 post-merge deploy gate follow-up
+
+- PR #292 merged successfully and main CI run `31863086110` passed; Release Smoke was skipped by scope detection.
+- Production Deploy failed before release sync at `Enforce 000194 runtime control parity before deployment`.
+- Root cause: independent park retirement deleted the runtime owner rows (`asset_park` and asset module assignment) for scopes that still retained exact 12 disabled property runtime controls and 24 immutable correction audits, producing `extra_control_scope`.
+- Fixed future retirement to keep `asset_park`, disable all park module assignments to revoke stale scoped access, and avoid soft-deleting the retained owner rows.
+- Added a bounded repair script for already-retired scopes that restores exactly one deleted `asset_park` and exactly one deleted disabled asset assignment only when the full 000194/000195 runtime-control audit evidence is complete and exactly one deleted `biz_park` source exists.
+- Wired the repair into `prod-deploy.sh` and the GitHub production deployment between the 000189 and 000194 gates.
+- Addressed Codex Review findings by qualifying repair `version` updates, no-oping before runtime-control tables exist or before the `000195` final contract, validating correction audit evidence before mutation, requiring deleted owner rows to already be disabled, casting runtime scope keys before every owner-row comparison, writing an explicit UUID repair principal plus aligned row id/version output and actor label, preventing non-system module re-enable on retired parks while preserving system recovery selection, revoking non-asset assignments on future park retirement, and documenting the production data repair.
+- `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/parks/parks.asset-scope.spec.ts` — 13 pass.
+- `node scripts/e2e/migration-prerequisite-contract.mjs` — pass.
+- `sh scripts/e2e/prod-deploy-seed-precedence.sh` — pass.
+- `sh -n scripts/repair-000194-retired-runtime-owner.sh scripts/prod-deploy.sh scripts/e2e/prod-deploy-seed-precedence.sh` — pass.
+- `pnpm --filter @jinhu/api typecheck` — pass.
+- `pnpm --filter @jinhu/api lint` — pass.
+- `pnpm --filter @jinhu/api build` — pass.
+- `git diff --check` — pass.
+
 ## Rollback points
 
 - 若 schema 无法在单一 `sys_user` 身份下正确绑定新园区管理员，停止并拆分身份模型设计，不写半兼容逻辑。

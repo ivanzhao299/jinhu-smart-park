@@ -105,6 +105,7 @@ const propertyCompatibilityReplacementPatchPath = resolve(
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
+const retiredRuntimeOwnerRepairPath = resolve(root, "scripts/repair-000194-retired-runtime-owner.sh");
 const canonicalSourceMigrationPath = resolve(
   root,
   "database/migrations/000207_asset_scope_canonical_source_reconcile.sql"
@@ -157,6 +158,7 @@ const propertyCompatibilityReplacementPatch = readFileSync(
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
 const runtimeControlDiagnostic = readFileSync(runtimeControlDiagnosticPath, "utf8");
+const retiredRuntimeOwnerRepair = readFileSync(retiredRuntimeOwnerRepairPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -981,8 +983,82 @@ assert.match(canonicalSourceMigration, /status=0,is_deleted=true,version=target\
 assert.match(canonicalSourceMigration, /asset-scope-canonical-source-reconcile-postcondition-failed/u);
 assert.match(
   productionDeployScript,
-  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
-  "production deployment must re-run both scope gates after migrations and before seed"
+  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*repair-000194-retired-runtime-owner\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
+  "production deployment must repair reviewed retired owner rows between the 000189 and 000194 gates"
+);
+assert.match(retiredRuntimeOwnerRepair, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(retiredRuntimeOwnerRepair, /ready_table_absent_reconcile/u);
+assert.match(retiredRuntimeOwnerRepair, /ready_contract_not_final_reconcile/u);
+assert.match(retiredRuntimeOwnerRepair, /000194_property_task_projection_contract_correction\.sql/u);
+assert.match(retiredRuntimeOwnerRepair, /000195_property_mutation_receipt_contract_v2\.sql/u);
+assert.match(retiredRuntimeOwnerRepair, /93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0/u);
+assert.match(retiredRuntimeOwnerRepair, /9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4/u);
+assert.match(retiredRuntimeOwnerRepair, /ready_restore_retired_owner/u);
+assert.match(retiredRuntimeOwnerRepair, /blocked_retired_owner_restore/u);
+assert.match(retiredRuntimeOwnerRepair, /distinct_valid_controls/u);
+assert.match(retiredRuntimeOwnerRepair, /count\(DISTINCT control\.control_key\) FILTER \(WHERE signed\.control_key IS NOT NULL\) AS distinct_valid/u);
+assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12 AND distinct_valid_controls=12/u);
+assert.match(retiredRuntimeOwnerRepair, /control_scope\.actual=12 AND control_scope\.valid=12 AND control_scope\.distinct_valid=12/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime control correction audit contains orphan rows/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(btrim\(tenant_id\)\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(btrim\(park_id\)\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(btrim\(control_scope\.tenant_id\)\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(btrim\(control_scope\.park_id\)\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
+assert.match(retiredRuntimeOwnerRepair, /audits=24 AND valid_audits_194=12 AND valid_audits_195=12/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v1/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v2/u);
+assert.match(retiredRuntimeOwnerRepair, /audit\.evidence_hash IS NOT DISTINCT FROM encode/u);
+assert.match(retiredRuntimeOwnerRepair, /deleted_disabled_asset_parks/u);
+assert.match(retiredRuntimeOwnerRepair, /deleted_disabled_asset_assignments/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_parks=0 AND deleted_asset_parks=1 AND deleted_disabled_asset_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /park\.is_deleted=true\)=1/u);
+assert.match(retiredRuntimeOwnerRepair, /park\.is_deleted=true AND park\.status='disabled'/u);
+assert.match(retiredRuntimeOwnerRepair, /deleted_inactive_biz_parks/u);
+assert.match(retiredRuntimeOwnerRepair, /live_biz_parks=0 AND deleted_biz_parks=1 AND deleted_inactive_biz_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /park\.is_deleted=true AND park\.status IS DISTINCT FROM 1/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_asset_assignments=1 AND deleted_disabled_asset_assignments=1/u);
+assert.match(retiredRuntimeOwnerRepair, /assignment\.is_deleted=true\)=1/u);
+assert.match(retiredRuntimeOwnerRepair, /assignment\.is_deleted=true AND assignment\.enabled=false AND assignment\.status='disabled'/u);
+assert.match(retiredRuntimeOwnerRepair, /module\.module_code='asset'/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*version=park\.version\+1/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /control\.tenant_id::uuid/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /control\.park_id::uuid/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /control_scope\.tenant_uuid/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /control_scope\.park_uuid/u);
+assert.match(retiredRuntimeOwnerRepair, /park\.tenant_id=control_scope\.tenant_id/u);
+assert.match(retiredRuntimeOwnerRepair, /assignment\.tenant_id=control_scope\.tenant_id/u);
+assert.match(retiredRuntimeOwnerRepair, /update_by='00000000-0000-4000-8000-000000000194'::uuid/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
+assert.match(retiredRuntimeOwnerRepair, /disabled_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /non_asset_assignment_target AS/u);
+assert.match(retiredRuntimeOwnerRepair, /module\.module_code<>'asset'/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /non_asset_assignment_count=non_asset_assignment_target_count/u);
+assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|non_asset_assignments\|non_asset_assignment_id_versions\|actor_id\|actor_label/u);
+assert.match(retiredRuntimeOwnerRepair, /repair_counts AS/u);
+assert.match(retiredRuntimeOwnerRepair, /repair_guard AS/u);
+assert.match(retiredRuntimeOwnerRepair, /scope_count=\$\{ready_count\}/u);
+assert.match(retiredRuntimeOwnerRepair, /1 \/ \(scope_count - scope_count\)/u);
+assert.match(retiredRuntimeOwnerRepair, /WHERE repair_guard\.guard=1/u);
+assert.match(retiredRuntimeOwnerRepair, /2>"\$repair_stderr_file"/u);
+assert.match(retiredRuntimeOwnerRepair, /stderr\|/u);
+assert.match(retiredRuntimeOwnerRepair, /NF == 7 && \$1 ~ \/\^\[0-9\]\+\$\/ && \$2 ~ \/\^\[0-9\]\+\$\/ && \$3 ~ \/\^\[0-9\]\+\$\//u);
+assert.match(retiredRuntimeOwnerRepair, /retired runtime owner repair result row was not uniquely parseable/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_scopes="\$\(printf '%s\\n' "\$repair_result_row"/u);
+assert.match(retiredRuntimeOwnerRepair, /retired runtime owner repair scope changed after classification/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_asset_parks"\s+!=\s+"\$ready_count"/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_assignments"\s+!=\s+"\$ready_count"/u);
+assert.match(retiredRuntimeOwnerRepair, /if \[ "\$mode" = "repair" \]; then\s+exit 3/su);
+assert.match(retiredRuntimeOwnerRepair, /\\nrepair_result\|%s\|%s\|%s\\n/u);
+assert.doesNotMatch(
+  retiredRuntimeOwnerRepair,
+  /UPDATE public\.biz_park/u,
+  "retired owner repair must not undelete the business park source"
+);
+assert.doesNotMatch(
+  retiredRuntimeOwnerRepair,
+  /deleted_biz_parks>=1/u,
+  "retired owner repair must block ambiguous deleted canonical rows"
 );
 assert.match(canonicalSourceFixture, /ready_ambiguous_source_migration_reconcile/u);
 assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
@@ -1003,12 +1079,20 @@ const deployStep = productionDeployWorkflow.indexOf("      - name: Deploy");
 const enforceRuntimeControlStep = productionDeployWorkflow.indexOf(
   "Enforce 000194 runtime control parity before deployment"
 );
+const repairRetiredOwnerStep = productionDeployWorkflow.indexOf(
+  "Repair retired 000194 runtime owner rows before deployment"
+);
 assert.ok(
   ensureSecretsStep !== -1 &&
     ensureSecretsStep < enforceScopeStep &&
-    enforceScopeStep < enforceRuntimeControlStep &&
+    enforceScopeStep < repairRetiredOwnerStep &&
+    repairRetiredOwnerStep < enforceRuntimeControlStep &&
     enforceRuntimeControlStep < deployStep,
-  "normal deployment must initialize secrets and enforce both migration parity gates before release sync"
+  "normal deployment must initialize secrets, repair reviewed retired owner rows, and enforce both migration parity gates before release sync"
+);
+assert.match(
+  productionDeployWorkflow,
+  /Repair retired 000194 runtime owner rows before deployment[\s\S]*?repair-000194-retired-runtime-owner\.sh/u
 );
 assert.match(
   productionDeployWorkflow,
