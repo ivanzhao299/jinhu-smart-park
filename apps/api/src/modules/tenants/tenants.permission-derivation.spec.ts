@@ -731,6 +731,49 @@ test("tenant authorization rejects a malformed park-scoped administrator role", 
   );
 });
 
+test("tenant authorization repairs legacy tenant-scoped administrator role flags", async () => {
+  const service = new TenantsService({} as never, {} as never, {} as never, {} as never);
+  const getOrCreate = (service as unknown as {
+    getOrCreateTenantAdminRole(
+      manager: { getRepository(): { findOne(): Promise<unknown>; save(role: unknown): Promise<unknown> } },
+      tenant: { tenantId: string },
+      parkId: string,
+      actorId: string
+    ): Promise<unknown>;
+  }).getOrCreateTenantAdminRole.bind(service);
+  const legacyRole = {
+    id: "role-legacy",
+    roleScope: "tenant",
+    isBuiltin: false,
+    isSystem: false,
+    isDeletable: true,
+    updateBy: null
+  };
+  const saved: unknown[] = [];
+
+  const role = await getOrCreate(
+    {
+      getRepository: () => ({
+        findOne: async () => legacyRole,
+        save: async (value: unknown) => {
+          saved.push(value);
+          return value;
+        }
+      })
+    },
+    { tenantId: "tenant-a" },
+    "park-b",
+    "actor-1"
+  ) as typeof legacyRole;
+
+  assert.equal(role, legacyRole);
+  assert.equal(legacyRole.isBuiltin, true);
+  assert.equal(legacyRole.isSystem, true);
+  assert.equal(legacyRole.isDeletable, false);
+  assert.equal(legacyRole.updateBy, "actor-1");
+  assert.deepEqual(saved, [legacyRole]);
+});
+
 test("reactivating a park restores only asset authorization suspended by park status", async () => {
   const tenant = { tenantId: "tenant-a", status: 1, expireTime: null } as TenantEntity;
   const systemAssignment = {
