@@ -719,7 +719,10 @@ export class TenantsService {
       await lockAssetScope(manager, scope);
     }
     for (const scope of scopes) {
-      if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      const parkExists = await manager.getRepository(ParkEntity).exists({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      });
+      if (!parkExists || !await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       const refreshedAssignments = await assignmentRepository.find({
@@ -1214,7 +1217,20 @@ export class TenantsService {
       throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
     }
     if (!existing) return this.createTenantAdminRole(manager, tenant, parkId, actorId);
-    if (!existing.isBuiltin || !existing.isSystem || existing.isDeletable) {
+    if (
+      !existing.isBuiltin
+      || !existing.isSystem
+      || existing.isDeletable
+      || existing.roleType !== "tenant"
+      || existing.dataScope !== "tenant"
+      || existing.rolePath !== TENANT_ADMIN_ROLE_CODE
+    ) {
+      existing.roleType = "tenant";
+      existing.rolePath = TENANT_ADMIN_ROLE_CODE;
+      existing.roleLevel = 1;
+      existing.level = 1;
+      existing.dataScope = "tenant";
+      existing.dataScopeConfig = {};
       existing.isBuiltin = true;
       existing.isSystem = true;
       existing.isDeletable = false;

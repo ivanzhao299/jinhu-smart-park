@@ -249,12 +249,13 @@ export class ParksService {
     if (protectedDefault) {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
+    if (retiresIndependentScope) {
+      await this.retireIndependentAssetScope(manager, targetScope, actor.sub);
+    }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
     await repository.save(entity);
-    if (retiresIndependentScope) {
-      await this.retireIndependentAssetScope(manager, targetScope, actor.sub);
-    } else if (protectedScope) {
+    if (!retiresIndependentScope && protectedScope) {
       await this.syncCanonicalAssetProjection(manager, targetScope, actor.sub);
     }
     if (protectedDefault) {
@@ -297,6 +298,11 @@ export class ParksService {
     if (activeAssetAssignments.length > 0) throw new ConflictException("Asset module must be disabled before park retirement");
     await manager.query(
       `UPDATE asset_park SET is_deleted=true, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
+        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
+      [scope.tenantId, scope.parkId, actorId]
+    );
+    await manager.query(
+      `UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
       [scope.tenantId, scope.parkId, actorId]
     );

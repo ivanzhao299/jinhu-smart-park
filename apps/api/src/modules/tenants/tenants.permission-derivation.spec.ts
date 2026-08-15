@@ -744,6 +744,12 @@ test("tenant authorization repairs legacy tenant-scoped administrator role flags
   const legacyRole = {
     id: "role-legacy",
     roleScope: "tenant",
+    roleType: "tenant",
+    rolePath: "LEGACY_TENANT_ADMIN",
+    roleLevel: 3,
+    level: 3,
+    dataScope: "10",
+    dataScopeConfig: { rule: "self" },
     isBuiltin: false,
     isSystem: false,
     isDeletable: true,
@@ -767,6 +773,12 @@ test("tenant authorization repairs legacy tenant-scoped administrator role flags
   ) as typeof legacyRole;
 
   assert.equal(role, legacyRole);
+  assert.equal(legacyRole.roleType, "tenant");
+  assert.equal(legacyRole.rolePath, "TENANT_ADMIN");
+  assert.equal(legacyRole.roleLevel, 1);
+  assert.equal(legacyRole.level, 1);
+  assert.equal(legacyRole.dataScope, "tenant");
+  assert.deepEqual(legacyRole.dataScopeConfig, {});
   assert.equal(legacyRole.isBuiltin, true);
   assert.equal(legacyRole.isSystem, true);
   assert.equal(legacyRole.isDeletable, false);
@@ -1368,4 +1380,39 @@ test("current tenant-admin convergence preserves park recovery grants for inacti
   assert.match(block, /if \(preserveParkRecoveryGrants\)/);
   assert.match(block, /permissionCodes\.push\(SYSTEM_PERMISSIONS\.PARK_READ, SYSTEM_PERMISSIONS\.PARK_UPDATE\)/);
   assert.ok(block.indexOf("permissionCodes.push") < block.indexOf("applyTenantAdminPermissions"));
+});
+
+test("tenant reactivation skips retired parks that still have historical module assignments", async () => {
+  const assignment = {
+    parkId: "retired-park",
+    module: { moduleCode: "asset", status: 1, isDeleted: false }
+  } as unknown as TenantModuleEntity;
+  const service = Object.assign(Object.create(TenantsService.prototype), {
+    reconcileReactivatedParkAuthorization: async () => {
+      throw new Error("retired park must not be reactivated");
+    }
+  }) as TenantsService;
+  const reconcile = (service as unknown as {
+    reconcileActiveTenantAssetScopes(
+      manager: unknown,
+      tenant: TenantEntity,
+      actorId: string
+    ): Promise<void>;
+  }).reconcileActiveTenantAssetScopes.bind(service);
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantModuleEntity) return {
+        find: async () => [assignment]
+      };
+      if (entity === ParkEntity) return {
+        exists: async () => false
+      };
+      throw new Error("unexpected repository");
+    },
+    query: async () => undefined
+  };
+
+  await assert.doesNotReject(() =>
+    reconcile(manager as never, { tenantId: "tenant-a" } as TenantEntity, "actor-a")
+  );
 });

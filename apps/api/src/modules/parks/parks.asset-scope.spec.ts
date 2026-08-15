@@ -227,6 +227,7 @@ test("inactive cross-scope protected park deletion reaches independent retiremen
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => true,
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown) => {
+      assert.equal(entity.isDeleted, false);
       retiredScopes.push(targetScope);
     },
     syncCanonicalAssetProjection: async () => {
@@ -281,9 +282,11 @@ test("independent asset scope retirement blocks active asset assignment before s
     }
   };
   await assert.doesNotReject(() => retire.call({} as ParksService, inactiveAssetManager, scope, "actor-a"));
-  assert.equal(queries.length, 2);
+  assert.equal(queries.length, 3);
   assert.match(queries[1]!.sql, /UPDATE asset_park SET is_deleted=true, status='disabled'/);
   assert.deepEqual(queries[1]!.parameters, ["tenant-a", "park-b", "actor-a"]);
+  assert.match(queries[2]!.sql, /UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled'/);
+  assert.deepEqual(queries[2]!.parameters, ["tenant-a", "park-b", "actor-a"]);
 });
 
 test("park mutation scope locks use one deterministic shared-key order", async () => {
