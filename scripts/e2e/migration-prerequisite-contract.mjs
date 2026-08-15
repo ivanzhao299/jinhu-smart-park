@@ -1004,7 +1004,9 @@ assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_as
 assert.match(retiredRuntimeOwnerRepair, /assignment\.is_deleted=true AND assignment\.enabled=false AND assignment\.status='disabled'/u);
 assert.match(retiredRuntimeOwnerRepair, /module\.module_code='asset'/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*version=park\.version\+1/u);
+assert.match(retiredRuntimeOwnerRepair, /update_by='system:repair-000194-retired-runtime-owner'/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
+assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|actor/u);
 assert.doesNotMatch(
   retiredRuntimeOwnerRepair,
   /UPDATE public\.biz_park/u,

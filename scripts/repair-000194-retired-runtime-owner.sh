@@ -5,6 +5,7 @@ set -eu
 mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
+repair_actor="system:repair-000194-retired-runtime-owner"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -468,30 +469,34 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled')=1
 ), restored_asset_park AS (
   UPDATE public.asset_park park
-  SET is_deleted=false, status='enabled', update_time=clock_timestamp(), version=park.version+1
+  SET is_deleted=false, status='enabled', update_by='system:repair-000194-retired-runtime-owner',
+      update_time=clock_timestamp(), version=park.version+1
   FROM repair_scope scope
-	  WHERE park.tenant_id=scope.tenant_id
-	    AND park.park_id=scope.park_id
-	    AND park.is_deleted=true
-	    AND park.status='disabled'
-  RETURNING park.tenant_id, park.park_id
+  WHERE park.tenant_id=scope.tenant_id
+    AND park.park_id=scope.park_id
+    AND park.is_deleted=true
+    AND park.status='disabled'
+  RETURNING park.tenant_id, park.park_id, park.id, park.version
 ), restored_assignment AS (
   UPDATE public.rel_tenant_module assignment
-  SET is_deleted=false, enabled=false, status='disabled', update_time=clock_timestamp(), version=assignment.version+1
+  SET is_deleted=false, enabled=false, status='disabled', update_by='system:repair-000194-retired-runtime-owner',
+      update_time=clock_timestamp(), version=assignment.version+1
   FROM repair_scope scope, public.sys_module module
   WHERE assignment.tenant_id=scope.tenant_id
     AND assignment.park_id=scope.park_id
     AND assignment.module_id=module.id
 	    AND module.module_code='asset'
 	    AND module.is_deleted=false
-	    AND assignment.is_deleted=true
-	    AND assignment.enabled=false
-	    AND assignment.status='disabled'
-  RETURNING assignment.tenant_id, assignment.park_id
+    AND assignment.is_deleted=true
+    AND assignment.enabled=false
+    AND assignment.status='disabled'
+  RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
 )
 SELECT (SELECT count(*) FROM repair_scope),
        (SELECT count(*) FROM restored_asset_park),
-       (SELECT count(*) FROM restored_assignment);
+       (SELECT count(*) FROM restored_assignment),
+       (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_asset_park),
+       (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_assignment);
 
 COMMIT;
 SQL
@@ -501,4 +506,4 @@ SQL
   exit "$rc"
 }
 
-printf 'repair_result|scopes|asset_parks|asset_assignments\n%s\n' "$repair_output"
+printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor\n%s|%s\n' "$repair_output" "$repair_actor"

@@ -470,9 +470,10 @@ Migration behavior:
   asset assignment, zero live `biz_park`, and exactly one deleted `biz_park`. The script runs only after the
   `000195` final contract is recorded; earlier stages no-op so pending migrations can still advance. It restores
   only the retained owner rows
-  (`asset_park` enabled, asset assignment non-deleted but disabled); it never undeletes `biz_park`, never rewrites
-  runtime controls/audits, and exits without mutation when runtime-control tables are not present yet. Any drift,
-  ambiguity, partial history, or extra candidate is blocked before repair.
+  (`asset_park` enabled, asset assignment non-deleted but disabled), records
+  `update_by=system:repair-000194-retired-runtime-owner`, and prints affected row id/version pairs. It never
+  undeletes `biz_park`, never rewrites runtime controls/audits, and exits without mutation when runtime-control
+  tables are not present yet. Any drift, ambiguity, partial history, or extra candidate is blocked before repair.
 - The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
   `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
   verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database

@@ -65,7 +65,7 @@
 - Fixed future retirement to keep `asset_park`, disable all park module assignments to revoke stale scoped access, and avoid soft-deleting the retained owner rows.
 - Added a bounded repair script for already-retired scopes that restores exactly one deleted `asset_park` and exactly one deleted disabled asset assignment only when the full 000194/000195 runtime-control audit evidence is complete and exactly one deleted `biz_park` source exists.
 - Wired the repair into `prod-deploy.sh` and the GitHub production deployment between the 000189 and 000194 gates.
-- Addressed Codex Review findings by qualifying repair `version` updates, no-oping before runtime-control tables exist or before the `000195` final contract, validating correction audit evidence before mutation, requiring deleted owner rows to already be disabled, revoking non-asset assignments on future park retirement, and documenting the production data repair.
+- Addressed Codex Review findings by qualifying repair `version` updates, no-oping before runtime-control tables exist or before the `000195` final contract, validating correction audit evidence before mutation, requiring deleted owner rows to already be disabled, writing an explicit repair principal plus row id/version output, revoking non-asset assignments on future park retirement, and documenting the production data repair.
 - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/parks/parks.asset-scope.spec.ts` — 13 pass.
 - `node scripts/e2e/migration-prerequisite-contract.mjs` — pass.
 - `sh scripts/e2e/prod-deploy-seed-precedence.sh` — pass.
