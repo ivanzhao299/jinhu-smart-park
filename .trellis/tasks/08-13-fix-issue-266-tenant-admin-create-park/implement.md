@@ -48,6 +48,15 @@
 - `pnpm --filter @jinhu/web build` — pass.
 - `git diff --check` — pass.
 
+### 2026-08-15 review follow-up
+
+- Independent read-only review raised a P2 to cover controller/audit propagation beyond source assertions and mocked service behavior.
+- Added a pipeline-level API regression that invokes `BuildingsController.create` and `AuditLogInterceptor`, proving the explicit target park reaches `request.auditScopeOverride` and the audit entry.
+- `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/buildings/buildings.cross-park-create.spec.ts` — 4 pass.
+- `pnpm --filter @jinhu/api typecheck` — pass.
+- `pnpm --filter @jinhu/api lint` — pass.
+- `git diff --check` — pass.
+
 ## Rollback points
 
 - 若 schema 无法在单一 `sys_user` 身份下正确绑定新园区管理员，停止并拆分身份模型设计，不写半兼容逻辑。
