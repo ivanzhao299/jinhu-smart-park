@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, In, type EntityManager, type Repository } from "typeorm";
 import type { EnabledModuleContext, PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import { DEFAULT_PLATFORM_SCOPE } from "../../shared/constants/platform-scope";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { AssignTenantModuleDto } from "./dto/assign-tenant-module.dto";
 import type { CreateModuleDto } from "./dto/create-module.dto";
@@ -782,11 +783,18 @@ export class SaaSModulesService {
     const rows = await manager.query(
       `SELECT 1
        FROM biz_park park
-       WHERE park.tenant_id = $1
-         AND park.park_id = $2
-         AND park.is_deleted = false
+       WHERE park.is_deleted = false
+         AND (
+           (park.tenant_id = $1 AND park.park_id = $2)
+           OR ($1 = $3 AND $2 = $4 AND park.park_code = 'JH')
+         )
        LIMIT 1`,
-      [scope.tenantId, scope.parkId]
+      [
+        scope.tenantId,
+        scope.parkId,
+        DEFAULT_PLATFORM_SCOPE.tenantId,
+        DEFAULT_PLATFORM_SCOPE.parkId
+      ]
     ) as unknown[];
     return rows.length > 0;
   }

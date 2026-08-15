@@ -989,7 +989,10 @@ assert.match(
 assert.match(retiredRuntimeOwnerRepair, /BEGIN TRANSACTION READ ONLY;/u);
 assert.match(retiredRuntimeOwnerRepair, /ready_table_absent_reconcile/u);
 assert.match(retiredRuntimeOwnerRepair, /ready_contract_not_final_reconcile/u);
+assert.match(retiredRuntimeOwnerRepair, /000194_property_task_projection_contract_correction\.sql/u);
 assert.match(retiredRuntimeOwnerRepair, /000195_property_mutation_receipt_contract_v2\.sql/u);
+assert.match(retiredRuntimeOwnerRepair, /93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0/u);
+assert.match(retiredRuntimeOwnerRepair, /9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4/u);
 assert.match(retiredRuntimeOwnerRepair, /ready_restore_retired_owner/u);
 assert.match(retiredRuntimeOwnerRepair, /blocked_retired_owner_restore/u);
 assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12/u);
@@ -1019,9 +1022,10 @@ assert.match(retiredRuntimeOwnerRepair, /assignment\.tenant_id=control_scope\.te
 assert.match(retiredRuntimeOwnerRepair, /update_by='00000000-0000-4000-8000-000000000194'::uuid/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
 assert.match(retiredRuntimeOwnerRepair, /disabled_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /non_asset_assignment_target AS/u);
 assert.match(retiredRuntimeOwnerRepair, /module\.module_code<>'asset'/u);
-assert.match(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment AS/u);
-assert.match(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment_count=0/u);
+assert.doesNotMatch(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /non_asset_assignment_count=non_asset_assignment_target_count/u);
 assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|non_asset_assignments\|non_asset_assignment_id_versions\|actor_id\|actor_label/u);
 assert.match(retiredRuntimeOwnerRepair, /repair_counts AS/u);
 assert.match(retiredRuntimeOwnerRepair, /repair_guard AS/u);

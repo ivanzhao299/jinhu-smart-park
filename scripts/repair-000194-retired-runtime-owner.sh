@@ -97,16 +97,22 @@ SELECT CASE
       UNION ALL
       SELECT filename, checksum, status FROM public.schema_migrations
     ) history
-    WHERE filename='000195_property_mutation_receipt_contract_v2.sql'
-      AND status='succeeded'
-      AND checksum='9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4'
-  )=2
+    WHERE status='succeeded'
+      AND (
+        (filename='000194_property_task_projection_contract_correction.sql'
+          AND checksum='93d99ac7b610df7aada4b57ba2c8ea1989aa40826910eedf4117ddcd39cc10f0')
+        OR (filename='000195_property_mutation_receipt_contract_v2.sql'
+          AND checksum='9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4')
+      )
+  )=4
   AND NOT EXISTS (
     SELECT 1
     FROM public.sys_schema_migration_history primary_history
     FULL JOIN public.schema_migrations standard_history USING (filename)
-    WHERE coalesce(primary_history.filename,standard_history.filename)=
-      '000195_property_mutation_receipt_contract_v2.sql'
+    WHERE coalesce(primary_history.filename,standard_history.filename) IN (
+        '000194_property_task_projection_contract_correction.sql',
+        '000195_property_mutation_receipt_contract_v2.sql'
+      )
       AND (primary_history.filename IS NULL OR standard_history.filename IS NULL
         OR primary_history.status IS DISTINCT FROM standard_history.status
         OR primary_history.checksum IS DISTINCT FROM standard_history.checksum)
@@ -519,21 +525,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     AND assignment.enabled=false
     AND assignment.status='disabled'
   RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
-), disabled_non_asset_assignment AS (
-  UPDATE public.rel_tenant_module assignment
-  SET enabled=false, status='disabled', update_by='00000000-0000-4000-8000-000000000194'::uuid,
-      update_time=clock_timestamp(), version=assignment.version+1
-  FROM repair_scope scope, public.sys_module module
-  WHERE assignment.tenant_id=scope.tenant_id
-    AND assignment.park_id=scope.park_id
-    AND assignment.module_id=module.id
-    AND module.module_code<>'asset'
-    AND module.is_deleted=false
-    AND assignment.is_deleted=false
-    AND (assignment.enabled=true OR assignment.status<>'disabled')
-  RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
-), remaining_non_asset_assignment AS (
-  SELECT count(*) AS remaining_count
+), non_asset_assignment_target AS (
+  SELECT assignment.id
   FROM public.rel_tenant_module assignment
   JOIN repair_scope scope
     ON scope.tenant_id=assignment.tenant_id
@@ -542,13 +535,20 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   WHERE module.module_code<>'asset'
     AND module.is_deleted=false
     AND assignment.is_deleted=false
-    AND (assignment.enabled=true OR assignment.status='enabled')
+    AND (assignment.enabled=true OR assignment.status<>'disabled')
+), disabled_non_asset_assignment AS (
+  UPDATE public.rel_tenant_module assignment
+  SET enabled=false, status='disabled', update_by='00000000-0000-4000-8000-000000000194'::uuid,
+      update_time=clock_timestamp(), version=assignment.version+1
+  FROM non_asset_assignment_target target
+  WHERE assignment.id=target.id
+  RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
 ), repair_counts AS (
   SELECT (SELECT count(*) FROM repair_scope) AS scope_count,
          (SELECT count(*) FROM restored_asset_park) AS asset_park_count,
          (SELECT count(*) FROM restored_assignment) AS assignment_count,
+         (SELECT count(*) FROM non_asset_assignment_target) AS non_asset_assignment_target_count,
          (SELECT count(*) FROM disabled_non_asset_assignment) AS non_asset_assignment_count,
-         (SELECT remaining_count FROM remaining_non_asset_assignment) AS remaining_non_asset_assignment_count,
          (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_asset_park) AS asset_park_versions,
          (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_assignment) AS assignment_versions,
          (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM disabled_non_asset_assignment) AS non_asset_assignment_versions
@@ -557,7 +557,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN scope_count=${ready_count}
        AND asset_park_count=${ready_count}
        AND assignment_count=${ready_count}
-       AND remaining_non_asset_assignment_count=0
+       AND non_asset_assignment_count=non_asset_assignment_target_count
         THEN 1
       ELSE 1 / (scope_count - scope_count)
     END AS guard

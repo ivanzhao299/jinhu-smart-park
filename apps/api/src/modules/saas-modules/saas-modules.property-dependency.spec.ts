@@ -150,6 +150,9 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.match(source, /status: moduleCanBeEnabled \? "enabled" : "disabled"/);
   assert.match(source, /FROM biz_park park/);
   assert.match(source, /park\.is_deleted = false/);
+  assert.match(source, /DEFAULT_PLATFORM_SCOPE\.tenantId/);
+  assert.match(source, /DEFAULT_PLATFORM_SCOPE\.parkId/);
+  assert.match(source, /park\.park_code = 'JH'/);
   assert.match(source, /if \(moduleCode === "asset"\) return false/);
   assert.match(source, /function withParkStatusSuspension/);
   assert.match(source, /delete next\[PARK_STATUS_SUSPENDED_FEATURE\]/);
