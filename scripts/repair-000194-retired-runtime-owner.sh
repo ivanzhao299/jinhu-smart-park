@@ -332,8 +332,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 ), classified AS (
   SELECT CASE
       WHEN tenant_id IS NOT NULL AND park_id IS NOT NULL
-       AND lower(tenant_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-       AND lower(park_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+       AND lower(btrim(tenant_id)) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+       AND lower(btrim(park_id)) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
        AND controls=12 AND valid_controls=12 AND distinct_valid_controls=12
 	       AND audits=24 AND valid_audits_194=12 AND valid_audits_195=12
        AND live_asset_parks=0 AND deleted_asset_parks=1 AND deleted_disabled_asset_parks=1
@@ -384,6 +384,9 @@ fi
 if [ "$mode" = "report" ] || [ "$ready_count" -eq 0 ]; then
   exit 0
 fi
+
+repair_stderr_file="$(mktemp "${TMPDIR:-/tmp}/repair-000194-stderr.XXXXXX")"
+trap 'rm -f "$repair_stderr_file"' EXIT HUP INT TERM
 
 repair_output="$({
   run_psql <<SQL
@@ -500,8 +503,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   FROM control_scope
   LEFT JOIN audit_scope USING (tenant_id, park_id)
   WHERE control_scope.tenant_id IS NOT NULL AND control_scope.park_id IS NOT NULL
-    AND lower(control_scope.tenant_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
-    AND lower(control_scope.park_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+    AND lower(btrim(control_scope.tenant_id)) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+    AND lower(btrim(control_scope.park_id)) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
     AND control_scope.actual=12 AND control_scope.valid=12 AND control_scope.distinct_valid=12
     AND coalesce(audit_scope.actual,0)=24
     AND coalesce(audit_scope.valid_194,0)=12
@@ -608,15 +611,48 @@ WHERE repair_guard.guard=1;
 
 COMMIT;
 SQL
-} 2>&1)" || {
+} 2>"$repair_stderr_file")" || {
   rc=$?
   printf '%s\n' "$repair_output" >&2
+  if [ -s "$repair_stderr_file" ]; then
+    printf '%s\n' "stderr from repair query:" >&2
+    sed 's/^/stderr|/' "$repair_stderr_file" >&2
+  fi
   exit "$rc"
 }
 
-repaired_scopes="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $1 }')"
-repaired_asset_parks="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $2 }')"
-repaired_assignments="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $3 }')"
+if [ -s "$repair_stderr_file" ]; then
+  printf '%s\n' "stderr from repair query:" >&2
+  sed 's/^/stderr|/' "$repair_stderr_file" >&2
+fi
+
+repair_result_row="$(printf '%s\n' "$repair_output" | awk -F '|' '
+  NF == 7 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {
+    if (found == 1) {
+      duplicate = 1
+    }
+    found = 1
+    row = $0
+  }
+  END {
+    if (duplicate == 1) {
+      exit 2
+    }
+    if (found == 1) {
+      print row
+      exit 0
+    }
+    exit 1
+  }
+')" || {
+  echo "ERROR: retired runtime owner repair result row was not uniquely parseable" >&2
+  printf '%s\n' "$repair_output" >&2
+  exit 4
+}
+
+repaired_scopes="$(printf '%s\n' "$repair_result_row" | awk -F '|' '{ print $1 }')"
+repaired_asset_parks="$(printf '%s\n' "$repair_result_row" | awk -F '|' '{ print $2 }')"
+repaired_assignments="$(printf '%s\n' "$repair_result_row" | awk -F '|' '{ print $3 }')"
 if [ "$repaired_scopes" != "$ready_count" ] \
   || [ "$repaired_asset_parks" != "$ready_count" ] \
   || [ "$repaired_assignments" != "$ready_count" ]; then
@@ -627,4 +663,4 @@ if [ "$repaired_scopes" != "$ready_count" ] \
   exit 4
 fi
 
-printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|non_asset_assignments|non_asset_assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"
+printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|non_asset_assignments|non_asset_assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_result_row" "$repair_actor_id" "$repair_actor_label"
