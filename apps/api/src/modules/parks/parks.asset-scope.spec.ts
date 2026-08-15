@@ -226,7 +226,7 @@ test("inactive cross-scope protected park deletion reaches independent retiremen
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => true,
-    hasValidCanonicalParkSourceBeforeMutation: async () => false,
+    hasRetainedCanonicalParkSourceAfterDeletion: async () => false,
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
       assert.equal(entity.isDeleted, false);
       retiredScopes.push({ scope: targetScope, retireAssetProjection });
@@ -270,7 +270,7 @@ test("inactive cross-scope park retirement clears authorization even without ass
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => false,
-    hasValidCanonicalParkSourceBeforeMutation: async () => false,
+    hasRetainedCanonicalParkSourceAfterDeletion: async () => false,
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
       assert.equal(entity.isDeleted, false);
       retiredScopes.push({ scope: targetScope, retireAssetProjection });
@@ -311,14 +311,16 @@ test("inactive cross-scope historical row deletion preserves a surviving active 
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => true,
-    hasValidCanonicalParkSourceBeforeMutation: async () => true,
+    hasRetainedCanonicalParkSourceAfterDeletion: async () => true,
     assertCanonicalSourceSurvives: async () => {
-      sourceSurvivalChecked = true;
+      throw new Error("inactive retained source deletion must not require an active canonical source");
     },
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown) => {
       retiredScopes.push(targetScope);
     },
-    syncCanonicalAssetProjection: async () => undefined
+    syncCanonicalAssetProjection: async () => {
+      throw new Error("inactive retained source deletion must not resync projection");
+    }
   }) as ParksService;
 
   await assert.doesNotReject(() => service.softDelete(
@@ -327,7 +329,7 @@ test("inactive cross-scope historical row deletion preserves a surviving active 
     "park-row-history"
   ));
   assert.equal(entity.isDeleted, true);
-  assert.equal(sourceSurvivalChecked, true);
+  assert.equal(sourceSurvivalChecked, false);
   assert.deepEqual(retiredScopes, []);
 });
 

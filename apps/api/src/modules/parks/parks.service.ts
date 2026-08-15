@@ -241,10 +241,16 @@ export class ParksService {
       throw new ConflictException("Park must be inactive before retirement");
     }
     const crossScopeMutation = targetScope.parkId !== scope.parkId;
+    const retainedSourceSurvives = crossScopeMutation
+      && entity.status !== 1
+      && await this.hasRetainedCanonicalParkSourceAfterDeletion(manager, targetScope, entity);
     const retiresIndependentScope = entity.status !== 1
       && crossScopeMutation
-      && !await this.hasValidCanonicalParkSourceBeforeMutation(manager, targetScope);
-    if (protectedScope && !retiresIndependentScope) {
+      && !retainedSourceSurvives;
+    const deletesInactiveRetainedSource = crossScopeMutation
+      && entity.status !== 1
+      && retainedSourceSurvives;
+    if (protectedScope && !retiresIndependentScope && !deletesInactiveRetainedSource) {
       await this.assertCanonicalSourceSurvives(manager, targetScope, entity);
     }
     if (protectedDefault) {
@@ -256,7 +262,7 @@ export class ParksService {
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
     await repository.save(entity);
-    if (!retiresIndependentScope && protectedScope) {
+    if (!retiresIndependentScope && protectedScope && !deletesInactiveRetainedSource) {
       await this.syncCanonicalAssetProjection(manager, targetScope, actor.sub);
     }
     if (protectedDefault) {
@@ -328,6 +334,30 @@ export class ParksService {
       if (error instanceof ConflictException) return false;
       throw error;
     }
+  }
+
+  private async hasRetainedCanonicalParkSourceAfterDeletion(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    removedPark: ParkEntity
+  ): Promise<boolean> {
+    const builder = manager.getRepository(ParkEntity)
+      .createQueryBuilder("park")
+      .where("park.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("park.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("park.is_deleted = false")
+      .andWhere("park.id <> :removedParkId", { removedParkId: removedPark.id });
+    if (await builder.getCount() > 0) return true;
+    if (scope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId
+      && scope.parkId === DEFAULT_PLATFORM_SCOPE.parkId) {
+      const fallbackBuilder = manager.getRepository(ParkEntity)
+        .createQueryBuilder("park")
+        .where("park.park_code = 'JH'")
+        .andWhere("park.is_deleted = false")
+        .andWhere("park.id <> :removedParkId", { removedParkId: removedPark.id });
+      return await fallbackBuilder.getCount() > 0;
+    }
+    return false;
   }
 
   private assertDefaultFallbackMutationAllowed(
