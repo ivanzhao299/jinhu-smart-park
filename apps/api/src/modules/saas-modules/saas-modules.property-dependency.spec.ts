@@ -137,7 +137,8 @@ test("asset module writes suspend on inactive parks while explicit disable clear
   assert.match(source, /return hasCanonicalActiveAssetParkSource\(manager, scope\)/);
   assert.doesNotMatch(source, /getRepository\(ParkEntity\)/);
   assert.doesNotMatch(source, /module\.moduleCode !== "asset" \|\| await this\.isParkActive/);
-  assert.equal((source.match(/const parkActive = await this\.isParkActive\(manager, scope\)/g) ?? []).length, 3);
+  assert.equal((source.match(/module\.moduleCode === "system" \? true : await this\.isParkActive\(manager, scope\)/g) ?? []).length, 2);
+  assert.equal((source.match(/const parkActive = await this\.isParkActive\(manager, scope\)/g) ?? []).length, 1);
   assert.match(source, /requestedEnabled && module\.moduleCode === "asset" && !parkActive/);
   assert.match(source, /enabled: parkActive/);
   assert.match(source, /status: parkActive \? "enabled" : "disabled"/);

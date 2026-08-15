@@ -279,8 +279,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     SELECT 1
     FROM public.rel_tenant_module assignment
     JOIN public.sys_module module ON module.id=assignment.module_id
-    WHERE assignment.tenant_id=control_scope.tenant_id
-      AND assignment.park_id=control_scope.park_id
+    WHERE assignment.tenant_id=control_scope.tenant_uuid
+      AND assignment.park_id=control_scope.park_uuid
       AND assignment.is_deleted=false
       AND module.module_code='asset'
       AND module.is_deleted=false
@@ -518,4 +518,4 @@ SQL
   exit "$rc"
 }
 
-printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor_id|actor_label\n%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"
+printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"

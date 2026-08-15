@@ -263,7 +263,7 @@ export class SaaSModulesService {
           createBy: actorId
         });
       const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
-      const parkActive = await this.isParkActive(manager, scope);
+      const parkActive = module.moduleCode === "system" ? true : await this.isParkActive(manager, scope);
       const enabling = requestedEnabled && parkActive;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
@@ -338,7 +338,7 @@ export class SaaSModulesService {
           moduleId,
           createBy: actorId
         });
-      const parkActive = await this.isParkActive(manager, scope);
+      const parkActive = module.moduleCode === "system" ? true : await this.isParkActive(manager, scope);
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
