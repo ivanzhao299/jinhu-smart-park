@@ -7,8 +7,8 @@ deploy_path="${2:-.}"
 database_name="${3:-}"
 repair_actor_id="00000000-0000-4000-8000-000000000194"
 repair_actor_label="system:repair-000194-retired-runtime-owner"
-diagnostic_header="classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|deleted_disabled_asset_parks|live_biz_parks|deleted_biz_parks|deleted_inactive_biz_parks|live_asset_assignments|deleted_asset_assignments|deleted_disabled_asset_assignments"
-empty_diagnostic_row_suffix="||||||||||||||||"
+diagnostic_header="classification|tenant_id|park_id|controls|valid_controls|distinct_valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|deleted_disabled_asset_parks|live_biz_parks|deleted_biz_parks|deleted_inactive_biz_parks|live_asset_assignments|deleted_asset_assignments|deleted_disabled_asset_assignments"
+empty_diagnostic_row_suffix="|||||||||||||||||"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -138,6 +138,34 @@ case "$contract_state" in
     ;;
 esac
 
+orphan_audit_count="$({
+  run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT count(*)
+FROM public.sys_property_runtime_control_contract_audit audit
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM public.sys_property_runtime_control control
+  WHERE control.tenant_id=audit.tenant_id
+    AND control.park_id=audit.park_id
+    AND control.id=audit.control_id
+);
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$orphan_audit_count" >&2
+  exit "$rc"
+}
+
+if [ "$orphan_audit_count" != "0" ]; then
+  echo "ERROR: runtime control correction audit contains orphan rows" >&2
+  if [ "$mode" = "repair" ]; then
+    exit 3
+  fi
+fi
+
 rows="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
@@ -170,7 +198,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       AND control.enabled_at IS NULL
       AND control.approval_reference IS NULL
       AND control.disabled_reason='b2a-contract-correction-000195'
-      AND control.version=3) AS valid
+      AND control.version=3) AS valid,
+    count(DISTINCT control.control_key) FILTER (WHERE signed.control_key IS NOT NULL) AS distinct_valid
   FROM public.sys_property_runtime_control control
   LEFT JOIN signed ON signed.control_key=control.control_key
   GROUP BY control.tenant_id, control.park_id
@@ -251,6 +280,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   SELECT control_scope.tenant_id, control_scope.park_id,
     control_scope.actual AS controls,
     control_scope.valid AS valid_controls,
+    control_scope.distinct_valid AS distinct_valid_controls,
     coalesce(audit_scope.actual,0) AS audits,
     coalesce(audit_scope.valid_194,0) AS valid_audits_194,
     coalesce(audit_scope.valid_195,0) AS valid_audits_195,
@@ -302,7 +332,9 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 ), classified AS (
   SELECT CASE
       WHEN tenant_id IS NOT NULL AND park_id IS NOT NULL
-       AND controls=12 AND valid_controls=12
+       AND lower(tenant_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+       AND lower(park_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+       AND controls=12 AND valid_controls=12 AND distinct_valid_controls=12
 	       AND audits=24 AND valid_audits_194=12 AND valid_audits_195=12
        AND live_asset_parks=0 AND deleted_asset_parks=1 AND deleted_disabled_asset_parks=1
 	       AND live_biz_parks=0 AND deleted_biz_parks=1 AND deleted_inactive_biz_parks=1
@@ -310,7 +342,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 	        THEN 'ready_restore_retired_owner'
       ELSE 'blocked_retired_owner_restore'
     END AS classification,
-    tenant_id, park_id, controls, valid_controls, audits, valid_audits_194, valid_audits_195,
+    tenant_id, park_id, controls, valid_controls, distinct_valid_controls,
+	    audits, valid_audits_194, valid_audits_195,
 	    live_asset_parks, deleted_asset_parks, deleted_disabled_asset_parks,
 	    live_biz_parks, deleted_biz_parks, deleted_inactive_biz_parks,
 	    live_asset_assignments, deleted_asset_assignments, deleted_disabled_asset_assignments
@@ -343,7 +376,9 @@ printf 'summary: ready=%s blocked=%s mode=%s\n' "$ready_count" "$blocked_count" 
 
 if [ "$blocked_count" -ne 0 ]; then
   echo "ERROR: retired runtime owner repair has blocked candidates" >&2
-  exit 3
+  if [ "$mode" = "repair" ]; then
+    exit 3
+  fi
 fi
 
 if [ "$mode" = "report" ] || [ "$ready_count" -eq 0 ]; then
@@ -382,7 +417,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       AND control.enabled_at IS NULL
       AND control.approval_reference IS NULL
       AND control.disabled_reason='b2a-contract-correction-000195'
-      AND control.version=3) AS valid
+      AND control.version=3) AS valid,
+    count(DISTINCT control.control_key) FILTER (WHERE signed.control_key IS NOT NULL) AS distinct_valid
   FROM public.sys_property_runtime_control control
   LEFT JOIN signed ON signed.control_key=control.control_key
   GROUP BY control.tenant_id, control.park_id
@@ -464,7 +500,9 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   FROM control_scope
   LEFT JOIN audit_scope USING (tenant_id, park_id)
   WHERE control_scope.tenant_id IS NOT NULL AND control_scope.park_id IS NOT NULL
-    AND control_scope.actual=12 AND control_scope.valid=12
+    AND lower(control_scope.tenant_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+    AND lower(control_scope.park_id) NOT IN ('', '0', 'all', 'global', '*', '00000000-0000-0000-0000-000000000000')
+    AND control_scope.actual=12 AND control_scope.valid=12 AND control_scope.distinct_valid=12
     AND coalesce(audit_scope.actual,0)=24
     AND coalesce(audit_scope.valid_194,0)=12
     AND coalesce(audit_scope.valid_195,0)=12

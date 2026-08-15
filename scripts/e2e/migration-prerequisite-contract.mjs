@@ -995,7 +995,13 @@ assert.match(retiredRuntimeOwnerRepair, /93d99ac7b610df7aada4b57ba2c8ea1989aa408
 assert.match(retiredRuntimeOwnerRepair, /9b89f6dbfdec8cfcaa278dffb58677f8b9ccd3032f30f0f264155b6c656198f4/u);
 assert.match(retiredRuntimeOwnerRepair, /ready_restore_retired_owner/u);
 assert.match(retiredRuntimeOwnerRepair, /blocked_retired_owner_restore/u);
-assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12/u);
+assert.match(retiredRuntimeOwnerRepair, /distinct_valid_controls/u);
+assert.match(retiredRuntimeOwnerRepair, /count\(DISTINCT control\.control_key\) FILTER \(WHERE signed\.control_key IS NOT NULL\) AS distinct_valid/u);
+assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12 AND distinct_valid_controls=12/u);
+assert.match(retiredRuntimeOwnerRepair, /control_scope\.actual=12 AND control_scope\.valid=12 AND control_scope\.distinct_valid=12/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime control correction audit contains orphan rows/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(tenant_id\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
+assert.match(retiredRuntimeOwnerRepair, /lower\(control_scope\.tenant_id\) NOT IN \('', '0', 'all', 'global', '\*', '00000000-0000-0000-0000-000000000000'\)/u);
 assert.match(retiredRuntimeOwnerRepair, /audits=24 AND valid_audits_194=12 AND valid_audits_195=12/u);
 assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v1/u);
 assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v2/u);
@@ -1036,6 +1042,7 @@ assert.match(retiredRuntimeOwnerRepair, /repaired_scopes="\$\(printf '%s\\n' "\$
 assert.match(retiredRuntimeOwnerRepair, /retired runtime owner repair scope changed after classification/u);
 assert.match(retiredRuntimeOwnerRepair, /repaired_asset_parks"\s+!=\s+"\$ready_count"/u);
 assert.match(retiredRuntimeOwnerRepair, /repaired_assignments"\s+!=\s+"\$ready_count"/u);
+assert.match(retiredRuntimeOwnerRepair, /if \[ "\$mode" = "repair" \]; then\s+exit 3/su);
 assert.match(retiredRuntimeOwnerRepair, /\\nrepair_result\|%s\|%s\|%s\\n/u);
 assert.doesNotMatch(
   retiredRuntimeOwnerRepair,
