@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Req } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireModule } from "../../shared/decorators/modules.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { BuildingQueryDto } from "./dto/building-query.dto";
 import { CreateBuildingDto } from "./dto/create-building.dto";
@@ -31,8 +32,8 @@ export class BuildingsController {
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_CREATE)
   @AuditLog({ module: "楼栋管理", resource: "biz.building", action: "新增", bizType: "biz_building" })
-  create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateBuildingDto) {
-    return this.buildingsService.create(scope, user.sub, dto);
+  create(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateBuildingDto, @Req() request: AuditScopeRequest) {
+    return this.buildingsService.create(scope, user, dto, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 
   @Put(":id")

@@ -1,6 +1,11 @@
 import { IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLength, Min, ValidateIf } from "class-validator";
 
 export class CreateBuildingDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  parkId?: string;
+
   @IsString()
   @ValidateIf((_dto, value) => value !== undefined && value !== "")
   @Matches(/^[A-Z0-9][A-Z0-9_-]{1,63}$/)

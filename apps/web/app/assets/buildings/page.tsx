@@ -19,7 +19,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { useAuthUser } from "../../../lib/auth-context";
-import { getStoredUser, switchParkContext } from "../../../lib/auth";
+import { getStoredUser } from "../../../lib/auth";
 import {
   getCommittedDeleteRefreshError,
   removeCommittedItem
@@ -140,34 +140,29 @@ export default function BuildingsPage() {
     setSubmitting(true);
     setMessage("");
     setFormMessage("");
-    let switchedPark = false;
     try {
       if (!editingId && !form.parkId) throw new Error("请选择所属园区");
-      if (!editingId && form.parkId !== getStoredUser()?.park_id) {
-        await switchParkContext(form.parkId);
-        switchedPark = true;
-      }
-    const body = {
-      buildingCode: form.buildingCode.trim(),
-      buildingName: form.buildingName.trim(),
-      floorCount: Number(form.floorCount || 0),
-      buildArea: Number(form.buildArea || 0),
-      status: form.status,
-      sortNo: Number(form.sortNo || 0),
-      remark: form.remark.trim()
-    };
+      const body = {
+        ...(editingId ? {} : { parkId: form.parkId }),
+        buildingCode: form.buildingCode.trim(),
+        buildingName: form.buildingName.trim(),
+        floorCount: Number(form.floorCount || 0),
+        buildArea: Number(form.buildArea || 0),
+        status: form.status,
+        sortNo: Number(form.sortNo || 0),
+        remark: form.remark.trim()
+      };
       await apiRequest<BuildingRow>(editingId ? `/buildings/${editingId}` : "/buildings", {
-      method: editingId ? "PUT" : "POST",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey(editingId ? "building-update" : "building-create"),
-      body
+        method: editingId ? "PUT" : "POST",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey(editingId ? "building-update" : "building-create"),
+        body
       });
       setShowForm(false);
       setEditingId(null);
-      setMessage("保存成功");
-      if (switchedPark) {
-        window.location.reload();
-      } else {
+      const savedOutsideCurrentPark = !editingId && form.parkId !== getStoredUser()?.park_id;
+      setMessage(savedOutsideCurrentPark ? "保存成功，楼栋已写入所选园区" : "保存成功");
+      if (!savedOutsideCurrentPark) {
         try {
           await load(pageData.page);
         } catch (refreshError) {
@@ -175,14 +170,6 @@ export default function BuildingsPage() {
         }
       }
     } catch (error) {
-      if (switchedPark) {
-        sessionStorage.setItem(
-          BUILDING_FLASH_KEY,
-          `已切换到所选园区，但楼栋保存失败：${error instanceof Error ? error.message : "未知错误"}`
-        );
-        window.location.reload();
-        return;
-      }
       setFormMessage(error instanceof Error ? error.message : "楼栋保存失败");
       if (!getAccessToken()) window.location.href = "/login";
       return;

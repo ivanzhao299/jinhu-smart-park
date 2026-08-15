@@ -11,7 +11,7 @@
 - [x] 处理线上复测三连问题：
   - [x] `TENANT_ADMIN` 历史 tenant-scoped 角色仅补正内置标记，park-scoped 异常继续 fail-closed。
   - [x] 移除阻断独立 scope 退役的旧保护，保留 active/inactive/asset-assignment 状态机。
-  - [x] 复核楼栋新增的 `Invalid request origin` 实际属于认证 cookie origin 链路，跑认证回归确认 parkId 不参与 origin 判定。
+  - [x] 修复楼栋新增的 `Invalid request origin`：前端不再为跨园区新增楼栋调用认证 context-switch，后端 `POST /buildings` 按显式 `parkId` 做目标园区鉴权、编码生成、写入和审计 scope override。
   - [x] 复审后收紧所有跨 scope 删除必须先停用，即使目标尚无 asset 投影；补充真实退役函数的 asset assignment 与 `asset_park` 软删除回归。
 - [ ] 创建 `codex/` 分支，提交、推送并创建 Draft PR（Closes #266）。
 - [ ] 针对每个最新 head 仅触发一次 Codex Review，处理并解决全部可操作 threads，复跑 CI。
@@ -34,6 +34,19 @@
 - `pnpm --filter @jinhu/api test:unit` — 1212 pass, 13 skipped, 0 failed.
 - `tsc -p apps/api/tsconfig.build.json --outDir /tmp/jinhu-api-build-check-266-20260815092319 --noEmit false` — pass.
 - `pnpm --filter @jinhu/api build` — blocked by pre-existing root-owned `apps/api/dist`; source compilation was verified with the temporary outDir command above.
+
+### 2026-08-15 follow-up regression
+
+- `pnpm --filter @jinhu/shared build` — pass.
+- `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/buildings/buildings.cross-park-create.spec.ts` — 3 pass.
+- `pnpm --filter @jinhu/web test:unit:assets` — 11 pass.
+- `pnpm --filter @jinhu/api typecheck` — pass.
+- `pnpm --filter @jinhu/web typecheck` — pass.
+- `pnpm --filter @jinhu/api lint` — pass.
+- `pnpm --filter @jinhu/web lint` — pass.
+- `pnpm --filter @jinhu/api build` — pass.
+- `pnpm --filter @jinhu/web build` — pass.
+- `git diff --check` — pass.
 
 ## Rollback points
 
