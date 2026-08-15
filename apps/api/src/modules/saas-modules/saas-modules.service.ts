@@ -263,8 +263,8 @@ export class SaaSModulesService {
           createBy: actorId
         });
       const requestedEnabled = this.resolveRequestedEnabled(module.moduleCode, dto.status, entity);
-      const parkActive = module.moduleCode === "system" ? true : await this.isParkActive(manager, scope);
-      const enabling = requestedEnabled && parkActive;
+      const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
+      const enabling = requestedEnabled && moduleCanBeEnabled;
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       if (requestedEnabled) {
@@ -283,7 +283,7 @@ export class SaaSModulesService {
         featureConfig: withExplicitModuleSelection(
           withParkStatusSuspension(
             dto.featureConfig ?? entity.featureConfig,
-            requestedEnabled && module.moduleCode === "asset" && !parkActive
+            requestedEnabled && module.moduleCode === "asset" && !moduleCanBeEnabled
           ),
           module.moduleCode
         ),
@@ -338,16 +338,16 @@ export class SaaSModulesService {
           moduleId,
           createBy: actorId
         });
-      const parkActive = module.moduleCode === "system" ? true : await this.isParkActive(manager, scope);
+      const moduleCanBeEnabled = await this.canEnableTenantModuleInPark(manager, scope, module.moduleCode);
       const promotingRecoverySystem = module.moduleCode === "system"
         && entity.featureConfig?.[PARK_RECOVERY_SYSTEM_FEATURE] === true;
       Object.assign(entity, {
         startTime: promotingRecoverySystem ? null : entity.startTime,
         expireTime: module.moduleCode === "system" ? null : entity.expireTime,
-        enabled: parkActive,
-        status: parkActive ? "enabled" : "disabled",
+        enabled: moduleCanBeEnabled,
+        status: moduleCanBeEnabled ? "enabled" : "disabled",
         featureConfig: withExplicitModuleSelection(
-          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !parkActive),
+          withParkStatusSuspension(entity.featureConfig, module.moduleCode === "asset" && !moduleCanBeEnabled),
           module.moduleCode
         ),
         updateBy: actorId
@@ -364,7 +364,7 @@ export class SaaSModulesService {
       );
       const saved = await repository.save(entity);
       await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
-      if (parkActive && module.moduleCode === "asset") {
+      if (moduleCanBeEnabled && module.moduleCode === "asset") {
         await ensureAssetScopeProvisioned(manager, scope, actorId);
       } else if (module.moduleCode === "asset") {
         await this.reconcileInactiveAssetRecovery(manager, scope, actorId);
@@ -755,6 +755,34 @@ export class SaaSModulesService {
 
   private async isParkActive(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
     return hasCanonicalActiveAssetParkSource(manager, scope);
+  }
+
+  private async canEnableTenantModuleInPark(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    moduleCode: string
+  ): Promise<boolean> {
+    if (moduleCode === "system") return true;
+    const parkActive = await this.isParkActive(manager, scope).catch((error: unknown) => {
+      if (error instanceof NotFoundException) return false;
+      throw error;
+    });
+    if (parkActive) return true;
+    if (moduleCode === "asset") return false;
+    return this.hasRecoverableParkSource(manager, scope);
+  }
+
+  private async hasRecoverableParkSource(manager: EntityManager, scope: TenantParkScope): Promise<boolean> {
+    const rows = await manager.query(
+      `SELECT 1
+       FROM biz_park park
+       WHERE park.tenant_id = $1
+         AND park.park_id = $2
+         AND park.is_deleted = false
+       LIMIT 1`,
+      [scope.tenantId, scope.parkId]
+    ) as unknown[];
+    return rows.length > 0;
   }
 }
 

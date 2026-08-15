@@ -7,6 +7,8 @@ deploy_path="${2:-.}"
 database_name="${3:-}"
 repair_actor_id="00000000-0000-4000-8000-000000000194"
 repair_actor_label="system:repair-000194-retired-runtime-owner"
+diagnostic_header="classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|deleted_disabled_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments|deleted_disabled_asset_assignments"
+empty_diagnostic_row_suffix="|||||||||||||||"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -49,10 +51,10 @@ SQL
 
 case "$table_state" in
   "yes|yes") ;;
-  *)
-    echo "000194 retired runtime owner repair diagnostic"
-    echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
-    echo "ready_table_absent_reconcile|||||||||||||"
+	*)
+	    echo "000194 retired runtime owner repair diagnostic"
+	    echo "$diagnostic_header"
+	    printf 'ready_table_absent_reconcile%s\n' "$empty_diagnostic_row_suffix"
     printf 'summary: ready=0 blocked=0 mode=%s table=absent\n' "$mode"
     exit 0
     ;;
@@ -77,8 +79,8 @@ SQL
 
 if [ "$history_table_state" != "yes" ]; then
   echo "000194 retired runtime owner repair diagnostic"
-  echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
-  echo "ready_contract_not_final_reconcile|||||||||||||"
+  echo "$diagnostic_header"
+  printf 'ready_contract_not_final_reconcile%s\n' "$empty_diagnostic_row_suffix"
   printf 'summary: ready=0 blocked=0 mode=%s contract_stage=pre_000195\n' "$mode"
   exit 0
 fi
@@ -121,10 +123,10 @@ SQL
 
 case "$contract_state" in
   post_000195) ;;
-  *)
-    echo "000194 retired runtime owner repair diagnostic"
-    echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
-    echo "ready_contract_not_final_reconcile|||||||||||||"
+	*)
+	    echo "000194 retired runtime owner repair diagnostic"
+	    echo "$diagnostic_header"
+	    printf 'ready_contract_not_final_reconcile%s\n' "$empty_diagnostic_row_suffix"
     printf 'summary: ready=0 blocked=0 mode=%s contract_stage=%s\n' "$mode" "$contract_state"
     exit 0
     ;;
@@ -254,9 +256,12 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     (SELECT count(*) FROM public.asset_park park
       WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
         AND park.is_deleted=false) AS live_asset_parks,
-		    (SELECT count(*) FROM public.asset_park park
-		      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
-		        AND park.is_deleted=true AND park.status='disabled') AS deleted_asset_parks,
+	    (SELECT count(*) FROM public.asset_park park
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
+	        AND park.is_deleted=true) AS deleted_asset_parks,
+	    (SELECT count(*) FROM public.asset_park park
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
+	        AND park.is_deleted=true AND park.status='disabled') AS deleted_disabled_asset_parks,
 	    (SELECT count(*) FROM public.biz_park park
 	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=false) AS live_biz_parks,
@@ -268,11 +273,16 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
 	      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=false) AS live_asset_assignments,
-		    (SELECT count(*) FROM public.rel_tenant_module assignment
-		      JOIN public.sys_module module ON module.id=assignment.module_id
-		      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
-		        AND module.module_code='asset' AND module.is_deleted=false
-		        AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled') AS deleted_asset_assignments
+	    (SELECT count(*) FROM public.rel_tenant_module assignment
+	      JOIN public.sys_module module ON module.id=assignment.module_id
+	      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
+	        AND module.module_code='asset' AND module.is_deleted=false
+	        AND assignment.is_deleted=true) AS deleted_asset_assignments,
+	    (SELECT count(*) FROM public.rel_tenant_module assignment
+	      JOIN public.sys_module module ON module.id=assignment.module_id
+	      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
+	        AND module.module_code='asset' AND module.is_deleted=false
+	        AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled') AS deleted_disabled_asset_assignments
   FROM control_scope
   LEFT JOIN audit_scope USING (tenant_id, park_id)
   WHERE NOT EXISTS (
@@ -290,15 +300,16 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHEN tenant_uuid IS NOT NULL AND park_uuid IS NOT NULL
        AND controls=12 AND valid_controls=12
 	       AND audits=24 AND valid_audits_194=12 AND valid_audits_195=12
-	       AND live_asset_parks=0 AND deleted_asset_parks=1
+       AND live_asset_parks=0 AND deleted_asset_parks=1 AND deleted_disabled_asset_parks=1
 	       AND live_biz_parks=0 AND deleted_biz_parks=1
-	       AND live_asset_assignments=0 AND deleted_asset_assignments=1
+	       AND live_asset_assignments=0 AND deleted_asset_assignments=1 AND deleted_disabled_asset_assignments=1
 	        THEN 'ready_restore_retired_owner'
       ELSE 'blocked_retired_owner_restore'
     END AS classification,
     tenant_id, park_id, controls, valid_controls, audits, valid_audits_194, valid_audits_195,
-	    live_asset_parks, deleted_asset_parks, live_biz_parks, deleted_biz_parks,
-	    live_asset_assignments, deleted_asset_assignments
+	    live_asset_parks, deleted_asset_parks, deleted_disabled_asset_parks,
+	    live_biz_parks, deleted_biz_parks,
+	    live_asset_assignments, deleted_asset_assignments, deleted_disabled_asset_assignments
   FROM candidate
 )
 SELECT * FROM classified
@@ -313,7 +324,7 @@ SQL
 }
 
 echo "000194 retired runtime owner repair diagnostic"
-echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
+echo "$diagnostic_header"
 printf '%s\n' "$rows"
 
 blocked_count="$(printf '%s\n' "$rows" | awk -F '|' '
@@ -460,9 +471,12 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     AND (SELECT count(*) FROM public.asset_park park
       WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
         AND park.is_deleted=false)=0
-		    AND (SELECT count(*) FROM public.asset_park park
-		      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
-		        AND park.is_deleted=true AND park.status='disabled')=1
+	    AND (SELECT count(*) FROM public.asset_park park
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
+	        AND park.is_deleted=true)=1
+	    AND (SELECT count(*) FROM public.asset_park park
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
+	        AND park.is_deleted=true AND park.status='disabled')=1
 	    AND (SELECT count(*) FROM public.biz_park park
 	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=false)=0
@@ -474,6 +488,11 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=false)=0
+    AND (SELECT count(*) FROM public.rel_tenant_module assignment
+      JOIN public.sys_module module ON module.id=assignment.module_id
+      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
+        AND module.module_code='asset' AND module.is_deleted=false
+        AND assignment.is_deleted=true)=1
     AND (SELECT count(*) FROM public.rel_tenant_module assignment
       JOIN public.sys_module module ON module.id=assignment.module_id
       WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
@@ -517,5 +536,18 @@ SQL
   printf '%s\n' "$repair_output" >&2
   exit "$rc"
 }
+
+repaired_scopes="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $1 }')"
+repaired_asset_parks="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $2 }')"
+repaired_assignments="$(printf '%s\n' "$repair_output" | awk -F '|' 'NR==1 { print $3 }')"
+if [ "$repaired_scopes" != "$ready_count" ] \
+  || [ "$repaired_asset_parks" != "$ready_count" ] \
+  || [ "$repaired_assignments" != "$ready_count" ]; then
+  echo "ERROR: retired runtime owner repair scope changed after classification" >&2
+  printf 'expected_ready=%s repaired_scopes=%s repaired_asset_parks=%s repaired_assignments=%s\n' \
+    "$ready_count" "$repaired_scopes" "$repaired_asset_parks" "$repaired_assignments" >&2
+  printf '%s\n' "$repair_output" >&2
+  exit 4
+fi
 
 printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"

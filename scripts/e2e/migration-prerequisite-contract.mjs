@@ -997,10 +997,14 @@ assert.match(retiredRuntimeOwnerRepair, /audits=24 AND valid_audits_194=12 AND v
 assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v1/u);
 assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v2/u);
 assert.match(retiredRuntimeOwnerRepair, /audit\.evidence_hash IS NOT DISTINCT FROM encode/u);
-assert.match(retiredRuntimeOwnerRepair, /live_asset_parks=0 AND deleted_asset_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /deleted_disabled_asset_parks/u);
+assert.match(retiredRuntimeOwnerRepair, /deleted_disabled_asset_assignments/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_parks=0 AND deleted_asset_parks=1 AND deleted_disabled_asset_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /park\.is_deleted=true\)=1/u);
 assert.match(retiredRuntimeOwnerRepair, /park\.is_deleted=true AND park\.status='disabled'/u);
 assert.match(retiredRuntimeOwnerRepair, /live_biz_parks=0 AND deleted_biz_parks=1/u);
-assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_asset_assignments=1/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_asset_assignments=1 AND deleted_disabled_asset_assignments=1/u);
+assert.match(retiredRuntimeOwnerRepair, /assignment\.is_deleted=true\)=1/u);
 assert.match(retiredRuntimeOwnerRepair, /assignment\.is_deleted=true AND assignment\.enabled=false AND assignment\.status='disabled'/u);
 assert.match(retiredRuntimeOwnerRepair, /module\.module_code='asset'/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*version=park\.version\+1/u);
@@ -1011,6 +1015,10 @@ assert.match(retiredRuntimeOwnerRepair, /assignment\.tenant_id=control_scope\.te
 assert.match(retiredRuntimeOwnerRepair, /update_by='00000000-0000-4000-8000-000000000194'::uuid/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
 assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|actor_id\|actor_label/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_scopes="\$\(printf '%s\\n' "\$repair_output"/u);
+assert.match(retiredRuntimeOwnerRepair, /retired runtime owner repair scope changed after classification/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_asset_parks"\s+!=\s+"\$ready_count"/u);
+assert.match(retiredRuntimeOwnerRepair, /repaired_assignments"\s+!=\s+"\$ready_count"/u);
 assert.match(retiredRuntimeOwnerRepair, /\\nrepair_result\|%s\|%s\|%s\\n/u);
 assert.doesNotMatch(
   retiredRuntimeOwnerRepair,
