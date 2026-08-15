@@ -519,23 +519,52 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
     AND assignment.enabled=false
     AND assignment.status='disabled'
   RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
+), disabled_non_asset_assignment AS (
+  UPDATE public.rel_tenant_module assignment
+  SET enabled=false, status='disabled', update_by='00000000-0000-4000-8000-000000000194'::uuid,
+      update_time=clock_timestamp(), version=assignment.version+1
+  FROM repair_scope scope, public.sys_module module
+  WHERE assignment.tenant_id=scope.tenant_id
+    AND assignment.park_id=scope.park_id
+    AND assignment.module_id=module.id
+    AND module.module_code<>'asset'
+    AND module.is_deleted=false
+    AND assignment.is_deleted=false
+    AND (assignment.enabled=true OR assignment.status<>'disabled')
+  RETURNING assignment.tenant_id, assignment.park_id, assignment.id, assignment.version
+), remaining_non_asset_assignment AS (
+  SELECT count(*) AS remaining_count
+  FROM public.rel_tenant_module assignment
+  JOIN repair_scope scope
+    ON scope.tenant_id=assignment.tenant_id
+   AND scope.park_id=assignment.park_id
+  JOIN public.sys_module module ON module.id=assignment.module_id
+  WHERE module.module_code<>'asset'
+    AND module.is_deleted=false
+    AND assignment.is_deleted=false
+    AND (assignment.enabled=true OR assignment.status='enabled')
 ), repair_counts AS (
   SELECT (SELECT count(*) FROM repair_scope) AS scope_count,
          (SELECT count(*) FROM restored_asset_park) AS asset_park_count,
          (SELECT count(*) FROM restored_assignment) AS assignment_count,
+         (SELECT count(*) FROM disabled_non_asset_assignment) AS non_asset_assignment_count,
+         (SELECT remaining_count FROM remaining_non_asset_assignment) AS remaining_non_asset_assignment_count,
          (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_asset_park) AS asset_park_versions,
-         (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_assignment) AS assignment_versions
+         (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM restored_assignment) AS assignment_versions,
+         (SELECT coalesce(string_agg(id::text || ':' || version::text, ',' ORDER BY id::text), '') FROM disabled_non_asset_assignment) AS non_asset_assignment_versions
 ), repair_guard AS (
   SELECT CASE
       WHEN scope_count=${ready_count}
        AND asset_park_count=${ready_count}
        AND assignment_count=${ready_count}
+       AND remaining_non_asset_assignment_count=0
         THEN 1
       ELSE 1 / (scope_count - scope_count)
     END AS guard
   FROM repair_counts
 )
-SELECT scope_count, asset_park_count, assignment_count, asset_park_versions, assignment_versions
+SELECT scope_count, asset_park_count, assignment_count, asset_park_versions, assignment_versions,
+       non_asset_assignment_count, non_asset_assignment_versions
 FROM repair_counts, repair_guard
 WHERE repair_guard.guard=1;
 
@@ -560,4 +589,4 @@ if [ "$repaired_scopes" != "$ready_count" ] \
   exit 4
 fi
 
-printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"
+printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|non_asset_assignments|non_asset_assignment_id_versions|actor_id|actor_label\nrepair_result|%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"

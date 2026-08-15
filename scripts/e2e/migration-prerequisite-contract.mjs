@@ -1018,7 +1018,11 @@ assert.match(retiredRuntimeOwnerRepair, /park\.tenant_id=control_scope\.tenant_i
 assert.match(retiredRuntimeOwnerRepair, /assignment\.tenant_id=control_scope\.tenant_id/u);
 assert.match(retiredRuntimeOwnerRepair, /update_by='00000000-0000-4000-8000-000000000194'::uuid/u);
 assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
-assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|actor_id\|actor_label/u);
+assert.match(retiredRuntimeOwnerRepair, /disabled_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /module\.module_code<>'asset'/u);
+assert.match(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment AS/u);
+assert.match(retiredRuntimeOwnerRepair, /remaining_non_asset_assignment_count=0/u);
+assert.match(retiredRuntimeOwnerRepair, /asset_park_id_versions\|assignment_id_versions\|non_asset_assignments\|non_asset_assignment_id_versions\|actor_id\|actor_label/u);
 assert.match(retiredRuntimeOwnerRepair, /repair_counts AS/u);
 assert.match(retiredRuntimeOwnerRepair, /repair_guard AS/u);
 assert.match(retiredRuntimeOwnerRepair, /scope_count=\$\{ready_count\}/u);
