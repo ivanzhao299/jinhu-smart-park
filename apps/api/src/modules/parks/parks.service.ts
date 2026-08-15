@@ -257,7 +257,7 @@ export class ParksService {
       await this.assertCanonicalSourceSurvives(manager, DEFAULT_PLATFORM_SCOPE, entity);
     }
     if (retiresIndependentScope) {
-      await this.retireIndependentAssetScope(manager, targetScope, actor.sub, protectedScope);
+      await this.retireIndependentAssetScope(manager, targetScope, actor.sub);
     }
     entity.isDeleted = true;
     entity.updateBy = actor.sub;
@@ -292,7 +292,7 @@ export class ParksService {
     }
   }
 
-  private async retireIndependentAssetScope(manager: EntityManager, scope: TenantParkScope, actorId: string, retireAssetProjection = true): Promise<void> {
+  private async retireIndependentAssetScope(manager: EntityManager, scope: TenantParkScope, actorId: string): Promise<void> {
     if (await hasCanonicalActiveAssetParkSource(manager, scope)) {
       throw new ConflictException("Park must be inactive before retirement");
     }
@@ -303,16 +303,12 @@ export class ParksService {
       [scope.tenantId, scope.parkId]
     ) as unknown[];
     if (activeAssetAssignments.length > 0) throw new ConflictException("Asset module must be disabled before park retirement");
-    if (retireAssetProjection) {
-      await manager.query(
-        `UPDATE asset_park SET is_deleted=true, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
-          WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
-        [scope.tenantId, scope.parkId, actorId]
-      );
-    }
     await manager.query(
-      `UPDATE rel_tenant_module SET is_deleted=true, enabled=false, status='disabled', update_by=$3, update_time=clock_timestamp(), version=version+1
-        WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false`,
+      `UPDATE rel_tenant_module assignment
+        SET enabled=false, status='disabled', update_by=$3, update_time=clock_timestamp(), version=assignment.version+1
+        FROM sys_module module
+        WHERE assignment.tenant_id=$1 AND assignment.park_id=$2 AND assignment.is_deleted=false
+          AND assignment.module_id=module.id AND module.module_code='asset' AND module.is_deleted=false`,
       [scope.tenantId, scope.parkId, actorId]
     );
   }

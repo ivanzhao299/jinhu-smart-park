@@ -26,7 +26,7 @@ SH
   chmod +x "$TEST_ROOT/scripts/$helper"
 done
 
-for helper in diagnose-000189-asset-scope.sh diagnose-000194-runtime-control.sh; do
+for helper in diagnose-000189-asset-scope.sh repair-000194-retired-runtime-owner.sh diagnose-000194-runtime-control.sh; do
   helper_name="${helper%.sh}"
   sed "s/HELPER_NAME/$helper_name/g" > "$TEST_ROOT/scripts/$helper" <<'SH'
 #!/usr/bin/env sh
@@ -80,16 +80,19 @@ run_case() {
 
   migrate_count="$(grep -c '^db-migrate$' "$log_file" || true)"
   scope_gate_count="$(grep -c '^diagnose-000189-asset-scope$' "$log_file" || true)"
+  owner_repair_count="$(grep -c '^repair-000194-retired-runtime-owner$' "$log_file" || true)"
   runtime_gate_count="$(grep -c '^diagnose-000194-runtime-control$' "$log_file" || true)"
   seed_count="$(grep -c '^db-seed-prod$' "$log_file" || true)"
   test "$migrate_count" -eq 1
   test "$scope_gate_count" -eq 1
+  test "$owner_repair_count" -eq 1
   test "$runtime_gate_count" -eq 1
   test "$seed_count" -eq "$expected_seed_count"
 
   stop_line="$(grep -n ' stop api$' "$log_file" | head -1 | cut -d: -f1)"
   migrate_line="$(grep -n '^db-migrate$' "$log_file" | head -1 | cut -d: -f1)"
   scope_gate_line="$(grep -n '^diagnose-000189-asset-scope$' "$log_file" | head -1 | cut -d: -f1)"
+  owner_repair_line="$(grep -n '^repair-000194-retired-runtime-owner$' "$log_file" | head -1 | cut -d: -f1)"
   runtime_gate_line="$(grep -n '^diagnose-000194-runtime-control$' "$log_file" | head -1 | cut -d: -f1)"
   start_line="$(grep -n ' up -d api web$' "$log_file" | head -1 | cut -d: -f1)"
   test -n "$stop_line"
@@ -97,7 +100,8 @@ run_case() {
   test -n "$start_line"
   test "$stop_line" -lt "$migrate_line"
   test "$migrate_line" -lt "$scope_gate_line"
-  test "$scope_gate_line" -lt "$runtime_gate_line"
+  test "$scope_gate_line" -lt "$owner_repair_line"
+  test "$owner_repair_line" -lt "$runtime_gate_line"
   test "$runtime_gate_line" -lt "$start_line"
   if [ "$expected_seed_count" -eq 1 ]; then
     seed_line="$(grep -n '^db-seed-prod$' "$log_file" | head -1 | cut -d: -f1)"
@@ -147,6 +151,7 @@ if PATH="$TEST_ROOT/bin:$PATH" \
 fi
 grep -q '^db-migrate$' "$diagnostic_failure_log"
 grep -q '^diagnose-000189-asset-scope$' "$diagnostic_failure_log"
+grep -q '^repair-000194-retired-runtime-owner$' "$diagnostic_failure_log"
 grep -q '^diagnose-000194-runtime-control$' "$diagnostic_failure_log"
 if grep -Eq '^(db-seed-prod|prod-healthcheck)$| up -d api web$' "$diagnostic_failure_log"; then
   printf 'Seed, health checks and API/Web startup must not run after a diagnostic failure.\n' >&2

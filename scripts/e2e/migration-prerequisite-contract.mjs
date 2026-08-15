@@ -105,6 +105,7 @@ const propertyCompatibilityReplacementPatchPath = resolve(
 const productionDeployWorkflowPath = resolve(root, ".github/workflows/deploy-production.yml");
 const assetScopeDiagnosticPath = resolve(root, "scripts/diagnose-000189-asset-scope.sh");
 const runtimeControlDiagnosticPath = resolve(root, "scripts/diagnose-000194-runtime-control.sh");
+const retiredRuntimeOwnerRepairPath = resolve(root, "scripts/repair-000194-retired-runtime-owner.sh");
 const canonicalSourceMigrationPath = resolve(
   root,
   "database/migrations/000207_asset_scope_canonical_source_reconcile.sql"
@@ -157,6 +158,7 @@ const propertyCompatibilityReplacementPatch = readFileSync(
 const productionDeployWorkflow = readFileSync(productionDeployWorkflowPath, "utf8");
 const assetScopeDiagnostic = readFileSync(assetScopeDiagnosticPath, "utf8");
 const runtimeControlDiagnostic = readFileSync(runtimeControlDiagnosticPath, "utf8");
+const retiredRuntimeOwnerRepair = readFileSync(retiredRuntimeOwnerRepairPath, "utf8");
 const withoutPinnedSearchPath = (sql) =>
   sql.replace(/^SET search_path = public, pg_catalog;\n\n/u, "").trim();
 
@@ -981,8 +983,29 @@ assert.match(canonicalSourceMigration, /status=0,is_deleted=true,version=target\
 assert.match(canonicalSourceMigration, /asset-scope-canonical-source-reconcile-postcondition-failed/u);
 assert.match(
   productionDeployScript,
-  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
-  "production deployment must re-run both scope gates after migrations and before seed"
+  /db-migrate\.sh[\s\S]*diagnose-000189-asset-scope\.sh[\s\S]*repair-000194-retired-runtime-owner\.sh[\s\S]*diagnose-000194-runtime-control\.sh[\s\S]*db-seed-prod\.sh/u,
+  "production deployment must repair reviewed retired owner rows between the 000189 and 000194 gates"
+);
+assert.match(retiredRuntimeOwnerRepair, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(retiredRuntimeOwnerRepair, /ready_restore_retired_owner/u);
+assert.match(retiredRuntimeOwnerRepair, /blocked_retired_owner_restore/u);
+assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12/u);
+assert.match(retiredRuntimeOwnerRepair, /audits=24 AND valid_audits_194=12 AND valid_audits_195=12/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_parks=0 AND deleted_asset_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /live_biz_parks=0 AND deleted_biz_parks=1/u);
+assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_asset_assignments=1/u);
+assert.match(retiredRuntimeOwnerRepair, /module\.module_code='asset'/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*SET is_deleted=false, status='enabled'/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*SET is_deleted=false, enabled=false, status='disabled'/u);
+assert.doesNotMatch(
+  retiredRuntimeOwnerRepair,
+  /UPDATE public\.biz_park/u,
+  "retired owner repair must not undelete the business park source"
+);
+assert.doesNotMatch(
+  retiredRuntimeOwnerRepair,
+  /deleted_biz_parks>=1/u,
+  "retired owner repair must block ambiguous deleted canonical rows"
 );
 assert.match(canonicalSourceFixture, /ready_ambiguous_source_migration_reconcile/u);
 assert.match(canonicalSourceFixture, /RELEASE_000207_NO_MATCH/u);
@@ -1003,12 +1026,20 @@ const deployStep = productionDeployWorkflow.indexOf("      - name: Deploy");
 const enforceRuntimeControlStep = productionDeployWorkflow.indexOf(
   "Enforce 000194 runtime control parity before deployment"
 );
+const repairRetiredOwnerStep = productionDeployWorkflow.indexOf(
+  "Repair retired 000194 runtime owner rows before deployment"
+);
 assert.ok(
   ensureSecretsStep !== -1 &&
     ensureSecretsStep < enforceScopeStep &&
-    enforceScopeStep < enforceRuntimeControlStep &&
+    enforceScopeStep < repairRetiredOwnerStep &&
+    repairRetiredOwnerStep < enforceRuntimeControlStep &&
     enforceRuntimeControlStep < deployStep,
-  "normal deployment must initialize secrets and enforce both migration parity gates before release sync"
+  "normal deployment must initialize secrets, repair reviewed retired owner rows, and enforce both migration parity gates before release sync"
+);
+assert.match(
+  productionDeployWorkflow,
+  /Repair retired 000194 runtime owner rows before deployment[\s\S]*?repair-000194-retired-runtime-owner\.sh/u
 );
 assert.match(
   productionDeployWorkflow,
