@@ -722,7 +722,12 @@ export class TenantsService {
       try {
         if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
       } catch (error) {
-        if (error instanceof NotFoundException) continue;
+        if (error instanceof NotFoundException) {
+          const retiredParkExists = await manager.getRepository(ParkEntity).exists({
+            where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: true }
+          });
+          if (retiredParkExists) continue;
+        }
         throw error;
       }
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);

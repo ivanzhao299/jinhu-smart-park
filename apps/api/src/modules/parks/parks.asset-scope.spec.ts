@@ -226,6 +226,7 @@ test("inactive cross-scope protected park deletion reaches independent retiremen
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => true,
+    hasValidCanonicalParkSourceBeforeMutation: async () => false,
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
       assert.equal(entity.isDeleted, false);
       retiredScopes.push({ scope: targetScope, retireAssetProjection });
@@ -269,6 +270,7 @@ test("inactive cross-scope park retirement clears authorization even without ass
     lockMutationScopes: async () => undefined,
     assertParkModuleAccess: async () => undefined,
     hasCanonicalProjectionContract: async () => false,
+    hasValidCanonicalParkSourceBeforeMutation: async () => false,
     retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown, _actorId: string, retireAssetProjection: boolean) => {
       assert.equal(entity.isDeleted, false);
       retiredScopes.push({ scope: targetScope, retireAssetProjection });
@@ -282,6 +284,51 @@ test("inactive cross-scope park retirement clears authorization even without ass
   ));
   assert.equal(entity.isDeleted, true);
   assert.deepEqual(retiredScopes, [{ scope: { tenantId: "tenant-a", parkId: "park-b" }, retireAssetProjection: false }]);
+});
+
+test("inactive cross-scope historical row deletion preserves a surviving active scope", async () => {
+  let sourceSurvivalChecked = false;
+  const retiredScopes: unknown[] = [];
+  const entity = {
+    id: "park-row-history",
+    tenantId: "tenant-a",
+    parkId: "park-b",
+    parkCode: "PARK-B-OLD",
+    status: 0,
+    isDeleted: false,
+    updateBy: null
+  };
+  const service = Object.assign(Object.create(ParksService.prototype), {
+    detail: async () => entity,
+    dataSource: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) => callback({
+        getRepository: () => ({
+          findOne: async () => entity,
+          save: async (value: unknown) => value
+        })
+      })
+    },
+    lockMutationScopes: async () => undefined,
+    assertParkModuleAccess: async () => undefined,
+    hasCanonicalProjectionContract: async () => true,
+    hasValidCanonicalParkSourceBeforeMutation: async () => true,
+    assertCanonicalSourceSurvives: async () => {
+      sourceSurvivalChecked = true;
+    },
+    retireIndependentAssetScope: async (_manager: unknown, targetScope: unknown) => {
+      retiredScopes.push(targetScope);
+    },
+    syncCanonicalAssetProjection: async () => undefined
+  }) as ParksService;
+
+  await assert.doesNotReject(() => service.softDelete(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    { sub: "actor-a", tenantId: "tenant-a", roles: ["TENANT_ADMIN"], permissions: [] } as never,
+    "park-row-history"
+  ));
+  assert.equal(entity.isDeleted, true);
+  assert.equal(sourceSurvivalChecked, true);
+  assert.deepEqual(retiredScopes, []);
 });
 
 test("independent asset scope retirement blocks active asset assignment before soft-deleting projection", async () => {

@@ -1453,7 +1453,7 @@ test("tenant reactivation skips retired parks that still have historical module 
       };
       if (entity === ParkEntity) return {
         find: async () => [],
-        exists: async () => false
+        exists: async () => true
       };
       throw new Error("unexpected repository");
     },
@@ -1462,6 +1462,39 @@ test("tenant reactivation skips retired parks that still have historical module 
 
   await assert.doesNotReject(() =>
     reconcile(manager as never, { tenantId: "tenant-a" } as TenantEntity, "actor-a")
+  );
+});
+
+test("tenant reactivation rejects orphan module assignments without retired park evidence", async () => {
+  const assignment = {
+    parkId: "orphan-park",
+    module: { moduleCode: "asset", status: 1, isDeleted: false }
+  } as unknown as TenantModuleEntity;
+  const service = Object.create(TenantsService.prototype) as TenantsService;
+  const reconcile = (service as unknown as {
+    reconcileActiveTenantAssetScopes(
+      manager: unknown,
+      tenant: TenantEntity,
+      actorId: string
+    ): Promise<void>;
+  }).reconcileActiveTenantAssetScopes.bind(service);
+  const manager = {
+    getRepository: (entity: unknown) => {
+      if (entity === TenantModuleEntity) return {
+        find: async () => [assignment]
+      };
+      if (entity === ParkEntity) return {
+        find: async () => [],
+        exists: async () => false
+      };
+      throw new Error("unexpected repository");
+    },
+    query: async () => []
+  };
+
+  await assert.rejects(
+    () => reconcile(manager as never, { tenantId: "tenant-a" } as TenantEntity, "actor-a"),
+    /Park not found/
   );
 });
 

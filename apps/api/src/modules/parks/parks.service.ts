@@ -240,8 +240,10 @@ export class ParksService {
     if (entity.status === 1 && targetScope.parkId !== scope.parkId) {
       throw new ConflictException("Park must be inactive before retirement");
     }
+    const crossScopeMutation = targetScope.parkId !== scope.parkId;
     const retiresIndependentScope = entity.status !== 1
-      && targetScope.parkId !== scope.parkId;
+      && crossScopeMutation
+      && !await this.hasValidCanonicalParkSourceBeforeMutation(manager, targetScope);
     if (protectedScope && !retiresIndependentScope) {
       await this.assertCanonicalSourceSurvives(manager, targetScope, entity);
     }
