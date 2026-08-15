@@ -5,7 +5,8 @@ set -eu
 mode="${1:-report}"
 deploy_path="${2:-.}"
 database_name="${3:-}"
-repair_actor="system:repair-000194-retired-runtime-owner"
+repair_actor_id="00000000-0000-4000-8000-000000000194"
+repair_actor_label="system:repair-000194-retired-runtime-owner"
 compose_file="${COMPOSE_FILE:-infra/docker/docker-compose.prod.yml}"
 env_file="${ENV_FILE-.env.production}"
 
@@ -149,6 +150,10 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   ('task.enforce','enforce','task',NULL)
 ), control_scope AS (
   SELECT control.tenant_id, control.park_id,
+    CASE WHEN control.tenant_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN control.tenant_id::uuid END AS tenant_uuid,
+    CASE WHEN control.park_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN control.park_id::uuid END AS park_uuid,
     count(*) AS actual,
     count(*) FILTER (WHERE signed.control_key IS NOT NULL
       AND control.control_kind=signed.control_kind
@@ -164,7 +169,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       AND control.version=3) AS valid
   FROM public.sys_property_runtime_control control
   LEFT JOIN signed ON signed.control_key=control.control_key
-  GROUP BY control.tenant_id, control.park_id
+  GROUP BY control.tenant_id, control.park_id, tenant_uuid, park_uuid
 ), audit_scope AS (
   SELECT audit.tenant_id, audit.park_id,
 	    count(*) AS actual,
@@ -240,31 +245,32 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   GROUP BY audit.tenant_id, audit.park_id
 ), candidate AS (
   SELECT control_scope.tenant_id, control_scope.park_id,
+    control_scope.tenant_uuid, control_scope.park_uuid,
     control_scope.actual AS controls,
     control_scope.valid AS valid_controls,
     coalesce(audit_scope.actual,0) AS audits,
     coalesce(audit_scope.valid_194,0) AS valid_audits_194,
     coalesce(audit_scope.valid_195,0) AS valid_audits_195,
     (SELECT count(*) FROM public.asset_park park
-      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
         AND park.is_deleted=false) AS live_asset_parks,
 		    (SELECT count(*) FROM public.asset_park park
-		      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+		      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 		        AND park.is_deleted=true AND park.status='disabled') AS deleted_asset_parks,
 	    (SELECT count(*) FROM public.biz_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=false) AS live_biz_parks,
 	    (SELECT count(*) FROM public.biz_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=true) AS deleted_biz_parks,
 	    (SELECT count(*) FROM public.rel_tenant_module assignment
 	      JOIN public.sys_module module ON module.id=assignment.module_id
-	      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
+	      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=false) AS live_asset_assignments,
 		    (SELECT count(*) FROM public.rel_tenant_module assignment
 		      JOIN public.sys_module module ON module.id=assignment.module_id
-		      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
+		      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
 		        AND module.module_code='asset' AND module.is_deleted=false
 		        AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled') AS deleted_asset_assignments
   FROM control_scope
@@ -281,7 +287,8 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   )
 ), classified AS (
   SELECT CASE
-	      WHEN controls=12 AND valid_controls=12
+      WHEN tenant_uuid IS NOT NULL AND park_uuid IS NOT NULL
+       AND controls=12 AND valid_controls=12
 	       AND audits=24 AND valid_audits_194=12 AND valid_audits_195=12
 	       AND live_asset_parks=0 AND deleted_asset_parks=1
 	       AND live_biz_parks=0 AND deleted_biz_parks=1
@@ -348,6 +355,10 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   ('task.enforce','enforce','task',NULL)
 ), control_scope AS (
   SELECT control.tenant_id, control.park_id,
+    CASE WHEN control.tenant_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN control.tenant_id::uuid END AS tenant_uuid,
+    CASE WHEN control.park_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN control.park_id::uuid END AS park_uuid,
     count(*) AS actual,
     count(*) FILTER (WHERE signed.control_key IS NOT NULL
       AND control.control_kind=signed.control_kind
@@ -363,7 +374,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
       AND control.version=3) AS valid
   FROM public.sys_property_runtime_control control
   LEFT JOIN signed ON signed.control_key=control.control_key
-  GROUP BY control.tenant_id, control.park_id
+  GROUP BY control.tenant_id, control.park_id, tenant_uuid, park_uuid
 ), audit_scope AS (
   SELECT audit.tenant_id, audit.park_id,
 	    count(*) AS actual,
@@ -438,38 +449,39 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   WHERE audit.correction_key IN ('b2a-contract-correction-000194','b2a-contract-correction-000195')
   GROUP BY audit.tenant_id, audit.park_id
 ), repair_scope AS (
-  SELECT control_scope.tenant_id, control_scope.park_id
+  SELECT control_scope.tenant_uuid AS tenant_id, control_scope.park_uuid AS park_id
   FROM control_scope
   LEFT JOIN audit_scope USING (tenant_id, park_id)
-  WHERE control_scope.actual=12 AND control_scope.valid=12
+  WHERE control_scope.tenant_uuid IS NOT NULL AND control_scope.park_uuid IS NOT NULL
+    AND control_scope.actual=12 AND control_scope.valid=12
     AND coalesce(audit_scope.actual,0)=24
     AND coalesce(audit_scope.valid_194,0)=12
     AND coalesce(audit_scope.valid_195,0)=12
     AND (SELECT count(*) FROM public.asset_park park
-      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
         AND park.is_deleted=false)=0
 		    AND (SELECT count(*) FROM public.asset_park park
-		      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+		      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 		        AND park.is_deleted=true AND park.status='disabled')=1
 	    AND (SELECT count(*) FROM public.biz_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=false)=0
 	    AND (SELECT count(*) FROM public.biz_park park
-	      WHERE park.tenant_id=control_scope.tenant_id AND park.park_id=control_scope.park_id
+	      WHERE park.tenant_id=control_scope.tenant_uuid AND park.park_id=control_scope.park_uuid
 	        AND park.is_deleted=true)=1
 	    AND (SELECT count(*) FROM public.rel_tenant_module assignment
 	      JOIN public.sys_module module ON module.id=assignment.module_id
-      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
+      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=false)=0
     AND (SELECT count(*) FROM public.rel_tenant_module assignment
       JOIN public.sys_module module ON module.id=assignment.module_id
-      WHERE assignment.tenant_id=control_scope.tenant_id AND assignment.park_id=control_scope.park_id
+      WHERE assignment.tenant_id=control_scope.tenant_uuid AND assignment.park_id=control_scope.park_uuid
         AND module.module_code='asset' AND module.is_deleted=false
         AND assignment.is_deleted=true AND assignment.enabled=false AND assignment.status='disabled')=1
 ), restored_asset_park AS (
   UPDATE public.asset_park park
-  SET is_deleted=false, status='enabled', update_by='system:repair-000194-retired-runtime-owner',
+  SET is_deleted=false, status='enabled', update_by='00000000-0000-4000-8000-000000000194'::uuid,
       update_time=clock_timestamp(), version=park.version+1
   FROM repair_scope scope
   WHERE park.tenant_id=scope.tenant_id
@@ -479,7 +491,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   RETURNING park.tenant_id, park.park_id, park.id, park.version
 ), restored_assignment AS (
   UPDATE public.rel_tenant_module assignment
-  SET is_deleted=false, enabled=false, status='disabled', update_by='system:repair-000194-retired-runtime-owner',
+  SET is_deleted=false, enabled=false, status='disabled', update_by='00000000-0000-4000-8000-000000000194'::uuid,
       update_time=clock_timestamp(), version=assignment.version+1
   FROM repair_scope scope, public.sys_module module
   WHERE assignment.tenant_id=scope.tenant_id
@@ -506,4 +518,4 @@ SQL
   exit "$rc"
 }
 
-printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor\n%s|%s\n' "$repair_output" "$repair_actor"
+printf 'repair_result|scopes|asset_parks|asset_assignments|asset_park_id_versions|assignment_id_versions|actor_id|actor_label\n%s|%s|%s\n' "$repair_output" "$repair_actor_id" "$repair_actor_label"

@@ -70,9 +70,10 @@
     runtime owner rows 的既知形态：完整 final v3 controls、完整 000194/000195 correction audit evidence、
     恰好一条 deleted disabled `asset_park`、恰好一条 deleted disabled asset assignment、恰好一条
     deleted `biz_park`，且没有 live owner/source rows。它只恢复 `asset_park` 与 disabled asset
-    assignment 作为 retained owner，并写入 `update_by=system:repair-000194-retired-runtime-owner` 与输出
-    row id/version 证据；不恢复 `biz_park`，不改 runtime controls/audits；runtime 表不存在或 `000195` final
-    contract 尚未记录时 no-op，任何漂移或歧义都阻断部署。
+    assignment 作为 retained owner，并写入固定修复 UUID
+    `update_by=00000000-0000-4000-8000-000000000194`、输出 row id/version 证据与
+    `system:repair-000194-retired-runtime-owner` actor label；不恢复 `biz_park`，不改 runtime
+    controls/audits；runtime 表不存在或 `000195` final contract 尚未记录时 no-op，任何漂移或歧义都阻断部署。
   - `000004_core_role_permission_repair.sql` 精确恢复角色晚建导致历史 migration 静默跳过的
     既定权限关系；受影响环境必须重跑 production seed 才能完成基线收敛。
 
