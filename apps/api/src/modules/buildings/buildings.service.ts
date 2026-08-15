@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FloorEntity } from "../floors/entities/floor.entity";
+import { UsersService } from "../users/users.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { BuildingQueryDto } from "./dto/building-query.dto";
 import type { CreateBuildingDto } from "./dto/create-building.dto";
@@ -21,7 +22,8 @@ export class BuildingsService {
     @InjectRepository(FloorEntity)
     private readonly floorsRepository: Repository<FloorEntity>,
     private readonly codeRulesService: CodeRulesService,
-    private readonly dataScopeService: DataScopeService
+    private readonly dataScopeService: DataScopeService,
+    private readonly usersService: UsersService
   ) {}
 
   async list(scope: TenantParkScope, query: BuildingQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<BuildingEntity>> {
@@ -61,12 +63,19 @@ export class BuildingsService {
     return entity;
   }
 
-  async create(scope: TenantParkScope, actorId: string, dto: CreateBuildingDto): Promise<BuildingEntity> {
-    const buildingCode = await this.resolveBuildingCode(scope, actorId, dto.buildingCode);
-    await this.assertBuildingCodeAvailable(scope, buildingCode);
+  async create(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    dto: CreateBuildingDto,
+    onTargetScope?: (scope: TenantParkScope) => void
+  ): Promise<BuildingEntity> {
+    const targetScope = await this.resolveCreateTargetScope(scope, actor, dto);
+    onTargetScope?.(targetScope);
+    const buildingCode = await this.resolveBuildingCode(targetScope, actor.sub, dto.buildingCode);
+    await this.assertBuildingCodeAvailable(targetScope, buildingCode);
     const entity = this.buildingsRepository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
+      tenantId: targetScope.tenantId,
+      parkId: targetScope.parkId,
       buildingCode,
       buildingName: dto.buildingName.trim(),
       floorCount: dto.floorCount ?? 0,
@@ -74,8 +83,8 @@ export class BuildingsService {
       status: dto.status ?? 1,
       sortNo: dto.sortNo ?? 0,
       remark: this.emptyToNull(dto.remark),
-      createBy: actorId,
-      updateBy: actorId
+      createBy: actor.sub,
+      updateBy: actor.sub
     });
     try {
       return await this.buildingsRepository.save(entity);
@@ -188,6 +197,23 @@ export class BuildingsService {
     }
     const generated = await this.codeRulesService.generateCode("building", scope.tenantId, scope.parkId, actorId);
     return generated.code;
+  }
+
+  private async resolveCreateTargetScope(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateBuildingDto): Promise<TenantParkScope> {
+    const targetParkId = dto.parkId?.trim();
+    if (!targetParkId || targetParkId === scope.parkId) {
+      return scope;
+    }
+    const targetScope = { tenantId: scope.tenantId, parkId: targetParkId };
+    const targetActor = await this.usersService.resolveJwtPrincipal(targetScope, actor.sub);
+    if (!this.hasPermission(targetActor, SYSTEM_PERMISSIONS.BUILDING_CREATE)) {
+      throw new ForbiddenException("Missing target park building create permission");
+    }
+    return targetScope;
+  }
+
+  private hasPermission(actor: JwtPrincipal, permission: string): boolean {
+    return Boolean(actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(permission));
   }
 
   private async hasUndeletedFloors(scope: TenantParkScope, buildingId: string): Promise<boolean> {

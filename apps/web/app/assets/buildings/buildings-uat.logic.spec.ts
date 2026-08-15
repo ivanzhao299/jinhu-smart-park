@@ -17,14 +17,14 @@ test("blocked building deletion is localized and shown in an immediate dialog", 
   assert.doesNotMatch(service, /Building has undeleted floors and cannot be deleted/);
 });
 
-test("post-switch creation failures survive the required page reload", () => {
+test("cross-park building creation does not use auth context switching", () => {
   const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+  const submit = page.slice(page.indexOf("async function submit"), page.indexOf("async function remove"));
 
-  assert.match(page, /sessionStorage\.setItem\([\s\S]*BUILDING_FLASH_KEY/u);
-  assert.match(page, /sessionStorage\.getItem\(BUILDING_FLASH_KEY\)/u);
-  assert.match(page, /sessionStorage\.removeItem\(BUILDING_FLASH_KEY\)/u);
-  assert.match(page, /current \? `\$\{current\}；列表加载失败：\$\{error\.message\}` : error\.message/u);
-  assert.ok(page.indexOf("sessionStorage.setItem(") < page.indexOf("window.location.reload();", page.indexOf("catch (error)")));
+  assert.doesNotMatch(page, /switchParkContext/u);
+  assert.match(submit, /\.\.\.\(editingId \? \{\} : \{ parkId: form\.parkId \}\)/u);
+  assert.match(page, /保存成功，楼栋已写入所选园区/u);
+  assert.doesNotMatch(submit, /window\.location\.reload/u);
 });
 
 test("park switch failures are visible inside the building drawer", () => {
