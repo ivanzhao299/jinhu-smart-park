@@ -463,6 +463,14 @@ Migration behavior:
 - After `db:migrate` and before any optional production seed, `prod-deploy.sh` reruns both 000189 and 000194 enforce
   diagnostics against the migrated database. The API remains stopped unless the temporary migration-reconcile state
   has converged to the normal exact state; production seed cannot hide a failed or partial canonical-source repair.
+- Before the 000194 enforce gate, deployment may run `scripts/repair-000194-retired-runtime-owner.sh repair` to repair
+  only the reviewed retired-owner shape produced by independent park retirement: exactly 12 final v3 disabled runtime
+  controls, exactly 24 fully validated 000194/000195 correction audits including evidence hashes, zero live
+  `asset_park`, exactly one deleted `asset_park`, zero live asset assignment, exactly one deleted asset assignment,
+  zero live `biz_park`, and exactly one deleted `biz_park`. The script restores only the retained owner rows
+  (`asset_park` enabled, asset assignment non-deleted but disabled); it never undeletes `biz_park`, never rewrites
+  runtime controls/audits, and exits without mutation when runtime-control tables are not present yet. Any drift,
+  ambiguity, partial history, or extra candidate is blocked before repair.
 - The immutable `000200` source remains unchanged. For pending/failed execution, the runner applies the reviewed
   `database/migration-replacements.txt` patch only after source/patch/output SHA-256 verification. It preserves and
   verifies the final v3 contract plus both correction audit sets when `000194/000195` already succeeded. A database

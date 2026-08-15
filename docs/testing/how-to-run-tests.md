@@ -143,7 +143,10 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
     audit 的时间/证据哈希绑定、generated checksum 和 immutable-source 成功记录兼容跳过；另以独立空库
     按真实 `migration -> production seed` 顺序执行并重跑 seed，验证 seed 后新增 asset scope 收敛为 exact v3
     与双 correction audit；fixture 必须验证 000009 为 `INVEST_MANAGER` / `JH_LEASING_LEAD` 两个受审
-    招商负责人角色别名各自唯一补授 `workorder:create`。post-v3 缺行、额外 key 与定义漂移必须失败关闭
+    招商负责人角色别名各自唯一补授 `workorder:create`。post-v3 缺行、额外 key 与定义漂移必须失败关闭。
+    `scripts/e2e/migration-prerequisite-contract.mjs` 与 `scripts/e2e/prod-deploy-seed-precedence.sh` 还会锁定
+    retired 000194 owner-row repair 的接线顺序和候选边界：它必须位于 000189 gate 与 000194 gate 之间，且只能
+    恢复完整 audit evidence 下的 retained `asset_park` / disabled asset assignment。
   - CI workflow 的 run shell 必须显式启用 `pipefail`；任何通过 `tee` 留存日志的 migration、seed、
     bootstrap、baseline 或 login 命令都必须传播原命令的非零退出码
   - 人工故障注入需覆盖两表 status/checksum 分歧、单边缺行和第二表写失败整体回滚

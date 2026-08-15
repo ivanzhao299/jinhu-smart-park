@@ -30,6 +30,32 @@ run_psql() {
   fi
 }
 
+table_state="$({
+  run_psql <<'SQL'
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL search_path = public, pg_catalog;
+SELECT
+  CASE WHEN to_regclass('public.sys_property_runtime_control') IS NULL THEN 'no' ELSE 'yes' END,
+  CASE WHEN to_regclass('public.sys_property_runtime_control_contract_audit') IS NULL THEN 'no' ELSE 'yes' END;
+COMMIT;
+SQL
+} 2>&1)" || {
+  rc=$?
+  printf '%s\n' "$table_state" >&2
+  exit "$rc"
+}
+
+case "$table_state" in
+  "yes|yes") ;;
+  *)
+    echo "000194 retired runtime owner repair diagnostic"
+    echo "classification|tenant_id|park_id|controls|valid_controls|audits|valid_audits_194|valid_audits_195|live_asset_parks|deleted_asset_parks|live_biz_parks|deleted_biz_parks|live_asset_assignments|deleted_asset_assignments"
+    echo "ready_table_absent_reconcile|||||||||||||"
+    printf 'summary: ready=0 blocked=0 mode=%s table=absent\n' "$mode"
+    exit 0
+    ;;
+esac
+
 rows="$({
   run_psql <<'SQL'
 BEGIN TRANSACTION READ ONLY;
@@ -68,9 +94,68 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   GROUP BY control.tenant_id, control.park_id
 ), audit_scope AS (
   SELECT audit.tenant_id, audit.park_id,
-    count(*) AS actual,
-    count(*) FILTER (WHERE signed.control_key IS NOT NULL AND audit.correction_key='b2a-contract-correction-000194') AS valid_194,
-    count(*) FILTER (WHERE signed.control_key IS NOT NULL AND audit.correction_key='b2a-contract-correction-000195') AS valid_195
+	    count(*) AS actual,
+	    count(*) FILTER (WHERE signed.control_key IS NOT NULL
+	      AND audit.correction_key='b2a-contract-correction-000194'
+	      AND audit.old_contract_hash='a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'
+	      AND audit.new_contract_hash='81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+	      AND audit.old_version=1
+	      AND audit.new_version=2
+	      AND audit.old_disabled_reason='expand-only'
+	      AND audit.new_disabled_reason='b2a-contract-correction-000194'
+	      AND audit.new_update_time=audit.occurred_at
+	      AND audit.new_update_time>=audit.old_update_time
+	      AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+	        'runtime-control-contract-audit-v1'||E'\n'
+	        ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+	        'UTF8'),'sha256'),'hex')) AS valid_194,
+	    count(*) FILTER (WHERE signed.control_key IS NOT NULL
+	      AND audit.correction_key='b2a-contract-correction-000195'
+	      AND audit.old_contract_hash='81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+	      AND audit.new_contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+	      AND audit.new_contract_hash=control.contract_hash
+	      AND audit.old_version=2
+	      AND audit.new_version=3
+	      AND audit.new_version=control.version
+	      AND audit.old_disabled_reason='b2a-contract-correction-000194'
+	      AND audit.new_disabled_reason='b2a-contract-correction-000195'
+	      AND audit.new_disabled_reason=control.disabled_reason
+	      AND audit.old_update_time IS NOT DISTINCT FROM (
+	        SELECT prior.new_update_time
+	        FROM public.sys_property_runtime_control_contract_audit prior
+	        WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
+	          AND prior.control_id=audit.control_id
+	          AND prior.correction_key='b2a-contract-correction-000194')
+	      AND audit.new_update_time=control.update_time
+	      AND audit.occurred_at=control.update_time
+	      AND audit.new_update_time>=audit.old_update_time
+	      AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+	        'runtime-control-contract-audit-v2'||E'\n'
+	        ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+	        'UTF8'),'sha256'),'hex')) AS valid_195
   FROM public.sys_property_runtime_control_contract_audit audit
   JOIN public.sys_property_runtime_control control
     ON control.tenant_id=audit.tenant_id
@@ -208,9 +293,68 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   GROUP BY control.tenant_id, control.park_id
 ), audit_scope AS (
   SELECT audit.tenant_id, audit.park_id,
-    count(*) AS actual,
-    count(*) FILTER (WHERE signed.control_key IS NOT NULL AND audit.correction_key='b2a-contract-correction-000194') AS valid_194,
-    count(*) FILTER (WHERE signed.control_key IS NOT NULL AND audit.correction_key='b2a-contract-correction-000195') AS valid_195
+	    count(*) AS actual,
+	    count(*) FILTER (WHERE signed.control_key IS NOT NULL
+	      AND audit.correction_key='b2a-contract-correction-000194'
+	      AND audit.old_contract_hash='a16f36bcd581afce9858c0b85ddded977a47d1979aa69a9763dad3db4bff58d8'
+	      AND audit.new_contract_hash='81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+	      AND audit.old_version=1
+	      AND audit.new_version=2
+	      AND audit.old_disabled_reason='expand-only'
+	      AND audit.new_disabled_reason='b2a-contract-correction-000194'
+	      AND audit.new_update_time=audit.occurred_at
+	      AND audit.new_update_time>=audit.old_update_time
+	      AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+	        'runtime-control-contract-audit-v1'||E'\n'
+	        ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+	        'UTF8'),'sha256'),'hex')) AS valid_194,
+	    count(*) FILTER (WHERE signed.control_key IS NOT NULL
+	      AND audit.correction_key='b2a-contract-correction-000195'
+	      AND audit.old_contract_hash='81e5080fd75d19ffa8abb27628f71785fe1c8bb8981b7285cd52b062fbf59af3'
+	      AND audit.new_contract_hash='e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944'
+	      AND audit.new_contract_hash=control.contract_hash
+	      AND audit.old_version=2
+	      AND audit.new_version=3
+	      AND audit.new_version=control.version
+	      AND audit.old_disabled_reason='b2a-contract-correction-000194'
+	      AND audit.new_disabled_reason='b2a-contract-correction-000195'
+	      AND audit.new_disabled_reason=control.disabled_reason
+	      AND audit.old_update_time IS NOT DISTINCT FROM (
+	        SELECT prior.new_update_time
+	        FROM public.sys_property_runtime_control_contract_audit prior
+	        WHERE prior.tenant_id=audit.tenant_id AND prior.park_id=audit.park_id
+	          AND prior.control_id=audit.control_id
+	          AND prior.correction_key='b2a-contract-correction-000194')
+	      AND audit.new_update_time=control.update_time
+	      AND audit.occurred_at=control.update_time
+	      AND audit.new_update_time>=audit.old_update_time
+	      AND audit.evidence_hash IS NOT DISTINCT FROM encode(public.digest(pg_catalog.convert_to(
+	        'runtime-control-contract-audit-v2'||E'\n'
+	        ||public.fn_property_task_projection_scalar_v1(audit.tenant_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.park_id,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_id::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.control_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.correction_key,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_contract_hash,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_version::text,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.old_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(audit.new_disabled_reason,'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.old_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\t'
+	        ||public.fn_property_task_projection_scalar_v1(to_char(audit.new_update_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),'S')||E'\n',
+	        'UTF8'),'sha256'),'hex')) AS valid_195
   FROM public.sys_property_runtime_control_contract_audit audit
   JOIN public.sys_property_runtime_control control
     ON control.tenant_id=audit.tenant_id
@@ -252,7 +396,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
         AND assignment.is_deleted=true)=1
 ), restored_asset_park AS (
   UPDATE public.asset_park park
-  SET is_deleted=false, status='enabled', update_time=clock_timestamp(), version=version+1
+  SET is_deleted=false, status='enabled', update_time=clock_timestamp(), version=park.version+1
   FROM repair_scope scope
   WHERE park.tenant_id=scope.tenant_id
     AND park.park_id=scope.park_id
@@ -260,7 +404,7 @@ WITH signed(control_key, control_kind, target, adapter_version) AS (VALUES
   RETURNING park.tenant_id, park.park_id
 ), restored_assignment AS (
   UPDATE public.rel_tenant_module assignment
-  SET is_deleted=false, enabled=false, status='disabled', update_time=clock_timestamp(), version=version+1
+  SET is_deleted=false, enabled=false, status='disabled', update_time=clock_timestamp(), version=assignment.version+1
   FROM repair_scope scope, public.sys_module module
   WHERE assignment.tenant_id=scope.tenant_id
     AND assignment.park_id=scope.park_id

@@ -333,7 +333,7 @@ test("inactive cross-scope historical row deletion preserves a surviving active 
   assert.deepEqual(retiredScopes, []);
 });
 
-test("independent asset scope retirement blocks active asset assignment before soft-deleting projection", async () => {
+test("independent asset scope retirement blocks active asset assignment before disabling retained owner rows", async () => {
   const retire = (ParksService.prototype as unknown as {
     retireIndependentAssetScope(
       manager: { query(sql: string, parameters: unknown[]): Promise<unknown[]> },
@@ -374,9 +374,7 @@ test("independent asset scope retirement blocks active asset assignment before s
   assert.doesNotMatch(queries[1]!.sql, /UPDATE asset_park/u);
   assert.match(queries[1]!.sql, /UPDATE rel_tenant_module assignment/u);
   assert.match(queries[1]!.sql, /SET enabled=false, status='disabled'/);
-  assert.match(queries[1]!.sql, /FROM sys_module module/u);
-  assert.match(queries[1]!.sql, /assignment\.module_id=module\.id/u);
-  assert.match(queries[1]!.sql, /module\.module_code='asset'/u);
+  assert.match(queries[1]!.sql, /assignment\.tenant_id=\$1 AND assignment\.park_id=\$2/u);
   assert.doesNotMatch(queries[1]!.sql, /is_deleted=true/u);
   assert.deepEqual(queries[1]!.parameters, ["tenant-a", "park-b", "actor-a"]);
 });

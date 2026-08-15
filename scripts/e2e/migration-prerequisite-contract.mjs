@@ -987,16 +987,20 @@ assert.match(
   "production deployment must repair reviewed retired owner rows between the 000189 and 000194 gates"
 );
 assert.match(retiredRuntimeOwnerRepair, /BEGIN TRANSACTION READ ONLY;/u);
+assert.match(retiredRuntimeOwnerRepair, /ready_table_absent_reconcile/u);
 assert.match(retiredRuntimeOwnerRepair, /ready_restore_retired_owner/u);
 assert.match(retiredRuntimeOwnerRepair, /blocked_retired_owner_restore/u);
 assert.match(retiredRuntimeOwnerRepair, /controls=12 AND valid_controls=12/u);
 assert.match(retiredRuntimeOwnerRepair, /audits=24 AND valid_audits_194=12 AND valid_audits_195=12/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v1/u);
+assert.match(retiredRuntimeOwnerRepair, /runtime-control-contract-audit-v2/u);
+assert.match(retiredRuntimeOwnerRepair, /audit\.evidence_hash IS NOT DISTINCT FROM encode/u);
 assert.match(retiredRuntimeOwnerRepair, /live_asset_parks=0 AND deleted_asset_parks=1/u);
 assert.match(retiredRuntimeOwnerRepair, /live_biz_parks=0 AND deleted_biz_parks=1/u);
 assert.match(retiredRuntimeOwnerRepair, /live_asset_assignments=0 AND deleted_asset_assignments=1/u);
 assert.match(retiredRuntimeOwnerRepair, /module\.module_code='asset'/u);
-assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*SET is_deleted=false, status='enabled'/u);
-assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*SET is_deleted=false, enabled=false, status='disabled'/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.asset_park park[\s\S]*version=park\.version\+1/u);
+assert.match(retiredRuntimeOwnerRepair, /UPDATE public\.rel_tenant_module assignment[\s\S]*version=assignment\.version\+1/u);
 assert.doesNotMatch(
   retiredRuntimeOwnerRepair,
   /UPDATE public\.biz_park/u,

@@ -306,9 +306,7 @@ export class ParksService {
     await manager.query(
       `UPDATE rel_tenant_module assignment
         SET enabled=false, status='disabled', update_by=$3, update_time=clock_timestamp(), version=assignment.version+1
-        FROM sys_module module
-        WHERE assignment.tenant_id=$1 AND assignment.park_id=$2 AND assignment.is_deleted=false
-          AND assignment.module_id=module.id AND module.module_code='asset' AND module.is_deleted=false`,
+        WHERE assignment.tenant_id=$1 AND assignment.park_id=$2 AND assignment.is_deleted=false`,
       [scope.tenantId, scope.parkId, actorId]
     );
   }
