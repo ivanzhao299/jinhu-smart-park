@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { Repository } from "typeorm";
-import { ILike } from "typeorm";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { FloorEntity } from "../floors/entities/floor.entity";
@@ -76,28 +75,31 @@ export class ReferenceDataService {
   }
 
   async listUserOptions(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ReferenceUserPickerOption>> {
-    const baseWhere = {
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      isDeleted: false,
-      isEnabled: true,
-      status: "enabled"
-    };
-    const where = query.keyword
-      ? [
-          { ...baseWhere, username: ILike(`%${query.keyword}%`) },
-          { ...baseWhere, displayName: ILike(`%${query.keyword}%`) }
-        ]
-      : baseWhere;
-    const [items, total] = await this.usersRepository.findAndCount({
-      where,
-      order: {
-        displayName: "ASC",
-        username: "ASC"
-      },
-      skip: (query.page - 1) * query.page_size,
-      take: query.page_size
-    });
+    const builder = this.usersRepository.createQueryBuilder("usr")
+      .where("usr.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("usr.is_deleted = false")
+      .andWhere("usr.is_enabled = true")
+      .andWhere("usr.status = :status", { status: "enabled" })
+      .andWhere(
+        `(usr.park_id = :parkId OR EXISTS (
+          SELECT 1 FROM rel_user_park access
+          WHERE access.tenant_id = usr.tenant_id
+            AND access.user_id = usr.id
+            AND access.park_id = :parkId
+            AND access.is_deleted = false
+            AND access.status = :status
+        ))`,
+        { parkId: scope.parkId, status: "enabled" }
+      );
+    if (query.keyword) {
+      builder.andWhere("(usr.username ILIKE :keyword OR usr.display_name ILIKE :keyword)", { keyword: `%${query.keyword}%` });
+    }
+    const [items, total] = await builder
+      .orderBy("usr.display_name", "ASC")
+      .addOrderBy("usr.username", "ASC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
 
     return {
       items: items.map((item) => this.toUserPickerOption(item)),

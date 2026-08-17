@@ -8,7 +8,7 @@ const chromePath = process.env.CHROME_PATH
   ?? (process.platform === "win32" ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" : "/mnt/c/Program Files/Google/Chrome/Application/chrome.exe");
 const webBase = process.env.WEB_BASE ?? "http://127.0.0.1:3017";
 const apiBase = process.env.API_BASE ?? "http://127.0.0.1:3101/api/v1";
-const realApi = process.env.REAL_API !== "0";
+const realApi = process.env.REAL_API === "1";
 const port = 10000 + Math.floor(Math.random() * 20000);
 const userDataDir = mkdtempSync(resolve(tmpdir(), "jinhu-leasing-cdp-"));
 const createdLeadIds = [];
@@ -35,8 +35,8 @@ const mockUser = {
 };
 
 const mockUsers = [
-  { id: "user-zhang", username: "zhangsan", displayName: "张三", realName: "张三", mobile: "13800000001", status: "enabled" },
-  { id: "user-li", username: "lisi", displayName: "李四", realName: "李四", mobile: "13800000002", status: "enabled" }
+  { id: "user-zhang", username: "zhangsan", displayName: "张三", realName: "张三", status: "enabled" },
+  { id: "user-li", username: "lisi", displayName: "李四", realName: "李四", status: "enabled" }
 ];
 
 const pages = [
@@ -246,7 +246,44 @@ async function checkPage(browser, target, viewport) {
     }
     return { path: target.path, viewport, status: "PASS", route, overflow };
   } catch (error) {
-    return { path: target.path, viewport, status: "FAIL", reason: error.message };
+    const diagnostic = await page.evaluate(async () => {
+      const token = localStorage.getItem("jinhu_access_token") || sessionStorage.getItem("jinhu_access_token") || "";
+      const userRaw = localStorage.getItem("jinhu_auth_user") || sessionStorage.getItem("jinhu_auth_user") || "";
+      try {
+        const response = await fetch("/api/v1/reference-data/users?page=1&page_size=5&status=enabled", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        const body = await response.json().catch(() => null);
+        return {
+          href: location.href,
+          hasToken: Boolean(token),
+          hasUser: Boolean(userRaw),
+          pickerStatus: response.status,
+          pickerCount: Array.isArray(body?.data?.items) ? body.data.items.length : null,
+          pickerMessage: body?.message ?? null,
+          labels: Array.from(document.querySelectorAll("label"))
+            .map((label) => label.textContent?.trim() || "")
+            .filter(Boolean)
+            .slice(0, 30),
+          selects: Array.from(document.querySelectorAll("select"))
+            .map((select) => ({
+              id: select.id,
+              optionCount: Array.from(select.options).filter((option) => option.value).length,
+              text: select.closest(".field")?.textContent?.trim().slice(0, 80) ?? select.textContent?.trim().slice(0, 80) ?? ""
+            }))
+            .slice(0, 20),
+          bodyText: document.body.innerText.slice(0, 500)
+        };
+      } catch (diagnosticError) {
+        return {
+          href: location.href,
+          hasToken: Boolean(token),
+          hasUser: Boolean(userRaw),
+          diagnosticError: diagnosticError instanceof Error ? diagnosticError.message : String(diagnosticError)
+        };
+      }
+    }).catch(() => null);
+    return { path: target.path, viewport, status: "FAIL", reason: error.message, diagnostic };
   } finally {
     await page.close().catch(() => undefined);
   }
@@ -409,29 +446,38 @@ class CdpPage {
   }
 
   async assertLabelSelectOptions(label, minOptions) {
-    const count = await this.evaluate((expectedLabel) => {
-      const select = findSelectByLabel(expectedLabel);
-      return select ? Array.from(select.options).filter((option) => option.value).length : 0;
+    const countOptions = async () => this.evaluate((expectedLabel) => {
+      return Math.max(0, ...findSelectsByLabel(expectedLabel).map((select) => Array.from(select.options).filter((option) => option.value).length));
 
-      function findSelectByLabel(labelText) {
+      function findSelectsByLabel(labelText) {
         const labels = Array.from(document.querySelectorAll("label"));
+        const selects = [];
         for (const item of labels) {
           if (!item.textContent?.trim().includes(labelText)) continue;
           const nested = item.querySelector("select");
-          if (nested) return nested;
+          if (nested) selects.push(nested);
           const fieldId = item.getAttribute("for");
           const target = fieldId ? document.getElementById(fieldId) : null;
-          if (target?.tagName.toLowerCase() === "select") return target;
+          if (target?.tagName.toLowerCase() === "select") selects.push(target);
         }
-        return null;
+        return selects.filter((select) => {
+          const rect = select.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
       }
     }, label);
+    const started = Date.now();
+    let count = await countOptions();
+    while (count < minOptions && Date.now() - started < 8000) {
+      await wait(100);
+      count = await countOptions();
+    }
     if (count < minOptions) throw new Error(`label ${label} option count ${count} < ${minOptions}`);
   }
 
   async selectFirstOption(label) {
     const changed = await this.evaluate((expectedLabel) => {
-      const select = findSelectByLabel(expectedLabel);
+      const select = findSelectsByLabel(expectedLabel).find((item) => Array.from(item.options).some((option) => option.value));
       if (!select) return false;
       const option = Array.from(select.options).find((item) => item.value);
       if (!option) return false;
@@ -439,17 +485,21 @@ class CdpPage {
       select.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
 
-      function findSelectByLabel(labelText) {
+      function findSelectsByLabel(labelText) {
         const labels = Array.from(document.querySelectorAll("label"));
+        const selects = [];
         for (const item of labels) {
           if (!item.textContent?.trim().includes(labelText)) continue;
           const nested = item.querySelector("select");
-          if (nested) return nested;
+          if (nested) selects.push(nested);
           const fieldId = item.getAttribute("for");
           const target = fieldId ? document.getElementById(fieldId) : null;
-          if (target?.tagName.toLowerCase() === "select") return target;
+          if (target?.tagName.toLowerCase() === "select") selects.push(target);
         }
-        return null;
+        return selects.filter((select) => {
+          const rect = select.getBoundingClientRect();
+          return rect.width > 0 && rect.height > 0;
+        });
       }
     }, label);
     if (!changed) throw new Error(`no selectable option for label: ${label}`);
