@@ -64,7 +64,11 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /CREATE TABLE IF NOT EXISTS public\.sys_role_field_policy_convergence_audit/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.leasing_%' THEN 'leasing'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'rel\.leasing_%' THEN 'leasing'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource IN \('biz\.park', 'biz\.building', 'biz\.floor', 'biz\.unit'\) THEN 'asset'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.park_tenant%' THEN 'leasing'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.work_order%' THEN 'workorder'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.homestay_%' THEN 'homestay'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.housing_%' THEN 'housing_rental'/);
   assert.match(fieldPolicyConvergenceMigration, /RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain'/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);

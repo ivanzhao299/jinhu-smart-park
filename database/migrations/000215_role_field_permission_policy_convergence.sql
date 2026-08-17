@@ -24,10 +24,13 @@ SELECT
   CASE
     WHEN legacy.resource LIKE 'biz.leasing_%' THEN 'leasing'
     WHEN legacy.resource LIKE 'rel.leasing_%' THEN 'leasing'
+    WHEN legacy.resource IN ('biz.park', 'biz.building', 'biz.floor', 'biz.unit') THEN 'asset'
+    WHEN legacy.resource LIKE 'biz.park_tenant%' THEN 'leasing'
     WHEN legacy.resource LIKE 'biz.work_order%' THEN 'workorder'
-    WHEN legacy.resource = 'biz.unit' THEN 'asset'
     WHEN legacy.resource LIKE 'asset.%' THEN 'asset'
     WHEN legacy.resource IN ('system.user', 'system.sys_user') THEN 'system'
+    WHEN legacy.resource LIKE 'biz.homestay_%' THEN 'homestay'
+    WHEN legacy.resource LIKE 'biz.housing_%' THEN 'housing_rental'
     WHEN legacy.resource LIKE 'biz.iot_%' THEN 'iot'
     WHEN legacy.resource IN ('biz.scene_template', 'biz.scene_instance') THEN 'iot'
     WHEN legacy.resource IN (
@@ -52,11 +55,14 @@ SELECT
   CASE
     WHEN legacy.resource LIKE 'biz.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'rel.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^rel[.]', 'rel_')
+    WHEN legacy.resource IN ('biz.park', 'biz.building', 'biz.floor', 'biz.unit') THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource LIKE 'biz.park_tenant%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.work_order%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
-    WHEN legacy.resource = 'biz.unit' THEN 'unit'
     WHEN legacy.resource LIKE 'asset.%' THEN REGEXP_REPLACE(legacy.resource, '^asset[.]', '')
     WHEN legacy.resource = 'system.user' THEN 'user'
     WHEN legacy.resource = 'system.sys_user' THEN 'user'
+    WHEN legacy.resource LIKE 'biz.homestay_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource LIKE 'biz.housing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.iot_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource = 'biz.scene_template' THEN 'scene_template'
     WHEN legacy.resource = 'biz.scene_instance' THEN 'scene_instance'
