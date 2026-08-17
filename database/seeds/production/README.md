@@ -23,6 +23,7 @@ Current production-safe seed files:
 - `000012_wu_enguo_atomic_rbac.sql`
 - `000013_apartment_document_defaults.sql`
 - `000014_responsibility_system_admin_reconcile.sql`
+- `000015_property_role_template_reconcile.sql`
 - `000016_tenant_scope_dictionary_reconcile.sql`
 
 This seed initializes:

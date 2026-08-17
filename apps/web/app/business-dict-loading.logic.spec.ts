@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import test from "node:test";
 
-const BUSINESS_APP_DIRS = ["assets", "energy", "iot", "leasing", "workorders"];
+const BUSINESS_APP_DIRS = ["assets", "energy", "iot", "leasing", "workorders", "admin/iot", "admin/video-security"];
 
 function collectPages(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {

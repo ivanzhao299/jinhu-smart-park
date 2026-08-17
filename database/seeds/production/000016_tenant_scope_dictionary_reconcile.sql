@@ -7,8 +7,13 @@ WITH source_scope AS (
 target_scopes AS (
   SELECT DISTINCT park.tenant_id::varchar AS tenant_id, park.park_id::varchar AS park_id
   FROM biz_park park
+  JOIN sys_tenant tenant
+    ON tenant.tenant_id = park.tenant_id
+   AND tenant.status = 1
+   AND tenant.is_deleted = false
   CROSS JOIN source_scope
-  WHERE park.is_deleted = false
+  WHERE park.status = 1
+    AND park.is_deleted = false
     AND NOT (park.tenant_id::varchar = source_scope.tenant_id AND park.park_id::varchar = source_scope.park_id)
 ),
 source_types AS (
@@ -52,7 +57,6 @@ WHERE NOT EXISTS (
   WHERE target_type.tenant_id::varchar = target_scopes.tenant_id
     AND target_type.park_id::varchar = target_scopes.park_id
     AND target_type.dict_code = source_types.dict_code
-    AND target_type.is_deleted = false
 );
 
 WITH source_scope AS (
@@ -61,8 +65,13 @@ WITH source_scope AS (
 target_scopes AS (
   SELECT DISTINCT park.tenant_id::varchar AS tenant_id, park.park_id::varchar AS park_id
   FROM biz_park park
+  JOIN sys_tenant tenant
+    ON tenant.tenant_id = park.tenant_id
+   AND tenant.status = 1
+   AND tenant.is_deleted = false
   CROSS JOIN source_scope
-  WHERE park.is_deleted = false
+  WHERE park.status = 1
+    AND park.is_deleted = false
     AND NOT (park.tenant_id::varchar = source_scope.tenant_id AND park.park_id::varchar = source_scope.park_id)
 ),
 source_items AS (
@@ -131,5 +140,4 @@ WHERE source_items.row_number = 1
       AND target_item.park_id = target_type.park_id
       AND target_item.dict_type_id = target_type.id
       AND target_item.item_value = source_items.item_value
-      AND target_item.is_deleted = false
   );

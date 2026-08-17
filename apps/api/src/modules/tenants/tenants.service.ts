@@ -1167,7 +1167,16 @@ export class TenantsService {
     ));
 
     for (const source of sourceScopes) {
-      await this.copyMissingTenantDictionaries(manager, source, targetScope, actorId);
+      await this.copyMissingTenantDictionaries(
+        manager,
+        source,
+        targetScope,
+        actorId,
+        source.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId && source.parkId === DEFAULT_PLATFORM_SCOPE.parkId
+          && !(sourceScope.tenantId === DEFAULT_PLATFORM_SCOPE.tenantId && sourceScope.parkId === DEFAULT_PLATFORM_SCOPE.parkId)
+          ? sourceScope
+          : undefined
+      );
     }
   }
 
@@ -1175,7 +1184,8 @@ export class TenantsService {
     manager: EntityManager,
     source: TenantParkScope,
     targetScope: TenantParkScope,
-    actorId: string
+    actorId: string,
+    customizationScope?: TenantParkScope
   ): Promise<void> {
     await manager.query(
       `
@@ -1210,10 +1220,27 @@ export class TenantsService {
             WHERE target_type.tenant_id = $3
               AND target_type.park_id = $4
               AND target_type.dict_code = source_type.dict_code
-              AND target_type.is_deleted = false
+          )
+          AND (
+            $6::varchar IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM sys_dict_type custom_type
+              WHERE custom_type.tenant_id = $6
+                AND custom_type.park_id = $7
+                AND custom_type.dict_code = source_type.dict_code
+            )
           )
       `,
-      [source.tenantId, source.parkId, targetScope.tenantId, targetScope.parkId, actorId]
+      [
+        source.tenantId,
+        source.parkId,
+        targetScope.tenantId,
+        targetScope.parkId,
+        actorId,
+        customizationScope?.tenantId ?? null,
+        customizationScope?.parkId ?? null
+      ]
     );
 
     await manager.query(
@@ -1282,10 +1309,32 @@ export class TenantsService {
               AND target_item.park_id = $4
               AND target_item.dict_type_id = target_type.id
               AND target_item.item_value = source_items.item_value
-              AND target_item.is_deleted = false
+          )
+          AND (
+            $6::varchar IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM sys_dict_type custom_type
+              JOIN sys_dict_item custom_item
+                ON custom_item.dict_type_id = custom_type.id
+               AND custom_item.tenant_id = custom_type.tenant_id
+               AND custom_item.park_id = custom_type.park_id
+              WHERE custom_type.tenant_id = $6
+                AND custom_type.park_id = $7
+                AND custom_type.dict_code = source_items.dict_code
+                AND custom_item.item_value = source_items.item_value
+            )
           )
       `,
-      [source.tenantId, source.parkId, targetScope.tenantId, targetScope.parkId, actorId]
+      [
+        source.tenantId,
+        source.parkId,
+        targetScope.tenantId,
+        targetScope.parkId,
+        actorId,
+        customizationScope?.tenantId ?? null,
+        customizationScope?.parkId ?? null
+      ]
     );
   }
 

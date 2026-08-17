@@ -23,16 +23,12 @@ import { VideoPlayer, type VideoStreamResult } from "../../../../components/vide
 import { apiRequest, createIdempotencyKey } from "../../../../lib/api-client";
 import { useAuthUser } from "../../../../lib/auth-context";
 import { getAccessToken } from "../../../../lib/authz";
+import { loadDictMapByCodes } from "../../../../lib/dict-client";
 import { canEditField, canViewField, maskField } from "../../../../lib/field-policy";
 import { fetchReferenceFormOptions } from "../../../../lib/reference-data";
 
 const VIDEO_MODULE = "video";
 const CAMERA_ENTITY = "camera_device";
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -255,20 +251,8 @@ export default function VideoCameraPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item: DictTypeRow) => [item.dictCode, item.id]));
     const codes = ["video_camera_type", "video_camera_usage", "video_platform_type", "video_camera_status"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item: DictItemRow) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadRefs = useCallback(async () => {
