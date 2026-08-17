@@ -185,6 +185,7 @@
 - `PATCH /api/v1/roles/:id`
 - `DELETE /api/v1/roles/:id`
 - `POST /api/v1/roles/:id/permissions`
+- `POST /api/v1/roles/:id/field-policies`（维护角色字段策略绑定）
 
 权限点：
 
@@ -194,6 +195,8 @@
 - `system:role:update`
 - `system:role:delete`
 - `system:role:assign-permissions`
+
+角色管理是角色本身、功能权限、数据权限和字段策略的维护入口。字段策略运行时以 `sys_field_policy + rel_role_field_policy` 为准；旧 `POST /api/v1/roles/:id/field-permissions` 仅保留为废弃兼容地址，写入请求必须返回 deprecated 错误，不再写入旧字段权限表。旧字段权限迁移的冲突和收敛结果记录在 `sys_role_field_policy_convergence_audit`。
 
 ### 权限
 

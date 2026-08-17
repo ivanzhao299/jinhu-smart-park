@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
 import { FieldPoliciesModule } from "../field-policies/field-policies.module";
+import { RoleFieldPolicyEntity } from "../field-policies/entities/role-field-policy.entity";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
@@ -12,7 +13,7 @@ import { RolesService } from "./roles.service";
 import { PropertyRoleBundleService } from "./property-role-bundle.service";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RoleEntity, PermissionEntity, RolePermissionEntity, RoleFieldPermissionEntity, UserRoleEntity]), DataScopesModule, FieldPoliciesModule],
+  imports: [TypeOrmModule.forFeature([RoleEntity, PermissionEntity, RolePermissionEntity, RoleFieldPermissionEntity, RoleFieldPolicyEntity, UserRoleEntity]), DataScopesModule, FieldPoliciesModule],
   controllers: [RolesController],
   providers: [RolesService, PropertyRoleBundleService],
   exports: [RolesService, PropertyRoleBundleService]
