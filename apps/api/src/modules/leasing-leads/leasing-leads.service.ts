@@ -389,9 +389,12 @@ export class LeasingLeadsService {
     if (dto.demandUnitType !== undefined) entity.demandUnitType = this.emptyToNull(dto.demandUnitType);
     if (dto.intentionLevel !== undefined) entity.intentionLevel = this.emptyToNull(dto.intentionLevel);
     if (dto.followUserId !== undefined || dto.followUserName !== undefined) {
-      const followUser = await this.resolveFollowUser(scope, actor, dto.followUserId, dto.followUserName);
-      entity.followUserId = followUser.id;
-      entity.followUserName = followUser.name;
+      const unchangedFollowUser = dto.followUserId !== undefined && dto.followUserId === entity.followUserId;
+      if (!unchangedFollowUser) {
+        const followUser = await this.resolveFollowUser(scope, actor, dto.followUserId, dto.followUserName);
+        entity.followUserId = followUser.id;
+        entity.followUserName = followUser.name;
+      }
     }
     if (dto.parkTenantId !== undefined) entity.parkTenantId = await this.resolveParkTenant(scope, dto.parkTenantId);
     if (dto.lostReason !== undefined) entity.lostReason = this.emptyToNull(dto.lostReason);
@@ -750,9 +753,12 @@ export class LeasingLeadsService {
     if (dto.visitTime !== undefined) visit.visitTime = this.dateToNullable(dto.visitTime) ?? visit.visitTime;
     if (dto.visitorCount !== undefined) visit.visitorCount = dto.visitorCount;
     if (dto.receptionUserId !== undefined || dto.receptionUserName !== undefined) {
-      const receptionUser = await this.resolveReceptionUser(scope, actor, dto.receptionUserId, dto.receptionUserName);
-      visit.receptionUserId = receptionUser.id;
-      visit.receptionUserName = receptionUser.name;
+      const unchangedReceptionUser = dto.receptionUserId !== undefined && dto.receptionUserId === visit.receptionUserId;
+      if (!unchangedReceptionUser) {
+        const receptionUser = await this.resolveReceptionUser(scope, actor, dto.receptionUserId, dto.receptionUserName);
+        visit.receptionUserId = receptionUser.id;
+        visit.receptionUserName = receptionUser.name;
+      }
     }
     if (dto.unitIds !== undefined) visit.unitIds = await this.resolveVisitUnitIds(scope, actor, dto.unitIds);
     if (dto.visitResult !== undefined) visit.visitResult = this.emptyToNull(dto.visitResult);

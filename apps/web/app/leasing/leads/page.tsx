@@ -550,7 +550,7 @@ export default function LeasingLeadsPage() {
   }
 
   function openCreate() {
-    const defaultUser = users.find((item) => item.id === authUser?.id) ?? users[0] ?? null;
+    const defaultUser = users.find((item) => item.id === authUser?.id) ?? null;
     setEditing(null);
     setForm({
       ...emptyForm,
@@ -773,6 +773,7 @@ export default function LeasingLeadsPage() {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const selectedFollowUserName = userLabelById(users, userLabels, form.followUserId, form.followUserName);
+    const followUserChanged = !editing || form.followUserId !== (editing.followUserId ?? "");
     const body: Record<string, unknown> = {
       leadCode: emptyToUndefined(form.leadCode),
       customerName: form.customerName.trim(),
@@ -785,14 +786,16 @@ export default function LeasingLeadsPage() {
       demandArea: numberOrUndefined(form.demandArea),
       demandUnitType: emptyToUndefined(form.demandUnitType),
       intentionLevel: emptyToUndefined(form.intentionLevel),
-      followUserId: emptyToUndefined(form.followUserId),
-      followUserName: emptyToUndefined(selectedFollowUserName),
       lastFollowTime: dateTimeOrUndefined(form.lastFollowTime),
       nextFollowTime: dateTimeOrUndefined(form.nextFollowTime),
       expectedCloseDate: emptyToUndefined(form.expectedCloseDate),
       isInPool: form.isInPool === "true",
       remark: emptyToUndefined(form.remark)
     };
+    if (!editing || followUserChanged || users.some((item) => item.id === form.followUserId)) {
+      body.followUserId = emptyToUndefined(form.followUserId);
+      body.followUserName = emptyToUndefined(selectedFollowUserName);
+    }
     if (canEditContactMobile) body.contactMobile = form.contactMobile.trim();
     if (canEditDemandPrice) body.demandPrice = numberOrUndefined(form.demandPrice);
 
@@ -978,23 +981,27 @@ export default function LeasingLeadsPage() {
     event.preventDefault();
     if (!detail) return;
     const selectedReceptionUserName = userLabelById(users, userLabels, visitForm.receptionUserId, visitForm.receptionUserName);
+    const receptionUserChanged = !editingVisit || visitForm.receptionUserId !== (editingVisit.receptionUserId ?? "");
+    const visitBody: Record<string, unknown> = {
+      visitTime: dateTimeOrUndefined(visitForm.visitTime),
+      visitorCount: numberOrUndefined(visitForm.visitorCount) ?? 1,
+      unitIds: visitForm.unitIds,
+      visitResult: emptyToUndefined(visitForm.visitResult),
+      photoFileIds: visitForm.photoFileIds,
+      advanceStatus: visitForm.advanceStatus === "true",
+      remark: emptyToUndefined(visitForm.remark)
+    };
+    if (!editingVisit || receptionUserChanged || users.some((item) => item.id === visitForm.receptionUserId)) {
+      visitBody.receptionUserId = emptyToUndefined(visitForm.receptionUserId);
+      visitBody.receptionUserName = emptyToUndefined(selectedReceptionUserName);
+    }
     await apiRequest<LeasingVisitRow>(
       editingVisit ? `/leasing/leads/${detail.id}/visits/${editingVisit.id}` : `/leasing/leads/${detail.id}/visits`,
       {
         method: editingVisit ? "PUT" : "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(editingVisit ? "leasing-visit-update" : "leasing-visit-create"),
-        body: {
-          visitTime: dateTimeOrUndefined(visitForm.visitTime),
-          visitorCount: numberOrUndefined(visitForm.visitorCount) ?? 1,
-          receptionUserId: emptyToUndefined(visitForm.receptionUserId),
-          receptionUserName: emptyToUndefined(selectedReceptionUserName),
-          unitIds: visitForm.unitIds,
-          visitResult: emptyToUndefined(visitForm.visitResult),
-          photoFileIds: visitForm.photoFileIds,
-          advanceStatus: visitForm.advanceStatus === "true",
-          remark: emptyToUndefined(visitForm.remark)
-        }
+        body: visitBody
       }
     );
     setShowVisitForm(false);
@@ -1353,7 +1360,8 @@ export default function LeasingLeadsPage() {
                         followUserId: value,
                         followUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
                       }))}
-                      emptyLabel="请选择跟进人"
+                      allowEmpty={!editing}
+                      emptyLabel="默认当前操作人"
                       selectedFallbackLabel={form.followUserName}
                     />
                     <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
@@ -1689,7 +1697,7 @@ export default function LeasingLeadsPage() {
                                 receptionUserId: value,
                                 receptionUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
                               }))}
-                              allowEmpty
+                              allowEmpty={!editingVisit}
                               emptyLabel="默认当前操作人"
                               selectedFallbackLabel={visitForm.receptionUserName}
                             />

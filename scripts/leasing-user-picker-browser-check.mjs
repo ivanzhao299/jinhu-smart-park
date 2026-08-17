@@ -49,6 +49,8 @@ const pages = [
       await page.clickText("新增线索");
       await page.waitForText("保存线索", 8000);
       await page.assertLabelSelect("跟进人", 1);
+      await page.assertLabelSelectOptions("跟进人", 1);
+      await page.selectFirstOption("跟进人");
       await page.assertAbsent(["跟进人 ID", "跟进人名称", "用户 ID"]);
       await page.clickText("取消");
       await page.waitUntil("!document.body.innerText.includes('保存线索')", 8000);
@@ -60,6 +62,8 @@ const pages = [
       await page.clickText("新增看房");
       await page.waitForText("接待人", 8000);
       await page.assertLabelSelect("接待人", 1);
+      await page.assertLabelSelectOptions("接待人", 1);
+      await page.selectFirstOption("接待人");
       await page.assertAbsent(["接待人 ID", "接待人名称", "用户 ID"]);
       await page.navigate(`${webBase}/leasing/leads`);
       await page.waitForText("招商线索", 8000);
@@ -80,6 +84,8 @@ const pages = [
     afterLoad: async (page) => {
       await page.clickText("分配");
       await page.waitForText("目标跟进人", 8000);
+      await page.assertLabelSelectOptions("目标跟进人", 1);
+      await page.selectFirstOption("目标跟进人");
     },
     afterChecks: [
       { label: "目标跟进人", minSelects: 1 }
@@ -92,6 +98,7 @@ const pages = [
     mobileText: ["招商漏斗", "跟进人"],
     checks: [
       { label: "跟进人", minSelects: 1 },
+      { labelOptions: "跟进人", minOptions: 1 },
       { absent: ["全部或输入用户 ID", "用户 ID"] }
     ]
   }
@@ -192,6 +199,9 @@ async function checkPage(browser, target, viewport) {
           }).length;
         }, check.label);
         if (count < check.minSelects) throw new Error(`label ${check.label} select count ${count} < ${check.minSelects}`);
+      }
+      if (check.labelOptions) {
+        await page.assertLabelSelectOptions(check.labelOptions, check.minOptions);
       }
       if (check.absent) {
         const found = await page.evaluate((needles) => needles.filter((needle) => document.body.innerText.includes(needle)), check.absent);
@@ -398,6 +408,53 @@ class CdpPage {
     if (found.length > 0) throw new Error(`unexpected text: ${found.join(", ")}`);
   }
 
+  async assertLabelSelectOptions(label, minOptions) {
+    const count = await this.evaluate((expectedLabel) => {
+      const select = findSelectByLabel(expectedLabel);
+      return select ? Array.from(select.options).filter((option) => option.value).length : 0;
+
+      function findSelectByLabel(labelText) {
+        const labels = Array.from(document.querySelectorAll("label"));
+        for (const item of labels) {
+          if (!item.textContent?.trim().includes(labelText)) continue;
+          const nested = item.querySelector("select");
+          if (nested) return nested;
+          const fieldId = item.getAttribute("for");
+          const target = fieldId ? document.getElementById(fieldId) : null;
+          if (target?.tagName.toLowerCase() === "select") return target;
+        }
+        return null;
+      }
+    }, label);
+    if (count < minOptions) throw new Error(`label ${label} option count ${count} < ${minOptions}`);
+  }
+
+  async selectFirstOption(label) {
+    const changed = await this.evaluate((expectedLabel) => {
+      const select = findSelectByLabel(expectedLabel);
+      if (!select) return false;
+      const option = Array.from(select.options).find((item) => item.value);
+      if (!option) return false;
+      select.value = option.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+
+      function findSelectByLabel(labelText) {
+        const labels = Array.from(document.querySelectorAll("label"));
+        for (const item of labels) {
+          if (!item.textContent?.trim().includes(labelText)) continue;
+          const nested = item.querySelector("select");
+          if (nested) return nested;
+          const fieldId = item.getAttribute("for");
+          const target = fieldId ? document.getElementById(fieldId) : null;
+          if (target?.tagName.toLowerCase() === "select") return target;
+        }
+        return null;
+      }
+    }, label);
+    if (!changed) throw new Error(`no selectable option for label: ${label}`);
+  }
+
   async clickText(text) {
     const result = await this.evaluate((needle) => {
       const elements = Array.from(document.querySelectorAll("button, a, [role='button']"));
@@ -439,9 +496,10 @@ async function prepareRealApiState() {
   });
   const token = login.accessToken;
   if (!token) throw new Error("real API login did not return an access token");
+  authState = { token, user: null };
   const user = await apiJson("/auth/me", { token });
-  const references = await apiJson("/reference-data/form-options", { token });
-  const users = Array.isArray(references.users) ? references.users.filter((item) => item.status === "enabled") : [];
+  const userOptions = await apiJson("/reference-data/users?page=1&page_size=100&status=enabled", { token });
+  const users = Array.isArray(userOptions.items) ? userOptions.items.filter((item) => item.status === "enabled") : [];
   if (users.length === 0) throw new Error("real API reference users are empty");
 
   const stamp = Date.now();
