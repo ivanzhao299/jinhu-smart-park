@@ -418,13 +418,19 @@ function displayUserName(user: UserOptionRow): string {
 
 function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
   const baseCounts = new Map<string, number>();
+  const pairCounts = new Map<string, number>();
   for (const user of users) {
     const label = displayUserName(user);
     baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+    const pairKey = `${label}\u0000${user.username}`;
+    pairCounts.set(pairKey, (pairCounts.get(pairKey) ?? 0) + 1);
   }
   return new Map(users.map((user) => {
     const label = displayUserName(user);
-    return [user.id, baseCounts.get(label)! > 1 ? `${label}（${user.username}）` : label];
+    if ((baseCounts.get(label) ?? 0) <= 1) return [user.id, label];
+    const pairKey = `${label}\u0000${user.username}`;
+    const suffix = (pairCounts.get(pairKey) ?? 0) > 1 ? `${user.username} / ${user.id.slice(0, 8)}` : user.username;
+    return [user.id, `${label}（${suffix}）`];
   }));
 }
 

@@ -1442,14 +1442,25 @@ export class LeasingLeadsService {
       .andWhere("usr.is_enabled = true")
       .andWhere("usr.status = :status", { status: "enabled" })
       .andWhere(
-        `(usr.park_id = :parkId OR EXISTS (
-          SELECT 1 FROM rel_user_park access
-          WHERE access.tenant_id = usr.tenant_id
-            AND access.user_id = usr.id
-            AND access.park_id = :parkId
-            AND access.is_deleted = false
-            AND access.status = :status
-        ))`,
+        `(
+          (
+            usr.park_id = :parkId
+            AND NOT EXISTS (
+              SELECT 1 FROM rel_user_park explicit_home
+              WHERE explicit_home.tenant_id = usr.tenant_id
+                AND explicit_home.user_id = usr.id
+                AND explicit_home.park_id = :parkId
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM rel_user_park access
+            WHERE access.tenant_id = usr.tenant_id
+              AND access.user_id = usr.id
+              AND access.park_id = :parkId
+              AND access.is_deleted = false
+              AND access.status = :status
+          )
+        )`,
         { parkId: scope.parkId, status: "enabled" }
       )
       .getOne();
