@@ -53,6 +53,7 @@ test("new tenant and additional park provisioning copy dictionary baselines", ()
   assert.match(helperBlock, /sourceScopes = \[/);
   assert.match(helperBlock, /copyMissingTenantDictionaries\([\s\S]*manager,[\s\S]*source,[\s\S]*targetScope,[\s\S]*actorId,[\s\S]*sourceScope/);
   assert.match(helperBlock, /customizationScope\?: TenantParkScope/);
+  assert.match(helperBlock, /customizationScope keeps source-scope tombstones/);
   assert.match(helperBlock, /custom_type\.dict_code = source_type\.dict_code/);
   assert.match(helperBlock, /custom_item\.item_value = source_items\.item_value/);
   assert.match(helperBlock, /INSERT INTO sys_dict_type/);

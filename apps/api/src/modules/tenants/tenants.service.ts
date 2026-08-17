@@ -1268,6 +1268,7 @@ export class TenantsService {
             AND source_type.park_id = $2
             AND source_type.is_deleted = false
         )
+        -- customizationScope keeps source-scope tombstones from being resurrected by the default scope pass.
         INSERT INTO sys_dict_item (
           tenant_id,
           park_id,
