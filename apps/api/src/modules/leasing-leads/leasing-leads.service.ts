@@ -389,9 +389,12 @@ export class LeasingLeadsService {
     if (dto.demandUnitType !== undefined) entity.demandUnitType = this.emptyToNull(dto.demandUnitType);
     if (dto.intentionLevel !== undefined) entity.intentionLevel = this.emptyToNull(dto.intentionLevel);
     if (dto.followUserId !== undefined || dto.followUserName !== undefined) {
-      const followUser = await this.resolveFollowUser(scope, actor, dto.followUserId, dto.followUserName);
-      entity.followUserId = followUser.id;
-      entity.followUserName = followUser.name;
+      const unchangedFollowUser = dto.followUserId !== undefined && dto.followUserId === entity.followUserId;
+      if (!unchangedFollowUser) {
+        const followUser = await this.resolveFollowUser(scope, actor, dto.followUserId, dto.followUserName);
+        entity.followUserId = followUser.id;
+        entity.followUserName = followUser.name;
+      }
     }
     if (dto.parkTenantId !== undefined) entity.parkTenantId = await this.resolveParkTenant(scope, dto.parkTenantId);
     if (dto.lostReason !== undefined) entity.lostReason = this.emptyToNull(dto.lostReason);
@@ -750,9 +753,12 @@ export class LeasingLeadsService {
     if (dto.visitTime !== undefined) visit.visitTime = this.dateToNullable(dto.visitTime) ?? visit.visitTime;
     if (dto.visitorCount !== undefined) visit.visitorCount = dto.visitorCount;
     if (dto.receptionUserId !== undefined || dto.receptionUserName !== undefined) {
-      const receptionUser = await this.resolveReceptionUser(scope, actor, dto.receptionUserId, dto.receptionUserName);
-      visit.receptionUserId = receptionUser.id;
-      visit.receptionUserName = receptionUser.name;
+      const unchangedReceptionUser = dto.receptionUserId !== undefined && dto.receptionUserId === visit.receptionUserId;
+      if (!unchangedReceptionUser) {
+        const receptionUser = await this.resolveReceptionUser(scope, actor, dto.receptionUserId, dto.receptionUserName);
+        visit.receptionUserId = receptionUser.id;
+        visit.receptionUserName = receptionUser.name;
+      }
     }
     if (dto.unitIds !== undefined) visit.unitIds = await this.resolveVisitUnitIds(scope, actor, dto.unitIds);
     if (dto.visitResult !== undefined) visit.visitResult = this.emptyToNull(dto.visitResult);
@@ -1140,9 +1146,7 @@ export class LeasingLeadsService {
     if (!followUserId || !this.canAssignLead(actor)) {
       return { id: actor.sub, name: actor.realName ?? actor.username };
     }
-    const user = await this.usersRepository.findOne({
-      where: { id: followUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+    const user = await this.findActiveUserInScope(scope, followUserId);
     if (!user) {
       throw new NotFoundException("Follow user not found");
     }
@@ -1150,9 +1154,7 @@ export class LeasingLeadsService {
   }
 
   private async resolveAssignableUser(scope: TenantParkScope, userId: string): Promise<{ id: string; name: string }> {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+    const user = await this.findActiveUserInScope(scope, userId);
     if (!user) {
       throw new NotFoundException("Follow user not found");
     }
@@ -1169,6 +1171,7 @@ export class LeasingLeadsService {
     return Boolean(
       actor.isSuper ||
         actor.permissions.includes("*") ||
+        actor.permissions.includes(SYSTEM_PERMISSIONS.LEASING_LEAD_ASSIGN) ||
         actor.roles?.some((role) => ["SUPER_ADMIN", "OPERATIONS_OWNER", "INVEST_MANAGER"].includes(role))
     );
   }
@@ -1424,13 +1427,43 @@ export class LeasingLeadsService {
     if (!receptionUserId || !this.canAssignLead(actor)) {
       return { id: actor.sub, name: actor.realName ?? actor.username };
     }
-    const user = await this.usersRepository.findOne({
-      where: { id: receptionUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+    const user = await this.findActiveUserInScope(scope, receptionUserId);
     if (!user) {
       throw new NotFoundException("Reception user not found");
     }
     return { id: user.id, name: user.displayName || user.username || receptionUserName || actor.username };
+  }
+
+  private async findActiveUserInScope(scope: TenantParkScope, userId: string): Promise<UserEntity | null> {
+    return this.usersRepository.createQueryBuilder("usr")
+      .where("usr.id = :userId", { userId })
+      .andWhere("usr.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("usr.is_deleted = false")
+      .andWhere("usr.is_enabled = true")
+      .andWhere("usr.status = :status", { status: "enabled" })
+      .andWhere(
+        `(
+          (
+            usr.park_id = :parkId
+            AND NOT EXISTS (
+              SELECT 1 FROM rel_user_park explicit_home
+              WHERE explicit_home.tenant_id = usr.tenant_id
+                AND explicit_home.user_id = usr.id
+                AND explicit_home.park_id = :parkId
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM rel_user_park access
+            WHERE access.tenant_id = usr.tenant_id
+              AND access.user_id = usr.id
+              AND access.park_id = :parkId
+              AND access.is_deleted = false
+              AND access.status = :status
+          )
+        )`,
+        { parkId: scope.parkId, status: "enabled" }
+      )
+      .getOne();
   }
 
   private async advanceLeadToVisitedStatus(

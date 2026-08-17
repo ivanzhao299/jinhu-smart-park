@@ -7,7 +7,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
-import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { fetchReferenceUsers, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEAD_READ_PERMISSION = "leasing_lead:read";
@@ -21,11 +21,7 @@ interface DictItemRow {
   status: string;
 }
 
-interface UserOptionRow {
-  id: string;
-  username: string;
-  displayName?: string | null;
-}
+type UserOptionRow = Pick<ReferenceUserOption, "id" | "username" | "displayName" | "realName" | "status">;
 
 interface LeasingFunnelStatistics {
   summary: {
@@ -73,6 +69,7 @@ export default function LeasingFunnelPage() {
   const [users, setUsers] = useState<UserOptionRow[]>([]);
   const [filters, setFilters] = useState({ startDate: "", endDate: "", followUserId: "", source: "", industryCode: "" });
   const [message, setMessage] = useState("");
+  const userLabels = useMemo(() => buildUserLabels(users), [users]);
 
   const sourceItems = dicts.leasing_lead_source ?? [];
   const industryItems = dicts.industry_code ?? [];
@@ -99,8 +96,7 @@ export default function LeasingFunnelPage() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const references = await fetchReferenceFormOptions();
-      setUsers(references.users as UserOptionRow[]);
+      setUsers((await fetchReferenceUsers()).filter((item) => item.status === "enabled"));
     } catch {
       setUsers([]);
     }
@@ -144,7 +140,7 @@ export default function LeasingFunnelPage() {
                 <div className="funnel-filter-grid">
                   <DateField label="开始日期" value={filters.startDate} onChange={(value) => updateFilter("startDate", value)} />
                   <DateField label="结束日期" value={filters.endDate} onChange={(value) => updateFilter("endDate", value)} />
-                  <UserField users={users} value={filters.followUserId} onChange={(value) => updateFilter("followUserId", value)} />
+                  <UserField users={users} userLabels={userLabels} value={filters.followUserId} onChange={(value) => updateFilter("followUserId", value)} />
                   <SelectField label="来源" value={filters.source} options={sourceItems} onChange={(value) => updateFilter("source", value)} />
                   <SelectField label="行业" value={filters.industryCode} options={industryItems} onChange={(value) => updateFilter("industryCode", value)} />
                   <div className="filter-actions">
@@ -384,22 +380,16 @@ function SelectField({
   );
 }
 
-function UserField({ users, value, onChange }: { users: UserOptionRow[]; value: string; onChange: (value: string) => void }) {
+function UserField({ users, userLabels, value, onChange }: { users: UserOptionRow[]; userLabels: Map<string, string>; value: string; onChange: (value: string) => void }) {
   return (
     <div className="field">
       <label htmlFor="funnel-follow-user">跟进人</label>
-      <input
-        id="funnel-follow-user"
-        list="funnel-follow-user-options"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="全部或输入用户 ID"
-      />
-      <datalist id="funnel-follow-user-options">
+      <select id="funnel-follow-user" value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">全部</option>
         {users.map((user) => (
-          <option key={user.id} value={user.id}>{user.displayName || user.username}</option>
+          <option key={user.id} value={user.id}>{userLabels.get(user.id) ?? displayUserName(user)}</option>
         ))}
-      </datalist>
+      </select>
     </div>
   );
 }
@@ -407,6 +397,28 @@ function UserField({ users, value, onChange }: { users: UserOptionRow[]; value: 
 function labelFor(items: DictItemRow[], value?: string | null): string {
   if (!value) return "-";
   return items.find((item) => item.itemValue === String(value))?.itemLabel ?? String(value);
+}
+
+function displayUserName(user: UserOptionRow): string {
+  return user.displayName || user.realName || user.username;
+}
+
+function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
+  const baseCounts = new Map<string, number>();
+  const pairCounts = new Map<string, number>();
+  for (const user of users) {
+    const label = displayUserName(user);
+    baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+    const pairKey = `${label}\u0000${user.username}`;
+    pairCounts.set(pairKey, (pairCounts.get(pairKey) ?? 0) + 1);
+  }
+  return new Map(users.map((user) => {
+    const label = displayUserName(user);
+    if ((baseCounts.get(label) ?? 0) <= 1) return [user.id, label];
+    const pairKey = `${label}\u0000${user.username}`;
+    const suffix = (pairCounts.get(pairKey) ?? 0) > 1 ? `${user.username} / ${user.id.slice(0, 8)}` : user.username;
+    return [user.id, `${label}（${suffix}）`];
+  }));
 }
 
 function formatCount(value: number): string {

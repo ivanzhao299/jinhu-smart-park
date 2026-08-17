@@ -26,6 +26,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
+import { fetchReferenceUsers, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
@@ -48,7 +49,8 @@ const LEAD_PERMISSIONS = {
   confirmSign: "leasing_lead:confirm_sign",
   statusLog: "leasing_lead:status_log",
   convertToParkTenant: "leasing_lead:convert_to_park_tenant",
-  moveToPool: "leasing_lead:move_to_pool"
+  moveToPool: "leasing_lead:move_to_pool",
+  assign: "leasing_lead:assign"
 } as const;
 const FOLLOW_PERMISSIONS = {
   read: "leasing_follow:read",
@@ -193,6 +195,8 @@ interface UnitOptionRow {
     floorName: string;
   };
 }
+
+type UserOptionRow = Pick<ReferenceUserOption, "id" | "username" | "displayName" | "realName" | "status">;
 
 interface LeasingQuoteApproveRecord {
   action: "submit" | "approve" | "reject";
@@ -419,6 +423,7 @@ export default function LeasingLeadsPage() {
   const authUser = useAuthUser();
   const [pageData, setPageData] = useState<PaginatedResult<LeasingLeadRow>>(emptyPage);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
+  const [users, setUsers] = useState<UserOptionRow[]>([]);
   const [filters, setFilters] = useState({
     keyword: "",
     status: "",
@@ -463,11 +468,13 @@ export default function LeasingLeadsPage() {
   const [showConvertForm, setShowConvertForm] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const userLabels = useMemo(() => buildUserLabels(users), [users]);
 
   const canViewContactMobile = canViewField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
   const canEditContactMobile = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
   const canViewDemandPrice = canViewField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
   const canEditDemandPrice = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
+  const canAssignLead = hasPermission(authUser, LEAD_PERMISSIONS.assign);
   const canViewQuotePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
   const canEditQuotePrice = canEditField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
   const canViewPropertyFeePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE);
@@ -522,9 +529,17 @@ export default function LeasingLeadsPage() {
     setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      setUsers((await fetchReferenceUsers()).filter((item) => item.status === "enabled"));
+    } catch {
+      setUsers([]);
+    }
+  }, []);
+
   useEffect(() => {
-    void loadDicts().catch((error: Error) => setMessage(error.message));
-  }, [loadDicts]);
+    void Promise.all([loadDicts(), loadUsers()]).catch((error: Error) => setMessage(error.message));
+  }, [loadDicts, loadUsers]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -537,12 +552,15 @@ export default function LeasingLeadsPage() {
   }
 
   function openCreate() {
+    const defaultUser = users.find((item) => item.id === authUser?.id) ?? null;
     setEditing(null);
     setForm({
       ...emptyForm,
       source: sourceItems[0]?.itemValue ?? "",
       status: statusItems[0]?.itemValue ?? "",
-      intentionLevel: intentionItems[0]?.itemValue ?? ""
+      intentionLevel: intentionItems[0]?.itemValue ?? "",
+      followUserId: defaultUser?.id ?? "",
+      followUserName: defaultUser ? userLabels.get(defaultUser.id) ?? displayUserName(defaultUser) : ""
     });
     setShowForm(true);
     setMessage("");
@@ -756,6 +774,8 @@ export default function LeasingLeadsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const selectedFollowUserName = userCanonicalNameById(users, form.followUserId, form.followUserName);
+    const followUserChanged = !editing || form.followUserId !== (editing.followUserId ?? "");
     const body: Record<string, unknown> = {
       leadCode: emptyToUndefined(form.leadCode),
       customerName: form.customerName.trim(),
@@ -768,14 +788,16 @@ export default function LeasingLeadsPage() {
       demandArea: numberOrUndefined(form.demandArea),
       demandUnitType: emptyToUndefined(form.demandUnitType),
       intentionLevel: emptyToUndefined(form.intentionLevel),
-      followUserId: emptyToUndefined(form.followUserId),
-      followUserName: emptyToUndefined(form.followUserName),
       lastFollowTime: dateTimeOrUndefined(form.lastFollowTime),
       nextFollowTime: dateTimeOrUndefined(form.nextFollowTime),
       expectedCloseDate: emptyToUndefined(form.expectedCloseDate),
       isInPool: form.isInPool === "true",
       remark: emptyToUndefined(form.remark)
     };
+    if (canAssignLead && (!editing || followUserChanged || users.some((item) => item.id === form.followUserId))) {
+      body.followUserId = emptyToUndefined(form.followUserId);
+      body.followUserName = emptyToUndefined(selectedFollowUserName);
+    }
     if (canEditContactMobile) body.contactMobile = form.contactMobile.trim();
     if (canEditDemandPrice) body.demandPrice = numberOrUndefined(form.demandPrice);
 
@@ -960,23 +982,28 @@ export default function LeasingLeadsPage() {
   async function submitVisit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!detail) return;
+    const selectedReceptionUserName = userCanonicalNameById(users, visitForm.receptionUserId, visitForm.receptionUserName);
+    const receptionUserChanged = !editingVisit || visitForm.receptionUserId !== (editingVisit.receptionUserId ?? "");
+    const visitBody: Record<string, unknown> = {
+      visitTime: dateTimeOrUndefined(visitForm.visitTime),
+      visitorCount: numberOrUndefined(visitForm.visitorCount) ?? 1,
+      unitIds: visitForm.unitIds,
+      visitResult: emptyToUndefined(visitForm.visitResult),
+      photoFileIds: visitForm.photoFileIds,
+      advanceStatus: visitForm.advanceStatus === "true",
+      remark: emptyToUndefined(visitForm.remark)
+    };
+    if (canAssignLead && (!editingVisit || receptionUserChanged || users.some((item) => item.id === visitForm.receptionUserId))) {
+      visitBody.receptionUserId = emptyToUndefined(visitForm.receptionUserId);
+      visitBody.receptionUserName = emptyToUndefined(selectedReceptionUserName);
+    }
     await apiRequest<LeasingVisitRow>(
       editingVisit ? `/leasing/leads/${detail.id}/visits/${editingVisit.id}` : `/leasing/leads/${detail.id}/visits`,
       {
         method: editingVisit ? "PUT" : "POST",
         token: getAccessToken(),
         idempotencyKey: createIdempotencyKey(editingVisit ? "leasing-visit-update" : "leasing-visit-create"),
-        body: {
-          visitTime: dateTimeOrUndefined(visitForm.visitTime),
-          visitorCount: numberOrUndefined(visitForm.visitorCount) ?? 1,
-          receptionUserId: emptyToUndefined(visitForm.receptionUserId),
-          receptionUserName: emptyToUndefined(visitForm.receptionUserName),
-          unitIds: visitForm.unitIds,
-          visitResult: emptyToUndefined(visitForm.visitResult),
-          photoFileIds: visitForm.photoFileIds,
-          advanceStatus: visitForm.advanceStatus === "true",
-          remark: emptyToUndefined(visitForm.remark)
-        }
+        body: visitBody
       }
     );
     setShowVisitForm(false);
@@ -1176,7 +1203,7 @@ export default function LeasingLeadsPage() {
               <SelectField label="状态" value={filters.status} onChange={(value) => updateFilter("status", value)} options={statusItems} allowEmpty />
               <SelectField label="来源" value={filters.source} onChange={(value) => updateFilter("source", value)} options={sourceItems} allowEmpty />
               <SelectField label="意向等级" value={filters.intentionLevel} onChange={(value) => updateFilter("intentionLevel", value)} options={intentionItems} allowEmpty />
-              <TextField label="跟进人 ID" value={filters.followUserId} onChange={(value) => updateFilter("followUserId", value)} placeholder="用户 ID" />
+              <UserSelectField label="跟进人" value={filters.followUserId} users={users} userLabels={userLabels} onChange={(value) => updateFilter("followUserId", value)} allowEmpty emptyLabel="全部" />
               <SelectField
                 label="是否公海"
                 value={filters.isInPool}
@@ -1325,8 +1352,24 @@ export default function LeasingLeadsPage() {
 
                 <DrawerSection title="跟进计划">
                   <DrawerFormGrid>
-                    <TextField label="跟进人 ID" value={form.followUserId} onChange={(value) => setFormValue("followUserId", value, setForm)} />
-                    <TextField label="跟进人名称" value={form.followUserName} onChange={(value) => setFormValue("followUserName", value, setForm)} />
+                    {canAssignLead ? (
+                      <UserSelectField
+                        label="跟进人"
+                        value={form.followUserId}
+                        users={users}
+                        userLabels={userLabels}
+                        onChange={(value, user) => setForm((current) => ({
+                          ...current,
+                          followUserId: value,
+                          followUserName: user ? displayUserName(user) : ""
+                        }))}
+                        allowEmpty={!editing}
+                        emptyLabel="默认当前操作人"
+                        selectedFallbackLabel={form.followUserName}
+                      />
+                    ) : (
+                      <DetailItem label="跟进人" value={editing ? form.followUserName || "未指定" : "默认当前操作人"} />
+                    )}
                     <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
                     <DateTimeField label="下次跟进时间" value={form.nextFollowTime} onChange={(value) => setFormValue("nextFollowTime", value, setForm)} />
                     <DateField label="预计成交日期" value={form.expectedCloseDate} onChange={(value) => setFormValue("expectedCloseDate", value, setForm)} />
@@ -1650,8 +1693,24 @@ export default function LeasingLeadsPage() {
                           <div className="system-grid">
                             <DateTimeField label="看房时间" value={visitForm.visitTime} onChange={(value) => setVisitFormValue("visitTime", value, setVisitForm)} />
                             <NumberField label="看房人数" value={visitForm.visitorCount} onChange={(value) => setVisitFormValue("visitorCount", value, setVisitForm)} />
-                            <TextField label="接待人 ID" value={visitForm.receptionUserId} onChange={(value) => setVisitFormValue("receptionUserId", value, setVisitForm)} />
-                            <TextField label="接待人名称" value={visitForm.receptionUserName} onChange={(value) => setVisitFormValue("receptionUserName", value, setVisitForm)} />
+                            {canAssignLead ? (
+                              <UserSelectField
+                                label="接待人"
+                                value={visitForm.receptionUserId}
+                                users={users}
+                                userLabels={userLabels}
+                                onChange={(value, user) => setVisitForm((current) => ({
+                                  ...current,
+                                  receptionUserId: value,
+                                  receptionUserName: user ? displayUserName(user) : ""
+                                }))}
+                                allowEmpty={!editingVisit}
+                                emptyLabel="默认当前操作人"
+                                selectedFallbackLabel={visitForm.receptionUserName}
+                              />
+                            ) : (
+                              <DetailItem label="接待人" value={editingVisit ? visitForm.receptionUserName || "未指定" : "默认当前操作人"} />
+                            )}
                             <SelectField
                               label="推进状态"
                               value={visitForm.advanceStatus}
@@ -1922,6 +1981,49 @@ function SelectField({
   );
 }
 
+function UserSelectField({
+  label,
+  value,
+  users,
+  userLabels,
+  onChange,
+  allowEmpty = false,
+  emptyLabel = "请选择",
+  selectedFallbackLabel
+}: {
+  label: string;
+  value: string;
+  users: UserOptionRow[];
+  userLabels: Map<string, string>;
+  onChange: (value: string, user: UserOptionRow | null) => void;
+  allowEmpty?: boolean;
+  emptyLabel?: string;
+  selectedFallbackLabel?: string | null;
+}) {
+  const selectedUser = value ? users.find((user) => user.id === value) ?? null : null;
+  const hasUnavailableSelection = Boolean(value && !selectedUser);
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select
+        value={value}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          onChange(nextValue, users.find((user) => user.id === nextValue) ?? null);
+        }}
+      >
+        {allowEmpty ? <option value="">{emptyLabel}</option> : null}
+        {hasUnavailableSelection ? (
+          <option value={value}>{selectedFallbackLabel || "当前绑定用户"}（当前不可选）</option>
+        ) : null}
+        {users.map((user) => (
+          <option key={user.id} value={user.id}>{userLabels.get(user.id) ?? displayUserName(user)}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | null }) {
   const item = items.find((option) => option.itemValue === value);
   return <span className={`status-pill ${statusClass(item?.tagType)}`}>{item?.itemLabel ?? value ?? "-"}</span>;
@@ -1983,6 +2085,34 @@ function setConvertFormValue(
   setter: (updater: (current: ConvertParkTenantFormState) => ConvertParkTenantFormState) => void
 ) {
   setter((current) => ({ ...current, [key]: value }));
+}
+
+function displayUserName(user: UserOptionRow): string {
+  return user.displayName || user.realName || user.username;
+}
+
+function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
+  const baseCounts = new Map<string, number>();
+  const pairCounts = new Map<string, number>();
+  for (const user of users) {
+    const label = displayUserName(user);
+    baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+    const pairKey = `${label}\u0000${user.username}`;
+    pairCounts.set(pairKey, (pairCounts.get(pairKey) ?? 0) + 1);
+  }
+  return new Map(users.map((user) => {
+    const label = displayUserName(user);
+    if ((baseCounts.get(label) ?? 0) <= 1) return [user.id, label];
+    const pairKey = `${label}\u0000${user.username}`;
+    const suffix = (pairCounts.get(pairKey) ?? 0) > 1 ? `${user.username} / ${user.id.slice(0, 8)}` : user.username;
+    return [user.id, `${label}（${suffix}）`];
+  }));
+}
+
+function userCanonicalNameById(users: UserOptionRow[], id: string, fallback?: string | null): string {
+  if (!id) return "";
+  const user = users.find((item) => item.id === id);
+  return user ? displayUserName(user) : fallback ?? "";
 }
 
 function selectableLeadStatusItems(items: DictItemRow[], currentStatus: string, user: ReturnType<typeof useAuthUser>): DictItemRow[] {

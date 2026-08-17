@@ -1,7 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { TenantParkScope } from "@jinhu/shared";
+import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { Repository } from "typeorm";
+import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { FloorEntity } from "../floors/entities/floor.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
@@ -32,6 +33,9 @@ export interface ReferenceDataFormOptionsResponse {
   parkTenants: Array<{ id: string; companyName: string; parkTenantCode: string; contactName: string | null; contactMobile: string | null }>;
   users: Array<{ id: string; username: string; displayName: string | null; realName: string | null; mobile: string | null; status: string }>;
 }
+
+type ReferenceUserOption = ReferenceDataFormOptionsResponse["users"][number];
+type ReferenceUserPickerOption = Omit<ReferenceUserOption, "mobile">;
 
 @Injectable()
 export class ReferenceDataService {
@@ -67,6 +71,53 @@ export class ReferenceDataService {
       units,
       parkTenants,
       users
+    };
+  }
+
+  async listUserOptions(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ReferenceUserPickerOption>> {
+    const builder = this.usersRepository.createQueryBuilder("usr")
+      .where("usr.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("usr.is_deleted = false")
+      .andWhere("usr.is_enabled = true")
+      .andWhere("usr.status = :status", { status: "enabled" })
+      .andWhere(
+        `(
+          (
+            usr.park_id = :parkId
+            AND NOT EXISTS (
+              SELECT 1 FROM rel_user_park explicit_home
+              WHERE explicit_home.tenant_id = usr.tenant_id
+                AND explicit_home.user_id = usr.id
+                AND explicit_home.park_id = :parkId
+            )
+          )
+          OR EXISTS (
+            SELECT 1 FROM rel_user_park access
+            WHERE access.tenant_id = usr.tenant_id
+              AND access.user_id = usr.id
+              AND access.park_id = :parkId
+              AND access.is_deleted = false
+              AND access.status = :status
+          )
+        )`,
+        { parkId: scope.parkId, status: "enabled" }
+      );
+    if (query.keyword) {
+      builder.andWhere("(usr.username ILIKE :keyword OR usr.display_name ILIKE :keyword)", { keyword: `%${query.keyword}%` });
+    }
+    const [items, total] = await builder
+      .orderBy("usr.display_name", "ASC")
+      .addOrderBy("usr.username", "ASC")
+      .addOrderBy("usr.id", "ASC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
+
+    return {
+      items: items.map((item) => this.toUserPickerOption(item)),
+      total,
+      page: query.page,
+      page_size: query.page_size
     };
   }
 
@@ -203,6 +254,7 @@ export class ReferenceDataService {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         isDeleted: false,
+        isEnabled: true,
         status: "enabled"
       },
       order: {
@@ -212,14 +264,28 @@ export class ReferenceDataService {
       take: REFERENCE_LIMIT
     });
 
-    return items.map((item) => ({
+    return items.map((item) => this.toUserOption(item));
+  }
+
+  private toUserOption(item: UserEntity): ReferenceUserOption {
+    return {
       id: item.id,
       username: item.username,
       displayName: item.displayName || item.username,
       realName: item.displayName || item.username,
       mobile: item.mobile ?? null,
       status: item.status
-    }));
+    };
+  }
+
+  private toUserPickerOption(item: UserEntity): ReferenceUserPickerOption {
+    return {
+      id: item.id,
+      username: item.username,
+      displayName: item.displayName || item.username,
+      realName: item.displayName || item.username,
+      status: item.status
+    };
   }
 
   private async queryCurrentTenantMap(scope: TenantParkScope, unitIds: string[]) {
