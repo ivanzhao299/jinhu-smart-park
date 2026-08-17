@@ -7,6 +7,7 @@ import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
@@ -24,10 +25,6 @@ const PAYMENT_PERMISSIONS = {
   apply: "leasing_payment:apply"
 } as const;
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -172,20 +169,8 @@ export default function LeasingPaymentsPage() {
   }, [canRead, filters, pageData.page_size]);
 
   const loadDicts = useCallback(async () => {
-    const dictTypeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["leasing_payment_method", "leasing_payment_status", "leasing_fee_type", "leasing_receivable_status"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = dictTypeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadParkTenants = useCallback(async () => {

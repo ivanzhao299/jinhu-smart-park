@@ -5,6 +5,7 @@ import { BadgePercent, Edit3, History, Plus, RefreshCw, Search, Trash2, X } from
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
 import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
@@ -25,10 +26,6 @@ const RECEIVABLE_PERMISSIONS = {
 } as const;
 const WAIVER_ALLOWED_RECEIVABLE_STATUSES = new Set(["20", "30", "40", "60", "70"]);
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -230,20 +227,8 @@ export default function LeasingReceivablesPage() {
   }, [canRead, filters, pageData.page_size]);
 
   const loadDicts = useCallback(async () => {
-    const dictTypeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["leasing_fee_type", "leasing_receivable_status", "leasing_invoice_status"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = dictTypeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadLookups = useCallback(async () => {

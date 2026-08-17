@@ -21,6 +21,7 @@ import type { FileRecord, PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
@@ -107,10 +108,6 @@ interface LeasingLeadRow {
   updateTime: string;
 }
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -507,10 +504,6 @@ export default function LeasingLeadsPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const dictTypeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "leasing_lead_status",
       "leasing_lost_reason",
@@ -526,17 +519,7 @@ export default function LeasingLeadsPage() {
       "park_tenant_type",
       "park_tenant_risk_level"
     ];
-    const entries = await Promise.all(
-      codes.map(async (code) => {
-        const dictTypeId = dictTypeMap.get(code);
-        if (!dictTypeId) return [code, []] as const;
-        const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-          token: getAccessToken()
-        });
-        return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-      })
-    );
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   useEffect(() => {

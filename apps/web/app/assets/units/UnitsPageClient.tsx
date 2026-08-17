@@ -7,6 +7,7 @@ import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinh
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { API_PREFIX, apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField } from "../../../lib/field-policy";
@@ -41,11 +42,6 @@ interface FloorRow {
   floorCode: string;
   floorName: string;
   floorNo: number;
-}
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
 }
 
 interface DictItemRow {
@@ -357,14 +353,6 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   }, [filters]);
 
   const loadLookups = useCallback(async () => {
-    const [buildingResponse, floorResponse, dictTypeResponse] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() })
-    ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-
     const dictCodes = [
       "unit_usage_type",
       "unit_rental_status",
@@ -387,20 +375,14 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
       "iot_alert_level",
       "iot_alert_status"
     ];
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
-    const dictEntries = await Promise.all(
-      dictCodes.map(async (code) => {
-        const dictTypeId = dictTypeMap.get(code);
-        if (!dictTypeId) {
-          return [code, []] as const;
-        }
-        const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-          token: getAccessToken()
-        });
-        return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-      })
-    );
-    setDicts(Object.fromEntries(dictEntries));
+    const [buildingResponse, floorResponse, dictMap] = await Promise.all([
+      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
+      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
+      loadDictMapByCodes<DictItemRow>(dictCodes)
+    ]);
+    setBuildings(buildingResponse.data.items);
+    setFloors(floorResponse.data.items);
+    setDicts(dictMap);
   }, []);
 
   useEffect(() => {

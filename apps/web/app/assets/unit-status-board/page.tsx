@@ -6,6 +6,7 @@ import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useSta
 import type { UserContext } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
@@ -26,11 +27,6 @@ interface BuildingRow {
   id: string;
   buildingCode: string;
   buildingName: string;
-}
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
 }
 
 interface DictItemRow {
@@ -264,57 +260,47 @@ export default function UnitStatusBoardPage() {
   }, [filters]);
 
   const loadLookups = useCallback(async () => {
-    const [buildingResponse, dictTypeResponse] = await Promise.all([
+    const dictCodes = [
+      "unit_rental_status",
+      "workorder_status",
+      "workorder_type",
+      "workorder_priority",
+      "safety_hazard_status",
+      "safety_hazard_type",
+      "safety_risk_level",
+      "safety_emergency_status",
+      "safety_emergency_incident_type",
+      "safety_emergency_severity",
+      "safety_emergency_response_level",
+      "safety_work_permit_status",
+      "safety_work_permit_type",
+      "iot_device_type",
+      "iot_device_status",
+      "iot_alert_level",
+      "iot_alert_status"
+    ];
+    const [buildingResponse, dictMap] = await Promise.all([
       apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() })
+      loadDictMapByCodes<DictItemRow>(dictCodes)
     ]);
     setBuildings(buildingResponse.data.items);
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
-    const loadDictItems = async (code: string) => {
-      const dictTypeId = dictTypeMap.get(code);
-      if (!dictTypeId) return [];
-      const itemsResponse = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return itemsResponse.data.items.filter((item) => item.status === "enabled");
-    };
-    const [
-      rentalItems,
-      statusItems,
-      typeItems,
-      priorityItems,
-      hazardStatuses,
-      hazardTypes,
-      hazardRisks,
-      emergencyStatuses,
-      emergencyTypes,
-      emergencySeverities,
-      emergencyResponses,
-      permitStatuses,
-      permitTypes,
-      deviceTypes,
-      deviceStatuses,
-      alertLevels,
-      alertStatuses
-    ] = await Promise.all([
-      loadDictItems("unit_rental_status"),
-      loadDictItems("workorder_status"),
-      loadDictItems("workorder_type"),
-      loadDictItems("workorder_priority"),
-      loadDictItems("safety_hazard_status"),
-      loadDictItems("safety_hazard_type"),
-      loadDictItems("safety_risk_level"),
-      loadDictItems("safety_emergency_status"),
-      loadDictItems("safety_emergency_incident_type"),
-      loadDictItems("safety_emergency_severity"),
-      loadDictItems("safety_emergency_response_level"),
-      loadDictItems("safety_work_permit_status"),
-      loadDictItems("safety_work_permit_type"),
-      loadDictItems("iot_device_type"),
-      loadDictItems("iot_device_status"),
-      loadDictItems("iot_alert_level"),
-      loadDictItems("iot_alert_status")
-    ]);
+    const rentalItems = dictMap.unit_rental_status ?? [];
+    const statusItems = dictMap.workorder_status ?? [];
+    const typeItems = dictMap.workorder_type ?? [];
+    const priorityItems = dictMap.workorder_priority ?? [];
+    const hazardStatuses = dictMap.safety_hazard_status ?? [];
+    const hazardTypes = dictMap.safety_hazard_type ?? [];
+    const hazardRisks = dictMap.safety_risk_level ?? [];
+    const emergencyStatuses = dictMap.safety_emergency_status ?? [];
+    const emergencyTypes = dictMap.safety_emergency_incident_type ?? [];
+    const emergencySeverities = dictMap.safety_emergency_severity ?? [];
+    const emergencyResponses = dictMap.safety_emergency_response_level ?? [];
+    const permitStatuses = dictMap.safety_work_permit_status ?? [];
+    const permitTypes = dictMap.safety_work_permit_type ?? [];
+    const deviceTypes = dictMap.iot_device_type ?? [];
+    const deviceStatuses = dictMap.iot_device_status ?? [];
+    const alertLevels = dictMap.iot_alert_level ?? [];
+    const alertStatuses = dictMap.iot_alert_status ?? [];
     setRentalStatusItems(rentalItems);
     setWorkOrderStatusItems(statusItems);
     setWorkOrderTypeItems(typeItems);

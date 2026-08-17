@@ -24,6 +24,48 @@ test("additional park provisioning creates an independent, atomic tenant scope",
   assert.doesNotMatch(block, /dto\.parkId|dto\.tenantId/);
 });
 
+test("new tenant and additional park provisioning copy dictionary baselines", () => {
+  const source = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
+  const createBlock = source.slice(
+    source.indexOf("async create(actorScope:"),
+    source.indexOf("async provisionAdditionalPark(")
+  );
+  const additionalParkBlock = source.slice(
+    source.indexOf("async provisionAdditionalPark("),
+    source.indexOf("async update(", source.indexOf("async provisionAdditionalPark("))
+  );
+  const helperBlock = source.slice(
+    source.indexOf("private async ensureTenantDictionaries("),
+    source.indexOf("private async cloneTenantParkModules(")
+  );
+  const migration = readFileSync(
+    resolve(__dirname, "../../../../../database/migrations/000214_tenant_scope_dictionary_provisioning.sql"),
+    "utf8"
+  );
+  const productionSeed = readFileSync(
+    resolve(__dirname, "../../../../../database/seeds/production/000016_tenant_scope_dictionary_reconcile.sql"),
+    "utf8"
+  );
+
+  assert.match(createBlock, /ensureTenantDictionaries\(manager, actorScope, \{ tenantId, parkId: park\.parkId \}/);
+  assert.match(additionalParkBlock, /ensureTenantDictionaries\(manager, sourceScope, targetScope/);
+  assert.match(helperBlock, /DEFAULT_PLATFORM_SCOPE\.tenantId/);
+  assert.match(helperBlock, /sourceScopes = \[/);
+  assert.match(helperBlock, /copyMissingTenantDictionaries\(manager, source, targetScope, actorId\)/);
+  assert.match(helperBlock, /INSERT INTO sys_dict_type/);
+  assert.match(helperBlock, /INSERT INTO sys_dict_item/);
+  assert.match(helperBlock, /PARTITION BY source_type\.dict_code, source_item\.item_value/);
+  assert.match(migration, /target_scopes AS/);
+  assert.match(migration, /FROM biz_park park/);
+  assert.match(migration, /INSERT INTO sys_dict_type/);
+  assert.match(migration, /INSERT INTO sys_dict_item/);
+  assert.match(migration, /NOT EXISTS/);
+  assert.match(productionSeed, /FROM biz_park park/);
+  assert.match(productionSeed, /INSERT INTO sys_dict_type/);
+  assert.match(productionSeed, /INSERT INTO sys_dict_item/);
+  assert.match(productionSeed, /NOT EXISTS/);
+});
+
 test("park scope allocation serializes globally without forbidding canonical source history", () => {
   const service = readFileSync(resolve(__dirname, "tenants.service.ts"), "utf8");
   const entity = readFileSync(resolve(__dirname, "../parks/entities/park.entity.ts"), "utf8");

@@ -200,13 +200,20 @@ else
   record_fail "no bootstrap admin found"
 fi
 
-workorder_dict_count=$(psql_scalar "SELECT COUNT(*) FROM sys_dict_type WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND dict_code IN ('workorder_status', 'workorder_priority', 'workorder_type', 'workorder_urgency', 'workorder_source_type') AND is_deleted = false;")
-if [ "${workorder_dict_count:-0}" -ge 5 ]; then
-  record_pass "workorder release dictionaries exist"
-elif [ "${workorder_dict_count:-0}" -gt 0 ]; then
-  record_warn "workorder release dictionaries only partially loaded"
+required_dict_count=$(psql_scalar "SELECT COUNT(DISTINCT dict_type.dict_code) FROM sys_dict_type dict_type JOIN sys_dict_item dict_item ON dict_item.dict_type_id = dict_type.id AND dict_item.tenant_id = dict_type.tenant_id AND dict_item.park_id = dict_type.park_id AND dict_item.status = 'enabled' AND dict_item.is_deleted = false WHERE dict_type.tenant_id = '$TENANT_ID' AND dict_type.park_id = '$PARK_ID' AND dict_type.dict_code IN ('park_tenant_status', 'park_tenant_type', 'park_tenant_risk_level', 'industry_code', 'park_tenant_source_type', 'leasing_contract_change_type', 'leasing_contract_change_status', 'leasing_checkout_type', 'leasing_checkout_status', 'workorder_status', 'workorder_priority', 'workorder_type', 'workorder_urgency', 'workorder_source_type') AND dict_type.status = 'enabled' AND dict_type.is_deleted = false;")
+if [ "${required_dict_count:-0}" -ge 14 ]; then
+  record_pass "required business dictionaries exist"
+elif [ "${required_dict_count:-0}" -gt 0 ]; then
+  record_fail "required business dictionaries only partially loaded"
 else
-  record_fail "workorder release dictionaries missing"
+  record_fail "required business dictionaries missing"
+fi
+
+missing_scope_dict_count=$(psql_scalar "WITH required(dict_code) AS (VALUES ('park_tenant_status'), ('park_tenant_type'), ('park_tenant_risk_level'), ('industry_code'), ('park_tenant_source_type'), ('leasing_contract_change_type'), ('leasing_contract_change_status'), ('leasing_checkout_type'), ('leasing_checkout_status'), ('workorder_status'), ('workorder_priority'), ('workorder_type'), ('workorder_urgency'), ('workorder_source_type')), active_scopes AS (SELECT DISTINCT tenant_id, park_id FROM biz_park WHERE is_deleted = false) SELECT COUNT(*) FROM active_scopes scope WHERE (SELECT COUNT(DISTINCT dict_type.dict_code) FROM required JOIN sys_dict_type dict_type ON dict_type.dict_code = required.dict_code AND dict_type.tenant_id = scope.tenant_id AND dict_type.park_id = scope.park_id AND dict_type.status = 'enabled' AND dict_type.is_deleted = false JOIN sys_dict_item dict_item ON dict_item.dict_type_id = dict_type.id AND dict_item.tenant_id = dict_type.tenant_id AND dict_item.park_id = dict_type.park_id AND dict_item.status = 'enabled' AND dict_item.is_deleted = false) < 14;")
+if [ "${missing_scope_dict_count:-0}" -eq 0 ]; then
+  record_pass "required business dictionaries exist for all active park scopes"
+else
+  record_fail "required business dictionaries missing in active park scopes"
 fi
 
 dev_user_count=$(psql_scalar "SELECT COUNT(*) FROM sys_user WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND username IN ('admin', 's1_user') AND is_deleted = false;")

@@ -137,27 +137,93 @@ export class HealthController {
       reasons.bootstrapAdmin = "bootstrap admin missing";
     }
 
-    const workorderDictCount = await this.countRecords(
+    const requiredDictionaryCount = await this.countRecords(
       `
-        SELECT COUNT(*)::int AS count
-        FROM sys_dict_type
-        WHERE tenant_id = $1
-          AND park_id = $2
-          AND dict_code IN (
+        SELECT COUNT(DISTINCT dict_type.dict_code)::int AS count
+        FROM sys_dict_type dict_type
+        JOIN sys_dict_item dict_item
+          ON dict_item.dict_type_id = dict_type.id
+         AND dict_item.tenant_id = dict_type.tenant_id
+         AND dict_item.park_id = dict_type.park_id
+         AND dict_item.status = 'enabled'
+         AND dict_item.is_deleted = false
+        WHERE dict_type.tenant_id = $1
+          AND dict_type.park_id = $2
+          AND dict_type.dict_code IN (
+            'park_tenant_status',
+            'park_tenant_type',
+            'park_tenant_risk_level',
+            'industry_code',
+            'park_tenant_source_type',
+            'leasing_contract_change_type',
+            'leasing_contract_change_status',
+            'leasing_checkout_type',
+            'leasing_checkout_status',
             'workorder_status',
             'workorder_priority',
             'workorder_type',
             'workorder_urgency',
             'workorder_source_type'
           )
-          AND is_deleted = false
+          AND dict_type.is_deleted = false
+          AND dict_type.status = 'enabled'
       `,
       [tenantId, parkId]
     );
-    if (workorderDictCount >= 5) {
+    if (requiredDictionaryCount >= 14) {
       checks.workorderReleaseDicts = "ok";
     } else {
-      reasons.workorderReleaseDicts = "workorder release dictionaries incomplete";
+      reasons.workorderReleaseDicts = "required business dictionaries incomplete";
+    }
+
+    const missingDictionaryScopeCount = await this.countRecords(
+      `
+        WITH required(dict_code) AS (
+          VALUES
+            ('park_tenant_status'),
+            ('park_tenant_type'),
+            ('park_tenant_risk_level'),
+            ('industry_code'),
+            ('park_tenant_source_type'),
+            ('leasing_contract_change_type'),
+            ('leasing_contract_change_status'),
+            ('leasing_checkout_type'),
+            ('leasing_checkout_status'),
+            ('workorder_status'),
+            ('workorder_priority'),
+            ('workorder_type'),
+            ('workorder_urgency'),
+            ('workorder_source_type')
+        ),
+        active_scopes AS (
+          SELECT DISTINCT tenant_id, park_id
+          FROM biz_park
+          WHERE is_deleted = false
+        )
+        SELECT COUNT(*)::int AS count
+        FROM active_scopes scope
+        WHERE (
+          SELECT COUNT(DISTINCT dict_type.dict_code)
+          FROM required
+          JOIN sys_dict_type dict_type
+            ON dict_type.dict_code = required.dict_code
+           AND dict_type.tenant_id = scope.tenant_id
+           AND dict_type.park_id = scope.park_id
+           AND dict_type.status = 'enabled'
+           AND dict_type.is_deleted = false
+          JOIN sys_dict_item dict_item
+            ON dict_item.dict_type_id = dict_type.id
+           AND dict_item.tenant_id = dict_type.tenant_id
+           AND dict_item.park_id = dict_type.park_id
+           AND dict_item.status = 'enabled'
+           AND dict_item.is_deleted = false
+        ) < 14
+      `,
+      []
+    );
+    if (missingDictionaryScopeCount > 0) {
+      checks.workorderReleaseDicts = "fail";
+      reasons.workorderReleaseDicts = "required business dictionaries incomplete in active park scopes";
     }
 
     return this.respondReadiness(response, service, checks, reasons);
