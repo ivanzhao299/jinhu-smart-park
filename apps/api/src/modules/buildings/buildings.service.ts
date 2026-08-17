@@ -5,6 +5,7 @@ import { Brackets, type Repository, type SelectQueryBuilder } from "typeorm";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FloorEntity } from "../floors/entities/floor.entity";
+import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { UsersService } from "../users/users.service";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { BuildingQueryDto } from "./dto/building-query.dto";
@@ -23,12 +24,14 @@ export class BuildingsService {
     private readonly floorsRepository: Repository<FloorEntity>,
     private readonly codeRulesService: CodeRulesService,
     private readonly dataScopeService: DataScopeService,
+    private readonly saasModulesService: SaaSModulesService,
     private readonly usersService: UsersService
   ) {}
 
   async list(scope: TenantParkScope, query: BuildingQueryDto, actor?: JwtPrincipal): Promise<PaginatedResult<BuildingEntity>> {
-    const builder = this.scopedBuilder(scope);
-    await this.applyBuildingDataScope(builder, actor);
+    const { targetScope, targetActor } = await this.resolveTargetAccess(scope, actor, query.parkId, SYSTEM_PERMISSIONS.BUILDING_READ, "Missing target park building read permission");
+    const builder = this.scopedBuilder(targetScope);
+    await this.applyBuildingDataScope(builder, targetActor);
 
     if (query.status !== undefined) {
       builder.andWhere("building.status = :status", { status: query.status });
@@ -53,7 +56,12 @@ export class BuildingsService {
     return { items, total, page: query.page, page_size: query.page_size };
   }
 
-  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<BuildingEntity> {
+  async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal, parkId?: string): Promise<BuildingEntity> {
+    const { targetScope, targetActor } = await this.resolveTargetAccess(scope, actor, parkId, SYSTEM_PERMISSIONS.BUILDING_READ, "Missing target park building read permission");
+    return this.findScopedBuilding(targetScope, id, targetActor);
+  }
+
+  private async findScopedBuilding(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<BuildingEntity> {
     const builder = this.scopedBuilder(scope).andWhere("building.id = :id", { id });
     await this.applyBuildingDataScope(builder, actor);
     const entity = await builder.getOne();
@@ -69,7 +77,7 @@ export class BuildingsService {
     dto: CreateBuildingDto,
     onTargetScope?: (scope: TenantParkScope) => void
   ): Promise<BuildingEntity> {
-    const targetScope = await this.resolveCreateTargetScope(scope, actor, dto);
+    const { targetScope } = await this.resolveTargetAccess(scope, actor, dto.parkId, SYSTEM_PERMISSIONS.BUILDING_CREATE, "Missing target park building create permission");
     onTargetScope?.(targetScope);
     const buildingCode = await this.resolveBuildingCode(targetScope, actor.sub, dto.buildingCode);
     await this.assertBuildingCodeAvailable(targetScope, buildingCode);
@@ -99,11 +107,19 @@ export class BuildingsService {
     }
   }
 
-  async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateBuildingDto): Promise<BuildingEntity> {
-    const entity = await this.detail(scope, id, actor);
+  async update(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    dto: UpdateBuildingDto,
+    onTargetScope?: (scope: TenantParkScope) => void
+  ): Promise<BuildingEntity> {
+    const { targetScope, targetActor } = await this.resolveTargetAccess(scope, actor, dto.parkId, SYSTEM_PERMISSIONS.BUILDING_UPDATE, "Missing target park building update permission");
+    onTargetScope?.(targetScope);
+    const entity = await this.findScopedBuilding(targetScope, id, targetActor);
     const nextCode = dto.buildingCode?.trim();
     if (nextCode && nextCode !== entity.buildingCode) {
-      await this.assertBuildingCodeAvailable(scope, nextCode, id);
+      await this.assertBuildingCodeAvailable(targetScope, nextCode, id);
       entity.buildingCode = nextCode;
     }
 
@@ -118,9 +134,11 @@ export class BuildingsService {
     return this.buildingsRepository.save(entity);
   }
 
-  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
-    const entity = await this.detail(scope, id, actor);
-    if (await this.hasUndeletedFloors(scope, id)) {
+  async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string, parkId?: string, onTargetScope?: (scope: TenantParkScope) => void): Promise<{ id: string }> {
+    const { targetScope, targetActor } = await this.resolveTargetAccess(scope, actor, parkId, SYSTEM_PERMISSIONS.BUILDING_DELETE, "Missing target park building delete permission");
+    onTargetScope?.(targetScope);
+    const entity = await this.findScopedBuilding(targetScope, id, targetActor);
+    if (await this.hasUndeletedFloors(targetScope, id)) {
       throw new BadRequestException("该楼栋下仍有未删除楼层，无法删除");
     }
     entity.isDeleted = true;
@@ -199,17 +217,34 @@ export class BuildingsService {
     return generated.code;
   }
 
-  private async resolveCreateTargetScope(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateBuildingDto): Promise<TenantParkScope> {
-    const targetParkId = dto.parkId?.trim();
+  private async resolveTargetAccess(
+    scope: TenantParkScope,
+    actor: JwtPrincipal | undefined,
+    requestedParkId: string | undefined,
+    permission: string,
+    forbiddenMessage: string
+  ): Promise<{ targetScope: TenantParkScope; targetActor?: JwtPrincipal }> {
+    const targetParkId = requestedParkId?.trim();
     if (!targetParkId || targetParkId === scope.parkId) {
-      return scope;
+      return { targetScope: scope, targetActor: actor };
+    }
+    if (!actor) {
+      throw new ForbiddenException(forbiddenMessage);
     }
     const targetScope = { tenantId: scope.tenantId, parkId: targetParkId };
     const targetActor = await this.usersService.resolveJwtPrincipal(targetScope, actor.sub);
-    if (!this.hasPermission(targetActor, SYSTEM_PERMISSIONS.BUILDING_CREATE)) {
-      throw new ForbiddenException("Missing target park building create permission");
+    await this.assertTargetModuleEnabled(targetScope);
+    if (!this.hasPermission(targetActor, permission)) {
+      throw new ForbiddenException(forbiddenMessage);
     }
-    return targetScope;
+    return { targetScope, targetActor };
+  }
+
+  private async assertTargetModuleEnabled(scope: TenantParkScope): Promise<void> {
+    const modules = await this.saasModulesService.listEnabledModulesForTenant(scope.tenantId, scope.parkId);
+    if (!modules.some((module) => module.module_code === "asset")) {
+      throw new ForbiddenException("Tenant module is not authorized");
+    }
   }
 
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {

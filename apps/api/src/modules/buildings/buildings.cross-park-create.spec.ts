@@ -16,14 +16,25 @@ test("building create resolves explicit target park without auth context switchi
   const controller = readFileSync(resolve(__dirname, "buildings.controller.ts"), "utf8");
   const service = readFileSync(resolve(__dirname, "buildings.service.ts"), "utf8");
   const dto = readFileSync(resolve(__dirname, "dto/create-building.dto.ts"), "utf8");
+  const queryDto = readFileSync(resolve(__dirname, "dto/building-query.dto.ts"), "utf8");
 
   assert.match(dto, /parkId\?: string/u);
+  assert.match(queryDto, /parkId\?: string/u);
   assert.match(controller, /request\.auditScopeOverride = targetScope/u);
-  assert.match(service, /resolveCreateTargetScope\(scope, actor, dto\)/u);
+  assert.match(service, /resolveTargetAccess\(scope, actor, query\.parkId, SYSTEM_PERMISSIONS\.BUILDING_READ/u);
+  assert.match(service, /resolveTargetAccess\(scope, actor, dto\.parkId, SYSTEM_PERMISSIONS\.BUILDING_CREATE/u);
+  assert.match(service, /resolveTargetAccess\(scope, actor, dto\.parkId, SYSTEM_PERMISSIONS\.BUILDING_UPDATE/u);
+  assert.match(service, /resolveTargetAccess\(scope, actor, parkId, SYSTEM_PERMISSIONS\.BUILDING_DELETE/u);
   assert.match(service, /usersService\.resolveJwtPrincipal\(targetScope, actor\.sub\)/u);
+  assert.match(service, /assertTargetModuleEnabled\(targetScope\)/u);
+  assert.match(service, /listEnabledModulesForTenant\(scope\.tenantId, scope\.parkId\)/u);
   assert.match(service, /SYSTEM_PERMISSIONS\.BUILDING_CREATE/u);
+  assert.match(service, /SYSTEM_PERMISSIONS\.BUILDING_READ/u);
+  assert.match(service, /SYSTEM_PERMISSIONS\.BUILDING_UPDATE/u);
+  assert.match(service, /SYSTEM_PERMISSIONS\.BUILDING_DELETE/u);
   assert.match(service, /tenantId: targetScope\.tenantId/u);
   assert.match(service, /parkId: targetScope\.parkId/u);
+  assert.equal((controller.match(/request\.auditScopeOverride = targetScope/gu) ?? []).length, 3);
 });
 
 test("building create writes to explicit target park when actor has target permission", async () => {
@@ -70,6 +81,58 @@ test("building create rejects explicit target park without target create permiss
 
   await assert.rejects(
     () => service.create(currentScope(), actor(), createDto({ parkId: "park-denied" })),
+    ForbiddenException
+  );
+});
+
+test("building target access rejects explicit park without asset module entitlement", async () => {
+  const service = makeService({
+    enabledModules: [],
+    resolveTargetActor: async (targetScope, targetActor) => ({
+      ...targetActor,
+      parkId: targetScope.parkId,
+      permissions: [SYSTEM_PERMISSIONS.BUILDING_CREATE]
+    })
+  });
+
+  await assert.rejects(
+    () => service.create(currentScope(), actor(), createDto({ parkId: "park-disabled-asset" })),
+    ForbiddenException
+  );
+});
+
+test("building list reads explicit target park with target read permission", async () => {
+  const targetParkId = "park-new";
+  const scopedWhere: Array<{ clause: string; params?: Record<string, unknown> }> = [];
+  const service = makeService({
+    queryRecorder: scopedWhere,
+    resolveTargetActor: async (targetScope, targetActor) => ({
+      ...targetActor,
+      parkId: targetScope.parkId,
+      permissions: [SYSTEM_PERMISSIONS.BUILDING_READ]
+    })
+  });
+
+  const result = await service.list(currentScope(), { page: 1, page_size: 20, parkId: targetParkId }, actor());
+
+  assert.equal(result.total, 0);
+  assert.deepEqual(
+    scopedWhere.filter((entry) => entry.clause.includes("building.park_id")),
+    [{ clause: "building.park_id = :parkId", params: { parkId: targetParkId } }]
+  );
+});
+
+test("building list rejects explicit target park without target read permission", async () => {
+  const service = makeService({
+    resolveTargetActor: async (targetScope, targetActor) => ({
+      ...targetActor,
+      parkId: targetScope.parkId,
+      permissions: [SYSTEM_PERMISSIONS.BUILDING_CREATE]
+    })
+  });
+
+  await assert.rejects(
+    () => service.list(currentScope(), { page: 1, page_size: 20, parkId: "park-denied" }, actor()),
     ForbiddenException
   );
 });
@@ -134,6 +197,49 @@ test("building create propagates explicit target park through controller audit s
   assert.equal(recorded[0]?.success, true);
 });
 
+test("building update and delete propagate explicit target park through controller audit scope", async () => {
+  const targetScope = { tenantId: "tenant-1", parkId: "park-new" };
+  const request = {} as AuditScopeRequest;
+  const service = {
+    update: async (
+      scope: TenantParkScope,
+      updateActor: JwtPrincipal,
+      id: string,
+      dto: { parkId?: string },
+      onTargetScope?: (scope: TenantParkScope) => void
+    ) => {
+      assert.deepEqual(scope, currentScope());
+      assert.equal(updateActor.sub, "user-1");
+      assert.equal(id, "building-1");
+      assert.equal(dto.parkId, targetScope.parkId);
+      onTargetScope?.(targetScope);
+      return { id, tenantId: targetScope.tenantId, parkId: targetScope.parkId };
+    },
+    softDelete: async (
+      scope: TenantParkScope,
+      deleteActor: JwtPrincipal,
+      id: string,
+      parkId?: string,
+      onTargetScope?: (scope: TenantParkScope) => void
+    ) => {
+      assert.deepEqual(scope, currentScope());
+      assert.equal(deleteActor.sub, "user-1");
+      assert.equal(id, "building-1");
+      assert.equal(parkId, targetScope.parkId);
+      onTargetScope?.(targetScope);
+      return { id };
+    }
+  };
+  const controller = new BuildingsController(service as never);
+
+  await controller.update(currentScope(), actor(), "building-1", { parkId: targetScope.parkId }, request);
+  assert.deepEqual(request.auditScopeOverride, targetScope);
+
+  request.auditScopeOverride = undefined;
+  await controller.remove(currentScope(), actor(), "building-1", { parkId: targetScope.parkId }, request);
+  assert.deepEqual(request.auditScopeOverride, targetScope);
+});
+
 function currentScope(): TenantParkScope {
   return { tenantId: "tenant-1", parkId: "park-current" };
 }
@@ -166,11 +272,24 @@ function makeService(overrides: {
   resolveTargetActor?: (targetScope: TenantParkScope, actor: JwtPrincipal) => Promise<JwtPrincipal>;
   generateCode?: (scope: TenantParkScope) => Promise<{ code: string }>;
   save?: (entity: BuildingEntity) => Promise<BuildingEntity>;
+  queryRecorder?: Array<{ clause: string; params?: Record<string, unknown> }>;
+  enabledModules?: Array<{ module_code: string }>;
 } = {}): BuildingsService {
   const queryBuilder = {
-    where: () => queryBuilder,
-    andWhere: () => queryBuilder,
-    getExists: async () => false
+    where: (clause: string, params?: Record<string, unknown>) => {
+      overrides.queryRecorder?.push({ clause, params });
+      return queryBuilder;
+    },
+    andWhere: (clause: string, params?: Record<string, unknown>) => {
+      overrides.queryRecorder?.push({ clause, params });
+      return queryBuilder;
+    },
+    orderBy: () => queryBuilder,
+    addOrderBy: () => queryBuilder,
+    skip: () => queryBuilder,
+    take: () => queryBuilder,
+    getExists: async () => false,
+    getManyAndCount: async () => [[], 0] as [BuildingEntity[], number]
   };
   const buildingsRepository = {
     create: (entity: BuildingEntity) => entity,
@@ -185,6 +304,9 @@ function makeService(overrides: {
       return generated;
     }
   };
+  const dataScopeService = {
+    buildScopeFilter: async () => ({ unrestricted: true, allowed_ids: [] })
+  };
   const usersService = {
     resolveJwtPrincipal: async (targetScope: TenantParkScope, actorId: string) => {
       assert.equal(actorId, "user-1");
@@ -193,12 +315,16 @@ function makeService(overrides: {
         : { ...actor(), parkId: targetScope.parkId };
     }
   };
+  const saasModulesService = {
+    listEnabledModulesForTenant: async () => overrides.enabledModules ?? [{ module_code: "asset" }]
+  };
 
   return new BuildingsService(
     buildingsRepository as never,
     {} as never,
     codeRulesService as never,
-    {} as never,
+    dataScopeService as never,
+    saasModulesService as never,
     usersService as never
   );
 }

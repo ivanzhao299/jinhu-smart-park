@@ -22,9 +22,26 @@ test("cross-park building creation does not use auth context switching", () => {
   const submit = page.slice(page.indexOf("async function submit"), page.indexOf("async function remove"));
 
   assert.doesNotMatch(page, /switchParkContext/u);
-  assert.match(submit, /\.\.\.\(editingId \? \{\} : \{ parkId: form\.parkId \}\)/u);
-  assert.match(page, /保存成功，楼栋已写入所选园区/u);
+  assert.match(submit, /parkId: form\.parkId/u);
+  assert.match(page, /保存成功，已切换到所选园区列表/u);
+  assert.match(page, /const savedParkId = response\.data\.parkId \|\| form\.parkId \|\| currentListQuery\.parkId/u);
+  assert.match(page, /setListParkId\(nextQuery\.parkId\)/u);
+  assert.match(page, /await load\(editingId \? pageData\.page : 1, nextQuery\)/u);
   assert.doesNotMatch(submit, /window\.location\.reload/u);
+});
+
+test("building list queries the selected park explicitly", () => {
+  const page = readFileSync(resolve(__dirname, "page.tsx"), "utf8");
+  const load = page.slice(page.indexOf("const load = useCallback"), page.indexOf("useEffect(() => {"));
+
+  assert.match(page, /const \[listParkId, setListParkId\] = useState\(""\)/u);
+  assert.match(page, /const latestBuildingListRequest = useRef\(0\)/u);
+  assert.match(load, /const requestId = latestBuildingListRequest\.current \+ 1/u);
+  assert.match(load, /if \(requestId !== latestBuildingListRequest\.current\) return/u);
+  assert.match(page, /<label htmlFor="buildingListPark">查看园区<\/label>/u);
+  assert.match(load, /if \(query\.parkId\) params\.set\("parkId", query\.parkId\)/u);
+  assert.match(page, /changeListPark\(event\.target\.value\)/u);
+  assert.match(page, /new URLSearchParams\(\{ parkId: row\.parkId \}\)/u);
 });
 
 test("park switch failures are visible inside the building drawer", () => {
