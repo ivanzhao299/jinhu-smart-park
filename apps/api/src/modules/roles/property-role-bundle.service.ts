@@ -10,6 +10,7 @@ import type { TenantParkScope } from "@jinhu/shared";
 import { DataSource, EntityManager, In } from "typeorm";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
+import { activeTenantPermissionWhere } from "../permissions/permission-scope";
 import {
   ApplyPropertyRoleBundlesDto,
   CreatePropertyRoleFromBundlesDto,
@@ -363,10 +364,7 @@ export class PropertyRoleBundleService {
       .setLock("pessimistic_read")
       .where({
         id: In(permissions.map((permission) => permission.id)),
-        tenantId: scope.tenantId,
-        status: "enabled",
-        isEnabled: true,
-        isDeleted: false
+        ...activeTenantPermissionWhere(scope)
       })
       .getMany();
     if (permissionRows.length !== permissions.length) throw new ConflictException("Permission catalog changed; preview again");

@@ -6,6 +6,7 @@ import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
+import { activeTenantPermissionWhere } from "../permissions/permission-scope";
 import { RoleFieldPolicyEntity } from "../field-policies/entities/role-field-policy.entity";
 import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
 import type { AssignPermissionsDto } from "./dto/assign-permissions.dto";
@@ -420,7 +421,7 @@ export class RolesService {
       const permissionsRepository = manager.getRepository(PermissionEntity);
       const linksRepository = manager.getRepository(RolePermissionEntity);
       const permissions = await permissionsRepository.find({
-        where: { id: In(dto.permissionIds), tenantId: scope.tenantId, status: "enabled", isEnabled: true, isDeleted: false }
+        where: { id: In(dto.permissionIds), ...activeTenantPermissionWhere(scope) }
       });
       if (permissions.length !== dto.permissionIds.length) {
         throw new NotFoundException("Permission not found in current scope");

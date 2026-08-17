@@ -5,7 +5,8 @@ Implementation branches:
 
 - `codex/issue-297-role-management-closure` — Field policy convergence / permission binding closure, merged by PR #298.
 - `codex/issue-297-role-assignability` — Role assignability expression stage, merged by PR #301.
-- `codex/issue-297-role-candidate-pagination` — User role candidate pagination/search stage.
+- `codex/issue-297-role-candidate-pagination` — User role candidate pagination/search stage, merged by PR #302.
+- `codex/issue-297-permission-binding-consistency` — Permission binding consistency stage.
 
 ## 1. Planning And Branch Setup
 
@@ -32,9 +33,9 @@ Implementation branches:
 
 ## 4. Permission Binding Consistency
 
-- [ ] 收敛角色直接权限绑定和权限包应用的权限可用性校验。
-- [ ] 拒绝停用、删除、跨租户权限被绑定到角色。
-- [ ] 增加直接绑定和权限包路径的一致性测试。
+- [x] 收敛角色直接权限绑定和权限包应用的权限可用性校验。
+- [x] 拒绝停用、删除、跨租户权限被绑定到角色；权限目录按租户复用，角色权限 link 仍按当前园区写入。
+- [x] 增加直接绑定和权限包路径的一致性测试。
 
 ## 5. Data Scope Configuration
 
@@ -78,7 +79,6 @@ Implementation branches:
   - `pnpm --filter @jinhu/api build` — passed.
   - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
   - `git diff --check` — passed.
-  - Codex review for PR #302 raised four P2 issues; fixed by preserving newly selected roles across edit searches, adding stable role candidate tie-break ordering, preserving the legacy unpaged `/users/:id/roles` 200-candidate contract, and making load-more use the applied search keyword.
 - User role candidate pagination/search stage validation:
   - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/users/users.service.roles.spec.ts src/modules/users/users.role-assignment-scope.spec.ts` — passed, 8/8.
   - `pnpm --filter @jinhu/web test:unit:system` — passed, 49/49.
@@ -89,6 +89,14 @@ Implementation branches:
   - `pnpm --filter @jinhu/api build` — passed.
   - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
   - `git diff --check` — passed.
+  - Codex review for PR #302 raised four P2 issues; fixed by preserving newly selected roles across edit searches, adding stable role candidate tie-break ordering, preserving the legacy unpaged `/users/:id/roles` 200-candidate contract, and making load-more use the applied search keyword.
+- Permission binding consistency stage validation:
+  - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/roles/roles.authorization-scope.spec.ts src/modules/roles/property-role-bundle.service.spec.ts` — passed, 17/17.
+  - `pnpm --filter @jinhu/api typecheck` — passed.
+  - `pnpm --filter @jinhu/api lint` — passed.
+  - `pnpm --filter @jinhu/api build` — passed.
+  - `git diff --check` — passed.
+  - Codex review for PR #303 raised one P1 issue: permission catalog rows are tenant-wide and may retain the original park id in additional parks. Fixed by keeping permission entity eligibility tenant-scoped and preserving current-park scope on `rel_role_perm` links.
 - 空库迁移首次实跑发现 `000215_role_field_permission_policy_convergence.sql` 的 session temp table 使用 `ON COMMIT DROP` 会被迁移 runner 的逐语句事务提交提前删除；已修复为普通 session temp table 并在同一隔离库复跑成功。
 - PR #298 的 Codex review 指出旧数据复用已有 `sys_field_policy` 时不能静默 `DO NOTHING`，否则旧 `none/mask/read` 可能绑定到更宽松或已禁用的策略；已改为按更严格策略保守收敛、强制启用，并记录 `existing_policy_reconciliations` audit samples。
 - 第二轮 Codex review 继续指出：production seed 不能在迁移后放宽已迁移策略；迁移必须事务化；legacy `biz/rel` resource 必须映射到字段策略运行时 module/entity。已补充 `BEGIN/COMMIT`、运行时资源映射、未知 `biz/rel` 资源失败阻断、seed 保守 upsert 和“不要软删已有角色绑定的字段策略”。
