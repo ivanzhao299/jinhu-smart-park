@@ -58,8 +58,14 @@ test("release fixtures select the conflict identity for their migration boundary
 });
 
 test("legacy role field-permission migration converges to authoritative field-policy bindings", () => {
+  assert.match(fieldPolicyConvergenceMigration, /^\s*CREATE EXTENSION IF NOT EXISTS "uuid-ossp";\s+BEGIN;/);
+  assert.match(fieldPolicyConvergenceMigration, /COMMIT;\s*$/);
   assert.match(fieldPolicyConvergenceMigration, /FROM rel_role_field_perm legacy/);
   assert.match(fieldPolicyConvergenceMigration, /CREATE TABLE IF NOT EXISTS public\.sys_role_field_policy_convergence_audit/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.leasing_%' THEN 'leasing'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'rel\.leasing_%' THEN 'leasing'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.work_order%' THEN 'workorder'/);
+  assert.match(fieldPolicyConvergenceMigration, /RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain'/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'none' THEN 'hidden'/);
@@ -80,6 +86,10 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /conflicting_field_count/);
   assert.match(fieldPolicyConvergenceMigration, /policy_precedence[\s\S]*hidden[\s\S]*masked[\s\S]*readonly[\s\S]*editable/);
   assert.match(fieldPolicyConvergenceMigration, /existing_policy_reconciliations/);
+  assert.match(fieldPolicyConvergenceMigration, /resource_mapping_samples/);
   assert.match(fieldPolicyConvergenceMigration, /conflict_samples/);
   assert.match(fieldPolicyConvergenceMigration, /Deprecated legacy field-permission write model/);
+  assert.match(productionSeed, /policy_type = CASE[\s\S]*sys_field_policy\.policy_type[\s\S]*EXCLUDED\.policy_type/);
+  assert.match(productionSeed, /NOT EXISTS \(\s+SELECT 1\s+FROM rel_role_field_policy link[\s\S]*link\.field_policy_id = sys_field_policy\.id/);
+  assert.doesNotMatch(productionSeed, /policy_type = EXCLUDED\.policy_type,\s+mask_rule = EXCLUDED\.mask_rule,\s+status = EXCLUDED\.status/);
 });

@@ -893,6 +893,13 @@ SET is_deleted = true,
 WHERE tenant_id = '10000001'
   AND module = 'leasing'
   AND is_deleted = false
+  AND NOT EXISTS (
+    SELECT 1
+    FROM rel_role_field_policy link
+    WHERE link.tenant_id = sys_field_policy.tenant_id
+      AND link.field_policy_id = sys_field_policy.id
+      AND link.is_deleted = false
+  )
   AND (
     (entity = 'park_tenant' AND field_key IN ('contactMobile', 'legalPersonId'))
     OR (entity = 'park_tenant_qualification' AND field_key IN ('certificateNo', 'fileId'))
@@ -1051,9 +1058,59 @@ FROM field_policies
 CROSS JOIN seed_scope
 ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO UPDATE SET
   field_name = EXCLUDED.field_name,
-  policy_type = EXCLUDED.policy_type,
-  mask_rule = EXCLUDED.mask_rule,
-  status = EXCLUDED.status,
+  policy_type = CASE
+    WHEN (
+      CASE sys_field_policy.policy_type
+        WHEN 'hidden' THEN 1
+        WHEN 'masked' THEN 2
+        WHEN 'readonly' THEN 3
+        WHEN 'visible' THEN 4
+        WHEN 'editable' THEN 5
+        ELSE 5
+      END
+    ) <= (
+      CASE EXCLUDED.policy_type
+        WHEN 'hidden' THEN 1
+        WHEN 'masked' THEN 2
+        WHEN 'readonly' THEN 3
+        WHEN 'visible' THEN 4
+        WHEN 'editable' THEN 5
+        ELSE 5
+      END
+    )
+      THEN sys_field_policy.policy_type
+    ELSE EXCLUDED.policy_type
+  END,
+  mask_rule = CASE
+    WHEN (
+      CASE
+        WHEN (
+          CASE sys_field_policy.policy_type
+            WHEN 'hidden' THEN 1
+            WHEN 'masked' THEN 2
+            WHEN 'readonly' THEN 3
+            WHEN 'visible' THEN 4
+            WHEN 'editable' THEN 5
+            ELSE 5
+          END
+        ) <= (
+          CASE EXCLUDED.policy_type
+            WHEN 'hidden' THEN 1
+            WHEN 'masked' THEN 2
+            WHEN 'readonly' THEN 3
+            WHEN 'visible' THEN 4
+            WHEN 'editable' THEN 5
+            ELSE 5
+          END
+        )
+          THEN sys_field_policy.policy_type
+        ELSE EXCLUDED.policy_type
+      END
+    ) = 'masked'
+      THEN COALESCE(sys_field_policy.mask_rule, EXCLUDED.mask_rule, 'default')
+    ELSE NULL
+  END,
+  status = 'enabled',
   remark = EXCLUDED.remark,
   update_time = now();
 

@@ -1,5 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+BEGIN;
+
 CREATE TABLE IF NOT EXISTS public.sys_role_field_policy_convergence_audit (
   migration_key varchar(64) PRIMARY KEY,
   legacy_row_count integer NOT NULL,
@@ -15,15 +17,62 @@ CREATE TABLE IF NOT EXISTS public.sys_role_field_policy_convergence_audit (
 
 CREATE TEMP TABLE tmp_role_field_permission_legacy AS
 SELECT
+  legacy.resource AS legacy_resource,
   legacy.tenant_id,
   legacy.park_id,
   legacy.role_id,
   CASE
+    WHEN legacy.resource LIKE 'biz.leasing_%' THEN 'leasing'
+    WHEN legacy.resource LIKE 'rel.leasing_%' THEN 'leasing'
+    WHEN legacy.resource LIKE 'biz.work_order%' THEN 'workorder'
+    WHEN legacy.resource = 'biz.unit' THEN 'asset'
+    WHEN legacy.resource LIKE 'asset.%' THEN 'asset'
+    WHEN legacy.resource IN ('system.user', 'system.sys_user') THEN 'system'
+    WHEN legacy.resource LIKE 'biz.iot_%' THEN 'iot'
+    WHEN legacy.resource IN ('biz.scene_template', 'biz.scene_instance') THEN 'iot'
+    WHEN legacy.resource IN (
+      'biz.safety_hazard',
+      'biz.safety_work_permit',
+      'biz.safety_work_permit_check',
+      'biz.safety_inspect_plan',
+      'biz.safety_inspect_point',
+      'biz.safety_inspect_template',
+      'biz.safety_inspect_item',
+      'biz.safety_inspect_task',
+      'biz.safety_emergency_contact',
+      'biz.safety_emergency_plan',
+      'biz.safety_emergency_event'
+    ) THEN 'safety'
+    WHEN legacy.resource LIKE 'biz.camera_%' THEN 'video'
+    WHEN legacy.resource LIKE 'biz.video_%' THEN 'video'
     WHEN POSITION('.' IN legacy.resource) > 0 THEN SPLIT_PART(legacy.resource, '.', 1)
     WHEN POSITION(':' IN legacy.resource) > 0 THEN SPLIT_PART(legacy.resource, ':', 1)
     ELSE legacy.resource
   END AS module,
   CASE
+    WHEN legacy.resource LIKE 'biz.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource LIKE 'rel.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^rel[.]', 'rel_')
+    WHEN legacy.resource LIKE 'biz.work_order%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource = 'biz.unit' THEN 'unit'
+    WHEN legacy.resource LIKE 'asset.%' THEN REGEXP_REPLACE(legacy.resource, '^asset[.]', '')
+    WHEN legacy.resource = 'system.user' THEN 'user'
+    WHEN legacy.resource = 'system.sys_user' THEN 'user'
+    WHEN legacy.resource LIKE 'biz.iot_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource = 'biz.scene_template' THEN 'scene_template'
+    WHEN legacy.resource = 'biz.scene_instance' THEN 'scene_instance'
+    WHEN legacy.resource = 'biz.safety_hazard' THEN 'safety_hazard'
+    WHEN legacy.resource = 'biz.safety_work_permit' THEN 'work_permit'
+    WHEN legacy.resource = 'biz.safety_work_permit_check' THEN 'work_permit_check'
+    WHEN legacy.resource = 'biz.safety_inspect_plan' THEN 'inspect_plan'
+    WHEN legacy.resource = 'biz.safety_inspect_point' THEN 'inspect_point'
+    WHEN legacy.resource = 'biz.safety_inspect_template' THEN 'inspect_template'
+    WHEN legacy.resource = 'biz.safety_inspect_item' THEN 'inspect_item'
+    WHEN legacy.resource = 'biz.safety_inspect_task' THEN 'inspect_task'
+    WHEN legacy.resource = 'biz.safety_emergency_contact' THEN 'emergency_contact'
+    WHEN legacy.resource = 'biz.safety_emergency_plan' THEN 'emergency_plan'
+    WHEN legacy.resource = 'biz.safety_emergency_event' THEN 'emergency_event'
+    WHEN legacy.resource LIKE 'biz.camera_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource LIKE 'biz.video_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN POSITION('.' IN legacy.resource) > 0 THEN REGEXP_REPLACE(legacy.resource, '^[^.]+[.]', '')
     WHEN POSITION(':' IN legacy.resource) > 0 THEN REGEXP_REPLACE(legacy.resource, '^[^:]+[:]', '')
     ELSE legacy.resource
@@ -58,6 +107,17 @@ JOIN sys_role role
  AND role.tenant_id = legacy.tenant_id
  AND role.is_deleted = false
 WHERE legacy.is_deleted = false;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM tmp_role_field_permission_legacy legacy
+    WHERE legacy.module IN ('biz', 'rel')
+  ) THEN
+    RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain';
+  END IF;
+END $$;
 
 CREATE TEMP TABLE tmp_role_field_policy_canonical AS
 SELECT DISTINCT ON (tenant_id, module, entity, field_key)
@@ -323,6 +383,22 @@ SELECT
 	        LIMIT 20
 	      ) samples
 	    ), '[]'::jsonb),
+	    'resource_mapping_samples', COALESCE((
+	      SELECT jsonb_agg(sample)
+	      FROM (
+	        SELECT jsonb_build_object(
+	          'legacy_resource', mapped.legacy_resource,
+	          'module', mapped.module,
+	          'entity', mapped.entity
+	        ) AS sample
+	        FROM (
+	          SELECT DISTINCT legacy_resource, module, entity
+	          FROM tmp_role_field_permission_legacy
+	          ORDER BY legacy_resource, module, entity
+	          LIMIT 20
+	        ) mapped
+	      ) samples
+	    ), '[]'::jsonb),
 	    'conflict_samples', COALESCE((
 	      SELECT jsonb_agg(sample)
 	      FROM (
@@ -351,3 +427,5 @@ ON CONFLICT (migration_key) DO UPDATE SET
 
 COMMENT ON TABLE rel_role_field_perm IS 'Deprecated legacy field-permission write model. Runtime field policy authority is sys_field_policy plus rel_role_field_policy.';
 COMMENT ON TABLE public.sys_role_field_policy_convergence_audit IS 'Audits deprecated rel_role_field_perm convergence into sys_field_policy plus rel_role_field_policy.';
+
+COMMIT;
