@@ -63,6 +63,7 @@ SELECT
     WHEN legacy.resource LIKE 'biz.park_tenant%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.work_order%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'asset.%' THEN REGEXP_REPLACE(legacy.resource, '^asset[.]', '')
+    WHEN legacy.resource = 'system.file' THEN 'sys_file'
     WHEN legacy.resource = 'system.user' THEN 'user'
     WHEN legacy.resource = 'system.sys_user' THEN 'user'
     WHEN legacy.resource = 'biz.homestay_dashboard' THEN 'dashboard'

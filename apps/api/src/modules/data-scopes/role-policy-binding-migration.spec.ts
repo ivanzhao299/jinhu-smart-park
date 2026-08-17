@@ -77,6 +77,7 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_lease' THEN 'lease'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_handover' THEN 'handover'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.housing_lease_occupant' THEN 'occupant'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'system\.file' THEN 'sys_file'/);
   assert.match(fieldPolicyConvergenceMigration, /RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain'/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);
