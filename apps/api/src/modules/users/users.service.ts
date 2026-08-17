@@ -3,7 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import * as bcrypt from "bcrypt";
 import type { EntityManager, Repository } from "typeorm";
-import { ILike, In } from "typeorm";
+import { Brackets, ILike, In } from "typeorm";
 import {
   PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_SURFACES,
@@ -33,6 +33,7 @@ import { evaluateRoleAssignability, isRoleAssignmentProtected, type RoleUnassign
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
+import type { UserRoleCandidatesQueryDto } from "./dto/user-role-candidates-query.dto";
 import {
   clearPasswordLockoutState,
   evaluatePasswordFailure,
@@ -88,6 +89,11 @@ export interface UserRoleView {
 export interface UserRoleContext {
   roles: UserRoleView[];
   candidates: UserRoleView[];
+  candidatePage: UserRoleCandidatePage;
+}
+
+export interface UserRoleCandidatePage extends PaginatedResult<UserRoleView> {
+  hasMore: boolean;
 }
 
 const MAX_ROLE_CANDIDATES = 200;
@@ -1011,21 +1017,34 @@ export class UsersService {
   async getCreateRoleCandidates(
     scope: TenantParkScope,
     actor: JwtPrincipal,
-    tenantId?: string,
-    parkId?: string
-  ): Promise<UserRoleView[]> {
-    const targetScope = await this.resolveUserTargetScope(scope, actor, tenantId, parkId);
-    return this.listAssignableRoles(targetScope);
+    query: UserRoleCandidatesQueryDto
+  ): Promise<UserRoleView[] | UserRoleCandidatePage> {
+    const targetScope = await this.resolveUserTargetScope(scope, actor, query.tenantId, query.parkId);
+    const candidatePage = await this.listAssignableRolePage(targetScope, {
+      page: query.paged ? query.page ?? 1 : 1,
+      page_size: query.paged ? query.page_size ?? 20 : MAX_ROLE_CANDIDATES,
+      keyword: query.keyword
+    });
+    return query.paged ? candidatePage : candidatePage.items;
   }
 
-  async getUserRoleContext(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<UserRoleContext> {
+  async getUserRoleContext(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    query?: UserRoleCandidatesQueryDto
+  ): Promise<UserRoleContext> {
     const user = await this.getEntityForActor(scope, id, actor);
     const targetScope = { tenantId: user.tenantId, parkId: user.parkId };
-    const [roles, candidates] = await Promise.all([
+    const [roles, candidatePage] = await Promise.all([
       this.listAssignedRoles(targetScope, id),
-      this.listAssignableRoles(targetScope)
+      this.listAssignableRolePage(targetScope, {
+        page: query?.paged ? query.page ?? 1 : 1,
+        page_size: query?.paged ? query.page_size ?? 50 : MAX_ROLE_CANDIDATES,
+        keyword: query?.keyword
+      })
     ]);
-    return { roles, candidates };
+    return { roles, candidates: candidatePage.items, candidatePage };
   }
 
   async assignRoles(
@@ -1090,16 +1109,39 @@ export class UsersService {
     return { id };
   }
 
-  private async listAssignableRoles(scope: TenantParkScope): Promise<UserRoleView[]> {
-    const roles = await this.rolesRepository.find({
-      where: [
-        { tenantId: scope.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
-        { tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
-      ],
-      order: { level: "ASC", sortNo: "ASC", name: "ASC" },
-      take: MAX_ROLE_CANDIDATES
-    });
-    return roles.map((role) => this.toUserRoleView(scope, role));
+  private async listAssignableRolePage(
+    scope: TenantParkScope,
+    query: { page: number; page_size: number; keyword?: string }
+  ): Promise<UserRoleCandidatePage> {
+    const builder = this.rolesRepository.createQueryBuilder("role")
+      .where("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("(role.role_scope='tenant' OR (role.role_scope='park' AND role.park_id=:parkId))", { parkId: scope.parkId })
+      .andWhere("role.status='enabled' AND role.is_enabled=true")
+      .andWhere("role.is_template=false AND role.is_system=false AND role.is_builtin=false")
+      .andWhere("role.is_deleted=false");
+    if (query.keyword) {
+      builder.andWhere(new Brackets((keyword) => {
+        keyword
+          .where("role.code ILIKE :keyword", { keyword: `%${query.keyword}%` })
+          .orWhere("role.name ILIKE :keyword", { keyword: `%${query.keyword}%` });
+      }));
+    }
+    const [roles, total] = await builder
+      .orderBy("role.level", "ASC")
+      .addOrderBy("role.sortNo", "ASC")
+      .addOrderBy("role.name", "ASC")
+      .addOrderBy("role.code", "ASC")
+      .addOrderBy("role.id", "ASC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
+    return {
+      items: roles.map((role) => this.toUserRoleView(scope, role)),
+      total,
+      page: query.page,
+      page_size: query.page_size,
+      hasMore: query.page * query.page_size < total
+    };
   }
 
   private async listAssignedRoles(scope: TenantParkScope, userId: string): Promise<UserRoleView[]> {

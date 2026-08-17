@@ -4,7 +4,8 @@ GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/297
 Implementation branches:
 
 - `codex/issue-297-role-management-closure` — Field policy convergence / permission binding closure, merged by PR #298.
-- `codex/issue-297-role-assignability` — Role assignability expression stage.
+- `codex/issue-297-role-assignability` — Role assignability expression stage, merged by PR #301.
+- `codex/issue-297-role-candidate-pagination` — User role candidate pagination/search stage.
 
 ## 1. Planning And Branch Setup
 
@@ -25,9 +26,9 @@ Implementation branches:
 
 ## 3. User Role Candidate Pagination
 
-- [ ] 将用户角色候选从固定 `take=200` 改为分页/搜索或返回 `total/hasMore`。
-- [ ] Web 用户管理角色选择支持搜索/分页加载或超限提示。
-- [ ] 补充超过 200 个可分配角色的后端单测和前端契约测试。
+- [x] 将用户角色候选从固定 `take=200` 改为分页/搜索或返回 `total/hasMore`。
+- [x] Web 用户管理角色选择支持搜索/分页加载或超限提示。
+- [x] 补充超过 200 个可分配角色的后端单测和前端契约测试。
 
 ## 4. Permission Binding Consistency
 
@@ -70,6 +71,17 @@ Implementation branches:
 - Role assignability stage validation:
   - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/roles/role-assignability.spec.ts src/modules/roles/roles.authorization-scope.spec.ts src/modules/users/users.service.roles.spec.ts` — passed, 16/16.
   - `pnpm --filter @jinhu/web test:unit:system` — passed, 48/48.
+  - `pnpm --filter @jinhu/api typecheck` — passed.
+  - `pnpm --filter @jinhu/web typecheck` — passed.
+  - `pnpm --filter @jinhu/api lint` — passed.
+  - `pnpm --filter @jinhu/web lint` — passed.
+  - `pnpm --filter @jinhu/api build` — passed.
+  - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
+  - `git diff --check` — passed.
+  - Codex review for PR #302 raised four P2 issues; fixed by preserving newly selected roles across edit searches, adding stable role candidate tie-break ordering, preserving the legacy unpaged `/users/:id/roles` 200-candidate contract, and making load-more use the applied search keyword.
+- User role candidate pagination/search stage validation:
+  - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/users/users.service.roles.spec.ts src/modules/users/users.role-assignment-scope.spec.ts` — passed, 8/8.
+  - `pnpm --filter @jinhu/web test:unit:system` — passed, 49/49.
   - `pnpm --filter @jinhu/api typecheck` — passed.
   - `pnpm --filter @jinhu/web typecheck` — passed.
   - `pnpm --filter @jinhu/api lint` — passed.

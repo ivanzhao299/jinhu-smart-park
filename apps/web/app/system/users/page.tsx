@@ -55,6 +55,11 @@ interface UserRoleOption {
 interface UserRoleContext {
   roles: UserRoleOption[];
   candidates: UserRoleOption[];
+  candidatePage?: UserRoleCandidatePage;
+}
+
+interface UserRoleCandidatePage extends PaginatedResult<UserRoleOption> {
+  hasMore: boolean;
 }
 
 interface TenantRow {
@@ -84,6 +89,7 @@ interface TenantLoginSettings {
 const emptyUsers: PaginatedResult<UserRow> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyTenants: PaginatedResult<TenantRow> = { items: [], page: 1, page_size: 100, total: 0 };
 const MAX_ASSIGNED_ROLES = 50;
+const ROLE_CANDIDATE_PAGE_SIZE = 50;
 
 export default function UsersPage() {
   const authUser = useAuthUser();
@@ -112,6 +118,11 @@ export default function UsersPage() {
   const [roleCandidates, setRoleCandidates] = useState<UserRoleOption[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [loadedRoleIds, setLoadedRoleIds] = useState<string[]>([]);
+  const [roleCandidateKeyword, setRoleCandidateKeyword] = useState("");
+  const [roleCandidateAppliedKeyword, setRoleCandidateAppliedKeyword] = useState("");
+  const [roleCandidatePage, setRoleCandidatePage] = useState(1);
+  const [roleCandidateTotal, setRoleCandidateTotal] = useState(0);
+  const [roleCandidateHasMore, setRoleCandidateHasMore] = useState(false);
   const [roleCatalogLoading, setRoleCatalogLoading] = useState(false);
   const [roleCatalogReady, setRoleCatalogReady] = useState(false);
   const loginSettingsRequest = useRef(0);
@@ -167,35 +178,77 @@ export default function UsersPage() {
     }
   }
 
-  async function loadRoleCatalog(userId?: string, targetScope?: { tenantId: string; parkId: string }) {
+  async function loadRoleCatalog(
+    userId?: string,
+    targetScope?: { tenantId: string; parkId: string },
+    options: { page?: number; keyword?: string; append?: boolean; initializeSelection?: boolean } = {}
+  ) {
     const requestId = ++roleCatalogRequest.current;
-    clearRoleCatalog();
     if (!canAssignRoles) return;
     const token = localStorage.getItem("jinhu_access_token") ?? "";
+    const page = options.page ?? 1;
+    const keyword = (options.keyword ?? roleCandidateKeyword).trim();
+    if (!options.append) clearRoleCatalog({ preserveKeyword: true, preserveSelection: options.initializeSelection === false });
     setRoleCatalogLoading(true);
     try {
       if (userId) {
-        const response = await apiRequest<UserRoleContext>(`/users/${userId}/roles`, { token });
+        const params = new URLSearchParams({ paged: "true", page: String(page), page_size: String(ROLE_CANDIDATE_PAGE_SIZE) });
+        if (keyword) params.set("keyword", keyword);
+        const response = await apiRequest<UserRoleContext>(`/users/${userId}/roles?${params.toString()}`, { token });
         if (requestId !== roleCatalogRequest.current) return;
         const retained = response.data.roles.filter((role) => !response.data.candidates.some((candidate) => candidate.id === role.id));
-        setRoleCandidates([...response.data.candidates, ...retained]);
+        setRoleCandidates((current) => {
+          const retainedSelected = options.initializeSelection === false
+            ? current.filter((role) => selectedRoleIds.includes(role.id))
+            : [];
+          return mergeRoleCandidates(options.append ? current : retainedSelected, response.data.candidates, retained);
+        });
         const roleIds = response.data.roles.filter((role) => role.isAssignable).map((role) => role.id);
-        setSelectedRoleIds(roleIds);
-        setLoadedRoleIds(roleIds);
+        if (options.initializeSelection !== false) {
+          setSelectedRoleIds(roleIds);
+          setLoadedRoleIds(roleIds);
+        }
+        setRoleCandidatePage(response.data.candidatePage?.page ?? page);
+        setRoleCandidateTotal(response.data.candidatePage?.total ?? response.data.candidates.length);
+        setRoleCandidateHasMore(response.data.candidatePage?.hasMore ?? false);
+        setRoleCandidateAppliedKeyword(keyword);
         setRoleCatalogReady(true);
         return;
       }
       if (!targetScope) return;
-      const params = new URLSearchParams(targetScope);
-      const response = await apiRequest<UserRoleOption[]>(`/users/role-candidates?${params.toString()}`, { token });
+      const params = new URLSearchParams({ ...targetScope, paged: "true", page: String(page), page_size: String(ROLE_CANDIDATE_PAGE_SIZE) });
+      if (keyword) params.set("keyword", keyword);
+      const response = await apiRequest<UserRoleCandidatePage>(`/users/role-candidates?${params.toString()}`, { token });
       if (requestId !== roleCatalogRequest.current) return;
-      setRoleCandidates(response.data);
-      setSelectedRoleIds([]);
-      setLoadedRoleIds([]);
+      setRoleCandidates((current) => {
+        const retainedSelected = options.initializeSelection === false
+          ? current.filter((role) => selectedRoleIds.includes(role.id))
+          : [];
+        return mergeRoleCandidates(options.append ? current : retainedSelected, response.data.items);
+      });
+      if (options.initializeSelection !== false) {
+        setSelectedRoleIds([]);
+        setLoadedRoleIds([]);
+      }
+      setRoleCandidatePage(response.data.page);
+      setRoleCandidateTotal(response.data.total);
+      setRoleCandidateHasMore(response.data.hasMore);
+      setRoleCandidateAppliedKeyword(keyword);
       setRoleCatalogReady(true);
     } finally {
       if (requestId === roleCatalogRequest.current) setRoleCatalogLoading(false);
     }
+  }
+
+  async function refreshRoleCandidates(options: { page?: number; append?: boolean; keyword?: string } = {}) {
+    const keyword = options.keyword ?? roleCandidateKeyword;
+    const targetScope = editingUser ? undefined : formTenantId && formParkId ? { tenantId: formTenantId, parkId: formParkId } : undefined;
+    await loadRoleCatalog(editingUser?.id, targetScope, {
+      page: options.page ?? 1,
+      keyword,
+      append: options.append,
+      initializeSelection: false
+    });
   }
 
   async function load(page = 1) {
@@ -425,10 +478,17 @@ export default function UsersPage() {
     setOrgCatalogLoading(false);
   }
 
-  function clearRoleCatalog() {
+  function clearRoleCatalog(options: { preserveKeyword?: boolean; preserveSelection?: boolean } = {}) {
     setRoleCandidates([]);
-    setSelectedRoleIds([]);
-    setLoadedRoleIds([]);
+    if (!options.preserveSelection) {
+      setSelectedRoleIds([]);
+      setLoadedRoleIds([]);
+    }
+    if (!options.preserveKeyword) setRoleCandidateKeyword("");
+    setRoleCandidateAppliedKeyword(options.preserveKeyword ? roleCandidateAppliedKeyword : "");
+    setRoleCandidatePage(1);
+    setRoleCandidateTotal(0);
+    setRoleCandidateHasMore(false);
     setRoleCatalogLoading(false);
     setRoleCatalogReady(false);
   }
@@ -615,6 +675,28 @@ export default function UsersPage() {
               <DrawerFormGrid single>
                 <div className="field">
                   <label>账号角色</label>
+                  <div className="system-actions">
+                    <input
+                      value={roleCandidateKeyword}
+                      onChange={(event) => setRoleCandidateKeyword(event.target.value)}
+                      placeholder="搜索角色名称 / 编码"
+                    />
+                    <button type="button" onClick={() => void refreshRoleCandidates({ page: 1 }).catch((error: Error) => setDrawerError(error.message))} disabled={roleCatalogLoading}>
+                      <Search size={16} />搜索
+                    </button>
+                    {roleCandidateKeyword ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleCandidateKeyword("");
+                          void refreshRoleCandidates({ page: 1, keyword: "" }).catch((error: Error) => setDrawerError(error.message));
+                        }}
+                        disabled={roleCatalogLoading}
+                      >
+                        <X size={16} />清空
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="checkbox-list" aria-busy={roleCatalogLoading}>
                     {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
                     {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色；可新分配候选只展示当前目标租户/园区内可分配的启用角色。</span> : null}
@@ -639,7 +721,17 @@ export default function UsersPage() {
                       );
                     })}
                   </div>
-                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。可新分配候选只展示当前目标租户/园区内可分配的启用角色；保存时将替换全部可分配角色，受保护的现有角色不会删除。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
+                  {roleCandidateHasMore ? (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      onClick={() => void refreshRoleCandidates({ page: roleCandidatePage + 1, append: true, keyword: roleCandidateAppliedKeyword }).catch((error: Error) => setDrawerError(error.message))}
+                      disabled={roleCatalogLoading || roleCandidateKeyword.trim() !== roleCandidateAppliedKeyword}
+                    >
+                      加载更多角色
+                    </button>
+                  ) : null}
+                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。可新分配候选共 {roleCandidateTotal} 个；当前显示 {roleCandidates.length} 个，可能包含需保留的历史角色。候选只展示当前目标租户/园区内可分配的启用角色；保存时将替换全部可分配角色，受保护的现有角色不会删除。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
                 </div>
               </DrawerFormGrid>
             ) : null}
@@ -761,6 +853,16 @@ function mergeRetainedPostOptions(posts: OrgPostOption[], assignments: UserOrgAs
         unavailable: true
       }))
   ];
+}
+
+function mergeRoleCandidates(...groups: UserRoleOption[][]): UserRoleOption[] {
+  const rolesById = new Map<string, UserRoleOption>();
+  for (const group of groups) {
+    for (const role of group) {
+      if (!rolesById.has(role.id)) rolesById.set(role.id, role);
+    }
+  }
+  return [...rolesById.values()];
 }
 
 function sameOrgAssignments(

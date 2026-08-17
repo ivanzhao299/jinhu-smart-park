@@ -11,6 +11,8 @@ test("user management loads and saves roles through the dedicated contracts", ()
   assert.match(source, /createIdempotencyKey\("user-roles"\)/);
   assert.match(source, /body: \{ roleIds: selectedRoleIds \}/);
   assert.match(source, /hasPermission\(authUser, SYSTEM_PERMISSIONS\.USER_ASSIGN_ROLES\)/);
+  assert.match(source, /paged: "true"/);
+  assert.match(source, /ROLE_CANDIDATE_PAGE_SIZE = 50/);
 });
 
 test("user role failures remain visible and recoverable in the open drawer", () => {
@@ -47,6 +49,19 @@ test("disabled ordinary roles are removed while protected roles are retained", (
   assert.match(source, /role\.assignabilityLabel \|\| "当前不可分配"/);
   assert.match(source, /selectedRoleIds\.includes\(role\.id\) \|\| protectedRole/);
   assert.match(source, /可新分配候选只展示当前目标租户\/园区内可分配的启用角色/);
+});
+
+test("role candidates support search and incremental loading without dropping selected labels", () => {
+  assert.match(source, /搜索角色名称 \/ 编码/);
+  assert.match(source, /async function refreshRoleCandidates/);
+  assert.match(source, /initializeSelection: false/);
+  assert.match(source, /roleCandidatePage \+ 1/);
+  assert.match(source, /roleCandidateAppliedKeyword/);
+  assert.match(source, /roleCatalogLoading \|\| roleCandidateKeyword\.trim\(\) !== roleCandidateAppliedKeyword/);
+  assert.match(source, /加载更多角色/);
+  assert.match(source, /mergeRoleCandidates\(options\.append \? current : retainedSelected, response\.data\.items\)/);
+  assert.match(source, /mergeRoleCandidates\(options\.append \? current : retainedSelected, response\.data\.candidates, retained\)/);
+  assert.match(source, /可新分配候选共 \{roleCandidateTotal\} 个/);
 });
 
 test("role-only saving stays disabled unless the catalog loaded successfully", () => {
