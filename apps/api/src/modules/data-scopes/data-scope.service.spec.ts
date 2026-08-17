@@ -293,3 +293,247 @@ test("data-scope definitions are tenant-wide while bindings stay park-scoped", a
   assert.deepEqual(detailWhere, { id: rule.id, tenantId: "tenant-a", isDeleted: false });
   assert.deepEqual(boundCountWhere, { tenantId: "tenant-a", ruleId: rule.id, isDeleted: false });
 });
+
+test("data-scope rule creation validates org roots inside the current park", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const queries: Array<{ sql: string; parameters: unknown[] }> = [];
+  const saved: unknown[] = [];
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async (sql: string, parameters: unknown[]) => {
+        queries.push({ sql, parameters });
+        return [{ id: orgId }];
+      },
+      create: (value: unknown) => value,
+      save: async (value: unknown) => { saved.push(value); return value; }
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.createRule(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-1",
+    {
+      ruleCode: "ORG_CHILDREN",
+      ruleName: "组织及下级",
+      dimension: "org",
+      scopeType: "org_and_children",
+      scopeConfig: { orgIds: [orgId] }
+    }
+  );
+
+  assert.match(queries[0]?.sql ?? "", /FROM sys_org/);
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+  assert.equal((saved[0] as { scopeConfig?: { orgIds?: string[] } }).scopeConfig?.orgIds?.[0], orgId);
+});
+
+test("data-scope rule creation rejects unsupported scope config fields", async () => {
+  const service = new DataScopeService(
+    { exists: async () => false } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    () => service.createRule(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      {
+        ruleCode: "ORG_TYPO",
+        ruleName: "错误字段",
+        dimension: "org",
+        scopeType: "org_and_children",
+        scopeConfig: { orgId: "00000000-0000-4000-8000-000000000001" } as never
+      }
+    ),
+    /scope_config contains unsupported fields: orgId/
+  );
+});
+
+test("data-scope rule creation canonicalizes UUID org ids before existence comparison", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const upperOrgId = orgId.toUpperCase();
+  const queries: Array<{ parameters: unknown[] }> = [];
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async (_sql: string, parameters: unknown[]) => {
+        queries.push({ parameters });
+        return [{ id: orgId }];
+      },
+      create: (value: unknown) => value,
+      save: async (value: unknown) => value
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.createRule(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-1",
+    {
+      ruleCode: "ORG_UPPER",
+      ruleName: "大写 UUID",
+      dimension: "org",
+      scopeType: "org_and_children",
+      scopeConfig: { orgIds: [upperOrgId] }
+    }
+  );
+
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+});
+
+test("data-scope rule creation validates assigned org configs because runtime consumes configured ids", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const queries: Array<{ parameters: unknown[] }> = [];
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async (_sql: string, parameters: unknown[]) => {
+        queries.push({ parameters });
+        return [{ id: orgId }];
+      },
+      create: (value: unknown) => value,
+      save: async (value: unknown) => value
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.createRule(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-1",
+    {
+      ruleCode: "ORG_ASSIGNED",
+      ruleName: "本人关联组织",
+      dimension: "org",
+      scopeType: "assigned",
+      scopeConfig: { orgIds: [orgId] }
+    }
+  );
+
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+});
+
+test("data-scope rule update validates org config against the rule owner park", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const queries: Array<{ parameters: unknown[] }> = [];
+  const service = new DataScopeService(
+    {
+      findOne: async () => ({
+        id: "rule-a",
+        tenantId: "tenant-a",
+        parkId: "park-a",
+        ruleCode: "ORG_RULE",
+        ruleName: "组织规则",
+        dimension: "org",
+        scopeType: "custom",
+        scopeConfig: { orgIds: [orgId] },
+        isDeleted: false
+      }),
+      query: async (_sql: string, parameters: unknown[]) => {
+        queries.push({ parameters });
+        return [{ id: orgId }];
+      },
+      save: async (value: unknown) => value
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.updateRule(
+    { tenantId: "tenant-a", parkId: "park-b" },
+    "actor-1",
+    "rule-a",
+    { scopeConfig: { orgIds: [orgId] } }
+  );
+
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+});
+
+test("data-scope rule creation rejects org ids outside the current park", async () => {
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async () => []
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    () => service.createRule(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      {
+        ruleCode: "ORG_BAD",
+        ruleName: "跨园区组织",
+        dimension: "org",
+        scopeType: "custom",
+        scopeConfig: { orgIds: ["00000000-0000-4000-8000-000000000099"] }
+      }
+    ),
+    /Data scope org ids must reference enabled orgs in current park/
+  );
+});
+
+test("data-scope rule creation validates park ids inside the current tenant", async () => {
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async () => [{ id: "park-a" }],
+      create: (value: unknown) => value,
+      save: async (value: unknown) => value
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.createRule(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-1",
+    {
+      ruleCode: "PARK_CUSTOM",
+      ruleName: "园区范围",
+      dimension: "park",
+      scopeType: "custom",
+      scopeConfig: { parkIds: ["park-a"] }
+    }
+  );
+});
+
+test("data-scope rule creation rejects tenant ids outside the current tenant", async () => {
+  const service = new DataScopeService(
+    {
+      exists: async () => false,
+      query: async () => [{ id: "tenant-a" }]
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    () => service.createRule(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      {
+        ruleCode: "TENANT_BAD",
+        ruleName: "跨租户范围",
+        dimension: "tenant",
+        scopeType: "custom",
+        scopeConfig: { tenantIds: ["tenant-b"] }
+      }
+    ),
+    /Data scope tenant ids must stay in current tenant/
+  );
+});

@@ -10,6 +10,7 @@ import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import type { AssignRoleDataScopesDto } from "./dto/assign-role-data-scopes.dto";
 import type { CreateDataScopeRuleDto } from "./dto/create-data-scope-rule.dto";
 import type { UpdateDataScopeRuleDto } from "./dto/update-data-scope-rule.dto";
+import { canonicalizeUuidDataScopeIds, idsForDataScopeDimension, normalizeDataScopeType, normalizeScopeConfig } from "./data-scope-config";
 import type { DataScopeConfig, DataScopeDimension } from "./entities/data-scope-rule.entity";
 import { DataScopeRuleEntity } from "./entities/data-scope-rule.entity";
 import { RoleDataScopeEntity } from "./entities/role-data-scope.entity";
@@ -64,7 +65,8 @@ export class DataScopeService {
 
   async createRule(scope: TenantParkScope, actorId: string, dto: CreateDataScopeRuleDto): Promise<DataScopeRuleEntity> {
     await this.assertRuleCodeAvailable(scope, dto.ruleCode);
-    const scopeConfig = this.normalizeScopeConfig(dto.scopeConfig);
+    const scopeConfig = normalizeScopeConfig(dto.scopeConfig);
+    await this.validateScopeConfig(scope, dto.dimension, dto.scopeType, scopeConfig);
     const entity = this.rulesRepository.create({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -86,12 +88,18 @@ export class DataScopeService {
     if (dto.ruleCode && dto.ruleCode !== entity.ruleCode) {
       await this.assertRuleCodeAvailable(scope, dto.ruleCode);
     }
+    const nextDimension = dto.dimension ?? entity.dimension;
+    const nextScopeType = dto.scopeType ?? entity.scopeType;
+    const nextScopeConfig = dto.scopeConfig === undefined ? normalizeScopeConfig(entity.scopeConfig) : normalizeScopeConfig(dto.scopeConfig);
+    if (dto.dimension !== undefined || dto.scopeType !== undefined || dto.scopeConfig !== undefined) {
+      await this.validateScopeConfig({ tenantId: scope.tenantId, parkId: entity.parkId }, nextDimension, nextScopeType, nextScopeConfig);
+    }
     Object.assign(entity, {
       ruleCode: dto.ruleCode ?? entity.ruleCode,
       ruleName: dto.ruleName ?? entity.ruleName,
-      dimension: dto.dimension ?? entity.dimension,
-      scopeType: dto.scopeType ?? entity.scopeType,
-      scopeConfig: dto.scopeConfig === undefined ? entity.scopeConfig : this.normalizeScopeConfig(dto.scopeConfig),
+      dimension: nextDimension,
+      scopeType: nextScopeType,
+      scopeConfig: nextScopeConfig,
       status: dto.status ?? entity.status,
       remark: dto.remark ?? entity.remark,
       updateBy: actorId
@@ -293,7 +301,7 @@ export class DataScopeService {
       return null;
     }
     if (rules.length === 0) return enabledRules.length > 0 ? null : this.resolveFallbackAllowedIds(user, dimension);
-    const dimensionRules = rules.filter((rule) => rule.dimension === dimension || this.idsForDimension(dimension, rule.scopeConfig).length > 0 || rule.scopeType === "self");
+    const dimensionRules = rules.filter((rule) => rule.dimension === dimension || idsForDataScopeDimension(dimension, rule.scopeConfig).length > 0 || rule.scopeType === "self");
     if (dimensionRules.length === 0) {
       return [];
     }
@@ -302,12 +310,12 @@ export class DataScopeService {
       if (rule.scopeType === "self") {
         ids.add(user.sub);
       }
-      if (dimension === "org" && this.normalizeScopeType(rule.scopeType) === "org_and_children") {
-        const roots = this.idsForDimension("org", rule.scopeConfig);
+      if (dimension === "org" && normalizeDataScopeType(rule.scopeType) === "org_and_children") {
+        const roots = idsForDataScopeDimension("org", rule.scopeConfig);
         for (const id of await this.expandOrgDescendants(scope, roots)) ids.add(id);
         continue;
       }
-      for (const id of this.idsForDimension(dimension, rule.scopeConfig)) {
+      for (const id of idsForDataScopeDimension(dimension, rule.scopeConfig)) {
         ids.add(id);
       }
     }
@@ -331,7 +339,7 @@ export class DataScopeService {
   }
 
   private resolveFallbackAllowedIds(user: JwtPrincipal, dimension: DataScopeDimension): string[] | null {
-    const fallback = this.normalizeScopeType(user.dataScope ?? "tenant");
+    const fallback = normalizeDataScopeType(user.dataScope ?? "tenant");
     if (fallback === "all" || fallback === "tenant" || fallback === "park") {
       return null;
     }
@@ -385,27 +393,6 @@ export class DataScopeService {
       }));
   }
 
-  private normalizeScopeType(scope: string): string {
-    return ({ "10": "self", "20": "org", "30": "org_and_children", "40": "park", "50": "tenant", "60": "custom" })[scope] ?? scope;
-  }
-
-  private idsForDimension(dimension: DataScopeDimension, config: DataScopeConfig): string[] {
-    const byDimension: Record<DataScopeDimension, string[] | undefined> = {
-      tenant: config.ids,
-      park: config.ids,
-      org: config.orgIds ?? config.ids,
-      building: config.buildingIds ?? config.ids,
-      floor: config.floorIds ?? config.ids,
-      unit: config.unitIds ?? config.ids,
-      device: config.deviceIds ?? config.ids,
-      tenant_company: config.tenantCompanyIds ?? config.ids,
-      customer_owner: config.userIds ?? config.ids,
-      contract_owner: config.userIds ?? config.ids,
-      workorder_handler: config.userIds ?? config.ids
-    };
-    return byDimension[dimension] ?? [];
-  }
-
   private resolveFindColumn(dimension: DataScopeDimension, mapping: DataScopeColumnMapping): string | null {
     const columns: Record<DataScopeDimension, string | undefined> = {
       tenant: mapping.tenant ?? "tenantId",
@@ -440,29 +427,70 @@ export class DataScopeService {
     return columns[dimension] ?? null;
   }
 
-  private normalizeScopeConfig(config: DataScopeConfig | undefined): DataScopeConfig {
-    const source = config ?? {};
-    const normalized: DataScopeConfig = {};
-    const keys: Array<keyof DataScopeConfig> = [
-      "ids",
-      "orgIds",
-      "buildingIds",
-      "floorIds",
-      "unitIds",
-      "deviceIds",
-      "tenantCompanyIds",
-      "userIds"
-    ];
-    for (const key of keys) {
-      const value = source[key];
-      if (value !== undefined) {
-        if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-          throw new BadRequestException("scope_config must use structured string array fields only");
-        }
-        normalized[key] = [...new Set(value.map((item) => item.trim()).filter(Boolean))];
-      }
+  private async validateScopeConfig(
+    scope: TenantParkScope,
+    dimension: DataScopeDimension,
+    scopeType: string,
+    config: DataScopeConfig
+  ): Promise<void> {
+    const normalizedType = normalizeDataScopeType(scopeType);
+    const ids = idsForDataScopeDimension(dimension, config);
+    if (ids.length === 0) {
+      return;
     }
-    return normalized;
+    if (["all", "tenant", "park"].includes(normalizedType)) {
+      return;
+    }
+    if (dimension === "tenant") {
+      if (ids.some((id) => id !== scope.tenantId)) {
+        throw new BadRequestException("Data scope tenant ids must stay in current tenant");
+      }
+      await this.assertConfiguredIdsExist(
+        "Data scope tenant ids must reference enabled tenants in current scope",
+        ids,
+        `SELECT tenant_id AS id FROM sys_tenant
+          WHERE tenant_id = ANY($1::varchar[])
+            AND is_deleted = false
+            AND status = 1`,
+        [ids]
+      );
+      return;
+    }
+    if (dimension === "park") {
+      await this.assertConfiguredIdsExist(
+        "Data scope park ids must reference enabled parks in current tenant",
+        ids,
+        `SELECT park_id AS id FROM biz_park
+          WHERE tenant_id = $1
+            AND park_id = ANY($2::varchar[])
+            AND is_deleted = false
+            AND status = 1`,
+        [scope.tenantId, ids]
+      );
+      return;
+    }
+    if (dimension === "org") {
+      const orgIds = canonicalizeUuidDataScopeIds(ids, "Data scope org ids must be UUID strings");
+      await this.assertConfiguredIdsExist(
+        "Data scope org ids must reference enabled orgs in current park",
+        orgIds,
+        `SELECT id::text AS id FROM sys_org
+          WHERE tenant_id = $1
+            AND park_id = $2
+            AND id = ANY($3::uuid[])
+            AND is_deleted = false
+            AND status = 'enabled'`,
+        [scope.tenantId, scope.parkId, orgIds]
+      );
+    }
+  }
+
+  private async assertConfiguredIdsExist(message: string, expectedIds: string[], sql: string, parameters: unknown[]): Promise<void> {
+    const rows = await this.rulesRepository.query<Array<{ id: string }>>(sql, parameters);
+    const actualIds = new Set(rows.map((row) => row.id));
+    if (expectedIds.some((id) => !actualIds.has(id))) {
+      throw new BadRequestException(message);
+    }
   }
 
   private async assertRuleCodeAvailable(scope: TenantParkScope, ruleCode: string): Promise<void> {

@@ -19,6 +19,8 @@ export type DataScopeType = "all" | "tenant" | "park" | "org" | "org_and_childre
 
 export interface DataScopeConfig {
   ids?: string[];
+  tenantIds?: string[];
+  parkIds?: string[];
   orgIds?: string[];
   buildingIds?: string[];
   floorIds?: string[];

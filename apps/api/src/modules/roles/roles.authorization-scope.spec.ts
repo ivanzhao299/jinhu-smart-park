@@ -340,6 +340,211 @@ test("custom park role scope cannot be expanded to tenant directly", async () =>
   assert.equal(saved, false);
 });
 
+test("role dataScopeConfig rejects org ids outside the current park", async () => {
+  const role = {
+    id: "role-3",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "park",
+    dataScope: "tenant",
+    dataScopeConfig: {},
+    isBuiltin: false,
+    isSystem: false,
+    isEditable: true,
+    editable: true,
+    code: "ROLE_3",
+    name: "角色 3",
+    parentId: null,
+    rolePath: "ROLE_3",
+    roleLevel: 1,
+    level: 1,
+    sortNo: 0,
+    roleType: "custom",
+    isTemplate: false,
+    status: "enabled",
+    isEnabled: true
+  };
+  const roleBuilder = {
+    setLock: () => roleBuilder,
+    where: () => roleBuilder,
+    andWhere: () => roleBuilder,
+    getOne: async () => ({ ...role })
+  };
+  const roleRepository = {
+    createQueryBuilder: () => roleBuilder,
+    query: async () => [],
+    save: async (value: unknown) => value
+  };
+  const manager = {
+    getRepository: () => roleRepository
+  };
+  const service = new RolesService(
+    {
+      findOne: async () => role,
+      manager: { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) }
+    } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    service.update(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      role.id,
+      {
+        dataScope: "org_and_children",
+        dataScopeConfig: { orgIds: ["00000000-0000-4000-8000-000000000099"] }
+      }
+    ),
+    /Role dataScopeConfig org ids must reference enabled orgs in current park/
+  );
+});
+
+test("role dataScopeConfig canonicalizes UUID org ids and validates inside the locked update", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const upperOrgId = orgId.toUpperCase();
+  const role = {
+    id: "role-4",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "park",
+    dataScope: "org_and_children",
+    dataScopeConfig: { orgIds: [upperOrgId] },
+    isBuiltin: false,
+    isSystem: false,
+    isEditable: true,
+    editable: true,
+    code: "ROLE_4",
+    name: "角色 4",
+    parentId: null,
+    rolePath: "ROLE_4",
+    roleLevel: 1,
+    level: 1,
+    sortNo: 0,
+    roleType: "custom",
+    isTemplate: false,
+    status: "enabled",
+    isEnabled: true
+  };
+  const queries: Array<{ parameters: unknown[] }> = [];
+  const saved: unknown[] = [];
+  const roleBuilder = {
+    setLock: () => roleBuilder,
+    where: () => roleBuilder,
+    andWhere: () => roleBuilder,
+    getOne: async () => ({ ...role })
+  };
+  const roleRepository = {
+    createQueryBuilder: () => roleBuilder,
+    query: async (_sql: string, parameters: unknown[]) => {
+      queries.push({ parameters });
+      return [{ id: orgId }];
+    },
+    save: async (value: unknown) => { saved.push(value); return value; }
+  };
+  const manager = {
+    getRepository: () => roleRepository
+  };
+  const service = new RolesService(
+    {
+      findOne: async () => role,
+      manager: { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) }
+    } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.update(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    "actor-1",
+    role.id,
+    { dataScope: "org_and_children" }
+  );
+
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+  assert.equal((saved[0] as { dataScope?: string }).dataScope, "org_and_children");
+});
+
+test("tenant role dataScopeConfig validates org ids against the locked role owner park", async () => {
+  const orgId = "00000000-0000-4000-8000-000000000001";
+  const role = {
+    id: "role-5",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "tenant",
+    dataScope: "org_and_children",
+    dataScopeConfig: { orgIds: [orgId] },
+    isBuiltin: false,
+    isSystem: false,
+    isEditable: true,
+    editable: true,
+    code: "ROLE_5",
+    name: "角色 5",
+    parentId: null,
+    rolePath: "ROLE_5",
+    roleLevel: 1,
+    level: 1,
+    sortNo: 0,
+    roleType: "custom",
+    isTemplate: false,
+    status: "enabled",
+    isEnabled: true
+  };
+  const queries: Array<{ parameters: unknown[] }> = [];
+  const roleBuilder = {
+    setLock: () => roleBuilder,
+    where: () => roleBuilder,
+    andWhere: () => roleBuilder,
+    getOne: async () => ({ ...role })
+  };
+  const roleRepository = {
+    createQueryBuilder: () => roleBuilder,
+    query: async (_sql: string, parameters: unknown[]) => {
+      queries.push({ parameters });
+      return [{ id: orgId }];
+    },
+    save: async (value: unknown) => value
+  };
+  const manager = {
+    getRepository: () => roleRepository
+  };
+  const service = new RolesService(
+    {
+      findOne: async () => role,
+      manager: { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) }
+    } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.update(
+    { tenantId: "tenant-a", parkId: "park-b" },
+    "actor-1",
+    role.id,
+    { dataScopeConfig: { orgIds: [orgId] } }
+  );
+
+  assert.deepEqual(queries[0]?.parameters, ["tenant-a", "park-a", [orgId]]);
+});
+
+test("role dataScopeConfig validates explicit tenant and park ids", () => {
+  const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
+  assert.match(source, /validateRoleDataScopeConfig\(scope, dataScope, dataScopeConfig, this\.rolesRepository\)/);
+  assert.match(source, /const lockedDataScope = dto\.dataScope \?\? lockedRole\.dataScope/);
+  assert.match(source, /parkId: lockedRole\.parkId \?\? scope\.parkId/);
+  assert.match(source, /validateRoleDataScopeConfig\([\s\S]*lockedDataScope,[\s\S]*lockedDataScopeConfig,[\s\S]*manager\.getRepository\(RoleEntity\)/);
+  assert.match(source, /Role dataScopeConfig tenant ids must stay in current tenant/);
+  assert.match(source, /SELECT park_id AS id FROM biz_park/);
+  assert.match(source, /Custom role dataScopeConfig must use tenantIds, parkIds, or orgIds/);
+});
+
 test("role scope is locked in the edit form", () => {
   const source = readFileSync(resolve(__dirname, "../../../../web/app/system/roles/page.tsx"), "utf8");
   assert.match(source, /disabled=\{formMode === "edit"\}/);
