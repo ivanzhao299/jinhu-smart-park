@@ -88,6 +88,29 @@ FROM tmp_role_field_permission_legacy
 GROUP BY tenant_id, module, entity, field_key
 HAVING COUNT(DISTINCT policy_type) > 1;
 
+CREATE TEMP TABLE tmp_role_field_policy_existing_reconciliations AS
+SELECT
+  canonical.tenant_id,
+  canonical.module,
+  canonical.entity,
+  canonical.field_key,
+  canonical.policy_type AS canonical_policy_type,
+  canonical.mask_rule AS canonical_mask_rule,
+  policy.id AS existing_policy_id,
+  policy.policy_type AS existing_policy_type,
+  policy.mask_rule AS existing_mask_rule,
+  policy.status AS existing_status
+FROM tmp_role_field_policy_canonical canonical
+JOIN sys_field_policy policy
+  ON policy.tenant_id = canonical.tenant_id
+ AND policy.module = canonical.module
+ AND policy.entity = canonical.entity
+ AND policy.field_key = canonical.field_key
+ AND policy.is_deleted = false
+WHERE policy.status <> 'enabled'
+   OR policy.policy_type <> canonical.policy_type
+   OR policy.mask_rule IS DISTINCT FROM canonical.mask_rule;
+
 INSERT INTO sys_field_policy (
   id,
   tenant_id,
@@ -126,7 +149,67 @@ SELECT
   1,
   'Migrated from deprecated rel_role_field_perm'
 FROM tmp_role_field_policy_canonical
-ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO NOTHING;
+ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO UPDATE SET
+  policy_type = CASE
+    WHEN (
+      CASE sys_field_policy.policy_type
+        WHEN 'hidden' THEN 1
+        WHEN 'masked' THEN 2
+        WHEN 'readonly' THEN 3
+        WHEN 'editable' THEN 4
+        WHEN 'visible' THEN 5
+        ELSE 5
+      END
+    ) <= (
+      CASE EXCLUDED.policy_type
+        WHEN 'hidden' THEN 1
+        WHEN 'masked' THEN 2
+        WHEN 'readonly' THEN 3
+        WHEN 'editable' THEN 4
+        WHEN 'visible' THEN 5
+        ELSE 5
+      END
+    )
+      THEN sys_field_policy.policy_type
+    ELSE EXCLUDED.policy_type
+  END,
+  mask_rule = CASE
+    WHEN (
+      CASE
+        WHEN (
+          CASE sys_field_policy.policy_type
+            WHEN 'hidden' THEN 1
+            WHEN 'masked' THEN 2
+            WHEN 'readonly' THEN 3
+            WHEN 'editable' THEN 4
+            WHEN 'visible' THEN 5
+            ELSE 5
+          END
+        ) <= (
+          CASE EXCLUDED.policy_type
+            WHEN 'hidden' THEN 1
+            WHEN 'masked' THEN 2
+            WHEN 'readonly' THEN 3
+            WHEN 'editable' THEN 4
+            WHEN 'visible' THEN 5
+            ELSE 5
+          END
+        )
+          THEN sys_field_policy.policy_type
+        ELSE EXCLUDED.policy_type
+      END
+    ) = 'masked'
+      THEN COALESCE(EXCLUDED.mask_rule, sys_field_policy.mask_rule, 'default')
+    ELSE NULL
+  END,
+  status = 'enabled',
+  update_by = COALESCE(EXCLUDED.update_by, sys_field_policy.update_by),
+  update_time = now(),
+  version = sys_field_policy.version + 1,
+  remark = LEFT(
+    CONCAT_WS('; ', NULLIF(sys_field_policy.remark, ''), 'Reconciled from deprecated rel_role_field_perm without relaxing legacy restrictions'),
+    500
+  );
 
 CREATE TEMP TABLE tmp_role_field_policy_resolved_links AS
 SELECT DISTINCT ON (legacy.tenant_id, legacy.park_id, legacy.role_id, policy.id)
@@ -215,15 +298,34 @@ SELECT
   ),
   jsonb_build_object(
     'policy_precedence', jsonb_build_array('hidden', 'masked', 'readonly', 'editable'),
-    'access_mode_mapping', jsonb_build_object(
-      'none', 'hidden',
-      'mask', 'masked',
-      'read', 'readonly',
-      'write', 'editable'
-    ),
-    'conflict_samples', COALESCE((
-      SELECT jsonb_agg(sample)
-      FROM (
+	    'access_mode_mapping', jsonb_build_object(
+	      'none', 'hidden',
+	      'mask', 'masked',
+	      'read', 'readonly',
+	      'write', 'editable'
+	    ),
+	    'existing_policy_reconciliations', COALESCE((
+	      SELECT jsonb_agg(sample)
+	      FROM (
+	        SELECT jsonb_build_object(
+	          'tenant_id', tenant_id,
+	          'module', module,
+	          'entity', entity,
+	          'field_key', field_key,
+	          'existing_policy_type', existing_policy_type,
+	          'existing_mask_rule', existing_mask_rule,
+	          'existing_status', existing_status,
+	          'canonical_policy_type', canonical_policy_type,
+	          'canonical_mask_rule', canonical_mask_rule
+	        ) AS sample
+	        FROM tmp_role_field_policy_existing_reconciliations
+	        ORDER BY tenant_id, module, entity, field_key
+	        LIMIT 20
+	      ) samples
+	    ), '[]'::jsonb),
+	    'conflict_samples', COALESCE((
+	      SELECT jsonb_agg(sample)
+	      FROM (
         SELECT jsonb_build_object(
           'tenant_id', tenant_id,
           'module', module,

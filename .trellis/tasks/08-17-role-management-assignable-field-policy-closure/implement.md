@@ -65,7 +65,9 @@ Implementation branch: `codex/issue-297-role-management-closure`
 ### Validation Notes
 
 - 空库迁移首次实跑发现 `000215_role_field_permission_policy_convergence.sql` 的 session temp table 使用 `ON COMMIT DROP` 会被迁移 runner 的逐语句事务提交提前删除；已修复为普通 session temp table 并在同一隔离库复跑成功。
+- PR #298 的 Codex review 指出旧数据复用已有 `sys_field_policy` 时不能静默 `DO NOTHING`，否则旧 `none/mask/read` 可能绑定到更宽松或已禁用的策略；已改为按更严格策略保守收敛、强制启用，并记录 `existing_policy_reconciliations` audit samples。
 - `sys_role_field_policy_convergence_audit` 实跑结果为 `legacy_row_count=0`、`canonical_policy_count=0`、`conflicting_field_count=0`、`resolved_link_count=0`、`active_policy_count=0`、`active_link_count=0`。
+- Codex review 修复后重新执行隔离空库全量迁移，215/215 成功，`000215_role_field_permission_policy_convergence.sql` 真实执行成功。
 - 完整回归期间 API 有 `SafetyInspectRuntimeService` 计划生成 SQL 语法告警；该告警与本次角色/字段策略变更无直接调用链关系，未阻断回归，需作为独立安全巡检缺陷另行跟踪。
 - 本轮临时隔离数据库 `jinhu_role_policy_check_1786952752` 已在验证后删除。
 

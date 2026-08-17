@@ -66,12 +66,20 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'mask' THEN 'masked'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'read' THEN 'readonly'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'write' THEN 'editable'/);
+  assert.match(fieldPolicyConvergenceMigration, /tmp_role_field_policy_existing_reconciliations/);
+  assert.match(
+    fieldPolicyConvergenceMigration,
+    /ON CONFLICT \(tenant_id, module, entity, field_key\) WHERE is_deleted = false DO UPDATE SET/
+  );
+  assert.match(fieldPolicyConvergenceMigration, /status = 'enabled'/);
+  assert.match(fieldPolicyConvergenceMigration, /without relaxing legacy restrictions/);
   assert.match(
     fieldPolicyConvergenceMigration,
     /ON CONFLICT \(tenant_id, park_id, role_id, field_policy_id\) WHERE is_deleted = false DO NOTHING/
   );
   assert.match(fieldPolicyConvergenceMigration, /conflicting_field_count/);
   assert.match(fieldPolicyConvergenceMigration, /policy_precedence[\s\S]*hidden[\s\S]*masked[\s\S]*readonly[\s\S]*editable/);
+  assert.match(fieldPolicyConvergenceMigration, /existing_policy_reconciliations/);
   assert.match(fieldPolicyConvergenceMigration, /conflict_samples/);
   assert.match(fieldPolicyConvergenceMigration, /Deprecated legacy field-permission write model/);
 });
