@@ -85,7 +85,31 @@ test("user role context uses the target user's tenant and park", async () => {
   ]);
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
   assert.deepEqual(result.candidates.map((item) => item.id), [assignedRole.id]);
+  assert.equal(result.roles[0]?.isAssignable, true);
+  assert.deepEqual(result.roles[0]?.unassignableReasons, []);
+  assert.equal(result.roles[0]?.assignabilityLabel, "可分配");
   assert.equal(candidateTake, 200);
+});
+
+test("assigned user roles carry unassignable reasons for retained protected or disabled roles", async () => {
+  const assignedTemplate = role({ id: "role-template", isTemplate: true });
+  const assignedDisabled = role({ id: "role-disabled", status: "disabled", isEnabled: false });
+  const service = createService({
+    rolesRepository: { find: async () => [] },
+    userRoleRepository: {
+      find: async () => [{ role: assignedTemplate }, { role: assignedDisabled }]
+    }
+  });
+
+  const result = await service.getUserRoleContext(scope, actor, target.id);
+
+  assert.deepEqual(result.roles.map((item) => item.id), ["role-template", "role-disabled"]);
+  assert.deepEqual(result.roles[0]?.unassignableReasons, ["template"]);
+  assert.equal(result.roles[0]?.isProtected, true);
+  assert.equal(result.roles[0]?.assignabilityLabel, "模板角色");
+  assert.deepEqual(result.roles[1]?.unassignableReasons, ["disabled"]);
+  assert.equal(result.roles[1]?.isProtected, false);
+  assert.equal(result.roles[1]?.assignabilityLabel, "已停用");
 });
 
 test("role replacement rejects duplicate IDs before changing persisted links", async () => {

@@ -29,6 +29,7 @@ import { lockOrgHierarchy, lockUserOrganizationScope } from "../orgs/org-hierarc
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
+import { evaluateRoleAssignability, isRoleAssignmentProtected, type RoleUnassignableReason } from "../roles/role-assignability";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
@@ -80,6 +81,8 @@ export interface UserRoleView {
   isEnabled: boolean;
   isAssignable: boolean;
   isProtected: boolean;
+  unassignableReasons: RoleUnassignableReason[];
+  assignabilityLabel: string;
 }
 
 export interface UserRoleContext {
@@ -1096,7 +1099,7 @@ export class UsersService {
       order: { level: "ASC", sortNo: "ASC", name: "ASC" },
       take: MAX_ROLE_CANDIDATES
     });
-    return roles.map((role) => this.toUserRoleView(role, true));
+    return roles.map((role) => this.toUserRoleView(scope, role));
   }
 
   private async listAssignedRoles(scope: TenantParkScope, userId: string): Promise<UserRoleView[]> {
@@ -1108,20 +1111,15 @@ export class UsersService {
     return links
       .filter((link) => link.role?.tenantId === scope.tenantId
         && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === scope.parkId)))
-      .map((link) => this.toUserRoleView(link.role, this.isRoleAssignable(link.role)));
-  }
-
-  private isRoleAssignable(role: RoleEntity): boolean {
-    return role.isEnabled && !role.isDeleted && role.status === "enabled"
-      && !role.isTemplate && !role.isSystem && !role.isBuiltin
-      && (role.roleScope === "tenant" || role.roleScope === "park");
+      .map((link) => this.toUserRoleView(scope, link.role));
   }
 
   private isRoleAssignmentProtected(role: RoleEntity): boolean {
-    return role.isTemplate || role.isSystem || role.isBuiltin || role.roleScope === "platform";
+    return isRoleAssignmentProtected(role);
   }
 
-  private toUserRoleView(role: RoleEntity, isAssignable: boolean): UserRoleView {
+  private toUserRoleView(scope: TenantParkScope, role: RoleEntity): UserRoleView {
+    const assignability = evaluateRoleAssignability(role, scope);
     return {
       id: role.id,
       code: role.code,
@@ -1129,8 +1127,10 @@ export class UsersService {
       roleScope: role.roleScope,
       status: role.status,
       isEnabled: role.isEnabled && !role.isDeleted,
-      isAssignable,
-      isProtected: this.isRoleAssignmentProtected(role)
+      isAssignable: assignability.isAssignable,
+      isProtected: assignability.isProtected,
+      unassignableReasons: assignability.unassignableReasons,
+      assignabilityLabel: assignability.assignabilityLabel
     };
   }
 
@@ -1341,7 +1341,7 @@ export class UsersService {
           .filter((link) => link.userId === user.id && link.tenantId === user.tenantId && link.parkId === user.parkId)
           .filter((link) => link.role?.tenantId === user.tenantId
             && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === user.parkId)))
-          .map((link) => this.toUserRoleView(link.role, this.isRoleAssignable(link.role))),
+          .map((link) => this.toUserRoleView({ tenantId: user.tenantId, parkId: user.parkId }, link.role)),
         loginContextStatus: this.resolveLoginContextStatus(user, tenant, park, explicitLinks),
         createTime: user.createTime,
         updateTime: user.updateTime,

@@ -1,9 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { Repository } from "typeorm";
-import { ILike, In } from "typeorm";
+import type { Repository, SelectQueryBuilder } from "typeorm";
+import { Brackets, In } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
-import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
@@ -13,11 +12,14 @@ import type { AssignPermissionsDto } from "./dto/assign-permissions.dto";
 import type { AssignFieldPermissionsDto } from "./dto/assign-field-permissions.dto";
 import type { CreateRoleDto } from "./dto/create-role.dto";
 import type { CopyRoleDto } from "./dto/copy-role.dto";
+import type { ListRolesQueryDto } from "./dto/list-roles-query.dto";
 import type { UpdateRoleDto } from "./dto/update-role.dto";
 import { RoleEntity } from "./entities/role.entity";
 import { UserRoleEntity } from "./entities/user-role.entity";
+import { evaluateRoleAssignability, type RoleAssignability } from "./role-assignability";
 
-export type RoleTreeNode = Omit<RoleEntity, "children"> & { children: RoleTreeNode[] };
+export type RoleManagementView = RoleEntity & RoleAssignability;
+export type RoleTreeNode = Omit<RoleManagementView, "children"> & { children: RoleTreeNode[] };
 
 @Injectable()
 export class RolesService {
@@ -34,27 +36,35 @@ export class RolesService {
     private readonly userRoleRepository: Repository<UserRoleEntity>
   ) {}
 
-  async list(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<RoleEntity>> {
-    const statusWhere =
-      query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
-    const scopeWhere = [
-      { tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false, ...statusWhere },
-      { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, ...statusWhere }
-    ];
-    const where = query.keyword
-      ? scopeWhere.flatMap((baseWhere) => [
-          { ...baseWhere, code: ILike(`%${query.keyword}%`) },
-          { ...baseWhere, name: ILike(`%${query.keyword}%`) }
-        ])
-      : scopeWhere;
-    const [items, total] = await this.rolesRepository.findAndCount({
-      where,
-      order: { level: "ASC", sortNo: "ASC", createTime: "DESC" },
-      skip: (query.page - 1) * query.page_size,
-      take: query.page_size
-    });
+  async list(scope: TenantParkScope, query: ListRolesQueryDto): Promise<PaginatedResult<RoleManagementView>> {
+    const builder = this.rolesRepository.createQueryBuilder("role")
+      .where("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("role.is_deleted=false")
+      .andWhere("(role.role_scope='tenant' OR role.park_id=:parkId)", { parkId: scope.parkId });
+
+    if (query.status === "enabled") {
+      builder.andWhere("role.is_enabled=true");
+    } else if (query.status === "disabled") {
+      builder.andWhere("role.is_enabled=false");
+    }
+    if (query.keyword) {
+      builder.andWhere(new Brackets((keyword) => {
+        keyword
+          .where("role.code ILIKE :keyword", { keyword: `%${query.keyword}%` })
+          .orWhere("role.name ILIKE :keyword", { keyword: `%${query.keyword}%` });
+      }));
+    }
+    this.applyAssignabilityFilter(builder, query.assignability);
+
+    const [items, total] = await builder
+      .orderBy("role.level", "ASC")
+      .addOrderBy("role.sortNo", "ASC")
+      .addOrderBy("role.createTime", "DESC")
+      .skip((query.page - 1) * query.page_size)
+      .take(query.page_size)
+      .getManyAndCount();
     await this.attachPermissionLinks(scope, items);
-    return { items, total, page: query.page, page_size: query.page_size };
+    return { items: this.toManagementViews(scope, items), total, page: query.page, page_size: query.page_size };
   }
 
   async listByScope(scope: TenantParkScope): Promise<RoleEntity[]> {
@@ -76,7 +86,7 @@ export class RolesService {
       ],
       order: { level: "ASC", sortNo: "ASC", createTime: "ASC" }
     });
-    return this.buildTree(roles);
+    return this.buildTree(this.toManagementViews(scope, roles));
   }
 
   async create(scope: TenantParkScope, actorId: string, dto: CreateRoleDto): Promise<RoleEntity> {
@@ -113,7 +123,7 @@ export class RolesService {
     );
   }
 
-  async detail(scope: TenantParkScope, id: string): Promise<RoleEntity> {
+  async detail(scope: TenantParkScope, id: string): Promise<RoleManagementView> {
     const role = await this.rolesRepository.findOne({
       where: [
         { id, tenantId: scope.tenantId, roleScope: "tenant", isDeleted: false },
@@ -124,7 +134,7 @@ export class RolesService {
       throw new NotFoundException("Role not found");
     }
     await this.attachPermissionLinks(scope, [role]);
-    return role;
+    return this.toManagementView(scope, role);
   }
 
   async update(scope: TenantParkScope, actorId: string, id: string, dto: UpdateRoleDto): Promise<RoleEntity> {
@@ -536,7 +546,37 @@ export class RolesService {
     }
   }
 
-  private buildTree(roles: RoleEntity[]): RoleTreeNode[] {
+  private toManagementViews(scope: TenantParkScope, roles: RoleEntity[]): RoleManagementView[] {
+    return roles.map((role) => this.toManagementView(scope, role));
+  }
+
+  private toManagementView(scope: TenantParkScope, role: RoleEntity): RoleManagementView {
+    return Object.assign(role, evaluateRoleAssignability(role, scope));
+  }
+
+  private applyAssignabilityFilter(builder: SelectQueryBuilder<RoleEntity>, assignability?: string): void {
+    const assignableWhere = [
+      "role.status='enabled'",
+      "role.is_enabled=true",
+      "role.is_template=false",
+      "role.is_system=false",
+      "role.is_builtin=false",
+      "role.role_scope IN ('tenant','park')"
+    ].join(" AND ");
+    if (assignability === "assignable") {
+      builder.andWhere(assignableWhere);
+    } else if (assignability === "unassignable") {
+      builder.andWhere(`NOT (${assignableWhere})`);
+    } else if (assignability === "template") {
+      builder.andWhere("role.is_template=true");
+    } else if (assignability === "protected") {
+      builder.andWhere("(role.is_template=true OR role.is_system=true OR role.is_builtin=true OR role.role_scope='platform')");
+    } else if (assignability === "disabled") {
+      builder.andWhere("(role.status<>'enabled' OR role.is_enabled=false)");
+    }
+  }
+
+  private buildTree(roles: RoleManagementView[]): RoleTreeNode[] {
     const nodes = new Map<string, RoleTreeNode>();
     for (const role of roles) {
       nodes.set(role.id, Object.assign(role, { children: [] as RoleTreeNode[] }));

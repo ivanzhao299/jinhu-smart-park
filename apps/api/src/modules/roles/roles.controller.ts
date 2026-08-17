@@ -6,7 +6,6 @@ import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
-import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AssignRoleDataScopesDto } from "../data-scopes/dto/assign-role-data-scopes.dto";
 import { AssignRoleFieldPoliciesDto } from "../field-policies/dto/assign-role-field-policies.dto";
@@ -14,6 +13,7 @@ import { AssignFieldPermissionsDto } from "./dto/assign-field-permissions.dto";
 import { AssignPermissionsDto } from "./dto/assign-permissions.dto";
 import { CopyRoleDto } from "./dto/copy-role.dto";
 import { CreateRoleDto } from "./dto/create-role.dto";
+import { ListRolesQueryDto } from "./dto/list-roles-query.dto";
 import { UpdateRoleDto } from "./dto/update-role.dto";
 import { RolesService } from "./roles.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
@@ -35,7 +35,7 @@ export class RolesController {
 
   @Get()
   @RequirePermissions(SYSTEM_PERMISSIONS.ROLE_READ)
-  list(@CurrentScope() scope: TenantParkScope, @Query() query: PaginationQueryDto) {
+  list(@CurrentScope() scope: TenantParkScope, @Query() query: ListRolesQueryDto) {
     return this.rolesService.list(scope, query);
   }
 

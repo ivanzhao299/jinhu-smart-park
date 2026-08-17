@@ -28,6 +28,10 @@ interface RoleNode {
   editable?: boolean;
   isEditable?: boolean;
   status: string;
+  isAssignable: boolean;
+  isProtected: boolean;
+  unassignableReasons: string[];
+  assignabilityLabel: string;
   remark?: string | null;
   version: number;
   appliedBundleCodes?: string[];
@@ -140,6 +144,7 @@ export default function RolesPage() {
   const [bundleApplying, setBundleApplying] = useState(false);
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
+  const [assignability, setAssignability] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [selectedRole, setSelectedRole] = useState<RoleNode | null>(null);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState<string[]>([]);
@@ -161,6 +166,7 @@ export default function RolesPage() {
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
     if (keyword.trim()) params.set("keyword", keyword.trim());
     if (status) params.set("status", status);
+    if (assignability) params.set("assignability", assignability);
     const [rolesResponse, treeResponse, permissionTreeResponse, dataScopeResponse, fieldPolicyResponse] = await Promise.all([
       apiRequest<PaginatedResult<RoleNode>>(`/roles?${params.toString()}`, { token }),
       apiRequest<RoleNode[]>("/roles/tree", { token }),
@@ -439,6 +445,7 @@ export default function RolesPage() {
           <div className="dashboard-grid">
             <div className="field"><label>关键词</label><input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="角色编码 / 名称" /></div>
             <div className="field"><label>状态</label><select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部</option><option value="enabled">启用</option><option value="disabled">停用</option></select></div>
+            <div className="field"><label>可分配性</label><select value={assignability} onChange={(event) => setAssignability(event.target.value)}><option value="">全部角色</option><option value="assignable">可分配角色</option><option value="unassignable">不可分配角色</option><option value="template">模板角色</option><option value="protected">系统/内置/平台角色</option><option value="disabled">停用角色</option></select></div>
           </div>
           <div className="filter-actions"><button className="primary-button" type="submit">查询</button></div>
         </form>
@@ -469,6 +476,7 @@ export default function RolesPage() {
                     <h2 className="panel-title">{selectedRole.name}</h2>
                     <p className="muted-text">{selectedRole.code}</p>
                     <RoleTags role={selectedRole} />
+                    <AssignabilityBadge role={selectedRole} />
                   </div>
                   <div className="system-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
@@ -482,6 +490,7 @@ export default function RolesPage() {
                   <Meta label="角色范围" value={selectedRole.roleScope} />
                   <Meta label="角色类型" value={selectedRole.roleType} />
                   <Meta label="数据范围" value={selectedRole.dataScope} />
+                  <Meta label="分配状态" value={selectedRole.assignabilityLabel} />
                 </div>
 
                 <div className="system-tabs">
@@ -518,7 +527,7 @@ export default function RolesPage() {
           <h2 className="panel-title">角色列表</h2>
           <div className="table-scroll">
             <DataTable >
-              <thead><tr><th>编码</th><th>名称</th><th>上级</th><th>范围</th><th>数据范围</th><th>标签</th><th>状态</th><th>操作</th></tr></thead>
+              <thead><tr><th>编码</th><th>名称</th><th>上级</th><th>范围</th><th>数据范围</th><th>标签</th><th>可分配性</th><th>状态</th><th>操作</th></tr></thead>
               <tbody>
                 {data.items.map((item) => (
                   <tr key={item.id}>
@@ -528,6 +537,7 @@ export default function RolesPage() {
                     <td>{item.roleScope}</td>
                     <td><span className="status-pill">{item.dataScope}</span></td>
                     <td><RoleTags role={item} /></td>
+                    <td><AssignabilityBadge role={item} /></td>
                     <td><StatusBadge status={item.status} /></td>
                     <td><button className="inline-action-button" type="button" onClick={() => { setWorkspace("config"); void selectRole(item.id).catch(showError); }}>配置</button></td>
                   </tr>
@@ -582,6 +592,7 @@ function RoleTreeItem({ role, selectedId, onSelect, onCreateChild }: { role: Rol
     <div className="role-tree-node">
       <div className={`tree-row${selectedId === role.id ? " active" : ""}`}>
         <button className="inline-action-button" type="button" onClick={() => onSelect(role.id)}><FolderTree size={15} />{role.name}</button>
+        <AssignabilityBadge role={role} />
         <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" title="新增子角色" onClick={() => onCreateChild(role.id)}><Plus size={14} />子角色</PermissionButton>
       </div>
       {role.children && role.children.length > 0 ? <div className="tree-children">{role.children.map((child) => <RoleTreeItem key={child.id} role={child} selectedId={selectedId} onSelect={onSelect} onCreateChild={onCreateChild} />)}</div> : null}
@@ -697,6 +708,14 @@ function BindingPanel<T extends { id: string; status: string }>({ title, emptyTe
 
 function RoleTags({ role }: { role: RoleNode }) {
   return <span className="system-actions">{role.isBuiltin || role.isSystem ? <span className="status-pill"><Tags size={13} />系统内置</span> : null}{role.isTemplate ? <span className="status-pill"><Copy size={13} />模板</span> : null}{!role.isBuiltin && !role.isSystem && !role.isTemplate ? <span className="status-pill">{role.roleType}</span> : null}</span>;
+}
+
+function AssignabilityBadge({ role }: { role: RoleNode }) {
+  return (
+    <span className={`status-pill${role.isAssignable ? " status-success" : " status-muted"}`} title={role.unassignableReasons?.join(", ") || "assignable"}>
+      {role.isAssignable ? "可分配给用户" : role.assignabilityLabel || "不可分配"}
+    </span>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {

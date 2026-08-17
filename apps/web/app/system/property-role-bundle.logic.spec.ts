@@ -32,3 +32,14 @@ test("protected templates and system roles cannot be updated from the bundle pan
   assert.match(source, /最终权限 \$\{preview\.final\.length\} 项/);
   assert.match(source, /确认继续创建角色/);
 });
+
+test("role management exposes assignability filters and server-provided reasons", () => {
+  assert.match(source, /const \[assignability, setAssignability\] = useState\(""\)/);
+  assert.match(source, /params\.set\("assignability", assignability\)/);
+  assert.match(source, /<label>可分配性<\/label>/);
+  assert.match(source, /<option value="assignable">可分配角色<\/option>/);
+  assert.match(source, /<option value="template">模板角色<\/option>/);
+  assert.match(source, /function AssignabilityBadge/);
+  assert.match(source, /role\.isAssignable \? "可分配给用户" : role\.assignabilityLabel/);
+  assert.match(source, /分配状态/);
+});
