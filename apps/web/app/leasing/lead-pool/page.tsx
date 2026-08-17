@@ -11,7 +11,7 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
-import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { fetchReferenceFormOptions, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
@@ -51,11 +51,7 @@ interface DictItemRow {
   status: string;
 }
 
-interface UserOptionRow {
-  id: string;
-  username: string;
-  displayName?: string | null;
-}
+type UserOptionRow = Pick<ReferenceUserOption, "id" | "username" | "displayName" | "realName" | "status">;
 
 const emptyPage: PaginatedResult<LeasingLeadRow> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyAssignForm = { followUserId: "", reason: "" };
@@ -97,7 +93,7 @@ export default function LeasingLeadPoolPage() {
   const loadUsers = useCallback(async () => {
     try {
       const references = await fetchReferenceFormOptions();
-      setUsers(references.users as UserOptionRow[]);
+      setUsers(references.users.filter((item) => item.status === "enabled"));
     } catch {
       setUsers([]);
     }
@@ -268,22 +264,13 @@ export default function LeasingLeadPoolPage() {
                   <DetailItem label="入池时间" value={formatDateTime(assignTarget.poolEnterTime)} />
                 </DetailGrid>
                 <DrawerFormGrid single>
-                  <div className="field">
-                    <label htmlFor="assign-follow-user">目标跟进人</label>
-                    <input
-                      id="assign-follow-user"
-                      list="assign-follow-user-options"
-                      required
-                      value={assignForm.followUserId}
-                      onChange={(event) => setAssignForm((current) => ({ ...current, followUserId: event.target.value }))}
-                      placeholder="选择或输入用户 ID"
-                    />
-                    <datalist id="assign-follow-user-options">
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>{user.displayName || user.username}</option>
-                      ))}
-                    </datalist>
-                  </div>
+                  <UserSelectField
+                    label="目标跟进人"
+                    value={assignForm.followUserId}
+                    users={users}
+                    onChange={(value) => setAssignForm((current) => ({ ...current, followUserId: value }))}
+                    required
+                  />
                   <TextAreaField
                     label="分配原因"
                     value={assignForm.reason}
@@ -351,6 +338,33 @@ function SelectField({
   );
 }
 
+function UserSelectField({
+  label,
+  value,
+  users,
+  onChange,
+  required = false
+}: {
+  label: string;
+  value: string;
+  users: UserOptionRow[];
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  const id = `field-${label}`;
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <select id={id} value={value} required={required} onChange={(event) => onChange(event.target.value)}>
+        <option value="">请选择跟进人</option>
+        {users.map((user) => (
+          <option key={user.id} value={user.id}>{displayUserName(user)}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function DictBadge({ items, value }: { items: DictItemRow[]; value?: string | null }) {
   return <span className="status-pill">{labelFor(items, value)}</span>;
 }
@@ -393,6 +407,10 @@ function ModuleUnauthorizedInline() {
 function labelFor(items: DictItemRow[], value?: string | null): string {
   if (!value) return "-";
   return items.find((item) => item.itemValue === String(value))?.itemLabel ?? String(value);
+}
+
+function displayUserName(user: UserOptionRow): string {
+  return user.displayName || user.realName || user.username;
 }
 
 function fieldText(user: ReturnType<typeof useAuthUser>, canView: boolean, fieldKey: string, value: unknown): string {

@@ -7,7 +7,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
-import { fetchReferenceFormOptions } from "../../../lib/reference-data";
+import { fetchReferenceFormOptions, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEAD_READ_PERMISSION = "leasing_lead:read";
@@ -21,11 +21,7 @@ interface DictItemRow {
   status: string;
 }
 
-interface UserOptionRow {
-  id: string;
-  username: string;
-  displayName?: string | null;
-}
+type UserOptionRow = Pick<ReferenceUserOption, "id" | "username" | "displayName" | "realName" | "status">;
 
 interface LeasingFunnelStatistics {
   summary: {
@@ -100,7 +96,7 @@ export default function LeasingFunnelPage() {
   const loadUsers = useCallback(async () => {
     try {
       const references = await fetchReferenceFormOptions();
-      setUsers(references.users as UserOptionRow[]);
+      setUsers(references.users.filter((item) => item.status === "enabled"));
     } catch {
       setUsers([]);
     }
@@ -388,18 +384,12 @@ function UserField({ users, value, onChange }: { users: UserOptionRow[]; value: 
   return (
     <div className="field">
       <label htmlFor="funnel-follow-user">跟进人</label>
-      <input
-        id="funnel-follow-user"
-        list="funnel-follow-user-options"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="全部或输入用户 ID"
-      />
-      <datalist id="funnel-follow-user-options">
+      <select id="funnel-follow-user" value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">全部</option>
         {users.map((user) => (
-          <option key={user.id} value={user.id}>{user.displayName || user.username}</option>
+          <option key={user.id} value={user.id}>{displayUserName(user)}</option>
         ))}
-      </datalist>
+      </select>
     </div>
   );
 }
@@ -407,6 +397,10 @@ function UserField({ users, value, onChange }: { users: UserOptionRow[]; value: 
 function labelFor(items: DictItemRow[], value?: string | null): string {
   if (!value) return "-";
   return items.find((item) => item.itemValue === String(value))?.itemLabel ?? String(value);
+}
+
+function displayUserName(user: UserOptionRow): string {
+  return user.displayName || user.realName || user.username;
 }
 
 function formatCount(value: number): string {
