@@ -135,8 +135,8 @@ else
   record_fail "failed to inspect core schema"
 fi
 
-tenant_count=$(psql_scalar "SELECT COUNT(*) FROM sys_tenant WHERE tenant_id = '$TENANT_ID' AND status = 1 AND is_deleted = false;")
-park_count=$(psql_scalar "SELECT COUNT(*) FROM biz_park park JOIN sys_tenant tenant ON tenant.tenant_id = park.tenant_id AND tenant.status = 1 AND tenant.is_deleted = false WHERE park.tenant_id = '$TENANT_ID' AND park.park_id = '$PARK_ID' AND park.status = 1 AND park.is_deleted = false;")
+tenant_count=$(psql_scalar "SELECT COUNT(*) FROM sys_tenant WHERE tenant_id = '$TENANT_ID' AND status = 1 AND (expire_time IS NULL OR expire_time > now()) AND is_deleted = false;")
+park_count=$(psql_scalar "SELECT COUNT(*) FROM biz_park park JOIN sys_tenant tenant ON tenant.tenant_id = park.tenant_id AND tenant.status = 1 AND (tenant.expire_time IS NULL OR tenant.expire_time > now()) AND tenant.is_deleted = false WHERE park.tenant_id = '$TENANT_ID' AND park.park_id = '$PARK_ID' AND park.status = 1 AND park.is_deleted = false;")
 
 if [ "${tenant_count:-0}" -gt 0 ] && [ "${park_count:-0}" -gt 0 ]; then
   record_pass "production seed baseline exists"
@@ -211,11 +211,11 @@ else
   record_fail "required business dictionaries missing"
 fi
 
-missing_scope_dict_count=$(psql_scalar "WITH required(dict_code) AS (VALUES $REQUIRED_BUSINESS_DICT_VALUES), active_scopes AS (SELECT DISTINCT park.tenant_id, park.park_id FROM biz_park park JOIN sys_tenant tenant ON tenant.tenant_id = park.tenant_id AND tenant.status = 1 AND tenant.is_deleted = false WHERE park.status = 1 AND park.is_deleted = false) SELECT COUNT(*) FROM active_scopes scope WHERE (SELECT COUNT(DISTINCT dict_type.dict_code) FROM required JOIN sys_dict_type dict_type ON dict_type.dict_code = required.dict_code AND dict_type.tenant_id = scope.tenant_id AND dict_type.park_id = scope.park_id AND dict_type.status = 'enabled' AND dict_type.is_deleted = false JOIN sys_dict_item dict_item ON dict_item.dict_type_id = dict_type.id AND dict_item.tenant_id = dict_type.tenant_id AND dict_item.park_id = dict_type.park_id AND dict_item.status = 'enabled' AND dict_item.is_deleted = false) < $REQUIRED_BUSINESS_DICT_COUNT;")
+missing_scope_dict_count=$(psql_scalar "WITH required(dict_code) AS (VALUES $REQUIRED_BUSINESS_DICT_VALUES), active_scopes AS (SELECT DISTINCT park.tenant_id, park.park_id FROM biz_park park JOIN sys_tenant tenant ON tenant.tenant_id = park.tenant_id AND tenant.status = 1 AND (tenant.expire_time IS NULL OR tenant.expire_time > now()) AND tenant.is_deleted = false WHERE park.status = 1 AND park.is_deleted = false) SELECT COUNT(*) FROM active_scopes scope WHERE EXISTS (SELECT 1 FROM required WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type dict_type WHERE dict_type.dict_code = required.dict_code AND dict_type.tenant_id = scope.tenant_id AND dict_type.park_id = scope.park_id AND (dict_type.is_deleted = true OR dict_type.status <> 'enabled' OR EXISTS (SELECT 1 FROM sys_dict_item dict_item WHERE dict_item.dict_type_id = dict_type.id AND dict_item.tenant_id = dict_type.tenant_id AND dict_item.park_id = dict_type.park_id))));")
 if [ "${missing_scope_dict_count:-0}" -eq 0 ]; then
-  record_pass "required business dictionaries exist for all active park scopes"
+  record_pass "required business dictionary initialization history exists for all active park scopes"
 else
-  record_fail "required business dictionaries missing in active park scopes"
+  record_fail "required business dictionary initialization history missing in active park scopes"
 fi
 
 dev_user_count=$(psql_scalar "SELECT COUNT(*) FROM sys_user WHERE tenant_id = '$TENANT_ID' AND park_id = '$PARK_ID' AND username IN ('admin', 's1_user') AND is_deleted = false;")

@@ -187,6 +187,7 @@ export class HealthController {
         FROM sys_tenant
         WHERE tenant_id = $1
           AND status = 1
+          AND (expire_time IS NULL OR expire_time > now())
           AND is_deleted = false
       `,
       [tenantId]
@@ -205,6 +206,7 @@ export class HealthController {
           ON tenant.tenant_id = park.tenant_id
          AND tenant.status = 1
          AND tenant.is_deleted = false
+         AND (tenant.expire_time IS NULL OR tenant.expire_time > now())
         WHERE park.tenant_id = $1
           AND park.park_id = $2
           AND park.status = 1
@@ -294,33 +296,40 @@ export class HealthController {
             ON tenant.tenant_id = park.tenant_id
            AND tenant.status = 1
            AND tenant.is_deleted = false
+           AND (tenant.expire_time IS NULL OR tenant.expire_time > now())
           WHERE park.status = 1
             AND park.is_deleted = false
         )
         SELECT COUNT(*)::int AS count
         FROM active_scopes scope
-        WHERE (
-          SELECT COUNT(DISTINCT dict_type.dict_code)
+        WHERE EXISTS (
+          SELECT 1
           FROM required
-          JOIN sys_dict_type dict_type
-            ON dict_type.dict_code = required.dict_code
-           AND dict_type.tenant_id = scope.tenant_id
-           AND dict_type.park_id = scope.park_id
-           AND dict_type.status = 'enabled'
-           AND dict_type.is_deleted = false
-          JOIN sys_dict_item dict_item
-            ON dict_item.dict_type_id = dict_type.id
-           AND dict_item.tenant_id = dict_type.tenant_id
-           AND dict_item.park_id = dict_type.park_id
-           AND dict_item.status = 'enabled'
-           AND dict_item.is_deleted = false
-        ) < $2
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM sys_dict_type dict_type
+            WHERE dict_type.dict_code = required.dict_code
+              AND dict_type.tenant_id = scope.tenant_id
+              AND dict_type.park_id = scope.park_id
+              AND (
+                dict_type.is_deleted = true
+                OR dict_type.status <> 'enabled'
+                OR EXISTS (
+                  SELECT 1
+                  FROM sys_dict_item dict_item
+                  WHERE dict_item.dict_type_id = dict_type.id
+                    AND dict_item.tenant_id = dict_type.tenant_id
+                    AND dict_item.park_id = dict_type.park_id
+                )
+              )
+          )
+        )
       `,
       [REQUIRED_BUSINESS_DICT_CODES, REQUIRED_BUSINESS_DICT_CODES.length]
     );
     if (missingDictionaryScopeCount > 0) {
       checks.workorderReleaseDicts = "fail";
-      reasons.workorderReleaseDicts = "required business dictionaries incomplete in active park scopes";
+      reasons.workorderReleaseDicts = "required business dictionary initialization history incomplete in active park scopes";
     }
 
     return this.respondReadiness(response, service, checks, reasons);

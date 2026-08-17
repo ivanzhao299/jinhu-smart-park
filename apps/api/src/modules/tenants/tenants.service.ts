@@ -1208,12 +1208,11 @@ export class TenantsService {
           source_type.status,
           $5,
           $5,
-          false,
+          source_type.is_deleted,
           source_type.remark
         FROM sys_dict_type source_type
         WHERE source_type.tenant_id = $1
           AND source_type.park_id = $2
-          AND source_type.is_deleted = false
           AND NOT EXISTS (
             SELECT 1
             FROM sys_dict_type target_type
@@ -1254,6 +1253,7 @@ export class TenantsService {
             source_item.status,
             source_item.tag_type,
             source_item.remark,
+            source_item.is_deleted,
             row_number() OVER (
               PARTITION BY source_type.dict_code, source_item.item_value
               ORDER BY source_item.sort_order ASC, source_item.create_time ASC, source_item.id ASC
@@ -1263,12 +1263,10 @@ export class TenantsService {
             ON source_item.dict_type_id = source_type.id
            AND source_item.tenant_id = source_type.tenant_id
            AND source_item.park_id = source_type.park_id
-           AND source_item.is_deleted = false
           WHERE source_type.tenant_id = $1
             AND source_type.park_id = $2
-            AND source_type.is_deleted = false
         )
-        -- customizationScope keeps source-scope tombstones from being resurrected by the default scope pass.
+        -- Copying source tombstones into the target prevents future seed runs from resurrecting custom deletions.
         INSERT INTO sys_dict_item (
           tenant_id,
           park_id,
@@ -1294,14 +1292,13 @@ export class TenantsService {
           source_items.tag_type,
           $5,
           $5,
-          false,
+          source_items.is_deleted,
           source_items.remark
         FROM source_items
         JOIN sys_dict_type target_type
           ON target_type.tenant_id = $3
          AND target_type.park_id = $4
          AND target_type.dict_code = source_items.dict_code
-         AND target_type.is_deleted = false
         WHERE source_items.row_number = 1
           AND NOT EXISTS (
             SELECT 1

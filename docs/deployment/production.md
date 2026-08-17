@@ -765,7 +765,8 @@ The production environment now has three different health / verification layers.
   - default park
   - tenant module authorization
   - bootstrap admin existence
-  - workorder release dictionaries
+  - required business dictionaries for the default scope
+  - required business dictionary initialization history for active, non-expired tenant / active park scopes
 - Use this before switching traffic, before finishing deployment, or when investigating a production environment that is alive but not usable
 
 ### Post-deploy Verification
