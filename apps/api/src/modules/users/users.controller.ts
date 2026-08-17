@@ -12,6 +12,7 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { ReplaceUserOrgsDto } from "./dto/replace-user-orgs.dto";
 import { UserOrgCandidatesQueryDto } from "./dto/user-org-candidates-query.dto";
+import { UserRoleCandidatesQueryDto } from "./dto/user-role-candidates-query.dto";
 import { UsersService } from "./users.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
@@ -55,9 +56,9 @@ export class UsersController {
   roleCandidates(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
-    @Query() query: UserOrgCandidatesQueryDto
+    @Query() query: UserRoleCandidatesQueryDto
   ) {
-    return this.usersService.getCreateRoleCandidates(scope, user, query.tenantId, query.parkId);
+    return this.usersService.getCreateRoleCandidates(scope, user, query);
   }
 
   @Get(":id")
@@ -80,8 +81,13 @@ export class UsersController {
 
   @Get(":id/roles")
   @RequireAnyPermissions(SYSTEM_PERMISSIONS.USER_DETAIL, SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES)
-  listRoles(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.usersService.getUserRoleContext(scope, user, id);
+  listRoles(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Query() query: UserRoleCandidatesQueryDto
+  ) {
+    return this.usersService.getUserRoleContext(scope, user, id, query);
   }
 
   @Post(":id/orgs")

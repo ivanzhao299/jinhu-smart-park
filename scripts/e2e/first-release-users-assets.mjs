@@ -242,6 +242,16 @@ async function runRolesRegression(adminHeaders, userId, username, loginPassword)
     return false;
   }
 
+  const pagedCandidatesResult = await request(`/users/role-candidates?tenantId=${encodeURIComponent(tenantId)}&parkId=${encodeURIComponent(parkId)}&paged=true&page=1&page_size=1`, {
+    headers: adminHeaders
+  });
+  if (!expectStatus("GET /users/role-candidates paged", pagedCandidatesResult.response.status, 200, pagedCandidatesResult.body)) return false;
+  const pagedCandidatePage = unwrapData(pagedCandidatesResult.body);
+  if (!Array.isArray(pagedCandidatePage?.items) || typeof pagedCandidatePage?.total !== "number" || typeof pagedCandidatePage?.hasMore !== "boolean") {
+    fail(`GET /users/role-candidates paged did not return a paginated result; body=${summarizeBody(pagedCandidatesResult.body)}`);
+    return false;
+  }
+
   const primaryRole = roleItems[0];
   const alternateRole = roleItems.find((role) => role.id !== primaryRole.id) ?? null;
   info(`Using primary role ${primaryRole.code} (${primaryRole.id})`);

@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { BadRequestException } from "@nestjs/common";
+import { plainToInstance } from "class-transformer";
+import { validate } from "class-validator";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { UsersService } from "./users.service";
 import { UserEntity } from "./entities/user.entity";
+import { UserRoleCandidatesQueryDto } from "./dto/user-role-candidates-query.dto";
 
 const scope = { tenantId: "tenant-current", parkId: "park-current" };
 const actor = {
@@ -36,16 +39,53 @@ function role(values: Partial<RoleEntity>): RoleEntity {
   } as RoleEntity;
 }
 
+function createRoleCandidateRepository(
+  roles: RoleEntity[],
+  options: {
+    total?: number;
+    clauses?: unknown[];
+    parameters?: unknown[];
+    skips?: number[];
+    takes?: number[];
+  } = {}
+) {
+  const builder = {
+    where: (clause: unknown, parameters?: unknown) => {
+      options.clauses?.push(clause);
+      options.parameters?.push(parameters);
+      return builder;
+    },
+    andWhere: (clause: unknown, parameters?: unknown) => {
+      options.clauses?.push(clause);
+      options.parameters?.push(parameters);
+      return builder;
+    },
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: (value: number) => {
+      options.skips?.push(value);
+      return builder;
+    },
+    take: (value: number) => {
+      options.takes?.push(value);
+      return builder;
+    },
+    getManyAndCount: async () => [roles, options.total ?? roles.length] as [RoleEntity[], number]
+  };
+  return { createQueryBuilder: () => builder };
+}
+
 function createService(overrides: {
   usersRepository?: unknown;
   rolesRepository?: unknown;
   userRoleRepository?: unknown;
+  parksRepository?: unknown;
 } = {}) {
   return new UsersService(
     (overrides.usersRepository ?? { findOne: async () => target }) as never,
     (overrides.rolesRepository ?? { find: async () => [] }) as never,
     (overrides.userRoleRepository ?? { find: async () => [] }) as never,
-    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, (overrides.parksRepository ?? {}) as never, {} as never, {} as never, {} as never, {} as never,
     { get: (_key: string, fallback?: string) => fallback } as never
   );
 }
@@ -53,16 +93,10 @@ function createService(overrides: {
 test("user role context uses the target user's tenant and park", async () => {
   const assignedRole = role({});
   let assignedWhere: unknown;
-  let candidateWhere: unknown;
-  let candidateTake: unknown;
+  const candidateClauses: unknown[] = [];
+  const candidateTakes: number[] = [];
   const service = createService({
-    rolesRepository: {
-      find: async (options: { where: unknown; take: number }) => {
-        candidateWhere = options.where;
-        candidateTake = options.take;
-        return [assignedRole];
-      }
-    },
+    rolesRepository: createRoleCandidateRepository([assignedRole], { clauses: candidateClauses, takes: candidateTakes }),
     userRoleRepository: {
       find: async (options: { where: unknown }) => {
         assignedWhere = options.where;
@@ -79,23 +113,75 @@ test("user role context uses the target user's tenant and park", async () => {
     parkId: target.parkId,
     isDeleted: false
   });
-  assert.deepEqual(candidateWhere, [
-    { tenantId: target.tenantId, roleScope: "tenant", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false },
-    { tenantId: target.tenantId, parkId: target.parkId, roleScope: "park", status: "enabled", isEnabled: true, isTemplate: false, isSystem: false, isBuiltin: false, isDeleted: false }
-  ]);
+  assert(candidateClauses.some((clause) => String(clause).includes("role.tenant_id=:tenantId")));
+  assert(candidateClauses.some((clause) => String(clause).includes("role.role_scope='tenant'")));
+  assert(candidateClauses.some((clause) => String(clause).includes("role.role_scope='park' AND role.park_id=:parkId")));
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
   assert.deepEqual(result.candidates.map((item) => item.id), [assignedRole.id]);
+  assert.deepEqual(result.candidatePage.items.map((item) => item.id), [assignedRole.id]);
+  assert.equal(result.candidatePage.hasMore, false);
   assert.equal(result.roles[0]?.isAssignable, true);
   assert.deepEqual(result.roles[0]?.unassignableReasons, []);
   assert.equal(result.roles[0]?.assignabilityLabel, "可分配");
-  assert.equal(candidateTake, 200);
+  assert.deepEqual(candidateTakes, [200]);
+});
+
+test("create role candidates keep legacy array output while paged mode returns searchable metadata", async () => {
+  const invalidQuery = plainToInstance(UserRoleCandidatesQueryDto, { paged: "maybe" });
+  assert.notEqual((await validate(invalidQuery)).length, 0);
+  const validQuery = plainToInstance(UserRoleCandidatesQueryDto, { paged: "true", page: "2", page_size: "50" });
+  assert.equal((await validate(validQuery)).length, 0);
+  assert.equal(validQuery.paged, true);
+
+  const firstPageRole = role({ id: "role-page-1", code: "ROLE_PAGE_1" });
+  const clauses: unknown[] = [];
+  const skips: number[] = [];
+  const takes: number[] = [];
+  const service = createService({
+    rolesRepository: createRoleCandidateRepository([firstPageRole], {
+      total: 201,
+      clauses,
+      skips,
+      takes
+    }),
+    parksRepository: { exists: async () => true }
+  });
+
+  const legacy = await service.getCreateRoleCandidates(
+    scope,
+    actor,
+    Object.assign(new UserRoleCandidatesQueryDto(), { tenantId: target.tenantId, parkId: target.parkId })
+  );
+  assert(Array.isArray(legacy));
+  assert.equal(legacy[0]?.id, firstPageRole.id);
+
+  const paged = await service.getCreateRoleCandidates(
+    scope,
+    actor,
+    Object.assign(new UserRoleCandidatesQueryDto(), {
+      tenantId: target.tenantId,
+      parkId: target.parkId,
+      page: 2,
+      page_size: 50,
+      paged: true,
+      keyword: "PAGE"
+    })
+  );
+  assert(!Array.isArray(paged));
+  assert.equal(paged.total, 201);
+  assert.equal(paged.page, 2);
+  assert.equal(paged.page_size, 50);
+  assert.equal(paged.hasMore, true);
+  assert.deepEqual(skips, [0, 50]);
+  assert.deepEqual(takes, [200, 50]);
+  assert(clauses.some((clause) => typeof clause === "object"));
 });
 
 test("assigned user roles carry unassignable reasons for retained protected or disabled roles", async () => {
   const assignedTemplate = role({ id: "role-template", isTemplate: true });
   const assignedDisabled = role({ id: "role-disabled", status: "disabled", isEnabled: false });
   const service = createService({
-    rolesRepository: { find: async () => [] },
+    rolesRepository: createRoleCandidateRepository([]),
     userRoleRepository: {
       find: async () => [{ role: assignedTemplate }, { role: assignedDisabled }]
     }
