@@ -52,6 +52,16 @@ SELECT
     ) THEN 'safety'
     WHEN legacy.resource LIKE 'biz.camera_%' THEN 'video'
     WHEN legacy.resource LIKE 'biz.video_%' THEN 'video'
+    WHEN legacy.resource IN (
+      'energy.meter',
+      'energy.reading',
+      'energy.alert',
+      'energy.allocation_rule',
+      'energy.billing_item',
+      'energy.billing_cycle',
+      'energy.billing_adjustment'
+    ) THEN 'energy'
+    WHEN legacy.resource LIKE 'energy_%' THEN 'energy'
     WHEN POSITION('.' IN legacy.resource) > 0 THEN SPLIT_PART(legacy.resource, '.', 1)
     WHEN POSITION(':' IN legacy.resource) > 0 THEN SPLIT_PART(legacy.resource, ':', 1)
     ELSE legacy.resource
@@ -100,6 +110,14 @@ SELECT
     WHEN legacy.resource = 'biz.safety_emergency_event' THEN 'emergency_event'
     WHEN legacy.resource LIKE 'biz.camera_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.video_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource = 'energy.meter' THEN 'energy_meter'
+    WHEN legacy.resource = 'energy.reading' THEN 'energy_reading'
+    WHEN legacy.resource = 'energy.alert' THEN 'energy_alert'
+    WHEN legacy.resource = 'energy.allocation_rule' THEN 'energy_allocation_rule'
+    WHEN legacy.resource = 'energy.billing_item' THEN 'energy_billing_item'
+    WHEN legacy.resource = 'energy.billing_cycle' THEN 'energy_billing_cycle'
+    WHEN legacy.resource = 'energy.billing_adjustment' THEN 'energy_billing_adjustment'
+    WHEN legacy.resource LIKE 'energy_%' THEN legacy.resource
     WHEN POSITION('.' IN legacy.resource) > 0 THEN REGEXP_REPLACE(legacy.resource, '^[^.]+[.]', '')
     WHEN POSITION(':' IN legacy.resource) > 0 THEN REGEXP_REPLACE(legacy.resource, '^[^:]+[:]', '')
     ELSE legacy.resource
@@ -155,6 +173,25 @@ BEGIN
   END IF;
 END $$;
 
+CREATE TEMP TABLE tmp_role_field_policy_conflicts AS
+SELECT
+  tenant_id,
+  module,
+  entity,
+  field_key,
+  COUNT(DISTINCT policy_type) AS policy_type_count,
+  ARRAY_AGG(DISTINCT policy_type ORDER BY policy_type) AS policy_types
+FROM tmp_role_field_permission_legacy
+GROUP BY tenant_id, module, entity, field_key
+HAVING COUNT(DISTINCT policy_type) > 1;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM tmp_role_field_policy_conflicts) THEN
+    RAISE EXCEPTION 'Cannot converge deprecated role field permissions: conflicting legacy access modes remain';
+  END IF;
+END $$;
+
 CREATE TEMP TABLE tmp_role_field_policy_canonical AS
 SELECT DISTINCT ON (tenant_id, module, entity, field_key)
   tenant_id,
@@ -171,18 +208,6 @@ SELECT DISTINCT ON (tenant_id, module, entity, field_key)
   update_time
 FROM tmp_role_field_permission_legacy
 ORDER BY tenant_id, module, entity, field_key, policy_rank, create_time;
-
-CREATE TEMP TABLE tmp_role_field_policy_conflicts AS
-SELECT
-  tenant_id,
-  module,
-  entity,
-  field_key,
-  COUNT(DISTINCT policy_type) AS policy_type_count,
-  ARRAY_AGG(DISTINCT policy_type ORDER BY policy_type) AS policy_types
-FROM tmp_role_field_permission_legacy
-GROUP BY tenant_id, module, entity, field_key
-HAVING COUNT(DISTINCT policy_type) > 1;
 
 CREATE TEMP TABLE tmp_role_field_policy_existing_reconciliations AS
 SELECT

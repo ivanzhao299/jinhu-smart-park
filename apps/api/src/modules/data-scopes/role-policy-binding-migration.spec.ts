@@ -73,6 +73,8 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.housing_%' THEN 'housing_rental'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'iot_%' THEN 'iot'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'scene_%' THEN 'iot'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource IN \([\s\S]*'energy\.meter'[\s\S]*'energy\.allocation_rule'[\s\S]*\) THEN 'energy'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'energy_%' THEN 'energy'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.homestay_booking' THEN 'booking'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.homestay_ledger' THEN 'ledger'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.homestay_booking_guest' THEN 'guest'/);
@@ -82,9 +84,14 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'system\.file' THEN 'sys_file'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'iot_%' THEN legacy\.resource/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'scene_%' THEN legacy\.resource/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'energy\.meter' THEN 'energy_meter'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'energy\.allocation_rule' THEN 'energy_allocation_rule'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'energy_%' THEN legacy\.resource/);
   assert.match(fieldPolicyConvergenceMigration, /RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain'/);
   assert.match(fieldPolicyConvergenceMigration, /legacy_access_mode NOT IN \('none', 'mask', 'read', 'write'\)/);
   assert.match(fieldPolicyConvergenceMigration, /unknown legacy access modes remain/);
+  assert.match(fieldPolicyConvergenceMigration, /CREATE TEMP TABLE tmp_role_field_policy_conflicts[\s\S]*HAVING COUNT\(DISTINCT policy_type\) > 1/);
+  assert.match(fieldPolicyConvergenceMigration, /conflicting legacy access modes remain/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'none' THEN 'hidden'/);
