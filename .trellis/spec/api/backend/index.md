@@ -418,6 +418,32 @@ export const ROLE_PERMISSION_ASSIGNMENT_MAX_SIZE = 1000;
 permissionIds!: string[];
 ```
 
+## Scenario: Role Field Policy Authority
+
+### 1. Scope / Trigger
+- Trigger: changing role field-policy assignment, role copy, user login context, or any legacy field-permission endpoint.
+
+### 2. Signatures
+- Authoritative write endpoints are `POST /field-policies/role-bindings/:roleId` and `POST /roles/:id/field-policies`.
+- Deprecated legacy write endpoint `POST /roles/:id/field-permissions` must return a deprecated error and must not write `rel_role_field_perm`.
+
+### 3. Contracts
+- Runtime field policy authority is `sys_field_policy + rel_role_field_policy + FieldPolicyService`.
+- `rel_role_field_perm` is retained only as deprecated historical input for migration or read-only audit; it is not a runtime authorization source.
+- Role copy must copy `rel_role_field_policy` links, not legacy `rel_role_field_perm` rows.
+- Legacy migration maps access modes as `none -> hidden`, `mask -> masked`, `read -> readonly`, and `write -> editable`.
+- If legacy rows disagree for the same tenant/module/entity/field, convergence must be deterministic and audited because the new active policy unique key allows only one policy per field.
+
+### 4. Validation & Error Matrix
+- New role field-policy assignment with valid policy IDs in the current tenant -> replaces only the caller park's role-policy links.
+- Unknown, deleted, or cross-tenant policy ID -> rejects the complete assignment before retiring existing links.
+- Legacy `POST /roles/:id/field-permissions` -> HTTP 410 deprecated, no transaction write against the legacy relation.
+
+### 5. Tests Required
+- Service/source tests prove role copy uses `RoleFieldPolicyEntity`.
+- Service test proves legacy field-permission write returns the deprecated error without writing old bindings.
+- Migration or SQL review test proves old `read` maps to `readonly`, old links populate `rel_role_field_policy`, and conflict/convergence counts are queryable from an audit table.
+
 ## File Upload Validation
 
 Read `file-upload.md` before changing multipart upload endpoints, file metadata persistence, feature-specific attachment upload routes, or file ID validation.

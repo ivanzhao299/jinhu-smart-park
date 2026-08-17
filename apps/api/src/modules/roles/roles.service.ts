@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { Repository } from "typeorm";
 import { ILike, In } from "typeorm";
@@ -7,6 +7,7 @@ import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
+import { RoleFieldPolicyEntity } from "../field-policies/entities/role-field-policy.entity";
 import { RoleDataScopeEntity } from "../data-scopes/entities/role-data-scope.entity";
 import type { AssignPermissionsDto } from "./dto/assign-permissions.dto";
 import type { AssignFieldPermissionsDto } from "./dto/assign-field-permissions.dto";
@@ -367,13 +368,13 @@ export class RolesService {
         updateBy: actorId
       }));
       const permissionRepository = manager.getRepository(RolePermissionEntity);
-      const fieldRepository = manager.getRepository(RoleFieldPermissionEntity);
+      const fieldPolicyRepository = manager.getRepository(RoleFieldPolicyEntity);
       const dataScopeRepository = manager.getRepository(RoleDataScopeEntity);
       const overridesDataScope = !isManagedPropertyTemplate
         && (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined);
-      const [permissions, fields, dataScopes] = await Promise.all([
+      const [permissions, fieldPolicies, dataScopes] = await Promise.all([
         permissionRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
-        fieldRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
+        fieldPolicyRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
         overridesDataScope
           ? Promise.resolve([])
           : dataScopeRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
@@ -383,10 +384,9 @@ export class RolesService {
         permissionId: link.permissionId, createBy: actorId, updateBy: actorId,
         remark: "Copied from role template"
       })));
-      await fieldRepository.save(fields.map((field) => fieldRepository.create({
+      await fieldPolicyRepository.save(fieldPolicies.map((link) => fieldPolicyRepository.create({
         tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
-        resource: field.resource, fieldKey: field.fieldKey, fieldName: field.fieldName,
-        accessMode: field.accessMode, createBy: actorId, updateBy: actorId,
+        fieldPolicyId: link.fieldPolicyId, createBy: actorId, updateBy: actorId,
         remark: "Copied from role template"
       })));
       await dataScopeRepository.save(dataScopes.map((link) => dataScopeRepository.create({
@@ -410,7 +410,7 @@ export class RolesService {
       const permissionsRepository = manager.getRepository(PermissionEntity);
       const linksRepository = manager.getRepository(RolePermissionEntity);
       const permissions = await permissionsRepository.find({
-        where: { id: In(dto.permissionIds), tenantId: scope.tenantId, isDeleted: false }
+        where: { id: In(dto.permissionIds), tenantId: scope.tenantId, status: "enabled", isEnabled: true, isDeleted: false }
       });
       if (permissions.length !== dto.permissionIds.length) {
         throw new NotFoundException("Permission not found in current scope");
@@ -449,28 +449,12 @@ export class RolesService {
     actorId: string,
     id: string,
     dto: AssignFieldPermissionsDto
-  ): Promise<{ id: string }> {
-    await this.roleFieldPermissionRepository.manager.transaction(async (manager) => {
-      await this.lockEditableRole(manager, scope, id);
-      const repository = manager.getRepository(RoleFieldPermissionEntity);
-      await repository.update(
-        { roleId: id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-        { isDeleted: true, updateBy: actorId }
-      );
-      const links = dto.fields.map((field) => repository.create({
-        roleId: id,
-        resource: field.resource,
-        fieldKey: field.fieldKey,
-        fieldName: field.fieldName,
-        accessMode: field.accessMode,
-        tenantId: scope.tenantId,
-        parkId: scope.parkId,
-        createBy: actorId,
-        updateBy: actorId
-      }));
-      await repository.save(links);
-    });
-    return { id };
+  ): Promise<never> {
+    void scope;
+    void actorId;
+    void id;
+    void dto;
+    throw new GoneException("The role field-permissions endpoint is deprecated; use field-policies role bindings instead");
   }
 
   private assertBindingsEditable(role: RoleEntity): void {

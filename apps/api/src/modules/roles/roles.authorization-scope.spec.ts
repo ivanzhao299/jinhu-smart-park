@@ -35,7 +35,7 @@ test("role detail attaches only permission links from the caller's park", async 
   assert.deepEqual(result.permissionLinks, [permissionLink]);
 });
 
-test("role copy is transactional and carries permission, field and current-park scope links", () => {
+test("role copy is transactional and carries permission, field-policy and current-park scope links", () => {
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
   const controllerSource = readFileSync(resolve(__dirname, "roles.controller.ts"), "utf8");
 
@@ -43,7 +43,9 @@ test("role copy is transactional and carries permission, field and current-park 
   assert.match(source, /attachPermissionLinks\(scope, \[role\]\)/);
   assert.match(source, /rolesRepository\.manager\.transaction/);
   assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
+  assert.match(source, /getRepository\(RoleFieldPolicyEntity\)/);
   assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: source\.id, isDeleted: false \}/);
+  assert.match(source, /fieldPolicyId: link\.fieldPolicyId/);
   assert.match(source, /overridesDataScope = !isManagedPropertyTemplate[\s\S]*dto\.dataScope !== undefined \|\| dto\.dataScopeConfig !== undefined/);
   assert.match(source, /overridesDataScope[\s\S]*Promise\.resolve\(\[\]\)[\s\S]*dataScopeRepository\.find/);
   assert.match(source, /appliedBundleCodes: isManagedPropertyTemplate \? \[\]/);
@@ -57,13 +59,35 @@ test("all direct binding mutations reject protected roles and permission updates
   const fieldPolicySource = readFileSync(resolve(__dirname, "../field-policies/field-policy.service.ts"), "utf8");
 
   assert.match(rolesSource, /assignPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
-  assert.match(rolesSource, /assignFieldPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
+  assert.match(rolesSource, /assignPermissions[\s\S]*status: "enabled", isEnabled: true, isDeleted: false/);
   assert.match(rolesSource, /role\.appliedBundleCodes = \[\]/);
   assert.match(rolesSource, /role\.appliedBundleSignature = null/);
-  assert.match(rolesSource, /assignFieldPermissions[\s\S]*assertBindingsEditable/);
+  assert.match(rolesSource, /assignFieldPermissions[\s\S]*GoneException[\s\S]*deprecated[\s\S]*field-policies role bindings/);
   assert.match(dataScopeSource, /assignRoleRules[\s\S]*Protected role bindings cannot be changed/);
   assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*Protected role bindings cannot be changed/);
   assert.match(fieldPolicySource, /assignRolePolicies[\s\S]*manager\.transaction[\s\S]*setLock\("pessimistic_write"\)[\s\S]*Protected role bindings cannot be changed/);
+});
+
+test("deprecated role field-permissions write endpoint returns a deprecated error without writing legacy bindings", async () => {
+  let transactionCount = 0;
+  const service = new RolesService(
+    {} as never,
+    {} as never,
+    {} as never,
+    { manager: { transaction: async () => { transactionCount += 1; } } } as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    service.assignFieldPermissions(
+      { tenantId: "tenant-a", parkId: "park-a" },
+      "actor-1",
+      "role-1",
+      { fields: [] }
+    ),
+    /deprecated/
+  );
+  assert.equal(transactionCount, 0);
 });
 
 test("built-in role scope cannot be changed", async () => {
