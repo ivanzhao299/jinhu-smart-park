@@ -1,5 +1,5 @@
 -- Production-safe dictionary baseline reconcile for tenant/park scopes.
--- Copies missing default-scope dictionary types and items into active tenants' non-deleted park scopes.
+-- Copies missing default-scope dictionary types and items into non-deleted tenant/park scopes.
 
 WITH source_scope AS (
   SELECT '10000001'::varchar AS tenant_id, '20000001'::varchar AS park_id
@@ -9,9 +9,7 @@ target_scopes AS (
   FROM biz_park park
   JOIN sys_tenant tenant
     ON tenant.tenant_id = park.tenant_id
-   AND tenant.status = 1
    AND tenant.is_deleted = false
-   AND (tenant.expire_time IS NULL OR tenant.expire_time > now())
   CROSS JOIN source_scope
   WHERE park.is_deleted = false
     AND NOT (park.tenant_id::varchar = source_scope.tenant_id AND park.park_id::varchar = source_scope.park_id)
@@ -67,9 +65,7 @@ target_scopes AS (
   FROM biz_park park
   JOIN sys_tenant tenant
     ON tenant.tenant_id = park.tenant_id
-   AND tenant.status = 1
    AND tenant.is_deleted = false
-   AND (tenant.expire_time IS NULL OR tenant.expire_time > now())
   CROSS JOIN source_scope
   WHERE park.is_deleted = false
     AND NOT (park.tenant_id::varchar = source_scope.tenant_id AND park.park_id::varchar = source_scope.park_id)

@@ -1256,7 +1256,7 @@ export class TenantsService {
             source_item.is_deleted,
             row_number() OVER (
               PARTITION BY source_type.dict_code, source_item.item_value
-              ORDER BY source_item.sort_order ASC, source_item.create_time ASC, source_item.id ASC
+              ORDER BY source_item.is_deleted ASC, source_item.sort_order ASC, source_item.create_time ASC, source_item.id ASC
             ) AS row_number
           FROM sys_dict_type source_type
           JOIN sys_dict_item source_item

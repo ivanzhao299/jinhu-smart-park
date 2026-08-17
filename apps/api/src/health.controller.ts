@@ -307,25 +307,46 @@ export class HealthController {
           FROM required
           WHERE NOT EXISTS (
             SELECT 1
-            FROM sys_dict_type dict_type
-            WHERE dict_type.dict_code = required.dict_code
-              AND dict_type.tenant_id = scope.tenant_id
-              AND dict_type.park_id = scope.park_id
-              AND (
-                dict_type.is_deleted = true
-                OR dict_type.status <> 'enabled'
-                OR EXISTS (
+            WHERE (
+              EXISTS (
+                SELECT 1
+                FROM sys_dict_type live_type
+                WHERE live_type.dict_code = required.dict_code
+                  AND live_type.tenant_id = scope.tenant_id
+                  AND live_type.park_id = scope.park_id
+                  AND live_type.status = 'enabled'
+                  AND live_type.is_deleted = false
+                  AND EXISTS (
+                    SELECT 1
+                    FROM sys_dict_item dict_item
+                    WHERE dict_item.dict_type_id = live_type.id
+                      AND dict_item.tenant_id = live_type.tenant_id
+                      AND dict_item.park_id = live_type.park_id
+                  )
+              )
+              OR (
+                NOT EXISTS (
                   SELECT 1
-                  FROM sys_dict_item dict_item
-                  WHERE dict_item.dict_type_id = dict_type.id
-                    AND dict_item.tenant_id = dict_type.tenant_id
-                    AND dict_item.park_id = dict_type.park_id
+                  FROM sys_dict_type live_type
+                  WHERE live_type.dict_code = required.dict_code
+                    AND live_type.tenant_id = scope.tenant_id
+                    AND live_type.park_id = scope.park_id
+                    AND live_type.status = 'enabled'
+                    AND live_type.is_deleted = false
+                )
+                AND EXISTS (
+                  SELECT 1
+                  FROM sys_dict_type history_type
+                  WHERE history_type.dict_code = required.dict_code
+                    AND history_type.tenant_id = scope.tenant_id
+                    AND history_type.park_id = scope.park_id
                 )
               )
+            )
           )
         )
       `,
-      [REQUIRED_BUSINESS_DICT_CODES, REQUIRED_BUSINESS_DICT_CODES.length]
+      [REQUIRED_BUSINESS_DICT_CODES]
     );
     if (missingDictionaryScopeCount > 0) {
       checks.workorderReleaseDicts = "fail";
