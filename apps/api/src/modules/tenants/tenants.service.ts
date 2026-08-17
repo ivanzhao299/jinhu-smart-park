@@ -44,10 +44,11 @@ import {
   TENANT_BRAND_LOGO_BIZ_TYPE,
   type UploadedFilePayload
 } from "../files/files.service";
-import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import type { MultipartFileMetadataDto } from "../files/dto/upload-file.dto";
 import type { CreateTenantDto } from "./dto/create-tenant.dto";
 import type { CreateParkDto } from "../parks/dto/create-park.dto";
+import { ensureCodeRuleScopeProvisioned } from "../code-rules/code-rule-scope-provisioning";
+import { DictTypeEntity } from "../dicts/entities/dict-type.entity";
 import type { UpdateTenantBrandingDto } from "./dto/update-tenant-branding.dto";
 import type { UpdateTenantLoginSettingsDto } from "./dto/update-tenant-login-settings.dto";
 import type { UpdateTenantModulesDto } from "./dto/update-tenant-modules.dto";
@@ -345,6 +346,7 @@ export class TenantsService {
       const permissions = await this.ensureTenantPermissions(manager, actorScope, { tenantId, parkId: park.parkId }, actorId);
       const modules = await this.resolveStandardModules(manager, moduleCodes);
       await this.upsertTenantModules(manager, tenant, park.parkId, modules, plan, actorId, expireTime, dto.featureConfig ?? {});
+      await ensureCodeRuleScopeProvisioned(manager, { tenantId, parkId: park.parkId }, actorId);
       await this.ensureAssetScopeProvisioning(manager, { tenantId, parkId: park.parkId }, moduleCodes, actorId);
       const role = await this.createTenantAdminRole(manager, tenant, park.parkId, actorId);
       await this.applyTenantAdminPermissions(
@@ -431,6 +433,7 @@ export class TenantsService {
     await this.cloneTenantParkModules(manager, tenant, parkId, sourceAssignments, modules, actor.sub);
 
     await this.ensureTenantDictionaries(manager, sourceScope, targetScope, actor.sub);
+    await ensureCodeRuleScopeProvisioned(manager, targetScope, actor.sub);
     await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actor.sub);
     const permissions = await this.ensureTenantPermissions(manager, sourceScope, targetScope, actor.sub);
     const role = await this.getOrCreateTenantAdminRole(manager, tenant, parkId, actor.sub);
@@ -629,6 +632,7 @@ export class TenantsService {
             parkActive ? new Set<string>() : new Set(["asset"]),
             !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
           );
+          await ensureCodeRuleScopeProvisioned(manager, targetScope, actorId);
           if (parkActive) {
             await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
           }
@@ -718,8 +722,19 @@ export class TenantsService {
       await lockAssetScope(manager, scope);
     }
     for (const scope of scopes) {
-      if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      try {
+        if (!await hasCanonicalActiveAssetParkSource(manager, scope)) continue;
+      } catch (error) {
+        if (error instanceof NotFoundException) {
+          const retiredParkExists = await manager.getRepository(ParkEntity).exists({
+            where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: true }
+          });
+          if (retiredParkExists) continue;
+        }
+        throw error;
+      }
       await this.reconcileReactivatedParkAuthorization(manager, scope, actorId);
+      await ensureCodeRuleScopeProvisioned(manager, scope, actorId);
       const refreshedAssignments = await assignmentRepository.find({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         relations: { module: true }
@@ -1018,6 +1033,7 @@ export class TenantsService {
         parkActive ? new Set<string>() : new Set(["asset"]),
         !parkActive && !moduleCodes.includes("system") ? new Set(["system"]) : new Set<string>()
       );
+      await ensureCodeRuleScopeProvisioned(manager, targetScope, actorId);
       if (parkActive) {
         await this.ensureAssetScopeProvisioning(manager, targetScope, moduleCodes, actorId);
       }
@@ -1355,7 +1371,23 @@ export class TenantsService {
       throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
     }
     if (!existing) return this.createTenantAdminRole(manager, tenant, parkId, actorId);
-    if (!existing.isBuiltin || !existing.isSystem || existing.isDeletable) {
+    const needsRepair =
+      !existing.isBuiltin
+      || !existing.isSystem
+      || existing.isDeletable
+      || existing.roleType !== "tenant"
+      || existing.dataScope !== "tenant"
+      || existing.rolePath !== TENANT_ADMIN_ROLE_CODE;
+    if (needsRepair) {
+      if (!this.isRepairableLegacyTenantAdminRole(existing)) {
+        throw new ConflictException("Tenant administrator role must be a tenant-scoped built-in role");
+      }
+      existing.roleType = "tenant";
+      existing.rolePath = TENANT_ADMIN_ROLE_CODE;
+      existing.roleLevel = 1;
+      existing.level = 1;
+      existing.dataScope = "tenant";
+      existing.dataScopeConfig = {};
       existing.isBuiltin = true;
       existing.isSystem = true;
       existing.isDeletable = false;
@@ -1363,6 +1395,23 @@ export class TenantsService {
       return roleRepository.save(existing);
     }
     return existing;
+  }
+
+  private isRepairableLegacyTenantAdminRole(role: RoleEntity): boolean {
+    const legacyRemark = typeof role.remark === "string"
+      && role.remark.includes("Phase-1 tenant portal role template");
+    return role.roleScope === "tenant"
+      && role.roleType === "tenant"
+      && role.rolePath === TENANT_ADMIN_ROLE_CODE
+      && role.roleLevel === 1
+      && role.level === 1
+      && role.dataScope === "10"
+      && JSON.stringify(role.dataScopeConfig ?? {}) === "{}"
+      && role.isTemplate === true
+      && role.isSystem === false
+      && role.isBuiltin === false
+      && role.isDeletable === true
+      && legacyRemark;
   }
 
   private async createTenantAdminUser(
