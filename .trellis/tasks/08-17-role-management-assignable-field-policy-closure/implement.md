@@ -1,7 +1,10 @@
 # Implementation Plan
 
 GitHub Issue: https://github.com/ivanzhao299/jinhu-smart-park/issues/297
-Implementation branch: `codex/issue-297-role-management-closure`
+Implementation branches:
+
+- `codex/issue-297-role-management-closure` — Field policy convergence / permission binding closure, merged by PR #298.
+- `codex/issue-297-role-assignability` — Role assignability expression stage.
 
 ## 1. Planning And Branch Setup
 
@@ -14,11 +17,11 @@ Implementation branch: `codex/issue-297-role-management-closure`
 
 ## 2. Role Assignability
 
-- [ ] 在 API 增加统一可分配性 helper，返回 `isAssignable` 和不可分配原因。
-- [ ] 角色列表/树/详情返回可分配性字段，或增加角色管理专用 view DTO。
-- [ ] Web 角色管理增加可分配性标签、筛选器和说明。
-- [ ] Web 用户管理空态和候选说明明确“只展示可分配角色”。
-- [ ] 补 API/Web 契约测试。
+- [x] 在 API 增加统一可分配性 helper，返回 `isAssignable` 和不可分配原因。
+- [x] 角色列表/树/详情返回可分配性字段，或增加角色管理专用 view DTO。
+- [x] Web 角色管理增加可分配性标签、筛选器和说明。
+- [x] Web 用户管理空态和候选说明明确“只展示可分配角色”。
+- [x] 补 API/Web 契约测试。
 
 ## 3. User Role Candidate Pagination
 
@@ -64,6 +67,16 @@ Implementation branch: `codex/issue-297-role-management-closure`
 
 ### Validation Notes
 
+- Role assignability stage validation:
+  - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/roles/role-assignability.spec.ts src/modules/roles/roles.authorization-scope.spec.ts src/modules/users/users.service.roles.spec.ts` — passed, 16/16.
+  - `pnpm --filter @jinhu/web test:unit:system` — passed, 48/48.
+  - `pnpm --filter @jinhu/api typecheck` — passed.
+  - `pnpm --filter @jinhu/web typecheck` — passed.
+  - `pnpm --filter @jinhu/api lint` — passed.
+  - `pnpm --filter @jinhu/web lint` — passed.
+  - `pnpm --filter @jinhu/api build` — passed.
+  - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
+  - `git diff --check` — passed.
 - 空库迁移首次实跑发现 `000215_role_field_permission_policy_convergence.sql` 的 session temp table 使用 `ON COMMIT DROP` 会被迁移 runner 的逐语句事务提交提前删除；已修复为普通 session temp table 并在同一隔离库复跑成功。
 - PR #298 的 Codex review 指出旧数据复用已有 `sys_field_policy` 时不能静默 `DO NOTHING`，否则旧 `none/mask/read` 可能绑定到更宽松或已禁用的策略；已改为按更严格策略保守收敛、强制启用，并记录 `existing_policy_reconciliations` audit samples。
 - 第二轮 Codex review 继续指出：production seed 不能在迁移后放宽已迁移策略；迁移必须事务化；legacy `biz/rel` resource 必须映射到字段策略运行时 module/entity。已补充 `BEGIN/COMMIT`、运行时资源映射、未知 `biz/rel` 资源失败阻断、seed 保守 upsert 和“不要软删已有角色绑定的字段策略”。

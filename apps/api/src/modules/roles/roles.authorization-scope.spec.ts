@@ -1,11 +1,24 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { validate } from "class-validator";
 import test from "node:test";
+import { ListRolesQueryDto } from "./dto/list-roles-query.dto";
 import { RolesService } from "./roles.service";
 
 test("role detail attaches only permission links from the caller's park", async () => {
-  const role = { id: "role-1", tenantId: "tenant-a", parkId: "park-a", roleScope: "tenant" };
+  const role = {
+    id: "role-1",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "tenant",
+    status: "enabled",
+    isEnabled: true,
+    isTemplate: false,
+    isSystem: false,
+    isBuiltin: false,
+    isDeleted: false
+  };
   const permissionLink = { id: "link-b", roleId: role.id, tenantId: "tenant-a", parkId: "park-b" };
   let roleWhere: unknown;
   let linkOptions: unknown;
@@ -33,6 +46,60 @@ test("role detail attaches only permission links from the caller's park", async 
   assert.equal(scopedLinks.where.isDeleted, false);
   assert.deepEqual(scopedLinks.relations, { permission: true });
   assert.deepEqual(result.permissionLinks, [permissionLink]);
+  assert.equal(result.isAssignable, true);
+  assert.deepEqual(result.unassignableReasons, []);
+  assert.equal(result.assignabilityLabel, "可分配");
+});
+
+test("role list exposes assignability through an explicit DTO and filters before pagination", async () => {
+  const queryDto = Object.assign(new ListRolesQueryDto(), { assignability: "assignable" });
+  assert.equal((await validate(queryDto)).length, 0);
+  const invalidQueryDto = Object.assign(new ListRolesQueryDto(), { assignability: "legacy" });
+  assert.notEqual((await validate(invalidQueryDto)).length, 0);
+
+  const role = {
+    id: "role-1",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "park",
+    status: "enabled",
+    isEnabled: true,
+    isTemplate: false,
+    isSystem: false,
+    isBuiltin: false,
+    isDeleted: false
+  };
+  const clauses: string[] = [];
+  let skipped: number | undefined;
+  let taken: number | undefined;
+  const builder = {
+    where: (clause: string) => { clauses.push(clause); return builder; },
+    andWhere: (clause: string) => { clauses.push(clause); return builder; },
+    orderBy: () => builder,
+    addOrderBy: () => builder,
+    skip: (value: number) => { skipped = value; return builder; },
+    take: (value: number) => { taken = value; return builder; },
+    getManyAndCount: async () => [[role], 1]
+  };
+  const service = new RolesService(
+    { createQueryBuilder: () => builder } as never,
+    {} as never,
+    { find: async () => [] } as never,
+    {} as never,
+    {} as never
+  );
+
+  const result = await service.list(
+    { tenantId: "tenant-a", parkId: "park-a" },
+    Object.assign(new ListRolesQueryDto(), { page: 2, page_size: 10, assignability: "assignable" })
+  );
+
+  assert.equal(skipped, 10);
+  assert.equal(taken, 10);
+  assert.equal(result.total, 1);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.isAssignable, true);
+  assert(clauses.some((clause) => clause.includes("role.role_scope IN ('tenant','park')")));
 });
 
 test("role copy is transactional and carries permission, field-policy and current-park scope links", () => {
