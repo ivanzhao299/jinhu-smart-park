@@ -1141,7 +1141,7 @@ export class LeasingLeadsService {
       return { id: actor.sub, name: actor.realName ?? actor.username };
     }
     const user = await this.usersRepository.findOne({
-      where: { id: followUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id: followUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
     });
     if (!user) {
       throw new NotFoundException("Follow user not found");
@@ -1151,7 +1151,7 @@ export class LeasingLeadsService {
 
   private async resolveAssignableUser(scope: TenantParkScope, userId: string): Promise<{ id: string; name: string }> {
     const user = await this.usersRepository.findOne({
-      where: { id: userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id: userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
     });
     if (!user) {
       throw new NotFoundException("Follow user not found");
@@ -1425,7 +1425,7 @@ export class LeasingLeadsService {
       return { id: actor.sub, name: actor.realName ?? actor.username };
     }
     const user = await this.usersRepository.findOne({
-      where: { id: receptionUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
+      where: { id: receptionUserId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false, status: "enabled" }
     });
     if (!user) {
       throw new NotFoundException("Reception user not found");

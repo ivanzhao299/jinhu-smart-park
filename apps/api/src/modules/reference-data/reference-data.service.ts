@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { TenantParkScope } from "@jinhu/shared";
+import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { Repository } from "typeorm";
+import { ILike } from "typeorm";
+import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { FloorEntity } from "../floors/entities/floor.entity";
 import { OrgEntity } from "../orgs/entities/org.entity";
@@ -32,6 +34,8 @@ export interface ReferenceDataFormOptionsResponse {
   parkTenants: Array<{ id: string; companyName: string; parkTenantCode: string; contactName: string | null; contactMobile: string | null }>;
   users: Array<{ id: string; username: string; displayName: string | null; realName: string | null; mobile: string | null; status: string }>;
 }
+
+type ReferenceUserOption = ReferenceDataFormOptionsResponse["users"][number];
 
 @Injectable()
 export class ReferenceDataService {
@@ -67,6 +71,38 @@ export class ReferenceDataService {
       units,
       parkTenants,
       users
+    };
+  }
+
+  async listUserOptions(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ReferenceUserOption>> {
+    const baseWhere = {
+      tenantId: scope.tenantId,
+      parkId: scope.parkId,
+      isDeleted: false,
+      status: "enabled"
+    };
+    const where = query.keyword
+      ? [
+          { ...baseWhere, username: ILike(`%${query.keyword}%`) },
+          { ...baseWhere, displayName: ILike(`%${query.keyword}%`) },
+          { ...baseWhere, mobile: ILike(`%${query.keyword}%`) }
+        ]
+      : baseWhere;
+    const [items, total] = await this.usersRepository.findAndCount({
+      where,
+      order: {
+        displayName: "ASC",
+        username: "ASC"
+      },
+      skip: (query.page - 1) * query.page_size,
+      take: query.page_size
+    });
+
+    return {
+      items: items.map((item) => this.toUserOption(item)),
+      total,
+      page: query.page,
+      page_size: query.page_size
     };
   }
 
@@ -212,14 +248,18 @@ export class ReferenceDataService {
       take: REFERENCE_LIMIT
     });
 
-    return items.map((item) => ({
+    return items.map((item) => this.toUserOption(item));
+  }
+
+  private toUserOption(item: UserEntity): ReferenceUserOption {
+    return {
       id: item.id,
       username: item.username,
       displayName: item.displayName || item.username,
       realName: item.displayName || item.username,
       mobile: item.mobile ?? null,
       status: item.status
-    }));
+    };
   }
 
   private async queryCurrentTenantMap(scope: TenantParkScope, unitIds: string[]) {

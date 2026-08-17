@@ -1,5 +1,6 @@
 "use client";
 
+import type { PaginatedResult } from "@jinhu/shared";
 import { apiRequest } from "./api-client";
 import { getAccessToken } from "./authz";
 
@@ -73,6 +74,13 @@ export interface ReferenceFormOptionsResponse {
   users: ReferenceUserOption[];
 }
 
+interface RawReferenceUsersResponse {
+  items: Array<{ id: string; username: string; displayName: string | null; realName: string | null; mobile: string | null; status: string }>;
+  page: number;
+  page_size: number;
+  total: number;
+}
+
 export async function fetchReferenceFormOptions(): Promise<ReferenceFormOptionsResponse> {
   const response = await apiRequest<RawReferenceFormOptionsResponse>("/reference-data/form-options", {
     token: getAccessToken()
@@ -101,4 +109,30 @@ export async function fetchReferenceFormOptions(): Promise<ReferenceFormOptionsR
       status: item.status
     }))
   };
+}
+
+export async function fetchReferenceUsers(keyword = ""): Promise<ReferenceUserOption[]> {
+  const token = getAccessToken();
+  const pageSize = 100;
+  const users: ReferenceUserOption[] = [];
+  let page = 1;
+  let total = 0;
+  do {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize), status: "enabled" });
+    if (keyword.trim()) params.set("keyword", keyword.trim());
+    const response = await apiRequest<PaginatedResult<ReferenceUserOption> | RawReferenceUsersResponse>(`/reference-data/users?${params.toString()}`, { token });
+    const normalized = response.data.items.map((item) => ({
+      id: item.id,
+      username: item.username,
+      displayName: item.displayName ?? item.username,
+      realName: item.realName ?? item.displayName ?? item.username,
+      mobile: item.mobile ?? undefined,
+      status: item.status
+    }));
+    users.push(...normalized);
+    total = response.data.total;
+    if (response.data.items.length === 0) break;
+    page += 1;
+  } while (users.length < total);
+  return users;
 }

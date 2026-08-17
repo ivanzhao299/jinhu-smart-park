@@ -11,7 +11,7 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
-import { fetchReferenceFormOptions, type ReferenceUserOption } from "../../../lib/reference-data";
+import { fetchReferenceUsers, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
@@ -65,6 +65,7 @@ export default function LeasingLeadPoolPage() {
   const [assignTarget, setAssignTarget] = useState<LeasingLeadRow | null>(null);
   const [assignForm, setAssignForm] = useState(emptyAssignForm);
   const [message, setMessage] = useState("");
+  const userLabels = useMemo(() => buildUserLabels(users), [users]);
 
   const statusItems = dicts.leasing_lead_status ?? [];
   const sourceItems = dicts.leasing_lead_source ?? [];
@@ -92,8 +93,7 @@ export default function LeasingLeadPoolPage() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const references = await fetchReferenceFormOptions();
-      setUsers(references.users.filter((item) => item.status === "enabled"));
+      setUsers((await fetchReferenceUsers()).filter((item) => item.status === "enabled"));
     } catch {
       setUsers([]);
     }
@@ -268,6 +268,7 @@ export default function LeasingLeadPoolPage() {
                     label="目标跟进人"
                     value={assignForm.followUserId}
                     users={users}
+                    userLabels={userLabels}
                     onChange={(value) => setAssignForm((current) => ({ ...current, followUserId: value }))}
                     required
                   />
@@ -342,12 +343,14 @@ function UserSelectField({
   label,
   value,
   users,
+  userLabels,
   onChange,
   required = false
 }: {
   label: string;
   value: string;
   users: UserOptionRow[];
+  userLabels: Map<string, string>;
   onChange: (value: string) => void;
   required?: boolean;
 }) {
@@ -358,7 +361,7 @@ function UserSelectField({
       <select id={id} value={value} required={required} onChange={(event) => onChange(event.target.value)}>
         <option value="">请选择跟进人</option>
         {users.map((user) => (
-          <option key={user.id} value={user.id}>{displayUserName(user)}</option>
+          <option key={user.id} value={user.id}>{userLabels.get(user.id) ?? displayUserName(user)}</option>
         ))}
       </select>
     </div>
@@ -411,6 +414,18 @@ function labelFor(items: DictItemRow[], value?: string | null): string {
 
 function displayUserName(user: UserOptionRow): string {
   return user.displayName || user.realName || user.username;
+}
+
+function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
+  const baseCounts = new Map<string, number>();
+  for (const user of users) {
+    const label = displayUserName(user);
+    baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+  }
+  return new Map(users.map((user) => {
+    const label = displayUserName(user);
+    return [user.id, baseCounts.get(label)! > 1 ? `${label}（${user.username}）` : label];
+  }));
 }
 
 function fieldText(user: ReturnType<typeof useAuthUser>, canView: boolean, fieldKey: string, value: unknown): string {

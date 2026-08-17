@@ -100,12 +100,12 @@ const pages = [
 const results = [];
 
 async function main() {
-  if (realApi) {
-    authState = await prepareRealApiState();
-  }
   const chrome = launchChrome();
   let browser;
   try {
+    if (realApi) {
+      authState = await prepareRealApiState();
+    }
     const version = await waitForJson(`http://127.0.0.1:${port}/json/version`, 15000);
     browser = new CdpClient(version.webSocketDebuggerUrl);
     await browser.open();
@@ -571,6 +571,9 @@ function mockBrowserRuntime(user, users) {
     if (path.endsWith("/users/me") || path.endsWith("/auth/me")) return response(user);
     if (path.endsWith("/reference-data/form-options")) {
       return response({ orgs: [], buildings: [], floors: [], units: [], parkTenants: [], users });
+    }
+    if (path.endsWith("/reference-data/users")) {
+      return response({ items: users, page: 1, page_size: 100, total: users.length });
     }
     if (path.endsWith("/dict-items/by-codes")) {
       const parsed = new URL(url, location.origin);

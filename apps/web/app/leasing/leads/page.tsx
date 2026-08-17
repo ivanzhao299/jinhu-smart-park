@@ -26,7 +26,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
-import { fetchReferenceFormOptions, type ReferenceUserOption } from "../../../lib/reference-data";
+import { fetchReferenceUsers, type ReferenceUserOption } from "../../../lib/reference-data";
 
 const LEASING_MODULE = "leasing";
 const LEASING_LEAD_ENTITY = "leasing_lead";
@@ -467,6 +467,7 @@ export default function LeasingLeadsPage() {
   const [showConvertForm, setShowConvertForm] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
+  const userLabels = useMemo(() => buildUserLabels(users), [users]);
 
   const canViewContactMobile = canViewField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
   const canEditContactMobile = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
@@ -528,8 +529,7 @@ export default function LeasingLeadsPage() {
 
   const loadUsers = useCallback(async () => {
     try {
-      const references = await fetchReferenceFormOptions();
-      setUsers(references.users.filter((item) => item.status === "enabled"));
+      setUsers((await fetchReferenceUsers()).filter((item) => item.status === "enabled"));
     } catch {
       setUsers([]);
     }
@@ -550,12 +550,15 @@ export default function LeasingLeadsPage() {
   }
 
   function openCreate() {
+    const defaultUser = users.find((item) => item.id === authUser?.id) ?? users[0] ?? null;
     setEditing(null);
     setForm({
       ...emptyForm,
       source: sourceItems[0]?.itemValue ?? "",
       status: statusItems[0]?.itemValue ?? "",
-      intentionLevel: intentionItems[0]?.itemValue ?? ""
+      intentionLevel: intentionItems[0]?.itemValue ?? "",
+      followUserId: defaultUser?.id ?? "",
+      followUserName: defaultUser ? userLabels.get(defaultUser.id) ?? displayUserName(defaultUser) : ""
     });
     setShowForm(true);
     setMessage("");
@@ -769,7 +772,7 @@ export default function LeasingLeadsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const selectedFollowUserName = userLabelById(users, form.followUserId, form.followUserName);
+    const selectedFollowUserName = userLabelById(users, userLabels, form.followUserId, form.followUserName);
     const body: Record<string, unknown> = {
       leadCode: emptyToUndefined(form.leadCode),
       customerName: form.customerName.trim(),
@@ -974,7 +977,7 @@ export default function LeasingLeadsPage() {
   async function submitVisit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!detail) return;
-    const selectedReceptionUserName = userLabelById(users, visitForm.receptionUserId, visitForm.receptionUserName);
+    const selectedReceptionUserName = userLabelById(users, userLabels, visitForm.receptionUserId, visitForm.receptionUserName);
     await apiRequest<LeasingVisitRow>(
       editingVisit ? `/leasing/leads/${detail.id}/visits/${editingVisit.id}` : `/leasing/leads/${detail.id}/visits`,
       {
@@ -1191,7 +1194,7 @@ export default function LeasingLeadsPage() {
               <SelectField label="状态" value={filters.status} onChange={(value) => updateFilter("status", value)} options={statusItems} allowEmpty />
               <SelectField label="来源" value={filters.source} onChange={(value) => updateFilter("source", value)} options={sourceItems} allowEmpty />
               <SelectField label="意向等级" value={filters.intentionLevel} onChange={(value) => updateFilter("intentionLevel", value)} options={intentionItems} allowEmpty />
-              <UserSelectField label="跟进人" value={filters.followUserId} users={users} onChange={(value) => updateFilter("followUserId", value)} allowEmpty emptyLabel="全部" />
+              <UserSelectField label="跟进人" value={filters.followUserId} users={users} userLabels={userLabels} onChange={(value) => updateFilter("followUserId", value)} allowEmpty emptyLabel="全部" />
               <SelectField
                 label="是否公海"
                 value={filters.isInPool}
@@ -1344,13 +1347,13 @@ export default function LeasingLeadsPage() {
                       label="跟进人"
                       value={form.followUserId}
                       users={users}
+                      userLabels={userLabels}
                       onChange={(value, user) => setForm((current) => ({
                         ...current,
                         followUserId: value,
-                        followUserName: user ? displayUserName(user) : ""
+                        followUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
                       }))}
-                      allowEmpty
-                      emptyLabel="暂不指定"
+                      emptyLabel="请选择跟进人"
                       selectedFallbackLabel={form.followUserName}
                     />
                     <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
@@ -1680,13 +1683,14 @@ export default function LeasingLeadsPage() {
                               label="接待人"
                               value={visitForm.receptionUserId}
                               users={users}
+                              userLabels={userLabels}
                               onChange={(value, user) => setVisitForm((current) => ({
                                 ...current,
                                 receptionUserId: value,
-                                receptionUserName: user ? displayUserName(user) : ""
+                                receptionUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
                               }))}
                               allowEmpty
-                              emptyLabel="暂不指定"
+                              emptyLabel="默认当前操作人"
                               selectedFallbackLabel={visitForm.receptionUserName}
                             />
                             <SelectField
@@ -1963,6 +1967,7 @@ function UserSelectField({
   label,
   value,
   users,
+  userLabels,
   onChange,
   allowEmpty = false,
   emptyLabel = "请选择",
@@ -1971,6 +1976,7 @@ function UserSelectField({
   label: string;
   value: string;
   users: UserOptionRow[];
+  userLabels: Map<string, string>;
   onChange: (value: string, user: UserOptionRow | null) => void;
   allowEmpty?: boolean;
   emptyLabel?: string;
@@ -1993,7 +1999,7 @@ function UserSelectField({
           <option value={value}>{selectedFallbackLabel || "当前绑定用户"}（当前不可选）</option>
         ) : null}
         {users.map((user) => (
-          <option key={user.id} value={user.id}>{displayUserName(user)}</option>
+          <option key={user.id} value={user.id}>{userLabels.get(user.id) ?? displayUserName(user)}</option>
         ))}
       </select>
     </label>
@@ -2067,10 +2073,22 @@ function displayUserName(user: UserOptionRow): string {
   return user.displayName || user.realName || user.username;
 }
 
-function userLabelById(users: UserOptionRow[], id: string, fallback?: string | null): string {
+function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
+  const baseCounts = new Map<string, number>();
+  for (const user of users) {
+    const label = displayUserName(user);
+    baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+  }
+  return new Map(users.map((user) => {
+    const label = displayUserName(user);
+    return [user.id, baseCounts.get(label)! > 1 ? `${label}（${user.username}）` : label];
+  }));
+}
+
+function userLabelById(users: UserOptionRow[], userLabels: Map<string, string>, id: string, fallback?: string | null): string {
   if (!id) return "";
   const user = users.find((item) => item.id === id);
-  return user ? displayUserName(user) : fallback ?? "";
+  return user ? userLabels.get(user.id) ?? displayUserName(user) : fallback ?? "";
 }
 
 function selectableLeadStatusItems(items: DictItemRow[], currentStatus: string, user: ReturnType<typeof useAuthUser>): DictItemRow[] {

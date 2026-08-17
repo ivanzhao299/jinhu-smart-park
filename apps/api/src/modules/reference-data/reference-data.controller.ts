@@ -1,8 +1,9 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import type { TenantParkScope } from "@jinhu/shared";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { RequireAnyPermissions } from "../../shared/decorators/permissions.decorator";
+import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import { ReferenceDataService } from "./reference-data.service";
 
 @Controller("reference-data")
@@ -79,6 +80,9 @@ export class ReferenceDataController {
     SYSTEM_PERMISSIONS.LEASING_LEAD_READ,
     SYSTEM_PERMISSIONS.LEASING_LEAD_CREATE,
     SYSTEM_PERMISSIONS.LEASING_LEAD_UPDATE,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_ASSIGN,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_POOL_READ,
+    SYSTEM_PERMISSIONS.LEASING_STATISTICS_FUNNEL,
     SYSTEM_PERMISSIONS.LEASING_CHECKOUT_READ,
     SYSTEM_PERMISSIONS.LEASING_CHECKOUT_CREATE,
     SYSTEM_PERMISSIONS.LEASING_CHECKOUT_UPDATE,
@@ -92,5 +96,24 @@ export class ReferenceDataController {
   )
   listFormOptions(@CurrentScope() scope: TenantParkScope) {
     return this.referenceDataService.getFormOptions(scope);
+  }
+
+  @Get("users")
+  @RequireAnyPermissions(
+    SYSTEM_PERMISSIONS.LEASING_LEAD_READ,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_CREATE,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_UPDATE,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_ASSIGN,
+    SYSTEM_PERMISSIONS.LEASING_LEAD_POOL_READ,
+    SYSTEM_PERMISSIONS.LEASING_STATISTICS_FUNNEL,
+    SYSTEM_PERMISSIONS.WORKORDER_READ,
+    SYSTEM_PERMISSIONS.WORKORDER_CREATE,
+    SYSTEM_PERMISSIONS.WORKORDER_UPDATE,
+    SYSTEM_PERMISSIONS.SAFETY_HAZARD_READ,
+    SYSTEM_PERMISSIONS.SAFETY_HAZARD_CREATE,
+    SYSTEM_PERMISSIONS.SAFETY_HAZARD_UPDATE
+  )
+  listUsers(@CurrentScope() scope: TenantParkScope, @Query() query: PaginationQueryDto) {
+    return this.referenceDataService.listUserOptions(scope, query);
   }
 }
