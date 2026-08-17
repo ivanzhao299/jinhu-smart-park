@@ -43,3 +43,18 @@ test("role management exposes assignability filters and server-provided reasons"
   assert.match(source, /role\.isAssignable \? "可分配给用户" : role\.assignabilityLabel/);
   assert.match(source, /分配状态/);
 });
+
+test("role management keeps role data-scope config editable and bindable", () => {
+  assert.match(source, /dataScopeConfig\?: Record<string, unknown>/);
+  assert.match(source, /dataScopeConfigText: string/);
+  assert.match(source, /dataScopeConfigText: JSON\.stringify\(role\.dataScopeConfig \?\? \{\}, null, 2\)/);
+  assert.match(source, /const dataScopeConfig = parseDataScopeConfig\(formState\.dataScopeConfigText\)/);
+  assert.match(source, /dataScopeConfig,/);
+  assert.match(source, /<option value="org_and_children">本组织及下级<\/option>/);
+  assert.match(source, /dataScopeConfig: role\.dataScopeConfig \?\? \{\}/);
+  assert.match(source, /\/data-scope-rules\/role-bindings\/\$\{selectedRole\.id\}/);
+  assert.match(source, /body: \{ ruleIds: selectedDataScopeIds \}/);
+  assert.match(source, /formatDataScopeConfig\(item\.scopeConfig\)/);
+  assert.match(source, /function parseDataScopeConfig/);
+  assert.match(source, /不能包含 SQL/);
+});

@@ -21,6 +21,7 @@ interface RoleNode {
   roleType: string;
   roleScope: string;
   dataScope: string;
+  dataScopeConfig?: Record<string, unknown>;
   isBuiltin: boolean;
   isSystem?: boolean;
   isTemplate: boolean;
@@ -61,6 +62,7 @@ interface DataScopeRule {
   ruleName: string;
   dimension: string;
   scopeType: string;
+  scopeConfig?: Record<string, unknown>;
   status: string;
 }
 
@@ -81,6 +83,7 @@ interface RoleFormState {
   name: string;
   parentId: string;
   dataScope: string;
+  dataScopeConfigText: string;
   roleType: string;
   roleScope: string;
   sortNo: number;
@@ -122,6 +125,7 @@ const emptyForm: RoleFormState = {
   name: "",
   parentId: "",
   dataScope: "tenant",
+  dataScopeConfigText: "{}",
   roleType: "custom",
   roleScope: "tenant",
   sortNo: 0,
@@ -222,6 +226,7 @@ export default function RolesPage() {
       name: role.name,
       parentId: role.parentId ?? "",
       dataScope: role.dataScope,
+      dataScopeConfigText: JSON.stringify(role.dataScopeConfig ?? {}, null, 2),
       roleType: role.roleType,
       roleScope: role.roleScope,
       sortNo: role.sortNo ?? 0,
@@ -235,11 +240,13 @@ export default function RolesPage() {
   async function submitRole(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = getToken();
+    const dataScopeConfig = parseDataScopeConfig(formState.dataScopeConfigText);
     const body = {
       code: formState.code.trim(),
       name: formState.name.trim(),
       parentId: formState.parentId || undefined,
       dataScope: formState.dataScope,
+      dataScopeConfig,
       roleType: formState.roleType,
       roleScope: formState.roleScope,
       sortNo: formState.sortNo,
@@ -266,7 +273,7 @@ export default function RolesPage() {
       method: "POST",
       token,
       idempotencyKey: createIdempotencyKey("role-copy"),
-      body: { code, name, parentId: role.parentId ?? undefined, roleScope: role.roleScope, dataScope: role.dataScope }
+      body: { code, name, parentId: role.parentId ?? undefined, roleScope: role.roleScope, dataScope: role.dataScope, dataScopeConfig: role.dataScopeConfig ?? {} }
     });
     setMessage("模板角色已复制为自定义角色");
     await load(data.page, response.data.id);
@@ -490,6 +497,7 @@ export default function RolesPage() {
                   <Meta label="角色范围" value={selectedRole.roleScope} />
                   <Meta label="角色类型" value={selectedRole.roleType} />
                   <Meta label="数据范围" value={selectedRole.dataScope} />
+                  <Meta label="范围配置" value={formatDataScopeConfig(selectedRole.dataScopeConfig)} />
                   <Meta label="分配状态" value={selectedRole.assignabilityLabel} />
                 </div>
 
@@ -516,7 +524,7 @@ export default function RolesPage() {
                     applying={bundleApplying}
                   />
                 ) : null}
-                {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType}</span></>} /> : null}
+                {activeTab === "dataScopes" ? <BindingPanel title="数据权限规则" emptyText="暂无数据权限规则" items={dataScopeRules} selectedIds={selectedDataScopeIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)} onToggle={(id, checked) => setSelectedDataScopeIds(toggleList(id, checked))} onSave={() => void saveDataScopes().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE} renderItem={(item) => <><strong>{item.ruleName}</strong><span>{item.ruleCode} · {item.dimension} · {item.scopeType} · {formatDataScopeConfig(item.scopeConfig)}</span></>} /> : null}
                 {activeTab === "fieldPolicies" ? <BindingPanel title="字段权限策略" emptyText="暂无字段权限策略" items={fieldPolicies} selectedIds={selectedFieldPolicyIds} protectedRole={Boolean(selectedRole.isTemplate || selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.editable === false || selectedRole.isEditable === false)} onToggle={(id, checked) => setSelectedFieldPolicyIds(toggleList(id, checked))} onSave={() => void saveFieldPolicies().catch(showError)} savePermission={SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY} renderItem={(item) => <><strong>{item.fieldName}</strong><span>{item.module}.{item.entity}.{item.fieldKey} · {item.policyType}{item.maskRule ? ` · ${item.maskRule}` : ""}</span></>} /> : null}
               </div>
             ) : <p className="status-pill">请选择一个角色</p>}
@@ -563,7 +571,7 @@ export default function RolesPage() {
               <div className="field"><label>角色编码</label><input required value={formState.code} onChange={(event) => setFormState({ ...formState, code: event.target.value })} disabled={formMode === "edit" && Boolean(selectedRole?.isBuiltin)} /></div>
               <div className="field"><label>角色名称</label><input required value={formState.name} onChange={(event) => setFormState({ ...formState, name: event.target.value })} /></div>
               <div className="field"><label>上级角色</label><select value={formState.parentId} onChange={(event) => setFormState({ ...formState, parentId: event.target.value })}><option value="">无</option>{flatRoles.filter((role) => role.id !== formState.id).map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></div>
-              <div className="field"><label>数据范围</label><select value={formState.dataScope} onChange={(event) => setFormState({ ...formState, dataScope: event.target.value })}><option value="tenant">本租户</option><option value="park">本园区</option><option value="org">本组织</option><option value="self">本人</option><option value="custom">自定义</option><option value="all">全部</option></select></div>
+              <div className="field"><label>数据范围</label><select value={formState.dataScope} onChange={(event) => setFormState({ ...formState, dataScope: event.target.value })}><option value="tenant">本租户</option><option value="park">本园区</option><option value="org">本组织</option><option value="org_and_children">本组织及下级</option><option value="self">本人</option><option value="custom">自定义</option><option value="all">全部</option></select></div>
               <div className="field"><label>角色类型</label><select value={formState.roleType} onChange={(event) => setFormState({ ...formState, roleType: event.target.value })}><option value="custom">自定义</option><option value="tenant">租户角色</option><option value="park">园区角色</option><option value="tenant_external">租户外部角色</option><option value="system">系统角色</option></select></div>
               <div className="field"><label>角色范围</label><select value={formState.roleScope} onChange={(event) => setFormState({ ...formState, roleScope: event.target.value })} disabled={formMode === "edit"}><option value="tenant">租户</option><option value="park">园区</option><option value="platform">平台</option></select></div>
               <div className="field"><label>排序</label><input type="number" value={formState.sortNo} onChange={(event) => setFormState({ ...formState, sortNo: Number(event.target.value) })} onFocus={(event) => event.target.select()} /></div>
@@ -573,6 +581,7 @@ export default function RolesPage() {
               <div className="checkbox-list">
                 <label className="checkbox-row"><input type="checkbox" checked={formState.isTemplate} onChange={(event) => setFormState({ ...formState, isTemplate: event.target.checked })} /><span>设为模板角色</span></label>
               </div>
+              <div className="field"><label>dataScopeConfig JSON</label><textarea className="json-editor" value={formState.dataScopeConfigText} onChange={(event) => setFormState({ ...formState, dataScopeConfigText: event.target.value })} /></div>
               <div className="field"><label>备注</label><input value={formState.remark} onChange={(event) => setFormState({ ...formState, remark: event.target.value })} /></div>
             </DrawerFormGrid>
             <DrawerFooter>
@@ -716,6 +725,25 @@ function AssignabilityBadge({ role }: { role: RoleNode }) {
       {role.isAssignable ? "可分配给用户" : role.assignabilityLabel || "不可分配"}
     </span>
   );
+}
+
+function parseDataScopeConfig(value: string): Record<string, unknown> {
+  if (/\b(select|insert|update|delete|drop|alter|truncate|union|where|from)\b/i.test(value)) {
+    throw new Error("dataScopeConfig 只能填写结构化 JSON，不能包含 SQL");
+  }
+  const parsed = JSON.parse(value || "{}") as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("dataScopeConfig 必须是 JSON 对象");
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function formatDataScopeConfig(config: Record<string, unknown> | undefined): string {
+  const entries = Object.entries(config ?? {});
+  if (entries.length === 0) return "{}";
+  return entries
+    .map(([key, value]) => `${key}:${Array.isArray(value) ? value.length : 1}`)
+    .join(" · ");
 }
 
 function StatusBadge({ status }: { status: string }) {

@@ -15,6 +15,8 @@ import type { CreateRoleDto } from "./dto/create-role.dto";
 import type { CopyRoleDto } from "./dto/copy-role.dto";
 import type { ListRolesQueryDto } from "./dto/list-roles-query.dto";
 import type { UpdateRoleDto } from "./dto/update-role.dto";
+import { canonicalizeUuidDataScopeIds, normalizeDataScopeType, normalizeScopeConfig } from "../data-scopes/data-scope-config";
+import type { DataScopeConfig } from "../data-scopes/entities/data-scope-rule.entity";
 import { RoleEntity } from "./entities/role.entity";
 import { UserRoleEntity } from "./entities/user-role.entity";
 import { evaluateRoleAssignability, type RoleAssignability } from "./role-assignability";
@@ -93,6 +95,9 @@ export class RolesService {
   async create(scope: TenantParkScope, actorId: string, dto: CreateRoleDto): Promise<RoleEntity> {
     await this.assertCodeAvailable(scope, dto.code);
     const parent = dto.parentId ? await this.mustFindParent(scope, dto.parentId) : null;
+    const dataScope = dto.dataScope ?? "50";
+    const dataScopeConfig = normalizeScopeConfig(dto.dataScopeConfig);
+    await this.validateRoleDataScopeConfig(scope, dataScope, dataScopeConfig, this.rolesRepository);
     return this.rolesRepository.save(
       this.rolesRepository.create({
         code: dto.code,
@@ -104,8 +109,8 @@ export class RolesService {
         sortNo: dto.sortNo ?? 0,
         roleType: dto.roleType ?? "custom",
         roleScope: dto.roleScope ?? "tenant",
-        dataScope: dto.dataScope ?? "50",
-        dataScopeConfig: dto.dataScopeConfig ?? {},
+        dataScope,
+        dataScopeConfig: dataScopeConfig as Record<string, unknown>,
         isTemplate: dto.isTemplate ?? false,
         isSystem: false,
         isBuiltin: false,
@@ -175,8 +180,6 @@ export class RolesService {
       sortNo: dto.sortNo ?? role.sortNo,
       roleType: dto.roleType ?? role.roleType,
       roleScope: dto.roleScope ?? role.roleScope,
-      dataScope: dto.dataScope ?? role.dataScope,
-      dataScopeConfig: dto.dataScopeConfig ?? role.dataScopeConfig,
       isTemplate: dto.isTemplate ?? role.isTemplate,
       status: dto.status ?? role.status,
       isEnabled: dto.status ? dto.status === "enabled" : role.isEnabled,
@@ -213,6 +216,16 @@ export class RolesService {
         const lockedCode = dto.code ?? lockedRole.code;
         const lockedParentPath = lockedParent ? lockedParent.rolePath ?? lockedParent.code : null;
         const lockedParentLevel = lockedParent ? lockedParent.level : 0;
+        const lockedDataScope = dto.dataScope ?? lockedRole.dataScope;
+        const lockedDataScopeConfig = dto.dataScopeConfig === undefined ? normalizeScopeConfig(lockedRole.dataScopeConfig) : normalizeScopeConfig(dto.dataScopeConfig);
+        if (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined) {
+          await this.validateRoleDataScopeConfig(
+            { tenantId: scope.tenantId, parkId: lockedRole.parkId ?? scope.parkId },
+            lockedDataScope,
+            lockedDataScopeConfig,
+            manager.getRepository(RoleEntity)
+          );
+        }
         Object.assign(lockedRole, {
           ...changes,
           code: dto.code ?? lockedRole.code,
@@ -220,8 +233,8 @@ export class RolesService {
           sortNo: dto.sortNo ?? lockedRole.sortNo,
           roleType: dto.roleType ?? lockedRole.roleType,
           roleScope: lockedRole.roleScope,
-          dataScope: dto.dataScope ?? lockedRole.dataScope,
-          dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+          dataScope: lockedDataScope,
+          dataScopeConfig: lockedDataScopeConfig as Record<string, unknown>,
           status: dto.status ?? lockedRole.status,
           isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
           remark: dto.remark ?? lockedRole.remark,
@@ -255,13 +268,23 @@ export class RolesService {
       const lockedCode = dto.code ?? lockedRole.code;
       const lockedParentPath = lockedParent ? lockedParent.rolePath ?? lockedParent.code : null;
       const lockedParentLevel = lockedParent ? lockedParent.level : 0;
+      const lockedDataScope = dto.dataScope ?? lockedRole.dataScope;
+      const lockedDataScopeConfig = dto.dataScopeConfig === undefined ? normalizeScopeConfig(lockedRole.dataScopeConfig) : normalizeScopeConfig(dto.dataScopeConfig);
+      if (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined) {
+        await this.validateRoleDataScopeConfig(
+          { tenantId: scope.tenantId, parkId: lockedRole.parkId ?? scope.parkId },
+          lockedDataScope,
+          lockedDataScopeConfig,
+          manager.getRepository(RoleEntity)
+        );
+      }
       Object.assign(lockedRole, {
         code: dto.code ?? lockedRole.code,
         name: dto.name ?? lockedRole.name,
         sortNo: dto.sortNo ?? lockedRole.sortNo,
         roleType: dto.roleType ?? lockedRole.roleType,
-        dataScope: dto.dataScope ?? lockedRole.dataScope,
-        dataScopeConfig: dto.dataScopeConfig ?? lockedRole.dataScopeConfig,
+        dataScope: lockedDataScope,
+        dataScopeConfig: lockedDataScopeConfig as Record<string, unknown>,
         isTemplate: dto.isTemplate ?? lockedRole.isTemplate,
         status: dto.status ?? lockedRole.status,
         isEnabled: dto.status ? dto.status === "enabled" : lockedRole.isEnabled,
@@ -344,6 +367,9 @@ export class RolesService {
         lock: { mode: "pessimistic_read" }
       }) : null;
       if (dto.parentId && !parent) throw new NotFoundException("Parent role not found in current scope");
+      const copiedDataScope = isManagedPropertyTemplate ? source.dataScope : dto.dataScope ?? source.dataScope;
+      const copiedDataScopeConfig = normalizeScopeConfig(dto.dataScopeConfig ?? source.dataScopeConfig ?? {});
+      await this.validateRoleDataScopeConfig(scope, copiedDataScope, copiedDataScopeConfig, roleRepository);
       const copied = await roleRepository.save(roleRepository.create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
@@ -356,8 +382,8 @@ export class RolesService {
         sortNo: source.sortNo,
         roleType: "custom",
         roleScope: isManagedPropertyTemplate ? "park" : dto.roleScope ?? source.roleScope,
-        dataScope: isManagedPropertyTemplate ? source.dataScope : dto.dataScope ?? source.dataScope,
-        dataScopeConfig: dto.dataScopeConfig ?? source.dataScopeConfig ?? {},
+        dataScope: copiedDataScope,
+        dataScopeConfig: copiedDataScopeConfig as Record<string, unknown>,
         isTemplate: false,
         managedTemplateCode: null,
         templateDefinitionVersion: null,
@@ -489,6 +515,89 @@ export class RolesService {
     if (!role) throw new NotFoundException("Role not found");
     this.assertBindingsEditable(role);
     return role;
+  }
+
+  private async validateRoleDataScopeConfig(
+    scope: TenantParkScope,
+    dataScope: string,
+    config: DataScopeConfig,
+    repository: Pick<Repository<RoleEntity>, "query">
+  ): Promise<void> {
+    const normalizedScope = normalizeDataScopeType(dataScope);
+    if (normalizedScope === "custom" && (config.ids?.length ?? 0) > 0) {
+      throw new BadRequestException("Custom role dataScopeConfig must use tenantIds, parkIds, or orgIds");
+    }
+    const tenantIds = [
+      ...(config.tenantIds ?? []),
+      ...(normalizedScope === "tenant" ? config.ids ?? [] : [])
+    ];
+    const parkIds = [
+      ...(config.parkIds ?? []),
+      ...(normalizedScope === "park" ? config.ids ?? [] : [])
+    ];
+    const orgIds = [
+      ...(config.orgIds ?? []),
+      ...(["org", "org_and_children"].includes(normalizedScope) ? config.ids ?? [] : [])
+    ];
+    if (tenantIds.length > 0) {
+      const uniqueTenantIds = [...new Set(tenantIds)];
+      if (uniqueTenantIds.some((id) => id !== scope.tenantId)) {
+        throw new BadRequestException("Role dataScopeConfig tenant ids must stay in current tenant");
+      }
+      await this.assertConfiguredIdsExist(
+        repository,
+        "Role dataScopeConfig tenant ids must reference enabled tenants in current scope",
+        uniqueTenantIds,
+        `SELECT tenant_id AS id FROM sys_tenant
+          WHERE tenant_id = ANY($1::varchar[])
+            AND is_deleted = false
+            AND status = 1`,
+        [uniqueTenantIds]
+      );
+    }
+    if (parkIds.length > 0) {
+      const uniqueParkIds = [...new Set(parkIds)];
+      await this.assertConfiguredIdsExist(
+        repository,
+        "Role dataScopeConfig park ids must reference enabled parks in current tenant",
+        uniqueParkIds,
+        `SELECT park_id AS id FROM biz_park
+          WHERE tenant_id = $1
+            AND park_id = ANY($2::varchar[])
+            AND is_deleted = false
+            AND status = 1`,
+        [scope.tenantId, uniqueParkIds]
+      );
+    }
+    if (orgIds.length > 0) {
+      const uniqueOrgIds = canonicalizeUuidDataScopeIds([...new Set(orgIds)], "Role dataScopeConfig org ids must be UUID strings");
+      await this.assertConfiguredIdsExist(
+        repository,
+        "Role dataScopeConfig org ids must reference enabled orgs in current park",
+        uniqueOrgIds,
+        `SELECT id::text AS id FROM sys_org
+          WHERE tenant_id = $1
+            AND park_id = $2
+            AND id = ANY($3::uuid[])
+            AND is_deleted = false
+            AND status = 'enabled'`,
+        [scope.tenantId, scope.parkId, uniqueOrgIds]
+      );
+    }
+  }
+
+  private async assertConfiguredIdsExist(
+    repository: Pick<Repository<RoleEntity>, "query">,
+    message: string,
+    expectedIds: string[],
+    sql: string,
+    parameters: unknown[]
+  ): Promise<void> {
+    const rows = await repository.query<Array<{ id: string }>>(sql, parameters);
+    const actualIds = new Set(rows.map((row) => row.id));
+    if (expectedIds.some((id) => !actualIds.has(id))) {
+      throw new BadRequestException(message);
+    }
   }
 
   private async assertCodeAvailable(scope: TenantParkScope, code: string): Promise<void> {

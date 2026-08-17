@@ -6,7 +6,8 @@ Implementation branches:
 - `codex/issue-297-role-management-closure` — Field policy convergence / permission binding closure, merged by PR #298.
 - `codex/issue-297-role-assignability` — Role assignability expression stage, merged by PR #301.
 - `codex/issue-297-role-candidate-pagination` — User role candidate pagination/search stage, merged by PR #302.
-- `codex/issue-297-permission-binding-consistency` — Permission binding consistency stage.
+- `codex/issue-297-permission-binding-consistency` — Permission binding consistency stage, merged by PR #303.
+- `codex/issue-297-data-scope-config` — Data scope configuration stage.
 
 ## 1. Planning And Branch Setup
 
@@ -39,9 +40,9 @@ Implementation branches:
 
 ## 5. Data Scope Configuration
 
-- [ ] 设计并实现角色 `dataScopeConfig` UI 或复用规则绑定面板。
-- [ ] 后端校验 `dataScopeConfig` 中的组织/园区/租户边界。
-- [ ] 补充 `custom`、`org_and_children`、空配置和跨作用域拒绝测试。
+- [x] 设计并实现角色 `dataScopeConfig` UI 或复用规则绑定面板。
+- [x] 后端校验 `dataScopeConfig` 中的组织/园区/租户边界。
+- [x] 补充 `custom`、`org_and_children`、空配置和跨作用域拒绝测试。
 
 ## 6. Field Policy Convergence
 
@@ -65,7 +66,7 @@ Implementation branches:
 - [x] 隔离 PostgreSQL 空库迁移 + production seed + bootstrap admin + baseline check；最终 hard gates 通过，剩余 WARN 仅为本地命令未显式传入文件存储/SMS/WeChat 环境开关。
 - [x] 静态专项 E2E：角色模板复制、权限模板/字段策略契约、责任角色和工程项目经理 RBAC 契约。
 - [x] 生产化本地 API 完整回归：`node scripts/e2e/first-release-regression.mjs` 通过，覆盖认证、幂等、文件、用户资产/角色绑定、组织层级、工单和租赁。
-- [ ] 数据权限配置专项 E2E：属于 Issue #297 后续阶段，本轮未修改 `dataScopeConfig` UI/校验。
+- [x] 数据权限配置专项：本阶段以 API/Web 契约测试覆盖，无新增迁移；后续 PR CI 覆盖全仓门禁。
 
 ### Validation Notes
 
@@ -97,6 +98,29 @@ Implementation branches:
   - `pnpm --filter @jinhu/api build` — passed.
   - `git diff --check` — passed.
   - Codex review for PR #303 raised one P1 issue: permission catalog rows are tenant-wide and may retain the original park id in additional parks. Fixed by keeping permission entity eligibility tenant-scoped and preserving current-park scope on `rel_role_perm` links.
+- Data scope configuration stage validation:
+  - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/data-scopes/data-scope.service.spec.ts src/modules/roles/roles.authorization-scope.spec.ts` — passed, 25/25.
+  - `pnpm --filter @jinhu/web test:unit:system` — passed, 50/50.
+  - `pnpm --filter @jinhu/api typecheck` — passed.
+  - `pnpm --filter @jinhu/web typecheck` — passed.
+  - `pnpm --filter @jinhu/api lint` — passed.
+  - `pnpm --filter @jinhu/web lint` — passed.
+  - `pnpm --filter @jinhu/api build` — passed.
+  - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
+  - `git diff --check` — passed.
+  - Implementation note: current runtime authority remains `sys_data_scope_rule + rel_role_data_scope`; role `dataScopeConfig` is now editable/round-tripped and guarded, while rule `scopeConfig` write paths validate tenant/park/org IDs before they can be bound to roles.
+  - Codex review for PR #304 raised five data-scope hardening issues; fixed by rejecting unsupported `scopeConfig` fields, canonicalizing UUID ids before existence comparison, validating configured ids for every runtime-consuming scope type, validating tenant-wide rule edits against the rule owner park, and preserving role data-scope fields from the locked row during partial updates.
+  - Second Codex review for PR #304 raised one additional tenant-role owner-park issue; fixed role update validation so tenant roles reachable from another park validate org ids against the locked role's stored `parkId`, matching the data-scope rule owner-park contract.
+  - Review-fix validation:
+    - `pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/data-scopes/data-scope.service.spec.ts src/modules/roles/roles.authorization-scope.spec.ts` — passed, 31/31.
+    - `pnpm --filter @jinhu/web test:unit:system` — passed, 50/50.
+    - `pnpm --filter @jinhu/api typecheck` — passed.
+    - `pnpm --filter @jinhu/web typecheck` — passed.
+    - `pnpm --filter @jinhu/api lint` — passed.
+    - `pnpm --filter @jinhu/web lint` — passed.
+    - `pnpm --filter @jinhu/api build` — passed.
+    - `pnpm --filter @jinhu/web build` — passed; Next.js emitted the existing ESLint plugin warning.
+    - `git diff --check` — passed.
 - 空库迁移首次实跑发现 `000215_role_field_permission_policy_convergence.sql` 的 session temp table 使用 `ON COMMIT DROP` 会被迁移 runner 的逐语句事务提交提前删除；已修复为普通 session temp table 并在同一隔离库复跑成功。
 - PR #298 的 Codex review 指出旧数据复用已有 `sys_field_policy` 时不能静默 `DO NOTHING`，否则旧 `none/mask/read` 可能绑定到更宽松或已禁用的策略；已改为按更严格策略保守收敛、强制启用，并记录 `existing_policy_reconciliations` audit samples。
 - 第二轮 Codex review 继续指出：production seed 不能在迁移后放宽已迁移策略；迁移必须事务化；legacy `biz/rel` resource 必须映射到字段策略运行时 module/entity。已补充 `BEGIN/COMMIT`、运行时资源映射、未知 `biz/rel` 资源失败阻断、seed 保守 upsert 和“不要软删已有角色绑定的字段策略”。
