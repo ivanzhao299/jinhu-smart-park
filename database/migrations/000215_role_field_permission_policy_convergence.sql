@@ -35,6 +35,8 @@ SELECT
     WHEN legacy.resource LIKE 'biz.housing_%' THEN 'housing_rental'
     WHEN legacy.resource LIKE 'biz.iot_%' THEN 'iot'
     WHEN legacy.resource IN ('biz.scene_template', 'biz.scene_instance') THEN 'iot'
+    WHEN legacy.resource LIKE 'iot_%' THEN 'iot'
+    WHEN legacy.resource LIKE 'scene_%' THEN 'iot'
     WHEN legacy.resource IN (
       'biz.safety_hazard',
       'biz.safety_work_permit',
@@ -83,6 +85,8 @@ SELECT
     WHEN legacy.resource LIKE 'biz.iot_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource = 'biz.scene_template' THEN 'scene_template'
     WHEN legacy.resource = 'biz.scene_instance' THEN 'scene_instance'
+    WHEN legacy.resource LIKE 'iot_%' THEN legacy.resource
+    WHEN legacy.resource LIKE 'scene_%' THEN legacy.resource
     WHEN legacy.resource = 'biz.safety_hazard' THEN 'safety_hazard'
     WHEN legacy.resource = 'biz.safety_work_permit' THEN 'work_permit'
     WHEN legacy.resource = 'biz.safety_work_permit_check' THEN 'work_permit_check'
@@ -100,6 +104,7 @@ SELECT
     WHEN POSITION(':' IN legacy.resource) > 0 THEN REGEXP_REPLACE(legacy.resource, '^[^:]+[:]', '')
     ELSE legacy.resource
   END AS entity,
+  legacy.access_mode AS legacy_access_mode,
   legacy.field_key,
   legacy.field_name,
   CASE legacy.access_mode
@@ -133,6 +138,14 @@ WHERE legacy.is_deleted = false;
 
 DO $$
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM tmp_role_field_permission_legacy legacy
+    WHERE legacy.legacy_access_mode NOT IN ('none', 'mask', 'read', 'write')
+  ) THEN
+    RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unknown legacy access modes remain';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM tmp_role_field_permission_legacy legacy
@@ -437,7 +450,7 @@ SELECT
      AND link.is_deleted = false
   ),
   jsonb_build_object(
-    'policy_precedence', jsonb_build_array('hidden', 'masked', 'readonly', 'editable'),
+    'policy_precedence', jsonb_build_array('hidden', 'masked', 'readonly', 'visible', 'editable'),
 	    'access_mode_mapping', jsonb_build_object(
 	      'none', 'hidden',
 	      'mask', 'masked',

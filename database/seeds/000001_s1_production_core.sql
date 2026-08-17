@@ -1108,7 +1108,7 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
       END
     ) = 'masked'
       THEN COALESCE(sys_field_policy.mask_rule, EXCLUDED.mask_rule, 'default')
-    ELSE NULL
+    ELSE COALESCE(EXCLUDED.mask_rule, sys_field_policy.mask_rule)
   END,
   status = 'enabled',
   remark = EXCLUDED.remark,
