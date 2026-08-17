@@ -117,6 +117,7 @@ RBAC, first-release menu, dashboard visibility, denied-route, and permission con
   - 检查数据库连通性
   - 检查文件存储目录
   - 检查基线初始化状态
+  - 检查默认 scope 的 112 个业务字典是否可用，以及 active、未过期租户下 active 园区的业务字典初始化历史是否完整
 - `idempotency key conflict`：
   - 更换 `TEST_RUN_ID`
   - 检查是否重复使用相同 `X-Idempotency-Key`

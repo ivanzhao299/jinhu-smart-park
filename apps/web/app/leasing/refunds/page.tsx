@@ -5,6 +5,7 @@ import { RefreshCw, Search } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type { PaginatedResult } from "@jinhu/shared";
 import { ApiError, apiRequest } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
@@ -17,10 +18,6 @@ const FIELD_REFUND_AMOUNT = "refundAmount";
 const FIELD_RECEIVER_BANK_ACCOUNT = "receiverBankAccount";
 const FIELD_BANK_SERIAL = "bankSerial";
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -112,16 +109,8 @@ export default function LeasingRefundsPage() {
 
   const loadDicts = useCallback(async () => {
     if (!canRead) return;
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["leasing_refund_method", "leasing_refund_status"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const itemResponse = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?dict_type_id=${dictTypeId}&page=1&page_size=100`, { token: getAccessToken() });
-      return [code, itemResponse.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, [canRead]);
 
   useEffect(() => {

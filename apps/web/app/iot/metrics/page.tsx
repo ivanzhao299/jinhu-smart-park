@@ -23,14 +23,11 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
 
 const IOT_MODULE = "iot";
 
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
-}
 
 interface DictItemRow {
   id: string;
@@ -117,20 +114,8 @@ export default function IotMetricsPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["iot_device_type", "iot_metric_value_type", "iot_device_status"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   useEffect(() => {

@@ -9,6 +9,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { API_PREFIX, apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { canEditField, canViewField, maskField } from "../../../lib/field-policy";
 
 const LEASING_MODULE = "leasing";
@@ -95,11 +96,6 @@ interface ParkTenantRow {
   remark: string | null;
   updateTime: string;
   createTime: string;
-}
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
 }
 
 interface DictItemRow {
@@ -724,10 +720,6 @@ export default function LeasingTenantsPage() {
   }, []);
 
   const loadDicts = useCallback(async () => {
-    const dictTypeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = [
       "park_tenant_status",
       "park_tenant_type",
@@ -770,17 +762,7 @@ export default function LeasingTenantsPage() {
       "iot_alert_level",
       "iot_alert_status"
     ];
-    const entries = await Promise.all(
-      codes.map(async (code) => {
-        const dictTypeId = dictTypeMap.get(code);
-        if (!dictTypeId) return [code, []] as const;
-        const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-          token: getAccessToken()
-        });
-        return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-      })
-    );
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   useEffect(() => {
