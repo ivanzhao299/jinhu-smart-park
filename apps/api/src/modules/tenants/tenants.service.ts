@@ -1256,7 +1256,7 @@ export class TenantsService {
             source_item.is_deleted,
             row_number() OVER (
               PARTITION BY source_type.dict_code, source_item.item_value
-              ORDER BY source_item.is_deleted ASC, source_item.sort_order ASC, source_item.create_time ASC, source_item.id ASC
+              ORDER BY source_type.is_deleted ASC, source_item.is_deleted ASC, source_item.sort_order ASC, source_item.create_time ASC, source_item.id ASC
             ) AS row_number
           FROM sys_dict_type source_type
           JOIN sys_dict_item source_item
@@ -1265,6 +1265,17 @@ export class TenantsService {
            AND source_item.park_id = source_type.park_id
           WHERE source_type.tenant_id = $1
             AND source_type.park_id = $2
+            AND (
+              source_type.is_deleted = false
+              OR NOT EXISTS (
+                SELECT 1
+                FROM sys_dict_type live_source_type
+                WHERE live_source_type.tenant_id = source_type.tenant_id
+                  AND live_source_type.park_id = source_type.park_id
+                  AND live_source_type.dict_code = source_type.dict_code
+                  AND live_source_type.is_deleted = false
+              )
+            )
         )
         -- Copying source tombstones into the target prevents future seed runs from resurrecting custom deletions.
         INSERT INTO sys_dict_item (

@@ -57,6 +57,8 @@ test("new tenant and additional park provisioning copy dictionary baselines", ()
   assert.match(helperBlock, /custom_type\.dict_code = source_type\.dict_code/);
   assert.match(helperBlock, /custom_item\.item_value = source_items\.item_value/);
   assert.match(helperBlock, /source_type\.is_deleted/);
+  assert.match(helperBlock, /live_source_type\.dict_code = source_type\.dict_code/);
+  assert.match(helperBlock, /ORDER BY source_type\.is_deleted ASC, source_item\.is_deleted ASC/);
   assert.match(helperBlock, /source_item\.is_deleted/);
   assert.match(helperBlock, /INSERT INTO sys_dict_type/);
   assert.match(helperBlock, /INSERT INTO sys_dict_item/);
