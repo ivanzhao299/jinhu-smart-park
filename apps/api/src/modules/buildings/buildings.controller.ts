@@ -8,6 +8,7 @@ import { RequirePermissions } from "../../shared/decorators/permissions.decorato
 import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { BuildingQueryDto } from "./dto/building-query.dto";
+import { BuildingTargetQueryDto } from "./dto/building-target-query.dto";
 import { CreateBuildingDto } from "./dto/create-building.dto";
 import { UpdateBuildingDto } from "./dto/update-building.dto";
 import { BuildingsService } from "./buildings.service";
@@ -25,8 +26,8 @@ export class BuildingsController {
 
   @Get(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_READ)
-  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.buildingsService.detail(scope, id, user);
+  detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string, @Query() query: BuildingTargetQueryDto) {
+    return this.buildingsService.detail(scope, id, user, query.parkId);
   }
 
   @Post()
@@ -43,15 +44,22 @@ export class BuildingsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
     @Param("id") id: string,
-    @Body() dto: UpdateBuildingDto
+    @Body() dto: UpdateBuildingDto,
+    @Req() request: AuditScopeRequest
   ) {
-    return this.buildingsService.update(scope, user, id, dto);
+    return this.buildingsService.update(scope, user, id, dto, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 
   @Delete(":id")
   @RequirePermissions(SYSTEM_PERMISSIONS.BUILDING_DELETE)
   @AuditLog({ module: "楼栋管理", resource: "biz.building", action: "删除", bizType: "biz_building", bizIdParam: "id" })
-  remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
-    return this.buildingsService.softDelete(scope, user, id);
+  remove(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Query() query: BuildingTargetQueryDto,
+    @Req() request: AuditScopeRequest
+  ) {
+    return this.buildingsService.softDelete(scope, user, id, query.parkId, (targetScope) => { request.auditScopeOverride = targetScope; });
   }
 }

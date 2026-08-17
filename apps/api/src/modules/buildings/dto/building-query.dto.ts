@@ -1,7 +1,12 @@
 import { Transform } from "class-transformer";
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from "class-validator";
 
 export class BuildingQueryDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  parkId?: string;
+
   @Transform(({ value }) => Number(value ?? 1))
   @IsInt()
   @Min(1)

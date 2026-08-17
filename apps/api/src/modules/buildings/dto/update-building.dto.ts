@@ -3,6 +3,11 @@ import { IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Matches, MaxLe
 export class UpdateBuildingDto {
   @IsOptional()
   @IsString()
+  @MaxLength(64)
+  parkId?: string;
+
+  @IsOptional()
+  @IsString()
   @IsNotEmpty()
   @Matches(/^[A-Z0-9][A-Z0-9_-]{1,63}$/)
   @MaxLength(64)
