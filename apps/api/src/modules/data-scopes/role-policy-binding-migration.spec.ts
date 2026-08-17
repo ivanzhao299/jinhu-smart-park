@@ -81,6 +81,7 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_lease' THEN 'lease'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_handover' THEN 'handover'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.housing_lease_occupant' THEN 'occupant'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.safety_inspect_task_result' THEN 'inspect_task_result'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'system\.file' THEN 'sys_file'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'iot_%' THEN legacy\.resource/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'scene_%' THEN legacy\.resource/);
@@ -92,6 +93,9 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /unknown legacy access modes remain/);
   assert.match(fieldPolicyConvergenceMigration, /CREATE TEMP TABLE tmp_role_field_policy_conflicts[\s\S]*HAVING COUNT\(DISTINCT policy_type\) > 1/);
   assert.match(fieldPolicyConvergenceMigration, /conflicting legacy access modes remain/);
+  assert.match(fieldPolicyConvergenceMigration, /conflict_samples=%/);
+  assert.match(fieldPolicyConvergenceMigration, /'role_ids', role_ids/);
+  assert.match(fieldPolicyConvergenceMigration, /'legacy_access_modes', legacy_access_modes/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN 'none' THEN 'hidden'/);

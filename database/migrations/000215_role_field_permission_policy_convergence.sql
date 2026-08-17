@@ -46,6 +46,7 @@ SELECT
       'biz.safety_inspect_template',
       'biz.safety_inspect_item',
       'biz.safety_inspect_task',
+      'biz.safety_inspect_task_result',
       'biz.safety_emergency_contact',
       'biz.safety_emergency_plan',
       'biz.safety_emergency_event'
@@ -105,6 +106,7 @@ SELECT
     WHEN legacy.resource = 'biz.safety_inspect_template' THEN 'inspect_template'
     WHEN legacy.resource = 'biz.safety_inspect_item' THEN 'inspect_item'
     WHEN legacy.resource = 'biz.safety_inspect_task' THEN 'inspect_task'
+    WHEN legacy.resource = 'biz.safety_inspect_task_result' THEN 'inspect_task_result'
     WHEN legacy.resource = 'biz.safety_emergency_contact' THEN 'emergency_contact'
     WHEN legacy.resource = 'biz.safety_emergency_plan' THEN 'emergency_plan'
     WHEN legacy.resource = 'biz.safety_emergency_event' THEN 'emergency_event'
@@ -180,15 +182,40 @@ SELECT
   entity,
   field_key,
   COUNT(DISTINCT policy_type) AS policy_type_count,
-  ARRAY_AGG(DISTINCT policy_type ORDER BY policy_type) AS policy_types
+  ARRAY_AGG(DISTINCT policy_type ORDER BY policy_type) AS policy_types,
+  ARRAY_AGG(DISTINCT legacy_access_mode ORDER BY legacy_access_mode) AS legacy_access_modes,
+  ARRAY_AGG(DISTINCT legacy_resource ORDER BY legacy_resource) AS legacy_resources,
+  ARRAY_AGG(DISTINCT role_id::text ORDER BY role_id::text) AS role_ids,
+  ARRAY_AGG(DISTINCT park_id::text ORDER BY park_id::text) FILTER (WHERE park_id IS NOT NULL) AS park_ids
 FROM tmp_role_field_permission_legacy
 GROUP BY tenant_id, module, entity, field_key
 HAVING COUNT(DISTINCT policy_type) > 1;
 
 DO $$
+DECLARE
+  conflict_samples text;
 BEGIN
+  SELECT jsonb_agg(sample)::text
+  INTO conflict_samples
+  FROM (
+    SELECT jsonb_build_object(
+      'tenant_id', tenant_id,
+      'module', module,
+      'entity', entity,
+      'field_key', field_key,
+      'policy_types', policy_types,
+      'legacy_access_modes', legacy_access_modes,
+      'legacy_resources', legacy_resources,
+      'role_ids', role_ids,
+      'park_ids', COALESCE(park_ids, ARRAY[]::text[])
+    ) AS sample
+    FROM tmp_role_field_policy_conflicts
+    ORDER BY tenant_id, module, entity, field_key
+    LIMIT 20
+  ) samples;
+
   IF EXISTS (SELECT 1 FROM tmp_role_field_policy_conflicts) THEN
-    RAISE EXCEPTION 'Cannot converge deprecated role field permissions: conflicting legacy access modes remain';
+    RAISE EXCEPTION 'Cannot converge deprecated role field permissions: conflicting legacy access modes remain. conflict_samples=%', conflict_samples;
   END IF;
 END $$;
 

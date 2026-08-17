@@ -72,6 +72,7 @@ Implementation branch: `codex/issue-297-role-management-closure`
 - 第五轮 Codex review 指出 property relation 资源仍会被未知 `rel.*` 阻断、迁移中 `visible/editable` 排序与 runtime/seed 不一致、replay 无差异仍更新策略；已补充 `rel.homestay_booking_guest -> homestay/guest`、`rel.housing_lease_occupant -> housing_rental/occupant`，运行时支持 `guests/occupants` 投影容器，迁移排序改为 `hidden > masked > readonly > visible > editable`，并为 `ON CONFLICT DO UPDATE` 增加差异 guard。
 - 第六轮 Codex review 指出 `system.file`、裸 `iot_*`/`scene_*` 资源和未知 `access_mode` 仍存在收敛风险，且 audit/seed 对 mask 元数据不完整；已补充 `system.file -> sys_file`、裸 IoT 资源映射、未知 access mode fail-fast、audit precedence 中的 `visible`，并让 production seed 重放保留非 masked 策略的 mask metadata。
 - 第七轮 Codex review 指出同一租户字段若跨角色存在不同 legacy access mode，不能折叠成一个 tenant-wide field policy；同时 `energy.*` 资源需要映射到运行时实体。已在生成 canonical policy 前对冲突 legacy mode fail-fast，并补充 `energy.meter/reading/alert/allocation_rule/billing_*` 与裸 `energy_*` 资源映射。
+- 第八轮 Codex review 指出冲突 fail-fast 必须在错误中带出可操作定位信息，且 `biz.safety_inspect_task_result` 是已支持的字段策略运行时 surface。已将 conflict samples 写入异常消息，并补充 `safety/inspect_task_result` 映射。
 - `sys_role_field_policy_convergence_audit` 实跑结果为 `legacy_row_count=0`、`canonical_policy_count=0`、`conflicting_field_count=0`、`resolved_link_count=0`、`active_policy_count=0`、`active_link_count=0`。
 - Codex review 修复后重新执行隔离空库全量迁移，215/215 成功，`000215_role_field_permission_policy_convergence.sql` 真实执行成功。
 - 第二轮 review 修复后，在隔离库执行 migration + production seed 成功；额外 probe 验证有角色绑定的 `leasing.leasing_payment.receiptFileId` 严格策略重跑 production seed 后仍保持 `hidden/enabled`，没有被 seed 放宽。
