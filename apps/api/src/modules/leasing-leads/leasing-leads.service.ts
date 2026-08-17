@@ -1171,6 +1171,7 @@ export class LeasingLeadsService {
     return Boolean(
       actor.isSuper ||
         actor.permissions.includes("*") ||
+        actor.permissions.includes(SYSTEM_PERMISSIONS.LEASING_LEAD_ASSIGN) ||
         actor.roles?.some((role) => ["SUPER_ADMIN", "OPERATIONS_OWNER", "INVEST_MANAGER"].includes(role))
     );
   }

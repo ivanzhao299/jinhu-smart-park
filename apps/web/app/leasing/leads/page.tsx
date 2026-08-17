@@ -49,7 +49,8 @@ const LEAD_PERMISSIONS = {
   confirmSign: "leasing_lead:confirm_sign",
   statusLog: "leasing_lead:status_log",
   convertToParkTenant: "leasing_lead:convert_to_park_tenant",
-  moveToPool: "leasing_lead:move_to_pool"
+  moveToPool: "leasing_lead:move_to_pool",
+  assign: "leasing_lead:assign"
 } as const;
 const FOLLOW_PERMISSIONS = {
   read: "leasing_follow:read",
@@ -473,6 +474,7 @@ export default function LeasingLeadsPage() {
   const canEditContactMobile = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_CONTACT_MOBILE);
   const canViewDemandPrice = canViewField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
   const canEditDemandPrice = canEditField(authUser, LEASING_MODULE, LEASING_LEAD_ENTITY, FIELD_DEMAND_PRICE);
+  const canAssignLead = hasPermission(authUser, LEAD_PERMISSIONS.assign);
   const canViewQuotePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
   const canEditQuotePrice = canEditField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_QUOTE_PRICE);
   const canViewPropertyFeePrice = canViewField(authUser, LEASING_MODULE, LEASING_QUOTE_ENTITY, FIELD_PROPERTY_FEE_PRICE);
@@ -792,7 +794,7 @@ export default function LeasingLeadsPage() {
       isInPool: form.isInPool === "true",
       remark: emptyToUndefined(form.remark)
     };
-    if (!editing || followUserChanged || users.some((item) => item.id === form.followUserId)) {
+    if (canAssignLead && (!editing || followUserChanged || users.some((item) => item.id === form.followUserId))) {
       body.followUserId = emptyToUndefined(form.followUserId);
       body.followUserName = emptyToUndefined(selectedFollowUserName);
     }
@@ -991,7 +993,7 @@ export default function LeasingLeadsPage() {
       advanceStatus: visitForm.advanceStatus === "true",
       remark: emptyToUndefined(visitForm.remark)
     };
-    if (!editingVisit || receptionUserChanged || users.some((item) => item.id === visitForm.receptionUserId)) {
+    if (canAssignLead && (!editingVisit || receptionUserChanged || users.some((item) => item.id === visitForm.receptionUserId))) {
       visitBody.receptionUserId = emptyToUndefined(visitForm.receptionUserId);
       visitBody.receptionUserName = emptyToUndefined(selectedReceptionUserName);
     }
@@ -1350,20 +1352,24 @@ export default function LeasingLeadsPage() {
 
                 <DrawerSection title="跟进计划">
                   <DrawerFormGrid>
-                    <UserSelectField
-                      label="跟进人"
-                      value={form.followUserId}
-                      users={users}
-                      userLabels={userLabels}
-                      onChange={(value, user) => setForm((current) => ({
-                        ...current,
-                        followUserId: value,
-                        followUserName: user ? displayUserName(user) : ""
-                      }))}
-                      allowEmpty={!editing}
-                      emptyLabel="默认当前操作人"
-                      selectedFallbackLabel={form.followUserName}
-                    />
+                    {canAssignLead ? (
+                      <UserSelectField
+                        label="跟进人"
+                        value={form.followUserId}
+                        users={users}
+                        userLabels={userLabels}
+                        onChange={(value, user) => setForm((current) => ({
+                          ...current,
+                          followUserId: value,
+                          followUserName: user ? displayUserName(user) : ""
+                        }))}
+                        allowEmpty={!editing}
+                        emptyLabel="默认当前操作人"
+                        selectedFallbackLabel={form.followUserName}
+                      />
+                    ) : (
+                      <DetailItem label="跟进人" value={editing ? form.followUserName || "未指定" : "默认当前操作人"} />
+                    )}
                     <DateTimeField label="最近跟进时间" value={form.lastFollowTime} onChange={(value) => setFormValue("lastFollowTime", value, setForm)} />
                     <DateTimeField label="下次跟进时间" value={form.nextFollowTime} onChange={(value) => setFormValue("nextFollowTime", value, setForm)} />
                     <DateField label="预计成交日期" value={form.expectedCloseDate} onChange={(value) => setFormValue("expectedCloseDate", value, setForm)} />
@@ -1687,20 +1693,24 @@ export default function LeasingLeadsPage() {
                           <div className="system-grid">
                             <DateTimeField label="看房时间" value={visitForm.visitTime} onChange={(value) => setVisitFormValue("visitTime", value, setVisitForm)} />
                             <NumberField label="看房人数" value={visitForm.visitorCount} onChange={(value) => setVisitFormValue("visitorCount", value, setVisitForm)} />
-                            <UserSelectField
-                              label="接待人"
-                              value={visitForm.receptionUserId}
-                              users={users}
-                              userLabels={userLabels}
-                              onChange={(value, user) => setVisitForm((current) => ({
-                                ...current,
-                                receptionUserId: value,
-                                receptionUserName: user ? displayUserName(user) : ""
-                              }))}
-                              allowEmpty={!editingVisit}
-                              emptyLabel="默认当前操作人"
-                              selectedFallbackLabel={visitForm.receptionUserName}
-                            />
+                            {canAssignLead ? (
+                              <UserSelectField
+                                label="接待人"
+                                value={visitForm.receptionUserId}
+                                users={users}
+                                userLabels={userLabels}
+                                onChange={(value, user) => setVisitForm((current) => ({
+                                  ...current,
+                                  receptionUserId: value,
+                                  receptionUserName: user ? displayUserName(user) : ""
+                                }))}
+                                allowEmpty={!editingVisit}
+                                emptyLabel="默认当前操作人"
+                                selectedFallbackLabel={visitForm.receptionUserName}
+                              />
+                            ) : (
+                              <DetailItem label="接待人" value={editingVisit ? visitForm.receptionUserName || "未指定" : "默认当前操作人"} />
+                            )}
                             <SelectField
                               label="推进状态"
                               value={visitForm.advanceStatus}
@@ -2083,13 +2093,19 @@ function displayUserName(user: UserOptionRow): string {
 
 function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
   const baseCounts = new Map<string, number>();
+  const pairCounts = new Map<string, number>();
   for (const user of users) {
     const label = displayUserName(user);
     baseCounts.set(label, (baseCounts.get(label) ?? 0) + 1);
+    const pairKey = `${label}\u0000${user.username}`;
+    pairCounts.set(pairKey, (pairCounts.get(pairKey) ?? 0) + 1);
   }
   return new Map(users.map((user) => {
     const label = displayUserName(user);
-    return [user.id, baseCounts.get(label)! > 1 ? `${label}（${user.username}）` : label];
+    if ((baseCounts.get(label) ?? 0) <= 1) return [user.id, label];
+    const pairKey = `${label}\u0000${user.username}`;
+    const suffix = (pairCounts.get(pairKey) ?? 0) > 1 ? `${user.username} / ${user.id.slice(0, 8)}` : user.username;
+    return [user.id, `${label}（${suffix}）`];
   }));
 }
 
