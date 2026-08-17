@@ -108,6 +108,7 @@ export class ReferenceDataService {
     const [items, total] = await builder
       .orderBy("usr.display_name", "ASC")
       .addOrderBy("usr.username", "ASC")
+      .addOrderBy("usr.id", "ASC")
       .skip((query.page - 1) * query.page_size)
       .take(query.page_size)
       .getManyAndCount();

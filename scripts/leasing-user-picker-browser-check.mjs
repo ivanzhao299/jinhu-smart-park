@@ -105,6 +105,7 @@ const pages = [
 ];
 
 const results = [];
+const cleanupFailures = [];
 
 async function main() {
   const chrome = launchChrome();
@@ -133,8 +134,8 @@ async function main() {
     }
   }
 
-  const failures = results.filter((item) => item.status !== "PASS");
-  console.log(JSON.stringify({ status: failures.length === 0 ? "PASS" : "FAIL", mode: realApi ? "real-api" : "mock", webBase, apiBase, results }, null, 2));
+  const failures = [...results, ...cleanupFailures].filter((item) => item.status !== "PASS");
+  console.log(JSON.stringify({ status: failures.length === 0 ? "PASS" : "FAIL", mode: realApi ? "real-api" : "mock", webBase, apiBase, results, cleanupFailures }, null, 2));
   if (failures.length > 0) process.exitCode = 1;
 }
 
@@ -586,7 +587,11 @@ async function cleanupRealApiState() {
       method: "DELETE",
       token: authState.token,
       idempotencyKey: `leasing-user-picker-cleanup-${id}`
-    }).catch((error) => console.warn(`[browser-check] cleanup lead ${id} failed: ${error.message}`));
+    }).catch((error) => {
+      const failure = { path: `/leasing/leads/${id}`, status: "FAIL", reason: `cleanup failed: ${error.message}` };
+      cleanupFailures.push(failure);
+      console.warn(`[browser-check] cleanup lead ${id} failed: ${error.message}`);
+    });
   }
 }
 
