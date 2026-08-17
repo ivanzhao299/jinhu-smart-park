@@ -80,6 +80,7 @@ export class ReferenceDataService {
       tenantId: scope.tenantId,
       parkId: scope.parkId,
       isDeleted: false,
+      isEnabled: true,
       status: "enabled"
     };
     const where = query.keyword
@@ -239,6 +240,7 @@ export class ReferenceDataService {
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         isDeleted: false,
+        isEnabled: true,
         status: "enabled"
       },
       order: {

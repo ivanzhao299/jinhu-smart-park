@@ -772,7 +772,7 @@ export default function LeasingLeadsPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const selectedFollowUserName = userLabelById(users, userLabels, form.followUserId, form.followUserName);
+    const selectedFollowUserName = userCanonicalNameById(users, form.followUserId, form.followUserName);
     const followUserChanged = !editing || form.followUserId !== (editing.followUserId ?? "");
     const body: Record<string, unknown> = {
       leadCode: emptyToUndefined(form.leadCode),
@@ -980,7 +980,7 @@ export default function LeasingLeadsPage() {
   async function submitVisit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!detail) return;
-    const selectedReceptionUserName = userLabelById(users, userLabels, visitForm.receptionUserId, visitForm.receptionUserName);
+    const selectedReceptionUserName = userCanonicalNameById(users, visitForm.receptionUserId, visitForm.receptionUserName);
     const receptionUserChanged = !editingVisit || visitForm.receptionUserId !== (editingVisit.receptionUserId ?? "");
     const visitBody: Record<string, unknown> = {
       visitTime: dateTimeOrUndefined(visitForm.visitTime),
@@ -1358,7 +1358,7 @@ export default function LeasingLeadsPage() {
                       onChange={(value, user) => setForm((current) => ({
                         ...current,
                         followUserId: value,
-                        followUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
+                        followUserName: user ? displayUserName(user) : ""
                       }))}
                       allowEmpty={!editing}
                       emptyLabel="默认当前操作人"
@@ -1695,7 +1695,7 @@ export default function LeasingLeadsPage() {
                               onChange={(value, user) => setVisitForm((current) => ({
                                 ...current,
                                 receptionUserId: value,
-                                receptionUserName: user ? userLabels.get(user.id) ?? displayUserName(user) : ""
+                                receptionUserName: user ? displayUserName(user) : ""
                               }))}
                               allowEmpty={!editingVisit}
                               emptyLabel="默认当前操作人"
@@ -2093,10 +2093,10 @@ function buildUserLabels(users: UserOptionRow[]): Map<string, string> {
   }));
 }
 
-function userLabelById(users: UserOptionRow[], userLabels: Map<string, string>, id: string, fallback?: string | null): string {
+function userCanonicalNameById(users: UserOptionRow[], id: string, fallback?: string | null): string {
   if (!id) return "";
   const user = users.find((item) => item.id === id);
-  return user ? userLabels.get(user.id) ?? displayUserName(user) : fallback ?? "";
+  return user ? displayUserName(user) : fallback ?? "";
 }
 
 function selectableLeadStatusItems(items: DictItemRow[], currentStatus: string, user: ReturnType<typeof useAuthUser>): DictItemRow[] {
