@@ -75,7 +75,7 @@ export interface ReferenceFormOptionsResponse {
 }
 
 interface RawReferenceUsersResponse {
-  items: Array<{ id: string; username: string; displayName: string | null; realName: string | null; mobile: string | null; status: string }>;
+  items: Array<{ id: string; username: string; displayName: string | null; realName: string | null; status: string }>;
   page: number;
   page_size: number;
   total: number;
@@ -126,7 +126,6 @@ export async function fetchReferenceUsers(keyword = ""): Promise<ReferenceUserOp
       username: item.username,
       displayName: item.displayName ?? item.username,
       realName: item.realName ?? item.displayName ?? item.username,
-      mobile: item.mobile ?? undefined,
       status: item.status
     }));
     users.push(...normalized);

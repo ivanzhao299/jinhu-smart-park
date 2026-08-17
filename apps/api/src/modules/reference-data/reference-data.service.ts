@@ -36,6 +36,7 @@ export interface ReferenceDataFormOptionsResponse {
 }
 
 type ReferenceUserOption = ReferenceDataFormOptionsResponse["users"][number];
+type ReferenceUserPickerOption = Omit<ReferenceUserOption, "mobile">;
 
 @Injectable()
 export class ReferenceDataService {
@@ -74,7 +75,7 @@ export class ReferenceDataService {
     };
   }
 
-  async listUserOptions(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ReferenceUserOption>> {
+  async listUserOptions(scope: TenantParkScope, query: PaginationQueryDto): Promise<PaginatedResult<ReferenceUserPickerOption>> {
     const baseWhere = {
       tenantId: scope.tenantId,
       parkId: scope.parkId,
@@ -84,8 +85,7 @@ export class ReferenceDataService {
     const where = query.keyword
       ? [
           { ...baseWhere, username: ILike(`%${query.keyword}%`) },
-          { ...baseWhere, displayName: ILike(`%${query.keyword}%`) },
-          { ...baseWhere, mobile: ILike(`%${query.keyword}%`) }
+          { ...baseWhere, displayName: ILike(`%${query.keyword}%`) }
         ]
       : baseWhere;
     const [items, total] = await this.usersRepository.findAndCount({
@@ -99,7 +99,7 @@ export class ReferenceDataService {
     });
 
     return {
-      items: items.map((item) => this.toUserOption(item)),
+      items: items.map((item) => this.toUserPickerOption(item)),
       total,
       page: query.page,
       page_size: query.page_size
@@ -258,6 +258,16 @@ export class ReferenceDataService {
       displayName: item.displayName || item.username,
       realName: item.displayName || item.username,
       mobile: item.mobile ?? null,
+      status: item.status
+    };
+  }
+
+  private toUserPickerOption(item: UserEntity): ReferenceUserPickerOption {
+    return {
+      id: item.id,
+      username: item.username,
+      displayName: item.displayName || item.username,
+      realName: item.displayName || item.username,
       status: item.status
     };
   }
