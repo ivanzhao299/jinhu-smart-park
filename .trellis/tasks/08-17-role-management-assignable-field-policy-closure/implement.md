@@ -68,6 +68,7 @@ Implementation branch: `codex/issue-297-role-management-closure`
 - PR #298 的 Codex review 指出旧数据复用已有 `sys_field_policy` 时不能静默 `DO NOTHING`，否则旧 `none/mask/read` 可能绑定到更宽松或已禁用的策略；已改为按更严格策略保守收敛、强制启用，并记录 `existing_policy_reconciliations` audit samples。
 - 第二轮 Codex review 继续指出：production seed 不能在迁移后放宽已迁移策略；迁移必须事务化；legacy `biz/rel` resource 必须映射到字段策略运行时 module/entity。已补充 `BEGIN/COMMIT`、运行时资源映射、未知 `biz/rel` 资源失败阻断、seed 保守 upsert 和“不要软删已有角色绑定的字段策略”。
 - 第三轮 Codex review 指出 `biz.park/building/floor` 与 `biz.homestay_*`/`biz.housing_*` 属于支持的历史资源命名空间，不能作为未知资源阻断；已补充资产、租户企业、民宿和住房出租资源映射。
+- 第四轮 Codex review 指出 property 字段策略运行时使用投影实体短名，且 masked 冲突时不能用 legacy `default` 覆盖已有专业脱敏规则；已补充 `biz.homestay_*`/`biz.housing_*` 到 `booking/lease/ledger/handover` 等投影实体映射，并让迁移复用 seed 的“现有 mask_rule 优先”合并口径。
 - `sys_role_field_policy_convergence_audit` 实跑结果为 `legacy_row_count=0`、`canonical_policy_count=0`、`conflicting_field_count=0`、`resolved_link_count=0`、`active_policy_count=0`、`active_link_count=0`。
 - Codex review 修复后重新执行隔离空库全量迁移，215/215 成功，`000215_role_field_permission_policy_convergence.sql` 真实执行成功。
 - 第二轮 review 修复后，在隔离库执行 migration + production seed 成功；额外 probe 验证有角色绑定的 `leasing.leasing_payment.receiptFileId` 严格策略重跑 production seed 后仍保持 `hidden/enabled`，没有被 seed 放宽。

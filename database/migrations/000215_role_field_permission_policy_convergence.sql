@@ -61,8 +61,20 @@ SELECT
     WHEN legacy.resource LIKE 'asset.%' THEN REGEXP_REPLACE(legacy.resource, '^asset[.]', '')
     WHEN legacy.resource = 'system.user' THEN 'user'
     WHEN legacy.resource = 'system.sys_user' THEN 'user'
-    WHEN legacy.resource LIKE 'biz.homestay_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
-    WHEN legacy.resource LIKE 'biz.housing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
+    WHEN legacy.resource = 'biz.homestay_dashboard' THEN 'dashboard'
+    WHEN legacy.resource = 'biz.homestay_rate' THEN 'rate'
+    WHEN legacy.resource = 'biz.homestay_booking' THEN 'booking'
+    WHEN legacy.resource = 'biz.homestay_stay' THEN 'stay'
+    WHEN legacy.resource = 'biz.homestay_ledger' THEN 'ledger'
+    WHEN legacy.resource = 'biz.homestay_turnover' THEN 'turnover'
+    WHEN legacy.resource = 'biz.housing_dashboard' THEN 'dashboard'
+    WHEN legacy.resource = 'biz.housing_lease' THEN 'lease'
+    WHEN legacy.resource = 'biz.housing_handover' THEN 'handover'
+    WHEN legacy.resource = 'biz.housing_ledger' THEN 'ledger'
+    WHEN legacy.resource = 'biz.housing_receivable' THEN 'receivable'
+    WHEN legacy.resource = 'biz.housing_purchase' THEN 'purchase'
+    WHEN legacy.resource LIKE 'biz.homestay_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]homestay_', '')
+    WHEN legacy.resource LIKE 'biz.housing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]housing_', '')
     WHEN legacy.resource LIKE 'biz.iot_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource = 'biz.scene_template' THEN 'scene_template'
     WHEN legacy.resource = 'biz.scene_instance' THEN 'scene_instance'
@@ -265,7 +277,7 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
         ELSE EXCLUDED.policy_type
       END
     ) = 'masked'
-      THEN COALESCE(EXCLUDED.mask_rule, sys_field_policy.mask_rule, 'default')
+      THEN COALESCE(sys_field_policy.mask_rule, EXCLUDED.mask_rule, 'default')
     ELSE NULL
   END,
   status = 'enabled',
