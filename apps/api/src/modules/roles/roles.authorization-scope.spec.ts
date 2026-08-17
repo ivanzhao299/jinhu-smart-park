@@ -102,6 +102,59 @@ test("role list exposes assignability through an explicit DTO and filters before
   assert(clauses.some((clause) => clause.includes("role.role_scope IN ('tenant','park')")));
 });
 
+test("direct role permission assignment loads tenant-wide active permissions while links stay park-scoped", async () => {
+  const scope = { tenantId: "tenant-a", parkId: "park-a" };
+  const role = { id: "role-1", tenantId: scope.tenantId, parkId: scope.parkId, roleScope: "park", isTemplate: false, isSystem: false, isBuiltin: false, editable: true, isEditable: true };
+  let permissionWhere: { id?: unknown; tenantId?: string; parkId?: string; status?: string; isEnabled?: boolean; isDeleted?: boolean } | undefined;
+  let linkUpdateWhere: { roleId?: string; tenantId?: string; parkId?: string; isDeleted?: boolean } | undefined;
+  let savedLink: { tenantId?: string; parkId?: string; roleId?: string; permissionId?: string } | undefined;
+  const roleBuilder = {
+    setLock: () => roleBuilder,
+    where: () => roleBuilder,
+    andWhere: () => roleBuilder,
+    getOne: async () => role
+  };
+  const permissionRepository = {
+    find: async (options: { where: typeof permissionWhere }) => {
+      permissionWhere = options.where;
+      return [{ id: "permission-1" }];
+    }
+  };
+  const linksRepository = {
+    update: async (where: typeof linkUpdateWhere) => { linkUpdateWhere = where; },
+    create: (value: typeof savedLink) => value,
+    save: async (values: typeof savedLink[]) => { savedLink = values[0]; }
+  };
+  const roleRepository = {
+    createQueryBuilder: () => roleBuilder,
+    save: async () => role
+  };
+  const manager = {
+    getRepository: (entity: { name: string }) => {
+      if (entity.name === "RoleEntity") return roleRepository;
+      if (entity.name === "PermissionEntity") return permissionRepository;
+      return linksRepository;
+    }
+  };
+  const service = new RolesService(
+    {} as never,
+    {} as never,
+    { manager: { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) } } as never,
+    {} as never,
+    {} as never
+  );
+
+  await service.assignPermissions(scope, "actor-1", role.id, { permissionIds: ["permission-1"] });
+
+  assert.equal(permissionWhere?.tenantId, scope.tenantId);
+  assert.equal(permissionWhere?.parkId, undefined);
+  assert.equal(permissionWhere?.status, "enabled");
+  assert.equal(permissionWhere?.isEnabled, true);
+  assert.equal(permissionWhere?.isDeleted, false);
+  assert.equal(linkUpdateWhere?.parkId, scope.parkId);
+  assert.equal(savedLink?.parkId, scope.parkId);
+});
+
 test("role copy is transactional and carries permission, field-policy and current-park scope links", () => {
   const source = readFileSync(resolve(__dirname, "roles.service.ts"), "utf8");
   const controllerSource = readFileSync(resolve(__dirname, "roles.controller.ts"), "utf8");
@@ -126,7 +179,7 @@ test("all direct binding mutations reject protected roles and permission updates
   const fieldPolicySource = readFileSync(resolve(__dirname, "../field-policies/field-policy.service.ts"), "utf8");
 
   assert.match(rolesSource, /assignPermissions[\s\S]*manager\.transaction[\s\S]*lockEditableRole/);
-  assert.match(rolesSource, /assignPermissions[\s\S]*status: "enabled", isEnabled: true, isDeleted: false/);
+  assert.match(rolesSource, /assignPermissions[\s\S]*activeTenantPermissionWhere\(scope\)/);
   assert.match(rolesSource, /role\.appliedBundleCodes = \[\]/);
   assert.match(rolesSource, /role\.appliedBundleSignature = null/);
   assert.match(rolesSource, /assignFieldPermissions[\s\S]*GoneException[\s\S]*deprecated[\s\S]*field-policies role bindings/);
