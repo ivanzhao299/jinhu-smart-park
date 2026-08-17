@@ -24,6 +24,8 @@ SELECT
   CASE
     WHEN legacy.resource LIKE 'biz.leasing_%' THEN 'leasing'
     WHEN legacy.resource LIKE 'rel.leasing_%' THEN 'leasing'
+    WHEN legacy.resource = 'rel.homestay_booking_guest' THEN 'homestay'
+    WHEN legacy.resource = 'rel.housing_lease_occupant' THEN 'housing_rental'
     WHEN legacy.resource IN ('biz.park', 'biz.building', 'biz.floor', 'biz.unit') THEN 'asset'
     WHEN legacy.resource LIKE 'biz.park_tenant%' THEN 'leasing'
     WHEN legacy.resource LIKE 'biz.work_order%' THEN 'workorder'
@@ -55,6 +57,8 @@ SELECT
   CASE
     WHEN legacy.resource LIKE 'biz.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'rel.leasing_%' THEN REGEXP_REPLACE(legacy.resource, '^rel[.]', 'rel_')
+    WHEN legacy.resource = 'rel.homestay_booking_guest' THEN 'guest'
+    WHEN legacy.resource = 'rel.housing_lease_occupant' THEN 'occupant'
     WHEN legacy.resource IN ('biz.park', 'biz.building', 'biz.floor', 'biz.unit') THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.park_tenant%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
     WHEN legacy.resource LIKE 'biz.work_order%' THEN REGEXP_REPLACE(legacy.resource, '^biz[.]', '')
@@ -234,8 +238,8 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
         WHEN 'hidden' THEN 1
         WHEN 'masked' THEN 2
         WHEN 'readonly' THEN 3
-        WHEN 'editable' THEN 4
-        WHEN 'visible' THEN 5
+        WHEN 'visible' THEN 4
+        WHEN 'editable' THEN 5
         ELSE 5
       END
     ) <= (
@@ -243,8 +247,8 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
         WHEN 'hidden' THEN 1
         WHEN 'masked' THEN 2
         WHEN 'readonly' THEN 3
-        WHEN 'editable' THEN 4
-        WHEN 'visible' THEN 5
+        WHEN 'visible' THEN 4
+        WHEN 'editable' THEN 5
         ELSE 5
       END
     )
@@ -259,8 +263,8 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
             WHEN 'hidden' THEN 1
             WHEN 'masked' THEN 2
             WHEN 'readonly' THEN 3
-            WHEN 'editable' THEN 4
-            WHEN 'visible' THEN 5
+            WHEN 'visible' THEN 4
+            WHEN 'editable' THEN 5
             ELSE 5
           END
         ) <= (
@@ -268,8 +272,8 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
             WHEN 'hidden' THEN 1
             WHEN 'masked' THEN 2
             WHEN 'readonly' THEN 3
-            WHEN 'editable' THEN 4
-            WHEN 'visible' THEN 5
+            WHEN 'visible' THEN 4
+            WHEN 'editable' THEN 5
             ELSE 5
           END
         )
@@ -287,6 +291,63 @@ ON CONFLICT (tenant_id, module, entity, field_key) WHERE is_deleted = false DO U
   remark = LEFT(
     CONCAT_WS('; ', NULLIF(sys_field_policy.remark, ''), 'Reconciled from deprecated rel_role_field_perm without relaxing legacy restrictions'),
     500
+  )
+WHERE sys_field_policy.status <> 'enabled'
+   OR sys_field_policy.policy_type IS DISTINCT FROM (
+    CASE
+      WHEN (
+        CASE sys_field_policy.policy_type
+          WHEN 'hidden' THEN 1
+          WHEN 'masked' THEN 2
+          WHEN 'readonly' THEN 3
+          WHEN 'visible' THEN 4
+          WHEN 'editable' THEN 5
+          ELSE 5
+        END
+      ) <= (
+        CASE EXCLUDED.policy_type
+          WHEN 'hidden' THEN 1
+          WHEN 'masked' THEN 2
+          WHEN 'readonly' THEN 3
+          WHEN 'visible' THEN 4
+          WHEN 'editable' THEN 5
+          ELSE 5
+        END
+      )
+        THEN sys_field_policy.policy_type
+      ELSE EXCLUDED.policy_type
+    END
+  )
+   OR sys_field_policy.mask_rule IS DISTINCT FROM (
+    CASE
+      WHEN (
+        CASE
+          WHEN (
+            CASE sys_field_policy.policy_type
+              WHEN 'hidden' THEN 1
+              WHEN 'masked' THEN 2
+              WHEN 'readonly' THEN 3
+              WHEN 'visible' THEN 4
+              WHEN 'editable' THEN 5
+              ELSE 5
+            END
+          ) <= (
+            CASE EXCLUDED.policy_type
+              WHEN 'hidden' THEN 1
+              WHEN 'masked' THEN 2
+              WHEN 'readonly' THEN 3
+              WHEN 'visible' THEN 4
+              WHEN 'editable' THEN 5
+              ELSE 5
+            END
+          )
+            THEN sys_field_policy.policy_type
+          ELSE EXCLUDED.policy_type
+        END
+      ) = 'masked'
+        THEN COALESCE(sys_field_policy.mask_rule, EXCLUDED.mask_rule, 'default')
+      ELSE NULL
+    END
   );
 
 CREATE TEMP TABLE tmp_role_field_policy_resolved_links AS

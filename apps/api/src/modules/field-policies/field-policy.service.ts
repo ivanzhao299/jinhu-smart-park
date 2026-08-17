@@ -336,7 +336,8 @@ export class FieldPolicyService {
   ): void {
     const containerKeys: Record<string, readonly string[]> = {
       availability: ["availability", "items"], booking: ["booking", "items"],
-      handover: ["handover", "handovers"], ledger: ["ledger"], lease: ["lease", "items"],
+      guest: ["guests"], handover: ["handover", "handovers"], ledger: ["ledger"],
+      lease: ["lease", "items"], occupant: ["occupants"],
       purchase: ["purchase", "items"], rate: ["rate", "rates", "items"], receivable: ["receivables"],
       repair: ["repair", "repairs", "items"], stay: ["stay", "stays", "items"],
       task: ["task", "tasks", "items"], tenant: ["tenant", "tenants", "items"],

@@ -64,6 +64,8 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /CREATE TABLE IF NOT EXISTS public\.sys_role_field_policy_convergence_audit/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.leasing_%' THEN 'leasing'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'rel\.leasing_%' THEN 'leasing'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.homestay_booking_guest' THEN 'homestay'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.housing_lease_occupant' THEN 'housing_rental'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource IN \('biz\.park', 'biz\.building', 'biz\.floor', 'biz\.unit'\) THEN 'asset'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.park_tenant%' THEN 'leasing'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.work_order%' THEN 'workorder'/);
@@ -71,8 +73,10 @@ test("legacy role field-permission migration converges to authoritative field-po
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource LIKE 'biz\.housing_%' THEN 'housing_rental'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.homestay_booking' THEN 'booking'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.homestay_ledger' THEN 'ledger'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.homestay_booking_guest' THEN 'guest'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_lease' THEN 'lease'/);
   assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'biz\.housing_handover' THEN 'handover'/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN legacy\.resource = 'rel\.housing_lease_occupant' THEN 'occupant'/);
   assert.match(fieldPolicyConvergenceMigration, /RAISE EXCEPTION 'Cannot converge deprecated role field permissions: unmapped legacy resources remain'/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO sys_field_policy/);
   assert.match(fieldPolicyConvergenceMigration, /INSERT INTO rel_role_field_policy/);
@@ -87,6 +91,8 @@ test("legacy role field-permission migration converges to authoritative field-po
   );
   assert.match(fieldPolicyConvergenceMigration, /status = 'enabled'/);
   assert.match(fieldPolicyConvergenceMigration, /COALESCE\(sys_field_policy\.mask_rule, EXCLUDED\.mask_rule, 'default'\)/);
+  assert.match(fieldPolicyConvergenceMigration, /WHEN 'visible' THEN 4[\s\S]*WHEN 'editable' THEN 5/);
+  assert.match(fieldPolicyConvergenceMigration, /WHERE sys_field_policy\.status <> 'enabled'[\s\S]*sys_field_policy\.policy_type IS DISTINCT FROM/);
   assert.match(fieldPolicyConvergenceMigration, /without relaxing legacy restrictions/);
   assert.match(
     fieldPolicyConvergenceMigration,
