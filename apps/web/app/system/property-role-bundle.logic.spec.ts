@@ -33,6 +33,23 @@ test("protected templates and system roles cannot be updated from the bundle pan
   assert.match(source, /确认继续创建角色/);
 });
 
+test("template roles expose an explicit instantiation flow and permission guidance", () => {
+  assert.match(source, /templateInstantiationPermissions/);
+  assert.match(source, /实例化为普通角色/);
+  assert.match(source, /selectedRoleIsManagedPropertyTemplate/);
+  assert.match(source, /标准物业模板不能直接授权或分配给用户/);
+  assert.match(source, /非标准物业模板会按原角色范围复制/);
+  assert.match(source, /当前账号缺少实例化所需权限/);
+  assert.match(source, /openTemplateInstance\(selectedRole\)/);
+  assert.match(source, /function openTemplateInstance\(role: RoleNode\)/);
+  assert.match(source, /if \(!role\.managedTemplateCode\)/);
+  assert.match(source, /async function submitTemplateInstance/);
+  assert.match(source, /response\.data\.isAssignable && canAssignUserRoles/);
+  assert.match(source, /title="实例化为普通角色"/);
+  assert.match(source, /权限和当前园区数据范围由标准模板定义生成/);
+  assert.doesNotMatch(source, /window\.prompt\("新角色编码"/);
+});
+
 test("role management exposes assignability filters and server-provided reasons", () => {
   assert.match(source, /const \[assignability, setAssignability\] = useState\(""\)/);
   assert.match(source, /params\.set\("assignability", assignability\)/);

@@ -32,6 +32,7 @@ This seed initializes:
 - S1/S2 permissions as system built-in permission tree rows with `parent_id`, `perm_path`, and `level`
 - SaaS placeholder permissions for module menus such as IoT, energy, robot, video, BIM, AI, workorder, leasing, and cockpit
 - Built-in/template roles and role-permission bindings
+- Property role templates from `packages/shared/src/property-business/role-templates.ts`, reconciled by `000015_property_role_template_reconcile.sql` into protected database roles for display and drift detection. Database permission and data-scope bindings are not the runtime authority for instantiation; the Roles API instantiates managed property templates from the shared template definition and fails closed on metadata drift. Field-policy bindings currently remain database-driven and are copied from the protected template role.
 - Data scope rules: `all_parks`, `current_park`, `self_only`, `org_and_children`
 - Field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL fields
 - `sys_module`, `sys_plan`, `rel_plan_module`, and `rel_tenant_module`

@@ -48,7 +48,16 @@ test("disabled ordinary roles are removed while protected roles are retained", (
   assert.match(source, /const protectedRole = role\.isProtected/);
   assert.match(source, /role\.assignabilityLabel \|\| "当前不可分配"/);
   assert.match(source, /selectedRoleIds\.includes\(role\.id\) \|\| protectedRole/);
-  assert.match(source, /可新分配候选只展示当前目标租户\/园区内可分配的启用角色/);
+  assert.match(source, /候选只展示当前目标租户\/园区内可分配的启用普通角色/);
+});
+
+test("empty user and role-candidate states guide template instantiation", () => {
+  assert.match(source, /先创建用户，再为用户配置已实例化的普通角色/);
+  assert.match(source, /模板角色、系统角色和内置角色不能直接分配给用户/);
+  assert.match(source, /请先在角色管理将模板实例化为普通角色/);
+  assert.match(source, /href="\/system\/roles"/);
+  assert.match(source, /const canReadRoles = hasPermission\(authUser, SYSTEM_PERMISSIONS\.ROLE_READ\)/);
+  assert.match(source, /先在角色管理将模板实例化为普通角色，再回到此处选择并保存/);
 });
 
 test("role candidates support search and incremental loading without dropping selected labels", () => {

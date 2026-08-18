@@ -13,6 +13,10 @@ const seed = readFileSync(
   new URL("../../database/seeds/production/000015_property_role_template_reconcile.sql", import.meta.url),
   "utf8"
 );
+const rolesService = readFileSync(
+  new URL("../../apps/api/src/modules/roles/roles.service.ts", import.meta.url),
+  "utf8"
+);
 
 const templateCodes = [
   "PROPERTY_OPERATIONS_MANAGER",
@@ -34,6 +38,8 @@ assert.match(sharedSource, /dataScopeRuleCode: "current_park"/);
 assert.match(sharedSource, /excludedPermissions: \["party:sensitive_read"\]/);
 assert.match(sharedSource, /HOMESTAY_FINANCE_OPERATOR\.code/);
 assert.match(sharedSource, /HOUSING_FINANCE_OPERATOR\.code/);
+assert.match(sharedSource, /findPropertyRoleTemplateDefinition/);
+assert.match(sharedSource, /resolvePropertyRoleTemplatePermissionCodes/);
 
 for (const token of [
   "BEGIN;",
@@ -57,6 +63,22 @@ assert.match(seed, /permission_code='party:sensitive_read'/);
 assert.match(seed, /template_code<>'PROPERTY_OPERATIONS_APPROVER'.*property_approval:decide/s);
 assert.doesNotMatch(seed, /INSERT INTO sys_user|UPDATE sys_user|DELETE FROM sys_user/);
 assert.doesNotMatch(seed, /code\s*=\s*'SUPER_ADMIN'.*(INSERT|UPDATE)/s);
+
+for (const token of [
+  "findPropertyRoleTemplateDefinition",
+  "canonicalizePropertyRoleTemplateBundleSignature",
+  "resolvePropertyRoleTemplatePermissionCodes",
+  "resolveManagedTemplatePermissionIds",
+  "resolveManagedTemplateDataScope",
+  "resolveManagedTemplateDataScopeRuleIds",
+  "dataScope: \"40\"",
+  "Standard property role template definition drifted",
+  "Standard property role template identity drifted",
+  "Standard property role template protection drifted",
+  "Instantiated from shared property role template"
+]) {
+  assert.ok(rolesService.includes(token), `missing API template instantiation contract token: ${token}`);
+}
 
 for (const token of [
   "managed_template_code varchar(64)",

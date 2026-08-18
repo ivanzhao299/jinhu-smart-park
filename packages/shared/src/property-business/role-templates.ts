@@ -1,4 +1,4 @@
-import { TRACK_B_PERMISSION_BUNDLES } from "./permission-bundles";
+import { TRACK_B_PERMISSION_BUNDLES, type PropertyPermissionBundle } from "./permission-bundles";
 
 export type PropertyRoleTemplateCode =
   | "PROPERTY_OPERATIONS_MANAGER"
@@ -22,6 +22,73 @@ export interface PropertyRoleTemplateDefinition {
   dataScopeRuleCode: "current_park";
   isSensitiveComplianceRole: boolean;
 }
+
+export interface PropertyPermissionBundleRevision {
+  code: string;
+  signingName: string;
+  definitionVersion: number;
+  definitionHash: string;
+}
+
+export interface PropertyRoleTemplateBundleReference {
+  code: string;
+  definitionVersion: number;
+  definitionHash: string;
+}
+
+export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
+  "property-bundle:property-homestay-task-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code,
+    signingName: "民宿任务处理人",
+    definitionVersion: 1,
+    definitionHash: "07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425"
+  },
+  "property-bundle:property-housing-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code,
+    signingName: "住房出租运营人员",
+    definitionVersion: 1,
+    definitionHash: "25ff2287f99d3c8c3f1db67a6f6ec28bbbed7bbc85cbc014617ffe287df30f33"
+  },
+  "property-bundle:property-asset-manager": {
+    code: TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.code,
+    signingName: "共享房产资产管理员",
+    definitionVersion: 2,
+    definitionHash: "171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7"
+  },
+  "property-bundle:property-homestay-finance-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_FINANCE_OPERATOR.code,
+    signingName: "民宿财务操作员",
+    definitionVersion: 1,
+    definitionHash: "a45cbf14acba5b7eacd82232ed33541746d96dfe1a16207d776a2ec89c0ee58b"
+  },
+  "property-bundle:property-housing-finance-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code,
+    signingName: "住房出租财务操作员",
+    definitionVersion: 1,
+    definitionHash: "08ad4214fe579d92203a2bae75e55c0257c40d391947ce11c9db9ba313d552ef"
+  },
+  "property-bundle:property-homestay-approver": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_APPROVER.code,
+    signingName: "民宿审批人",
+    definitionVersion: 1,
+    definitionHash: "a332f427d5ebd7aab985041c72ba9e26ddd85b53647b00394e5d346c3167ea3c"
+  },
+  "property-bundle:property-housing-approver": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code,
+    signingName: "住房出租审批人",
+    definitionVersion: 1,
+    definitionHash: "ebc48ebd63433714db7049f69135f4296d3ef94be98b94e07e3ee37cea0725ff"
+  },
+  "property-bundle:property-auditor": {
+    code: TRACK_B_PERMISSION_BUNDLES.AUDITOR.code,
+    signingName: "房产业务审计员",
+    definitionVersion: 1,
+    definitionHash: "e54977e87bff8b36ff06bd2532da7d462fc76657cc3534e77831f39074fffa24"
+  }
+} as const satisfies Record<string, PropertyPermissionBundleRevision>;
+
+const TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE: Readonly<Record<string, PropertyPermissionBundleRevision>> =
+  TRACK_B_PERMISSION_BUNDLE_REVISIONS;
 
 export const PROPERTY_ROLE_FIELD_ACTION_CONTRACT = {
   sensitivePartyFields: ["mobile", "email", "identityDocumentType", "identityNumberMasked", "identityNumber"] as const,
@@ -150,6 +217,91 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
   }
 ] as const satisfies readonly PropertyRoleTemplateDefinition[];
 
+export function findPropertyRoleTemplateDefinition(
+  code: string | null | undefined
+): PropertyRoleTemplateDefinition | null {
+  if (!code) return null;
+  return PROPERTY_ROLE_TEMPLATE_DEFINITIONS.find((definition) => definition.code === code) ?? null;
+}
+
+export function resolvePropertyRoleTemplatePermissionCodes(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): readonly string[] {
+  const definition =
+    typeof definitionOrCode === "string"
+      ? findPropertyRoleTemplateDefinition(definitionOrCode)
+      : definitionOrCode;
+  if (!definition) {
+    throw new Error(`unknown-property-role-template:${definitionOrCode}`);
+  }
+  const bundlesByCode: Map<string, PropertyPermissionBundle> = new Map(
+    Object.values(TRACK_B_PERMISSION_BUNDLES).map((bundle) => [bundle.code, bundle])
+  );
+  const permissions = new Set<string>();
+  for (const bundleCode of definition.bundleCodes) {
+    const bundle = bundlesByCode.get(bundleCode);
+    if (!bundle) {
+      throw new Error(`unknown-property-role-template-bundle:${definition.code}:${bundleCode}`);
+    }
+    for (const permission of bundle.permissions) {
+      permissions.add(permission);
+    }
+  }
+  for (const permission of definition.additionalPermissions) {
+    permissions.add(permission);
+  }
+  for (const permission of definition.excludedPermissions) {
+    permissions.delete(permission);
+  }
+  return [...permissions].sort();
+}
+
+export function resolvePropertyRoleTemplateBundleReferences(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): readonly PropertyRoleTemplateBundleReference[] {
+  const definition =
+    typeof definitionOrCode === "string"
+      ? findPropertyRoleTemplateDefinition(definitionOrCode)
+      : definitionOrCode;
+  if (!definition) {
+    throw new Error(`unknown-property-role-template:${definitionOrCode}`);
+  }
+  return [...definition.bundleCodes].sort().map((bundleCode) => {
+    const revision = TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE[bundleCode];
+    if (!revision) {
+      throw new Error(`unknown-property-role-template-bundle-revision:${definition.code}:${bundleCode}`);
+    }
+    return {
+      code: revision.code,
+      definitionVersion: revision.definitionVersion,
+      definitionHash: revision.definitionHash
+    };
+  });
+}
+
+export function canonicalizePropertyRoleTemplateBundleSignature(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): string {
+  return resolvePropertyRoleTemplateBundleReferences(definitionOrCode)
+    .map((reference) => `${reference.code}@${reference.definitionVersion}:${reference.definitionHash}`)
+    .join("\n");
+}
+
+export function canonicalizeTrackBPermissionBundleRevision(bundleCode: string): string {
+  const revision = TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE[bundleCode];
+  const bundle = Object.values(TRACK_B_PERMISSION_BUNDLES).find((item) => item.code === bundleCode);
+  if (!revision || !bundle) {
+    throw new Error(`unknown-track-b-permission-bundle-revision:${bundleCode}`);
+  }
+  return [
+    "property-bundle-v1",
+    `${revision.code}\t${revision.signingName}`,
+    bundle.permissions.map((permission, index) =>
+      `${String(index + 1).padStart(4, "0")}\t${permission}\n`
+    ).join("")
+  ].join("\n");
+}
+
 export function canonicalizePropertyRoleTemplate(
   definition: Omit<PropertyRoleTemplateDefinition, "definitionHash">
 ): string {
@@ -175,8 +327,16 @@ export function validatePropertyRoleTemplates(): void {
       throw new Error(`duplicate-property-role-template:${definition.code}`);
     }
     codes.add(definition.code);
-    if (definition.definitionVersion < 1 || !/^[a-f0-9]{64}$/.test(definition.definitionHash)) {
+    if (
+      definition.definitionVersion < 1
+      || !/^[a-f0-9]{64}$/.test(definition.definitionHash)
+    ) {
       throw new Error(`invalid-property-role-template-signature:${definition.code}`);
+    }
+    for (const reference of resolvePropertyRoleTemplateBundleReferences(definition)) {
+      if (reference.definitionVersion < 1 || !/^[a-f0-9]{64}$/.test(reference.definitionHash)) {
+        throw new Error(`invalid-property-role-template-bundle-signature:${definition.code}:${reference.code}`);
+      }
     }
     if (definition.roleScope !== "park" || definition.dataScopeRuleCode !== "current_park") {
       throw new Error(`invalid-property-role-template-scope:${definition.code}`);

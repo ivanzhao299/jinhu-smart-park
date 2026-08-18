@@ -1,8 +1,15 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { Repository, SelectQueryBuilder } from "typeorm";
+import type { EntityManager, Repository, SelectQueryBuilder } from "typeorm";
 import { Brackets, In } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
+import {
+  canonicalizePropertyRoleTemplateBundleSignature,
+  findPropertyRoleTemplateDefinition,
+  resolvePropertyRoleTemplatePermissionCodes,
+  type PropertyRoleTemplateDefinition
+} from "@jinhu/shared";
 import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { RolePermissionEntity } from "../permissions/entities/role-permission.entity";
 import { RoleFieldPermissionEntity } from "../permissions/entities/role-field-permission.entity";
@@ -349,7 +356,13 @@ export class RolesService {
         lock: { mode: "pessimistic_read" }
       });
       if (!source) throw new NotFoundException("Role not found");
-      const isManagedPropertyTemplate = source.isTemplate && Boolean(source.managedTemplateCode);
+      const isManagedPropertyTemplate = Boolean(source.managedTemplateCode);
+      const managedTemplateDefinition = isManagedPropertyTemplate
+        ? this.resolveManagedPropertyTemplateDefinition(scope, source)
+        : null;
+      const managedTemplateDataScope = managedTemplateDefinition
+        ? this.resolveManagedTemplateDataScope(managedTemplateDefinition)
+        : null;
       if (isManagedPropertyTemplate && (dto.roleScope && dto.roleScope !== "park")) {
         throw new ForbiddenException("Standard property templates can only create park roles");
       }
@@ -367,8 +380,10 @@ export class RolesService {
         lock: { mode: "pessimistic_read" }
       }) : null;
       if (dto.parentId && !parent) throw new NotFoundException("Parent role not found in current scope");
-      const copiedDataScope = isManagedPropertyTemplate ? source.dataScope : dto.dataScope ?? source.dataScope;
-      const copiedDataScopeConfig = normalizeScopeConfig(dto.dataScopeConfig ?? source.dataScopeConfig ?? {});
+      const copiedDataScope = managedTemplateDataScope?.dataScope ?? dto.dataScope ?? source.dataScope;
+      const copiedDataScopeConfig = normalizeScopeConfig(
+        managedTemplateDataScope?.dataScopeConfig ?? dto.dataScopeConfig ?? source.dataScopeConfig ?? {}
+      );
       await this.validateRoleDataScopeConfig(scope, copiedDataScope, copiedDataScopeConfig, roleRepository);
       const copied = await roleRepository.save(roleRepository.create({
         tenantId: scope.tenantId,
@@ -388,8 +403,7 @@ export class RolesService {
         managedTemplateCode: null,
         templateDefinitionVersion: null,
         templateDefinitionHash: null,
-        // Managed templates can intentionally exclude permissions from their source bundle.
-        // A copy inherits the effective links, not raw bundle metadata that would re-add them.
+        // Managed template instances store effective links only; template metadata stays on the protected source.
         appliedBundleCodes: isManagedPropertyTemplate ? [] : source.appliedBundleCodes ?? [],
         appliedBundleSignature: isManagedPropertyTemplate ? null : source.appliedBundleSignature ?? null,
         isSystem: false,
@@ -409,27 +423,33 @@ export class RolesService {
       const dataScopeRepository = manager.getRepository(RoleDataScopeEntity);
       const overridesDataScope = !isManagedPropertyTemplate
         && (dto.dataScope !== undefined || dto.dataScopeConfig !== undefined);
-      const [permissions, fieldPolicies, dataScopes] = await Promise.all([
-        permissionRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
+      const [permissionIds, fieldPolicies, dataScopeRuleIds] = await Promise.all([
+        managedTemplateDefinition
+          ? this.resolveManagedTemplatePermissionIds(manager, scope, managedTemplateDefinition)
+          : permissionRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
+            .then((links) => links.map((link) => link.permissionId)),
         fieldPolicyRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } }),
-        overridesDataScope
+        managedTemplateDefinition
+          ? this.resolveManagedTemplateDataScopeRuleIds(manager, scope, managedTemplateDefinition)
+          : overridesDataScope
           ? Promise.resolve([])
           : dataScopeRepository.find({ where: { tenantId: scope.tenantId, parkId: scope.parkId, roleId: source.id, isDeleted: false } })
+            .then((links) => links.map((link) => link.ruleId))
       ]);
-      await permissionRepository.save(permissions.map((link) => permissionRepository.create({
+      await permissionRepository.save(permissionIds.map((permissionId) => permissionRepository.create({
         tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
-        permissionId: link.permissionId, createBy: actorId, updateBy: actorId,
-        remark: "Copied from role template"
+        permissionId, createBy: actorId, updateBy: actorId,
+        remark: managedTemplateDefinition ? "Instantiated from shared property role template" : "Copied from role template"
       })));
       await fieldPolicyRepository.save(fieldPolicies.map((link) => fieldPolicyRepository.create({
         tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
         fieldPolicyId: link.fieldPolicyId, createBy: actorId, updateBy: actorId,
         remark: "Copied from role template"
       })));
-      await dataScopeRepository.save(dataScopes.map((link) => dataScopeRepository.create({
+      await dataScopeRepository.save(dataScopeRuleIds.map((ruleId) => dataScopeRepository.create({
         tenantId: scope.tenantId, parkId: scope.parkId, roleId: copied.id,
-        ruleId: link.ruleId, createBy: actorId, updateBy: actorId,
-        remark: "Copied from role template"
+        ruleId, createBy: actorId, updateBy: actorId,
+        remark: managedTemplateDefinition ? "Instantiated from shared property role template" : "Copied from role template"
       })));
       return copied.id;
     });
@@ -586,6 +606,81 @@ export class RolesService {
     }
   }
 
+  private resolveManagedPropertyTemplateDefinition(scope: TenantParkScope, source: RoleEntity): PropertyRoleTemplateDefinition {
+    const definition = findPropertyRoleTemplateDefinition(source.managedTemplateCode);
+    if (!definition) {
+      throw new ConflictException(`Unknown standard property role template: ${source.managedTemplateCode}`);
+    }
+    if (source.code !== definition.code || source.managedTemplateCode !== definition.code) {
+      throw new ConflictException(`Standard property role template identity drifted: ${source.managedTemplateCode}`);
+    }
+    if (source.isTemplate !== true || source.isSystem !== true || source.isBuiltin !== true) {
+      throw new ConflictException(`Standard property role template protection drifted: ${source.managedTemplateCode}`);
+    }
+    if (source.roleScope !== definition.roleScope || source.parkId !== scope.parkId) {
+      throw new ConflictException(`Standard property role template scope drifted: ${source.managedTemplateCode}`);
+    }
+    if (
+      source.templateDefinitionVersion !== definition.definitionVersion
+      || source.templateDefinitionHash !== definition.definitionHash
+      || source.appliedBundleSignature !== this.hash(canonicalizePropertyRoleTemplateBundleSignature(definition))
+    ) {
+      throw new ConflictException(`Standard property role template definition drifted: ${source.managedTemplateCode}`);
+    }
+    return definition;
+  }
+
+  private async resolveManagedTemplatePermissionIds(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    definition: PropertyRoleTemplateDefinition
+  ): Promise<string[]> {
+    const permissionCodes = [...resolvePropertyRoleTemplatePermissionCodes(definition)];
+    const permissions = await manager.getRepository(PermissionEntity)
+      .createQueryBuilder("permission")
+      .setLock("pessimistic_read")
+      .where("permission.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("permission.code IN (:...permissionCodes)", { permissionCodes })
+      .andWhere("permission.status = 'enabled'")
+      .andWhere("permission.is_enabled = true")
+      .andWhere("permission.is_deleted = false")
+      .getMany();
+    const idsByCode = new Map(permissions.map((permission) => [permission.code, permission.id]));
+    const missingCodes = permissionCodes.filter((code) => !idsByCode.has(code));
+    if (missingCodes.length > 0 || permissions.length !== permissionCodes.length) {
+      throw new ConflictException(`Standard property role template permissions are missing: ${missingCodes.join(", ") || definition.code}`);
+    }
+    return permissionCodes.map((code) => idsByCode.get(code)!);
+  }
+
+  private resolveManagedTemplateDataScope(
+    definition: PropertyRoleTemplateDefinition
+  ): { dataScope: string; dataScopeConfig: DataScopeConfig } {
+    if (definition.dataScopeRuleCode !== "current_park") {
+      throw new ConflictException(`Unsupported standard property role template data-scope rule: ${definition.dataScopeRuleCode}`);
+    }
+    return { dataScope: "40", dataScopeConfig: {} };
+  }
+
+  private async resolveManagedTemplateDataScopeRuleIds(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    definition: PropertyRoleTemplateDefinition
+  ): Promise<string[]> {
+    if (definition.dataScopeRuleCode !== "current_park") {
+      throw new ConflictException(`Unsupported standard property role template data-scope rule: ${definition.dataScopeRuleCode}`);
+    }
+    const rules = await manager.query<Array<{ id: string }>>(`
+      SELECT id FROM sys_data_scope_rule
+      WHERE tenant_id=$1 AND park_id=$2 AND rule_code='current_park'
+        AND dimension='park' AND scope_type='park' AND status='enabled' AND is_deleted=false
+    `, [scope.tenantId, scope.parkId]);
+    if (rules.length !== 1 || !rules[0]) {
+      throw new ConflictException("Current park data-scope rule is missing or ambiguous");
+    }
+    return [rules[0].id];
+  }
+
   private async assertConfiguredIdsExist(
     repository: Pick<Repository<RoleEntity>, "query">,
     message: string,
@@ -703,5 +798,9 @@ export class RolesService {
       }
     }
     return roots;
+  }
+
+  private hash(value: string): string {
+    return createHash("sha256").update(value, "utf8").digest("hex");
   }
 }
