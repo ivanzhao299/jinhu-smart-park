@@ -358,7 +358,7 @@ export class RolesService {
       if (!source) throw new NotFoundException("Role not found");
       const isManagedPropertyTemplate = Boolean(source.managedTemplateCode);
       const managedTemplateDefinition = isManagedPropertyTemplate
-        ? this.resolveManagedPropertyTemplateDefinition(source)
+        ? this.resolveManagedPropertyTemplateDefinition(scope, source)
         : null;
       const managedTemplateDataScope = managedTemplateDefinition
         ? this.resolveManagedTemplateDataScope(managedTemplateDefinition)
@@ -606,7 +606,7 @@ export class RolesService {
     }
   }
 
-  private resolveManagedPropertyTemplateDefinition(source: RoleEntity): PropertyRoleTemplateDefinition {
+  private resolveManagedPropertyTemplateDefinition(scope: TenantParkScope, source: RoleEntity): PropertyRoleTemplateDefinition {
     const definition = findPropertyRoleTemplateDefinition(source.managedTemplateCode);
     if (!definition) {
       throw new ConflictException(`Unknown standard property role template: ${source.managedTemplateCode}`);
@@ -616,6 +616,9 @@ export class RolesService {
     }
     if (source.isTemplate !== true || source.isSystem !== true || source.isBuiltin !== true) {
       throw new ConflictException(`Standard property role template protection drifted: ${source.managedTemplateCode}`);
+    }
+    if (source.roleScope !== definition.roleScope || source.parkId !== scope.parkId) {
+      throw new ConflictException(`Standard property role template scope drifted: ${source.managedTemplateCode}`);
     }
     if (
       source.templateDefinitionVersion !== definition.definitionVersion
