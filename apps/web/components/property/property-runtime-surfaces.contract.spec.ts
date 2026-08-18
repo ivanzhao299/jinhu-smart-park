@@ -34,6 +34,20 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   const party = readFileSync(resolve(webRoot, "app/assets/parties/PartyDetailClient.tsx"), "utf8");
 
   assert.match(control, /\?tab=identity#identity/);
+  assert.match(control, /IdentityDraftCreatePanel/);
+  assert.match(control, /创建身份核验草稿/);
+  assert.match(control, /"\/property\/identity-submissions"/);
+  assert.match(control, /method: "POST"/);
+  assert.match(control, /PARTY_IDENTITY_UPDATE/);
+  assert.match(control, /IdentityDraftEditPanel/);
+  assert.match(control, /编辑身份核验草稿/);
+  assert.match(control, /method: "PUT"/);
+  assert.match(control, /pendingFileIds/);
+  assert.match(control, /IdentityAuditPanel/);
+  assert.match(control, /\/audit\?page=1&pageSize=20&sort=occurredAt&order=desc/);
+  assert.match(control, /PARTY_SENSITIVE_READ/);
+  assert.match(control, /SYSTEM_PERMISSIONS\.AUDIT_READ/);
+  assert.match(control, /身份核验审计时间线/);
   assert.match(party, /searchParams\.get\("tab"\) === "identity"/);
   assert.match(party, /getElementById\("identity"\)/);
   assert.match(party, /id="identity" tabIndex=\{-1\}/);
@@ -80,6 +94,16 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "保留到期"/);
   assert.match(foundation, /label: "释放信息"/);
   assert.match(foundation, /releaseKeys = useRef/);
+  assert.match(foundation, /PROPERTY_OCCUPANCY_ACTIVATE/);
+  assert.match(foundation, /\/property\/occupancies\/\$\{encodeURIComponent\(id\)\}\/activate/);
+  assert.match(foundation, /createIdempotencyKey\("property-occupancy-activate"\)/);
+  assert.match(foundation, /status === "held"/);
+  assert.match(foundation, /激活保留占用/);
+  assert.match(foundation, /requestId\?: string \| null/);
+  assert.match(foundation, /ModeTransitionDetailPanel/);
+  assert.match(foundation, /经营模式审计详情/);
+  assert.match(foundation, /查看审计详情/);
+  assert.match(foundation, /row\.requestId \?\? "历史执行日志"/);
   for (const parameter of ["buildingId", "configuredMode", "operationStatus", "blockerCode"]) {
     assert.match(foundation, new RegExp(`params\\.set\\("${parameter}"`));
   }

@@ -120,6 +120,8 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, request\.source_expected_version, log\.version\) AS version/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, log\.version\) AS version/u);
+  assert.match(calls[0]!.sql, /request\.id AS request_id/u);
+  assert.match(calls[0]!.sql, /audit\.request_id AS "requestId"/u);
   assert.match(calls[0]!.sql, /audit\.check_snapshot AS "checkSnapshot"/u);
   assert.match(calls[0]!.sql, /count\(\*\) OVER\(\)::int/u);
   assert.deepEqual(calls[0]!.parameters, [

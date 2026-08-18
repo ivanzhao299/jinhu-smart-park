@@ -42,6 +42,7 @@
     "test:e2e:s9f1-energy-billing-adjustment-reversal": "node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs",
     "test:e2e:migration-prerequisites": "node scripts/e2e/migration-prerequisite-contract.mjs",
     "test:e2e:property-track-b-seed-reconcile": "node scripts/e2e/property-track-b-seed-reconcile-contract.mjs",
+    "test:e2e:property-control-plane-uat-fixture": "node scripts/e2e/property-control-plane-uat-fixture.mjs",
     "test:e2e:jh-engineering-project-manager-rbac": "node scripts/e2e/jh-engineering-project-manager-rbac-contract.mjs",
     "test:e2e:apartment-management": "node scripts/e2e/apartment-management-contract.mjs && node scripts/e2e/responsibility-rbac-governance.mjs",
     "smoke:cleanup": "sh scripts/smoke-cleanup.sh",

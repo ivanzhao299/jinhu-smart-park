@@ -122,17 +122,19 @@ test("backend asset metadata cannot overwrite the system park recovery menu modu
   );
 });
 
-test("asset menu exposes the three shared property control planes", () => {
+test("asset menu exposes the shared property control planes", () => {
   const readPermissions: Record<string, string> = {
     "asset.property-operations": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ,
     "asset.property-occupancies": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ,
-    "asset.property-mode-transitions": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ
+    "asset.property-mode-transitions": PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ,
+    "asset.identity-submissions": PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ
   };
   const expected = PROPERTY_TRACK_B_SURFACES
     .filter((surface) => [
       "asset.property-operations",
       "asset.property-occupancies",
-      "asset.property-mode-transitions"
+      "asset.property-mode-transitions",
+      "asset.identity-submissions"
     ].includes(surface.surfaceId));
   const menus = getDashboardMenus();
 
@@ -148,5 +150,26 @@ test("asset menu exposes the three shared property control planes", () => {
     );
     assert.equal(FIRST_RELEASE_MENU_PATH_SET.has(surface.route), true);
   }
-  assert.equal(expected.length, 3);
+  const identityMenu = findMenuByPath("/assets/identity-submissions", menus);
+  assert.deepEqual(
+    {
+      label: identityMenu?.label,
+      href: identityMenu?.href,
+      module: identityMenu?.module,
+      permission: identityMenu?.permission,
+      permissions: identityMenu?.permissions
+    },
+    {
+      label: "身份核验工作台",
+      href: "/assets/identity-submissions",
+      module: "asset",
+      permission: PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      permissions: [
+        PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+        PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ
+      ]
+    }
+  );
+  assert.equal(FIRST_RELEASE_MENU_PATH_SET.has("/assets/identity-submissions"), true);
+  assert.equal(expected.length, 4);
 });

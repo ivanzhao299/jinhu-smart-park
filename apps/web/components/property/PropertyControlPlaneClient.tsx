@@ -1,6 +1,9 @@
 "use client";
 
-import type {
+import {
+  PROPERTY_BUSINESS_PERMISSIONS,
+  SYSTEM_PERMISSIONS,
+  type IdentityAuditListResponse,
   ApprovalIncidentDetail,
   ApprovalIncidentListItem,
   IdentitySubmissionProjection,
@@ -20,6 +23,7 @@ import {
   PropertyPageSurface,
   PropertyPanelSurface
 } from "../../features/property-shared";
+import { PermissionGuard } from "../auth/PermissionGuard";
 import styles from "./PropertyControlPlane.module.css";
 import { IdentityEvidenceList } from "./IdentityEvidenceList";
 import {
@@ -130,6 +134,7 @@ export function PropertyControlPlaneListClient({ surface }: { surface: PropertyC
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>
       </div>
     </PropertyPanelSurface>
+    {surface === "identity" ? <IdentityDraftCreatePanel partyId={partyId} onCreated={() => void load()} /> : null}
     {error ? <PropertyPanelSurface aria-live="polite"><p>{error}</p></PropertyPanelSurface> : null}
     {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
     {!loading && !error ? <ControlPlaneRecords config={config} items={data?.items ?? []} surface={surface} /> : null}
@@ -181,6 +186,9 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   const [reason, setReason] = useState("");
   const [assignedVerifierId, setAssignedVerifierId] = useState("");
   const [identityDecision, setIdentityDecision] = useState<"verified" | "rejected">("verified");
+  const [auditData, setAuditData] = useState<IdentityAuditListResponse | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState("");
   const [mutating, setMutating] = useState(false);
   const mutationLock = useRef(false);
   const mutationKeys = useRef(new Map<string, string>());
@@ -200,6 +208,27 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   }, [config.api, id]);
 
   useEffect(() => void load(), [load]);
+
+  const loadAudit = useCallback(async () => {
+    if (surface !== "identity") return;
+    setAuditLoading(true);
+    setAuditError("");
+    try {
+      const response = await apiRequest<IdentityAuditListResponse>(
+        `${config.api}/${encodeURIComponent(id)}/audit?page=1&pageSize=20&sort=occurredAt&order=desc`,
+        { token: getAccessToken() ?? undefined }
+      );
+      setAuditData(response.data);
+    } catch (cause) {
+      setAuditError(cause instanceof Error ? cause.message : "审计时间线加载失败");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [config.api, id, surface]);
+
+  useEffect(() => {
+    if (surface === "identity" && detail) void loadAudit();
+  }, [detail, loadAudit, surface]);
 
   async function mutate(identityAction?: string) {
     if (!detail || mutationLock.current) return;
@@ -256,6 +285,16 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
       {surface === "identity" && "evidence" in detail ? <PropertyPanelSurface title="身份核验证据">
         <IdentityEvidenceList files={detail.evidence.files} />
       </PropertyPanelSurface> : null}
+      {surface === "identity" && "evidence" in detail && detail.status === "draft" ? <IdentityDraftEditPanel
+        detail={detail as IdentitySubmissionProjection}
+        onUpdated={load}
+      /> : null}
+      {surface === "identity" ? <IdentityAuditPanel
+        data={auditData}
+        error={auditError}
+        loading={auditLoading}
+        onReload={loadAudit}
+      /> : null}
       {surface === "notifications" && "deepLink" in detail && safePropertyDeepLink(detail.deepLink)
         ? <PropertyPanelSurface title="通知来源">
           <p><Link href={safePropertyDeepLink(detail.deepLink)! as Route}>打开关联业务记录</Link></p>
@@ -294,6 +333,199 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
       </PropertyPanelSurface> : null}
     </> : null}
   </PropertyPageSurface>;
+}
+
+function IdentityDraftCreatePanel({ partyId, onCreated }: {
+  partyId: string | null;
+  onCreated: () => void;
+}) {
+  const [draftPartyId, setDraftPartyId] = useState(partyId ?? "");
+  const [expectedIdentityVersion, setExpectedIdentityVersion] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const createKey = useRef<string | null>(null);
+
+  useEffect(() => setDraftPartyId(partyId ?? ""), [partyId]);
+
+  async function createDraft(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    if (!draftPartyId.trim()) {
+      setFeedback("请填写 Party ID。");
+      return;
+    }
+    setBusy(true);
+    setFeedback("");
+    createKey.current ??= createIdempotencyKey("party-identity-draft-create");
+    try {
+      await apiRequest("/property/identity-submissions", {
+        method: "POST",
+        token: getAccessToken() ?? undefined,
+        idempotencyKey: createKey.current,
+        body: {
+          clientKey: createKey.current,
+          partyId: draftPartyId.trim(),
+          expectedIdentityVersion
+        }
+      });
+      createKey.current = null;
+      setFeedback("身份核验草稿已创建。");
+      onCreated();
+    } catch (cause) {
+      setFeedback(cause instanceof Error ? cause.message : "身份核验草稿创建失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE}>
+    <PropertyPanelSurface title="创建身份核验草稿">
+      <form className={styles.actionForm} onSubmit={(event) => void createDraft(event)}>
+        <div className={styles.formGrid}>
+          <label>Party ID
+            <input required value={draftPartyId} onChange={(event) => {
+              createKey.current = null;
+              setDraftPartyId(event.target.value);
+            }} />
+          </label>
+          <label>预期身份版本
+            <input min={0} step={1} type="number" value={expectedIdentityVersion}
+              onChange={(event) => {
+                createKey.current = null;
+                setExpectedIdentityVersion(Number(event.target.value || 0));
+              }} />
+          </label>
+        </div>
+        <div className={styles.toolbar}>
+          <button className="ds-button ds-button-primary" disabled={busy} type="submit">
+            {busy ? "正在创建…" : "创建草稿"}
+          </button>
+          {partyId ? <Link className="ds-button" href={`/assets/parties/${encodeURIComponent(partyId)}?tab=identity#identity`}>
+            打开 Party 身份页签
+          </Link> : null}
+        </div>
+        {feedback ? <p aria-live="polite">{feedback}</p> : null}
+      </form>
+    </PropertyPanelSurface>
+  </PermissionGuard>;
+}
+
+function IdentityDraftEditPanel({ detail, onUpdated }: {
+  detail: IdentitySubmissionProjection;
+  onUpdated: () => Promise<void>;
+}) {
+  const [documentType, setDocumentType] = useState<"id_card" | "passport" | "">(
+    detail.evidence.documentType ?? ""
+  );
+  const [identityNumber, setIdentityNumber] = useState("");
+  const [pendingFileIds, setPendingFileIds] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const updateKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    setDocumentType(detail.evidence.documentType ?? "");
+    setIdentityNumber("");
+    setPendingFileIds(detail.evidence.files.map((file) => file.fileId).join("\n"));
+    updateKey.current = null;
+  }, [detail]);
+
+  async function updateDraft(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (busy) return;
+    const fileIds = pendingFileIds.split(/[\s,，]+/u).map((value) => value.trim()).filter(Boolean);
+    setBusy(true);
+    setFeedback("");
+    updateKey.current ??= createIdempotencyKey("party-identity-draft-update");
+    try {
+      await apiRequest(`/property/identity-submissions/${encodeURIComponent(detail.id)}`, {
+        method: "PUT",
+        token: getAccessToken() ?? undefined,
+        idempotencyKey: updateKey.current,
+        body: {
+          clientKey: updateKey.current,
+          expectedVersion: detail.version,
+          documentType: documentType || null,
+          identityNumber: identityNumber.trim() || null,
+          pendingFileIds: fileIds
+        }
+      });
+      updateKey.current = null;
+      setFeedback("身份核验草稿已保存。");
+      await onUpdated();
+    } catch (cause) {
+      setFeedback(cause instanceof Error ? cause.message : "身份核验草稿保存失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE}>
+    <PropertyPanelSurface title="编辑身份核验草稿">
+      <form className={styles.actionForm} onSubmit={(event) => void updateDraft(event)}>
+        <div className={styles.formGrid}>
+          <label>证件类型
+            <select value={documentType} onChange={(event) => {
+              updateKey.current = null;
+              setDocumentType(event.target.value as "id_card" | "passport" | "");
+            }}>
+              <option value="">未填写</option>
+              <option value="id_card">身份证</option>
+              <option value="passport">护照</option>
+            </select>
+          </label>
+          <label>证件号码
+            <input maxLength={128} value={identityNumber} onChange={(event) => {
+              updateKey.current = null;
+              setIdentityNumber(event.target.value);
+            }} />
+          </label>
+        </div>
+        <label>证据文件 ID
+          <textarea maxLength={2000} value={pendingFileIds} onChange={(event) => {
+            updateKey.current = null;
+            setPendingFileIds(event.target.value);
+          }} />
+        </label>
+        <button className="ds-button ds-button-primary" disabled={busy} type="submit">
+          {busy ? "正在保存…" : "保存草稿"}
+        </button>
+        {feedback ? <p aria-live="polite">{feedback}</p> : null}
+      </form>
+    </PropertyPanelSurface>
+  </PermissionGuard>;
+}
+
+function IdentityAuditPanel({ data, error, loading, onReload }: {
+  data: IdentityAuditListResponse | null;
+  error: string;
+  loading: boolean;
+  onReload: () => Promise<void>;
+}) {
+  return <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PARTY_SENSITIVE_READ}>
+    <PermissionGuard permission={SYSTEM_PERMISSIONS.AUDIT_READ}>
+      <PropertyPanelSurface title="身份核验审计时间线">
+        <div className={styles.toolbar}>
+          <button className="ds-button" disabled={loading} onClick={() => void onReload()} type="button">
+            {loading ? "正在加载…" : "刷新时间线"}
+          </button>
+        </div>
+        {error ? <p aria-live="polite" role="alert">{error}</p> : null}
+        {!error && !loading && !data?.items.length ? <p>暂无审计事件。</p> : null}
+        {data?.items.length ? <ol className={styles.timeline}>
+          {data.items.map((item) => <li key={item.id}>
+            <strong>{identityAuditEventLabel(item.eventType)}</strong>
+            <span>{formatTime(item.occurredAt)}</span>
+            <span>{item.actor.displayName}</span>
+            {item.reason ? <p>{item.reason}</p> : null}
+            {item.evidence ? <small>
+              证件：{item.evidence.documentType ?? "—"} · 文件 {item.evidence.fileCount}
+            </small> : null}
+          </li>)}
+        </ol> : null}
+      </PropertyPanelSurface>
+    </PermissionGuard>
+  </PermissionGuard>;
 }
 
 function normalize(item: ControlPlaneItem, surface: PropertyControlPlaneSurface) {
@@ -430,6 +662,22 @@ function identityActionLabel(action: string): string {
     "party.identity.verify": "提交决定",
     "party.identity.withdraw": "撤回提交"
   } as Record<string, string>)[action] ?? action;
+}
+
+function identityAuditEventLabel(eventType: string): string {
+  return ({
+    "draft-created": "草稿创建",
+    "draft-updated": "草稿更新",
+    submitted: "提交核验",
+    claimed: "领取核验",
+    reassigned: "重新分派",
+    revoked: "撤销分派",
+    verified: "核验通过",
+    rejected: "核验拒绝",
+    withdrawn: "撤回提交",
+    superseded: "被新提交取代",
+    "legacy-imported": "历史导入"
+  } as Record<string, string>)[eventType] ?? eventType;
 }
 
 function formatTime(value: string): string {
