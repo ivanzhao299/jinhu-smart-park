@@ -63,6 +63,16 @@ test("new tenant and additional park provisioning copy dictionary baselines", ()
   assert.match(helperBlock, /INSERT INTO sys_dict_type/);
   assert.match(helperBlock, /INSERT INTO sys_dict_item/);
   assert.match(helperBlock, /PARTITION BY source_type\.dict_code, source_item\.item_value/);
+  assert.match(helperBlock, /\$1::varchar/);
+  assert.match(helperBlock, /\$2::varchar/);
+  assert.match(helperBlock, /\$3::varchar/);
+  assert.match(helperBlock, /\$4::varchar/);
+  assert.match(helperBlock, /\$6::varchar/);
+  assert.match(helperBlock, /\$7::varchar/);
+  assert.doesNotMatch(helperBlock, /tenant_id = \$3(?!::varchar)/);
+  assert.doesNotMatch(helperBlock, /park_id = \$4(?!::varchar)/);
+  assert.doesNotMatch(helperBlock, /tenant_id = \$6(?!::varchar)/);
+  assert.doesNotMatch(helperBlock, /park_id = \$7(?!::varchar)/);
   assert.match(migration, /target_scopes AS/);
   assert.match(migration, /FROM biz_park park/);
   assert.match(migration, /JOIN sys_tenant tenant/);

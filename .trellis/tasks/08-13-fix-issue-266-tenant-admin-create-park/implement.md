@@ -13,8 +13,9 @@
   - [x] 移除阻断独立 scope 退役的旧保护，保留 active/inactive/asset-assignment 状态机。
   - [x] 修复楼栋新增的 `Invalid request origin`：前端不再为跨园区新增楼栋调用认证 context-switch，后端 `POST /buildings` 按显式 `parkId` 做目标园区鉴权、编码生成、写入和审计 scope override。
   - [x] 复审后收紧所有跨 scope 删除必须先停用，即使目标尚无 asset 投影；补充真实退役函数的 asset assignment 与 `asset_park` 软删除回归。
-- [ ] 创建 `codex/` 分支，提交、推送并创建 Draft PR（Closes #266）。
-- [ ] 针对每个最新 head 仅触发一次 Codex Review，处理并解决全部可操作 threads，复跑 CI。
+  - [x] 处理生产复测 `inconsistent types deduced for parameter $3`：创建 GitHub Issue #308，确认根因是新增园区字典复制 SQL 的 `$3/$4` 同时参与 INSERT 与 JOIN/WHERE 隐式类型推断；将 scope 参数显式固定为 `varchar` 并补静态回归断言。
+- [x] 创建干净 `codex/` 分支，提交、推送并创建 Draft PR（Closes #308，关联 #266）。
+- [x] 针对最新 head 触发 Codex Review，确认无可操作问题，复跑 CI。
 - [ ] CI/Release Smoke/Codex Review 全绿后转 Ready 并自动合并。
 - [ ] 监控生产 Deploy、health、login 与 Docker cleanup；失败时从首个真实错误继续同一闭环。
 
@@ -74,6 +75,22 @@
 - `pnpm --filter @jinhu/api lint` — pass.
 - `pnpm --filter @jinhu/api build` — pass.
 - `git diff --check` — pass.
+
+### 2026-08-18 production retest regression
+
+- GitHub Issue #308 created for the production retest failure.
+- Runtime dictionary provisioning now casts tenant/park scope parameters to `varchar` before INSERT and JOIN/WHERE comparisons.
+- Clean branch `codex/issue-308-park-dict-param-types-clean` was created from `origin/main`, pushed, and opened as Draft PR #309.
+- Codex Review on PR #309 reported no major issues.
+- `pnpm install --frozen-lockfile` — pass.
+- `pnpm --filter @jinhu/shared build` — pass.
+- `node --test --require ts-node/register src/modules/tenants/tenants.service.additional-park.spec.ts src/modules/parks/parks.asset-scope.spec.ts` from `apps/api` — 20 pass.
+- `pnpm --filter @jinhu/api typecheck` — pass.
+- `pnpm --filter @jinhu/api lint` — pass.
+- `pnpm --filter @jinhu/api build` — pass.
+- `git diff --check` — pass.
+- GitHub checks on PR #309: `Lint, Typecheck, Build` pass; `Detect Release Smoke Scope` pass; `Release Smoke` skipped by scope detection.
+- Chrome DevTools MCP local self-test on clean branch (`web:3300` -> `api:3301`) created `UAT153515` / `UAT新增园区153515` successfully from the UI; the page showed `园区保存成功，可在楼栋管理中选择该园区`, the list refreshed to include the new park, and no `inconsistent types deduced for parameter $3` or console errors appeared.
 
 ## Rollback points
 

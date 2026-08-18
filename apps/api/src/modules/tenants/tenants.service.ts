@@ -1201,8 +1201,8 @@ export class TenantsService {
           remark
         )
         SELECT
-          $3,
-          $4,
+          $3::varchar,
+          $4::varchar,
           source_type.dict_code,
           source_type.dict_name,
           source_type.status,
@@ -1211,13 +1211,13 @@ export class TenantsService {
           source_type.is_deleted,
           source_type.remark
         FROM sys_dict_type source_type
-        WHERE source_type.tenant_id = $1
-          AND source_type.park_id = $2
+        WHERE source_type.tenant_id::varchar = $1::varchar
+          AND source_type.park_id::varchar = $2::varchar
           AND NOT EXISTS (
             SELECT 1
             FROM sys_dict_type target_type
-            WHERE target_type.tenant_id = $3
-              AND target_type.park_id = $4
+            WHERE target_type.tenant_id::varchar = $3::varchar
+              AND target_type.park_id::varchar = $4::varchar
               AND target_type.dict_code = source_type.dict_code
           )
           AND (
@@ -1225,8 +1225,8 @@ export class TenantsService {
             OR NOT EXISTS (
               SELECT 1
               FROM sys_dict_type custom_type
-              WHERE custom_type.tenant_id = $6
-                AND custom_type.park_id = $7
+              WHERE custom_type.tenant_id::varchar = $6::varchar
+                AND custom_type.park_id::varchar = $7::varchar
                 AND custom_type.dict_code = source_type.dict_code
             )
           )
@@ -1261,17 +1261,17 @@ export class TenantsService {
           FROM sys_dict_type source_type
           JOIN sys_dict_item source_item
             ON source_item.dict_type_id = source_type.id
-           AND source_item.tenant_id = source_type.tenant_id
-           AND source_item.park_id = source_type.park_id
-          WHERE source_type.tenant_id = $1
-            AND source_type.park_id = $2
+           AND source_item.tenant_id::varchar = source_type.tenant_id::varchar
+           AND source_item.park_id::varchar = source_type.park_id::varchar
+          WHERE source_type.tenant_id::varchar = $1::varchar
+            AND source_type.park_id::varchar = $2::varchar
             AND (
               source_type.is_deleted = false
               OR NOT EXISTS (
                 SELECT 1
                 FROM sys_dict_type live_source_type
-                WHERE live_source_type.tenant_id = source_type.tenant_id
-                  AND live_source_type.park_id = source_type.park_id
+                WHERE live_source_type.tenant_id::varchar = source_type.tenant_id::varchar
+                  AND live_source_type.park_id::varchar = source_type.park_id::varchar
                   AND live_source_type.dict_code = source_type.dict_code
                   AND live_source_type.is_deleted = false
               )
@@ -1293,8 +1293,8 @@ export class TenantsService {
           remark
         )
         SELECT
-          $3,
-          $4,
+          $3::varchar,
+          $4::varchar,
           target_type.id,
           source_items.item_label,
           source_items.item_value,
@@ -1307,15 +1307,15 @@ export class TenantsService {
           source_items.remark
         FROM source_items
         JOIN sys_dict_type target_type
-          ON target_type.tenant_id = $3
-         AND target_type.park_id = $4
+          ON target_type.tenant_id::varchar = $3::varchar
+         AND target_type.park_id::varchar = $4::varchar
          AND target_type.dict_code = source_items.dict_code
         WHERE source_items.row_number = 1
           AND NOT EXISTS (
             SELECT 1
             FROM sys_dict_item target_item
-            WHERE target_item.tenant_id = $3
-              AND target_item.park_id = $4
+            WHERE target_item.tenant_id::varchar = $3::varchar
+              AND target_item.park_id::varchar = $4::varchar
               AND target_item.dict_type_id = target_type.id
               AND target_item.item_value = source_items.item_value
           )
@@ -1326,10 +1326,10 @@ export class TenantsService {
               FROM sys_dict_type custom_type
               JOIN sys_dict_item custom_item
                 ON custom_item.dict_type_id = custom_type.id
-               AND custom_item.tenant_id = custom_type.tenant_id
-               AND custom_item.park_id = custom_type.park_id
-              WHERE custom_type.tenant_id = $6
-                AND custom_type.park_id = $7
+               AND custom_item.tenant_id::varchar = custom_type.tenant_id::varchar
+               AND custom_item.park_id::varchar = custom_type.park_id::varchar
+              WHERE custom_type.tenant_id::varchar = $6::varchar
+                AND custom_type.park_id::varchar = $7::varchar
                 AND custom_type.dict_code = source_items.dict_code
                 AND custom_item.item_value = source_items.item_value
             )
