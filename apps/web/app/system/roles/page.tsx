@@ -324,7 +324,11 @@ export default function RolesPage() {
       }
     });
     setTemplateInstanceRole(null);
-    setMessage(canAssignUserRoles ? "已实例化为普通角色，可继续配置并到用户管理分配给用户" : "已实例化为普通角色，可继续配置权限、数据范围和字段策略");
+    setMessage(
+      response.data.isAssignable && canAssignUserRoles
+        ? "已实例化为可分配角色，可到用户管理分配给用户"
+        : "已实例化为普通角色，可继续配置权限、数据范围和字段策略"
+    );
     await load(data.page, response.data.id);
   }
 

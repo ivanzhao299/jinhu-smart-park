@@ -52,6 +52,18 @@
 - [x] `node scripts/e2e/property-role-template-reconcile-contract.mjs`
 - [x] `git diff --check`
 
+### Codex Review Fix Validation 2
+
+- [x] `cd apps/api && TS_NODE_TRANSPILE_ONLY=true node --test --require ts-node/register src/modules/roles/roles.authorization-scope.spec.ts`
+- [x] `pnpm --filter @jinhu/api build`
+- [x] `pnpm --filter @jinhu/api lint`
+- [x] `pnpm --filter @jinhu/web test:unit:system`
+- [x] `pnpm --filter @jinhu/web typecheck`
+- [x] `pnpm --filter @jinhu/web lint`
+- [x] `pnpm --filter @jinhu/web build`
+- [x] `node scripts/e2e/property-role-template-reconcile-contract.mjs`
+- [x] `git diff --check`
+
 ## 6. PR 闭环
 
 - 提交 clean branch。

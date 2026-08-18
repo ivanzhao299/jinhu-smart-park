@@ -354,7 +354,7 @@ export class RolesService {
         lock: { mode: "pessimistic_read" }
       });
       if (!source) throw new NotFoundException("Role not found");
-      const isManagedPropertyTemplate = source.isTemplate && Boolean(source.managedTemplateCode);
+      const isManagedPropertyTemplate = Boolean(source.managedTemplateCode);
       const managedTemplateDefinition = isManagedPropertyTemplate
         ? this.resolveManagedPropertyTemplateDefinition(source)
         : null;
@@ -608,6 +608,12 @@ export class RolesService {
     const definition = findPropertyRoleTemplateDefinition(source.managedTemplateCode);
     if (!definition) {
       throw new ConflictException(`Unknown standard property role template: ${source.managedTemplateCode}`);
+    }
+    if (source.code !== definition.code || source.managedTemplateCode !== definition.code) {
+      throw new ConflictException(`Standard property role template identity drifted: ${source.managedTemplateCode}`);
+    }
+    if (source.isTemplate !== true || source.isSystem !== true || source.isBuiltin !== true) {
+      throw new ConflictException(`Standard property role template protection drifted: ${source.managedTemplateCode}`);
     }
     if (
       source.templateDefinitionVersion !== definition.definitionVersion

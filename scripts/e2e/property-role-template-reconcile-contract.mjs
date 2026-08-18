@@ -72,6 +72,8 @@ for (const token of [
   "resolveManagedTemplateDataScopeRuleIds",
   "dataScope: \"40\"",
   "Standard property role template definition drifted",
+  "Standard property role template identity drifted",
+  "Standard property role template protection drifted",
   "Instantiated from shared property role template"
 ]) {
   assert.ok(rolesService.includes(token), `missing API template instantiation contract token: ${token}`);

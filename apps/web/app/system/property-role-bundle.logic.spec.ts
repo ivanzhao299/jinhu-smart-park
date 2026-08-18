@@ -41,6 +41,7 @@ test("template roles expose an explicit instantiation flow and permission guidan
   assert.match(source, /openTemplateInstance\(selectedRole\)/);
   assert.match(source, /function openTemplateInstance\(role: RoleNode\)/);
   assert.match(source, /async function submitTemplateInstance/);
+  assert.match(source, /response\.data\.isAssignable && canAssignUserRoles/);
   assert.match(source, /title="实例化为普通角色"/);
   assert.match(source, /权限和当前园区数据范围由标准模板定义生成/);
   assert.doesNotMatch(source, /window\.prompt\("新角色编码"/);
