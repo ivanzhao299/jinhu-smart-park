@@ -1,9 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
-import { AuthUserContext } from "../../lib/auth-context";
+import { AuthSessionActionsContext, AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
 import { findMenusByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
 import { hasAccess, hasPermission } from "../../lib/permissions";
@@ -37,6 +37,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   const [ready, setReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavigation, setMobileNavigation] = useState(false);
+  const [scopedPageRevision, setScopedPageRevision] = useState(0);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -106,6 +107,11 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
 
   const authorizationMenus = useMemo(() => getDashboardAuthorizationMenus(user?.menus ?? user?.menu_tree), [user]);
   const requiredMenus = useMemo(() => findMenusByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
+  const publishUser = useCallback((nextUser: UserContext, options?: { remountScopedPages?: boolean }) => {
+    setUser(nextUser);
+    if (options?.remountScopedPages) setScopedPageRevision((current) => current + 1);
+  }, []);
+  const sessionActions = useMemo(() => ({ publishUser }), [publishUser]);
 
   useEffect(() => {
     if (mobileNavigation) setSidebarCollapsed(true);
@@ -131,29 +137,31 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
 
   return (
     <AuthUserContext.Provider value={user}>
-      <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
-        {isTerminalRoute ? (
-          <>
-            <MobileTerminalHeader />
-            <MobileTerminalReliability />
-          </>
-        ) : (
-          <>
-            <AppHeader
-              breadcrumb={<AppBreadcrumb variant="inline" />}
-              sidebarCollapsed={sidebarCollapsed}
-              onSidebarCollapsedChange={handleSidebarCollapsedChange}
-            />
-            <AppSidebar collapsed={sidebarCollapsed}
-              onCollapsedChange={handleSidebarCollapsedChange}
-              onNavigate={() => { if (mobileNavigation) setSidebarCollapsed(true); }} />
-          </>
-        )}
-        <div className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
-          {children}
+      <AuthSessionActionsContext.Provider value={sessionActions}>
+        <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
+          {isTerminalRoute ? (
+            <>
+              <MobileTerminalHeader />
+              <MobileTerminalReliability />
+            </>
+          ) : (
+            <>
+              <AppHeader
+                breadcrumb={<AppBreadcrumb variant="inline" />}
+                sidebarCollapsed={sidebarCollapsed}
+                onSidebarCollapsedChange={handleSidebarCollapsedChange}
+              />
+              <AppSidebar collapsed={sidebarCollapsed}
+                onCollapsedChange={handleSidebarCollapsedChange}
+                onNavigate={() => { if (mobileNavigation) setSidebarCollapsed(true); }} />
+            </>
+          )}
+          <div key={scopedPageRevision} className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
+            {children}
+          </div>
+          <AdminIssueFeedback />
         </div>
-        <AdminIssueFeedback />
-      </div>
+      </AuthSessionActionsContext.Provider>
     </AuthUserContext.Provider>
   );
 }

@@ -9,6 +9,7 @@ const informationalScriptOrder = [
 ];
 const requiredScriptOrder = [
   "scripts/e2e/first-release-auth-health.mjs",
+  "scripts/e2e/first-release-context-switch.mjs",
   "scripts/e2e/first-release-idempotency.mjs",
   "scripts/e2e/first-release-files.mjs",
   "scripts/e2e/first-release-users-assets.mjs",

@@ -2,14 +2,16 @@
 import { Card, DataTable, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerForm, DrawerFormGrid, DrawerHeader, DrawerSection } from "@jinhu/ui";
 
 import { Edit3, Eye, FileUp, Plus, Search, Trash2, X } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult, type UserContext, type UserParkContext } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
-import { useAuthUser } from "../../../lib/auth-context";
+import { getStoredUser, getToken, switchParkContext } from "../../../lib/auth";
+import { useAuthSessionActions, useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import {
   getCommittedDeleteRefreshError,
@@ -50,6 +52,7 @@ interface FloorRow {
 }
 
 interface FloorFormState {
+  parkId: string;
   buildingId: string;
   floorCode: string;
   floorNo: string;
@@ -60,9 +63,16 @@ interface FloorFormState {
   remark: string;
 }
 
+interface FloorListQuery {
+  buildingId: string;
+  keyword: string;
+  status: string;
+}
+
 const emptyPage: PaginatedResult<FloorRow> = { items: [], page: 1, page_size: 20, total: 0 };
 
 const emptyForm: FloorFormState = {
+  parkId: "",
   buildingId: "",
   floorCode: "",
   floorNo: "1",
@@ -81,9 +91,12 @@ const statusOptions: Array<{ value: FloorStatus; label: string }> = [
 const FLOOR_FIELD_LAYOUT_URL = "layout_url";
 
 export default function FloorsPage() {
+  const router = useRouter();
   const authUser = useAuthUser();
+  const sessionActions = useAuthSessionActions();
   const [pageData, setPageData] = useState<PaginatedResult<FloorRow>>(emptyPage);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
+  const [listParkId, setListParkId] = useState("");
   const [buildingId, setBuildingId] = useState("");
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
@@ -93,28 +106,123 @@ export default function FloorsPage() {
   const [detail, setDetail] = useState<FloorRow | null>(null);
   const [layoutTarget, setLayoutTarget] = useState<FloorRow | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [listParkSwitching, setListParkSwitching] = useState(false);
+  const [formParkSwitching, setFormParkSwitching] = useState(false);
+  const [formMessage, setFormMessage] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const floorSubmitLock = useRef(false);
+  const listParkSwitchLock = useRef(false);
+  const formParkSwitchLock = useRef(false);
+  const scopedDataGeneration = useRef(0);
+  const storedUser = authUser ?? getStoredUser();
+  const accessibleParks = useMemo(() => enabledParks(storedUser?.accessible_parks), [storedUser?.accessible_parks]);
+  const effectiveParkId = listParkId || storedUser?.park_id || "";
   const canViewLayoutUrl = canViewField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
   const canEditLayoutUrl = canEditField(authUser, "asset", "floor", FLOOR_FIELD_LAYOUT_URL);
   const editingFloor = editingId ? pageData.items.find((row) => row.id === editingId) ?? null : null;
 
-  const load = useCallback(async (page = 1) => {
+  const load = useCallback(async (page = 1, override?: Partial<FloorListQuery>) => {
+    const generation = scopedDataGeneration.current;
     const params = new URLSearchParams({ page: String(page), page_size: "20" });
-    if (buildingId) params.set("building_id", buildingId);
-    if (keyword.trim()) params.set("keyword", keyword.trim());
-    if (status !== "") params.set("status", status);
+    const nextBuildingId = override?.buildingId ?? buildingId;
+    const nextKeyword = override?.keyword ?? keyword;
+    const nextStatus = override?.status ?? status;
+    if (nextBuildingId) params.set("building_id", nextBuildingId);
+    if (nextKeyword.trim()) params.set("keyword", nextKeyword.trim());
+    if (nextStatus !== "") params.set("status", nextStatus);
     const response = await apiRequest<PaginatedResult<FloorRow>>(`/floors?${params.toString()}`, {
       token: getAccessToken()
     });
-    setPageData(response.data);
+    if (generation === scopedDataGeneration.current) setPageData(response.data);
   }, [buildingId, keyword, status]);
 
   const loadBuildings = useCallback(async () => {
+    const generation = scopedDataGeneration.current;
     const response = await apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", {
       token: getAccessToken()
     });
-    setBuildings(response.data.items);
+    if (generation === scopedDataGeneration.current) setBuildings(response.data.items);
+    return response.data.items;
   }, []);
+
+  const handleSwitchError = useCallback((error: Error, publish: (message: string) => void) => {
+    publish(error.message);
+    if (!getToken()) router.replace("/login");
+  }, [router]);
+
+  const ensureParkContext = useCallback(async (targetParkId: string, options: { publishSession?: boolean } = {}) => {
+    const publishSession = options.publishSession ?? true;
+    const currentUser = getStoredUser() ?? authUser;
+    if (!targetParkId) throw new Error("请选择所属园区");
+    if (currentUser?.park_id === targetParkId) {
+      if (publishSession && authUser?.park_id !== targetParkId) sessionActions?.publishUser(currentUser);
+      return currentUser;
+    }
+    const nextUser = await switchParkContext(targetParkId);
+    if (publishSession) sessionActions?.publishUser(nextUser);
+    setListParkId(nextUser.park_id);
+    return nextUser;
+  }, [authUser, sessionActions]);
+
+  const changeListPark = useCallback(async (targetParkId: string) => {
+    if (listParkSwitchLock.current || !targetParkId || targetParkId === effectiveParkId) return;
+    listParkSwitchLock.current = true;
+    setListParkSwitching(true);
+    setMessage("");
+    try {
+      const nextUser = await ensureParkContext(targetParkId);
+      setListParkId(nextUser?.park_id ?? targetParkId);
+      setBuildingId("");
+      setKeyword("");
+      setStatus("");
+      scopedDataGeneration.current += 1;
+      setBuildings([]);
+      setPageData(emptyPage);
+      await loadBuildings();
+      await load(1, { buildingId: "", keyword: "", status: "" });
+    } finally {
+      listParkSwitchLock.current = false;
+      setListParkSwitching(false);
+    }
+  }, [effectiveParkId, ensureParkContext, load, loadBuildings]);
+
+  const changeFormPark = useCallback(async (targetParkId: string) => {
+    if (formParkSwitchLock.current || targetParkId === form.parkId) return;
+    const previousParkId = form.parkId;
+    formParkSwitchLock.current = true;
+    setFormParkSwitching(true);
+    setFormMessage("");
+    setForm((current) => ({ ...current, parkId: targetParkId, buildingId: "" }));
+    let contextCommitted = false;
+    try {
+      let nextUser: UserContext;
+      try {
+        nextUser = await ensureParkContext(targetParkId, { publishSession: false });
+        contextCommitted = true;
+      } catch (error) {
+        setForm((current) => current.parkId === targetParkId
+          ? { ...current, parkId: previousParkId, buildingId: "" }
+          : current);
+        throw error;
+      }
+      sessionActions?.publishUser(nextUser);
+      setBuildingId("");
+      setKeyword("");
+      setStatus("");
+      scopedDataGeneration.current += 1;
+      setBuildings([]);
+      setPageData(emptyPage);
+      await loadBuildings();
+      await load(1, { buildingId: "", keyword: "", status: "" });
+    } catch (error) {
+      if (!contextCommitted) throw error;
+      throw new Error(`园区已切换，但数据刷新失败：${error instanceof Error ? error.message : "未知错误"}`);
+    } finally {
+      formParkSwitchLock.current = false;
+      setFormParkSwitching(false);
+    }
+  }, [ensureParkContext, form.parkId, load, loadBuildings, sessionActions]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -124,16 +232,34 @@ export default function FloorsPage() {
     void loadBuildings().catch((error: Error) => setMessage(error.message));
   }, [loadBuildings]);
 
+  useEffect(() => {
+    setListParkId(storedUser?.park_id ?? "");
+  }, [storedUser?.park_id]);
+
   function openCreate() {
+    if (listParkSwitchLock.current) {
+      setMessage("园区切换中，请稍后");
+      return;
+    }
     setEditingId(null);
-    setForm({ ...emptyForm, buildingId: buildingId || buildings[0]?.id || "" });
+    setForm({ ...emptyForm, parkId: effectiveParkId, buildingId: buildingId || "" });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
+  }
+
+  function closeForm() {
+    if (formParkSwitchLock.current) {
+      setFormMessage("园区切换中，请稍后");
+      return;
+    }
+    setShowForm(false);
   }
 
   function openEdit(row: FloorRow) {
     setEditingId(row.id);
     setForm({
+      parkId: row.parkId,
       buildingId: row.buildingId,
       floorCode: row.floorCode,
       floorNo: String(row.floorNo ?? 1),
@@ -145,30 +271,47 @@ export default function FloorsPage() {
     });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body = {
-      buildingId: form.buildingId,
-      floorCode: form.floorCode.trim(),
-      floorNo: Number(form.floorNo || 0),
-      floorName: form.floorName.trim(),
-      floorArea: Number(form.floorArea || 0),
-      status: form.status,
-      sortNo: Number(form.sortNo || 0),
-      remark: form.remark.trim()
-    };
-    await apiRequest<FloorRow>(editingId ? `/floors/${editingId}` : "/floors", {
-      method: editingId ? "PUT" : "POST",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey(editingId ? "floor-update" : "floor-create"),
-      body
-    });
-    setShowForm(false);
-    setEditingId(null);
-    setMessage("保存成功");
-    await load(pageData.page);
+    if (floorSubmitLock.current || formParkSwitchLock.current) return;
+    floorSubmitLock.current = true;
+    setSubmitting(true);
+    setFormMessage("");
+    try {
+      if (!editingId) await ensureParkContext(form.parkId);
+      const body = {
+        buildingId: form.buildingId,
+        floorCode: form.floorCode.trim(),
+        floorNo: Number(form.floorNo || 0),
+        floorName: form.floorName.trim(),
+        floorArea: Number(form.floorArea || 0),
+        status: form.status,
+        sortNo: Number(form.sortNo || 0),
+        remark: form.remark.trim()
+      };
+      await apiRequest<FloorRow>(editingId ? `/floors/${editingId}` : "/floors", {
+        method: editingId ? "PUT" : "POST",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey(editingId ? "floor-update" : "floor-create"),
+        body
+      });
+      setShowForm(false);
+      setEditingId(null);
+      setMessage("保存成功");
+      try {
+        await load(editingId ? pageData.page : 1);
+      } catch (refreshError) {
+        setMessage(`保存成功，但列表刷新失败：${refreshError instanceof Error ? refreshError.message : "未知错误"}`);
+      }
+    } catch (error) {
+      setFormMessage(error instanceof Error ? error.message : "楼层保存失败");
+    } finally {
+      setSubmitting(false);
+      floorSubmitLock.current = false;
+    }
   }
 
   async function remove(row: FloorRow) {
@@ -239,7 +382,7 @@ export default function FloorsPage() {
             <strong>楼层管理</strong>
             <span>维护楼栋下的楼层档案和平面图，为房源归属提供空间层级</span>
           </div>
-          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.FLOOR_CREATE} type="button" onClick={openCreate}>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.FLOOR_CREATE} type="button" disabled={listParkSwitching} onClick={openCreate}>
             <Plus size={16} />
             新增楼层
           </PermissionButton>
@@ -248,6 +391,15 @@ export default function FloorsPage() {
         <Card >
           <form className="form-stack" onSubmit={(event) => { event.preventDefault(); void load(1).catch((error: Error) => setMessage(error.message)); }}>
             <div className="dashboard-grid">
+              <div className="field">
+                <label htmlFor="floorListPark">查看园区</label>
+                <select id="floorListPark" value={effectiveParkId} disabled={listParkSwitching} onChange={(event) => void changeListPark(event.target.value).catch((error: Error) => handleSwitchError(error, setMessage))}>
+                  {accessibleParks.length === 0 ? <option value={effectiveParkId}>{storedUser?.park_name ?? "当前园区"}</option> : null}
+                  {accessibleParks.map((park) => (
+                    <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} ` : ""}{park.park_name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="field">
                 <label htmlFor="buildingFilter">楼栋</label>
                 <select id="buildingFilter" value={buildingId} onChange={(event) => setBuildingId(event.target.value)}>
@@ -358,24 +510,42 @@ export default function FloorsPage() {
         </Card>
 
         {showForm ? (
-          <Drawer size="md" onClose={() => setShowForm(false)}>
+          <Drawer size="md" onClose={closeForm}>
             <DrawerHeader
               eyebrow="资产空间"
               title={editingId ? "编辑楼层" : "新增楼层"}
               description="维护楼栋下的楼层档案与平面图。"
               closeIcon={<X size={18} />}
-              onClose={() => setShowForm(false)}
+              onClose={closeForm}
             />
             <DrawerForm onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}>
               <DrawerFormGrid>
-                <div className="field ds-form-span-all">
-                  <label htmlFor="floorFormBuilding">所属楼栋</label>
-                  <select
-                    id="floorFormBuilding"
-                    required
-                    value={form.buildingId}
-                    onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value }))}
-                  >
+                {!editingId ? (
+	                  <div className="field ds-form-span-all">
+	                    <label htmlFor="floorFormPark">所属园区</label>
+	                    <select
+	                      id="floorFormPark"
+	                      required
+	                      disabled={formParkSwitching || submitting}
+	                      value={form.parkId}
+	                      onChange={(event) => void changeFormPark(event.target.value).catch((error: Error) => handleSwitchError(error, setFormMessage))}
+	                    >
+                      <option value="">请选择园区</option>
+                      {accessibleParks.map((park) => (
+                        <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} ` : ""}{park.park_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+	                <div className="field ds-form-span-all">
+	                  <label htmlFor="floorFormBuilding">所属楼栋</label>
+	                  <select
+	                    id="floorFormBuilding"
+	                    required
+	                    disabled={formParkSwitching}
+	                    value={form.buildingId}
+	                    onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value }))}
+	                  >
                     <option value="">请选择楼栋</option>
                     {buildings.map((building) => (
                       <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
@@ -425,9 +595,10 @@ export default function FloorsPage() {
                   </div>
                 )}
               </DrawerSection>
+              {formMessage ? <p className="status-pill" role="alert">{formMessage}</p> : null}
               <DrawerFooter>
-                <button className="secondary-button" type="button" onClick={() => setShowForm(false)}>取消</button>
-                <button className="primary-button" type="submit">保存</button>
+                <button className="secondary-button" type="button" disabled={formParkSwitching} onClick={closeForm}>取消</button>
+                <button className="primary-button" type="submit" disabled={submitting || formParkSwitching}>{submitting ? "保存中..." : "保存"}</button>
               </DrawerFooter>
             </DrawerForm>
           </Drawer>
@@ -556,6 +727,10 @@ function StatusBadge({ status }: { status: FloorStatus }) {
 
 function formatArea(value: string): string {
   return `${Number(value || 0).toLocaleString("zh-CN", { maximumFractionDigits: 2 })} ㎡`;
+}
+
+function enabledParks(parks: UserParkContext[] | undefined): UserParkContext[] {
+  return (parks ?? []).filter((park) => park.status === "enabled");
 }
 
 function fieldText(value: unknown): string {
