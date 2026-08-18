@@ -8,7 +8,7 @@ import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
-import { hasAllPermissions } from "../../../lib/permissions";
+import { hasAllPermissions, hasPermission } from "../../../lib/permissions";
 
 interface RoleNode {
   id: string;
@@ -119,6 +119,26 @@ interface PropertyBundlePreview {
   requiresRemovalConfirmation: boolean;
 }
 
+interface TemplateInstanceFormState {
+  code: string;
+  name: string;
+  parentId: string;
+}
+
+const templateInstantiationPermissions = [
+  SYSTEM_PERMISSIONS.ROLE_COPY,
+  SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS,
+  SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE,
+  SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY
+] as const;
+
+const templateInstantiationPermissionLabels = new Map<string, string>([
+  [SYSTEM_PERMISSIONS.ROLE_COPY, "实例化模板角色"],
+  [SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, "角色授权"],
+  [SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, "角色绑定数据权限"],
+  [SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY, "角色绑定字段策略"]
+]);
+
 const emptyPage: PaginatedResult<RoleNode> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyForm: RoleFormState = {
   code: "",
@@ -157,6 +177,8 @@ export default function RolesPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formState, setFormState] = useState<RoleFormState>(emptyForm);
+  const [templateInstanceRole, setTemplateInstanceRole] = useState<RoleNode | null>(null);
+  const [templateInstanceForm, setTemplateInstanceForm] = useState<TemplateInstanceFormState>({ code: "", name: "", parentId: "" });
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState<"permissions" | "propertyBundles" | "dataScopes" | "fieldPolicies">("permissions");
   const [workspace, setWorkspace] = useState<"config" | "list">("config");
@@ -164,6 +186,11 @@ export default function RolesPage() {
   const flatRoles = useMemo(() => flattenRoles(roleTree), [roleTree]);
   const flatPermissions = useMemo(() => flattenPermissions(permissionTree), [permissionTree]);
   const totalPages = Math.max(1, Math.ceil(data.total / data.page_size));
+  const canInstantiateTemplates = hasAllPermissions(authUser, [...templateInstantiationPermissions]);
+  const canAssignUserRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES);
+  const missingTemplateInstantiationPermissions = templateInstantiationPermissions
+    .filter((permission) => !hasPermission(authUser, permission))
+    .map((permission) => templateInstantiationPermissionLabels.get(permission) ?? permission);
 
   async function load(page = 1, keepSelectedId = selectedRoleId) {
     const token = getToken();
@@ -263,19 +290,41 @@ export default function RolesPage() {
     await load(formMode === "create" ? 1 : data.page, response.data.id);
   }
 
-  async function copyRole(role: RoleNode) {
-    const code = window.prompt("新角色编码", `${role.code}_COPY`);
-    if (!code) return;
-    const name = window.prompt("新角色名称", `${role.name}副本`);
-    if (!name) return;
+  function openTemplateInstance(role: RoleNode) {
+    setTemplateInstanceRole(role);
+    setTemplateInstanceForm({
+      code: `${role.code}_INSTANCE`,
+      name: `${role.name}普通角色`,
+      parentId: role.parentId ?? ""
+    });
+  }
+
+  async function submitTemplateInstance(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const role = templateInstanceRole;
+    if (!role) return;
+    const code = templateInstanceForm.code.trim();
+    const name = templateInstanceForm.name.trim();
+    if (!code || !name) {
+      setMessage("请填写新角色编码和名称");
+      return;
+    }
     const token = getToken();
     const response = await apiRequest<RoleNode>(`/roles/${role.id}/copy`, {
       method: "POST",
       token,
       idempotencyKey: createIdempotencyKey("role-copy"),
-      body: { code, name, parentId: role.parentId ?? undefined, roleScope: role.roleScope, dataScope: role.dataScope, dataScopeConfig: role.dataScopeConfig ?? {} }
+      body: {
+        code,
+        name,
+        parentId: templateInstanceForm.parentId || undefined,
+        roleScope: role.roleScope,
+        dataScope: role.dataScope,
+        dataScopeConfig: role.dataScopeConfig ?? {}
+      }
     });
-    setMessage("模板角色已复制为自定义角色");
+    setTemplateInstanceRole(null);
+    setMessage(canAssignUserRoles ? "已实例化为普通角色，可继续配置并到用户管理分配给用户" : "已实例化为普通角色，可继续配置权限、数据范围和字段策略");
     await load(data.page, response.data.id);
   }
 
@@ -435,7 +484,7 @@ export default function RolesPage() {
       <header className="page-header">
         <div className="header-title">
           <strong>角色管理</strong>
-          <span>角色树、模板复制、权限树授权、数据权限和字段策略绑定</span>
+          <span>角色树、模板实例化、权限树授权、数据权限和字段策略绑定</span>
         </div>
         <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.ROLE_OPEN_CREATE} type="button" onClick={() => openCreateForm()}>
           <Plus size={16} />新增自定义角色
@@ -471,6 +520,7 @@ export default function RolesPage() {
               <span className="ds-subtle-count">共 {flatRoles.length} 个</span>
             </div>
             <div className="tree-list role-tree-panel">
+              {roleTree.length === 0 ? <p className="muted-text">暂无角色；如需给用户分配标准岗位，请先选择模板并实例化为普通角色。</p> : null}
               {roleTree.map((role) => <RoleTreeItem key={role.id} role={role} selectedId={selectedRoleId} onSelect={(id) => void selectRole(id).catch(showError)} onCreateChild={openCreateForm} />)}
             </div>
           </Card>
@@ -488,10 +538,23 @@ export default function RolesPage() {
                   <div className="system-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRole.isTemplate && hasAllPermissions(authUser, [SYSTEM_PERMISSIONS.ROLE_COPY, SYSTEM_PERMISSIONS.ROLE_ASSIGN_PERMISSIONS, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, SYSTEM_PERMISSIONS.ROLE_ASSIGN_FIELD_POLICY]) ? <button type="button" onClick={() => void copyRole(selectedRole).catch(showError)}><Copy size={16} />复制模板</button> : null}
+                    {selectedRole.isTemplate && canInstantiateTemplates ? <button type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
                     {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
+
+                {selectedRole.isTemplate ? (
+                  <div className="status-pill" role="note">
+                    模板角色不能直接授权或分配给用户；请先实例化为当前园区普通角色，实例化后可继续配置并分配给用户。
+                    {canInstantiateTemplates ? (
+                      <button className="inline-action-button" type="button" onClick={() => openTemplateInstance(selectedRole)}>实例化为普通角色</button>
+                    ) : (
+                      <span> 当前账号缺少实例化所需权限：{missingTemplateInstantiationPermissions.join("、")}。</span>
+                    )}
+                  </div>
+                ) : selectedRole.isProtected ? (
+                  <p className="status-pill" role="note">该角色受系统保护，不可直接修改绑定或分配给用户。</p>
+                ) : null}
 
                 <div className="system-grid-three role-meta-grid">
                   <Meta label="角色范围" value={selectedRole.roleScope} />
@@ -550,6 +613,7 @@ export default function RolesPage() {
                     <td><button className="inline-action-button" type="button" onClick={() => { setWorkspace("config"); void selectRole(item.id).catch(showError); }}>配置</button></td>
                   </tr>
                 ))}
+                {data.items.length === 0 ? <tr><td colSpan={9}>暂无角色；如需给用户分配标准岗位，请先在角色配置中选择模板并实例化为普通角色。</td></tr> : null}
               </tbody>
             </DataTable>
           </div>
@@ -587,6 +651,40 @@ export default function RolesPage() {
             <DrawerFooter>
               <button className="secondary-button" type="button" onClick={() => setFormOpen(false)}>取消</button>
               <button className="primary-button" type="submit"><Save size={16} />保存</button>
+            </DrawerFooter>
+          </DrawerForm>
+        </Drawer>
+      ) : null}
+      {templateInstanceRole ? (
+        <Drawer size="md" onClose={() => setTemplateInstanceRole(null)}>
+          <DrawerHeader
+            eyebrow="模板实例化"
+            title="实例化为普通角色"
+            description="从受保护模板生成当前园区可配置、可分配的普通角色。"
+            onClose={() => setTemplateInstanceRole(null)}
+            closeIcon={<X size={18} />}
+          />
+          <DrawerForm onSubmit={(event) => void submitTemplateInstance(event).catch(showError)}>
+            <DrawerFormGrid single>
+              <div className="system-grid-three role-meta-grid">
+                <Meta label="来源模板" value={`${templateInstanceRole.name} · ${templateInstanceRole.code}`} />
+                <Meta label="实例范围" value={templateInstanceRole.roleScope === "park" ? "当前园区" : templateInstanceRole.roleScope} />
+                <Meta label="数据范围" value={templateInstanceRole.dataScope} />
+              </div>
+              <p className="muted-text">实例化后会生成非模板、非系统、非内置的普通角色；权限和当前园区数据范围由标准模板定义生成，字段策略沿用模板当前配置。</p>
+              <div className="field"><label>新角色编码</label><input required value={templateInstanceForm.code} onChange={(event) => setTemplateInstanceForm({ ...templateInstanceForm, code: event.target.value })} /></div>
+              <div className="field"><label>新角色名称</label><input required value={templateInstanceForm.name} onChange={(event) => setTemplateInstanceForm({ ...templateInstanceForm, name: event.target.value })} /></div>
+              <div className="field">
+                <label>上级角色</label>
+                <select value={templateInstanceForm.parentId} onChange={(event) => setTemplateInstanceForm({ ...templateInstanceForm, parentId: event.target.value })}>
+                  <option value="">无</option>
+                  {flatRoles.filter((role) => role.id !== templateInstanceRole.id && !role.isTemplate).map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                </select>
+              </div>
+            </DrawerFormGrid>
+            <DrawerFooter>
+              <button className="secondary-button" type="button" onClick={() => setTemplateInstanceRole(null)}>取消</button>
+              <button className="primary-button" type="submit"><Copy size={16} />实例化</button>
             </DrawerFooter>
           </DrawerForm>
         </Drawer>

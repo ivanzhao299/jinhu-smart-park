@@ -164,6 +164,12 @@ test("role copy is transactional and carries permission, field-policy and curren
   assert.match(source, /rolesRepository\.manager\.transaction/);
   assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
   assert.match(source, /getRepository\(RoleFieldPolicyEntity\)/);
+  assert.match(source, /findPropertyRoleTemplateDefinition/);
+  assert.match(source, /resolvePropertyRoleTemplatePermissionCodes/);
+  assert.match(source, /resolveManagedTemplatePermissionIds\(manager, scope, managedTemplateDefinition\)/);
+  assert.match(source, /resolveManagedTemplateDataScopeRuleIds\(manager, scope, managedTemplateDefinition\)/);
+  assert.match(source, /Standard property role template definition drifted/);
+  assert.match(source, /Standard property role template permissions are missing/);
   assert.match(source, /where: \{ tenantId: scope\.tenantId, parkId: scope\.parkId, roleId: source\.id, isDeleted: false \}/);
   assert.match(source, /fieldPolicyId: link\.fieldPolicyId/);
   assert.match(source, /overridesDataScope = !isManagedPropertyTemplate[\s\S]*dto\.dataScope !== undefined \|\| dto\.dataScopeConfig !== undefined/);

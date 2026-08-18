@@ -95,6 +95,7 @@ export default function UsersPage() {
   const authUser = useAuthUser();
   const canAssignRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES);
   const canUpdateUsers = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_UPDATE);
+  const canReadRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.ROLE_READ);
   const [data, setData] = useState(emptyUsers);
   const [tenants, setTenants] = useState(emptyTenants);
   const [keyword, setKeyword] = useState("");
@@ -555,6 +556,12 @@ export default function UsersPage() {
           <span className="muted-text">共 {data.total} 个用户</span>
         </div>
         <div className="ds-mobile-record-list">
+          {data.items.length === 0 ? (
+            <article className="ds-mobile-record">
+              <strong>{keyword.trim() || status || tenantId ? "暂无匹配用户" : "暂无用户"}</strong>
+              <p className="muted-text">{keyword.trim() || status || tenantId ? "请调整筛选条件后重试。" : "先创建用户，再为用户配置已实例化的普通角色。"}</p>
+            </article>
+          ) : null}
           {data.items.map((item) => (
             <article className="ds-mobile-record" key={item.id}>
               <div className="task-item"><strong>{item.username}</strong><StatusBadge status={item.status} /></div>
@@ -605,6 +612,11 @@ export default function UsersPage() {
                   </td>
                 </tr>
               ))}
+              {data.items.length === 0 ? (
+                <tr>
+                  <td colSpan={9}>{keyword.trim() || status || tenantId ? "暂无匹配用户，请调整筛选条件后重试。" : "暂无用户。先创建用户，再为用户配置已实例化的普通角色。"}</td>
+                </tr>
+              ) : null}
             </tbody>
           </DataTable>
         </div>
@@ -699,7 +711,12 @@ export default function UsersPage() {
                   </div>
                   <div className="checkbox-list" aria-busy={roleCatalogLoading}>
                     {roleCatalogLoading ? <span className="muted-text">角色加载中…</span> : null}
-                    {!roleCatalogLoading && roleCandidates.length === 0 ? <span className="muted-text">当前租户和园区暂无可分配角色；可新分配候选只展示当前目标租户/园区内可分配的启用角色。</span> : null}
+                    {!roleCatalogLoading && roleCandidates.length === 0 ? (
+                      <span className="muted-text">
+                        当前租户和园区暂无可分配角色；模板角色、系统角色和内置角色不能直接分配给用户。请先在角色管理将模板实例化为普通角色。
+                        {canReadRoles ? <a className="inline-action-button" href="/system/roles">去角色管理</a> : null}
+                      </span>
+                    ) : null}
                     {roleCandidates.map((role) => {
                       const protectedRole = role.isProtected;
                       const unavailableOrdinaryRole = !role.isAssignable && !protectedRole;
@@ -731,7 +748,7 @@ export default function UsersPage() {
                       加载更多角色
                     </button>
                   ) : null}
-                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。可新分配候选共 {roleCandidateTotal} 个；当前显示 {roleCandidates.length} 个，可能包含需保留的历史角色。候选只展示当前目标租户/园区内可分配的启用角色；保存时将替换全部可分配角色，受保护的现有角色不会删除。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
+                  <span className="muted-text">已选择 {selectedRoleIds.length} / {MAX_ASSIGNED_ROLES} 个角色。可新分配候选共 {roleCandidateTotal} 个；当前显示 {roleCandidates.length} 个，可能包含需保留的历史角色。候选只展示当前目标租户/园区内可分配的启用普通角色；保存时将替换全部可分配角色，受保护的现有角色不会删除。步骤：先在角色管理将模板实例化为普通角色，再回到此处选择并保存。角色所包含的功能权限、数据权限和字段策略请在“角色管理”中维护。</span>
                 </div>
               </DrawerFormGrid>
             ) : null}

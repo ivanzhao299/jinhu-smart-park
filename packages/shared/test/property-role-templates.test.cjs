@@ -29,18 +29,11 @@ test("maker, checker, finance and audit templates do not silently cross privileg
   const homestayFinance = templates.get("HOMESTAY_FINANCE");
   const housingFinance = templates.get("HOUSING_FINANCE");
   const auditor = templates.get("PROPERTY_AUDITOR");
-  const finalPermissions = (definition) => {
-    const bundlePermissions = definition.bundleCodes.flatMap((code) =>
-      Object.values(shared.TRACK_B_PERMISSION_BUNDLES).find((bundle) => bundle.code === code)?.permissions ?? []
-    );
-    return new Set([...bundlePermissions, ...definition.additionalPermissions]
-      .filter((permission) => !definition.excludedPermissions.includes(permission)));
-  };
-  const managerPermissions = finalPermissions(manager);
-  const approverPermissions = finalPermissions(approver);
-  const homestayFinancePermissions = finalPermissions(homestayFinance);
-  const housingFinancePermissions = finalPermissions(housingFinance);
-  const auditorPermissions = finalPermissions(auditor);
+  const managerPermissions = new Set(shared.resolvePropertyRoleTemplatePermissionCodes(manager));
+  const approverPermissions = new Set(shared.resolvePropertyRoleTemplatePermissionCodes(approver));
+  const homestayFinancePermissions = new Set(shared.resolvePropertyRoleTemplatePermissionCodes(homestayFinance));
+  const housingFinancePermissions = new Set(shared.resolvePropertyRoleTemplatePermissionCodes(housingFinance));
+  const auditorPermissions = new Set(shared.resolvePropertyRoleTemplatePermissionCodes(auditor));
 
   assert.ok(manager.excludedPermissions.includes("property_approval:decide"));
   assert.ok(approver.excludedPermissions.includes("property_approval:create"));
@@ -65,6 +58,33 @@ test("maker, checker, finance and audit templates do not silently cross privileg
   assert.ok([...auditorPermissions].every((permission) =>
     permission.endsWith(":page") || permission.endsWith(":read") || permission === "audit:read"
   ));
+});
+
+test("property role template lookup and permission resolver are the instantiation authority", () => {
+  const homestayOperator = shared.findPropertyRoleTemplateDefinition("HOMESTAY_OPERATOR");
+  assert.ok(homestayOperator);
+  assert.equal(homestayOperator.name, "民宿经办");
+  assert.deepEqual(
+    shared.resolvePropertyRoleTemplatePermissionCodes("HOMESTAY_OPERATOR"),
+    [
+      "homestay:tasks:page",
+      "property:notifications:page",
+      "property_approval:create",
+      "property_approval:read",
+      "property_approval:withdraw",
+      "property_notification:mark_read",
+      "property_notification:read",
+      "property_task:claim",
+      "property_task:process",
+      "property_task:read",
+      "property_task:release"
+    ]
+  );
+  assert.equal(shared.findPropertyRoleTemplateDefinition("UNKNOWN_TEMPLATE"), null);
+  assert.throws(
+    () => shared.resolvePropertyRoleTemplatePermissionCodes("UNKNOWN_TEMPLATE"),
+    /unknown-property-role-template:UNKNOWN_TEMPLATE/
+  );
 });
 
 test("property role field and action policy records the currently enforced boundary", () => {

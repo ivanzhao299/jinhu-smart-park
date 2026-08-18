@@ -1,4 +1,4 @@
-import { TRACK_B_PERMISSION_BUNDLES } from "./permission-bundles";
+import { TRACK_B_PERMISSION_BUNDLES, type PropertyPermissionBundle } from "./permission-bundles";
 
 export type PropertyRoleTemplateCode =
   | "PROPERTY_OPERATIONS_MANAGER"
@@ -149,6 +149,45 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     isSensitiveComplianceRole: false
   }
 ] as const satisfies readonly PropertyRoleTemplateDefinition[];
+
+export function findPropertyRoleTemplateDefinition(
+  code: string | null | undefined
+): PropertyRoleTemplateDefinition | null {
+  if (!code) return null;
+  return PROPERTY_ROLE_TEMPLATE_DEFINITIONS.find((definition) => definition.code === code) ?? null;
+}
+
+export function resolvePropertyRoleTemplatePermissionCodes(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): readonly string[] {
+  const definition =
+    typeof definitionOrCode === "string"
+      ? findPropertyRoleTemplateDefinition(definitionOrCode)
+      : definitionOrCode;
+  if (!definition) {
+    throw new Error(`unknown-property-role-template:${definitionOrCode}`);
+  }
+  const bundlesByCode: Map<string, PropertyPermissionBundle> = new Map(
+    Object.values(TRACK_B_PERMISSION_BUNDLES).map((bundle) => [bundle.code, bundle])
+  );
+  const permissions = new Set<string>();
+  for (const bundleCode of definition.bundleCodes) {
+    const bundle = bundlesByCode.get(bundleCode);
+    if (!bundle) {
+      throw new Error(`unknown-property-role-template-bundle:${definition.code}:${bundleCode}`);
+    }
+    for (const permission of bundle.permissions) {
+      permissions.add(permission);
+    }
+  }
+  for (const permission of definition.additionalPermissions) {
+    permissions.add(permission);
+  }
+  for (const permission of definition.excludedPermissions) {
+    permissions.delete(permission);
+  }
+  return [...permissions].sort();
+}
 
 export function canonicalizePropertyRoleTemplate(
   definition: Omit<PropertyRoleTemplateDefinition, "definitionHash">
