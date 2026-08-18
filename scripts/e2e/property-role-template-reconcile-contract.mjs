@@ -66,6 +66,7 @@ assert.doesNotMatch(seed, /code\s*=\s*'SUPER_ADMIN'.*(INSERT|UPDATE)/s);
 
 for (const token of [
   "findPropertyRoleTemplateDefinition",
+  "resolvePropertyRoleTemplateBundleSignature",
   "resolvePropertyRoleTemplatePermissionCodes",
   "resolveManagedTemplatePermissionIds",
   "resolveManagedTemplateDataScope",

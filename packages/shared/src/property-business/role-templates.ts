@@ -15,6 +15,7 @@ export interface PropertyRoleTemplateDefinition {
   description: string;
   definitionVersion: number;
   definitionHash: string;
+  bundleSignature: string;
   bundleCodes: readonly string[];
   additionalPermissions: readonly string[];
   excludedPermissions: readonly string[];
@@ -41,6 +42,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "配置房源经营模式并管理统一占用；可发起审批，不可审批",
     definitionVersion: 1,
     definitionHash: "b99a427b74a2a08e256c9c6c76946df063813ab68458e60e67b2d8fbbc0b0b9e",
+    bundleSignature: "5f195e6283ebe78e869a51ac75a793b86bb57d02c78b9b698f4cb2ee1e1c1cfd",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide"],
@@ -54,6 +56,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "审批房产业务变更并读取必要任务摘要；不可发起经营变更",
     definitionVersion: 1,
     definitionHash: "ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102",
+    bundleSignature: "9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972",
     bundleCodes: [
       TRACK_B_PERMISSION_BUNDLES.HOMESTAY_APPROVER.code,
       TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code
@@ -85,6 +88,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "处理民宿任务；可发起所需业务申请，不可审批",
     definitionVersion: 1,
     definitionHash: "c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267",
+    bundleSignature: "0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code],
     additionalPermissions: [
       "property_approval:create",
@@ -102,6 +106,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "处理住房业务与任务；可发起申请，不可审批",
     definitionVersion: 1,
     definitionHash: "c5e76001d2a51adffda88b4f5138e5a68c1c7ba032822498decc6430a65ece95",
+    bundleSignature: "573d8cce9080e97d80f196a634cd342efd8acd5f812d8de56f0abb87e0b0d4c8",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide"],
@@ -115,6 +120,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "民宿财务读取、登记与受审批约束的减免能力",
     definitionVersion: 1,
     definitionHash: "8bd6a8a04c21835375164f72dcb2cfd808ecabfc64b4ff409745c3806fdc8a05",
+    bundleSignature: "91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOMESTAY_FINANCE_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide", "party:sensitive_read"],
@@ -128,6 +134,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "住房财务读取、登记与受审批约束的减免能力",
     definitionVersion: 1,
     definitionHash: "de2cc04dedcb6416ae1ffba66f6e81d15774344dcf7b20538f9047e8d80e2f1d",
+    bundleSignature: "4001bbd2fe4dc2b552ff493eedc141556ac107e56998e4e2c35e258c4675b593",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide", "party:sensitive_read"],
@@ -141,6 +148,7 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "房产业务只读审计；默认不读取住客或租客敏感身份资料",
     definitionVersion: 1,
     definitionHash: "30b072e062cfd05e72b89deb17238ed01fd31685d0077eb706d80b6a5c46f05b",
+    bundleSignature: "abb2423994d193a4aff04b91cf7808bbd38dab15769733c5cbd6b6f3afd5a9d0",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.AUDITOR.code],
     additionalPermissions: ["property_operation:read", "property_occupancy:read"],
     excludedPermissions: ["party:sensitive_read"],
@@ -189,8 +197,21 @@ export function resolvePropertyRoleTemplatePermissionCodes(
   return [...permissions].sort();
 }
 
+export function resolvePropertyRoleTemplateBundleSignature(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): string {
+  const definition =
+    typeof definitionOrCode === "string"
+      ? findPropertyRoleTemplateDefinition(definitionOrCode)
+      : definitionOrCode;
+  if (!definition) {
+    throw new Error(`unknown-property-role-template:${definitionOrCode}`);
+  }
+  return definition.bundleSignature;
+}
+
 export function canonicalizePropertyRoleTemplate(
-  definition: Omit<PropertyRoleTemplateDefinition, "definitionHash">
+  definition: Omit<PropertyRoleTemplateDefinition, "definitionHash" | "bundleSignature">
 ): string {
   return [
     "property-role-template-v1",
@@ -214,7 +235,11 @@ export function validatePropertyRoleTemplates(): void {
       throw new Error(`duplicate-property-role-template:${definition.code}`);
     }
     codes.add(definition.code);
-    if (definition.definitionVersion < 1 || !/^[a-f0-9]{64}$/.test(definition.definitionHash)) {
+    if (
+      definition.definitionVersion < 1
+      || !/^[a-f0-9]{64}$/.test(definition.definitionHash)
+      || !/^[a-f0-9]{64}$/.test(definition.bundleSignature)
+    ) {
       throw new Error(`invalid-property-role-template-signature:${definition.code}`);
     }
     if (definition.roleScope !== "park" || definition.dataScopeRuleCode !== "current_park") {

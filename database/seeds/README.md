@@ -26,7 +26,7 @@ Execution scope:
 - Initializes SaaS placeholder permission tree nodes for `leasing`、`workorder`、`iot`、`energy`、`robot`、`video`、`bim`、`ai`、`cockpit`.
 - Initializes default role templates: `SUPER_ADMIN`, `SYSTEM_ADMIN`, `AUDITOR`, `OPERATIONS_OWNER`, `EXECUTIVE`, `INVEST_MANAGER`, `INVEST_SPECIALIST`.
 - Marks `SUPER_ADMIN` as `is_builtin=1`; other default business roles are `is_template=1` and can be copied into tenant custom roles.
-- Reconciles protected property role templates such as `HOMESTAY_OPERATOR` from `packages/shared/src/property-business/role-templates.ts` into database-visible template roles. The shared definition is the authority for managed template instantiation; the database role rows and bindings are display, seed convergence, and drift-detection state.
+- Reconciles protected property role templates such as `HOMESTAY_OPERATOR` from `packages/shared/src/property-business/role-templates.ts` into database-visible template roles. The shared definition is the authority for managed template instantiation; the database role rows plus permission and data-scope bindings are display, seed convergence, and drift-detection state. Field-policy bindings currently remain database-driven and are copied from the protected template role.
 - Initializes built-in role-permission relations.
 - Initializes data scope rules: `all_parks`, `current_park`, `self_only`, `org_and_children`, and binds default template roles to baseline rules.
 - Initializes field policies for mobile, ID card, bank account, amount, contract amount, payment serial, and file URL sensitive fields.

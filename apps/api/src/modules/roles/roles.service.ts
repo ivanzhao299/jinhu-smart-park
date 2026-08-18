@@ -5,6 +5,7 @@ import { Brackets, In } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import {
   findPropertyRoleTemplateDefinition,
+  resolvePropertyRoleTemplateBundleSignature,
   resolvePropertyRoleTemplatePermissionCodes,
   type PropertyRoleTemplateDefinition
 } from "@jinhu/shared";
@@ -618,6 +619,7 @@ export class RolesService {
     if (
       source.templateDefinitionVersion !== definition.definitionVersion
       || source.templateDefinitionHash !== definition.definitionHash
+      || source.appliedBundleSignature !== resolvePropertyRoleTemplateBundleSignature(definition)
     ) {
       throw new ConflictException(`Standard property role template definition drifted: ${source.managedTemplateCode}`);
     }

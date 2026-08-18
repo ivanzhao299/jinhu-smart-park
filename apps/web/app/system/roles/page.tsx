@@ -25,6 +25,7 @@ interface RoleNode {
   isBuiltin: boolean;
   isSystem?: boolean;
   isTemplate: boolean;
+  managedTemplateCode?: string | null;
   isDeletable: boolean;
   editable?: boolean;
   isEditable?: boolean;
@@ -191,6 +192,7 @@ export default function RolesPage() {
   const missingTemplateInstantiationPermissions = templateInstantiationPermissions
     .filter((permission) => !hasPermission(authUser, permission))
     .map((permission) => templateInstantiationPermissionLabels.get(permission) ?? permission);
+  const selectedRoleIsManagedPropertyTemplate = Boolean(selectedRole?.managedTemplateCode);
 
   async function load(page = 1, keepSelectedId = selectedRoleId) {
     const token = getToken();
@@ -291,6 +293,10 @@ export default function RolesPage() {
   }
 
   function openTemplateInstance(role: RoleNode) {
+    if (!role.managedTemplateCode) {
+      setMessage("该模板不是标准物业角色模板，请按原角色范围复制或配置。");
+      return;
+    }
     setTemplateInstanceRole(role);
     setTemplateInstanceForm({
       code: `${role.code}_INSTANCE`,
@@ -542,19 +548,21 @@ export default function RolesPage() {
                   <div className="system-actions">
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_UPDATE} type="button" onClick={() => openEditForm(selectedRole)}><Edit3 size={16} />编辑</PermissionButton>
                     <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_DISABLE} type="button" onClick={() => void toggleStatus(selectedRole).catch(showError)}><Power size={16} />{selectedRole.status === "enabled" ? "停用" : "启用"}</PermissionButton>
-                    {selectedRole.isTemplate && canInstantiateTemplates ? <button type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
+                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? <button type="button" onClick={() => openTemplateInstance(selectedRole)}><Copy size={16} />实例化为普通角色</button> : null}
                     {selectedRole.isBuiltin || selectedRole.isSystem || selectedRole.isDeletable === false ? null : <PermissionButton permission={SYSTEM_PERMISSIONS.ROLE_OPEN_DELETE} type="button" onClick={() => void deleteRole(selectedRole).catch(showError)}><Trash2 size={16} />删除</PermissionButton>}
                   </div>
                 </div>
 
                 {selectedRole.isTemplate ? (
                   <div className="status-pill" role="note">
-                    模板角色不能直接授权或分配给用户；请先实例化为当前园区普通角色，实例化后可继续配置并分配给用户。
-                    {canInstantiateTemplates ? (
+                    {selectedRoleIsManagedPropertyTemplate
+                      ? "标准物业模板不能直接授权或分配给用户；请先实例化为当前园区普通角色，实例化后可继续配置并分配给用户。"
+                      : "模板角色不能直接授权或分配给用户；非标准物业模板会按原角色范围复制，实例范围以复制结果为准。"}
+                    {selectedRoleIsManagedPropertyTemplate && canInstantiateTemplates ? (
                       <button className="inline-action-button" type="button" onClick={() => openTemplateInstance(selectedRole)}>实例化为普通角色</button>
-                    ) : (
+                    ) : selectedRoleIsManagedPropertyTemplate ? (
                       <span> 当前账号缺少实例化所需权限：{missingTemplateInstantiationPermissions.join("、")}。</span>
-                    )}
+                    ) : null}
                   </div>
                 ) : selectedRole.isProtected ? (
                   <p className="status-pill" role="note">该角色受系统保护，不可直接修改绑定或分配给用户。</p>
