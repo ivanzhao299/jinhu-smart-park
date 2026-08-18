@@ -1,11 +1,12 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import type { EntityManager, Repository, SelectQueryBuilder } from "typeorm";
 import { Brackets, In } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import {
+  canonicalizePropertyRoleTemplateBundleSignature,
   findPropertyRoleTemplateDefinition,
-  resolvePropertyRoleTemplateBundleSignature,
   resolvePropertyRoleTemplatePermissionCodes,
   type PropertyRoleTemplateDefinition
 } from "@jinhu/shared";
@@ -619,7 +620,7 @@ export class RolesService {
     if (
       source.templateDefinitionVersion !== definition.definitionVersion
       || source.templateDefinitionHash !== definition.definitionHash
-      || source.appliedBundleSignature !== resolvePropertyRoleTemplateBundleSignature(definition)
+      || source.appliedBundleSignature !== this.hash(canonicalizePropertyRoleTemplateBundleSignature(definition))
     ) {
       throw new ConflictException(`Standard property role template definition drifted: ${source.managedTemplateCode}`);
     }
@@ -794,5 +795,9 @@ export class RolesService {
       }
     }
     return roots;
+  }
+
+  private hash(value: string): string {
+    return createHash("sha256").update(value, "utf8").digest("hex");
   }
 }

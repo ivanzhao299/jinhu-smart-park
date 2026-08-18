@@ -9,7 +9,7 @@ test("property role templates are frozen, park scoped and least privilege", () =
   assert.equal(shared.PROPERTY_ROLE_TEMPLATE_DEFINITIONS.length, 7);
 
   for (const definition of shared.PROPERTY_ROLE_TEMPLATE_DEFINITIONS) {
-    const { definitionHash, bundleSignature: _bundleSignature, ...unsigned } = definition;
+    const { definitionHash, ...unsigned } = definition;
     const actualHash = createHash("sha256")
       .update(shared.canonicalizePropertyRoleTemplate(unsigned), "utf8")
       .digest("hex");
@@ -20,11 +20,13 @@ test("property role templates are frozen, park scoped and least privilege", () =
   }
 });
 
-test("property role template bundle signatures are frozen with production seed revisions", () => {
+test("property role template bundle signatures are derived from production seed revisions", () => {
   const signatures = new Map(
     shared.PROPERTY_ROLE_TEMPLATE_DEFINITIONS.map((definition) => [
       definition.code,
-      shared.resolvePropertyRoleTemplateBundleSignature(definition)
+      createHash("sha256")
+        .update(shared.canonicalizePropertyRoleTemplateBundleSignature(definition), "utf8")
+        .digest("hex")
     ])
   );
 
@@ -35,6 +37,15 @@ test("property role template bundle signatures are frozen with production seed r
   assert.equal(signatures.get("HOMESTAY_FINANCE"), "91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5");
   assert.equal(signatures.get("HOUSING_FINANCE"), "4001bbd2fe4dc2b552ff493eedc141556ac107e56998e4e2c35e258c4675b593");
   assert.equal(signatures.get("PROPERTY_AUDITOR"), "abb2423994d193a4aff04b91cf7808bbd38dab15769733c5cbd6b6f3afd5a9d0");
+});
+
+test("property role template bundle revisions are bound to shared bundle contents", () => {
+  for (const revision of Object.values(shared.TRACK_B_PERMISSION_BUNDLE_REVISIONS)) {
+    const actualHash = createHash("sha256")
+      .update(shared.canonicalizeTrackBPermissionBundleRevision(revision.code), "utf8")
+      .digest("hex");
+    assert.equal(actualHash, revision.definitionHash, revision.code);
+  }
 });
 
 test("maker, checker, finance and audit templates do not silently cross privilege boundaries", () => {
@@ -81,7 +92,13 @@ test("property role template lookup and permission resolver are the instantiatio
   const homestayOperator = shared.findPropertyRoleTemplateDefinition("HOMESTAY_OPERATOR");
   assert.ok(homestayOperator);
   assert.equal(homestayOperator.name, "民宿经办");
-  assert.equal(shared.resolvePropertyRoleTemplateBundleSignature("HOMESTAY_OPERATOR"), homestayOperator.bundleSignature);
+  assert.deepEqual(shared.resolvePropertyRoleTemplateBundleReferences("HOMESTAY_OPERATOR"), [
+    {
+      code: shared.TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code,
+      definitionVersion: 1,
+      definitionHash: "07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425"
+    }
+  ]);
   assert.deepEqual(
     shared.resolvePropertyRoleTemplatePermissionCodes("HOMESTAY_OPERATOR"),
     [

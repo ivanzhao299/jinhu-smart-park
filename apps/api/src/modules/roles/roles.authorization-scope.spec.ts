@@ -165,7 +165,7 @@ test("role copy is transactional and carries permission, field-policy and curren
   assert.match(source, /getRepository\(RoleDataScopeEntity\)/);
   assert.match(source, /getRepository\(RoleFieldPolicyEntity\)/);
   assert.match(source, /findPropertyRoleTemplateDefinition/);
-  assert.match(source, /resolvePropertyRoleTemplateBundleSignature/);
+  assert.match(source, /canonicalizePropertyRoleTemplateBundleSignature/);
   assert.match(source, /resolvePropertyRoleTemplatePermissionCodes/);
   assert.match(source, /resolveManagedTemplatePermissionIds\(manager, scope, managedTemplateDefinition\)/);
   assert.match(source, /resolveManagedTemplateDataScopeRuleIds\(manager, scope, managedTemplateDefinition\)/);
@@ -174,7 +174,7 @@ test("role copy is transactional and carries permission, field-policy and curren
   assert.match(source, /const isManagedPropertyTemplate = Boolean\(source\.managedTemplateCode\)/);
   assert.match(source, /source\.code !== definition\.code \|\| source\.managedTemplateCode !== definition\.code/);
   assert.match(source, /source\.isTemplate !== true \|\| source\.isSystem !== true \|\| source\.isBuiltin !== true/);
-  assert.match(source, /source\.appliedBundleSignature !== resolvePropertyRoleTemplateBundleSignature\(definition\)/);
+  assert.match(source, /source\.appliedBundleSignature !== this\.hash\(canonicalizePropertyRoleTemplateBundleSignature\(definition\)\)/);
   assert.match(source, /Standard property role template definition drifted/);
   assert.match(source, /Standard property role template identity drifted/);
   assert.match(source, /Standard property role template protection drifted/);

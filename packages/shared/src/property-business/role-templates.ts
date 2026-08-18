@@ -15,7 +15,6 @@ export interface PropertyRoleTemplateDefinition {
   description: string;
   definitionVersion: number;
   definitionHash: string;
-  bundleSignature: string;
   bundleCodes: readonly string[];
   additionalPermissions: readonly string[];
   excludedPermissions: readonly string[];
@@ -23,6 +22,73 @@ export interface PropertyRoleTemplateDefinition {
   dataScopeRuleCode: "current_park";
   isSensitiveComplianceRole: boolean;
 }
+
+export interface PropertyPermissionBundleRevision {
+  code: string;
+  signingName: string;
+  definitionVersion: number;
+  definitionHash: string;
+}
+
+export interface PropertyRoleTemplateBundleReference {
+  code: string;
+  definitionVersion: number;
+  definitionHash: string;
+}
+
+export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
+  "property-bundle:property-homestay-task-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code,
+    signingName: "民宿任务处理人",
+    definitionVersion: 1,
+    definitionHash: "07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425"
+  },
+  "property-bundle:property-housing-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code,
+    signingName: "住房出租运营人员",
+    definitionVersion: 1,
+    definitionHash: "25ff2287f99d3c8c3f1db67a6f6ec28bbbed7bbc85cbc014617ffe287df30f33"
+  },
+  "property-bundle:property-asset-manager": {
+    code: TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.code,
+    signingName: "共享房产资产管理员",
+    definitionVersion: 2,
+    definitionHash: "171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7"
+  },
+  "property-bundle:property-homestay-finance-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_FINANCE_OPERATOR.code,
+    signingName: "民宿财务操作员",
+    definitionVersion: 1,
+    definitionHash: "a45cbf14acba5b7eacd82232ed33541746d96dfe1a16207d776a2ec89c0ee58b"
+  },
+  "property-bundle:property-housing-finance-operator": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code,
+    signingName: "住房出租财务操作员",
+    definitionVersion: 1,
+    definitionHash: "08ad4214fe579d92203a2bae75e55c0257c40d391947ce11c9db9ba313d552ef"
+  },
+  "property-bundle:property-homestay-approver": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_APPROVER.code,
+    signingName: "民宿审批人",
+    definitionVersion: 1,
+    definitionHash: "a332f427d5ebd7aab985041c72ba9e26ddd85b53647b00394e5d346c3167ea3c"
+  },
+  "property-bundle:property-housing-approver": {
+    code: TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code,
+    signingName: "住房出租审批人",
+    definitionVersion: 1,
+    definitionHash: "ebc48ebd63433714db7049f69135f4296d3ef94be98b94e07e3ee37cea0725ff"
+  },
+  "property-bundle:property-auditor": {
+    code: TRACK_B_PERMISSION_BUNDLES.AUDITOR.code,
+    signingName: "房产业务审计员",
+    definitionVersion: 1,
+    definitionHash: "e54977e87bff8b36ff06bd2532da7d462fc76657cc3534e77831f39074fffa24"
+  }
+} as const satisfies Record<string, PropertyPermissionBundleRevision>;
+
+const TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE: Readonly<Record<string, PropertyPermissionBundleRevision>> =
+  TRACK_B_PERMISSION_BUNDLE_REVISIONS;
 
 export const PROPERTY_ROLE_FIELD_ACTION_CONTRACT = {
   sensitivePartyFields: ["mobile", "email", "identityDocumentType", "identityNumberMasked", "identityNumber"] as const,
@@ -42,7 +108,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "配置房源经营模式并管理统一占用；可发起审批，不可审批",
     definitionVersion: 1,
     definitionHash: "b99a427b74a2a08e256c9c6c76946df063813ab68458e60e67b2d8fbbc0b0b9e",
-    bundleSignature: "5f195e6283ebe78e869a51ac75a793b86bb57d02c78b9b698f4cb2ee1e1c1cfd",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide"],
@@ -56,7 +121,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "审批房产业务变更并读取必要任务摘要；不可发起经营变更",
     definitionVersion: 1,
     definitionHash: "ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102",
-    bundleSignature: "9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972",
     bundleCodes: [
       TRACK_B_PERMISSION_BUNDLES.HOMESTAY_APPROVER.code,
       TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code
@@ -88,7 +152,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "处理民宿任务；可发起所需业务申请，不可审批",
     definitionVersion: 1,
     definitionHash: "c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267",
-    bundleSignature: "0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code],
     additionalPermissions: [
       "property_approval:create",
@@ -106,7 +169,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "处理住房业务与任务；可发起申请，不可审批",
     definitionVersion: 1,
     definitionHash: "c5e76001d2a51adffda88b4f5138e5a68c1c7ba032822498decc6430a65ece95",
-    bundleSignature: "573d8cce9080e97d80f196a634cd342efd8acd5f812d8de56f0abb87e0b0d4c8",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide"],
@@ -120,7 +182,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "民宿财务读取、登记与受审批约束的减免能力",
     definitionVersion: 1,
     definitionHash: "8bd6a8a04c21835375164f72dcb2cfd808ecabfc64b4ff409745c3806fdc8a05",
-    bundleSignature: "91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOMESTAY_FINANCE_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide", "party:sensitive_read"],
@@ -134,7 +195,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "住房财务读取、登记与受审批约束的减免能力",
     definitionVersion: 1,
     definitionHash: "de2cc04dedcb6416ae1ffba66f6e81d15774344dcf7b20538f9047e8d80e2f1d",
-    bundleSignature: "4001bbd2fe4dc2b552ff493eedc141556ac107e56998e4e2c35e258c4675b593",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code],
     additionalPermissions: [],
     excludedPermissions: ["property_approval:decide", "party:sensitive_read"],
@@ -148,7 +208,6 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     description: "房产业务只读审计；默认不读取住客或租客敏感身份资料",
     definitionVersion: 1,
     definitionHash: "30b072e062cfd05e72b89deb17238ed01fd31685d0077eb706d80b6a5c46f05b",
-    bundleSignature: "abb2423994d193a4aff04b91cf7808bbd38dab15769733c5cbd6b6f3afd5a9d0",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.AUDITOR.code],
     additionalPermissions: ["property_operation:read", "property_occupancy:read"],
     excludedPermissions: ["party:sensitive_read"],
@@ -197,9 +256,9 @@ export function resolvePropertyRoleTemplatePermissionCodes(
   return [...permissions].sort();
 }
 
-export function resolvePropertyRoleTemplateBundleSignature(
+export function resolvePropertyRoleTemplateBundleReferences(
   definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
-): string {
+): readonly PropertyRoleTemplateBundleReference[] {
   const definition =
     typeof definitionOrCode === "string"
       ? findPropertyRoleTemplateDefinition(definitionOrCode)
@@ -207,11 +266,44 @@ export function resolvePropertyRoleTemplateBundleSignature(
   if (!definition) {
     throw new Error(`unknown-property-role-template:${definitionOrCode}`);
   }
-  return definition.bundleSignature;
+  return [...definition.bundleCodes].sort().map((bundleCode) => {
+    const revision = TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE[bundleCode];
+    if (!revision) {
+      throw new Error(`unknown-property-role-template-bundle-revision:${definition.code}:${bundleCode}`);
+    }
+    return {
+      code: revision.code,
+      definitionVersion: revision.definitionVersion,
+      definitionHash: revision.definitionHash
+    };
+  });
+}
+
+export function canonicalizePropertyRoleTemplateBundleSignature(
+  definitionOrCode: PropertyRoleTemplateDefinition | PropertyRoleTemplateCode
+): string {
+  return resolvePropertyRoleTemplateBundleReferences(definitionOrCode)
+    .map((reference) => `${reference.code}@${reference.definitionVersion}:${reference.definitionHash}`)
+    .join("\n");
+}
+
+export function canonicalizeTrackBPermissionBundleRevision(bundleCode: string): string {
+  const revision = TRACK_B_PERMISSION_BUNDLE_REVISION_BY_CODE[bundleCode];
+  const bundle = Object.values(TRACK_B_PERMISSION_BUNDLES).find((item) => item.code === bundleCode);
+  if (!revision || !bundle) {
+    throw new Error(`unknown-track-b-permission-bundle-revision:${bundleCode}`);
+  }
+  return [
+    "property-bundle-v1",
+    `${revision.code}\t${revision.signingName}`,
+    bundle.permissions.map((permission, index) =>
+      `${String(index + 1).padStart(4, "0")}\t${permission}\n`
+    ).join("")
+  ].join("\n");
 }
 
 export function canonicalizePropertyRoleTemplate(
-  definition: Omit<PropertyRoleTemplateDefinition, "definitionHash" | "bundleSignature">
+  definition: Omit<PropertyRoleTemplateDefinition, "definitionHash">
 ): string {
   return [
     "property-role-template-v1",
@@ -238,9 +330,13 @@ export function validatePropertyRoleTemplates(): void {
     if (
       definition.definitionVersion < 1
       || !/^[a-f0-9]{64}$/.test(definition.definitionHash)
-      || !/^[a-f0-9]{64}$/.test(definition.bundleSignature)
     ) {
       throw new Error(`invalid-property-role-template-signature:${definition.code}`);
+    }
+    for (const reference of resolvePropertyRoleTemplateBundleReferences(definition)) {
+      if (reference.definitionVersion < 1 || !/^[a-f0-9]{64}$/.test(reference.definitionHash)) {
+        throw new Error(`invalid-property-role-template-bundle-signature:${definition.code}:${reference.code}`);
+      }
     }
     if (definition.roleScope !== "park" || definition.dataScopeRuleCode !== "current_park") {
       throw new Error(`invalid-property-role-template-scope:${definition.code}`);
