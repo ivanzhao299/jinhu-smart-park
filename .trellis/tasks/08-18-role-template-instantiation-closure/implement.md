@@ -44,6 +44,14 @@
 - [x] `git diff --check`
 - [ ] Browser desktop/mobile inspection: skipped in the clean Linux worktree because no Chrome/Chromium binary or Playwright/Puppeteer dependency is available. Web build, typecheck, lint, and system logic tests passed.
 
+### Codex Review Fix Validation
+
+- [x] `cd apps/api && TS_NODE_TRANSPILE_ONLY=true node --test --require ts-node/register src/modules/roles/roles.authorization-scope.spec.ts`
+- [x] `pnpm --filter @jinhu/api build`
+- [x] `pnpm --filter @jinhu/api lint`
+- [x] `node scripts/e2e/property-role-template-reconcile-contract.mjs`
+- [x] `git diff --check`
+
 ## 6. PR 闭环
 
 - 提交 clean branch。

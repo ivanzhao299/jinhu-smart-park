@@ -358,6 +358,9 @@ export class RolesService {
       const managedTemplateDefinition = isManagedPropertyTemplate
         ? this.resolveManagedPropertyTemplateDefinition(source)
         : null;
+      const managedTemplateDataScope = managedTemplateDefinition
+        ? this.resolveManagedTemplateDataScope(managedTemplateDefinition)
+        : null;
       if (isManagedPropertyTemplate && (dto.roleScope && dto.roleScope !== "park")) {
         throw new ForbiddenException("Standard property templates can only create park roles");
       }
@@ -375,9 +378,9 @@ export class RolesService {
         lock: { mode: "pessimistic_read" }
       }) : null;
       if (dto.parentId && !parent) throw new NotFoundException("Parent role not found in current scope");
-      const copiedDataScope = isManagedPropertyTemplate ? source.dataScope : dto.dataScope ?? source.dataScope;
+      const copiedDataScope = managedTemplateDataScope?.dataScope ?? dto.dataScope ?? source.dataScope;
       const copiedDataScopeConfig = normalizeScopeConfig(
-        isManagedPropertyTemplate ? source.dataScopeConfig ?? {} : dto.dataScopeConfig ?? source.dataScopeConfig ?? {}
+        managedTemplateDataScope?.dataScopeConfig ?? dto.dataScopeConfig ?? source.dataScopeConfig ?? {}
       );
       await this.validateRoleDataScopeConfig(scope, copiedDataScope, copiedDataScopeConfig, roleRepository);
       const copied = await roleRepository.save(roleRepository.create({
@@ -636,6 +639,15 @@ export class RolesService {
       throw new ConflictException(`Standard property role template permissions are missing: ${missingCodes.join(", ") || definition.code}`);
     }
     return permissionCodes.map((code) => idsByCode.get(code)!);
+  }
+
+  private resolveManagedTemplateDataScope(
+    definition: PropertyRoleTemplateDefinition
+  ): { dataScope: string; dataScopeConfig: DataScopeConfig } {
+    if (definition.dataScopeRuleCode !== "current_park") {
+      throw new ConflictException(`Unsupported standard property role template data-scope rule: ${definition.dataScopeRuleCode}`);
+    }
+    return { dataScope: "40", dataScopeConfig: {} };
   }
 
   private async resolveManagedTemplateDataScopeRuleIds(

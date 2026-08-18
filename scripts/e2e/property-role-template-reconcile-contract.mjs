@@ -68,7 +68,9 @@ for (const token of [
   "findPropertyRoleTemplateDefinition",
   "resolvePropertyRoleTemplatePermissionCodes",
   "resolveManagedTemplatePermissionIds",
+  "resolveManagedTemplateDataScope",
   "resolveManagedTemplateDataScopeRuleIds",
+  "dataScope: \"40\"",
   "Standard property role template definition drifted",
   "Instantiated from shared property role template"
 ]) {
