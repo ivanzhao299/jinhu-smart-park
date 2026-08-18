@@ -388,7 +388,7 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
   IF bundle_count <> 16
-     OR bundle_member_count <> 128
+     OR bundle_member_count <> 129
      OR bundle_permission_count <> 55
      OR resolved_bundle_permission_count <> 55 THEN
     RAISE EXCEPTION

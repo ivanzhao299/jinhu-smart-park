@@ -360,223 +360,281 @@ export class FileBusinessAccessService {
         "Identity evidence metadata is available only through the identity projection"
       );
     }
+    const operatorPermissions = [
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
+      action === "upload" ? SYSTEM_PERMISSIONS.FILE_UPLOAD : SYSTEM_PERMISSIONS.FILE_DELETE
+    ];
+    const draftOwnerReadPermissions = [
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      ...(action === "download" ? [SYSTEM_PERMISSIONS.FILE_DOWNLOAD] : [])
+    ];
+    const verifierReadPermissions = [
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      ...(action === "download" ? [SYSTEM_PERMISSIONS.FILE_DOWNLOAD] : [])
+    ];
     const requiredPermissions = isOperatorAction
-      ? [
-          PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
-          PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
-          action === "upload" ? SYSTEM_PERMISSIONS.FILE_UPLOAD : SYSTEM_PERMISSIONS.FILE_DELETE
-        ]
-      : [
-          PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
-          PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
-          PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
-          SYSTEM_PERMISSIONS.FILE_READ,
-          ...(action === "download" ? [SYSTEM_PERMISSIONS.FILE_DOWNLOAD] : [])
-        ];
+      ? operatorPermissions
+      : this.hasAllPermissions(actor, draftOwnerReadPermissions)
+        ? draftOwnerReadPermissions
+        : verifierReadPermissions;
     if (!requiredPermissions.every((permission) => this.hasPermission(actor, permission))) {
       throw new ForbiddenException("Identity evidence access is forbidden");
     }
 
-    const rows = await this.dataSource.query(
-      isOperatorAction
-        ? `SELECT 1
-           FROM public.biz_party_identity_submission submission
-           JOIN public.biz_party party
-             ON party.tenant_id=submission.tenant_id
-            AND party.park_id=submission.park_id
-            AND party.id=submission.party_id
-            AND party.is_deleted=false
-           JOIN public.sys_user actor
-             ON actor.tenant_id=submission.tenant_id
-            AND actor.park_id=submission.park_id
-            AND actor.id=$4::uuid
-            AND actor.is_deleted=false
-            AND actor.is_enabled=true
-            AND actor.status='enabled'
-           JOIN public.sys_module asset_module
-             ON asset_module.module_code='asset'
-            AND asset_module.status=1
-            AND asset_module.is_deleted=false
-           JOIN public.rel_tenant_module asset_assignment
-             ON asset_assignment.tenant_id=submission.tenant_id
-            AND asset_assignment.park_id=submission.park_id
-            AND asset_assignment.module_id=asset_module.id
-            AND asset_assignment.enabled=true
-            AND asset_assignment.status='enabled'
-            AND asset_assignment.is_deleted=false
-            AND (asset_assignment.start_time IS NULL OR asset_assignment.start_time<=now())
-            AND (asset_assignment.expire_time IS NULL OR asset_assignment.expire_time>now())
-           WHERE submission.tenant_id=$1
-             AND submission.park_id=$2
-             AND submission.id=$3::uuid
-             AND submission.status='draft'
-             AND submission.drafted_by=$4::uuid
-             AND party.current_identity_submission_id=submission.id
-             AND party.identity_version=submission.identity_version
-             AND (
-               $5::boolean
-               OR NOT EXISTS (
-                 SELECT 1
-                 FROM unnest($6::varchar[]) required_permission(code)
-                 WHERE NOT EXISTS (
-                   SELECT 1
-                   FROM public.rel_user_role user_role
-                   JOIN public.sys_role role
-                     ON role.tenant_id=user_role.tenant_id
-                    AND role.id=user_role.role_id
-                    AND (role.role_scope='tenant' OR role.park_id=user_role.park_id)
-                    AND role.is_enabled=true
-                    AND role.status='enabled'
-                    AND role.is_deleted=false
-                   JOIN public.rel_role_perm role_permission
-                     ON role_permission.tenant_id=user_role.tenant_id
-                    AND role_permission.park_id=user_role.park_id
-                    AND role_permission.role_id=user_role.role_id
-                    AND role_permission.is_deleted=false
-                   JOIN public.sys_permission permission
-                     ON permission.tenant_id=role_permission.tenant_id
-                    AND permission.id=role_permission.permission_id
-                    AND permission.is_enabled=true
-                    AND permission.status='enabled'
-                    AND permission.is_deleted=false
-                   WHERE user_role.tenant_id=submission.tenant_id
-                     AND user_role.park_id=submission.park_id
-                     AND user_role.user_id=$4::uuid
-                     AND user_role.is_deleted=false
-                     AND permission.code=required_permission.code
-                 )
-               )
-             )
-           LIMIT 1`
-        : `SELECT 1
-           FROM public.biz_party_identity_submission submission
-           JOIN public.biz_party party
-             ON party.tenant_id=submission.tenant_id
-            AND party.park_id=submission.park_id
-            AND party.id=submission.party_id
-            AND party.is_deleted=false
-           JOIN public.biz_party_identity_verification_queue queue
-             ON queue.tenant_id=submission.tenant_id
-            AND queue.park_id=submission.park_id
-            AND queue.id=submission.verification_queue_id
-            AND queue.status='active'
-           JOIN public.sys_user actor
-             ON actor.tenant_id=submission.tenant_id
-            AND actor.park_id=submission.park_id
-            AND actor.id=$4::uuid
-            AND actor.is_deleted=false
-            AND actor.is_enabled=true
-            AND actor.status='enabled'
-           JOIN public.sys_module asset_module
-             ON asset_module.module_code='asset'
-            AND asset_module.status=1
-            AND asset_module.is_deleted=false
-           JOIN public.rel_tenant_module asset_assignment
-             ON asset_assignment.tenant_id=submission.tenant_id
-            AND asset_assignment.park_id=submission.park_id
-            AND asset_assignment.module_id=asset_module.id
-            AND asset_assignment.enabled=true
-            AND asset_assignment.status='enabled'
-            AND asset_assignment.is_deleted=false
-            AND (asset_assignment.start_time IS NULL OR asset_assignment.start_time<=now())
-            AND (asset_assignment.expire_time IS NULL OR asset_assignment.expire_time>now())
-           WHERE submission.tenant_id=$1
-             AND submission.park_id=$2
-             AND submission.id=$3::uuid
-             AND submission.status='pending_verification'
-             AND submission.assigned_verifier_id=$4::uuid
-             AND submission.drafted_by IS DISTINCT FROM $4::uuid
-             AND submission.recorded_by IS DISTINCT FROM $4::uuid
-             AND submission.submitted_by IS DISTINCT FROM $4::uuid
-             AND submission.eligibility_policy_snapshot->>'relationScope'='tenant-park-current'
-             AND submission.eligibility_policy_snapshot->>'dataScope'='party-submission'
-             AND submission.eligibility_policy_snapshot->'requiredModules' ? 'asset'
-             AND submission.eligibility_policy_snapshot->'requiredPermissions'
-                   ? 'asset:identity-submissions:page'
-             AND submission.eligibility_policy_snapshot->'requiredPermissions'
-                   ? 'party:identity_verify'
-             AND submission.eligibility_policy_snapshot->'actorExclusions' ? 'maker'
-             AND (
-               $6::boolean
-               OR NOT EXISTS (
-                 SELECT 1
-                 FROM unnest($7::varchar[]) required_permission(code)
-                 WHERE NOT EXISTS (
-                   SELECT 1
-                   FROM public.rel_user_role user_role
-                   JOIN public.sys_role role
-                     ON role.tenant_id=user_role.tenant_id
-                    AND role.id=user_role.role_id
-                    AND (role.role_scope='tenant' OR role.park_id=user_role.park_id)
-                    AND role.is_enabled=true
-                    AND role.status='enabled'
-                    AND role.is_deleted=false
-                   JOIN public.rel_role_perm role_permission
-                     ON role_permission.tenant_id=user_role.tenant_id
-                    AND role_permission.park_id=user_role.park_id
-                    AND role_permission.role_id=user_role.role_id
-                    AND role_permission.is_deleted=false
-                   JOIN public.sys_permission permission
-                     ON permission.tenant_id=role_permission.tenant_id
-                    AND permission.id=role_permission.permission_id
-                    AND permission.is_enabled=true
-                    AND permission.status='enabled'
-                    AND permission.is_deleted=false
-                   WHERE user_role.tenant_id=submission.tenant_id
-                     AND user_role.park_id=submission.park_id
-                     AND user_role.user_id=$4::uuid
-                     AND user_role.is_deleted=false
-                     AND permission.code=required_permission.code
-                 )
-               )
-             )
-             AND (
-               NOT (submission.eligibility_policy_snapshot ? 'eligibleVerifierUserIds')
-               OR submission.eligibility_policy_snapshot->'eligibleVerifierUserIds' ? $4::text
-             )
-             AND (
-               EXISTS (
-                 SELECT 1
-                 FROM public.rel_party_identity_draft_file draft_file
-                 WHERE draft_file.tenant_id=submission.tenant_id
-                   AND draft_file.park_id=submission.park_id
-                   AND draft_file.submission_id=submission.id
-                   AND draft_file.file_id=$5::uuid
-               )
-               OR (
-                 submission.snapshot_id IS NOT NULL
-                 AND EXISTS (
-                   SELECT 1
-                   FROM public.rel_party_identity_snapshot_file snapshot_file
-                   WHERE snapshot_file.tenant_id=submission.tenant_id
-                     AND snapshot_file.park_id=submission.park_id
-                     AND snapshot_file.snapshot_id=submission.snapshot_id
-                     AND snapshot_file.file_id=$5::uuid
-                 )
-               )
-             )
-           LIMIT 1`,
-      isOperatorAction
-        ? [
-            scope.tenantId,
-            scope.parkId,
-            submissionId,
-            actor.sub,
-            Boolean(actor.isSuper || actor.permissions.includes("*")),
-            requiredPermissions
-          ]
-        : [
-            scope.tenantId,
-            scope.parkId,
-            submissionId,
-            actor.sub,
-            fileId,
-            Boolean(actor.isSuper || actor.permissions.includes("*")),
-            requiredPermissions
-          ]
-    ) as unknown[];
-    if (!rows.length) {
+    const baseParams = [
+      scope.tenantId,
+      scope.parkId,
+      submissionId,
+      actor.sub
+    ];
+    if (isOperatorAction) {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+         FROM public.biz_party_identity_submission submission
+         JOIN public.biz_party party
+           ON party.tenant_id=submission.tenant_id
+          AND party.park_id=submission.park_id
+          AND party.id=submission.party_id
+          AND party.is_deleted=false
+         JOIN public.sys_user actor
+           ON actor.tenant_id=submission.tenant_id
+          AND actor.park_id=submission.park_id
+          AND actor.id=$4::uuid
+          AND actor.is_deleted=false
+          AND actor.is_enabled=true
+          AND actor.status='enabled'
+         JOIN public.sys_module asset_module
+           ON asset_module.module_code='asset'
+          AND asset_module.status=1
+          AND asset_module.is_deleted=false
+         JOIN public.rel_tenant_module asset_assignment
+           ON asset_assignment.tenant_id=submission.tenant_id
+          AND asset_assignment.park_id=submission.park_id
+          AND asset_assignment.module_id=asset_module.id
+          AND asset_assignment.enabled=true
+          AND asset_assignment.status='enabled'
+          AND asset_assignment.is_deleted=false
+          AND (asset_assignment.start_time IS NULL OR asset_assignment.start_time<=now())
+          AND (asset_assignment.expire_time IS NULL OR asset_assignment.expire_time>now())
+        WHERE submission.tenant_id=$1
+          AND submission.park_id=$2
+          AND submission.id=$3::uuid
+          AND submission.status='draft'
+          AND submission.drafted_by=$4::uuid
+          AND party.current_identity_submission_id=submission.id
+          AND party.identity_version=submission.identity_version
+          AND ${this.permissionExistsPredicate(5, 6)}
+        LIMIT 1`,
+        [
+          ...baseParams,
+          Boolean(actor.isSuper || actor.permissions.includes("*")),
+          operatorPermissions
+        ]
+      ) as unknown[];
+      if (rows.length) return;
       throw new ForbiddenException("Identity evidence access is forbidden");
     }
+
+	    if (this.hasAllPermissions(actor, draftOwnerReadPermissions)) {
+	      const rows = await this.dataSource.query(
+	        `SELECT 1
+         FROM public.biz_party_identity_submission submission
+         JOIN public.biz_party party
+           ON party.tenant_id=submission.tenant_id
+          AND party.park_id=submission.park_id
+          AND party.id=submission.party_id
+          AND party.is_deleted=false
+         JOIN public.sys_user actor
+           ON actor.tenant_id=submission.tenant_id
+          AND actor.park_id=submission.park_id
+          AND actor.id=$4::uuid
+          AND actor.is_deleted=false
+          AND actor.is_enabled=true
+          AND actor.status='enabled'
+         JOIN public.sys_module asset_module
+           ON asset_module.module_code='asset'
+          AND asset_module.status=1
+          AND asset_module.is_deleted=false
+         JOIN public.rel_tenant_module asset_assignment
+           ON asset_assignment.tenant_id=submission.tenant_id
+          AND asset_assignment.park_id=submission.park_id
+          AND asset_assignment.module_id=asset_module.id
+          AND asset_assignment.enabled=true
+          AND asset_assignment.status='enabled'
+          AND asset_assignment.is_deleted=false
+          AND (asset_assignment.start_time IS NULL OR asset_assignment.start_time<=now())
+          AND (asset_assignment.expire_time IS NULL OR asset_assignment.expire_time>now())
+        WHERE submission.tenant_id=$1
+          AND submission.park_id=$2
+          AND submission.id=$3::uuid
+          AND submission.status='draft'
+          AND submission.drafted_by=$4::uuid
+	          AND party.current_identity_submission_id=submission.id
+	          AND party.identity_version=submission.identity_version
+	          AND EXISTS (
+	            SELECT 1
+	            FROM public.rel_party_identity_draft_file draft_file
+	            WHERE draft_file.tenant_id=submission.tenant_id
+	              AND draft_file.park_id=submission.park_id
+	              AND draft_file.submission_id=submission.id
+	              AND draft_file.file_id=$5::uuid
+	            UNION ALL
+	            SELECT 1
+	            FROM public.sys_file pending_file
+	            WHERE pending_file.tenant_id=submission.tenant_id
+	              AND pending_file.park_id=submission.park_id
+	              AND pending_file.id=$5::uuid
+	              AND pending_file.biz_type='party_identity_evidence'
+	              AND pending_file.biz_id=submission.id
+	              AND pending_file.create_by=$4::uuid
+	              AND pending_file.status=1
+	              AND pending_file.is_deleted=false
+	          )
+	          AND ${this.permissionExistsPredicate(6, 7)}
+        LIMIT 1`,
+        [
+          ...baseParams,
+          fileId,
+          Boolean(actor.isSuper || actor.permissions.includes("*")),
+          draftOwnerReadPermissions
+        ]
+      ) as unknown[];
+      if (rows.length) return;
+    }
+
+    if (this.hasAllPermissions(actor, verifierReadPermissions)) {
+      const rows = await this.dataSource.query(
+        `SELECT 1
+         FROM public.biz_party_identity_submission submission
+         JOIN public.biz_party party
+           ON party.tenant_id=submission.tenant_id
+          AND party.park_id=submission.park_id
+          AND party.id=submission.party_id
+          AND party.is_deleted=false
+         JOIN public.biz_party_identity_verification_queue queue
+           ON queue.tenant_id=submission.tenant_id
+          AND queue.park_id=submission.park_id
+          AND queue.id=submission.verification_queue_id
+          AND queue.status='active'
+         JOIN public.sys_user actor
+           ON actor.tenant_id=submission.tenant_id
+          AND actor.park_id=submission.park_id
+          AND actor.id=$4::uuid
+          AND actor.is_deleted=false
+          AND actor.is_enabled=true
+          AND actor.status='enabled'
+         JOIN public.sys_module asset_module
+           ON asset_module.module_code='asset'
+          AND asset_module.status=1
+          AND asset_module.is_deleted=false
+         JOIN public.rel_tenant_module asset_assignment
+           ON asset_assignment.tenant_id=submission.tenant_id
+          AND asset_assignment.park_id=submission.park_id
+          AND asset_assignment.module_id=asset_module.id
+          AND asset_assignment.enabled=true
+          AND asset_assignment.status='enabled'
+          AND asset_assignment.is_deleted=false
+          AND (asset_assignment.start_time IS NULL OR asset_assignment.start_time<=now())
+          AND (asset_assignment.expire_time IS NULL OR asset_assignment.expire_time>now())
+        WHERE submission.tenant_id=$1
+          AND submission.park_id=$2
+          AND submission.id=$3::uuid
+          AND submission.status='pending_verification'
+          AND submission.assigned_verifier_id=$4::uuid
+          AND submission.drafted_by IS DISTINCT FROM $4::uuid
+          AND submission.recorded_by IS DISTINCT FROM $4::uuid
+          AND submission.submitted_by IS DISTINCT FROM $4::uuid
+          AND submission.eligibility_policy_snapshot->>'relationScope'='tenant-park-current'
+          AND submission.eligibility_policy_snapshot->>'dataScope'='party-submission'
+          AND submission.eligibility_policy_snapshot->'requiredModules' ? 'asset'
+          AND submission.eligibility_policy_snapshot->'requiredPermissions'
+                ? 'asset:identity-submissions:page'
+          AND submission.eligibility_policy_snapshot->'requiredPermissions'
+                ? 'party:identity_verify'
+          AND submission.eligibility_policy_snapshot->'actorExclusions' ? 'maker'
+          AND ${this.permissionExistsPredicate(6, 7)}
+          AND (
+            NOT (submission.eligibility_policy_snapshot ? 'eligibleVerifierUserIds')
+            OR submission.eligibility_policy_snapshot->'eligibleVerifierUserIds' ? $4::text
+          )
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM public.rel_party_identity_draft_file draft_file
+              WHERE draft_file.tenant_id=submission.tenant_id
+                AND draft_file.park_id=submission.park_id
+                AND draft_file.submission_id=submission.id
+                AND draft_file.file_id=$5::uuid
+            )
+            OR (
+              submission.snapshot_id IS NOT NULL
+              AND EXISTS (
+                SELECT 1
+                FROM public.rel_party_identity_snapshot_file snapshot_file
+                WHERE snapshot_file.tenant_id=submission.tenant_id
+                  AND snapshot_file.park_id=submission.park_id
+                  AND snapshot_file.snapshot_id=submission.snapshot_id
+                  AND snapshot_file.file_id=$5::uuid
+              )
+            )
+          )
+        LIMIT 1`,
+        [
+          ...baseParams,
+          fileId,
+          Boolean(actor.isSuper || actor.permissions.includes("*")),
+          verifierReadPermissions
+        ]
+      ) as unknown[];
+      if (rows.length) return;
+    }
+    throw new ForbiddenException("Identity evidence access is forbidden");
+  }
+
+  private hasAllPermissions(actor: JwtPrincipal, permissions: readonly string[]): boolean {
+    return permissions.every((permission) => this.hasPermission(actor, permission));
+  }
+
+  private permissionExistsPredicate(superParam: number, permissionsParam: number): string {
+    return `(
+      $${superParam}::boolean
+      OR NOT EXISTS (
+        SELECT 1
+        FROM unnest($${permissionsParam}::varchar[]) required_permission(code)
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM public.rel_user_role user_role
+          JOIN public.sys_role role
+            ON role.tenant_id=user_role.tenant_id
+           AND role.id=user_role.role_id
+           AND (role.role_scope='tenant' OR role.park_id=user_role.park_id)
+           AND role.is_enabled=true
+           AND role.status='enabled'
+           AND role.is_deleted=false
+          JOIN public.rel_role_perm role_permission
+            ON role_permission.tenant_id=user_role.tenant_id
+           AND role_permission.park_id=user_role.park_id
+           AND role_permission.role_id=user_role.role_id
+           AND role_permission.is_deleted=false
+          JOIN public.sys_permission permission
+            ON permission.tenant_id=role_permission.tenant_id
+           AND permission.id=role_permission.permission_id
+           AND permission.is_enabled=true
+           AND permission.status='enabled'
+           AND permission.is_deleted=false
+          WHERE user_role.tenant_id=submission.tenant_id
+            AND user_role.park_id=submission.park_id
+            AND user_role.user_id=$4::uuid
+            AND user_role.is_deleted=false
+            AND permission.code=required_permission.code
+        )
+      )
+    )`;
   }
 }

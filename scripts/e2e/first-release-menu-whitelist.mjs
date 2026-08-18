@@ -73,7 +73,8 @@ function run() {
   for (const path of [
     "/assets/property-operations",
     "/assets/property-occupancies",
-    "/assets/property-mode-transitions"
+    "/assets/property-mode-transitions",
+    "/assets/identity-submissions"
   ]) {
     if (!assert(propertyRoutes.includes(`route: "${path}"`), `shared property surface declares ${path}`)) return;
   }

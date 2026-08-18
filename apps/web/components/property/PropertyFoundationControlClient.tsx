@@ -77,6 +77,7 @@ interface AvailabilityConflict {
 
 interface ModeTransitionRow {
   id: string;
+  requestId?: string | null;
   unitId: string;
   unitCode: string;
   unitName: string;
@@ -426,6 +427,16 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
 }
 
 function FoundationRecords({ items, surface }: { items: FoundationRow[]; surface: FoundationSurface }) {
+  const [selectedModeTransition, setSelectedModeTransition] = useState<ModeTransitionRow | null>(null);
+  useEffect(() => {
+    setSelectedModeTransition((current) => {
+      if (surface !== "mode-transitions" || !current) return current;
+      return (items.find((item) =>
+        modeTransitionRecordKey(item as ModeTransitionRow) === modeTransitionRecordKey(current)
+      ) as ModeTransitionRow | undefined)
+        ?? null;
+    });
+  }, [items, surface]);
   if (!items.length) return <PropertyPanelSurface><p>当前筛选条件下暂无记录。</p></PropertyPanelSurface>;
   const fields = fieldsFor(surface);
   return <PropertyPanelSurface>
@@ -435,11 +446,52 @@ function FoundationRecords({ items, surface }: { items: FoundationRow[]; surface
       getTitle={(item) => rowTitle(item, surface)}
       items={items}
       label={SURFACE_CONFIG[surface].title}
-      renderActions={surface === "mode-transitions" ? undefined : (item) => (
-        <Link className="ds-button" href={detailHref(item, surface)}>查看详情</Link>
-      )}
+      renderActions={(item) => renderFoundationActions(item, surface, setSelectedModeTransition)}
     />
+    {surface === "mode-transitions" && selectedModeTransition ? <ModeTransitionDetailPanel
+      row={selectedModeTransition}
+    /> : null}
   </PropertyPanelSurface>;
+}
+
+function renderFoundationActions(
+  item: FoundationRow,
+  surface: FoundationSurface,
+  setSelectedModeTransition: (row: ModeTransitionRow) => void
+) {
+  if (surface === "mode-transitions") {
+    const row = item as ModeTransitionRow;
+    return <button className="ds-button" onClick={() => setSelectedModeTransition(row)} type="button">查看审计详情</button>;
+  }
+  return <Link className="ds-button" href={detailHref(item, surface)}>查看详情</Link>;
+}
+
+function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
+  return <section aria-label="经营模式审计详情" className="ds-section-panel">
+    <h2>经营模式审计详情</h2>
+    <dl className="ds-description-list">
+      <div><dt>审批请求</dt><dd>{row.requestId ?? "历史执行日志"}</dd></div>
+      <div><dt>房源</dt><dd>{row.unitCode} · {row.unitName}</dd></div>
+      <div><dt>模式变更</dt><dd>{row.fromMode} → {row.toMode}</dd></div>
+      <div><dt>审批状态</dt><dd>{row.decisionStatus}</dd></div>
+      <div><dt>执行状态</dt><dd>{row.executionStatus}</dd></div>
+      <div><dt>申请时间</dt><dd>{formatTime(row.createTime)}</dd></div>
+      <div><dt>审批时间</dt><dd>{formatTime(row.decisionTime)}</dd></div>
+      <div><dt>执行时间</dt><dd>{formatTime(row.executionTime)}</dd></div>
+      <div><dt>操作人</dt><dd>{row.operatorName || row.operatorId || "—"}</dd></div>
+      <div><dt>版本</dt><dd>{row.version}</dd></div>
+    </dl>
+    <h3>检查快照</h3>
+    <p>{modeTransitionSnapshotSummary(row.checkSnapshot)}</p>
+    <p>{row.reason || "—"}</p>
+    <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATIONS_PAGE}>
+      <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OPERATION_READ}>
+        <div className="ds-action-bar">
+          <Link className="ds-button" href={`/assets/property-operations/${encodeURIComponent(row.unitId)}`}>查看房源经营详情</Link>
+        </div>
+      </PermissionGuard>
+    </PermissionGuard>
+  </section>;
 }
 
 function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor<FoundationRow>[] {
@@ -511,6 +563,16 @@ function operationOccupancySummary(row: OperationRow): string {
   return `业务记录 ${aggregates}；有效占用 ${row.sharedOccupancy?.activeCount ?? 0}；不兼容 ${row.sharedOccupancy?.incompatibleCount ?? 0}`;
 }
 
+function canActivateOccupancy(row: OccupancyRow): boolean {
+  return row.status === "held"
+    && ["maintenance", "operations"].includes(row.sourceDomain)
+    && Boolean(row.holdExpiresAt && Date.parse(row.holdExpiresAt) > Date.now());
+}
+
+function modeTransitionRecordKey(row: ModeTransitionRow): string {
+  return row.requestId ?? row.id;
+}
+
 export function PropertyFoundationDetailClient({ id, surface }: {
   id: string;
   surface: "operations" | "occupancies";
@@ -524,6 +586,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
   const [mutating, setMutating] = useState(false);
   const releaseKeys = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
   const releasePayloads = useRef<Record<"normal" | "force", string | null>>({ normal: null, force: null });
+  const activateKey = useRef<string | null>(null);
   const api = surface === "operations"
     ? `/property/units/${encodeURIComponent(id)}/operation`
     : `/property/occupancies/${encodeURIComponent(id)}`;
@@ -570,6 +633,27 @@ export function PropertyFoundationDetailClient({ id, surface }: {
     }
   }
 
+  async function activate() {
+    if (surface !== "occupancies" || mutating) return;
+    setMutating(true);
+    setFeedback("");
+    activateKey.current ??= createIdempotencyKey("property-occupancy-activate");
+    try {
+      await apiRequest(`/property/occupancies/${encodeURIComponent(id)}/activate`, {
+        method: "POST",
+        token: getAccessToken() ?? undefined,
+        idempotencyKey: activateKey.current
+      });
+      activateKey.current = null;
+      setFeedback("保留占用已激活。");
+      await load();
+    } catch (cause) {
+      setFeedback(cause instanceof Error ? cause.message : "激活占用失败");
+    } finally {
+      setMutating(false);
+    }
+  }
+
   return <PropertyPageSurface>
     <header className="ds-hero"><div className="ds-hero-copy">
       <p className="ds-kicker">共享房产控制面</p><h1>{config.title}详情</h1>
@@ -584,6 +668,11 @@ export function PropertyFoundationDetailClient({ id, surface }: {
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
       <div className="ds-action-bar">
         <Link className="ds-button" href={config.route}>返回列表</Link>
+        {surface === "occupancies" && canActivateOccupancy(detail as OccupancyRow) ? <PermissionGuard
+          module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_ACTIVATE}
+        ><button className="ds-button ds-button-primary" disabled={mutating} onClick={() => void activate()} type="button">
+          {mutating ? "正在激活…" : "激活保留占用"}
+        </button></PermissionGuard> : null}
         {surface === "occupancies" && isManualOccupancy(detail as OccupancyRow) ? <PermissionGuard
           module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_RELEASE}
         ><button className="ds-button" onClick={() => setReleaseMode("normal")} type="button">释放人工锁房</button></PermissionGuard> : null}

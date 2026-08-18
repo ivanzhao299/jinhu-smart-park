@@ -120,13 +120,15 @@ const PROPERTY_SURFACE_LABELS: Readonly<Record<string, string>> = {
 const ASSET_PROPERTY_CONTROL_SURFACE_IDS = new Set([
   "asset.property-operations",
   "asset.property-occupancies",
-  "asset.property-mode-transitions"
+  "asset.property-mode-transitions",
+  "asset.identity-submissions"
 ]);
 
 const ASSET_PROPERTY_CONTROL_LABELS: Readonly<Record<string, string>> = {
   "asset.property-operations": "房源经营配置",
   "asset.property-occupancies": "房源占用管理",
-  "asset.property-mode-transitions": "经营模式审计"
+  "asset.property-mode-transitions": "经营模式审计",
+  "asset.identity-submissions": "身份核验工作台"
 };
 
 function assetPropertyControlReadPermission(surfaceId: string): string {
@@ -137,6 +139,8 @@ function assetPropertyControlReadPermission(surfaceId: string): string {
       return PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_READ;
     case "asset.property-mode-transitions":
       return PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ;
+    case "asset.identity-submissions":
+      return PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ;
     default:
       throw new Error(`Unsupported asset property control surface: ${surfaceId}`);
   }

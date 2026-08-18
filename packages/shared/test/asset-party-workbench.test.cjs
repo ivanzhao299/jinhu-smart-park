@@ -60,4 +60,10 @@ test("asset Party page stays canonical while Track B bundles may grant access to
     ),
     true
   );
+  assert.equal(
+    TRACK_B_PERMISSION_BUNDLES.IDENTITY_OPERATOR.permissions.includes(
+      SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+    ),
+    true
+  );
 });

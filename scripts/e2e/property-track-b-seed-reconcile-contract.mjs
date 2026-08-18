@@ -17,12 +17,22 @@ const leasingLeadRepairPath = resolve(
   root,
   "database/seeds/production/000009_jh_leasing_lead_workorder_create_repair.sql"
 );
+const identityOperatorDownloadMigrationPath = resolve(
+  root,
+  "database/migrations/000216_property_identity_operator_download_bundle.sql"
+);
+const propertyControlPlaneUatFixturePath = resolve(
+  root,
+  "scripts/e2e/property-control-plane-uat-fixture.mjs"
+);
 const ciWorkflowPath = resolve(root, ".github/workflows/ci.yml");
 const migrationBuffer = readFileSync(migrationPath);
 const migration = migrationBuffer.toString("utf8");
 const seed = readFileSync(seedPath, "utf8");
 const productionCoreSeed = readFileSync(productionCoreSeedPath, "utf8");
 const leasingLeadRepair = readFileSync(leasingLeadRepairPath, "utf8");
+const identityOperatorDownloadMigration = readFileSync(identityOperatorDownloadMigrationPath, "utf8");
+const propertyControlPlaneUatFixture = readFileSync(propertyControlPlaneUatFixturePath, "utf8");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");
 
 assert.equal(
@@ -197,6 +207,123 @@ assert.equal(
   "post-seed scope must use the production-core canonical biz_park table"
 );
 
+assert.match(
+  identityOperatorDownloadMigration,
+  /role\.applied_bundle_codes \? 'property-bundle:property-identity-operator'/,
+  "identity operator download backfill must require bundle provenance"
+);
+assert.equal(
+  identityOperatorDownloadMigration.includes("unnest(ARRAY["),
+  false,
+  "identity operator download backfill must not infer bundle membership from an arbitrary permission superset"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /predecessor_hash varchar\(64\) := '6c7797a89b6246970a5822aa25959091b60bcab719a428d6fde053df2e73db42'/,
+  "identity operator download migration must pin the exact released predecessor bundle hash"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /property-identity-operator-bundle-predecessor-drift/,
+  "identity operator download migration must fail closed on predecessor drift"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /lpad\(member\.member_ordinal::text, 4, '0'\) \|\| chr\(9\)[\s\S]*?\|\| member\.permission_code \|\| chr\(10\)/,
+  "identity operator download migration must use the canonical bundle hash serialization"
+);
+assert.doesNotMatch(
+  identityOperatorDownloadMigration,
+  /role\.is_enabled = true[\s\S]*?role\.applied_bundle_codes \? 'property-bundle:property-identity-operator'/,
+  "identity operator download backfill must include disabled non-deleted bundle-derived roles"
+);
+assert.doesNotMatch(
+  identityOperatorDownloadMigration,
+  /role\.status = 'enabled'[\s\S]*?role\.applied_bundle_codes \? 'property-bundle:property-identity-operator'/,
+  "identity operator download backfill must not exclude disabled bundle-derived roles by status"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /string_agg\([\s\S]*?bundle\.bundle_code \|\| '@' \|\| bundle\.definition_version::text \|\| ':' \|\| bundle\.definition_hash,[\s\S]*?chr\(10\) ORDER BY bundle\.bundle_code/,
+  "identity operator download migration must recompute role applied-bundle signatures with service-compatible serialization"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /role\.applied_bundle_codes \? bundle\.bundle_code[\s\S]*?UPDATE public\.sys_role role[\s\S]*?SET applied_bundle_signature = role_bundle_signatures\.signature/,
+  "identity operator download migration must refresh affected role bundle provenance"
+);
+
+for (const fixtureScopeToken of [
+  "isProductionLikeTarget",
+  "productionEnvNames",
+  "targetUrls",
+  "Refusing to write property control-plane UAT fixtures to a production-like database target.",
+  "assertUatScopePreflight",
+  "active_park_count",
+  "active_asset_assignment_count",
+  "FROM biz_park park",
+  "park.park_id=$2",
+  "park.status=1",
+  "module.module_code='asset'",
+  "assignment.enabled=true",
+  "assignment.status='enabled'",
+  "assignment.is_deleted=false",
+  "assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp()",
+  "assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp()"
+]) {
+  assert.ok(
+    propertyControlPlaneUatFixture.includes(fixtureScopeToken),
+    `property control-plane UAT fixture missing active scope preflight: ${fixtureScopeToken}`
+  );
+}
+for (const selectorToken of [
+  "current_park.tenant_id=actor.tenant_id",
+  "current_park.park_id=actor.park_id",
+  "current_park.tenant_id=verifier.tenant_id",
+  "current_park.park_id=verifier.park_id"
+]) {
+  assert.ok(
+    propertyControlPlaneUatFixture.includes(selectorToken),
+    `property control-plane UAT actor selector missing active park predicate: ${selectorToken}`
+  );
+}
+for (const permissionCode of [
+  "asset:property-operations:page",
+  "property_operation:read",
+  "property_operation:update",
+  "property_operation:transition_mode",
+  "asset:property-occupancies:page",
+  "property_occupancy:read",
+  "property_occupancy:create",
+  "property_occupancy:activate",
+  "property_occupancy:release",
+  "property_occupancy:force_release",
+  "asset:property-mode-transitions:page",
+  "property_approval:create",
+  "property_approval:read",
+  "property_approval:withdraw"
+]) {
+  assert.ok(
+    propertyControlPlaneUatFixture.includes(permissionCode),
+    `property control-plane UAT fixture actor missing control-plane permission: ${permissionCode}`
+  );
+}
+assert.match(
+  propertyControlPlaneUatFixture,
+  /FROM unnest\(\$4::varchar\[\]\) required\(code\)/,
+  "property control-plane UAT fixture actor check must use the full required permission array"
+);
+assert.match(
+  propertyControlPlaneUatFixture,
+  /immutableOccupancyActivity[\s\S]*?biz_property_occupancy[\s\S]*?status !== "held"[\s\S]*?version[\s\S]*?Fixture occupancy has activation or release activity/,
+  "property control-plane UAT fixture reruns must fail closed after occupancy activation or release activity"
+);
+assert.match(
+  propertyControlPlaneUatFixture,
+  /JOIN rel_role_data_scope role_scope[\s\S]*?JOIN sys_data_scope_rule data_rule[\s\S]*?data_rule\.dimension IN \('tenant','park'\)[\s\S]*?data_rule\.scope_type IN \('all','tenant','park'\)/,
+  "property control-plane UAT fixture actor must have unrestricted unit data scope unless super"
+);
+
 assert.equal(
   (seed.match(/permission\.permission_type = 'page'/g) ?? []).length >= 3,
   true,
@@ -253,7 +380,7 @@ for (const assertionToken of [
   "permission_count <> 25",
   "super_admin_grant_count <> 25",
   "bundle_count <> 16",
-  "bundle_member_count <> 128",
+  "bundle_member_count <> 129",
   "bundle_permission_count <> 55",
   "resolved_bundle_permission_count <> 55"
 ]) {

@@ -238,6 +238,130 @@ test("identity create uses receipt and the 000185 command function only", async 
   assert.ok(sql.some((statement) => statement.includes("biz_property_outbox")));
 });
 
+test("identity update preserves existing encrypted identity when editing retained draft evidence", async () => {
+  const sql: string[] = [];
+  let requestHash = "";
+  let updateParams: unknown[] = [];
+  const retainedFileId = "00000000-0000-4000-8000-000000000040";
+  const projection = {
+    ...submissionRow(submissionId, "draft", null),
+    version: 2,
+    identity_version: 1,
+    document_type: "id_card",
+    encrypted_payload: "enc:v1:existing",
+    identity_number_masked: "11************02",
+    files: []
+  };
+  const manager = {
+    query: async (statement: string, params: unknown[]) => {
+      sql.push(statement);
+      if (statement.includes("INSERT INTO public.biz_property_mutation_receipt")) {
+        requestHash = String(params[6]);
+        return [{ id: "receipt-1" }];
+      }
+      if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
+        return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
+      }
+      if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("party.identity_document_type")) {
+        return [{
+          identity_document_type: "id_card",
+          identity_number_encrypted: "enc:v1:existing",
+          identity_number_hash: "hmac256:existing",
+          identity_number_masked: "11************02",
+          draft_hash_algorithm: "hmac-sha256",
+          draft_hash_version: 1,
+          draft_encryption_key_id: "party-data-v1",
+          draft_payload_format_version: 1,
+          draft_file_ids: [retainedFileId]
+        }];
+      }
+      if (statement.includes("fn_party_identity_update_draft_cas")) {
+        updateParams = params;
+        return [{ id: submissionId }];
+      }
+      if (statement.includes("FROM public.biz_party_identity_submission s")) return [projection];
+      if (statement.includes("biz_property_event_sequence")) return [{ sequence: 1 }];
+      return [];
+    }
+  };
+  const service = new PropertyIdentityService(
+    { manager, transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    { identityProfile: () => { throw new Error("identityProfile must not be called"); }, decrypt: () => null, mask: () => null } as never
+  );
+
+  const result = await service.update(scope, actor, submissionId, "update-1", {
+    clientKey: "update-1",
+    expectedVersion: 1,
+    documentType: "id_card",
+    identityNumber: null,
+    pendingFileIds: [retainedFileId]
+  });
+
+  assert.equal(result.id, submissionId);
+  assert.ok(sql.some((statement) => statement.includes("party.identity_document_type")));
+  assert.deepEqual(updateParams.slice(5, 13), [
+    "id_card",
+    "enc:v1:existing",
+    "hmac256:existing",
+    "11************02",
+    "hmac-sha256",
+    1,
+    "party-data-v1",
+    1
+  ]);
+});
+
+test("identity update still requires identity number for newly added evidence", async () => {
+  const existingFileId = "00000000-0000-4000-8000-000000000040";
+  const newFileId = "00000000-0000-4000-8000-000000000041";
+  let requestHash = "";
+  const manager = {
+    query: async (statement: string, params: unknown[]) => {
+      if (statement.includes("INSERT INTO public.biz_property_mutation_receipt")) {
+        requestHash = String(params[6]);
+        return [{ id: "receipt-1" }];
+      }
+      if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
+        return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
+      }
+      if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("party.identity_document_type")) {
+        return [{
+          identity_document_type: "id_card",
+          identity_number_encrypted: "enc:v1:existing",
+          identity_number_hash: "hmac256:existing",
+          identity_number_masked: "11************02",
+          draft_hash_algorithm: "hmac-sha256",
+          draft_hash_version: 1,
+          draft_encryption_key_id: "party-data-v1",
+          draft_payload_format_version: 1,
+          draft_file_ids: [existingFileId]
+        }];
+      }
+      throw new Error(`unexpected query: ${statement}`);
+    }
+  };
+  const service = new PropertyIdentityService(
+    { manager, transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    {} as never
+  );
+
+  await assert.rejects(
+    () => service.update(scope, actor, submissionId, "update-2", {
+      clientKey: "update-2",
+      expectedVersion: 1,
+      documentType: "id_card",
+      identityNumber: null,
+      pendingFileIds: [existingFileId, newFileId]
+    }),
+    (error: unknown) => {
+      const response = (error as { getResponse(): Record<string, unknown> }).getResponse();
+      return response.errorCode === "property-validation-failed";
+    }
+  );
+});
+
 test("super identity detail keeps the actor placeholder typed for PostgreSQL", async () => {
   let detailSql = "";
   const manager = {

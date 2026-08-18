@@ -190,7 +190,7 @@ test("identity clientKey preserves the exact shared header/body value", () => {
 });
 
 test("Track B endpoint authority is unique, canonical and signed", () => {
-  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 52);
+  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 53);
   assert.deepEqual(validatePropertyTrackBEndpointPermissionManifest(), []);
   const sorted = [...PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST].sort((left, right) => {
     const leftKey = Buffer.from(`${left.method}\t${left.path}`, "utf8");
@@ -248,7 +248,7 @@ test("Track B endpoint authority is unique, canonical and signed", () => {
   const identityRows = PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.filter(
     (entry) => entry.path.includes("/property/identity-submissions")
   );
-  assert.equal(identityRows.length, 10);
+  assert.equal(identityRows.length, 11);
   assert.ok(identityRows.every(
     (entry) =>
       entry.requiredModule === "asset"
@@ -267,6 +267,9 @@ test("Track B endpoint authority is unique, canonical and signed", () => {
   const identityPermissionGolden = {
     "party.identity.list": ["asset:identity-submissions:page", "party:read"],
     "party.identity.read": ["asset:identity-submissions:page", "party:read"],
+    "party.identity.terminal-cas.read": [
+      "asset:identity-submissions:page", "party:identity_update", "party:read"
+    ],
     "party.identity.create-draft": [
       "asset:identity-submissions:page", "party:identity_update"
     ],

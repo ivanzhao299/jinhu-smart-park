@@ -21,7 +21,7 @@ export const TRACK_B_PERMISSION_BUNDLES = {
     description: "身份资料录入",
     permissions: [
       "asset:party", "asset:identity-submissions:page", "party:read",
-      "party:identity_update", "file:read", "file:upload", "file:delete"
+      "party:identity_update", "file:read", "file:upload", "file:download", "file:delete"
     ]
   },
   IDENTITY_VERIFIER: {

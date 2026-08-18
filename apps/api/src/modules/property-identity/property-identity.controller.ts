@@ -50,6 +50,19 @@ export class PropertyIdentityController {
     return this.service.list(scope, actor, query);
   }
 
+  @Get("parties/:partyId/terminal-cas")
+  @RequirePermissions(
+    PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_READ,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE
+  )
+  terminalCas(
+    @CurrentScope() scope: TenantParkScope,
+    @Param("partyId", new ParseUUIDPipe({ version: "4" })) partyId: string
+  ) {
+    return this.service.terminalCas(scope, partyId);
+  }
+
   @Get(":submissionId")
   @RequirePermissions(
     PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
