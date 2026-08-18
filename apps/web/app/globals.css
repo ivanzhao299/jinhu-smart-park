@@ -7558,6 +7558,50 @@ textarea:disabled {
   white-space: nowrap;
 }
 
+.user-park-switcher {
+  display: inline-flex;
+  align-items: center;
+  min-width: 154px;
+  max-width: 220px;
+  height: 34px;
+  gap: 6px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 16%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--phoenix-sidebar-text) 7%, transparent);
+  color: color-mix(in srgb, var(--phoenix-sidebar-text) 78%, transparent);
+}
+
+.user-park-switcher svg {
+  flex: 0 0 auto;
+  stroke-width: 2.3;
+}
+
+.user-park-switcher select {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  outline: none;
+}
+
+.user-park-switcher select:disabled {
+  opacity: 0.72;
+}
+
+.user-menu-message {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--status-warning);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-header .user-menu .user-logout-button {
   display: inline-flex;
   align-items: center;
@@ -9189,7 +9233,19 @@ select {
   }
 
   .app-header .header-brand-lockup {
+    flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .app-header .header-brand-symbol {
+    flex: 0 0 32px;
+  }
+
+  .app-header .header-brand-lockup strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .app-header .header-brand-copy span {
@@ -9224,7 +9280,6 @@ select {
 
   .app-header .header-icon-button.ant-btn,
   .app-header .header-icon-link,
-  .app-header .user-avatar,
   .app-header .user-menu .user-logout-button {
     width: 34px;
     min-width: 34px;
@@ -9233,8 +9288,49 @@ select {
     border-radius: 12px;
   }
 
+  .app-header .user-avatar {
+    display: none;
+  }
+
   .app-header .user-menu {
     display: contents;
+  }
+
+  .app-header .user-park-switcher {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    width: 34px;
+    min-width: 34px;
+    max-width: 34px;
+    height: 34px;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .app-header .user-park-switcher select {
+    position: absolute;
+    inset: 0;
+    width: 34px;
+    height: 34px;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .app-header .user-menu-message {
+    position: fixed;
+    top: calc(78px + env(safe-area-inset-top));
+    right: 12px;
+    left: 12px;
+    z-index: 120;
+    display: block;
+    max-width: none;
+    border: 1px solid color-mix(in srgb, var(--status-warning) 42%, transparent);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: color-mix(in srgb, var(--bg-sidebar) 92%, #000);
+    color: var(--status-warning);
+    box-shadow: 0 10px 24px color-mix(in srgb, #000 18%, transparent);
   }
 
   .app-header .user-menu .user-logout-button span {

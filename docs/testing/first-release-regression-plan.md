@@ -55,6 +55,7 @@
 ### L2：首发 API 回归
 
 - auth
+- context switch
 - users
 - assets
 - files
@@ -94,6 +95,7 @@
 | 链路 | 当前是否已有覆盖 | 建议测试类型 | 是否进入第一批 | 验收标准 | 备注 |
 |---|---|---|---|---|---|
 | 登录认证 | 有 release-smoke 登录验证，但无独立回归包 | API regression + 最小脚本 | 是 | 成功登录、错误密码失败、token 可用 | 首发最高优先级之一 |
+| 园区切换 | 有 API/Web 单测，缺真实 HTTP 多园区回归 | API regression + 最小脚本 | 是 | 可复用第二园区、`/auth/switch-context` 轮换 token、`/auth/me` 指向目标园区、楼栋/楼层写入和切回隔离正确 | 园区使用执行账号维度 `CTXSWITCH-*` 夹具，楼栋/楼层每次新增并清理；生产默认不跑写入型 |
 | 用户管理 | 几乎没有 | API regression | 否，第二批 | 能创建/查询/重置/分配角色的最小链路 | 先补最小 CRUD |
 | 健康检查 | release-smoke 已覆盖 | API regression | 是 | `/health` 返回 ok，`/ready` 状态正确 | 稳定、低成本 |
 | 文件上传下载 | smoke 有部分覆盖，但不成体系 | API regression + 轻量脚本 | 是 | 上传、下载、权限、大小/MIME 基本行为正确 | 与运维体验强相关 |
@@ -108,17 +110,19 @@
 
 ## 5. 第一批建议落地范围
 
-第一批建议只做最核心、最稳定、最能直接服务发布决策的 5 组回归：
+第一批建议只做最核心、最稳定、最能直接服务发布决策的 6 组回归：
 
 1. auth regression
-2. health / ready regression
-3. idempotency replay regression
-4. historical menu compatibility static regression
-5. files upload / download regression
+2. context switch regression
+3. health / ready regression
+4. idempotency replay regression
+5. historical menu compatibility static regression
+6. files upload / download regression
 
-为什么先做这 5 组：
+为什么先做这 6 组：
 
 - 风险高：登录、健康、文件、幂等、菜单都属于首发高频链路。
+- 用户影响明确：园区切换决定资产写入归属，必须覆盖多园区真实 HTTP 链路。
 - 稳定性好：这些链路比复杂业务状态机更容易重复执行。
 - 数据依赖少：多数可以依赖 bootstrap-admin + 固定测试前缀数据。
 - 可重复执行：适合加入每次发布前检查。
@@ -215,6 +219,7 @@ pnpm regression:leasing
 要求：
 
 - 所有测试数据都带固定前缀，例如 `REGRESS_` 或按脚本名前缀。
+- 园区切换回归使用执行账号维度 `CTXSWITCH-*` 园区夹具；脚本应先发现并复用当前执行账号可访问的园区，楼栋/楼层使用本次运行唯一编码新增并在验证后清理，避免 repeated release runs 跳过写入链路或持续消耗资产数据。
 - 所有测试数据都应可重复创建，避免依赖人工清库。
 - 尽量不依赖已有脏数据或历史遗留业务数据。
 - 不使用 dev seed。

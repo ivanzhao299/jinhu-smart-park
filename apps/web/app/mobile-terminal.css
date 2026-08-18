@@ -83,13 +83,15 @@
 
 .mobile-terminal-actions {
   display: grid;
-  grid-template-columns: repeat(4, 34px);
+  grid-template-columns: repeat(5, 34px);
   gap: 6px;
   align-items: center;
 }
 
 .mobile-terminal-actions a,
-.mobile-terminal-actions button {
+.mobile-terminal-actions button,
+.mobile-terminal-park-switcher {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -108,11 +110,44 @@
 .mobile-terminal-actions a:hover,
 .mobile-terminal-actions a:focus-visible,
 .mobile-terminal-actions button:hover,
-.mobile-terminal-actions button:focus-visible {
+.mobile-terminal-actions button:focus-visible,
+.mobile-terminal-park-switcher:hover,
+.mobile-terminal-park-switcher:focus-within {
   border-color: rgba(45, 212, 191, 0.62);
   background: rgba(45, 212, 191, 0.14);
   color: #ccfbf1;
   outline: none;
+}
+
+.mobile-terminal-park-switcher select {
+  position: absolute;
+  inset: 0;
+  width: 34px;
+  height: 34px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.mobile-terminal-park-switcher select:disabled {
+  cursor: not-allowed;
+}
+
+.mobile-terminal-park-message {
+  position: fixed;
+  top: calc(var(--terminal-header-height) + 8px);
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 121;
+  overflow: hidden;
+  border: 1px solid rgba(251, 191, 36, 0.42);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(24, 18, 7, 0.94);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 720;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobile-terminal-actions .is-refreshing svg {
@@ -253,14 +288,20 @@ body.operations-terminal-safe-area .ds-panel {
   }
 
   .mobile-terminal-actions {
-    grid-template-columns: repeat(4, 32px);
+    grid-template-columns: repeat(5, 32px);
     gap: 5px;
   }
 
   .mobile-terminal-actions a,
-  .mobile-terminal-actions button {
+  .mobile-terminal-actions button,
+  .mobile-terminal-park-switcher {
     width: 32px;
     min-width: 32px;
+    height: 32px;
+  }
+
+  .mobile-terminal-park-switcher select {
+    width: 32px;
     height: 32px;
   }
 }

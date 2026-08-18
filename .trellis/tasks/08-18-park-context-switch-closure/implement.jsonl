@@ -1,0 +1,4 @@
+{"file":"apps/web/lib/auth.ts","reason":"Existing switchParkContext session rotation helper reused by UI"}
+{"file":"apps/api/src/modules/auth/auth.controller.ts","reason":"Existing POST /auth/switch-context endpoint verified as backend authority"}
+{"file":"apps/api/src/modules/buildings/buildings.service.ts","reason":"Existing guarded target-park building create/list path preserved"}
+{"file":"apps/api/src/modules/floors/dto/create-floor.dto.ts","reason":"Verified floor create DTO remains current-scope-only without parkId"}
