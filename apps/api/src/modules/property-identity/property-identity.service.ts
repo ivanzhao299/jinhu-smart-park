@@ -5,6 +5,7 @@ import {
 import {
   IDENTITY_MUTATION_ACTION_IDS,
   PROPERTY_BUSINESS_PERMISSIONS,
+  SYSTEM_PERMISSIONS,
   resolveIdentityClientKey,
   type IdentityAuditListResponse,
   type IdentitySubmissionListResponse,
@@ -291,6 +292,12 @@ export class PropertyIdentityService {
       scope, actor, headerKey, dto, "party.identity.update-draft", submissionId,
       async (manager) => {
         await this.assertDraftOwner(manager, scope, submissionId, actor.sub);
+        const existingDraftFileIds = await this.listDraftFileIds(manager, scope, submissionId);
+        const requestedFileIds = new Set(dto.pendingFileIds);
+        const removesSavedEvidence = existingDraftFileIds.some((fileId) => !requestedFileIds.has(fileId));
+        if (removesSavedEvidence && !this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_DELETE)) {
+          throw new ForbiddenException("file:delete permission is required to remove identity evidence");
+        }
         let documentType = dto.documentType;
         let crypto = normalized ? this.sensitiveData.identityProfile(normalized) : null;
         if (dto.documentType !== null && !normalized) {
@@ -1048,6 +1055,23 @@ export class PropertyIdentityService {
       [scope.tenantId, scope.parkId, submissionId, actorId]
     ) as unknown[];
     if (!rows.length) throw propertyIdentityError("property-resource-not-found");
+  }
+
+  private async listDraftFileIds(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    submissionId: string
+  ): Promise<string[]> {
+    const rows = await manager.query(
+      `SELECT draft_file.file_id::text AS file_id
+       FROM public.rel_party_identity_draft_file draft_file
+       WHERE draft_file.tenant_id=$1
+         AND draft_file.park_id=$2
+         AND draft_file.submission_id=$3::uuid
+       ORDER BY draft_file.ordinal, draft_file.file_id`,
+      [scope.tenantId, scope.parkId, submissionId]
+    ) as Array<{ file_id: string }>;
+    return rows.map((row) => row.file_id);
   }
 
   private async assertAssignmentEligibility(

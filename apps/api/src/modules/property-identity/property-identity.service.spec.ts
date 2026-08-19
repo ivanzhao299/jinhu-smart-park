@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { LEGACY_MUTATION_RECEIPT_ACTION_AUTHORITY_MANIFEST } from "@jinhu/shared";
+import {
+  LEGACY_MUTATION_RECEIPT_ACTION_AUTHORITY_MANIFEST,
+  SYSTEM_PERMISSIONS
+} from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import {
   PROPERTY_IDENTITY_RECEIPT_ACTION_IDS,
@@ -263,6 +266,9 @@ test("identity update preserves existing encrypted identity when editing retaine
         return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
       }
       if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("SELECT draft_file.file_id::text AS file_id")) {
+        return [{ file_id: retainedFileId }];
+      }
       if (statement.includes("party.identity_document_type")) {
         return [{
           identity_document_type: "id_card",
@@ -326,6 +332,9 @@ test("identity update still requires identity number for newly added evidence", 
         return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
       }
       if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("SELECT draft_file.file_id::text AS file_id")) {
+        return [{ file_id: existingFileId }];
+      }
       if (statement.includes("party.identity_document_type")) {
         return [{
           identity_document_type: "id_card",
@@ -360,6 +369,103 @@ test("identity update still requires identity number for newly added evidence", 
       return response.errorCode === "property-validation-failed";
     }
   );
+});
+
+test("identity update requires file delete permission before removing saved evidence", async () => {
+  const existingFileId = "00000000-0000-4000-8000-000000000040";
+  const retainedFileId = "00000000-0000-4000-8000-000000000041";
+  let requestHash = "";
+  let updateCalled = false;
+  const manager = {
+    query: async (statement: string, params: unknown[]) => {
+      if (statement.includes("INSERT INTO public.biz_property_mutation_receipt")) {
+        requestHash = String(params[6]);
+        return [{ id: "receipt-1" }];
+      }
+      if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
+        return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
+      }
+      if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("SELECT draft_file.file_id::text AS file_id")) {
+        return [{ file_id: existingFileId }, { file_id: retainedFileId }];
+      }
+      if (statement.includes("fn_party_identity_update_draft_cas")) {
+        updateCalled = true;
+        return [{ id: submissionId }];
+      }
+      return [];
+    }
+  };
+  const service = new PropertyIdentityService(
+    { manager, transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    { identityProfile: () => ({ encrypted: "enc", hash: "hash", masked: "mask", hashAlgorithm: "hmac-sha256", hashVersion: 1, encryptionKeyId: "party-data-v1", payloadFormatVersion: 1 }) } as never
+  );
+
+  await assert.rejects(
+    () => service.update(scope, actor, submissionId, "update-remove-1", {
+      clientKey: "update-remove-1",
+      expectedVersion: 1,
+      documentType: "id_card",
+      identityNumber: "11010519491231002X",
+      pendingFileIds: [retainedFileId]
+    }),
+    (error: unknown) => error instanceof Error
+      && error.constructor.name === "ForbiddenException"
+      && /file:delete/.test(error.message)
+  );
+  assert.equal(updateCalled, false);
+});
+
+test("identity update allows saved evidence removal with file delete permission", async () => {
+  const existingFileId = "00000000-0000-4000-8000-000000000040";
+  const retainedFileId = "00000000-0000-4000-8000-000000000041";
+  let requestHash = "";
+  let updateParams: unknown[] = [];
+  const manager = {
+    query: async (statement: string, params: unknown[]) => {
+      if (statement.includes("INSERT INTO public.biz_property_mutation_receipt")) {
+        requestHash = String(params[6]);
+        return [{ id: "receipt-1" }];
+      }
+      if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
+        return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
+      }
+      if (statement.includes("SELECT 1 FROM public.biz_party_identity_submission")) return [{ "?column?": 1 }];
+      if (statement.includes("SELECT draft_file.file_id::text AS file_id")) {
+        return [{ file_id: existingFileId }, { file_id: retainedFileId }];
+      }
+      if (statement.includes("fn_party_identity_update_draft_cas")) {
+        updateParams = params;
+        return [{ id: submissionId }];
+      }
+      if (statement.includes("FROM public.biz_party_identity_submission s")) {
+        return [submissionRow(submissionId, "draft", null)];
+      }
+      if (statement.includes("biz_property_event_sequence")) return [{ sequence: 1 }];
+      return [];
+    }
+  };
+  const service = new PropertyIdentityService(
+    { manager, transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    { identityProfile: () => ({ encrypted: "enc", hash: "hash", masked: "mask", hashAlgorithm: "hmac-sha256", hashVersion: 1, encryptionKeyId: "party-data-v1", payloadFormatVersion: 1 }) } as never
+  );
+
+  const result = await service.update(
+    scope,
+    { ...actor, permissions: [...actor.permissions, SYSTEM_PERMISSIONS.FILE_DELETE] },
+    submissionId,
+    "update-remove-2",
+    {
+      clientKey: "update-remove-2",
+      expectedVersion: 1,
+      documentType: "id_card",
+      identityNumber: "11010519491231002X",
+      pendingFileIds: [retainedFileId]
+    }
+  );
+
+  assert.equal(result.id, submissionId);
+  assert.deepEqual(updateParams[13], [retainedFileId]);
 });
 
 test("super identity detail keeps the actor placeholder typed for PostgreSQL", async () => {
