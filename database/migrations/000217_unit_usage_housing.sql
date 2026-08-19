@@ -1,3 +1,5 @@
+BEGIN;
+
 WITH housing_usage AS (
   SELECT
     dict_type.tenant_id,
@@ -66,7 +68,7 @@ BEGIN
       FROM biz_property_occupancy occupancy
       WHERE occupancy.is_deleted = false
         AND occupancy.end_at > now()
-        AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
+        AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations')
         AND (
           occupancy.status = 'active'
           OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
@@ -90,7 +92,7 @@ BEGIN
       SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
       FROM biz_property_operation_config config
       WHERE config.is_deleted = false
-        AND config.operating_mode IN ('long_rent', 'short_stay')
+        AND config.operating_mode = 'short_stay'
     )
     SELECT 1
     FROM housing_unit_candidates candidate
@@ -115,7 +117,7 @@ WITH housing_unit_candidates AS (
   FROM biz_property_occupancy occupancy
   WHERE occupancy.is_deleted = false
     AND occupancy.end_at > now()
-    AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
+    AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations')
     AND (
       occupancy.status = 'active'
       OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
@@ -139,7 +141,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
   FROM biz_property_operation_config config
   WHERE config.is_deleted = false
-    AND config.operating_mode IN ('long_rent', 'short_stay')
+    AND config.operating_mode = 'short_stay'
 )
 UPDATE biz_unit unit
    SET usage_type = 70,
@@ -163,3 +165,5 @@ UPDATE biz_unit unit
       AND contract.status NOT IN ('90', '91')
       AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
    );
+
+COMMIT;

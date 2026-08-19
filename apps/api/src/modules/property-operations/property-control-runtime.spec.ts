@@ -520,7 +520,9 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /住房房源存在经营配置、占用或业务活动，不能改为其他用途/);
   assert.match(unitsService, /房源存在经营配置、占用或业务活动，不能删除/);
   assert.match(housingMigration, /housing_unit_candidates/);
-  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment'\)/);
+  assert.match(housingMigration, /^BEGIN;/u);
+  assert.match(housingMigration, /COMMIT;\s*$/u);
+  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations'\)/);
   assert.match(housingMigration, /occupancy\.end_at > now\(\)/);
   assert.match(housingMigration, /occupancy\.status = 'active'/);
   assert.match(housingMigration, /occupancy\.status = 'held'/);
@@ -530,7 +532,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /FROM biz_apartment_room room/);
   assert.match(housingMigration, /room\.management_status = 'enabled'/);
   assert.match(housingMigration, /FROM biz_property_operation_config config/);
-  assert.match(housingMigration, /config\.operating_mode IN \('long_rent', 'short_stay'\)/);
+  assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
+  assert.doesNotMatch(housingMigration, /config\.operating_mode[\s\S]*long_rent/);
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
