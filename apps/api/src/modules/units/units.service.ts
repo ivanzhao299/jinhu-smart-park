@@ -408,9 +408,9 @@ export class UnitsService {
   ) {
     const [row] = await manager.query(
       `SELECT
-         EXISTS (
-           SELECT 1
-           FROM biz_property_operation_config config
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_operation_config config
 	           WHERE config.tenant_id=$1
 	             AND config.park_id=$2
 	             AND config.unit_id=$3
@@ -418,9 +418,30 @@ export class UnitsService {
 	             AND config.operating_status='enabled'
 	             AND config.operating_mode IN ('short_stay','long_rent')
 	         ) AS has_operation_config,
-         EXISTS (
-           SELECT 1
-           FROM biz_property_occupancy occupancy
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_operation_config config
+	           JOIN biz_property_approval_request request
+	             ON request.tenant_id=config.tenant_id
+	            AND request.park_id=config.park_id
+	            AND request.source_id=config.id
+	            AND request.action_id='property.mode-transition.request'
+	            AND request.source_type='property-operation-config'
+	            AND (
+	              request.decision_status IN ('draft','submitted','pending_approval')
+	              OR (
+	                request.decision_status='approved'
+	                AND request.execution_status IN ('not_started','executing','retry_wait','infra_exhausted')
+	              )
+	            )
+	           WHERE config.tenant_id=$1
+	             AND config.park_id=$2
+	             AND config.unit_id=$3
+	             AND config.is_deleted=false
+	         ) AS has_pending_mode_transition,
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_occupancy occupancy
            WHERE occupancy.tenant_id=$1
 	             AND occupancy.park_id=$2
 	             AND occupancy.unit_id=$3
@@ -456,9 +477,10 @@ export class UnitsService {
          ) AS has_enabled_apartment_room`,
       [scope.tenantId, scope.parkId, unitId]
     ) as Array<Record<string, boolean>>;
-    if (
-      row?.has_operation_config
-      || row?.has_active_occupancy
+	    if (
+	      row?.has_operation_config
+	      || row?.has_pending_mode_transition
+	      || row?.has_active_occupancy
       || row?.has_active_housing_lease
       || row?.has_active_homestay_booking
       || row?.has_enabled_apartment_room

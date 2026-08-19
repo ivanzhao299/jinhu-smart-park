@@ -532,6 +532,11 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /biz_property_operation_config config/);
   assert.match(unitsService, /config\.operating_status='enabled'/);
   assert.match(unitsService, /config\.operating_mode IN \('short_stay','long_rent'\)/);
+  assert.match(unitsService, /biz_property_approval_request request/);
+  assert.match(unitsService, /request\.action_id='property\.mode-transition\.request'/);
+  assert.match(unitsService, /request\.source_type='property-operation-config'/);
+  assert.match(unitsService, /request\.decision_status IN \('draft','submitted','pending_approval'\)/);
+  assert.match(unitsService, /request\.execution_status IN \('not_started','executing','retry_wait','infra_exhausted'\)/);
   assert.match(unitsService, /biz_property_occupancy occupancy/);
   assert.match(unitsService, /occupancy\.status NOT IN \('released','completed','cancelled'\)/);
   assert.doesNotMatch(unitsService, /assertNoPropertyActivity[\s\S]*occupancy\.end_at>now\(\)/);
