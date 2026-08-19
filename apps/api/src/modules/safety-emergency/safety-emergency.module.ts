@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { BuildingEntity } from "../buildings/entities/building.entity";
 import { CodeRulesModule } from "../code-rules/code-rules.module";
@@ -39,7 +39,7 @@ import { SafetyEmergencyTimelineEntity } from "./entities/safety-emergency-timel
     CodeRulesModule,
     DataScopesModule,
     FieldPoliciesModule,
-    FilesModule,
+    forwardRef(() => FilesModule),
     WorkOrdersModule
   ],
   controllers: [SafetyEmergencyContactsController, SafetyEmergencyPlansController, SafetyEmergenciesController],

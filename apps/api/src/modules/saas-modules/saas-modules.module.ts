@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ModuleRegistryEntity } from "./entities/module-registry.entity";
 import { PlanModuleEntity } from "./entities/plan-module.entity";
@@ -10,7 +10,7 @@ import { SaaSModulesService } from "./saas-modules.service";
 import { TenantsModule } from "../tenants/tenants.module";
 
 @Module({
-  imports: [TenantsModule, TypeOrmModule.forFeature([
+  imports: [forwardRef(() => TenantsModule), TypeOrmModule.forFeature([
     ModuleRegistryEntity,
     SaaSModuleEntity,
     PlanEntity,

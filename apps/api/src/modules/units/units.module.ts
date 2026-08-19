@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
 import { BuildingEntity } from "../buildings/entities/building.entity";
@@ -24,16 +24,16 @@ import { UnitsService } from "./units.service";
 @Module({
   imports: [
     TypeOrmModule.forFeature([UnitEntity, UnitStatusLogEntity, BuildingEntity, FloorEntity, FileEntity, DictTypeEntity, DictItemEntity]),
-    FilesModule,
+    forwardRef(() => FilesModule),
     AuditModule,
     DataScopesModule,
     FieldPoliciesModule,
     CodeRulesModule,
     WorkOrdersModule,
     SafetyHazardsModule,
-    SafetyEmergencyModule,
+    forwardRef(() => SafetyEmergencyModule),
     SafetyWorkPermitsModule,
-    IotModule
+    forwardRef(() => IotModule)
   ],
   controllers: [UnitsController],
   providers: [UnitsService, UnitsQueryService],

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
+import { getMetadataArgsStorage } from "typeorm";
+import { HR_ENTITIES } from "./entities/hr.entities";
 
 const root=resolve(__dirname,"../../../../..");
 const migration=readFileSync(resolve(root,"database/migrations/000216_hr_employee_foundation.sql"),"utf8");
@@ -17,6 +19,14 @@ test("HR foundation separates login identity, employee history, sensitive profil
  for(const table of ["hr_position","hr_employee","hr_employee_profile","hr_employment_event","hr_employee_document"])assert.match(migration,new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
  assert.match(migration,/uq_hr_employee_scope_user[\s\S]*user_id IS NOT NULL/);
  assert.match(migration,/file_id uuid NOT NULL REFERENCES sys_file\(id\)/);
+});
+test("nullable HR columns declare database types instead of relying on union reflection",()=>{
+ const entityTargets=new Set(HR_ENTITIES);
+ const nullableColumns=getMetadataArgsStorage().columns.filter(column=>entityTargets.has(column.target as typeof HR_ENTITIES[number])&&column.options.nullable===true);
+ assert.ok(nullableColumns.length>0);
+ for(const column of nullableColumns){
+  assert.notEqual(column.options.type,undefined,`${String(column.propertyName)} must declare an explicit database type`);
+ }
 });
 test("HR employee documents reuse protected file surfaces without generic exposure",()=>{
  assert.match(fileAccess,/"hr_employee_document"/);
