@@ -77,6 +77,7 @@ const QUOTE_PERMISSIONS = {
 const FILE_PERMISSIONS = {
   upload: "file:upload"
 } as const;
+const HOUSING_USAGE_TYPE = 70;
 
 interface LeasingLeadRow {
   id: string;
@@ -181,6 +182,7 @@ interface UnitOptionRow {
   unitName: string;
   unitArea: string;
   refPrice?: string | null;
+  usageType?: number;
   rentalStatus: number;
   buildingId: string;
   floorId: string;
@@ -681,9 +683,10 @@ export default function LeasingLeadsPage() {
     const response = await apiRequest<PaginatedResult<UnitOptionRow>>(`/park-units?${params.toString()}`, {
       token: getAccessToken()
     });
-    setQuoteUnitOptions(response.data.items);
-    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, response.data.items));
-  }, [quoteUnitFilters]);
+    const commercialUnits = response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE);
+    setQuoteUnitOptions(commercialUnits);
+    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, commercialUnits));
+	  }, [quoteUnitFilters]);
 
   function openFollowCreate() {
     setEditingFollow(null);

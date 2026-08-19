@@ -71,6 +71,7 @@ const FILE_PERMISSIONS = {
   download: "file:download"
 } as const;
 const CONTRACT_FILE_BIZ_TYPE = "leasing_contract";
+const HOUSING_USAGE_TYPE = 70;
 
 
 interface DictItemRow {
@@ -108,6 +109,7 @@ interface UnitRow {
   buildingId: string;
   floorId: string;
   unitArea: string;
+  usageType?: number;
   rentalStatus: number;
   refPrice?: string | null;
 }
@@ -615,8 +617,8 @@ export default function LeasingContractsPage() {
     const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
       token: getAccessToken()
     });
-    setUnitOptions(response.data.items);
-  }, [unitFilters]);
+    setUnitOptions(response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE));
+	  }, [unitFilters]);
 
   const loadContractUnits = useCallback(async (contractId: string) => {
     if (!canReadContractUnits) return;

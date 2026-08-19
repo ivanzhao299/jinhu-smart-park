@@ -474,15 +474,18 @@ export class LeasingContractsService {
         `renewal_contract:${savedContract.contractCode}`
       );
 
-      for (const draft of relationDrafts) {
-        await manager.getRepository(LeasingContractUnitEntity).save(
-          manager.getRepository(LeasingContractUnitEntity).create({
-            tenantId: scope.tenantId,
-            parkId: scope.parkId,
-            contractId: savedContract.id,
-            unitId: draft.source.unitId,
-            unitCode: draft.source.unitCode,
-            unitName: draft.source.unitName,
+	      for (const draft of relationDrafts) {
+	        const unit = await this.lockCommercialUnitForRenewalCopy(
+	          manager, scope, actor, draft.source.unitId, startDate, endDate, savedContract.id
+	        );
+	        await manager.getRepository(LeasingContractUnitEntity).save(
+	          manager.getRepository(LeasingContractUnitEntity).create({
+	            tenantId: scope.tenantId,
+	            parkId: scope.parkId,
+	            contractId: savedContract.id,
+	            unitId: unit.id,
+	            unitCode: unit.unitCode,
+	            unitName: unit.unitName,
             area: this.decimal(draft.area),
             rentUnitPrice: this.decimal(draft.rentUnitPrice),
             rentAmountPerMonth: this.decimal(draft.rentAmountPerMonth),
@@ -1297,9 +1300,9 @@ export class LeasingContractsService {
     await this.assertNoSharedPropertyConflict(scope, contractId, unit.id, startDate, endDate, manager);
   }
 
-  private async lockCommercialUnitForBinding(
-    manager: EntityManager,
-    scope: TenantParkScope,
+	  private async lockCommercialUnitForBinding(
+	    manager: EntityManager,
+	    scope: TenantParkScope,
     actor: JwtPrincipal,
     contractId: string,
     unitId: string,
@@ -1320,6 +1323,34 @@ export class LeasingContractsService {
     const unit = await builder.getOne();
     if (!unit) throw new BadRequestException("unit_id does not exist or is outside current scope");
     await this.assertUnitBindable(scope, actor, contractId, unit, startDate, endDate, currentRelId, manager);
+    return unit;
+  }
+
+  private async lockCommercialUnitForRenewalCopy(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    unitId: string,
+    startDate: string,
+    endDate: string,
+    renewalContractId: string
+  ): Promise<UnitEntity> {
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+    const builder = manager.getRepository(UnitEntity)
+      .createQueryBuilder("unit")
+      .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("unit.id = :unitId", { unitId })
+      .andWhere("unit.status = 1")
+      .andWhere("unit.is_deleted = false")
+      .setLock("pessimistic_write");
+    await this.applyUnitLookupDataScope(builder, actor);
+    const unit = await builder.getOne();
+    if (!unit) throw new BadRequestException("unit_id does not exist or is outside current scope");
+    if (unit.usageType === UNIT_USAGE_HOUSING) {
+      throw new BadRequestException("Housing units cannot be linked to commercial leasing contracts");
+    }
+    await this.assertNoSharedPropertyConflict(scope, renewalContractId, unit.id, startDate, endDate, manager);
     return unit;
   }
 

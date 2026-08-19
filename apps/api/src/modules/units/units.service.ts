@@ -452,11 +452,11 @@ export class UnitsService {
            SELECT 1
            FROM biz_housing_lease lease
            WHERE lease.tenant_id=$1
-             AND lease.park_id=$2
-             AND lease.unit_id=$3
-             AND lease.is_deleted=false
-             AND lease.status IN ('active','expiring','checkout_pending')
-         ) AS has_active_housing_lease,
+	             AND lease.park_id=$2
+	             AND lease.unit_id=$3
+	             AND lease.is_deleted=false
+	             AND lease.status IN ('draft','pending_approval','pending_signature','active','expiring','checkout_pending')
+	         ) AS has_active_housing_lease,
          EXISTS (
            SELECT 1
            FROM biz_homestay_booking booking
