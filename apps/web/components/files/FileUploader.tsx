@@ -76,7 +76,7 @@ export function FileUploader({
   const selectedIdempotencyKey = useRef<string | null>(null);
   const policy = useMemo(() => resolveFileUploadPolicy(policyKey ?? bizType), [bizType, policyKey]);
   const accept = policy.mimeTypes.join(",");
-  const policyText = helperText ?? `${policy.mimeTypes.map((item) => item.split("/").pop()?.toUpperCase() ?? item).join(" / ")}，最大 ${formatFileSize(policy.maxSizeBytes)}`;
+  const policyText = helperText ?? `${policy.mimeTypes.map(formatAcceptedMimeLabel).join(" / ")}，最大 ${formatFileSize(policy.maxSizeBytes)}`;
   const hasVersionResolver = resolveCurrentEntityVersion !== undefined;
   const configuredQueueContext = useMemo<PropertyUploadContext | null>(() => {
     if (!offlineQueueContext || !bizId || !hasVersionResolver) return null;
@@ -292,7 +292,7 @@ export function FileUploader({
         {uploading ? "上传中" : "上传"}
       </button>
       {offlineQueue.uiState.visible && queueContext ? <label>
-        <input checked={offlineQueue.consent} disabled={disabled || uploading} type="checkbox"
+        <input checked={offlineQueue.consent} disabled={disabled || uploading} name="offline_queue_consent" type="checkbox"
           onChange={(event) => offlineQueue.setConsent(event.target.checked)} />
         我明确同意在上传失败或离线时，将现场图片临时保存在此设备（最多 2 小时）
       </label> : null}
@@ -305,4 +305,16 @@ export function FileUploader({
       {message ? <span className="status-pill">{message}</span> : null}
     </div>
   );
+}
+
+function formatAcceptedMimeLabel(mimeType: string): string {
+  return ({
+    "image/jpeg": "JPG",
+    "image/png": "PNG",
+    "image/webp": "WEBP",
+    "application/pdf": "PDF",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "XLSX",
+    "application/vnd.ms-excel": "XLS",
+    "video/mp4": "MP4"
+  } as Record<string, string>)[mimeType] ?? (mimeType.split("/").pop()?.toUpperCase() ?? mimeType);
 }

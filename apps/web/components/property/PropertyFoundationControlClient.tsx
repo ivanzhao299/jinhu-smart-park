@@ -221,6 +221,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
           <span>房源关键词</span>
           <input
             aria-label="按房源编码或名称筛选"
+            name="keyword"
             onChange={(event) => { setKeyword(event.target.value); setPage(1); }}
             placeholder="输入房源编码或名称"
             type="search"
@@ -228,47 +229,47 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
           />
         </label> : null}
         {surface === "operations" ? <>
-          <label className="form-field"><span>楼栋 ID</span><input type="search" value={buildingId} onChange={(event) => { setBuildingId(event.target.value); setPage(1); }} /></label>
-          <label className="form-field"><span>经营模式</span><select value={configuredMode} onChange={(event) => { setConfiguredMode(event.target.value); setPage(1); }}>
+          <label className="form-field"><span>楼栋 ID</span><input name="building_id" type="search" value={buildingId} onChange={(event) => { setBuildingId(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>经营模式</span><select name="configured_mode" value={configuredMode} onChange={(event) => { setConfiguredMode(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
           </select></label>
-          <label className="form-field"><span>经营状态</span><select value={operationStatus} onChange={(event) => { setOperationStatus(event.target.value); setPage(1); }}>
+          <label className="form-field"><span>经营状态</span><select name="operation_status" value={operationStatus} onChange={(event) => { setOperationStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="enabled">启用</option><option value="suspended">暂停</option><option value="disabled">停用</option>
           </select></label>
-          <label className="form-field"><span>阻断类型</span><select value={blockerCode} onChange={(event) => { setBlockerCode(event.target.value); setPage(1); }}>
+          <label className="form-field"><span>阻断类型</span><select name="blocker_code" value={blockerCode} onChange={(event) => { setBlockerCode(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="commercial-active">商业租赁占用</option><option value="homestay-active">民宿占用</option><option value="housing-active">住房占用</option><option value="occupancy-incompatible">不兼容占用</option><option value="operations-blocker">运营阻断</option><option value="checkout-pending">待退房</option><option value="workorder-open">未结工单</option><option value="receivable-unsettled">未结财务</option>
           </select></label>
         </> : null}
         {surface !== "operations" ? <label className="form-field"><span>经营房源 ID</span><input
-          aria-label="按经营房源 ID 精确筛选" onChange={(event) => { setUnitId(event.target.value); setPage(1); }}
+          aria-label="按经营房源 ID 精确筛选" name="unit_id" onChange={(event) => { setUnitId(event.target.value); setPage(1); }}
           placeholder="输入房源 UUID" type="search" value={unitId} /></label> : null}
         {surface === "occupancies" ? <>
-          <label className="form-field"><span>来源域</span><select value={sourceDomain} onChange={(event) => { setSourceDomain(event.target.value); setPage(1); }}>
+          <label className="form-field"><span>来源域</span><select name="source_domain" value={sourceDomain} onChange={(event) => { setSourceDomain(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">住房出租</option><option value="apartment">公寓</option><option value="maintenance">维修</option><option value="operations">运营</option>
           </select></label>
-          <label className="form-field"><span>来源类型</span><input type="search" value={sourceType} onChange={(event) => { setSourceType(event.target.value); setPage(1); }} /></label>
-          <label className="form-field"><span>占用状态</span><select value={occupancyStatus} onChange={(event) => { setOccupancyStatus(event.target.value); setPage(1); }}>
+          <label className="form-field"><span>来源类型</span><input name="source_type" type="search" value={sourceType} onChange={(event) => { setSourceType(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>占用状态</span><select name="occupancy_status" value={occupancyStatus} onChange={(event) => { setOccupancyStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="held">保留</option><option value="active">生效</option><option value="released">已释放</option><option value="completed">已完成</option><option value="cancelled">已取消</option>
           </select></label>
         </> : null}
         {surface !== "operations" ? <>
-          <label className="form-field"><span>开始时间下限</span><input type="datetime-local" value={startFrom} onChange={(event) => { setStartFrom(event.target.value); setPage(1); }} /></label>
-          <label className="form-field"><span>结束时间上限</span><input type="datetime-local" value={endTo} onChange={(event) => { setEndTo(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>开始时间下限</span><input name="start_from" type="datetime-local" value={startFrom} onChange={(event) => { setStartFrom(event.target.value); setPage(1); }} /></label>
+          <label className="form-field"><span>结束时间上限</span><input name="end_to" type="datetime-local" value={endTo} onChange={(event) => { setEndTo(event.target.value); setPage(1); }} /></label>
         </> : null}
         {surface === "mode-transitions" ? <>
-          <label className="form-field"><span>原模式</span><select value={fromMode}
+          <label className="form-field"><span>原模式</span><select name="from_mode" value={fromMode}
             onChange={(event) => { setFromMode(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
           </select></label>
-          <label className="form-field"><span>目标模式</span><select value={toMode}
+          <label className="form-field"><span>目标模式</span><select name="to_mode" value={toMode}
             onChange={(event) => { setToMode(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
           </select></label>
-          <label className="form-field"><span>审批状态</span><select value={decisionStatus}
+          <label className="form-field"><span>审批状态</span><select name="decision_status" value={decisionStatus}
             onChange={(event) => { setDecisionStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="submitted">已提交</option><option value="pending_approval">待审批</option><option value="approved">已批准</option><option value="rejected">已驳回</option><option value="withdrawn">已撤回</option>
           </select></label>
-          <label className="form-field"><span>执行状态</span><select value={executionStatus}
+          <label className="form-field"><span>执行状态</span><select name="execution_status" value={executionStatus}
             onChange={(event) => { setExecutionStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="not_required">无需执行</option><option value="not_started">待执行</option><option value="executing">执行中</option><option value="retry_wait">等待重试</option><option value="executed">已执行</option><option value="execution_failed">执行失败</option><option value="infra_exhausted">基础设施重试耗尽</option>
           </select></label>
@@ -396,17 +397,17 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
       <p>仅用于人工维修或运营锁房；民宿、住房和商业租赁占用必须由原业务流程创建。</p>
       <form onSubmit={(event) => void submit(event)}>
         <div className="ds-command-grid">
-          <label className="form-field"><span>经营房源 ID</span><input required value={unitId}
+          <label className="form-field"><span>经营房源 ID</span><input name="manual_unit_id" required value={unitId}
             onChange={(event) => { payloadChanged(); setUnitId(event.target.value); }} /></label>
-          <label className="form-field"><span>锁房类型</span><select value={sourceDomain}
+          <label className="form-field"><span>锁房类型</span><select name="manual_source_domain" value={sourceDomain}
             onChange={(event) => { payloadChanged(); setSourceDomain(event.target.value as "maintenance" | "operations"); }}>
             <option value="maintenance">维修锁房</option><option value="operations">运营锁房</option>
           </select></label>
-          <label className="form-field"><span>关联编号</span><input maxLength={64} required value={reference}
+          <label className="form-field"><span>关联编号</span><input maxLength={64} name="manual_reference" required value={reference}
             onChange={(event) => { payloadChanged(); setReference(event.target.value); }} /></label>
-          <label className="form-field"><span>开始时间</span><input required type="datetime-local" value={startAt}
+          <label className="form-field"><span>开始时间</span><input name="manual_start_at" required type="datetime-local" value={startAt}
             onChange={(event) => { payloadChanged(); setStartAt(event.target.value); }} /></label>
-          <label className="form-field"><span>结束时间</span><input required type="datetime-local" value={endAt}
+          <label className="form-field"><span>结束时间</span><input name="manual_end_at" required type="datetime-local" value={endAt}
             onChange={(event) => { payloadChanged(); setEndAt(event.target.value); }} /></label>
         </div>
         {feedback ? <p aria-live="polite" role={feedback.includes("失败") || feedback.includes("请") ? "alert" : undefined}>{feedback}</p> : null}
@@ -803,17 +804,19 @@ function OperationWriteControls({ item, onCompleted }: {
         <form onSubmit={(event) => void configure(event)}>
           <div className="ds-command-grid">
             <label className="form-field"><span>物理房源 ID</span><input
+              name="asset_unit_id"
               onChange={(event) => { configureKey.current = null; setAssetUnitId(event.target.value); }}
               placeholder="可选：asset_unit UUID" value={assetUnitId}
             /></label>
             <label className="form-field"><span>经营状态</span><select
+              name="operation_status"
               onChange={(event) => { configureKey.current = null; setStatus(event.target.value); }} value={status}
             ><option value="enabled">启用</option><option value="suspended">暂停</option><option value="disabled">停用</option></select></label>
             {status !== "enabled" ? <label className="form-field"><span>暂停/停用原因</span><input
-              maxLength={500} required value={suspendReason}
+              maxLength={500} name="suspend_reason" required value={suspendReason}
               onChange={(event) => { configureKey.current = null; setSuspendReason(event.target.value); }}
             /></label> : null}
-            <label className="form-field"><span>备注</span><input maxLength={500} value={remark}
+            <label className="form-field"><span>备注</span><input maxLength={500} name="operation_remark" value={remark}
               onChange={(event) => { configureKey.current = null; setRemark(event.target.value); }} /></label>
           </div>
           <div className="ds-action-bar"><button className="ds-button" disabled={busy} type="submit">保存经营配置</button></div>
@@ -825,7 +828,7 @@ function OperationWriteControls({ item, onCompleted }: {
         <PropertyPanelSurface title="申请经营模式切换">
           <p>所有模式切换均进入审批；此处不会直接修改当前经营模式。</p>
           <div className="ds-action-bar">
-            <label className="form-field"><span>目标模式</span><select value={targetMode}
+            <label className="form-field"><span>目标模式</span><select name="target_mode" value={targetMode}
               onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
             ><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">住房/商业长租</option></select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}

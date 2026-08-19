@@ -31,8 +31,11 @@ test("control-plane and embedded runtime use DS surfaces with accessibility fall
 
 test("identity detail deep-link targets a focusable Party identity section", () => {
   const control = readFileSync(resolve(componentRoot, "PropertyControlPlaneClient.tsx"), "utf8");
+  const fileUploader = readFileSync(resolve(webRoot, "components/files/FileUploader.tsx"), "utf8");
   const party = readFileSync(resolve(webRoot, "app/assets/parties/PartyDetailClient.tsx"), "utf8");
 
+  assert.match(control, /title: "身份核验工作台"/);
+  assert.doesNotMatch(control, /身份核验目录/);
   assert.match(control, /\?tab=identity#identity/);
   assert.match(control, /IdentityDraftCreatePanel/);
   assert.match(control, /创建身份核验草稿/);
@@ -81,6 +84,14 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   assert.match(control, /<FileUploader/);
   assert.match(control, /<PendingAttachmentList/);
   assert.match(control, /bizType="party_identity_evidence"/);
+  assert.match(fileUploader, /formatAcceptedMimeLabel/);
+  assert.match(fileUploader, /"application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet": "XLSX"/);
+  assert.match(fileUploader, /"application\/vnd\.ms-excel": "XLS"/);
+  assert.match(control, /name="party_id"/);
+  assert.match(control, /name="expected_identity_version"/);
+  assert.match(control, /name="document_type"/);
+  assert.match(control, /name="identity_number"/);
+  assert.match(control, /name="identity_action_reason"/);
   assert.match(control, /证件类型和证件号码需要同时填写或同时留空/);
   assert.match(control, /hasNewEvidenceFiles/);
   assert.match(control, /preservesExistingIdentity/);
@@ -137,6 +148,15 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /unitName: string/);
   assert.match(foundation, /label: "房源"/);
   assert.match(foundation, /params\.set\("keyword", keyword\.trim\(\)\)/);
+  assert.match(foundation, /name="keyword"/);
+  assert.match(foundation, /name="building_id"/);
+  assert.match(foundation, /name="configured_mode"/);
+  assert.match(foundation, /name="source_domain"/);
+  assert.match(foundation, /name="start_from"/);
+  assert.match(foundation, /name="manual_unit_id"/);
+  assert.match(foundation, /name="manual_start_at"/);
+  assert.match(foundation, /name="asset_unit_id"/);
+  assert.match(foundation, /name="target_mode"/);
   assert.match(foundation, /params\.set\("sourceDomain", sourceDomain\)/);
   assert.match(foundation, /value="apartment">公寓/);
   assert.match(foundation, /params\.set\("sourceType", sourceType\.trim\(\)\)/);

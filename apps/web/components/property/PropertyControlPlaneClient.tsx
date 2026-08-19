@@ -59,7 +59,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 
 const CONFIG = {
   identity: {
-    title: "身份核验目录",
+    title: "身份核验工作台",
     description: "查看共享 Party 的核验提交、当前证据与分派状态。",
     api: "/property/identity-submissions",
     route: "/assets/identity-submissions",
@@ -140,7 +140,7 @@ export function PropertyControlPlaneListClient({ surface }: { surface: PropertyC
     <PropertyPanelSurface>
       <div className={styles.toolbar}>
         {config.statusOptions.length ? <label>状态
-          <select value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
+          <select name={`${surface}-status`} value={status} onChange={(event) => { setStatus(event.target.value); setPage(1); }}>
             <option value="">全部</option>
             {config.statusOptions.map((option) => <option key={option} value={option}>{option}</option>)}
           </select>
@@ -355,7 +355,7 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
         <pre className={styles.safeDetails}>{JSON.stringify(safeDetailsObject(detail), null, 2)}</pre></PropertyPanelSurface> : null}
       {surface !== "identity" && action && allowedActions(detail).includes(action) ? <PropertyPanelSurface title="允许操作">
         <div className={styles.actionForm}>
-          {surface === "notifications" ? null : <label>原因<textarea maxLength={1000} onChange={(event) => setReason(event.target.value)} value={reason} /></label>}
+          {surface === "notifications" ? null : <label>原因<textarea maxLength={1000} name={`${surface}-reason`} onChange={(event) => setReason(event.target.value)} value={reason} /></label>}
           <button aria-busy={mutating} className="ds-button ds-button-primary" disabled={mutating}
             onClick={() => void mutate()} type="button">{mutating ? "正在提交…" : actionLabel(surface)}</button>
           {feedback ? <p aria-live="polite">{feedback}</p> : null}
@@ -363,16 +363,16 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
       {surface === "identity" && allowedActions(detail).length ? <PropertyPanelSurface title="身份核验操作">
         <div className={styles.actionForm}>
           {allowedActions(detail).includes("party.identity.verify") ? <label>核验决定
-            <select value={identityDecision} onChange={(event) => setIdentityDecision(
+            <select name="identity_decision" value={identityDecision} onChange={(event) => setIdentityDecision(
               event.target.value as "verified" | "rejected"
             )}><option value="verified">通过</option><option value="rejected">拒绝</option></select>
           </label> : null}
           {allowedActions(detail).includes("party.identity.reassign") ? <label>新核验人 ID（留空即解除分派）
-            <input value={assignedVerifierId} onChange={(event) => setAssignedVerifierId(event.target.value)} />
+            <input name="assigned_verifier_id" value={assignedVerifierId} onChange={(event) => setAssignedVerifierId(event.target.value)} />
           </label> : null}
           {allowedActions(detail).some((value) => [
             "party.identity.reassign", "party.identity.verify", "party.identity.withdraw"
-          ].includes(value)) ? <label>原因<textarea maxLength={500}
+          ].includes(value)) ? <label>原因<textarea maxLength={500} name="identity_action_reason"
             onChange={(event) => setReason(event.target.value)} value={reason} /></label> : null}
           <div className={styles.toolbar}>{allowedActions(detail).map((identityAction) =>
             <button aria-busy={mutating} className="ds-button ds-button-primary"
@@ -530,13 +530,13 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
       <form className={styles.actionForm} onSubmit={(event) => void createDraft(event)}>
         <div className={styles.formGrid}>
           <label>Party ID
-            <input required value={draftPartyId} onChange={(event) => {
+            <input name="party_id" required value={draftPartyId} onChange={(event) => {
               createKey.current = null;
               setDraftPartyId(event.target.value);
             }} />
           </label>
           <label>预期身份版本
-            <input min={0} step={1} type="number" value={expectedIdentityVersion}
+            <input min={0} name="expected_identity_version" onFocus={(event) => event.target.select()} step={1} type="number" value={expectedIdentityVersion}
               onChange={(event) => {
                 createKey.current = null;
                 setExpectedIdentityVersion(Number(event.target.value || 0));
@@ -548,13 +548,13 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
         </p> : null}
         <div className={styles.formGrid}>
           <label>复核原提交 ID
-            <input value={supersedesSubmissionId} onChange={(event) => {
+            <input name="supersedes_submission_id" value={supersedesSubmissionId} onChange={(event) => {
               createKey.current = null;
               setSupersedesSubmissionId(event.target.value);
             }} />
           </label>
           <label>复核原提交状态
-            <select value={expectedSupersededStatus} onChange={(event) => {
+            <select name="expected_superseded_status" value={expectedSupersededStatus} onChange={(event) => {
               createKey.current = null;
               setExpectedSupersededStatus(event.target.value as "rejected" | "withdrawn" | "verified" | "");
             }}>
@@ -565,7 +565,7 @@ function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
             </select>
           </label>
           <label>复核原提交版本
-            <input min={0} step={1} type="number" value={expectedSupersededVersion}
+            <input min={0} name="expected_superseded_version" onFocus={(event) => event.target.select()} step={1} type="number" value={expectedSupersededVersion}
               onChange={(event) => {
                 createKey.current = null;
                 setExpectedSupersededVersion(Number(event.target.value || 0));
@@ -739,7 +739,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
       <form className={styles.actionForm} onSubmit={(event) => void updateDraft(event)}>
         <div className={styles.formGrid}>
           <label>证件类型
-            <select value={documentType} onChange={(event) => {
+            <select name="document_type" value={documentType} onChange={(event) => {
               updateKey.current = null;
               setDocumentType(event.target.value as "id_card" | "passport" | "");
             }}>
@@ -749,7 +749,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
             </select>
           </label>
           <label>证件号码
-            <input aria-required={identityNumberRequired} maxLength={128} required={identityNumberRequired}
+            <input aria-required={identityNumberRequired} maxLength={128} name="identity_number" required={identityNumberRequired}
               value={identityNumber} onChange={(event) => {
               updateKey.current = null;
               setIdentityNumber(event.target.value);
