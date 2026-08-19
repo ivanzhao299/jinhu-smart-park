@@ -72,3 +72,64 @@ await transitionEmployment(scope, actor, employeeId, departureAction);
 await createPayrollRun(scope, actor, { periodId, correctionOfRunId: confirmedRunId });
 return { responseCount, averageScore };
 ```
+
+## Scenario: HR work reports in the unified Workflow Inbox
+
+### 1. Scope / Trigger
+
+- Trigger: submitting, confirming, or returning an HR daily, weekly, or monthly work report.
+- HR actions must reuse `biz_user_message`; do not create an HR-only notification table or inbox.
+
+### 2. Signatures
+
+- Submission projection: `HrNotificationService.publishWorkReportSubmitted(scope, actor, report, manager)`.
+- Review projection: `HrNotificationService.publishWorkReportReviewed(scope, actor, report, manager)`.
+- Inbox fields: `category=hr`, `source_type=hr_work_report`, `biz_type=hr_work_report`, and `target_url=/hr/work-reports`.
+
+### 3. Contracts
+
+- Write the message with the same `EntityManager` transaction as the report state transition.
+- A submitted report targets the linked system user of `reviewer_employee_id`.
+- A confirmed or returned report targets the linked system user of `employee_id`.
+- A returned report uses `priority=high` and `action=supplement`; a confirmed report uses `action=confirmed`.
+- `unique_key` includes report ID, resulting status, and recipient user ID; inserts use `orIgnore()` for retry safety.
+- Employees without a linked system account remain valid HR records; message publication becomes a no-op for them.
+
+### 4. Validation & Error Matrix
+
+- Reviewer employee absent or without `user_id` -> keep the report transition and create no message.
+- Employee recipient absent or without `user_id` -> keep the review result and create no message.
+- Actor equals recipient -> create no redundant self-notification.
+- Replayed message unique key -> ignore the duplicate, do not fail the HR transaction.
+- Message insert failure other than uniqueness conflict -> roll back the report transaction.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an employee submits a weekly report, the manager sees an HR review item, returns it, and the employee sees a high-priority supplement item.
+- Base: a preboarding employee without a login account has no inbox delivery.
+- Bad: save the report, commit, and publish a best-effort message afterward; this can leave state and inbox inconsistent.
+
+### 6. Tests Required
+
+- Unit-test submitted, returned, confirmed, missing-account, and self-recipient projections.
+- Contract-test `UserMessageEntity` module wiring, HR category, target URL, and deduplicating insert.
+- Workflow Inbox acceptance must verify the generated item opens `/hr/work-reports`.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const report = await reports.save(nextReport);
+await messages.save({ recipientId: report.reviewerEmployeeId });
+```
+
+#### Correct
+
+```ts
+return dataSource.transaction(async (manager) => {
+  const report = await manager.getRepository(HrWorkReportEntity).save(nextReport);
+  await notifications.publishWorkReportSubmitted(scope, actor, report, manager);
+  return report;
+});
+```

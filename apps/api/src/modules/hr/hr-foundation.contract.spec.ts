@@ -77,3 +77,13 @@ test("HR reference writes fail closed to the current tenant and park",()=>{
  assert.match(service,/Work report is outside the manager organization scope/);
  assert.match(service,/Performance plan is outside the manager organization scope/);
 });
+test("work report actions project into the existing workflow inbox",()=>{
+ const moduleSource=readFileSync(resolve(__dirname,"hr.module.ts"),"utf8");
+ const notificationSource=readFileSync(resolve(__dirname,"hr-notification.service.ts"),"utf8");
+ assert.match(moduleSource,/UserMessageEntity/);
+ assert.match(service,/publishWorkReportSubmitted/);
+ assert.match(service,/publishWorkReportReviewed/);
+ assert.match(notificationSource,/category:\s*"hr"/);
+ assert.match(notificationSource,/targetUrl:\s*"\/hr\/work-reports"/);
+ assert.match(notificationSource,/\.orIgnore\(\)/);
+});
