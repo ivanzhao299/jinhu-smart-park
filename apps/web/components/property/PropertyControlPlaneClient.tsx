@@ -604,6 +604,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
   const deleteKeys = useRef(new Map<string, string>());
   const deletedEvidenceFileIds = useRef<Set<string>>(new Set());
   const initialFileIds = useRef<Set<string>>(new Set());
+  const abandonedPendingFileIds = useRef<Set<string>>(new Set());
   const trimmedIdentityNumber = identityNumber.trim();
   const fileIds = pendingFiles.map((file) => file.id);
   const hasNewEvidenceFiles = fileIds.some((fileId) => !initialFileIds.current.has(fileId));
@@ -621,6 +622,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
   const draftBusy = busy || uploading;
 
   useEffect(() => {
+    cleanupAbandonedPendingIdentityEvidence();
     const files = detail.evidence.files.map(toPendingFileRecord);
     setDocumentType(detail.evidence.documentType ?? "");
     setIdentityNumber("");
@@ -628,8 +630,10 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     setRemovedInitialFileIds(new Set());
     deleteKeys.current.clear();
     deletedEvidenceFileIds.current.clear();
+    abandonedPendingFileIds.current.clear();
     initialFileIds.current = new Set(files.map((file) => file.id));
     updateKey.current = null;
+    return () => cleanupAbandonedPendingIdentityEvidence();
   }, [detail]);
 
   function identityEvidenceDeleteKey(fileId: string) {
@@ -638,6 +642,24 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     const next = createIdempotencyKey(`party-identity-evidence-delete-${fileId}`);
     deleteKeys.current.set(fileId, next);
     return next;
+  }
+
+  function cleanupAbandonedPendingIdentityEvidence() {
+    const abandonedIds = Array.from(abandonedPendingFileIds.current)
+      .filter((fileId) => !initialFileIds.current.has(fileId) && !deletedEvidenceFileIds.current.has(fileId));
+    if (!abandonedIds.length) return;
+    abandonedPendingFileIds.current.clear();
+    for (const fileId of abandonedIds) {
+      void apiRequest(`/files/${encodeURIComponent(fileId)}`, {
+        method: "DELETE",
+        token: getAccessToken() ?? undefined,
+        idempotencyKey: identityEvidenceDeleteKey(fileId)
+      }).then(() => {
+        deletedEvidenceFileIds.current.add(fileId);
+      }).catch(() => {
+        // Best-effort cleanup: explicit removal and saving still surface errors to the operator.
+      });
+    }
   }
   useEffect(() => {
     onDraftStateChange({ dirty: draftDirty, busy: draftBusy });
@@ -678,6 +700,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
           pendingFileIds: fileIds
         }
       });
+      abandonedPendingFileIds.current.clear();
       for (const fileId of removedInitialFileIds) {
         if (deletedEvidenceFileIds.current.has(fileId)) continue;
         try {
@@ -725,6 +748,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
         token: getAccessToken() ?? undefined,
         idempotencyKey: identityEvidenceDeleteKey(fileId)
       });
+      abandonedPendingFileIds.current.delete(fileId);
       deletedEvidenceFileIds.current.add(fileId);
       setPendingFiles((current) => current.filter((item) => item.id !== fileId));
     } catch (cause) {
@@ -763,6 +787,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
           label="上传身份核验证据"
           onUploaded={(file) => {
             updateKey.current = null;
+            abandonedPendingFileIds.current.add(file.id);
             setPendingFiles((current) => appendPendingFile(current, file));
           }}
           onUploadingChange={setUploading}
