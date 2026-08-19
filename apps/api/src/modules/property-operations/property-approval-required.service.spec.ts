@@ -37,10 +37,11 @@ test("force release submits through the strict approval port while retaining an 
 });
 
 test("non-force release preserves the existing low-risk path with its exact action permission", async () => {
-  const entity = {
-    id: "occupancy-low-risk",
-    unitId: "unit-1",
-    sourceDomain: "operations",
+	  const entity = {
+	    id: "occupancy-low-risk",
+	    unitId: "unit-1",
+	    unit: { id: "unit-1" },
+	    sourceDomain: "operations",
     status: "active",
     releaseReason: null,
     releasedAt: null,

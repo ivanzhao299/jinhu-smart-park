@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { BadRequestException } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING } from "@jinhu/shared";
 import {
   ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY
@@ -115,7 +115,8 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
 
   assert.equal(calls.length, 1);
   assert.match(calls[0]!.sql, /log\.approval_execution_key=request\.execution_idempotency_key/u);
-  assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$3::uuid\[\]\)/u);
+  assert.match(calls[0]!.sql, /unit\.usage_type=\$3/u);
+  assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$4::uuid\[\]\)/u);
   assert.match(calls[0]!.sql, /request\.action_id='property\.mode-transition\.request'/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, request\.source_expected_version, log\.version\) AS version/u);
@@ -124,12 +125,13 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   assert.match(calls[0]!.sql, /audit\.request_id AS "requestId"/u);
   assert.match(calls[0]!.sql, /audit\.check_snapshot AS "checkSnapshot"/u);
   assert.match(calls[0]!.sql, /count\(\*\) OVER\(\)::int/u);
-  assert.deepEqual(calls[0]!.parameters, [
-    "tenant-1",
-    "park-1",
-    ["00000000-0000-4000-8000-000000000001"],
-    "%A-101%",
-    20,
+	assert.deepEqual(calls[0]!.parameters, [
+	  "tenant-1",
+	  "park-1",
+	  UNIT_USAGE_HOUSING,
+	  ["00000000-0000-4000-8000-000000000001"],
+	  "%A-101%",
+	  20,
     20
   ]);
   assert.equal(result.total, 1);
@@ -175,7 +177,7 @@ test("aggregate mode transition audit preserves total on an empty page and accep
 
   assert.equal(calls.length, 2);
   assert.match(calls[1]!.sql, /SELECT count\(\*\)::int AS total/u);
-  assert.deepEqual(calls[1]!.parameters, ["tenant-1", "park-1"]);
+  assert.deepEqual(calls[1]!.parameters, ["tenant-1", "park-1", UNIT_USAGE_HOUSING]);
   assert.equal(result.total, 7);
   assert.deepEqual(result.items, []);
 });
@@ -215,13 +217,14 @@ test("aggregate mode transition audit rejects an inverted time range before quer
 test("configure rejects a stale version before mutating the unit or configuration", async () => {
   let unitSaveCalls = 0;
   let configSaveCalls = 0;
-  const unit = {
-    id: "unit-1",
-    tenantId: "tenant-1",
-    parkId: "park-1",
-    assetUnitId: null,
-    updateBy: null
-  };
+	const unit = {
+	  id: "unit-1",
+	  tenantId: "tenant-1",
+	  parkId: "park-1",
+	  usageType: UNIT_USAGE_HOUSING,
+	  assetUnitId: null,
+	  updateBy: null
+	};
   const config = {
     id: "config-1",
     unitId: "unit-1",
@@ -277,7 +280,7 @@ test("configure clears an asset mapping only when null is explicitly submitted",
     [{ version: 2, operating_status: "enabled", asset_unit_id: null }, null, 1]
   ] as const) {
     let unitSaveCalls = 0;
-    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: "asset-1", updateBy: null };
+    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: "asset-1", updateBy: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled", suspendReason: null, updateBy: null, remark: null };
     const manager = {
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
@@ -306,7 +309,7 @@ test("configure preserves an omitted remark and clears an explicit null remark",
     [{ version: 2, operating_status: "enabled" }, "既有备注"],
     [{ version: 2, operating_status: "enabled", remark: null }, null]
   ] as const) {
-    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: null };
+    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingStatus: "enabled", remark: "既有备注" as string | null };
     const manager = {
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
@@ -466,12 +469,20 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationsBlocker, /source_domain IN \('maintenance','operations'\)/);
   assert.match(operationsBlocker, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
   assert.match(operationService, /source_domain IN \('commercial_leasing','housing_rental','apartment'\)/);
-  assert.match(operationService, /private async buildTransitionSnapshots/);
-  assert.match(operationService, /unnest\(\$3::uuid\[\], \$4::text\[\]\)/);
-  assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
-  assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
-  assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
-});
+	  assert.match(operationService, /private async buildTransitionSnapshots/);
+	  assert.match(operationService, /unnest\(\$3::uuid\[\], \$4::text\[\]\)/);
+	  assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
+	  assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
+	  assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
+	  assert.match(operationService, /UNIT_USAGE_HOUSING/);
+	  assert.match(operationService, /unit\.usage_type = :housingUsageType/);
+	  assert.match(operationService, /unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
+	  assert.match(operationService, /Housing unit not found/);
+	  assert.match(service, /UNIT_USAGE_HOUSING/);
+	  assert.match(service, /unit\.usage_type = :housingUsageType/);
+	  assert.match(service, /unit\.id IS NOT NULL/);
+	  assert.match(service, /Housing unit not found/);
+	});
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
   const service = fs.readFileSync(

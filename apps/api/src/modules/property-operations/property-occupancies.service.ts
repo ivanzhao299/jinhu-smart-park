@@ -4,6 +4,7 @@ import {
   APARTMENT_PERMISSIONS,
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
+  UNIT_USAGE_HOUSING,
   isPropertyManagedOccupancyDomain,
   SYSTEM_PERMISSIONS,
   type PropertyApprovalCommandPort,
@@ -76,11 +77,14 @@ export class PropertyOccupanciesService {
         `unit.id = occupancy.unit_id
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
-          AND unit.is_deleted = false`
+          AND unit.is_deleted = false
+          AND unit.usage_type = :housingUsageType`,
+        { housingUsageType: UNIT_USAGE_HOUSING }
       )
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("occupancy.is_deleted = false");
+      .andWhere("occupancy.is_deleted = false")
+      .andWhere("unit.id IS NOT NULL");
     if (query.unitId) builder.andWhere("occupancy.unit_id = :unitId", { unitId: query.unitId });
     if (query.sourceDomain) builder.andWhere("occupancy.source_domain = :sourceDomain", { sourceDomain: query.sourceDomain });
     if (query.sourceType) builder.andWhere("occupancy.source_type = :sourceType", { sourceType: query.sourceType });
@@ -144,7 +148,7 @@ export class PropertyOccupanciesService {
       });
     }
     const period = normalizePropertyPeriod(dto.startAt, dto.endAt);
-    await this.unitAccessService.assertAccess(scope, actor, dto.unitId);
+    await this.assertHousingUnitAccess(scope, actor, dto.unitId);
     const conflicts = await this.findConflicts(this.dataSource.manager, scope, dto.unitId, period.startAt, period.endAt, {
       sourceType: dto.excludeSourceType,
       sourceId: dto.excludeSourceId
@@ -161,7 +165,7 @@ export class PropertyOccupanciesService {
   }
 
   async create(scope: TenantParkScope, actor: JwtPrincipal, dto: CreatePropertyOccupancyDto, idempotencyKey?: string) {
-    await this.unitAccessService.assertAccess(scope, actor, dto.unit_id);
+    await this.assertHousingUnitAccess(scope, actor, dto.unit_id);
     if (isPropertyManagedOccupancyDomain(dto.source_domain)) {
       throw new ForbiddenException("Business-owned occupancies must be created by their owning domain workflow");
     }
@@ -197,7 +201,7 @@ export class PropertyOccupanciesService {
       where: { id: dto.unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit) throw new NotFoundException("Unit not found");
+    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
     if (
       isPropertyManagedOccupancyDomain(dto.source_domain)
       && unit.status !== 1
@@ -311,7 +315,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit) throw new NotFoundException("Unit not found");
+    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -369,7 +373,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit) throw new NotFoundException("Unit not found");
+    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -535,9 +539,16 @@ export class PropertyOccupanciesService {
     const rows = await input.manager.query(
       `SELECT id::text AS id, unit_id::text AS "unitId", source_domain AS "sourceDomain",
               source_type AS "sourceType", source_id AS "sourceId", status, version
-         FROM biz_property_occupancy
-        WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND id=$3::uuid AND is_deleted=false FOR UPDATE`,
-      [scope.tenantId, scope.parkId, occupancyId]
+         FROM biz_property_occupancy occupancy
+        WHERE occupancy.tenant_id=$1::varchar AND occupancy.park_id=$2::varchar
+          AND occupancy.id=$3::uuid AND occupancy.is_deleted=false
+          AND EXISTS (
+            SELECT 1 FROM biz_unit unit
+            WHERE unit.tenant_id=occupancy.tenant_id AND unit.park_id=occupancy.park_id
+              AND unit.id=occupancy.unit_id AND unit.usage_type=$4 AND unit.is_deleted=false
+          )
+        FOR UPDATE`,
+      [scope.tenantId, scope.parkId, occupancyId, UNIT_USAGE_HOUSING]
     ) as Array<{
       id: string; unitId: string; sourceDomain: string; sourceType: string;
       sourceId: string; status: string; version: number;
@@ -684,15 +695,27 @@ export class PropertyOccupanciesService {
         `unit.id = occupancy.unit_id
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
-          AND unit.is_deleted = false`
+          AND unit.is_deleted = false
+          AND unit.usage_type = :housingUsageType`,
+        { housingUsageType: UNIT_USAGE_HOUSING }
       )
       .where("occupancy.id = :id", { id })
       .andWhere("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false")
       .getOne();
-    if (!entity) throw new NotFoundException("Property occupancy not found");
+    if (!entity || !entity.unit) throw new NotFoundException("Property occupancy not found");
     return entity;
+  }
+
+  private async assertHousingUnitAccess(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    unitId: string
+  ): Promise<UnitEntity> {
+    const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
+    if (unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    return unit;
   }
 
   private projectOccupancy(

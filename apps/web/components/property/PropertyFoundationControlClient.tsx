@@ -112,36 +112,6 @@ interface ModeTransitionRow {
 
 type FoundationRow = OperationRow | OccupancyRow | ModeTransitionRow;
 
-const OPERATING_MODE_LABELS: Record<string, string> = {
-  none: "不经营",
-  short_stay: "民宿短租",
-  long_rent: "住房/商业长租"
-};
-
-const OPERATING_STATUS_LABELS: Record<string, string> = {
-  enabled: "启用",
-  suspended: "暂停",
-  disabled: "停用"
-};
-
-const DECISION_STATUS_LABELS: Record<string, string> = {
-  submitted: "已提交",
-  pending_approval: "待审批",
-  approved: "已批准",
-  rejected: "已驳回",
-  withdrawn: "已撤回"
-};
-
-const EXECUTION_STATUS_LABELS: Record<string, string> = {
-  not_required: "无需执行",
-  not_started: "待执行",
-  executing: "执行中",
-  retry_wait: "等待重试",
-  executed: "已执行",
-  execution_failed: "执行失败",
-  infra_exhausted: "基础设施重试耗尽"
-};
-
 const SURFACE_CONFIG = {
   operations: {
     title: "房源经营配置",
@@ -162,6 +132,54 @@ const SURFACE_CONFIG = {
     route: "/assets/property-mode-transitions"
   }
 } as const;
+
+const OPERATING_MODE_LABELS: Record<string, string> = {
+  none: "不经营",
+  short_stay: "民宿短租",
+  long_rent: "住房长租"
+};
+
+const OPERATING_STATUS_LABELS: Record<string, string> = {
+  enabled: "启用",
+  suspended: "暂停",
+  disabled: "停用"
+};
+
+const OCCUPANCY_STATUS_LABELS: Record<string, string> = {
+  held: "保留",
+  active: "生效",
+  released: "已释放",
+  completed: "已完成",
+  cancelled: "已取消"
+};
+
+const DECISION_STATUS_LABELS: Record<string, string> = {
+  submitted: "已提交",
+  pending_approval: "待审批",
+  approved: "已批准",
+  rejected: "已驳回",
+  withdrawn: "已撤回"
+};
+
+const EXECUTION_STATUS_LABELS: Record<string, string> = {
+  not_required: "无需执行",
+  not_started: "待执行",
+  executing: "执行中",
+  retry_wait: "等待重试",
+  executed: "已执行",
+  execution_failed: "执行失败",
+  infra_exhausted: "基础设施重试耗尽"
+};
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  leasing_contract: "租赁合同",
+  homestay_booking: "民宿订单",
+  housing_lease: "住房租约",
+  apartment_room: "公寓房间",
+  manual_maintenance_lock: "人工维修锁房",
+  manual_operations_lock: "人工运营锁房",
+  homestay_turnover: "民宿周转任务"
+};
 
 export function PropertyFoundationListClient({ surface }: { surface: FoundationSurface }) {
   const config = SURFACE_CONFIG[surface];
@@ -450,7 +468,7 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
             {conflict.deepLink?.startsWith("/")
               ? <Link href={conflict.deepLink as Route}>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</Link>
               : <>{conflict.sourceLabel}{conflict.sourceId ? ` · ${conflict.sourceId}` : ""}</>}
-            {` · ${conflict.sourceType} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${conflict.status}`}
+            {` · ${sourceTypeLabel(conflict.sourceType)} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${occupancyStatusLabel(conflict.status)}`}
           </li>)}
         </ul> : null}
         <div className="ds-action-bar"><button className="ds-button" disabled={busy} type="submit">
@@ -553,9 +571,9 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
       const label = `${row.sourceLabel}${row.sourceId ? ` · ${row.sourceId}` : ""}`;
       return row.deepLink?.startsWith("/") ? <Link href={row.deepLink as Route}>{label}</Link> : label;
     } },
-    { key: "sourceType", label: "来源类型", render: (item) => (item as OccupancyRow).sourceType },
+    { key: "sourceType", label: "来源类型", render: (item) => sourceTypeLabel((item as OccupancyRow).sourceType) },
     { key: "period", label: "占用时段", render: (item) => `${formatTime((item as OccupancyRow).startAt)} — ${formatTime((item as OccupancyRow).endAt)}` },
-    { key: "status", label: "状态", render: (item) => (item as OccupancyRow).status },
+    { key: "status", label: "状态", render: (item) => occupancyStatusLabel((item as OccupancyRow).status) },
     { key: "holdExpiresAt", label: "保留到期", render: (item) => formatTime((item as OccupancyRow).holdExpiresAt) },
     { key: "release", label: "释放信息", render: (item) => {
       const row = item as OccupancyRow;
@@ -928,12 +946,20 @@ function formatOperatingStatus(value: string | null | undefined): string {
   return value ? OPERATING_STATUS_LABELS[value] ?? value : "—";
 }
 
+function occupancyStatusLabel(value: string): string {
+  return OCCUPANCY_STATUS_LABELS[value] ?? value;
+}
+
 function formatDecisionStatus(value: string | null | undefined): string {
   return value ? DECISION_STATUS_LABELS[value] ?? value : "—";
 }
 
 function formatExecutionStatus(value: string | null | undefined): string {
   return value ? EXECUTION_STATUS_LABELS[value] ?? value : "—";
+}
+
+function sourceTypeLabel(value: string): string {
+  return SOURCE_TYPE_LABELS[value] ?? value;
 }
 
 function formatBuildingLabel(row: OperationRow): string {
