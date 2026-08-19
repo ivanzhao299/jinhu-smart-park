@@ -411,24 +411,22 @@ export class UnitsService {
          EXISTS (
            SELECT 1
            FROM biz_property_operation_config config
-           WHERE config.tenant_id=$1
-             AND config.park_id=$2
-             AND config.unit_id=$3
-             AND config.is_deleted=false
-         ) AS has_operation_config,
+	           WHERE config.tenant_id=$1
+	             AND config.park_id=$2
+	             AND config.unit_id=$3
+	             AND config.is_deleted=false
+	             AND config.operating_status='enabled'
+	             AND config.operating_mode IN ('short_stay','long_rent')
+	         ) AS has_operation_config,
          EXISTS (
            SELECT 1
            FROM biz_property_occupancy occupancy
            WHERE occupancy.tenant_id=$1
-             AND occupancy.park_id=$2
-             AND occupancy.unit_id=$3
-             AND occupancy.is_deleted=false
-             AND occupancy.end_at>now()
-             AND (
-               occupancy.status='active'
-               OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now()))
-             )
-         ) AS has_active_occupancy,
+	             AND occupancy.park_id=$2
+	             AND occupancy.unit_id=$3
+	             AND occupancy.is_deleted=false
+	             AND occupancy.status NOT IN ('released','completed','cancelled')
+	         ) AS has_active_occupancy,
          EXISTS (
            SELECT 1
            FROM biz_housing_lease lease

@@ -530,7 +530,11 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /assertNoCommercialLeaseActivity/);
   assert.match(unitsService, /this\.unitsRepository\.manager\.transaction/);
   assert.match(unitsService, /biz_property_operation_config config/);
+  assert.match(unitsService, /config\.operating_status='enabled'/);
+  assert.match(unitsService, /config\.operating_mode IN \('short_stay','long_rent'\)/);
   assert.match(unitsService, /biz_property_occupancy occupancy/);
+  assert.match(unitsService, /occupancy\.status NOT IN \('released','completed','cancelled'\)/);
+  assert.doesNotMatch(unitsService, /assertNoPropertyActivity[\s\S]*occupancy\.end_at>now\(\)/);
   assert.match(unitsService, /biz_housing_lease lease/);
   assert.match(unitsService, /rel_leasing_contract_unit relation/);
   assert.match(unitsService, /房源存在未结束的商业租赁合同，不能改为住房用途/);
