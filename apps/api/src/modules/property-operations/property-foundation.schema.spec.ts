@@ -251,8 +251,23 @@ test("force release approval SQL pins parameter types before inserting approval-
 
 test("apartment occupancy creation follows the canonical advisory-before-unit lock order", () => {
   const service = readFileSync(resolve(__dirname, "../apartments/apartments.service.ts"), "utf8");
+  const candidates = service.slice(service.indexOf("unitCandidates"), service.indexOf("availableBeds"));
+  const availableBeds = service.slice(service.indexOf("availableBeds"), service.indexOf("async createRoom"));
   const createRoom = service.slice(service.indexOf("async createRoom"), service.indexOf("async updateRoom"));
+  const updateRoom = service.slice(service.indexOf("async updateRoom"), service.indexOf("listApplications"));
+  const allocate = service.slice(service.indexOf("async allocate"), service.indexOf("listStays"));
 
+  assert.match(service, /UNIT_USAGE_HOUSING/);
+  assert.match(candidates, /u\.usage_type=\$7/);
+  assert.match(candidates, /filterParameters=\[[\s\S]*UNIT_USAGE_HOUSING\]/);
+  assert.match(availableBeds, /u\.is_deleted=false AND u\.usage_type=\$5/);
+  assert.match(updateRoom, /dto\.management_status\s*===\s*"enabled"/);
+  assert.match(updateRoom, /loadCandidate\(manager,scope,room\.unit_id,id\)/);
+  assert.match(allocate, /u\.is_deleted=false AND u\.usage_type=\$5/);
   assert.ok(createRoom.indexOf("lock_property_unit_scope") < createRoom.indexOf("FOR UPDATE"));
+  assert.match(createRoom, /SELECT id,usage_type FROM biz_unit/);
+  assert.match(createRoom, /Number\(unit\[0\]\.usage_type\) !== UNIT_USAGE_HOUSING/);
+  assert.ok(createRoom.indexOf("FOR UPDATE") < createRoom.indexOf("UNIT_USAGE_HOUSING"));
+  assert.ok(createRoom.indexOf("UNIT_USAGE_HOUSING") < createRoom.indexOf("INSERT INTO biz_apartment_room"));
   assert.ok(createRoom.indexOf("FOR UPDATE") < createRoom.indexOf("INSERT INTO biz_property_occupancy"));
 });

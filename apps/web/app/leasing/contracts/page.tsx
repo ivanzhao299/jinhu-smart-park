@@ -71,6 +71,7 @@ const FILE_PERMISSIONS = {
   download: "file:download"
 } as const;
 const CONTRACT_FILE_BIZ_TYPE = "leasing_contract";
+const HOUSING_USAGE_TYPE = 70;
 
 
 interface DictItemRow {
@@ -108,6 +109,7 @@ interface UnitRow {
   buildingId: string;
   floorId: string;
   unitArea: string;
+  usageType?: number;
   rentalStatus: number;
   refPrice?: string | null;
 }
@@ -607,16 +609,25 @@ export default function LeasingContractsPage() {
     setFloors(references.floors as FloorRow[]);
   }, []);
 
-  const loadUnitOptions = useCallback(async () => {
-    const params = new URLSearchParams({ page: "1", page_size: "100", sort: "unitCode" });
-    if (unitFilters.buildingId) params.set("building_id", unitFilters.buildingId);
-    if (unitFilters.floorId) params.set("floor_id", unitFilters.floorId);
-    if (unitFilters.rentalStatus) params.set("rental_status", unitFilters.rentalStatus);
-    const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
-      token: getAccessToken()
-    });
-    setUnitOptions(response.data.items);
-  }, [unitFilters]);
+	  const loadUnitOptions = useCallback(async () => {
+	    const items: UnitRow[] = [];
+	    let page = 1;
+	    let total = 0;
+	    do {
+	      const params = new URLSearchParams({ page: String(page), page_size: "100", sort: "unitCode" });
+	      if (unitFilters.buildingId) params.set("building_id", unitFilters.buildingId);
+	      if (unitFilters.floorId) params.set("floor_id", unitFilters.floorId);
+	      if (unitFilters.rentalStatus) params.set("rental_status", unitFilters.rentalStatus);
+	      const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
+	        token: getAccessToken()
+	      });
+	      total = response.data.total;
+	      items.push(...response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE));
+	      if (response.data.items.length === 0) break;
+	      page += 1;
+	    } while (items.length < 100 && (page - 1) * 100 < total);
+	    setUnitOptions(items.slice(0, 100));
+	  }, [unitFilters]);
 
   const loadContractUnits = useCallback(async (contractId: string) => {
     if (!canReadContractUnits) return;

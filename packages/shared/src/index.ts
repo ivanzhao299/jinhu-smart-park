@@ -331,6 +331,10 @@ export type PropertyOperatingMode = (typeof PROPERTY_OPERATING_MODES)[number];
 export const PROPERTY_OPERATING_STATUSES = ["enabled", "suspended", "disabled"] as const;
 export type PropertyOperatingStatus = (typeof PROPERTY_OPERATING_STATUSES)[number];
 
+export const UNIT_USAGE_HOUSING = 70;
+export const UNIT_USAGE_TYPES = [10, 20, 30, 40, 50, 60, UNIT_USAGE_HOUSING] as const;
+export type UnitUsageType = (typeof UNIT_USAGE_TYPES)[number];
+
 export const PROPERTY_OCCUPANCY_STATUSES = ["held", "active", "released", "completed", "cancelled"] as const;
 export type PropertyOccupancyStatus = (typeof PROPERTY_OCCUPANCY_STATUSES)[number];
 

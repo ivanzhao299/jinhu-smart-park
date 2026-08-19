@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { BadRequestException } from "@nestjs/common";
-import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING } from "@jinhu/shared";
 import {
   ANY_PERMISSIONS_KEY,
   PERMISSIONS_KEY
@@ -115,6 +115,7 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
 
   assert.equal(calls.length, 1);
   assert.match(calls[0]!.sql, /log\.approval_execution_key=request\.execution_idempotency_key/u);
+  assert.doesNotMatch(calls[0]!.sql, /unit\.usage_type=/u);
   assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$3::uuid\[\]\)/u);
   assert.match(calls[0]!.sql, /request\.action_id='property\.mode-transition\.request'/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
@@ -124,12 +125,12 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
   assert.match(calls[0]!.sql, /audit\.request_id AS "requestId"/u);
   assert.match(calls[0]!.sql, /audit\.check_snapshot AS "checkSnapshot"/u);
   assert.match(calls[0]!.sql, /count\(\*\) OVER\(\)::int/u);
-  assert.deepEqual(calls[0]!.parameters, [
-    "tenant-1",
-    "park-1",
-    ["00000000-0000-4000-8000-000000000001"],
-    "%A-101%",
-    20,
+	assert.deepEqual(calls[0]!.parameters, [
+	  "tenant-1",
+	  "park-1",
+	  ["00000000-0000-4000-8000-000000000001"],
+	  "%A-101%",
+	  20,
     20
   ]);
   assert.equal(result.total, 1);
@@ -215,13 +216,14 @@ test("aggregate mode transition audit rejects an inverted time range before quer
 test("configure rejects a stale version before mutating the unit or configuration", async () => {
   let unitSaveCalls = 0;
   let configSaveCalls = 0;
-  const unit = {
-    id: "unit-1",
-    tenantId: "tenant-1",
-    parkId: "park-1",
-    assetUnitId: null,
-    updateBy: null
-  };
+	const unit = {
+	  id: "unit-1",
+	  tenantId: "tenant-1",
+	  parkId: "park-1",
+	  usageType: UNIT_USAGE_HOUSING,
+	  assetUnitId: null,
+	  updateBy: null
+	};
   const config = {
     id: "config-1",
     unitId: "unit-1",
@@ -277,8 +279,8 @@ test("configure clears an asset mapping only when null is explicitly submitted",
     [{ version: 2, operating_status: "enabled", asset_unit_id: null }, null, 1]
   ] as const) {
     let unitSaveCalls = 0;
-    const unit: { id: string; tenantId: string; parkId: string; assetUnitId: string | null; updateBy: string | null } =
-      { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: "asset-1", updateBy: null };
+    const unit: { id: string; tenantId: string; parkId: string; usageType: number; assetUnitId: string | null; updateBy: string | null } =
+      { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: "asset-1", updateBy: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled", suspendReason: null, updateBy: null, remark: null };
     const manager = {
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
@@ -308,7 +310,7 @@ test("configure preserves an omitted remark and clears an explicit null remark",
     [{ version: 2, operating_status: "enabled" }, "既有备注"],
     [{ version: 2, operating_status: "enabled", remark: null }, null]
   ] as const) {
-    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: null };
+    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", usageType: UNIT_USAGE_HOUSING, assetUnitId: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingStatus: "enabled", remark: "既有备注" as string | null };
     const manager = {
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
@@ -409,6 +411,30 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     path.join(__dirname, "property-operations.service.ts"),
     "utf8"
   );
+  const unitsService = fs.readFileSync(
+    path.join(__dirname, "../units/units.service.ts"),
+    "utf8"
+  );
+  const leasingContractsService = fs.readFileSync(
+    path.join(__dirname, "../leasing-contracts/leasing-contracts.service.ts"),
+    "utf8"
+  );
+  const housingMigration = fs.readFileSync(
+    path.resolve(__dirname, "../../../../../database/migrations/000220_unit_usage_housing.sql"),
+    "utf8"
+  );
+	  const propertyApiFixtures = fs.readFileSync(
+	    path.resolve(__dirname, "../../../../../scripts/e2e/property-api-e2e-fixtures.sql"),
+	    "utf8"
+	  );
+	  const leasingContractsPage = fs.readFileSync(
+	    path.resolve(__dirname, "../../../../web/app/leasing/contracts/page.tsx"),
+	    "utf8"
+	  );
+	  const leasingLeadsPage = fs.readFileSync(
+	    path.resolve(__dirname, "../../../../web/app/leasing/leads/page.tsx"),
+	    "utf8"
+	  );
   for (const field of [
     "pageSize",
     "buildingId",
@@ -441,6 +467,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(dto, /class PropertyModeTransitionUnitListQueryDto extends PropertyControlPageQueryDto/);
   assert.match(dto, /class PropertyModeTransitionListQueryDto extends PropertyControlPageQueryDto/);
   assert.match(operationService, /canRequestTransition: allowedActions\.includes\("property\.mode-transition\.request"\)/);
+  assert.match(operationService, /executeApprovedModeTransition[\s\S]*unit\.id=config\.unit_id AND unit\.is_deleted=false/);
+  assert.doesNotMatch(operationService, /executeApprovedModeTransition[\s\S]*unit\.usage_type=\$5/);
+  assert.match(operationService, /async transitionLogs\([\s\S]*this\.unitAccessService\.assertAccess\(scope, actor, unitId\)/);
+  assert.doesNotMatch(operationService, /transitionLogsAggregate[\s\S]*unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
   assert.doesNotMatch(operationService, /canRequestTransition: blockers\.length === 0/);
   assert.match(operationService, /\.leftJoin\("unit\.building", "building"\)/);
   assert.match(operationService, /AssetUnitEntity,\s*"assetUnit"/);
@@ -473,6 +503,97 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
   assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
   assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
+  assert.match(operationService, /UNIT_USAGE_HOUSING/);
+  assert.match(operationService, /unit\.usage_type = :housingUsageType/);
+  assert.match(operationService, /const lockedUnit = await manager\.getRepository\(UnitEntity\)\.findOne/);
+  assert.match(operationService, /lockedUnit\.usageType !== UNIT_USAGE_HOUSING/);
+  assert.match(operationService, /Housing unit not found/);
+  assert.match(service, /UNIT_USAGE_HOUSING/);
+  assert.match(service, /unit\.usage_type = :housingUsageType/);
+  assert.match(service, /occupancy\.status IN \('released', 'completed', 'cancelled'\)/);
+  assert.match(service, /occupancy\.source_domain IN \('maintenance', 'operations'\)/);
+  assert.match(service, /private isTerminalOrActiveManualOccupancy/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.source_domain IN \('maintenance', 'operations'\)/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.end_at > now\(\)/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
+  assert.match(service, /Housing unit not found/);
+  assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /private async lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /private async lockCommercialUnitForRenewalCopy/);
+  assert.match(leasingContractsService, /createRenewalDraft[\s\S]*\[\.\.\.relationDrafts\]\.sort\(\(left, right\) => left\.source\.unitId\.localeCompare\(right\.source\.unitId\)\)/);
+  assert.match(leasingContractsService, /createRenewalDraft[\s\S]*lockCommercialUnitForRenewalCopy[\s\S]*unitId: unit\.id/);
+  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*unit\.usageType === UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /private async lockContractForUnitBinding/);
+  assert.match(leasingContractsService, /lockContractForUnitBinding[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /async createUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /async updateUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /contractUnitsRepository\.manager\.transaction/);
+  assert.match(leasingContractsService, /originalRelations\.some\(\(relation\) => relation\.unit\?\.usageType === UNIT_USAGE_HOUSING\)/);
+  assert.match(leasingContractsService, /Housing units cannot be linked to commercial leasing contracts/);
+  assert.doesNotMatch(unitsService, /assertHousingUsageTypeChangeAllowed/);
+  assert.match(unitsService, /lockUnitForPropertyActivityChange/);
+  assert.match(unitsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)/);
+  assert.match(unitsService, /FOR UPDATE/);
+  assert.match(unitsService, /preserveLatestUsageTypeBeforeExistingUnitSave/);
+  assert.match(unitsService, /entity\.usageType = Number\(lockedUnit\.usage_type\)/);
+  assert.match(unitsService, /assertNoPropertyActivity/);
+  assert.match(unitsService, /assertNoCommercialLeaseActivity/);
+  assert.match(unitsService, /this\.unitsRepository\.manager\.transaction/);
+  assert.match(unitsService, /biz_property_operation_config config/);
+  assert.match(unitsService, /config\.operating_status='enabled'/);
+  assert.match(unitsService, /config\.operating_mode IN \('short_stay','long_rent'\)/);
+  assert.match(unitsService, /biz_property_approval_request request/);
+  assert.match(unitsService, /request\.action_id='property\.mode-transition\.request'/);
+  assert.match(unitsService, /request\.source_type='property-operation-config'/);
+  assert.match(unitsService, /request\.decision_status IN \('draft','submitted','pending_approval'\)/);
+  assert.match(unitsService, /request\.execution_status IN \('not_started','executing','retry_wait','infra_exhausted'\)/);
+  assert.match(unitsService, /biz_property_occupancy occupancy/);
+  assert.match(unitsService, /occupancy\.status NOT IN \('released','completed','cancelled'\)/);
+  assert.doesNotMatch(unitsService, /assertNoPropertyActivity[\s\S]*occupancy\.end_at>now\(\)/);
+  assert.match(unitsService, /biz_housing_lease lease/);
+  assert.match(unitsService, /lease\.status IN \('draft','pending_approval','pending_signature','active','expiring','checkout_pending'\)/);
+  assert.match(unitsService, /rel_leasing_contract_unit relation/);
+  assert.match(unitsService, /房源存在未结束的商业租赁合同，不能改为住房用途/);
+  assert.match(unitsService, /biz_homestay_booking booking/);
+  assert.match(unitsService, /booking\.status IN \('draft','confirmed','checked_in'\)/);
+  assert.match(unitsService, /biz_apartment_room room/);
+  assert.match(unitsService, /room\.management_status='enabled'/);
+  assert.match(unitsService, /住房房源存在经营配置、占用或业务活动，不能改为其他用途/);
+  assert.match(unitsService, /房源存在经营配置、占用或业务活动，不能删除/);
+  assert.match(housingMigration, /housing_unit_candidates/);
+  assert.match(housingMigration, /^BEGIN;/u);
+  assert.match(housingMigration, /COMMIT;\s*$/u);
+  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment'\)/);
+  assert.doesNotMatch(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations'\)/);
+  assert.match(housingMigration, /occupancy\.end_at > now\(\)/);
+  assert.match(housingMigration, /occupancy\.status = 'active'/);
+  assert.match(housingMigration, /occupancy\.status = 'held'/);
+  assert.match(housingMigration, /FROM biz_housing_lease lease/);
+  assert.match(housingMigration, /lease\.status IN \('draft', 'pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending'\)/);
+  assert.match(housingMigration, /FROM biz_homestay_booking booking/);
+  assert.match(housingMigration, /booking\.status IN \('draft', 'confirmed', 'checked_in'\)/);
+  assert.match(housingMigration, /FROM biz_apartment_room room/);
+  assert.match(housingMigration, /FROM biz_apartment_room room[\s\S]*WHERE room\.is_deleted = false/);
+  assert.doesNotMatch(housingMigration, /room\.management_status = 'enabled'/);
+  assert.match(housingMigration, /FROM biz_property_operation_config config/);
+  assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
+  assert.doesNotMatch(housingMigration, /config\.operating_mode[\s\S]*long_rent/);
+  assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict/);
+  assert.match(housingMigration, /JOIN biz_unit unit[\s\S]*unit\.is_deleted = false[\s\S]*unit\.usage_type <> 70[\s\S]*unit-usage-housing-mixed-commercial-conflict/);
+  assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict[\s\S]*relation\.end_date \+ interval '1 day'\) > \(now\(\) AT TIME ZONE 'Asia\/Shanghai'\)::date/);
+  assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
+  assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
+  assert.match(propertyApiFixtures, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
+  assert.match(propertyApiFixtures, /AND usage_type = 70/);
+  assert.match(leasingContractsPage, /const HOUSING_USAGE_TYPE = 70/);
+  assert.match(leasingContractsPage, /do \{[\s\S]*page: String\(page\)[\s\S]*items\.push\(\.\.\.response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)[\s\S]*\} while \(items\.length < 100/);
+  assert.match(leasingContractsPage, /setUnitOptions\(items\.slice\(0, 100\)\)/);
+  assert.match(leasingLeadsPage, /const HOUSING_USAGE_TYPE = 70/);
+  assert.match(leasingLeadsPage, /do \{[\s\S]*page: String\(page\)[\s\S]*commercialUnits\.push\(\.\.\.response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)[\s\S]*\} while \(commercialUnits\.length < 100/);
+  assert.match(leasingLeadsPage, /setQuoteUnitOptions\(limitedCommercialUnits\)/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {

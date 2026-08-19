@@ -103,19 +103,22 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
       assert.match(statement.sql, /unit\.tenant_id=\$1/u);
       assert.match(statement.sql, /unit\.park_id=\$2/u);
       assert.match(statement.sql, /unit\.status=1/u);
-      assert.match(statement.sql, /unit\.id=ANY\(\$3::uuid\[\]\)/u);
-      assert.match(statement.sql, /unit\.unit_code ILIKE \$4/u);
-      assert.match(statement.sql, /unit\.unit_name ILIKE \$4/u);
+      assert.match(statement.sql, /unit\.usage_type=\$3/u);
+      assert.match(statement.sql, /unit\.id=ANY\(\$4::uuid\[\]\)/u);
+      assert.match(statement.sql, /unit\.unit_code ILIKE \$5/u);
+      assert.match(statement.sql, /unit\.unit_name ILIKE \$5/u);
     }
     assert.deepEqual(statements[1]!.parameters, [
       scope.tenantId,
       scope.parkId,
+      70,
       ["unit-1"],
       "%A-101%"
     ]);
     assert.deepEqual(statements[0]!.parameters, [
       scope.tenantId,
       scope.parkId,
+      70,
       ["unit-1"],
       "%A-101%",
       pageSize,

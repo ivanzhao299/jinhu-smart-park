@@ -305,6 +305,29 @@ WITH candidates AS (
   FROM candidates
   WHERE ordinal <= 2
 )
+UPDATE biz_unit unit
+   SET usage_type = 70,
+       update_time = transaction_timestamp()
+  FROM desired
+ WHERE unit.tenant_id = :'tenant_id'
+   AND unit.park_id = :'park_id'
+   AND unit.id = desired.unit_id
+   AND unit.is_deleted = false
+   AND unit.usage_type <> 70;
+
+WITH candidates AS (
+  SELECT id, row_number() OVER (ORDER BY unit_code, id) AS ordinal
+  FROM biz_unit
+  WHERE tenant_id = :'tenant_id'
+    AND park_id = :'park_id'
+    AND is_deleted = false
+    AND usage_type = 70
+), desired AS (
+  SELECT id AS unit_id,
+         CASE ordinal WHEN 1 THEN 'short_stay' ELSE 'long_rent' END AS operating_mode
+  FROM candidates
+  WHERE ordinal <= 2
+)
 INSERT INTO biz_property_operation_config (
   tenant_id, park_id, unit_id, operating_mode, operating_status,
   effective_time, version, remark

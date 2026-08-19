@@ -7,7 +7,8 @@ const { Client } = requireFromApi("pg");
 const allowWrite = process.env.ALLOW_PROPERTY_CONTROL_PLANE_UAT_FIXTURE === "yes";
 const tenantId = process.env.TENANT_ID ?? process.env.DEFAULT_TENANT_ID ?? "10000001";
 const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
-const runCode = process.env.PROPERTY_CONTROL_PLANE_UAT_CODE ?? "issue-306";
+const runCode = process.env.PROPERTY_CONTROL_PLANE_UAT_CODE ?? "issue-318";
+const housingUsageType = 70;
 const actorUsername = process.env.ADMIN_USERNAME ?? "admin";
 const approverUsername = process.env.APPROVER_USERNAME ?? "";
 const identityVerifierUsername = process.env.IDENTITY_VERIFIER_USERNAME ?? approverUsername;
@@ -89,7 +90,9 @@ const ids = {
   verificationQueue: scopedUuid("identity-verification-queue"),
   party: scopedUuid("party"),
   submission: scopedUuid("submission"),
-  outbox: scopedUuid("outbox")
+  outbox: scopedUuid("outbox"),
+  occupancyUnit: scopedUuid("occupancy-unit"),
+  modeUnit: scopedUuid("mode-unit")
 };
 const identityQueueCode = `000-uat-${ids.verificationQueue.slice(0, 8)}`;
 
@@ -129,12 +132,13 @@ async function countFixtures(client) {
 async function chooseUnit(client, excludedUnitIds = []) {
   return queryOne(
     client,
-    `SELECT unit.id, unit.unit_code, unit.unit_name, config.id AS config_id
+    `SELECT unit.id, unit.unit_code, unit.unit_name, unit.usage_type, config.id AS config_id
        FROM biz_unit unit
        LEFT JOIN biz_property_operation_config config
          ON config.tenant_id=unit.tenant_id AND config.park_id=unit.park_id
         AND config.unit_id=unit.id AND config.is_deleted=false
       WHERE unit.tenant_id=$1 AND unit.park_id=$2 AND unit.is_deleted=false
+        AND unit.usage_type=$6
         AND (config.id IS NULL OR config.id=$3::uuid)
         AND NOT (unit.id=ANY($5::uuid[]))
         AND NOT EXISTS (
@@ -150,7 +154,7 @@ async function chooseUnit(client, excludedUnitIds = []) {
         )
       ORDER BY CASE WHEN config.id=$3::uuid THEN 0 ELSE 1 END, unit.create_time, unit.id
       LIMIT 1`,
-    [tenantId, parkId, ids.operationConfig, ids.occupancy, excludedUnitIds]
+    [tenantId, parkId, ids.operationConfig, ids.occupancy, excludedUnitIds, housingUsageType]
   );
 }
 
@@ -158,7 +162,7 @@ async function getUnitById(client, unitId) {
   if (!unitId) return null;
   return queryOne(
     client,
-    `SELECT unit.id, unit.unit_code, unit.unit_name, config.id AS config_id
+    `SELECT unit.id, unit.unit_code, unit.unit_name, unit.usage_type, config.id AS config_id
        FROM biz_unit unit
        LEFT JOIN biz_property_operation_config config
          ON config.tenant_id=unit.tenant_id AND config.park_id=unit.park_id
@@ -168,6 +172,65 @@ async function getUnitById(client, unitId) {
       LIMIT 1`,
     [tenantId, parkId, unitId]
   );
+}
+
+async function ensureUatHousingUnit(client, unitId, role) {
+  const existing = await getUnitById(client, unitId);
+  if (existing?.id) {
+    if (Number(existing.usage_type) !== housingUsageType) {
+      throw new Error(`Fixture ${role} unit ${existing.unit_code ?? unitId} is not a housing unit.`);
+    }
+    return existing;
+  }
+  const location = await queryOne(
+    client,
+    `SELECT building.id AS building_id, floor.id AS floor_id
+       FROM biz_building building
+       JOIN biz_floor floor
+         ON floor.tenant_id=building.tenant_id
+        AND floor.park_id=building.park_id
+        AND floor.building_id=building.id
+        AND floor.is_deleted=false
+      WHERE building.tenant_id=$1
+        AND building.park_id=$2
+        AND building.is_deleted=false
+      ORDER BY building.sort_no, building.building_code, floor.floor_no, floor.floor_code
+      LIMIT 1`,
+    [tenantId, parkId]
+  );
+  if (!location?.building_id || !location?.floor_id) {
+    throw new Error("Cannot find an active building and floor for property control-plane housing UAT data.");
+  }
+  const unitCode = `JH-UAT-H-${unitId.slice(0, 8)}`;
+  await client.query(
+    `INSERT INTO biz_unit (
+       id,tenant_id,park_id,unit_code,building_id,floor_id,unit_name,usage_type,
+       unit_area,use_area,rental_status,fitting_status,ref_price,available_date,status,remark)
+     VALUES($1::uuid,$2,$3,$4,$5::uuid,$6::uuid,$7,$8,88.00,76.00,10,30,5200.00,CURRENT_DATE,1,$9)
+     ON CONFLICT (id) DO UPDATE SET
+       usage_type=EXCLUDED.usage_type,
+       unit_name=EXCLUDED.unit_name,
+       unit_area=EXCLUDED.unit_area,
+       use_area=EXCLUDED.use_area,
+       rental_status=EXCLUDED.rental_status,
+       fitting_status=EXCLUDED.fitting_status,
+       status=1,
+       is_deleted=false,
+       update_time=clock_timestamp(),
+       remark=EXCLUDED.remark`,
+    [
+      unitId,
+      tenantId,
+      parkId,
+      unitCode,
+      location.building_id,
+      location.floor_id,
+      `共享房产住房UAT-${role}`,
+      housingUsageType,
+      `Issue #318 UAT: housing unit for ${role}`
+    ]
+  );
+  return getUnitById(client, unitId);
 }
 
 function modeTransitionBlockingReasons(counts, targetMode) {
@@ -712,13 +775,23 @@ async function applyFixtures(client) {
   );
   const existingModeUnit = await getUnitById(client, existingFixtureUnits?.mode_unit_id);
   const existingOccupancyUnit = await getUnitById(client, existingFixtureUnits?.occupancy_unit_id);
-  const occupancyUnit = existingOccupancyUnit ?? await chooseUnit(client, existingModeUnit?.id ? [existingModeUnit.id] : []);
+  const occupancyUnit = existingOccupancyUnit
+    ?? await chooseUnit(client, existingModeUnit?.id ? [existingModeUnit.id] : [])
+    ?? await ensureUatHousingUnit(client, ids.occupancyUnit, "occupancy");
   if (!occupancyUnit?.id) {
-    throw new Error("Cannot find an active biz_unit without an existing operation configuration for property control-plane UAT data.");
+    throw new Error("Cannot find or create an active housing biz_unit for property control-plane UAT data.");
   }
-  const modeUnit = existingModeUnit ?? await chooseUnit(client, [occupancyUnit.id]);
+  if (Number(occupancyUnit.usage_type) !== housingUsageType) {
+    throw new Error(`Fixture occupancy unit ${occupancyUnit.unit_code ?? occupancyUnit.id} must use housing usage_type=${housingUsageType}.`);
+  }
+  const modeUnit = existingModeUnit
+    ?? await chooseUnit(client, [occupancyUnit.id])
+    ?? await ensureUatHousingUnit(client, ids.modeUnit, "mode-transition");
   if (!modeUnit?.id) {
-    throw new Error("Cannot find a second active biz_unit for mode-transition UAT data; the fixture requires separate units for occupancy and mode-transition flows.");
+    throw new Error("Cannot find or create a second active housing biz_unit for mode-transition UAT data.");
+  }
+  if (Number(modeUnit.usage_type) !== housingUsageType) {
+    throw new Error(`Fixture mode-transition unit ${modeUnit.unit_code ?? modeUnit.id} must use housing usage_type=${housingUsageType}.`);
   }
   if (modeUnit.id === occupancyUnit.id) {
     throw new Error("Fixture occupancy and mode-transition rows resolved to the same unit; rerun with a new PROPERTY_CONTROL_PLANE_UAT_CODE.");

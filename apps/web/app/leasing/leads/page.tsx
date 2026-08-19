@@ -77,6 +77,7 @@ const QUOTE_PERMISSIONS = {
 const FILE_PERMISSIONS = {
   upload: "file:upload"
 } as const;
+const HOUSING_USAGE_TYPE = 70;
 
 interface LeasingLeadRow {
   id: string;
@@ -181,6 +182,7 @@ interface UnitOptionRow {
   unitName: string;
   unitArea: string;
   refPrice?: string | null;
+  usageType?: number;
   rentalStatus: number;
   buildingId: string;
   floorId: string;
@@ -673,17 +675,27 @@ export default function LeasingLeadsPage() {
     setVisitBuildingOptions((current) => mergeBuildingOptions(current, response.data.items));
   }, [visitUnitFilters]);
 
-  const loadQuoteUnits = useCallback(async () => {
-    const params = new URLSearchParams({ page: "1", page_size: "100" });
-    if (quoteUnitFilters.buildingId) params.set("building_id", quoteUnitFilters.buildingId);
-    if (quoteUnitFilters.rentalStatus) params.set("rental_status", quoteUnitFilters.rentalStatus);
-    if (quoteUnitFilters.keyword.trim()) params.set("keyword", quoteUnitFilters.keyword.trim());
-    const response = await apiRequest<PaginatedResult<UnitOptionRow>>(`/park-units?${params.toString()}`, {
-      token: getAccessToken()
-    });
-    setQuoteUnitOptions(response.data.items);
-    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, response.data.items));
-  }, [quoteUnitFilters]);
+	  const loadQuoteUnits = useCallback(async () => {
+	    const commercialUnits: UnitOptionRow[] = [];
+	    let page = 1;
+	    let total = 0;
+	    do {
+	      const params = new URLSearchParams({ page: String(page), page_size: "100" });
+	      if (quoteUnitFilters.buildingId) params.set("building_id", quoteUnitFilters.buildingId);
+	      if (quoteUnitFilters.rentalStatus) params.set("rental_status", quoteUnitFilters.rentalStatus);
+	      if (quoteUnitFilters.keyword.trim()) params.set("keyword", quoteUnitFilters.keyword.trim());
+	      const response = await apiRequest<PaginatedResult<UnitOptionRow>>(`/park-units?${params.toString()}`, {
+	        token: getAccessToken()
+	      });
+	      total = response.data.total;
+	      commercialUnits.push(...response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE));
+	      if (response.data.items.length === 0) break;
+	      page += 1;
+	    } while (commercialUnits.length < 100 && (page - 1) * 100 < total);
+	    const limitedCommercialUnits = commercialUnits.slice(0, 100);
+	    setQuoteUnitOptions(limitedCommercialUnits);
+	    setQuoteBuildingOptions((current) => mergeBuildingOptions(current, limitedCommercialUnits));
+	  }, [quoteUnitFilters]);
 
   function openFollowCreate() {
     setEditingFollow(null);

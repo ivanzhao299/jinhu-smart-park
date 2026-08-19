@@ -219,6 +219,12 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "检查快照"/);
   assert.match(foundation, /modeTransitionSnapshotSummary/);
   assert.match(foundation, /blocking_reasons/);
+  assert.match(foundation, /OCCUPANCY_STATUS_LABELS/);
+  assert.match(foundation, /DECISION_STATUS_LABELS/);
+  assert.match(foundation, /EXECUTION_STATUS_LABELS/);
+  assert.match(foundation, /SOURCE_TYPE_LABELS/);
+  assert.match(foundation, /sourceTypeLabel\(\(item as OccupancyRow\)\.sourceType\)/);
+  assert.match(foundation, /occupancyStatusLabel\(\(item as OccupancyRow\)\.status\)/);
   assert.match(foundation, /value="not_required">\{EXECUTION_STATUS_LABELS\.not_required\}/);
   assert.match(foundation, /setRemark\(item\.remark \?\? ""\)/);
   assert.match(foundation, /remark: remark\.trim\(\) \|\| null/);

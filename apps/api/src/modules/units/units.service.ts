@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import * as XLSX from "xlsx";
 import {
   Between,
@@ -8,6 +8,7 @@ import {
   In,
   LessThanOrEqual,
   MoreThanOrEqual,
+  type EntityManager,
   type FindOperator,
   type FindOptionsOrder,
   type FindOptionsWhere,
@@ -359,7 +360,133 @@ export class UnitsService {
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
     entity.updateBy = actor.sub;
 
-    return this.unitsRepository.save(entity);
+    return this.unitsRepository.manager.transaction(async (manager) => {
+      const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      if (dto.usageType === undefined) {
+        entity.usageType = Number(lockedUnit.usage_type);
+      } else if (Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING && dto.usageType !== UNIT_USAGE_HOUSING) {
+        await this.assertNoPropertyActivity(
+          manager,
+          scope,
+          entity.id,
+          "住房房源存在经营配置、占用或业务活动，不能改为其他用途"
+        );
+      } else if (Number(lockedUnit.usage_type) !== UNIT_USAGE_HOUSING && dto.usageType === UNIT_USAGE_HOUSING) {
+        await this.assertNoCommercialLeaseActivity(
+          manager,
+          scope,
+          entity.id,
+          "房源存在未结束的商业租赁合同，不能改为住房用途"
+        );
+      }
+      return manager.save(UnitEntity, entity);
+    });
+  }
+
+  private async lockUnitForPropertyActivityChange(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string
+  ): Promise<{ id: string; usage_type: number }> {
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+    const [unit] = await manager.query(
+      `SELECT id,usage_type
+         FROM biz_unit
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false
+        FOR UPDATE`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<{ id: string; usage_type: number }>;
+    if (!unit) throw new NotFoundException("Unit not found");
+    return unit;
+  }
+
+  private async assertNoPropertyActivity(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    message: string
+  ) {
+    const [row] = await manager.query(
+      `SELECT
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_operation_config config
+	           WHERE config.tenant_id=$1
+	             AND config.park_id=$2
+	             AND config.unit_id=$3
+	             AND config.is_deleted=false
+	             AND config.operating_status='enabled'
+	             AND config.operating_mode IN ('short_stay','long_rent')
+	         ) AS has_operation_config,
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_operation_config config
+	           JOIN biz_property_approval_request request
+	             ON request.tenant_id=config.tenant_id
+	            AND request.park_id=config.park_id
+	            AND request.source_id=config.id
+	            AND request.action_id='property.mode-transition.request'
+	            AND request.source_type='property-operation-config'
+	            AND (
+	              request.decision_status IN ('draft','submitted','pending_approval')
+	              OR (
+	                request.decision_status='approved'
+	                AND request.execution_status IN ('not_started','executing','retry_wait','infra_exhausted')
+	              )
+	            )
+	           WHERE config.tenant_id=$1
+	             AND config.park_id=$2
+	             AND config.unit_id=$3
+	             AND config.is_deleted=false
+	         ) AS has_pending_mode_transition,
+	         EXISTS (
+	           SELECT 1
+	           FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1
+	             AND occupancy.park_id=$2
+	             AND occupancy.unit_id=$3
+	             AND occupancy.is_deleted=false
+	             AND occupancy.status NOT IN ('released','completed','cancelled')
+	         ) AS has_active_occupancy,
+         EXISTS (
+           SELECT 1
+           FROM biz_housing_lease lease
+           WHERE lease.tenant_id=$1
+	             AND lease.park_id=$2
+	             AND lease.unit_id=$3
+	             AND lease.is_deleted=false
+	             AND lease.status IN ('draft','pending_approval','pending_signature','active','expiring','checkout_pending')
+	         ) AS has_active_housing_lease,
+         EXISTS (
+           SELECT 1
+           FROM biz_homestay_booking booking
+           WHERE booking.tenant_id=$1
+	             AND booking.park_id=$2
+	             AND booking.unit_id=$3
+	             AND booking.is_deleted=false
+	             AND booking.status IN ('draft','confirmed','checked_in')
+	         ) AS has_active_homestay_booking,
+         EXISTS (
+           SELECT 1
+           FROM biz_apartment_room room
+           WHERE room.tenant_id=$1
+             AND room.park_id=$2
+             AND room.unit_id=$3
+             AND room.is_deleted=false
+             AND room.management_status='enabled'
+         ) AS has_enabled_apartment_room`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<Record<string, boolean>>;
+	    if (
+	      row?.has_operation_config
+	      || row?.has_pending_mode_transition
+	      || row?.has_active_occupancy
+      || row?.has_active_housing_lease
+      || row?.has_active_homestay_booking
+      || row?.has_enabled_apartment_room
+    ) {
+      throw new ConflictException(message);
+    }
   }
 
   async uploadPhoto(
@@ -379,7 +506,10 @@ export class UnitsService {
     entity.photoFileIds = [...(entity.photoFileIds ?? []), uploaded.id];
     entity.photoUrls = [...(entity.photoUrls ?? []), uploaded.fileUrl];
     entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
+      await manager.save(UnitEntity, entity);
+    });
     return uploaded;
   }
 
@@ -400,7 +530,10 @@ export class UnitsService {
     entity.floorplanFileId = uploaded.id;
     entity.floorplanUrl = uploaded.fileUrl;
     entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
+      await manager.save(UnitEntity, entity);
+    });
     return uploaded;
   }
 
@@ -426,6 +559,7 @@ export class UnitsService {
 
     const now = new Date();
     await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
       entity.rentalStatus = afterStatus;
       entity.lockReason = afterStatus === 20 ? this.emptyToNull(dto.lock_reason) : null;
       entity.lockExpireTime = afterStatus === 20 && dto.lock_expire_time ? new Date(dto.lock_expire_time) : null;
@@ -957,10 +1091,55 @@ export class UnitsService {
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findDetail(scope, id, actor);
-    entity.isDeleted = true;
-    entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
+      await this.assertNoPropertyActivity(
+        manager,
+        scope,
+        entity.id,
+        "房源存在经营配置、占用或业务活动，不能删除"
+      );
+      entity.isDeleted = true;
+      entity.updateBy = actor.sub;
+      await manager.save(UnitEntity, entity);
+    });
     return { id };
+  }
+
+  private async preserveLatestUsageTypeBeforeExistingUnitSave(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    entity: UnitEntity
+  ) {
+    const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+    entity.usageType = Number(lockedUnit.usage_type);
+  }
+
+  private async assertNoCommercialLeaseActivity(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    message: string
+  ) {
+    const [row] = await manager.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM rel_leasing_contract_unit relation
+         JOIN biz_leasing_contract contract ON contract.id = relation.contract_id
+        WHERE relation.tenant_id=$1
+          AND relation.park_id=$2
+          AND relation.unit_id=$3
+          AND relation.is_deleted=false
+          AND relation.status=1
+          AND contract.is_deleted=false
+          AND contract.status NOT IN ('90','91')
+          AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
+       ) AS has_commercial_lease`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<Record<string, boolean>>;
+    if (row?.has_commercial_lease) {
+      throw new ConflictException(message);
+    }
   }
 
   async checkUnitAvailableForContract(scope: TenantParkScope, id: string): Promise<boolean> {

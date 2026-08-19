@@ -1,6 +1,7 @@
 import { ConflictException } from "@nestjs/common";
 import {
   HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS,
+  UNIT_USAGE_HOUSING,
   type HousingLeaseUnitEligibilityProjection,
   type HousingLeaseUnitEligibilityReason,
   type TenantParkScope
@@ -19,6 +20,7 @@ export const HOUSING_LEASE_UNIT_INELIGIBLE = "housing-lease-unit-ineligible";
 
 type EligibilityRow = {
   unitStatus: number | string;
+  usageType: number | string | null;
   operatingMode: string | null;
   operatingStatus: string | null;
 };
@@ -41,6 +43,9 @@ function projectEligibility(row: EligibilityRow | undefined, conflict = false): 
   const reasonCodes: HousingLeaseUnitEligibilityReason[] = [];
   if (!row || Number(row.unitStatus) !== 1) {
     reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_INACTIVE);
+  }
+  if (row && Number(row.usageType) !== UNIT_USAGE_HOUSING) {
+    reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_HOUSING);
   }
   if (row && row.operatingMode === null) {
     reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_CONFIG_MISSING);
@@ -65,6 +70,7 @@ export async function projectHousingLeaseUnitEligibility(
   const rows = await manager.query(
     `SELECT lease.id,
             unit.status AS "unitStatus",
+            unit.usage_type AS "usageType",
             operation.operating_mode AS "operatingMode",
             operation.operating_status AS "operatingStatus",
             EXISTS (
@@ -130,6 +136,7 @@ export async function assertHousingLeaseUnitEligible(
   ]);
   const rows = await manager.query(
     `SELECT unit.status AS "unitStatus",
+            unit.usage_type AS "usageType",
             operation.operating_mode AS "operatingMode",
             operation.operating_status AS "operatingStatus"
        FROM biz_unit unit

@@ -38,3 +38,12 @@ test("create, disable, restore, and shrink revalidate authoritative state", () =
   assert.match(service, /status='disabled'/u);
   assert.doesNotMatch(service, /DELETE FROM biz_apartment_bed/u);
 });
+
+test("room projections only expose active housing units", () => {
+  assert.match(service, /summary\(scope: TenantParkScope\)[\s\S]*JOIN biz_unit u ON u\.id=r\.unit_id AND u\.tenant_id=r\.tenant_id AND u\.park_id=r\.park_id AND u\.is_deleted=false AND u\.usage_type=\$3/u);
+  assert.match(service, /summary\(scope: TenantParkScope\)[\s\S]*\[\.\.\.this\.scope\(scope\), UNIT_USAGE_HOUSING\]/u);
+  assert.match(service, /SELECT count\(\*\)::int FROM biz_apartment_stay s JOIN biz_apartment_room r[\s\S]*JOIN biz_unit u[\s\S]*s\.status='active'/u);
+  assert.match(service, /SELECT count\(\*\)::int FROM biz_apartment_stay s JOIN biz_apartment_room r[\s\S]*JOIN biz_unit u[\s\S]*s\.status='checkout_pending'/u);
+  assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*JOIN biz_unit u ON u\.id=r\.unit_id AND u\.tenant_id=r\.tenant_id AND u\.park_id=r\.park_id AND u\.is_deleted=false AND u\.usage_type=\$5/u);
+  assert.match(service, /listRooms\(scope: TenantParkScope[\s\S]*query\.keyword\?\.trim\(\) \|\| null, UNIT_USAGE_HOUSING\]/u);
+});

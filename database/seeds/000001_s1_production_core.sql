@@ -3412,6 +3412,7 @@ dict_items(dict_code, item_label, item_value, sort_order, tag_type) AS (
     ('unit_usage_type', '商业', '40', 40, 'warning'),
     ('unit_usage_type', '展厅', '50', 50, 'primary'),
     ('unit_usage_type', '会议室', '60', 60, 'default'),
+    ('unit_usage_type', '住房', '70', 70, 'success'),
     ('unit_rental_status', '可招商', '10', 10, 'success'),
     ('unit_rental_status', '锁定', '20', 20, 'warning'),
     ('unit_rental_status', '已出租', '30', 30, 'primary'),

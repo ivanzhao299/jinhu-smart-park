@@ -3,6 +3,8 @@ import test from "node:test";
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { PropertyOperationConfigEntity } from "../property-operations/entities/property-operation-config.entity";
+import { UnitEntity } from "../units/entities/unit.entity";
 import { HomestayBookingActionLogEntity, HomestayBookingEntity } from "./entities/homestay.entities";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 
@@ -96,6 +98,44 @@ test("finance source advisory lock uses the complete scoped canonical key", asyn
   assert.deepEqual(calls[0]?.parameters, [
     "homestay-finance-source|tenant-1|park-1|booking-1|ledger-1"
   ]);
+});
+
+test("unit bookability takes the property advisory lock before the unit row lock", async () => {
+  const calls: string[] = [];
+  const support = new HomestayTransactionSupportService();
+  const emptyExistsBuilder = () => {
+    const builder = {
+      where: () => builder,
+      andWhere: () => builder,
+      getExists: async () => false,
+      getCount: async () => 0
+    };
+    return builder;
+  };
+  const manager = {
+    query: async (sql: string) => {
+      calls.push(sql);
+      return [];
+    },
+    getRepository: (entity: unknown) => ({
+      findOne: async (options: unknown) => {
+        calls.push(entity === UnitEntity ? "unit-findOne" : "config-findOne");
+        if (entity === UnitEntity) {
+          assert.equal(calls[0]?.includes("lock_property_unit_scope"), true);
+          assert.deepEqual((options as { lock?: unknown }).lock, { mode: "pessimistic_write" });
+          return { id: "unit-1", status: 1 };
+        }
+        assert.equal(entity, PropertyOperationConfigEntity);
+        return { operatingMode: "short_stay", operatingStatus: "enabled" };
+      },
+      createQueryBuilder: () => emptyExistsBuilder()
+    })
+  };
+
+  await support.assertUnitBookable(manager as never, scope, "unit-1");
+
+  assert.match(calls[0] ?? "", /lock_property_unit_scope/);
+  assert.equal(calls[1], "unit-findOne");
 });
 
 test("action logging trims reasons and preserves actor and snapshot ownership", async () => {

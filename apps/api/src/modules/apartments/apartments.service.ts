@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import { DataSource, type EntityManager } from "typeorm";
-import type { TenantParkScope } from "@jinhu/shared";
+import { UNIT_USAGE_HOUSING, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { AllocateApartmentDto, ApartmentUnitCandidateQueryDto, ArchiveDocumentDto, CreateApartmentApplicationDto, CreateApartmentRoomDto, CreateTemplateDto, DecisionDto, GenerateApartmentDocumentDto, HandoverDto, ListApartmentDto, OnlineSignApartmentDocumentDto, PaperSignApartmentDocumentDto, UpdateApartmentRoomDto, UpdateApartmentSettingsDto, VoidApartmentDocumentDto } from "./dto/apartment.dto";
 
@@ -12,50 +12,52 @@ export class ApartmentsService {
 
   async summary(scope: TenantParkScope) {
     const [row] = await this.dataSource.query(`SELECT
-      (SELECT count(*)::int FROM biz_apartment_room r WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS rooms,
-      (SELECT COALESCE(sum(r.capacity),0)::int FROM biz_apartment_room r WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS beds,
-      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='active') AS occupied,
+      (SELECT count(*)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS rooms,
+      (SELECT COALESCE(sum(r.capacity),0)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS beds,
+      (SELECT count(*)::int FROM biz_apartment_stay s JOIN biz_apartment_room r ON r.id=s.room_id AND r.tenant_id=s.tenant_id AND r.park_id=s.park_id AND r.is_deleted=false AND r.management_status='enabled' JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='active') AS occupied,
       (SELECT count(*)::int FROM biz_apartment_application a WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND a.status='submitted') AS pending_applications,
-      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, this.scope(scope));
+      (SELECT count(*)::int FROM biz_apartment_stay s JOIN biz_apartment_room r ON r.id=s.room_id AND r.tenant_id=s.tenant_id AND r.park_id=s.park_id AND r.is_deleted=false AND r.management_status='enabled' JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, [...this.scope(scope), UNIT_USAGE_HOUSING]);
     return { ...row, available: Math.max(0, Number(row.beds)-Number(row.occupied)) };
   }
 
   listRooms(scope: TenantParkScope, query: ListApartmentDto) {
     return this.dataSource.query(`SELECT r.*,u.unit_code,u.unit_name,b.building_name AS building_name,f.floor_name,
       count(bed.id)::int AS bed_count,count(s.id) FILTER (WHERE s.status IN ('reserved','active','checkout_pending'))::int AS occupied_count
-      FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id
+      FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$5
       LEFT JOIN biz_building b ON b.id=u.building_id LEFT JOIN biz_floor f ON f.id=u.floor_id
       LEFT JOIN biz_apartment_bed bed ON bed.room_id=r.id AND bed.is_deleted=false
       LEFT JOIN biz_apartment_stay s ON s.bed_id=bed.id AND s.is_deleted=false AND s.status IN ('reserved','active','checkout_pending')
       WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
       AND ($3::text IS NULL OR r.management_status=$3)
       AND ($4::text IS NULL OR u.unit_name ILIKE '%'||$4||'%' OR u.unit_code ILIKE '%'||$4||'%')
-      GROUP BY r.id,u.id,b.id,f.id ORDER BY u.unit_code`, [...this.scope(scope), query.status ?? null, query.keyword?.trim() || null]);
+      GROUP BY r.id,u.id,b.id,f.id ORDER BY u.unit_code`, [...this.scope(scope), query.status ?? null, query.keyword?.trim() || null, UNIT_USAGE_HOUSING]);
   }
   async unitCandidates(scope:TenantParkScope,query:ApartmentUnitCandidateQueryDto){
     const filters=`WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.is_deleted=false
         AND ($3::text IS NULL OR u.unit_code ILIKE '%'||$3||'%' OR u.unit_name ILIKE '%'||$3||'%' OR b.building_name ILIKE '%'||$3||'%' OR f.floor_name ILIKE '%'||$3||'%')
         AND ($4::uuid IS NULL OR u.building_id=$4) AND ($5::uuid IS NULL OR u.floor_id=$5)
+        AND u.usage_type=$7
         AND (NOT $6::boolean OR cardinality(candidate.ineligible_reasons)=0)`;
-    const filterParameters=[...this.scope(scope),query.keyword?.trim()||null,query.building_id??null,query.floor_id??null,query.eligible_only];
+    const filterParameters=[...this.scope(scope),query.keyword?.trim()||null,query.building_id??null,query.floor_id??null,query.eligible_only,UNIT_USAGE_HOUSING];
     const rows=await this.dataSource.query(`${this.candidateProjectionSql()} ${filters}
-      ORDER BY u.unit_code LIMIT $7 OFFSET $8`,[...filterParameters,query.page_size,(query.page-1)*query.page_size]);
+      ORDER BY u.unit_code LIMIT $8 OFFSET $9`,[...filterParameters,query.page_size,(query.page-1)*query.page_size]);
     const total=rows.length?Number(rows[0].total):Number((await this.dataSource.query(`SELECT count(*)::int AS total FROM (${this.candidateProjectionSql()} ${filters}) empty_page`,filterParameters))[0]?.total??0);
     const facets=await this.dataSource.query(`SELECT DISTINCT b.id AS building_id,b.building_name,f.id AS floor_id,f.floor_name
       FROM biz_unit u JOIN biz_building b ON b.id=u.building_id AND b.tenant_id=u.tenant_id AND b.park_id=u.park_id AND b.is_deleted=false
       JOIN biz_floor f ON f.id=u.floor_id AND f.building_id=b.id AND f.tenant_id=u.tenant_id AND f.park_id=u.park_id AND f.is_deleted=false
-      WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.is_deleted=false ORDER BY b.building_name,f.floor_name`,this.scope(scope));
+      WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.usage_type=$3 AND u.is_deleted=false ORDER BY b.building_name,f.floor_name`,[...this.scope(scope),UNIT_USAGE_HOUSING]);
     const buildings=Array.from(new Map(facets.map((row:{building_id:string;building_name:string})=>[row.building_id,{id:row.building_id,name:row.building_name}])).values());
     return {items:rows.map(({total:_,...row}:Record<string,unknown>)=>row),total,page:query.page,page_size:query.page_size,
       facets:{buildings,floors:facets.map((row:{building_id:string;floor_id:string;floor_name:string})=>({id:row.floor_id,building_id:row.building_id,name:row.floor_name}))}};
   }
-  availableBeds(scope:TenantParkScope,start:string,end?:string){return this.dataSource.query(`SELECT b.id,b.bed_code,b.room_id,u.unit_code,u.unit_name,r.room_type,r.gender_policy FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.is_deleted=false AND b.status='enabled' AND r.is_deleted=false AND r.management_status='enabled' AND NOT EXISTS(SELECT 1 FROM biz_apartment_stay s WHERE s.bed_id=b.id AND s.is_deleted=false AND s.status IN ('reserved','active','checkout_pending') AND daterange(s.planned_start_date,COALESCE(s.planned_end_date,'infinity'::date),'[)') && daterange($3::date,COALESCE($4::date,'infinity'::date),'[)')) ORDER BY u.unit_code,b.bed_code`,[...this.scope(scope),start,end??null]);}
+  availableBeds(scope:TenantParkScope,start:string,end?:string){return this.dataSource.query(`SELECT b.id,b.bed_code,b.room_id,u.unit_code,u.unit_name,r.room_type,r.gender_policy FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=b.tenant_id AND u.park_id=b.park_id AND u.is_deleted=false AND u.usage_type=$5 WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.is_deleted=false AND b.status='enabled' AND r.is_deleted=false AND r.management_status='enabled' AND NOT EXISTS(SELECT 1 FROM biz_apartment_stay s WHERE s.bed_id=b.id AND s.is_deleted=false AND s.status IN ('reserved','active','checkout_pending') AND daterange(s.planned_start_date,COALESCE(s.planned_end_date,'infinity'::date),'[)') && daterange($3::date,COALESCE($4::date,'infinity'::date),'[)')) ORDER BY u.unit_code,b.bed_code`,[...this.scope(scope),start,end??null,UNIT_USAGE_HOUSING]);}
 
   async createRoom(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateApartmentRoomDto) {
     return this.dataSource.transaction(async manager => {
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [...this.scope(scope), dto.unit_id]);
-      const unit = await manager.query(`SELECT id FROM biz_unit WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`, [dto.unit_id, ...this.scope(scope)]);
+      const unit = await manager.query(`SELECT id,usage_type FROM biz_unit WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`, [dto.unit_id, ...this.scope(scope)]);
       if (!unit.length) throw new NotFoundException("房源不存在或不在当前园区");
+      if (Number(unit[0].usage_type) !== UNIT_USAGE_HOUSING) throw new ConflictException("仅住房用途房源可创建公寓房间");
       const candidate=await this.loadCandidate(manager,scope,dto.unit_id);
       if(!candidate.eligible)throw new ConflictException({message:"房号当前不可纳入公寓管理",ineligibleReasons:candidate.ineligible_reasons});
       const [room] = await manager.query(`INSERT INTO biz_apartment_room(tenant_id,park_id,unit_id,room_type,gender_policy,capacity,facilities,effective_from,management_status,create_by,update_by)
@@ -79,7 +81,7 @@ export class ApartmentsService {
         if(dto.management_status==="disabled"){
           if(Number(count)>0)throw new ConflictException("存在预留、在住或待退住记录，不能停用公寓房源");
           await manager.query(`UPDATE biz_property_occupancy SET status='released',release_reason='apartment-room-disabled',released_at=now(),update_by=$1,update_time=now(),version=version+1 WHERE id=$2 AND tenant_id=$3 AND park_id=$4 AND status IN ('active','held') AND is_deleted=false`,[actor.sub,room.occupancy_id,...this.scope(scope)]);
-        }else{
+        }else if(dto.management_status==="enabled"){
           const candidate=await this.loadCandidate(manager,scope,room.unit_id,id);
           if(!candidate.eligible)throw new ConflictException({message:"房号当前不可恢复公寓管理",ineligibleReasons:candidate.ineligible_reasons});
           let [occupancy]=await manager.query(`UPDATE biz_property_occupancy SET status='active',start_at=now(),end_at='9999-12-31',release_reason=NULL,released_at=NULL,update_by=$1,update_time=now(),version=version+1
@@ -126,7 +128,7 @@ export class ApartmentsService {
     }
     return this.dataSource.transaction(async manager=>{const [app]=await this.lockApplication(manager,scope,id);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="submitted")throw new ConflictException("仅已提交申请可审批");await manager.query(`INSERT INTO biz_apartment_approval(tenant_id,park_id,application_id,application_version,decision,decided_by,opinion,approved_start_date,approved_end_date,cost_bearer,deposit_amount,monthly_fee,allocation_note,safety_requirements,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::numeric,$12::numeric,$13,$14,$6,$6)`,[...this.scope(scope),id,app.version,dto.decision,actor.sub,dto.opinion,dto.decision==="approve"?dto.approved_start_date:null,dto.decision==="approve"?dto.approved_end_date??null:null,dto.decision==="approve"?dto.cost_bearer:null,dto.decision==="approve"?dto.deposit_amount??null:null,dto.decision==="approve"?dto.monthly_fee??null:null,dto.decision==="approve"?dto.allocation_note??null:null,dto.decision==="approve"?dto.safety_requirements:null]);const status=dto.decision==="approve"?"approved":"rejected";return (await manager.query(`UPDATE biz_apartment_application SET status=$1,decided_at=now(),update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING *`,[status,actor.sub,id]))[0];});
   }
-  async allocate(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:AllocateApartmentDto){return this.dataSource.transaction(async manager=>{const [app]=await manager.query(`SELECT a.*,ap.approved_start_date,ap.approved_end_date FROM biz_apartment_application a LEFT JOIN LATERAL(SELECT approved_start_date,approved_end_date FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.decision='approve' AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true WHERE a.id=$1 AND a.tenant_id=$2 AND a.park_id=$3 AND a.is_deleted=false FOR UPDATE OF a`,[id,...this.scope(scope)]);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="approved")throw new ConflictException("仅已批准申请可分配床位");const [bed]=await manager.query(`SELECT b.id,b.room_id,r.room_type,r.gender_policy,r.management_status FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id WHERE b.id=$1 AND b.room_id=$2 AND b.tenant_id=$3 AND b.park_id=$4 AND b.status='enabled' AND b.is_deleted=false AND r.is_deleted=false FOR UPDATE`,[dto.bed_id,dto.room_id,...this.scope(scope)]);if(!bed||bed.management_status!=="enabled")throw new ConflictException("床位当前不可分配");if(bed.room_type!==app.requested_room_type)throw new ConflictException("所选床位与申请房型不符");const plannedStart=app.approved_start_date??app.requested_start_date,plannedEnd=dto.planned_end_date??app.approved_end_date??app.requested_end_date;const [conflict]=await manager.query(`SELECT id FROM biz_apartment_stay WHERE bed_id=$1 AND is_deleted=false AND status IN ('reserved','active','checkout_pending') AND daterange(planned_start_date,COALESCE(planned_end_date,'infinity'::date),'[)') && daterange($2::date,COALESCE($3::date,'infinity'::date),'[)') LIMIT 1`,[dto.bed_id,plannedStart,plannedEnd]);if(conflict)throw new ConflictException("床位在批准期限内已被占用");const code=`STAY-${Date.now()}-${randomUUID().slice(0,6).toUpperCase()}`;const [stay]=await manager.query(`INSERT INTO biz_apartment_stay(tenant_id,park_id,stay_code,application_id,room_id,bed_id,occupant_party_id,occupant_user_id,occupant_name,planned_start_date,planned_end_date,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$12) RETURNING *`,[...this.scope(scope),code,id,dto.room_id,dto.bed_id,app.applicant_party_id,app.applicant_user_id,app.applicant_name,plannedStart,plannedEnd,actor.sub]);await manager.query(`UPDATE biz_apartment_application SET status='allocated',update_by=$1,update_time=now(),version=version+1 WHERE id=$2`,[actor.sub,id]);return stay;}).catch(this.translateConflict);}
+  async allocate(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:AllocateApartmentDto){return this.dataSource.transaction(async manager=>{const [app]=await manager.query(`SELECT a.*,ap.approved_start_date,ap.approved_end_date FROM biz_apartment_application a LEFT JOIN LATERAL(SELECT approved_start_date,approved_end_date FROM biz_apartment_approval x WHERE x.application_id=a.id AND x.decision='approve' AND x.is_deleted=false ORDER BY x.decided_at DESC LIMIT 1) ap ON true WHERE a.id=$1 AND a.tenant_id=$2 AND a.park_id=$3 AND a.is_deleted=false FOR UPDATE OF a`,[id,...this.scope(scope)]);if(!app)throw new NotFoundException("入住申请不存在");if(app.status!=="approved")throw new ConflictException("仅已批准申请可分配床位");const [bed]=await manager.query(`SELECT b.id,b.room_id,r.room_type,r.gender_policy,r.management_status FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=b.tenant_id AND u.park_id=b.park_id AND u.is_deleted=false AND u.usage_type=$5 WHERE b.id=$1 AND b.room_id=$2 AND b.tenant_id=$3 AND b.park_id=$4 AND b.status='enabled' AND b.is_deleted=false AND r.is_deleted=false FOR UPDATE`,[dto.bed_id,dto.room_id,...this.scope(scope),UNIT_USAGE_HOUSING]);if(!bed||bed.management_status!=="enabled")throw new ConflictException("床位当前不可分配");if(bed.room_type!==app.requested_room_type)throw new ConflictException("所选床位与申请房型不符");const plannedStart=app.approved_start_date??app.requested_start_date,plannedEnd=dto.planned_end_date??app.approved_end_date??app.requested_end_date;const [conflict]=await manager.query(`SELECT id FROM biz_apartment_stay WHERE bed_id=$1 AND is_deleted=false AND status IN ('reserved','active','checkout_pending') AND daterange(planned_start_date,COALESCE(planned_end_date,'infinity'::date),'[)') && daterange($2::date,COALESCE($3::date,'infinity'::date),'[)') LIMIT 1`,[dto.bed_id,plannedStart,plannedEnd]);if(conflict)throw new ConflictException("床位在批准期限内已被占用");const code=`STAY-${Date.now()}-${randomUUID().slice(0,6).toUpperCase()}`;const [stay]=await manager.query(`INSERT INTO biz_apartment_stay(tenant_id,park_id,stay_code,application_id,room_id,bed_id,occupant_party_id,occupant_user_id,occupant_name,planned_start_date,planned_end_date,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'reserved',$12,$12) RETURNING *`,[...this.scope(scope),code,id,dto.room_id,dto.bed_id,app.applicant_party_id,app.applicant_user_id,app.applicant_name,plannedStart,plannedEnd,actor.sub]);await manager.query(`UPDATE biz_apartment_application SET status='allocated',update_by=$1,update_time=now(),version=version+1 WHERE id=$2`,[actor.sub,id]);return stay;}).catch(this.translateConflict);}
   listStays(scope:TenantParkScope,query:ListApartmentDto){return this.dataSource.query(`SELECT s.*,a.application_code,u.unit_name,u.unit_code,b.bed_code,
     hi.confirmed_at AS move_in_confirmed_at,hi.water_meter_reading AS move_in_water_meter_reading,hi.electricity_meter_reading AS move_in_electricity_meter_reading,hi.exception_note AS move_in_exception_note,
     ho.confirmed_at AS move_out_confirmed_at,ho.water_meter_reading AS move_out_water_meter_reading,ho.electricity_meter_reading AS move_out_electricity_meter_reading,ho.exception_note AS move_out_exception_note
@@ -186,7 +188,7 @@ export class ApartmentsService {
 
   private async loadCandidate(manager:EntityManager,scope:TenantParkScope,unitId:string,ignoreRoomId?:string){
     const ignoreExpression=ignoreRoomId?"$4::uuid":"NULL::uuid";
-    const [candidate]=await manager.query(`${this.candidateProjectionSql(ignoreExpression)} WHERE u.id=$1 AND u.tenant_id=$2 AND u.park_id=$3 AND u.is_deleted=false`,[unitId,...this.scope(scope),...(ignoreRoomId?[ignoreRoomId]:[])]);
+    const [candidate]=await manager.query(`${this.candidateProjectionSql(ignoreExpression)} WHERE u.id=$1 AND u.tenant_id=$2 AND u.park_id=$3 AND u.usage_type=${UNIT_USAGE_HOUSING} AND u.is_deleted=false`,[unitId,...this.scope(scope),...(ignoreRoomId?[ignoreRoomId]:[])]);
     if(!candidate)throw new NotFoundException("房源不存在或不在当前园区");return candidate;
   }
 

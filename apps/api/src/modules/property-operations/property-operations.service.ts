@@ -12,6 +12,7 @@ import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
+  UNIT_USAGE_HOUSING,
   type PropertyApprovalCommandPort,
   type PropertyOperatingMode,
   type TenantParkScope
@@ -105,7 +106,8 @@ export class PropertyOperationsService {
       )
       .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
-      .andWhere("unit.is_deleted = false");
+      .andWhere("unit.is_deleted = false")
+      .andWhere("unit.usage_type = :housingUsageType", { housingUsageType: UNIT_USAGE_HOUSING });
     if (allowedUnitIds !== null) {
       builder.andWhere("unit.id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
@@ -190,7 +192,7 @@ export class PropertyOperationsService {
       SYSTEM_PERMISSIONS.PROPERTY_OPERATIONS_PAGE,
       SYSTEM_PERMISSIONS.PROPERTY_OPERATION_READ
     );
-    const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
+    const unit = await this.assertHousingUnitAccess(scope, actor, unitId);
     const config = await this.configsRepository.findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
     });
@@ -234,13 +236,13 @@ export class PropertyOperationsService {
 
   async configure(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: ConfigurePropertyUnitDto, clientKey?: string) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE);
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    await this.assertHousingUnitAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
       const unit = await manager.getRepository(UnitEntity).findOne({
         where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
-      if (!unit) throw new NotFoundException("Unit not found");
+      if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
 
       const configRepository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await configRepository.findOne({
@@ -303,9 +305,16 @@ export class PropertyOperationsService {
   ) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE);
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE);
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    await this.assertHousingUnitAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+      const lockedUnit = await manager.getRepository(UnitEntity).findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, id: unitId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUnit || lockedUnit.usageType !== UNIT_USAGE_HOUSING) {
+        throw new NotFoundException("Housing unit not found");
+      }
       const repository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await repository.findOne({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
@@ -405,9 +414,15 @@ export class PropertyOperationsService {
     const rows = await input.manager.query(
       `SELECT id::text AS id, operating_mode AS "operatingMode",
               operating_status AS "operatingStatus", version
-         FROM biz_property_operation_config
-        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND unit_id=$4
-          AND is_deleted=false FOR UPDATE`,
+         FROM biz_property_operation_config config
+        WHERE config.tenant_id=$1 AND config.park_id=$2 AND config.id=$3 AND config.unit_id=$4
+          AND config.is_deleted=false
+          AND EXISTS (
+            SELECT 1 FROM biz_unit unit
+            WHERE unit.tenant_id=config.tenant_id AND unit.park_id=config.park_id
+              AND unit.id=config.unit_id AND unit.is_deleted=false
+          )
+        FOR UPDATE`,
       [scope.tenantId, scope.parkId, configId, unitId]
     ) as Array<{ id: string; operatingMode: PropertyOperatingMode; operatingStatus: string; version: number }>;
     const config = rows[0];
@@ -570,15 +585,15 @@ export class PropertyOperationsService {
     }
 
     const parameters: unknown[] = [scope.tenantId, scope.parkId];
+    const bind = (value: unknown) => {
+      parameters.push(value);
+      return `$${parameters.length}`;
+    };
     const where = [
       "audit.tenant_id=$1",
       "audit.park_id=$2",
       "unit.is_deleted=false"
     ];
-    const bind = (value: unknown) => {
-      parameters.push(value);
-      return `$${parameters.length}`;
-    };
     if (allowedUnitIds !== null) {
       where.push(`audit.unit_id=ANY(${bind(allowedUnitIds)}::uuid[])`);
     }
@@ -756,6 +771,16 @@ export class PropertyOperationsService {
       approvalAvailable: allowedActions.includes("property.mode-transition.request"),
       allowedActions
     };
+  }
+
+  private async assertHousingUnitAccess(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    unitId: string
+  ): Promise<UnitEntity> {
+    const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
+    if (unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    return unit;
   }
 
   private snapshotBlockers(snapshot: ModeTransitionCheckSnapshot) {

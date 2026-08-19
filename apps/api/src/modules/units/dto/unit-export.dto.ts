@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import { IsIn, IsNumber, IsOptional, IsString, IsUUID, Min } from "class-validator";
+import { UNIT_USAGE_TYPES } from "@jinhu/shared";
 
 export class UnitExportDto {
   @IsOptional()
@@ -12,7 +13,7 @@ export class UnitExportDto {
 
   @IsOptional()
   @Transform(({ value }) => (value === undefined || value === "" ? undefined : Number(value)))
-  @IsIn([10, 20, 30, 40, 50, 60])
+  @IsIn(UNIT_USAGE_TYPES)
   usage_type?: number;
 
   @IsOptional()
