@@ -50,6 +50,9 @@
 }
 
 .capabilityCard {
+  grid-template-columns: 1fr;
+  align-content: start;
+  align-items: start;
   cursor: default;
 }
 

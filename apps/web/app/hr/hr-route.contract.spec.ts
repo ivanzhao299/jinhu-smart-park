@@ -20,6 +20,7 @@ test("HR operational forms collapse to one column on phone width", () => {
   const reports = readFileSync(resolve(__dirname, "work-reports/HrWorkReportsClient.tsx"), "utf8");
 
   assert.match(styles, /@media \(max-width: 520px\)[\s\S]*\.formGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(styles, /\.capabilityCard\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(organization, /ds-mobile-record-list/);
   assert.match(organization, /type="number" min="0" max="100000" step="1"/);
   assert.match(reports, /ds-mobile-record-list/);
