@@ -605,6 +605,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
   const deletedEvidenceFileIds = useRef<Set<string>>(new Set());
   const initialFileIds = useRef<Set<string>>(new Set());
   const abandonedPendingFileIds = useRef<Set<string>>(new Set());
+  const activeDraftId = useRef<string | null>(detail.id);
   const trimmedIdentityNumber = identityNumber.trim();
   const fileIds = pendingFiles.map((file) => file.id);
   const hasNewEvidenceFiles = fileIds.some((fileId) => !initialFileIds.current.has(fileId));
@@ -623,6 +624,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
 
   useEffect(() => {
     cleanupAbandonedPendingIdentityEvidence();
+    activeDraftId.current = detail.id;
     const files = detail.evidence.files.map(toPendingFileRecord);
     setDocumentType(detail.evidence.documentType ?? "");
     setIdentityNumber("");
@@ -633,7 +635,10 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     abandonedPendingFileIds.current.clear();
     initialFileIds.current = new Set(files.map((file) => file.id));
     updateKey.current = null;
-    return () => cleanupAbandonedPendingIdentityEvidence();
+    return () => {
+      if (activeDraftId.current === detail.id) activeDraftId.current = null;
+      cleanupAbandonedPendingIdentityEvidence();
+    };
   }, [detail]);
 
   function identityEvidenceDeleteKey(fileId: string) {
@@ -650,16 +655,19 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     if (!abandonedIds.length) return;
     abandonedPendingFileIds.current.clear();
     for (const fileId of abandonedIds) {
-      void apiRequest(`/files/${encodeURIComponent(fileId)}`, {
-        method: "DELETE",
-        token: getAccessToken() ?? undefined,
-        idempotencyKey: identityEvidenceDeleteKey(fileId)
-      }).then(() => {
-        deletedEvidenceFileIds.current.add(fileId);
-      }).catch(() => {
+      void deleteIdentityEvidenceFile(fileId).catch(() => {
         // Best-effort cleanup: explicit removal and saving still surface errors to the operator.
       });
     }
+  }
+
+  async function deleteIdentityEvidenceFile(fileId: string) {
+    await apiRequest(`/files/${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+      token: getAccessToken() ?? undefined,
+      idempotencyKey: identityEvidenceDeleteKey(fileId)
+    });
+    deletedEvidenceFileIds.current.add(fileId);
   }
   useEffect(() => {
     onDraftStateChange({ dirty: draftDirty, busy: draftBusy });
@@ -704,12 +712,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
       for (const fileId of removedInitialFileIds) {
         if (deletedEvidenceFileIds.current.has(fileId)) continue;
         try {
-          await apiRequest(`/files/${encodeURIComponent(fileId)}`, {
-            method: "DELETE",
-            token: getAccessToken() ?? undefined,
-            idempotencyKey: identityEvidenceDeleteKey(fileId)
-          });
-          deletedEvidenceFileIds.current.add(fileId);
+          await deleteIdentityEvidenceFile(fileId);
         } catch (cause) {
           if (cause instanceof Error && /not found/i.test(cause.message)) {
             deletedEvidenceFileIds.current.add(fileId);
@@ -743,13 +746,8 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     setUploading(true);
     setFeedback("");
     try {
-      await apiRequest(`/files/${encodeURIComponent(fileId)}`, {
-        method: "DELETE",
-        token: getAccessToken() ?? undefined,
-        idempotencyKey: identityEvidenceDeleteKey(fileId)
-      });
+      await deleteIdentityEvidenceFile(fileId);
       abandonedPendingFileIds.current.delete(fileId);
-      deletedEvidenceFileIds.current.add(fileId);
       setPendingFiles((current) => current.filter((item) => item.id !== fileId));
     } catch (cause) {
       setFeedback(cause instanceof Error ? cause.message : "身份核验证据文件删除失败");
@@ -780,18 +778,27 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
             }} />
           </label>
         </div>
-        <FileUploader
-          bizId={detail.id}
-          bizType="party_identity_evidence"
-          disabled={busy}
-          label="上传身份核验证据"
-          onUploaded={(file) => {
-            updateKey.current = null;
-            abandonedPendingFileIds.current.add(file.id);
-            setPendingFiles((current) => appendPendingFile(current, file));
-          }}
-          onUploadingChange={setUploading}
-        />
+        <PermissionGuard fallback={<p>缺少文件上传权限，不能上传身份核验证据。</p>}
+          permission={SYSTEM_PERMISSIONS.FILE_UPLOAD}>
+          <FileUploader
+            bizId={detail.id}
+            bizType="party_identity_evidence"
+            disabled={busy}
+            label="上传身份核验证据"
+            onUploaded={(file) => {
+              if (activeDraftId.current !== detail.id) {
+                void deleteIdentityEvidenceFile(file.id).catch(() => {
+                  // Late upload cleanup is best effort; the stale panel is no longer visible.
+                });
+                return;
+              }
+              updateKey.current = null;
+              abandonedPendingFileIds.current.add(file.id);
+              setPendingFiles((current) => appendPendingFile(current, file));
+            }}
+            onUploadingChange={setUploading}
+          />
+        </PermissionGuard>
         {pendingFiles.length ? <PendingAttachmentList
           files={pendingFiles}
           mutationDisabled={busy || uploading}

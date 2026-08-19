@@ -72,9 +72,14 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   assert.match(control, /deletedEvidenceFileIds/);
   assert.match(control, /identityEvidenceDeleteKey/);
   assert.match(control, /abandonedPendingFileIds/);
+  assert.match(control, /activeDraftId/);
   assert.match(control, /cleanupAbandonedPendingIdentityEvidence/);
+  assert.match(control, /deleteIdentityEvidenceFile/);
   assert.match(control, /abandonedPendingFileIds\.current\.add\(file\.id\)/);
-  assert.match(control, /return \(\) => cleanupAbandonedPendingIdentityEvidence\(\)/);
+  assert.match(control, /activeDraftId\.current !== detail\.id/);
+  assert.match(control, /deleteIdentityEvidenceFile\(file\.id\)/);
+  assert.match(control, /SYSTEM_PERMISSIONS\.FILE_UPLOAD/);
+  assert.match(control, /activeDraftId\.current = null/);
   assert.match(control, /abandonedPendingFileIds\.current\.clear\(\)/);
   assert.match(control, /initialFileIds\.current\.has\(fileId\)/);
   assert.ok(
