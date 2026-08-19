@@ -75,3 +75,15 @@ test("unit park lookup refresh has same-target retry and stale dict guard", () =
   assert.match(page, /onRetryParkLoad=\{\(\) => void retryCurrentParkData\(\)/u);
   assert.match(dialog, /重新加载当前园区数据/u);
 });
+
+test("park select option menus keep readable foreground and background colors", () => {
+  const globals = readFileSync(resolve(__dirname, "../../globals.css"), "utf8");
+  const mobileTerminal = readFileSync(resolve(__dirname, "../../mobile-terminal.css"), "utf8");
+
+  assert.match(globals, /select option:not\(:disabled\) \{[\s\S]*background: var\(--form-control-bg\);[\s\S]*color: var\(--text-primary\);[\s\S]*\}/u);
+  assert.match(globals, /select option:disabled \{[\s\S]*background: var\(--form-control-bg\);[\s\S]*color: var\(--text-disabled\);[\s\S]*\}/u);
+  assert.match(globals, /\.user-park-switcher select option \{[\s\S]*background: #ffffff;[\s\S]*color: #081a2c;[\s\S]*\}/u);
+  assert.match(globals, /\.user-park-switcher select option:disabled \{[\s\S]*color: #7a8794;[\s\S]*\}/u);
+  assert.match(mobileTerminal, /\.mobile-terminal-park-switcher select option \{[\s\S]*background: #ffffff;[\s\S]*color: #081a2c;[\s\S]*\}/u);
+  assert.match(mobileTerminal, /\.mobile-terminal-park-switcher select option:disabled \{[\s\S]*color: #7a8794;[\s\S]*\}/u);
+});

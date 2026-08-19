@@ -602,6 +602,16 @@ select {
   background-size: 16px;
 }
 
+select option:not(:disabled) {
+  background: var(--form-control-bg);
+  color: var(--text-primary);
+}
+
+select option:disabled {
+  background: var(--form-control-bg);
+  color: var(--text-disabled);
+}
+
 :root[data-theme="dark"] select,
 :root[data-theme="command-dark"] select {
   background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 20 20' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.5 7.5L10 12L14.5 7.5' stroke='%23c6d5e4' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -7590,6 +7600,15 @@ textarea:disabled {
 
 .user-park-switcher select:disabled {
   opacity: 0.72;
+}
+
+.user-park-switcher select option {
+  background: #ffffff;
+  color: #081a2c;
+}
+
+.user-park-switcher select option:disabled {
+  color: #7a8794;
 }
 
 .user-menu-message {
