@@ -778,26 +778,29 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
             }} />
           </label>
         </div>
-        <PermissionGuard fallback={<p>缺少文件上传权限，不能上传身份核验证据。</p>}
+        <PermissionGuard fallback={<p>缺少文件上传或清理权限，不能上传身份核验证据。</p>}
+          permission={SYSTEM_PERMISSIONS.FILE_DELETE}>
+          <PermissionGuard fallback={<p>缺少文件上传或清理权限，不能上传身份核验证据。</p>}
           permission={SYSTEM_PERMISSIONS.FILE_UPLOAD}>
-          <FileUploader
-            bizId={detail.id}
-            bizType="party_identity_evidence"
-            disabled={busy}
-            label="上传身份核验证据"
-            onUploaded={(file) => {
-              if (activeDraftId.current !== detail.id) {
-                void deleteIdentityEvidenceFile(file.id).catch(() => {
-                  // Late upload cleanup is best effort; the stale panel is no longer visible.
-                });
-                return;
-              }
-              updateKey.current = null;
-              abandonedPendingFileIds.current.add(file.id);
-              setPendingFiles((current) => appendPendingFile(current, file));
-            }}
-            onUploadingChange={setUploading}
-          />
+            <FileUploader
+              bizId={detail.id}
+              bizType="party_identity_evidence"
+              disabled={busy}
+              label="上传身份核验证据"
+              onUploaded={(file) => {
+                if (activeDraftId.current !== detail.id) {
+                  void deleteIdentityEvidenceFile(file.id).catch(() => {
+                    // Late upload cleanup is best effort; the stale panel is no longer visible.
+                  });
+                  return;
+                }
+                updateKey.current = null;
+                abandonedPendingFileIds.current.add(file.id);
+                setPendingFiles((current) => appendPendingFile(current, file));
+              }}
+              onUploadingChange={setUploading}
+            />
+          </PermissionGuard>
         </PermissionGuard>
         {pendingFiles.length ? <PendingAttachmentList
           files={pendingFiles}
