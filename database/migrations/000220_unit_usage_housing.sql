@@ -102,6 +102,7 @@ BEGIN
      AND relation.unit_id = candidate.unit_id
      AND relation.is_deleted = false
      AND relation.status = 1
+     AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
     JOIN biz_leasing_contract contract
       ON contract.id = relation.contract_id
      AND contract.is_deleted = false

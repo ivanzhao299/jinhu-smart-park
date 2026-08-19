@@ -115,8 +115,8 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
 
   assert.equal(calls.length, 1);
   assert.match(calls[0]!.sql, /log\.approval_execution_key=request\.execution_idempotency_key/u);
-  assert.match(calls[0]!.sql, /unit\.usage_type=\$3/u);
-  assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$4::uuid\[\]\)/u);
+  assert.doesNotMatch(calls[0]!.sql, /unit\.usage_type=/u);
+  assert.match(calls[0]!.sql, /audit\.unit_id=ANY\(\$3::uuid\[\]\)/u);
   assert.match(calls[0]!.sql, /request\.action_id='property\.mode-transition\.request'/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.check_snapshot, request\.canonical_payload->'checkSnapshot'\)/u);
   assert.match(calls[0]!.sql, /COALESCE\(log\.source_expected_version, request\.source_expected_version, log\.version\) AS version/u);
@@ -128,7 +128,6 @@ test("aggregate mode transition audit binds scope, allowed units, approval execu
 	assert.deepEqual(calls[0]!.parameters, [
 	  "tenant-1",
 	  "park-1",
-	  UNIT_USAGE_HOUSING,
 	  ["00000000-0000-4000-8000-000000000001"],
 	  "%A-101%",
 	  20,
@@ -177,7 +176,7 @@ test("aggregate mode transition audit preserves total on an empty page and accep
 
   assert.equal(calls.length, 2);
   assert.match(calls[1]!.sql, /SELECT count\(\*\)::int AS total/u);
-  assert.deepEqual(calls[1]!.parameters, ["tenant-1", "park-1", UNIT_USAGE_HOUSING]);
+  assert.deepEqual(calls[1]!.parameters, ["tenant-1", "park-1"]);
   assert.equal(result.total, 7);
   assert.deepEqual(result.items, []);
 });
@@ -456,6 +455,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(dto, /class PropertyModeTransitionUnitListQueryDto extends PropertyControlPageQueryDto/);
   assert.match(dto, /class PropertyModeTransitionListQueryDto extends PropertyControlPageQueryDto/);
   assert.match(operationService, /canRequestTransition: allowedActions\.includes\("property\.mode-transition\.request"\)/);
+  assert.match(operationService, /executeApprovedModeTransition[\s\S]*unit\.id=config\.unit_id AND unit\.is_deleted=false/);
+  assert.doesNotMatch(operationService, /executeApprovedModeTransition[\s\S]*unit\.usage_type=\$5/);
+  assert.match(operationService, /async transitionLogs\([\s\S]*this\.unitAccessService\.assertAccess\(scope, actor, unitId\)/);
+  assert.doesNotMatch(operationService, /transitionLogsAggregate[\s\S]*unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
   assert.doesNotMatch(operationService, /canRequestTransition: blockers\.length === 0/);
   assert.match(operationService, /\.leftJoin\("unit\.building", "building"\)/);
   assert.match(operationService, /AssetUnitEntity,\s*"assetUnit"/);
@@ -490,7 +493,6 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
   assert.match(operationService, /UNIT_USAGE_HOUSING/);
   assert.match(operationService, /unit\.usage_type = :housingUsageType/);
-  assert.match(operationService, /unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
   assert.match(operationService, /const lockedUnit = await manager\.getRepository\(UnitEntity\)\.findOne/);
   assert.match(operationService, /lockedUnit\.usageType !== UNIT_USAGE_HOUSING/);
   assert.match(operationService, /Housing unit not found/);
@@ -540,6 +542,7 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
   assert.doesNotMatch(housingMigration, /config\.operating_mode[\s\S]*long_rent/);
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict/);
+  assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict[\s\S]*relation\.end_date \+ interval '1 day'\) > \(now\(\) AT TIME ZONE 'Asia\/Shanghai'\)::date/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
 });

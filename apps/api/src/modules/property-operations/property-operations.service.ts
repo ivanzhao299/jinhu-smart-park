@@ -420,10 +420,10 @@ export class PropertyOperationsService {
           AND EXISTS (
             SELECT 1 FROM biz_unit unit
             WHERE unit.tenant_id=config.tenant_id AND unit.park_id=config.park_id
-              AND unit.id=config.unit_id AND unit.usage_type=$5 AND unit.is_deleted=false
+              AND unit.id=config.unit_id AND unit.is_deleted=false
           )
         FOR UPDATE`,
-      [scope.tenantId, scope.parkId, configId, unitId, UNIT_USAGE_HOUSING]
+      [scope.tenantId, scope.parkId, configId, unitId]
     ) as Array<{ id: string; operatingMode: PropertyOperatingMode; operatingStatus: string; version: number }>;
     const config = rows[0];
     if (
@@ -520,7 +520,7 @@ export class PropertyOperationsService {
       SYSTEM_PERMISSIONS.PROPERTY_MODE_TRANSITIONS_PAGE,
       SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ
     );
-    await this.assertHousingUnitAccess(scope, actor, unitId);
+    await this.unitAccessService.assertAccess(scope, actor, unitId);
     if (
       (query.decisionStatus && query.decisionStatus !== "approved")
       || (query.executionStatus && query.executionStatus !== "executed")
@@ -592,8 +592,7 @@ export class PropertyOperationsService {
     const where = [
       "audit.tenant_id=$1",
       "audit.park_id=$2",
-      "unit.is_deleted=false",
-      `unit.usage_type=${bind(UNIT_USAGE_HOUSING)}`
+      "unit.is_deleted=false"
     ];
     if (allowedUnitIds !== null) {
       where.push(`audit.unit_id=ANY(${bind(allowedUnitIds)}::uuid[])`);
