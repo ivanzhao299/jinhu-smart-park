@@ -10,6 +10,7 @@ const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const runCode = process.env.PROPERTY_CONTROL_PLANE_UAT_CODE ?? "issue-306";
 const actorUsername = process.env.ADMIN_USERNAME ?? "admin";
 const approverUsername = process.env.APPROVER_USERNAME ?? "";
+const identityVerifierUsername = process.env.IDENTITY_VERIFIER_USERNAME ?? approverUsername;
 const modeTransitionSnapshotCheckedAt = "2026-08-18T00:00:00.000Z";
 const postgresHost = process.env.POSTGRES_HOST ?? "127.0.0.1";
 const postgresDb = process.env.POSTGRES_DB ?? "jinhu_smart_park";
@@ -75,10 +76,12 @@ const ids = {
   approvalRequest: scopedUuid("approval-request"),
   approvalStage: scopedUuid("approval-stage"),
   effectManifest: scopedUuid("effect-manifest"),
+  verificationQueue: scopedUuid("identity-verification-queue"),
   party: scopedUuid("party"),
   submission: scopedUuid("submission"),
   outbox: scopedUuid("outbox")
 };
+const identityQueueCode = `uat-${ids.verificationQueue.slice(0, 8)}`;
 
 function canonicalText(value) {
   if (value === null) return "null";
@@ -311,9 +314,10 @@ async function assertFixtureIdScope(client) {
        UNION ALL SELECT 'operation_config' FROM biz_property_operation_config WHERE id=$4::uuid AND (tenant_id<>$1 OR park_id<>$2)
        UNION ALL SELECT 'approval_request' FROM biz_property_approval_request WHERE id=$5::uuid AND (tenant_id<>$1 OR park_id<>$2)
        UNION ALL SELECT 'approval_stage' FROM biz_property_approval_stage WHERE id=$6::uuid AND (tenant_id<>$1 OR park_id<>$2)
-       UNION ALL SELECT 'party' FROM biz_party WHERE id=$7::uuid AND (tenant_id<>$1 OR park_id<>$2)
-       UNION ALL SELECT 'identity_submission' FROM biz_party_identity_submission WHERE id=$8::uuid AND (tenant_id<>$1 OR park_id<>$2)
-       UNION ALL SELECT 'outbox' FROM biz_property_outbox WHERE event_id=$9::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'identity_verification_queue' FROM biz_party_identity_verification_queue WHERE id=$7::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'party' FROM biz_party WHERE id=$8::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'identity_submission' FROM biz_party_identity_submission WHERE id=$9::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'outbox' FROM biz_property_outbox WHERE event_id=$10::uuid AND (tenant_id<>$1 OR park_id<>$2)
      ) scoped_conflicts`,
     [
       tenantId,
@@ -322,6 +326,7 @@ async function assertFixtureIdScope(client) {
       ids.operationConfig,
       ids.approvalRequest,
       ids.approvalStage,
+      ids.verificationQueue,
       ids.party,
       ids.submission,
       ids.outbox
@@ -563,6 +568,105 @@ async function applyFixtures(client) {
   if (!approver?.id) {
     throw new Error("Cannot find a distinct user with property_approval:read and property_approval:decide for mode-transition UAT approval; set APPROVER_USERNAME or seed an eligible approver.");
   }
+  const identityVerifier = await queryOne(
+    client,
+    `SELECT DISTINCT verifier.id::text AS id
+       FROM sys_user verifier
+       JOIN rel_user_role user_role
+         ON user_role.user_id=verifier.id
+        AND user_role.tenant_id=verifier.tenant_id
+        AND user_role.park_id=verifier.park_id
+       JOIN sys_role role
+         ON role.id=user_role.role_id
+        AND role.tenant_id=user_role.tenant_id
+        AND (role.role_scope='tenant' OR role.park_id=user_role.park_id)
+       JOIN rel_role_perm role_permission
+         ON role_permission.role_id=role.id
+        AND role_permission.tenant_id=role.tenant_id
+        AND role_permission.park_id=user_role.park_id
+       JOIN sys_permission permission
+         ON permission.id=role_permission.permission_id
+        AND permission.tenant_id=role_permission.tenant_id
+      WHERE verifier.tenant_id=$1 AND verifier.park_id=$2
+        AND verifier.id<>$3::uuid
+        AND ($4='' OR verifier.username=$4)
+        AND permission.code IN ('asset:identity-submissions:page','party:identity_verify')
+        AND verifier.is_enabled=true AND verifier.status='enabled' AND verifier.is_deleted=false
+        AND EXISTS (
+          SELECT 1
+          FROM biz_park current_park
+          WHERE current_park.tenant_id=verifier.tenant_id
+            AND current_park.park_id=verifier.park_id
+            AND current_park.status=1
+            AND current_park.is_deleted=false
+        )
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM rel_user_park access
+            WHERE access.tenant_id=verifier.tenant_id
+              AND access.user_id=verifier.id
+              AND access.park_id=verifier.park_id
+              AND access.status='enabled'
+              AND access.is_deleted=false
+          )
+          OR NOT EXISTS (
+            SELECT 1
+            FROM rel_user_park explicit_home
+            WHERE explicit_home.tenant_id=verifier.tenant_id
+              AND explicit_home.user_id=verifier.id
+              AND explicit_home.park_id=verifier.park_id
+          )
+        )
+        AND user_role.is_deleted=false
+        AND role.is_enabled=true AND role.status='enabled' AND role.is_deleted=false
+        AND role_permission.is_deleted=false
+        AND permission.is_enabled=true AND permission.status='enabled' AND permission.is_deleted=false
+      GROUP BY verifier.id
+      HAVING count(DISTINCT permission.code)=2
+      ORDER BY verifier.id::text
+      LIMIT 1`,
+    [tenantId, parkId, actor.id, identityVerifierUsername]
+  );
+  if (!identityVerifier?.id) {
+    throw new Error("Cannot find a distinct user with asset:identity-submissions:page and party:identity_verify for identity verification UAT; set IDENTITY_VERIFIER_USERNAME or seed an eligible verifier.");
+  }
+  const identityQueuePolicySnapshot = {
+    requiredPermissions: ["asset:identity-submissions:page", "party:identity_verify"],
+    requiredModules: ["asset"],
+    relationScope: "tenant-park-current",
+    dataScope: "party-submission",
+    actorExclusions: ["maker"],
+    eligibleVerifierUserIds: [identityVerifier.id],
+    queueSupervisorUserIds: [identityVerifier.id]
+  };
+  const identityQueuePolicyHash = canonicalHash(identityQueuePolicySnapshot);
+  await client.query(
+    `INSERT INTO biz_party_identity_verification_queue(
+       id,tenant_id,park_id,queue_code,display_name,status,
+       eligibility_policy_version,eligibility_policy_snapshot,
+       eligibility_policy_hash,legacy_backfill,legacy_anomaly,version)
+     VALUES($1::uuid,$2,$3,$4,$5,'active',1,$6::jsonb,$7,false,false,1)
+     ON CONFLICT (id) DO UPDATE SET
+       display_name=EXCLUDED.display_name,
+       status='active',
+       eligibility_policy_version=biz_party_identity_verification_queue.eligibility_policy_version+1,
+       eligibility_policy_snapshot=EXCLUDED.eligibility_policy_snapshot,
+       eligibility_policy_hash=EXCLUDED.eligibility_policy_hash,
+       legacy_backfill=false,
+       legacy_anomaly=false,
+       version=biz_party_identity_verification_queue.version+1,
+       update_time=clock_timestamp()`,
+    [
+      ids.verificationQueue,
+      tenantId,
+      parkId,
+      identityQueueCode,
+      "Issue #306 UAT Identity Verification",
+      JSON.stringify(identityQueuePolicySnapshot),
+      identityQueuePolicyHash
+    ]
+  );
 
   const existingFixtureUnits = await queryOne(
     client,

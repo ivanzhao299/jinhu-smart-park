@@ -269,7 +269,13 @@ for (const fixtureScopeToken of [
   "assignment.status='enabled'",
   "assignment.is_deleted=false",
   "assignment.start_time IS NULL OR assignment.start_time<=clock_timestamp()",
-  "assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp()"
+  "assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp()",
+  "biz_party_identity_verification_queue",
+  "identityQueuePolicySnapshot",
+  "eligibleVerifierUserIds",
+  "queueSupervisorUserIds",
+  "party:identity_verify",
+  "IDENTITY_VERIFIER_USERNAME"
 ]) {
   assert.ok(
     propertyControlPlaneUatFixture.includes(fixtureScopeToken),
