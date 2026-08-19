@@ -1,15 +1,17 @@
-import type { PaginatedResult } from "@jinhu/shared";
+import type { PaginatedResult, UserParkContext } from "@jinhu/shared";
 
 export type EnabledStatus = 0 | 1;
 
 export interface BuildingRow {
   id: string;
+  parkId?: string;
   buildingCode: string;
   buildingName: string;
 }
 
 export interface FloorRow {
   id: string;
+  parkId?: string;
   buildingId: string;
   floorCode: string;
   floorName: string;
@@ -32,6 +34,7 @@ export interface DictItemRow {
 
 export interface UnitRow {
   id: string;
+  parkId?: string;
   unitCode: string;
   buildingId: string;
   floorId: string;
@@ -66,6 +69,7 @@ export interface UnitRow {
 }
 
 export interface UnitFormState {
+  parkId: string;
   unitCode: string;
   buildingId: string;
   floorId: string;
@@ -91,6 +95,8 @@ export interface UnitFilters {
   minArea: string;
   maxArea: string;
 }
+
+export type UnitParkOption = UserParkContext;
 
 export type UnitAttachmentMode = "photos" | "floorplan";
 export type UnitStatusPanelMode = "change" | "logs";

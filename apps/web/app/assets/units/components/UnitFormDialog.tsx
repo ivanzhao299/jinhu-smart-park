@@ -3,12 +3,16 @@ import type { UserContext } from "@jinhu/shared";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
 import { fieldText, formatMoney, maskUnitField, UNIT_FIELD_REF_PRICE, UNIT_FIELD_REMARK } from "../lib/unit-page-utils";
-import type { BuildingRow, DictItemRow, EnabledStatus, FloorRow, UnitFormState } from "../types";
+import type { BuildingRow, DictItemRow, EnabledStatus, FloorRow, UnitFormState, UnitParkOption } from "../types";
 import { DetailItem, DictBadge, DictSelect, NumberField, SelectField, TextField } from "./UnitPageFields";
 
 export function UnitFormDialog({
   editingId,
   form,
+  parkOptions,
+  formMessage,
+  submitting,
+  formParkSwitching,
   buildings,
   formFloors,
   dicts,
@@ -19,11 +23,17 @@ export function UnitFormDialog({
   canViewRemark,
   onClose,
   onSubmit,
+  onParkChange,
+  onRetryParkLoad,
   onBuildingChange,
   onFormChange
 }: {
   editingId: string | null;
   form: UnitFormState;
+  parkOptions: UnitParkOption[];
+  formMessage: string;
+  submitting: boolean;
+  formParkSwitching: boolean;
   buildings: BuildingRow[];
   formFloors: FloorRow[];
   dicts: Record<string, DictItemRow[]>;
@@ -34,6 +44,8 @@ export function UnitFormDialog({
   canViewRemark: boolean;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onParkChange: (parkId: string) => void;
+  onRetryParkLoad: () => void;
   onBuildingChange: (buildingId: string) => void;
   onFormChange: <K extends keyof UnitFormState>(key: K, value: UnitFormState[K]) => void;
 }) {
@@ -48,13 +60,21 @@ export function UnitFormDialog({
       />
       <DrawerForm onSubmit={onSubmit}>
         <DrawerFormGrid>
-          <SelectField label="所属楼栋" value={form.buildingId} required onChange={onBuildingChange}>
+          {!editingId ? (
+            <SelectField label="所属园区" value={form.parkId} required disabled={formParkSwitching || submitting} onChange={onParkChange}>
+              <option value="">请选择园区</option>
+              {parkOptions.map((park) => (
+                <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} ` : ""}{park.park_name}</option>
+              ))}
+            </SelectField>
+          ) : null}
+          <SelectField label="所属楼栋" value={form.buildingId} required disabled={formParkSwitching} onChange={onBuildingChange}>
             <option value="">请选择楼栋</option>
             {buildings.map((building) => (
               <option key={building.id} value={building.id}>{building.buildingCode} {building.buildingName}</option>
             ))}
           </SelectField>
-          <SelectField label="所属楼层" value={form.floorId} required onChange={(value) => onFormChange("floorId", value)}>
+          <SelectField label="所属楼层" value={form.floorId} required disabled={formParkSwitching} onChange={(value) => onFormChange("floorId", value)}>
             <option value="">请选择楼层</option>
             {formFloors.map((floor) => (
               <option key={floor.id} value={floor.id}>{floor.floorCode} {floor.floorName}</option>
@@ -92,9 +112,19 @@ export function UnitFormDialog({
             <DetailItem label="备注" value={fieldText(maskUnitField(authUser, UNIT_FIELD_REMARK, form.remark))} />
           ) : null}
         </DrawerFormGrid>
+        {formMessage ? (
+          <p className="status-pill" role="alert">
+            {formMessage}
+            {!editingId ? (
+              <button className="inline-action-button" type="button" disabled={formParkSwitching} onClick={onRetryParkLoad}>
+                重新加载当前园区数据
+              </button>
+            ) : null}
+          </p>
+        ) : null}
         <DrawerFooter>
-          <button className="secondary-button" type="button" onClick={onClose}>取消</button>
-          <button className="primary-button" type="submit">保存</button>
+          <button className="secondary-button" type="button" disabled={formParkSwitching} onClick={onClose}>取消</button>
+          <button className="primary-button" type="submit" disabled={submitting || formParkSwitching}>{submitting ? "保存中..." : "保存"}</button>
         </DrawerFooter>
       </DrawerForm>
     </Drawer>

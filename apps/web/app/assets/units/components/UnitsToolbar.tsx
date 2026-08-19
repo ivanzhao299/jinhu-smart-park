@@ -1,20 +1,28 @@
 import { Card } from "@jinhu/ui";
 import { Search } from "lucide-react";
-import type { BuildingRow, DictItemRow, FloorRow, UnitFilters } from "../types";
+import type { BuildingRow, DictItemRow, FloorRow, UnitFilters, UnitParkOption } from "../types";
 import { DictSelect, NumberField, SelectField, TextField } from "./UnitPageFields";
 
 export function UnitsToolbar({
   filters,
+  listParkId,
+  listParkOptions,
+  listParkSwitching,
   buildings,
   visibleFloors,
   dicts,
+  onListParkChange,
   onFilterChange,
   onSubmit
 }: {
   filters: UnitFilters;
+  listParkId: string;
+  listParkOptions: UnitParkOption[];
+  listParkSwitching: boolean;
   buildings: BuildingRow[];
   visibleFloors: FloorRow[];
   dicts: Record<string, DictItemRow[]>;
+  onListParkChange: (parkId: string) => void;
   onFilterChange: (key: keyof UnitFilters, value: string) => void;
   onSubmit: () => void;
 }) {
@@ -22,6 +30,11 @@ export function UnitsToolbar({
     <Card >
       <form className="form-stack" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
         <div className="dashboard-grid">
+          <SelectField label="查看园区" value={listParkId} disabled={listParkSwitching} onChange={onListParkChange}>
+            {listParkOptions.map((park) => (
+              <option key={park.park_id} value={park.park_id}>{park.park_code ? `${park.park_code} ` : ""}{park.park_name}</option>
+            ))}
+          </SelectField>
           <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => onFilterChange("buildingId", value)}>
             <option value="">全部楼栋</option>
             {buildings.map((building) => (
