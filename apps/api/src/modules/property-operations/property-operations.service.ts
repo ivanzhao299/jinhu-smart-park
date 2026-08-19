@@ -4,7 +4,8 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
@@ -32,6 +33,7 @@ import { PropertyOccupancyEntity } from "./entities/property-occupancy.entity";
 import { PropertyOperationConfigEntity } from "./entities/property-operation-config.entity";
 import { PropertyUnitAccessService } from "./property-unit-access.service";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
+import { AssetSpaceMappingService } from "../assets/asset-space-mapping.service";
 
 type ModeTransitionCheckSnapshot = {
   checked_at: string;
@@ -63,7 +65,8 @@ export class PropertyOperationsService {
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands: PropertyApprovalCommandPort,
     private readonly unitAccessService: PropertyUnitAccessService,
-    private readonly dataSource: DataSource
+    private readonly dataSource: DataSource,
+    @Optional() private readonly assetSpaceMappingService?: AssetSpaceMappingService
   ) {}
 
   async list(
@@ -229,7 +232,7 @@ export class PropertyOperationsService {
     });
   }
 
-  async configure(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: ConfigurePropertyUnitDto) {
+  async configure(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: ConfigurePropertyUnitDto, clientKey?: string) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE);
     await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
@@ -254,23 +257,18 @@ export class PropertyOperationsService {
 
       if (dto.asset_unit_id !== undefined) {
         if (dto.asset_unit_id !== null) {
-          const assetUnit = await manager.getRepository(AssetUnitEntity).findOne({
-            where: { id: dto.asset_unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-          });
-          if (!assetUnit) throw new BadRequestException("asset_unit_id does not belong to current tenant and park");
-          const mapped = await manager.getRepository(UnitEntity)
-            .createQueryBuilder("unit")
-            .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
-            .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
-            .andWhere("unit.asset_unit_id = :assetUnitId", { assetUnitId: dto.asset_unit_id })
-            .andWhere("unit.id <> :unitId", { unitId })
-            .andWhere("unit.is_deleted = false")
-            .getExists();
-          if (mapped) throw new ConflictException("Physical asset unit is already mapped to another operating unit");
+          if (!this.assetSpaceMappingService) throw new Error("AssetSpaceMappingService is not configured");
+          await this.assetSpaceMappingService.linkExistingUnit(
+            manager, scope, actor.sub, dto.asset_unit_id, unitId, clientKey, dto.remark?.trim() || "物业运营配置关联物理资产"
+          );
+        } else {
+          if (unit.assetUnitId) {
+            if (!this.assetSpaceMappingService) throw new Error("AssetSpaceMappingService is not configured");
+            await this.assetSpaceMappingService.unlinkExistingUnit(
+              manager, scope, actor.sub, unitId, unit.assetUnitId, clientKey, dto.remark?.trim() || "物业运营配置解除物理资产关联"
+            );
+          }
         }
-        unit.assetUnitId = dto.asset_unit_id;
-        unit.updateBy = actor.sub;
-        await manager.getRepository(UnitEntity).save(unit);
       }
 
       if (!config) {

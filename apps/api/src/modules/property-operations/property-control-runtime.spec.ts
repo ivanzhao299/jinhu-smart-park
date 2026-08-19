@@ -277,7 +277,8 @@ test("configure clears an asset mapping only when null is explicitly submitted",
     [{ version: 2, operating_status: "enabled", asset_unit_id: null }, null, 1]
   ] as const) {
     let unitSaveCalls = 0;
-    const unit = { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: "asset-1", updateBy: null };
+    const unit: { id: string; tenantId: string; parkId: string; assetUnitId: string | null; updateBy: string | null } =
+      { id: "unit-1", tenantId: "tenant-1", parkId: "park-1", assetUnitId: "asset-1", updateBy: null };
     const config = { id: "config-1", unitId: "unit-1", version: 2, operatingMode: "long_rent", operatingStatus: "enabled", suspendReason: null, updateBy: null, remark: null };
     const manager = {
       getRepository: (entity: { name: string }) => entity.name === "UnitEntity"
@@ -287,7 +288,8 @@ test("configure clears an asset mapping only when null is explicitly submitted",
     const service = new PropertyOperationsService(
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
       { assertAccess: async () => unit } as never,
-      { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never
+      { transaction: async (work: (value: typeof manager) => unknown) => work(manager) } as never,
+      { unlinkExistingUnit: async () => { unit.assetUnitId = null; unitSaveCalls += 1; return unit; } } as never
     );
 
     await service.configure(

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Query, UseInterceptors } from "@nestjs/common";
 import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
@@ -19,13 +19,17 @@ import { UpdateAssetParkDto } from "./dto/update-asset-park.dto";
 import { UpdateAssetUnitDto } from "./dto/update-asset-unit.dto";
 import { UnitStatusBoardQueryDto } from "./dto/unit-status-board-query.dto";
 import { AssetsService } from "./assets.service";
+import { AssetSpaceMappingService } from "./asset-space-mapping.service";
+import { ConvertAssetUnitDto, MapAssetSpaceDto } from "./dto/map-asset-space.dto";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("assets")
 @RequireModule("asset")
 export class AssetsController {
   constructor(
     private readonly assetsService: AssetsService,
-    private readonly unitsService: UnitsService
+    private readonly unitsService: UnitsService,
+    private readonly assetSpaceMappingService: AssetSpaceMappingService
   ) {}
 
   @Get("statistics")
@@ -38,6 +42,12 @@ export class AssetsController {
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_STATUS_BOARD, SYSTEM_PERMISSIONS.UNIT_READ)
   unitStatusBoard(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Query() query: UnitStatusBoardQueryDto) {
     return this.unitsService.unitStatusBoard(scope, query, user);
+  }
+
+  @Get("operating-space-candidates")
+  @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_LIST)
+  operatingSpaceCandidates(@CurrentScope() scope: TenantParkScope, @Query() query: AssetQueryDto) {
+    return this.assetSpaceMappingService.listUnitCandidates(scope, query.page, query.page_size, query.keyword);
   }
 
   @Get("parks")
@@ -91,6 +101,16 @@ export class AssetsController {
     return this.assetsService.createBuilding(scope, user.sub, dto);
   }
 
+  @Post("buildings/:id/operating-building")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_BUILDING_CREATE)
+  @AuditLog({ module: "楼栋管理", resource: "asset.operating-building", action: "启用运营楼栋", bizType: "biz_building", bizIdParam: "id" })
+  mapOperatingBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @Headers("x-idempotency-key") key: string | undefined,
+    @Body() dto: MapAssetSpaceDto) {
+    return this.assetSpaceMappingService.mapBuilding(scope, user.sub, id, key, dto);
+  }
+
   @Get("buildings/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_BUILDING_DETAIL)
   detailBuilding(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -129,6 +149,16 @@ export class AssetsController {
     return this.assetsService.createFloor(scope, user.sub, dto);
   }
 
+  @Post("floors/:id/operating-floor")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_FLOOR_CREATE)
+  @AuditLog({ module: "楼层管理", resource: "asset.operating-floor", action: "启用运营楼层", bizType: "biz_floor", bizIdParam: "id" })
+  mapOperatingFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @Headers("x-idempotency-key") key: string | undefined,
+    @Body() dto: MapAssetSpaceDto) {
+    return this.assetSpaceMappingService.mapFloor(scope, user.sub, id, key, dto);
+  }
+
   @Get("floors/:id")
   @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_FLOOR_DETAIL)
   detailFloor(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
@@ -165,6 +195,16 @@ export class AssetsController {
   @AuditLog({ module: "房源管理", resource: "asset.unit", action: "新增", bizType: "asset_unit" })
   createUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Body() dto: CreateAssetUnitDto) {
     return this.assetsService.createUnit(scope, user.sub, dto);
+  }
+
+  @Post("units/:id/operating-unit")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.ASSET_UNIT_CREATE)
+  @AuditLog({ module: "房源管理", resource: "asset.operating-unit", action: "启用运营房号", bizType: "biz_unit", bizIdParam: "id" })
+  convertOperatingUnit(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @Headers("x-idempotency-key") key: string | undefined,
+    @Body() dto: ConvertAssetUnitDto) {
+    return this.assetSpaceMappingService.convertUnit(scope, user.sub, id, key, dto);
   }
 
   @Get("units/:id")

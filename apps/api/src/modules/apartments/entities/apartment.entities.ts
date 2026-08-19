@@ -34,6 +34,13 @@ export class ApartmentApplicationEntity extends AuditableEntity {
   @Column({ name: "job_title", type: "varchar", length: 100, nullable: true }) jobTitle!: string | null;
   @Column({ name: "mobile_masked", type: "varchar", length: 32, nullable: true }) mobileMasked!: string | null;
   @Column({ name: "identity_number_masked", type: "varchar", length: 64, nullable: true }) identityNumberMasked!: string | null;
+  @Column({ name: "emergency_contact_name", type: "varchar", length: 100, nullable: true }) emergencyContactName!: string | null;
+  @Column({ name: "emergency_contact_mobile", type: "varchar", length: 32, nullable: true }) emergencyContactMobile!: string | null;
+  @Column({ name: "household_size", type: "integer", default: 1 }) householdSize!: number;
+  @Column({ name: "accompanying_names", type: "varchar", length: 500, nullable: true }) accompanyingNames!: string | null;
+  @Column({ name: "vehicle_plate", type: "varchar", length: 32, nullable: true }) vehiclePlate!: string | null;
+  @Column({ name: "accommodation_notes", type: "varchar", length: 1000, nullable: true }) accommodationNotes!: string | null;
+  @Column({ name: "policy_accepted", type: "boolean", default: false }) policyAccepted!: boolean;
   @Column({ name: "requested_room_type", type: "varchar", length: 32 }) requestedRoomType!: ApartmentRoomType;
   @Column({ name: "requested_start_date", type: "date" }) requestedStartDate!: string;
   @Column({ name: "requested_end_date", type: "date", nullable: true }) requestedEndDate!: string | null;
@@ -51,6 +58,13 @@ export class ApartmentApprovalEntity extends AuditableEntity {
   @Column({ name: "decided_by", type: "uuid" }) decidedBy!: string;
   @Column({ name: "decided_at", type: "timestamptz" }) decidedAt!: Date;
   @Column({ type: "varchar", length: 1000, nullable: true }) opinion!: string | null;
+  @Column({ name: "approved_start_date", type: "date", nullable: true }) approvedStartDate!: string | null;
+  @Column({ name: "approved_end_date", type: "date", nullable: true }) approvedEndDate!: string | null;
+  @Column({ name: "cost_bearer", type: "varchar", length: 24, nullable: true }) costBearer!: string | null;
+  @Column({ name: "deposit_amount", type: "numeric", precision: 12, scale: 2, nullable: true }) depositAmount!: string | null;
+  @Column({ name: "monthly_fee", type: "numeric", precision: 12, scale: 2, nullable: true }) monthlyFee!: string | null;
+  @Column({ name: "allocation_note", type: "varchar", length: 500, nullable: true }) allocationNote!: string | null;
+  @Column({ name: "safety_requirements", type: "varchar", length: 1000, nullable: true }) safetyRequirements!: string | null;
 }
 
 @Entity("biz_apartment_stay")
@@ -79,6 +93,9 @@ export class ApartmentHandoverEntity extends AuditableEntity {
   @Column({ name: "key_snapshot", type: "jsonb", default: () => "'[]'::jsonb" }) keySnapshot!: unknown[];
   @Column({ name: "photo_file_ids", type: "jsonb", default: () => "'[]'::jsonb" }) photoFileIds!: string[];
   @Column({ name: "exception_note", type: "varchar", length: 1000, nullable: true }) exceptionNote!: string | null;
+  @Column({ name: "water_meter_reading", type: "numeric", precision: 14, scale: 3, nullable: true }) waterMeterReading!: string | null;
+  @Column({ name: "electricity_meter_reading", type: "numeric", precision: 14, scale: 3, nullable: true }) electricityMeterReading!: string | null;
+  @Column({ name: "confirmed_by", type: "uuid", nullable: true }) confirmedBy!: string | null;
   @Column({ name: "confirmed_at", type: "timestamptz", nullable: true }) confirmedAt!: Date | null;
 }
 
