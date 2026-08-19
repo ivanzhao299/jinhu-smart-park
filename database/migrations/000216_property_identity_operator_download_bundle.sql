@@ -154,6 +154,39 @@ BEGIN
 END;
 $$;
 
+DO $$
+DECLARE
+  unresolved_tenants text;
+BEGIN
+  WITH affected_tenants AS (
+    SELECT DISTINCT role.tenant_id
+    FROM public.sys_role role
+    WHERE role.is_deleted = false
+      AND role.applied_bundle_codes ? 'property-bundle:property-identity-operator'
+  ),
+  permission_counts AS (
+    SELECT tenant.tenant_id, count(permission.id)::int AS permission_count
+    FROM affected_tenants tenant
+    LEFT JOIN public.sys_permission permission
+      ON permission.tenant_id = tenant.tenant_id
+     AND permission.code = 'file:download'
+     AND permission.is_enabled = true
+     AND permission.status = 'enabled'
+     AND permission.is_deleted = false
+    GROUP BY tenant.tenant_id
+  )
+  SELECT string_agg(tenant_id || ':' || permission_count::text, ', ' ORDER BY tenant_id)
+  INTO unresolved_tenants
+  FROM permission_counts
+  WHERE permission_count <> 1;
+
+  IF unresolved_tenants IS NOT NULL THEN
+    RAISE EXCEPTION 'property-identity-operator-file-download-permission-unresolved:%', unresolved_tenants
+      USING ERRCODE = '23514';
+  END IF;
+END;
+$$;
+
 WITH identity_operator_roles AS (
   SELECT role.tenant_id, role.park_id, role.id AS role_id
   FROM public.sys_role role

@@ -252,12 +252,24 @@ assert.match(
   /role\.applied_bundle_codes \? bundle\.bundle_code[\s\S]*?UPDATE public\.sys_role role[\s\S]*?SET applied_bundle_signature = role_bundle_signatures\.signature/,
   "identity operator download migration must refresh affected role bundle provenance"
 );
+assert.match(
+  identityOperatorDownloadMigration,
+  /property-identity-operator-file-download-permission-unresolved/,
+  "identity operator download migration must fail when affected tenants cannot resolve file:download"
+);
+assert.match(
+  identityOperatorDownloadMigration,
+  /permission_count <> 1/,
+  "identity operator download migration must require exactly one active file:download permission per affected tenant"
+);
 
 for (const fixtureScopeToken of [
   "isProductionLikeTarget",
+  "PROPERTY_CONTROL_PLANE_UAT_TARGET",
+  "disposableTargetMarkers",
   "productionEnvNames",
   "targetUrls",
-  "Refusing to write property control-plane UAT fixtures to a production-like database target.",
+  "Refusing to write property control-plane UAT fixtures without PROPERTY_CONTROL_PLANE_UAT_TARGET=local|disposable|ci|test on a local database target.",
   "assertUatScopePreflight",
   "active_park_count",
   "active_asset_assignment_count",
@@ -272,9 +284,15 @@ for (const fixtureScopeToken of [
   "assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp()",
   "biz_party_identity_verification_queue",
   "identityQueuePolicySnapshot",
+  "identityVerifierRequiredPermissions",
+  "identityQueueCode",
+  "ORDER BY queue_code ASC, id ASC",
+  "is not the first active non-legacy queue",
   "eligibleVerifierUserIds",
   "queueSupervisorUserIds",
   "party:identity_verify",
+  "party:read",
+  "file:download",
   "IDENTITY_VERIFIER_USERNAME"
 ]) {
   assert.ok(
@@ -282,6 +300,11 @@ for (const fixtureScopeToken of [
     `property control-plane UAT fixture missing active scope preflight: ${fixtureScopeToken}`
   );
 }
+assert.doesNotMatch(
+  propertyControlPlaneUatFixture,
+  /localPostgresHosts[\s\S]*"postgres"/,
+  "property control-plane UAT fixture must not classify the production Docker postgres alias as local-safe"
+);
 for (const selectorToken of [
   "current_park.tenant_id=actor.tenant_id",
   "current_park.park_id=actor.park_id",

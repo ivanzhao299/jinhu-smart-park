@@ -11,6 +11,7 @@ const runCode = process.env.PROPERTY_CONTROL_PLANE_UAT_CODE ?? "issue-306";
 const actorUsername = process.env.ADMIN_USERNAME ?? "admin";
 const approverUsername = process.env.APPROVER_USERNAME ?? "";
 const identityVerifierUsername = process.env.IDENTITY_VERIFIER_USERNAME ?? approverUsername;
+const fixtureTarget = process.env.PROPERTY_CONTROL_PLANE_UAT_TARGET ?? "";
 const modeTransitionSnapshotCheckedAt = "2026-08-18T00:00:00.000Z";
 const postgresHost = process.env.POSTGRES_HOST ?? "127.0.0.1";
 const postgresDb = process.env.POSTGRES_DB ?? "jinhu_smart_park";
@@ -53,10 +54,19 @@ const uatActorRequiredPermissions = [
   "property_approval:read",
   "property_approval:withdraw"
 ];
-const localPostgresHosts = new Set(["127.0.0.1", "localhost", "::1", "0.0.0.0", "postgres"]);
+const identityVerifierRequiredPermissions = [
+  "asset:identity-submissions:page",
+  "party:read",
+  "party:identity_verify",
+  "file:read",
+  "file:download"
+];
+const disposableTargetMarkers = new Set(["local", "disposable", "ci", "test"]);
+const localPostgresHosts = new Set(["127.0.0.1", "localhost", "::1", "0.0.0.0"]);
 
 function isProductionLikeTarget() {
-  return productionEnvNames.some((value) => ["production", "prod"].includes(value))
+  return !disposableTargetMarkers.has(fixtureTarget.toLowerCase())
+    || productionEnvNames.some((value) => ["production", "prod"].includes(value))
     || /(^|[_-])(prod|production)([_-]|$)/i.test(postgresDb)
     || (!localPostgresHosts.has(postgresHost.toLowerCase()) && !postgresHost.toLowerCase().endsWith(".local"))
     || targetUrls.some((value) =>
@@ -81,7 +91,7 @@ const ids = {
   submission: scopedUuid("submission"),
   outbox: scopedUuid("outbox")
 };
-const identityQueueCode = `uat-${ids.verificationQueue.slice(0, 8)}`;
+const identityQueueCode = `000-uat-${ids.verificationQueue.slice(0, 8)}`;
 
 function canonicalText(value) {
   if (value === null) return "null";
@@ -376,7 +386,7 @@ async function applyFixtures(client) {
     throw new Error("Set ALLOW_PROPERTY_CONTROL_PLANE_UAT_FIXTURE=yes to write UAT fixtures.");
   }
   if (isProductionLikeTarget()) {
-    throw new Error("Refusing to write property control-plane UAT fixtures to a production-like database target.");
+    throw new Error("Refusing to write property control-plane UAT fixtures without PROPERTY_CONTROL_PLANE_UAT_TARGET=local|disposable|ci|test on a local database target.");
   }
   await assertFixtureIdScope(client);
   await assertUatScopePreflight(client);
@@ -590,7 +600,7 @@ async function applyFixtures(client) {
       WHERE verifier.tenant_id=$1 AND verifier.park_id=$2
         AND verifier.id<>$3::uuid
         AND ($4='' OR verifier.username=$4)
-        AND permission.code IN ('asset:identity-submissions:page','party:identity_verify')
+        AND permission.code=ANY($5::varchar[])
         AND verifier.is_enabled=true AND verifier.status='enabled' AND verifier.is_deleted=false
         AND EXISTS (
           SELECT 1
@@ -623,13 +633,13 @@ async function applyFixtures(client) {
         AND role_permission.is_deleted=false
         AND permission.is_enabled=true AND permission.status='enabled' AND permission.is_deleted=false
       GROUP BY verifier.id
-      HAVING count(DISTINCT permission.code)=2
+      HAVING count(DISTINCT permission.code)=cardinality($5::varchar[])
       ORDER BY verifier.id::text
       LIMIT 1`,
-    [tenantId, parkId, actor.id, identityVerifierUsername]
+    [tenantId, parkId, actor.id, identityVerifierUsername, identityVerifierRequiredPermissions]
   );
   if (!identityVerifier?.id) {
-    throw new Error("Cannot find a distinct user with asset:identity-submissions:page and party:identity_verify for identity verification UAT; set IDENTITY_VERIFIER_USERNAME or seed an eligible verifier.");
+    throw new Error(`Cannot find a distinct user with ${identityVerifierRequiredPermissions.join(", ")} for identity verification UAT; set IDENTITY_VERIFIER_USERNAME or seed an eligible verifier.`);
   }
   const identityQueuePolicySnapshot = {
     requiredPermissions: ["asset:identity-submissions:page", "party:identity_verify"],
@@ -667,6 +677,21 @@ async function applyFixtures(client) {
       identityQueuePolicyHash
     ]
   );
+  const selectedIdentityQueue = await queryOne(
+    client,
+    `SELECT id::text AS id, queue_code
+       FROM biz_party_identity_verification_queue
+      WHERE tenant_id=$1
+        AND park_id=$2
+        AND status='active'
+        AND legacy_backfill=false
+      ORDER BY queue_code ASC, id ASC
+      LIMIT 1`,
+    [tenantId, parkId]
+  );
+  if (selectedIdentityQueue?.id !== ids.verificationQueue) {
+    throw new Error(`Fixture identity queue ${identityQueueCode} is not the first active non-legacy queue; selected ${selectedIdentityQueue?.queue_code ?? "none"}. Use an isolated UAT scope or disable earlier queues.`);
+  }
 
   const existingFixtureUnits = await queryOne(
     client,
