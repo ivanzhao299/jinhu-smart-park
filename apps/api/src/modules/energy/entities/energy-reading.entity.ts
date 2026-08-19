@@ -40,6 +40,15 @@ export class EnergyReadingEntity {
   @Column({ name: "raw_payload", type: "jsonb", default: {} })
   rawPayload!: Record<string, unknown>;
 
+  @Column({ name: "source_domain", type: "varchar", length: 32, nullable: true })
+  sourceDomain!: string | null;
+
+  @Column({ name: "source_type", type: "varchar", length: 64, nullable: true })
+  sourceType!: string | null;
+
+  @Column({ name: "source_id", type: "uuid", nullable: true })
+  sourceId!: string | null;
+
   @Column({ name: "created_by", type: "uuid", nullable: true })
   createdBy!: string | null;
 

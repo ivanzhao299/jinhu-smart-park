@@ -6,6 +6,8 @@ Physical-to-operating space conversion: [Asset To Operating Space Mapping](./ass
 
 Apartment operating-space inclusion: [Apartment Inclusion And Availability](./apartment-inclusion-availability.md).
 
+Apartment handover energy ledger: [Apartment Handover Energy Integration](./apartment-handover-energy-integration.md).
+
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
 ## Package Boundary

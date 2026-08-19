@@ -24,6 +24,9 @@ export interface EnergyReadingView {
   readingSource: string;
   confirmationStatus: string;
   rawPayload: Record<string, unknown>;
+  sourceDomain: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
   createdBy: string | null;
   confirmedBy: string | null;
   confirmedAt: Date | null;
@@ -174,6 +177,9 @@ export class EnergyReadingService {
       readingSource: entity.readingSource,
       confirmationStatus: entity.confirmationStatus,
       rawPayload: entity.rawPayload,
+      sourceDomain: entity.sourceDomain,
+      sourceType: entity.sourceType,
+      sourceId: entity.sourceId,
       createdBy: entity.createdBy,
       confirmedBy: entity.confirmedBy,
       confirmedAt: entity.confirmedAt,

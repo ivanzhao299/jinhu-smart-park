@@ -1,5 +1,5 @@
 import { Transform, Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { APARTMENT_GENDER_POLICIES, APARTMENT_ROOM_TYPES } from "@jinhu/shared";
 
 const trim = ({ value }: { value: unknown }) => typeof value === "string" ? value.trim() : value;
@@ -61,10 +61,15 @@ export class DecisionDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) safety_requirements?: string;
 }
 export class AllocateApartmentDto { @IsUUID() room_id!: string; @IsUUID() bed_id!: string; @IsOptional() @IsDateString() planned_end_date?: string; }
+export class HandoverMeterReadingDto {
+  @IsUUID() meter_id!: string;
+  @IsString() @Matches(/^\d{1,14}(\.\d{1,4})?$/, { message: "表计读数格式不正确" }) reading_value!: string;
+}
 export class HandoverDto {
   @IsArray() @IsObject({ each: true }) items!: Record<string, unknown>[];
   @IsArray() @IsObject({ each: true }) keys!: Record<string, unknown>[];
   @IsOptional() @IsArray() @IsUUID(undefined, { each: true }) photo_file_ids?: string[];
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => HandoverMeterReadingDto) meter_readings?: HandoverMeterReadingDto[];
   @IsOptional() @IsString() @Matches(/^\d{1,10}(\.\d{1,3})?$/, { message: "水表读数格式不正确" }) water_meter_reading?: string;
   @IsOptional() @IsString() @Matches(/^\d{1,10}(\.\d{1,3})?$/, { message: "电表读数格式不正确" }) electricity_meter_reading?: string;
   @IsOptional() @IsString() @MaxLength(1000) exception_note?: string;

@@ -21,7 +21,8 @@
   "children": [
     "08-19-apartment-asset-baseline-audit",
     "08-19-asset-unit-operation-unit-conversion",
-    "08-19-apartment-inclusion-availability"
+    "08-19-apartment-inclusion-availability",
+    "08-19-apartment-handover-energy-integration"
   ],
   "parent": null,
   "relatedFiles": [],

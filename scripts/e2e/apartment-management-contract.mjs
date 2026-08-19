@@ -28,7 +28,7 @@ assert.match(layout,/DashboardLayout/);
 assert.match(workbench,/fallback=\{forbidden\}/);
 assert.match(workbench,/无权访问公寓管理/);
 assert.match(approvalAction,/办理审批/);assert.match(approvalAction,/费用承担/);assert.match(approvalAction,/安全与管理要求/);
-assert.match(handoverAction,/水表读数/);assert.match(handoverAction,/钥匙数/);assert.match(handoverAction,/FileUploader/);
+assert.match(handoverAction,/handoverMeters/);assert.match(handoverAction,/meter_readings/);assert.match(handoverAction,/钥匙数/);assert.match(handoverAction,/FileUploader/);
 assert.match(operationsDoc,/标准业务流程/);assert.match(operationsDoc,/状态与操作限制/);
 assert.match(atomicRbac,/JH_HR_ADMIN_MANAGER/);
 assert.match(atomicRbac,/APARTMENT_MANAGER/);
