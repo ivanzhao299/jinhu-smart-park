@@ -15,6 +15,7 @@ const idempotencyKeyPrefix = process.env.IDEMPOTENCY_KEY_PREFIX ?? "first-releas
 const contextParkCode = process.env.CONTEXT_SWITCH_PARK_CODE ?? fixtureCode("CTXSWITCH", fixtureActorSuffix);
 const contextBuildingCode = process.env.CONTEXT_SWITCH_BUILDING_CODE ?? fixtureCode("CTXSWITCH-B1", `${fixtureTenantSuffix}-${fixtureRunSuffix}`);
 const contextFloorCode = process.env.CONTEXT_SWITCH_FLOOR_CODE ?? fixtureCode("CTXSWITCH-F1", `${fixtureTenantSuffix}-${fixtureRunSuffix}`);
+const contextUnitCode = process.env.CONTEXT_SWITCH_UNIT_CODE ?? fixtureCode("CTXSWITCH-U1", `${fixtureTenantSuffix}-${fixtureRunSuffix}`);
 const deniedParkId = process.env.CONTEXT_SWITCH_DENIED_PARK_ID ?? "";
 
 function normalizeFixtureSuffix(value) {
@@ -254,7 +255,36 @@ async function resolveFloor(accessToken, buildingId, targetParkId) {
   return floor;
 }
 
-async function verifyTargetAssetsVisible(accessToken, building, floor, targetParkId) {
+async function resolveUnit(accessToken, buildingId, floorId, targetParkId) {
+  const result = await request("/park-units", {
+    method: "POST",
+    headers: authHeaders(accessToken, "create-unit"),
+    body: JSON.stringify({
+      unitCode: contextUnitCode,
+      buildingId,
+      floorId,
+      unitName: "Context Switch Regression Unit",
+      usageType: 10,
+      unitArea: 100,
+      useArea: 90,
+      rentalStatus: 10,
+      fittingStatus: 10,
+      refPrice: 100,
+      status: 1,
+      remark: "Reusable first-release context switch regression fixture"
+    })
+  });
+  if (!expectStatus("POST /park-units after switch", result.response.status, [200, 201], result.body)) return null;
+  const unit = unwrapData(result.body);
+  if (unit?.parkId !== targetParkId && unit?.park_id !== targetParkId) {
+    fail(`POST /park-units used wrong park; expected ${targetParkId}, body=${summarizeBody(result.body)}`);
+    return null;
+  }
+  pass("POST /park-units wrote into switched park");
+  return unit;
+}
+
+async function verifyTargetAssetsVisible(accessToken, building, floor, unit, targetParkId) {
   const targetBuildings = await request(`/buildings?page=1&page_size=20&keyword=${encodeURIComponent(contextBuildingCode)}`, {
     headers: { authorization: `Bearer ${accessToken}` }
   });
@@ -278,10 +308,31 @@ async function verifyTargetAssetsVisible(accessToken, building, floor, targetPar
     return false;
   }
   pass("Target context list shows target park floor");
+
+  const targetUnits = await request(`/park-units?page=1&page_size=20&keyword=${encodeURIComponent(contextUnitCode)}`, {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  if (!expectStatus("GET /park-units in target context", targetUnits.response.status, 200, targetUnits.body)) return false;
+  const unitPage = unwrapData(targetUnits.body);
+  const unitItems = Array.isArray(unitPage?.items) ? unitPage.items : [];
+  if (!unitItems.some((item) => item?.id === unit.id && (item?.parkId === targetParkId || item?.park_id === targetParkId))) {
+    fail(`Target context list does not show target unit ${unit.id}; body=${summarizeBody(targetUnits.body)}`);
+    return false;
+  }
+  pass("Target context list shows target park unit");
   return true;
 }
 
-async function cleanupTargetAssets(accessToken, floor, building) {
+async function cleanupTargetAssets(accessToken, unit, floor, building) {
+  if (unit?.id) {
+    const unitDelete = await request(`/park-units/${unit.id}`, {
+      method: "DELETE",
+      headers: authHeaders(accessToken, "delete-unit", false)
+    });
+    if (!expectStatus("DELETE /park-units context-switch fixture", unitDelete.response.status, [200, 204], unitDelete.body)) return false;
+    pass("Deleted per-run target unit fixture");
+  }
+
   if (floor?.id) {
     const floorDelete = await request(`/floors/${floor.id}`, {
       method: "DELETE",
@@ -302,8 +353,8 @@ async function cleanupTargetAssets(accessToken, floor, building) {
   return true;
 }
 
-async function cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, floor, building }) {
-  if (!floor?.id && !building?.id) return true;
+async function cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, unit, floor, building }) {
+  if (!unit?.id && !floor?.id && !building?.id) return true;
   let cleanupSession = session;
   if (currentParkId !== targetParkId) {
     cleanupSession = await switchContext({
@@ -315,7 +366,7 @@ async function cleanupCreatedTargetAssets({ session, currentParkId, targetParkId
     });
     if (!cleanupSession) return false;
   }
-  return cleanupTargetAssets(cleanupSession.accessToken, floor, building);
+  return cleanupTargetAssets(cleanupSession.accessToken, unit, floor, building);
 }
 
 async function run() {
@@ -329,6 +380,7 @@ async function run() {
   let currentParkId = parkId;
   let building = null;
   let floor = null;
+  let unit = null;
 
   try {
     const initialMe = await getMe(session.accessToken, "initial");
@@ -392,7 +444,9 @@ async function run() {
     if (!building) return;
     floor = await resolveFloor(session.accessToken, building.id, targetParkId);
     if (!floor) return;
-    if (!await verifyTargetAssetsVisible(session.accessToken, building, floor, targetParkId)) return;
+    unit = await resolveUnit(session.accessToken, building.id, floor.id, targetParkId);
+    if (!unit) return;
+    if (!await verifyTargetAssetsVisible(session.accessToken, building, floor, unit, targetParkId)) return;
 
     const switchedBack = await switchContext({
       accessToken: session.accessToken,
@@ -429,14 +483,27 @@ async function run() {
     }
     pass("Default context list does not show target park floor");
 
-    if (!await cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, floor, building })) return;
+    const defaultUnits = await request(`/park-units?page=1&page_size=20&keyword=${encodeURIComponent(contextUnitCode)}`, {
+      headers: { authorization: `Bearer ${session.accessToken}` }
+    });
+    if (!expectStatus("GET /park-units after switching back", defaultUnits.response.status, 200, defaultUnits.body)) return;
+    const unitPage = unwrapData(defaultUnits.body);
+    const unitItems = Array.isArray(unitPage?.items) ? unitPage.items : [];
+    if (unitItems.some((item) => item?.id === unit.id || item?.parkId === targetParkId || item?.park_id === targetParkId)) {
+      fail(`Target park unit leaked into default context; body=${summarizeBody(defaultUnits.body)}`);
+      return;
+    }
+    pass("Default context list does not show target park unit");
+
+    if (!await cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, unit, floor, building })) return;
+    unit = null;
     floor = null;
     building = null;
 
     console.log("[PASS] first release context-switch regression completed");
   } finally {
-    if (targetParkId && (floor?.id || building?.id)) {
-      await cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, floor, building });
+    if (targetParkId && (unit?.id || floor?.id || building?.id)) {
+      await cleanupCreatedTargetAssets({ session, currentParkId, targetParkId, cookieJar, unit, floor, building });
     }
   }
 }

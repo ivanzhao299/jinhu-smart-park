@@ -42,7 +42,7 @@ node scripts/e2e/first-release-idempotency.mjs
 
 `first-release-menu-whitelist.mjs` is retained as an informational historical compatibility check. Current menu Go/No-Go evidence comes from the target role's `/users/me`, enabled modules, permissions, rendered menu, and denied direct-route samples.
 
-`first-release-context-switch.mjs` is a write-capable local/preproduction regression. It discovers or creates a reusable actor-scoped `CTXSWITCH-*` park fixture, switches the authenticated park context, verifies `/auth/me`, creates per-run building/floor records in the target park, verifies target reads and default-park isolation, then cleans up the per-run asset records. Production execution requires explicit approval and a fixture ownership plan.
+`first-release-context-switch.mjs` is a write-capable local/preproduction regression. It discovers or creates a reusable actor-scoped `CTXSWITCH-*` park fixture, switches the authenticated park context, verifies `/auth/me`, creates per-run building/floor/unit records in the target park, verifies target reads and default-park isolation, then cleans up the per-run asset records. Production execution requires explicit approval and a fixture ownership plan.
 
 预生产和生产发布链路必须跑：
 
@@ -117,7 +117,7 @@ node scripts/e2e/s9f1-energy-billing-adjustment-reversal-smoke.mjs
 | 域 | 验证目标 | 建议命令 | 环境适用性 | 通过标准 | No-Go 条件 | 责任域 |
 |---|---|---|---|---|---|---|
 | Auth | 密码登录、错误密码失败、JWT、`/auth/login`、`/auth/me`、短信 mock 禁用、微信 mock 禁用 | `node scripts/e2e/first-release-auth-health.mjs`；`bash scripts/verify-api-login-dockerexec.sh`；`MODE=full pnpm prod:health` | 本地、预发、生产均必须验证；生产只用受控账号 | 正确密码登录成功，错误密码失败，`/auth/me` 正常，mock 配置关闭 | 登录失败、错误密码未拒绝、`AUTH_SMS_FIXED_CODE` 非空、`AUTH_SMS_CODE_VISIBLE` 非 `false`、`AUTH_WECHAT_MOCK_ENABLED` 非 `false` | Agent 5；auth 责任人 |
-| 园区切换 | 多园区可访问列表、`/auth/switch-context` token/cookie 轮换、切换后业务写入归属、切回隔离 | `node scripts/e2e/first-release-context-switch.mjs`；`node scripts/e2e/first-release-regression.mjs` | 本地、预发完整跑；生产默认禁止写入型，仅批准后执行 | 执行账号维度 `CTXSWITCH-*` 园区夹具可复用或可创建，切换后 `/auth/me` 为目标园区，目标园区楼栋/楼层每次新增、可读、可清理，切回默认园区后不可见 | 不能切换、`/auth/me` 园区错误、楼栋/楼层跨园区泄漏、测试夹具无清理/归属计划 | Agent 5；auth/asset 责任人 |
+| 园区切换 | 多园区可访问列表、`/auth/switch-context` token/cookie 轮换、切换后业务写入归属、切回隔离 | `node scripts/e2e/first-release-context-switch.mjs`；`node scripts/e2e/first-release-regression.mjs` | 本地、预发完整跑；生产默认禁止写入型，仅批准后执行 | 执行账号维度 `CTXSWITCH-*` 园区夹具可复用或可创建，切换后 `/auth/me` 为目标园区，目标园区楼栋/楼层/房源每次新增、可读、可清理，切回默认园区后不可见 | 不能切换、`/auth/me` 园区错误、楼栋/楼层/房源跨园区泄漏、测试夹具无清理/归属计划 | Agent 5；auth/asset 责任人 |
 | RBAC | 权限种子、角色权限、超级管理员、普通角色拒绝、数据权限、幂等写保护 | `pnpm test:e2e`；`node scripts/e2e/s1-rbac-std-fix-smoke.mjs`；`node scripts/e2e/first-release-idempotency.mjs` | 本地、预发完整跑；生产只做登录后权限只读抽样 | 角色权限匹配，越权请求被拒绝，幂等重复请求不重复写入 | 普通角色越权、超级管理员缺权、幂等冲突语义异常 | Agent 4 / Agent 5 |
 | 菜单 | 目标角色运行时菜单、模块授权、页面路由和 API 权限一致 | 历史兼容检查（非门禁）：`node scripts/e2e/first-release-menu-whitelist.mjs`；现行门禁：`/users/me`、角色浏览器抽样、拒绝路由抽样 | 本地、预发执行角色/权限检查；生产只读抽样菜单 | 批准开放且有权限的菜单可见，缺权或模块禁用的菜单和路由不可用 | 批准的运行时菜单缺失、缺权菜单暴露、禁用模块可访问、菜单与权限不一致 | Agent 4 / Agent 5 |
 | 租户 | 租户档案、联系人、资质、租户 360 聚合、数据隔离 | `node scripts/e2e/s3a-park-tenant-smoke.mjs`；`node scripts/e2e/first-release-users-assets.mjs` | 本地、预发完整跑；生产只读抽样 | 租户 CRUD/查询、360 聚合、关联数据隔离正常 | 租户 360 关键节点缺失、跨租户数据可见 | Agent 1 / Agent 5 |
@@ -191,7 +191,7 @@ Agent 4 RBAC/menu/dashboard release-gate detail is maintained in [rbac-menu-dash
 | IoT 自动动作不可见或重复创建 | 工单/隐患已创建但列表、360、房源或统计不可见 | S9D1 smoke、DB 关联字段检查 | 失败时停止开放相关联动，修复交 Agent 3 |
 | 文件目录未持久化或未备份 | 上传文件丢失，业务附件不可恢复 | files smoke、生产受控上传下载、备份校验 | 发布前确认 `FILE_STORAGE_LOCAL_ROOT`、volume 和备份 |
 | 生产 smoke 写入数据未清理 | 生产业务数据污染 | TEST_RUN_ID、remark、审计查询 | 生产默认禁止写入型 e2e；必须批准和清理 |
-| 园区切换固定夹具被误改或配额不足 | 首发回归无法准备第二园区，影响多园区验收 | `first-release-context-switch.mjs` fixture lookup/create/cleanup 日志 | 保留执行账号维度 `CTXSWITCH-*` 可复用园区夹具；楼栋/楼层每次运行后清理；生产执行前确认批准、归属和清理策略 |
+| 园区切换固定夹具被误改或配额不足 | 首发回归无法准备第二园区，影响多园区验收 | `first-release-context-switch.mjs` fixture lookup/create/cleanup 日志 | 保留执行账号维度 `CTXSWITCH-*` 可复用园区夹具；楼栋/楼层/房源每次运行后清理；生产执行前确认批准、归属和清理策略 |
 | 本地 fixture 与目标环境不一致 | 回归假阳性或假阴性 | 预发完整回归、失败日志 | 将生产发布判断优先建立在预发和目标环境验证上 |
 | 回滚只回镜像不回数据 | 新 schema 或 seed 与旧代码不兼容 | migration/seed 记录、回滚演练 | 回滚前确认是否需要数据库和文件恢复 |
 | 部署后未清理 Docker | 磁盘增长导致服务不可用 | `df -h`、Docker image/container 检查 | 发布健康检查后执行 Docker cleanup 并记录结果 |

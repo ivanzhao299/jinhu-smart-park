@@ -2,13 +2,15 @@
 import { Card } from "@jinhu/ui";
 
 import { Plus } from "lucide-react";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
+import { useRouter } from "next/navigation";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult, type UserContext, type UserParkContext } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { API_PREFIX, apiFormRequest, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
-import { useAuthUser } from "../../../lib/auth-context";
+import { getStoredUser, getToken, switchParkContext } from "../../../lib/auth";
+import { useAuthSessionActions, useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canEditField, canViewField } from "../../../lib/field-policy";
 import { hasPermission } from "../../../lib/permissions";
@@ -32,12 +34,14 @@ type EnabledStatus = 0 | 1;
 
 interface BuildingRow {
   id: string;
+  parkId?: string;
   buildingCode: string;
   buildingName: string;
 }
 
 interface FloorRow {
   id: string;
+  parkId?: string;
   buildingId: string;
   floorCode: string;
   floorName: string;
@@ -55,6 +59,7 @@ interface DictItemRow {
 
 interface UnitRow {
   id: string;
+  parkId?: string;
   unitCode: string;
   buildingId: string;
   floorId: string;
@@ -82,6 +87,7 @@ interface UnitRow {
 }
 
 interface UnitFormState {
+  parkId: string;
   unitCode: string;
   buildingId: string;
   floorId: string;
@@ -264,8 +270,19 @@ interface ImportResult {
 
 const emptyPage: PaginatedResult<UnitRow> = { items: [], page: 1, page_size: 20, total: 0 };
 const emptyStatusLogPage: PaginatedResult<UnitStatusLogRow> = { items: [], page: 1, page_size: 20, total: 0 };
+const emptyFilters = {
+  buildingId: "",
+  floorId: "",
+  usageType: "",
+  rentalStatus: "",
+  fittingStatus: "",
+  keyword: "",
+  minArea: "",
+  maxArea: ""
+};
 
 const emptyForm: UnitFormState = {
+  parkId: "",
   unitCode: "",
   buildingId: "",
   floorId: "",
@@ -286,21 +303,15 @@ interface UnitsPageProps {
 }
 
 export default function UnitsPage({ title = "房间/房源管理" }: UnitsPageProps = {}) {
+  const router = useRouter();
   const authUser = useAuthUser();
+  const sessionActions = useAuthSessionActions();
   const [pageData, setPageData] = useState<PaginatedResult<UnitRow>>(emptyPage);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [floors, setFloors] = useState<FloorRow[]>([]);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
-  const [filters, setFilters] = useState({
-    buildingId: "",
-    floorId: "",
-    usageType: "",
-    rentalStatus: "",
-    fittingStatus: "",
-    keyword: "",
-    minArea: "",
-    maxArea: ""
-  });
+  const [listParkId, setListParkId] = useState("");
+  const [filters, setFilters] = useState(emptyFilters);
   const [form, setForm] = useState<UnitFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -317,7 +328,18 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   const [transitionLockExpireTime, setTransitionLockExpireTime] = useState("");
   const [statusLogPage, setStatusLogPage] = useState<PaginatedResult<UnitStatusLogRow>>(emptyStatusLogPage);
   const [message, setMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [listParkSwitching, setListParkSwitching] = useState(false);
+  const [formParkSwitching, setFormParkSwitching] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const unitSubmitLock = useRef(false);
+  const listParkSwitchLock = useRef(false);
+  const formParkSwitchLock = useRef(false);
+  const scopedDataGeneration = useRef(0);
+  const storedUser = authUser ?? getStoredUser();
+  const accessibleParks = useMemo(() => enabledParks(storedUser?.accessible_parks, storedUser?.park_id, storedUser?.park_name), [storedUser?.accessible_parks, storedUser?.park_id, storedUser?.park_name]);
+  const effectiveParkId = listParkId || storedUser?.park_id || "";
   const canForceChangeStatus = hasPermission(authUser, SYSTEM_PERMISSIONS.UNIT_FORCE_CHANGE_STATUS);
   const canChangeStatus = hasPermission(authUser, SYSTEM_PERMISSIONS.UNIT_CHANGE_STATUS);
   const canReadStatusLog = hasPermission(authUser, SYSTEM_PERMISSIONS.UNIT_STATUS_LOG);
@@ -336,23 +358,26 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     [floors, form.buildingId]
   );
 
-  const load = useCallback(async (page = 1) => {
+  const load = useCallback(async (page = 1, override?: Partial<typeof filters>) => {
+    const generation = scopedDataGeneration.current;
     const params = new URLSearchParams({ page: String(page), page_size: "20", sort: "-updateTime" });
-    if (filters.buildingId) params.set("building_id", filters.buildingId);
-    if (filters.floorId) params.set("floor_id", filters.floorId);
-    if (filters.usageType) params.set("usage_type", filters.usageType);
-    if (filters.rentalStatus) params.set("rental_status", filters.rentalStatus);
-    if (filters.fittingStatus) params.set("fitting_status", filters.fittingStatus);
-    if (filters.keyword.trim()) params.set("keyword", filters.keyword.trim());
-    if (filters.minArea) params.set("min_area", filters.minArea);
-    if (filters.maxArea) params.set("max_area", filters.maxArea);
+    const query = { ...filters, ...override };
+    if (query.buildingId) params.set("building_id", query.buildingId);
+    if (query.floorId) params.set("floor_id", query.floorId);
+    if (query.usageType) params.set("usage_type", query.usageType);
+    if (query.rentalStatus) params.set("rental_status", query.rentalStatus);
+    if (query.fittingStatus) params.set("fitting_status", query.fittingStatus);
+    if (query.keyword.trim()) params.set("keyword", query.keyword.trim());
+    if (query.minArea) params.set("min_area", query.minArea);
+    if (query.maxArea) params.set("max_area", query.maxArea);
     const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
       token: getAccessToken()
     });
-    setPageData(response.data);
+    if (generation === scopedDataGeneration.current) setPageData(response.data);
   }, [filters]);
 
   const loadLookups = useCallback(async () => {
+    const generation = scopedDataGeneration.current;
     const dictCodes = [
       "unit_usage_type",
       "unit_rental_status",
@@ -380,10 +405,99 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
       apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
       loadDictMapByCodes<DictItemRow>(dictCodes)
     ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setDicts(dictMap);
+    if (generation === scopedDataGeneration.current) {
+      setBuildings(buildingResponse.data.items);
+      setFloors(floorResponse.data.items);
+      setDicts(dictMap);
+    }
   }, []);
+
+  const handleSwitchError = useCallback((error: Error, publish: (message: string) => void) => {
+    publish(error.message);
+    if (!getToken()) router.replace("/login");
+  }, [router]);
+
+  const resetFilters = useCallback(() => {
+    setFilters(emptyFilters);
+  }, []);
+
+  const ensureParkContext = useCallback(async (targetParkId: string, options: { publishSession?: boolean } = {}) => {
+    const publishSession = options.publishSession ?? true;
+    const currentUser = getStoredUser() ?? authUser;
+    if (!targetParkId) throw new Error("请选择所属园区");
+    if (!accessibleParks.some((park) => park.park_id === targetParkId)) throw new Error("当前账号无法访问所选园区");
+    if (currentUser?.park_id === targetParkId) {
+      if (publishSession && authUser?.park_id !== targetParkId) sessionActions?.publishUser(currentUser);
+      return currentUser;
+    }
+    const nextUser = await switchParkContext(targetParkId);
+    if (publishSession) sessionActions?.publishUser(nextUser);
+    setListParkId(nextUser.park_id);
+    return nextUser;
+  }, [accessibleParks, authUser, sessionActions]);
+
+  const reloadParkScopedData = useCallback(async () => {
+    resetFilters();
+    scopedDataGeneration.current += 1;
+    setBuildings([]);
+    setFloors([]);
+    setPageData(emptyPage);
+    await loadLookups();
+    await load(1, emptyFilters);
+  }, [load, loadLookups, resetFilters]);
+
+  const changeListPark = useCallback(async (targetParkId: string) => {
+    if (listParkSwitchLock.current || !targetParkId) return;
+    listParkSwitchLock.current = true;
+    setListParkSwitching(true);
+    setMessage("");
+    try {
+      if (targetParkId !== effectiveParkId) {
+        const nextUser = await ensureParkContext(targetParkId);
+        setListParkId(nextUser?.park_id ?? targetParkId);
+      }
+      await reloadParkScopedData();
+    } finally {
+      listParkSwitchLock.current = false;
+      setListParkSwitching(false);
+    }
+  }, [effectiveParkId, ensureParkContext, reloadParkScopedData]);
+
+  const changeFormPark = useCallback(async (targetParkId: string) => {
+    if (formParkSwitchLock.current || targetParkId === form.parkId) return;
+    const previousParkId = form.parkId;
+    formParkSwitchLock.current = true;
+    setFormParkSwitching(true);
+    setFormMessage("");
+    setForm((current) => ({ ...current, parkId: targetParkId, buildingId: "", floorId: "" }));
+    let contextCommitted = false;
+    try {
+      let nextUser: UserContext;
+      try {
+        nextUser = await ensureParkContext(targetParkId, { publishSession: false });
+        contextCommitted = true;
+      } catch (error) {
+        setForm((current) => current.parkId === targetParkId
+          ? { ...current, parkId: previousParkId, buildingId: "", floorId: "" }
+          : current);
+        throw error;
+      }
+      sessionActions?.publishUser(nextUser);
+      await reloadParkScopedData();
+    } catch (error) {
+      if (!contextCommitted) throw error;
+      throw new Error(`园区已切换，但数据刷新失败：${error instanceof Error ? error.message : "未知错误"}`);
+    } finally {
+      formParkSwitchLock.current = false;
+      setFormParkSwitching(false);
+    }
+  }, [ensureParkContext, form.parkId, reloadParkScopedData, sessionActions]);
+
+  const retryCurrentParkData = useCallback(async () => {
+    setMessage("");
+    setFormMessage("");
+    await reloadParkScopedData();
+  }, [reloadParkScopedData]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -393,18 +507,36 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     void loadLookups().catch((error: Error) => setMessage(error.message));
   }, [loadLookups]);
 
+  useEffect(() => {
+    setListParkId(storedUser?.park_id ?? "");
+  }, [storedUser?.park_id]);
+
   function openCreate() {
-    const defaultBuildingId = filters.buildingId || buildings[0]?.id || "";
-    const defaultFloorId = filters.floorId || floors.find((floor) => floor.buildingId === defaultBuildingId)?.id || "";
+    if (listParkSwitchLock.current) {
+      setMessage("园区切换中，请稍后");
+      return;
+    }
+    const defaultBuildingId = filters.buildingId || "";
+    const defaultFloorId = defaultBuildingId ? filters.floorId || "" : "";
     setEditingId(null);
-    setForm({ ...emptyForm, buildingId: defaultBuildingId, floorId: defaultFloorId });
+    setForm({ ...emptyForm, parkId: effectiveParkId, buildingId: defaultBuildingId, floorId: defaultFloorId });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
+  }
+
+  function closeForm() {
+    if (formParkSwitchLock.current) {
+      setFormMessage("园区切换中，请稍后");
+      return;
+    }
+    setShowForm(false);
   }
 
   function openEdit(row: UnitRow) {
     setEditingId(row.id);
     setForm({
+      parkId: row.parkId ?? effectiveParkId,
       unitCode: row.unitCode,
       buildingId: row.buildingId,
       floorId: row.floorId,
@@ -421,39 +553,56 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
     });
     setShowForm(true);
     setMessage("");
+    setFormMessage("");
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body: Record<string, unknown> = {
-      unitCode: form.unitCode.trim(),
-      buildingId: form.buildingId,
-      floorId: form.floorId,
-      unitName: form.unitName.trim(),
-      usageType: Number(form.usageType),
-      unitArea: Number(form.unitArea || 0),
-      useArea: Number(form.useArea || 0),
-      rentalStatus: Number(form.rentalStatus),
-      fittingStatus: Number(form.fittingStatus),
-      availableDate: form.availableDate || undefined,
-      status: form.status
-    };
-    if (canEditRefPrice) {
-      body.refPrice = Number(form.refPrice || 0);
+    if (unitSubmitLock.current || formParkSwitchLock.current) return;
+    unitSubmitLock.current = true;
+    setSubmitting(true);
+    setFormMessage("");
+    try {
+      if (!editingId) await ensureParkContext(form.parkId);
+      const body: Record<string, unknown> = {
+        unitCode: form.unitCode.trim(),
+        buildingId: form.buildingId,
+        floorId: form.floorId,
+        unitName: form.unitName.trim(),
+        usageType: Number(form.usageType),
+        unitArea: Number(form.unitArea || 0),
+        useArea: Number(form.useArea || 0),
+        rentalStatus: Number(form.rentalStatus),
+        fittingStatus: Number(form.fittingStatus),
+        availableDate: form.availableDate || undefined,
+        status: form.status
+      };
+      if (canEditRefPrice) {
+        body.refPrice = Number(form.refPrice || 0);
+      }
+      if (canEditRemark) {
+        body.remark = form.remark.trim();
+      }
+      await apiRequest<UnitRow>(editingId ? `/park-units/${editingId}` : "/park-units", {
+        method: editingId ? "PUT" : "POST",
+        token: getAccessToken(),
+        idempotencyKey: createIdempotencyKey(editingId ? "unit-update" : "unit-create"),
+        body
+      });
+      setShowForm(false);
+      setEditingId(null);
+      setMessage("保存成功");
+      try {
+        await load(editingId ? pageData.page : 1);
+      } catch (refreshError) {
+        setMessage(`保存成功，但列表刷新失败：${refreshError instanceof Error ? refreshError.message : "未知错误"}`);
+      }
+    } catch (error) {
+      setFormMessage(error instanceof Error ? error.message : "房源保存失败");
+    } finally {
+      setSubmitting(false);
+      unitSubmitLock.current = false;
     }
-    if (canEditRemark) {
-      body.remark = form.remark.trim();
-    }
-    await apiRequest<UnitRow>(editingId ? `/park-units/${editingId}` : "/park-units", {
-      method: editingId ? "PUT" : "POST",
-      token: getAccessToken(),
-      idempotencyKey: createIdempotencyKey(editingId ? "unit-update" : "unit-create"),
-      body
-    });
-    setShowForm(false);
-    setEditingId(null);
-    setMessage("保存成功");
-    await load(pageData.page);
   }
 
   async function remove(row: UnitRow) {
@@ -601,7 +750,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             <strong>{title}</strong>
             <span>维护招商、合同、应收、工单、安全隐患共用的空间主数据</span>
           </div>
-          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.UNIT_CREATE} type="button" onClick={openCreate}>
+          <PermissionButton className="primary-button" permission={SYSTEM_PERMISSIONS.UNIT_CREATE} type="button" disabled={listParkSwitching} onClick={openCreate}>
             <Plus size={16} />
             新增房源
           </PermissionButton>
@@ -618,9 +767,13 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
 
         <UnitsToolbar
           filters={filters}
+          listParkId={effectiveParkId}
+          listParkOptions={accessibleParks}
+          listParkSwitching={listParkSwitching}
           buildings={buildings}
           visibleFloors={visibleFloors}
           dicts={dicts}
+          onListParkChange={(parkId) => void changeListPark(parkId).catch((error: Error) => handleSwitchError(error, setMessage))}
           onFilterChange={updateFilter}
           onSubmit={() => void load(1).catch((error: Error) => setMessage(error.message))}
         />
@@ -644,6 +797,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           <UnitFormDialog
             editingId={editingId}
             form={form}
+            parkOptions={accessibleParks}
+            formMessage={formMessage}
+            submitting={submitting}
+            formParkSwitching={formParkSwitching}
             buildings={buildings}
             formFloors={formFloors}
             dicts={dicts}
@@ -652,8 +809,10 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             canViewRefPrice={canViewRefPrice}
             canEditRemark={canEditRemark}
             canViewRemark={canViewRemark}
-            onClose={() => setShowForm(false)}
-            onSubmit={(event) => void submit(event).catch((error: Error) => setMessage(error.message))}
+            onClose={closeForm}
+            onSubmit={(event) => void submit(event)}
+            onParkChange={(parkId) => void changeFormPark(parkId).catch((error: Error) => handleSwitchError(error, setFormMessage))}
+            onRetryParkLoad={() => void retryCurrentParkData().catch((error: Error) => handleSwitchError(error, setFormMessage))}
             onBuildingChange={updateFormBuilding}
             onFormChange={(key, value) => setForm((current) => ({ ...current, [key]: value }))}
           />
@@ -715,7 +874,14 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           />
         ) : null}
 
-        {message ? <p className="status-pill">{message}</p> : null}
+        {message ? (
+          <p className="status-pill">
+            {message}
+            <button className="inline-action-button" type="button" onClick={() => void retryCurrentParkData().catch((error: Error) => handleSwitchError(error, setMessage))}>
+              重新加载当前园区数据
+            </button>
+          </p>
+        ) : null}
       </main>
     </PermissionGuard>
   );
@@ -916,4 +1082,14 @@ function ForbiddenInline() {
       </Card>
     </main>
   );
+}
+
+function enabledParks(
+  parks: UserParkContext[] | undefined,
+  currentParkId: string | undefined,
+  currentParkName: string | null | undefined
+): UserParkContext[] {
+  const enabled = (parks ?? []).filter((park) => park.status === "enabled");
+  if (!currentParkId || enabled.some((park) => park.park_id === currentParkId)) return enabled;
+  return [{ park_id: currentParkId, park_name: currentParkName ?? currentParkId, is_default: true, status: "enabled" }, ...enabled];
 }
