@@ -30,9 +30,13 @@ interface OperationRow {
   unitCode: string;
   unitName: string;
   buildingId: string;
+  buildingCode: string | null;
+  buildingName: string | null;
   configuredMode: string;
   operationStatus: string;
   assetUnitId: string | null;
+  assetUnitCode: string | null;
+  assetUnitName: string | null;
   suspendReason: string | null;
   remark: string | null;
   effectiveTime: string | null;
@@ -107,6 +111,36 @@ interface ModeTransitionRow {
 }
 
 type FoundationRow = OperationRow | OccupancyRow | ModeTransitionRow;
+
+const OPERATING_MODE_LABELS: Record<string, string> = {
+  none: "不经营",
+  short_stay: "民宿短租",
+  long_rent: "住房/商业长租"
+};
+
+const OPERATING_STATUS_LABELS: Record<string, string> = {
+  enabled: "启用",
+  suspended: "暂停",
+  disabled: "停用"
+};
+
+const DECISION_STATUS_LABELS: Record<string, string> = {
+  submitted: "已提交",
+  pending_approval: "待审批",
+  approved: "已批准",
+  rejected: "已驳回",
+  withdrawn: "已撤回"
+};
+
+const EXECUTION_STATUS_LABELS: Record<string, string> = {
+  not_required: "无需执行",
+  not_started: "待执行",
+  executing: "执行中",
+  retry_wait: "等待重试",
+  executed: "已执行",
+  execution_failed: "执行失败",
+  infra_exhausted: "基础设施重试耗尽"
+};
 
 const SURFACE_CONFIG = {
   operations: {
@@ -231,10 +265,10 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
         {surface === "operations" ? <>
           <label className="form-field"><span>楼栋 ID</span><input name="building_id" type="search" value={buildingId} onChange={(event) => { setBuildingId(event.target.value); setPage(1); }} /></label>
           <label className="form-field"><span>经营模式</span><select name="configured_mode" value={configuredMode} onChange={(event) => { setConfiguredMode(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
+            <option value="">全部</option><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option>
           </select></label>
           <label className="form-field"><span>经营状态</span><select name="operation_status" value={operationStatus} onChange={(event) => { setOperationStatus(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="enabled">启用</option><option value="suspended">暂停</option><option value="disabled">停用</option>
+            <option value="">全部</option><option value="enabled">{OPERATING_STATUS_LABELS.enabled}</option><option value="suspended">{OPERATING_STATUS_LABELS.suspended}</option><option value="disabled">{OPERATING_STATUS_LABELS.disabled}</option>
           </select></label>
           <label className="form-field"><span>阻断类型</span><select name="blocker_code" value={blockerCode} onChange={(event) => { setBlockerCode(event.target.value); setPage(1); }}>
             <option value="">全部</option><option value="commercial-active">商业租赁占用</option><option value="homestay-active">民宿占用</option><option value="housing-active">住房占用</option><option value="occupancy-incompatible">不兼容占用</option><option value="operations-blocker">运营阻断</option><option value="checkout-pending">待退房</option><option value="workorder-open">未结工单</option><option value="receivable-unsettled">未结财务</option>
@@ -259,19 +293,19 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
         {surface === "mode-transitions" ? <>
           <label className="form-field"><span>原模式</span><select name="from_mode" value={fromMode}
             onChange={(event) => { setFromMode(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
+            <option value="">全部</option><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option>
           </select></label>
           <label className="form-field"><span>目标模式</span><select name="to_mode" value={toMode}
             onChange={(event) => { setToMode(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">长租</option>
+            <option value="">全部</option><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option>
           </select></label>
           <label className="form-field"><span>审批状态</span><select name="decision_status" value={decisionStatus}
             onChange={(event) => { setDecisionStatus(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="submitted">已提交</option><option value="pending_approval">待审批</option><option value="approved">已批准</option><option value="rejected">已驳回</option><option value="withdrawn">已撤回</option>
+            <option value="">全部</option><option value="submitted">{DECISION_STATUS_LABELS.submitted}</option><option value="pending_approval">{DECISION_STATUS_LABELS.pending_approval}</option><option value="approved">{DECISION_STATUS_LABELS.approved}</option><option value="rejected">{DECISION_STATUS_LABELS.rejected}</option><option value="withdrawn">{DECISION_STATUS_LABELS.withdrawn}</option>
           </select></label>
           <label className="form-field"><span>执行状态</span><select name="execution_status" value={executionStatus}
             onChange={(event) => { setExecutionStatus(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="not_required">无需执行</option><option value="not_started">待执行</option><option value="executing">执行中</option><option value="retry_wait">等待重试</option><option value="executed">已执行</option><option value="execution_failed">执行失败</option><option value="infra_exhausted">基础设施重试耗尽</option>
+            <option value="">全部</option><option value="not_required">{EXECUTION_STATUS_LABELS.not_required}</option><option value="not_started">{EXECUTION_STATUS_LABELS.not_started}</option><option value="executing">{EXECUTION_STATUS_LABELS.executing}</option><option value="retry_wait">{EXECUTION_STATUS_LABELS.retry_wait}</option><option value="executed">{EXECUTION_STATUS_LABELS.executed}</option><option value="execution_failed">{EXECUTION_STATUS_LABELS.execution_failed}</option><option value="infra_exhausted">{EXECUTION_STATUS_LABELS.infra_exhausted}</option>
           </select></label>
         </> : null}
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>
@@ -473,9 +507,9 @@ function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
     <dl className="ds-description-list">
       <div><dt>审批请求</dt><dd>{row.requestId ?? "历史执行日志"}</dd></div>
       <div><dt>房源</dt><dd>{row.unitCode} · {row.unitName}</dd></div>
-      <div><dt>模式变更</dt><dd>{row.fromMode} → {row.toMode}</dd></div>
-      <div><dt>审批状态</dt><dd>{row.decisionStatus}</dd></div>
-      <div><dt>执行状态</dt><dd>{row.executionStatus}</dd></div>
+      <div><dt>模式变更</dt><dd>{formatOperatingMode(row.fromMode)} → {formatOperatingMode(row.toMode)}</dd></div>
+      <div><dt>审批状态</dt><dd>{formatDecisionStatus(row.decisionStatus)}</dd></div>
+      <div><dt>执行状态</dt><dd>{formatExecutionStatus(row.executionStatus)}</dd></div>
       <div><dt>申请时间</dt><dd>{formatTime(row.createTime)}</dd></div>
       <div><dt>审批时间</dt><dd>{formatTime(row.decisionTime)}</dd></div>
       <div><dt>执行时间</dt><dd>{formatTime(row.executionTime)}</dd></div>
@@ -497,11 +531,11 @@ function ModeTransitionDetailPanel({ row }: { row: ModeTransitionRow }) {
 
 function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor<FoundationRow>[] {
   if (surface === "operations") return [
-    { key: "mode", label: "经营模式", render: (item) => (item as OperationRow).configuredMode },
-    { key: "status", label: "经营状态", render: (item) => (item as OperationRow).operationStatus },
+    { key: "mode", label: "经营模式", render: (item) => formatOperatingMode((item as OperationRow).configuredMode) },
+    { key: "status", label: "经营状态", render: (item) => formatOperatingStatus((item as OperationRow).operationStatus) },
     { key: "mapping", label: "楼栋 / 物理房源", render: (item) => {
       const row = item as OperationRow;
-      return `${row.buildingId || "—"} / ${row.assetUnitId || "—"}`;
+      return `${formatBuildingLabel(row)} / ${formatAssetUnitLabel(row)}`;
     } },
     { key: "effective", label: "生效时间", render: (item) => formatTime((item as OperationRow).effectiveTime) },
     { key: "suspendReason", label: "暂停/停用原因", render: (item) => (item as OperationRow).suspendReason || "—" },
@@ -531,9 +565,12 @@ function fieldsFor(surface: FoundationSurface): readonly PropertyFieldDescriptor
   ];
   return [
     { key: "unit", label: "房源", render: (item) => `${(item as ModeTransitionRow).unitCode} · ${(item as ModeTransitionRow).unitName}` },
-    { key: "transition", label: "模式变更", render: (item) => `${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}` },
-    { key: "decision", label: "审批状态", render: (item) => (item as ModeTransitionRow).decisionStatus },
-    { key: "execution", label: "执行状态", render: (item) => (item as ModeTransitionRow).executionStatus },
+    { key: "transition", label: "模式变更", render: (item) => {
+      const row = item as ModeTransitionRow;
+      return `${formatOperatingMode(row.fromMode)} → ${formatOperatingMode(row.toMode)}`;
+    } },
+    { key: "decision", label: "审批状态", render: (item) => formatDecisionStatus((item as ModeTransitionRow).decisionStatus) },
+    { key: "execution", label: "执行状态", render: (item) => formatExecutionStatus((item as ModeTransitionRow).executionStatus) },
     { key: "snapshot", label: "检查快照", render: (item) => modeTransitionSnapshotSummary((item as ModeTransitionRow).checkSnapshot) },
     { key: "reason", label: "切换原因", render: (item) => (item as ModeTransitionRow).reason || "—" },
     { key: "operator", label: "操作人", render: (item) => {
@@ -811,7 +848,7 @@ function OperationWriteControls({ item, onCompleted }: {
             <label className="form-field"><span>经营状态</span><select
               name="operation_status"
               onChange={(event) => { configureKey.current = null; setStatus(event.target.value); }} value={status}
-            ><option value="enabled">启用</option><option value="suspended">暂停</option><option value="disabled">停用</option></select></label>
+            ><option value="enabled">{OPERATING_STATUS_LABELS.enabled}</option><option value="suspended">{OPERATING_STATUS_LABELS.suspended}</option><option value="disabled">{OPERATING_STATUS_LABELS.disabled}</option></select></label>
             {status !== "enabled" ? <label className="form-field"><span>暂停/停用原因</span><input
               maxLength={500} name="suspend_reason" required value={suspendReason}
               onChange={(event) => { configureKey.current = null; setSuspendReason(event.target.value); }}
@@ -830,7 +867,7 @@ function OperationWriteControls({ item, onCompleted }: {
           <div className="ds-action-bar">
             <label className="form-field"><span>目标模式</span><select name="target_mode" value={targetMode}
               onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
-            ><option value="none">不经营</option><option value="short_stay">民宿短租</option><option value="long_rent">住房/商业长租</option></select></label>
+            ><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option></select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}
               onClick={() => setTransitionOpen(true)} type="button">提交切换审批</button>
           </div>
@@ -847,7 +884,7 @@ function OperationWriteControls({ item, onCompleted }: {
       open={transitionOpen}
       reasonPolicy={{ kind: "required", minLength: 2, label: "切换原因" }}
       resultingState="等待审批"
-      target={{ id: item.unitId, label: `${item.unitCode}：${item.configuredMode} → ${targetMode}` }}
+      target={{ id: item.unitId, label: `${item.unitCode}：${formatOperatingMode(item.configuredMode)} → ${formatOperatingMode(targetMode)}` }}
       title="申请经营模式切换"
     />
   </>;
@@ -868,7 +905,8 @@ function rowId(item: FoundationRow, surface: FoundationSurface): string {
 function rowTitle(item: FoundationRow, surface: FoundationSurface): string {
   if (surface === "operations") return `${(item as OperationRow).unitCode} · ${(item as OperationRow).unitName}`;
   if (surface === "occupancies") return `${(item as OccupancyRow).unitCode} · ${(item as OccupancyRow).sourceLabel}`;
-  return `${(item as ModeTransitionRow).unitCode} · ${(item as ModeTransitionRow).unitName}：${(item as ModeTransitionRow).fromMode} → ${(item as ModeTransitionRow).toMode}`;
+  const row = item as ModeTransitionRow;
+  return `${row.unitCode} · ${row.unitName}：${formatOperatingMode(row.fromMode)} → ${formatOperatingMode(row.toMode)}`;
 }
 
 function detailHref(item: FoundationRow, surface: FoundationSurface): Route {
@@ -880,4 +918,32 @@ function formatTime(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function formatOperatingMode(value: string | null | undefined): string {
+  return value ? OPERATING_MODE_LABELS[value] ?? value : "—";
+}
+
+function formatOperatingStatus(value: string | null | undefined): string {
+  return value ? OPERATING_STATUS_LABELS[value] ?? value : "—";
+}
+
+function formatDecisionStatus(value: string | null | undefined): string {
+  return value ? DECISION_STATUS_LABELS[value] ?? value : "—";
+}
+
+function formatExecutionStatus(value: string | null | undefined): string {
+  return value ? EXECUTION_STATUS_LABELS[value] ?? value : "—";
+}
+
+function formatBuildingLabel(row: OperationRow): string {
+  return formatCodeName(row.buildingCode, row.buildingName) || row.buildingId || "—";
+}
+
+function formatAssetUnitLabel(row: OperationRow): string {
+  return formatCodeName(row.assetUnitCode, row.assetUnitName) || row.assetUnitId || "—";
+}
+
+function formatCodeName(code: string | null | undefined, name: string | null | undefined): string {
+  return [code, name].map((value) => value?.trim()).filter(Boolean).join(" · ");
 }
