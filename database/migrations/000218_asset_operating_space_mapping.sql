@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '120s';
 
-SELECT pg_advisory_xact_lock(hashtextextended('000215-asset-operating-space-mapping', 0));
+SELECT pg_advisory_xact_lock(hashtextextended('000218-asset-operating-space-mapping', 0));
 
 ALTER TABLE biz_building ADD COLUMN IF NOT EXISTS asset_building_id uuid REFERENCES asset_building(id);
 ALTER TABLE biz_floor ADD COLUMN IF NOT EXISTS asset_floor_id uuid REFERENCES asset_floor(id);

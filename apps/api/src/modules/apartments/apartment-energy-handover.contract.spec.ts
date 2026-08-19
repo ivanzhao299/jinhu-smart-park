@@ -9,7 +9,7 @@ import { HandoverDto } from "./dto/apartment.dto";
 
 const service = readFileSync(resolve(process.cwd(), "src/modules/apartments/apartments.service.ts"), "utf8");
 const controller = readFileSync(resolve(process.cwd(), "src/modules/apartments/apartments.controller.ts"), "utf8");
-const migration = readFileSync(resolve(process.cwd(), "../../database/migrations/000217_apartment_handover_energy_readings.sql"), "utf8");
+const migration = readFileSync(resolve(process.cwd(), "../../database/migrations/000219_apartment_handover_energy_readings.sql"), "utf8");
 
 test("handover meter readings validate explicit meter identity and decimal strings", async () => {
   const dto = plainToInstance(HandoverDto, { items: [{}], keys: [{}], meter_readings: [{ meter_id: "not-a-uuid", reading_value: "-1" }] });

@@ -70,7 +70,7 @@ test("PostgreSQL serializes competing asset-unit conversions and replays the win
       CREATE UNIQUE INDEX idx_biz_unit_entity_scope_code ON biz_unit(tenant_id,park_id,unit_code) WHERE is_deleted=false;
       CREATE UNIQUE INDEX uq_biz_unit_asset_unit_active ON biz_unit(tenant_id,park_id,asset_unit_id) WHERE is_deleted=false AND asset_unit_id IS NOT NULL;
     `);
-    const migration = readFileSync(resolve(process.cwd(), "../../database/migrations/000215_asset_operating_space_mapping.sql"), "utf8");
+    const migration = readFileSync(resolve(process.cwd(), "../../database/migrations/000218_asset_operating_space_mapping.sql"), "utf8");
     await dataSource.query(`SET search_path TO "${schema}", public; ${migration}`);
     await dataSource.query(`INSERT INTO asset_building VALUES ($1,$2,$3,'B1','一号楼',1,'100.10',0,'enabled',false)`,
       [assetBuildingId, tenantId, parkId]);

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const migration = readFileSync(
-  resolve(process.cwd(), "../../database/migrations/000215_asset_operating_space_mapping.sql"),
+  resolve(process.cwd(), "../../database/migrations/000218_asset_operating_space_mapping.sql"),
   "utf8"
 );
 
