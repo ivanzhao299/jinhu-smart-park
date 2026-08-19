@@ -305,6 +305,11 @@ assert.doesNotMatch(
   /localPostgresHosts[\s\S]*"postgres"/,
   "property control-plane UAT fixture must not classify the production Docker postgres alias as local-safe"
 );
+assert.ok(
+  propertyControlPlaneUatFixture.indexOf('await client.query("BEGIN")')
+    < propertyControlPlaneUatFixture.indexOf("INSERT INTO biz_party_identity_verification_queue"),
+  "property control-plane UAT fixture must provision the identity queue inside the rollback boundary"
+);
 for (const selectorToken of [
   "current_park.tenant_id=actor.tenant_id",
   "current_park.park_id=actor.park_id",

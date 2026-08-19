@@ -641,6 +641,8 @@ async function applyFixtures(client) {
   if (!identityVerifier?.id) {
     throw new Error(`Cannot find a distinct user with ${identityVerifierRequiredPermissions.join(", ")} for identity verification UAT; set IDENTITY_VERIFIER_USERNAME or seed an eligible verifier.`);
   }
+  await client.query("BEGIN");
+  try {
   const identityQueuePolicySnapshot = {
     requiredPermissions: ["asset:identity-submissions:page", "party:identity_verify"],
     requiredModules: ["asset"],
@@ -722,8 +724,6 @@ async function applyFixtures(client) {
     throw new Error("Fixture occupancy and mode-transition rows resolved to the same unit; rerun with a new PROPERTY_CONTROL_PLANE_UAT_CODE.");
   }
 
-  await client.query("BEGIN");
-  try {
     const immutableIdentityDecisions = await queryOne(
       client,
       `SELECT count(*)::int AS count
