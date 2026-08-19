@@ -554,12 +554,14 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /FROM biz_housing_lease lease/);
   assert.match(housingMigration, /lease\.status IN \('draft', 'pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending'\)/);
   assert.match(housingMigration, /FROM biz_homestay_booking booking/);
+  assert.match(housingMigration, /booking\.status IN \('draft', 'confirmed', 'checked_in'\)/);
   assert.match(housingMigration, /FROM biz_apartment_room room/);
   assert.match(housingMigration, /room\.management_status = 'enabled'/);
   assert.match(housingMigration, /FROM biz_property_operation_config config/);
   assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
   assert.doesNotMatch(housingMigration, /config\.operating_mode[\s\S]*long_rent/);
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict/);
+  assert.match(housingMigration, /JOIN biz_unit unit[\s\S]*unit\.is_deleted = false[\s\S]*unit\.usage_type <> 70[\s\S]*unit-usage-housing-mixed-commercial-conflict/);
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict[\s\S]*relation\.end_date \+ interval '1 day'\) > \(now\(\) AT TIME ZONE 'Asia\/Shanghai'\)::date/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);

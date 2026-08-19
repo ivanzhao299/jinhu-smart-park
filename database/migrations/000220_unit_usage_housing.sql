@@ -82,7 +82,7 @@ BEGIN
       SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
       FROM biz_homestay_booking booking
       WHERE booking.is_deleted = false
-        AND booking.status IN ('confirmed', 'checked_in')
+        AND booking.status IN ('draft', 'confirmed', 'checked_in')
       UNION
       SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
       FROM biz_apartment_room room
@@ -96,6 +96,12 @@ BEGIN
     )
     SELECT 1
     FROM housing_unit_candidates candidate
+    JOIN biz_unit unit
+      ON unit.tenant_id = candidate.tenant_id
+     AND unit.park_id = candidate.park_id
+     AND unit.id = candidate.unit_id
+     AND unit.is_deleted = false
+     AND unit.usage_type <> 70
     JOIN rel_leasing_contract_unit relation
       ON relation.tenant_id = candidate.tenant_id
      AND relation.park_id = candidate.park_id
@@ -132,7 +138,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
   FROM biz_homestay_booking booking
   WHERE booking.is_deleted = false
-    AND booking.status IN ('confirmed', 'checked_in')
+    AND booking.status IN ('draft', 'confirmed', 'checked_in')
   UNION
   SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
   FROM biz_apartment_room room
