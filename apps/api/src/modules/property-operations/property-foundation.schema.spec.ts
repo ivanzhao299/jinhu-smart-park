@@ -258,12 +258,11 @@ test("apartment occupancy creation follows the canonical advisory-before-unit lo
   const allocate = service.slice(service.indexOf("async allocate"), service.indexOf("listStays"));
 
   assert.match(service, /UNIT_USAGE_HOUSING/);
-  assert.match(service, /assertHousingUnitForRoom/);
-  assert.match(candidates, /u\.usage_type=\$3/);
-  assert.match(candidates, /\[\.\.\.this\.scope\(scope\),UNIT_USAGE_HOUSING\]/);
+  assert.match(candidates, /u\.usage_type=\$7/);
+  assert.match(candidates, /filterParameters=\[[\s\S]*UNIT_USAGE_HOUSING\]/);
   assert.match(availableBeds, /u\.is_deleted=false AND u\.usage_type=\$5/);
-  assert.match(updateRoom, /dto\.management_status === "enabled"/);
-  assert.match(updateRoom, /this\.assertHousingUnitForRoom\(manager, scope, room\.unit_id\)/);
+  assert.match(updateRoom, /dto\.management_status\s*===\s*"enabled"/);
+  assert.match(updateRoom, /loadCandidate\(manager,scope,room\.unit_id,id\)/);
   assert.match(allocate, /u\.is_deleted=false AND u\.usage_type=\$5/);
   assert.ok(createRoom.indexOf("lock_property_unit_scope") < createRoom.indexOf("FOR UPDATE"));
   assert.match(createRoom, /SELECT id,usage_type FROM biz_unit/);

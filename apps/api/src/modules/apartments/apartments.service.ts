@@ -12,25 +12,25 @@ export class ApartmentsService {
 
   async summary(scope: TenantParkScope) {
     const [row] = await this.dataSource.query(`SELECT
-      (SELECT count(*)::int FROM biz_apartment_room r WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS rooms,
-      (SELECT COALESCE(sum(r.capacity),0)::int FROM biz_apartment_room r WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS beds,
+      (SELECT count(*)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS rooms,
+      (SELECT COALESCE(sum(r.capacity),0)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS beds,
       (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='active') AS occupied,
       (SELECT count(*)::int FROM biz_apartment_application a WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND a.status='submitted') AS pending_applications,
-      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, this.scope(scope));
+      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, [...this.scope(scope), UNIT_USAGE_HOUSING]);
     return { ...row, available: Math.max(0, Number(row.beds)-Number(row.occupied)) };
   }
 
   listRooms(scope: TenantParkScope, query: ListApartmentDto) {
     return this.dataSource.query(`SELECT r.*,u.unit_code,u.unit_name,b.building_name AS building_name,f.floor_name,
       count(bed.id)::int AS bed_count,count(s.id) FILTER (WHERE s.status IN ('reserved','active','checkout_pending'))::int AS occupied_count
-      FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id
+      FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$5
       LEFT JOIN biz_building b ON b.id=u.building_id LEFT JOIN biz_floor f ON f.id=u.floor_id
       LEFT JOIN biz_apartment_bed bed ON bed.room_id=r.id AND bed.is_deleted=false
       LEFT JOIN biz_apartment_stay s ON s.bed_id=bed.id AND s.is_deleted=false AND s.status IN ('reserved','active','checkout_pending')
       WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false
       AND ($3::text IS NULL OR r.management_status=$3)
       AND ($4::text IS NULL OR u.unit_name ILIKE '%'||$4||'%' OR u.unit_code ILIKE '%'||$4||'%')
-      GROUP BY r.id,u.id,b.id,f.id ORDER BY u.unit_code`, [...this.scope(scope), query.status ?? null, query.keyword?.trim() || null]);
+      GROUP BY r.id,u.id,b.id,f.id ORDER BY u.unit_code`, [...this.scope(scope), query.status ?? null, query.keyword?.trim() || null, UNIT_USAGE_HOUSING]);
   }
   async unitCandidates(scope:TenantParkScope,query:ApartmentUnitCandidateQueryDto){
     const filters=`WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.is_deleted=false
@@ -81,7 +81,7 @@ export class ApartmentsService {
         if(dto.management_status==="disabled"){
           if(Number(count)>0)throw new ConflictException("存在预留、在住或待退住记录，不能停用公寓房源");
           await manager.query(`UPDATE biz_property_occupancy SET status='released',release_reason='apartment-room-disabled',released_at=now(),update_by=$1,update_time=now(),version=version+1 WHERE id=$2 AND tenant_id=$3 AND park_id=$4 AND status IN ('active','held') AND is_deleted=false`,[actor.sub,room.occupancy_id,...this.scope(scope)]);
-        }else{
+        }else if(dto.management_status==="enabled"){
           const candidate=await this.loadCandidate(manager,scope,room.unit_id,id);
           if(!candidate.eligible)throw new ConflictException({message:"房号当前不可恢复公寓管理",ineligibleReasons:candidate.ineligible_reasons});
           let [occupancy]=await manager.query(`UPDATE biz_property_occupancy SET status='active',start_at=now(),end_at='9999-12-31',release_reason=NULL,released_at=NULL,update_by=$1,update_time=now(),version=version+1

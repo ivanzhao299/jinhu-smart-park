@@ -421,7 +421,7 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     "utf8"
   );
   const housingMigration = fs.readFileSync(
-    path.resolve(__dirname, "../../../../../database/migrations/000217_unit_usage_housing.sql"),
+    path.resolve(__dirname, "../../../../../database/migrations/000220_unit_usage_housing.sql"),
     "utf8"
   );
   for (const field of [
