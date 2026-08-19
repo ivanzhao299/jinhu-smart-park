@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable
 } from "@nestjs/common";
@@ -294,8 +295,8 @@ export class PropertyIdentityService {
         await this.assertDraftOwner(manager, scope, submissionId, actor.sub);
         const existingDraftFileIds = await this.listDraftFileIds(manager, scope, submissionId);
         const requestedFileIds = new Set(dto.pendingFileIds);
-        const removesSavedEvidence = existingDraftFileIds.some((fileId) => !requestedFileIds.has(fileId));
-        if (removesSavedEvidence && !this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_DELETE)) {
+        const removedDraftFileIds = existingDraftFileIds.filter((fileId) => !requestedFileIds.has(fileId));
+        if (removedDraftFileIds.length && !this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_DELETE)) {
           throw new ForbiddenException("file:delete permission is required to remove identity evidence");
         }
         let documentType = dto.documentType;
@@ -379,6 +380,15 @@ export class PropertyIdentityService {
             crypto?.payloadFormatVersion ?? null, dto.pendingFileIds
           ]
         ) as Array<{ id: string }>;
+        if (removedDraftFileIds.length) {
+          await this.softDeleteRemovedDraftEvidenceFiles(
+            manager,
+            scope,
+            submissionId,
+            actor.sub,
+            removedDraftFileIds
+          );
+        }
         return rows[0]?.id;
       },
       transactionManager
@@ -1072,6 +1082,47 @@ export class PropertyIdentityService {
       [scope.tenantId, scope.parkId, submissionId]
     ) as Array<{ file_id: string }>;
     return rows.map((row) => row.file_id);
+  }
+
+  private async softDeleteRemovedDraftEvidenceFiles(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    submissionId: string,
+    actorId: string,
+    fileIds: readonly string[]
+  ): Promise<void> {
+    const rows = await manager.query(
+      `UPDATE public.sys_file file
+       SET is_deleted=true,
+           update_by=$4::uuid,
+           update_time=clock_timestamp(),
+           version=version+1
+       WHERE file.tenant_id=$1
+         AND file.park_id=$2
+         AND file.id=ANY($3::uuid[])
+         AND file.biz_type='party_identity_evidence'
+         AND file.biz_id=$5::uuid
+         AND file.is_deleted=false
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.rel_party_identity_draft_file draft_file
+           WHERE draft_file.tenant_id=file.tenant_id
+             AND draft_file.park_id=file.park_id
+             AND draft_file.file_id=file.id
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.rel_party_identity_snapshot_file snapshot_file
+           WHERE snapshot_file.tenant_id=file.tenant_id
+             AND snapshot_file.park_id=file.park_id
+             AND snapshot_file.file_id=file.id
+         )
+       RETURNING file.id::text AS id`,
+      [scope.tenantId, scope.parkId, fileIds, actorId, submissionId]
+    ) as Array<{ id: string }>;
+    if (rows.length !== fileIds.length) {
+      throw new ConflictException("Removed identity evidence could not be deleted atomically");
+    }
   }
 
   private async assertAssignmentEligibility(

@@ -421,6 +421,7 @@ test("identity update allows saved evidence removal with file delete permission"
   const retainedFileId = "00000000-0000-4000-8000-000000000041";
   let requestHash = "";
   let updateParams: unknown[] = [];
+  let softDeleteParams: unknown[] = [];
   const manager = {
     query: async (statement: string, params: unknown[]) => {
       if (statement.includes("INSERT INTO public.biz_property_mutation_receipt")) {
@@ -437,6 +438,10 @@ test("identity update allows saved evidence removal with file delete permission"
       if (statement.includes("fn_party_identity_update_draft_cas")) {
         updateParams = params;
         return [{ id: submissionId }];
+      }
+      if (statement.includes("UPDATE public.sys_file file")) {
+        softDeleteParams = params;
+        return [{ id: existingFileId }];
       }
       if (statement.includes("FROM public.biz_party_identity_submission s")) {
         return [submissionRow(submissionId, "draft", null)];
@@ -466,6 +471,13 @@ test("identity update allows saved evidence removal with file delete permission"
 
   assert.equal(result.id, submissionId);
   assert.deepEqual(updateParams[13], [retainedFileId]);
+  assert.deepEqual(softDeleteParams, [
+    scope.tenantId,
+    scope.parkId,
+    [existingFileId],
+    actor.sub,
+    submissionId
+  ]);
 });
 
 test("super identity detail keeps the actor placeholder typed for PostgreSQL", async () => {

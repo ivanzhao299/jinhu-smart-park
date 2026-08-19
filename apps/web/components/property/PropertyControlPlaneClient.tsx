@@ -715,18 +715,6 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
         }
       });
       abandonedPendingFileIds.current.clear();
-      for (const fileId of removedInitialFileIds) {
-        if (deletedEvidenceFileIds.current.has(fileId)) continue;
-        try {
-          await deleteIdentityEvidenceFile(fileId);
-        } catch (cause) {
-          if (cause instanceof Error && /not found/i.test(cause.message)) {
-            deletedEvidenceFileIds.current.add(fileId);
-            continue;
-          }
-          throw cause;
-        }
-      }
       updateKey.current = null;
       setRemovedInitialFileIds(new Set());
       setFeedback("身份核验草稿已保存。");

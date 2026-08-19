@@ -89,11 +89,10 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   assert.match(control, /abandonedPendingFileIds\.current\.clear\(\)/);
   assert.match(control, /initialFileIds\.current\.has\(fileId\)/);
   assert.ok(
-    control.indexOf('method: "PUT"') < control.indexOf("for (const fileId of removedInitialFileIds)"),
-    "saved identity evidence must be detached by draft update before deleting the underlying file"
+    !control.includes("for (const fileId of removedInitialFileIds)"),
+    "saved identity evidence deletion is handled atomically by the draft update API"
   );
   assert.match(control, /deletedEvidenceFileIds\.current\.has\(fileId\)/);
-  assert.match(control, /not found/i);
   assert.match(control, /编辑身份核验草稿/);
   assert.match(control, /method: "PUT"/);
   assert.match(control, /pendingFileIds/);
