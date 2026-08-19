@@ -329,14 +329,14 @@ export class LeasingContractsService {
         `source_quote:${quote.id}`
       );
 
-      await this.assertUnitBindable(scope, actor, savedContract.id, unit, dateRange.startDate, dateRange.endDate);
+      const lockedUnit = await this.lockCommercialUnitForBinding(manager, scope, actor, savedContract.id, unit.id, dateRange.startDate, dateRange.endDate);
       const relation = manager.getRepository(LeasingContractUnitEntity).create({
         tenantId: scope.tenantId,
         parkId: scope.parkId,
         contractId: savedContract.id,
-        unitId: unit.id,
-        unitCode: unit.unitCode,
-        unitName: unit.unitName,
+        unitId: lockedUnit.id,
+        unitCode: lockedUnit.unitCode,
+        unitName: lockedUnit.unitName,
         area: this.decimal(area),
         rentUnitPrice: this.decimal(rentUnitPrice),
         rentAmountPerMonth: this.decimal(rentPerMonth),
@@ -729,6 +729,9 @@ export class LeasingContractsService {
       }
 
       const unitIds = [...new Set(relations.map((relation) => relation.unitId))];
+      for (const unitId of [...unitIds].sort()) {
+        await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+      }
       const units = await manager
         .getRepository(UnitEntity)
         .createQueryBuilder("unit")
@@ -741,6 +744,9 @@ export class LeasingContractsService {
         .getMany();
       if (units.length !== unitIds.length) {
         throw new BadRequestException("Contract unit relation contains invalid units");
+      }
+      if (units.some((unit) => unit.usageType === UNIT_USAGE_HOUSING)) {
+        throw new BadRequestException("Housing units cannot be linked to commercial leasing contracts");
       }
 
       const occupied = await manager
@@ -846,32 +852,34 @@ export class LeasingContractsService {
   ): Promise<LeasingContractUnitEntity> {
     const contract = await this.findOne(scope, contractId, actor);
     this.assertCanEditUnitLinks(contract, actor);
-    const unit = await this.findUnit(scope, actor, dto.unit_id);
     const relationDates = this.resolveRelationDates(contract, dto.start_date, dto.end_date);
-    await this.assertNoDuplicateContractUnit(scope, contractId, unit.id);
-    await this.assertUnitBindable(scope, actor, contractId, unit, relationDates.startDate, relationDates.endDate);
-    const area = this.resolveArea(actor, dto.area, unit);
-    const rentUnitPrice = this.resolveRentUnitPrice(dto.rent_unit_price, contract, unit);
-    const relation = this.contractUnitsRepository.create({
-      tenantId: scope.tenantId,
-      parkId: scope.parkId,
-      contractId,
-      unitId: unit.id,
-      unitCode: unit.unitCode,
-      unitName: unit.unitName,
-      area: this.decimal(area),
-      rentUnitPrice: this.decimal(rentUnitPrice),
-      rentAmountPerMonth: this.decimal(area * rentUnitPrice),
-      startDate: relationDates.startDate,
-      endDate: relationDates.endDate,
-      status: dto.status ?? 1,
-      remark: this.emptyToNull(dto.remark),
-      createBy: actor.sub,
-      updateBy: actor.sub
+    const saved = await this.contractUnitsRepository.manager.transaction(async (manager) => {
+      const unit = await this.lockCommercialUnitForBinding(manager, scope, actor, contractId, dto.unit_id, relationDates.startDate, relationDates.endDate);
+      await this.assertNoDuplicateContractUnit(scope, contractId, unit.id, undefined, manager);
+      const area = this.resolveArea(actor, dto.area, unit);
+      const rentUnitPrice = this.resolveRentUnitPrice(dto.rent_unit_price, contract, unit);
+      const relation = manager.getRepository(LeasingContractUnitEntity).create({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        contractId,
+        unitId: unit.id,
+        unitCode: unit.unitCode,
+        unitName: unit.unitName,
+        area: this.decimal(area),
+        rentUnitPrice: this.decimal(rentUnitPrice),
+        rentAmountPerMonth: this.decimal(area * rentUnitPrice),
+        startDate: relationDates.startDate,
+        endDate: relationDates.endDate,
+        status: dto.status ?? 1,
+        remark: this.emptyToNull(dto.remark),
+        createBy: actor.sub,
+        updateBy: actor.sub
+      });
+      const saved = await manager.getRepository(LeasingContractUnitEntity).save(relation);
+      saved.unit = unit;
+      return saved;
     });
-    const saved = await this.contractUnitsRepository.save(relation);
     await this.recalculate(scope, actor, contractId);
-    saved.unit = unit;
     return this.secureContractUnit(scope, actor, saved);
   }
 
@@ -885,31 +893,37 @@ export class LeasingContractsService {
     const contract = await this.findOne(scope, contractId, actor);
     this.assertCanEditUnitLinks(contract, actor);
     const relation = await this.findUnitLink(scope, contractId, relId);
-    const nextUnit = dto.unit_id && dto.unit_id !== relation.unitId ? await this.findUnit(scope, actor, dto.unit_id) : relation.unit;
     const relationDates = this.resolveRelationDates(
       contract,
       dto.start_date ?? relation.startDate,
       dto.end_date ?? relation.endDate
     );
-    if (dto.unit_id && dto.unit_id !== relation.unitId) {
-      await this.assertNoDuplicateContractUnit(scope, contractId, nextUnit.id, relId);
-    }
-    await this.assertUnitBindable(scope, actor, contractId, nextUnit, relationDates.startDate, relationDates.endDate, relId);
-    const area = this.resolveArea(actor, dto.area, nextUnit, relation.area);
-    const rentUnitPrice = this.resolveRentUnitPrice(dto.rent_unit_price, contract, nextUnit, relation.rentUnitPrice);
-    relation.unitId = nextUnit.id;
-    relation.unit = nextUnit;
-    relation.unitCode = nextUnit.unitCode;
-    relation.unitName = nextUnit.unitName;
-    relation.area = this.decimal(area);
-    relation.rentUnitPrice = this.decimal(rentUnitPrice);
-    relation.rentAmountPerMonth = this.decimal(area * rentUnitPrice);
-    relation.startDate = relationDates.startDate;
-    relation.endDate = relationDates.endDate;
-    if (dto.status !== undefined) relation.status = dto.status;
-    if (dto.remark !== undefined) relation.remark = this.emptyToNull(dto.remark);
-    relation.updateBy = actor.sub;
-    const saved = await this.contractUnitsRepository.save(relation);
+    const saved = await this.contractUnitsRepository.manager.transaction(async (manager) => {
+      const nextUnitId = dto.unit_id && dto.unit_id !== relation.unitId ? dto.unit_id : relation.unitId;
+      const nextUnit = await this.lockCommercialUnitForBinding(
+        manager, scope, actor, contractId, nextUnitId, relationDates.startDate, relationDates.endDate, relId
+      );
+      if (dto.unit_id && dto.unit_id !== relation.unitId) {
+        await this.assertNoDuplicateContractUnit(scope, contractId, nextUnit.id, relId, manager);
+      }
+      const area = this.resolveArea(actor, dto.area, nextUnit, relation.area);
+      const rentUnitPrice = this.resolveRentUnitPrice(dto.rent_unit_price, contract, nextUnit, relation.rentUnitPrice);
+      relation.unitId = nextUnit.id;
+      relation.unit = nextUnit;
+      relation.unitCode = nextUnit.unitCode;
+      relation.unitName = nextUnit.unitName;
+      relation.area = this.decimal(area);
+      relation.rentUnitPrice = this.decimal(rentUnitPrice);
+      relation.rentAmountPerMonth = this.decimal(area * rentUnitPrice);
+      relation.startDate = relationDates.startDate;
+      relation.endDate = relationDates.endDate;
+      if (dto.status !== undefined) relation.status = dto.status;
+      if (dto.remark !== undefined) relation.remark = this.emptyToNull(dto.remark);
+      relation.updateBy = actor.sub;
+      const saved = await manager.getRepository(LeasingContractUnitEntity).save(relation);
+      saved.unit = nextUnit;
+      return saved;
+    });
     await this.recalculate(scope, actor, contractId);
     return this.secureContractUnit(scope, actor, saved);
   }
@@ -1151,8 +1165,14 @@ export class LeasingContractsService {
     return unit;
   }
 
-  private async assertNoDuplicateContractUnit(scope: TenantParkScope, contractId: string, unitId: string, excludeRelId?: string): Promise<void> {
-    const builder = this.contractUnitsRepository
+  private async assertNoDuplicateContractUnit(
+    scope: TenantParkScope,
+    contractId: string,
+    unitId: string,
+    excludeRelId?: string,
+    manager: EntityManager = this.contractUnitsRepository.manager
+  ): Promise<void> {
+    const builder = manager.getRepository(LeasingContractUnitEntity)
       .createQueryBuilder("rel")
       .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("rel.park_id = :parkId", { parkId: scope.parkId })
@@ -1222,13 +1242,14 @@ export class LeasingContractsService {
     unit: UnitEntity,
     startDate: string,
     endDate: string,
-    currentRelId?: string
+    currentRelId?: string,
+    manager: EntityManager = this.contractUnitsRepository.manager
   ): Promise<void> {
     if (unit.usageType === UNIT_USAGE_HOUSING) {
       throw new BadRequestException("Housing units cannot be linked to commercial leasing contracts");
     }
     const currentContractRelationExists = currentRelId
-      ? await this.contractUnitsRepository
+      ? await manager.getRepository(LeasingContractUnitEntity)
           .createQueryBuilder("rel")
           .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
           .andWhere("rel.park_id = :parkId", { parkId: scope.parkId })
@@ -1247,7 +1268,7 @@ export class LeasingContractsService {
     if (!DEFAULT_BINDABLE_UNIT_STATUSES.has(unit.rentalStatus) && unit.rentalStatus !== UNIT_STATUS_RENTED) {
       throw new BadRequestException("Unit rental status is not bindable");
     }
-    const conflictBuilder = this.contractUnitsRepository
+    const conflictBuilder = manager.getRepository(LeasingContractUnitEntity)
       .createQueryBuilder("rel")
       .innerJoin(LeasingContractEntity, "contract", "contract.id = rel.contract_id")
       .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -1266,7 +1287,33 @@ export class LeasingContractsService {
     if (await conflictBuilder.getExists()) {
       throw new ConflictException("Unit is occupied by another active contract during this period");
     }
-    await this.assertNoSharedPropertyConflict(scope, contractId, unit.id, startDate, endDate);
+    await this.assertNoSharedPropertyConflict(scope, contractId, unit.id, startDate, endDate, manager);
+  }
+
+  private async lockCommercialUnitForBinding(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    contractId: string,
+    unitId: string,
+    startDate: string,
+    endDate: string,
+    currentRelId?: string
+  ): Promise<UnitEntity> {
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+    const builder = manager.getRepository(UnitEntity)
+      .createQueryBuilder("unit")
+      .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("unit.id = :unitId", { unitId })
+      .andWhere("unit.status = 1")
+      .andWhere("unit.is_deleted = false")
+      .setLock("pessimistic_write");
+    await this.applyUnitLookupDataScope(builder, actor);
+    const unit = await builder.getOne();
+    if (!unit) throw new BadRequestException("unit_id does not exist or is outside current scope");
+    await this.assertUnitBindable(scope, actor, contractId, unit, startDate, endDate, currentRelId, manager);
+    return unit;
   }
 
   private async assertNoSharedPropertyConflict(
@@ -1274,9 +1321,10 @@ export class LeasingContractsService {
     contractId: string,
     unitId: string,
     startDate: string,
-    endDate: string
+    endDate: string,
+    manager: EntityManager = this.contractUnitsRepository.manager
   ): Promise<void> {
-    const rows = await this.contractUnitsRepository.manager.query(
+    const rows = await manager.query(
       `SELECT
          EXISTS (
            SELECT 1

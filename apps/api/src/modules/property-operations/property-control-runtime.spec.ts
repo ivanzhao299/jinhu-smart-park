@@ -423,6 +423,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     path.resolve(__dirname, "../../../../../database/migrations/000220_unit_usage_housing.sql"),
     "utf8"
   );
+  const propertyApiFixtures = fs.readFileSync(
+    path.resolve(__dirname, "../../../../../scripts/e2e/property-api-e2e-fixtures.sql"),
+    "utf8"
+  );
   for (const field of [
     "pageSize",
     "buildingId",
@@ -504,6 +508,9 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(service, /Housing unit not found/);
   assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
   assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /private async lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /contractUnitsRepository\.manager\.transaction/);
   assert.match(leasingContractsService, /originalRelations\.some\(\(relation\) => relation\.unit\?\.usageType === UNIT_USAGE_HOUSING\)/);
   assert.match(leasingContractsService, /Housing units cannot be linked to commercial leasing contracts/);
   assert.doesNotMatch(unitsService, /assertHousingUsageTypeChangeAllowed/);
@@ -545,6 +552,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict[\s\S]*relation\.end_date \+ interval '1 day'\) > \(now\(\) AT TIME ZONE 'Asia\/Shanghai'\)::date/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
+  assert.match(propertyApiFixtures, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
+  assert.match(propertyApiFixtures, /AND usage_type = 70/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {

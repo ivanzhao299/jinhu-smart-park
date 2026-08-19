@@ -104,6 +104,7 @@ export class HomestayTransactionSupportService {
     scope: TenantParkScope,
     unitId: string
   ): Promise<void> {
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
     const unit = await manager.getRepository(UnitEntity).findOne({
       where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }

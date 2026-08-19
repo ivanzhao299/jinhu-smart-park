@@ -14,9 +14,9 @@ export class ApartmentsService {
     const [row] = await this.dataSource.query(`SELECT
       (SELECT count(*)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS rooms,
       (SELECT COALESCE(sum(r.capacity),0)::int FROM biz_apartment_room r JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE r.tenant_id=$1 AND r.park_id=$2 AND r.is_deleted=false AND r.management_status='enabled') AS beds,
-      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='active') AS occupied,
+      (SELECT count(*)::int FROM biz_apartment_stay s JOIN biz_apartment_room r ON r.id=s.room_id AND r.tenant_id=s.tenant_id AND r.park_id=s.park_id AND r.is_deleted=false AND r.management_status='enabled' JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='active') AS occupied,
       (SELECT count(*)::int FROM biz_apartment_application a WHERE a.tenant_id=$1 AND a.park_id=$2 AND a.is_deleted=false AND a.status='submitted') AS pending_applications,
-      (SELECT count(*)::int FROM biz_apartment_stay s WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, [...this.scope(scope), UNIT_USAGE_HOUSING]);
+      (SELECT count(*)::int FROM biz_apartment_stay s JOIN biz_apartment_room r ON r.id=s.room_id AND r.tenant_id=s.tenant_id AND r.park_id=s.park_id AND r.is_deleted=false AND r.management_status='enabled' JOIN biz_unit u ON u.id=r.unit_id AND u.tenant_id=r.tenant_id AND u.park_id=r.park_id AND u.is_deleted=false AND u.usage_type=$3 WHERE s.tenant_id=$1 AND s.park_id=$2 AND s.is_deleted=false AND s.status='checkout_pending') AS pending_checkouts`, [...this.scope(scope), UNIT_USAGE_HOUSING]);
     return { ...row, available: Math.max(0, Number(row.beds)-Number(row.occupied)) };
   }
 
