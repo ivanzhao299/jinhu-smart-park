@@ -243,6 +243,10 @@ Historical first-release whitelist snapshot (not current runtime UAT evidence):
   - `/assets/units`
   - `/assets/unit-status-board`
   - `/assets/statistics`
+  - `/assets/property-operations`
+  - `/assets/property-occupancies`
+  - `/assets/property-mode-transitions`
+  - `/assets/identity-submissions`
 - Leasing:
   - `/leasing/tenants`
   - `/leasing/contracts`

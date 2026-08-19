@@ -346,6 +346,14 @@ export interface IdentitySubmissionListQuery {
 export type IdentitySubmissionListResponse =
   PropertyPaginatedResult<IdentitySubmissionProjection, never>;
 export type IdentitySubmissionDetailResponse = IdentitySubmissionProjection;
+export interface IdentityTerminalCasProjection {
+  partyId: string;
+  identityVersion: number;
+  terminalSubmission: Pick<
+    IdentitySubmissionProjection,
+    "id" | "status" | "version" | "identityVersion" | "updateTime"
+  > | null;
+}
 export type CreateIdentityDraftResponse = IdentitySubmissionProjection;
 export type UpdateIdentityDraftResponse = IdentitySubmissionProjection;
 export type SubmitIdentityResponse = IdentitySubmissionProjection;

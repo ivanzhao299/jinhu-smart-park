@@ -65,6 +65,7 @@ export const PROPERTY_TRACK_B_SURFACES = [
 export const PROPERTY_TRACK_B_API_ROUTES = {
   identitySubmissions: "/api/v1/property/identity-submissions",
   identitySubmission: "/api/v1/property/identity-submissions/:submissionId",
+  identityTerminalCas: "/api/v1/property/identity-submissions/parties/:partyId/terminal-cas",
   identitySubmit: "/api/v1/property/identity-submissions/:submissionId/submit",
   identityClaim: "/api/v1/property/identity-submissions/:submissionId/claim",
   identityReassign: "/api/v1/property/identity-submissions/:submissionId/reassign",

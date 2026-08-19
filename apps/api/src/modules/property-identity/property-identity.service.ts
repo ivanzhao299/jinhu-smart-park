@@ -1,14 +1,17 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable
 } from "@nestjs/common";
 import {
   IDENTITY_MUTATION_ACTION_IDS,
   PROPERTY_BUSINESS_PERMISSIONS,
+  SYSTEM_PERMISSIONS,
   resolveIdentityClientKey,
   type IdentityAuditListResponse,
   type IdentitySubmissionListResponse,
   type IdentitySubmissionProjection,
+  type IdentityTerminalCasProjection,
   type PartyIdentitySummary,
   type TenantParkScope,
   type VerifiedIdentityEvidence
@@ -275,33 +278,117 @@ export class PropertyIdentityService {
     dto: UpdateIdentityDraftDto,
     transactionManager?: EntityManager
   ) {
-    if ((dto.documentType === null) !== (dto.identityNumber === null)) {
+    const requestedIdentityNumber = dto.identityNumber?.trim() ?? null;
+    if (dto.documentType === null && requestedIdentityNumber !== null) {
       throw propertyIdentityError("property-validation-failed");
     }
-    const normalized = normalizePartyIdentityNumber(dto.documentType, dto.identityNumber);
+    const normalized = normalizePartyIdentityNumber(dto.documentType, requestedIdentityNumber);
     if (normalized && !isValidPartyIdentityNumber(dto.documentType, normalized)) {
       throw propertyIdentityError("property-validation-failed");
     }
-    if (!normalized && dto.pendingFileIds.length) {
+    if (dto.documentType === null && dto.pendingFileIds.length) {
       throw propertyIdentityError("property-validation-failed");
     }
     return this.mutate(
       scope, actor, headerKey, dto, "party.identity.update-draft", submissionId,
       async (manager) => {
         await this.assertDraftOwner(manager, scope, submissionId, actor.sub);
-        const crypto = normalized ? this.sensitiveData.identityProfile(normalized) : null;
+        const existingDraftFileIds = await this.listDraftFileIds(manager, scope, submissionId);
+        const requestedFileIds = new Set(dto.pendingFileIds);
+        const removedDraftFileIds = existingDraftFileIds.filter((fileId) => !requestedFileIds.has(fileId));
+        if (removedDraftFileIds.length && !this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_DELETE)) {
+          throw new ForbiddenException("file:delete permission is required to remove identity evidence");
+        }
+        let documentType = dto.documentType;
+        let crypto = normalized ? this.sensitiveData.identityProfile(normalized) : null;
+        if (dto.documentType !== null && !normalized) {
+          const existingRows = await manager.query(
+            `SELECT party.identity_document_type, party.identity_number_encrypted,
+                    party.identity_number_hash, party.identity_number_masked,
+                    submission.draft_hash_algorithm, submission.draft_hash_version,
+                    submission.draft_encryption_key_id, submission.draft_payload_format_version,
+                    COALESCE(
+                      array_agg(draft_file.file_id::text ORDER BY draft_file.ordinal, draft_file.file_id)
+                        FILTER (WHERE draft_file.file_id IS NOT NULL),
+                      ARRAY[]::text[]
+                    ) AS draft_file_ids
+             FROM public.biz_party_identity_submission submission
+             JOIN public.biz_party party
+               ON party.tenant_id=submission.tenant_id
+              AND party.park_id=submission.park_id
+              AND party.id=submission.party_id
+             LEFT JOIN public.rel_party_identity_draft_file draft_file
+               ON draft_file.tenant_id=submission.tenant_id
+              AND draft_file.park_id=submission.park_id
+              AND draft_file.submission_id=submission.id
+             WHERE submission.tenant_id=$1
+               AND submission.park_id=$2
+               AND submission.id=$3::uuid
+             GROUP BY party.identity_document_type, party.identity_number_encrypted,
+                      party.identity_number_hash, party.identity_number_masked,
+                      submission.draft_hash_algorithm, submission.draft_hash_version,
+                      submission.draft_encryption_key_id, submission.draft_payload_format_version`,
+            [scope.tenantId, scope.parkId, submissionId]
+          ) as Array<{
+            identity_document_type: string | null;
+            identity_number_encrypted: string | null;
+            identity_number_hash: string | null;
+            identity_number_masked: string | null;
+            draft_hash_algorithm: string | null;
+            draft_hash_version: number | null;
+            draft_encryption_key_id: string | null;
+            draft_payload_format_version: number | null;
+            draft_file_ids: string[];
+          }>;
+          const existing = existingRows[0];
+          const existingFileIds = new Set(existing?.draft_file_ids ?? []);
+          const onlyExistingFiles = dto.pendingFileIds.every((fileId) => existingFileIds.has(fileId));
+          if (
+            !existing
+            || existing.identity_document_type !== dto.documentType
+            || !existing.identity_number_encrypted
+            || !existing.identity_number_hash
+            || !existing.identity_number_masked
+            || existing.draft_hash_algorithm !== "hmac-sha256"
+            || existing.draft_hash_version !== 1
+            || existing.draft_encryption_key_id !== "party-data-v1"
+            || existing.draft_payload_format_version !== 1
+            || !onlyExistingFiles
+          ) {
+            throw propertyIdentityError("property-validation-failed");
+          }
+          documentType = existing.identity_document_type as "id_card" | "passport";
+          crypto = {
+            encrypted: existing.identity_number_encrypted,
+            hash: existing.identity_number_hash,
+            masked: existing.identity_number_masked,
+            hashAlgorithm: existing.draft_hash_algorithm,
+            hashVersion: existing.draft_hash_version,
+            encryptionKeyId: existing.draft_encryption_key_id as "party-data-v1",
+            payloadFormatVersion: existing.draft_payload_format_version
+          };
+        }
         const rows = await manager.query(
           `SELECT * FROM public.fn_party_identity_update_draft_cas(
              $1,$2,$3::uuid,$4::uuid,$5::int,$6,$7,$8,$9,$10,$11,$12,$13,$14::uuid[]
            )`,
           [
             scope.tenantId, scope.parkId, submissionId, actor.sub, dto.expectedVersion,
-            dto.documentType, crypto?.encrypted ?? null, crypto?.hash ?? null,
+            documentType, crypto?.encrypted ?? null, crypto?.hash ?? null,
             crypto?.masked ?? null, crypto?.hashAlgorithm ?? null,
             crypto?.hashVersion ?? null, crypto?.encryptionKeyId ?? null,
             crypto?.payloadFormatVersion ?? null, dto.pendingFileIds
           ]
         ) as Array<{ id: string }>;
+        if (removedDraftFileIds.length) {
+          await this.softDeleteRemovedDraftEvidenceFiles(
+            manager,
+            scope,
+            submissionId,
+            actor.sub,
+            removedDraftFileIds
+          );
+        }
         return rows[0]?.id;
       },
       transactionManager
@@ -526,6 +613,48 @@ export class PropertyIdentityService {
       pageSize: query.pageSize,
       total: Number(rows[0]?.total ?? 0),
       allowedActions: []
+    };
+  }
+
+  async terminalCas(
+    scope: TenantParkScope,
+    partyId: string
+  ): Promise<IdentityTerminalCasProjection> {
+    const rows = await this.dataSource.query(
+      `SELECT p.id AS party_id, p.identity_version,
+              s.id AS submission_id, s.status, s.version, s.update_time
+         FROM public.biz_party p
+         LEFT JOIN public.biz_party_identity_submission s
+           ON s.tenant_id=p.tenant_id
+          AND s.park_id=p.park_id
+          AND s.id=p.current_identity_submission_id
+          AND s.status IN ('rejected','withdrawn','verified')
+        WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.id=$3::uuid
+          AND p.is_deleted=false
+        LIMIT 1`,
+      [scope.tenantId, scope.parkId, partyId]
+    ) as Array<{
+      party_id: string;
+      identity_version: string | number;
+      submission_id: string | null;
+      status: IdentitySubmissionProjection["status"] | null;
+      version: number | null;
+      update_time: Date | string | null;
+    }>;
+    const row = rows[0];
+    if (!row) throw propertyIdentityError("property-resource-not-found");
+    return {
+      partyId: row.party_id,
+      identityVersion: Number(row.identity_version),
+      terminalSubmission: row.submission_id && row.status && row.version != null && row.update_time
+        ? {
+            id: row.submission_id,
+            status: row.status,
+            version: Number(row.version),
+            identityVersion: Number(row.identity_version),
+            updateTime: this.time(row.update_time)
+          }
+        : null
     };
   }
 
@@ -936,6 +1065,64 @@ export class PropertyIdentityService {
       [scope.tenantId, scope.parkId, submissionId, actorId]
     ) as unknown[];
     if (!rows.length) throw propertyIdentityError("property-resource-not-found");
+  }
+
+  private async listDraftFileIds(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    submissionId: string
+  ): Promise<string[]> {
+    const rows = await manager.query(
+      `SELECT draft_file.file_id::text AS file_id
+       FROM public.rel_party_identity_draft_file draft_file
+       WHERE draft_file.tenant_id=$1
+         AND draft_file.park_id=$2
+         AND draft_file.submission_id=$3::uuid
+       ORDER BY draft_file.ordinal, draft_file.file_id`,
+      [scope.tenantId, scope.parkId, submissionId]
+    ) as Array<{ file_id: string }>;
+    return rows.map((row) => row.file_id);
+  }
+
+  private async softDeleteRemovedDraftEvidenceFiles(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    submissionId: string,
+    actorId: string,
+    fileIds: readonly string[]
+  ): Promise<void> {
+    const rows = await manager.query(
+      `UPDATE public.sys_file file
+       SET is_deleted=true,
+           update_by=$4::uuid,
+           update_time=clock_timestamp(),
+           version=version+1
+       WHERE file.tenant_id=$1
+         AND file.park_id=$2
+         AND file.id=ANY($3::uuid[])
+         AND file.biz_type='party_identity_evidence'
+         AND file.biz_id=$5::uuid
+         AND file.is_deleted=false
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.rel_party_identity_draft_file draft_file
+           WHERE draft_file.tenant_id=file.tenant_id
+             AND draft_file.park_id=file.park_id
+             AND draft_file.file_id=file.id
+         )
+         AND NOT EXISTS (
+           SELECT 1
+           FROM public.rel_party_identity_snapshot_file snapshot_file
+           WHERE snapshot_file.tenant_id=file.tenant_id
+             AND snapshot_file.park_id=file.park_id
+             AND snapshot_file.file_id=file.id
+         )
+       RETURNING file.id::text AS id`,
+      [scope.tenantId, scope.parkId, fileIds, actorId, submissionId]
+    ) as Array<{ id: string }>;
+    if (rows.length !== fileIds.length) {
+      throw new ConflictException("Removed identity evidence could not be deleted atomically");
+    }
   }
 
   private async assertAssignmentEligibility(

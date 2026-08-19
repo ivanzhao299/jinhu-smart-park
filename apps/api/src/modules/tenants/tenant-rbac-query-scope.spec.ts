@@ -10,7 +10,7 @@ const authorizationQueries = [
   ["../property-operations/property-foundation-approval.adapter.ts", 1],
   ["../property-approvals/property-approval.authorization.ts", 1],
   ["../property-approvals/outbox/property-runtime-authorization.adapter.ts", 1],
-  ["../files/file-business-access.service.ts", 2],
+  ["../files/file-business-access.service.ts", 1],
   ["../workflow/workflow.service.ts", 1]
 ] as const;
 

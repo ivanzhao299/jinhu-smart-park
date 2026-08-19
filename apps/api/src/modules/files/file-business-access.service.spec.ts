@@ -452,6 +452,59 @@ test("identity evidence metadata does not require file-download permission", asy
   assert.equal(queries, 1);
 });
 
+test("identity evidence draft owner may download current draft and uploader-owned pending files without verifier permission", async () => {
+  let sql = "";
+  let parameters: unknown[] = [];
+  const service = new FileBusinessAccessService(
+    {
+      query: async (statement: string, values: unknown[]) => {
+        sql = statement;
+        parameters = values;
+        return [{ "?column?": 1 }];
+      }
+    } as never,
+    {} as never,
+    unrestrictedDataScopes
+  );
+  const submissionId = "11111111-1111-4111-8111-111111111111";
+  const fileId = "22222222-2222-4222-8222-222222222222";
+  await service.assertReferenceAccess(
+    scope,
+    actor([
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+    ]),
+    "party_identity_evidence",
+    submissionId,
+    "download",
+    undefined,
+    fileId
+  );
+  assert.deepEqual(parameters, [
+    scope.tenantId,
+    scope.parkId,
+    submissionId,
+    "user-1",
+    fileId,
+    false,
+    [
+      PROPERTY_BUSINESS_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
+      PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
+      SYSTEM_PERMISSIONS.FILE_READ,
+      SYSTEM_PERMISSIONS.FILE_DOWNLOAD
+    ]
+  ]);
+  assert.match(sql, /submission\.status='draft'/);
+  assert.match(sql, /submission\.drafted_by=\$4::uuid/);
+  assert.match(sql, /rel_party_identity_draft_file/);
+  assert.match(sql, /public\.sys_file pending_file/);
+  assert.match(sql, /pending_file\.biz_id=submission\.id/);
+  assert.match(sql, /pending_file\.create_by=\$4::uuid/);
+  assert.doesNotMatch(sql, /party_identity_verification_queue/);
+});
+
 test("identity evidence denies metadata and blob before lookup when party-read or file-download is missing", async () => {
   let queries = 0;
   const service = new FileBusinessAccessService(

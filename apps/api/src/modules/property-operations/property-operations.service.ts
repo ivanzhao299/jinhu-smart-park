@@ -574,6 +574,7 @@ export class PropertyOperationsService {
     } as const;
     const auditCte = `WITH audit AS (
          SELECT COALESCE(log.id, request.id) AS id,
+                request.id AS request_id,
                 request.tenant_id,
                 request.park_id,
                 config.unit_id,
@@ -603,6 +604,7 @@ export class PropertyOperationsService {
           WHERE request.action_id='property.mode-transition.request'
          UNION ALL
          SELECT log.id,
+                NULL::uuid AS request_id,
                 log.tenant_id,
                 log.park_id,
                 log.unit_id,
@@ -638,6 +640,7 @@ export class PropertyOperationsService {
     const rows = await this.dataSource.query(
       `${auditCte}
        SELECT audit.id,
+              audit.request_id AS "requestId",
               audit.unit_id AS "unitId",
               unit.unit_code AS "unitCode",
               unit.unit_name AS "unitName",
