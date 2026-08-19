@@ -1,0 +1,96 @@
+import { Transform } from "class-transformer";
+import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min } from "class-validator";
+import { HR_EMPLOYEE_STATUSES,HR_EMPLOYMENT_TYPES } from "@jinhu/shared";
+
+const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
+export class HrListQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsIn(HR_EMPLOYEE_STATUSES) status?:string;
+ @IsOptional() @IsUUID() org_id?:string;
+}
+export class CreateHrPositionDto {
+ @IsUUID() orgId!:string; @Transform(trim) @IsString() @MaxLength(64) positionCode!:string;
+ @Transform(trim) @IsString() @MaxLength(100) positionName!:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) jobFamily?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) jobLevel?:string;
+ @IsOptional() @IsInt() @Min(0) headcountLimit?:number;
+ @IsOptional() @IsIn(["enabled","disabled"]) status?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
+}
+export class CreateHrEmployeeDto {
+ @Transform(trim) @IsString() @MaxLength(64) employeeCode!:string;
+ @Transform(trim) @IsString() @MaxLength(100) fullName!:string;
+ @IsOptional() @IsUUID() userId?:string; @IsOptional() @IsUUID() primaryOrgId?:string;
+ @IsOptional() @IsUUID() positionId?:string; @IsOptional() @IsUUID() managerEmployeeId?:string;
+ @IsOptional() @IsIn(HR_EMPLOYMENT_TYPES) employmentType?:string;
+ @IsOptional() @IsIn(HR_EMPLOYEE_STATUSES) employmentStatus?:string;
+ @IsOptional() @IsDateString() hireDate?:string; @IsOptional() @IsDateString() probationEndDate?:string;
+ @IsOptional() @IsDateString() departureDate?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(128) workLocation?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) workMobile?:string;
+ @IsOptional() @Transform(trim) @IsEmail() @MaxLength(128) workEmail?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
+}
+export class UpdateHrEmployeeDto extends CreateHrEmployeeDto {}
+export class UpdateHrEmployeeProfileDto {
+ @IsOptional() @IsIn(["resident_id","passport","other"]) idType?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) idNumberMasked?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) personalMobile?:string;
+ @IsOptional() @Transform(trim) @IsEmail() @MaxLength(128) personalEmail?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) address?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) emergencyContactName?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) emergencyContactMobile?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
+}
+export class HrEmploymentTransitionDto {
+ @IsIn(["start_probation","confirm_employment","transfer","suspend","resume","depart"]) action!:string;
+ @IsDateString() effectiveDate!:string;
+ @IsOptional() @IsUUID() primaryOrgId?:string;
+ @IsOptional() @IsUUID() positionId?:string;
+ @IsOptional() @IsUUID() managerEmployeeId?:string;
+ @Transform(trim) @IsString() @MaxLength(500) reason!:string;
+}
+export class CreateHrGoalCycleDto {
+ @Transform(trim) @IsString() @MaxLength(64) cycleCode!:string; @Transform(trim) @IsString() @MaxLength(100) cycleName!:string;
+ @IsDateString() startDate!:string; @IsDateString() endDate!:string;
+}
+export class CreateHrGoalDto {
+ @IsUUID() cycleId!:string; @IsOptional() @IsUUID() parentGoalId?:string; @IsIn(["group","department","employee"]) goalLevel!:string;
+ @Transform(trim) @IsString() @MaxLength(200) goalName!:string; @IsOptional() @IsUUID() ownerOrgId?:string; @IsOptional() @IsUUID() ownerEmployeeId?:string;
+ @Transform(({value})=>Number(value)) @IsNumber() @Min(0.0001) @Max(1) weight!:number;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) metricName?:string; @IsOptional() @Transform(({value})=>Number(value)) @IsNumber() targetValue?:number;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) unit?:string; @IsDateString() startDate!:string; @IsDateString() dueDate!:string;
+}
+export class CreateHrWorkReportDto {
+ @IsIn(["daily","weekly","monthly"]) reportType!:string; @IsDateString() periodStart!:string; @IsDateString() periodEnd!:string;
+ @Transform(trim) @IsString() @MaxLength(10000) completedWork!:string; @IsOptional() @Transform(trim) @IsString() @MaxLength(10000) nextPlan?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(5000) risks?:string; @IsOptional() @Transform(trim) @IsString() @MaxLength(5000) collaborationNeeds?:string;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsNumber() @Min(0) @Max(744) hours?:number;
+ @IsOptional() @IsArray() @IsUUID("4",{each:true}) goalIds?:string[];
+}
+export class ReviewHrWorkReportDto { @IsIn(["confirmed","returned"]) action!:string; @Transform(trim) @IsString() @MaxLength(1000) comment!:string; }
+export class CreateHrGoalCheckinDto {
+ @Transform(({value})=>Number(value)) @IsNumber() @Min(0) @Max(1) progress!:number;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsNumber() currentValue?:number;
+ @Transform(trim) @IsString() @MaxLength(2000) summary!:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) risks?:string;
+ @IsOptional() @IsUUID() evidenceFileId?:string;
+}
+export class CreateHrPerformanceCycleDto {
+ @Transform(trim) @IsString() @MaxLength(64) cycleCode!:string; @Transform(trim) @IsString() @MaxLength(100) cycleName!:string;
+ @IsDateString() startDate!:string; @IsDateString() endDate!:string; @IsOptional() @IsDateString() selfReviewEnd?:string; @IsOptional() @IsDateString() managerReviewEnd?:string; @IsOptional() @IsDateString() calibrationEnd?:string;
+}
+export class CreateHrPerformancePlanDto { @IsUUID() cycleId!:string; @IsUUID() employeeId!:string; }
+export class ScoreHrPerformanceDto { @Transform(({value})=>Number(value)) @IsNumber() @Min(0) @Max(100) score!:number; @Transform(trim) @IsString() @MaxLength(4000) comment!:string; }
+export class CreateHrFeedbackCycleDto { @IsUUID() performanceCycleId!:string; @Transform(trim) @IsString() @MaxLength(100) cycleName!:string; @IsOptional() anonymous?:boolean; @IsOptional() @IsInt() @Min(2) @Max(20) minimumAnonymousResponses?:number; }
+export class CreateHrFeedbackAssignmentDto { @IsUUID() feedbackCycleId!:string; @IsUUID() subjectEmployeeId!:string; @IsUUID() reviewerEmployeeId!:string; @IsIn(["self","manager","peer","subordinate"]) relationType!:string; @Transform(({value})=>Number(value)) @IsNumber() @Min(0.0001) @Max(1) weight!:number; }
+export class SubmitHrFeedbackDto { @Transform(({value})=>Number(value)) @IsNumber() @Min(0) @Max(100) score!:number; @IsOptional() @Transform(trim) @IsString() @MaxLength(3000) strengths?:string; @IsOptional() @Transform(trim) @IsString() @MaxLength(3000) improvements?:string; }
+export class CreateHrCompensationPlanDto { @Transform(trim) @IsString() @MaxLength(64) planCode!:string;@Transform(trim) @IsString() @MaxLength(100) planName!:string;@IsDateString() effectiveFrom!:string;@IsOptional() @IsDateString() effectiveTo?:string; }
+export class AssignHrCompensationDto { @IsUUID() employeeId!:string;@IsUUID() planId!:string;@IsDateString() effectiveFrom!:string;@IsOptional() @IsDateString() effectiveTo?:string;@Transform(({value})=>Number(value)) @IsNumber() @Min(0) baseSalary!:number;@IsOptional() @Transform(({value})=>Number(value)) @IsNumber() @Min(0) allowanceAmount?:number;@IsOptional() @Transform(({value})=>Number(value)) @IsNumber() @Min(0) variableTarget?:number; }
+export class CreateHrPayrollPeriodDto { @IsDateString() periodMonth!:string;@IsDateString() startDate!:string;@IsDateString() endDate!:string; }
+export class CreateHrPayrollRunDto { @IsUUID() periodId!:string;@IsOptional() @IsUUID() correctionOfRunId?:string; }
+export class AdjustHrPayslipDto { @Transform(({value})=>Number(value)) @IsNumber() @Min(0) deductionAmount!:number;@Transform(({value})=>Number(value)) @IsNumber() @Min(0) personalTax!:number;@Transform(trim) @IsString() @MaxLength(500) reason!:string; }
+export class CreateHrApprovalDto { @IsIn(["employment_change","profile_change","compensation_change"]) requestType!:string;@Transform(trim) @IsString() @MaxLength(200) title!:string;@IsObject() payload!:Record<string,unknown>; }
+export class HrApprovalActionDto { @IsIn(["submit","approve","return","withdraw","resubmit"]) action!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }

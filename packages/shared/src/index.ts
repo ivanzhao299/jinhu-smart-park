@@ -3,10 +3,12 @@ import {
   PROPERTY_BUSINESS_PERMISSIONS
 } from "./property-business/permissions";
 import { APARTMENT_PERMISSIONS } from "./apartment";
+import { HR_PERMISSIONS } from "./hr";
 
 export * from "./property-business";
 export * from "./mobile";
 export * from "./apartment";
+export * from "./hr";
 
 export interface ApiResponse<T> {
   code: number;
@@ -875,6 +877,7 @@ export const SYSTEM_PERMISSIONS = {
   UNIT_EXPORT: "unit:export",
   ...PROPERTY_BUSINESS_PERMISSIONS,
   ...APARTMENT_PERMISSIONS,
+  ...HR_PERMISSIONS,
   ASSET_READ: "asset:read",
   ASSET_PARTY_PAGE: "asset:party",
   ASSET_STATUS_BOARD: "asset:status_board",
@@ -1412,6 +1415,48 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.APARTMENT_CHECK_OUT, name: "公寓退房办理", resource: "biz.apartment_stay", action: "check_out" },
   { code: SYSTEM_PERMISSIONS.APARTMENT_DOCUMENT_MANAGE, name: "公寓文档管理", resource: "biz.apartment_document", action: "manage" },
   { code: SYSTEM_PERMISSIONS.APARTMENT_AUDIT, name: "公寓档案审计", resource: "biz.apartment", action: "audit" },
+  { code: SYSTEM_PERMISSIONS.HR_MENU, name: "人力资源管理", resource: "hr", action: "menu" },
+  { code: SYSTEM_PERMISSIONS.HR_DASHBOARD_PAGE, name: "人力资源工作台", resource: "hr.dashboard", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_ORGANIZATION_PAGE, name: "组织与岗位", resource: "hr.organization", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEES_PAGE, name: "员工档案", resource: "hr.employees", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_GOALS_PAGE, name: "战略与目标", resource: "hr.goals", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_WORK_REPORTS_PAGE, name: "工作汇报", resource: "hr.work_reports", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_PAGE, name: "绩效考核", resource: "hr.performance", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_360_PAGE, name: "360评价", resource: "hr.feedback", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEE_READ, name: "读取员工档案", resource: "hr.employee", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEE_MANAGE, name: "管理员工档案", resource: "hr.employee", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEE_SELF_READ, name: "读取本人档案", resource: "hr.employee", action: "self_read" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ, name: "读取员工敏感档案", resource: "hr.employee_profile", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE, name: "管理员工敏感档案", resource: "hr.employee_profile", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYMENT_TRANSITION, name: "办理员工任职变动", resource: "hr.employment", action: "transition" },
+  { code: SYSTEM_PERMISSIONS.HR_GOAL_READ, name: "读取目标", resource: "hr.goal", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_GOAL_MANAGE, name: "管理目标", resource: "hr.goal", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_GOAL_SELF_READ, name: "读取本人目标", resource: "hr.goal", action: "self_read" },
+  { code: SYSTEM_PERMISSIONS.HR_WORK_REPORT_SELF_MANAGE, name: "提交本人工作汇报", resource: "hr.work_report", action: "self_manage" },
+  { code: SYSTEM_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, name: "审核团队工作汇报", resource: "hr.work_report", action: "team_review" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_READ, name: "读取绩效", resource: "hr.performance", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_MANAGE, name: "管理绩效周期", resource: "hr.performance", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_SELF_REVIEW, name: "绩效自评", resource: "hr.performance", action: "self_review" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW, name: "主管绩效评价", resource: "hr.performance", action: "manager_review" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_CALIBRATE, name: "绩效校准确认", resource: "hr.performance", action: "calibrate" },
+  { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_MANAGE, name: "管理360评价", resource: "hr.feedback", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_RESPOND, name: "提交360评价", resource: "hr.feedback", action: "respond" },
+  { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_RESULT_READ, name: "读取360聚合结果", resource: "hr.feedback", action: "result_read" },
+  { code: SYSTEM_PERMISSIONS.HR_COMPENSATION_PAGE, name: "薪酬方案", resource: "hr.compensation", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYROLL_PAGE, name: "工资核算", resource: "hr.payroll", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_COMPENSATION_READ, name: "读取薪酬方案", resource: "hr.compensation", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_COMPENSATION_MANAGE, name: "管理薪酬方案", resource: "hr.compensation", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYROLL_READ, name: "读取工资批次", resource: "hr.payroll", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYROLL_MANAGE, name: "管理工资批次", resource: "hr.payroll", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYROLL_REVIEW, name: "复核工资批次", resource: "hr.payroll", action: "review" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYROLL_CONFIRM, name: "确认工资批次", resource: "hr.payroll", action: "confirm" },
+  { code: SYSTEM_PERMISSIONS.HR_PAYSLIP_SELF_READ, name: "读取本人工资条", resource: "hr.payslip", action: "self_read" },
+  { code: SYSTEM_PERMISSIONS.HR_APPROVALS_PAGE, name: "人事审批", resource: "hr.approvals", action: "page" },
+  { code: SYSTEM_PERMISSIONS.HR_APPROVAL_SELF_MANAGE, name: "提交本人人事申请", resource: "hr.approval", action: "self_manage" },
+  { code: SYSTEM_PERMISSIONS.HR_APPROVAL_REVIEW, name: "审核人事申请", resource: "hr.approval", action: "review" },
+  { code: SYSTEM_PERMISSIONS.HR_POSITION_READ, name: "读取岗位", resource: "hr.position", action: "read" },
+  { code: SYSTEM_PERMISSIONS.HR_POSITION_MANAGE, name: "管理岗位", resource: "hr.position", action: "manage" },
+  { code: SYSTEM_PERMISSIONS.HR_EMPLOYMENT_EVENT_READ, name: "读取任职历史", resource: "hr.employment_event", action: "read" },
   { code: SYSTEM_PERMISSIONS.PARTY_READ, name: "业务相对方读取", resource: "biz.party", action: "read" },
   { code: SYSTEM_PERMISSIONS.PARTY_CREATE, name: "业务相对方新增", resource: "biz.party", action: "create" },
   { code: SYSTEM_PERMISSIONS.PARTY_UPDATE, name: "业务相对方修改", resource: "biz.party", action: "update" },

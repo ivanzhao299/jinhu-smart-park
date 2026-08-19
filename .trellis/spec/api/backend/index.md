@@ -10,6 +10,8 @@ Apartment handover energy ledger: [Apartment Handover Energy Integration](./apar
 
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
+Human resources lifecycle, goals, performance, protected documents, approvals, and payroll: [HR Management Domain Contract](./hr-management.md).
+
 ## Package Boundary
 
 - Source lives in `apps/api/src`.
