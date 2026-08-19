@@ -111,3 +111,77 @@ ELSE NULL
 WHEN child.code = 'homestay:operations' THEN 'homestay'
 ELSE NULL
 ```
+
+## Scenario: Yuzhou HR dual-database migration lab
+
+### 1. Scope / Trigger
+
+- Trigger: local restoration, inventory, extraction, or dry-run migration of the Yuzhou SQL Server HR system.
+- This lab is development/test infrastructure only. Production API runtime must not depend on SQL Server.
+
+### 2. Signatures
+
+```text
+pnpm hr:migration:check
+pnpm hr:migration:manifest -- <source-dir> <output-json>
+YUZHOU_SQLSERVER_SA_PASSWORD=<local-secret> pnpm hr:migration:sqlserver:up
+pnpm hr:migration:sqlserver:down
+POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
+```
+
+### 3. Contracts
+
+- Homebrew PostgreSQL may remain on `5432`; the Docker migration target publishes only `127.0.0.1:15432`.
+- SQL Server publishes only `127.0.0.1:${YUZHOU_SQLSERVER_PORT:-14333}` and runs as `linux/amd64` under Colima/Rosetta on Apple Silicon.
+- `YUZHOU_SQLSERVER_SA_PASSWORD` is required for SQL Server config/start and must not be committed. Normal extraction uses a separate read-only login after a real backup is restored.
+- The SQL Server Compose project is explicitly named `jinhu_yuzhou_migration_lab`; its `down` command must work without recovering the original SA password.
+- Source materials and backups are read-only. Inventory manifests contain relative paths, sizes, types, and hashes, not connection strings or business-sensitive values.
+- Every mutable target run uses an isolated database name, unique run id, loopback connections, and explicit `ALLOW_YUZHOU_MIGRATION=yes` gate.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| SQL Server password unset during config/start | Fail before container creation |
+| Docker/Compose/Colima unavailable | Runtime diagnostic fails with the missing dependency |
+| `15432` or `14333` already occupied | Diagnostic identifies the listener; operator verifies it is the named lab before reuse |
+| Source backup absent | Environment and synthetic fixture may proceed; real row migration remains blocked |
+| Target is default/shared/production database | Migration mutation fails closed |
+| PostgreSQL migration fails | Stop; do not seed, bootstrap, or load legacy rows |
+| Source catalog count differs from file report | Record the catalog evidence and unresolved mapping; do not choose a count silently |
+
+### 5. Good / Base / Bad Cases
+
+- Good: run both databases on loopback-only distinct ports, migrate a fresh target, restore a copied/hashed backup, and extract with a read-only SQL Server login.
+- Base: no real backup is available; validate SQL Server connectivity and the full ETL contract with synthetic fixtures while reporting the row-migration blocker.
+- Bad: reuse `jinhu_smart_park`, expose SQL Server on all interfaces, put an SA password in Compose, or let the API query the legacy database at runtime.
+
+### 6. Tests Required
+
+- `docker compose ... config --quiet` with a non-secret validation placeholder; assert missing start secret fails.
+- Run an amd64 smoke container and assert `uname -m` is `x86_64`.
+- Assert PostgreSQL and SQL Server publish only on `127.0.0.1:15432` and `127.0.0.1:14333`.
+- Run a fresh-schema migration and assert both history tables match with no failed/running rows.
+- Run the Yuzhou lab contract with the source directory and assert 220 files, 194 procedures, 16 functions, and 2 triggers.
+- Execute SQL Server `SELECT 1`/version query through container `sqlcmd`; never print the password.
+
+### 7. Wrong vs Correct
+
+Wrong:
+
+```yaml
+ports:
+  - "1433:1433"
+environment:
+  MSSQL_SA_PASSWORD: FixedPasswordInGit
+```
+
+Correct:
+
+```yaml
+platform: linux/amd64
+ports:
+  - "127.0.0.1:${YUZHOU_SQLSERVER_PORT:-14333}:1433"
+environment:
+  MSSQL_SA_PASSWORD: ${YUZHOU_SQLSERVER_SA_PASSWORD:?Set in the local shell}
+```
