@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Brackets, type EntityManager, type Repository, type SelectQueryBuilder } from "typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { CodeRulesService } from "../code-rules/code-rules.service";
 import { DataScopeService, type DataScopeFilter } from "../data-scopes/data-scope.service";
@@ -384,6 +384,9 @@ export class LeasingContractsService {
       .getMany();
     if (originalRelations.length === 0) {
       throw new BadRequestException("Original contract must link at least one unit before renewal");
+    }
+    if (originalRelations.some((relation) => relation.unit?.usageType === UNIT_USAGE_HOUSING)) {
+      throw new BadRequestException("Housing units cannot be linked to commercial leasing contracts");
     }
     await this.assertNoEffectiveUnitConflictForRenewal(scope, original.id, originalRelations.map((relation) => relation.unitId), startDate, endDate);
 
@@ -1221,6 +1224,9 @@ export class LeasingContractsService {
     endDate: string,
     currentRelId?: string
   ): Promise<void> {
+    if (unit.usageType === UNIT_USAGE_HOUSING) {
+      throw new BadRequestException("Housing units cannot be linked to commercial leasing contracts");
+    }
     const currentContractRelationExists = currentRelId
       ? await this.contractUnitsRepository
           .createQueryBuilder("rel")

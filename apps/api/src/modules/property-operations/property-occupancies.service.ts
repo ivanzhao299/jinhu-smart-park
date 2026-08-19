@@ -77,14 +77,13 @@ export class PropertyOccupanciesService {
         `unit.id = occupancy.unit_id
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
-          AND unit.is_deleted = false
-          AND unit.usage_type = :housingUsageType`,
+          AND unit.is_deleted = false`,
         { housingUsageType: UNIT_USAGE_HOUSING }
       )
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false")
-      .andWhere("unit.id IS NOT NULL");
+      .andWhere("(unit.usage_type = :housingUsageType OR occupancy.status IN ('released', 'completed', 'cancelled'))");
     if (query.unitId) builder.andWhere("occupancy.unit_id = :unitId", { unitId: query.unitId });
     if (query.sourceDomain) builder.andWhere("occupancy.source_domain = :sourceDomain", { sourceDomain: query.sourceDomain });
     if (query.sourceType) builder.andWhere("occupancy.source_type = :sourceType", { sourceType: query.sourceType });
@@ -695,8 +694,7 @@ export class PropertyOccupanciesService {
         `unit.id = occupancy.unit_id
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
-          AND unit.is_deleted = false
-          AND unit.usage_type = :housingUsageType`,
+          AND unit.is_deleted = false`,
         { housingUsageType: UNIT_USAGE_HOUSING }
       )
       .where("occupancy.id = :id", { id })
@@ -704,7 +702,15 @@ export class PropertyOccupanciesService {
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false")
       .getOne();
-    if (!entity || !entity.unit) throw new NotFoundException("Property occupancy not found");
+    if (
+      !entity
+      || (
+        entity.unit?.usageType !== UNIT_USAGE_HOUSING
+        && !["released", "completed", "cancelled"].includes(entity.status)
+      )
+    ) {
+      throw new NotFoundException("Property occupancy not found");
+    }
     return entity;
   }
 

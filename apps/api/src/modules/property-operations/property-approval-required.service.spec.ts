@@ -40,7 +40,7 @@ test("non-force release preserves the existing low-risk path with its exact acti
 	  const entity = {
 	    id: "occupancy-low-risk",
 	    unitId: "unit-1",
-	    unit: { id: "unit-1" },
+	    unit: { id: "unit-1", usageType: 70 },
 	    sourceDomain: "operations",
     status: "active",
     releaseReason: null,

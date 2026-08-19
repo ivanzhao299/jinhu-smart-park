@@ -58,6 +58,58 @@ WHERE NOT EXISTS (
     AND item.item_value = housing_usage.item_value
 );
 
+DO $$
+BEGIN
+  IF EXISTS (
+    WITH housing_unit_candidates AS (
+      SELECT DISTINCT occupancy.tenant_id, occupancy.park_id, occupancy.unit_id
+      FROM biz_property_occupancy occupancy
+      WHERE occupancy.is_deleted = false
+        AND occupancy.end_at > now()
+        AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
+        AND (
+          occupancy.status = 'active'
+          OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
+        )
+      UNION
+      SELECT DISTINCT lease.tenant_id, lease.park_id, lease.unit_id
+      FROM biz_housing_lease lease
+      WHERE lease.is_deleted = false
+        AND lease.status IN ('draft', 'pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending')
+      UNION
+      SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
+      FROM biz_homestay_booking booking
+      WHERE booking.is_deleted = false
+        AND booking.status IN ('confirmed', 'checked_in')
+      UNION
+      SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
+      FROM biz_apartment_room room
+      WHERE room.is_deleted = false
+        AND room.management_status = 'enabled'
+      UNION
+      SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
+      FROM biz_property_operation_config config
+      WHERE config.is_deleted = false
+        AND config.operating_mode IN ('long_rent', 'short_stay')
+    )
+    SELECT 1
+    FROM housing_unit_candidates candidate
+    JOIN rel_leasing_contract_unit relation
+      ON relation.tenant_id = candidate.tenant_id
+     AND relation.park_id = candidate.park_id
+     AND relation.unit_id = candidate.unit_id
+     AND relation.is_deleted = false
+     AND relation.status = 1
+    JOIN biz_leasing_contract contract
+      ON contract.id = relation.contract_id
+     AND contract.is_deleted = false
+     AND contract.status NOT IN ('90', '91')
+    LIMIT 1
+  ) THEN
+    RAISE EXCEPTION 'unit-usage-housing-mixed-commercial-conflict';
+  END IF;
+END $$;
+
 WITH housing_unit_candidates AS (
   SELECT DISTINCT occupancy.tenant_id, occupancy.park_id, occupancy.unit_id
   FROM biz_property_occupancy occupancy
@@ -72,7 +124,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT lease.tenant_id, lease.park_id, lease.unit_id
   FROM biz_housing_lease lease
   WHERE lease.is_deleted = false
-    AND lease.status IN ('pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending')
+    AND lease.status IN ('draft', 'pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending')
   UNION
   SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
   FROM biz_homestay_booking booking
@@ -87,7 +139,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
   FROM biz_property_operation_config config
   WHERE config.is_deleted = false
-    AND config.operating_mode = 'short_stay'
+    AND config.operating_mode IN ('long_rent', 'short_stay')
 )
 UPDATE biz_unit unit
    SET usage_type = 70,

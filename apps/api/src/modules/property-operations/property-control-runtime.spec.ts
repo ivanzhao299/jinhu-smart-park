@@ -414,6 +414,10 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     path.join(__dirname, "../units/units.service.ts"),
     "utf8"
   );
+  const leasingContractsService = fs.readFileSync(
+    path.join(__dirname, "../leasing-contracts/leasing-contracts.service.ts"),
+    "utf8"
+  );
   const housingMigration = fs.readFileSync(
     path.resolve(__dirname, "../../../../../database/migrations/000217_unit_usage_housing.sql"),
     "utf8"
@@ -490,8 +494,12 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationService, /Housing unit not found/);
   assert.match(service, /UNIT_USAGE_HOUSING/);
   assert.match(service, /unit\.usage_type = :housingUsageType/);
-  assert.match(service, /unit\.id IS NOT NULL/);
+  assert.match(service, /occupancy\.status IN \('released', 'completed', 'cancelled'\)/);
   assert.match(service, /Housing unit not found/);
+  assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /originalRelations\.some\(\(relation\) => relation\.unit\?\.usageType === UNIT_USAGE_HOUSING\)/);
+  assert.match(leasingContractsService, /Housing units cannot be linked to commercial leasing contracts/);
   assert.doesNotMatch(unitsService, /assertHousingUsageTypeChangeAllowed/);
   assert.match(unitsService, /lockUnitForPropertyActivityChange/);
   assert.match(unitsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)/);
@@ -517,12 +525,13 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /occupancy\.status = 'active'/);
   assert.match(housingMigration, /occupancy\.status = 'held'/);
   assert.match(housingMigration, /FROM biz_housing_lease lease/);
-  assert.match(housingMigration, /lease\.status IN \('pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending'\)/);
+  assert.match(housingMigration, /lease\.status IN \('draft', 'pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending'\)/);
   assert.match(housingMigration, /FROM biz_homestay_booking booking/);
   assert.match(housingMigration, /FROM biz_apartment_room room/);
   assert.match(housingMigration, /room\.management_status = 'enabled'/);
   assert.match(housingMigration, /FROM biz_property_operation_config config/);
-  assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
+  assert.match(housingMigration, /config\.operating_mode IN \('long_rent', 'short_stay'\)/);
+  assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
 });

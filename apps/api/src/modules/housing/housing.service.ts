@@ -6,6 +6,7 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  UNIT_USAGE_HOUSING,
   type HousingEnergyMeterCandidateListResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
   type HousingTenantResponse,
@@ -148,8 +149,10 @@ export class HousingService {
       "unit.tenant_id=$1",
       "unit.park_id=$2",
       "unit.status=1",
+      "unit.usage_type=$3",
       "unit.is_deleted=false"
     ];
+    parameters.push(UNIT_USAGE_HOUSING);
     if (unitIds !== null) {
       parameters.push(unitIds);
       filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);

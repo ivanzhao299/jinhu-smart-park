@@ -88,6 +88,7 @@ test("housing lease keyword stays set-based, scoped, and constant for page sizes
       return [{
         id: lease.id,
         unitStatus: 1,
+        usageType: 70,
         operatingMode: "long_rent",
         operatingStatus: "enabled",
         conflict: false

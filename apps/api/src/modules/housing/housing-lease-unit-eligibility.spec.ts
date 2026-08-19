@@ -29,7 +29,7 @@ function managerWith(results: unknown[][]) {
 test("active enabled long-rent unit passes base and period eligibility", async () => {
   const { manager, statements } = managerWith([
     [],
-    [{ unitStatus: 1, operatingMode: "long_rent", operatingStatus: "enabled" }],
+    [{ unitStatus: 1, usageType: 70, operatingMode: "long_rent", operatingStatus: "enabled" }],
     [{ conflict: false }]
   ]);
 
@@ -60,13 +60,15 @@ test("active enabled long-rent unit passes base and period eligibility", async (
 
 test("missing or ineligible operation configuration returns stable reason codes", async () => {
   for (const [row, expected] of [
-    [{ unitStatus: 0, operatingMode: "long_rent", operatingStatus: "enabled" },
+    [{ unitStatus: 0, usageType: 70, operatingMode: "long_rent", operatingStatus: "enabled" },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_INACTIVE]],
-    [{ unitStatus: 1, operatingMode: null, operatingStatus: null },
+    [{ unitStatus: 1, usageType: 10, operatingMode: "long_rent", operatingStatus: "enabled" },
+      [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_HOUSING]],
+    [{ unitStatus: 1, usageType: 70, operatingMode: null, operatingStatus: null },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_CONFIG_MISSING]],
-    [{ unitStatus: 1, operatingMode: "short_stay", operatingStatus: "enabled" },
+    [{ unitStatus: 1, usageType: 70, operatingMode: "short_stay", operatingStatus: "enabled" },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_MODE_NOT_LONG_RENT]],
-    [{ unitStatus: 1, operatingMode: "long_rent", operatingStatus: "suspended" },
+    [{ unitStatus: 1, usageType: 70, operatingMode: "long_rent", operatingStatus: "suspended" },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_STATUS_NOT_ENABLED]]
   ] as const) {
     const { manager, statements } = managerWith([[], [row]]);
@@ -89,7 +91,7 @@ test("missing or ineligible operation configuration returns stable reason codes"
 test("occupied lease period is rejected after structural eligibility", async () => {
   const { manager } = managerWith([
     [],
-    [{ unitStatus: 1, operatingMode: "long_rent", operatingStatus: "enabled" }],
+    [{ unitStatus: 1, usageType: 70, operatingMode: "long_rent", operatingStatus: "enabled" }],
     [{ conflict: true }]
   ]);
 
@@ -115,6 +117,7 @@ test("historical draft eligibility is projected in one scoped batch without coun
     {
       id: "lease-1",
       unitStatus: 1,
+      usageType: 70,
       operatingMode: "long_rent",
       operatingStatus: "enabled",
       conflict: false
@@ -122,6 +125,7 @@ test("historical draft eligibility is projected in one scoped batch without coun
     {
       id: "lease-2",
       unitStatus: 1,
+      usageType: 70,
       operatingMode: "short_stay",
       operatingStatus: "enabled",
       conflict: true
