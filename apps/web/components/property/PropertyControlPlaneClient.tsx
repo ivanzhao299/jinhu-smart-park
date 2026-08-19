@@ -600,12 +600,14 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const authUser = useAuthUser();
   const updateKey = useRef<string | null>(null);
   const deleteKeys = useRef(new Map<string, string>());
   const deletedEvidenceFileIds = useRef<Set<string>>(new Set());
   const initialFileIds = useRef<Set<string>>(new Set());
   const abandonedPendingFileIds = useRef<Set<string>>(new Set());
   const activeDraftId = useRef<string | null>(detail.id);
+  const canDeleteIdentityEvidence = hasPermission(authUser, SYSTEM_PERMISSIONS.FILE_DELETE);
   const trimmedIdentityNumber = identityNumber.trim();
   const fileIds = pendingFiles.map((file) => file.id);
   const hasNewEvidenceFiles = fileIds.some((fileId) => !initialFileIds.current.has(fileId));
@@ -690,6 +692,10 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
     }
     if (trimmedIdentityNumber && documentType === "passport" && !/^[A-Za-z0-9]{5,20}$/.test(trimmedIdentityNumber)) {
       setFeedback("护照号码需为 5-20 位字母或数字。");
+      return;
+    }
+    if (removedInitialFileIds.size > 0 && !canDeleteIdentityEvidence) {
+      setFeedback("缺少文件清理权限，不能移除已保存的身份核验证据。");
       return;
     }
     setBusy(true);
@@ -805,7 +811,7 @@ function IdentityDraftEditPanel({ detail, onDraftStateChange, onUpdated }: {
         {pendingFiles.length ? <PendingAttachmentList
           files={pendingFiles}
           mutationDisabled={busy || uploading}
-          onRemove={(fileId) => void removePendingIdentityEvidence(fileId)}
+          onRemove={canDeleteIdentityEvidence ? (fileId) => void removePendingIdentityEvidence(fileId) : undefined}
         /> : <p>暂无待保存证据文件。</p>}
         <button className="ds-button ds-button-primary" disabled={busy || uploading} type="submit">
           {busy ? "正在保存…" : "保存草稿"}
