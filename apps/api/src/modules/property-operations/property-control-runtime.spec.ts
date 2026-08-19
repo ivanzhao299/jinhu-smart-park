@@ -485,6 +485,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationService, /UNIT_USAGE_HOUSING/);
   assert.match(operationService, /unit\.usage_type = :housingUsageType/);
   assert.match(operationService, /unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
+  assert.match(operationService, /const lockedUnit = await manager\.getRepository\(UnitEntity\)\.findOne/);
+  assert.match(operationService, /lockedUnit\.usageType !== UNIT_USAGE_HOUSING/);
   assert.match(operationService, /Housing unit not found/);
   assert.match(service, /UNIT_USAGE_HOUSING/);
   assert.match(service, /unit\.usage_type = :housingUsageType/);
@@ -494,6 +496,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /lockUnitForPropertyActivityChange/);
   assert.match(unitsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)/);
   assert.match(unitsService, /FOR UPDATE/);
+  assert.match(unitsService, /preserveLatestUsageTypeBeforeExistingUnitSave/);
+  assert.match(unitsService, /entity\.usageType = Number\(lockedUnit\.usage_type\)/);
   assert.match(unitsService, /assertNoPropertyActivity/);
   assert.match(unitsService, /this\.unitsRepository\.manager\.transaction/);
   assert.match(unitsService, /biz_property_operation_config config/);
@@ -513,6 +517,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /FROM biz_homestay_booking booking/);
   assert.match(housingMigration, /FROM biz_apartment_room room/);
   assert.match(housingMigration, /room\.management_status = 'enabled'/);
+  assert.match(housingMigration, /FROM biz_property_operation_config config/);
+  assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
 });

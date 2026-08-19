@@ -318,10 +318,6 @@ export class UnitsService {
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUnitDto): Promise<UnitEntity> {
     const entity = await this.findDetail(scope, id, actor);
-    const shouldLockPropertyActivity =
-      dto.usageType !== undefined
-      && entity.usageType === UNIT_USAGE_HOUSING
-      && dto.usageType !== UNIT_USAGE_HOUSING;
     const nextBuildingId = dto.buildingId ?? entity.buildingId;
     const nextFloorId = dto.floorId ?? entity.floorId;
     if (dto.buildingId || dto.floorId) {
@@ -364,21 +360,20 @@ export class UnitsService {
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
     entity.updateBy = actor.sub;
 
-    if (shouldLockPropertyActivity) {
-      return this.unitsRepository.manager.transaction(async (manager) => {
-        const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
-        if (Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING) {
-          await this.assertNoPropertyActivity(
-            manager,
-            scope,
-            entity.id,
-            "住房房源存在经营配置、占用或业务活动，不能改为其他用途"
-          );
-        }
-        return manager.save(UnitEntity, entity);
-      });
-    }
-    return this.unitsRepository.save(entity);
+    return this.unitsRepository.manager.transaction(async (manager) => {
+      const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      if (dto.usageType === undefined) {
+        entity.usageType = Number(lockedUnit.usage_type);
+      } else if (Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING && dto.usageType !== UNIT_USAGE_HOUSING) {
+        await this.assertNoPropertyActivity(
+          manager,
+          scope,
+          entity.id,
+          "住房房源存在经营配置、占用或业务活动，不能改为其他用途"
+        );
+      }
+      return manager.save(UnitEntity, entity);
+    });
   }
 
   private async lockUnitForPropertyActivityChange(
@@ -484,7 +479,10 @@ export class UnitsService {
     entity.photoFileIds = [...(entity.photoFileIds ?? []), uploaded.id];
     entity.photoUrls = [...(entity.photoUrls ?? []), uploaded.fileUrl];
     entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
+      await manager.save(UnitEntity, entity);
+    });
     return uploaded;
   }
 
@@ -505,7 +503,10 @@ export class UnitsService {
     entity.floorplanFileId = uploaded.id;
     entity.floorplanUrl = uploaded.fileUrl;
     entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
+      await manager.save(UnitEntity, entity);
+    });
     return uploaded;
   }
 
@@ -531,6 +532,7 @@ export class UnitsService {
 
     const now = new Date();
     await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
       entity.rentalStatus = afterStatus;
       entity.lockReason = afterStatus === 20 ? this.emptyToNull(dto.lock_reason) : null;
       entity.lockExpireTime = afterStatus === 20 && dto.lock_expire_time ? new Date(dto.lock_expire_time) : null;
@@ -1063,7 +1065,7 @@ export class UnitsService {
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findDetail(scope, id, actor);
     await this.unitsRepository.manager.transaction(async (manager) => {
-      await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      await this.preserveLatestUsageTypeBeforeExistingUnitSave(manager, scope, entity);
       await this.assertNoPropertyActivity(
         manager,
         scope,
@@ -1075,6 +1077,15 @@ export class UnitsService {
       await manager.save(UnitEntity, entity);
     });
     return { id };
+  }
+
+  private async preserveLatestUsageTypeBeforeExistingUnitSave(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    entity: UnitEntity
+  ) {
+    const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+    entity.usageType = Number(lockedUnit.usage_type);
   }
 
   async checkUnitAvailableForContract(scope: TenantParkScope, id: string): Promise<boolean> {

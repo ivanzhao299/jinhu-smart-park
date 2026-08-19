@@ -83,6 +83,11 @@ WITH housing_unit_candidates AS (
   FROM biz_apartment_room room
   WHERE room.is_deleted = false
     AND room.management_status = 'enabled'
+  UNION
+  SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
+  FROM biz_property_operation_config config
+  WHERE config.is_deleted = false
+    AND config.operating_mode = 'short_stay'
 )
 UPDATE biz_unit unit
    SET usage_type = 70,

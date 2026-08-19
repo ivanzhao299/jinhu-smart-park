@@ -310,6 +310,13 @@ export class PropertyOperationsService {
     await this.assertHousingUnitAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+      const lockedUnit = await manager.getRepository(UnitEntity).findOne({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, id: unitId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!lockedUnit || lockedUnit.usageType !== UNIT_USAGE_HOUSING) {
+        throw new NotFoundException("Housing unit not found");
+      }
       const repository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await repository.findOne({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
