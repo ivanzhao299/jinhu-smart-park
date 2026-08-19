@@ -474,7 +474,7 @@ export class LeasingContractsService {
         `renewal_contract:${savedContract.contractCode}`
       );
 
-	      for (const draft of relationDrafts) {
+	      for (const draft of [...relationDrafts].sort((left, right) => left.source.unitId.localeCompare(right.source.unitId))) {
 	        const unit = await this.lockCommercialUnitForRenewalCopy(
 	          manager, scope, actor, draft.source.unitId, startDate, endDate, savedContract.id
 	        );

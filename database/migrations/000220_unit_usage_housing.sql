@@ -87,7 +87,6 @@ BEGIN
       SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
       FROM biz_apartment_room room
       WHERE room.is_deleted = false
-        AND room.management_status = 'enabled'
       UNION
       SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
       FROM biz_property_operation_config config
@@ -143,7 +142,6 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
   FROM biz_apartment_room room
   WHERE room.is_deleted = false
-    AND room.management_status = 'enabled'
   UNION
   SELECT DISTINCT config.tenant_id, config.park_id, config.unit_id
   FROM biz_property_operation_config config

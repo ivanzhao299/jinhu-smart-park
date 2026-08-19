@@ -461,11 +461,11 @@ export class UnitsService {
            SELECT 1
            FROM biz_homestay_booking booking
            WHERE booking.tenant_id=$1
-             AND booking.park_id=$2
-             AND booking.unit_id=$3
-             AND booking.is_deleted=false
-             AND booking.status IN ('confirmed','checked_in')
-         ) AS has_active_homestay_booking,
+	             AND booking.park_id=$2
+	             AND booking.unit_id=$3
+	             AND booking.is_deleted=false
+	             AND booking.status IN ('draft','confirmed','checked_in')
+	         ) AS has_active_homestay_booking,
          EXISTS (
            SELECT 1
            FROM biz_apartment_room room

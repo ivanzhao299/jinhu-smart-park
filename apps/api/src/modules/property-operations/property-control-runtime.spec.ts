@@ -519,12 +519,13 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(service, /Housing unit not found/);
   assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
   assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
-	  assert.match(leasingContractsService, /private async lockCommercialUnitForBinding/);
-	  assert.match(leasingContractsService, /private async lockCommercialUnitForRenewalCopy/);
-	  assert.match(leasingContractsService, /createRenewalDraft[\s\S]*lockCommercialUnitForRenewalCopy[\s\S]*unitId: unit\.id/);
-	  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
-	  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*unit\.usageType === UNIT_USAGE_HOUSING/);
-	  assert.match(leasingContractsService, /private async lockContractForUnitBinding/);
+  assert.match(leasingContractsService, /private async lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /private async lockCommercialUnitForRenewalCopy/);
+  assert.match(leasingContractsService, /createRenewalDraft[\s\S]*\[\.\.\.relationDrafts\]\.sort\(\(left, right\) => left\.source\.unitId\.localeCompare\(right\.source\.unitId\)\)/);
+  assert.match(leasingContractsService, /createRenewalDraft[\s\S]*lockCommercialUnitForRenewalCopy[\s\S]*unitId: unit\.id/);
+  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /lockCommercialUnitForRenewalCopy[\s\S]*unit\.usageType === UNIT_USAGE_HOUSING/);
+  assert.match(leasingContractsService, /private async lockContractForUnitBinding/);
   assert.match(leasingContractsService, /lockContractForUnitBinding[\s\S]*setLock\("pessimistic_write"\)/);
   assert.match(leasingContractsService, /async createUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
   assert.match(leasingContractsService, /async updateUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
@@ -552,11 +553,12 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /biz_property_occupancy occupancy/);
   assert.match(unitsService, /occupancy\.status NOT IN \('released','completed','cancelled'\)/);
   assert.doesNotMatch(unitsService, /assertNoPropertyActivity[\s\S]*occupancy\.end_at>now\(\)/);
-	  assert.match(unitsService, /biz_housing_lease lease/);
-	  assert.match(unitsService, /lease\.status IN \('draft','pending_approval','pending_signature','active','expiring','checkout_pending'\)/);
-	  assert.match(unitsService, /rel_leasing_contract_unit relation/);
+  assert.match(unitsService, /biz_housing_lease lease/);
+  assert.match(unitsService, /lease\.status IN \('draft','pending_approval','pending_signature','active','expiring','checkout_pending'\)/);
+  assert.match(unitsService, /rel_leasing_contract_unit relation/);
   assert.match(unitsService, /房源存在未结束的商业租赁合同，不能改为住房用途/);
   assert.match(unitsService, /biz_homestay_booking booking/);
+  assert.match(unitsService, /booking\.status IN \('draft','confirmed','checked_in'\)/);
   assert.match(unitsService, /biz_apartment_room room/);
   assert.match(unitsService, /room\.management_status='enabled'/);
   assert.match(unitsService, /住房房源存在经营配置、占用或业务活动，不能改为其他用途/);
@@ -574,7 +576,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /FROM biz_homestay_booking booking/);
   assert.match(housingMigration, /booking\.status IN \('draft', 'confirmed', 'checked_in'\)/);
   assert.match(housingMigration, /FROM biz_apartment_room room/);
-  assert.match(housingMigration, /room\.management_status = 'enabled'/);
+  assert.match(housingMigration, /FROM biz_apartment_room room[\s\S]*WHERE room\.is_deleted = false/);
+  assert.doesNotMatch(housingMigration, /room\.management_status = 'enabled'/);
   assert.match(housingMigration, /FROM biz_property_operation_config config/);
   assert.match(housingMigration, /config\.operating_mode = 'short_stay'/);
   assert.doesNotMatch(housingMigration, /config\.operating_mode[\s\S]*long_rent/);
@@ -583,14 +586,14 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /unit-usage-housing-mixed-commercial-conflict[\s\S]*relation\.end_date \+ interval '1 day'\) > \(now\(\) AT TIME ZONE 'Asia\/Shanghai'\)::date/);
   assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(housingMigration, /NOT EXISTS \([\s\S]*FROM rel_leasing_contract_unit relation[\s\S]*biz_leasing_contract contract/);
-	  assert.match(propertyApiFixtures, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
-	  assert.match(propertyApiFixtures, /AND usage_type = 70/);
-	  assert.match(leasingContractsPage, /const HOUSING_USAGE_TYPE = 70/);
-	  assert.match(leasingContractsPage, /setUnitOptions\(response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)/);
-	  assert.match(leasingLeadsPage, /const HOUSING_USAGE_TYPE = 70/);
-	  assert.match(leasingLeadsPage, /const commercialUnits = response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)/);
-	  assert.match(leasingLeadsPage, /setQuoteUnitOptions\(commercialUnits\)/);
-	});
+  assert.match(propertyApiFixtures, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
+  assert.match(propertyApiFixtures, /AND usage_type = 70/);
+  assert.match(leasingContractsPage, /const HOUSING_USAGE_TYPE = 70/);
+  assert.match(leasingContractsPage, /setUnitOptions\(response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)/);
+  assert.match(leasingLeadsPage, /const HOUSING_USAGE_TYPE = 70/);
+  assert.match(leasingLeadsPage, /const commercialUnits = response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)/);
+  assert.match(leasingLeadsPage, /setQuoteUnitOptions\(commercialUnits\)/);
+});
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
   const service = fs.readFileSync(
