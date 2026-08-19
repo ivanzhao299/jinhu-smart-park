@@ -132,6 +132,15 @@
   cursor: not-allowed;
 }
 
+.mobile-terminal-park-switcher select option {
+  background: #ffffff;
+  color: #081a2c;
+}
+
+.mobile-terminal-park-switcher select option:disabled {
+  color: #7a8794;
+}
+
 .mobile-terminal-park-message {
   position: fixed;
   top: calc(var(--terminal-header-height) + 8px);

@@ -42,6 +42,13 @@ At minimum set:
 
 Do not commit `.env.production`.
 
+For the current public production host, use exact origins without paths:
+
+```env
+WEB_ORIGIN=https://park.cnjinhu.com
+AUTH_ALLOWED_ORIGINS=https://park.cnjinhu.com
+```
+
 `PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
 
 `PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
@@ -187,9 +194,9 @@ Production should keep `AUTH_REFRESH_COOKIE_SECURE=true`. If `AUTH_REFRESH_COOKI
 
 `POST /api/v1/auth/logout` also reads the cookie first, falls back to the body token only when body compatibility is enabled, revokes both distinct cookie and body tokens when both are present, and always sends a clear-cookie header. `POST /api/v1/auth/logout-cookie` is public and exists only to revoke the refresh cookie token when possible and clear the HttpOnly cookie after an access JWT has expired; it does not require an access token and returns a generic success response without exposing token state.
 
-`POST /api/v1/auth/token/refresh`, `POST /api/v1/auth/logout`, and `POST /api/v1/auth/logout-cookie` requests are protected by Origin / Referer allowlist checks before refresh token service work or cookie mutation. The API compares the request `Origin` first, then the `Referer` origin, against `AUTH_ALLOWED_ORIGINS` or `WEB_ORIGIN` when the allowlist is empty. Invalid origins are rejected even when the browser omits the refresh cookie, and they do not revoke, set, or clear the cookie. Requests without a refresh cookie and without browser origin headers keep the body refresh-token compatibility path, so non-browser clients without `Origin` can continue to use body fallback while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`.
+`POST /api/v1/auth/token/refresh`, `POST /api/v1/auth/logout`, `POST /api/v1/auth/logout-cookie`, and `POST /api/v1/auth/switch-context` requests are protected by Origin / Referer allowlist checks before refresh token service work, cookie mutation, or context rotation. The API compares the request `Origin` first, then the `Referer` origin, against `AUTH_ALLOWED_ORIGINS` or `WEB_ORIGIN` when the allowlist is empty. Host-only refresh-cookie deployments also accept same-origin reverse-proxy requests when the browser origin exactly matches the request host and protocol from trusted `X-Forwarded-Host` / `X-Forwarded-Proto` or the request host; HTTPS browser origins are accepted across TLS termination even when the internal hop is HTTP. This fallback is disabled when `AUTH_REFRESH_COOKIE_DOMAIN` is set because parent-domain cookies require explicit trusted origins. Invalid origins are rejected even when the browser omits the refresh cookie, and they do not revoke, set, clear, or rotate the cookie. Requests without a refresh cookie and without browser origin headers keep the body refresh-token compatibility path, so non-browser clients without `Origin` can continue to use body fallback while `AUTH_REFRESH_TOKEN_BODY_COMPAT=true`.
 
-Keep `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` in production. Set `AUTH_COOKIE_ORIGIN_CHECK_ENABLED=false` only as an emergency rollback for a confirmed origin configuration issue. If multiple browser-facing origins are required, set `AUTH_ALLOWED_ORIGINS` as a comma-separated exact origin list, for example `https://app.example,https://admin.example`.
+Keep `AUTH_COOKIE_ORIGIN_ALLOW_MISSING=false` in production. Set `AUTH_COOKIE_ORIGIN_CHECK_ENABLED=false` only as an emergency rollback for a confirmed origin configuration issue. If multiple browser-facing origins are required, set `AUTH_ALLOWED_ORIGINS` as a comma-separated exact origin list, for example `https://app.example,https://admin.example`. Values must be exact origins, not paths such as `https://park.cnjinhu.com/api/v1`.
 
 `AUTH_ALLOWED_ORIGINS` only controls the refresh-cookie Origin / Referer hardening decision. It does not change the API CORS policy by itself. The current API CORS configuration still uses `WEB_ORIGIN`; deployments that need multiple browser-facing origins must keep CORS and `AUTH_ALLOWED_ORIGINS` aligned, or add explicit multi-origin CORS support in a separate reviewed change before relying on additional browser origins.
 
@@ -818,7 +825,7 @@ For a public domain, terminate TLS at Nginx, Caddy, or a cloud load balancer:
 - `/` -> Web container published port
 - `/api/*` can either go through Next.js rewrites or directly proxy to API
 
-Keep `WEB_ORIGIN` aligned with the browser-facing origin.
+Keep `WEB_ORIGIN` aligned with the browser-facing origin, for example `https://park.cnjinhu.com`. The auth cookie origin guard can accept exact same-origin reverse-proxy requests for host-only refresh-cookie deployments, but `WEB_ORIGIN` and `AUTH_ALLOWED_ORIGINS` should still match the public browser origin so CORS and diagnostics remain predictable. When a reverse proxy supplies `X-Forwarded-Host`, set `APP_TRUST_PROXY` only after confirming the proxy overwrites spoofed client forwarded headers.
 
 If the API is behind a reverse proxy, configure `APP_TRUST_PROXY` explicitly so Express resolves `request.ip` before auth rate-limit bucketing.
 
