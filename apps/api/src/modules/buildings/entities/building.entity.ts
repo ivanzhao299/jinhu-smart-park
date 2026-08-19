@@ -19,6 +19,9 @@ export class BuildingEntity {
   @Column({ name: "building_name", type: "varchar", length: 100 })
   buildingName!: string;
 
+  @Column({ name: "asset_building_id", type: "uuid", nullable: true })
+  assetBuildingId!: string | null;
+
   @Column({ name: "floor_count", type: "integer", default: 0 })
   floorCount!: number;
 

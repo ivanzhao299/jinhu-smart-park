@@ -38,9 +38,10 @@ export class PropertyOperationsController {
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
     @Param("unitId") unitId: string,
+    @Headers("x-idempotency-key") clientKey: string,
     @Body() dto: ConfigurePropertyUnitDto
   ) {
-    return this.service.configure(scope, actor, unitId, dto);
+    return this.service.configure(scope, actor, unitId, dto, clientKey);
   }
 
   @Post(":unitId/mode-transitions")

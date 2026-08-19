@@ -9,11 +9,12 @@ import { AssetBuildingEntity } from "./entities/asset-building.entity";
 import { AssetFloorEntity } from "./entities/asset-floor.entity";
 import { AssetParkEntity } from "./entities/asset-park.entity";
 import { AssetUnitEntity } from "./entities/asset-unit.entity";
+import { AssetSpaceMappingService } from "./asset-space-mapping.service";
 
 @Module({
   imports: [TypeOrmModule.forFeature([AssetParkEntity, AssetBuildingEntity, AssetFloorEntity, AssetUnitEntity]), UnitsModule, DataScopesModule, FieldPoliciesModule],
   controllers: [AssetsController],
-  providers: [AssetsService],
-  exports: [AssetsService]
+  providers: [AssetsService, AssetSpaceMappingService],
+  exports: [AssetsService, AssetSpaceMappingService]
 })
 export class AssetsModule {}

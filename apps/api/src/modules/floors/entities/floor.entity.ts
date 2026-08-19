@@ -28,6 +28,9 @@ export class FloorEntity {
   @Column({ name: "building_id", type: "uuid" })
   buildingId!: string;
 
+  @Column({ name: "asset_floor_id", type: "uuid", nullable: true })
+  assetFloorId!: string | null;
+
   @ManyToOne(() => BuildingEntity, { eager: false })
   @JoinColumn({ name: "building_id" })
   building!: BuildingEntity;
