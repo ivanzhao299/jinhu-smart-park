@@ -371,6 +371,13 @@ export class UnitsService {
           entity.id,
           "住房房源存在经营配置、占用或业务活动，不能改为其他用途"
         );
+      } else if (Number(lockedUnit.usage_type) !== UNIT_USAGE_HOUSING && dto.usageType === UNIT_USAGE_HOUSING) {
+        await this.assertNoCommercialLeaseActivity(
+          manager,
+          scope,
+          entity.id,
+          "房源存在未结束的商业租赁合同，不能改为住房用途"
+        );
       }
       return manager.save(UnitEntity, entity);
     });
@@ -1086,6 +1093,33 @@ export class UnitsService {
   ) {
     const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
     entity.usageType = Number(lockedUnit.usage_type);
+  }
+
+  private async assertNoCommercialLeaseActivity(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    message: string
+  ) {
+    const [row] = await manager.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM rel_leasing_contract_unit relation
+         JOIN biz_leasing_contract contract ON contract.id = relation.contract_id
+        WHERE relation.tenant_id=$1
+          AND relation.park_id=$2
+          AND relation.unit_id=$3
+          AND relation.is_deleted=false
+          AND relation.status=1
+          AND contract.is_deleted=false
+          AND contract.status NOT IN ('90','91')
+          AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
+       ) AS has_commercial_lease`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<Record<string, boolean>>;
+    if (row?.has_commercial_lease) {
+      throw new ConflictException(message);
+    }
   }
 
   async checkUnitAvailableForContract(scope: TenantParkScope, id: string): Promise<boolean> {

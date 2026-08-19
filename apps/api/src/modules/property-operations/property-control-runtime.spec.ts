@@ -499,10 +499,13 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(unitsService, /preserveLatestUsageTypeBeforeExistingUnitSave/);
   assert.match(unitsService, /entity\.usageType = Number\(lockedUnit\.usage_type\)/);
   assert.match(unitsService, /assertNoPropertyActivity/);
+  assert.match(unitsService, /assertNoCommercialLeaseActivity/);
   assert.match(unitsService, /this\.unitsRepository\.manager\.transaction/);
   assert.match(unitsService, /biz_property_operation_config config/);
   assert.match(unitsService, /biz_property_occupancy occupancy/);
   assert.match(unitsService, /biz_housing_lease lease/);
+  assert.match(unitsService, /rel_leasing_contract_unit relation/);
+  assert.match(unitsService, /房源存在未结束的商业租赁合同，不能改为住房用途/);
   assert.match(unitsService, /biz_homestay_booking booking/);
   assert.match(unitsService, /biz_apartment_room room/);
   assert.match(unitsService, /room\.management_status='enabled'/);
@@ -514,6 +517,7 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /occupancy\.status = 'active'/);
   assert.match(housingMigration, /occupancy\.status = 'held'/);
   assert.match(housingMigration, /FROM biz_housing_lease lease/);
+  assert.match(housingMigration, /lease\.status IN \('pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending'\)/);
   assert.match(housingMigration, /FROM biz_homestay_booking booking/);
   assert.match(housingMigration, /FROM biz_apartment_room room/);
   assert.match(housingMigration, /room\.management_status = 'enabled'/);

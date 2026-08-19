@@ -72,7 +72,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT lease.tenant_id, lease.park_id, lease.unit_id
   FROM biz_housing_lease lease
   WHERE lease.is_deleted = false
-    AND lease.status IN ('active', 'expiring', 'checkout_pending')
+    AND lease.status IN ('pending_approval', 'pending_signature', 'active', 'expiring', 'checkout_pending')
   UNION
   SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
   FROM biz_homestay_booking booking
