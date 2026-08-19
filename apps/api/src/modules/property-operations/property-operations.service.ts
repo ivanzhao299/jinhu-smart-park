@@ -89,6 +89,12 @@ export class PropertyOperationsService {
 
     const builder = this.unitsRepository
       .createQueryBuilder("unit")
+      .leftJoin("unit.building", "building")
+      .leftJoin(
+        AssetUnitEntity,
+        "assetUnit",
+        "assetUnit.id = unit.asset_unit_id AND assetUnit.tenant_id = unit.tenant_id AND assetUnit.park_id = unit.park_id AND assetUnit.is_deleted = false"
+      )
       .leftJoin(
         PropertyOperationConfigEntity,
         "config",
@@ -138,7 +144,11 @@ export class PropertyOperationsService {
       .addSelect("unit.unit_code", "unitCode")
       .addSelect("unit.unit_name", "unitName")
       .addSelect("unit.building_id", "buildingId")
+      .addSelect("building.building_code", "buildingCode")
+      .addSelect("building.building_name", "buildingName")
       .addSelect("unit.asset_unit_id", "assetUnitId")
+      .addSelect("assetUnit.unit_code", "assetUnitCode")
+      .addSelect("assetUnit.unit_name", "assetUnitName")
       .addSelect("COALESCE(config.operating_mode, 'none')", "configuredMode")
       .addSelect("COALESCE(config.operating_status, 'enabled')", "operationStatus")
       .addSelect("config.effective_time", "effectiveTime")
@@ -181,12 +191,34 @@ export class PropertyOperationsService {
     const config = await this.configsRepository.findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
     });
+    const location = await this.unitsRepository
+      .createQueryBuilder("unit")
+      .leftJoin("unit.building", "building")
+      .leftJoin(
+        AssetUnitEntity,
+        "assetUnit",
+        "assetUnit.id = unit.asset_unit_id AND assetUnit.tenant_id = unit.tenant_id AND assetUnit.park_id = unit.park_id AND assetUnit.is_deleted = false"
+      )
+      .select("unit.id", "unitId")
+      .addSelect("building.building_code", "buildingCode")
+      .addSelect("building.building_name", "buildingName")
+      .addSelect("assetUnit.unit_code", "assetUnitCode")
+      .addSelect("assetUnit.unit_name", "assetUnitName")
+      .where("unit.id = :unitId", { unitId: unit.id })
+      .andWhere("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("unit.is_deleted = false")
+      .getRawOne<Record<string, unknown>>();
     return this.projectOperation(scope, actor, {
       unitId: unit.id,
       unitCode: unit.unitCode,
       unitName: unit.unitName,
       buildingId: unit.buildingId,
+      buildingCode: location?.buildingCode,
+      buildingName: location?.buildingName,
       assetUnitId: unit.assetUnitId,
+      assetUnitCode: location?.assetUnitCode,
+      assetUnitName: location?.assetUnitName,
       configuredMode: config?.operatingMode ?? "none",
       operationStatus: config?.operatingStatus ?? "enabled",
       effectiveTime: config?.effectiveTime ?? null,
@@ -696,7 +728,11 @@ export class PropertyOperationsService {
       unitCode: String(row.unitCode),
       unitName: String(row.unitName),
       buildingId: String(row.buildingId),
+      buildingCode: row.buildingCode ?? null,
+      buildingName: row.buildingName ?? null,
       assetUnitId: row.assetUnitId ?? null,
+      assetUnitCode: row.assetUnitCode ?? null,
+      assetUnitName: row.assetUnitName ?? null,
       configuredMode,
       operationStatus: String(row.operationStatus ?? "enabled"),
       effectiveTime: this.isoOrNull(row.effectiveTime),

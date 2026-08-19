@@ -440,6 +440,16 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(dto, /class PropertyModeTransitionListQueryDto extends PropertyControlPageQueryDto/);
   assert.match(operationService, /canRequestTransition: allowedActions\.includes\("property\.mode-transition\.request"\)/);
   assert.doesNotMatch(operationService, /canRequestTransition: blockers\.length === 0/);
+  assert.match(operationService, /\.leftJoin\("unit\.building", "building"\)/);
+  assert.match(operationService, /AssetUnitEntity,\s*"assetUnit"/);
+  for (const projection of [
+    '"buildingCode"',
+    '"buildingName"',
+    '"assetUnitCode"',
+    '"assetUnitName"'
+  ]) {
+    assert.match(operationService, new RegExp(projection));
+  }
   for (const financialSource of [
     "rel_leasing_contract_unit relation",
     "biz_housing_receivable receivable",

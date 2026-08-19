@@ -195,6 +195,18 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /row\.requestId \?\? "历史执行日志"/);
   assert.match(foundation, /PROPERTY_OPERATIONS_PAGE[\s\S]*PROPERTY_OPERATION_READ[\s\S]*查看房源经营详情/);
   assert.match(foundation, /Date\.parse\(row\.holdExpiresAt\) > Date\.now\(\)/);
+  assert.match(foundation, /OPERATING_MODE_LABELS/);
+  assert.match(foundation, /OPERATING_STATUS_LABELS/);
+  assert.match(foundation, /function formatOperatingMode/);
+  assert.match(foundation, /function formatOperatingStatus/);
+  assert.match(foundation, /function formatBuildingLabel/);
+  assert.match(foundation, /function formatAssetUnitLabel/);
+  assert.match(foundation, /formatOperatingMode\(\(item as OperationRow\)\.configuredMode\)/);
+  assert.match(foundation, /formatOperatingStatus\(\(item as OperationRow\)\.operationStatus\)/);
+  assert.match(foundation, /`\$\{formatBuildingLabel\(row\)\} \/ \$\{formatAssetUnitLabel\(row\)\}`/);
+  assert.doesNotMatch(foundation, /label: "经营模式", render: \(item\) => \(item as OperationRow\)\.configuredMode/);
+  assert.doesNotMatch(foundation, /label: "经营状态", render: \(item\) => \(item as OperationRow\)\.operationStatus/);
+  assert.doesNotMatch(foundation, /return `\$\{row\.buildingId \|\| "—"\} \/ \$\{row\.assetUnitId \|\| "—"\}`/);
   for (const parameter of ["buildingId", "configuredMode", "operationStatus", "blockerCode"]) {
     assert.match(foundation, new RegExp(`params\\.set\\("${parameter}"`));
   }
@@ -207,7 +219,7 @@ test("shared property foundation exposes three guarded control planes and unit s
   assert.match(foundation, /label: "检查快照"/);
   assert.match(foundation, /modeTransitionSnapshotSummary/);
   assert.match(foundation, /blocking_reasons/);
-  assert.match(foundation, /value="not_required">无需执行/);
+  assert.match(foundation, /value="not_required">\{EXECUTION_STATUS_LABELS\.not_required\}/);
   assert.match(foundation, /setRemark\(item\.remark \?\? ""\)/);
   assert.match(foundation, /remark: remark\.trim\(\) \|\| null/);
   assert.match(foundation, /label: "备注"/);
