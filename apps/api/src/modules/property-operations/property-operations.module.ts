@@ -25,7 +25,7 @@ import { PropertyUnitAccessService } from "./property-unit-access.service";
 import { PropertyFoundationApprovalAdapter } from "./property-foundation-approval.adapter";
 import { PropertyOccupancyAdapter } from "./property-occupancy.adapter";
 import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
-import { AssetsModule } from "../assets/assets.module";
+import { AssetSpaceMappingModule } from "../assets/asset-space-mapping.module";
 
 @Module({
   imports: [
@@ -41,7 +41,7 @@ import { AssetsModule } from "../assets/assets.module";
     DataScopesModule,
     PropertyIdentityModule,
     PropertyApprovalModule,
-    AssetsModule
+    AssetSpaceMappingModule
   ],
   controllers: [
     PropertyOperationsController,

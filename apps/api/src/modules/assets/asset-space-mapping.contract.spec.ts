@@ -5,6 +5,9 @@ import test from "node:test";
 
 const controller = readFileSync(resolve(process.cwd(), "src/modules/assets/assets.controller.ts"), "utf8");
 const service = readFileSync(resolve(process.cwd(), "src/modules/assets/asset-space-mapping.service.ts"), "utf8");
+const mappingModule = readFileSync(resolve(process.cwd(), "src/modules/assets/asset-space-mapping.module.ts"), "utf8");
+const assetsModule = readFileSync(resolve(process.cwd(), "src/modules/assets/assets.module.ts"), "utf8");
+const propertyOperationsModule = readFileSync(resolve(process.cwd(), "src/modules/property-operations/property-operations.module.ts"), "utf8");
 
 test("mapping endpoints retain granular permissions and true HTTP idempotency", () => {
   for (const path of ["buildings/:id/operating-building", "floors/:id/operating-floor", "units/:id/operating-unit"]) {
@@ -30,4 +33,12 @@ test("mapping service preserves source decimal strings and writes immutable audi
   assert.match(service, /biz_asset_space_mapping_audit/u);
   assert.match(service, /Idempotency key belongs to another asset mapping/u);
   assert.match(service, /already mapped to an operating unit/u);
+});
+
+test("mapping service is composed without creating an assets and units module cycle", () => {
+  assert.match(mappingModule, /providers: \[AssetSpaceMappingService\]/u);
+  assert.match(mappingModule, /exports: \[AssetSpaceMappingService\]/u);
+  assert.match(assetsModule, /AssetSpaceMappingModule/u);
+  assert.match(propertyOperationsModule, /AssetSpaceMappingModule/u);
+  assert.doesNotMatch(propertyOperationsModule, /AssetsModule/u);
 });
