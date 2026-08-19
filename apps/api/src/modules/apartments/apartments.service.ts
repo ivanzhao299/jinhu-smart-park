@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { createHash, randomUUID } from "node:crypto";
 import { DataSource, type EntityManager } from "typeorm";
-import type { TenantParkScope } from "@jinhu/shared";
+import { UNIT_USAGE_HOUSING, type TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { AllocateApartmentDto, ArchiveDocumentDto, CreateApartmentApplicationDto, CreateApartmentRoomDto, CreateTemplateDto, DecisionDto, GenerateApartmentDocumentDto, HandoverDto, ListApartmentDto, OnlineSignApartmentDocumentDto, PaperSignApartmentDocumentDto, UpdateApartmentRoomDto, UpdateApartmentSettingsDto, VoidApartmentDocumentDto } from "./dto/apartment.dto";
 
@@ -32,14 +32,15 @@ export class ApartmentsService {
       AND ($4::text IS NULL OR u.unit_name ILIKE '%'||$4||'%' OR u.unit_code ILIKE '%'||$4||'%')
       GROUP BY r.id,u.id,b.id,f.id ORDER BY u.unit_code`, [...this.scope(scope), query.status ?? null, query.keyword?.trim() || null]);
   }
-  unitCandidates(scope:TenantParkScope){return this.dataSource.query(`SELECT u.id,u.unit_code,u.unit_name,b.name AS building_name,f.floor_name FROM biz_unit u LEFT JOIN biz_building b ON b.id=u.building_id LEFT JOIN biz_floor f ON f.id=u.floor_id WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.is_deleted=false AND NOT EXISTS(SELECT 1 FROM biz_apartment_room r WHERE r.unit_id=u.id AND r.is_deleted=false) AND NOT EXISTS(SELECT 1 FROM biz_property_occupancy o WHERE o.unit_id=u.id AND o.is_deleted=false AND o.status IN ('held','active') AND o.end_at>now()) ORDER BY u.unit_code LIMIT 500`,this.scope(scope));}
+  unitCandidates(scope:TenantParkScope){return this.dataSource.query(`SELECT u.id,u.unit_code,u.unit_name,b.name AS building_name,f.floor_name FROM biz_unit u LEFT JOIN biz_building b ON b.id=u.building_id LEFT JOIN biz_floor f ON f.id=u.floor_id WHERE u.tenant_id=$1 AND u.park_id=$2 AND u.usage_type=$3 AND u.is_deleted=false AND NOT EXISTS(SELECT 1 FROM biz_apartment_room r WHERE r.unit_id=u.id AND r.is_deleted=false) AND NOT EXISTS(SELECT 1 FROM biz_property_occupancy o WHERE o.unit_id=u.id AND o.is_deleted=false AND o.status IN ('held','active') AND o.end_at>now()) ORDER BY u.unit_code LIMIT 500`,[...this.scope(scope),UNIT_USAGE_HOUSING]);}
   availableBeds(scope:TenantParkScope,start:string,end?:string){return this.dataSource.query(`SELECT b.id,b.bed_code,b.room_id,u.unit_code,u.unit_name,r.room_type,r.gender_policy FROM biz_apartment_bed b JOIN biz_apartment_room r ON r.id=b.room_id JOIN biz_unit u ON u.id=r.unit_id WHERE b.tenant_id=$1 AND b.park_id=$2 AND b.is_deleted=false AND b.status='enabled' AND r.is_deleted=false AND r.management_status='enabled' AND NOT EXISTS(SELECT 1 FROM biz_apartment_stay s WHERE s.bed_id=b.id AND s.is_deleted=false AND s.status IN ('reserved','active','checkout_pending') AND daterange(s.planned_start_date,COALESCE(s.planned_end_date,'infinity'::date),'[)') && daterange($3::date,COALESCE($4::date,'infinity'::date),'[)')) ORDER BY u.unit_code,b.bed_code`,[...this.scope(scope),start,end??null]);}
 
   async createRoom(scope: TenantParkScope, actor: JwtPrincipal, dto: CreateApartmentRoomDto) {
     return this.dataSource.transaction(async manager => {
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [...this.scope(scope), dto.unit_id]);
-      const unit = await manager.query(`SELECT id FROM biz_unit WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`, [dto.unit_id, ...this.scope(scope)]);
+      const unit = await manager.query(`SELECT id,usage_type FROM biz_unit WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`, [dto.unit_id, ...this.scope(scope)]);
       if (!unit.length) throw new NotFoundException("房源不存在或不在当前园区");
+      if (Number(unit[0].usage_type) !== UNIT_USAGE_HOUSING) throw new ConflictException("仅住房用途房源可创建公寓房间");
       const [room] = await manager.query(`INSERT INTO biz_apartment_room(tenant_id,park_id,unit_id,room_type,gender_policy,capacity,facilities,effective_from,management_status,create_by,update_by)
         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,'enabled',$9,$9) RETURNING *`, [...this.scope(scope), dto.unit_id,dto.room_type,dto.gender_policy??"any",dto.capacity,JSON.stringify(dto.facilities??[]),dto.effective_from??new Date().toISOString().slice(0,10),actor.sub]);
       const [occupancy] = await manager.query(`INSERT INTO biz_property_occupancy(tenant_id,park_id,unit_id,source_domain,source_type,source_id,start_at,end_at,status,create_by,update_by)

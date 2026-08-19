@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
 import * as XLSX from "xlsx";
 import {
   Between,
@@ -344,7 +344,10 @@ export class UnitsService {
     }
 
     if (dto.unitName !== undefined) entity.unitName = dto.unitName.trim();
-    if (dto.usageType !== undefined) entity.usageType = dto.usageType;
+    if (dto.usageType !== undefined) {
+      await this.assertHousingUsageTypeChangeAllowed(scope, entity, dto.usageType);
+      entity.usageType = dto.usageType;
+    }
     if (dto.unitArea !== undefined) entity.unitArea = this.numberToDecimal(dto.unitArea);
     if (dto.useArea !== undefined) entity.useArea = this.numberToDecimal(dto.useArea);
     if (dto.rentalStatus !== undefined && dto.rentalStatus !== entity.rentalStatus) {
@@ -360,6 +363,65 @@ export class UnitsService {
     entity.updateBy = actor.sub;
 
     return this.unitsRepository.save(entity);
+  }
+
+  private async assertHousingUsageTypeChangeAllowed(
+    scope: TenantParkScope,
+    entity: UnitEntity,
+    nextUsageType: number
+  ) {
+    if (entity.usageType !== UNIT_USAGE_HOUSING || nextUsageType === UNIT_USAGE_HOUSING) return;
+    const [row] = await this.unitsRepository.manager.query(
+      `SELECT
+         EXISTS (
+           SELECT 1
+           FROM biz_property_operation_config config
+           WHERE config.tenant_id=$1
+             AND config.park_id=$2
+             AND config.unit_id=$3
+             AND config.is_deleted=false
+         ) AS has_operation_config,
+         EXISTS (
+           SELECT 1
+           FROM biz_property_occupancy occupancy
+           WHERE occupancy.tenant_id=$1
+             AND occupancy.park_id=$2
+             AND occupancy.unit_id=$3
+             AND occupancy.is_deleted=false
+             AND occupancy.end_at>now()
+             AND (
+               occupancy.status='active'
+               OR (occupancy.status='held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now()))
+             )
+         ) AS has_active_occupancy,
+         EXISTS (
+           SELECT 1
+           FROM biz_housing_lease lease
+           WHERE lease.tenant_id=$1
+             AND lease.park_id=$2
+             AND lease.unit_id=$3
+             AND lease.is_deleted=false
+             AND lease.status IN ('active','expiring','checkout_pending')
+         ) AS has_active_housing_lease,
+         EXISTS (
+           SELECT 1
+           FROM biz_homestay_booking booking
+           WHERE booking.tenant_id=$1
+             AND booking.park_id=$2
+             AND booking.unit_id=$3
+             AND booking.is_deleted=false
+             AND booking.status IN ('confirmed','checked_in')
+         ) AS has_active_homestay_booking`,
+      [scope.tenantId, scope.parkId, entity.id]
+    ) as Array<Record<string, boolean>>;
+    if (
+      row?.has_operation_config
+      || row?.has_active_occupancy
+      || row?.has_active_housing_lease
+      || row?.has_active_homestay_booking
+    ) {
+      throw new ConflictException("住房房源存在经营配置、占用或业务活动，不能改为其他用途");
+    }
   }
 
   async uploadPhoto(

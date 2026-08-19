@@ -410,6 +410,14 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
     path.join(__dirname, "property-operations.service.ts"),
     "utf8"
   );
+  const unitsService = fs.readFileSync(
+    path.join(__dirname, "../units/units.service.ts"),
+    "utf8"
+  );
+  const housingMigration = fs.readFileSync(
+    path.resolve(__dirname, "../../../../../database/migrations/000217_unit_usage_housing.sql"),
+    "utf8"
+  );
   for (const field of [
     "pageSize",
     "buildingId",
@@ -469,20 +477,33 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(operationsBlocker, /source_domain IN \('maintenance','operations'\)/);
   assert.match(operationsBlocker, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
   assert.match(operationService, /source_domain IN \('commercial_leasing','housing_rental','apartment'\)/);
-	  assert.match(operationService, /private async buildTransitionSnapshots/);
-	  assert.match(operationService, /unnest\(\$3::uuid\[\], \$4::text\[\]\)/);
-	  assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
-	  assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
-	  assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
-	  assert.match(operationService, /UNIT_USAGE_HOUSING/);
-	  assert.match(operationService, /unit\.usage_type = :housingUsageType/);
-	  assert.match(operationService, /unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
-	  assert.match(operationService, /Housing unit not found/);
-	  assert.match(service, /UNIT_USAGE_HOUSING/);
-	  assert.match(service, /unit\.usage_type = :housingUsageType/);
-	  assert.match(service, /unit\.id IS NOT NULL/);
-	  assert.match(service, /Housing unit not found/);
-	});
+  assert.match(operationService, /private async buildTransitionSnapshots/);
+  assert.match(operationService, /unnest\(\$3::uuid\[\], \$4::text\[\]\)/);
+  assert.match(operationService, /projectOperation\(scope, actor, row, snapshots\.get/);
+  assert.match(operationService, /projectedSnapshot \?\? await this\.buildTransitionSnapshot/);
+  assert.match(operationService, /relation\.end_date \+ interval '1 day'/);
+  assert.match(operationService, /UNIT_USAGE_HOUSING/);
+  assert.match(operationService, /unit\.usage_type = :housingUsageType/);
+  assert.match(operationService, /unit\.usage_type=\$\{bind\(UNIT_USAGE_HOUSING\)\}/);
+  assert.match(operationService, /Housing unit not found/);
+  assert.match(service, /UNIT_USAGE_HOUSING/);
+  assert.match(service, /unit\.usage_type = :housingUsageType/);
+  assert.match(service, /unit\.id IS NOT NULL/);
+  assert.match(service, /Housing unit not found/);
+  assert.match(unitsService, /assertHousingUsageTypeChangeAllowed/);
+  assert.match(unitsService, /entity\.usageType !== UNIT_USAGE_HOUSING \|\| nextUsageType === UNIT_USAGE_HOUSING/);
+  assert.match(unitsService, /biz_property_operation_config config/);
+  assert.match(unitsService, /biz_property_occupancy occupancy/);
+  assert.match(unitsService, /biz_housing_lease lease/);
+  assert.match(unitsService, /biz_homestay_booking booking/);
+  assert.match(unitsService, /住房房源存在经营配置、占用或业务活动，不能改为其他用途/);
+  assert.match(housingMigration, /housing_unit_candidates/);
+  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment'\)/);
+  assert.match(housingMigration, /FROM biz_housing_lease lease/);
+  assert.match(housingMigration, /FROM biz_homestay_booking booking/);
+  assert.match(housingMigration, /FROM biz_apartment_room room/);
+  assert.match(housingMigration, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
+});
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
   const service = fs.readFileSync(

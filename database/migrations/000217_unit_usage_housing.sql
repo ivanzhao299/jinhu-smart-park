@@ -57,3 +57,33 @@ WHERE NOT EXISTS (
     AND item.dict_type_id = housing_usage.dict_type_id
     AND item.item_value = housing_usage.item_value
 );
+
+WITH housing_unit_candidates AS (
+  SELECT DISTINCT occupancy.tenant_id, occupancy.park_id, occupancy.unit_id
+  FROM biz_property_occupancy occupancy
+  WHERE occupancy.is_deleted = false
+    AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
+  UNION
+  SELECT DISTINCT lease.tenant_id, lease.park_id, lease.unit_id
+  FROM biz_housing_lease lease
+  WHERE lease.is_deleted = false
+    AND lease.status IN ('active', 'expiring', 'checkout_pending')
+  UNION
+  SELECT DISTINCT booking.tenant_id, booking.park_id, booking.unit_id
+  FROM biz_homestay_booking booking
+  WHERE booking.is_deleted = false
+    AND booking.status IN ('confirmed', 'checked_in')
+  UNION
+  SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
+  FROM biz_apartment_room room
+  WHERE room.is_deleted = false
+)
+UPDATE biz_unit unit
+   SET usage_type = 70,
+       update_time = now()
+  FROM housing_unit_candidates candidate
+ WHERE unit.tenant_id = candidate.tenant_id
+   AND unit.park_id = candidate.park_id
+   AND unit.id = candidate.unit_id
+   AND unit.is_deleted = false
+   AND unit.usage_type <> 70;
