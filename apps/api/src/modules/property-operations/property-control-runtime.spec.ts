@@ -589,10 +589,11 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(propertyApiFixtures, /UPDATE biz_unit unit[\s\S]*SET usage_type = 70/);
   assert.match(propertyApiFixtures, /AND usage_type = 70/);
   assert.match(leasingContractsPage, /const HOUSING_USAGE_TYPE = 70/);
-  assert.match(leasingContractsPage, /setUnitOptions\(response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)/);
+  assert.match(leasingContractsPage, /do \{[\s\S]*page: String\(page\)[\s\S]*items\.push\(\.\.\.response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)[\s\S]*\} while \(items\.length < 100/);
+  assert.match(leasingContractsPage, /setUnitOptions\(items\.slice\(0, 100\)\)/);
   assert.match(leasingLeadsPage, /const HOUSING_USAGE_TYPE = 70/);
-  assert.match(leasingLeadsPage, /const commercialUnits = response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)/);
-  assert.match(leasingLeadsPage, /setQuoteUnitOptions\(commercialUnits\)/);
+  assert.match(leasingLeadsPage, /do \{[\s\S]*page: String\(page\)[\s\S]*commercialUnits\.push\(\.\.\.response\.data\.items\.filter\(\(item\) => item\.usageType !== HOUSING_USAGE_TYPE\)\)[\s\S]*\} while \(commercialUnits\.length < 100/);
+  assert.match(leasingLeadsPage, /setQuoteUnitOptions\(limitedCommercialUnits\)/);
 });
 
 test("source identifiers and deep links are emitted only by a server allowlist", () => {
