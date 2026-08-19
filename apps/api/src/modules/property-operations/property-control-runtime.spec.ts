@@ -495,6 +495,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(service, /UNIT_USAGE_HOUSING/);
   assert.match(service, /unit\.usage_type = :housingUsageType/);
   assert.match(service, /occupancy\.status IN \('released', 'completed', 'cancelled'\)/);
+  assert.match(service, /occupancy\.source_domain IN \('maintenance', 'operations'\)/);
+  assert.match(service, /private isTerminalOrActiveManualOccupancy/);
   assert.match(service, /Housing unit not found/);
   assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
   assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
@@ -522,7 +524,8 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(housingMigration, /housing_unit_candidates/);
   assert.match(housingMigration, /^BEGIN;/u);
   assert.match(housingMigration, /COMMIT;\s*$/u);
-  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations'\)/);
+  assert.match(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment'\)/);
+  assert.doesNotMatch(housingMigration, /source_domain IN \('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations'\)/);
   assert.match(housingMigration, /occupancy\.end_at > now\(\)/);
   assert.match(housingMigration, /occupancy\.status = 'active'/);
   assert.match(housingMigration, /occupancy\.status = 'held'/);

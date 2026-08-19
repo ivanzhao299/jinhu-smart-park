@@ -83,7 +83,18 @@ export class PropertyOccupanciesService {
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false")
-      .andWhere("(unit.usage_type = :housingUsageType OR occupancy.status IN ('released', 'completed', 'cancelled'))");
+      .andWhere(`(
+        unit.usage_type = :housingUsageType
+        OR occupancy.status IN ('released', 'completed', 'cancelled')
+        OR (
+          occupancy.source_domain IN ('maintenance', 'operations')
+          AND occupancy.end_at > now()
+          AND (
+            occupancy.status = 'active'
+            OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
+          )
+        )
+      )`);
     if (query.unitId) builder.andWhere("occupancy.unit_id = :unitId", { unitId: query.unitId });
     if (query.sourceDomain) builder.andWhere("occupancy.source_domain = :sourceDomain", { sourceDomain: query.sourceDomain });
     if (query.sourceType) builder.andWhere("occupancy.source_type = :sourceType", { sourceType: query.sourceType });
@@ -706,12 +717,20 @@ export class PropertyOccupanciesService {
       !entity
       || (
         entity.unit?.usageType !== UNIT_USAGE_HOUSING
-        && !["released", "completed", "cancelled"].includes(entity.status)
+        && !this.isTerminalOrActiveManualOccupancy(entity)
       )
     ) {
       throw new NotFoundException("Property occupancy not found");
     }
     return entity;
+  }
+
+  private isTerminalOrActiveManualOccupancy(entity: PropertyOccupancyEntity): boolean {
+    if (["released", "completed", "cancelled"].includes(entity.status)) return true;
+    if (entity.sourceDomain !== "maintenance" && entity.sourceDomain !== "operations") return false;
+    if (entity.endAt.getTime() <= Date.now()) return false;
+    return entity.status === "active"
+      || (entity.status === "held" && (!entity.holdExpiresAt || entity.holdExpiresAt.getTime() > Date.now()));
   }
 
   private async assertHousingUnitAccess(

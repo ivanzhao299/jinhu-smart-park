@@ -68,7 +68,7 @@ BEGIN
       FROM biz_property_occupancy occupancy
       WHERE occupancy.is_deleted = false
         AND occupancy.end_at > now()
-        AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations')
+        AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
         AND (
           occupancy.status = 'active'
           OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
@@ -117,7 +117,7 @@ WITH housing_unit_candidates AS (
   FROM biz_property_occupancy occupancy
   WHERE occupancy.is_deleted = false
     AND occupancy.end_at > now()
-    AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment', 'maintenance', 'operations')
+    AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
     AND (
       occupancy.status = 'active'
       OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
