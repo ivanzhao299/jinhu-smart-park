@@ -8,6 +8,7 @@ import {
   In,
   LessThanOrEqual,
   MoreThanOrEqual,
+  type EntityManager,
   type FindOperator,
   type FindOptionsOrder,
   type FindOptionsWhere,
@@ -317,6 +318,10 @@ export class UnitsService {
 
   async update(scope: TenantParkScope, actor: JwtPrincipal, id: string, dto: UpdateUnitDto): Promise<UnitEntity> {
     const entity = await this.findDetail(scope, id, actor);
+    const shouldLockPropertyActivity =
+      dto.usageType !== undefined
+      && entity.usageType === UNIT_USAGE_HOUSING
+      && dto.usageType !== UNIT_USAGE_HOUSING;
     const nextBuildingId = dto.buildingId ?? entity.buildingId;
     const nextFloorId = dto.floorId ?? entity.floorId;
     if (dto.buildingId || dto.floorId) {
@@ -344,10 +349,7 @@ export class UnitsService {
     }
 
     if (dto.unitName !== undefined) entity.unitName = dto.unitName.trim();
-    if (dto.usageType !== undefined) {
-      await this.assertHousingUsageTypeChangeAllowed(scope, entity, dto.usageType);
-      entity.usageType = dto.usageType;
-    }
+    if (dto.usageType !== undefined) entity.usageType = dto.usageType;
     if (dto.unitArea !== undefined) entity.unitArea = this.numberToDecimal(dto.unitArea);
     if (dto.useArea !== undefined) entity.useArea = this.numberToDecimal(dto.useArea);
     if (dto.rentalStatus !== undefined && dto.rentalStatus !== entity.rentalStatus) {
@@ -362,16 +364,47 @@ export class UnitsService {
     if (dto.remark !== undefined) entity.remark = this.emptyToNull(dto.remark);
     entity.updateBy = actor.sub;
 
+    if (shouldLockPropertyActivity) {
+      return this.unitsRepository.manager.transaction(async (manager) => {
+        const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+        if (Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING) {
+          await this.assertNoPropertyActivity(
+            manager,
+            scope,
+            entity.id,
+            "住房房源存在经营配置、占用或业务活动，不能改为其他用途"
+          );
+        }
+        return manager.save(UnitEntity, entity);
+      });
+    }
     return this.unitsRepository.save(entity);
   }
 
-  private async assertHousingUsageTypeChangeAllowed(
+  private async lockUnitForPropertyActivityChange(
+    manager: EntityManager,
     scope: TenantParkScope,
-    entity: UnitEntity,
-    nextUsageType: number
+    unitId: string
+  ): Promise<{ id: string; usage_type: number }> {
+    await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
+    const [unit] = await manager.query(
+      `SELECT id,usage_type
+         FROM biz_unit
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false
+        FOR UPDATE`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<{ id: string; usage_type: number }>;
+    if (!unit) throw new NotFoundException("Unit not found");
+    return unit;
+  }
+
+  private async assertNoPropertyActivity(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    message: string
   ) {
-    if (entity.usageType !== UNIT_USAGE_HOUSING || nextUsageType === UNIT_USAGE_HOUSING) return;
-    const [row] = await this.unitsRepository.manager.query(
+    const [row] = await manager.query(
       `SELECT
          EXISTS (
            SELECT 1
@@ -411,16 +444,26 @@ export class UnitsService {
              AND booking.unit_id=$3
              AND booking.is_deleted=false
              AND booking.status IN ('confirmed','checked_in')
-         ) AS has_active_homestay_booking`,
-      [scope.tenantId, scope.parkId, entity.id]
+         ) AS has_active_homestay_booking,
+         EXISTS (
+           SELECT 1
+           FROM biz_apartment_room room
+           WHERE room.tenant_id=$1
+             AND room.park_id=$2
+             AND room.unit_id=$3
+             AND room.is_deleted=false
+             AND room.management_status='enabled'
+         ) AS has_enabled_apartment_room`,
+      [scope.tenantId, scope.parkId, unitId]
     ) as Array<Record<string, boolean>>;
     if (
       row?.has_operation_config
       || row?.has_active_occupancy
       || row?.has_active_housing_lease
       || row?.has_active_homestay_booking
+      || row?.has_enabled_apartment_room
     ) {
-      throw new ConflictException("住房房源存在经营配置、占用或业务活动，不能改为其他用途");
+      throw new ConflictException(message);
     }
   }
 
@@ -1019,9 +1062,18 @@ export class UnitsService {
 
   async softDelete(scope: TenantParkScope, actor: JwtPrincipal, id: string): Promise<{ id: string }> {
     const entity = await this.findDetail(scope, id, actor);
-    entity.isDeleted = true;
-    entity.updateBy = actor.sub;
-    await this.unitsRepository.save(entity);
+    await this.unitsRepository.manager.transaction(async (manager) => {
+      await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
+      await this.assertNoPropertyActivity(
+        manager,
+        scope,
+        entity.id,
+        "房源存在经营配置、占用或业务活动，不能删除"
+      );
+      entity.isDeleted = true;
+      entity.updateBy = actor.sub;
+      await manager.save(UnitEntity, entity);
+    });
     return { id };
   }
 

@@ -62,7 +62,12 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT occupancy.tenant_id, occupancy.park_id, occupancy.unit_id
   FROM biz_property_occupancy occupancy
   WHERE occupancy.is_deleted = false
+    AND occupancy.end_at > now()
     AND occupancy.source_domain IN ('housing_rental', 'homestay', 'apartment')
+    AND (
+      occupancy.status = 'active'
+      OR (occupancy.status = 'held' AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at > now()))
+    )
   UNION
   SELECT DISTINCT lease.tenant_id, lease.park_id, lease.unit_id
   FROM biz_housing_lease lease
@@ -77,6 +82,7 @@ WITH housing_unit_candidates AS (
   SELECT DISTINCT room.tenant_id, room.park_id, room.unit_id
   FROM biz_apartment_room room
   WHERE room.is_deleted = false
+    AND room.management_status = 'enabled'
 )
 UPDATE biz_unit unit
    SET usage_type = 70,
@@ -86,4 +92,17 @@ UPDATE biz_unit unit
    AND unit.park_id = candidate.park_id
    AND unit.id = candidate.unit_id
    AND unit.is_deleted = false
-   AND unit.usage_type <> 70;
+   AND unit.usage_type <> 70
+   AND NOT EXISTS (
+     SELECT 1
+     FROM rel_leasing_contract_unit relation
+     JOIN biz_leasing_contract contract ON contract.id = relation.contract_id
+    WHERE relation.tenant_id = unit.tenant_id
+      AND relation.park_id = unit.park_id
+      AND relation.unit_id = unit.id
+      AND relation.is_deleted = false
+      AND relation.status = 1
+      AND contract.is_deleted = false
+      AND contract.status NOT IN ('90', '91')
+      AND (relation.end_date + interval '1 day') > (now() AT TIME ZONE 'Asia/Shanghai')::date
+   );
