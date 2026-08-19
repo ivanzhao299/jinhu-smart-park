@@ -4,6 +4,8 @@ Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-contex
 
 Physical-to-operating space conversion: [Asset To Operating Space Mapping](./asset-operating-space-mapping.md).
 
+Apartment operating-space inclusion: [Apartment Inclusion And Availability](./apartment-inclusion-availability.md).
+
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
 ## Package Boundary

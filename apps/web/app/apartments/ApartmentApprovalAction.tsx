@@ -1,0 +1,17 @@
+"use client";
+import { useState,type FormEvent } from "react";
+import { getAccessToken } from "../../lib/authz";
+import { apartmentsApi,type ApartmentRecord } from "../../lib/apartments-api";
+import styles from "./ApartmentWorkbench.module.css";
+
+export function ApartmentApprovalAction({application,onDone,onError}:{application:ApartmentRecord;onDone:()=>Promise<void>;onError:(value:string)=>void}){
+ const [open,setOpen]=useState(false),[busy,setBusy]=useState(false),[decision,setDecision]=useState<"approve"|"reject">("approve");
+ const submit=async(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();if(busy)return;setBusy(true);const form=new FormData(event.currentTarget);try{await apartmentsApi.mutate(`/apartments/applications/${application.id}/decision`,{decision,opinion:form.get("opinion"),...(decision==="approve"?{approved_start_date:form.get("approved_start_date"),approved_end_date:form.get("approved_end_date")||undefined,cost_bearer:form.get("cost_bearer"),deposit_amount:form.get("deposit_amount")||undefined,monthly_fee:form.get("monthly_fee")||undefined,allocation_note:form.get("allocation_note")||undefined,safety_requirements:form.get("safety_requirements")}:{})},getAccessToken());setOpen(false);await onDone()}catch(error){onError(error instanceof Error?error.message:"审批失败")}finally{setBusy(false)}};
+ if(!open)return <button className="ds-button ds-button-primary" onClick={()=>setOpen(true)}>办理审批</button>;
+ return <form className={`${styles.inlinePanel} ${styles.form}`} onSubmit={submit}>
+  <label className="form-field"><span>审批结论</span><select value={decision} onChange={event=>setDecision(event.target.value as "approve"|"reject")}><option value="approve">批准</option><option value="reject">驳回</option></select></label>
+  {decision==="approve"?<><label className="form-field"><span>批准起日</span><input name="approved_start_date" type="date" defaultValue={String(application.requested_start_date??"")} required/></label><label className="form-field"><span>批准止日</span><input name="approved_end_date" type="date" defaultValue={String(application.requested_end_date??"")}/></label><label className="form-field"><span>费用承担</span><select name="cost_bearer" required><option value="">请选择</option><option value="company">单位承担</option><option value="employee">个人承担</option><option value="shared">单位与个人共担</option><option value="waived">政策减免</option></select></label><label className="form-field"><span>押金（元）</span><input name="deposit_amount" type="number" min="0" max="9999999999.99" step="0.01" onFocus={e=>e.currentTarget.select()}/></label><label className="form-field"><span>月度费用（元）</span><input name="monthly_fee" type="number" min="0" max="9999999999.99" step="0.01" onFocus={e=>e.currentTarget.select()}/></label><label className={`form-field ${styles.wide}`}><span>房源/分配建议</span><textarea name="allocation_note" maxLength={500} placeholder="例：优先分配人才公寓南向床位"/></label><label className={`form-field ${styles.wide}`}><span>安全与管理要求</span><textarea name="safety_requirements" maxLength={1000} defaultValue="入住前完成安全消防告知，不得转租、转借床位，按期配合安全检查。" required/></label></>:null}
+  <label className={`form-field ${styles.wide}`}><span>{decision==="approve"?"审批意见":"驳回理由"}</span><textarea name="opinion" maxLength={1000} required/></label>
+  <div className={styles.formActions}><button className="ds-button ds-button-primary" disabled={busy}>{busy?"提交中…":"确认审批"}</button><button className="ds-button ds-button-secondary" type="button" onClick={()=>setOpen(false)}>取消</button></div>
+ </form>;
+}

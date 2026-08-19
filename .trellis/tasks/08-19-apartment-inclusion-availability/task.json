@@ -1,9 +1,9 @@
 {
-  "id": "apartment-asset-energy-integration",
-  "name": "apartment-asset-energy-integration",
-  "title": "公寓房源与资产能源一体化审计",
+  "id": "apartment-inclusion-availability",
+  "name": "apartment-inclusion-availability",
+  "title": "公寓房源纳入与可用性闭环",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -18,12 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "08-19-apartment-asset-baseline-audit",
-    "08-19-asset-unit-operation-unit-conversion",
-    "08-19-apartment-inclusion-availability"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "08-19-apartment-asset-energy-integration",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

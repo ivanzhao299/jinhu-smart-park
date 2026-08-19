@@ -8,7 +8,7 @@ import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.in
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { ApartmentsService } from "./apartments.service";
-import { AllocateApartmentDto, ArchiveDocumentDto, CreateApartmentApplicationDto, CreateApartmentRoomDto, CreateTemplateDto, DecisionDto, GenerateApartmentDocumentDto, HandoverDto, ListApartmentDto, OnlineSignApartmentDocumentDto, PaperSignApartmentDocumentDto, UpdateApartmentRoomDto, UpdateApartmentSettingsDto, VoidApartmentDocumentDto } from "./dto/apartment.dto";
+import { AllocateApartmentDto, ApartmentUnitCandidateQueryDto, ArchiveDocumentDto, CreateApartmentApplicationDto, CreateApartmentRoomDto, CreateTemplateDto, DecisionDto, GenerateApartmentDocumentDto, HandoverDto, ListApartmentDto, OnlineSignApartmentDocumentDto, PaperSignApartmentDocumentDto, UpdateApartmentRoomDto, UpdateApartmentSettingsDto, VoidApartmentDocumentDto } from "./dto/apartment.dto";
 
 @Controller("apartments")
 @RequireModule("apartment")
@@ -16,7 +16,7 @@ export class ApartmentsController {
   constructor(private readonly service: ApartmentsService) {}
   @Get("summary") @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_READ) summary(@CurrentScope() s:TenantParkScope){return this.service.summary(s);}
   @Get("rooms") @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_READ) rooms(@CurrentScope() s:TenantParkScope,@Query() q:ListApartmentDto){return this.service.listRooms(s,q);}
-  @Get("unit-candidates") @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_ROOM_MANAGE) unitCandidates(@CurrentScope()s:TenantParkScope){return this.service.unitCandidates(s);}
+  @Get("unit-candidates") @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_ROOM_MANAGE) unitCandidates(@CurrentScope()s:TenantParkScope,@Query()q:ApartmentUnitCandidateQueryDto){return this.service.unitCandidates(s,q);}
   @Get("available-beds") @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_ALLOCATE) availableBeds(@CurrentScope()s:TenantParkScope,@Query("start")start:string,@Query("end")end?:string){return this.service.availableBeds(s,start,end);}
   @Post("rooms") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_ROOM_MANAGE) @AuditLog({module:"公寓管理",resource:"biz.apartment_room",action:"新增公寓房源",bizType:"biz_apartment_room"}) createRoom(@CurrentScope()s:TenantParkScope,@CurrentUser()u:JwtPrincipal,@Body()d:CreateApartmentRoomDto){return this.service.createRoom(s,u,d);}
   @Put("rooms/:id") @UseInterceptors(new IdempotencyInterceptor()) @RequirePermissions(APARTMENT_PERMISSIONS.APARTMENT_ROOM_MANAGE) @AuditLog({module:"公寓管理",resource:"biz.apartment_room",action:"更新公寓房源",bizType:"biz_apartment_room"}) updateRoom(@CurrentScope()s:TenantParkScope,@CurrentUser()u:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string,@Body()d:UpdateApartmentRoomDto){return this.service.updateRoom(s,u,id,d);}
