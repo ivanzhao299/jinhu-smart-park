@@ -505,10 +505,17 @@ test("control DTOs and projections use camelCase and stable pagination", () => {
   assert.match(service, /occupancy\.status IN \('released', 'completed', 'cancelled'\)/);
   assert.match(service, /occupancy\.source_domain IN \('maintenance', 'operations'\)/);
   assert.match(service, /private isTerminalOrActiveManualOccupancy/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.source_domain IN \('maintenance', 'operations'\)/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.end_at > now\(\)/);
+  assert.match(service, /executeApprovedForceRelease[\s\S]*occupancy\.hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/);
   assert.match(service, /Housing unit not found/);
   assert.match(leasingContractsService, /UNIT_USAGE_HOUSING/);
   assert.match(leasingContractsService, /unit\.usageType === UNIT_USAGE_HOUSING/);
   assert.match(leasingContractsService, /private async lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /private async lockContractForUnitBinding/);
+  assert.match(leasingContractsService, /lockContractForUnitBinding[\s\S]*setLock\("pessimistic_write"\)/);
+  assert.match(leasingContractsService, /async createUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
+  assert.match(leasingContractsService, /async updateUnitLink[\s\S]*manager\.transaction[\s\S]*lockContractForUnitBinding[\s\S]*lockCommercialUnitForBinding/);
   assert.match(leasingContractsService, /SELECT lock_property_unit_scope\(\$1, \$2, \$3\)[\s\S]*setLock\("pessimistic_write"\)/);
   assert.match(leasingContractsService, /contractUnitsRepository\.manager\.transaction/);
   assert.match(leasingContractsService, /originalRelations\.some\(\(relation\) => relation\.unit\?\.usageType === UNIT_USAGE_HOUSING\)/);

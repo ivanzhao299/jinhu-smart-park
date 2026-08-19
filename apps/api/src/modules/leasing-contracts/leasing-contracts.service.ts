@@ -850,10 +850,11 @@ export class LeasingContractsService {
     contractId: string,
     dto: CreateLeasingContractUnitDto
   ): Promise<LeasingContractUnitEntity> {
-    const contract = await this.findOne(scope, contractId, actor);
-    this.assertCanEditUnitLinks(contract, actor);
-    const relationDates = this.resolveRelationDates(contract, dto.start_date, dto.end_date);
+    await this.findOne(scope, contractId, actor);
     const saved = await this.contractUnitsRepository.manager.transaction(async (manager) => {
+      const contract = await this.lockContractForUnitBinding(manager, scope, contractId);
+      this.assertCanEditUnitLinks(contract, actor);
+      const relationDates = this.resolveRelationDates(contract, dto.start_date, dto.end_date);
       const unit = await this.lockCommercialUnitForBinding(manager, scope, actor, contractId, dto.unit_id, relationDates.startDate, relationDates.endDate);
       await this.assertNoDuplicateContractUnit(scope, contractId, unit.id, undefined, manager);
       const area = this.resolveArea(actor, dto.area, unit);
@@ -890,15 +891,16 @@ export class LeasingContractsService {
     relId: string,
     dto: UpdateLeasingContractUnitDto
   ): Promise<LeasingContractUnitEntity> {
-    const contract = await this.findOne(scope, contractId, actor);
-    this.assertCanEditUnitLinks(contract, actor);
-    const relation = await this.findUnitLink(scope, contractId, relId);
-    const relationDates = this.resolveRelationDates(
-      contract,
-      dto.start_date ?? relation.startDate,
-      dto.end_date ?? relation.endDate
-    );
+    await this.findOne(scope, contractId, actor);
     const saved = await this.contractUnitsRepository.manager.transaction(async (manager) => {
+      const contract = await this.lockContractForUnitBinding(manager, scope, contractId);
+      this.assertCanEditUnitLinks(contract, actor);
+      const relation = await this.findUnitLink(scope, contractId, relId, manager);
+      const relationDates = this.resolveRelationDates(
+        contract,
+        dto.start_date ?? relation.startDate,
+        dto.end_date ?? relation.endDate
+      );
       const nextUnitId = dto.unit_id && dto.unit_id !== relation.unitId ? dto.unit_id : relation.unitId;
       const nextUnit = await this.lockCommercialUnitForBinding(
         manager, scope, actor, contractId, nextUnitId, relationDates.startDate, relationDates.endDate, relId
@@ -1133,8 +1135,13 @@ export class LeasingContractsService {
     return lead;
   }
 
-  private async findUnitLink(scope: TenantParkScope, contractId: string, relId: string): Promise<LeasingContractUnitEntity> {
-    const entity = await this.contractUnitsRepository
+  private async findUnitLink(
+    scope: TenantParkScope,
+    contractId: string,
+    relId: string,
+    manager: EntityManager = this.contractUnitsRepository.manager
+  ): Promise<LeasingContractUnitEntity> {
+    const entity = await manager.getRepository(LeasingContractUnitEntity)
       .createQueryBuilder("rel")
       .leftJoinAndSelect("rel.unit", "unit")
       .where("rel.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -1314,6 +1321,25 @@ export class LeasingContractsService {
     if (!unit) throw new BadRequestException("unit_id does not exist or is outside current scope");
     await this.assertUnitBindable(scope, actor, contractId, unit, startDate, endDate, currentRelId, manager);
     return unit;
+  }
+
+  private async lockContractForUnitBinding(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    contractId: string
+  ): Promise<LeasingContractEntity> {
+    const contract = await manager.getRepository(LeasingContractEntity)
+      .createQueryBuilder("contract")
+      .where("contract.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("contract.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("contract.id = :contractId", { contractId })
+      .andWhere("contract.is_deleted = false")
+      .setLock("pessimistic_write")
+      .getOne();
+    if (!contract) {
+      throw new NotFoundException("Leasing contract not found");
+    }
+    return contract;
   }
 
   private async assertNoSharedPropertyConflict(

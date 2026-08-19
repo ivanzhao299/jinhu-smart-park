@@ -552,10 +552,23 @@ export class PropertyOccupanciesService {
          FROM biz_property_occupancy occupancy
         WHERE occupancy.tenant_id=$1::varchar AND occupancy.park_id=$2::varchar
           AND occupancy.id=$3::uuid AND occupancy.is_deleted=false
-          AND EXISTS (
-            SELECT 1 FROM biz_unit unit
-            WHERE unit.tenant_id=occupancy.tenant_id AND unit.park_id=occupancy.park_id
-              AND unit.id=occupancy.unit_id AND unit.usage_type=$4 AND unit.is_deleted=false
+          AND (
+            EXISTS (
+              SELECT 1 FROM biz_unit unit
+              WHERE unit.tenant_id=occupancy.tenant_id AND unit.park_id=occupancy.park_id
+                AND unit.id=occupancy.unit_id AND unit.usage_type=$4 AND unit.is_deleted=false
+            )
+            OR (
+              occupancy.source_domain IN ('maintenance', 'operations')
+              AND occupancy.end_at > now()
+              AND (
+                occupancy.status='active'
+                OR (
+                  occupancy.status='held'
+                  AND (occupancy.hold_expires_at IS NULL OR occupancy.hold_expires_at>now())
+                )
+              )
+            )
           )
         FOR UPDATE`,
       [scope.tenantId, scope.parkId, occupancyId, UNIT_USAGE_HOUSING]
