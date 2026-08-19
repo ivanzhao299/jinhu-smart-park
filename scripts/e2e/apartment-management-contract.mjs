@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 const root=new URL("../../",import.meta.url);
 const read=(path)=>readFile(new URL(path,root),"utf8");
-const [migration,documentMigration,seed,documentSeed,atomicRbac,controller,service,menu,shared,layout,workbench,userImport]=await Promise.all([
- read("database/migrations/000202_apartment_management_foundation.sql"),read("database/migrations/000203_apartment_documents_signing.sql"),read("database/seeds/production/000011_apartment_management_rbac.sql"),read("database/seeds/production/000013_apartment_document_defaults.sql"),read("database/seeds/production/000012_wu_enguo_atomic_rbac.sql"),read("apps/api/src/modules/apartments/apartments.controller.ts"),read("apps/api/src/modules/apartments/apartments.service.ts"),read("apps/web/lib/menu.ts"),read("packages/shared/src/apartment.ts"),read("apps/web/app/apartments/layout.tsx"),read("apps/web/app/apartments/ApartmentWorkbench.tsx"),read("scripts/generate_jinhu_2026_user_import.py")
+const [migration,documentMigration,workflowMigration,seed,documentSeed,atomicRbac,controller,service,dto,menu,shared,layout,workbench,approvalAction,handoverAction,operationsDoc,userImport]=await Promise.all([
+ read("database/migrations/000202_apartment_management_foundation.sql"),read("database/migrations/000203_apartment_documents_signing.sql"),read("database/migrations/000217_apartment_workflow_details.sql"),read("database/seeds/production/000011_apartment_management_rbac.sql"),read("database/seeds/production/000013_apartment_document_defaults.sql"),read("database/seeds/production/000012_wu_enguo_atomic_rbac.sql"),read("apps/api/src/modules/apartments/apartments.controller.ts"),read("apps/api/src/modules/apartments/apartments.service.ts"),read("apps/api/src/modules/apartments/dto/apartment.dto.ts"),read("apps/web/lib/menu.ts"),read("packages/shared/src/apartment.ts"),read("apps/web/app/apartments/layout.tsx"),read("apps/web/app/apartments/ApartmentWorkbench.tsx"),read("apps/web/app/apartments/ApartmentApprovalAction.tsx"),read("apps/web/app/apartments/ApartmentHandoverAction.tsx"),read("docs/operations/apartment-management.md"),read("scripts/generate_jinhu_2026_user_import.py")
 ]);
 for(const table of ["biz_apartment_room","biz_apartment_bed","biz_apartment_application","biz_apartment_approval","biz_apartment_stay","biz_apartment_handover","biz_apartment_document_template","biz_apartment_document"])assert.match(migration,new RegExp(`CREATE TABLE ${table}\\b`));
 assert.match(migration,/ex_apartment_stay_bed_period/);
 assert.match(migration,/source_domain IN \([^)]*'apartment'/s);
 assert.match(documentMigration,/biz_apartment_setting/);
 assert.match(documentMigration,/online_signed/);
+for(const field of ["emergency_contact_name","household_size","policy_accepted","approved_start_date","cost_bearer","deposit_amount","monthly_fee","water_meter_reading","confirmed_by"])assert.ok(workflowMigration.includes(field),`missing apartment workflow field ${field}`);
+assert.match(workflowMigration,/ck_apartment_approval_required_details/);
 for(const title of ["入住申请表","入住审批表","安全消防承诺书","入住物品交接单","退房验收单"])assert.ok(documentSeed.includes(title),`missing formal template ${title}`);
 assert.match(seed,/APARTMENT_MANAGER/);assert.match(seed,/wu_enguo/);assert.doesNotMatch(seed,/INSERT INTO sys_user/i);
 assert.match(controller,/@RequireModule\("apartment"\)/);assert.match(controller,/IdempotencyInterceptor/g);assert.match(controller,/AuditLog/g);
@@ -18,11 +20,16 @@ assert.match(service,/createHash\("sha256"\)\.update\(row\.content_html/);
 assert.match(service,/u\.display_name AS applicant_user_name/);
 assert.doesNotMatch(service,/u\.real_name AS applicant_user_name/);
 for(const state of ["submitted","approved","allocated","active","checkout_pending","completed"])assert.match(service,new RegExp(`["]${state}["]|[']${state}[']`));
+for(const guard of ["批准时必须填写","交接必须登记物品和钥匙清单","现场交接至少上传一张照片"])assert.ok(service.includes(guard),`missing service guard ${guard}`);
+for(const field of ["emergency_contact_mobile","policy_accepted","deposit_amount","water_meter_reading"])assert.ok(dto.includes(field),`missing DTO field ${field}`);
 for(const route of ["/apartments","/apartments/rooms","/apartments/applications","/apartments/stays","/apartments/checkouts","/apartments/documents"])assert.ok(menu.includes(route),`missing menu route ${route}`);
 assert.equal((shared.match(/APARTMENT_[A-Z_]+:/g)||[]).length,17);
 assert.match(layout,/DashboardLayout/);
 assert.match(workbench,/fallback=\{forbidden\}/);
 assert.match(workbench,/无权访问公寓管理/);
+assert.match(approvalAction,/办理审批/);assert.match(approvalAction,/费用承担/);assert.match(approvalAction,/安全与管理要求/);
+assert.match(handoverAction,/handoverMeters/);assert.match(handoverAction,/meter_readings/);assert.match(handoverAction,/钥匙数/);assert.match(handoverAction,/FileUploader/);
+assert.match(operationsDoc,/标准业务流程/);assert.match(operationsDoc,/状态与操作限制/);
 assert.match(atomicRbac,/JH_HR_ADMIN_MANAGER/);
 assert.match(atomicRbac,/APARTMENT_MANAGER/);
 assert.match(atomicRbac,/NOT EXISTS\(SELECT 1 FROM wu_expected_roles/);

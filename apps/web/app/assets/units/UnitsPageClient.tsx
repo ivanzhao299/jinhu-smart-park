@@ -22,6 +22,7 @@ import { UnitImportExportActions } from "./components/UnitImportExportActions";
 import { UnitStatusDrawer } from "./components/UnitStatusDrawer";
 import { UnitsTable } from "./components/UnitsTable";
 import { UnitsToolbar } from "./components/UnitsToolbar";
+import { AssetSpaceConversionDrawer } from "./components/AssetSpaceConversionDrawer";
 import {
   formatYmd,
   getTransitionOptions,
@@ -315,6 +316,7 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
   const [form, setForm] = useState<UnitFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showAssetConversion, setShowAssetConversion] = useState(false);
   const [detail, setDetail] = useState<UnitRow | null>(null);
   const [showImport, setShowImport] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -754,6 +756,9 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
             <Plus size={16} />
             新增房源
           </PermissionButton>
+          <PermissionButton className="secondary-button" permission={SYSTEM_PERMISSIONS.ASSET_UNIT_CREATE} type="button" onClick={() => setShowAssetConversion(true)}>
+            从资产启用
+          </PermissionButton>
           <UnitImportExportActions
             onDownloadTemplate={() => void downloadTemplate().catch((error: Error) => setMessage(error.message))}
             onOpenImport={() => {
@@ -792,6 +797,8 @@ export default function UnitsPage({ title = "房间/房源管理" }: UnitsPagePr
           onRemove={(row) => void remove(row).catch((error: Error) => setMessage(error.message))}
           onPageChange={(page) => void load(page).catch((error: Error) => setMessage(error.message))}
         />
+
+        {showAssetConversion ? <AssetSpaceConversionDrawer onClose={() => setShowAssetConversion(false)} onCreated={() => void load(pageData.page).catch((error: Error) => setMessage(error.message))} /> : null}
 
         {showForm ? (
           <UnitFormDialog
