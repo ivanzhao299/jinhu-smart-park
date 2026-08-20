@@ -1,7 +1,8 @@
 "use client";
 
-import { SYSTEM_PERMISSIONS, type
-  FileRecord, HomestayTurnoverDetailResponse, HomestayWorkOrderCandidateListResponse, PaginatedResult
+import { SYSTEM_PERMISSIONS, type FileRecord } from "@jinhu/shared";
+import type {
+  HomestayTurnoverDetailResponse, HomestayWorkOrderCandidateListResponse, PaginatedResult
 } from "@jinhu/shared";
 import { useState } from "react";
 import {
