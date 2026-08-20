@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+RUN="${YUZHOU_MIGRATION_RUN_ID:-}"; DB="${YUZHOU_TARGET_DATABASE:-}"; PG="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"; [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ]||exit 2; printf %s "$DB"|grep -Eq '^jinhu_hr_migration_lab_'||exit 2
+docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -v run="$RUN" <<'SQL'
+BEGIN; SELECT set_config('yz.run',:'run',true); DO $$BEGIN IF NOT EXISTS(SELECT 1 FROM migration_batch WHERE run_id=current_setting('yz.run') AND status='succeeded')THEN RAISE EXCEPTION 'succeeded batch not found';END IF;END$$;
+DELETE FROM hr_employee_insurance_item x USING hr_employee_insurance_period p,legacy_record_map m,migration_batch b WHERE x.period_id=p.id AND m.target_id=p.id AND m.target_table='hr_employee_insurance_period' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_employee_insurance_period x USING legacy_record_map m,migration_batch b WHERE m.target_id=x.id AND m.target_table='hr_employee_insurance_period' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_insurance_policy_item x USING hr_insurance_policy p,legacy_record_map m,migration_batch b WHERE x.policy_id=p.id AND m.target_id=p.id AND m.target_table='hr_insurance_policy' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_insurance_policy x USING legacy_record_map m,migration_batch b WHERE m.target_id=x.id AND m.target_table='hr_insurance_policy' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_attendance_day x USING hr_attendance_calendar_source c,legacy_record_map m,migration_batch b WHERE x.calendar_source_id=c.id AND m.target_id=c.id AND m.target_table='hr_attendance_calendar_source' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_attendance_calendar_source x USING legacy_record_map m,migration_batch b WHERE m.target_id=x.id AND m.target_table='hr_attendance_calendar_source' AND m.is_active AND m.batch_id=b.id AND b.run_id=:'run';
+DELETE FROM hr_attendance_symbol_rule WHERE remark='Yuzhou T3 rule' AND tenant_id=(SELECT tenant_id FROM hr_attendance_import_batch WHERE batch_code=:'run') AND park_id=(SELECT park_id FROM hr_attendance_import_batch WHERE batch_code=:'run');
+DELETE FROM hr_attendance_import_batch WHERE batch_code=:'run'; UPDATE legacy_record_map SET is_active=false,mapping_status='rolled_back' WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run'); UPDATE migration_batch SET status='rolled_back',phase='rollback',finished_at=now() WHERE run_id=:'run'; COMMIT;
+SQL

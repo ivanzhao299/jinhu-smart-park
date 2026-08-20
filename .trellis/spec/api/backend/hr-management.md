@@ -224,3 +224,60 @@ JOIN hr_employee ON exact_scoped_t0_identity;
 ### 7. Wrong vs Correct
 - Wrong: update the main contract end date for each `compact_c` row.
 - Correct: append ordered `hr_contract_change` rows linked to the immutable main contract.
+
+## Scenario: Yuzhou historical attendance calendar and insurance migration
+
+### 1. Scope / Trigger
+
+- Trigger: extracting/loading `timekeeptable`, `insure_method`, or `person_insure`, or changing the T3 attendance/insurance compatibility schema.
+
+### 2. Signatures
+
+- Commands: `extract-yuzhou-t3-attendance-insurance.sh`, `load-yuzhou-t3-attendance-insurance.sh`, and `rollback-yuzhou-t3-attendance-insurance.sh` with the migration flag, run ID, pinned staging hashes, and isolated PostgreSQL target.
+- Tables: `hr_attendance_import_batch`, `hr_attendance_calendar_source`, `hr_attendance_day`, `hr_attendance_symbol_rule`, `hr_insurance_policy`, `hr_insurance_policy_item`, `hr_employee_insurance_period`, and `hr_employee_insurance_item`.
+
+### 3. Contracts
+
+- A 31-column month calendar produces rows only for real dates. Preserve every nonblank `legacy_symbol`; only a versioned rule may populate `normalized_kind`, and an unknown symbol remains `needs_review`.
+- Employee insurance is an immutable monthly source snapshot. Convert the six wide insurance kinds into vertical items without recalculating old results from current policy.
+- Extract money as decimal strings and aggregate in PostgreSQL numeric. A legacy negative contribution base is a sentinel: store a null base plus `legacy_base_negative=true`; do not treat it as a negative contribution.
+- Missing/invalid year-month and absent T0 employee mappings are mutually exclusive redacted quarantine outcomes. Loaded plus quarantined must equal 35,008.
+- `insureaccount` never enters ordinary staging, evidence, errors, or reports.
+- Every parent target has an active record map. Rollback deletes children before mapped parents and requires full, non-partial indexes whose leading column is each child foreign key; a soft-delete partial index cannot accelerate PostgreSQL foreign-key delete checks.
+
+### 4. Validation & Error Matrix
+
+- writable source, `sa`, wrong Compose project, non-isolated target, hash/count drift, or duplicate run ID -> fail before commit.
+- missing/invalid period -> `INSURANCE_PERIOD_INVALID`; valid period with missing employee -> `INSURANCE_EMPLOYEE_NOT_MAPPED`.
+- unknown attendance symbol -> load original value with `needs_review`, not a guessed work status.
+- any per-kind total/employer/employee/supplement sum mismatch or employee summary drift -> roll back the load transaction.
+- child foreign-key index is partial or does not lead with the FK -> fail the large rollback performance review even if functional tests pass.
+
+### 5. Good / Base / Bad Cases
+
+- Good: 144 calendars become 4,383 dates; 34,787 insurance periods plus 221 quarantines account for all source snapshots; all six exact monetary checks pass.
+- Base: an `N1` symbol remains visible and reviewable without being classified as attendance.
+- Bad: invent a month for a null period, recompute old insurance from a policy row, extract the insurance account, or rely on `(tenant_id,park_id,period_id) WHERE is_deleted=false` for FK rollback performance.
+
+### 6. Tests Required
+
+- Run two real extracts and assert the three normalized hashes are identical.
+- Contract-test read-only extraction, sensitive-column exclusion, decimal-string preservation, unknown-symbol review, isolated-target/hash guards, redacted error codes, child-to-parent rollback order, and full FK indexes.
+- In isolated PostgreSQL run migrations -> load -> nine checks -> duplicate-run rejection -> rollback to zero business rows -> reload.
+- Run the API unit suite, full workspace lint, type-check, and production build.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+CREATE INDEX ON hr_employee_insurance_item(period_id) WHERE is_deleted=false;
+-- The FK trigger does not have an is_deleted predicate and may scan the full child table.
+```
+
+#### Correct
+
+```sql
+CREATE INDEX ON hr_employee_insurance_item(period_id);
+-- Keep a separate partial business index only when query access also benefits from it.
+```
