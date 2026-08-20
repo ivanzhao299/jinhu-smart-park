@@ -192,3 +192,35 @@ SELECT ..., true, 'accepted'
 FROM staging
 JOIN hr_employee ON exact_scoped_t0_identity;
 ```
+
+## Scenario: Yuzhou historical labor contract migration
+
+### 1. Scope / Trigger
+- Trigger: `compact`, `compact_c`, or `compacttypecode` extraction, contract schema changes, or historical contract loading.
+
+### 2. Signatures
+- Commands: `extract-yuzhou-t2-contracts.sh`, `load-yuzhou-t2-contracts.sh`, and `rollback-yuzhou-t2-contracts.sh` with migration flag, run ID, pinned staging hashes, and isolated target database.
+- Tables: `hr_contract_type`, `hr_contract`, `hr_contract_change`.
+
+### 3. Contracts
+- Main contracts and renewal/change history are separate immutable historical aggregates; a change never overwrites the main source snapshot.
+- Employee and master-contract resolution are exact and scoped. Missing T0 employees or masters are quarantined, not synthesized.
+- Raw contract text and file paths never enter reports or downloadable file references; only presence metadata is migrated until the protected-file phase.
+- Rollback order is change, contract, type and every deletion requires active record-map proof.
+
+### 4. Validation & Error Matrix
+- writable source, wrong project/target, count/hash drift, duplicate run -> fail before commit.
+- missing employee -> `CONTRACT_EMPLOYEE_NOT_MAPPED`; missing master -> `CONTRACT_CHANGE_MASTER_NOT_FOUND`.
+- loaded plus quarantined must equal 802 main and 357 change rows; employee current-state checksum must remain unchanged.
+
+### 5. Good / Base / Bad Cases
+- Good: 798 contracts and 348 changes load; 4 and 9 respectively are redacted quarantine records.
+- Base: terminated source status remains terminated history even when its dates are old.
+- Bad: invent a master for an orphan change or expose `compacttext/compactfile` content.
+
+### 6. Tests Required
+- Two deterministic real extracts, isolated migration/load/check/rollback/reload, duplicate-run rejection, error redaction, API unit/lint/type/build.
+
+### 7. Wrong vs Correct
+- Wrong: update the main contract end date for each `compact_c` row.
+- Correct: append ordered `hr_contract_change` rows linked to the immutable main contract.
