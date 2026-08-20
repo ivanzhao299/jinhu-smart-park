@@ -217,3 +217,50 @@ YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_20260820_intake01 \
 YUZHOU_BACKUP_SHA256=<verified-lowercase-sha256> \
 pnpm hr:migration:sqlserver:restore
 ```
+
+## Scenario: Yuzhou HR migration control schema
+
+### 1. Scope / Trigger
+
+- Trigger: any ETL batch that records legacy source identity, target mapping, errors, checks, or rollback evidence.
+
+### 2. Signatures
+
+- Migrations: `000222_hr_legacy_migration_control.sql`, followed by forward-only integrity correction `000223_hr_legacy_migration_control_integrity.sql`.
+- Tables: `legacy_source_object`, `migration_batch`, `migration_batch_item`, `legacy_record_map`, `migration_error`, `migration_check`, `migration_rollback_point`.
+
+### 3. Contracts
+
+- `migration_batch.run_id` is unique and safe; `target_database` matches `jinhu_hr_migration_lab_<suffix>`.
+- One active mapping exists per `(source_system, source_table, source_identity_sha256)`; same-row-hash replay may return it, while a changed row hash is drift and must conflict.
+- Loaded item count never exceeds valid count. Error/check item references must belong to the same batch.
+- Error evidence is a redacted JSON object. Rollback scope and cleanup manifest are JSON objects bound to one batch.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+|---|---|
+| Shared/default target database | Check violation |
+| Same identity and same row hash replay | Return the existing mapping; create no duplicate |
+| Same identity and different row hash | Unique conflict; record drift through the service |
+| `loaded_count > valid_count` | Check violation |
+| Item belongs to another batch | Foreign-key violation |
+| Error evidence is not marked redacted | Check violation |
+
+### 5. Good / Base / Bad Cases
+
+- Good: unique isolated run, stable hashed identity, redacted evidence, batch-owned rollback manifest.
+- Base: replay the same source row hash and reuse its active mapping.
+- Bad: overwrite an active mapping after source drift or store raw identity/pay/bank values in evidence.
+
+### 6. Tests Required
+
+- Run `pnpm test:e2e:yuzhou-migration-control`.
+- Apply both migrations on `jinhu_hr_migration_lab`; transactionally test first insert, replay, drift, target rejection, redaction rejection, count integrity, and cross-batch references.
+- Verify both migration-history tables contain succeeded rows with matching checksums.
+
+### 7. Wrong vs Correct
+
+Wrong: update an active mapping's source hash when the legacy row changes.
+
+Correct: reject the insert as drift, write a redacted `migration_error`, and require an explicit resolution before deactivating/replacing the mapping.

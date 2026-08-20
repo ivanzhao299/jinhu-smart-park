@@ -51,6 +51,7 @@
     "test:e2e:apartment-management": "node scripts/e2e/apartment-management-contract.mjs && node scripts/e2e/responsibility-rbac-governance.mjs",
     "test:e2e:yuzhou-migration-lab": "node scripts/e2e/yuzhou-migration-lab-contract.mjs",
     "test:e2e:yuzhou-backup-restore": "node scripts/e2e/yuzhou-backup-restore-contract.mjs",
+    "test:e2e:yuzhou-migration-control": "node scripts/e2e/yuzhou-migration-control-contract.mjs",
     "smoke:cleanup": "sh scripts/smoke-cleanup.sh",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",

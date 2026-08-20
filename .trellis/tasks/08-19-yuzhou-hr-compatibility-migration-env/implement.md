@@ -39,10 +39,10 @@
 
 ## Phase 5：迁移控制模型
 
-- [ ] 新增前向迁移：source object、record map、batch/item、error、check、rollback point。
-- [ ] 实现 batch 状态机、run id、幂等重放、source drift、失败重试与 fail-closed cleanup。
-- [ ] 实现敏感值 redaction 和日志契约测试。
-- [ ] 增加 PostgreSQL 集成测试：首次加载、同 hash replay、不同 hash conflict、部分失败回滚、跨 scope 拒绝。
+- [x] 新增前向迁移 `000222/000223`：source object、record map、batch/item、error、check、rollback point 及跨批次引用完整性。
+- [x] 数据库层已约束 batch 状态、run id、隔离目标、活跃源映射唯一和 source drift 冲突；服务层重试/状态转换命令继续下一步实现。
+- [x] `migration_error` 强制 `evidence_redacted=true` 且只接受 JSON object；日志运行时扫描继续随 ETL 命令补充。
+- [x] PostgreSQL 集成验证已覆盖首次映射、同 hash replay、不同 hash conflict、未脱敏证据拒绝和共享目标拒绝；部分失败/cleanup 随加载器补充。
 
 ## Phase 6：组织/员工 T0 dry-run
 
