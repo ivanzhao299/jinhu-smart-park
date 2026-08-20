@@ -171,6 +171,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
 
   async function runTaskAction(item: PropertyTaskListItem, action: PropertyTaskAction) {
     if (mutationLocks.current.has(item.taskId)) return;
+    const mutationSequence = requestSequence.current;
     const reason = action === "property.task.block" || action === "property.task.release"
       ? taskReasons[item.taskId]?.trim() ?? ""
       : "";
@@ -201,10 +202,12 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
         token: getAccessToken() ?? undefined
       });
       mutationKeys.current.delete(mutationId);
+      if (mutationSequence !== requestSequence.current) return;
       setTaskReasons((current) => ({ ...current, [item.taskId]: "" }));
       setFeedback("任务状态已更新。");
       await load();
     } catch (cause) {
+      if (mutationSequence !== requestSequence.current) return;
       setFeedback(cause instanceof Error ? cause.message : "任务操作失败");
     } finally {
       mutationLocks.current.delete(item.taskId);
@@ -221,6 +224,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
     action: "approve" | "reject" | "withdraw"
   ) {
     if (mutationLocks.current.has(item.requestId)) return;
+    const mutationSequence = requestSequence.current;
     const reason = approvalReasons[item.requestId]?.trim() ?? "";
     if ((action === "reject" || action === "withdraw") && !reason) {
       setFeedback("驳回或撤回审批前必须填写原因。");
@@ -254,10 +258,12 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
           method: "POST", token: getAccessToken() ?? undefined, idempotencyKey: clientKey, body
         });
       }
+      if (mutationSequence !== requestSequence.current) return;
       setApprovalReasons((current) => ({ ...current, [item.requestId]: "" }));
       setFeedback("审批操作已提交。");
       await load();
     } catch (cause) {
+      if (mutationSequence !== requestSequence.current) return;
       setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
     } finally {
       mutationLocks.current.delete(item.requestId);

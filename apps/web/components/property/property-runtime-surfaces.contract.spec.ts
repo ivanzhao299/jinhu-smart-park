@@ -20,6 +20,8 @@ test("control-plane and embedded runtime use DS surfaces with accessibility fall
   assert.match(runtime, /ds-command-card/);
   assert.match(runtime, /const requestSequence = useRef\(0\)/);
   assert.match(runtime, /if \(!isCurrent\(\)\) return/);
+  assert.equal(runtime.match(/const mutationSequence = requestSequence\.current/g)?.length, 2);
+  assert.equal(runtime.match(/if \(mutationSequence !== requestSequence\.current\) return/g)?.length, 4);
   assert.doesNotMatch(runtime, /<div className="ds-page">/);
   for (const css of [controlCss, runtimeCss]) {
     assert.match(css, /:focus-visible/);
