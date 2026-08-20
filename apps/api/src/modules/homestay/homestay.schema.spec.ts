@@ -101,6 +101,8 @@ test("guest registration locks the booking inside its write transaction", () => 
   assert.match(addGuest, /manager\.getRepository\(PartyEntity\)/);
   assert.match(addGuest, /\.setLock\("pessimistic_read"\)/);
   assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
+  assert.match(addGuest, /const activeGuestCount = await repository\.count/);
+  assert.match(addGuest, /activeGuestCount >= booking\.guestCount/);
   assert.match(addGuest, /const existingPrimary = await repository\.findOne/);
   assert.match(addGuest, /dto\.is_primary && !existingPrimary/);
 });
@@ -151,6 +153,22 @@ test("credential return locks the row and preserves the original return timestam
     /if \(credential\.status === "returned"\) return projectHomestayCredential\(credential\)/
   );
   assert.match(credentialReturn, /Only issued credentials can be returned/);
+});
+
+test("credential loss locks the row, is replay safe, and rejects terminal-state rewrites", () => {
+  const service = readFileSync(resolve(__dirname, "homestay-stay-command.service.ts"), "utf8");
+  const credentialLoss = service.slice(
+    service.indexOf("async markCredentialLost"),
+    service.indexOf("async checkIn")
+  );
+  assert.match(credentialLoss, /this\.dataSource\.transaction/);
+  assert.match(credentialLoss, /lock: \{ mode: "pessimistic_write" \}/);
+  assert.match(
+    credentialLoss,
+    /if \(credential\.status === "lost"\) return projectHomestayCredential\(credential\)/
+  );
+  assert.match(credentialLoss, /Only issued credentials can be marked as lost/);
+  assert.match(credentialLoss, /Credential loss reason is required/);
 });
 
 test("turnover evidence is locked in the same transaction that binds it", () => {

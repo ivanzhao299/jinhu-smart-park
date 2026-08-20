@@ -40,6 +40,8 @@ test("property surfaces reuse shared DS and keep domain/API imports out", () => 
   assert.equal(source.match(/projectPropertyRecord\(item, fields\)/g)?.length, 2);
   assert.match(css, /display: inline-flex/);
   assert.match(css, /min-block-size: 44px/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /min-inline-size: 44px !important/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /transition-duration: 0\.01ms !important/);
   assert.match(css, /transform: none !important/);

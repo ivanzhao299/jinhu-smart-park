@@ -63,9 +63,9 @@ export class HomestayWorkbenchQueryService {
                AND ($4::uuid[] IS NULL OR booking.unit_id = ANY($4::uuid[]))
            )`;
     const keywordClause = query.keyword
-      ? " AND party.display_name ILIKE $5"
+      ? " AND party.display_name ILIKE $5 ESCAPE '\\'"
       : "";
-    if (query.keyword) parameters.push(`%${query.keyword}%`);
+    if (query.keyword) parameters.push(`%${escapeLikePattern(query.keyword)}%`);
     const limitIndex = parameters.length + 1;
     const offsetIndex = parameters.length + 2;
     const [items, countRows] = await Promise.all([
@@ -219,6 +219,7 @@ export class HomestayWorkbenchQueryService {
       parameters.push(query.source_type);
       filters.push(`task."sourceType" = $${parameters.length}`);
     }
+    await this.applyTaskActorScope(parameters, filters, actor);
     const limitIndex = parameters.length + 1;
     const offsetIndex = parameters.length + 2;
     const [rows, countRows] = await Promise.all([
@@ -281,6 +282,7 @@ export class HomestayWorkbenchQueryService {
       ) as Promise<Array<{
       bookingId: string;
       bookingCode: string;
+      bookingStatus: HomestayFinanceListResponse["items"][number]["bookingStatus"];
       totalAmount: string;
       paidAmount: string;
       refundedAmount: string;
@@ -296,6 +298,7 @@ export class HomestayWorkbenchQueryService {
       items: rows.map((row) => ({
         bookingId: row.bookingId,
         bookingCode: row.bookingCode,
+        bookingStatus: row.bookingStatus,
         totalAmount: formatHomestayMoney(row.totalAmount),
         paidAmount: formatHomestayMoney(row.paidAmount),
         refundedAmount: formatHomestayMoney(row.refundedAmount),
@@ -372,6 +375,30 @@ export class HomestayWorkbenchQueryService {
         .orWhere(`workOrder.reporter_id IN (:...${parameter})`)
         .orWhere(`workOrder.create_by IN (:...${parameter})`);
     });
+  }
+
+  private async applyTaskActorScope(
+    parameters: unknown[],
+    filters: string[],
+    actor: JwtPrincipal
+  ): Promise<void> {
+    if (
+      actor.isSuper
+      || actor.permissions.includes("*")
+      || actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_TASK_SUPERVISE)
+    ) {
+      return;
+    }
+    const handler = await this.dataScopeService.buildScopeFilter(
+      actor,
+      "workorder_handler"
+    );
+    if (handler.unrestricted) return;
+    parameters.push(handler.allowed_ids);
+    const index = parameters.length;
+    filters.push(`(task."sourceType" <> 'homestay_turnover'
+      OR task."assigneeId" IS NULL
+      OR task."assigneeId" = ANY($${index}::uuid[]))`);
   }
 
   private taskCteSql(unitParameter: number | null): string {
@@ -453,6 +480,7 @@ export class HomestayWorkbenchQueryService {
     const extraWhere = filters.length ? ` AND ${filters.join(" AND ")}` : "";
     return `WITH finance AS (
       SELECT booking.id AS "bookingId", booking.booking_code AS "bookingCode",
+      booking.status AS "bookingStatus",
       booking.total_amount::text AS "totalAmount",
       COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'payment'
         AND entry.status = 'confirmed'), 0)::text AS "paidAmount",
@@ -474,7 +502,7 @@ export class HomestayWorkbenchQueryService {
       AND entry.is_deleted = false
     WHERE booking.tenant_id = $1 AND booking.park_id = $2
       AND booking.is_deleted = false${extraWhere}
-    GROUP BY booking.id, booking.booking_code, booking.total_amount, booking.create_time
+    GROUP BY booking.id, booking.booking_code, booking.status, booking.total_amount, booking.create_time
     )`;
   }
 
@@ -484,7 +512,7 @@ export class HomestayWorkbenchQueryService {
     offsetIndex: number
   ): string {
     return `${this.financeCteSql(filters)}
-      SELECT "bookingId", "bookingCode", "totalAmount", "paidAmount",
+      SELECT "bookingId", "bookingCode", "bookingStatus", "totalAmount", "paidAmount",
              "refundedAmount", "waivedAmount", "balanceAmount"
       FROM finance
       ORDER BY "createTime" DESC, "bookingId" ASC
@@ -495,4 +523,8 @@ export class HomestayWorkbenchQueryService {
     return `${this.financeCteSql(filters)}
       SELECT count(*)::int AS total FROM finance`;
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 }

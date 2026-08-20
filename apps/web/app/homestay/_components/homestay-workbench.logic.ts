@@ -1,6 +1,8 @@
 import type {
   HomestayAvailabilityListResponse,
   HomestayAvailabilityResponse,
+  HomestayBookingStatus,
+  HomestayLedgerEntryType,
   UserContext
 } from "@jinhu/shared";
 import type {
@@ -15,6 +17,41 @@ import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import { ApiError } from "../../../lib/api-client";
 
 export const HOMESTAY_RATE_CONFIGURATION_MISSING = "Homestay rate configuration not found";
+
+const HOMESTAY_ERROR_MESSAGES = [
+  {
+    pattern: /^Homestay rate configuration (?:is required|not found)$/,
+    message: "请先为所选房源配置基础价格。"
+  },
+  {
+    pattern: /^Property occupancy conflicts with an existing/,
+    message: "所选房源在该入住期间已被占用，请调整房源或日期。"
+  }
+] as const;
+
+export function homestayErrorMessage(error: unknown, fallback: string): string {
+  const rawMessage = error instanceof Error ? error.message.trim() : "";
+  return (HOMESTAY_ERROR_MESSAGES.find(({ pattern }) => pattern.test(rawMessage))?.message
+    ?? rawMessage) || fallback;
+}
+
+export function homestayFinanceEntryTypes(
+  bookingStatus: HomestayBookingStatus | null,
+  permissions: { ordinary: boolean; refund: boolean; waiver: boolean }
+): HomestayLedgerEntryType[] {
+  const statusAllowed: readonly HomestayLedgerEntryType[] = bookingStatus === null
+    ? ["payment", "charge", "refund", "waiver"]
+    : bookingStatus === "confirmed" || bookingStatus === "checked_in"
+      ? ["payment", "charge", "refund", "waiver"]
+      : bookingStatus === "checked_out"
+        ? ["payment", "refund", "waiver"]
+        : bookingStatus === "cancelled" || bookingStatus === "no_show"
+          ? ["refund", "waiver"]
+          : [];
+  return statusAllowed.filter((entryType) => entryType === "refund"
+    ? permissions.refund
+    : entryType === "waiver" ? permissions.waiver : permissions.ordinary);
+}
 
 export function isMissingHomestayRateConfiguration(error: unknown): boolean {
   return error instanceof ApiError

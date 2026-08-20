@@ -1,13 +1,14 @@
 "use client";
 
 import { PROPERTY_BUSINESS_PERMISSIONS, type CreatePendingPropertyApprovalResult, type HomestayFinanceApprovalSource, type HomestayFinanceItem } from "@jinhu/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
 import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { useAuthUser } from "../../../lib/auth-context";
 import { hasAccess } from "../../../lib/permissions";
 import styles from "./HomestayWorkbench.module.css";
+import { homestayFinanceEntryTypes } from "./homestay-workbench.logic";
 
 function useFinanceEntry(onSaved: () => void) {
   const [bookingId, setBookingId] = useState("");
@@ -83,19 +84,25 @@ export function HomestayFinanceEntryPanel({
   const waiverAllowed = approvalAllowed
     && hasAccess(user, PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_WAIVE, "homestay");
   const highRiskAllowed = refundAllowed || waiverAllowed;
+  const selectedBooking = items.find((item) => item.bookingId === form.bookingId);
+  const allowedEntryTypes = useMemo(() => homestayFinanceEntryTypes(
+    selectedBooking?.bookingStatus ?? null,
+    { ordinary: ordinaryAllowed, refund: refundAllowed, waiver: waiverAllowed }
+  ), [ordinaryAllowed, refundAllowed, selectedBooking?.bookingStatus, waiverAllowed]);
   const [sources, setSources] = useState<HomestayFinanceApprovalSource[]>([]);
   const selectedSource = sources.find((item) => item.id === form.sourceLedgerId);
   const ledgerRequestId = useRef(0);
   useEffect(() => {
-    if (!ordinaryAllowed && highRiskAllowed && ["charge", "payment"].includes(form.entryType)) {
-      form.setEntryType(refundAllowed ? "refund" : "waiver");
+    if (allowedEntryTypes.length && !allowedEntryTypes.includes(form.entryType)) {
+      form.setEntryType(allowedEntryTypes[0]!);
     }
-  }, [form.entryType, highRiskAllowed, ordinaryAllowed, refundAllowed]);
+  }, [allowedEntryTypes, form.entryType]);
   useEffect(() => {
     const requestId = ++ledgerRequestId.current;
     form.setSourceLedgerId("");
     setSources([]);
-    if (!form.bookingId || !highRiskAllowed || !["refund", "waiver"].includes(form.entryType)) return;
+    if (!form.bookingId || !highRiskAllowed || !allowedEntryTypes.includes(form.entryType)
+      || !["refund", "waiver"].includes(form.entryType)) return;
     void apiRequest<HomestayFinanceApprovalSource[]>(`/homestay/bookings/${form.bookingId}/finance-sources?entry_type=${form.entryType}`, {
       token: getAccessToken() ?? undefined
     }).then((response) => {
@@ -106,7 +113,7 @@ export function HomestayFinanceEntryPanel({
         form.setMessage(error instanceof Error ? error.message : "加载可操作来源失败");
       }
     });
-  }, [form.bookingId, form.entryType, highRiskAllowed]);
+  }, [allowedEntryTypes, form.bookingId, form.entryType, highRiskAllowed]);
   if (!ordinaryAllowed && !highRiskAllowed) return null;
   return (
     <PropertyPanelSurface title="登记财务流水" description="退款与减免将提交审批；审批完成前不会写入财务流水。">
@@ -116,10 +123,13 @@ export function HomestayFinanceEntryPanel({
             <option value="">请选择订单</option>
             {items.map((item) => <option key={item.bookingId} value={item.bookingId}>{item.bookingCode}</option>)}
           </select></label>
-          <label>流水类型<select value={form.entryType} onChange={(event) => { form.setEntryType(event.target.value as typeof form.entryType); form.setSourceLedgerId(""); }}>
-            {ordinaryAllowed ? <><option value="payment">收款</option><option value="charge">费用</option></> : null}
-            {refundAllowed ? <option value="refund">退款（需审批）</option> : null}
-            {waiverAllowed ? <option value="waiver">减免（需审批）</option> : null}
+          <label>流水类型<select disabled={!form.bookingId || !allowedEntryTypes.length} value={form.entryType} onChange={(event) => { form.setEntryType(event.target.value as typeof form.entryType); form.setSourceLedgerId(""); }}>
+            {!form.bookingId ? <option value={form.entryType}>请先选择订单</option> : null}
+            {form.bookingId && !allowedEntryTypes.length ? <option value={form.entryType}>当前订单状态不可登记</option> : null}
+            {allowedEntryTypes.includes("payment") ? <option value="payment">收款</option> : null}
+            {allowedEntryTypes.includes("charge") ? <option value="charge">费用</option> : null}
+            {allowedEntryTypes.includes("refund") ? <option value="refund">退款（需审批）</option> : null}
+            {allowedEntryTypes.includes("waiver") ? <option value="waiver">减免（需审批）</option> : null}
           </select></label>
           {["refund", "waiver"].includes(form.entryType) ? <label>来源流水<select required value={form.sourceLedgerId} onChange={(event) => { const source = sources.find((item) => item.id === event.target.value); form.setSourceLedgerId(event.target.value); if (source?.chargeType) form.setChargeType(source.chargeType); }}>
             <option value="">请选择来源流水</option>
@@ -129,7 +139,7 @@ export function HomestayFinanceEntryPanel({
           <label>金额<input required type="number" min="0.01" max={selectedSource?.availableAmount} step="0.01" value={form.amount} onFocus={(event) => event.target.select()} onChange={(event) => form.setAmount(event.target.value)} /></label>
           {form.entryType === "payment" ? <label>收款方式<input required maxLength={32} value={form.paymentMethod} onChange={(event) => form.setPaymentMethod(event.target.value)} /></label> : null}
           <label>说明<input required maxLength={500} value={form.reason} onChange={(event) => form.setReason(event.target.value)} /></label>
-          <button className="primary-button" type="submit">{["refund", "waiver"].includes(form.entryType) ? "提交审批" : "登记流水"}</button>
+          <button className="primary-button" disabled={!form.bookingId || !allowedEntryTypes.includes(form.entryType)} type="submit">{["refund", "waiver"].includes(form.entryType) ? "提交审批" : "登记流水"}</button>
         </fieldset>
       </form>
       <p aria-live="polite">{form.submitting ? "正在登记流水…" : form.message}</p>

@@ -13,6 +13,10 @@ const user = {
   org_name: "人才公寓运营中心",
   roles: [{ role_code: "SUPER_ADMIN", role_name: "超级管理员" }],
   permissions: ["*"],
+  enabled_modules: [
+    { module_code: "homestay", enabled: true },
+    { module_code: "asset", enabled: true }
+  ],
   data_scope: "tenant",
   is_super: true,
   menus: []
@@ -36,6 +40,32 @@ const fixtures = {
       roomAmount: "984.00", totalAmount: "984.00", sourceType: "direct"
     }],
     total: 1, page: 1, page_size: 100
+  },
+  "/api/v1/homestay/finance": {
+    items: [
+      {
+        bookingId, bookingCode: "HS-20260725-001", bookingStatus: "checked_out",
+        totalAmount: "984.00", paidAmount: "500.00", refundedAmount: "0.00",
+        waivedAmount: "0.00", balanceAmount: "484.00"
+      },
+      {
+        bookingId: "20000000-0000-4000-8000-000000000002",
+        bookingCode: "HS-20260725-DRAFT", bookingStatus: "draft",
+        totalAmount: "328.00", paidAmount: "0.00", refundedAmount: "0.00",
+        waivedAmount: "0.00", balanceAmount: "328.00"
+      }
+    ],
+    total: 2, page: 1, page_size: 20
+  },
+  "/api/v1/property/approvals": {
+    items: [{
+      requestId: "60000000-0000-4000-8000-000000000001",
+      actionId: "homestay.finance.refund",
+      decisionStatus: "pending",
+      executionStatus: "not_started",
+      allowedActions: []
+    }],
+    total: 41, page: 2, page_size: 20
   },
   "/api/v1/homestay/turnovers": [{
     id: turnoverId, bookingId, unitId, status: "cleaning", assigneeName: "张师傅",

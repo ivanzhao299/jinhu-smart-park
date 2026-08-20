@@ -756,6 +756,7 @@ test("all current homestay and housing mutations have idempotency and approval p
     "POST /homestay/bookings/:id/reschedule",
     "POST /homestay/bookings/:id/guests",
     "POST /homestay/bookings/:id/credentials",
+    "POST /homestay/bookings/:id/credentials/:credentialId/lost",
     "POST /homestay/bookings/:id/credentials/:credentialId/return",
     "POST /homestay/bookings/:id/check-in",
     "POST /homestay/bookings/:id/check-out",

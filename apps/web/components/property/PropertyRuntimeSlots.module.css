@@ -37,6 +37,13 @@
   padding-top: 0.75rem;
 }
 
+.focusedRecord {
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  outline: 3px solid var(--focus-ring, currentColor);
+  outline-offset: 2px;
+}
+
 .taskRecord label {
   display: grid;
   gap: 0.35rem;

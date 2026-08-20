@@ -185,7 +185,7 @@ function HomestayFilters({
       <div className={styles.toolbar}>
         {surface === "availability" ? (
           <>
-            <label>开始日期<input type="date" value={filters.dateFrom} onChange={(event) => {
+            <label>开始日期<input name="availability_date_from" type="date" value={filters.dateFrom} onChange={(event) => {
               const next = event.target.value;
               if (!next) {
                 resetPage({ dateFrom: "", dateTo: "" });
@@ -196,26 +196,26 @@ function HomestayFilters({
                 dateTo: filters.dateTo > next ? filters.dateTo : addBusinessDateDays(next, 1)
               });
             }} /></label>
-            <label>结束日期<input type="date" min={filters.dateFrom ? addBusinessDateDays(filters.dateFrom, 1) : undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
+            <label>结束日期<input name="availability_date_to" type="date" min={filters.dateFrom ? addBusinessDateDays(filters.dateFrom, 1) : undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
           </>
         ) : (
           <>
             {surface === "bookings" ? (
               <>
-                <label>订单搜索<input maxLength={100} placeholder="订单号" type="search" value={filters.keyword} onChange={(event) => resetPage({ keyword: event.target.value })} /></label>
+                <label>订单搜索<input maxLength={100} name="booking_keyword" placeholder="订单号" type="search" value={filters.keyword} onChange={(event) => resetPage({ keyword: event.target.value })} /></label>
                 <RemoteEntityPicker authorized contextValid={capability.moduleAvailable} invalidationKey={capability.invalidationKey} label="房源" loadOptions={loadHomestayUnitOptions} onChange={(unit) => resetPage({ unit })} value={filters.unit} />
-                <label>入住开始<input type="date" value={filters.dateFrom} onChange={(event) => resetPage({ dateFrom: event.target.value })} /></label>
-                <label>入住结束<input type="date" min={filters.dateFrom || undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
+                <label>入住开始<input name="booking_date_from" type="date" value={filters.dateFrom} onChange={(event) => resetPage({ dateFrom: event.target.value })} /></label>
+                <label>入住结束<input name="booking_date_to" type="date" min={filters.dateFrom || undefined} value={filters.dateTo} onChange={(event) => resetPage({ dateTo: event.target.value })} /></label>
               </>
             ) : null}
             {surface === "tasks" ? (
               <>
-                <label>任务来源<select value={filters.sourceType} onChange={(event) => resetPage({ sourceType: event.target.value })}><option value="">全部</option><option value="homestay_arrival">到店</option><option value="homestay_departure">离店</option><option value="homestay_turnover">周转</option></select></label>
-                <label>业务日期<input type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label>
+                <label>任务来源<select name="task_source_type" value={filters.sourceType} onChange={(event) => resetPage({ sourceType: event.target.value })}><option value="">全部</option><option value="homestay_arrival">到店</option><option value="homestay_departure">离店</option><option value="homestay_turnover">周转</option></select></label>
+                <label>业务日期<input name="task_business_date" type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label>
               </>
             ) : null}
-            {surface === "stays" ? <label>业务日期<input type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label> : null}
-            <label>业务状态<select value={filters.status} onChange={(event) => resetPage({ status: event.target.value })}><option value="">全部</option>{filterOptions(surface).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+            {surface === "stays" ? <label>业务日期<input name="stay_business_date" type="date" value={filters.businessDateValue} onChange={(event) => resetPage({ businessDateValue: event.target.value })} /></label> : null}
+            <label>业务状态<select name={`${surface}_status`} value={filters.status} onChange={(event) => resetPage({ status: event.target.value })}><option value="">全部</option>{filterOptions(surface).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
           </>
         )}
         <button className="secondary-button" type="button" onClick={() => void onRefresh()}>刷新</button>

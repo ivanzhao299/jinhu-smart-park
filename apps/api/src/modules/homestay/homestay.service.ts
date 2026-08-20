@@ -404,6 +404,22 @@ export class HomestayService {
     return this.mustStayCommands().returnCredential(scope, actor, bookingId, credentialId);
   }
 
+  async markCredentialLost(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string,
+    credentialId: string,
+    reason: string
+  ) {
+    return this.mustStayCommands().markCredentialLost(
+      scope,
+      actor,
+      bookingId,
+      credentialId,
+      reason
+    );
+  }
+
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.mustStayCommands().checkIn(scope, actor, id);
   }

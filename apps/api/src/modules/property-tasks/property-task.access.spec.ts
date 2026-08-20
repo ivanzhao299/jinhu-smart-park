@@ -25,6 +25,14 @@ const repairDescriptor: Extract<PropertyTaskSourceAccessDescriptor, { tag: "work
   queueCode: "housing_repair",
   sourceDetailPermission: "housing:repair:read"
 };
+const turnoverDescriptor: Extract<PropertyTaskSourceAccessDescriptor, { tag: "workspace" }> = {
+  ...descriptor,
+  sourceType: "homestay_turnover",
+  requiredModules: ["homestay", "asset"],
+  pagePermission: "homestay:stay:read",
+  queueCode: "homestay_turnover",
+  sourceDetailPermission: "homestay:stay:read"
+};
 const endpoint = {
   requiredPermissions: ["property_task:read"],
   authorizationAlternatives: []
@@ -275,6 +283,75 @@ describe("C4 property task access evaluator", () => {
       descriptor: repairDescriptor,
       sourceId
     }), false);
+  });
+
+  it("applies homestay turnover unit and assignee scope to task and source detail reads", async () => {
+    const evaluate = async (options: {
+      assigneeId: string | null;
+      allowedIds: readonly string[];
+      allowedUnits?: readonly string[] | null;
+      supervise?: boolean;
+    }) => {
+      const manager = {
+        transactionContext: null,
+        async query(sql: string) {
+          if (sql.includes("sys_permission")) {
+            return [
+              "property_task:read",
+              turnoverDescriptor.pagePermission,
+              turnoverDescriptor.sourceDetailPermission,
+              ...(options.supervise ? ["property_task:supervise"] : [])
+            ].map((code) => ({ code }));
+          }
+          if (sql.includes("rel_tenant_module")) {
+            return turnoverDescriptor.requiredModules.map((code) => ({ code }));
+          }
+          if (sql.includes("rel_user_park")) return [{}];
+          if (sql.includes("biz_property_task_projection")) return [{}];
+          if (sql.includes("role.data_scope")) {
+            return [{ code: "HOMESTAY_OPERATOR", isSuper: false, dataScope: "10" }];
+          }
+          if (sql.includes("biz_homestay_turnover_task")) {
+            return [{ assigneeId: options.assigneeId, unitId: "unit-a" }];
+          }
+          return [];
+        }
+      } as unknown as EntityManagerPort;
+      const evaluator = new PropertyTaskAccessEvaluatorService(
+        { buildScopeFilter: async () => ({
+          dimension: "workorder_handler",
+          unrestricted: false,
+          allowed_ids: [...options.allowedIds],
+          scope_types: ["self"]
+        }) } as never,
+        { allowedUnitIds: async () => options.allowedUnits ?? ["unit-a"] } as never
+      );
+      const read = await evaluator.authorizeTaskRead({
+        manager, scope, actor, endpoint, descriptor: turnoverDescriptor, sourceId
+      });
+      const detail = await evaluator.canReadSourceDetails({
+        manager, scope, actor, descriptor: turnoverDescriptor, sourceId
+      });
+      return { detail, read };
+    };
+
+    assert.deepEqual(await evaluate({
+      assigneeId: actor.actorId, allowedIds: [actor.actorId]
+    }), { detail: true, read: true });
+    assert.deepEqual(await evaluate({
+      assigneeId: "33333333-3333-4333-8333-333333333333", allowedIds: [actor.actorId]
+    }), { detail: false, read: false });
+    assert.deepEqual(await evaluate({
+      assigneeId: null, allowedIds: []
+    }), { detail: true, read: true });
+    assert.deepEqual(await evaluate({
+      assigneeId: "33333333-3333-4333-8333-333333333333",
+      allowedIds: [],
+      supervise: true
+    }), { detail: true, read: true });
+    assert.deepEqual(await evaluate({
+      assigneeId: actor.actorId, allowedIds: [actor.actorId], allowedUnits: ["unit-b"]
+    }), { detail: false, read: false });
   });
 
   it("preserves role fallback data scope and caches repair actor scope per transaction", async () => {

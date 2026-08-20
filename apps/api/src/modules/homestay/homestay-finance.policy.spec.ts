@@ -1,10 +1,38 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assertHomestayLedgerEntryAllowedForBookingStatus,
   assertHomestayManualLedgerMutation,
   calculateCancellableRoomCharge,
   summarizeHomestayLedger
 } from "./homestay-finance.policy";
+
+test("manual ledger status matrix fails closed for draft and terminal bookings", () => {
+  for (const status of ["confirmed", "checked_in"] as const) {
+    for (const entryType of ["charge", "payment", "refund", "waiver"] as const) {
+      assert.doesNotThrow(() =>
+        assertHomestayLedgerEntryAllowedForBookingStatus(status, entryType));
+    }
+  }
+  assert.doesNotThrow(() =>
+    assertHomestayLedgerEntryAllowedForBookingStatus("checked_out", "payment"));
+  assert.throws(() =>
+    assertHomestayLedgerEntryAllowedForBookingStatus("checked_out", "charge"));
+  for (const status of ["cancelled", "no_show"] as const) {
+    assert.throws(() =>
+      assertHomestayLedgerEntryAllowedForBookingStatus(status, "charge"));
+    assert.throws(() =>
+      assertHomestayLedgerEntryAllowedForBookingStatus(status, "payment"));
+    assert.doesNotThrow(() =>
+      assertHomestayLedgerEntryAllowedForBookingStatus(status, "refund"));
+    assert.doesNotThrow(() =>
+      assertHomestayLedgerEntryAllowedForBookingStatus(status, "waiver"));
+  }
+  for (const entryType of ["charge", "payment", "refund", "waiver"] as const) {
+    assert.throws(() =>
+      assertHomestayLedgerEntryAllowedForBookingStatus("draft", entryType));
+  }
+});
 
 test("confirmed room cancellation reverses room charges without reversing unrelated fees", () => {
   assert.equal(calculateCancellableRoomCharge([

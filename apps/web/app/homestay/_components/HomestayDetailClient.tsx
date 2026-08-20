@@ -159,7 +159,7 @@ function useReturnHref(kind: DetailKind) {
       fallbackHref: fallback,
       routes: {
         bookings: { pathTemplate: "/homestay/bookings", allowedQueryKeys: ["page", "page_size", "status", "sort", "keyword", "date_from", "date_to", "unit_id"] },
-        tasks: { pathTemplate: "/homestay/tasks", allowedQueryKeys: ["page", "page_size", "status", "source_type", "business_date", "sort"] },
+        tasks: { pathTemplate: "/homestay/tasks", allowedQueryKeys: ["page", "page_size", "status", "source_type", "business_date", "sort", "taskId", "requestId"] },
         finance: { pathTemplate: "/homestay/finance", allowedQueryKeys: ["page", "page_size", "status", "sort"] },
         stays: { pathTemplate: "/homestay/stays", allowedQueryKeys: ["page", "page_size", "queue", "business_date", "sort"] },
         turnovers: { pathTemplate: "/homestay/turnovers", allowedQueryKeys: ["page", "page_size", "status", "sort"] }

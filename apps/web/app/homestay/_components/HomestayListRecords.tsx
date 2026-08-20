@@ -120,7 +120,8 @@ function Turnovers({ data, returnContext }: { data: HomestayTurnoverListResponse
 
 function Finance({ data, returnContext }: { data: HomestayFinanceListResponse; returnContext: HomestayListReturnContext }) {
   return <PropertyResponsiveRecords<HomestayFinanceItem> items={data.items} label="民宿财务" getKey={(item) => item.bookingId} getTitle={(item) => item.bookingCode} fields={[
-    { key: "code", label: "订单号", render: (item) => item.bookingCode }, { key: "total", label: "订单金额", render: (item) => item.totalAmount ?? "未授权" },
+    { key: "code", label: "订单号", render: (item) => item.bookingCode }, { key: "status", label: "状态", render: (item) => <StatusPill value={item.bookingStatus} /> },
+    { key: "total", label: "订单金额", render: (item) => item.totalAmount ?? "未授权" },
     { key: "paid", label: "已收", render: (item) => item.paidAmount }, { key: "refund", label: "退款/减免", render: (item) => `${item.refundedAmount} / ${item.waivedAmount}` },
     { key: "balance", label: "余额", render: (item) => item.balanceAmount }
   ]} renderActions={(item) => <Link className="secondary-button" href={detailHref(`/homestay/bookings/${item.bookingId}`, returnContext) as Route}>查看订单</Link>} />;

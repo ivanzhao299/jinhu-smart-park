@@ -363,6 +363,9 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
       mutation("homestay.stays.return-credential", "POST", "/homestay/bookings/:id/credentials/:credentialId/return", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
       }),
+      mutation("homestay.stays.lose-credential", "POST", "/homestay/bookings/:id/credentials/:credentialId/lost", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE, {
+        requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
+      }),
       mutation("homestay.stays.check-in", "POST", "/homestay/bookings/:id/check-in", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_MANAGE, {
         requiredPermissions: [PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKING_READ]
       }),

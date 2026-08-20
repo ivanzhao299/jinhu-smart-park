@@ -14,6 +14,15 @@
   min-block-size: 44px;
 }
 
+@media (max-width: 767px) {
+  .accessibilitySurface :where(button, a[href], input, select, textarea, [role="button"]),
+  .responsiveRecords :where(button, a[href], input, select, textarea, [role="button"]),
+  .interactiveControl {
+    min-block-size: 44px !important;
+    min-inline-size: 44px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .accessibilitySurface *,
   .accessibilitySurface *::before,
