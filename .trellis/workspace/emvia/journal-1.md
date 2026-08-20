@@ -310,3 +310,49 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 民宿管理核查、UAT、修复与生产闭环
+
+**Date**: 2026-08-20
+**Task**: 民宿管理核查、UAT、修复与生产闭环
+**Package**: api
+**Branch**: `codex/homestay-completion-uat`
+
+### Summary
+
+完成民宿管理设计复核、跨层修复、真实 PostgreSQL API E2E、Chrome DevTools MCP 多视口 UAT、Codex review 逐条闭环、PR #331 合并及生产部署验证；main CI、Release Smoke、健康检查、Docker 清理和公开生产 UAT 全部通过，Issue #289、#325-#330 已关闭。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5686b246b3f4c4d560cb242b969bfa576181cffe` | (see git log) |
+| `c6927799bb6f73d979d1c988f2a347a436bba4a6` | (see git log) |
+| `fee7290c4c990743f895dbc2cb5db573ee39fec8` | (see git log) |
+| `5d73d81c9be8167474de2fc568b7bbc43e7d501d` | (see git log) |
+| `c0839bf71cbe9bdb908c3e8621e21abc4bf20e42` | (see git log) |
+| `7281ec9e93be90899f4d070d4c4c19b660a40269` | (see git log) |
+| `3db0b7e56f1c11234cf3f32cb32912566e294bfc` | (see git log) |
+| `47501c4761ceb7bfe93ba7b70e56e38fa687f35a` | (see git log) |
+| `89d08149978c5677fff8d1541c2e248dabf07993` | (see git log) |
+| `882c146bf4c18869d5163f5e081211e01e191bcd` | (see git log) |
+| `4039bc67a8ec4939296ec8a097d8c32dda7451f5` | (see git log) |
+| `c33e236084992841d1102b4302d2d15bf7c78dd4` | (see git log) |
+| `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
