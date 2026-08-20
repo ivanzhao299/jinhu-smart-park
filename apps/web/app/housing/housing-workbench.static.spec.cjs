@@ -192,9 +192,13 @@ test("housing list requests reject stale completions and purchase defaults use t
   assert.match(collection, /result: authorized && currentQuery \? result : null/);
   assert.match(collection, /: currentQuery \? state : \{ kind: "initial-loading" \}/);
   assert.match(collection, /const correctedPage = data\.result \? housingPageCorrection\(query\.page, data\.result\.total\) : null;/);
-  assert.match(collection, /if \(correctedPage !== null\) query\.update\(correctedPage, query\.active\)/);
+  assert.match(collection, /if \(correctedPage !== null\) query\.replace\(correctedPage, query\.active\)/);
+  assert.match(collection, /router\[replace \? "replace" : "push"\]/);
   assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.ROLE_READ, "system"\)/);
   assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE, "system"\)/);
+  assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.PERMISSION_READ, "system"\)/);
+  assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.DATA_SCOPE_READ, "system"\)/);
+  assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.FIELD_POLICY_READ, "system"\)/);
   assert.match(collectionView, /changeScopeAction=\{props\.canChangeScope/);
   assert.match(collectionView, /href="\/system\/roles"/);
   assert.match(collectionView, /请联系管理员调整数据范围/);
@@ -204,6 +208,16 @@ test("housing list requests reject stale completions and purchase defaults use t
   assert.match(purchase, /useEffect\(\(\) => setPurchaseDate\(businessDate\(\)\), \[\]\);/);
   assert.match(purchase, /value=\{purchaseDate\}/);
   assert.doesNotMatch(purchase, /toISOString\(\)/);
+});
+
+test("high-risk confirmation stays open when a housing mutation reports failure", () => {
+  const lease = read("HousingLeaseDetailClient.tsx");
+  const purchase = read("HousingEntityDetailClients.tsx");
+  const finance = read("HousingFinanceActions.tsx");
+  for (const source of [lease, purchase, finance]) {
+    assert.match(source, /return true;/);
+    assert.match(source, /return false;/);
+  }
 });
 
 test("finance selection follows the refreshed receivable set", () => {

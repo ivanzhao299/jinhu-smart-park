@@ -125,7 +125,7 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
     && purchase.paymentStatus !== "refunded"
     && data.items.some((item) => !item.transferredReceivableId);
   async function submit(operation: string, endpoint: string, body: object) {
-    if (lock.current) return;
+    if (lock.current) return false;
     lock.current = true; setBusy(true); setMessage("");
     try {
       const response = await apiRequest(endpoint, { method: "POST", token: getAccessToken(), body,
@@ -134,7 +134,8 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
       setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "申请已提交。");
       await reload();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); }
+      return true;
+    } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); return false; }
     finally { lock.current = false; setBusy(false); }
   }
   if (!lifecycleAllowed && !transferAllowed) return null;

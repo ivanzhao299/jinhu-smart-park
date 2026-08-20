@@ -125,8 +125,10 @@ export function HousingFinanceActions({
       setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "普通财务流水已登记。");
       formElement?.reset();
       await reload();
+      return true;
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "财务登记失败");
+      return false;
     } finally {
       lock.current = false;
       setSubmitting(false);

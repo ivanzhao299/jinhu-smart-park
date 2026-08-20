@@ -31,16 +31,22 @@
 
 | 场景 | 结果 | 证据 |
 |---|---|---|
-| desktop 1440×1000 采购列表 | PASS | 正常列表、分页、详情深链；本地截图 `desktop-purchases.png` |
+| desktop 1440×1000 采购列表 | PASS | 正常列表、分页、详情深链；[截图](../../../../artifacts/issue-336-uat/desktop-purchases.png) |
 | URL 越界页 | PASS | `/housing/purchases?page=9` 自动收敛为 `/housing/purchases`，显示 `1/1` |
 | 高风险确认 | PASS | 采购审批先打开共享模态框；展示稳定对象、后果、结果状态和必填原因；未填原因时确认按钮 disabled |
 | 键盘/焦点 | PASS | Escape 关闭模态框，焦点恢复到“提交审批”触发按钮 |
-| mobile 390×844 列表 | PASS | `visibleTables=0`、`visibleMobileRecords=2`、无横向溢出；本地截图 `mobile-purchases.png` |
-| mobile 390×844 详情/模态框 | PASS | document 无横向溢出；dialog `left=0,right=356,width=356`，完整位于 390px viewport；本地截图 `mobile-purchase-detail.png` |
+| mobile 390×844 列表 | PASS | `visibleTables=0`、`visibleMobileRecords=2`、无横向溢出；[截图](../../../../artifacts/issue-336-uat/mobile-purchases.png) |
+| mobile 390×844 详情/模态框 | PASS | document 无横向溢出；dialog `left=0,right=356,width=356`，完整位于 390px viewport；[截图](../../../../artifacts/issue-336-uat/mobile-purchase-detail.png) |
 | 浏览器网络/console | PASS with note | 业务 document/fetch 均 200；无 error；仅 Next.js CSS preload 未使用警告 |
 | Lighthouse mobile snapshot | PASS | Accessibility 100，Best Practices 100；SEO 83、Agentic Browsing 50 不属于本次住房业务阻断 |
 
 浏览器创建了一个仅存在于一次性数据库的采购草稿，用于验证高风险确认框；环境已连同数据库和文件卷销毁。
+
+截图已随候选版本保存在 `artifacts/issue-336-uat/`，完整性摘要如下：
+
+- `desktop-purchases.png`: `21253d5ad79e58f4443e690daa19dcdbbfc981c5dcfcdc0733661e29e5db7934`
+- `mobile-purchases.png`: `b895ab3d05c3df15c9cf70a65c498cf060b966bb5a197edfad0a6df034254d08`
+- `mobile-purchase-detail.png`: `603c167b0d8e02a6daacada98eeff643bcc4a194f5807bb57b7c65a31fb179dd`
 
 ## 状态边界
 

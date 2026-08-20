@@ -44,13 +44,19 @@ function useCollectionQuery(filters: readonly HousingFilterDefinition[], route: 
   ])), [filters, searchParams]);
   const [draft, setDraft] = useState(active);
   useEffect(() => setDraft(active), [active]);
-  const update = useCallback((nextPage: number, values: Record<string, string>) => {
+  const navigate = useCallback((nextPage: number, values: Record<string, string>, replace = false) => {
     const query = new URLSearchParams();
     if (nextPage > 1) query.set("page", String(nextPage));
     Object.entries(values).forEach(([key, value]) => { if (value) query.set(key, value); });
-    router.push(routeWithSearch(route, query));
+    router[replace ? "replace" : "push"](routeWithSearch(route, query));
   }, [route, router]);
-  return { active, draft, page, query: Object.fromEntries(searchParams.entries()), setDraft, update };
+  const update = useCallback((nextPage: number, values: Record<string, string>) => {
+    navigate(nextPage, values);
+  }, [navigate]);
+  const replace = useCallback((nextPage: number, values: Record<string, string>) => {
+    navigate(nextPage, values, true);
+  }, [navigate]);
+  return { active, draft, page, query: Object.fromEntries(searchParams.entries()), replace, setDraft, update };
 }
 
 function failureState(error: unknown, cached: boolean): PropertyPageState {
@@ -106,7 +112,10 @@ function useCollectionData<T>(input: {
   const currentQuery = resultQueryKey.current === input.queryKey;
   return {
     canChangeScope: hasAccess(user, SYSTEM_PERMISSIONS.ROLE_READ, "system")
-      && hasAccess(user, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, "system"),
+      && hasAccess(user, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, "system")
+      && hasAccess(user, SYSTEM_PERMISSIONS.PERMISSION_READ, "system")
+      && hasAccess(user, SYSTEM_PERMISSIONS.DATA_SCOPE_READ, "system")
+      && hasAccess(user, SYSTEM_PERMISSIONS.FIELD_POLICY_READ, "system"),
     capabilities,
     load,
     result: authorized && currentQuery ? result : null,
@@ -133,8 +142,8 @@ export function HousingCollectionPage<T>(props: HousingCollectionPageProps<T>) {
   const correctedPage = data.result ? housingPageCorrection(query.page, data.result.total) : null;
   const pageOutOfRange = correctedPage !== null;
   useEffect(() => {
-    if (correctedPage !== null) query.update(correctedPage, query.active);
-  }, [correctedPage, query.active, query.update]);
+    if (correctedPage !== null) query.replace(correctedPage, query.active);
+  }, [correctedPage, query.active, query.replace]);
   return <HousingCollectionView
     {...props} {...data} {...query} filters={filters}
     result={pageOutOfRange ? null : data.result}

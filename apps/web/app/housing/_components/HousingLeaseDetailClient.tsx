@@ -36,7 +36,7 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const idempotency = useStableIdempotency();
   async function run(action: "submit" | "activate" | "approve" | "void" | "checkout", reason?: string) {
     const operation = `housing-lease-${action}`;
-    if (lock.current || !capabilities.actionAllowed(`housing.leases.${action}`)) return;
+    if (lock.current || !capabilities.actionAllowed(`housing.leases.${action}`)) return false;
     lock.current = true; setBusy(true); setFeedback("");
     try {
       const body = action === "approve"
@@ -52,8 +52,10 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
       setFeedback(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。`
         : action === "submit" ? "租约已提交。" : "租约已生效。");
       await reload();
+      return true;
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "操作失败");
+      return false;
     } finally {
       lock.current = false; setBusy(false);
     }
