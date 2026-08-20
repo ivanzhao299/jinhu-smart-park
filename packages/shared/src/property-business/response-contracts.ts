@@ -1,4 +1,4 @@
-import type { PaginatedResult } from "../index";
+import type { HomestayBookingStatus, PaginatedResult } from "../index";
 
 /**
  * Stable property-workbench HTTP projections.
@@ -293,6 +293,7 @@ export type HousingTaskListResponse =
 export interface HomestayFinanceItem {
   bookingId: string;
   bookingCode: string;
+  bookingStatus: HomestayBookingStatus;
   totalAmount?: string;
   paidAmount: string;
   refundedAmount: string;

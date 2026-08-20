@@ -31,7 +31,8 @@ export function propertyRuntimeDetailHref(
     route: module === "homestay" ? "tasks" : "/housing/tasks",
     query
   });
-  return `${href}${href.includes("?") ? "&" : "?"}returnTo=${returnTo}`;
+  const outerQuery = new URLSearchParams({ returnTo });
+  return `${href}${href.includes("?") ? "&" : "?"}${outerQuery.toString()}`;
 }
 
 export function parsePropertyRuntimeTarget(input: {

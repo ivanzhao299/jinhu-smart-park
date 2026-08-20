@@ -60,6 +60,21 @@ test("runtime detail links carry a structured return to the current task surface
   }
 });
 
+test("runtime return context preserves literal percent sequences through URL parsing", () => {
+  for (const keyword of ["100%", "100%20", "100%25"]) {
+    const href = propertyRuntimeDetailHref(
+      "/property/approvals/request-1",
+      "housing_rental",
+      new URLSearchParams({ page: "2", keyword }).toString()
+    );
+    const encoded = new URL(href, "https://workbench.local").searchParams.get("returnTo");
+    assert.deepEqual(decodeReturnContext(encoded ?? ""), {
+      route: "/housing/tasks",
+      query: { page: "2", keyword }
+    });
+  }
+});
+
 test("task mutation carries the stable client key in both body and idempotency header option", () => {
   const request = buildPropertyTaskMutationRequest({
     taskId: "task/one",

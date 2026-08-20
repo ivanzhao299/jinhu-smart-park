@@ -318,6 +318,7 @@ test("finance uses fixed item/count statements and keeps all money as decimal st
       return [{
         bookingId: "booking-1",
         bookingCode: "HS-1",
+        bookingStatus: "checked_out",
         totalAmount: "100",
         paidAmount: "80",
         refundedAmount: "5",
@@ -339,6 +340,7 @@ test("finance uses fixed item/count statements and keeps all money as decimal st
   assert.deepEqual(result.items[0], {
     bookingId: "booking-1",
     bookingCode: "HS-1",
+    bookingStatus: "checked_out",
     totalAmount: "100.00",
     paidAmount: "80.00",
     refundedAmount: "5.00",
@@ -349,6 +351,7 @@ test("finance uses fixed item/count statements and keeps all money as decimal st
     "balanceAmount",
     "bookingCode",
     "bookingId",
+    "bookingStatus",
     "paidAmount",
     "refundedAmount",
     "totalAmount",

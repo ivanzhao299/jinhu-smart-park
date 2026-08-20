@@ -7,6 +7,7 @@ import {
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   homestayErrorMessage,
+  homestayFinanceEntryTypes,
   homestayRateWorkspaceKey,
   homestayRateWindow,
   homestaySurfaceQueryKey,
@@ -73,6 +74,22 @@ test("booking setup and occupancy conflicts are translated into actionable Chine
   );
   assert.equal(homestayErrorMessage(new Error("网络异常"), "创建失败"), "网络异常");
   assert.equal(homestayErrorMessage(null, "创建失败"), "创建失败");
+});
+
+test("finance entry choices mirror the booking status matrix", () => {
+  const all = { ordinary: true, refund: true, waiver: true };
+  assert.deepEqual(homestayFinanceEntryTypes("draft", all), []);
+  assert.deepEqual(homestayFinanceEntryTypes("confirmed", all),
+    ["payment", "charge", "refund", "waiver"]);
+  assert.deepEqual(homestayFinanceEntryTypes("checked_in", all),
+    ["payment", "charge", "refund", "waiver"]);
+  assert.deepEqual(homestayFinanceEntryTypes("checked_out", all),
+    ["payment", "refund", "waiver"]);
+  assert.deepEqual(homestayFinanceEntryTypes("cancelled", all), ["refund", "waiver"]);
+  assert.deepEqual(homestayFinanceEntryTypes("no_show", all), ["refund", "waiver"]);
+  assert.deepEqual(homestayFinanceEntryTypes("checked_out", {
+    ordinary: false, refund: true, waiver: false
+  }), ["refund"]);
 });
 
 test("landing requires active modules and selects the first granular page only", () => {

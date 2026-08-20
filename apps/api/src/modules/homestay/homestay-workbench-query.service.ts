@@ -282,6 +282,7 @@ export class HomestayWorkbenchQueryService {
       ) as Promise<Array<{
       bookingId: string;
       bookingCode: string;
+      bookingStatus: HomestayFinanceListResponse["items"][number]["bookingStatus"];
       totalAmount: string;
       paidAmount: string;
       refundedAmount: string;
@@ -297,6 +298,7 @@ export class HomestayWorkbenchQueryService {
       items: rows.map((row) => ({
         bookingId: row.bookingId,
         bookingCode: row.bookingCode,
+        bookingStatus: row.bookingStatus,
         totalAmount: formatHomestayMoney(row.totalAmount),
         paidAmount: formatHomestayMoney(row.paidAmount),
         refundedAmount: formatHomestayMoney(row.refundedAmount),
@@ -478,6 +480,7 @@ export class HomestayWorkbenchQueryService {
     const extraWhere = filters.length ? ` AND ${filters.join(" AND ")}` : "";
     return `WITH finance AS (
       SELECT booking.id AS "bookingId", booking.booking_code AS "bookingCode",
+      booking.status AS "bookingStatus",
       booking.total_amount::text AS "totalAmount",
       COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'payment'
         AND entry.status = 'confirmed'), 0)::text AS "paidAmount",
@@ -499,7 +502,7 @@ export class HomestayWorkbenchQueryService {
       AND entry.is_deleted = false
     WHERE booking.tenant_id = $1 AND booking.park_id = $2
       AND booking.is_deleted = false${extraWhere}
-    GROUP BY booking.id, booking.booking_code, booking.total_amount, booking.create_time
+    GROUP BY booking.id, booking.booking_code, booking.status, booking.total_amount, booking.create_time
     )`;
   }
 
@@ -509,7 +512,7 @@ export class HomestayWorkbenchQueryService {
     offsetIndex: number
   ): string {
     return `${this.financeCteSql(filters)}
-      SELECT "bookingId", "bookingCode", "totalAmount", "paidAmount",
+      SELECT "bookingId", "bookingCode", "bookingStatus", "totalAmount", "paidAmount",
              "refundedAmount", "waivedAmount", "balanceAmount"
       FROM finance
       ORDER BY "createTime" DESC, "bookingId" ASC

@@ -1,6 +1,8 @@
 import type {
   HomestayAvailabilityListResponse,
   HomestayAvailabilityResponse,
+  HomestayBookingStatus,
+  HomestayLedgerEntryType,
   UserContext
 } from "@jinhu/shared";
 import type {
@@ -31,6 +33,24 @@ export function homestayErrorMessage(error: unknown, fallback: string): string {
   const rawMessage = error instanceof Error ? error.message.trim() : "";
   return (HOMESTAY_ERROR_MESSAGES.find(({ pattern }) => pattern.test(rawMessage))?.message
     ?? rawMessage) || fallback;
+}
+
+export function homestayFinanceEntryTypes(
+  bookingStatus: HomestayBookingStatus | null,
+  permissions: { ordinary: boolean; refund: boolean; waiver: boolean }
+): HomestayLedgerEntryType[] {
+  const statusAllowed: readonly HomestayLedgerEntryType[] = bookingStatus === null
+    ? ["payment", "charge", "refund", "waiver"]
+    : bookingStatus === "confirmed" || bookingStatus === "checked_in"
+      ? ["payment", "charge", "refund", "waiver"]
+      : bookingStatus === "checked_out"
+        ? ["payment", "refund", "waiver"]
+        : bookingStatus === "cancelled" || bookingStatus === "no_show"
+          ? ["refund", "waiver"]
+          : [];
+  return statusAllowed.filter((entryType) => entryType === "refund"
+    ? permissions.refund
+    : entryType === "waiver" ? permissions.waiver : permissions.ordinary);
 }
 
 export function isMissingHomestayRateConfiguration(error: unknown): boolean {

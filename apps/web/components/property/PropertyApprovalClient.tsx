@@ -10,6 +10,7 @@ import { getAccessToken } from "../../lib/authz";
 import { PropertyPageSurface, PropertyPanelSurface } from "../../features/property-shared";
 import styles from "./PropertyControlPlane.module.css";
 import {
+  propertyApprovalPageFromQuery,
   propertyApprovalListQuery,
   propertyApprovalPageCount
 } from "./property-approval-list.logic";
@@ -40,7 +41,9 @@ interface ApprovalDetail {
 }
 
 export function PropertyApprovalListClient() {
-  const [page, setPage] = useState(1);
+  const searchParams = useSearchParams();
+  const queryPage = propertyApprovalPageFromQuery(searchParams.get("page"));
+  const [page, setPage] = useState(queryPage);
   const [data, setData] = useState<PropertyPaginatedResult<ApprovalSummary> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,10 +68,11 @@ export function PropertyApprovalListClient() {
     }
   }, [page]);
   useEffect(() => void load(), [load]);
+  useEffect(() => setPage(queryPage), [queryPage]);
   const pages = propertyApprovalPageCount(data?.total ?? 0);
   useEffect(() => {
-    if (page > pages) setPage(pages);
-  }, [page, pages]);
+    if (data && page > pages) setPage(pages);
+  }, [data, page, pages]);
   return <PropertyPageSurface className={styles.stack}>
     <header className="ds-hero"><div className="ds-hero-copy"><p className="ds-kicker">共享房产控制面</p>
       <h1>房产业务审批</h1><p>查看审批决定与领域效果执行的独立状态。</p></div></header>
