@@ -348,6 +348,8 @@ export default function UnitStatusBoardPage() {
       boardRequestSequence.current += 1;
       lookupRequestSequence.current += 1;
       await switchToPark(targetParkId);
+      boardRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
       setFilters({ buildingId: "", rentalStatus: "" });
       setSelected(null);
       setBoard({ buildings: [] });

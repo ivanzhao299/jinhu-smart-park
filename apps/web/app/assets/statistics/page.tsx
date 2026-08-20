@@ -183,6 +183,8 @@ export default function AssetStatisticsPage() {
       statsRequestSequence.current += 1;
       lookupRequestSequence.current += 1;
       await switchToPark(targetParkId);
+      statsRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
       setFilters({ buildingId: "", floorId: "", usageType: "" });
       setStats(emptyStats);
       setBuildings([]);

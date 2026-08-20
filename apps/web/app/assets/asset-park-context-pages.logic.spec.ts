@@ -18,6 +18,7 @@ test("asset board and statistics pages expose authenticated park context switchi
     assert.match(source, /setParkReloadKey\(\(value\) => value \+ 1\)/);
     assert.match(source, /RequestSequence = useRef\(0\)/);
     assert.match(source, /sequence === .*RequestSequence\.current/);
+    assert.match(source, /await switchToPark\(targetParkId\);[\s\S]*RequestSequence\.current \+= 1/);
     assert.match(source, /catch \(error\)[\s\S]*setParkReloadKey\(\(value\) => value \+ 1\)/);
     assert.doesNotMatch(source, /params\.set\("parkId"/);
     assert.doesNotMatch(source, /params\.set\("park_id"/);
