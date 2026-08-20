@@ -217,6 +217,10 @@ test("high-risk confirmation stays open when a housing mutation reports failure"
   for (const source of [lease, purchase, finance]) {
     assert.match(source, /return true;/);
     assert.match(source, /return false;/);
+    assert.match(source, /succeeded/);
+    assert.match(source, /数据刷新失败/);
+    assert.match(source, /role="alert"/);
+    assert.match(source, /dialogError/);
   }
 });
 

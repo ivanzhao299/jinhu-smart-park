@@ -29,6 +29,7 @@ export function HousingFinanceActions({
   reload(): Promise<void>;
 }) {
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [pendingBody, setPendingBody] = useState<ReturnType<typeof financeBody> | null>(null);
   const pendingForm = useRef<HTMLFormElement | null>(null);
@@ -105,6 +106,7 @@ export function HousingFinanceActions({
     const body = financeBody(form);
     if (highRiskEntry) {
       pendingForm.current = formElement;
+      setDialogError("");
       setPendingBody(body);
       return;
     }
@@ -114,20 +116,31 @@ export function HousingFinanceActions({
   async function execute(body: ReturnType<typeof financeBody>, formElement: HTMLFormElement | null) {
     lock.current = true;
     setSubmitting(true);
+    setDialogError("");
+    let succeeded = false;
+    let successMessage = highRiskEntry ? "财务审批申请已提交。" : "普通财务流水已登记。";
     try {
       const response = await apiRequest(`/housing/leases/${encodeURIComponent(item.lease.id)}/ledger`, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: idempotency.keyFor("housing-ledger-register", body), body
       });
+      succeeded = true;
       idempotency.complete("housing-ledger-register");
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "普通财务流水已登记。");
+      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      setMessage(successMessage);
       formElement?.reset();
       await reload();
       return true;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "财务登记失败");
+      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "财务登记失败";
+      if (succeeded) {
+        setMessage(`${successMessage} 数据刷新失败：${detail}`);
+        return true;
+      }
+      setMessage(detail);
+      if (highRiskEntry) setDialogError(detail);
       return false;
     } finally {
       lock.current = false;
@@ -162,7 +175,7 @@ export function HousingFinanceActions({
           ? execute({ ...pendingBody, reason: reason ?? "" }, pendingForm.current)
           : undefined}
         onOpenChange={(open) => {
-          if (!open) { setPendingBody(null); pendingForm.current = null; }
+          if (!open) { setPendingBody(null); pendingForm.current = null; setDialogError(""); }
         }}
         open={pendingBody !== null}
         reasonPolicy={{ kind: "required", label: "财务操作原因", minLength: 1, maxLength: 500 }}
@@ -174,7 +187,9 @@ export function HousingFinanceActions({
             : item.lease.leaseCode
         }}
         title="确认高风险财务操作"
-      />
+      >
+        {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+      </ConsequenceDialog>
       <MutationFeedback message={message} />
     </>
   );

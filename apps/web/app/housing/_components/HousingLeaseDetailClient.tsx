@@ -28,6 +28,7 @@ interface LeaseContextProps {
 
 function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const [feedback, setFeedback] = useState("");
+  const [dialogError, setDialogError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingHighRisk, setPendingHighRisk] = useState<{
     action: "approve" | "void" | "checkout"; label: string;
@@ -37,7 +38,9 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   async function run(action: "submit" | "activate" | "approve" | "void" | "checkout", reason?: string) {
     const operation = `housing-lease-${action}`;
     if (lock.current || !capabilities.actionAllowed(`housing.leases.${action}`)) return false;
-    lock.current = true; setBusy(true); setFeedback("");
+    lock.current = true; setBusy(true); setFeedback(""); setDialogError("");
+    let succeeded = false;
+    let successMessage = "";
     try {
       const body = action === "approve"
         ? { approval_note: reason?.trim() || undefined }
@@ -47,14 +50,23 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
         idempotencyKey: idempotency.keyFor(operation, { action, leaseId: data.lease.id, body }),
         ...(body ? { body } : {})
       });
+      succeeded = true;
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setFeedback(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。`
-        : action === "submit" ? "租约已提交。" : "租约已生效。");
+      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。`
+        : action === "submit" ? "租约已提交。"
+          : action === "activate" ? "租约已生效。" : "租约审批申请已提交。";
+      setFeedback(successMessage);
       await reload();
       return true;
     } catch (error) {
-      setFeedback(error instanceof Error ? error.message : "操作失败");
+      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "操作失败";
+      if (succeeded) {
+        setFeedback(`${successMessage} 数据刷新失败：${detail}`);
+        return true;
+      }
+      setFeedback(detail);
+      setDialogError(detail);
       return false;
     } finally {
       lock.current = false; setBusy(false);
@@ -97,17 +109,19 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
       </div>
       {highRiskActions.length ? <div className={styles.actionBar}>{highRiskActions.map(([action, label]) =>
         <button className="ds-button" disabled={busy} key={action}
-          onClick={() => setPendingHighRisk({ action, label })} type="button">{label}</button>)}</div> : null}
+          onClick={() => { setDialogError(""); setPendingHighRisk({ action, label }); }} type="button">{label}</button>)}</div> : null}
       <ConsequenceDialog actionLabel={pendingHighRisk?.label ?? "确认提交"} busy={busy}
         consequences={["本次操作只提交审批申请，不会立即改变租约或财务状态。", "审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。"]}
         onConfirm={(reason) => pendingHighRisk ? run(pendingHighRisk.action, reason) : undefined}
-        onOpenChange={(open) => { if (!open) setPendingHighRisk(null); }}
+        onOpenChange={(open) => { if (!open) { setPendingHighRisk(null); setDialogError(""); } }}
         open={pendingHighRisk !== null}
         reasonPolicy={{ kind: "required", label: "审批说明 / 原因", minLength: 1, maxLength: 500 }}
         resultingState="审批申请待处理"
         target={{ id: data.lease.id, label: data.lease.leaseCode }}
         title={pendingHighRisk ? `确认${pendingHighRisk.label}` : "确认租约操作"}
-      />
+      >
+        {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+      </ConsequenceDialog>
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
     </PropertyPanelSurface>
   );

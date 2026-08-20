@@ -102,6 +102,7 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
   const [dueDate, setDueDate] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingLifecycle, setPendingLifecycle] = useState<{
     action: string; label: string;
@@ -126,23 +127,31 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
     && data.items.some((item) => !item.transferredReceivableId);
   async function submit(operation: string, endpoint: string, body: object) {
     if (lock.current) return false;
-    lock.current = true; setBusy(true); setMessage("");
+    lock.current = true; setBusy(true); setMessage(""); setDialogError("");
+    let succeeded = false;
+    let successMessage = "申请已提交。";
     try {
       const response = await apiRequest(endpoint, { method: "POST", token: getAccessToken(), body,
         idempotencyKey: idempotency.keyFor(operation, body) });
+      succeeded = true;
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "申请已提交。");
+      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      setMessage(successMessage);
       await reload();
       return true;
-    } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); return false; }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "提交失败";
+      if (succeeded) { setMessage(`${successMessage} 数据刷新失败：${detail}`); return true; }
+      setMessage(detail); setDialogError(detail); return false;
+    }
     finally { lock.current = false; setBusy(false); }
   }
   if (!lifecycleAllowed && !transferAllowed) return null;
   return <PropertyPanelSurface title="采购高风险操作" description="提交后进入审批，不会直接改变付款或收费状态。">
     <div className={styles.stack}>
       {lifecycleAllowed ? <div className="ds-action-bar">{actions.map(([action, label]) => <button className="ds-button" disabled={busy}
-        key={action} onClick={() => setPendingLifecycle({ action, label })} type="button">{label}</button>)}</div> : null}
+        key={action} onClick={() => { setDialogError(""); setPendingLifecycle({ action, label }); }} type="button">{label}</button>)}</div> : null}
       {transferAllowed ? <div className={styles.formGrid}>
         <fieldset><legend>选择转收费明细</legend>{data.items.filter((item) => !item.transferredReceivableId).map((item) =>
           <label key={item.id}><input checked={selectedItemIds.includes(item.id)} onChange={(event) => setSelectedItemIds((current) =>
@@ -153,7 +162,7 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
           loadOptions={loadHousingLeases} onChange={setLease} required value={lease} />
         <label>应收日期<input required type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
         <button className="ds-button" disabled={busy || !lease || !dueDate || !selectedItemIds.length}
-          onClick={() => setTransferOpen(true)} type="button">核对并提交转收费审批</button>
+          onClick={() => { setDialogError(""); setTransferOpen(true); }} type="button">核对并提交转收费审批</button>
       </div> : null}
       <p aria-live="polite">{message}</p>
     </div>
@@ -167,13 +176,15 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
           { action: pendingLifecycle.action, reason }
         );
       }}
-      onOpenChange={(open) => { if (!open) setPendingLifecycle(null); }}
+      onOpenChange={(open) => { if (!open) { setPendingLifecycle(null); setDialogError(""); } }}
       open={pendingLifecycle !== null}
       reasonPolicy={{ kind: "required", label: "操作原因", minLength: 1, maxLength: 500 }}
       resultingState="审批申请待处理"
       target={{ id: purchase.id, label: purchase.purchaseCode }}
       title={pendingLifecycle ? `确认${pendingLifecycle.label}` : "确认采购操作"}
-    />
+    >
+      {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+    </ConsequenceDialog>
     <ConsequenceDialog actionLabel="确认提交转收费审批" busy={busy}
       consequences={[
         `将提交 ${selectedItemIds.length} 条采购明细的转收费审批，不会立即生成租客应收。`,
@@ -184,13 +195,15 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
         `/housing/purchases/${encodeURIComponent(purchase.id)}/transfer`,
         { lease_id: lease?.id, due_date: dueDate, reason, item_ids: selectedItemIds }
       )}
-      onOpenChange={setTransferOpen}
+      onOpenChange={(open) => { setTransferOpen(open); if (!open) setDialogError(""); }}
       open={transferOpen && lease !== null && dueDate !== "" && selectedItemIds.length > 0}
       reasonPolicy={{ kind: "required", label: "转收费原因", minLength: 1, maxLength: 500 }}
       resultingState="转收费审批申请待处理"
       target={{ id: purchase.id, label: purchase.purchaseCode }}
       title="确认采购成本转租客收费"
-    />
+    >
+      {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+    </ConsequenceDialog>
   </PropertyPanelSurface>;
 }
 
