@@ -2,8 +2,8 @@
 
 > 初始执行日期：2026-07-24；本轮闭环复验：2026-08-20
 > 本轮执行分支：`codex/homestay-completion-uat`
-> 本轮候选 SHA：`4039bc67a8ec4939296ec8a097d8c32dda7451f5`
-> 证据状态：隔离真实 API E2E 与 Chrome DevTools MCP 本地 UAT 通过；生产发布状态以关联 PR 为准
+> 最终复审候选 SHA：`8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；合并后 main SHA：`619b8d20e891c74f69abcc9c908666034c37c648`
+> 证据状态：隔离真实 API E2E、Chrome DevTools MCP 本地 UAT、PR/main CI、Release Smoke、生产健康检查、Docker 清理与公开生产保护账号校验全部通过；真人岗位 UAT 仍待外部执行
 
 ## 1. 覆盖范围
 
@@ -86,7 +86,14 @@ SQL 回归已覆盖：
 - 自动化门禁：全仓 `test:unit`、lint、typecheck、build、民宿 API E2E 契约和 `git diff --check` 全部通过。
 - 清理验证：隔离测试容器、网络、数据卷、临时文件目录和诊断文件残留均为零。
 
-## 6. 当前验证边界
+## 6. 最终候选与发布验证
+
+- 最终增量：`8012b854` 相对完整 API/浏览器证据仅调整共享运行时的加载与 mutation 竞态保护；最终候选上的 Web property 契约 19/19、Web lint、Web typecheck 和 `git diff --check` 通过。
+- Review/PR：Codex 对 `8012b854` 明确确认无重大问题；PR #331 的 CI 与 Release Smoke 全绿并合并。
+- Main CI：run `32340203702` 全绿，覆盖 lint、typecheck、单测、构建、迁移、生产种子、登录、Property API E2E、日志上传与测试容器清理。
+- Production：Deploy Production run `32340203683` 成功；完整健康检查和 API liveness 通过，Docker unused images/build cache 清理完成，6 个受保护账号经公开生产地址校验全部 PASS。
+
+## 7. 当前验证边界
 
 本轮是隔离本地真实数据库/API 与真实浏览器验收，不等同于业务人员在目标生产数据上的签字验收。
-生产可发布性仍需关联 PR 的 CI、最新 Codex review、合并后生产部署、健康检查和 Release Smoke 全部成功。
+技术发布链已经完成，但不能替代 PR192 真人岗位泳道。仍需外部 UAT coordinator：准备并证明隔离 UAT 环境、角色账号和合成数据；通过批准渠道分发账号；冻结同一候选 SHA 下的 task-card、样本和 success/p90/interaction/error 阈值；每岗位至少招募 5 名真人代表、每人执行 4 个标准任务并覆盖桌面/390px；填写观察与缺陷台账；由产品/运营、业务、财务、安全、技术/运维和发布负责人作出具名签署与发布批准。在这些 H0/H1/H2 门槛完成前保持 `uat_pending/awaiting_human_gate`。

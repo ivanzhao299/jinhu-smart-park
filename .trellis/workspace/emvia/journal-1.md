@@ -19,11 +19,7 @@
 
 ### Main Changes
 
-- 修复民宿任务 assignee/房源范围、任务详情授权与列表/count 一致性。
-- 补齐订单/住客/财务状态矩阵、候选最小披露、退款/减免审批及敏感响应边界。
-- 完成任务/审批深链、结构化返回、分页恢复和加载/mutation 竞态保护。
-- 完成凭证遗失审计、周转异常工单关联及不可售门禁；无跨模块事务合同的自动建单继续 fail-closed。
-- 将民宿与共享房产 Web 回归纳入默认门禁，同步 UAT 证据与正式验收矩阵。
+(Add details)
 
 ### Git Commits
 
@@ -33,14 +29,7 @@
 
 ### Testing
 
-- [OK] `pnpm test:unit`、`pnpm lint`、`pnpm typecheck`、`pnpm build` 在 PR #331 修复阶段全绿。
-- [OK] 最终候选 `8012b854`：`pnpm --filter @jinhu/web test:unit:property` 19/19、Web lint、Web typecheck、`git diff --check` 通过。
-- [OK] PostgreSQL 16 真实 API E2E 覆盖并发下单、改期、no-show、退款/减免、凭证、文件、跨角色/园区，隔离资源 residual=0。
-- [OK] Chrome DevTools MCP：1440×900、768×900、390×844、360×800，以及键盘、焦点、审批 page=2、财务状态选项和移动端无溢出通过。
-- [OK] PR #331 Codex 最终复审无重大问题；PR head CI/Release Smoke 全绿。
-- [OK] main CI run `32340203702` 全绿；Deploy Production run `32340203683` 的完整健康检查、API liveness、Docker unused images/build cache 清理和 6 个受保护账号公开生产校验全部 PASS。
-- [SKIP] 最终两个提交仅修改共享 Web 运行时竞态保护，未重复执行已通过且不受影响的完整 PostgreSQL API E2E；以最终 Web 契约/lint/typecheck、main Release Smoke 和生产公开校验覆盖增量风险。
-- Remaining risks: 真人岗位具名签署仍保持 `uat_pending/awaiting_human_gate`；缺少跨模块事务/唯一业务键合同的民宿异常自动建维修工单继续 fail-closed，并明确为后续合同项。
+- [OK] (Add test results)
 
 ### Status
 
@@ -48,7 +37,7 @@
 
 ### Next Steps
 
-- 自动化开发与发布闭环已完成；由业务负责人另行执行真人岗位具名签署。
+- None - task complete
 
 
 ## Session 2: 处理 PR214 Codex Review P1
@@ -336,7 +325,11 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 ### Main Changes
 
-(Add details)
+- 修复民宿任务 assignee/房源范围、任务详情授权与列表/count 一致性。
+- 补齐订单/住客/财务状态矩阵、候选最小披露、退款/减免审批及敏感响应边界。
+- 完成任务/审批深链、结构化返回、分页恢复和加载/mutation 竞态保护。
+- 完成凭证遗失审计、周转异常工单关联及不可售门禁；无跨模块事务合同的自动建单继续 fail-closed。
+- 将民宿与共享房产 Web 回归纳入默认门禁，同步 UAT 证据与正式验收矩阵。
 
 ### Git Commits
 
@@ -358,7 +351,14 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `pnpm test:unit`、`pnpm lint`、`pnpm typecheck`、`pnpm build` 在 PR #331 修复阶段全绿。
+- [OK] 最终候选 `8012b854`：`pnpm --filter @jinhu/web test:unit:property` 19/19、Web lint、Web typecheck、`git diff --check` 通过。
+- [OK] PostgreSQL 16 真实 API E2E 覆盖并发下单、改期、no-show、退款/减免、凭证、文件、跨角色/园区，隔离资源 residual=0。
+- [OK] Chrome DevTools MCP：1440×900、768×900、390×844、360×800，以及键盘、焦点、审批 page=2、财务状态选项和移动端无溢出通过。
+- [OK] PR #331 Codex 最终复审无重大问题；PR head CI/Release Smoke 全绿。
+- [OK] main CI run `32340203702` 全绿；Deploy Production run `32340203683` 的完整健康检查、API liveness、Docker unused images/build cache 清理和 6 个受保护账号公开生产校验全部 PASS。
+- [SKIP] 最终两个提交仅修改共享 Web 运行时竞态保护，未重复执行已通过且不受影响的完整 PostgreSQL API E2E；以最终 Web 契约/lint/typecheck、main Release Smoke 和生产公开校验覆盖增量风险。
+- Remaining risks: 真人岗位 UAT 的隔离环境/账号分发、任务卡与阈值冻结、每岗位至少 5 名真人代表执行、观察台账、具名签署和发布批准仍保持 `uat_pending/awaiting_human_gate`；缺少跨模块事务/唯一业务键合同的民宿异常自动建维修工单继续 fail-closed。
 
 ### Status
 
@@ -366,4 +366,4 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 ### Next Steps
 
-- None - task complete
+- 自动化开发与发布闭环已完成；由外部 UAT coordinator 与业务/财务/安全/运维/发布负责人执行完整真人岗位 UAT 和具名签署。
