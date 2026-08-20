@@ -131,6 +131,7 @@ YUZHOU_MIGRATION_RUN_ID=<safe-run-id> \
 YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_<safe_suffix> \
 YUZHOU_BACKUP_SHA256=<lowercase-sha256> \
 pnpm hr:migration:sqlserver:restore
+ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<safe-run-id> pnpm hr:migration:t0:extract
 POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 ```
 
@@ -146,6 +147,8 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 - `YUZHOU_BACKUP_SET` is optional, defaults to `1`, and is an integer from 1 through 999. The command runs `RESTORE HEADERONLY`, `RESTORE VERIFYONLY`, and `RESTORE FILELISTONLY` before constructing explicit data/log `MOVE` paths.
 - The target container must be healthy and carry Compose project label `jinhu_yuzhou_migration_lab`. After restoration the database is set `READ_ONLY`, a catalog summary is written below the ignored import-report directory, and temporary SQL/backup copies inside the container are removed.
 - Every mutable target run uses an isolated database name, unique run id, loopback connections, and explicit `ALLOW_YUZHOU_MIGRATION=yes` gate.
+- T0 extraction refuses `sa`, requires the restored database to remain read-only, orders every source query by its stable legacy key, and writes raw/normalized sensitive staging only below the Git-ignored import-report directory with mode `0600`.
+- Normalized JSONL includes `sourceTable`, canonical `sourceKey`, `sourceIdentitySha256`, `sourceRowSha256`, and `source`. Committed evidence may contain counts and file hashes, never raw names or other personal fields.
 
 ### 4. Validation & Error Matrix
 
@@ -163,6 +166,9 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 | Target is default/shared/production database | Migration mutation fails closed |
 | PostgreSQL migration fails | Stop; do not seed, bootstrap, or load legacy rows |
 | Source catalog count differs from file report | Record the catalog evidence and unresolved mapping; do not choose a count silently |
+| Extraction login is `sa`, source is writable, run id is invalid, or output run already exists | Fail before querying business rows |
+| Extracted JSON is malformed | Fail with a generic error that does not echo source content |
+| Blank or duplicate stable source key | Fail transformation; do not silently synthesize an identity |
 
 ### 5. Good / Base / Bad Cases
 
@@ -181,6 +187,7 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 - Run the Yuzhou lab contract with the source directory and assert 220 files, 194 procedures, 16 functions, and 2 triggers.
 - Execute SQL Server `SELECT 1`/version query through container `sqlcmd`; never print the password.
 - Run `pnpm test:e2e:yuzhou-backup-restore`; assert authorization, naming, hash, controlled path, backup-set, project-label, verification, no-overwrite, read-only, cleanup, and password-output guards.
+- Run `pnpm test:e2e:yuzhou-t0-extract`, then two real read-only extracts; assert 138/18/2949 rows and identical per-domain file hashes.
 - Negative-test missing authorization, malformed run/database names, and a wrong SHA-256; each must fail before Docker access.
 
 ### 7. Wrong vs Correct

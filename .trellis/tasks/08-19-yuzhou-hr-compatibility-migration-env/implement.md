@@ -33,9 +33,10 @@
 ## Phase 4：SQL Server 只读实验室
 
 - [ ] 无备份时：SQL Server 2022 Developer 容器及查询已验证；继续用 162 表 DDL 适配后的最小合成 fixture 验证抽取和类型转换，不宣称真实迁移。
-- [x] `.dbk` 已完成只读接收、隔离副本、hash 核验、`VERIFYONLY` 和隔离恢复；目标库 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。只读 ETL login 继续在下一步创建，禁止使用 sa 做日常抽取。
-- [ ] 导出 SQL Server 版本、collation、catalog、行数、主键/索引/FK、LOB 类型和数据质量摘要。
-- [ ] 所有源查询稳定排序、分块、超时受控，不更新旧库。
+- [x] `.dbk` 已完成只读接收、隔离副本、hash 核验、`VERIFYONLY` 和隔离恢复；目标库 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。
+- [x] 已创建最小只读 ETL login：`db_datareader=1`、`VIEW DEFINITION=1`、`UPDATE=0`、`EXECUTE=0`；凭据仅在 Git 忽略的本地 `0600` 文件保存，日常抽取不使用 sa。
+- [x] 已导出 SQL Server collation、catalog、近似行数、字段、索引/FK、LOB 类型和可编程对象；下一步继续字段级数据质量规则和源/目标映射。
+- [x] T0 组织/岗位/员工源查询使用只读 ETL login、显式 `ORDER BY` 和只读库门禁；两次真实抽取数量/hash 一致。后续大表抽取仍需补充分块与超时控制。
 
 ## Phase 5：迁移控制模型
 
@@ -46,9 +47,10 @@
 
 ## Phase 6：组织/员工 T0 dry-run
 
-- [ ] 建立 organization code、employee status、employment event、字段敏感等级映射清单。
-- [ ] 解析 3/6/9/12 位组织树并验证父节点、重复编码和孤儿。
-- [ ] Profile `person` 138 列：空值、重复工号、身份证 15/18 位、状态、日期、照片魔数、自定义字段。
+- [x] 已建立 organization code、employee status、employment event 和字段敏感等级的 T0 映射清单；状态 1/2/3/4/5/A/B 保留待业务确认。
+- [x] 真实组织编码为 3/6/9/12/15 位；员工无组织/岗位孤儿。映射改为从实际存在编码推导最长短前缀父级，不截断 15 位编码。
+- [x] 已 Profile `person` 真实 150 列（旧报告 138 列已纠正）：工号无空/无重复，身份证 39 组重复影响 79 行、503 行为空，2155 个照片的 `photosize` 均不能作为实际字节数。
+- [x] 已用真实只读源完成组织 138、岗位 18、员工 2949 的稳定抽取和规范 JSONL 转换；每条记录具有 source identity hash 与 row hash，两次运行文件 hash 一致。
 - [ ] 对合成 fixture 完成 extract→profile→transform→load→verify→rollback；真实备份到位后原管线重跑。
 - [ ] 输出脱敏数据质量报告和未知项清单。
 
