@@ -14,8 +14,8 @@
 
 ## Acceptance Criteria
 
-- [ ] 民宿 Web test 纳入默认 test:unit。
-- [ ] 无 dual fetch/mutation owner。
+- [x] 民宿 Web test 纳入默认 test:unit。
+- [x] 无 dual fetch/mutation owner。
 - [ ] loading/empty/403/404/409/stale/submitting 覆盖。
 - [ ] DS、390px、键盘和焦点门禁通过。
 
