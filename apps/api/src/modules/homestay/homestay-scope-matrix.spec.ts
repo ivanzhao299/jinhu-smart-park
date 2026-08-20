@@ -38,7 +38,13 @@ function workbenchService(
     workOrdersRepository as never,
     unitAccessService as never,
     dataSource as never,
-    {} as never
+    {
+      buildScopeFilter: async () => ({
+        unrestricted: true,
+        allowed_ids: [],
+        scope_types: ["park"]
+      })
+    } as never
   );
 }
 
@@ -111,6 +117,7 @@ test("unit-scoped list routes return empty pages without repository or raw queri
         { query: async () => { counter.value += 1; return []; } }
       ).listGuestCandidates(scope, actor, {
         booking_id: detailId,
+        keyword: "住客",
         page: 1,
         page_size: 20
       })
@@ -182,6 +189,7 @@ test("five list routes bind the current tenant and park at their query boundary"
     }
   ).listGuestCandidates(scope, actor, {
     booking_id: detailId,
+    keyword: "住客",
     page: 1,
     page_size: 20
   });

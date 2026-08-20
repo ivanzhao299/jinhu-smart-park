@@ -7,6 +7,7 @@ import {
   PROPERTY_HIGH_RISK_PERMISSION_REQUIRED_MESSAGE
 } from "../../shared/property-workbench/property-high-risk-stopship";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { PartyEntity } from "../property-operations/entities/party.entity";
 import {
   HomestayBookingActionLogEntity,
   HomestayBookingEntity,
@@ -151,6 +152,49 @@ test("direct homestay service keeps low-risk ledger entry types reachable", asyn
     );
   }
   assert.equal(transactionCalls, 2);
+});
+
+test("adding a new guest fails while the locked booking is at declared capacity", async () => {
+  let saveCalls = 0;
+  const partyBuilder = {
+    addSelect: () => partyBuilder,
+    where: () => partyBuilder,
+    andWhere: () => partyBuilder,
+    setLock: () => partyBuilder,
+    getOne: async () => ({ partyType: "person", identityNumberHash: null })
+  };
+  const guestRepository = {
+    findOne: async () => null,
+    count: async () => 1,
+    create: (value: unknown) => value,
+    save: async (value: unknown) => { saveCalls += 1; return value; }
+  };
+  const manager = {
+    getRepository: (entity: unknown) => entity === PartyEntity
+      ? { createQueryBuilder: () => partyBuilder }
+      : guestRepository
+  };
+  const service = new HomestayStayCommandService(
+    {} as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (callback: (value: unknown) => unknown) => callback(manager) } as never,
+    {
+      lockBooking: async () => ({
+        id: "booking-1", unitId: "unit-1", status: "confirmed", guestCount: 1
+      })
+    } as never
+  );
+
+  await assert.rejects(
+    service.addGuest(scope, actor, "booking-1", {
+      party_id: "11111111-1111-4111-8111-111111111111",
+      is_primary: false,
+      verification_status: "unverified"
+    }),
+    (error: unknown) => error instanceof ConflictException
+      && error.message === "Active guests cannot exceed booking guest count"
+  );
+  assert.equal(saveCalls, 0);
 });
 
 test("initial homestay rate configuration uses one atomic database upsert", async () => {

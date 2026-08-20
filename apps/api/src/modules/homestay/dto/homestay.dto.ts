@@ -14,6 +14,7 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   Validate,
   ValidateNested
 } from "class-validator";
@@ -106,7 +107,13 @@ export class HomestayCandidateQueryDto extends HomestayUnitCandidateQueryDto {
   unit_id?: string;
 }
 
-export class HomestayGuestCandidateQueryDto extends HomestayCandidateQueryDto {
+export class HomestayGuestCandidateQueryDto extends HomestayUnitCandidateQueryDto {
+  @Transform(({ value }) => trimOptional(value))
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  keyword!: string;
+
   @IsUUID()
   booking_id!: string;
 }

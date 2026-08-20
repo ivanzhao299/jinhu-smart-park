@@ -64,8 +64,19 @@ export class HomestayStayCommandService {
         tenantId: scope.tenantId, parkId: scope.parkId, bookingId,
         partyId: dto.party_id, isDeleted: false
       } });
-      if (!entity) entity = repository.create({ tenantId: scope.tenantId,
-        parkId: scope.parkId, bookingId, partyId: dto.party_id, createBy: actor.sub });
+      if (!entity) {
+        const activeGuestCount = await repository.count({ where: {
+          tenantId: scope.tenantId,
+          parkId: scope.parkId,
+          bookingId,
+          isDeleted: false
+        } });
+        if (activeGuestCount >= booking.guestCount) {
+          throw new ConflictException("Active guests cannot exceed booking guest count");
+        }
+        entity = repository.create({ tenantId: scope.tenantId,
+          parkId: scope.parkId, bookingId, partyId: dto.party_id, createBy: actor.sub });
+      }
       const existingPrimary = await repository.findOne({ where: { tenantId: scope.tenantId,
         parkId: scope.parkId, bookingId, isPrimary: true, isDeleted: false } });
       entity.isPrimary = entity.isPrimary || (dto.is_primary && !existingPrimary);

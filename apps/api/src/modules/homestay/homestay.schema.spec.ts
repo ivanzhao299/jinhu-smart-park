@@ -101,6 +101,8 @@ test("guest registration locks the booking inside its write transaction", () => 
   assert.match(addGuest, /manager\.getRepository\(PartyEntity\)/);
   assert.match(addGuest, /\.setLock\("pessimistic_read"\)/);
   assert.match(addGuest, /manager\.getRepository\(HomestayBookingGuestEntity\)/);
+  assert.match(addGuest, /const activeGuestCount = await repository\.count/);
+  assert.match(addGuest, /activeGuestCount >= booking\.guestCount/);
   assert.match(addGuest, /const existingPrimary = await repository\.findOne/);
   assert.match(addGuest, /dto\.is_primary && !existingPrimary/);
 });

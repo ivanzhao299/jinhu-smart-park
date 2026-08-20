@@ -3,7 +3,7 @@
   "name": "homestay-booking-finance-boundaries",
   "title": "民宿订单住客财务边界闭环",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",

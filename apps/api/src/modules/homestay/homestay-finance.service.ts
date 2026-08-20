@@ -31,8 +31,10 @@ import {
   toMoneyCents
 } from "./homestay-booking.policy";
 import {
+  assertHomestayLedgerEntryAllowedForBookingStatus,
   assertHomestayManualLedgerMutation,
-  summarizeHomestayLedger
+  summarizeHomestayLedger,
+  type HomestayBookingFinancialStatus
 } from "./homestay-finance.policy";
 import { HomestayTransactionSupportService } from "./homestay-transaction-support.service";
 import type { HomestayLedgerSnapshotRow } from "./homestay-transaction-support.service";
@@ -88,6 +90,10 @@ export class HomestayFinanceService {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      assertHomestayLedgerEntryAllowedForBookingStatus(
+        booking.status,
+        dto.entry_type
+      );
       if (dto.entry_type === "refund" || dto.entry_type === "waiver") {
         return this.requestApprovedRefundOrWaiver(
           manager, scope, actor, booking, dto, clientKey
@@ -130,6 +136,7 @@ export class HomestayFinanceService {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
       await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      assertHomestayLedgerEntryAllowedForBookingStatus(booking.status, entryType);
       const ledger = await this.transactionSupport.lockConfirmedHomestayLedger(manager, scope, bookingId);
       await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(manager, scope, bookingId);
       const sourceEntryType = entryType === "refund" ? "payment" : "charge";
@@ -165,10 +172,10 @@ export class HomestayFinanceService {
     }
     const scope = { tenantId: input.request.tenantId, parkId: input.request.parkId };
     const bookings = await input.manager.query(
-      `SELECT version,currency FROM biz_homestay_booking WHERE tenant_id=$1 AND park_id=$2
+      `SELECT version,currency,status FROM biz_homestay_booking WHERE tenant_id=$1 AND park_id=$2
         AND id=$3 AND is_deleted=false FOR UPDATE`,
       [scope.tenantId, scope.parkId, bookingId]
-    ) as Array<{ version: number; currency: string }>;
+    ) as Array<{ version: number; currency: string; status: HomestayBookingFinancialStatus }>;
     await this.transactionSupport.lockHomestayFinanceSourceKey(
       input.manager, scope, bookingId, sourceId
     );
@@ -181,10 +188,11 @@ export class HomestayFinanceService {
     const booking = bookings[0];
     const source = currentLedger.find((row) => row.id === sourceId);
     this.assertApprovedSourceUnchanged(booking, source, lockedSource, input, line);
+    const entryType = String(line.entryType) as "refund" | "waiver";
+    assertHomestayLedgerEntryAllowedForBookingStatus(booking!.status, entryType);
     await this.transactionSupport.assertNoUnresolvedLegacyHomestayFinance(
       input.manager, scope, bookingId
     );
-    const entryType = String(line.entryType) as "refund" | "waiver";
     assertHomestayManualLedgerMutation(
       entryType,
       String(line.amount),

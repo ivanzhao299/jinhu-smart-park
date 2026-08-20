@@ -16,6 +16,30 @@ export interface HomestayLedgerSummary {
   balance: string;
 }
 
+export type HomestayBookingFinancialStatus =
+  | "draft"
+  | "confirmed"
+  | "checked_in"
+  | "checked_out"
+  | "cancelled"
+  | "no_show";
+
+export function assertHomestayLedgerEntryAllowedForBookingStatus(
+  bookingStatus: HomestayBookingFinancialStatus,
+  entryType: "charge" | "payment" | "refund" | "waiver"
+): void {
+  const allowed = bookingStatus === "confirmed" || bookingStatus === "checked_in"
+    ? ["charge", "payment", "refund", "waiver"]
+    : bookingStatus === "checked_out"
+      ? ["payment", "refund", "waiver"]
+      : bookingStatus === "cancelled" || bookingStatus === "no_show"
+        ? ["refund", "waiver"]
+        : [];
+  if (!allowed.includes(entryType)) {
+    throw new ConflictException("Ledger entry is not allowed for current booking status");
+  }
+}
+
 export function summarizeHomestayLedger(entries: HomestayFinancialEntry[]): HomestayLedgerSummary {
   const totals = { charges: 0n, payments: 0n, refunds: 0n, waivers: 0n };
   for (const entry of entries) {

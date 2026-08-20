@@ -34,7 +34,7 @@ test("guest candidates use two bounded queries and return only the frozen minima
 
   const result = await service.listGuestCandidates(scope, actor, {
     booking_id: "11111111-1111-4111-8111-111111111111",
-    keyword: "张",
+    keyword: "张三",
     page: 2,
     page_size: 20
   });
@@ -96,6 +96,7 @@ test("candidate statement counts stay constant for page sizes 1, 20, and 100", a
     const [guests, workOrders] = await Promise.all([
       service.listGuestCandidates(scope, actor, {
         booking_id: "11111111-1111-4111-8111-111111111111",
+        keyword: "住客",
         page: 7,
         page_size: pageSize
       }),
