@@ -964,7 +964,8 @@ export function validatePropertyAccessManifest(
     "file:read",
     "file:download",
     "file:upload",
-    "file:delete"
+    "file:delete",
+    "workorder:read"
   ]);
   const validatePermission = (
     permission: string,
