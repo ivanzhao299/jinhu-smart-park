@@ -890,11 +890,12 @@ test("turnover list hides protected file IDs without file:read while preserving 
     linkedWorkOrderId: null,
     createTime: new Date("2026-07-31T00:00:00.000Z")
   };
+  const turnoverConditions: string[] = [];
   const turnoversRepository = {
     createQueryBuilder: () => {
       const builder = {
         where: () => builder,
-        andWhere: () => builder,
+        andWhere: (condition: string) => { turnoverConditions.push(condition); return builder; },
         orderBy: () => builder,
         skip: () => builder,
         take: () => builder,
@@ -911,7 +912,8 @@ test("turnover list hides protected file IDs without file:read while preserving 
     { allowedUnitIds: async () => null } as never,
     {
       query: async () => [{ id: "unit-1", unitCode: "A-101", unitName: "101" }]
-    } as never
+    } as never,
+    { allowedTurnoverAssigneeIds: async () => ["handler-1"] } as never
   );
 
   const result = await service.listTurnovers(scope, actor, {
@@ -924,6 +926,7 @@ test("turnover list hides protected file IDs without file:read while preserving 
   assert.equal(JSON.stringify(result).includes("file-secret"), false);
   assert.equal(result.items[0]?.unitCode, "A-101");
   assert.equal(result.items[0]?.createTime, "2026-07-31T00:00:00.000Z");
+  assert.ok(turnoverConditions.includes("(task.assignee_id IS NULL OR task.assignee_id IN (:...allowedAssigneeIds))"));
   assert.deepEqual(Object.keys(result.items[0]!).sort(), [
     "assigneeId",
     "assigneeName",

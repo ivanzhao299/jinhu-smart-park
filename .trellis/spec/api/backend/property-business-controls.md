@@ -197,6 +197,13 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   requires `file:read`; without it, the attachment component is not mounted. Work-order
   linking and execution controls require `homestay:turnover:execute`; evidence upload
   additionally requires `file:upload`, so the upload control requires both permissions.
+- The `workorder_handler` range used by the homestay task queue is also enforced by
+  turnover detail and every turnover mutation: unassigned turnover remains a public
+  claimable queue item, while a self/custom actor cannot read, execute, or reassign a
+  turnover already assigned outside its allowed handler IDs. A submitted
+  `linked_work_order_id` is re-read under the mutation transaction lock and must satisfy
+  `workorder:read`, tenant/park/unit scope, active non-terminal status, and all work-order
+  data scopes; candidate-list visibility alone is never authorization for a later write.
 - Housing handover fields render only for `housing:handover:manage`; its uploader also
   requires `file:upload`. Apply the same domain-write plus generic-file intersection
   to housing repair, lease-signature, and purchase upload surfaces.

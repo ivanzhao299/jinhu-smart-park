@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  ForbiddenException,
   Optional
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -62,6 +63,14 @@ export class HomestayTurnoverService {
       .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("task.is_deleted = false");
+    const allowedAssigneeIds = await this.requireWorkbenchQuery().allowedTurnoverAssigneeIds(actor);
+    if (allowedAssigneeIds?.length) {
+      builder.andWhere("(task.assignee_id IS NULL OR task.assignee_id IN (:...allowedAssigneeIds))", {
+        allowedAssigneeIds
+      });
+    } else if (allowedAssigneeIds !== null) {
+      builder.andWhere("task.assignee_id IS NULL");
+    }
     if (allowedUnitIds !== null) {
       builder.andWhere("task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
@@ -108,6 +117,9 @@ export class HomestayTurnoverService {
     }
     const task = await builder.getOne();
     if (!task) throw new NotFoundException("Turnover task not found");
+    if (task.assigneeId !== null) {
+      await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, task.assigneeId);
+    }
     const canReadFiles = this.hasPermission(actor, SYSTEM_PERMISSIONS.FILE_READ);
     const [unitRows, files, linkedWorkOrder] = await Promise.all([
       this.dataSource.query(
@@ -156,18 +168,23 @@ export class HomestayTurnoverService {
         parkId: scope.parkId, isDeleted: false }, lock: { mode: "pessimistic_write" } });
       if (!task) throw new NotFoundException("Turnover task not found");
       await this.unitAccessService.assertAccess(scope, actor, task.unitId);
+      if (task.assigneeId !== null) {
+        await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, task.assigneeId);
+      }
+      if (dto.assignee_id) {
+        await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, dto.assignee_id);
+      }
       await this.applyTransition(manager, scope, actor, task, action, dto);
       if (dto.assignee_id) task.assigneeId = dto.assignee_id;
       if (dto.assignee_name?.trim()) task.assigneeName = dto.assignee_name.trim();
       if (dto.photo_file_ids) task.photoFileIds = await this.resolvePhotoFileIds(
         manager, scope, task.id, dto.photo_file_ids);
       if (dto.consumables) task.consumables = dto.consumables;
-      if (dto.linked_work_order_id) {
-        const workOrder = await this.workOrdersRepository.findOne({ where: {
-          id: dto.linked_work_order_id, tenantId: scope.tenantId,
-          parkId: scope.parkId, isDeleted: false
-        } });
-        if (!workOrder || workOrder.unitId !== task.unitId) {
+      if (dto.linked_work_order_id && dto.linked_work_order_id !== task.linkedWorkOrderId) {
+        const workOrder = await this.requireWorkbenchQuery().findAuthorizedOpenWorkOrderForTurnover(
+          scope, actor, dto.linked_work_order_id, task.unitId, manager.getRepository(WorkOrderEntity)
+        );
+        if (!workOrder) {
           throw new BadRequestException("linked_work_order_id must reference a work order for this unit");
         }
         task.linkedWorkOrderId = workOrder.id;
@@ -251,5 +268,12 @@ export class HomestayTurnoverService {
   private hasPermission(actor: JwtPrincipal, permission: string): boolean {
     return Boolean(actor.isSuper || actor.permissions.includes("*")
       || actor.permissions.includes(permission));
+  }
+
+  private requireWorkbenchQuery(): HomestayWorkbenchQueryService {
+    if (!this.workbenchQuery) {
+      throw new ForbiddenException("Turnover authorization dependency is unavailable");
+    }
+    return this.workbenchQuery;
   }
 }

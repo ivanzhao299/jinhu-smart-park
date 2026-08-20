@@ -24,7 +24,6 @@ import { HomestayController } from "./homestay.controller";
 
 const exactReads = {
   tasks: SYSTEM_PERMISSIONS.HOMESTAY_TASK_READ,
-  workOrderCandidates: SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ,
   listStays: SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ,
   getStay: SYSTEM_PERMISSIONS.HOMESTAY_STAY_READ,
   finance: SYSTEM_PERMISSIONS.HOMESTAY_FINANCE_READ,
@@ -151,7 +150,7 @@ test("A-2.5 candidate handlers do not add unrelated permissions or workorder mod
   );
   assert.deepEqual(
     Reflect.getMetadata(PERMISSIONS_KEY, HomestayController.prototype.workOrderCandidates),
-    [SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ]
+    [SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ, SYSTEM_PERMISSIONS.WORKORDER_READ]
   );
   assert.deepEqual(
     Reflect.getMetadata(MODULES_KEY, HomestayController.prototype.workOrderCandidates),
