@@ -57,6 +57,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const mutationKeys = useRef(new Map<string, string>());
   const mutationLocks = useRef(new Set<string>());
   const requestSequence = useRef(0);
+  const routeGeneration = useRef(0);
   const focusedTarget = useRef<HTMLDivElement | null>(null);
   const approvalSourceKey = approvalSourceTypes.join("\u0000");
   const taskSourceKey = taskSourceTypes.join("\u0000");
@@ -160,8 +161,12 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
     target.taskId, taskSourceKey, module, runtimeSearch]);
 
   useEffect(() => {
+    routeGeneration.current += 1;
     void load();
-    return () => { requestSequence.current += 1; };
+    return () => {
+      requestSequence.current += 1;
+      routeGeneration.current += 1;
+    };
   }, [load]);
   useEffect(() => {
     if (!focusedTarget.current) return;
@@ -171,7 +176,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
 
   async function runTaskAction(item: PropertyTaskListItem, action: PropertyTaskAction) {
     if (mutationLocks.current.has(item.taskId)) return;
-    const mutationSequence = requestSequence.current;
+    const mutationGeneration = routeGeneration.current;
     const reason = action === "property.task.block" || action === "property.task.release"
       ? taskReasons[item.taskId]?.trim() ?? ""
       : "";
@@ -202,12 +207,12 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
         token: getAccessToken() ?? undefined
       });
       mutationKeys.current.delete(mutationId);
-      if (mutationSequence !== requestSequence.current) return;
+      if (mutationGeneration !== routeGeneration.current) return;
       setTaskReasons((current) => ({ ...current, [item.taskId]: "" }));
       setFeedback("任务状态已更新。");
       await load();
     } catch (cause) {
-      if (mutationSequence !== requestSequence.current) return;
+      if (mutationGeneration !== routeGeneration.current) return;
       setFeedback(cause instanceof Error ? cause.message : "任务操作失败");
     } finally {
       mutationLocks.current.delete(item.taskId);
@@ -224,7 +229,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
     action: "approve" | "reject" | "withdraw"
   ) {
     if (mutationLocks.current.has(item.requestId)) return;
-    const mutationSequence = requestSequence.current;
+    const mutationGeneration = routeGeneration.current;
     const reason = approvalReasons[item.requestId]?.trim() ?? "";
     if ((action === "reject" || action === "withdraw") && !reason) {
       setFeedback("驳回或撤回审批前必须填写原因。");
@@ -258,12 +263,12 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
           method: "POST", token: getAccessToken() ?? undefined, idempotencyKey: clientKey, body
         });
       }
-      if (mutationSequence !== requestSequence.current) return;
+      if (mutationGeneration !== routeGeneration.current) return;
       setApprovalReasons((current) => ({ ...current, [item.requestId]: "" }));
       setFeedback("审批操作已提交。");
       await load();
     } catch (cause) {
-      if (mutationSequence !== requestSequence.current) return;
+      if (mutationGeneration !== routeGeneration.current) return;
       setFeedback(cause instanceof Error ? cause.message : "审批操作失败");
     } finally {
       mutationLocks.current.delete(item.requestId);
