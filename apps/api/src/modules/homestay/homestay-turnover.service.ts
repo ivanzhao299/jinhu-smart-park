@@ -64,10 +64,12 @@ export class HomestayTurnoverService {
       .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("task.is_deleted = false");
     const allowedAssigneeIds = await this.requireWorkbenchQuery().allowedTurnoverAssigneeIds(actor);
-    if (allowedAssigneeIds !== null) {
+    if (allowedAssigneeIds?.length) {
       builder.andWhere("(task.assignee_id IS NULL OR task.assignee_id IN (:...allowedAssigneeIds))", {
         allowedAssigneeIds
       });
+    } else if (allowedAssigneeIds !== null) {
+      builder.andWhere("task.assignee_id IS NULL");
     }
     if (allowedUnitIds !== null) {
       builder.andWhere("task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
@@ -175,7 +177,7 @@ export class HomestayTurnoverService {
       if (dto.photo_file_ids) task.photoFileIds = await this.resolvePhotoFileIds(
         manager, scope, task.id, dto.photo_file_ids);
       if (dto.consumables) task.consumables = dto.consumables;
-      if (dto.linked_work_order_id) {
+      if (dto.linked_work_order_id && dto.linked_work_order_id !== task.linkedWorkOrderId) {
         const workOrder = await this.requireWorkbenchQuery().findAuthorizedOpenWorkOrderForTurnover(
           scope, actor, dto.linked_work_order_id, task.unitId, manager.getRepository(WorkOrderEntity)
         );

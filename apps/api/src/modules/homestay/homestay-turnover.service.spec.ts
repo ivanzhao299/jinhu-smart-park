@@ -119,6 +119,50 @@ test("turnover mutation rejects an unauthorized or terminal linked work order in
   assert.equal(candidateCalls, 1);
 });
 
+test("turnover actions preserve an existing linked work order without revalidating its later lifecycle state", async () => {
+  const task = { id: "turnover-1", unitId: "unit-1", occupancyId: null, status: "cleaning",
+    assigneeId: null, assigneeName: null, photoFileIds: [], consumables: [], linkedWorkOrderId: "work-order-1",
+    exceptionDescription: null, updateBy: null };
+  const repository = { findOne: async () => task, save: async () => task };
+  const manager = { getRepository: () => repository };
+  let candidateCalls = 0;
+  const service = new HomestayTurnoverService(
+    {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    {
+      assertAssignedTurnoverAccess: async () => undefined,
+      findAuthorizedOpenWorkOrderForTurnover: async () => { candidateCalls += 1; return undefined; }
+    } as never
+  );
+
+  await service.executeTurnover(scope, actor, task.id, "exception", {
+    exception_description: "工单已完结，继续登记周转异常", linked_work_order_id: "work-order-1"
+  });
+  assert.equal(candidateCalls, 0);
+  assert.equal(task.linkedWorkOrderId, "work-order-1");
+});
+
+test("restricted empty handler scope keeps only the unassigned turnover queue", async () => {
+  const conditions: string[] = [];
+  const builder = {
+    where: () => builder,
+    andWhere: (condition: string) => { conditions.push(condition); return builder; },
+    orderBy: () => builder,
+    skip: () => builder,
+    take: () => builder,
+    getManyAndCount: async () => [[], 0]
+  };
+  const service = new HomestayTurnoverService(
+    { createQueryBuilder: () => builder } as never, {} as never, {} as never, {} as never,
+    { allowedUnitIds: async () => null } as never, { query: async () => [] } as never,
+    { allowedTurnoverAssigneeIds: async () => [] } as never
+  );
+  await service.listTurnovers(scope, actor, { status: "open", page: 1, page_size: 20 });
+  assert.ok(conditions.includes("task.assignee_id IS NULL"));
+  assert.equal(conditions.some((condition) => condition.includes("IN (:...allowedAssigneeIds)")), false);
+});
+
 test("assigned turnover mutation stops before any lifecycle mutation when handler scope rejects it", async () => {
   const task = { id: "turnover-1", unitId: "unit-1", occupancyId: null, status: "pending",
     assigneeId: "other-handler", assigneeName: "Other", photoFileIds: [], consumables: [],
