@@ -37,6 +37,10 @@ export function visibleDialogReason(
   return open && state.targetId === targetId ? state.reason : "";
 }
 
+export function confirmationShouldClose(result: boolean | void): boolean {
+  return result !== false;
+}
+
 export interface SingleFlightGate {
   isActive(): boolean;
   tryEnter(): boolean;

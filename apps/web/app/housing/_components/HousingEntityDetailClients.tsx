@@ -9,7 +9,13 @@ import {
 } from "@jinhu/shared";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { PropertyPanelSurface, type PropertyCapabilityProjection } from "../../../features/property-shared";
+import {
+  ConsequenceDialog,
+  PropertyPanelSurface,
+  RemoteEntityPicker,
+  type PropertyCapabilityProjection,
+  type RemoteEntityOption
+} from "../../../features/property-shared";
 import { useAuthUser } from "../../../lib/auth-context";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
@@ -19,6 +25,7 @@ import { BlockedHighRiskActions, DetailGrid, DetailPage, money } from "./Housing
 import styles from "./HousingWorkbench.module.css";
 import { useStableIdempotency } from "./use-stable-idempotency";
 import { detailUrlObject } from "./housing-route-types";
+import { loadHousingLeases } from "./housing-picker-loaders";
 
 function HandoverDetail({ capabilities, data }: {
   capabilities: PropertyCapabilityProjection; data: HousingHandoverDetailResponse;
@@ -91,11 +98,16 @@ function PurchaseDetail({ capabilities, data, reload }: {
 function PurchaseHighRiskActions({ capabilities, data, reload }: {
   capabilities: PropertyCapabilityProjection; data: HousingPurchaseDetailResponse; reload(): Promise<void>;
 }) {
-  const [reason, setReason] = useState("");
-  const [leaseId, setLeaseId] = useState("");
+  const [lease, setLease] = useState<RemoteEntityOption | null>(null);
   const [dueDate, setDueDate] = useState("");
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pendingLifecycle, setPendingLifecycle] = useState<{
+    action: string; label: string;
+  } | null>(null);
+  const [transferOpen, setTransferOpen] = useState(false);
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
   const purchase = data.purchase;
@@ -114,38 +126,84 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
     && purchase.paymentStatus !== "refunded"
     && data.items.some((item) => !item.transferredReceivableId);
   async function submit(operation: string, endpoint: string, body: object) {
-    if (lock.current) return;
-    lock.current = true; setMessage("");
+    if (lock.current) return false;
+    lock.current = true; setBusy(true); setMessage(""); setDialogError("");
+    let succeeded = false;
+    let successMessage = "申请已提交。";
     try {
       const response = await apiRequest(endpoint, { method: "POST", token: getAccessToken(), body,
         idempotencyKey: idempotency.keyFor(operation, body) });
+      succeeded = true;
       idempotency.complete(operation);
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "申请已提交。");
+      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      setMessage(successMessage);
       await reload();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); }
-    finally { lock.current = false; }
+      return true;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "提交失败";
+      if (succeeded) { setMessage(`${successMessage} 数据刷新失败：${detail}`); return true; }
+      setMessage(detail); setDialogError(detail); return false;
+    }
+    finally { lock.current = false; setBusy(false); }
   }
   if (!lifecycleAllowed && !transferAllowed) return null;
   return <PropertyPanelSurface title="采购高风险操作" description="提交后进入审批，不会直接改变付款或收费状态。">
     <div className={styles.stack}>
-      <label>操作原因<input maxLength={500} required value={reason} onChange={(event) => setReason(event.target.value)} /></label>
-      {lifecycleAllowed ? <div className="ds-action-bar">{actions.map(([action, label]) => <button className="ds-button" disabled={!reason.trim()}
-        key={action} onClick={() => void submit(`housing-purchase-${action}`, `/housing/purchases/${encodeURIComponent(purchase.id)}/actions`, { action, reason: reason.trim() })} type="button">{label}</button>)}</div> : null}
+      {lifecycleAllowed ? <div className="ds-action-bar">{actions.map(([action, label]) => <button className="ds-button" disabled={busy}
+        key={action} onClick={() => { setDialogError(""); setPendingLifecycle({ action, label }); }} type="button">{label}</button>)}</div> : null}
       {transferAllowed ? <div className={styles.formGrid}>
         <fieldset><legend>选择转收费明细</legend>{data.items.filter((item) => !item.transferredReceivableId).map((item) =>
           <label key={item.id}><input checked={selectedItemIds.includes(item.id)} onChange={(event) => setSelectedItemIds((current) =>
             event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} type="checkbox" /> {item.itemName} · {money(item.amount)}</label>)}</fieldset>
-        <label>目标租约 ID<input required value={leaseId} onChange={(event) => setLeaseId(event.target.value)} /></label>
+        <RemoteEntityPicker authorized contextValid={capabilities.moduleAvailable}
+          helperText="可检索住房租约；提交时服务端会再次校验租约状态、房源和币种。"
+          invalidationKey={capabilities.invalidationKey} label="目标租约"
+          loadOptions={loadHousingLeases} onChange={setLease} required value={lease} />
         <label>应收日期<input required type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-        <button className="ds-button" disabled={!leaseId || !dueDate || !reason.trim() || !selectedItemIds.length} onClick={() => void submit(
-          "housing-purchase-transfer", `/housing/purchases/${encodeURIComponent(purchase.id)}/transfer`, {
-            lease_id: leaseId, due_date: dueDate, reason: reason.trim(),
-            item_ids: selectedItemIds
-          })} type="button">所选明细提交转收费审批</button>
+        <button className="ds-button" disabled={busy || !lease || !dueDate || !selectedItemIds.length}
+          onClick={() => { setDialogError(""); setTransferOpen(true); }} type="button">核对并提交转收费审批</button>
       </div> : null}
       <p aria-live="polite">{message}</p>
     </div>
+    <ConsequenceDialog actionLabel={pendingLifecycle?.label ?? "确认提交"} busy={busy}
+      consequences={["本次操作只提交审批申请，不会立即改变采购、付款或退款状态。", "审批执行前会重新校验采购状态与版本，原因将写入审计记录。"]}
+      onConfirm={(reason) => {
+        if (!pendingLifecycle) return;
+        return submit(
+          `housing-purchase-${pendingLifecycle.action}`,
+          `/housing/purchases/${encodeURIComponent(purchase.id)}/actions`,
+          { action: pendingLifecycle.action, reason }
+        );
+      }}
+      onOpenChange={(open) => { if (!open) { setPendingLifecycle(null); setDialogError(""); } }}
+      open={pendingLifecycle !== null}
+      reasonPolicy={{ kind: "required", label: "操作原因", minLength: 1, maxLength: 500 }}
+      resultingState="审批申请待处理"
+      target={{ id: purchase.id, label: purchase.purchaseCode }}
+      title={pendingLifecycle ? `确认${pendingLifecycle.label}` : "确认采购操作"}
+    >
+      {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+    </ConsequenceDialog>
+    <ConsequenceDialog actionLabel="确认提交转收费审批" busy={busy}
+      consequences={[
+        `将提交 ${selectedItemIds.length} 条采购明细的转收费审批，不会立即生成租客应收。`,
+        `目标租约为 ${lease?.label ?? "未选择"}，审批执行前会重新校验租约状态、房源、币种及采购版本。`
+      ]}
+      onConfirm={(reason) => submit(
+        "housing-purchase-transfer",
+        `/housing/purchases/${encodeURIComponent(purchase.id)}/transfer`,
+        { lease_id: lease?.id, due_date: dueDate, reason, item_ids: selectedItemIds }
+      )}
+      onOpenChange={(open) => { setTransferOpen(open); if (!open) setDialogError(""); }}
+      open={transferOpen && lease !== null && dueDate !== "" && selectedItemIds.length > 0}
+      reasonPolicy={{ kind: "required", label: "转收费原因", minLength: 1, maxLength: 500 }}
+      resultingState="转收费审批申请待处理"
+      target={{ id: purchase.id, label: purchase.purchaseCode }}
+      title="确认采购成本转租客收费"
+    >
+      {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+    </ConsequenceDialog>
   </PropertyPanelSurface>;
 }
 

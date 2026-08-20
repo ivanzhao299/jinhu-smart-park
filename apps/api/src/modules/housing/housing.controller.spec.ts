@@ -181,8 +181,41 @@ test("all housing A-2.5 GET handlers expose exact literal metadata", () => {
   }
 });
 
-test("housing GET UUID params reject malformed identifiers with HTTP 400", async () => {
-  for (const methodName of ["getHandover", "getRepair"]) {
+test("every housing route requires both the housing and asset modules", () => {
+  const controllerModules = Reflect.getMetadata(MODULES_KEY, HousingController) as string[];
+  assert.deepEqual(controllerModules, ["housing_rental", "asset"]);
+  for (const methodName of Object.getOwnPropertyNames(HousingController.prototype)) {
+    if (methodName === "constructor") continue;
+    const handler = HousingController.prototype[methodName as keyof HousingController];
+    if (typeof handler !== "function" || Reflect.getMetadata(METHOD_METADATA, handler) === undefined) continue;
+    const modules = (Reflect.getMetadata(MODULES_KEY, handler) as string[] | undefined) ?? controllerModules;
+    assert.equal(modules.includes("housing_rental"), true, `${methodName} requires housing_rental`);
+    assert.equal(modules.includes("asset"), true, `${methodName} requires asset`);
+  }
+});
+
+test("all housing UUID route params reject malformed identifiers with HTTP 400", async () => {
+  for (const methodName of [
+    "getHandover",
+    "getRepair",
+    "listEnergyMeterCandidates",
+    "getLease",
+    "submitLease",
+    "approveLease",
+    "signLease",
+    "activateLease",
+    "voidLease",
+    "addOccupant",
+    "saveChargePlan",
+    "generateBills",
+    "registerLedger",
+    "completeHandover",
+    "createRepair",
+    "checkoutLease",
+    "getPurchase",
+    "purchaseAction",
+    "transferPurchase"
+  ]) {
     const args = Reflect.getMetadata(
       ROUTE_ARGS_METADATA,
       HousingController,

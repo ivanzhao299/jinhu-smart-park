@@ -38,7 +38,7 @@ import { HousingService } from "./housing.service";
 import { HousingWorkbenchQueryService } from "./housing-workbench-query.service";
 
 @Controller("housing")
-@RequireModule("housing_rental")
+@RequireModule("housing_rental", "asset")
 @UseInterceptors(HousingFieldPolicyInterceptor)
 export class HousingController {
   constructor(
@@ -228,7 +228,7 @@ export class HousingController {
   getLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.getLease(scope, actor, id);
   }
@@ -253,7 +253,11 @@ export class HousingController {
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
   @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "提交租约审批", bizType: "biz_housing_lease", bizIdParam: "id" })
-  submitLease(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id") id: string) {
+  submitLease(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
+  ) {
     return this.service.submitLease(scope, actor, id);
   }
 
@@ -268,7 +272,7 @@ export class HousingController {
   approveLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: ApproveHousingLeaseDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -282,7 +286,7 @@ export class HousingController {
   signLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: SignHousingLeaseDto
   ) {
     return this.service.signLease(scope, actor, id, dto);
@@ -295,7 +299,7 @@ export class HousingController {
   activateLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Headers("x-idempotency-key") idempotencyKey?: string
   ) {
     return this.service.activateLease(scope, actor, id, idempotencyKey);
@@ -312,7 +316,7 @@ export class HousingController {
   voidLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: HousingReasonDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -326,7 +330,7 @@ export class HousingController {
   addOccupant(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: AddHousingOccupantDto
   ) {
     return this.service.addOccupant(scope, actor, id, dto);
@@ -339,7 +343,7 @@ export class HousingController {
   saveChargePlan(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: UpsertHousingChargePlanDto
   ) {
     return this.service.saveChargePlan(scope, actor, id, dto);
@@ -352,7 +356,7 @@ export class HousingController {
   generateBills(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: GenerateHousingBillsDto
   ) {
     return this.service.generateBills(scope, actor, id, dto);
@@ -369,7 +373,7 @@ export class HousingController {
   registerLedger(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: RegisterHousingLedgerEntryDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -391,7 +395,7 @@ export class HousingController {
   completeHandover(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: CompleteHousingHandoverDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -405,7 +409,7 @@ export class HousingController {
   createRepair(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: CreateHousingRepairDto
   ) {
     return this.service.createRepair(scope, actor, id, dto);
@@ -422,7 +426,7 @@ export class HousingController {
   checkoutLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: HousingReasonDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -452,7 +456,7 @@ export class HousingController {
   getPurchase(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string
   ) {
     return this.service.getPurchase(scope, actor, id);
   }
@@ -483,7 +487,7 @@ export class HousingController {
   purchaseAction(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: HousingPurchaseActionDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {
@@ -501,7 +505,7 @@ export class HousingController {
   transferPurchase(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() dto: TransferHousingPurchaseDto,
     @Headers("x-idempotency-key") clientKey = ""
   ) {

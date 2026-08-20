@@ -9,6 +9,10 @@ import {
 } from "./housing-workbench-contract";
 import { hasAuthoritativeEmptyUnitScope, returnToSearch } from "./housing-list-logic";
 import { payloadFingerprint } from "./idempotency-logic";
+import {
+  housingPageCorrection,
+  housingTotalPages
+} from "../../../features/housing/listing/pagination";
 
 test("housing exposes the frozen nine surfaces and four detail routes", () => {
   assert.deepEqual(
@@ -93,6 +97,14 @@ test("restricted empty unit scope is only asserted from authoritative config", (
   assert.equal(hasAuthoritativeEmptyUnitScope([{
     dimension: "tenant", scope_type: "tenant", scope_config: {}
   }], false), false);
+});
+
+test("housing pagination contracts collapse stale URL pages to the last valid page", () => {
+  assert.equal(housingTotalPages(0), 1);
+  assert.equal(housingTotalPages(41), 3);
+  assert.equal(housingPageCorrection(4, 41), 3);
+  assert.equal(housingPageCorrection(1, 0), null);
+  assert.equal(housingPageCorrection(3, 41), null);
 });
 
 test("return context receives a second URLSearchParams encoding layer", () => {

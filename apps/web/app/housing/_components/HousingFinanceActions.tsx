@@ -3,7 +3,10 @@
 import { PROPERTY_BUSINESS_PERMISSIONS, type HousingFinanceListItem } from "@jinhu/shared";
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PropertyCapabilityProjection } from "../../../features/property-shared";
+import {
+  ConsequenceDialog,
+  type PropertyCapabilityProjection
+} from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { useAuthUser } from "../../../lib/auth-context";
@@ -26,7 +29,10 @@ export function HousingFinanceActions({
   reload(): Promise<void>;
 }) {
   const [message, setMessage] = useState("");
+  const [dialogError, setDialogError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [pendingBody, setPendingBody] = useState<ReturnType<typeof financeBody> | null>(null);
+  const pendingForm = useRef<HTMLFormElement | null>(null);
   const available = useMemo(() => item.receivables.filter(
     (receivable) => receivable.status !== "void"
   ), [item.receivables]);
@@ -71,6 +77,7 @@ export function HousingFinanceActions({
         : entryKind === "deposit_refund" ? item.summary.deposit_balance
           : selectedReceivable.balance
     : undefined;
+  const highRiskEntry = ["refund", "waiver", "deposit_refund"].includes(entryKind);
   const entryKinds = useMemo(() => [
     ...(ordinaryAllowed ? (["payment", "deposit_receipt"] as const)
       .filter((kind) => available.some((receivable) => receivable.entryKind === kind)) : []),
@@ -97,21 +104,44 @@ export function HousingFinanceActions({
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const body = financeBody(form);
+    if (highRiskEntry) {
+      pendingForm.current = formElement;
+      setDialogError("");
+      setPendingBody(body);
+      return;
+    }
+    await execute(body, formElement);
+  }
+
+  async function execute(body: ReturnType<typeof financeBody>, formElement: HTMLFormElement | null) {
     lock.current = true;
     setSubmitting(true);
+    setDialogError("");
+    let succeeded = false;
+    let successMessage = highRiskEntry ? "财务审批申请已提交。" : "普通财务流水已登记。";
     try {
       const response = await apiRequest(`/housing/leases/${encodeURIComponent(item.lease.id)}/ledger`, {
         method: "POST",
         token: getAccessToken(),
         idempotencyKey: idempotency.keyFor("housing-ledger-register", body), body
       });
+      succeeded = true;
       idempotency.complete("housing-ledger-register");
       const request = (response.data as { request?: { requestId?: string; decisionStatus?: string; executionStatus?: string } }).request;
-      setMessage(request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : "普通财务流水已登记。");
-      formElement.reset();
+      successMessage = request?.requestId ? `审批申请已提交（${request.requestId}；决策 ${request.decisionStatus}；执行 ${request.executionStatus}）。` : successMessage;
+      setMessage(successMessage);
+      formElement?.reset();
       await reload();
+      return true;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "财务登记失败");
+      const detail = error instanceof Error ? error.message : succeeded ? "数据刷新失败" : "财务登记失败";
+      if (succeeded) {
+        setMessage(`${successMessage} 数据刷新失败：${detail}`);
+        return true;
+      }
+      setMessage(detail);
+      if (highRiskEntry) setDialogError(detail);
+      return false;
     } finally {
       lock.current = false;
       setSubmitting(false);
@@ -134,11 +164,32 @@ export function HousingFinanceActions({
             <MoneyField label="金额" max={amountMax} name="amount" positive />
             <label>支付方式<input maxLength={32} name="payment_method" /></label>
             <label>交易参考号<input maxLength={100} name="transaction_reference" /></label>
-            <label>登记原因<input maxLength={500} name="reason" required /></label>
-            <button className="ds-button ds-button-primary" type="submit">{submitting ? "提交中…" : ["refund", "waiver", "deposit_refund"].includes(entryKind) ? "提交审批" : "确认登记"}</button>
+            {!highRiskEntry ? <label>登记原因<input maxLength={500} name="reason" required /></label> : null}
+            <button className="ds-button ds-button-primary" type="submit">{submitting ? "提交中…" : highRiskEntry ? "核对并提交审批" : "确认登记"}</button>
           </fieldset>
         </form>
       </ActionDetails>
+      <ConsequenceDialog actionLabel="确认提交财务审批" busy={submitting}
+        consequences={["本次操作只提交审批申请，不会立即退款、减免或退还押金。", "审批执行前会重新校验应收余额、原收款人、租约版本和可操作金额。"]}
+        onConfirm={(reason) => pendingBody
+          ? execute({ ...pendingBody, reason: reason ?? "" }, pendingForm.current)
+          : undefined}
+        onOpenChange={(open) => {
+          if (!open) { setPendingBody(null); pendingForm.current = null; setDialogError(""); }
+        }}
+        open={pendingBody !== null}
+        reasonPolicy={{ kind: "required", label: "财务操作原因", minLength: 1, maxLength: 500 }}
+        resultingState="财务审批申请待处理"
+        target={{
+          id: selectedReceivable?.id ?? item.lease.id,
+          label: selectedReceivable
+            ? `${selectedReceivable.chargeType} · ¥${pendingBody?.amount ?? amountMax ?? "0"}`
+            : item.lease.leaseCode
+        }}
+        title="确认高风险财务操作"
+      >
+        {dialogError ? <p className="ds-alert" role="alert">{dialogError}</p> : null}
+      </ConsequenceDialog>
       <MutationFeedback message={message} />
     </>
   );
@@ -156,6 +207,6 @@ function financeBody(form: FormData) {
     amount: String(form.get("amount")),
     payment_method: String(form.get("payment_method") ?? ""),
     transaction_reference: String(form.get("transaction_reference") ?? ""),
-    reason: String(form.get("reason"))
+    reason: String(form.get("reason") ?? "")
   };
 }

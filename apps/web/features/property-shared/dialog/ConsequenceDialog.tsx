@@ -17,6 +17,7 @@ import {
   ReasonField
 } from "./ConsequenceDialogParts";
 import {
+  confirmationShouldClose,
   createSingleFlightGate,
   reduceDialogDraft,
   visibleDialogReason,
@@ -43,7 +44,7 @@ export interface ConsequenceDialogProps {
   cancelLabel?: string;
   busy?: boolean;
   children?: ReactNode;
-  onConfirm: (reason: string | undefined) => void | Promise<void>;
+  onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -137,7 +138,7 @@ export function ConsequenceDialog({
 
 interface ConsequenceDialogControllerInput {
   busy: boolean;
-  onConfirm: (reason: string | undefined) => void | Promise<void>;
+  onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
   open: boolean;
   reasonPolicy: ConsequenceReasonPolicy;
@@ -184,7 +185,10 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
     const submittedTargetId = input.targetId;
     try {
       const value = input.reasonPolicy.kind === "none" ? undefined : reason.trim() || undefined;
-      await input.onConfirm(value);
+      const confirmed = await input.onConfirm(value);
+      if (!confirmationShouldClose(confirmed)) {
+        return;
+      }
       dispatchDraft({ type: "confirmed", targetId: submittedTargetId });
       if (activeTargetRef.current === submittedTargetId) {
         input.onOpenChange(false);

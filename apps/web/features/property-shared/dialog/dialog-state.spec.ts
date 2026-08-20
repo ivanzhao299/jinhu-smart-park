@@ -1,10 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  confirmationShouldClose,
   createSingleFlightGate,
   reduceDialogDraft,
   visibleDialogReason
 } from "./dialog-state";
+
+test("only an explicit failed confirmation keeps the dialog open", () => {
+  assert.equal(confirmationShouldClose(false), false);
+  assert.equal(confirmationShouldClose(true), true);
+  assert.equal(confirmationShouldClose(undefined), true);
+});
 
 test("reason is cleared when closed or synchronized to another target", () => {
   const initial = { targetId: "booking-1", reason: "operator reason" };
