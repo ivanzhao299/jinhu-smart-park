@@ -196,7 +196,13 @@ test("tasks use fixed item/count statements and preserve total on an empty page"
     {} as never,
     { allowedUnitIds: async () => null } as never,
     dataSource as never,
-    {} as never
+    {
+      buildScopeFilter: async () => ({
+        unrestricted: true,
+        allowed_ids: [],
+        scope_types: ["park"]
+      })
+    } as never
   );
 
   const result = await service.listTasks(scope, actor, {
@@ -216,6 +222,83 @@ test("tasks use fixed item/count statements and preserve total on an empty page"
     page: 2,
     page_size: 3
   });
+});
+
+test("tasks apply one assignee predicate to list and count for self/custom scope", async () => {
+  const statements: Array<{ sql: string; parameters: unknown[] }> = [];
+  const dataSource = {
+    query: async (sql: string, parameters: unknown[]) => {
+      statements.push({ sql, parameters });
+      return sql.includes("count(*)::int AS total") ? [{ total: 0 }] : [];
+    }
+  };
+  const service = new HomestayWorkbenchQueryService(
+    {} as never,
+    { allowedUnitIds: async () => null } as never,
+    dataSource as never,
+    {
+      buildScopeFilter: async () => ({
+        unrestricted: false,
+        allowed_ids: [actor.sub],
+        scope_types: ["self"]
+      })
+    } as never
+  );
+
+  await service.listTasks(scope, { ...actor, dataScope: "self" }, {
+    business_date: "2026-07-31",
+    page: 1,
+    page_size: 20
+  });
+
+  assert.equal(statements.length, 2);
+  for (const statement of statements) {
+    assert.match(statement.sql, /task\."sourceType" <> 'homestay_turnover'/);
+    assert.match(statement.sql, /task\."assigneeId" IS NULL/);
+    assert.match(statement.sql, /task\."assigneeId" = ANY\(\$4::uuid\[\]\)/);
+    assert.deepEqual(statement.parameters.slice(0, 4), [
+      scope.tenantId,
+      scope.parkId,
+      "2026-07-31",
+      [actor.sub]
+    ]);
+  }
+});
+
+test("task supervisors keep the full park queue without resolving handler scope", async () => {
+  const statements: string[] = [];
+  let scopeCalls = 0;
+  const service = new HomestayWorkbenchQueryService(
+    {} as never,
+    { allowedUnitIds: async () => null } as never,
+    {
+      query: async (sql: string) => {
+        statements.push(sql);
+        return sql.includes("count(*)::int AS total") ? [{ total: 0 }] : [];
+      }
+    } as never,
+    {
+      buildScopeFilter: async () => {
+        scopeCalls += 1;
+        return { unrestricted: false, allowed_ids: [], scope_types: ["self"] };
+      }
+    } as never
+  );
+
+  await service.listTasks(scope, {
+    ...actor,
+    permissions: [SYSTEM_PERMISSIONS.PROPERTY_TASK_SUPERVISE]
+  }, {
+    business_date: "2026-07-31",
+    page: 1,
+    page_size: 20
+  });
+
+  assert.equal(scopeCalls, 0);
+  assert.equal(statements.length, 2);
+  for (const sql of statements) {
+    assert.doesNotMatch(sql, /task\."assigneeId" = ANY/);
+  }
 });
 
 test("finance uses fixed item/count statements and keeps all money as decimal strings", async () => {
@@ -285,7 +368,13 @@ test("tasks and finance keep real statement counts equal for page sizes 1, 20, a
             : [];
         }
       } as never,
-      {} as never
+      {
+        buildScopeFilter: async () => ({
+          unrestricted: true,
+          allowed_ids: [],
+          scope_types: ["park"]
+        })
+      } as never
     );
     const [tasks, finance] = await Promise.all([
       service.listTasks(scope, actor, { page: 99, page_size: pageSize }),
@@ -320,7 +409,13 @@ test("task responses use the strict frozen item projection", async () => {
             secret: "must not leak"
           }]
     } as never,
-    {} as never
+    {
+      buildScopeFilter: async () => ({
+        unrestricted: true,
+        allowed_ids: [],
+        scope_types: ["park"]
+      })
+    } as never
   );
   const result = await service.listTasks(scope, actor, { page: 1, page_size: 20 });
   assert.deepEqual(Object.keys(result.items[0]!).sort(), [

@@ -1,0 +1,33 @@
+{
+  "id": "homestay-completion-uat",
+  "name": "homestay-completion-uat",
+  "title": "民宿管理完整核查与UAT修复闭环",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-20",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/homestay-completion-uat",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-20-homestay-task-scope",
+    "08-20-homestay-deep-links",
+    "08-20-homestay-booking-finance-boundaries",
+    "08-20-homestay-credential-turnover-repair",
+    "08-20-homestay-web-gates",
+    "08-20-homestay-api-browser-uat"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

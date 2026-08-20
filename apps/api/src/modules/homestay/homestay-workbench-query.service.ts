@@ -219,6 +219,7 @@ export class HomestayWorkbenchQueryService {
       parameters.push(query.source_type);
       filters.push(`task."sourceType" = $${parameters.length}`);
     }
+    await this.applyTaskActorScope(parameters, filters, actor);
     const limitIndex = parameters.length + 1;
     const offsetIndex = parameters.length + 2;
     const [rows, countRows] = await Promise.all([
@@ -372,6 +373,30 @@ export class HomestayWorkbenchQueryService {
         .orWhere(`workOrder.reporter_id IN (:...${parameter})`)
         .orWhere(`workOrder.create_by IN (:...${parameter})`);
     });
+  }
+
+  private async applyTaskActorScope(
+    parameters: unknown[],
+    filters: string[],
+    actor: JwtPrincipal
+  ): Promise<void> {
+    if (
+      actor.isSuper
+      || actor.permissions.includes("*")
+      || actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_TASK_SUPERVISE)
+    ) {
+      return;
+    }
+    const handler = await this.dataScopeService.buildScopeFilter(
+      actor,
+      "workorder_handler"
+    );
+    if (handler.unrestricted) return;
+    parameters.push(handler.allowed_ids);
+    const index = parameters.length;
+    filters.push(`(task."sourceType" <> 'homestay_turnover'
+      OR task."assigneeId" IS NULL
+      OR task."assigneeId" = ANY($${index}::uuid[]))`);
   }
 
   private taskCteSql(unitParameter: number | null): string {
