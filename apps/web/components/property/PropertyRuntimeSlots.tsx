@@ -10,6 +10,7 @@ import {
   type PropertyTaskListItem,
   type PropertyTaskListResponse
 } from "@jinhu/shared";
+import type { Route } from "next";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -46,7 +47,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const [approvals, setApprovals] = useState<ApprovalSummary[]>([]);
   const [taskError, setTaskError] = useState("");
   const [approvalError, setApprovalError] = useState("");
-  const [focusedTaskDeepLink, setFocusedTaskDeepLink] = useState<string | null>(null);
+  const [focusedTaskDeepLink, setFocusedTaskDeepLink] = useState<Route | null>(null);
   const [approvalReasons, setApprovalReasons] = useState<Record<string, string>>({});
   const [mutatingApprovalIds, setMutatingApprovalIds] = useState<ReadonlySet<string>>(new Set());
   const [feedback, setFeedback] = useState("");
@@ -88,7 +89,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
               (item) => item.taskId
             ));
             setFocusedTaskDeepLink(targetResponse.data.sourceDeepLink
-              ? safePropertyDeepLink(targetResponse.data.sourceDeepLink)
+              ? safePropertyDeepLink(targetResponse.data.sourceDeepLink) as Route | null
               : null);
             setTaskError("");
           } catch {

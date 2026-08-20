@@ -92,14 +92,38 @@ function CredentialIssue({ bookingId, mutate }: { bookingId: string; mutate: Mut
 function CredentialReturns({ bookingId, data, mutate }: {
   bookingId: string; data: HomestayBookingDetailResponse; mutate: Mutate;
 }) {
+  const [lostCredential, setLostCredential] = useState<{ id: string; label: string } | null>(null);
   const issued = data.credentials.filter((item) => item.status === "issued");
   if (!issued.length) return null;
-  return <PropertyPanelSurface title="回收凭证"><div className="ds-action-bar">
-    {issued.map((item) => <button className="secondary-button" key={item.id} type="button"
-      onClick={() => void mutate(`/homestay/bookings/${bookingId}/credentials/${item.id}/return`)}>
-      回收 {item.credentialLabel}
-    </button>)}
-  </div></PropertyPanelSurface>;
+  return <PropertyPanelSurface title="凭证处置">
+    <div className="ds-action-bar">
+      {issued.map((item) => <div className="ds-action-bar" key={item.id}>
+        <button className="secondary-button" type="button"
+          onClick={() => void mutate(`/homestay/bookings/${bookingId}/credentials/${item.id}/return`)}>
+          回收 {item.credentialLabel}
+        </button>
+        <button className="secondary-button" type="button"
+          onClick={() => setLostCredential({ id: item.id, label: item.credentialLabel })}>
+          登记遗失
+        </button>
+      </div>)}
+    </div>
+    <ConsequenceDialog actionLabel="确认登记遗失"
+      consequences={["该凭证将进入遗失终态，不能再登记回收；处置原因将写入审计日志。"]}
+      onConfirm={(reason) => mutate(
+        `/homestay/bookings/${bookingId}/credentials/${lostCredential!.id}/lost`,
+        { reason }
+      )}
+      onOpenChange={(open) => { if (!open) setLostCredential(null); }}
+      open={lostCredential !== null}
+      reasonPolicy={{ kind: "required", label: "遗失原因", minLength: 1, maxLength: 500 }}
+      resultingState="已遗失"
+      target={lostCredential
+        ? { id: lostCredential.id, label: lostCredential.label }
+        : { id: bookingId, label: "未选择凭证" }}
+      title="确认凭证遗失"
+    />
+  </PropertyPanelSurface>;
 }
 
 function NoShow({ bookingId, data, mutate }: {

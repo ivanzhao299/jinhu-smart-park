@@ -137,6 +137,32 @@ export class HomestayStayCommandService {
     });
   }
 
+  async markCredentialLost(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    bookingId: string,
+    credentialId: string,
+    reason: string
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const booking = await this.transactionSupport.lockBooking(manager, scope, bookingId);
+      await this.unitAccessService.assertAccess(scope, actor, booking.unitId);
+      const repository = manager.getRepository(HomestayStayCredentialEntity);
+      const credential = await repository.findOne({ where: { id: credentialId, bookingId,
+        tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      lock: { mode: "pessimistic_write" } });
+      if (!credential) throw new NotFoundException("Stay credential not found");
+      if (credential.status === "lost") return projectHomestayCredential(credential);
+      if (credential.status !== "issued") {
+        throw new ConflictException("Only issued credentials can be marked as lost");
+      }
+      if (!reason.trim()) throw new ConflictException("Credential loss reason is required");
+      credential.status = "lost";
+      credential.updateBy = actor.sub;
+      return projectHomestayCredential(await repository.save(credential));
+    });
+  }
+
   async checkIn(scope: TenantParkScope, actor: JwtPrincipal, id: string) {
     return this.dataSource.transaction(async (manager) => {
       const booking = await this.transactionSupport.lockBooking(manager, scope, id);

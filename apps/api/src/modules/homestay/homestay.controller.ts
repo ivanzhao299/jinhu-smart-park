@@ -367,6 +367,23 @@ export class HomestayController {
     return this.service.returnCredential(scope, actor, id, credentialId);
   }
 
+  @Post("bookings/:id/credentials/:credentialId/lost")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_BOOKING_READ,
+    SYSTEM_PERMISSIONS.HOMESTAY_STAY_MANAGE
+  )
+  @AuditLog({ module: "民宿管理", resource: "biz.homestay_stay_credential", action: "登记入住凭证遗失", bizType: "biz_homestay_stay_credential", bizIdParam: "credentialId" })
+  markCredentialLost(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @Param("credentialId", new ParseUUIDPipe({ version: "4" })) credentialId: string,
+    @Body() dto: HomestayReasonDto
+  ) {
+    return this.service.markCredentialLost(scope, actor, id, credentialId, dto.reason);
+  }
+
   @Post("bookings/:id/check-in")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(
