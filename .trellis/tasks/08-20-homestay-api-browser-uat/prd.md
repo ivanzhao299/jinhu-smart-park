@@ -14,11 +14,19 @@
 
 ## Acceptance Criteria
 
-- [ ] 并发下单、成功改期/no-show、refund/waiver 通过。
-- [ ] 多角色、跨园区、模块启停、字段/文件权限通过。
-- [ ] desktop/768/390/360 无阻断问题。
-- [ ] fixture/file/approval residual=0。
-- [ ] 文档绑定同一 candidate SHA/环境。
+- [x] 并发下单、成功改期/no-show、refund/waiver 通过。
+- [x] 多角色、跨园区、模块启停、字段/文件权限通过。
+- [x] desktop/768/390/360 无阻断问题。
+- [x] fixture/file/approval residual=0。
+- [x] 文档绑定同一 candidate SHA/环境。
+
+## Verification Evidence
+
+- Candidate SHA: `3db0b7e56f1c11234cf3f32cb32912566e294bfc`
+- API E2E: `jinhu_homestay_api_e2e_r5`，PostgreSQL 16，数据库 `jinhu_property_api_e2e_homestay_r5_20260820`，全链路通过。
+- Browser UAT: Chrome DevTools MCP，本地 API/Web，1440×900、768×900、390×844、360×800 通过。
+- 角色与权限：独立审批人真实执行退款/减免；跨园区、模块、字段和文件边界由真实 API E2E 与现有权限/数据库契约测试联合覆盖。
+- 清理：测试容器、网络、数据卷、临时 compose、文件目录、截图及临时诊断文件均已删除，残留检查为零。
 
 ## Out of Scope
 
