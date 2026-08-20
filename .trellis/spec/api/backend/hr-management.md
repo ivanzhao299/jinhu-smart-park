@@ -129,7 +129,66 @@ await messages.save({ recipientId: report.reviewerEmployeeId });
 ```ts
 return dataSource.transaction(async (manager) => {
   const report = await manager.getRepository(HrWorkReportEntity).save(nextReport);
-  await notifications.publishWorkReportSubmitted(scope, actor, report, manager);
+await notifications.publishWorkReportSubmitted(scope, actor, report, manager);
   return report;
 });
+```
+
+## Scenario: Yuzhou historical employment event migration
+
+### 1. Scope / Trigger
+
+- Trigger: extracting or loading `dbo.readjust/readjustitem`, or changing legacy compatibility columns on `hr_employment_event`.
+
+### 2. Signatures
+
+- Extract: `ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<run> ./scripts/extract-yuzhou-t1-employment-events.sh`.
+- Load/rollback additionally require `YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<suffix>` and an explicit staging directory when extract and load run IDs differ.
+- Database compatibility fields: `legacy_event_no`, `legacy_event_type`, `legacy_state`, `source_effective_at`, `migration_decision`, `is_historical_import`.
+
+### 3. Contracts
+
+- The SQL Server source is read-only and extraction uses the dedicated ETL login, explicit columns, stable `ORDER BY id`, and pinned file checksums.
+- Historical import writes `hr_employment_event` directly; it never calls the online lifecycle transition, changes the current employee aggregate, runs current approvals, or publishes inbox messages.
+- Employee resolution uses the T0 employee mapping/current scoped employee code. Missing target employees are quarantined with only irreversible source identity evidence.
+- Historical event numbers are unique per tenant and park. Unknown event types or nonstandard legacy state are loaded only as `needs_review`, never silently treated as approved.
+- Event snapshots exclude salary fields and actor/approver names. PostgreSQL COPY JSONL doubles backslashes so escaped source control characters remain valid JSON rather than becoming raw control bytes.
+- Rollback deletes only target IDs proven by active `legacy_record_map` rows for the selected batch.
+
+### 4. Validation & Error Matrix
+
+- source database writable, login `sa`, invalid run ID, unpinned staging hash, wrong container/project, or non-isolated target -> fail before target mutation.
+- source count other than 6,887 or duplicate/blank source identity -> fail extraction/load.
+- missing T0 employee target -> quarantine; loaded plus quarantined must equal source count.
+- employee aggregate checksum changes during load -> fail the transaction.
+- duplicate run ID or duplicate historical event number -> reject without count change.
+
+### 5. Good / Base / Bad Cases
+
+- Good: 6,851 mapped events load, 36 events for quarantined T0 employees remain redacted errors, and employee current-state checksum is unchanged.
+- Base: one legacy state outside the accepted state remains a visible `needs_review` historical event.
+- Bad: replay old events through `transitionEmployment`, expose old salary/approver values in staging reports, or delete events by remark without record-map proof.
+
+### 6. Tests Required
+
+- Contract-test read-only/source ordering, forbidden sensitive columns, isolated target guards, checksum pinning, employee-state check, record-map rollback, and no employee deletion.
+- Run two real extracts and assert equal event/type hashes.
+- In isolated PostgreSQL run migration → load → checks → rollback → reload; assert duplicate-run rejection and unchanged row count.
+- Run HR/API unit tests, lint, type-check, build, and scan migration errors for raw sensitive keys.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await transitionEmployment(scope, actor, employeeId, historicalDto);
+```
+
+#### Correct
+
+```sql
+INSERT INTO hr_employment_event (..., is_historical_import, migration_decision)
+SELECT ..., true, 'accepted'
+FROM staging
+JOIN hr_employee ON exact_scoped_t0_identity;
 ```

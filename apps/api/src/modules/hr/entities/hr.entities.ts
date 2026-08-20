@@ -51,6 +51,12 @@ export class HrEmploymentEventEntity extends AuditableEntity {
  @Column({name:"after_snapshot",type:"jsonb",default:()=>"'{}'::jsonb"}) afterSnapshot!:Record<string,unknown>;
  @Column({type:"varchar",length:500,nullable:true}) reason!:string|null;
  @Column({length:32,default:"effective"}) status!:string;
+ @Column({name:"legacy_event_no",type:"varchar",length:64,nullable:true}) legacyEventNo!:string|null;
+ @Column({name:"legacy_event_type",type:"varchar",length:32,nullable:true}) legacyEventType!:string|null;
+ @Column({name:"legacy_state",type:"varchar",length:32,nullable:true}) legacyState!:string|null;
+ @Column({name:"source_effective_at",type:"timestamp",nullable:true}) sourceEffectiveAt!:Date|null;
+ @Column({name:"migration_decision",type:"varchar",length:32,nullable:true}) migrationDecision!:string|null;
+ @Column({name:"is_historical_import",type:"boolean",default:false}) isHistoricalImport!:boolean;
 }
 
 @Entity("hr_employee_document")

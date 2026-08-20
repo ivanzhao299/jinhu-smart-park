@@ -1,0 +1,25 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+const root = resolve(import.meta.dirname, "../..");
+const migration = readFileSync(resolve(root, "database/migrations/000224_hr_employment_event_legacy_compatibility.sql"), "utf8");
+const extract = readFileSync(resolve(root, "scripts/extract-yuzhou-t1-employment-events.sh"), "utf8");
+const transform = readFileSync(resolve(root, "scripts/transform-yuzhou-t1-employment-events.mjs"), "utf8");
+const load = readFileSync(resolve(root, "scripts/load-yuzhou-t1-employment-events.sh"), "utf8");
+const rollback = readFileSync(resolve(root, "scripts/rollback-yuzhou-t1-employment-events.sh"), "utf8");
+assert.match(migration, /is_historical_import/);
+assert.match(migration, /uq_hr_employment_event_legacy_no/);
+assert.match(extract, /source database is not read-only/);
+assert.match(extract, /ORDER BY id FOR JSON PATH/);
+assert.doesNotMatch(extract, /oldpay|gradepay|baseepay|jobpay|operator AS|username AS|approve AS/i);
+assert.match(transform, /legacy_unknown/);
+assert.match(transform, /copySafeJson/);
+assert.match(load, /T1_EMPLOYEE_STATE_UNCHANGED/);
+assert.match(load, /legacy_record_map/);
+assert.match(load, /staging SHA-256 mismatch/);
+assert.match(load, /BEGIN;[\s\S]*COMMIT;/);
+assert.doesNotMatch(load, /password|bank_account|idcard/i);
+assert.match(rollback, /target_table='hr_employment_event'/);
+assert.doesNotMatch(rollback, /DELETE FROM hr_employee\b/);
+console.log("Yuzhou T1 employment event contract passed.");
