@@ -4,7 +4,7 @@
 
 本手册用于玉舟集团版 V10 到 Jinhu Smart Park 独立人力资源模块的迁移演练。实验室由两个隔离数据库组成：Jinhu PostgreSQL 目标库和玉舟 SQL Server 源库。源库只读，数据只允许按“源库 → staging → 目标库”方向流动。
 
-当前材料没有 `.bak`、`.dbk`、`.mdf` 或 `.bacpac`。因此当前阶段可以完成环境、对象清单、结构适配、合成数据和迁移框架验证，但不能宣称已完成 2949 名员工等真实业务数据迁移。
+2026-08-20 已在下载目录发现 `hr2026081914.dbk`，完成源/隔离副本 SHA-256 核验、`VERIFYONLY` 和隔离恢复。恢复库 `YuzhouHR_Lab_20260820_intake01` 为 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。在完成全量 catalog、行级抽取和数据质量检查之前，仍不能宣称已完成 2949 名员工等真实业务数据迁移。
 
 ## 2. 已验证的本机基线
 
@@ -45,6 +45,18 @@ pnpm hr:migration:sqlserver:up
 ```
 
 日常抽取不得使用 `sa`。真实备份恢复后，应创建只允许连接目标旧库并执行 `SELECT`、查看 catalog 的 ETL 登录；源备份先复制到隔离目录并计算 SHA-256，不直接在原下载目录上操作。
+
+恢复已接收的备份时，使用唯一 run id 和新的实验数据库名：
+
+```sh
+export ALLOW_YUZHOU_MIGRATION=yes
+export YUZHOU_MIGRATION_RUN_ID=yz-20260820-01
+export YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_20260820_01
+export YUZHOU_BACKUP_SHA256=3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e
+pnpm hr:migration:sqlserver:restore
+```
+
+恢复工具只接受 `database/backups/yuzhou-hr/` 下的副本，拒绝覆盖已存在数据库，不使用 `WITH REPLACE`。它先执行 `RESTORE VERIFYONLY` 和 `FILELISTONLY`，成功恢复后把源库设置为只读，并输出数据库状态及表、过程、函数、触发器数量。
 
 ## 4. 旧资料清单
 

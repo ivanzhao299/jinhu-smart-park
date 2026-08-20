@@ -126,6 +126,11 @@ pnpm hr:migration:check
 pnpm hr:migration:manifest -- <source-dir> <output-json>
 YUZHOU_SQLSERVER_SA_PASSWORD=<local-secret> pnpm hr:migration:sqlserver:up
 pnpm hr:migration:sqlserver:down
+ALLOW_YUZHOU_MIGRATION=yes \
+YUZHOU_MIGRATION_RUN_ID=<safe-run-id> \
+YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_<safe_suffix> \
+YUZHOU_BACKUP_SHA256=<lowercase-sha256> \
+pnpm hr:migration:sqlserver:restore
 POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 ```
 
@@ -136,6 +141,10 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 - `YUZHOU_SQLSERVER_SA_PASSWORD` is required for SQL Server config/start and must not be committed. Normal extraction uses a separate read-only login after a real backup is restored.
 - The SQL Server Compose project is explicitly named `jinhu_yuzhou_migration_lab`; its `down` command must work without recovering the original SA password.
 - Source materials and backups are read-only. Inventory manifests contain relative paths, sizes, types, and hashes, not connection strings or business-sensitive values.
+- A restore accepts only a regular file resolved below `database/backups/yuzhou-hr`, and its lowercase SHA-256 must match `YUZHOU_BACKUP_SHA256` before Docker is contacted.
+- `YUZHOU_MIGRATION_RUN_ID` is required and contains 6-64 safe characters. `YUZHOU_SQLSERVER_DATABASE` is required and matches `YuzhouHR_Lab_<safe_suffix>`; the restore refuses an existing database and never uses `WITH REPLACE`.
+- `YUZHOU_BACKUP_SET` is optional, defaults to `1`, and is an integer from 1 through 999. The command runs `RESTORE HEADERONLY`, `RESTORE VERIFYONLY`, and `RESTORE FILELISTONLY` before constructing explicit data/log `MOVE` paths.
+- The target container must be healthy and carry Compose project label `jinhu_yuzhou_migration_lab`. After restoration the database is set `READ_ONLY`, a catalog summary is written below the ignored import-report directory, and temporary SQL/backup copies inside the container are removed.
 - Every mutable target run uses an isolated database name, unique run id, loopback connections, and explicit `ALLOW_YUZHOU_MIGRATION=yes` gate.
 
 ### 4. Validation & Error Matrix
@@ -146,6 +155,11 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 | Docker/Compose/Colima unavailable | Runtime diagnostic fails with the missing dependency |
 | `15432` or `14333` already occupied | Diagnostic identifies the listener; operator verifies it is the named lab before reuse |
 | Source backup absent | Environment and synthetic fixture may proceed; real row migration remains blocked |
+| Restore authorization, run id, target name, backup-set number, or SHA-256 is invalid | Fail before copying the backup or executing SQL |
+| Backup resolves outside the controlled staging directory or its hash differs | Fail before Docker is contacted |
+| Container is unhealthy or has a different Compose project label | Fail without restoring or changing a database |
+| Target SQL Server database already exists | Fail without overwrite; never add `WITH REPLACE` |
+| Backup metadata, verification, file listing, or restore fails | Return nonzero, retain the report for diagnosis, and do not claim restore success |
 | Target is default/shared/production database | Migration mutation fails closed |
 | PostgreSQL migration fails | Stop; do not seed, bootstrap, or load legacy rows |
 | Source catalog count differs from file report | Record the catalog evidence and unresolved mapping; do not choose a count silently |
@@ -153,7 +167,9 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 ### 5. Good / Base / Bad Cases
 
 - Good: run both databases on loopback-only distinct ports, migrate a fresh target, restore a copied/hashed backup, and extract with a read-only SQL Server login.
+- Good: restore a staged backup by exact SHA-256 into a new `YuzhouHR_Lab_*` database, verify catalog counts, and confirm `is_read_only = 1`.
 - Base: no real backup is available; validate SQL Server connectivity and the full ETL contract with synthetic fixtures while reporting the row-migration blocker.
+- Bad: point the restore command at Downloads directly, omit the expected hash, reuse an existing database, or relax the container project-label check.
 - Bad: reuse `jinhu_smart_park`, expose SQL Server on all interfaces, put an SA password in Compose, or let the API query the legacy database at runtime.
 
 ### 6. Tests Required
@@ -164,6 +180,8 @@ POSTGRES_PORT=15432 POSTGRES_DB=jinhu_hr_migration_lab pnpm db:migrate
 - Run a fresh-schema migration and assert both history tables match with no failed/running rows.
 - Run the Yuzhou lab contract with the source directory and assert 220 files, 194 procedures, 16 functions, and 2 triggers.
 - Execute SQL Server `SELECT 1`/version query through container `sqlcmd`; never print the password.
+- Run `pnpm test:e2e:yuzhou-backup-restore`; assert authorization, naming, hash, controlled path, backup-set, project-label, verification, no-overwrite, read-only, cleanup, and password-output guards.
+- Negative-test missing authorization, malformed run/database names, and a wrong SHA-256; each must fail before Docker access.
 
 ### 7. Wrong vs Correct
 
@@ -184,4 +202,18 @@ ports:
   - "127.0.0.1:${YUZHOU_SQLSERVER_PORT:-14333}:1433"
 environment:
   MSSQL_SA_PASSWORD: ${YUZHOU_SQLSERVER_SA_PASSWORD:?Set in the local shell}
+```
+
+For backup restoration:
+
+```sh
+# Wrong: restore an unchecked external path into a reused database with overwrite semantics.
+sqlcmd -Q "RESTORE DATABASE ExistingHR FROM DISK='download.dbk' WITH REPLACE"
+
+# Correct: stage read-only, pin the hash, use a unique lab target, and keep the explicit mutation gate.
+ALLOW_YUZHOU_MIGRATION=yes \
+YUZHOU_MIGRATION_RUN_ID=20260820_intake01 \
+YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_20260820_intake01 \
+YUZHOU_BACKUP_SHA256=<verified-lowercase-sha256> \
+pnpm hr:migration:sqlserver:restore
 ```

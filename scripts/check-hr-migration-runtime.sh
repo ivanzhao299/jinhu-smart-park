@@ -3,6 +3,7 @@ set -eu
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 SOURCE_DIR="${YUZHOU_SOURCE_DIR:-/Users/mac/Downloads/玉舟人力资源管理系统分析产出}"
+BACKUP_FILE="${YUZHOU_BACKUP_FILE:-$ROOT_DIR/database/backups/yuzhou-hr/hr2026081914.dbk}"
 POSTGRES_PORT="${POSTGRES_PORT:-15432}"
 SQLSERVER_PORT="${YUZHOU_SQLSERVER_PORT:-14333}"
 failed=0
@@ -45,6 +46,13 @@ if [ -d "$SOURCE_DIR" ]; then
   pass "legacy source directory is readable ($source_count files)"
 else
   warn "legacy source directory is absent: $SOURCE_DIR"
+fi
+
+if [ -f "$BACKUP_FILE" ]; then
+  backup_bytes="$(wc -c < "$BACKUP_FILE" | tr -d ' ')"
+  pass "staged Yuzhou SQL Server backup is readable ($backup_bytes bytes)"
+else
+  warn "staged Yuzhou SQL Server backup is absent: $BACKUP_FILE"
 fi
 
 for port_pair in "PostgreSQL:$POSTGRES_PORT" "SQLServer:$SQLSERVER_PORT"; do

@@ -37,7 +37,9 @@ Jinhu 空库完整链路实测：221 个迁移和 8 个 migration prerequisite �
 
 7z 归档完整性测试为 `Everything is Ok`：内含 217 个文件、716,875 字节；展开材料总计 220 个文件。机器清单已生成到 `research/generated/legacy-manifest.json`，确认 218 个文本文件、17,570 行、194 个过程源码、16 个函数源码、2 个触发器源码和 1 组重复报告。
 
-未找到任何 `.dbk/.bak/.mdf/.bacpac`。现有资料足以完成 schema fixture、inventory 和迁移框架，不能证明真实行级迁移已完成。
+2026-08-20 在下载目录的飞书资料收件箱发现 `hr2026081914.dbk`。文件为 Microsoft SQL Server Windows NTbackup archive，大小 364,988,928 字节，SHA-256 为 `3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e`。已只读复制到 Git 忽略的 `database/backups/yuzhou-hr/`，源/副本 hash 一致。可打印内容包含 `person`、`personinfo`、`personjob`、`personlink`、`department` 和 `readjust` 等对象线索，与玉舟 HR 材料一致。
+
+2026-08-20 已通过 fail-closed 恢复脚本完成 `RESTORE HEADERONLY`、`VERIFYONLY`、`FILELISTONLY` 和隔离恢复。目标库为 `YuzhouHR_Lab_20260820_intake01`，状态 ONLINE/READ_ONLY，collation 为 `Chinese_PRC_CI_AS`，兼容级别 100；catalog 实测为 162 张表、169 个存储过程、16 个函数、2 个触发器。由此确认旧分析报告中的“169 个存储过程”是数据库当前对象口径，194 个过程源码文件包含重复、历史或未部署文件，后续按对象名/hash 做差异清单。
 
 ## 当前仓库风险
 

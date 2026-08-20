@@ -28,12 +28,12 @@
 - [x] 固化已确认指标：218 文本/17,570 行、162 表、194 过程文件、16 函数、2 触发器、重复报告 hash。
 - [x] 7z 归档完整性通过（217 文件）；`.DS_Store` 标为 metadata 并排除业务证据。逐项归档/展开 hash 对照仍待补充。
 - [ ] 生成表/列/字典/帮助主题/过程依赖索引和功能模块矩阵。
-- [ ] 在真实 SQL Server 恢复后运行 catalog 比较，解释 169 与 194 的口径差。
+- [x] 真实 SQL Server catalog 已确认 169 个存储过程；194 个过程源码文件属于文件口径，包含重复、历史或未部署文件，后续继续输出对象名/hash 差异清单。
 
 ## Phase 4：SQL Server 只读实验室
 
 - [ ] 无备份时：SQL Server 2022 Developer 容器及查询已验证；继续用 162 表 DDL 适配后的最小合成 fixture 验证抽取和类型转换，不宣称真实迁移。
-- [ ] 有 `.dbk/.bak` 时：先复制并计算 hash，在隔离 volume 恢复；创建最小只读 ETL login，禁止使用 sa 做日常抽取。
+- [x] `.dbk` 已完成只读接收、隔离副本、hash 核验、`VERIFYONLY` 和隔离恢复；目标库 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。只读 ETL login 继续在下一步创建，禁止使用 sa 做日常抽取。
 - [ ] 导出 SQL Server 版本、collation、catalog、行数、主键/索引/FK、LOB 类型和数据质量摘要。
 - [ ] 所有源查询稳定排序、分块、超时受控，不更新旧库。
 
