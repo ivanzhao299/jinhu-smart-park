@@ -171,6 +171,9 @@ export class HomestayTurnoverService {
       if (task.assigneeId !== null) {
         await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, task.assigneeId);
       }
+      if (dto.assignee_id) {
+        await this.requireWorkbenchQuery().assertAssignedTurnoverAccess(actor, dto.assignee_id);
+      }
       await this.applyTransition(manager, scope, actor, task, action, dto);
       if (dto.assignee_id) task.assigneeId = dto.assignee_id;
       if (dto.assignee_name?.trim()) task.assigneeName = dto.assignee_name.trim();

@@ -182,3 +182,29 @@ test("assigned turnover mutation stops before any lifecycle mutation when handle
   assert.equal(task.status, "pending");
   assert.equal(saves, 0);
 });
+
+test("turnover mutation rejects a requested assignee outside the handler scope before transition", async () => {
+  const task = { id: "turnover-1", unitId: "unit-1", occupancyId: null, status: "pending",
+    assigneeId: null, assigneeName: null, photoFileIds: [], consumables: [], linkedWorkOrderId: null,
+    exceptionDescription: null, updateBy: null };
+  const repository = { findOne: async () => task, save: async () => task };
+  const manager = { getRepository: () => repository };
+  let scopeChecks = 0;
+  const service = new HomestayTurnoverService(
+    {} as never, {} as never, {} as never, {} as never,
+    { assertAccess: async () => undefined } as never,
+    { transaction: async (run: (value: typeof manager) => unknown) => run(manager) } as never,
+    { assertAssignedTurnoverAccess: async () => {
+      scopeChecks += 1;
+      throw new Error("handler scope rejected");
+    } } as never
+  );
+
+  await assert.rejects(
+    service.executeTurnover(scope, actor, task.id, "start", { assignee_id: "other-handler" }),
+    /handler scope rejected/
+  );
+  assert.equal(scopeChecks, 1);
+  assert.equal(task.status, "pending");
+  assert.equal(task.assigneeId, null);
+});
