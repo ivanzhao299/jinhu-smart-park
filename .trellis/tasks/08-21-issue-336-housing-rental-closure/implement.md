@@ -37,17 +37,17 @@
 ## 4. 证据与文档
 
 - [x] 更新住房专项证据，区分自动化浏览器和真人 UAT。
-- [ ] 更新 Issue #336 追踪矩阵与最终候选 SHA。
+- [x] 更新 Issue #336 追踪矩阵与验证代码候选 SHA。
 - [ ] 更新相关 Trellis 状态漂移，但不伪造既有任务完成时间或签署。
 - [ ] 准备 PR192 真人 UAT handoff。
 
 ## 5. GitHub PR 闭环
 
-- [ ] 检查 diff，只暂存本任务文件。
-- [ ] 运行风险匹配验证与 `git diff --check`。
-- [ ] 提交并推送分支。
-- [ ] 创建一个 draft PR，关联 `Fixes #336`。
-- [ ] 每次推送后评论 `@codex review`。
+- [x] 检查 diff，只暂存本任务文件。
+- [x] 运行风险匹配验证与 `git diff --check`。
+- [x] 提交并推送分支。
+- [x] 创建一个 draft PR，关联 `Fixes #336`。
+- [x] 每次推送后评论 `@codex review`。
 - [ ] 循环处理当前 head 的有效 review 与 CI 失败。
 - [ ] CI 全绿、最新复审无重大问题后转 ready 并合并。
 
