@@ -25,17 +25,25 @@
 
 ## Acceptance Criteria
 
-- [ ] task list 对 tenant/park/unit/assignee scope 全部 fail-closed，count 与列表一致。
-- [ ] `taskId`/`requestId` deep link 可刷新、可返回且不泄露跨 scope 对象。
-- [ ] booking/guest/finance 状态、人数、候选和敏感字段规则具备单测与真实 API E2E。
-- [ ] 凭证遗失、补发/赔偿与周转异常转维修具有幂等、审计和占用保护。
-- [ ] 民宿 Web 测试进入默认 CI；无 dual fetch/mutation owner。
-- [ ] API E2E 覆盖并发下单、成功改期、成功 no-show、refund/waiver、跨园区、多角色、文件权限并 residual=0。
-- [ ] 桌面、768px、390px、360px 与关键无障碍场景通过真实浏览器 UAT。
-- [ ] 所有 P0/P1 清零，P2 修复或书面接受；文档绑定同一 candidate SHA、环境和证据。
-- [ ] 每个 PR 当前 head CI 全绿、Codex Review 无重大问题且 mergeable 后合并。
-- [ ] 合并后 main CI、部署、健康检查、公开生产保护校验和 Docker cleanup 成功。
-- [ ] 真人岗位和具名签署未完成前保持 `uat_pending/awaiting_human_gate`。
+- [x] task list 对 tenant/park/unit/assignee scope 全部 fail-closed，count 与列表一致。
+- [x] `taskId`/`requestId` deep link 可刷新、可返回且不泄露跨 scope 对象。
+- [x] booking/guest/finance 状态、人数、候选和敏感字段规则具备单测与真实 API E2E。
+- [x] 凭证遗失与周转异常关联维修具有幂等、审计和占用保护；缺少跨模块事务合同的自动建单保持 fail-closed。
+- [x] 民宿 Web 测试进入默认 CI；无 dual fetch/mutation owner。
+- [x] API E2E 覆盖并发下单、成功改期、成功 no-show、refund/waiver、跨园区、多角色、文件权限并 residual=0。
+- [x] 桌面、768px、390px、360px 与关键无障碍场景通过真实浏览器 UAT。
+- [x] 所有 P0/P1 清零，P2 修复或书面接受；文档绑定同一 candidate SHA、环境和证据。
+- [x] 每个 PR 当前 head CI 全绿、Codex Review 无重大问题且 mergeable 后合并。
+- [x] 合并后 main CI、部署、健康检查、公开生产保护校验和 Docker cleanup 成功。
+- [x] 真人岗位和具名签署未完成前保持 `uat_pending/awaiting_human_gate`。
+
+## Verification Evidence
+
+- Final reviewed candidate SHA: `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；PR #331 合并至 main SHA `619b8d20e891c74f69abcc9c908666034c37c648`。
+- Codex 对最终候选明确确认无重大问题；PR head CI 与 Release Smoke 全绿。
+- main CI run `32340203702` 全绿，覆盖 lint、typecheck、单测、构建、迁移、生产种子、登录、Property API E2E、日志上传与容器清理。
+- Deploy Production run `32340203683` 成功：完整健康检查和 API liveness 通过、Docker unused images/build cache 清理完成、6 个受保护账号公开生产校验全部 PASS。
+- 真人具名业务签署仍未完成，因此总产品矩阵继续保留 `uat_pending/awaiting_human_gate`；这不是本自动化修复任务的未完成项。
 
 ## Out of Scope
 

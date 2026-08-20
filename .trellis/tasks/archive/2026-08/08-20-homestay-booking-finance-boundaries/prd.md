@@ -14,10 +14,16 @@
 
 ## Acceptance Criteria
 
-- [ ] booking status/action matrix 稳定返回 409。
-- [ ] active guest 不超过 guest_count。
-- [ ] candidate 搜索分页限量且不返回敏感字段。
-- [ ] refund/waiver 审批和敏感响应 E2E 通过。
+- [x] booking status/action matrix 稳定返回 409。
+- [x] active guest 不超过 guest_count。
+- [x] candidate 搜索分页限量且不返回敏感字段。
+- [x] refund/waiver 审批和敏感响应 E2E 通过。
+
+## Verification Evidence
+
+- Final reviewed candidate SHA: `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；PR #331，合并后 main SHA `619b8d20e891c74f69abcc9c908666034c37c648`。
+- API policy/service/DTO 回归覆盖状态矩阵、人数上限、候选最小实质字符与通配符转义；Web 财务入口镜像后端状态矩阵。
+- PostgreSQL 16 真实 API E2E 覆盖退款/减免审批成功链、敏感响应与跨园区负向路径；main CI、Release Smoke 与生产健康校验通过。
 
 ## Out of Scope
 

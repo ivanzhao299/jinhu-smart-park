@@ -21,11 +21,12 @@
 
 ## Verification Evidence
 
-- Candidate SHA: `4039bc67a8ec4939296ec8a097d8c32dda7451f5`
+- Final reviewed candidate SHA: `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；合并后 main SHA：`619b8d20e891c74f69abcc9c908666034c37c648`。
 - 默认 Web 单测门已包含民宿与共享房产 DS 契约。
 - Chrome DevTools MCP 已完成桌面、平板、390px 和 360px 响应式检查，并验证结构化返回、键盘焦点、403/404/409 和真实列表/详情链路。
 - 最新复审缺口已在 Chrome DevTools MCP 复验：审批列表从 `?page=2` 请求并显示第 2 页；已退房订单不显示“费用”，草稿订单禁用登记；390×844 无溢出且无小于 44px 的工作面控件。
 - 深链目标切换后，旧目标写操作的成功/失败回调不会再刷新或覆盖新目标状态；共享运行时契约门已覆盖任务与审批两条路径。
+- 最终候选验证：Web property 契约 19/19、Web lint、Web typecheck 与 `git diff --check` 通过；Codex 对 `8012b854` 明确确认无重大问题，main CI run `32340203702` 全绿。
 
 ## Out of Scope
 

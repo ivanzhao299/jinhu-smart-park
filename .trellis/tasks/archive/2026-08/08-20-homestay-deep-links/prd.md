@@ -14,10 +14,16 @@
 
 ## Acceptance Criteria
 
-- [ ] taskId/requestId 直达、刷新、返回上下文通过。
-- [ ] 未知 source type、无权、跨 scope 安全降级。
-- [ ] 403/404 不泄露对象存在性。
-- [ ] Web unit 与真实浏览器 desktop/390 通过。
+- [x] taskId/requestId 直达、刷新、返回上下文通过。
+- [x] 未知 source type、无权、跨 scope 安全降级。
+- [x] 403/404 不泄露对象存在性。
+- [x] Web unit 与真实浏览器 desktop/390 通过。
+
+## Verification Evidence
+
+- Final reviewed candidate SHA: `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；PR #331，合并后 main SHA `619b8d20e891c74f69abcc9c908666034c37c648`。
+- Web 逻辑/契约回归覆盖 UUID 目标解析、source allowlist、结构化 returnTo、字面百分号、审批分页恢复、过期加载与并发 mutation 竞态。
+- Chrome DevTools MCP 验证桌面与 390px 目标定位、返回、page=2、键盘焦点及无横向溢出；最终 Web property 契约 19/19、lint、typecheck 通过。
 
 ## Out of Scope
 
