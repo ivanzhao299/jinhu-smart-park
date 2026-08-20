@@ -51,14 +51,15 @@
 - [x] 真实组织编码为 3/6/9/12/15 位；员工无组织/岗位孤儿。映射改为从实际存在编码推导最长短前缀父级，不截断 15 位编码。
 - [x] 已 Profile `person` 真实 150 列（旧报告 138 列已纠正）：工号无空/无重复，身份证 39 组重复影响 79 行、503 行为空，2155 个照片的 `photosize` 均不能作为实际字节数。
 - [x] 已用真实只读源完成组织 138、岗位 18、员工 2949 的稳定抽取和规范 JSONL 转换；每条记录具有 source identity hash 与 row hash，两次运行文件 hash 一致。
-- [ ] 对合成 fixture 完成 extract→profile→transform→load→verify→rollback；真实备份到位后原管线重跑。
-- [ ] 输出脱敏数据质量报告和未知项清单。
+- [x] 已对真实备份完成组织/岗位/员工 extract→profile→transform→load→verify→rollback→reload；专用目标库223迁移和生产安全种子通过，最终加载138组织、18岗位、2938员工。
+- [x] 11名离职日期早于入职日期的员工进入脱敏隔离队列；报告不含姓名/证件/手机号/账号，组织父级孤儿为0，员工总账 `2938+11=2949`。
 
 ## Phase 7：质量门禁与交付
 
 - [x] 新增 Shell/Node 工具语法检查、Yuzhou migration lab contract、PostgreSQL 完整迁移和 SQL Server 健康/查询验证通过；后续控制模型与 dry-run 测试随对应阶段补充。
 - [x] 全 workspace `pnpm lint`、`pnpm typecheck`、`pnpm build` 通过；Next.js 保留既有 ESLint plugin 提示。
 - [ ] 验证临时数据库、容器、volume、文件 staging 在成功/失败/中断后均可清理，且不会触及宽泛路径。
+- [x] T0业务数据精确回滚已验证：仅按当前run的3094条活跃record map删除2938员工、18岗位、138组织，保留15条种子组织；同run重复加载拒绝，新run可重载。
 - [x] 新增迁移实验室运行手册并同步 HR 兼容计划；Compose 密码强制外置，未提交秘密。
 - [x] 环境版本、命令、数据库验证和真实源备份缺口已记录；commit 在本阶段质量检查后补记。
 

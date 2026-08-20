@@ -58,6 +58,30 @@ pnpm hr:migration:sqlserver:restore
 
 恢复工具只接受 `database/backups/yuzhou-hr/` 下的副本，拒绝覆盖已存在数据库，不使用 `WITH REPLACE`。它先执行 `RESTORE VERIFYONLY` 和 `FILELISTONLY`，成功恢复后把源库设置为只读，并输出数据库状态及表、过程、函数、触发器数量。
 
+本次恢复后已创建 `yuzhou_etl_20260820_intake01` 最小权限登录。实测权限为 `db_datareader=1`、`VIEW DEFINITION=1`、`UPDATE=0`、`EXECUTE=0`，恢复库仍为只读。登录凭据只保存在 Git 忽略、文件权限为 `0600` 的本地导入报告目录。catalog 导出同样位于 Git 忽略目录，提交到仓库的只有不含人员明细的汇总证据。
+
+T0 组织/岗位/员工演练使用独立目标库，不在通用库或生产库直接加载：
+
+```sh
+export ALLOW_YUZHOU_MIGRATION=yes
+export YUZHOU_MIGRATION_RUN_ID=t0extract_20260820e
+pnpm hr:migration:t0:extract
+
+export YUZHOU_MIGRATION_RUN_ID=t0load_20260820c
+export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_t0_20260820a
+export YUZHOU_STAGING_DIR="$PWD/database/import-reports/yuzhou-hr/staging-t0extract_20260820e"
+pnpm hr:migration:t0:load
+```
+
+加载器先校验三份规范 JSONL 的 SHA-256，再以单事务写入业务表、源对象、批次明细、record map、脱敏错误、对账和回滚点。重复 run、共享目标、哈希漂移、数量漂移或对账失败均整体回滚。
+
+精确回滚必须增加第二个显式开关，只允许删除当前 run 的活跃 record map 可以证明的目标记录：
+
+```sh
+export ALLOW_YUZHOU_ROLLBACK=yes
+pnpm hr:migration:t0:rollback
+```
+
 ## 4. 旧资料清单
 
 生成清单：

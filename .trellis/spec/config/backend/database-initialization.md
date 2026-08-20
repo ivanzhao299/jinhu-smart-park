@@ -234,6 +234,7 @@ pnpm hr:migration:sqlserver:restore
 ### 2. Signatures
 
 - Migrations: `000222_hr_legacy_migration_control.sql`, followed by forward-only integrity correction `000223_hr_legacy_migration_control_integrity.sql`.
+- Commands: `pnpm hr:migration:t0:load` and, with the additional `ALLOW_YUZHOU_ROLLBACK=yes` gate, `pnpm hr:migration:t0:rollback`.
 - Tables: `legacy_source_object`, `migration_batch`, `migration_batch_item`, `legacy_record_map`, `migration_error`, `migration_check`, `migration_rollback_point`.
 
 ### 3. Contracts
@@ -242,6 +243,8 @@ pnpm hr:migration:sqlserver:restore
 - One active mapping exists per `(source_system, source_table, source_identity_sha256)`; same-row-hash replay may return it, while a changed row hash is drift and must conflict.
 - Loaded item count never exceeds valid count. Error/check item references must belong to the same batch.
 - Error evidence is a redacted JSON object. Rollback scope and cleanup manifest are JSON objects bound to one batch.
+- T0 load verifies pinned SHA-256 values before Docker access, runs in one transaction, and writes business rows plus source objects, batch items, maps, errors, checks, and a rollback point together.
+- Rollback deletes in employee → position → organization order and only through active maps owned by the exact succeeded run; it deactivates maps and preserves seed/unmapped rows.
 
 ### 4. Validation & Error Matrix
 
@@ -253,6 +256,9 @@ pnpm hr:migration:sqlserver:restore
 | `loaded_count > valid_count` | Check violation |
 | Item belongs to another batch | Foreign-key violation |
 | Error evidence is not marked redacted | Check violation |
+| Staging SHA-256/count differs | Fail before load; do not create a batch |
+| Duplicate run id or existing target code collision | Fail and roll back the whole transaction |
+| Rollback count/target drift or non-succeeded run | Fail before deletion |
 
 ### 5. Good / Base / Bad Cases
 
@@ -264,6 +270,7 @@ pnpm hr:migration:sqlserver:restore
 
 - Run `pnpm test:e2e:yuzhou-migration-control`.
 - Apply both migrations on `jinhu_hr_migration_lab`; transactionally test first insert, replay, drift, target rejection, redaction rejection, count integrity, and cross-batch references.
+- Run `pnpm test:e2e:yuzhou-t0-load` and `pnpm test:e2e:yuzhou-t0-rollback`; on an isolated database prove load, exact rollback, seed preservation, new-run reload, duplicate-run rejection, and staging-hash rejection.
 - Verify both migration-history tables contain succeeded rows with matching checksums.
 
 ### 7. Wrong vs Correct
