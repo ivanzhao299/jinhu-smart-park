@@ -10,13 +10,22 @@ import {
   type PropertyTaskListItem,
   type PropertyTaskListResponse
 } from "@jinhu/shared";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
 import { hasAccess } from "../../lib/permissions";
 import styles from "./PropertyRuntimeSlots.module.css";
-import { buildPropertyTaskMutationRequest } from "./property-runtime-slots.logic";
+import {
+  buildPropertyTaskMutationRequest,
+  parsePropertyRuntimeTarget,
+  prependUniquePropertyRuntimeItem,
+  propertyApprovalTargetAllowed,
+  propertyTaskTargetAllowed
+} from "./property-runtime-slots.logic";
+import { safePropertyDeepLink } from "./property-control-plane.logic";
 
 export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTypes }: {
   approvalSourceTypes: readonly string[];
@@ -24,6 +33,11 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   taskSourceTypes: readonly string[];
 }) {
   const user = useAuthUser();
+  const searchParams = useSearchParams();
+  const target = parsePropertyRuntimeTarget({
+    taskId: searchParams.get("taskId"),
+    requestId: searchParams.get("requestId")
+  });
   const canReadTasks = hasAccess(user, SYSTEM_PERMISSIONS.PROPERTY_TASK_READ, "asset")
     && hasAccess(user, undefined, module);
   const canReadApprovals = hasAccess(user, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_READ, "asset")
@@ -32,6 +46,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const [approvals, setApprovals] = useState<ApprovalSummary[]>([]);
   const [taskError, setTaskError] = useState("");
   const [approvalError, setApprovalError] = useState("");
+  const [focusedTaskDeepLink, setFocusedTaskDeepLink] = useState<string | null>(null);
   const [approvalReasons, setApprovalReasons] = useState<Record<string, string>>({});
   const [mutatingApprovalIds, setMutatingApprovalIds] = useState<ReadonlySet<string>>(new Set());
   const [feedback, setFeedback] = useState("");
@@ -39,41 +54,99 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const [mutatingTaskIds, setMutatingTaskIds] = useState<ReadonlySet<string>>(new Set());
   const mutationKeys = useRef(new Map<string, string>());
   const mutationLocks = useRef(new Set<string>());
+  const focusedTarget = useRef<HTMLDivElement | null>(null);
   const approvalSourceKey = approvalSourceTypes.join("\u0000");
   const taskSourceKey = taskSourceTypes.join("\u0000");
 
   const load = useCallback(async () => {
     if (canReadTasks) {
       try {
-        const pages = await Promise.all(taskSourceKey.split("\u0000").filter(Boolean)
+        const sourceTypes = taskSourceKey.split("\u0000").filter(Boolean);
+        const pages = await Promise.all(sourceTypes
           .map((sourceType) => apiRequest<PropertyTaskListResponse>(
           `/property/tasks?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
           { token: getAccessToken() ?? undefined }
-        )));
-        setTasks(pages.flatMap((page) => [...page.data.items])
-          .sort((left, right) => right.priority - left.priority || left.taskId.localeCompare(right.taskId)));
-        setTaskError("");
+          )));
+        const listed = pages.flatMap((page) => [...page.data.items])
+          .sort((left, right) => right.priority - left.priority || left.taskId.localeCompare(right.taskId));
+        if (!target.taskId) {
+          setTasks(listed);
+          setFocusedTaskDeepLink(null);
+          setTaskError("");
+        } else {
+          try {
+            const targetResponse = await apiRequest<PropertyTaskDetailResponse>(
+              `/property/tasks/${encodeURIComponent(target.taskId)}`,
+              { token: getAccessToken() ?? undefined }
+            );
+            if (!propertyTaskTargetAllowed(targetResponse.data, sourceTypes)) {
+              throw new Error("runtime-target-outside-surface");
+            }
+            setTasks(prependUniquePropertyRuntimeItem(
+              targetResponse.data,
+              listed,
+              (item) => item.taskId
+            ));
+            setFocusedTaskDeepLink(targetResponse.data.sourceDeepLink
+              ? safePropertyDeepLink(targetResponse.data.sourceDeepLink)
+              : null);
+            setTaskError("");
+          } catch {
+            setTasks(listed);
+            setFocusedTaskDeepLink(null);
+            setTaskError("目标任务不可用或无权访问。");
+          }
+        }
       } catch (cause) {
         setTaskError(cause instanceof Error ? cause.message : "共享任务加载失败");
       }
     }
     if (canReadApprovals) {
       try {
-        const pages = await Promise.all(approvalSourceKey.split("\u0000").filter(Boolean).map((sourceType) =>
-          apiRequest<PropertyPaginatedResult<ApprovalSummary>>(
-            `/property/approvals?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
-            { token: getAccessToken() ?? undefined }
-          )));
-        setApprovals(pages.flatMap((page) => page.data.items)
-          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)));
-        setApprovalError("");
+        const sourceTypes = approvalSourceKey.split("\u0000").filter(Boolean);
+        const pages = await Promise.all(sourceTypes.map((sourceType) =>
+            apiRequest<PropertyPaginatedResult<ApprovalSummary>>(
+              `/property/approvals?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
+              { token: getAccessToken() ?? undefined }
+            )));
+        const listed = pages.flatMap((page) => page.data.items)
+          .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+        if (!target.requestId) {
+          setApprovals(listed);
+          setApprovalError("");
+        } else {
+          try {
+            const targetResponse = await apiRequest<ApprovalDetail>(
+              `/property/approvals/${encodeURIComponent(target.requestId)}`,
+              { token: getAccessToken() ?? undefined }
+            );
+            if (!propertyApprovalTargetAllowed(targetResponse.data.request, sourceTypes)) {
+              throw new Error("runtime-target-outside-surface");
+            }
+            setApprovals(prependUniquePropertyRuntimeItem(
+              targetResponse.data.request,
+              listed,
+              (item) => item.requestId
+            ));
+            setApprovalError("");
+          } catch {
+            setApprovals(listed);
+            setApprovalError("目标审批不可用或无权访问。");
+          }
+        }
       } catch (cause) {
         setApprovalError(cause instanceof Error ? cause.message : "共享审批加载失败");
       }
     }
-  }, [approvalSourceKey, canReadApprovals, canReadTasks, taskSourceKey]);
+  }, [approvalSourceKey, canReadApprovals, canReadTasks, target.requestId,
+    target.taskId, taskSourceKey]);
 
   useEffect(() => void load(), [load]);
+  useEffect(() => {
+    if (!focusedTarget.current) return;
+    focusedTarget.current.focus({ preventScroll: true });
+    focusedTarget.current.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [approvals, tasks, target.requestId, target.taskId]);
 
   async function runTaskAction(item: PropertyTaskListItem, action: PropertyTaskAction) {
     if (mutationLocks.current.has(item.taskId)) return;
@@ -179,6 +252,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
       <p className="ds-kicker">共享房产运行时</p>
       <h2 id={`${module}-runtime-title`}>任务与审批</h2>
       <p>领域工作台中的分派、审批决策和效果执行状态。</p>
+      {target.invalid ? <p aria-live="polite">目标链接无效或已失效。</p> : null}
     </div>
     <div className="ds-command-grid">
     {canReadTasks ? <article className={`ds-command-card ${styles.card}`}><div className={styles.cardContent}>
@@ -186,9 +260,15 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
       <p>任务分派由共享运行时管理，完成仍回到领域权威详情。</p>
       {taskError ? <p aria-live="polite">{taskError}</p> : null}
       {!taskError && !tasks.length ? <p>暂无已投影任务。</p> : null}
-      {tasks.slice(0, 20).map((item) => <div className={styles.taskRecord} key={item.taskId}>
+      {tasks.slice(0, 20).map((item) => <div aria-current={item.taskId === target.taskId ? "true" : undefined}
+        className={`${styles.taskRecord} ${item.taskId === target.taskId ? styles.focusedRecord : ""}`}
+        key={item.taskId} ref={item.taskId === target.taskId ? focusedTarget : undefined}
+        tabIndex={item.taskId === target.taskId ? -1 : undefined}>
         <p><strong>{item.title}</strong> · {item.assignmentStatus} · v{item.assignmentVersion}</p>
         <p>{item.assigneeDisplay ?? "未分派"} · 优先级 {item.priority}</p>
+        {item.taskId === target.taskId && focusedTaskDeepLink
+          ? <Link href={focusedTaskDeepLink}>查看领域详情</Link>
+          : null}
         {item.allowedActions.some((action) => action === "property.task.block" || action === "property.task.release")
           ? <label>操作原因
             <input aria-label={`${item.title}操作原因`} maxLength={500}
@@ -209,8 +289,14 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
       <p>审批通过与领域效果执行分别展示，避免把“已决策”误认为“已完成”。</p>
       {approvalError ? <p aria-live="polite">{approvalError}</p> : null}
       {!approvalError && !approvals.length ? <p>暂无可见审批。</p> : null}
-      {approvals.slice(0, 20).map((item) => <div className={styles.taskRecord} key={item.requestId}>
+      {approvals.slice(0, 20).map((item) => <div aria-current={item.requestId === target.requestId ? "true" : undefined}
+        className={`${styles.taskRecord} ${item.requestId === target.requestId ? styles.focusedRecord : ""}`}
+        key={item.requestId} ref={item.requestId === target.requestId ? focusedTarget : undefined}
+        tabIndex={item.requestId === target.requestId ? -1 : undefined}>
         <p><strong>{item.actionId}</strong> · {item.decisionStatus} / {item.executionStatus}</p>
+        {item.requestId === target.requestId
+          ? <Link href={`/property/approvals/${encodeURIComponent(item.requestId)}`}>查看审批详情</Link>
+          : null}
         {item.allowedActions.length ? <label>审批原因
           <input aria-label={`${item.actionId}审批原因`} maxLength={1000}
             onChange={(event) => setApprovalReasons((current) => ({
@@ -235,7 +321,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
 }
 
 interface ApprovalDetail {
-  request: { decisionVersion: number };
+  request: ApprovalSummary & { decisionVersion: number; sourceType: string };
   stages: Array<{ stageId: string; stageStatus: string; version: number }>;
 }
 
