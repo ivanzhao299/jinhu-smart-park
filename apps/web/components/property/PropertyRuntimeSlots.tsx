@@ -24,6 +24,7 @@ import {
   parsePropertyRuntimeTarget,
   prependUniquePropertyRuntimeItem,
   propertyApprovalTargetAllowed,
+  propertyRuntimeDetailHref,
   propertyTaskTargetAllowed
 } from "./property-runtime-slots.logic";
 import { safePropertyDeepLink } from "./property-control-plane.logic";
@@ -55,11 +56,15 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
   const [mutatingTaskIds, setMutatingTaskIds] = useState<ReadonlySet<string>>(new Set());
   const mutationKeys = useRef(new Map<string, string>());
   const mutationLocks = useRef(new Set<string>());
+  const requestSequence = useRef(0);
   const focusedTarget = useRef<HTMLDivElement | null>(null);
   const approvalSourceKey = approvalSourceTypes.join("\u0000");
   const taskSourceKey = taskSourceTypes.join("\u0000");
+  const runtimeSearch = searchParams.toString();
 
   const load = useCallback(async () => {
+    const sequence = ++requestSequence.current;
+    const isCurrent = () => sequence === requestSequence.current;
     if (canReadTasks) {
       try {
         const sourceTypes = taskSourceKey.split("\u0000").filter(Boolean);
@@ -68,6 +73,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
           `/property/tasks?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
           { token: getAccessToken() ?? undefined }
           )));
+        if (!isCurrent()) return;
         const listed = pages.flatMap((page) => [...page.data.items])
           .sort((left, right) => right.priority - left.priority || left.taskId.localeCompare(right.taskId));
         if (!target.taskId) {
@@ -80,6 +86,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
               `/property/tasks/${encodeURIComponent(target.taskId)}`,
               { token: getAccessToken() ?? undefined }
             );
+            if (!isCurrent()) return;
             if (!propertyTaskTargetAllowed(targetResponse.data, sourceTypes)) {
               throw new Error("runtime-target-outside-surface");
             }
@@ -88,20 +95,26 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
               listed,
               (item) => item.taskId
             ));
-            setFocusedTaskDeepLink(targetResponse.data.sourceDeepLink
-              ? safePropertyDeepLink(targetResponse.data.sourceDeepLink) as Route | null
+            const safeDeepLink = targetResponse.data.sourceDeepLink
+              ? safePropertyDeepLink(targetResponse.data.sourceDeepLink)
+              : null;
+            setFocusedTaskDeepLink(safeDeepLink
+              ? propertyRuntimeDetailHref(safeDeepLink, module, runtimeSearch) as Route
               : null);
             setTaskError("");
           } catch {
+            if (!isCurrent()) return;
             setTasks(listed);
             setFocusedTaskDeepLink(null);
             setTaskError("目标任务不可用或无权访问。");
           }
         }
       } catch (cause) {
+        if (!isCurrent()) return;
         setTaskError(cause instanceof Error ? cause.message : "共享任务加载失败");
       }
     }
+    if (!isCurrent()) return;
     if (canReadApprovals) {
       try {
         const sourceTypes = approvalSourceKey.split("\u0000").filter(Boolean);
@@ -110,6 +123,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
               `/property/approvals?page=1&pageSize=20&sourceType=${encodeURIComponent(sourceType)}`,
               { token: getAccessToken() ?? undefined }
             )));
+        if (!isCurrent()) return;
         const listed = pages.flatMap((page) => page.data.items)
           .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
         if (!target.requestId) {
@@ -121,6 +135,7 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
               `/property/approvals/${encodeURIComponent(target.requestId)}`,
               { token: getAccessToken() ?? undefined }
             );
+            if (!isCurrent()) return;
             if (!propertyApprovalTargetAllowed(targetResponse.data.request, sourceTypes)) {
               throw new Error("runtime-target-outside-surface");
             }
@@ -131,18 +146,23 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
             ));
             setApprovalError("");
           } catch {
+            if (!isCurrent()) return;
             setApprovals(listed);
             setApprovalError("目标审批不可用或无权访问。");
           }
         }
       } catch (cause) {
+        if (!isCurrent()) return;
         setApprovalError(cause instanceof Error ? cause.message : "共享审批加载失败");
       }
     }
   }, [approvalSourceKey, canReadApprovals, canReadTasks, target.requestId,
-    target.taskId, taskSourceKey]);
+    target.taskId, taskSourceKey, module, runtimeSearch]);
 
-  useEffect(() => void load(), [load]);
+  useEffect(() => {
+    void load();
+    return () => { requestSequence.current += 1; };
+  }, [load]);
   useEffect(() => {
     if (!focusedTarget.current) return;
     focusedTarget.current.focus({ preventScroll: true });
@@ -296,7 +316,11 @@ export function PropertyRuntimeSlots({ approvalSourceTypes, module, taskSourceTy
         tabIndex={item.requestId === target.requestId ? -1 : undefined}>
         <p><strong>{item.actionId}</strong> · {item.decisionStatus} / {item.executionStatus}</p>
         {item.requestId === target.requestId
-          ? <Link href={`/property/approvals/${encodeURIComponent(item.requestId)}`}>查看审批详情</Link>
+          ? <Link href={propertyRuntimeDetailHref(
+              `/property/approvals/${encodeURIComponent(item.requestId)}`,
+              module,
+              runtimeSearch
+            ) as Route}>查看审批详情</Link>
           : null}
         {item.allowedActions.length ? <label>审批原因
           <input aria-label={`${item.actionId}审批原因`} maxLength={1000}

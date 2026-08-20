@@ -187,6 +187,12 @@ test("A-2.5 homestay read DTOs validate queues, UUID filters, dates, and paginat
     booking_id: "11111111-1111-4111-8111-111111111111",
     keyword: "张"
   }))).some((error) => error.property === "keyword"));
+  for (const keyword of ["%%", "__", "%张", "_ 张 \\"]) {
+    assert.ok((await validate(plainToInstance(HomestayGuestCandidateQueryDto, {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+      keyword
+    }))).some((error) => error.property === "keyword"));
+  }
   assert.deepEqual(await validate(plainToInstance(HomestayGuestCandidateQueryDto, {
     booking_id: "11111111-1111-4111-8111-111111111111",
     keyword: "张三"

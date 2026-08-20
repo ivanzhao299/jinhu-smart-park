@@ -4,9 +4,11 @@ import {
   buildPropertyTaskMutationRequest,
   parsePropertyRuntimeTarget,
   prependUniquePropertyRuntimeItem,
+  propertyRuntimeDetailHref,
   propertyApprovalTargetAllowed,
   propertyTaskTargetAllowed
 } from "./property-runtime-slots.logic";
+import { decodeReturnContext } from "../../features/property-shared/detail/return-context";
 
 test("runtime deep-link targets accept one UUID and reject ambiguity or unsafe values", () => {
   const taskId = "11111111-1111-4111-8111-111111111111";
@@ -34,6 +36,28 @@ test("runtime target is prepended once and must belong to the current domain sou
     ["homestay-booking"]), true);
   assert.equal(propertyApprovalTargetAllowed({ sourceType: "housing-lease" } as never,
     ["homestay-booking"]), false);
+});
+
+test("runtime detail links carry a structured return to the current task surface", () => {
+  for (const [module, route] of [
+    ["homestay", "tasks"],
+    ["housing_rental", "/housing/tasks"]
+  ] as const) {
+    const href = propertyRuntimeDetailHref(
+      "/property/approvals/request-1",
+      module,
+      "page=2&status=pending&requestId=11111111-1111-4111-8111-111111111111"
+    );
+    const encoded = new URL(href, "https://workbench.local").searchParams.get("returnTo");
+    assert.deepEqual(decodeReturnContext(encoded ?? ""), {
+      route,
+      query: {
+        page: "2",
+        status: "pending",
+        requestId: "11111111-1111-4111-8111-111111111111"
+      }
+    });
+  }
 });
 
 test("task mutation carries the stable client key in both body and idempotency header option", () => {

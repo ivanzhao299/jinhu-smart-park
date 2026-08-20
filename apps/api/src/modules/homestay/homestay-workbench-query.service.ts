@@ -63,9 +63,9 @@ export class HomestayWorkbenchQueryService {
                AND ($4::uuid[] IS NULL OR booking.unit_id = ANY($4::uuid[]))
            )`;
     const keywordClause = query.keyword
-      ? " AND party.display_name ILIKE $5"
+      ? " AND party.display_name ILIKE $5 ESCAPE '\\'"
       : "";
-    if (query.keyword) parameters.push(`%${query.keyword}%`);
+    if (query.keyword) parameters.push(`%${escapeLikePattern(query.keyword)}%`);
     const limitIndex = parameters.length + 1;
     const offsetIndex = parameters.length + 2;
     const [items, countRows] = await Promise.all([
@@ -520,4 +520,8 @@ export class HomestayWorkbenchQueryService {
     return `${this.financeCteSql(filters)}
       SELECT count(*)::int AS total FROM finance`;
   }
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_");
 }

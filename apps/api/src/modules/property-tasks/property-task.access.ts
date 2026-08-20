@@ -36,6 +36,10 @@ implements PropertyTaskAccessEvaluator {
     QueryManager,
     Map<string, Promise<boolean>>
   >();
+  private readonly homestayTurnoverSourceScopeCache = new WeakMap<
+    QueryManager,
+    Map<string, Promise<boolean>>
+  >();
 
   constructor(
     private readonly dataScopeService?: DataScopeService,
@@ -154,8 +158,65 @@ implements PropertyTaskAccessEvaluator {
       ]
     ) as unknown[];
     if (rows.length !== 1) return false;
-    if (descriptor.sourceType !== "housing_repair") return true;
-    return await this.cachedHousingRepairScope(manager, scope, actorId, grants, sourceId);
+    if (descriptor.sourceType === "housing_repair") {
+      return await this.cachedHousingRepairScope(manager, scope, actorId, grants, sourceId);
+    }
+    if (descriptor.sourceType === "homestay_turnover") {
+      return await this.cachedHomestayTurnoverScope(manager, scope, actorId, grants, sourceId);
+    }
+    return true;
+  }
+
+  private cachedHomestayTurnoverScope(
+    manager: QueryManager,
+    scope: TenantParkScope,
+    actorId: string,
+    grants: ReadonlySet<string>,
+    sourceId: string
+  ): Promise<boolean> {
+    const cache = this.mapForManager(this.homestayTurnoverSourceScopeCache, manager);
+    const key = `${scope.tenantId}:${scope.parkId}:${actorId}:${sourceId}`;
+    const cached = cache.get(key);
+    if (cached) return cached;
+    const value = this.homestayTurnoverScope(manager, scope, actorId, grants, sourceId);
+    cache.set(key, value);
+    return value;
+  }
+
+  private async homestayTurnoverScope(
+    manager: QueryManager,
+    scope: TenantParkScope,
+    actorId: string,
+    grants: ReadonlySet<string>,
+    sourceId: string
+  ): Promise<boolean> {
+    if (grants.has("*")) return true;
+    if (!this.dataScopeService || !this.unitAccessService) return false;
+    const rows = await manager.query(
+      `SELECT turnover.assignee_id::text AS "assigneeId",
+              turnover.unit_id::text AS "unitId"
+         FROM biz_homestay_turnover_task turnover
+        WHERE turnover.tenant_id=$1 AND turnover.park_id=$2
+          AND turnover.id=$3::uuid AND turnover.is_deleted=false
+        LIMIT 1`,
+      [scope.tenantId, scope.parkId, sourceId]
+    ) as Array<{ assigneeId: string | null; unitId: string }>;
+    const row = rows[0];
+    if (!row) return false;
+    const actorScope = await this.cachedHousingRepairActorScope(
+      manager, scope, actorId, grants
+    );
+    if (actorScope.allowedUnitIds !== null && !actorScope.allowedUnitIds.includes(row.unitId)) {
+      return false;
+    }
+    if (row.assigneeId === null) return true;
+    if (
+      grants.has(SYSTEM_PERMISSIONS.PROPERTY_TASK_SUPERVISE)
+      || actorScope.handler.unrestricted
+    ) {
+      return true;
+    }
+    return actorScope.handler.allowed_ids.includes(row.assigneeId);
   }
 
   private cachedHousingRepairScope(

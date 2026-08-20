@@ -94,7 +94,9 @@ export const HOUSING_RETURN_CONTEXT_POLICY: ReturnContextPolicy = {
         "handover_type",
         "approval_status",
         "sort",
-        "order"
+        "order",
+        "taskId",
+        "requestId"
       ]
     }
   ]))

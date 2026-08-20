@@ -112,6 +112,9 @@ export class HomestayGuestCandidateQueryDto extends HomestayUnitCandidateQueryDt
   @IsString()
   @MinLength(2)
   @MaxLength(100)
+  @Matches(/^(?=(?:.*[^%_\\\s]){2,}).*$/u, {
+    message: "keyword must contain at least two literal search characters"
+  })
   keyword!: string;
 
   @IsUUID()

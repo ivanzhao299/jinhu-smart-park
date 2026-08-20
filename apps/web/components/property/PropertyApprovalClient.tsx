@@ -1,7 +1,9 @@
 "use client";
 
 import type { ApprovalSummary, PropertyPaginatedResult } from "@jinhu/shared";
+import type { Route } from "next";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
@@ -11,6 +13,10 @@ import {
   propertyApprovalListQuery,
   propertyApprovalPageCount
 } from "./property-approval-list.logic";
+import {
+  propertyApprovalListDetailHref,
+  propertyApprovalReturnHref
+} from "./property-approval-return.logic";
 
 interface ApprovalDetail {
   request: ApprovalSummary & {
@@ -70,7 +76,7 @@ export function PropertyApprovalListClient() {
     {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
     {!loading && !error ? <section aria-label="审批列表" className="ds-mobile-record-list">
       {(data?.items ?? []).map((item) => <article className="ds-mobile-record" key={item.requestId}>
-        <Link href={`/property/approvals/${item.requestId}`}>{item.actionId}</Link>
+        <Link href={propertyApprovalListDetailHref(item.requestId, page) as Route}>{item.actionId}</Link>
         <p>{item.decisionStatus} / {item.executionStatus}</p>
       </article>)}
       {data && !data.items.length ? <PropertyPanelSurface><p>暂无可见审批。</p></PropertyPanelSurface> : null}
@@ -86,6 +92,8 @@ export function PropertyApprovalListClient() {
 }
 
 export function PropertyApprovalDetailClient({ requestId }: { requestId: string }) {
+  const searchParams = useSearchParams();
+  const returnHref = propertyApprovalReturnHref(searchParams.get("returnTo")) as Route;
   const [detail, setDetail] = useState<ApprovalDetail | null>(null);
   const [reason, setReason] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -136,7 +144,7 @@ export function PropertyApprovalDetailClient({ requestId }: { requestId: string 
 
   return <PropertyPageSurface className={styles.stack}>
     <header className="ds-hero"><div className="ds-hero-copy"><p className="ds-kicker">共享房产控制面</p>
-      <h1>房产业务审批详情</h1><p><Link href="/property/approvals">返回审批列表</Link></p></div></header>
+      <h1>房产业务审批详情</h1><p><Link href={returnHref}>返回来源页面</Link></p></div></header>
     {detail ? <>
       <PropertyPanelSurface><dl className={styles.detailGrid}>
         <div><dt>动作</dt><dd>{detail.request.actionId}</dd></div>

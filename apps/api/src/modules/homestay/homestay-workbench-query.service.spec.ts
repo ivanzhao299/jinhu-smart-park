@@ -17,9 +17,11 @@ const actor: JwtPrincipal = {
 
 test("guest candidates use two bounded queries and return only the frozen minimal projection", async () => {
   const statements: string[] = [];
+  const parameterSets: unknown[][] = [];
   const dataSource = {
-    query: async (sql: string) => {
+    query: async (sql: string, parameters: unknown[]) => {
       statements.push(sql);
+      parameterSets.push(parameters);
       return sql.includes("count(*)")
         ? [{ total: 1 }]
         : [{ id: "party-1", displayName: "张三", mobile: "13800000000" }];
@@ -34,7 +36,7 @@ test("guest candidates use two bounded queries and return only the frozen minima
 
   const result = await service.listGuestCandidates(scope, actor, {
     booking_id: "11111111-1111-4111-8111-111111111111",
-    keyword: "张三",
+    keyword: "张%_\\三",
     page: 2,
     page_size: 20
   });
@@ -42,7 +44,10 @@ test("guest candidates use two bounded queries and return only the frozen minima
   assert.equal(statements.length, 2);
   assert.match(statements[0] ?? "", /booking\.id = \$3/);
   assert.match(statements[0] ?? "", /booking\.unit_id = ANY\(\$4::uuid\[\]\)/);
-  assert.match(statements[0] ?? "", /party\.display_name ILIKE \$5/);
+  assert.match(statements[0] ?? "", /party\.display_name ILIKE \$5 ESCAPE '\\'/);
+  assert.match(statements[1] ?? "", /party\.display_name ILIKE \$5 ESCAPE '\\'/);
+  assert.equal(parameterSets[0]?.[4], "%张\\%\\_\\\\三%");
+  assert.equal(parameterSets[1]?.[4], "%张\\%\\_\\\\三%");
   assert.match(statements[0] ?? "", /LIMIT \$6 OFFSET \$7/);
   assert.deepEqual(result, {
     items: [{ id: "party-1", displayName: "张三" }],
