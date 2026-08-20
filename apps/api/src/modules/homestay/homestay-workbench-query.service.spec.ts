@@ -178,6 +178,48 @@ test("linked work-order reference requires workorder read and applies handler sc
   assert.ok(conditions.some((condition) => typeof condition === "object"));
 });
 
+test("turnover work-order association locks and rejects terminal or out-of-scope candidates", async () => {
+  const conditions: string[] = [];
+  let lockMode: string | undefined;
+  const builder = {
+    setLock: (mode: string) => { lockMode = mode; return builder; },
+    where: () => builder,
+    andWhere: (condition: string) => { conditions.push(condition); return builder; },
+    getOne: async () => undefined
+  };
+  const service = new HomestayWorkbenchQueryService(
+    { createQueryBuilder: () => builder } as never,
+    { allowedUnitIds: async () => ["unit-1"] } as never,
+    {} as never,
+    { buildScopeFilter: async () => ({ unrestricted: true, allowed_ids: [], scope_types: [] }) } as never
+  );
+
+  const result = await service.findAuthorizedOpenWorkOrderForTurnover(
+    scope,
+    { ...actor, permissions: [SYSTEM_PERMISSIONS.WORKORDER_READ] },
+    "work-order-1",
+    "unit-1"
+  );
+
+  assert.equal(result, undefined);
+  assert.equal(lockMode, "pessimistic_read");
+  assert.ok(conditions.includes("workOrder.unit_id = :unitId"));
+  assert.ok(conditions.includes("workOrder.status NOT IN (:...terminalStatuses)"));
+});
+
+test("assigned turnover access preserves unassigned queue visibility but rejects another handler", async () => {
+  const service = new HomestayWorkbenchQueryService(
+    {} as never,
+    {} as never,
+    {} as never,
+    { buildScopeFilter: async () => ({ unrestricted: false, allowed_ids: [actor.sub], scope_types: ["self"] }) } as never
+  );
+
+  await assert.doesNotReject(service.assertAssignedTurnoverAccess(actor, null));
+  await assert.doesNotReject(service.assertAssignedTurnoverAccess(actor, actor.sub));
+  await assert.rejects(service.assertAssignedTurnoverAccess(actor, "other-handler"), /outside the assigned handler scope/);
+});
+
 test("tasks use fixed item/count statements and preserve total on an empty page", async () => {
   const statements: string[] = [];
   const dataSource = {

@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   SYSTEM_PERMISSIONS,
@@ -192,6 +192,43 @@ export class HomestayWorkbenchQueryService {
       : undefined;
   }
 
+  async assertAssignedTurnoverAccess(actor: JwtPrincipal, assigneeId: string | null): Promise<void> {
+    const allowedAssigneeIds = await this.turnoverAssigneeScope(actor);
+    if (allowedAssigneeIds !== null && assigneeId !== null && !allowedAssigneeIds.includes(assigneeId)) {
+      throw new ForbiddenException("Turnover task is outside the assigned handler scope");
+    }
+  }
+
+  async findAuthorizedOpenWorkOrderForTurnover(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    workOrderId: string,
+    unitId: string,
+    repository: Repository<WorkOrderEntity> = this.workOrdersRepository
+  ): Promise<WorkOrderEntity | undefined> {
+    if (
+      !actor.isSuper
+      && !actor.permissions.includes("*")
+      && !actor.permissions.includes(SYSTEM_PERMISSIONS.WORKORDER_READ)
+    ) {
+      return undefined;
+    }
+    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    if (allowedUnitIds !== null && !allowedUnitIds.includes(unitId)) return undefined;
+    const builder = repository.createQueryBuilder("workOrder")
+      .setLock("pessimistic_read")
+      .where("workOrder.id = :workOrderId", { workOrderId })
+      .andWhere("workOrder.tenant_id = :tenantId", { tenantId: scope.tenantId })
+      .andWhere("workOrder.park_id = :parkId", { parkId: scope.parkId })
+      .andWhere("workOrder.unit_id = :unitId", { unitId })
+      .andWhere("workOrder.is_deleted = false")
+      .andWhere("workOrder.status NOT IN (:...terminalStatuses)", {
+        terminalStatuses: ["60", "70", "100"]
+      });
+    await this.applyWorkOrderDataScope(builder, actor);
+    return (await builder.getOne()) ?? undefined;
+  }
+
   async listTasks(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -382,23 +419,25 @@ export class HomestayWorkbenchQueryService {
     filters: string[],
     actor: JwtPrincipal
   ): Promise<void> {
+    const allowedAssigneeIds = await this.turnoverAssigneeScope(actor);
+    if (allowedAssigneeIds === null) return;
+    parameters.push(allowedAssigneeIds);
+    const index = parameters.length;
+    filters.push(`(task."sourceType" <> 'homestay_turnover'
+      OR task."assigneeId" IS NULL
+      OR task."assigneeId" = ANY($${index}::uuid[]))`);
+  }
+
+  private async turnoverAssigneeScope(actor: JwtPrincipal): Promise<string[] | null> {
     if (
       actor.isSuper
       || actor.permissions.includes("*")
       || actor.permissions.includes(SYSTEM_PERMISSIONS.PROPERTY_TASK_SUPERVISE)
     ) {
-      return;
+      return null;
     }
-    const handler = await this.dataScopeService.buildScopeFilter(
-      actor,
-      "workorder_handler"
-    );
-    if (handler.unrestricted) return;
-    parameters.push(handler.allowed_ids);
-    const index = parameters.length;
-    filters.push(`(task."sourceType" <> 'homestay_turnover'
-      OR task."assigneeId" IS NULL
-      OR task."assigneeId" = ANY($${index}::uuid[]))`);
+    const handler = await this.dataScopeService.buildScopeFilter(actor, "workorder_handler");
+    return handler.unrestricted ? null : handler.allowed_ids;
   }
 
   private taskCteSql(unitParameter: number | null): string {
