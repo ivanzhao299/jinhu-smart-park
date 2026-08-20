@@ -355,6 +355,7 @@ export default function UnitStatusBoardPage() {
       setParkReloadKey((value) => value + 1);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "园区切换失败");
+      setParkReloadKey((value) => value + 1);
     }
   }
 

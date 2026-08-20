@@ -212,6 +212,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [parkReloadKey, setParkReloadKey] = useState(0);
+  const [occupancyMutationBusy, setOccupancyMutationBusy] = useState(false);
   const requestSequence = useRef(0);
 
   const requestPath = useMemo(() => {
@@ -309,7 +310,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
         <AssetParkContextSelector
           value={effectiveParkId}
           parks={accessibleParks}
-          disabled={parkSwitching || loading}
+          disabled={parkSwitching || loading || occupancyMutationBusy}
           fallbackLabel={currentParkName}
           onChange={(parkId) => void changePark(parkId)}
         />
@@ -374,7 +375,12 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
       </div>
     </PropertyPanelSurface>
     {surface === "occupancies"
-      ? <ManualOccupancyCreatePanel key={parkReloadKey} disabled={parkSwitching} onCreated={() => void load()} />
+      ? <ManualOccupancyCreatePanel
+          key={parkReloadKey}
+          disabled={parkSwitching}
+          onBusyChange={setOccupancyMutationBusy}
+          onCreated={() => void load()}
+        />
       : null}
     {error ? <PropertyPanelSurface role="alert"><p>{error}</p></PropertyPanelSurface> : null}
     {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
@@ -389,7 +395,15 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   </PropertyPageSurface>;
 }
 
-function ManualOccupancyCreatePanel({ disabled, onCreated }: { disabled: boolean; onCreated: () => void }) {
+function ManualOccupancyCreatePanel({
+  disabled,
+  onBusyChange,
+  onCreated
+}: {
+  disabled: boolean;
+  onBusyChange: (busy: boolean) => void;
+  onCreated: () => void;
+}) {
   const [unitId, setUnitId] = useState("");
   const [sourceDomain, setSourceDomain] = useState<"maintenance" | "operations">("maintenance");
   const [reference, setReference] = useState("");
@@ -428,6 +442,7 @@ function ManualOccupancyCreatePanel({ disabled, onCreated }: { disabled: boolean
     }
     lock.current = true;
     setBusy(true);
+    onBusyChange(true);
     setFeedback("");
     const payloadFingerprint = JSON.stringify({
       unitId: unitId.trim(), sourceDomain, reference: reference.trim(),
@@ -483,6 +498,7 @@ function ManualOccupancyCreatePanel({ disabled, onCreated }: { disabled: boolean
     } finally {
       lock.current = false;
       setBusy(false);
+      onBusyChange(false);
     }
   }
 

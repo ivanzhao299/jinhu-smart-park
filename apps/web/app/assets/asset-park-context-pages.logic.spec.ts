@@ -18,6 +18,7 @@ test("asset board and statistics pages expose authenticated park context switchi
     assert.match(source, /setParkReloadKey\(\(value\) => value \+ 1\)/);
     assert.match(source, /RequestSequence = useRef\(0\)/);
     assert.match(source, /sequence === .*RequestSequence\.current/);
+    assert.match(source, /catch \(error\)[\s\S]*setParkReloadKey\(\(value\) => value \+ 1\)/);
     assert.doesNotMatch(source, /params\.set\("parkId"/);
     assert.doesNotMatch(source, /params\.set\("park_id"/);
   }
@@ -38,8 +39,12 @@ test("shared property foundation lists expose one park context switch for all th
   assert.match(foundation, /await switchToPark\(targetParkId\)/);
   assert.match(foundation, /setParkReloadKey\(\(value\) => value \+ 1\)/);
   assert.match(foundation, /setData\(null\)/);
-  assert.match(foundation, /<ManualOccupancyCreatePanel key=\{parkReloadKey\} disabled=\{parkSwitching\}/);
-  assert.match(foundation, /function ManualOccupancyCreatePanel\(\{ disabled, onCreated \}/);
+  assert.match(foundation, /occupancyMutationBusy/);
+  assert.match(foundation, /disabled=\{parkSwitching \|\| loading \|\| occupancyMutationBusy\}/);
+  assert.match(foundation, /<ManualOccupancyCreatePanel[\s\S]*key=\{parkReloadKey\}[\s\S]*disabled=\{parkSwitching\}[\s\S]*onBusyChange=\{setOccupancyMutationBusy\}/);
+  assert.match(foundation, /function ManualOccupancyCreatePanel\(\{[\s\S]*disabled,[\s\S]*onBusyChange,[\s\S]*onCreated[\s\S]*\}/);
+  assert.match(foundation, /onBusyChange\(true\)/);
+  assert.match(foundation, /onBusyChange\(false\)/);
   assert.match(foundation, /disabled \|\| lock\.current/);
   assert.match(foundation, /disabled=\{disabled \|\| busy\}/);
   assert.doesNotMatch(foundation, /params\.set\("parkId"/);
