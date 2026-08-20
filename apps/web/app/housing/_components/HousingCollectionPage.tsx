@@ -1,6 +1,6 @@
 "use client";
 
-import type { PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
 import type { Route } from "next";
 import type { UrlObject } from "node:url";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,9 +11,14 @@ import {
   type PropertyFieldDescriptor,
   type PropertyPageState
 } from "../../../features/property-shared";
+import {
+  HOUSING_LIST_PAGE_SIZE,
+  housingPageCorrection
+} from "../../../features/housing/listing/pagination";
 import { ApiError, apiRequest } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
+import { hasAccess } from "../../../lib/permissions";
 import { HousingCollectionView } from "./HousingCollectionView";
 import { hasAuthoritativeEmptyUnitScope } from "./housing-list-logic";
 import { routeWithSearch } from "./housing-route-types";
@@ -30,8 +35,6 @@ export interface HousingCollectionPageProps<T> {
   renderItemActions?(item: T, capabilities: ReturnType<typeof projectPropertyCapabilities>, reload: () => Promise<void>): ReactNode;
   filters?: readonly HousingFilterDefinition[]; toolbar?: ReactNode; refreshKey?: number;
 }
-
-const PAGE_SIZE = 20;
 
 function useCollectionQuery(filters: readonly HousingFilterDefinition[], route: Route) {
   const router = useRouter(); const searchParams = useSearchParams();
@@ -83,7 +86,7 @@ function useCollectionData<T>(input: {
       resultQueryKey.current = null;
       resultRef.current = null; setResult(null); setState({ kind: "forbidden-full" }); return;
     }
-    const query = new URLSearchParams({ page: String(input.page), page_size: String(PAGE_SIZE) });
+    const query = new URLSearchParams({ page: String(input.page), page_size: String(HOUSING_LIST_PAGE_SIZE) });
     Object.entries(input.active).forEach(([key, value]) => { if (value) query.set(key, value); });
     try {
       const response = await apiRequest<PaginatedResult<T>>(`${input.endpoint}?${query.toString()}`, { token: getAccessToken() });
@@ -102,6 +105,8 @@ function useCollectionData<T>(input: {
   const authorized = capabilities.pageAllowed && capabilities.actionAllowed(input.readActionId);
   const currentQuery = resultQueryKey.current === input.queryKey;
   return {
+    canChangeScope: hasAccess(user, SYSTEM_PERMISSIONS.ROLE_READ, "system")
+      && hasAccess(user, SYSTEM_PERMISSIONS.ROLE_ASSIGN_DATA_SCOPE, "system"),
     capabilities,
     load,
     result: authorized && currentQuery ? result : null,
@@ -125,7 +130,14 @@ export function HousingCollectionPage<T>(props: HousingCollectionPageProps<T>) {
     }),
     readActionId: props.readActionId, refreshKey: props.refreshKey ?? 0
   });
+  const correctedPage = data.result ? housingPageCorrection(query.page, data.result.total) : null;
+  const pageOutOfRange = correctedPage !== null;
+  useEffect(() => {
+    if (correctedPage !== null) query.update(correctedPage, query.active);
+  }, [correctedPage, query.active, query.update]);
   return <HousingCollectionView
     {...props} {...data} {...query} filters={filters}
+    result={pageOutOfRange ? null : data.result}
+    state={pageOutOfRange ? { kind: "initial-loading" } : data.state}
   />;
 }

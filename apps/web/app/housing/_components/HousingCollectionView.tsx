@@ -13,10 +13,12 @@ import {
 } from "../../../features/property-shared";
 import type { projectPropertyCapabilities } from "../../../features/property-shared";
 import type { HousingCollectionPageProps, HousingFilterDefinition } from "./HousingCollectionPage";
+import { housingTotalPages } from "../../../features/housing/listing/pagination";
 import styles from "./HousingWorkbench.module.css";
 
 interface HousingCollectionViewProps<T> extends HousingCollectionPageProps<T> {
   active: Record<string, string>; capabilities: ReturnType<typeof projectPropertyCapabilities>;
+  canChangeScope: boolean;
   draft: Record<string, string>; filters: readonly HousingFilterDefinition[];
   load(): Promise<void>; page: number; query: Record<string, string>;
   result: PaginatedResult<T> | null; setDraft(value: Record<string, string>): void;
@@ -33,6 +35,9 @@ export function HousingCollectionView<T>(props: HousingCollectionViewProps<T>) {
       {props.filters.length ? <HousingFilters {...props} /> : null}
       <div aria-hidden="true" id="housing-list" />
       <PageState
+        changeScopeAction={props.canChangeScope
+          ? <Link className="ds-button" href="/system/roles">调整角色数据范围</Link>
+          : <p>请联系管理员调整数据范围。</p>}
         clearFiltersAction={<button className="ds-button" onClick={() => props.update(1, {})} type="button">清除筛选</button>}
         retryAction={<button className="ds-button" onClick={() => void props.load()} type="button">重试</button>}
         state={props.state}
@@ -79,7 +84,7 @@ function FilterControl({ definition, onChange, value }: {
 }
 
 function HousingRecords<T>(props: HousingCollectionViewProps<T> & { result: PaginatedResult<T> }) {
-  const totalPages = Math.max(1, Math.ceil(props.result.total / 20));
+  const totalPages = housingTotalPages(props.result.total);
   const actions = props.detailHref || props.renderItemActions ? (item: T): ReactNode => {
     const href = props.detailHref?.(item);
     const returnTo = encodeReturnContext({ route: props.route, query: props.query, scrollAnchor: "housing-list" });

@@ -3,7 +3,12 @@
 import { PROPERTY_BUSINESS_PERMISSIONS, type HousingLeaseDetailResponse } from "@jinhu/shared";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { PropertyPanelSurface, projectPropertyCapabilities, type PropertyCapabilityProjection } from "../../../features/property-shared";
+import {
+  ConsequenceDialog,
+  PropertyPanelSurface,
+  projectPropertyCapabilities,
+  type PropertyCapabilityProjection
+} from "../../../features/property-shared";
 import { useAuthUser } from "../../../lib/auth-context";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
@@ -23,17 +28,20 @@ interface LeaseContextProps {
 
 function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
   const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pendingHighRisk, setPendingHighRisk] = useState<{
+    action: "approve" | "void" | "checkout"; label: string;
+  } | null>(null);
   const lock = useRef(false);
   const idempotency = useStableIdempotency();
-  const [reason, setReason] = useState("");
-  async function run(action: "submit" | "activate" | "approve" | "void" | "checkout") {
+  async function run(action: "submit" | "activate" | "approve" | "void" | "checkout", reason?: string) {
     const operation = `housing-lease-${action}`;
     if (lock.current || !capabilities.actionAllowed(`housing.leases.${action}`)) return;
-    lock.current = true; setFeedback("");
+    lock.current = true; setBusy(true); setFeedback("");
     try {
       const body = action === "approve"
-        ? { approval_note: reason.trim() || undefined }
-        : ["void", "checkout"].includes(action) ? { reason: reason.trim() } : undefined;
+        ? { approval_note: reason?.trim() || undefined }
+        : ["void", "checkout"].includes(action) ? { reason: reason?.trim() } : undefined;
       const response = await apiRequest(`/housing/leases/${encodeURIComponent(data.lease.id)}/${action}`, {
         method: "POST", token: getAccessToken(),
         idempotencyKey: idempotency.keyFor(operation, { action, leaseId: data.lease.id, body }),
@@ -47,7 +55,7 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
     } catch (error) {
       setFeedback(error instanceof Error ? error.message : "操作失败");
     } finally {
-      lock.current = false;
+      lock.current = false; setBusy(false);
     }
   }
   const submitAllowed = data.lease.status === "draft" && capabilities.actionAllowed("housing.leases.submit");
@@ -81,17 +89,23 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
         </PermissionGuard>
       </div> : null}
       <div className={styles.actionBar}>
-        {submitAllowed ? <button className="ds-button ds-button-primary" disabled={!eligible}
+        {submitAllowed ? <button className="ds-button ds-button-primary" disabled={busy || !eligible}
           onClick={() => void run("submit")} type="button">提交租约</button> : null}
-        {canActivate ? <button className="ds-button ds-button-primary" onClick={() => void run("activate")} type="button">生效租约</button> : null}
+        {canActivate ? <button className="ds-button ds-button-primary" disabled={busy} onClick={() => void run("activate")} type="button">生效租约</button> : null}
       </div>
-      {highRiskActions.length ? <div className={styles.stack}>
-        <label>审批说明 / 原因<input maxLength={500} required={highRiskActions.some(([action]) => action !== "approve")}
-          value={reason} onChange={(event) => setReason(event.target.value)} /></label>
-        <div className={styles.actionBar}>{highRiskActions.map(([action, label]) =>
-          <button className="ds-button" disabled={action !== "approve" && !reason.trim()}
-            key={action} onClick={() => void run(action)} type="button">{label}</button>)}</div>
-      </div> : null}
+      {highRiskActions.length ? <div className={styles.actionBar}>{highRiskActions.map(([action, label]) =>
+        <button className="ds-button" disabled={busy} key={action}
+          onClick={() => setPendingHighRisk({ action, label })} type="button">{label}</button>)}</div> : null}
+      <ConsequenceDialog actionLabel={pendingHighRisk?.label ?? "确认提交"} busy={busy}
+        consequences={["本次操作只提交审批申请，不会立即改变租约或财务状态。", "审批执行前会重新校验租约版本、资格和结清条件，原因将写入审计记录。"]}
+        onConfirm={(reason) => pendingHighRisk ? run(pendingHighRisk.action, reason) : undefined}
+        onOpenChange={(open) => { if (!open) setPendingHighRisk(null); }}
+        open={pendingHighRisk !== null}
+        reasonPolicy={{ kind: "required", label: "审批说明 / 原因", minLength: 1, maxLength: 500 }}
+        resultingState="审批申请待处理"
+        target={{ id: data.lease.id, label: data.lease.leaseCode }}
+        title={pendingHighRisk ? `确认${pendingHighRisk.label}` : "确认租约操作"}
+      />
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
     </PropertyPanelSurface>
   );

@@ -785,7 +785,7 @@ test("all current homestay and housing mutations have idempotency and approval p
 
 test("manifest endpoint and permission gates exactly cover the real homestay and housing controllers", () => {
   assert.deepEqual(Reflect.getMetadata(MODULES_KEY, HomestayController), ["homestay"]);
-  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, HousingController), ["housing_rental"]);
+  assert.deepEqual(Reflect.getMetadata(MODULES_KEY, HousingController), ["housing_rental", "asset"]);
 
   const actual = [
     ...controllerEndpoints(HomestayController),

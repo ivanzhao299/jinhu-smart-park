@@ -72,8 +72,18 @@ test("approved high-risk endpoints are wired through guarded housing mutations",
   assert.match(read("HousingLeaseDetailClient.tsx"), /pending_approval" && eligible/);
   assert.match(read("HousingLeaseDetailClient.tsx"), /Boolean\(data\.finance_summary\)/);
   assert.match(read("HousingLeaseDetailClient.tsx"), /checkoutFinanciallyReady/);
+  assert.match(read("HousingLeaseDetailClient.tsx"), /<ConsequenceDialog actionLabel=/);
+  assert.match(read("HousingLeaseDetailClient.tsx"), /不会立即改变租约或财务状态/);
   assert.match(read("HousingFinanceActions.tsx"), /lastPaymentRecorderId/);
   assert.match(read("HousingFinanceActions.tsx"), /max=\{amountMax\}/);
+  assert.match(read("HousingFinanceActions.tsx"), /<ConsequenceDialog actionLabel="确认提交财务审批"/);
+  assert.match(read("HousingFinanceActions.tsx"), /不会立即退款、减免或退还押金/);
+  const purchase = read("HousingEntityDetailClients.tsx");
+  assert.match(purchase, /<ConsequenceDialog actionLabel=/);
+  assert.match(purchase, /reasonPolicy=\{\{ kind: "required"/);
+  assert.match(purchase, /loadOptions=\{loadHousingLeases\}/);
+  assert.match(purchase, /不会立即生成租客应收/);
+  assert.doesNotMatch(purchase, /目标租约 ID/);
 });
 
 test("Track A mutation panels use exact actions and owning aggregates", () => {
@@ -171,6 +181,7 @@ test("billing adopts the authoritative saved plan id before generation", () => {
 
 test("housing list requests reject stale completions and purchase defaults use the park date", () => {
   const collection = read("HousingCollectionPage.tsx");
+  const collectionView = read("HousingCollectionView.tsx");
   assert.match(collection, /const requestSequence = useRef\(0\);/);
   assert.match(collection, /const sequence = \+\+requestSequence\.current;/);
   assert.equal((collection.match(/sequence !== requestSequence\.current/g) ?? []).length, 2);
@@ -180,6 +191,13 @@ test("housing list requests reject stale completions and purchase defaults use t
   assert.match(collection, /queryKey: JSON\.stringify\(\{/);
   assert.match(collection, /result: authorized && currentQuery \? result : null/);
   assert.match(collection, /: currentQuery \? state : \{ kind: "initial-loading" \}/);
+  assert.match(collection, /const correctedPage = data\.result \? housingPageCorrection\(query\.page, data\.result\.total\) : null;/);
+  assert.match(collection, /if \(correctedPage !== null\) query\.update\(correctedPage, query\.active\)/);
+  assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.ROLE_READ, "system"\)/);
+  assert.match(collection, /hasAccess\(user, SYSTEM_PERMISSIONS\.ROLE_ASSIGN_DATA_SCOPE, "system"\)/);
+  assert.match(collectionView, /changeScopeAction=\{props\.canChangeScope/);
+  assert.match(collectionView, /href="\/system\/roles"/);
+  assert.match(collectionView, /请联系管理员调整数据范围/);
 
   const purchase = read("HousingPurchaseCreatePanel.tsx");
   assert.match(purchase, /import \{ businessDate \} from "\.\.\/\.\.\/\.\.\/lib\/business-date";/);
