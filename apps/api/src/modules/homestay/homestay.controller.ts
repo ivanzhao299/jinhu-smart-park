@@ -103,7 +103,10 @@ export class HomestayController {
 
   @Get("work-order-candidates")
   @RequireModule("homestay", "asset")
-  @RequirePermissions(SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ)
+  @RequirePermissions(
+    SYSTEM_PERMISSIONS.HOMESTAY_TURNOVER_READ,
+    SYSTEM_PERMISSIONS.WORKORDER_READ
+  )
   workOrderCandidates(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,

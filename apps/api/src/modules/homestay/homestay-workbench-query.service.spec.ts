@@ -180,11 +180,14 @@ test("linked work-order reference requires workorder read and applies handler sc
 
 test("turnover work-order association locks and rejects terminal or out-of-scope candidates", async () => {
   const conditions: string[] = [];
+  const parameters: Array<Record<string, unknown> | undefined> = [];
   let lockMode: string | undefined;
   const builder = {
     setLock: (mode: string) => { lockMode = mode; return builder; },
     where: () => builder,
-    andWhere: (condition: string) => { conditions.push(condition); return builder; },
+    andWhere: (condition: string, values?: Record<string, unknown>) => {
+      conditions.push(condition); parameters.push(values); return builder;
+    },
     getOne: async () => undefined
   };
   const service = new HomestayWorkbenchQueryService(
@@ -205,6 +208,22 @@ test("turnover work-order association locks and rejects terminal or out-of-scope
   assert.equal(lockMode, "pessimistic_read");
   assert.ok(conditions.includes("workOrder.unit_id = :unitId"));
   assert.ok(conditions.includes("workOrder.status NOT IN (:...terminalStatuses)"));
+  assert.deepEqual(
+    parameters.find((values) => values?.terminalStatuses)?.terminalStatuses,
+    ["60", "70", "90", "100"]
+  );
+});
+
+test("work-order candidates fail closed without work-order read permission", async () => {
+  const service = new HomestayWorkbenchQueryService(
+    { createQueryBuilder: () => { throw new Error("candidate query must not run"); } } as never,
+    { allowedUnitIds: async () => null } as never,
+    {} as never,
+    {} as never
+  );
+  assert.deepEqual(await service.listWorkOrderCandidates(scope, actor, { page: 1, page_size: 20 }), {
+    items: [], total: 0, page: 1, page_size: 20
+  });
 });
 
 test("assigned turnover access preserves unassigned queue visibility but rejects another handler", async () => {
@@ -529,7 +548,7 @@ test("work-order candidates preserve work-order scope for normal users and bypas
     return { result, conditions, scopeCalls };
   };
 
-  const normal = await run(actor);
+  const normal = await run({ ...actor, permissions: [SYSTEM_PERMISSIONS.WORKORDER_READ] });
   assert.equal(normal.scopeCalls, 5);
   assert.ok(normal.conditions.includes("brackets"));
   assert.deepEqual(normal.result.items, [{

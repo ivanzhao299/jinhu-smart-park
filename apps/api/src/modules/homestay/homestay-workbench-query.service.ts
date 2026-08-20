@@ -103,6 +103,13 @@ export class HomestayWorkbenchQueryService {
     actor: JwtPrincipal,
     query: HomestayCandidateQueryDto
   ): Promise<HomestayWorkOrderCandidateListResponse> {
+    if (
+      !actor.isSuper
+      && !actor.permissions.includes("*")
+      && !actor.permissions.includes(SYSTEM_PERMISSIONS.WORKORDER_READ)
+    ) {
+      return this.emptyPage(query);
+    }
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
       return this.emptyPage(query);
@@ -116,7 +123,7 @@ export class HomestayWorkbenchQueryService {
       .andWhere("workOrder.is_deleted = false")
       .andWhere("workOrder.unit_id IS NOT NULL")
       .andWhere("workOrder.status NOT IN (:...terminalStatuses)", {
-        terminalStatuses: ["60", "70", "100"]
+        terminalStatuses: ["60", "70", "90", "100"]
       });
     if (allowedUnitIds !== null) {
       builder.andWhere("workOrder.unit_id IN (:...homestayAllowedUnitIds)", {
@@ -223,7 +230,7 @@ export class HomestayWorkbenchQueryService {
       .andWhere("workOrder.unit_id = :unitId", { unitId })
       .andWhere("workOrder.is_deleted = false")
       .andWhere("workOrder.status NOT IN (:...terminalStatuses)", {
-        terminalStatuses: ["60", "70", "100"]
+        terminalStatuses: ["60", "70", "90", "100"]
       });
     await this.applyWorkOrderDataScope(builder, actor);
     return (await builder.getOne()) ?? undefined;

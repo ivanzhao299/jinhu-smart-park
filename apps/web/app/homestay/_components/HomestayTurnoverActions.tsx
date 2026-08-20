@@ -1,6 +1,6 @@
 "use client";
 
-import type {
+import { SYSTEM_PERMISSIONS, type
   FileRecord, HomestayTurnoverDetailResponse, HomestayWorkOrderCandidateListResponse, PaginatedResult
 } from "@jinhu/shared";
 import { useState } from "react";
@@ -10,6 +10,8 @@ import {
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
+import { useAuthUser } from "../../../lib/auth-context";
+import { hasAccess } from "../../../lib/permissions";
 import styles from "./HomestayWorkbench.module.css";
 
 type Action = "start" | "complete" | "inspect" | "exception";
@@ -52,6 +54,8 @@ export function HomestayTurnoverActions({
   disabled: boolean;
   mutate: Mutate;
 }) {
+  const user = useAuthUser();
+  const workOrderAllowed = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
   const [draft, setDraft] = useState({
     workOrder: data.linkedWorkOrder ? {
       id: data.linkedWorkOrderId ?? "",
@@ -76,7 +80,7 @@ export function HomestayTurnoverActions({
   const update = (patch: Partial<typeof draft>) => setDraft((current) => ({ ...current, ...patch }));
   return (
     <PropertyPanelSurface title="任务执行">
-      <TurnoverInputs capability={capability} data={data} draft={draft} update={update} />
+      <TurnoverInputs capability={capability} data={data} draft={draft} update={update} workOrderAllowed={workOrderAllowed} />
       <TurnoverButtons disabled={disabled} execute={execute} status={data.status} />
       {data.status !== "completed"
         ? <TurnoverException disabled={disabled} execute={execute} value={draft.exceptionDescription}
@@ -93,14 +97,14 @@ type Draft = {
   exceptionDescription: string;
 };
 
-function TurnoverInputs({ capability, data, draft, update }: {
+function TurnoverInputs({ capability, data, draft, update, workOrderAllowed }: {
   capability: PropertyCapabilityProjection; data: HomestayTurnoverDetailResponse;
-  draft: Draft; update(patch: Partial<Draft>): void;
+  draft: Draft; update(patch: Partial<Draft>): void; workOrderAllowed: boolean;
 }) {
   return <div className={styles.toolbar}>
-    <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
+    {workOrderAllowed ? <RemoteEntityPicker authorized contextValid={capability.moduleAvailable}
       invalidationKey={`${capability.invalidationKey}:${data.id}`} label="关联工单（可选）"
-      loadOptions={workOrderLoader(data.unitId)} onChange={(workOrder) => update({ workOrder })} value={draft.workOrder} />
+      loadOptions={workOrderLoader(data.unitId)} onChange={(workOrder) => update({ workOrder })} value={draft.workOrder} /> : null}
     <label>耗材名称（可选）<input maxLength={100} value={draft.consumableName} onChange={(event) => update({ consumableName: event.target.value })} /></label>
     <label>耗材数量（可选）<input type="number" min="0.001" step="0.001" value={draft.consumableQuantity} onFocus={(event) => event.target.select()} onChange={(event) => update({ consumableQuantity: event.target.value })} /></label>
   </div>;
