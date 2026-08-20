@@ -10,7 +10,7 @@
 - 民宿 MVP 主链、canonical 页面、高风险取消/退款/减免审批、owner-scope migration 和 property API release gate 已存在。
 - 当前产品矩阵仍为 `uat_pending`、未生产启用；真人岗位 UAT 和具名签署缺失。
 - 已确认缺口包括 task assignee scope、task/request deep link、普通财务终态门禁、住客数量/候选范围、凭证遗失、周转转维修闭环、Web 测试门禁、真实 API/浏览器覆盖与证据同步。
-- Issue #289 继续承接尚未满足五项 readiness 的高风险动作，不重复创建第二套高风险状态机。
+- Issue #289 在本轮用于承接 readiness/fail-closed 核对，已由 PR #331 逐项完成并关闭：已开放动作满足审批、权限、幂等、审计和终态约束；未满足跨模块合同的动作保持无入口、不可绕过并按 out-of-scope fail-closed 记录，不创建第二套高风险状态机。
 
 ## Requirements
 
@@ -43,6 +43,7 @@
 - Codex 对最终候选明确确认无重大问题；PR head CI 与 Release Smoke 全绿。
 - main CI run `32340203702` 全绿，覆盖 lint、typecheck、单测、构建、迁移、生产种子、登录、Property API E2E、日志上传与容器清理。
 - Deploy Production run `32340203683` 成功：完整健康检查和 API liveness 通过、Docker unused images/build cache 清理完成、6 个受保护账号公开生产校验全部 PASS。
+- Issue #289 与 #325 至 #330 均已回填上述证据并关闭；PR192 真人 UAT 的 H0/H1/H2 门仍由独立 human-gate 任务承接，不把自动化结果冒充真人结论。
 - 真人具名业务签署仍未完成，因此总产品矩阵继续保留 `uat_pending/awaiting_human_gate`；这不是本自动化修复任务的未完成项。
 
 ## Out of Scope
