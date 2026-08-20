@@ -1,14 +1,15 @@
 # PR192 human UAT kit content manifest
-# Generated for the PR290 post-merge evidence patch.
-# Final candidate_sha remains pending until PR290 merges and deploys on main.
+# Regenerated after binding the kit entry points to the deployed PR #331 candidate.
+# Current technical candidate is main 619b8d20e891c74f69abcc9c908666034c37c648;
+# external H0 coordinator acceptance/freeze remains pending.
 # This manifest intentionally excludes content-manifest.sha256 itself.
 # Verify from the repository root with:
 # sha256sum -c .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/content-manifest.sha256
-4256a0d5b757281f7cb5689d9da2794605374a3b6436bf3f9ab6b150048acb88  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/README.md
+c6ad67250477cc7ee55f42ad9eec5ff59912d448d4dd774f4d1525e16bf81a79  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/README.md
 31814909ecc233dff4a2e8c9a36c6603aab872de9469ec6c6077a2c1c2582fa9  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/ledger-hash-contract.md
 5b8895e4482bc728bc3bb1870cfa50d9358ed65bc0506a7914b34aebebcaef81  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/observation-ledger.csv
 81245e834bc9fc113d2b7b1c43a837c4d229ee0ac2683d769c1c0c9cf0e37ba8  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/readiness-evaluator-input.template.json
-ebb389f8dee45b38d3320fa998ca0adc9797f68abab0a9911c6f9b64bb0b250b  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/scope-coverage-matrix.md
+7a0854eb783c4717dbfde5abe643890f4bdd98d1111fa768356d83efb229741d  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/scope-coverage-matrix.md
 770d3129e80429639919d6a6152a1979cd6e19b88a29e1084c709db192586716  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/signoff-ledger.csv
 2ea1dd93221d9773721a6f737427f46f1f75d6a10d3745bbad238f145a9ddcd5  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/task-cards.md
 d3e504ebe3b543c300cbea1b95afeb07afb1c3bdb02401a337d8a74ec57571a6  .trellis/tasks/07-30-pr192-human-uat-production-readiness/human-uat-kit/threshold-freeze.template.json
