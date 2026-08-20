@@ -2,11 +2,12 @@
 import { DataTable, Card } from "@jinhu/ui";
 
 import { Building2, Layers3, PieChart, RefreshCw, Search } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
+import { AssetParkContextSelector, useAssetParkContextSwitch } from "../../../components/assets/AssetParkContextSelector";
 
 const ASSET_READ_PERMISSION = "asset:read";
 const ASSET_STATISTICS_PERMISSION = "asset:statistics";
@@ -102,12 +103,22 @@ const emptyStats: AssetStatistics = {
 };
 
 export default function AssetStatisticsPage() {
+  const {
+    accessibleParks,
+    currentParkName,
+    effectiveParkId,
+    switching: parkSwitching,
+    switchToPark
+  } = useAssetParkContextSwitch();
   const [stats, setStats] = useState<AssetStatistics>(emptyStats);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [floors, setFloors] = useState<FloorRow[]>([]);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [filters, setFilters] = useState({ buildingId: "", floorId: "", usageType: "" });
+  const [parkReloadKey, setParkReloadKey] = useState(0);
   const [message, setMessage] = useState("");
+  const statsRequestSequence = useRef(0);
+  const lookupRequestSequence = useRef(0);
 
   const visibleFloors = useMemo(
     () => floors.filter((floor) => !filters.buildingId || floor.buildingId === filters.buildingId),
@@ -115,26 +126,37 @@ export default function AssetStatisticsPage() {
   );
 
   const load = useCallback(async () => {
+    const sequence = ++statsRequestSequence.current;
     const params = new URLSearchParams();
     if (filters.buildingId) params.set("building_id", filters.buildingId);
     if (filters.floorId) params.set("floor_id", filters.floorId);
     if (filters.usageType) params.set("usage_type", filters.usageType);
-    const response = await apiRequest<AssetStatistics>(`/assets/statistics?${params.toString()}`, {
-      token: getAccessToken()
-    });
-    setStats(response.data);
-  }, [filters]);
+    try {
+      const response = await apiRequest<AssetStatistics>(`/assets/statistics?${params.toString()}`, {
+        token: getAccessToken()
+      });
+      if (sequence === statsRequestSequence.current) setStats(response.data);
+    } catch (error) {
+      if (sequence === statsRequestSequence.current) setMessage(error instanceof Error ? error.message : "统计数据加载失败");
+    }
+  }, [filters, parkReloadKey]);
 
   const loadLookups = useCallback(async () => {
-    const [buildingResponse, floorResponse, dictMap] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
-      loadDictMapByCodes<DictItemRow>(["unit_usage_type", "unit_rental_status"])
-    ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setDicts(dictMap);
-  }, []);
+    const sequence = ++lookupRequestSequence.current;
+    try {
+      const [buildingResponse, floorResponse, dictMap] = await Promise.all([
+        apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
+        apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
+        loadDictMapByCodes<DictItemRow>(["unit_usage_type", "unit_rental_status"])
+      ]);
+      if (sequence !== lookupRequestSequence.current) return;
+      setBuildings(buildingResponse.data.items);
+      setFloors(floorResponse.data.items);
+      setDicts(dictMap);
+    } catch (error) {
+      if (sequence === lookupRequestSequence.current) setMessage(error instanceof Error ? error.message : "统计筛选项加载失败");
+    }
+  }, [parkReloadKey]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -155,6 +177,25 @@ export default function AssetStatisticsPage() {
     }));
   }
 
+  async function changePark(targetParkId: string) {
+    setMessage("");
+    try {
+      statsRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
+      await switchToPark(targetParkId);
+      statsRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
+      setFilters({ buildingId: "", floorId: "", usageType: "" });
+      setStats(emptyStats);
+      setBuildings([]);
+      setFloors([]);
+      setParkReloadKey((value) => value + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "园区切换失败");
+      setParkReloadKey((value) => value + 1);
+    }
+  }
+
   return (
     <PermissionGuard permission={ASSET_READ_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
       <PermissionGuard permission={ASSET_STATISTICS_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
@@ -173,6 +214,13 @@ export default function AssetStatisticsPage() {
         <section className="filter-bar">
           <form className="asset-stat-filter-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
             <div className="asset-stat-filter-grid">
+              <AssetParkContextSelector
+                value={effectiveParkId}
+                parks={accessibleParks}
+                disabled={parkSwitching}
+                fallbackLabel={currentParkName}
+                onChange={(parkId) => void changePark(parkId)}
+              />
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => updateFilter("buildingId", value)}>
                 <option value="">全部楼栋</option>
                 {buildings.map((building) => (

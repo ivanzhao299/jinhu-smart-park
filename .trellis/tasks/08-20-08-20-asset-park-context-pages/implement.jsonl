@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "Web 页面、认证上下文切换、权限、样式与验证规范"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "多页面复用园区切换控件，避免复制分叉"}

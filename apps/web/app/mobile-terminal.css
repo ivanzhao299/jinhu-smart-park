@@ -107,6 +107,12 @@
   cursor: pointer;
 }
 
+.mobile-terminal-park-switcher {
+  border-color: rgba(148, 163, 184, 0.38);
+  background: rgba(248, 250, 252, 0.94);
+  color: #0f172a;
+}
+
 .mobile-terminal-actions a:hover,
 .mobile-terminal-actions a:focus-visible,
 .mobile-terminal-actions button:hover,
@@ -117,6 +123,13 @@
   background: rgba(45, 212, 191, 0.14);
   color: #ccfbf1;
   outline: none;
+}
+
+.mobile-terminal-park-switcher:hover,
+.mobile-terminal-park-switcher:focus-within {
+  border-color: rgba(20, 184, 166, 0.72);
+  background: #ffffff;
+  color: #0f172a;
 }
 
 .mobile-terminal-park-switcher select {
