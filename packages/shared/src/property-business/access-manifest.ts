@@ -398,7 +398,8 @@ export const PROPERTY_ACCESS_MANIFEST: readonly PropertyAccessManifestEntry[] = 
       read(
         "homestay.turnovers.work-order-candidates",
         "/homestay/work-order-candidates",
-        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ
+        PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_READ,
+        { requiredPermissions: ["workorder:read"] }
       ),
       mutation("homestay.turnovers.execute", "POST", "/homestay/turnovers/:id/actions/:action", PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVER_EXECUTE)
     ],

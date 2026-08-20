@@ -12,7 +12,7 @@ import {
 import { apiRequest } from "../../../lib/api-client";
 import { getAccessToken } from "../../../lib/authz";
 import { useAuthUser } from "../../../lib/auth-context";
-import { hasAccess } from "../../../lib/permissions";
+import { hasPermission } from "../../../lib/permissions";
 import styles from "./HomestayWorkbench.module.css";
 
 type Action = "start" | "complete" | "inspect" | "exception";
@@ -56,7 +56,7 @@ export function HomestayTurnoverActions({
   mutate: Mutate;
 }) {
   const user = useAuthUser();
-  const workOrderAllowed = hasAccess(user, SYSTEM_PERMISSIONS.WORKORDER_READ, "workorder");
+  const workOrderAllowed = hasPermission(user, SYSTEM_PERMISSIONS.WORKORDER_READ);
   const [draft, setDraft] = useState({
     workOrder: data.linkedWorkOrder ? {
       id: data.linkedWorkOrderId ?? "",

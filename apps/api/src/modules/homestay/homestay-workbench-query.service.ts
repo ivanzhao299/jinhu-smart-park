@@ -200,7 +200,7 @@ export class HomestayWorkbenchQueryService {
   }
 
   async assertAssignedTurnoverAccess(actor: JwtPrincipal, assigneeId: string | null): Promise<void> {
-    const allowedAssigneeIds = await this.turnoverAssigneeScope(actor);
+    const allowedAssigneeIds = await this.allowedTurnoverAssigneeIds(actor);
     if (allowedAssigneeIds !== null && assigneeId !== null && !allowedAssigneeIds.includes(assigneeId)) {
       throw new ForbiddenException("Turnover task is outside the assigned handler scope");
     }
@@ -426,7 +426,7 @@ export class HomestayWorkbenchQueryService {
     filters: string[],
     actor: JwtPrincipal
   ): Promise<void> {
-    const allowedAssigneeIds = await this.turnoverAssigneeScope(actor);
+    const allowedAssigneeIds = await this.allowedTurnoverAssigneeIds(actor);
     if (allowedAssigneeIds === null) return;
     parameters.push(allowedAssigneeIds);
     const index = parameters.length;
@@ -435,7 +435,7 @@ export class HomestayWorkbenchQueryService {
       OR task."assigneeId" = ANY($${index}::uuid[]))`);
   }
 
-  private async turnoverAssigneeScope(actor: JwtPrincipal): Promise<string[] | null> {
+  async allowedTurnoverAssigneeIds(actor: JwtPrincipal): Promise<string[] | null> {
     if (
       actor.isSuper
       || actor.permissions.includes("*")

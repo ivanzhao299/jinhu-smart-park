@@ -63,6 +63,12 @@ export class HomestayTurnoverService {
       .where("task.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("task.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("task.is_deleted = false");
+    const allowedAssigneeIds = await this.requireWorkbenchQuery().allowedTurnoverAssigneeIds(actor);
+    if (allowedAssigneeIds !== null) {
+      builder.andWhere("(task.assignee_id IS NULL OR task.assignee_id IN (:...allowedAssigneeIds))", {
+        allowedAssigneeIds
+      });
+    }
     if (allowedUnitIds !== null) {
       builder.andWhere("task.unit_id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
