@@ -1,6 +1,6 @@
 # Production Deployment
 
-> Current environment statement (2026-07-24): this document describes the production-grade deployment profile. The project's current highest deployed environment is UAT and has not entered real production operation. Existing `production`, `prod:*`, Compose, workflow, and GitHub Environment names are retained for compatibility; operators must use [environment-matrix.md](./environment-matrix.md) to confirm the actual target before execution.
+> Current environment statement (2026-08-20): `https://park.cnjinhu.com` is the active Production environment. `production`, `prod:*`, Compose, the GitHub Environment, and `PROD_DEPLOY_PATH` all belong to this single deployment route. Controlled UAT performed against Production is an acceptance activity, not a separate environment identity.
 
 Current product scope: [current-product-scope.md](../product/current-product-scope.md)
 
@@ -18,7 +18,7 @@ First release target environment verification dry-run: [first-release-target-env
 
 First release target environment verification execution record: [first-release-target-environment-verification-execution-record.md](../release/first-release-target-environment-verification-execution-record.md)
 
-This is the production-grade deployment wrapper for the Jinhu Smart Park monorepo. It currently supports production-like UAT rehearsals and is intended to become the future Production deployment foundation. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
+This is the active Production deployment wrapper for the Jinhu Smart Park monorepo. It runs PostgreSQL, API, and Web with Docker Compose and keeps database migrations explicit.
 
 ## 1. Prepare Environment
 
@@ -338,7 +338,7 @@ not stop API.
 
 The `Deploy Production` GitHub Actions workflow supports a `deploy_mode` input:
 
-The workflow and `prod:*` command names are technical compatibility names. In the current project phase they target UAT unless an independently approved real Production environment is explicitly selected.
+The workflow and `prod:*` commands target the active Production environment at `https://park.cnjinhu.com`. Do not create or select a parallel Smart Park production route.
 
 - `auto`: default. Compares the previous production `.release.json` commit with the current commit and chooses the safest mode.
 - `fast-css`: syncs `.release.json` and `apps/web/public/runtime-design-system.css` only, then copies the CSS into the running Web container. It does not rebuild images, restart containers, run migrations, or seed data.

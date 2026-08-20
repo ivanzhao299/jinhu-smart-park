@@ -30,7 +30,7 @@
 ## 2. 开发与本地运行
 
 - 环境变量模板：仓库根目录 `.env.example`、`.env.production.example`
-- 数据库初始化与 UAT/未来 Production 基线：[deployment/production.md](deployment/production.md)
+- 数据库初始化与正式 Production 基线：[deployment/production.md](deployment/production.md)
 - 生产 migration 执行策略：[release/production-migration-execution-policy.md](release/production-migration-execution-policy.md)
 - 本地开发细节：当前以 `README.md` 和现有脚本为入口，模块边界专项文档待后续补充
 
