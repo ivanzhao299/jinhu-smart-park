@@ -21,9 +21,10 @@
 
 ## Verification Evidence
 
-- Candidate SHA: `3db0b7e56f1c11234cf3f32cb32912566e294bfc`
+- Candidate SHA: `89d08149978c5677fff8d1541c2e248dabf07993`
 - 默认 Web 单测门已包含民宿与共享房产 DS 契约。
 - Chrome DevTools MCP 已完成桌面、平板、390px 和 360px 响应式检查，并验证结构化返回、键盘焦点、403/404/409 和真实列表/详情链路。
+- 最新复审缺口已在 Chrome DevTools MCP 复验：审批列表从 `?page=2` 请求并显示第 2 页；已退房订单不显示“费用”，草稿订单禁用登记；390×844 无溢出且无小于 44px 的工作面控件。
 
 ## Out of Scope
 

@@ -22,7 +22,7 @@
 
 ## Verification Evidence
 
-- Candidate SHA: `3db0b7e56f1c11234cf3f32cb32912566e294bfc`
+- Candidate SHA: `89d08149978c5677fff8d1541c2e248dabf07993`
 - API E2E: `jinhu_homestay_api_e2e_r5`，PostgreSQL 16，数据库 `jinhu_property_api_e2e_homestay_r5_20260820`，全链路通过。
 - Browser UAT: Chrome DevTools MCP，本地 API/Web，1440×900、768×900、390×844、360×800 通过。
 - 角色与权限：独立审批人真实执行退款/减免；跨园区、模块、字段和文件边界由真实 API E2E 与现有权限/数据库契约测试联合覆盖。
