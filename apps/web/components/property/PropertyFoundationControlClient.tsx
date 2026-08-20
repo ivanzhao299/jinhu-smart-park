@@ -373,7 +373,9 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>
       </div>
     </PropertyPanelSurface>
-    {surface === "occupancies" ? <ManualOccupancyCreatePanel onCreated={() => void load()} /> : null}
+    {surface === "occupancies"
+      ? <ManualOccupancyCreatePanel key={parkReloadKey} disabled={parkSwitching} onCreated={() => void load()} />
+      : null}
     {error ? <PropertyPanelSurface role="alert"><p>{error}</p></PropertyPanelSurface> : null}
     {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
     {!loading && !error
@@ -387,7 +389,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   </PropertyPageSurface>;
 }
 
-function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
+function ManualOccupancyCreatePanel({ disabled, onCreated }: { disabled: boolean; onCreated: () => void }) {
   const [unitId, setUnitId] = useState("");
   const [sourceDomain, setSourceDomain] = useState<"maintenance" | "operations">("maintenance");
   const [reference, setReference] = useState("");
@@ -413,7 +415,7 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (lock.current) return;
+    if (disabled || lock.current) return;
     if (!unitId.trim() || !reference.trim() || !startAt || !endAt) {
       setFeedback("请完整填写房源、关联编号和锁房起止时间。");
       return;
@@ -491,19 +493,19 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
     <PropertyPanelSurface>
       <h2>创建人工锁房</h2>
       <p>仅用于人工维修或运营锁房；民宿、住房和商业租赁占用必须由原业务流程创建。</p>
-      <form onSubmit={(event) => void submit(event)}>
+      <form aria-busy={disabled || busy} onSubmit={(event) => void submit(event)}>
         <div className="ds-command-grid">
-          <label className="form-field"><span>经营房源 ID</span><input name="manual_unit_id" required value={unitId}
+          <label className="form-field"><span>经营房源 ID</span><input disabled={disabled || busy} name="manual_unit_id" required value={unitId}
             onChange={(event) => { payloadChanged(); setUnitId(event.target.value); }} /></label>
-          <label className="form-field"><span>锁房类型</span><select name="manual_source_domain" value={sourceDomain}
+          <label className="form-field"><span>锁房类型</span><select disabled={disabled || busy} name="manual_source_domain" value={sourceDomain}
             onChange={(event) => { payloadChanged(); setSourceDomain(event.target.value as "maintenance" | "operations"); }}>
             <option value="maintenance">维修锁房</option><option value="operations">运营锁房</option>
           </select></label>
-          <label className="form-field"><span>关联编号</span><input maxLength={64} name="manual_reference" required value={reference}
+          <label className="form-field"><span>关联编号</span><input disabled={disabled || busy} maxLength={64} name="manual_reference" required value={reference}
             onChange={(event) => { payloadChanged(); setReference(event.target.value); }} /></label>
-          <label className="form-field"><span>开始时间</span><input name="manual_start_at" required type="datetime-local" value={startAt}
+          <label className="form-field"><span>开始时间</span><input disabled={disabled || busy} name="manual_start_at" required type="datetime-local" value={startAt}
             onChange={(event) => { payloadChanged(); setStartAt(event.target.value); }} /></label>
-          <label className="form-field"><span>结束时间</span><input name="manual_end_at" required type="datetime-local" value={endAt}
+          <label className="form-field"><span>结束时间</span><input disabled={disabled || busy} name="manual_end_at" required type="datetime-local" value={endAt}
             onChange={(event) => { payloadChanged(); setEndAt(event.target.value); }} /></label>
         </div>
         {feedback ? <p aria-live="polite" role={feedback.includes("失败") || feedback.includes("请") ? "alert" : undefined}>{feedback}</p> : null}
@@ -515,8 +517,8 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
             {` · ${sourceTypeLabel(conflict.sourceType)} · ${formatTime(conflict.startAt)} — ${formatTime(conflict.endAt)} · ${occupancyStatusLabel(conflict.status)}`}
           </li>)}
         </ul> : null}
-        <div className="ds-action-bar"><button className="ds-button" disabled={busy} type="submit">
-          {busy ? "正在创建…" : "创建人工锁房"}
+        <div className="ds-action-bar"><button className="ds-button" disabled={disabled || busy} type="submit">
+          {disabled ? "正在切换园区…" : busy ? "正在创建…" : "创建人工锁房"}
         </button></div>
       </form>
     </PropertyPanelSurface>

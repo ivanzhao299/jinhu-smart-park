@@ -2,7 +2,7 @@
 import { Card, DataTable, Drawer, DrawerDetailGrid, DrawerDetailItem, DrawerFooter, DrawerHeader } from "@jinhu/ui";
 
 import { Eye, RefreshCw, Search, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
@@ -251,6 +251,8 @@ export default function UnitStatusBoardPage() {
   const [parkReloadKey, setParkReloadKey] = useState(0);
   const [selected, setSelected] = useState<SelectedUnit | null>(null);
   const [message, setMessage] = useState("");
+  const boardRequestSequence = useRef(0);
+  const lookupRequestSequence = useRef(0);
   const canViewRefPrice = canViewField(authUser, "asset", "unit", UNIT_FIELD_REF_PRICE);
 
   const totalUnits = useMemo(
@@ -259,16 +261,22 @@ export default function UnitStatusBoardPage() {
   );
 
   const load = useCallback(async () => {
+    const sequence = ++boardRequestSequence.current;
     const params = new URLSearchParams();
     if (filters.buildingId) params.set("building_id", filters.buildingId);
     if (filters.rentalStatus) params.set("rental_status", filters.rentalStatus);
-    const response = await apiRequest<UnitStatusBoardResponse>(`/assets/unit-status-board?${params.toString()}`, {
-      token: getAccessToken()
-    });
-    setBoard(response.data);
+    try {
+      const response = await apiRequest<UnitStatusBoardResponse>(`/assets/unit-status-board?${params.toString()}`, {
+        token: getAccessToken()
+      });
+      if (sequence === boardRequestSequence.current) setBoard(response.data);
+    } catch (error) {
+      if (sequence === boardRequestSequence.current) setMessage(error instanceof Error ? error.message : "房源状态看板加载失败");
+    }
   }, [filters, parkReloadKey]);
 
   const loadLookups = useCallback(async () => {
+    const sequence = ++lookupRequestSequence.current;
     const dictCodes = [
       "unit_rental_status",
       "workorder_status",
@@ -288,50 +296,57 @@ export default function UnitStatusBoardPage() {
       "iot_alert_level",
       "iot_alert_status"
     ];
-    const [buildingResponse, dictMap] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      loadDictMapByCodes<DictItemRow>(dictCodes)
-    ]);
-    setBuildings(buildingResponse.data.items);
-    const rentalItems = dictMap.unit_rental_status ?? [];
-    const statusItems = dictMap.workorder_status ?? [];
-    const typeItems = dictMap.workorder_type ?? [];
-    const priorityItems = dictMap.workorder_priority ?? [];
-    const hazardStatuses = dictMap.safety_hazard_status ?? [];
-    const hazardTypes = dictMap.safety_hazard_type ?? [];
-    const hazardRisks = dictMap.safety_risk_level ?? [];
-    const emergencyStatuses = dictMap.safety_emergency_status ?? [];
-    const emergencyTypes = dictMap.safety_emergency_incident_type ?? [];
-    const emergencySeverities = dictMap.safety_emergency_severity ?? [];
-    const emergencyResponses = dictMap.safety_emergency_response_level ?? [];
-    const permitStatuses = dictMap.safety_work_permit_status ?? [];
-    const permitTypes = dictMap.safety_work_permit_type ?? [];
-    const deviceTypes = dictMap.iot_device_type ?? [];
-    const deviceStatuses = dictMap.iot_device_status ?? [];
-    const alertLevels = dictMap.iot_alert_level ?? [];
-    const alertStatuses = dictMap.iot_alert_status ?? [];
-    setRentalStatusItems(rentalItems);
-    setWorkOrderStatusItems(statusItems);
-    setWorkOrderTypeItems(typeItems);
-    setWorkOrderPriorityItems(priorityItems);
-    setHazardStatusItems(hazardStatuses);
-    setHazardTypeItems(hazardTypes);
-    setHazardRiskItems(hazardRisks);
-    setEmergencyStatusItems(emergencyStatuses);
-    setEmergencyTypeItems(emergencyTypes);
-    setEmergencySeverityItems(emergencySeverities);
-    setEmergencyResponseItems(emergencyResponses);
-    setWorkPermitStatusItems(permitStatuses);
-    setWorkPermitTypeItems(permitTypes);
-    setIotDeviceTypeItems(deviceTypes);
-    setIotDeviceStatusItems(deviceStatuses);
-    setIotAlertLevelItems(alertLevels);
-    setIotAlertStatusItems(alertStatuses);
+    try {
+      const [buildingResponse, dictMap] = await Promise.all([
+        apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
+        loadDictMapByCodes<DictItemRow>(dictCodes)
+      ]);
+      if (sequence !== lookupRequestSequence.current) return;
+      setBuildings(buildingResponse.data.items);
+      const rentalItems = dictMap.unit_rental_status ?? [];
+      const statusItems = dictMap.workorder_status ?? [];
+      const typeItems = dictMap.workorder_type ?? [];
+      const priorityItems = dictMap.workorder_priority ?? [];
+      const hazardStatuses = dictMap.safety_hazard_status ?? [];
+      const hazardTypes = dictMap.safety_hazard_type ?? [];
+      const hazardRisks = dictMap.safety_risk_level ?? [];
+      const emergencyStatuses = dictMap.safety_emergency_status ?? [];
+      const emergencyTypes = dictMap.safety_emergency_incident_type ?? [];
+      const emergencySeverities = dictMap.safety_emergency_severity ?? [];
+      const emergencyResponses = dictMap.safety_emergency_response_level ?? [];
+      const permitStatuses = dictMap.safety_work_permit_status ?? [];
+      const permitTypes = dictMap.safety_work_permit_type ?? [];
+      const deviceTypes = dictMap.iot_device_type ?? [];
+      const deviceStatuses = dictMap.iot_device_status ?? [];
+      const alertLevels = dictMap.iot_alert_level ?? [];
+      const alertStatuses = dictMap.iot_alert_status ?? [];
+      setRentalStatusItems(rentalItems);
+      setWorkOrderStatusItems(statusItems);
+      setWorkOrderTypeItems(typeItems);
+      setWorkOrderPriorityItems(priorityItems);
+      setHazardStatusItems(hazardStatuses);
+      setHazardTypeItems(hazardTypes);
+      setHazardRiskItems(hazardRisks);
+      setEmergencyStatusItems(emergencyStatuses);
+      setEmergencyTypeItems(emergencyTypes);
+      setEmergencySeverityItems(emergencySeverities);
+      setEmergencyResponseItems(emergencyResponses);
+      setWorkPermitStatusItems(permitStatuses);
+      setWorkPermitTypeItems(permitTypes);
+      setIotDeviceTypeItems(deviceTypes);
+      setIotDeviceStatusItems(deviceStatuses);
+      setIotAlertLevelItems(alertLevels);
+      setIotAlertStatusItems(alertStatuses);
+    } catch (error) {
+      if (sequence === lookupRequestSequence.current) setMessage(error instanceof Error ? error.message : "房源状态筛选项加载失败");
+    }
   }, [parkReloadKey]);
 
   async function changePark(targetParkId: string) {
     setMessage("");
     try {
+      boardRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
       await switchToPark(targetParkId);
       setFilters({ buildingId: "", rentalStatus: "" });
       setSelected(null);

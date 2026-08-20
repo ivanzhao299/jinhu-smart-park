@@ -2,7 +2,7 @@
 import { DataTable, Card } from "@jinhu/ui";
 
 import { Building2, Layers3, PieChart, RefreshCw, Search } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
@@ -117,6 +117,8 @@ export default function AssetStatisticsPage() {
   const [filters, setFilters] = useState({ buildingId: "", floorId: "", usageType: "" });
   const [parkReloadKey, setParkReloadKey] = useState(0);
   const [message, setMessage] = useState("");
+  const statsRequestSequence = useRef(0);
+  const lookupRequestSequence = useRef(0);
 
   const visibleFloors = useMemo(
     () => floors.filter((floor) => !filters.buildingId || floor.buildingId === filters.buildingId),
@@ -124,25 +126,36 @@ export default function AssetStatisticsPage() {
   );
 
   const load = useCallback(async () => {
+    const sequence = ++statsRequestSequence.current;
     const params = new URLSearchParams();
     if (filters.buildingId) params.set("building_id", filters.buildingId);
     if (filters.floorId) params.set("floor_id", filters.floorId);
     if (filters.usageType) params.set("usage_type", filters.usageType);
-    const response = await apiRequest<AssetStatistics>(`/assets/statistics?${params.toString()}`, {
-      token: getAccessToken()
-    });
-    setStats(response.data);
+    try {
+      const response = await apiRequest<AssetStatistics>(`/assets/statistics?${params.toString()}`, {
+        token: getAccessToken()
+      });
+      if (sequence === statsRequestSequence.current) setStats(response.data);
+    } catch (error) {
+      if (sequence === statsRequestSequence.current) setMessage(error instanceof Error ? error.message : "统计数据加载失败");
+    }
   }, [filters, parkReloadKey]);
 
   const loadLookups = useCallback(async () => {
-    const [buildingResponse, floorResponse, dictMap] = await Promise.all([
-      apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
-      loadDictMapByCodes<DictItemRow>(["unit_usage_type", "unit_rental_status"])
-    ]);
-    setBuildings(buildingResponse.data.items);
-    setFloors(floorResponse.data.items);
-    setDicts(dictMap);
+    const sequence = ++lookupRequestSequence.current;
+    try {
+      const [buildingResponse, floorResponse, dictMap] = await Promise.all([
+        apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
+        apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
+        loadDictMapByCodes<DictItemRow>(["unit_usage_type", "unit_rental_status"])
+      ]);
+      if (sequence !== lookupRequestSequence.current) return;
+      setBuildings(buildingResponse.data.items);
+      setFloors(floorResponse.data.items);
+      setDicts(dictMap);
+    } catch (error) {
+      if (sequence === lookupRequestSequence.current) setMessage(error instanceof Error ? error.message : "统计筛选项加载失败");
+    }
   }, [parkReloadKey]);
 
   useEffect(() => {
@@ -167,6 +180,8 @@ export default function AssetStatisticsPage() {
   async function changePark(targetParkId: string) {
     setMessage("");
     try {
+      statsRequestSequence.current += 1;
+      lookupRequestSequence.current += 1;
       await switchToPark(targetParkId);
       setFilters({ buildingId: "", floorId: "", usageType: "" });
       setStats(emptyStats);
