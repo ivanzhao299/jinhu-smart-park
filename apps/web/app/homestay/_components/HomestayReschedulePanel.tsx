@@ -25,8 +25,8 @@ export function HomestayReschedulePanel({
           reason: reason.trim()
         });
       }}>
-        <label>入住日期<input required type="date" value={arrivalDate} onChange={(event) => setArrivalDate(event.target.value)} /></label>
-        <label>离店日期<input required type="date" min={nextDate(arrivalDate)} value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} /></label>
+        <label>入住日期<input name="reschedule_arrival_date" required type="date" value={arrivalDate} onChange={(event) => setArrivalDate(event.target.value)} /></label>
+        <label>离店日期<input name="reschedule_departure_date" required type="date" min={nextDate(arrivalDate)} value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} /></label>
         <label>改期原因<input required maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
         <button className="primary-button" type="submit">提交改期</button>
       </form>

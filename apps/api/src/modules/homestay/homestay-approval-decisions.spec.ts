@@ -251,3 +251,85 @@ test("DEC-02 freezes the locked direct and legacy-mapped allocation union", asyn
     source_ledger_entry_id: sourceId
   }, "stale-mapping-key"), /Finance allocation source changed/);
 });
+
+test("DEC-02 accepts the TypeORM Postgres UPDATE RETURNING tuple after an approved refund", async () => {
+  const bookingId = "40000000-0000-4000-8000-000000000004";
+  const sourceId = "60000000-0000-4000-8000-000000000004";
+  const requestId = "70000000-0000-4000-8000-000000000004";
+  const executionKey = "homestay-finance-execution-4";
+  const source = {
+    id: sourceId,
+    version: 1,
+    entryType: "payment",
+    chargeType: "room_collection",
+    amount: "1.00",
+    currency: "CNY",
+    status: "confirmed",
+    sourceLedgerEntryId: null,
+    recordedBy: actor.sub,
+    occurredAt: "2026-08-20T00:00:00.000Z"
+  };
+  const line = {
+    entryType: "refund",
+    sourceLedgerEntryId: sourceId,
+    sourceExpectedVersion: 1,
+    sourceEntryType: "payment",
+    sourceAmount: "1.00",
+    chargeType: "room_collection",
+    amount: "0.50",
+    currency: "CNY",
+    paymentRecorderId: actor.sub,
+    allocatedAmount: "0.00",
+    remainingAvailableBalance: "1.00",
+    allocationContributors: []
+  };
+  let updatedBooking = false;
+  const manager = {
+    query: async (sql: string) => {
+      if (sql.includes("SELECT version,currency,status FROM biz_homestay_booking")) {
+        return [{ version: 5, currency: "CNY", status: "checked_out" }];
+      }
+      if (sql.includes("FROM biz_property_execution_effect_manifest")) {
+        return [{ effectKind: "homestay.ledger.refund", effectLineKey: `ledger:refund:${sourceId}`,
+          effectHash: "a".repeat(64), lineAmount: "0.50", currency: "CNY" }];
+      }
+      if (sql.includes("INSERT INTO biz_homestay_ledger_entry")) {
+        return [{ id: "80000000-0000-4000-8000-000000000004" }];
+      }
+      if (sql.includes("UPDATE biz_homestay_booking")) {
+        updatedBooking = true;
+        return [[{ version: 6 }], 1];
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    }
+  };
+  const support = {
+    lockHomestayFinanceSourceKey: async () => undefined,
+    lockHomestayFinanceSource: async () => source,
+    lockConfirmedHomestayLedger: async () => [source],
+    assertNoUnresolvedLegacyHomestayFinance: async () => undefined,
+    homestayFinanceAllocationSnapshot: async () => ({ allocatedCents: 0n, contributors: [] })
+  };
+  const service = new HomestayFinanceService(
+    {} as never,
+    {} as never,
+    support as never
+  );
+
+  await service.executeApprovedFinance({
+    manager: manager as never,
+    requestId,
+    executionIdempotencyKey: executionKey,
+    canonicalPayload: {
+      bookingId,
+      bookingExpectedVersion: 5,
+      reason: "approved refund",
+      lines: [line]
+    },
+    sourceExpectedVersion: 5,
+    request: { tenantId: scope.tenantId, parkId: scope.parkId, sourceId: bookingId,
+      requesterId: actor.sub }
+  });
+
+  assert.equal(updatedBooking, true);
+});

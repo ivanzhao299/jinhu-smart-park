@@ -28,6 +28,12 @@ function assert(condition, message) {
   console.log(`[PASS] ${message}`);
 }
 
+function moneyCents(value) {
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(String(value));
+  if (!match) throw new Error(`Invalid non-negative money value: ${value}`);
+  return BigInt(match[1]) * 100n + BigInt((match[2] ?? "").padEnd(2, "0"));
+}
+
 function createRequestSignal(externalSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -163,10 +169,12 @@ async function run() {
   const operationalDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
   const futureArrival = formatShanghaiDate(addShanghaiDays(businessDateStart, 2));
   const futureDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 3));
+  const rescheduledArrival = formatShanghaiDate(addShanghaiDays(businessDateStart, 4));
+  const rescheduledDeparture = formatShanghaiDate(addShanghaiDays(businessDateStart, 5));
   const units = await request("/park-units?page=1&page_size=100", { token });
   let unit;
   for (const candidate of units.items) {
-    const availability = await request("/property/occupancies/availability", {
+    const availabilityResponse = await tryRequest("/property/occupancies/availability", {
       method: "POST",
       token,
       idempotent: true,
@@ -176,8 +184,17 @@ async function run() {
         endAt: `${operationalDeparture}T00:00:00+08:00`
       }
     });
+    if (availabilityResponse.status === 404) continue;
+    assert(availabilityResponse.ok, "eligible housing unit availability is readable");
+    const availability = availabilityResponse.body;
     if (!availability.available) continue;
-    const currentOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+    const currentOperationResponse = await tryRequest(
+      `/property/units/${candidate.id}/operation`,
+      { token }
+    );
+    if (currentOperationResponse.status === 404) continue;
+    assert(currentOperationResponse.ok, "eligible housing unit operation state is readable");
+    const currentOperation = currentOperationResponse.body;
     await request(`/property/units/${candidate.id}/operation`, {
       method: "PUT",
       token,
@@ -285,7 +302,11 @@ async function run() {
       `/homestay/availability?date_from=${businessDate}&date_to=${operationalDeparture}`,
       { token }
     );
-    const inactiveRoomState = inactiveRoomStates.find((item) => item.unit_id === unit.id);
+    const inactiveRoomStateItems = Array.isArray(inactiveRoomStates)
+      ? inactiveRoomStates
+      : inactiveRoomStates.items;
+    assert(Array.isArray(inactiveRoomStateItems), "availability response exposes a list of room states");
+    const inactiveRoomState = inactiveRoomStateItems.find((item) => item.unit_id === unit.id);
     assert(
       inactiveRoomState?.room_state === "out_of_service",
       "inactive unit is classified out of service instead of available"
@@ -378,6 +399,25 @@ async function run() {
     token,
     idempotent: true
   });
+  const rescheduledFutureBooking = await request(
+    `/homestay/bookings/${futureBooking.id}/reschedule`,
+    {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: {
+        arrival_date: rescheduledArrival,
+        departure_date: rescheduledDeparture,
+        reason: "Successful homestay reschedule E2E"
+      }
+    }
+  );
+  assert(
+    rescheduledFutureBooking.arrivalDate === rescheduledArrival
+      && rescheduledFutureBooking.departureDate === rescheduledDeparture
+      && rescheduledFutureBooking.status === "confirmed",
+    "confirmed booking reschedules successfully"
+  );
   const earlyNoShow = await tryRequest(`/homestay/bookings/${futureBooking.id}/no-show`, {
     method: "POST",
     token,
@@ -392,6 +432,37 @@ async function run() {
     body: { reason: "clean up future no-show boundary E2E" }
   });
   await approveAndWait({ request, token: approverToken, createKey: key, assert, submission: futureCancellation, label: "future booking cancellation" });
+
+  const noShowBooking = await request("/homestay/bookings", {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      booking_code: `HS-NO-SHOW-${runId}`.slice(0, 64),
+      unit_id: unit.id,
+      booker_party_id: guest.id,
+      arrival_date: businessDate,
+      departure_date: operationalDeparture,
+      source_type: "direct",
+      guest_count: 1,
+      remark: "Arrival-day no-show E2E"
+    }
+  });
+  await request(`/homestay/bookings/${noShowBooking.id}/confirm`, {
+    method: "POST",
+    token,
+    idempotent: true
+  });
+  const markedNoShow = await request(`/homestay/bookings/${noShowBooking.id}/no-show`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { reason: "Arrival-day no-show E2E" }
+  });
+  assert(
+    markedNoShow.status === "no_show" && typeof markedNoShow.noShowAt === "string",
+    "arrival-day booking can be marked no-show and releases occupancy"
+  );
 
   const releasedOccupancyBooking = await request("/homestay/bookings", {
     method: "POST",
@@ -506,12 +577,40 @@ async function run() {
     idempotent: true,
     body: { credential_type: "card", credential_label: `E2E-${runId}`.slice(0, 100) }
   });
+  const credentialToLose = await request(`/homestay/bookings/${booking.id}/credentials`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: { credential_type: "key", credential_label: `E2E-LOST-${runId}`.slice(0, 100) }
+  });
   await request(`/homestay/bookings/${booking.id}/check-in`, {
     method: "POST",
     token,
     idempotent: true
   });
   const checkedInDashboard = await request("/homestay/dashboard", { token });
+  const lostCredential = await request(
+    `/homestay/bookings/${booking.id}/credentials/${credentialToLose.id}/lost`,
+    {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: { reason: "Homestay API E2E credential loss" }
+    }
+  );
+  const replayedCredentialLoss = await request(
+    `/homestay/bookings/${booking.id}/credentials/${credentialToLose.id}/lost`,
+    {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: { reason: "Homestay API E2E credential loss replay" }
+    }
+  );
+  assert(
+    lostCredential.status === "lost" && replayedCredentialLoss.status === "lost",
+    "credential loss is persisted and replay safe"
+  );
   const returnedCredential = await request(`/homestay/bookings/${booking.id}/credentials/${credential.id}/return`, {
     method: "POST",
     token,
@@ -525,6 +624,16 @@ async function run() {
     replayedCredentialReturn.returnedAt === returnedCredential.returnedAt,
     "credential return replay preserves the original return timestamp"
   );
+  const returnedCredentialLoss = await tryRequest(
+    `/homestay/bookings/${booking.id}/credentials/${credential.id}/lost`,
+    {
+      method: "POST",
+      token,
+      idempotent: true,
+      body: { reason: "returned credentials cannot become lost" }
+    }
+  );
+  assert(returnedCredentialLoss.status === 409, "returned credentials cannot be rewritten as lost");
   const checkout = await request(`/homestay/bookings/${booking.id}/check-out`, {
     method: "POST",
     token,
@@ -545,10 +654,73 @@ async function run() {
       reason: "Post-checkout finance registration E2E"
     }
   });
+  const refundSources = await request(
+    `/homestay/bookings/${booking.id}/finance-sources?entry_type=refund`,
+    { token }
+  );
+  const refundSource = refundSources.find((source) => source.entryType === "payment");
+  assert(
+    refundSource?.id && moneyCents(refundSource.availableAmount) >= 50n,
+    "confirmed payment is available as a bounded refund source"
+  );
+  const refundSubmission = await request(`/homestay/bookings/${booking.id}/ledger`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      entry_type: "refund",
+      charge_type: refundSource.chargeType,
+      amount: "0.50",
+      source_ledger_entry_id: refundSource.id,
+      reason: "Homestay refund approval E2E"
+    }
+  });
+  await approveAndWait({
+    request,
+    token: approverToken,
+    createKey: key,
+    assert,
+    submission: refundSubmission,
+    label: "homestay refund"
+  });
+  const waiverSources = await request(
+    `/homestay/bookings/${booking.id}/finance-sources?entry_type=waiver`,
+    { token }
+  );
+  const waiverSource = waiverSources.find((source) => source.entryType === "charge");
+  assert(
+    waiverSource?.id && moneyCents(waiverSource.availableAmount) >= 50n,
+    "confirmed charge is available as a bounded waiver source"
+  );
+  const waiverSubmission = await request(`/homestay/bookings/${booking.id}/ledger`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      entry_type: "waiver",
+      charge_type: waiverSource.chargeType,
+      amount: "0.50",
+      source_ledger_entry_id: waiverSource.id,
+      reason: "Homestay waiver approval E2E"
+    }
+  });
+  await approveAndWait({
+    request,
+    token: approverToken,
+    createKey: key,
+    assert,
+    submission: waiverSubmission,
+    label: "homestay waiver"
+  });
   const checkedOutBookingDetail = await request(`/homestay/bookings/${booking.id}`, { token });
   assert(
     checkedOutBookingDetail.ledger_summary?.payments === "1.00",
     "checked-out booking remains readable and accepts authorized finance registration"
+  );
+  assert(
+    checkedOutBookingDetail.ledger_summary?.refunds === "0.50"
+      && checkedOutBookingDetail.ledger_summary?.waivers === "0.50",
+    "approved refund and waiver are reflected in the booking ledger summary"
   );
   const checkedOutDashboard = await request("/homestay/dashboard", { token });
   assert(

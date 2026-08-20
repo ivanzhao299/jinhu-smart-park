@@ -14,6 +14,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
+import { homestayErrorMessage } from "./homestay-workbench.logic";
 
 const BOOKING_DRAFT_SCHEMA = {
   unitId: "string",
@@ -107,7 +108,7 @@ function useBookingCreate(onCreated: () => void) {
       setMessage("订单草稿已创建。");
       onCreated();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "创建失败");
+      setMessage(homestayErrorMessage(error, "创建失败"));
     } finally {
       lock.current = false;
       setSubmitting(false);
@@ -140,9 +141,9 @@ export function HomestayBookingCreatePanel({
             invalidationKey={capability.invalidationKey} label="房源"
             loadOptions={loadUnits} onChange={form.setUnit} required value={form.unit}
           />
-          <label>入住日期<input required type="date" value={form.arrivalDate} onChange={(event) => updateArrival(event.target.value)} /></label>
-          <label>离店日期<input required type="date" min={nextDate(form.arrivalDate)} value={form.departureDate} onChange={(event) => form.setDepartureDate(event.target.value)} /></label>
-          <label>入住人数<input required type="number" min="1" max="50" step="1" value={form.guestCount} onFocus={(event) => event.target.select()} onChange={(event) => form.setGuestCount(event.target.value)} /></label>
+          <label>入住日期<input name="arrival_date" required type="date" value={form.arrivalDate} onChange={(event) => updateArrival(event.target.value)} /></label>
+          <label>离店日期<input name="departure_date" required type="date" min={nextDate(form.arrivalDate)} value={form.departureDate} onChange={(event) => form.setDepartureDate(event.target.value)} /></label>
+          <label>入住人数<input name="guest_count" required type="number" min="1" max="50" step="1" value={form.guestCount} onFocus={(event) => event.target.select()} onChange={(event) => form.setGuestCount(event.target.value)} /></label>
           <button className="primary-button" type="submit">创建草稿</button>
         </fieldset>
       </form>

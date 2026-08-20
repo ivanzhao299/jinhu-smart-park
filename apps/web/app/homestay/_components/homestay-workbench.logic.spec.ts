@@ -6,6 +6,7 @@ import {
   HOMESTAY_LIST_READ_ACTIONS,
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
+  homestayErrorMessage,
   homestayRateWorkspaceKey,
   homestayRateWindow,
   homestaySurfaceQueryKey,
@@ -59,6 +60,19 @@ test("only the exact missing-rate 404 is treated as an unconfigured workspace", 
   ), true);
   assert.equal(isMissingHomestayRateConfiguration(new ApiError("Unit not found", 404)), false);
   assert.equal(isMissingHomestayRateConfiguration(new ApiError("Forbidden", 403)), false);
+});
+
+test("booking setup and occupancy conflicts are translated into actionable Chinese messages", () => {
+  assert.equal(
+    homestayErrorMessage(new Error("Homestay rate configuration is required"), "创建失败"),
+    "请先为所选房源配置基础价格。"
+  );
+  assert.equal(
+    homestayErrorMessage(new Error("Property occupancy conflicts with an existing period"), "创建失败"),
+    "所选房源在该入住期间已被占用，请调整房源或日期。"
+  );
+  assert.equal(homestayErrorMessage(new Error("网络异常"), "创建失败"), "网络异常");
+  assert.equal(homestayErrorMessage(null, "创建失败"), "创建失败");
 });
 
 test("landing requires active modules and selects the first granular page only", () => {
