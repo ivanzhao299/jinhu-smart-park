@@ -1,10 +1,10 @@
 # 金湖智慧园区数字运营 SaaS 平台历史移交清单快照
 
-> **历史资料，请勿作为当前执行手册使用。** 本文全文是 2026-06-12 移交状态的追溯快照，其中的生产服务器、域名、密钥交接、数据库备份、管理员和部署命令均为当时的检查项或未来 Production 占位，不代表当前环境已启用，也不得据此直接执行。当前接手、UAT 和部署操作必须从 [文档索引](../index.md)、[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md) 与 [全量产品 UAT 矩阵](../uat/full-product-acceptance-matrix.md) 重新确认。
+> **历史资料，请勿作为当前执行手册使用。** 本文全文是 2026-06-12 移交状态的追溯快照，其中的生产服务器、域名、密钥交接、数据库备份、管理员和部署命令仅代表当时记录，不得据此直接执行。自 2026-08-20 起，`https://park.cnjinhu.com` 已确认为正式 Production；当前操作必须从 [文档索引](../index.md)、[产品范围](../product/current-product-scope.md)、[环境矩阵](../deployment/environment-matrix.md) 与 [生产部署说明](../deployment/production.md) 重新确认。
 
 生成日期：2026-06-12
 口径校正日期：2026-07-24
-当前阶段：持续开发完善与 UAT 验收；当前最高环境为 UAT，尚未真实投入生产
+2026-06-12 快照所记录的阶段：持续开发完善与 UAT 验收（该状态已被 2026-08-20 的 Production 确认取代）
 未来生产域名：https://<production-domain>（占位，尚未作为真实生产入口启用）
 代码仓库：git@github.com:ivanzhao299/jinhu-smart-park.git
 

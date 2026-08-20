@@ -7,7 +7,14 @@
 - 每个问题的隔离工作树：`/srv/managed-projects/jinhu-smart-park/worktrees`
 - Runner 配置：`/etc/anksen-runner/smart-park-runner.env`
 - systemd：`anksen-smart-park-runner.service`
+- 业务 Production 部署目录：GitHub Secret `PROD_DEPLOY_PATH`（实际值不得写入仓库或日志）
 - Phoenix 保持在 `/opt/phoenix-runner`，不得共享用户、仓库、环境文件、工作树、日志和 API 凭据。
+
+Studio 是交付控制面，`Deploy Production` 是业务部署执行面。`/srv/agent-studio`、
+`/srv/agent-studio-runtime`、Smart Park `state/worktrees`、`/etc/anksen-runner` 与
+`/opt/phoenix-runner` 均不得与 `PROD_DEPLOY_PATH` 相等或互相包含。Runner 不直接在
+`PROD_DEPLOY_PATH` 执行 rsync、Compose、migration 或 seed；它合并 `main` 后等待现有
+GitHub Actions 正式发布并验证 `https://park.cnjinhu.com`。
 
 ## 自动发布门禁
 

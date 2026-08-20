@@ -53,6 +53,8 @@ jobs:
 
       - name: Validate release
         run: |
+          sh scripts/e2e/production-deploy-path-contract.sh
+          node scripts/e2e/production-deploy-route-contract.mjs
           pnpm typecheck
           pnpm lint
           pnpm css:check
@@ -82,6 +84,18 @@ jobs:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
         run: ssh-keyscan -p "$PROD_SSH_PORT" -H "$PROD_SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Enforce Studio and production deployment path separation
+        env:
+          PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          PROD_SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          set -eu
+          SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
+          ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            "sh -s -- '$PROD_DEPLOY_PATH'" < scripts/validate-production-deploy-path.sh
 
       - name: Resolve deployment mode
         if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
@@ -312,7 +326,7 @@ jobs:
           trap - ERR
           cleanup_rollback_snapshot
 
-      - name: Verify protected UAT accounts through public production
+      - name: Verify protected acceptance accounts in Production
         if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
         env:
           PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
