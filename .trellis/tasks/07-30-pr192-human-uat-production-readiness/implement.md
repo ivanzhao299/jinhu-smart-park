@@ -96,9 +96,9 @@ Owner: `production-readiness-facilitator`，仅在 H4 证据齐备后短时启�
 - Candidate handoff artifact:
   `handoff/2026-08-14-technical-closure-to-human-gate.md`.
 - Bound production candidate:
-  pending PR `#290` merge and production deployment.
-- Last verified pre-PR290 deployed candidate:
-  `717d264275df7ba81b031413c211a4125ca432a5`.
+  `619b8d20e891c74f69abcc9c908666034c37c648` (PR #331 merge; main CI `32340203702` and Deploy Production `32340203683` succeeded).
+- Kit provenance:
+  PR #290 merge `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`; external H0 coordinator acceptance/freeze remains pending.
 - Technical handoff baseline before the human UAT kit merge:
   `5987b14526443ee638aa27134485b12b681ef5b8`.
 - Technical remediation lane `#270 -> #271 -> #272 -> #273`, Codex Review

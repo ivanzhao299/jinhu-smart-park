@@ -3,8 +3,8 @@
 Created at: 2026-08-14T04:10:28Z  
 Authoring lane: Codex technical facilitator  
 Bound technical handoff baseline: `5987b14526443ee638aa27134485b12b681ef5b8`.
-Last verified pre-PR290 deployed H0/UAT candidate: `717d264275df7ba81b031413c211a4125ca432a5`.
-Current H0/UAT candidate: pending PR `#290` merge and production deployment.
+Current H0/UAT candidate: `619b8d20e891c74f69abcc9c908666034c37c648` (PR #331 merge on `main`; CI `32340203702` and Deploy Production `32340203683` succeeded).
+Kit provenance: PR #290 merge commit `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`; H0 remains pending external coordinator acceptance/freeze of the current candidate.
 Status: `technical_closure_verified`, `human_readiness_status=awaiting_human_gate`, `production_readiness_status=awaiting_human_gate`
 
 This handoff is an append-only status artifact for PR192. It records the current technical closure and the remaining external human gates. It is not a human role UAT result, not a business/finance/security/release signoff, and not a `production_ready` decision.
@@ -39,7 +39,7 @@ It deliberately does not create or infer any human participant observation, name
 | Main CI | GitHub Actions run `31782716720` on `main`/`717d2642` completed `SUCCESS`; jobs include `Detect Release Smoke Scope` and `Lint, Typecheck, Build`; `Release Smoke` was skipped because this PR changed the PR192 UAT template package rather than release-smoke-triggering runtime/database paths. | Proved merged-branch gate |
 | Production deploy | GitHub Actions run `31782716535` on `main`/`717d2642` completed `SUCCESS`; jobs `Verify production release` and `Deploy to production host` both completed successfully. The deploy workflow executes `PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health`; direct Actions log download requires GitHub credentials and was not embedded here. | Proved deploy gate |
 | Production health snapshot | 2026-08-14T08:20:53Z public probes: `https://park.cnjinhu.com/api/v1/health` returned HTTP `200` with API status `ok`; `https://park.cnjinhu.com/api/v1/ready` returned HTTP `200` with status `ready` and `database`, `defaultTenant`, `defaultPark`, `tenantModuleAuthorization`, `bootstrapAdmin`, and `workorderReleaseDicts` all `ok`; `https://park.cnjinhu.com/login` returned HTTP `200`. | Proved post-deploy health |
-| PR290 post-merge candidate | PR `#290` must not fill its final H0 candidate with the PR branch SHA or the previous `717d2642` deployment. After merge, use the resulting main merge commit and its post-merge production deployment/health evidence as `current_human_uat_candidate_sha` and `kit_provenance_commit`. | Pending merge/deploy evidence |
+| PR290 post-merge candidate | PR `#290` merged as kit provenance `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`; the later PR #331 merge `619b8d20e891c74f69abcc9c908666034c37c648` is the current candidate, with main CI `32340203702`, Deploy Production `32340203683`, health and Docker cleanup evidence. | Technical evidence bound; external H0 freeze pending |
 
 ## 3. H0/H1 Human Gate Readiness Status
 

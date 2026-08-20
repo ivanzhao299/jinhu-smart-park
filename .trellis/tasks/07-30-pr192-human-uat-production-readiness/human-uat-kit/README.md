@@ -2,9 +2,9 @@
 
 Status: template package only  
 Bound technical handoff: `../handoff/2026-08-14-technical-closure-to-human-gate.md`  
-Bound deployed candidate: pending PR `#290` merge and production deployment.
-Last verified pre-PR290 deployed candidate: `717d264275df7ba81b031413c211a4125ca432a5`.
-Kit provenance: pending PR `#290` merge commit. Do not use `717d264275df7ba81b031413c211a4125ca432a5` as the kit provenance commit because that deployed candidate predates this post-merge evidence patch.
+Bound deployed candidate: `619b8d20e891c74f69abcc9c908666034c37c648` (PR #331 merge on `main`; CI `32340203702` and Deploy Production `32340203683` succeeded).
+Kit provenance: PR #290 merge commit `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`.
+H0 still requires an external coordinator to accept and freeze the same `619b8d20e891c74f69abcc9c908666034c37c648` candidate before human observations start.
 Human readiness status: `awaiting_human_gate`  
 Production readiness status: `awaiting_human_gate`
 

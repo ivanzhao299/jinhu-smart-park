@@ -310,3 +310,60 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 民宿管理核查、UAT、修复与生产闭环
+
+**Date**: 2026-08-20
+**Task**: 民宿管理核查、UAT、修复与生产闭环
+**Package**: api
+**Branch**: `codex/homestay-completion-uat`
+
+### Summary
+
+完成民宿管理设计复核、跨层修复、真实 PostgreSQL API E2E、Chrome DevTools MCP 多视口 UAT、Codex review 逐条闭环、PR #331 合并及生产部署验证；main CI、Release Smoke、健康检查、Docker 清理和公开生产 UAT 全部通过，Issue #289、#325-#330 已关闭。
+
+### Main Changes
+
+- 修复民宿任务 assignee/房源范围、任务详情授权与列表/count 一致性。
+- 补齐订单/住客/财务状态矩阵、候选最小披露、退款/减免审批及敏感响应边界。
+- 完成任务/审批深链、结构化返回、分页恢复和加载/mutation 竞态保护。
+- 完成凭证遗失审计、周转异常工单关联及不可售门禁；无跨模块事务合同的自动建单继续 fail-closed。
+- 将民宿与共享房产 Web 回归纳入默认门禁，同步 UAT 证据与正式验收矩阵。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5686b246b3f4c4d560cb242b969bfa576181cffe` | (see git log) |
+| `c6927799bb6f73d979d1c988f2a347a436bba4a6` | (see git log) |
+| `fee7290c4c990743f895dbc2cb5db573ee39fec8` | (see git log) |
+| `5d73d81c9be8167474de2fc568b7bbc43e7d501d` | (see git log) |
+| `c0839bf71cbe9bdb908c3e8621e21abc4bf20e42` | (see git log) |
+| `7281ec9e93be90899f4d070d4c4c19b660a40269` | (see git log) |
+| `3db0b7e56f1c11234cf3f32cb32912566e294bfc` | (see git log) |
+| `47501c4761ceb7bfe93ba7b70e56e38fa687f35a` | (see git log) |
+| `89d08149978c5677fff8d1541c2e248dabf07993` | (see git log) |
+| `882c146bf4c18869d5163f5e081211e01e191bcd` | (see git log) |
+| `4039bc67a8ec4939296ec8a097d8c32dda7451f5` | (see git log) |
+| `c33e236084992841d1102b4302d2d15bf7c78dd4` | (see git log) |
+| `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3` | (see git log) |
+
+### Testing
+
+- [OK] `pnpm test:unit`、`pnpm lint`、`pnpm typecheck`、`pnpm build` 在 PR #331 修复阶段全绿。
+- [OK] 最终候选 `8012b854`：`pnpm --filter @jinhu/web test:unit:property` 19/19、Web lint、Web typecheck、`git diff --check` 通过。
+- [OK] PostgreSQL 16 真实 API E2E 覆盖并发下单、改期、no-show、退款/减免、凭证、文件、跨角色/园区，隔离资源 residual=0。
+- [OK] Chrome DevTools MCP：1440×900、768×900、390×844、360×800，以及键盘、焦点、审批 page=2、财务状态选项和移动端无溢出通过。
+- [OK] PR #331 Codex 最终复审无重大问题；PR head CI/Release Smoke 全绿。
+- [OK] main CI run `32340203702` 全绿；Deploy Production run `32340203683` 的完整健康检查、API liveness、Docker unused images/build cache 清理和 6 个受保护账号公开生产校验全部 PASS。
+- [SKIP] 最终两个提交仅修改共享 Web 运行时竞态保护，未重复执行已通过且不受影响的完整 PostgreSQL API E2E；以最终 Web 契约/lint/typecheck、main Release Smoke 和生产公开校验覆盖增量风险。
+- Remaining risks: 真人岗位 UAT 的隔离环境/账号分发、任务卡与阈值冻结、每岗位至少 5 名真人代表执行、观察台账、具名签署和发布批准仍保持 `uat_pending/awaiting_human_gate`；缺少跨模块事务/唯一业务键合同的民宿异常自动建维修工单继续 fail-closed。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 自动化开发与发布闭环已完成；由外部 UAT coordinator 与业务/财务/安全/运维/发布负责人执行完整真人岗位 UAT 和具名签署。

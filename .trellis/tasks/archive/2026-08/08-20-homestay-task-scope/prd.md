@@ -14,10 +14,16 @@
 
 ## Acceptance Criteria
 
-- [ ] self/custom/queue-supervisor scope 正负矩阵通过。
-- [ ] arrival、departure 和未分配 turnover 保持队列可见；self/custom 不返回其他负责人的已分配 turnover。
-- [ ] 空 scope 返回空页，跨园区不可见。
-- [ ] unit/API/真实角色 E2E 通过。
+- [x] self/custom/queue-supervisor scope 正负矩阵通过。
+- [x] arrival、departure 和未分配 turnover 保持队列可见；self/custom 不返回其他负责人的已分配 turnover。
+- [x] 空 scope 返回空页，跨园区不可见。
+- [x] unit/API/真实角色 E2E 通过。
+
+## Verification Evidence
+
+- Final reviewed candidate SHA: `8012b854bcd2024b1f6bdfddf7cf13607d02bfc3`；PR #331，合并后 main SHA `619b8d20e891c74f69abcc9c908666034c37c648`。
+- workbench list/count 与 property task detail 共用房源和负责人范围；单测覆盖 self/custom/queue-supervisor、未分配队列、跨负责人、空 scope 与跨园区。
+- PostgreSQL 16 真实 API E2E、main CI、Release Smoke 与公开生产保护账号验证通过。
 
 ## Out of Scope
 

@@ -9,14 +9,14 @@
 1. `homestay-task-scope`：task read model、assignee/data-scope、count/list 一致性。
 2. `homestay-deep-links`：task/request deep link 与安全导航。
 3. `homestay-booking-finance-boundaries`：财务状态矩阵、住客上限、候选搜索和敏感投影。
-4. `homestay-credential-turnover-repair`：凭证遗失、补发、维修工单和维修占用。
+4. `homestay-credential-turnover-repair`：凭证遗失、关联已有维修工单和未完成周转不可售保护。
 5. `homestay-web-gates`：feature 抽取、状态矩阵、Web unit/CI；高风险离线写仍 fail-closed。
 6. `homestay-api-browser-uat`：真实 API E2E、浏览器 UAT、证据和发布门。
 
 ## 3. 财务状态矩阵
 
 - `confirmed|checked_in`：允许有权限的普通 charge/payment。
-- `checked_out`：只允许有明确业务来源的退房后费用/赔偿及其收款。
+- `checked_out`：当前 DTO 无法验证退房后费用/赔偿的业务来源，因此新增 charge 保持 fail-closed；只允许对既有余额登记 payment，待显式来源合同落地后再开放新增费用。
 - `draft`：不允许普通人工 payment；确认生成房费沿用现有命令。
 - `cancelled|no_show`：只允许取消/no-show 规则产生的费用，以及审批 refund/waiver。
 - 所有不允许组合返回稳定 409；不物理删除账务记录。
@@ -29,9 +29,9 @@
 
 ## 5. 周转与维修
 
-- 周转异常可幂等创建或关联同 scope、同 unit 的维修工单。
-- 未完成维修必须有 maintenance occupancy 或等价不可售保护。
-- 维修完成/解除后才允许复检或恢复可售。
+- 周转异常只允许关联由工单模块权威入口创建的同 scope、同 unit 有效维修工单；民宿模块不得自动创建工单。
+- 未完成周转及现有 occupancy 持续阻止恢复可售和新预订；民宿模块不伪造 maintenance occupancy 或工单生命周期。
+- 工单处置完成后，由现有显式周转异常流程继续复检/完成；自动回调须待跨模块事务、业务唯一键和生命周期事件合同落地后再设计。
 - 凭证 lost/void/returned 状态转换不可覆盖历史时间和审计。
 
 ## 6. 兼容与回滚
