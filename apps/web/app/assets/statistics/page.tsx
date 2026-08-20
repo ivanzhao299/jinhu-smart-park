@@ -7,6 +7,7 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
+import { AssetParkContextSelector, useAssetParkContextSwitch } from "../../../components/assets/AssetParkContextSelector";
 
 const ASSET_READ_PERMISSION = "asset:read";
 const ASSET_STATISTICS_PERMISSION = "asset:statistics";
@@ -102,11 +103,19 @@ const emptyStats: AssetStatistics = {
 };
 
 export default function AssetStatisticsPage() {
+  const {
+    accessibleParks,
+    currentParkName,
+    effectiveParkId,
+    switching: parkSwitching,
+    switchToPark
+  } = useAssetParkContextSwitch();
   const [stats, setStats] = useState<AssetStatistics>(emptyStats);
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [floors, setFloors] = useState<FloorRow[]>([]);
   const [dicts, setDicts] = useState<Record<string, DictItemRow[]>>({});
   const [filters, setFilters] = useState({ buildingId: "", floorId: "", usageType: "" });
+  const [parkReloadKey, setParkReloadKey] = useState(0);
   const [message, setMessage] = useState("");
 
   const visibleFloors = useMemo(
@@ -123,7 +132,7 @@ export default function AssetStatisticsPage() {
       token: getAccessToken()
     });
     setStats(response.data);
-  }, [filters]);
+  }, [filters, parkReloadKey]);
 
   const loadLookups = useCallback(async () => {
     const [buildingResponse, floorResponse, dictMap] = await Promise.all([
@@ -134,7 +143,7 @@ export default function AssetStatisticsPage() {
     setBuildings(buildingResponse.data.items);
     setFloors(floorResponse.data.items);
     setDicts(dictMap);
-  }, []);
+  }, [parkReloadKey]);
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -155,6 +164,20 @@ export default function AssetStatisticsPage() {
     }));
   }
 
+  async function changePark(targetParkId: string) {
+    setMessage("");
+    try {
+      await switchToPark(targetParkId);
+      setFilters({ buildingId: "", floorId: "", usageType: "" });
+      setStats(emptyStats);
+      setBuildings([]);
+      setFloors([]);
+      setParkReloadKey((value) => value + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "园区切换失败");
+    }
+  }
+
   return (
     <PermissionGuard permission={ASSET_READ_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
       <PermissionGuard permission={ASSET_STATISTICS_PERMISSION} module="asset" fallback={<ForbiddenInline />}>
@@ -173,6 +196,13 @@ export default function AssetStatisticsPage() {
         <section className="filter-bar">
           <form className="asset-stat-filter-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
             <div className="asset-stat-filter-grid">
+              <AssetParkContextSelector
+                value={effectiveParkId}
+                parks={accessibleParks}
+                disabled={parkSwitching}
+                fallbackLabel={currentParkName}
+                onChange={(parkId) => void changePark(parkId)}
+              />
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => updateFilter("buildingId", value)}>
                 <option value="">全部楼栋</option>
                 {buildings.map((building) => (

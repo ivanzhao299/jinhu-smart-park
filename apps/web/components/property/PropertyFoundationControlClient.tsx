@@ -15,6 +15,7 @@ import {
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { getAccessToken } from "../../lib/authz";
 import { PermissionGuard } from "../auth/PermissionGuard";
+import { AssetParkContextSelector, useAssetParkContextSwitch } from "../assets/AssetParkContextSelector";
 
 type FoundationSurface = "operations" | "occupancies" | "mode-transitions";
 
@@ -184,6 +185,13 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
 export function PropertyFoundationListClient({ surface }: { surface: FoundationSurface }) {
   const config = SURFACE_CONFIG[surface];
   const searchParams = useSearchParams();
+  const {
+    accessibleParks,
+    currentParkName,
+    effectiveParkId,
+    switching: parkSwitching,
+    switchToPark
+  } = useAssetParkContextSwitch();
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState(searchParams.get("keyword") ?? "");
   const [unitId, setUnitId] = useState(searchParams.get("unitId") ?? "");
@@ -203,6 +211,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
   const [data, setData] = useState<FoundationPage<FoundationRow> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [parkReloadKey, setParkReloadKey] = useState(0);
   const requestSequence = useRef(0);
 
   const requestPath = useMemo(() => {
@@ -254,10 +263,38 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
     } finally {
       if (sequence === requestSequence.current) setLoading(false);
     }
-  }, [requestPath]);
+  }, [parkReloadKey, requestPath]);
 
   useEffect(() => void load(), [load]);
   const pages = Math.max(1, Math.ceil((data?.total ?? 0) / 20));
+
+  async function changePark(targetParkId: string) {
+    setError("");
+    try {
+      await switchToPark(targetParkId);
+      requestSequence.current += 1;
+      setPage(1);
+      setKeyword("");
+      setUnitId("");
+      setBuildingId("");
+      setConfiguredMode("");
+      setOperationStatus("");
+      setBlockerCode("");
+      setSourceDomain("");
+      setSourceType("");
+      setOccupancyStatus("");
+      setStartFrom("");
+      setEndTo("");
+      setFromMode("");
+      setToMode("");
+      setDecisionStatus("");
+      setExecutionStatus("");
+      setData(null);
+      setParkReloadKey((value) => value + 1);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "园区切换失败");
+    }
+  }
 
   return <PropertyPageSurface>
     <header className="ds-hero">
@@ -269,6 +306,13 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
     </header>
     <PropertyPanelSurface>
       <div className="ds-action-bar">
+        <AssetParkContextSelector
+          value={effectiveParkId}
+          parks={accessibleParks}
+          disabled={parkSwitching || loading}
+          fallbackLabel={currentParkName}
+          onChange={(parkId) => void changePark(parkId)}
+        />
         {surface !== "occupancies" ? <label className="form-field">
           <span>房源关键词</span>
           <input

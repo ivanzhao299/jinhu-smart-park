@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "核验页面上下文切换合同、权限守卫和前端验证要求"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "核验共享组件是否减少重复并覆盖所有目标页面"}

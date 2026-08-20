@@ -10,6 +10,7 @@ import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { canViewField, maskField } from "../../../lib/field-policy";
+import { AssetParkContextSelector, useAssetParkContextSwitch } from "../../../components/assets/AssetParkContextSelector";
 
 const ASSET_MODULE = "asset";
 const ASSET_STATUS_BOARD_PERMISSION = "asset:status_board";
@@ -220,6 +221,13 @@ interface UnitDevicesResponse {
 
 export default function UnitStatusBoardPage() {
   const authUser = useAuthUser();
+  const {
+    accessibleParks,
+    currentParkName,
+    effectiveParkId,
+    switching: parkSwitching,
+    switchToPark
+  } = useAssetParkContextSwitch();
   const [board, setBoard] = useState<UnitStatusBoardResponse>({ buildings: [] });
   const [buildings, setBuildings] = useState<BuildingRow[]>([]);
   const [rentalStatusItems, setRentalStatusItems] = useState<DictItemRow[]>([]);
@@ -240,6 +248,7 @@ export default function UnitStatusBoardPage() {
   const [iotAlertLevelItems, setIotAlertLevelItems] = useState<DictItemRow[]>([]);
   const [iotAlertStatusItems, setIotAlertStatusItems] = useState<DictItemRow[]>([]);
   const [filters, setFilters] = useState({ buildingId: "", rentalStatus: "" });
+  const [parkReloadKey, setParkReloadKey] = useState(0);
   const [selected, setSelected] = useState<SelectedUnit | null>(null);
   const [message, setMessage] = useState("");
   const canViewRefPrice = canViewField(authUser, "asset", "unit", UNIT_FIELD_REF_PRICE);
@@ -257,7 +266,7 @@ export default function UnitStatusBoardPage() {
       token: getAccessToken()
     });
     setBoard(response.data);
-  }, [filters]);
+  }, [filters, parkReloadKey]);
 
   const loadLookups = useCallback(async () => {
     const dictCodes = [
@@ -318,7 +327,21 @@ export default function UnitStatusBoardPage() {
     setIotDeviceStatusItems(deviceStatuses);
     setIotAlertLevelItems(alertLevels);
     setIotAlertStatusItems(alertStatuses);
-  }, []);
+  }, [parkReloadKey]);
+
+  async function changePark(targetParkId: string) {
+    setMessage("");
+    try {
+      await switchToPark(targetParkId);
+      setFilters({ buildingId: "", rentalStatus: "" });
+      setSelected(null);
+      setBoard({ buildings: [] });
+      setBuildings([]);
+      setParkReloadKey((value) => value + 1);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "园区切换失败");
+    }
+  }
 
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
@@ -347,6 +370,13 @@ export default function UnitStatusBoardPage() {
         <section className="filter-bar">
           <form className="unit-board-filter-form" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void load().catch((error: Error) => setMessage(error.message)); }}>
             <div className="unit-board-filter-grid">
+              <AssetParkContextSelector
+                value={effectiveParkId}
+                parks={accessibleParks}
+                disabled={parkSwitching}
+                fallbackLabel={currentParkName}
+                onChange={(parkId) => void changePark(parkId)}
+              />
               <SelectField label="楼栋" value={filters.buildingId} onChange={(value) => setFilters((current) => ({ ...current, buildingId: value }))}>
                 <option value="">全部楼栋</option>
                 {buildings.map((building) => (

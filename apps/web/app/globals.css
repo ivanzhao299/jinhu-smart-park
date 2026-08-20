@@ -7576,14 +7576,23 @@ textarea:disabled {
   height: 34px;
   gap: 6px;
   padding: 0 9px;
-  border: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--phoenix-sidebar-text) 24%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--phoenix-sidebar-text) 7%, transparent);
-  color: color-mix(in srgb, var(--phoenix-sidebar-text) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-elevated, #ffffff) 92%, var(--phoenix-sidebar-text));
+  color: color-mix(in srgb, var(--text-primary, #081a2c) 94%, #000000);
+  box-shadow: 0 8px 18px color-mix(in srgb, #000000 8%, transparent);
+}
+
+.user-park-switcher:hover,
+.user-park-switcher:focus-within {
+  border-color: color-mix(in srgb, var(--color-primary) 54%, var(--phoenix-sidebar-text));
+  background: var(--surface-elevated, #ffffff);
+  color: var(--text-primary, #081a2c);
 }
 
 .user-park-switcher svg {
   flex: 0 0 auto;
+  color: color-mix(in srgb, var(--color-primary) 76%, #081a2c);
   stroke-width: 2.3;
 }
 
@@ -7599,7 +7608,8 @@ textarea:disabled {
 }
 
 .user-park-switcher select:disabled {
-  opacity: 0.72;
+  color: color-mix(in srgb, var(--text-secondary, #526071) 86%, transparent);
+  opacity: 1;
 }
 
 .user-park-switcher select option {
@@ -7609,6 +7619,10 @@ textarea:disabled {
 
 .user-park-switcher select option:disabled {
   color: #7a8794;
+}
+
+.asset-park-context-selector select {
+  font-weight: 700;
 }
 
 .user-menu-message {
