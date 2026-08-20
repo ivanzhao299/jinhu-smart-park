@@ -3,7 +3,7 @@
 ## 候选与环境
 
 - 基线 SHA：`f267215aab9ef7cd36c26529b86e013afc549ba3`
-- 验证代码候选 SHA：`9282e55424e710f929515899187b777782a710b5`
+- 验证代码候选 SHA：`fe904e5aa182a1eeca0ffedab1532bd7075919eb`
 - 验证时间：2026-08-21（Asia/Singapore）
 - 一次性数据库：`jinhu_property_api_e2e_issue336`
 - 一次性 Compose project：`property-api-e2e-issue336`
@@ -14,7 +14,7 @@
 
 | 门禁 | 结果 | 摘要 |
 |---|---|---|
-| Housing Web unit/static | PASS | 14 tests（包含高风险确认与分页回归断言） |
+| Housing Web unit/static | PASS | 15 tests（包含高风险失败保留、刷新失败分流与分页回归断言） |
 | Housing API unit | PASS | 124 tests：122 pass，2 个 PostgreSQL 专项因该轮命令未注入 `DATABASE_URL` skip；真实 DB 链路由下方 E2E 覆盖 |
 | Shared contracts | PASS | 31 tests |
 | API/Web/Shared typecheck | PASS | 无类型错误 |
