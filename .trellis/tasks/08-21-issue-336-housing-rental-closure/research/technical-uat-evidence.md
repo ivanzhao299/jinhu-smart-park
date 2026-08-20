@@ -3,7 +3,7 @@
 ## 候选与环境
 
 - 基线 SHA：`f267215aab9ef7cd36c26529b86e013afc549ba3`
-- 验证代码候选 SHA：`554a43152a2bbe0ebf20f88512c583743577271a`
+- 验证代码候选 SHA：`9282e55424e710f929515899187b777782a710b5`
 - 验证时间：2026-08-21（Asia/Singapore）
 - 一次性数据库：`jinhu_property_api_e2e_issue336`
 - 一次性 Compose project：`property-api-e2e-issue336`

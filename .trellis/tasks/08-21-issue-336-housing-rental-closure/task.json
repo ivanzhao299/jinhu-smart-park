@@ -15,7 +15,7 @@
   "branch": "codex/issue-336-housing-rental-closure",
   "base_branch": "main",
   "worktree_path": "/tmp/jinhu-issue-336-housing-rental-closure",
-  "commit": "554a43152a2bbe0ebf20f88512c583743577271a",
+  "commit": "9282e55424e710f929515899187b777782a710b5",
   "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/337",
   "subtasks": [],
   "children": [],
