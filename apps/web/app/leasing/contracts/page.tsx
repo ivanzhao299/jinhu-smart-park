@@ -2,12 +2,12 @@
 import { DataTable, Drawer, Card, DrawerFooter, DrawerForm, DrawerHeader } from "@jinhu/ui";
 
 import { Ban, CheckCircle2, Download, Edit3, Plus, RefreshCw, Send, Search, Trash2, X } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import type { FileRecord, PaginatedResult } from "@jinhu/shared";
+import { type CSSProperties, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResult } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/auth/PermissionButton";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { FileUploader } from "../../../components/files/FileUploader";
-import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { API_PREFIX, ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
 import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
@@ -72,6 +72,15 @@ const FILE_PERMISSIONS = {
 } as const;
 const CONTRACT_FILE_BIZ_TYPE = "leasing_contract";
 const HOUSING_USAGE_TYPE = 70;
+const CONTRACT_UNIT_REQUIRED_ERROR = "Contract must link at least one unit before submit";
+const CONTRACT_UNIT_REQUIRED_MESSAGE = "提交前必须先在“合同房源”中添加至少一个房源。";
+const contractUnitNoticeStyle: CSSProperties = {
+  width: "100%",
+  maxWidth: "100%",
+  whiteSpace: "normal",
+  overflowWrap: "anywhere",
+  lineHeight: 1.6
+};
 
 
 interface DictItemRow {
@@ -484,17 +493,21 @@ export default function LeasingContractsPage() {
   const [contractRefunds, setContractRefunds] = useState<ContractRefundRow[]>([]);
   const [receivableGenerationResult, setReceivableGenerationResult] = useState<ReceivableGenerationResult | null>(null);
   const [message, setMessage] = useState("");
+  const [contractDrawerMessage, setContractDrawerMessage] = useState("");
   const [filters, setFilters] = useState({ keyword: "", status: "", contractType: "", parkTenantId: "", startDate: "", endDate: "", expireInDays: "" });
   const [unitFilters, setUnitFilters] = useState({ buildingId: "", floorId: "", rentalStatus: "" });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<LeasingContractRow | null>(null);
   const [form, setForm] = useState<ContractFormState>(emptyForm);
   const [unitForm, setUnitForm] = useState<ContractUnitFormState>(emptyUnitForm);
+  const [unitOptionsLoading, setUnitOptionsLoading] = useState(false);
+  const [unitOptionsLoadError, setUnitOptionsLoadError] = useState("");
   const [archiveForm, setArchiveForm] = useState<ArchiveFormState>(emptyArchiveForm);
   const [effectiveForm, setEffectiveForm] = useState<EffectiveFormState>(emptyEffectiveForm);
   const [renewalForm, setRenewalForm] = useState<RenewalFormState>(emptyRenewalForm);
   const [showRenewalForm, setShowRenewalForm] = useState(false);
   const [contractDetailTab, setContractDetailTab] = useState<ContractDetailTab>("profile");
+  const unitOptionsRequestSeq = useRef(0);
 
   const statusItems = dicts.leasing_contract_status ?? [];
   const typeItems = dicts.leasing_contract_type ?? [];
@@ -517,6 +530,7 @@ export default function LeasingContractsPage() {
   const refundMethodItems = dicts.leasing_refund_method ?? [];
   const refundStatusItems = dicts.leasing_refund_status ?? [];
   const canReadContractUnits = hasPermission(authUser, CONTRACT_PERMISSIONS.unitRead);
+  const canReadUnitOptions = hasPermission(authUser, SYSTEM_PERMISSIONS.UNIT_READ);
   const canReadContractFiles = hasPermission(authUser, CONTRACT_PERMISSIONS.fileRead);
   const canReadContractStatusLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.statusLog);
   const canReadContractActionLogs = hasPermission(authUser, CONTRACT_PERMISSIONS.actionLog);
@@ -609,25 +623,49 @@ export default function LeasingContractsPage() {
     setFloors(references.floors as FloorRow[]);
   }, []);
 
-	  const loadUnitOptions = useCallback(async () => {
-	    const items: UnitRow[] = [];
-	    let page = 1;
-	    let total = 0;
-	    do {
-	      const params = new URLSearchParams({ page: String(page), page_size: "100", sort: "unitCode" });
-	      if (unitFilters.buildingId) params.set("building_id", unitFilters.buildingId);
-	      if (unitFilters.floorId) params.set("floor_id", unitFilters.floorId);
-	      if (unitFilters.rentalStatus) params.set("rental_status", unitFilters.rentalStatus);
-	      const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
-	        token: getAccessToken()
-	      });
-	      total = response.data.total;
-	      items.push(...response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE));
-	      if (response.data.items.length === 0) break;
-	      page += 1;
-	    } while (items.length < 100 && (page - 1) * 100 < total);
-	    setUnitOptions(items.slice(0, 100));
-	  }, [unitFilters]);
+  const loadUnitOptions = useCallback(async () => {
+    const requestSeq = unitOptionsRequestSeq.current + 1;
+    unitOptionsRequestSeq.current = requestSeq;
+    const isCurrentRequest = () => unitOptionsRequestSeq.current === requestSeq;
+    if (!canReadUnitOptions) {
+      setUnitOptions([]);
+      setUnitOptionsLoadError("当前账号没有房源读取权限，无法加载可关联房源。");
+      setUnitOptionsLoading(false);
+      return;
+    }
+    setUnitOptionsLoading(true);
+    setUnitOptionsLoadError("");
+    try {
+      const items: UnitRow[] = [];
+      let page = 1;
+      let total = 0;
+      do {
+        const params = new URLSearchParams({ page: String(page), page_size: "100", sort: "unitCode" });
+        if (unitFilters.buildingId) params.set("building_id", unitFilters.buildingId);
+        if (unitFilters.floorId) params.set("floor_id", unitFilters.floorId);
+        if (unitFilters.rentalStatus) params.set("rental_status", unitFilters.rentalStatus);
+        const response = await apiRequest<PaginatedResult<UnitRow>>(`/park-units?${params.toString()}`, {
+          token: getAccessToken()
+        });
+        total = response.data.total;
+        items.push(...response.data.items.filter((item) => item.usageType !== HOUSING_USAGE_TYPE));
+        if (response.data.items.length === 0) break;
+        page += 1;
+      } while (items.length < 100 && (page - 1) * 100 < total);
+      if (isCurrentRequest()) {
+        setUnitOptions(items.slice(0, 100));
+      }
+    } catch (error) {
+      if (!isCurrentRequest()) return;
+      setUnitOptions([]);
+      const detail = error instanceof Error ? error.message : "未知错误";
+      setUnitOptionsLoadError(`房源列表加载失败：${detail}`);
+    } finally {
+      if (isCurrentRequest()) {
+        setUnitOptionsLoading(false);
+      }
+    }
+  }, [canReadUnitOptions, unitFilters]);
 
   const loadContractUnits = useCallback(async (contractId: string) => {
     if (!canReadContractUnits) return;
@@ -742,7 +780,7 @@ export default function LeasingContractsPage() {
     await loadContractRefunds(contractId);
   }, [load, loadContractActionLogs, loadContractChanges, loadContractCheckouts, loadContractFiles, loadContractInvoices, loadContractPayments, loadContractReceivables, loadContractRefunds, loadContractStatusLogs, loadRenewalContracts, pageData.page]);
 
-  const openContractDrawer = useCallback((row: LeasingContractRow) => {
+  const openContractDrawer = useCallback((row: LeasingContractRow, initialTab: ContractDetailTab = "profile", drawerMessage = "") => {
     setEditing(row);
     syncFormFromContract(row, setForm);
     syncArchiveFormFromContract(row, setArchiveForm);
@@ -750,7 +788,8 @@ export default function LeasingContractsPage() {
     setUnitForm(emptyUnitForm);
     setRenewalForm(formFromRenewalSource(row));
     setShowRenewalForm(false);
-    setContractDetailTab("profile");
+    setContractDetailTab(initialTab);
+    setContractDrawerMessage(drawerMessage);
     setReceivableGenerationResult(null);
     void loadContractUnits(row.id).catch((error: Error) => setMessage(error.message));
     void loadContractFiles(row.id).catch((error: Error) => setMessage(error.message));
@@ -814,6 +853,7 @@ export default function LeasingContractsPage() {
     setRenewalForm(emptyRenewalForm);
     setShowRenewalForm(false);
     setContractDetailTab("profile");
+    setContractDrawerMessage("");
     setReceivableGenerationResult(null);
     setShowForm(true);
   }
@@ -875,6 +915,7 @@ export default function LeasingContractsPage() {
     setUnitForm(emptyUnitForm);
     setContractDetailTab("units");
     setMessage("合同草稿已创建，请关联至少一个房源后再提交");
+    setContractDrawerMessage("合同草稿已创建，请关联至少一个房源后再提交");
     await loadContractUnits(response.data.id);
     await load(1);
   }
@@ -911,6 +952,7 @@ export default function LeasingContractsPage() {
     });
     setUnitForm(emptyUnitForm);
     setMessage(unitForm.relId ? "合同房源已更新" : "合同房源已添加");
+    setContractDrawerMessage("");
     await loadContractUnits(editing.id);
     await refreshEditingContract(editing.id);
   }
@@ -955,8 +997,22 @@ export default function LeasingContractsPage() {
   async function submitContractApproval(row: LeasingContractRow) {
     const opinion = window.prompt("请输入提交意见", "提交合同审批");
     if (opinion === null) return;
-    await runContractAction(row, "submit", { opinion: emptyToUndefined(opinion) });
-    setMessage("合同已提交审批");
+    try {
+      await runContractAction(row, "submit", { opinion: emptyToUndefined(opinion) });
+      setMessage("合同已提交审批");
+      setContractDrawerMessage("");
+    } catch (error) {
+      if (error instanceof ApiError && error.message === CONTRACT_UNIT_REQUIRED_ERROR) {
+        if (showForm && editing?.id === row.id) {
+          setContractDetailTab("units");
+          setContractDrawerMessage(CONTRACT_UNIT_REQUIRED_MESSAGE);
+        } else {
+          openContractDrawer(row, "units", CONTRACT_UNIT_REQUIRED_MESSAGE);
+        }
+        return;
+      }
+      throw error;
+    }
   }
 
   async function approveContract(row: LeasingContractRow) {
@@ -1305,6 +1361,7 @@ export default function LeasingContractsPage() {
                 closeIcon={<X size={18} />}
               />
               {coreDisabled ? <p className="status-pill status-warning">当前合同状态不允许编辑核心金额与日期字段</p> : null}
+              {contractDrawerMessage ? <p className="status-pill status-warning" style={contractUnitNoticeStyle}>{contractDrawerMessage}</p> : null}
               {!editing ? (
                 <p className="status-pill">
                   保存基础信息后将自动进入“合同房源”步骤；至少关联一个房源后才能提交。
@@ -1684,10 +1741,15 @@ export default function LeasingContractsPage() {
                         <FloorSelect label="楼层" value={unitFilters.floorId} onChange={(value) => updateUnitFilter("floorId", value)} items={floors.filter((floor) => !unitFilters.buildingId || floor.buildingId === unitFilters.buildingId)} allowEmpty />
                         <SelectField label="出租状态" value={unitFilters.rentalStatus} onChange={(value) => updateUnitFilter("rentalStatus", value)} options={unitRentalStatusItems} allowEmpty />
                       </div>
+                      {unitOptionsLoading ? <p className="muted-text">正在加载可关联房源...</p> : null}
+                      {unitOptionsLoadError ? <p className="status-pill status-warning" style={contractUnitNoticeStyle}>{unitOptionsLoadError}</p> : null}
+                      {!unitOptionsLoading && !unitOptionsLoadError && unitOptions.length === 0 ? (
+                        <p className="status-pill status-warning" style={contractUnitNoticeStyle}>当前筛选范围暂无可关联房源，请调整楼栋、楼层、出租状态或联系管理员确认房源数据范围。</p>
+                      ) : null}
                       {(unitForm.relId ? canUpdateContractUnits : canCreateContractUnits) ? (
                         <div className="form-stack">
                           <div className="system-grid">
-                            <UnitSelect label="房源" value={unitForm.unitId} onChange={(value) => setUnitFormValue("unitId", value, setUnitForm)} items={unitOptions} required />
+                            <UnitSelect label="房源" value={unitForm.unitId} onChange={(value) => setUnitFormValue("unitId", value, setUnitForm)} items={unitOptions} required disabled={!unitForm.relId && (unitOptionsLoading || Boolean(unitOptionsLoadError) || unitOptions.length === 0)} />
                             <NumberField label="关联面积" value={unitForm.area} onChange={(value) => setUnitFormValue("area", value, setUnitForm)} placeholder={selectedUnitArea(unitOptions, unitForm.unitId)} />
                             {canEditContractUnitRentUnitPrice ? (
                               <NumberField label="租金单价" value={unitForm.rentUnitPrice} onChange={(value) => setUnitFormValue("rentUnitPrice", value, setUnitForm)} placeholder={selectedUnitRefPrice(unitOptions, unitForm.unitId)} />
@@ -1697,11 +1759,13 @@ export default function LeasingContractsPage() {
                             <TextField label="备注" value={unitForm.remark} onChange={(value) => setUnitFormValue("remark", value, setUnitForm)} />
                           </div>
                           <div className="page-actions">
-                            <button className="primary-button" type="button" onClick={() => void submitUnit().catch((error: Error) => setMessage(error.message))}>{unitForm.relId ? "保存房源" : "添加房源"}</button>
+                            <button className="primary-button" type="button" disabled={!unitForm.relId && (unitOptionsLoading || Boolean(unitOptionsLoadError) || unitOptions.length === 0)} onClick={() => void submitUnit().catch((error: Error) => setMessage(error.message))}>{unitForm.relId ? "保存房源" : "添加房源"}</button>
                             {unitForm.relId ? <button className="primary-button" type="button" onClick={() => setUnitForm(emptyUnitForm)}>取消编辑</button> : null}
                           </div>
                         </div>
-                      ) : null}
+                      ) : (
+                        <p className="status-pill status-warning" style={contractUnitNoticeStyle}>当前账号没有添加合同房源权限，无法完成提交前的房源关联。</p>
+                      )}
                       <div className="table-scroll">
                         <DataTable >
                           <thead>
@@ -1752,7 +1816,9 @@ export default function LeasingContractsPage() {
                         </DataTable>
                       </div>
                     </>
-                  ) : null}
+                  ) : (
+                    <p className="status-pill status-warning" style={contractUnitNoticeStyle}>当前账号没有查看合同房源权限，无法确认或添加提交所需房源。</p>
+                  )}
                 </Card>
                 ) : null}
                 {(!editing || contractDetailTab === "profile") ? (
@@ -2538,17 +2604,18 @@ function FloorSelect({ label, value, onChange, items, allowEmpty }: {
   );
 }
 
-function UnitSelect({ label, value, onChange, items, required }: {
+function UnitSelect({ label, value, onChange, items, required, disabled }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   items: UnitRow[];
   required?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <select value={value} required={required} onChange={(event) => onChange(event.target.value)}>
+      <select value={value} required={required} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
         <option value="">请选择</option>
         {items.map((item) => (
           <option key={item.id} value={item.id}>{item.unitCode} {item.unitName}</option>
