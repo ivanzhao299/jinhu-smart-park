@@ -200,6 +200,7 @@ def read_directory_contents(
     dir_path: str,
     max_files: int = 20,
     max_bytes: int | None = None,
+    max_total_bytes: int | None = None,
 ) -> list[tuple[str, str]]:
     """
     Read all .md files in a directory
@@ -229,7 +230,13 @@ def read_directory_contents(
 
         for filename in md_files[:max_files]:
             relative_path = os.path.join(dir_path, filename)
-            content = read_file_content(base_path, relative_path, max_bytes=max_bytes)
+            remaining = _remaining_result_bytes(results, max_total_bytes)
+            if remaining is not None and remaining <= 0:
+                break
+            file_limit = max_bytes
+            if remaining is not None:
+                file_limit = remaining if not file_limit or file_limit <= 0 else min(file_limit, remaining)
+            content = read_file_content(base_path, relative_path, max_bytes=file_limit)
             if content:
                 results.append((relative_path, content))
     except Exception:
@@ -238,8 +245,51 @@ def read_directory_contents(
     return results
 
 
+def _entry_text(file_path: str, content: str) -> str:
+    return f"=== {file_path} ===\n{content}"
+
+
+def _remaining_context_bytes(parts: list[str], max_total_bytes: int | None) -> int | None:
+    if max_total_bytes is None or max_total_bytes <= 0:
+        return None
+    used = len("\n\n".join(parts).encode("utf-8"))
+    remaining = max_total_bytes - used
+    if parts:
+        remaining -= 2
+    return max(0, remaining)
+
+
+def _remaining_result_bytes(
+    results: list[tuple[str, str]], max_total_bytes: int | None
+) -> int | None:
+    if max_total_bytes is None or max_total_bytes <= 0:
+        return None
+    parts = [_entry_text(file_path, content) for file_path, content in results]
+    return _remaining_context_bytes(parts, max_total_bytes)
+
+
+def _append_context_entry(
+    parts: list[str],
+    file_path: str,
+    content: str,
+    max_total_bytes: int | None,
+) -> bool:
+    entry = _entry_text(file_path, content)
+    remaining = _remaining_context_bytes(parts, max_total_bytes)
+    if remaining is not None:
+        if remaining <= 0:
+            parts.append("[trellis-hook] truncated total injected context to 0 bytes")
+            return False
+        entry = _truncate_utf8(entry, remaining, "total injected context")
+    parts.append(entry)
+    return remaining is None or len(entry.encode("utf-8")) <= remaining
+
+
 def read_jsonl_entries(
-    base_path: str, jsonl_path: str, max_file_bytes: int | None = None
+    base_path: str,
+    jsonl_path: str,
+    max_file_bytes: int | None = None,
+    max_total_bytes: int | None = None,
 ) -> list[tuple[str, str]]:
     """
     Read all file/directory contents referenced in jsonl file
@@ -284,16 +334,25 @@ def read_jsonl_entries(
                         continue
 
                     saw_real_entry = True
+                    remaining = _remaining_result_bytes(results, max_total_bytes)
+                    if remaining is not None and remaining <= 0:
+                        break
+                    file_limit = max_file_bytes
+                    if remaining is not None:
+                        file_limit = remaining if not file_limit or file_limit <= 0 else min(file_limit, remaining)
                     if entry_type == "directory":
                         # Read all .md files in directory
                         dir_contents = read_directory_contents(
-                            base_path, file_path, max_bytes=max_file_bytes
+                            base_path,
+                            file_path,
+                            max_bytes=file_limit,
+                            max_total_bytes=remaining,
                         )
                         results.extend(dir_contents)
                     else:
                         # Read single file
                         content = read_file_content(
-                            base_path, file_path, max_bytes=max_file_bytes
+                            base_path, file_path, max_bytes=file_limit
                         )
                         if content:
                             results.append((file_path, content))
@@ -326,11 +385,20 @@ def get_agent_context(
 
     agent_jsonl = f"{task_dir}/{agent_type}.jsonl"
     for file_path, content in read_jsonl_entries(
-        repo_root, agent_jsonl, max_file_bytes=limits["max_file_bytes"]
+        repo_root,
+        agent_jsonl,
+        max_file_bytes=limits["max_file_bytes"],
+        max_total_bytes=limits["max_total_bytes"],
     ):
-        context_parts.append(f"=== {file_path} ===\n{content}")
+        if not _append_context_entry(
+            context_parts,
+            file_path,
+            content,
+            limits["max_total_bytes"],
+        ):
+            break
 
-    return _limit_context_parts(context_parts, limits["max_total_bytes"])
+    return "\n\n".join(context_parts)
 
 
 def get_implement_context(repo_root: str, task_dir: str, limits: dict[str, int]) -> str:

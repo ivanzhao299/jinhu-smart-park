@@ -18,6 +18,7 @@ if str(SCRIPTS_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR))
 
 from common import git as git_common  # noqa: E402
+from common import session_context  # noqa: E402
 from common.io import write_json  # noqa: E402
 from common.task_utils import is_within_tasks_dir  # noqa: E402
 from common.workflow_phase import _platform_matches  # noqa: E402
@@ -101,6 +102,12 @@ class CommonToolTests(unittest.TestCase):
             hook.resolve_breadcrumb_key("implement", "codex", {"codex": {}}),
             "implement",
         )
+        self.assertEqual(
+            hook.resolve_breadcrumb_key(
+                "implement", "codex", {"codex": {"dispatch_mode": " AUTO "}}
+            ),
+            "implement",
+        )
 
     def test_prompt_injection_skip_keyword_is_honored(self) -> None:
         hook = _load_hook(REPO_ROOT / ".codex" / "hooks" / "inject-workflow-state.py")
@@ -170,6 +177,33 @@ class CommonToolTests(unittest.TestCase):
 
         self.assertIn("truncated total injected context to 40 bytes", context)
 
+    def test_jsonl_entries_stop_at_total_budget(self) -> None:
+        hook = _load_hook(REPO_ROOT / ".claude" / "hooks" / "inject-subagent-context.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            docs_dir = root / "docs"
+            docs_dir.mkdir()
+            for idx in range(5):
+                (docs_dir / f"{idx}.md").write_text("x" * 100, encoding="utf-8")
+            manifest = root / "manifest.jsonl"
+            manifest.write_text(
+                "\n".join(
+                    json.dumps({"file": f"docs/{idx}.md"}) for idx in range(5)
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            entries = hook.read_jsonl_entries(
+                str(root),
+                "manifest.jsonl",
+                max_file_bytes=100,
+                max_total_bytes=150,
+            )
+
+        self.assertLess(len(entries), 5)
+
     def test_archive_guard_rejects_archive_children(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -194,6 +228,32 @@ class CommonToolTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("hookSpecificOutput", result.stdout)
+
+    def test_package_git_status_failure_preserves_repo(self) -> None:
+        original = session_context.run_git
+
+        def fake_run_git(args, cwd=None, timeout=10):
+            if args == ["status", "--porcelain"]:
+                return 1, "", "timeout"
+            if args == ["branch", "--show-current"]:
+                return 0, "main\n", ""
+            if args == ["log", "--oneline", "-5"]:
+                return 0, "abc123 test commit\n", ""
+            return 0, "", ""
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "pkg"
+            (repo / ".git").mkdir(parents=True)
+            try:
+                session_context.run_git = fake_run_git
+                info = session_context._collect_git_repo_info("pkg", "pkg", repo)
+            finally:
+                session_context.run_git = original
+
+        self.assertIsNotNone(info)
+        assert info is not None
+        self.assertFalse(info["statusAvailable"])
+        self.assertEqual(info["branch"], "main")
 
 
 if __name__ == "__main__":

@@ -233,6 +233,8 @@ def _codex_dispatch_mode(config: dict) -> str:
     if "dispatch_mode" not in codex_cfg:
         return "auto"
     cfg_mode = codex_cfg.get("dispatch_mode")
+    if isinstance(cfg_mode, str):
+        cfg_mode = cfg_mode.strip().lower()
     if cfg_mode in ("auto", "sub-agent"):
         return "auto"
     if cfg_mode == "inline":

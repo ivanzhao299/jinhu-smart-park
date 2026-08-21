@@ -104,8 +104,7 @@ def _collect_git_repo_info(name: str, rel_path: str, repo_dir: Path) -> dict | N
         cwd=repo_dir,
         timeout=_GIT_PROBE_TIMEOUT_SECONDS,
     )
-    if status_rc != 0:
-        return None
+    status_available = status_rc == 0
     changes = len([line for line in status_out.splitlines() if line.strip()])
 
     _, branch_out, _ = run_git(
@@ -125,7 +124,8 @@ def _collect_git_repo_info(name: str, rel_path: str, repo_dir: Path) -> dict | N
         "name": name,
         "path": rel_path,
         "branch": branch,
-        "isClean": changes == 0,
+        "statusAvailable": status_available,
+        "isClean": status_available and changes == 0,
         "uncommittedChanges": changes,
         "recentCommits": _parse_recent_commits(log_out),
     }
@@ -302,7 +302,9 @@ def _append_package_git_context(lines: list[str], package_git_info: list[dict]) 
     for pkg in package_git_info:
         lines.append(f"## GIT STATUS ({pkg['name']}: {pkg['path']})")
         lines.append(f"Branch: {pkg['branch']}")
-        if pkg["isClean"]:
+        if not pkg.get("statusAvailable", True):
+            lines.append("Working directory: status unavailable")
+        elif pkg["isClean"]:
             lines.append("Working directory: Clean")
         else:
             lines.append(

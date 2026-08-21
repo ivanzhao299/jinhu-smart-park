@@ -18,7 +18,7 @@
     ".trellis/scripts/common/packages_context.py": "efe158d7c99c2268851d0216fbb08de22836e418a8dbeb73575b8cc249eed7b7",
     ".trellis/scripts/common/paths.py": "05898ef136cc7c4d861b05fbf2b16d53ddd3e6f311a231d4fcfcb81bde7c45ee",
     ".trellis/scripts/common/safe_commit.py": "8789bff4b30a9065469210f2efab3f59f03dddd77bef4e4b6a5bb641f93539f4",
-    ".trellis/scripts/common/session_context.py": "3379ef1766e4e5ca77cbb7c040dbba3883fcca2548580299e3b38dbf22f4f7d5",
+    ".trellis/scripts/common/session_context.py": "1e30e35033cb9a40478875b25e67b6c60f9cbaeb919c10de9fba326fafcea741",
     ".trellis/scripts/common/task_context.py": "be5fa407f99c2400075194dbaa8b6ec996ce8aac2122d191bb9cb11e479a9476",
     ".trellis/scripts/common/task_queue.py": "0be61f713462b1fe4574927c82fc4704e678afe72dcb9813543aedf2f9e9e0c5",
     ".trellis/scripts/common/task_store.py": "8ac336f85cc20709f0521ff4f804b507db80dbbc0ab50da4e0719883413ed8b2",
