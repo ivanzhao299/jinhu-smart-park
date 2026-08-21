@@ -23,15 +23,15 @@
   ],
   "parent": "07-30-pr192-property-productization-remediation",
   "relatedFiles": [],
-  "notes": "2026-08-14: technical remediation lane #270-#273 plus review follow-up #284, main CI, production deploy, health probes, Docker cleanup workflow path, and PR286 human UAT kit merge are captured in handoff/2026-08-14-technical-closure-to-human-gate.md. Human UAT execution templates are captured in human-uat-kit/README.md. 2026-08-21: Issue #336 housing rental technical closure was merged by PR #337 into main ed8cfd2450c6320e6e0be7dfc773db698d4c9303 and the PR192 scope coverage kit was advanced to that deployed candidate. Human UAT/signoff remains awaiting_human_gate; do not mark production_ready.",
+  "notes": "2026-08-14: technical remediation lane #270-#273 plus review follow-up #284, main CI, production deploy, health probes, Docker cleanup workflow path, and PR286 human UAT kit merge are captured in handoff/2026-08-14-technical-closure-to-human-gate.md. Human UAT execution templates are captured in human-uat-kit/README.md. 2026-08-21: Issue #336 housing rental technical closure was merged by PR #337 into main ed8cfd2450c6320e6e0be7dfc773db698d4c9303; Trellis final sync PR #338 advanced the PR192 scope coverage kit to deployed main 0bb5429c55cd4c66bedbb6d40d618213eba9a12b. Human UAT/signoff remains awaiting_human_gate; do not mark production_ready.",
   "meta": {
     "technical_handoff_artifact": "handoff/2026-08-14-technical-closure-to-human-gate.md",
     "technical_handoff_candidate_sha": "5987b14526443ee638aa27134485b12b681ef5b8",
     "last_verified_pre_pr290_deployed_candidate_sha": "717d264275df7ba81b031413c211a4125ca432a5",
-    "current_human_uat_candidate_sha": "ed8cfd2450c6320e6e0be7dfc773db698d4c9303",
+    "current_human_uat_candidate_sha": "0bb5429c55cd4c66bedbb6d40d618213eba9a12b",
     "human_uat_kit": "human-uat-kit/README.md",
-    "human_uat_kit_commit": "pending_issue_336_trellis_sync_merge",
-    "human_uat_kit_commit_status": "pending_issue_336_trellis_sync_merge",
+    "human_uat_kit_commit": "0bb5429c55cd4c66bedbb6d40d618213eba9a12b",
+    "human_uat_kit_commit_status": "merged",
     "human_uat_kit_pr": "https://github.com/ivanzhao299/jinhu-smart-park/pull/290",
     "human_uat_kit_base_pr": "https://github.com/ivanzhao299/jinhu-smart-park/pull/286",
     "last_verified_pre_pr290_main_ci_run": "31782716720",
@@ -39,12 +39,16 @@
     "human_uat_kit_main_ci_run": "32398415997",
     "human_uat_kit_production_deploy_run": "32398416019",
     "human_uat_kit_content_manifest": "human-uat-kit/content-manifest.sha256",
-    "human_uat_kit_content_manifest_hash": "cab93949535761c2994ea1dffe55e8e19e5953a448711c459cb08d7c1cc61212",
+    "human_uat_kit_content_manifest_hash": "0389d8821374264f3389c5dc159dd9b5e5ec22807c6bcff927db6cf4313a2ccc",
     "human_readiness_status": "awaiting_human_gate",
     "production_readiness_status": "awaiting_human_gate",
     "latest_housing_technical_closure_issue": "https://github.com/ivanzhao299/jinhu-smart-park/issues/336",
     "latest_housing_technical_closure_pr": "https://github.com/ivanzhao299/jinhu-smart-park/pull/337",
     "latest_housing_technical_closure_pr_head_sha": "60f2b6e8c1e938e5a5d1191836f8d177ce9dbb62",
-    "latest_housing_technical_closure_main_sha": "ed8cfd2450c6320e6e0be7dfc773db698d4c9303"
+    "latest_housing_technical_closure_main_sha": "ed8cfd2450c6320e6e0be7dfc773db698d4c9303",
+    "trellis_final_sync_pr": "https://github.com/ivanzhao299/jinhu-smart-park/pull/338",
+    "trellis_final_sync_main_sha": "0bb5429c55cd4c66bedbb6d40d618213eba9a12b",
+    "trellis_final_sync_main_ci_run": "32448766460",
+    "trellis_final_sync_production_deploy_run": "32448766534"
   }
 }
