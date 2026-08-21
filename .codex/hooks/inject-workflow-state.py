@@ -216,27 +216,74 @@ def _read_trellis_config(root: Path) -> dict:
         return {}
 
 
+def _codex_dispatch_mode(config: dict) -> str:
+    """Return the effective Codex dispatch mode.
+
+    Missing config follows Trellis' Codex default: auto sub-agent dispatch.
+    Invalid explicit values fall back to inline so a typo does not silently
+    spawn agents against user intent.
+    """
+    if not isinstance(config, dict):
+        return "auto"
+
+    codex_cfg = config.get("codex")
+    if not isinstance(codex_cfg, dict):
+        return "auto"
+
+    if "dispatch_mode" not in codex_cfg:
+        return "auto"
+    cfg_mode = codex_cfg.get("dispatch_mode")
+    if isinstance(cfg_mode, str):
+        cfg_mode = cfg_mode.strip().lower()
+    if cfg_mode in ("auto", "sub-agent"):
+        return "auto"
+    if cfg_mode == "inline":
+        return "inline"
+    return "inline"
+
+
+def _prompt_text(input_data: dict) -> str:
+    for key in ("prompt", "user_prompt", "message"):
+        value = input_data.get(key)
+        if isinstance(value, str):
+            return value
+    tool_input = input_data.get("tool_input")
+    if isinstance(tool_input, dict):
+        value = tool_input.get("prompt")
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def _should_skip_prompt_injection(root: Path, input_data: dict) -> bool:
+    scripts_dir = root / ".trellis" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    try:
+        from common.config import get_prompt_injection_config  # type: ignore[import-not-found]
+
+        keyword = get_prompt_injection_config(root).get("skip_keyword", "no-trellis")
+    except Exception:
+        keyword = "no-trellis"
+    if not isinstance(keyword, str) or not keyword.strip():
+        return False
+    return re.search(rf"\b{re.escape(keyword.strip())}\b", _prompt_text(input_data), re.IGNORECASE) is not None
+
+
 def _codex_mode_banner(config: dict) -> str:
     """Emit a `<codex-mode>` banner for the additionalContext payload.
 
-    Reads `codex.dispatch_mode` from .trellis/config.yaml; defaults to
-    `inline` when missing or invalid because Codex sub-agents run with
-    `fork_turns="none"` isolation and can't inherit the parent session's
-    task context. The banner makes the active mode explicit to Codex AI
-    per turn, complementing the workflow-state body which is per-status.
-    Mode tells AI which dispatch protocol to follow; workflow-state tells
-    AI what step it's at.
+    Reads `codex.dispatch_mode` from .trellis/config.yaml. Missing config
+    defaults to Trellis auto sub-agent dispatch; invalid explicit values fall
+    back to inline. The banner makes the active mode explicit to Codex AI per
+    turn, complementing the workflow-state body which is per-status. Mode tells
+    AI which dispatch protocol to follow; workflow-state tells AI what step
+    it's at.
     """
-    mode = "inline"
-    if isinstance(config, dict):
-        codex_cfg = config.get("codex")
-        if isinstance(codex_cfg, dict):
-            cfg_mode = codex_cfg.get("dispatch_mode")
-            if cfg_mode in ("inline", "sub-agent"):
-                mode = cfg_mode
-    if mode == "sub-agent":
+    mode = _codex_dispatch_mode(config)
+    if mode == "auto":
         meaning = (
-            "sub-agent: implement/check work defaults to Trellis sub-agents; "
+            "auto: implement/check work defaults to Trellis sub-agents; "
             "the main session still coordinates, clarifies, updates specs, commits, and finishes."
         )
     else:
@@ -252,22 +299,14 @@ def resolve_breadcrumb_key(
 ) -> str:
     """Pick the breadcrumb tag key based on Codex dispatch_mode.
 
-    Codex defaults to ``inline`` because sub-agents run with ``fork_turns="none"``
-    isolation and can't inherit the parent session's task context. Users can
-    opt into ``codex.dispatch_mode: sub-agent`` in ``.trellis/config.yaml``
-    to use the parallel ``<status>-inline`` tag → ``<status>`` flip. Invalid
-    or missing values fall back to inline.
+    Codex defaults to auto sub-agent dispatch. Users can opt into
+    ``codex.dispatch_mode: inline`` in ``.trellis/config.yaml`` to use the
+    ``<status>-inline`` tag. Invalid explicit values fall back to inline.
 
     Non-codex platforms return the plain status unchanged.
     """
     if platform == "codex":
-        mode = "inline"
-        if isinstance(config, dict):
-            codex_cfg = config.get("codex")
-            if isinstance(codex_cfg, dict):
-                cfg_mode = codex_cfg.get("dispatch_mode")
-                if cfg_mode in ("inline", "sub-agent"):
-                    mode = cfg_mode
+        mode = _codex_dispatch_mode(config)
         return f"{status}-inline" if mode == "inline" else status
     return status
 
@@ -315,6 +354,8 @@ def main() -> int:
     root = find_trellis_root(cwd)
     if root is None:
         return 0  # not a Trellis project
+    if _should_skip_prompt_injection(root, data):
+        return 0
 
     templates = load_breadcrumbs(root)
     platform = _detect_platform(data)

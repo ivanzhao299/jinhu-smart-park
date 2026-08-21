@@ -305,6 +305,18 @@ def run_script(script_path: Path, context_key: str | None = None) -> str:
         return "No context available"
 
 
+def _get_update_hint(trellis_dir: Path, context_key: str | None = None) -> str | None:
+    scripts_dir = trellis_dir / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    try:
+        from common.session_context import get_update_hint  # type: ignore[import-not-found]
+
+        return get_update_hint(trellis_dir.parent, context_key)
+    except Exception:
+        return None
+
+
 def _normalize_task_ref(task_ref: str) -> str:
     normalized = task_ref.strip()
     if not normalized:
@@ -785,6 +797,10 @@ Trellis compact SessionStart context. Use it to orient the session; load details
 """)
     output.write(FIRST_REPLY_NOTICE)
     output.write("\n\n")
+
+    update_hint = _get_update_hint(trellis_dir, context_key)
+    if update_hint:
+        output.write(f"<update-hint>{update_hint}</update-hint>\n\n")
 
     # Legacy migration warning
     legacy_warning = _check_legacy_spec(trellis_dir, is_mono, packages)
