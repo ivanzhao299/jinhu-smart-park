@@ -154,6 +154,7 @@ def _collect_root_git_info(repo_root: Path) -> dict:
         cwd=repo_root,
         timeout=_GIT_PROBE_TIMEOUT_SECONDS,
     )
+    status_available = status_rc == 0
     status_lines = [line for line in status_out.splitlines() if line.strip()]
 
     _, short_out, _ = run_git(
@@ -171,7 +172,8 @@ def _collect_root_git_info(repo_root: Path) -> dict:
     return {
         "isRepo": True,
         "branch": branch,
-        "isClean": status_rc == 0 and len(status_lines) == 0,
+        "statusAvailable": status_available,
+        "isClean": status_available and len(status_lines) == 0,
         "uncommittedChanges": len(status_lines),
         "statusShort": short_out.splitlines(),
         "recentCommits": _parse_recent_commits(log_out),
@@ -271,7 +273,9 @@ def _append_root_git_context(lines: list[str], root_git_info: dict) -> None:
         lines.append("Run Git commands from the package repository paths listed below.")
     else:
         lines.append(f"Branch: {root_git_info['branch']}")
-        if root_git_info["isClean"]:
+        if not root_git_info.get("statusAvailable", True):
+            lines.append("Working directory: status unavailable")
+        elif root_git_info["isClean"]:
             lines.append("Working directory: Clean")
         else:
             lines.append(

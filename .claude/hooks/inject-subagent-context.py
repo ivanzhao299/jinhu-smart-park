@@ -458,8 +458,15 @@ def get_check_context(repo_root: str, task_dir: str, limits: dict[str, int]) -> 
         repo_root,
         f"{task_dir}/check.jsonl",
         max_file_bytes=limits["max_file_bytes"],
+        max_total_bytes=limits["max_total_bytes"],
     ):
-        context_parts.append(f"=== {file_path} ===\n{content}")
+        if not _append_context_entry(
+            context_parts,
+            file_path,
+            content,
+            limits["max_total_bytes"],
+        ):
+            break
 
     prd_content = read_file_content(
         repo_root, f"{task_dir}/prd.md", max_bytes=limits["max_artifact_bytes"]

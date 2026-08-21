@@ -128,6 +128,7 @@ _SUBAGENT_CONFIG_DIRS: tuple[str, ...] = (
     ".codebuddy",
     ".factory",   # Factory Droid
     ".github/copilot",
+    ".agents",    # Shared Codex skills fallback
     ".pi",        # Pi Agent
     ".omp",       # Oh My Pi
     ".zcode",

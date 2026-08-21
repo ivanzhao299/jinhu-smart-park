@@ -20,6 +20,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 from common import git as git_common  # noqa: E402
 from common import session_context  # noqa: E402
 from common.io import write_json  # noqa: E402
+from common.task_store import _has_subagent_platform  # noqa: E402
 from common.task_utils import is_within_tasks_dir  # noqa: E402
 from common.workflow_phase import _platform_matches  # noqa: E402
 
@@ -204,6 +205,35 @@ class CommonToolTests(unittest.TestCase):
 
         self.assertLess(len(entries), 5)
 
+    def test_check_context_applies_total_budget_to_manifest(self) -> None:
+        hook = _load_hook(REPO_ROOT / ".claude" / "hooks" / "inject-subagent-context.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            task_dir = root / ".trellis" / "tasks" / "demo"
+            task_dir.mkdir(parents=True)
+            docs_dir = root / "docs"
+            docs_dir.mkdir()
+            for idx in range(5):
+                (docs_dir / f"{idx}.md").write_text("x" * 100, encoding="utf-8")
+            (task_dir / "check.jsonl").write_text(
+                "\n".join(json.dumps({"file": f"docs/{idx}.md"}) for idx in range(5))
+                + "\n",
+                encoding="utf-8",
+            )
+
+            context = hook.get_check_context(
+                str(root),
+                ".trellis/tasks/demo",
+                {
+                    "max_file_bytes": 100,
+                    "max_artifact_bytes": 100,
+                    "max_total_bytes": 150,
+                },
+            )
+
+        self.assertLess(context.count("=== docs/"), 5)
+
     def test_archive_guard_rejects_archive_children(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -254,6 +284,51 @@ class CommonToolTests(unittest.TestCase):
         assert info is not None
         self.assertFalse(info["statusAvailable"])
         self.assertEqual(info["branch"], "main")
+
+    def test_root_git_status_failure_reports_unavailable(self) -> None:
+        original = session_context.run_git
+        original_is_git = session_context._is_git_worktree
+
+        def fake_run_git(args, cwd=None, timeout=10):
+            if args == ["status", "--porcelain"]:
+                return 1, "", "timeout"
+            if args == ["status", "--short"]:
+                return 1, "", "timeout"
+            if args == ["branch", "--show-current"]:
+                return 0, "main\n", ""
+            if args == ["log", "--oneline", "-5"]:
+                return 0, "", ""
+            return 0, "", ""
+
+        try:
+            session_context.run_git = fake_run_git
+            session_context._is_git_worktree = lambda repo_root: True
+            info = session_context._collect_root_git_info(Path.cwd())
+        finally:
+            session_context.run_git = original
+            session_context._is_git_worktree = original_is_git
+
+        self.assertFalse(info["statusAvailable"])
+        lines: list[str] = []
+        session_context._append_root_git_context(lines, info)
+        self.assertIn("Working directory: status unavailable", "\n".join(lines))
+
+    def test_agents_directory_seeds_subagent_manifests(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / ".agents" / "skills").mkdir(parents=True)
+
+            self.assertTrue(_has_subagent_platform(root))
+
+    def test_continue_routes_do_not_reference_removed_phase(self) -> None:
+        checked_paths = [
+            REPO_ROOT / ".agents" / "skills" / "trellis-continue" / "SKILL.md",
+            REPO_ROOT / ".claude" / "commands" / "trellis" / "continue.md",
+            REPO_ROOT / ".cursor" / "commands" / "trellis-continue.md",
+        ]
+
+        for path in checked_paths:
+            self.assertNotIn("**3.1**", path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
