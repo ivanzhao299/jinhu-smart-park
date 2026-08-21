@@ -133,10 +133,24 @@ def get_step(step_id: str) -> str:
 
 def _platform_matches(platform: str, block_names: list[str]) -> bool:
     """Case-insensitive fuzzy match: accept 'cursor', 'Cursor', 'claude-code', 'Claude Code'."""
-    needle = platform.lower().replace("-", "").replace("_", "").replace(" ", "")
+    aliases = {
+        "omp": {"omp", "ohmypi"},
+        "ohmypi": {"omp", "ohmypi"},
+        "kimi": {"kimi", "kimicode"},
+        "kimicode": {"kimi", "kimicode"},
+        "windsurf": {"windsurf", "devin"},
+        "devin": {"windsurf", "devin"},
+    }
+
+    def normalize(value: str) -> str:
+        return value.lower().replace("-", "").replace("_", "").replace(" ", "")
+
+    needle = normalize(platform)
+    accepted_needles = aliases.get(needle, {needle})
     for name in block_names:
-        hay = name.lower().replace("-", "").replace("_", "").replace(" ", "")
-        if needle == hay:
+        hay = normalize(name)
+        accepted_hay = aliases.get(hay, {hay})
+        if accepted_needles & accepted_hay:
             return True
     return False
 

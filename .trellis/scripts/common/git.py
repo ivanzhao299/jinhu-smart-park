@@ -49,7 +49,12 @@ def resolve_default_branch(repo_root: Path) -> str | None:
     """
     rc, out, _ = run_git(["symbolic-ref", "refs/remotes/origin/HEAD"], cwd=repo_root)
     if rc == 0 and out.strip():
-        return out.strip().rsplit("/", 1)[-1]
+        symbolic_ref = out.strip()
+        prefix = "refs/remotes/origin/"
+        if symbolic_ref.startswith(prefix):
+            branch = symbolic_ref[len(prefix):]
+            if branch:
+                return branch
 
     rc, out, _ = run_git(["remote", "show", "origin"], cwd=repo_root)
     if rc == 0:

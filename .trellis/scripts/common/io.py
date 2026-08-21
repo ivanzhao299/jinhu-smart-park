@@ -36,6 +36,11 @@ def write_json(path: Path, data: dict) -> bool:
     """
     payload = json.dumps(data, indent=2, ensure_ascii=False)
     try:
+        target_mode = path.stat().st_mode & 0o777
+    except OSError:
+        target_mode = 0o644
+
+    try:
         fd, tmp = tempfile.mkstemp(
             dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
         )
@@ -51,6 +56,7 @@ def write_json(path: Path, data: dict) -> bool:
             raise
         with f:
             f.write(payload)
+        os.chmod(tmp, target_mode)
         os.replace(tmp, path)
         return True
     except OSError:

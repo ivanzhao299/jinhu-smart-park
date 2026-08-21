@@ -62,6 +62,11 @@ AGENT_RESEARCH = "trellis-research"
 AGENTS_REQUIRE_TASK = (AGENT_IMPLEMENT, AGENT_CHECK)
 # All supported agents
 AGENTS_ALL = (AGENT_IMPLEMENT, AGENT_CHECK, AGENT_RESEARCH)
+DEFAULT_CONTEXT_LIMITS = {
+    "max_file_bytes": 32768,
+    "max_artifact_bytes": 65536,
+    "max_total_bytes": 131072,
+}
 
 
 def find_repo_root(start_path: str) -> str | None:
@@ -131,20 +136,62 @@ def get_current_task(repo_root: str, input_data: dict) -> str | None:
     return active.task_path
 
 
-def read_file_content(base_path: str, file_path: str) -> str | None:
+def _truncate_utf8(text: str, max_bytes: int, label: str) -> str:
+    if max_bytes <= 0:
+        return text
+    data = text.encode("utf-8")
+    if len(data) <= max_bytes:
+        return text
+    truncated = data[:max_bytes].decode("utf-8", errors="ignore")
+    return f"{truncated}\n\n[trellis-hook] truncated {label} to {max_bytes} bytes"
+
+
+def _limit_context_parts(parts: list[str], max_total_bytes: int) -> str:
+    return _truncate_utf8("\n\n".join(parts), max_total_bytes, "total injected context")
+
+
+def _load_context_injection_limits(repo_root: str) -> dict[str, int]:
+    limits = dict(DEFAULT_CONTEXT_LIMITS)
+    scripts_dir = Path(repo_root) / DIR_WORKFLOW / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    try:
+        from common.config import get_context_injection_limits  # type: ignore[import-not-found]
+
+        configured = get_context_injection_limits(Path(repo_root))
+    except Exception:
+        return limits
+
+    if isinstance(configured, dict):
+        for key in limits:
+            value = configured.get(key)
+            if isinstance(value, int) and value >= 0:
+                limits[key] = value
+    return limits
+
+
+def read_file_content(
+    base_path: str, file_path: str, max_bytes: int | None = None
+) -> str | None:
     """Read file content, return None if file doesn't exist"""
     full_path = os.path.join(base_path, file_path)
     if os.path.exists(full_path) and os.path.isfile(full_path):
         try:
             with open(full_path, "r", encoding="utf-8") as f:
-                return f.read()
+                content = f.read()
+            if max_bytes is not None:
+                content = _truncate_utf8(content, max_bytes, file_path)
+            return content
         except Exception:
             return None
     return None
 
 
 def read_directory_contents(
-    base_path: str, dir_path: str, max_files: int = 20
+    base_path: str,
+    dir_path: str,
+    max_files: int = 20,
+    max_bytes: int | None = None,
 ) -> list[tuple[str, str]]:
     """
     Read all .md files in a directory
@@ -173,21 +220,19 @@ def read_directory_contents(
         )
 
         for filename in md_files[:max_files]:
-            file_full_path = os.path.join(full_path, filename)
             relative_path = os.path.join(dir_path, filename)
-            try:
-                with open(file_full_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-                    results.append((relative_path, content))
-            except Exception:
-                continue
+            content = read_file_content(base_path, relative_path, max_bytes=max_bytes)
+            if content:
+                results.append((relative_path, content))
     except Exception:
         pass
 
     return results
 
 
-def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]:
+def read_jsonl_entries(
+    base_path: str, jsonl_path: str, max_file_bytes: int | None = None
+) -> list[tuple[str, str]]:
     """
     Read all file/directory contents referenced in jsonl file
 
@@ -233,11 +278,15 @@ def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]
                     saw_real_entry = True
                     if entry_type == "directory":
                         # Read all .md files in directory
-                        dir_contents = read_directory_contents(base_path, file_path)
+                        dir_contents = read_directory_contents(
+                            base_path, file_path, max_bytes=max_file_bytes
+                        )
                         results.extend(dir_contents)
                     else:
                         # Read single file
-                        content = read_file_content(base_path, file_path)
+                        content = read_file_content(
+                            base_path, file_path, max_bytes=max_file_bytes
+                        )
                         if content:
                             results.append((file_path, content))
                 except json.JSONDecodeError:
@@ -258,7 +307,9 @@ def read_jsonl_entries(base_path: str, jsonl_path: str) -> list[tuple[str, str]]
 
 
 
-def get_agent_context(repo_root: str, task_dir: str, agent_type: str) -> str:
+def get_agent_context(
+    repo_root: str, task_dir: str, agent_type: str, limits: dict[str, int]
+) -> str:
     """
     Get context from {agent_type}.jsonl for the specified agent.
     Only reads implement.jsonl or check.jsonl (the two JSONL files the task system creates).
@@ -266,13 +317,15 @@ def get_agent_context(repo_root: str, task_dir: str, agent_type: str) -> str:
     context_parts = []
 
     agent_jsonl = f"{task_dir}/{agent_type}.jsonl"
-    for file_path, content in read_jsonl_entries(repo_root, agent_jsonl):
+    for file_path, content in read_jsonl_entries(
+        repo_root, agent_jsonl, max_file_bytes=limits["max_file_bytes"]
+    ):
         context_parts.append(f"=== {file_path} ===\n{content}")
 
-    return "\n\n".join(context_parts)
+    return _limit_context_parts(context_parts, limits["max_total_bytes"])
 
 
-def get_implement_context(repo_root: str, task_dir: str) -> str:
+def get_implement_context(repo_root: str, task_dir: str, limits: dict[str, int]) -> str:
     """
     Complete context for Implement Agent
 
@@ -285,66 +338,86 @@ def get_implement_context(repo_root: str, task_dir: str) -> str:
     context_parts = []
 
     # 1. Read implement.jsonl
-    base_context = get_agent_context(repo_root, task_dir, "implement")
+    base_context = get_agent_context(repo_root, task_dir, "implement", limits)
     if base_context:
         context_parts.append(base_context)
 
     # 2. Requirements document
-    prd_content = read_file_content(repo_root, f"{task_dir}/prd.md")
+    prd_content = read_file_content(
+        repo_root, f"{task_dir}/prd.md", max_bytes=limits["max_artifact_bytes"]
+    )
     if prd_content:
         context_parts.append(f"=== {task_dir}/prd.md (Requirements) ===\n{prd_content}")
 
     # 3. Technical design for complex tasks
-    design_content = read_file_content(repo_root, f"{task_dir}/design.md")
+    design_content = read_file_content(
+        repo_root, f"{task_dir}/design.md", max_bytes=limits["max_artifact_bytes"]
+    )
     if design_content:
         context_parts.append(
             f"=== {task_dir}/design.md (Technical Design) ===\n{design_content}"
         )
 
     # 4. Execution plan for complex tasks
-    implement_plan_content = read_file_content(repo_root, f"{task_dir}/implement.md")
+    implement_plan_content = read_file_content(
+        repo_root,
+        f"{task_dir}/implement.md",
+        max_bytes=limits["max_artifact_bytes"],
+    )
     if implement_plan_content:
         context_parts.append(
             f"=== {task_dir}/implement.md (Execution Plan) ===\n{implement_plan_content}"
         )
 
-    return "\n\n".join(context_parts)
+    return _limit_context_parts(context_parts, limits["max_total_bytes"])
 
 
-def get_check_context(repo_root: str, task_dir: str) -> str:
+def get_check_context(repo_root: str, task_dir: str, limits: dict[str, int]) -> str:
     """
     Context for Check Agent: check.jsonl + task artifacts.
     """
     context_parts = []
 
-    for file_path, content in read_jsonl_entries(repo_root, f"{task_dir}/check.jsonl"):
+    for file_path, content in read_jsonl_entries(
+        repo_root,
+        f"{task_dir}/check.jsonl",
+        max_file_bytes=limits["max_file_bytes"],
+    ):
         context_parts.append(f"=== {file_path} ===\n{content}")
 
-    prd_content = read_file_content(repo_root, f"{task_dir}/prd.md")
+    prd_content = read_file_content(
+        repo_root, f"{task_dir}/prd.md", max_bytes=limits["max_artifact_bytes"]
+    )
     if prd_content:
         context_parts.append(f"=== {task_dir}/prd.md (Requirements) ===\n{prd_content}")
 
-    design_content = read_file_content(repo_root, f"{task_dir}/design.md")
+    design_content = read_file_content(
+        repo_root, f"{task_dir}/design.md", max_bytes=limits["max_artifact_bytes"]
+    )
     if design_content:
         context_parts.append(
             f"=== {task_dir}/design.md (Technical Design) ===\n{design_content}"
         )
 
-    implement_plan_content = read_file_content(repo_root, f"{task_dir}/implement.md")
+    implement_plan_content = read_file_content(
+        repo_root,
+        f"{task_dir}/implement.md",
+        max_bytes=limits["max_artifact_bytes"],
+    )
     if implement_plan_content:
         context_parts.append(
             f"=== {task_dir}/implement.md (Execution Plan) ===\n{implement_plan_content}"
         )
 
-    return "\n\n".join(context_parts)
+    return _limit_context_parts(context_parts, limits["max_total_bytes"])
 
 
-def get_finish_context(repo_root: str, task_dir: str) -> str:
+def get_finish_context(repo_root: str, task_dir: str, limits: dict[str, int]) -> str:
     """
     Context for Finish phase: reuses check.jsonl + prd.md
     (Finish is a final check, same context source.)
     """
-    return get_check_context(repo_root, task_dir)
+    return get_check_context(repo_root, task_dir, limits)
 
 
 
@@ -461,7 +534,9 @@ Finish checklist and requirements:
 
 
 
-def get_research_context(repo_root: str, task_dir: str | None) -> str:
+def get_research_context(
+    repo_root: str, task_dir: str | None, limits: dict[str, int]
+) -> str:
     """
     Context for Research Agent — project structure overview for spec directories.
 
@@ -504,7 +579,7 @@ To get structured package info, run: `python3 ./{DIR_WORKFLOW}/scripts/get_conte
 
     context_parts.append(project_structure)
 
-    return "\n\n".join(context_parts)
+    return _limit_context_parts(context_parts, limits["max_total_bytes"])
 
 
 def build_research_prompt(original_prompt: str, context: str) -> str:
@@ -704,6 +779,7 @@ def main():
     repo_root = find_repo_root(cwd)
     if not repo_root:
         sys.exit(0)
+    limits = _load_context_injection_limits(repo_root)
 
     # Get current task directory (research doesn't require it)
     task_dir = get_current_task(repo_root, input_data)
@@ -723,21 +799,21 @@ def main():
     # Get context and build prompt based on subagent type
     if subagent_type == AGENT_IMPLEMENT:
         assert task_dir is not None  # validated above
-        context = get_implement_context(repo_root, task_dir)
+        context = get_implement_context(repo_root, task_dir, limits)
         new_prompt = build_implement_prompt(original_prompt, context)
     elif subagent_type == AGENT_CHECK:
         assert task_dir is not None  # validated above
         if is_finish_phase:
             # Finish phase: use finish context (lighter, focused on final verification)
-            context = get_finish_context(repo_root, task_dir)
+            context = get_finish_context(repo_root, task_dir, limits)
             new_prompt = build_finish_prompt(original_prompt, context)
         else:
             # Regular check phase: use check context (full specs for self-fix loop)
-            context = get_check_context(repo_root, task_dir)
+            context = get_check_context(repo_root, task_dir, limits)
             new_prompt = build_check_prompt(original_prompt, context)
     elif subagent_type == AGENT_RESEARCH:
         # Research can work without task directory
-        context = get_research_context(repo_root, task_dir)
+        context = get_research_context(repo_root, task_dir, limits)
         new_prompt = build_research_prompt(original_prompt, context)
     else:
         sys.exit(0)
