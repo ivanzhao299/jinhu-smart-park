@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -179,6 +180,20 @@ class CommonToolTests(unittest.TestCase):
 
             self.assertTrue(is_within_tasks_dir(active_task, root))
             self.assertFalse(is_within_tasks_dir(archived_task, root))
+
+    def test_codex_session_start_defines_context_key(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(REPO_ROOT / ".codex" / "hooks" / "session-start.py")],
+            input=json.dumps({"cwd": str(REPO_ROOT)}),
+            text=True,
+            capture_output=True,
+            encoding="utf-8",
+            timeout=10,
+            cwd=str(REPO_ROOT),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("hookSpecificOutput", result.stdout)
 
 
 if __name__ == "__main__":

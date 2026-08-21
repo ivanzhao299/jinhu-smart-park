@@ -494,6 +494,7 @@ def main() -> None:
     configure_project_encoding(project_dir)
 
     trellis_dir = project_dir / ".trellis"
+    context_key = _resolve_context_key(project_dir, hook_input)
     spec_index_paths = _collect_spec_index_paths(trellis_dir)
 
     output = StringIO()
