@@ -2,10 +2,10 @@
 
 - Status: template package complete；external H0/H1/H2 execution pending
 - Bound technical handoff: `../handoff/2026-08-14-technical-closure-to-human-gate.md`，并由 PR #331 民宿闭环证据与 Issue #336 / PR #337 住房闭环证据增量更新
-- Current technical candidate: `ed8cfd2450c6320e6e0be7dfc773db698d4c9303`（PR #337 merge 后 main）
-- Kit provenance commit: `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`（PR #290 merge）；Issue #336 Trellis sync commit pending merge
-- Current candidate evidence: CI run `32398415997` success；Deploy Production run `32398416019` success；health、Release Smoke、Docker cleanup 与公开保护账号校验通过
-- H0 frozen candidate: pending external coordinator acceptance of `ed8cfd2450c6320e6e0be7dfc773db698d4c9303`；冻结前不得开始真人观察或宣称 `production_ready`。
+- Current technical candidate: `0bb5429c55cd4c66bedbb6d40d618213eba9a12b`（Issue #336 Trellis final sync PR #338 merge 后 main）
+- Kit provenance commit: `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`（PR #290 merge）；Issue #336 Trellis final sync PR #338 merge commit `0bb5429c55cd4c66bedbb6d40d618213eba9a12b`
+- Current candidate evidence: CI run `32448766460` success；Deploy Production run `32448766534` success；health、Docker cleanup 与公开保护账号校验通过；Release Smoke skipped by scope because this sync changed Trellis documentation only
+- H0 frozen candidate: pending external coordinator acceptance of `0bb5429c55cd4c66bedbb6d40d618213eba9a12b`；冻结前不得开始真人观察或宣称 `production_ready`。
 
 这张矩阵用于回答一个非常具体的问题：PR192 之后到当前候选版本的住宿/民宿变更，是否都进入了真人 UAT 执行包与生产就绪门禁。它不是源码级 diff 清单，也不替代 GitHub PR、Issue 或 Codex Review 记录；它要求每一类变更至少绑定到以下一种证据：
 
