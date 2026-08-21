@@ -4,6 +4,8 @@
 
 - 基线 SHA：`f267215aab9ef7cd36c26529b86e013afc549ba3`
 - 验证代码候选 SHA：`fe904e5aa182a1eeca0ffedab1532bd7075919eb`
+- 最终 PR head SHA：`60f2b6e8c1e938e5a5d1191836f8d177ce9dbb62`
+- main merge SHA：`ed8cfd2450c6320e6e0be7dfc773db698d4c9303`
 - 验证时间：2026-08-21（Asia/Singapore）
 - 一次性数据库：`jinhu_property_api_e2e_issue336`
 - 一次性 Compose project：`property-api-e2e-issue336`
@@ -22,6 +24,10 @@
 | workspace production build | PASS | API 与 169 个 Web routes 构建成功 |
 | Housing real API E2E | PASS | `property-api-1787243088758-0fc6e47d`，租客到退租完整链路 |
 | cleanup | PASS | `remaining_containers=`；`remaining_volumes=` |
+| PR head CI/Release Smoke | PASS | GitHub Actions run `32395805698` |
+| main CI/Release Smoke | PASS | GitHub Actions run `32398415997` |
+| Deploy Production | PASS | GitHub Actions run `32398416019`；健康检查、公开生产保护账号校验、Release Smoke 与 Docker cleanup 成功 |
+| Codex Review | PASS | PR #337 最新复审结论：`Didn't find any major issues.` |
 
 真实 API E2E 覆盖：登录、分离审批人、长租合格房源、跨权限拒绝、租客、租约提交/审批/签署/生效、占用、周期账单、409 防重复、押金、附件、报修与工单、采购审批/付款、两个明细分批转收费、财务结清、退租审批执行和终态写拒绝。
 
@@ -53,3 +59,4 @@
 - 本文只证明 Codex 技术核查、自动化 API E2E 和浏览器技术 UAT。
 - PR192 真人业务、财务、安全、发布岗位样本与具名签署仍为 `awaiting_human_gate`。
 - 不因本次技术通过将住房模块标记为 `production_ready`，也未启用任何生产模块开关。
+- GitHub Issue #336 已关闭；PR #337 已合并到 `main`。本证据只关闭 Issue #336 技术闭环，不关闭 PR192 人工 UAT 生产就绪门禁。

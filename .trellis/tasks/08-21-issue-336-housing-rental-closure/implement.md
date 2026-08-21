@@ -38,8 +38,8 @@
 
 - [x] 更新住房专项证据，区分自动化浏览器和真人 UAT。
 - [x] 更新 Issue #336 追踪矩阵与验证代码候选 SHA。
-- [ ] 更新相关 Trellis 状态漂移，但不伪造既有任务完成时间或签署。
-- [ ] 准备 PR192 真人 UAT handoff。
+- [x] 更新相关 Trellis 状态漂移，但不伪造既有任务完成时间或签署。
+- [x] 准备 PR192 真人 UAT handoff。
 
 ## 5. GitHub PR 闭环
 
@@ -48,16 +48,27 @@
 - [x] 提交并推送分支。
 - [x] 创建一个 draft PR，关联 `Fixes #336`。
 - [x] 每次推送后评论 `@codex review`。
-- [ ] 循环处理当前 head 的有效 review 与 CI 失败。
-- [ ] CI 全绿、最新复审无重大问题后转 ready 并合并。
+- [x] 循环处理当前 head 的有效 review 与 CI 失败。
+- [x] CI 全绿、最新复审无重大问题后转 ready 并合并。
 
 ## 6. 合并后闭环
 
-- [ ] 跟进 `main` CI 与 Release Smoke。
-- [ ] 跟进 Deploy Production、健康检查和公开生产校验。
-- [ ] 确认 post-deploy Docker cleanup 成功。
-- [ ] 更新 Issue/PR/Trellis 最终状态。
-- [ ] 真人 UAT/签署未完成时保持 `awaiting_human_gate` 并报告最小下一步。
+- [x] 跟进 `main` CI 与 Release Smoke。
+- [x] 跟进 Deploy Production、健康检查和公开生产校验。
+- [x] 确认 post-deploy Docker cleanup 成功。
+- [x] 更新 Issue/PR/Trellis 最终状态。
+- [x] 真人 UAT/签署未完成时保持 `awaiting_human_gate` 并报告最小下一步。
+
+## 7. 最终同步结果
+
+- Issue #336 已关闭；PR #337 已合并。
+- PR head：`60f2b6e8c1e938e5a5d1191836f8d177ce9dbb62`。
+- main merge SHA：`ed8cfd2450c6320e6e0be7dfc773db698d4c9303`。
+- PR head CI/Release Smoke：GitHub Actions run `32395805698` 成功。
+- main CI/Release Smoke：GitHub Actions run `32398415997` 成功。
+- Deploy Production：GitHub Actions run `32398416019` 成功，包含健康检查、公开生产保护账号校验、Release Smoke 和部署后 Docker cleanup。
+- 最新 Codex review 结论：`Didn't find any major issues.`
+- PR192 真人 UAT、具名签署与住房生产启用仍保持 `awaiting_human_gate`；本任务未启用住房生产开关。
 
 ## 风险与停止条件
 

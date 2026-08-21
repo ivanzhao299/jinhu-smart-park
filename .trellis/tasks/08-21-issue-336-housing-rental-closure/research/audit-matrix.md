@@ -1,6 +1,8 @@
 # Issue #336 住房出租需求—实现—验证追踪矩阵
 
 基线：`f267215aab9ef7cd36c26529b86e013afc549ba3`
+最终 PR head：`60f2b6e8c1e938e5a5d1191836f8d177ce9dbb62`
+main merge SHA：`ed8cfd2450c6320e6e0be7dfc773db698d4c9303`
 
 | ID | 合同/需求 | 当前证据 | 初始判断 | 本任务动作 | 验证门禁 |
 |---|---|---|---|---|---|
@@ -20,7 +22,7 @@
 | HOU-014 | desktop/390/键盘/reflow | 1440×1000、390×844、Escape 焦点恢复、无横向溢出、a11y 100 | 技术 UAT 完成 | 真人 UAT 未完成 | evidence bundle PASS |
 | HOU-015 | API E2E 发布门禁和 cleanup | 当前分支一次性 Docker housing suite 全链路 PASS；容器/卷 residual=0 | 技术已闭环 | PR Release Smoke 再验证 | local rehearsal PASS |
 | HOU-016 | 真人岗位 UAT 与具名签署 | `awaiting_human_gate` | 未完成，外部依赖 | 准备 handoff，不冒充通过 | PR192 human UAT lane |
-| HOU-017 | Issue/Trellis/UAT 状态一致 | 本任务证据已区分技术完成与 PR192 人工门禁 | 本任务已校正 | 合并后同步 Issue/Trellis；保留人工门禁 | final documentation audit |
+| HOU-017 | Issue/Trellis/UAT 状态一致 | Issue #336 closed；PR #337 merged；Trellis 本任务 completed；PR192 仍 awaiting_human_gate | 已完成 | 最终同步 Issue/PR/Trellis；保留人工门禁 | final documentation audit PASS |
 
 ## 优先级
 

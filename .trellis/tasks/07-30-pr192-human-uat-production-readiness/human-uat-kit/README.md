@@ -2,9 +2,9 @@
 
 Status: template package only  
 Bound technical handoff: `../handoff/2026-08-14-technical-closure-to-human-gate.md`  
-Bound deployed candidate: `619b8d20e891c74f69abcc9c908666034c37c648` (PR #331 merge on `main`; CI `32340203702` and Deploy Production `32340203683` succeeded).
-Kit provenance: PR #290 merge commit `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`.
-H0 still requires an external coordinator to accept and freeze the same `619b8d20e891c74f69abcc9c908666034c37c648` candidate before human observations start.
+Bound deployed candidate: `ed8cfd2450c6320e6e0be7dfc773db698d4c9303` (Issue #336 / PR #337 merge on `main`; CI `32398415997` and Deploy Production `32398416019` succeeded).
+Kit provenance: PR #290 merge commit `1f0dcafb95fbde57a1a8c7f6349393ca0b880691`; Issue #336 Trellis sync is pending a follow-up merge commit.
+H0 still requires an external coordinator to accept and freeze the same `ed8cfd2450c6320e6e0be7dfc773db698d4c9303` candidate before human observations start.
 Human readiness status: `awaiting_human_gate`  
 Production readiness status: `awaiting_human_gate`
 

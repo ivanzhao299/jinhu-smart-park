@@ -66,17 +66,17 @@
 
 ## Acceptance Criteria
 
-- [ ] 追踪矩阵覆盖全部有效住房规划条目，所有结论有文件/测试/UAT证据。
-- [ ] Shared/Web/API 的住房 module/page/action/data/field/file 合同一致。
-- [ ] 已确认的分页、empty-scope、Remote Picker、破坏性确认等前端缺口关闭。
-- [ ] 高风险入口只创建审批申请，申请人自批、缺权、跨园区、版本冲突、重复 effect 和非法终态均拒绝。
-- [ ] Housing 专项单测、Shared/Web 契约、lint、typecheck、build 通过。
-- [ ] 隔离 property API E2E 的 housing suite 通过，cleanup residual=0。
-- [ ] desktop/390px 真实浏览器 UAT 绑定最终候选 SHA，P0/P1=0。
-- [ ] PR 当前 head 的 CI 全绿，最新 Codex review 明确无重大问题。
-- [ ] PR 合并后 `main` CI、Deploy Production、健康检查、公开生产校验和 Docker cleanup 成功。
-- [ ] Issue/PR/Trellis/UAT 文档状态同步；技术部署与住房生产启用状态没有混淆。
-- [ ] 真人岗位 UAT/具名签署未完成时，状态仍准确保持 `awaiting_human_gate`，并提供可执行 handoff。
+- [x] 追踪矩阵覆盖全部有效住房规划条目，所有结论有文件/测试/UAT证据。
+- [x] Shared/Web/API 的住房 module/page/action/data/field/file 合同一致。
+- [x] 已确认的分页、empty-scope、Remote Picker、破坏性确认等前端缺口关闭。
+- [x] 高风险入口只创建审批申请，申请人自批、缺权、跨园区、版本冲突、重复 effect 和非法终态均拒绝。
+- [x] Housing 专项单测、Shared/Web 契约、lint、typecheck、build 通过。
+- [x] 隔离 property API E2E 的 housing suite 通过，cleanup residual=0。
+- [x] desktop/390px 真实浏览器 UAT 绑定最终候选 SHA，P0/P1=0。
+- [x] PR 当前 head 的 CI 全绿，最新 Codex review 明确无重大问题。
+- [x] PR 合并后 `main` CI、Deploy Production、健康检查、公开生产校验和 Docker cleanup 成功。
+- [x] Issue/PR/Trellis/UAT 文档状态同步；技术部署与住房生产启用状态没有混淆。
+- [x] 真人岗位 UAT/具名签署未完成时，状态仍准确保持 `awaiting_human_gate`，并提供可执行 handoff。
 
 ## Out of Scope
 
