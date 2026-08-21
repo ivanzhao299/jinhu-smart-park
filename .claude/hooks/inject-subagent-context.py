@@ -146,6 +146,18 @@ def _truncate_utf8(text: str, max_bytes: int, label: str) -> str:
     return f"{truncated}\n\n[trellis-hook] truncated {label} to {max_bytes} bytes"
 
 
+def _decode_limited_file(full_path: str, max_bytes: int | None, label: str) -> str:
+    if max_bytes is None or max_bytes <= 0:
+        with open(full_path, "r", encoding="utf-8") as f:
+            return f.read()
+    with open(full_path, "rb") as f:
+        data = f.read(max_bytes + 1)
+    if len(data) <= max_bytes:
+        return data.decode("utf-8", errors="replace")
+    truncated = data[:max_bytes].decode("utf-8", errors="ignore")
+    return f"{truncated}\n\n[trellis-hook] truncated {label} to {max_bytes} bytes"
+
+
 def _limit_context_parts(parts: list[str], max_total_bytes: int) -> str:
     return _truncate_utf8("\n\n".join(parts), max_total_bytes, "total injected context")
 
@@ -177,11 +189,7 @@ def read_file_content(
     full_path = os.path.join(base_path, file_path)
     if os.path.exists(full_path) and os.path.isfile(full_path):
         try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            if max_bytes is not None:
-                content = _truncate_utf8(content, max_bytes, file_path)
-            return content
+            return _decode_limited_file(full_path, max_bytes, file_path)
         except Exception:
             return None
     return None

@@ -230,12 +230,42 @@ def _codex_dispatch_mode(config: dict) -> str:
     if not isinstance(codex_cfg, dict):
         return "auto"
 
+    if "dispatch_mode" not in codex_cfg:
+        return "auto"
     cfg_mode = codex_cfg.get("dispatch_mode")
     if cfg_mode in ("auto", "sub-agent"):
         return "auto"
     if cfg_mode == "inline":
         return "inline"
     return "inline"
+
+
+def _prompt_text(input_data: dict) -> str:
+    for key in ("prompt", "user_prompt", "message"):
+        value = input_data.get(key)
+        if isinstance(value, str):
+            return value
+    tool_input = input_data.get("tool_input")
+    if isinstance(tool_input, dict):
+        value = tool_input.get("prompt")
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def _should_skip_prompt_injection(root: Path, input_data: dict) -> bool:
+    scripts_dir = root / ".trellis" / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+    try:
+        from common.config import get_prompt_injection_config  # type: ignore[import-not-found]
+
+        keyword = get_prompt_injection_config(root).get("skip_keyword", "no-trellis")
+    except Exception:
+        keyword = "no-trellis"
+    if not isinstance(keyword, str) or not keyword.strip():
+        return False
+    return re.search(rf"\b{re.escape(keyword.strip())}\b", _prompt_text(input_data), re.IGNORECASE) is not None
 
 
 def _codex_mode_banner(config: dict) -> str:
@@ -322,6 +352,8 @@ def main() -> int:
     root = find_trellis_root(cwd)
     if root is None:
         return 0  # not a Trellis project
+    if _should_skip_prompt_injection(root, data):
+        return 0
 
     templates = load_breadcrumbs(root)
     platform = _detect_platform(data)

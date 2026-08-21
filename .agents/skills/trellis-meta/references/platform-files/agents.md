@@ -35,7 +35,7 @@ Agent files should not become generic chat prompts. They should define input sou
 
 GitHub Copilot agent/prompt support is provided by a combination of directories such as `.github/agents/`, `.github/prompts/`, and `.github/skills/`; inspect the files actually generated in the user project.
 
-Main-session workflow platforms such as Kilo, Antigravity, and Windsurf may not have Trellis sub-agent files. They usually rely on workflows/skills to guide the main session.
+Main-session workflow platforms such as Kilo, Antigravity, and Devin may not have Trellis sub-agent files. They usually rely on workflows/skills to guide the main session.
 
 ## Two Context Loading Modes
 

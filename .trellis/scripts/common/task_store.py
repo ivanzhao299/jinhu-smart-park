@@ -50,6 +50,7 @@ from .safe_commit import (
 from .task_utils import (
     archive_task_complete,
     find_task_by_name,
+    is_within_tasks_dir,
     resolve_task_dir,
     run_task_hooks,
 )
@@ -115,7 +116,7 @@ def _repo_relative_path(path: Path, repo_root: Path) -> str:
 # Keep in sync with src/types/ai-tools.ts AI_TOOLS entries — these are the
 # platforms listed in workflow.md's "agent-capable" Skill Routing block
 # (Class-1 hook-inject + Class-2 pull-based preludes). Kilo / Antigravity /
-# Windsurf are NOT in this list: they do not consume JSONL.
+# Devin are NOT in this list: they do not consume JSONL.
 _SUBAGENT_CONFIG_DIRS: tuple[str, ...] = (
     ".claude",
     ".cursor",
@@ -128,6 +129,13 @@ _SUBAGENT_CONFIG_DIRS: tuple[str, ...] = (
     ".factory",   # Factory Droid
     ".github/copilot",
     ".pi",        # Pi Agent
+    ".omp",       # Oh My Pi
+    ".zcode",
+    ".snow",
+    ".reasonix",
+    ".trae",
+    ".grok",
+    ".kimi-code",
 )
 
 _SEED_EXAMPLE = (
@@ -301,7 +309,7 @@ def cmd_create(args: argparse.Namespace) -> int:
 
     # Seed implement.jsonl / check.jsonl for sub-agent-capable platforms.
     # Agent curates real entries during planning when the task needs them.
-    # Agent-less platforms (Kilo / Antigravity / Windsurf) skip this — they
+    # Agent-less platforms (Kilo / Antigravity / Devin) skip this — they
     # load specs via the trellis-before-dev skill instead of JSONL.
     seeded_jsonl = False
     if _has_subagent_platform(repo_root):
@@ -395,6 +403,14 @@ def cmd_archive(args: argparse.Namespace) -> int:
         from .tasks import iter_active_tasks
         for t in iter_active_tasks(tasks_dir):
             print(f"  - {t.dir_name}/", file=sys.stderr)
+        return 1
+
+    if not is_within_tasks_dir(task_dir, repo_root):
+        print(
+            colored(f"Error: refusing to archive non-active task path: {task_name}", Colors.RED),
+            file=sys.stderr,
+        )
+        print("Archive only active tasks directly under .trellis/tasks/.", file=sys.stderr)
         return 1
 
     dir_name = task_dir.name

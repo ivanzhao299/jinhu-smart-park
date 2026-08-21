@@ -18,6 +18,7 @@ if str(SCRIPTS_DIR) not in sys.path:
 
 from common import git as git_common  # noqa: E402
 from common.io import write_json  # noqa: E402
+from common.task_utils import is_within_tasks_dir  # noqa: E402
 from common.workflow_phase import _platform_matches  # noqa: E402
 
 
@@ -95,6 +96,20 @@ class CommonToolTests(unittest.TestCase):
             ),
             "implement",
         )
+        self.assertEqual(
+            hook.resolve_breadcrumb_key("implement", "codex", {"codex": {}}),
+            "implement",
+        )
+
+    def test_prompt_injection_skip_keyword_is_honored(self) -> None:
+        hook = _load_hook(REPO_ROOT / ".codex" / "hooks" / "inject-workflow-state.py")
+
+        self.assertTrue(
+            hook._should_skip_prompt_injection(REPO_ROOT, {"prompt": "please no-trellis"})
+        )
+        self.assertFalse(
+            hook._should_skip_prompt_injection(REPO_ROOT, {"prompt": "please note-trellis"})
+        )
 
     def test_subagent_context_limits_are_utf8_safe(self) -> None:
         hook = _load_hook(REPO_ROOT / ".claude" / "hooks" / "inject-subagent-context.py")
@@ -135,12 +150,35 @@ class CommonToolTests(unittest.TestCase):
         self.assertIn("truncated docs/large.md to 12 bytes", context)
         self.assertIn("truncated .trellis/tasks/demo/prd.md to 14 bytes", context)
 
+    def test_limited_file_read_truncates_without_full_text(self) -> None:
+        hook = _load_hook(REPO_ROOT / ".claude" / "hooks" / "inject-subagent-context.py")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "large.md"
+            target.write_text("a" * 200, encoding="utf-8")
+
+            content = hook.read_file_content(tmp, "large.md", max_bytes=16)
+
+        self.assertIn("truncated large.md to 16 bytes", content)
+        self.assertNotIn("a" * 80, content)
+
     def test_context_total_limit_is_applied(self) -> None:
         hook = _load_hook(REPO_ROOT / ".claude" / "hooks" / "inject-subagent-context.py")
 
         context = hook._limit_context_parts(["a" * 100, "b" * 100], 40)
 
         self.assertIn("truncated total injected context to 40 bytes", context)
+
+    def test_archive_guard_rejects_archive_children(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            active_task = root / ".trellis" / "tasks" / "active"
+            archived_task = root / ".trellis" / "tasks" / "archive" / "2026-08" / "old"
+            active_task.mkdir(parents=True)
+            archived_task.mkdir(parents=True)
+
+            self.assertTrue(is_within_tasks_dir(active_task, root))
+            self.assertFalse(is_within_tasks_dir(archived_task, root))
 
 
 if __name__ == "__main__":
