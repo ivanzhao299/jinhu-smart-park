@@ -1,8 +1,10 @@
 import { Transform } from "class-transformer";
-import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Max,MaxLength,Min } from "class-validator";
+import { IsArray,IsDateString,IsEmail,IsIn,IsInt,IsNumber,IsObject,IsOptional,IsString,IsUUID,Matches,Max,MaxLength,Min } from "class-validator";
 import { HR_EMPLOYEE_STATUSES,HR_EMPLOYMENT_TYPES } from "@jinhu/shared";
 
 const trim=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
+const money=({value}:{value:unknown})=>typeof value==="string"?value.trim():value;
+const MONEY_PATTERN=/^(0|[1-9]\d{0,15})(?:\.\d{1,2})?$/;
 export class HrListQueryDto {
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
@@ -88,9 +90,9 @@ export class CreateHrFeedbackCycleDto { @IsUUID() performanceCycleId!:string; @T
 export class CreateHrFeedbackAssignmentDto { @IsUUID() feedbackCycleId!:string; @IsUUID() subjectEmployeeId!:string; @IsUUID() reviewerEmployeeId!:string; @IsIn(["self","manager","peer","subordinate"]) relationType!:string; @Transform(({value})=>Number(value)) @IsNumber() @Min(0.0001) @Max(1) weight!:number; }
 export class SubmitHrFeedbackDto { @Transform(({value})=>Number(value)) @IsNumber() @Min(0) @Max(100) score!:number; @IsOptional() @Transform(trim) @IsString() @MaxLength(3000) strengths?:string; @IsOptional() @Transform(trim) @IsString() @MaxLength(3000) improvements?:string; }
 export class CreateHrCompensationPlanDto { @Transform(trim) @IsString() @MaxLength(64) planCode!:string;@Transform(trim) @IsString() @MaxLength(100) planName!:string;@IsDateString() effectiveFrom!:string;@IsOptional() @IsDateString() effectiveTo?:string; }
-export class AssignHrCompensationDto { @IsUUID() employeeId!:string;@IsUUID() planId!:string;@IsDateString() effectiveFrom!:string;@IsOptional() @IsDateString() effectiveTo?:string;@Transform(({value})=>Number(value)) @IsNumber() @Min(0) baseSalary!:number;@IsOptional() @Transform(({value})=>Number(value)) @IsNumber() @Min(0) allowanceAmount?:number;@IsOptional() @Transform(({value})=>Number(value)) @IsNumber() @Min(0) variableTarget?:number; }
+export class AssignHrCompensationDto { @IsUUID() employeeId!:string;@IsUUID() planId!:string;@IsDateString() effectiveFrom!:string;@IsOptional() @IsDateString() effectiveTo?:string;@Transform(money) @IsString() @Matches(MONEY_PATTERN) baseSalary!:string;@IsOptional() @Transform(money) @IsString() @Matches(MONEY_PATTERN) allowanceAmount?:string;@IsOptional() @Transform(money) @IsString() @Matches(MONEY_PATTERN) variableTarget?:string; }
 export class CreateHrPayrollPeriodDto { @IsDateString() periodMonth!:string;@IsDateString() startDate!:string;@IsDateString() endDate!:string; }
 export class CreateHrPayrollRunDto { @IsUUID() periodId!:string;@IsOptional() @IsUUID() correctionOfRunId?:string; }
-export class AdjustHrPayslipDto { @Transform(({value})=>Number(value)) @IsNumber() @Min(0) deductionAmount!:number;@Transform(({value})=>Number(value)) @IsNumber() @Min(0) personalTax!:number;@Transform(trim) @IsString() @MaxLength(500) reason!:string; }
+export class AdjustHrPayslipDto { @Transform(money) @IsString() @Matches(MONEY_PATTERN) deductionAmount!:string;@Transform(money) @IsString() @Matches(MONEY_PATTERN) personalTax!:string;@Transform(trim) @IsString() @MaxLength(500) reason!:string; }
 export class CreateHrApprovalDto { @IsIn(["employment_change","profile_change","compensation_change"]) requestType!:string;@Transform(trim) @IsString() @MaxLength(200) title!:string;@IsObject() payload!:Record<string,unknown>; }
 export class HrApprovalActionDto { @IsIn(["submit","approve","return","withdraw","resubmit"]) action!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
