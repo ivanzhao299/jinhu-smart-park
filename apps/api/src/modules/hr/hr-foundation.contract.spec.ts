@@ -6,12 +6,12 @@ import { getMetadataArgsStorage } from "typeorm";
 import { HR_ENTITIES } from "./entities/hr.entities";
 
 const root=resolve(__dirname,"../../../../..");
-const migration=readFileSync(resolve(root,"database/migrations/000216_hr_employee_foundation.sql"),"utf8");
+const migration=readFileSync(resolve(root,"database/migrations/000230_hr_employee_foundation.sql"),"utf8");
 const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
 const service=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
-const performanceMigration=readFileSync(resolve(root,"database/migrations/000219_hr_performance_feedback.sql"),"utf8");
-const payrollMigration=readFileSync(resolve(root,"database/migrations/000220_hr_compensation_payroll.sql"),"utf8");
-const approvalMigration=readFileSync(resolve(root,"database/migrations/000221_hr_approval_workflow.sql"),"utf8");
+const performanceMigration=readFileSync(resolve(root,"database/migrations/000232_hr_performance_feedback.sql"),"utf8");
+const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
+const approvalMigration=readFileSync(resolve(root,"database/migrations/000234_hr_approval_workflow.sql"),"utf8");
 const fileAccess=readFileSync(resolve(root,"apps/api/src/modules/files/file-business-access.service.ts"),"utf8");
 const employeeUi=readFileSync(resolve(root,"apps/web/app/hr/employees/HrEmployeesClient.tsx"),"utf8");
 

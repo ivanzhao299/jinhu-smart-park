@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const sql = readFileSync(resolve(import.meta.dirname, "../../database/migrations/000222_hr_legacy_migration_control.sql"), "utf8");
-const integritySql = readFileSync(resolve(import.meta.dirname, "../../database/migrations/000223_hr_legacy_migration_control_integrity.sql"), "utf8");
+const sql = readFileSync(resolve(import.meta.dirname, "../../database/migrations/000235_hr_legacy_migration_control.sql"), "utf8");
+const integritySql = readFileSync(resolve(import.meta.dirname, "../../database/migrations/000236_hr_legacy_migration_control_integrity.sql"), "utf8");
 for (const table of ["legacy_source_object","migration_batch","migration_batch_item","legacy_record_map","migration_error","migration_check","migration_rollback_point"]) {
   assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}\\b`));
 }

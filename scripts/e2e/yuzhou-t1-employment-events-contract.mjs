@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 const root = resolve(import.meta.dirname, "../..");
-const migration = readFileSync(resolve(root, "database/migrations/000224_hr_employment_event_legacy_compatibility.sql"), "utf8");
+const migration = readFileSync(resolve(root, "database/migrations/000237_hr_employment_event_legacy_compatibility.sql"), "utf8");
 const extract = readFileSync(resolve(root, "scripts/extract-yuzhou-t1-employment-events.sh"), "utf8");
 const transform = readFileSync(resolve(root, "scripts/transform-yuzhou-t1-employment-events.mjs"), "utf8");
 const load = readFileSync(resolve(root, "scripts/load-yuzhou-t1-employment-events.sh"), "utf8");

@@ -4,7 +4,7 @@
 
 - [x] 记录 `main` 与 `origin/main` 的 23/31 分叉、worktree、未跟踪任务和文档；创建保护分支 `codex/yuzhou-hr-t0-baseline-start`（`c39604fc`），未 reset/覆盖/强推。
 - [ ] 确认本任务分支/工作树策略，避免与现有 62 个 Trellis 任务互相提交文件。
-- [x] 冻结当前 HR 基线 commit 与数据库迁移编号清单；当前最新为 `000221`，新增迁移仍须实施瞬间重扫。
+- [x] HR 集成到最新主线时已重扫编号并将未发布 HR 迁移重排为 `000230～000242`；后续新增迁移仍须实施瞬间重扫。
 
 ## Phase 1：补齐本机运行环境
 
@@ -40,7 +40,7 @@
 
 ## Phase 5：迁移控制模型
 
-- [x] 新增前向迁移 `000222/000223`：source object、record map、batch/item、error、check、rollback point 及跨批次引用完整性。
+- [x] 新增前向迁移 `000235/000236`：source object、record map、batch/item、error、check、rollback point 及跨批次引用完整性。
 - [x] 数据库层已约束 batch 状态、run id、隔离目标、活跃源映射唯一和 source drift 冲突；服务层重试/状态转换命令继续下一步实现。
 - [x] `migration_error` 强制 `evidence_redacted=true` 且只接受 JSON object；日志运行时扫描继续随 ETL 命令补充。
 - [x] PostgreSQL 集成验证已覆盖首次映射、同 hash replay、不同 hash conflict、未脱敏证据拒绝和共享目标拒绝；部分失败/cleanup 随加载器补充。
