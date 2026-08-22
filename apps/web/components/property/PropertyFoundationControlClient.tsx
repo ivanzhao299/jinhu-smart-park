@@ -428,6 +428,12 @@ function ManualOccupancyCreatePanel({ onCreated }: { onCreated: () => void }) {
 
 function FoundationRecords({ items, surface }: { items: FoundationRow[]; surface: FoundationSurface }) {
   const [selectedModeTransition, setSelectedModeTransition] = useState<ModeTransitionRow | null>(null);
+  useEffect(() => {
+    setSelectedModeTransition((current) => {
+      if (surface !== "mode-transitions" || !current) return current;
+      return items.some((item) => rowId(item, surface) === rowId(current, surface)) ? current : null;
+    });
+  }, [items, surface]);
   if (!items.length) return <PropertyPanelSurface><p>当前筛选条件下暂无记录。</p></PropertyPanelSurface>;
   const fields = fieldsFor(surface);
   return <PropertyPanelSurface>
@@ -550,6 +556,10 @@ function operationOccupancySummary(row: OperationRow): string {
   return `业务记录 ${aggregates}；有效占用 ${row.sharedOccupancy?.activeCount ?? 0}；不兼容 ${row.sharedOccupancy?.incompatibleCount ?? 0}`;
 }
 
+function canActivateOccupancy(row: OccupancyRow): boolean {
+  return row.status === "held" && ["maintenance", "operations"].includes(row.sourceDomain);
+}
+
 export function PropertyFoundationDetailClient({ id, surface }: {
   id: string;
   surface: "operations" | "occupancies";
@@ -645,7 +655,7 @@ export function PropertyFoundationDetailClient({ id, surface }: {
       {feedback ? <p aria-live="polite">{feedback}</p> : null}
       <div className="ds-action-bar">
         <Link className="ds-button" href={config.route}>返回列表</Link>
-        {surface === "occupancies" && (detail as OccupancyRow).status === "held" ? <PermissionGuard
+        {surface === "occupancies" && canActivateOccupancy(detail as OccupancyRow) ? <PermissionGuard
           module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_OCCUPANCY_ACTIVATE}
         ><button className="ds-button ds-button-primary" disabled={mutating} onClick={() => void activate()} type="button">
           {mutating ? "正在激活…" : "激活保留占用"}

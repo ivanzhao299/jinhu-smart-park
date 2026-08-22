@@ -32,6 +32,7 @@
 - [x] 线上复测补丁：历史 tenant-scoped `TENANT_ADMIN` 标记可安全补正，新增园区不再被旧 `is_system/is_builtin=false` 数据阻断。
 - [x] 线上复测补丁：新租户新增园区停用后可进入独立 scope 软删除/退役路径，active 园区仍不能直接删除。
 - [x] 线上复测核查：`Invalid request origin` 只来自 refresh/context-switch/logout-cookie origin 校验，楼栋接口本身不抛该错误；认证 cookie/context-switch 回归已通过，生产仍需核对实际失败 URL 与 `WEB_ORIGIN/AUTH_ALLOWED_ORIGINS`。
+- [x] 线上复测补丁：修复新增园区复制字典基线时 PostgreSQL `inconsistent types deduced for parameter $3`，关联 GitHub Issue #308。
 - [ ] 最新 head 的 Codex Review 无可操作问题、review threads 清空后自动合并。
 - [ ] 合并后生产 Deploy、health、login、Docker cleanup 均成功；失败则继续闭环修复。
 

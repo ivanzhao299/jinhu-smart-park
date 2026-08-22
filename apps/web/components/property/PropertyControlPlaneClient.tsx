@@ -2,10 +2,13 @@
 
 import {
   PROPERTY_BUSINESS_PERMISSIONS,
-  SYSTEM_PERMISSIONS,
-  type IdentityAuditListResponse,
+  SYSTEM_PERMISSIONS
+} from "@jinhu/shared";
+import type {
   ApprovalIncidentDetail,
   ApprovalIncidentListItem,
+  FileRecord,
+  IdentityAuditListResponse,
   IdentitySubmissionProjection,
   IncidentDetail,
   IncidentListItem,
@@ -18,12 +21,15 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiRequest, createIdempotencyKey } from "../../lib/api-client";
+import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
+import { hasPermission } from "../../lib/permissions";
 import {
   PropertyPageSurface,
   PropertyPanelSurface
 } from "../../features/property-shared";
 import { PermissionGuard } from "../auth/PermissionGuard";
+import { FileUploader } from "../files/FileUploader";
 import styles from "./PropertyControlPlane.module.css";
 import { IdentityEvidenceList } from "./IdentityEvidenceList";
 import {
@@ -134,7 +140,11 @@ export function PropertyControlPlaneListClient({ surface }: { surface: PropertyC
         <button className="ds-button" onClick={() => void load()} type="button">刷新</button>
       </div>
     </PropertyPanelSurface>
-    {surface === "identity" ? <IdentityDraftCreatePanel partyId={partyId} onCreated={() => void load()} /> : null}
+    {surface === "identity" ? <IdentityDraftCreatePanel
+      identityRows={(data?.items ?? []) as IdentitySubmissionProjection[]}
+      partyId={partyId}
+      onCreated={() => void load()}
+    /> : null}
     {error ? <PropertyPanelSurface aria-live="polite"><p>{error}</p></PropertyPanelSurface> : null}
     {loading ? <PropertyPanelSurface aria-live="polite"><p>正在加载…</p></PropertyPanelSurface> : null}
     {!loading && !error ? <ControlPlaneRecords config={config} items={data?.items ?? []} surface={surface} /> : null}
@@ -189,10 +199,15 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   const [auditData, setAuditData] = useState<IdentityAuditListResponse | null>(null);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState("");
+  const [auditPage, setAuditPage] = useState(1);
   const [mutating, setMutating] = useState(false);
+  const authUser = useAuthUser();
   const mutationLock = useRef(false);
   const mutationKeys = useRef(new Map<string, string>());
   const action = surface === "identity" ? null : expectedAction(surface);
+  const canReadIdentityAudit = surface === "identity"
+    && hasPermission(authUser, PROPERTY_BUSINESS_PERMISSIONS.PARTY_SENSITIVE_READ)
+    && hasPermission(authUser, SYSTEM_PERMISSIONS.AUDIT_READ);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -209,26 +224,33 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
 
   useEffect(() => void load(), [load]);
 
-  const loadAudit = useCallback(async () => {
+  const loadAudit = useCallback(async (nextPage: number) => {
     if (surface !== "identity") return;
+    if (!canReadIdentityAudit) {
+      setAuditData(null);
+      setAuditError("");
+      setAuditLoading(false);
+      return;
+    }
     setAuditLoading(true);
     setAuditError("");
     try {
       const response = await apiRequest<IdentityAuditListResponse>(
-        `${config.api}/${encodeURIComponent(id)}/audit?page=1&pageSize=20&sort=occurredAt&order=desc`,
+        `${config.api}/${encodeURIComponent(id)}/audit?page=${nextPage}&pageSize=20&sort=occurredAt&order=desc`,
         { token: getAccessToken() ?? undefined }
       );
+      setAuditPage(nextPage);
       setAuditData(response.data);
     } catch (cause) {
       setAuditError(cause instanceof Error ? cause.message : "审计时间线加载失败");
     } finally {
       setAuditLoading(false);
     }
-  }, [config.api, id, surface]);
+  }, [canReadIdentityAudit, config.api, id, surface]);
 
   useEffect(() => {
-    if (surface === "identity" && detail) void loadAudit();
-  }, [detail, loadAudit, surface]);
+    if (surface === "identity" && detail) void loadAudit(1);
+  }, [canReadIdentityAudit, detail, loadAudit, surface]);
 
   async function mutate(identityAction?: string) {
     if (!detail || mutationLock.current) return;
@@ -285,7 +307,8 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
       {surface === "identity" && "evidence" in detail ? <PropertyPanelSurface title="身份核验证据">
         <IdentityEvidenceList files={detail.evidence.files} />
       </PropertyPanelSurface> : null}
-      {surface === "identity" && "evidence" in detail && detail.status === "draft" ? <IdentityDraftEditPanel
+      {surface === "identity" && "evidence" in detail && detail.status === "draft"
+      && allowedActions(detail).includes("party.identity.submit") ? <IdentityDraftEditPanel
         detail={detail as IdentitySubmissionProjection}
         onUpdated={load}
       /> : null}
@@ -293,7 +316,8 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
         data={auditData}
         error={auditError}
         loading={auditLoading}
-        onReload={loadAudit}
+        onPageChange={loadAudit}
+        onReload={() => loadAudit(auditPage)}
       /> : null}
       {surface === "notifications" && "deepLink" in detail && safePropertyDeepLink(detail.deepLink)
         ? <PropertyPanelSurface title="通知来源">
@@ -335,23 +359,56 @@ export function PropertyControlPlaneDetailClient({ id, surface }: {
   </PropertyPageSurface>;
 }
 
-function IdentityDraftCreatePanel({ partyId, onCreated }: {
+function IdentityDraftCreatePanel({ identityRows, partyId, onCreated }: {
   partyId: string | null;
+  identityRows: IdentitySubmissionProjection[];
   onCreated: () => void;
 }) {
   const [draftPartyId, setDraftPartyId] = useState(partyId ?? "");
   const [expectedIdentityVersion, setExpectedIdentityVersion] = useState(0);
+  const [supersedesSubmissionId, setSupersedesSubmissionId] = useState("");
+  const [expectedSupersededStatus, setExpectedSupersededStatus] = useState<"rejected" | "withdrawn" | "verified" | "">("");
+  const [expectedSupersededVersion, setExpectedSupersededVersion] = useState(0);
+  const autoSupersedesId = useRef<string | null>(null);
+  const terminalSubmission = useMemo(
+    () => latestTerminalIdentitySubmission(identityRows, draftPartyId.trim() || partyId),
+    [draftPartyId, identityRows, partyId]
+  );
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
   const createKey = useRef<string | null>(null);
 
   useEffect(() => setDraftPartyId(partyId ?? ""), [partyId]);
+  useEffect(() => {
+    if (!terminalSubmission) return;
+    setSupersedesSubmissionId(terminalSubmission.id);
+    setExpectedSupersededStatus(terminalSubmission.status as "rejected" | "withdrawn" | "verified");
+    setExpectedSupersededVersion(terminalSubmission.version);
+    setExpectedIdentityVersion(terminalSubmission.identityVersion);
+    autoSupersedesId.current = terminalSubmission.id;
+  }, [terminalSubmission]);
+  useEffect(() => {
+    if (terminalSubmission || !autoSupersedesId.current) return;
+    setSupersedesSubmissionId((current) => current === autoSupersedesId.current ? "" : current);
+    setExpectedSupersededStatus((current) => supersedesSubmissionId === autoSupersedesId.current ? "" : current);
+    setExpectedSupersededVersion((current) => supersedesSubmissionId === autoSupersedesId.current ? 0 : current);
+    autoSupersedesId.current = null;
+  }, [supersedesSubmissionId, terminalSubmission]);
 
   async function createDraft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
     if (!draftPartyId.trim()) {
       setFeedback("请填写 Party ID。");
+      return;
+    }
+    const supersessionValues = [
+      supersedesSubmissionId.trim(),
+      expectedSupersededStatus,
+      expectedSupersededVersion > 0 ? String(expectedSupersededVersion) : ""
+    ];
+    if (supersessionValues.some(Boolean) && !supersessionValues.every(Boolean)) {
+      setFeedback("复核原提交 ID、状态和版本需要同时填写。");
       return;
     }
     setBusy(true);
@@ -365,7 +422,12 @@ function IdentityDraftCreatePanel({ partyId, onCreated }: {
         body: {
           clientKey: createKey.current,
           partyId: draftPartyId.trim(),
-          expectedIdentityVersion
+          expectedIdentityVersion,
+          ...(supersedesSubmissionId.trim() && expectedSupersededStatus ? {
+            supersedesSubmissionId: supersedesSubmissionId.trim(),
+            expectedSupersededStatus,
+            expectedSupersededVersion
+          } : {})
         }
       });
       createKey.current = null;
@@ -396,6 +458,35 @@ function IdentityDraftCreatePanel({ partyId, onCreated }: {
               }} />
           </label>
         </div>
+        {terminalSubmission ? <p>
+          将基于终态提交 {terminalSubmission.id}（{terminalSubmission.status}，版本 {terminalSubmission.version}）创建复核草稿。
+        </p> : null}
+        <div className={styles.formGrid}>
+          <label>复核原提交 ID
+            <input value={supersedesSubmissionId} onChange={(event) => {
+              createKey.current = null;
+              setSupersedesSubmissionId(event.target.value);
+            }} />
+          </label>
+          <label>复核原提交状态
+            <select value={expectedSupersededStatus} onChange={(event) => {
+              createKey.current = null;
+              setExpectedSupersededStatus(event.target.value as "rejected" | "withdrawn" | "verified" | "");
+            }}>
+              <option value="">首次核验</option>
+              <option value="rejected">rejected</option>
+              <option value="withdrawn">withdrawn</option>
+              <option value="verified">verified</option>
+            </select>
+          </label>
+          <label>复核原提交版本
+            <input min={0} step={1} type="number" value={expectedSupersededVersion}
+              onChange={(event) => {
+                createKey.current = null;
+                setExpectedSupersededVersion(Number(event.target.value || 0));
+              }} />
+          </label>
+        </div>
         <div className={styles.toolbar}>
           <button className="ds-button ds-button-primary" disabled={busy} type="submit">
             {busy ? "正在创建…" : "创建草稿"}
@@ -418,22 +509,36 @@ function IdentityDraftEditPanel({ detail, onUpdated }: {
     detail.evidence.documentType ?? ""
   );
   const [identityNumber, setIdentityNumber] = useState("");
-  const [pendingFileIds, setPendingFileIds] = useState("");
+  const [pendingFiles, setPendingFiles] = useState<FileRecord[]>([]);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const updateKey = useRef<string | null>(null);
 
   useEffect(() => {
     setDocumentType(detail.evidence.documentType ?? "");
     setIdentityNumber("");
-    setPendingFileIds(detail.evidence.files.map((file) => file.fileId).join("\n"));
+    setPendingFiles(detail.evidence.files.map(toPendingFileRecord));
     updateKey.current = null;
   }, [detail]);
 
   async function updateDraft(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    const fileIds = pendingFileIds.split(/[\s,，]+/u).map((value) => value.trim()).filter(Boolean);
+    const trimmedIdentityNumber = identityNumber.trim();
+    if ((documentType === "") !== (trimmedIdentityNumber === "")) {
+      setFeedback("证件类型和证件号码需要同时填写或同时留空。");
+      return;
+    }
+    if (documentType === "id_card" && !/^\d{17}[\dXx]$/.test(trimmedIdentityNumber)) {
+      setFeedback("身份证号码需为 18 位，末位可为 X。");
+      return;
+    }
+    if (documentType === "passport" && !/^[A-Za-z0-9]{5,32}$/.test(trimmedIdentityNumber)) {
+      setFeedback("护照号码需为 5-32 位字母或数字。");
+      return;
+    }
+    const fileIds = pendingFiles.map((file) => file.id);
     setBusy(true);
     setFeedback("");
     updateKey.current ??= createIdempotencyKey("party-identity-draft-update");
@@ -446,7 +551,7 @@ function IdentityDraftEditPanel({ detail, onUpdated }: {
           clientKey: updateKey.current,
           expectedVersion: detail.version,
           documentType: documentType || null,
-          identityNumber: identityNumber.trim() || null,
+          identityNumber: trimmedIdentityNumber || null,
           pendingFileIds: fileIds
         }
       });
@@ -475,19 +580,34 @@ function IdentityDraftEditPanel({ detail, onUpdated }: {
             </select>
           </label>
           <label>证件号码
-            <input maxLength={128} value={identityNumber} onChange={(event) => {
+            <input aria-required={documentType !== ""} maxLength={128} required={documentType !== ""}
+              value={identityNumber} onChange={(event) => {
               updateKey.current = null;
               setIdentityNumber(event.target.value);
             }} />
           </label>
         </div>
-        <label>证据文件 ID
-          <textarea maxLength={2000} value={pendingFileIds} onChange={(event) => {
+        <FileUploader
+          bizId={detail.id}
+          bizType="party_identity_evidence"
+          disabled={busy}
+          label="上传身份核验证据"
+          onUploaded={(file) => {
             updateKey.current = null;
-            setPendingFileIds(event.target.value);
-          }} />
-        </label>
-        <button className="ds-button ds-button-primary" disabled={busy} type="submit">
+            setPendingFiles((current) => appendPendingFile(current, file));
+          }}
+          onUploadingChange={setUploading}
+        />
+        {pendingFiles.length ? <ul className={styles.pendingFiles}>
+          {pendingFiles.map((file) => <li key={file.id}>
+            <span>{file.originalName || file.storedName || file.id}</span>
+            <button className="ds-button" disabled={busy || uploading} onClick={() => {
+              updateKey.current = null;
+              setPendingFiles((current) => current.filter((item) => item.id !== file.id));
+            }} type="button">移除</button>
+          </li>)}
+        </ul> : <p>暂无待保存证据文件。</p>}
+        <button className="ds-button ds-button-primary" disabled={busy || uploading} type="submit">
           {busy ? "正在保存…" : "保存草稿"}
         </button>
         {feedback ? <p aria-live="polite">{feedback}</p> : null}
@@ -496,12 +616,16 @@ function IdentityDraftEditPanel({ detail, onUpdated }: {
   </PermissionGuard>;
 }
 
-function IdentityAuditPanel({ data, error, loading, onReload }: {
+function IdentityAuditPanel({ data, error, loading, onPageChange, onReload }: {
   data: IdentityAuditListResponse | null;
   error: string;
   loading: boolean;
+  onPageChange: (page: number) => Promise<void>;
   onReload: () => Promise<void>;
 }) {
+  const page = data?.page ?? 1;
+  const pageSize = data?.pageSize ?? 20;
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / pageSize));
   return <PermissionGuard module="asset" permission={PROPERTY_BUSINESS_PERMISSIONS.PARTY_SENSITIVE_READ}>
     <PermissionGuard permission={SYSTEM_PERMISSIONS.AUDIT_READ}>
       <PropertyPanelSurface title="身份核验审计时间线">
@@ -523,9 +647,57 @@ function IdentityAuditPanel({ data, error, loading, onReload }: {
             </small> : null}
           </li>)}
         </ol> : null}
+        {data ? <nav aria-label="身份核验审计分页" className={styles.pager}>
+          <button className="ds-button" disabled={loading || page <= 1}
+            onClick={() => void onPageChange(page - 1)} type="button">上一页</button>
+          <span>第 {page} / {totalPages} 页，共 {data.total} 条</span>
+          <button className="ds-button" disabled={loading || page >= totalPages}
+            onClick={() => void onPageChange(page + 1)} type="button">下一页</button>
+        </nav> : null}
       </PropertyPanelSurface>
     </PermissionGuard>
   </PermissionGuard>;
+}
+
+function latestTerminalIdentitySubmission(
+  rows: IdentitySubmissionProjection[],
+  partyId: string | null
+): IdentitySubmissionProjection | null {
+  if (!partyId) return null;
+  const terminalStatuses = new Set(["rejected", "withdrawn", "verified"]);
+  return rows
+    .filter((row) => (!partyId || row.partyId === partyId) && terminalStatuses.has(row.status))
+    .sort((left, right) => Date.parse(right.updateTime) - Date.parse(left.updateTime))[0] ?? null;
+}
+
+function toPendingFileRecord(file: IdentitySubmissionProjection["evidence"]["files"][number]): FileRecord {
+  return {
+    id: file.fileId,
+    tenantId: "",
+    parkId: "",
+    fileCode: "",
+    originalName: file.fileName,
+    storedName: file.fileName,
+    fileUrl: "",
+    fileSize: String(file.fileSize),
+    mimeType: file.mimeType,
+    md5: "",
+    bizType: "party_identity_evidence",
+    bizId: null,
+    storageType: "local",
+    storageBucket: null,
+    storagePath: "",
+    isEncrypted: true,
+    status: 1,
+    remark: null,
+    createTime: "",
+    updateTime: ""
+  };
+}
+
+function appendPendingFile(current: FileRecord[], file: FileRecord): FileRecord[] {
+  if (current.some((item) => item.id === file.id)) return current;
+  return [...current, file];
 }
 
 function normalize(item: ControlPlaneItem, surface: PropertyControlPlaneSurface) {

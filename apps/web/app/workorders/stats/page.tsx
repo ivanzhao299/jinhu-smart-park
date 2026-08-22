@@ -3,10 +3,11 @@
 import { Card, DataTable } from "@jinhu/ui";
 import { AlertTriangle, CheckCircle2, ClipboardList, Clock3, RefreshCw, Search, Star, TimerReset } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { SYSTEM_PERMISSIONS, type PaginatedResult } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
-import type { DictItemRow, DictMap, DictTypeRow, ParkTenantRow, UserRow } from "../../../components/workorders/types";
+import type { DictItemRow, DictMap, ParkTenantRow, UserRow } from "../../../components/workorders/types";
 import { apiRequest } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
 import { fetchReferenceFormOptions } from "../../../lib/reference-data";
 
@@ -140,20 +141,8 @@ export default function WorkOrderStatsPage() {
   }, [filters]);
 
   const loadDicts = useCallback(async () => {
-    const typeResponse = await apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", {
-      token: getAccessToken()
-    });
-    const typeMap = new Map(typeResponse.data.items.map((item) => [item.dictCode, item.id]));
     const codes = ["workorder_status", "workorder_type", "workorder_priority"];
-    const entries = await Promise.all(codes.map(async (code) => {
-      const dictTypeId = typeMap.get(code);
-      if (!dictTypeId) return [code, []] as const;
-      const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-        token: getAccessToken()
-      });
-      return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-    }));
-    setDicts(Object.fromEntries(entries));
+    setDicts(await loadDictMapByCodes<DictItemRow>(codes));
   }, []);
 
   const loadReferences = useCallback(async () => {

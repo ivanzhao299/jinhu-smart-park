@@ -5,6 +5,7 @@ import { Building2, Layers3, PieChart, RefreshCw, Search } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { apiRequest } from "../../../lib/api-client";
+import { loadDictMapByCodes } from "../../../lib/dict-client";
 import { getAccessToken } from "../../../lib/authz";
 
 const ASSET_READ_PERMISSION = "asset:read";
@@ -28,11 +29,6 @@ interface FloorRow {
   buildingId: string;
   floorCode: string;
   floorName: string;
-}
-
-interface DictTypeRow {
-  id: string;
-  dictCode: string;
 }
 
 interface DictItemRow {
@@ -130,26 +126,14 @@ export default function AssetStatisticsPage() {
   }, [filters]);
 
   const loadLookups = useCallback(async () => {
-    const [buildingResponse, floorResponse, dictTypeResponse] = await Promise.all([
+    const [buildingResponse, floorResponse, dictMap] = await Promise.all([
       apiRequest<PaginatedResult<BuildingRow>>("/buildings?page=1&page_size=100&sort=sortNo", { token: getAccessToken() }),
       apiRequest<PaginatedResult<FloorRow>>("/floors?page=1&page_size=100&sort=floorNo", { token: getAccessToken() }),
-      apiRequest<PaginatedResult<DictTypeRow>>("/dict-types?page=1&page_size=100", { token: getAccessToken() })
+      loadDictMapByCodes<DictItemRow>(["unit_usage_type", "unit_rental_status"])
     ]);
     setBuildings(buildingResponse.data.items);
     setFloors(floorResponse.data.items);
-
-    const dictTypeMap = new Map(dictTypeResponse.data.items.map((item) => [item.dictCode, item.id]));
-    const entries = await Promise.all(
-      ["unit_usage_type", "unit_rental_status"].map(async (code) => {
-        const dictTypeId = dictTypeMap.get(code);
-        if (!dictTypeId) return [code, []] as const;
-        const response = await apiRequest<PaginatedResult<DictItemRow>>(`/dict-items?page=1&page_size=100&dict_type_id=${dictTypeId}`, {
-          token: getAccessToken()
-        });
-        return [code, response.data.items.filter((item) => item.status === "enabled")] as const;
-      })
-    );
-    setDicts(Object.fromEntries(entries));
+    setDicts(dictMap);
   }, []);
 
   useEffect(() => {

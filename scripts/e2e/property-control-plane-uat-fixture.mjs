@@ -10,14 +10,19 @@ const parkId = process.env.PARK_ID ?? process.env.DEFAULT_PARK_ID ?? "20000001";
 const runCode = process.env.PROPERTY_CONTROL_PLANE_UAT_CODE ?? "issue-306";
 const actorUsername = process.env.ADMIN_USERNAME ?? "admin";
 
+function scopedUuid(label) {
+  const hex = createHash("sha256").update(`${tenantId}:${parkId}:${runCode}:${label}`).digest("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${((parseInt(hex.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, "0")}${hex.slice(18, 20)}-${hex.slice(20, 32)}`;
+}
+
 const ids = {
-  occupancy: "00000306-0001-4000-8000-000000000001",
-  operationConfig: "00000306-0002-4000-8000-000000000001",
-  approvalRequest: "00000306-0003-4000-8000-000000000001",
-  approvalStage: "00000306-0004-4000-8000-000000000001",
-  party: "00000306-0005-4000-8000-000000000001",
-  submission: "00000306-0006-4000-8000-000000000001",
-  outbox: "00000306-0007-4000-8000-000000000001"
+  occupancy: scopedUuid("occupancy"),
+  operationConfig: scopedUuid("operation-config"),
+  approvalRequest: scopedUuid("approval-request"),
+  approvalStage: scopedUuid("approval-stage"),
+  party: scopedUuid("party"),
+  submission: scopedUuid("submission"),
+  outbox: scopedUuid("outbox")
 };
 
 function hashJson(value) {
@@ -55,10 +60,50 @@ async function chooseUnit(client) {
          ON config.tenant_id=unit.tenant_id AND config.park_id=unit.park_id
         AND config.unit_id=unit.id AND config.is_deleted=false
       WHERE unit.tenant_id=$1 AND unit.park_id=$2 AND unit.is_deleted=false
-      ORDER BY CASE WHEN config.id IS NULL THEN 0 ELSE 1 END, unit.create_time, unit.id
+        AND (config.id IS NULL OR config.id=$3::uuid)
+        AND NOT EXISTS (
+          SELECT 1 FROM biz_property_occupancy occupancy
+          WHERE occupancy.tenant_id=unit.tenant_id
+            AND occupancy.park_id=unit.park_id
+            AND occupancy.unit_id=unit.id
+            AND occupancy.id<>$4::uuid
+            AND occupancy.is_deleted=false
+            AND occupancy.status IN ('held','active')
+            AND tstzrange(occupancy.start_at, occupancy.end_at, '[)')
+              && tstzrange(clock_timestamp()-interval '1 hour', clock_timestamp()+interval '2 days', '[)')
+        )
+      ORDER BY CASE WHEN config.id=$3::uuid THEN 0 ELSE 1 END, unit.create_time, unit.id
       LIMIT 1`,
-    [tenantId, parkId]
+    [tenantId, parkId, ids.operationConfig, ids.occupancy]
   );
+}
+
+async function assertFixtureIdScope(client) {
+  const result = await client.query(
+    `SELECT label FROM (
+       SELECT 'occupancy' AS label FROM biz_property_occupancy WHERE id=$3::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'operation_config' FROM biz_property_operation_config WHERE id=$4::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'approval_request' FROM biz_property_approval_request WHERE id=$5::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'approval_stage' FROM biz_property_approval_stage WHERE id=$6::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'party' FROM biz_party WHERE id=$7::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'identity_submission' FROM biz_party_identity_submission WHERE id=$8::uuid AND (tenant_id<>$1 OR park_id<>$2)
+       UNION ALL SELECT 'outbox' FROM biz_property_outbox WHERE event_id=$9::uuid AND (tenant_id<>$1 OR park_id<>$2)
+     ) scoped_conflicts`,
+    [
+      tenantId,
+      parkId,
+      ids.occupancy,
+      ids.operationConfig,
+      ids.approvalRequest,
+      ids.approvalStage,
+      ids.party,
+      ids.submission,
+      ids.outbox
+    ]
+  );
+  if (result.rows.length) {
+    throw new Error(`Fixture IDs already exist in another tenant/park scope: ${result.rows.map((row) => row.label).join(", ")}`);
+  }
 }
 
 async function applyFixtures(client) {
@@ -68,6 +113,7 @@ async function applyFixtures(client) {
   if (!allowWrite) {
     throw new Error("Set ALLOW_PROPERTY_CONTROL_PLANE_UAT_FIXTURE=yes to write UAT fixtures.");
   }
+  await assertFixtureIdScope(client);
 
   const actor = await queryOne(
     client,
@@ -79,10 +125,23 @@ async function applyFixtures(client) {
   if (!actor?.id) throw new Error(`Cannot find UAT actor ${actorUsername}.`);
 
   const unit = await chooseUnit(client);
-  if (!unit?.id) throw new Error("Cannot find an active biz_unit for property control-plane UAT data.");
+  if (!unit?.id) {
+    throw new Error("Cannot find an active biz_unit without an existing operation configuration for property control-plane UAT data.");
+  }
 
   await client.query("BEGIN");
   try {
+    const immutableIdentityDecisions = await queryOne(
+      client,
+      `SELECT count(*)::int AS count
+         FROM biz_party_identity_decision
+        WHERE tenant_id=$1 AND park_id=$2 AND submission_id=$3::uuid`,
+      [tenantId, parkId, ids.submission]
+    );
+    if ((immutableIdentityDecisions?.count ?? 0) > 0) {
+      throw new Error("Fixture identity submission has immutable decisions; rerun with a new PROPERTY_CONTROL_PLANE_UAT_CODE.");
+    }
+
     await client.query(
       `INSERT INTO biz_property_occupancy(
          id,tenant_id,park_id,unit_id,source_domain,source_type,source_id,
@@ -114,6 +173,9 @@ async function applyFixtures(client) {
 
     const configId = unit.config_id ?? ids.operationConfig;
     if (unit.config_id) {
+      if (unit.config_id !== ids.operationConfig) {
+        throw new Error("Refusing to update a non-fixture operation configuration.");
+      }
       await client.query(
         `UPDATE biz_property_operation_config
             SET operating_mode='none', operating_status='enabled', is_deleted=false,
@@ -152,13 +214,29 @@ async function applyFixtures(client) {
        VALUES($1::uuid,$2,$3,'property.mode-transition.request','property-operation-config',$4,1,
          $5::uuid,$5::uuid,$6,$7,$8::jsonb,1,$9,$10::uuid,1,$11,'pending_approval',
          'not_started',$12,clock_timestamp())
-       ON CONFLICT (id) DO UPDATE SET
-         source_id=EXCLUDED.source_id,
-         canonical_payload=EXCLUDED.canonical_payload,
-         payload_hash=EXCLUDED.payload_hash,
-         decision_status='pending_approval',
-         execution_status='not_started',
-         updated_at=clock_timestamp()`,
+	       ON CONFLICT (id) DO UPDATE SET
+	         source_id=EXCLUDED.source_id,
+	         canonical_payload=EXCLUDED.canonical_payload,
+	         payload_hash=EXCLUDED.payload_hash,
+	         decision_status='pending_approval',
+	         execution_status='not_started',
+	         decision_version=1,
+	         execution_version=1,
+	         claim_epoch=0,
+	         claim_token=NULL,
+	         worker_id=NULL,
+	         lease_expires_at=NULL,
+	         heartbeat_at=NULL,
+	         attempt_count=0,
+	         next_retry_at=NULL,
+	         reconcile_required=false,
+	         last_error_category=NULL,
+	         last_error_code=NULL,
+	         last_error_redacted_message=NULL,
+	         infra_exhausted_at=NULL,
+	         decided_at=NULL,
+	         executed_at=NULL,
+	         updated_at=clock_timestamp()`,
       [
         ids.approvalRequest,
         tenantId,
@@ -212,10 +290,31 @@ async function applyFixtures(client) {
          id,tenant_id,park_id,party_id,identity_version,submission_attempt,status,
          drafted_by,recorded_by,drafted_at,source,version)
        VALUES($1::uuid,$2,$3,$4::uuid,1,1,'draft',$5::uuid,$5::uuid,clock_timestamp(),'manual',1)
-       ON CONFLICT (id) DO UPDATE SET
-         status='draft',
-         version=1,
-         update_time=clock_timestamp()`,
+	       ON CONFLICT (id) DO UPDATE SET
+	         status='draft',
+	         snapshot_id=NULL,
+	         supersedes_submission_id=NULL,
+	         verification_queue_id=NULL,
+	         assigned_verifier_id=NULL,
+	         assignment_version=0,
+	         eligibility_policy_snapshot=NULL,
+	         eligibility_policy_hash=NULL,
+	         draft_hash_algorithm=NULL,
+	         draft_hash_version=NULL,
+	         draft_encryption_key_id=NULL,
+	         draft_payload_format_version=NULL,
+	         submitted_by=NULL,
+	         decided_by=NULL,
+	         withdrawn_by=NULL,
+	         superseded_by=NULL,
+	         submitted_at=NULL,
+	         decided_at=NULL,
+	         withdrawn_at=NULL,
+	         superseded_at=NULL,
+	         decision_reason=NULL,
+	         confidence=NULL,
+	         version=1,
+	         update_time=clock_timestamp()`,
       [ids.submission, tenantId, parkId, ids.party, actor.id]
     );
     await client.query(

@@ -1,0 +1,31 @@
+{
+  "id": "homestay-housing-completion",
+  "name": "homestay-housing-completion",
+  "title": "民宿与住房模块完整交付闭环",
+  "description": "",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/issue-266-tenant-admin-create-park",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-13-issue-270-property-owner-scope",
+    "08-13-issue-271-property-high-risk-actions",
+    "08-13-issue-272-property-api-e2e-gate",
+    "08-13-issue-273-housing-repair-runtime-uat"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

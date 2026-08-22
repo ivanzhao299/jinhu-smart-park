@@ -19,6 +19,11 @@ Current production-safe seed files:
 - `000008_property_runtime_control_scope_reconcile.sql`
 - `000009_jh_leasing_lead_workorder_create_repair.sql`
 - `000010_jh_engineering_project_manager_rbac_reconcile.sql`
+- `000011_apartment_management_rbac.sql`
+- `000012_wu_enguo_atomic_rbac.sql`
+- `000013_apartment_document_defaults.sql`
+- `000014_responsibility_system_admin_reconcile.sql`
+- `000015_tenant_scope_dictionary_reconcile.sql`
 
 This seed initializes:
 
