@@ -388,7 +388,7 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 | Hash | Message |
 |------|---------|
-| `4f48ad9e` | (see git log) |
+| `c808eb71` | PR #341 squash merge（P1 对账归档落地 main） |
 
 ### Testing
 

@@ -153,3 +153,13 @@
 - 未运行 `pnpm install`、构建或测试套件，遵守用户约束；本任务不修改产品代码。
 - GitHub/历史 Trellis 中记录的浏览器、CI、Release Smoke 和 Deploy 结果作为审计证据，本轮没有重跑。
 - 删除后的本地 tip 可从已记录 SHA、远端镜像、merged PR 或 Git reflog 恢复；本轮不删除任何远程引用。
+
+## 更正附注（2026-08-22，PR review 跟进）
+
+本报告初版经 Codex Review（PR #341 inline）指出两处完成度误判，现更正如下，原表不改动以保留审计轨迹：
+
+1. **`08-18-park-context-switch-closure` 恢复 `in_progress`**：初版以「E2E 脚本在树」为由归档，但其 implement.md 的 `real HTTP context-switch E2E against local API/DB` 等项从未实际运行通过；该运行时门禁未闭环，不应归档。
+2. **`08-18-role-template-instantiation-closure` 恢复 `in_progress`**：implement.md 明确记录桌面/移动浏览器检查因环境不可用而跳过，仅凭实现与 CI 证据不满足 AGENTS.md 浏览器验收要求。
+3. 同轮修正：`08-14-fix-tenant-asset-code-park-picker` task.json notes 与 completed 状态矛盾（notes 已更新为记录 PR #283 闭环事实）；journal/index 中瞬态 hash `4f48ad9e`（squash 后不可达）替换为持久引用 `c808eb71`（PR #341）。
+
+更正后任务 A 终态：12 已归档 / 5 保持 in_progress（原 3 + 本附注恢复 2）/ 0 待人工。
