@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "GitHub Issue #282；本地 PostgreSQL/API/Windows Chrome CDP 验收通过，等待 PR review/CI/部署闭环。",
+  "notes": "GitHub Issue #282；本地 PostgreSQL/API/Windows Chrome CDP 验收通过；PR #283 已合并、CI 通过并随 main 部署，闭环完成（2026-08-22 P1 对账核实，review 跟进修正 notes 与 status 一致）。",
   "meta": {}
 }

@@ -2,30 +2,30 @@
 
 ## 1. Shared Helper
 
-- 在 `packages/shared/src/property-business/role-templates.ts` 增加按 code 查找模板的 helper。
-- 增加计算模板最终权限集合的 helper，复用 `TRACK_B_PERMISSION_BUNDLES`。
-- 补 shared 测试，覆盖 `民宿经办` 最终权限和 unknown code。
+- [x] 在 `packages/shared/src/property-business/role-templates.ts` 增加按 code 查找模板的 helper（PR #305 / `227f7e1d`）。
+- [x] 增加计算模板最终权限集合的 helper，复用 `TRACK_B_PERMISSION_BUNDLES`（PR #305 / `227f7e1d`）。
+- [x] 补 shared 测试，覆盖 `民宿经办` 最终权限和 unknown code（PR #305 / `227f7e1d`）。
 
 ## 2. API 实例化
 
-- 修改 `RolesService.copy`：managed template 分支先解析 shared 定义。
-- 校验模板 version/hash。
-- 用 shared 最终权限 code 解析权限实体并写入 `rel_role_perm`。
-- 默认数据范围使用 shared `dataScopeRuleCode`，字段策略保持数据库复制。
-- 对缺失权限、hash 漂移、未知模板 fail closed。
-- 补 API/源码契约测试，证明 copy 路径消费 shared helper，不再依赖数据库模板权限绑定。
+- [x] 修改 `RolesService.copy`：managed template 分支先解析 shared 定义（PR #305 / `227f7e1d`）。
+- [x] 校验模板 version/hash（PR #305 / `227f7e1d`）。
+- [x] 用 shared 最终权限 code 解析权限实体并写入 `rel_role_perm`（PR #305 / `227f7e1d`）。
+- [x] 默认数据范围使用 shared `dataScopeRuleCode`，字段策略保持数据库复制（PR #305 / `227f7e1d`）。
+- [x] 对缺失权限、hash 漂移、未知模板 fail closed（PR #305 / `227f7e1d`）。
+- [x] 补 API/源码契约测试，证明 copy 路径消费 shared helper，不再依赖数据库模板权限绑定（PR #305 / `227f7e1d`）。
 
 ## 3. Web 闭环
 
-- 角色页新增实例化 modal/drawer，替换模板复制 prompt。
-- 保护提示旁增加实例化 CTA 和权限不足说明。
-- 用户页候选为空时增加“模板不可直接分配，请先实例化”的说明和角色管理跳转。
-- 补 Web logic specs 覆盖文案和入口。
+- [x] 角色页新增实例化 modal/drawer，替换模板复制 prompt（PR #305 / `227f7e1d`）。
+- [x] 保护提示旁增加实例化 CTA 和权限不足说明（PR #305 / `227f7e1d`）。
+- [x] 用户页候选为空时增加“模板不可直接分配，请先实例化”的说明和角色管理跳转（PR #305 / `227f7e1d`）。
+- [x] 补 Web logic specs 覆盖文案和入口（PR #305 / `227f7e1d`）。
 
 ## 4. 文档与 Seed 契约
 
-- 更新生产 seed README，明确 `000015` 是 shared 模板定义的数据库 reconcile。
-- 更新静态 seed/template 契约脚本，要求实例化路径引用 shared resolver。
+- [x] 更新生产 seed README，明确 `000015` 是 shared 模板定义的数据库 reconcile（PR #305 / `227f7e1d`）。
+- [x] 更新静态 seed/template 契约脚本，要求实例化路径引用 shared resolver（PR #305 / `227f7e1d`）。
 
 ## 5. 验证
 
@@ -104,8 +104,8 @@
 
 ## 6. PR 闭环
 
-- 提交 clean branch。
-- 创建 PR 到 `main`。
-- 每次 push 后评论 `@codex review`。
-- 读取并修复所有 actionable review threads。
-- CI 绿后合并，跟踪合并/部署状态，并更新任务记录。
+- [x] 提交 clean branch（PR #305）。
+- [x] 创建 PR #305 到 `main`。
+- [x] 每次 push 后评论 `@codex review`。
+- [x] 读取并修复所有 actionable review threads；最后一轮未发现 major issue。
+- [x] CI 全绿后合并 PR #305（`227f7e1d`），并将历史 commit/PR 回填到 `task.json`。

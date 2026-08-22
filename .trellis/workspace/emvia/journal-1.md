@@ -378,7 +378,7 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 ### Summary
 
-核验 17 个 Trellis 任务并归档 14 个；按六级证据审计 48 个本地分支，删除 46 个并保留 2 个；完整证据写入 report.md，未 push。
+核验 17 个 Trellis 任务，最终归档 12 个、保持 `in_progress` 5 个（初版拟归档 14 个，后因两项验收缺口恢复为 `in_progress`）；按六级证据审计 48 个本地分支，删除 46 个并保留 2 个；完整证据写入 report.md，未 push。
 
 ### Main Changes
 
@@ -388,7 +388,7 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 
 | Hash | Message |
 |------|---------|
-| `4f48ad9e` | (see git log) |
+| `c808eb71` | PR #341 squash merge（P1 对账归档落地 main） |
 
 ### Testing
 
