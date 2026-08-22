@@ -1,18 +1,29 @@
 "use client";
 
 import type {
+  HomestayAvailabilityListResponse,
+  HomestayBookingListResponse,
   HomestayDashboardResponse,
   HomestayFinanceListResponse,
+  HomestayStayListResponse,
+  HomestayTaskListResponse,
+  HomestayTurnoverListResponse,
+  HomestayUnitCandidateListResponse,
 } from "@jinhu/shared";
-import { useMemo } from "react";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PageState,
   PropertyPageSurface,
   PropertyPanelSurface,
   RemoteEntityPicker,
   projectPropertyCapabilities,
+  type RemoteEntityOption
 } from "../../../features/property-shared";
+import { apiRequest } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
+import { getAccessToken } from "../../../lib/authz";
 import { addBusinessDateDays } from "../../../lib/business-date";
 import styles from "./HomestayWorkbench.module.css";
 import { HomestayBookingCreatePanel } from "./HomestayBookingCreatePanel";
@@ -24,22 +35,12 @@ import {
 } from "./HomestayListRecords";
 import {
   HOMESTAY_LIST_READ_ACTIONS,
+  availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   listPageState,
   pageCount,
+  shouldLoadHomestayRead
 } from "./homestay-workbench.logic";
-import {
-  EMPTY_HOMESTAY_FILTERS,
-  createHomestayReturnContext,
-  hasActiveHomestayFilters,
-  homestayPaginatedData,
-  homestayResultTotal,
-  loadHomestayUnitOptions,
-  useHomestayListFilters,
-  useHomestaySurfaceData,
-  type HomestayListFilters,
-  type HomestaySurfaceData
-} from "./use-homestay-list-state";
 
 export type HomestayListSurface =
   | "dashboard"
@@ -60,6 +61,223 @@ const TITLES: Record<HomestayListSurface, [string, string]> = {
   finance: ["财务", "查看民宿子账应收、实收、退款与减免投影。"]
 };
 
+type HomestaySurfaceData =
+  | HomestayDashboardResponse
+  | HomestayTaskListResponse
+  | HomestayAvailabilityListResponse
+  | HomestayBookingListResponse
+  | HomestayStayListResponse
+  | HomestayTurnoverListResponse
+  | HomestayFinanceListResponse;
+
+function createReturnContext(surface: HomestayListSurface, filters: HomestayListFilters): HomestayListReturnContext {
+  return {
+    route: surface,
+    query: {
+      page: String(filters.page),
+      page_size: "20",
+      status: filters.status || undefined,
+      queue: surface === "stays" ? filters.status || undefined : undefined,
+      keyword: filters.keyword || undefined,
+      date_from: filters.dateFrom || undefined,
+      date_to: filters.dateTo || undefined,
+      source_type: filters.sourceType || undefined,
+      business_date: filters.businessDateValue || undefined,
+      unit_id: filters.unit?.id
+    }
+  };
+}
+
+
+interface QueryInput {
+  page: number;
+  status: string;
+  dateFrom?: string;
+  dateTo?: string;
+  keyword?: string;
+  sourceType?: string;
+  businessDateValue?: string;
+  unitId?: string;
+}
+
+function appendStatus(params: URLSearchParams, surface: HomestayListSurface, status: string) {
+  if (!status) return;
+  params.set(surface === "stays" ? "queue" : "status", status);
+}
+
+function appendBookingQuery(params: URLSearchParams, input: QueryInput) {
+  const values = {
+    keyword: input.keyword?.trim(),
+    unit_id: input.unitId,
+    date_from: input.dateFrom,
+    date_to: input.dateTo
+  };
+  Object.entries(values).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+}
+
+function appendWorkDateQuery(
+  params: URLSearchParams,
+  surface: "tasks" | "stays",
+  input: QueryInput
+) {
+  if (surface === "tasks" && input.sourceType) params.set("source_type", input.sourceType);
+  if (input.businessDateValue) params.set("business_date", input.businessDateValue);
+}
+
+function appendAvailabilityQuery(params: URLSearchParams, input: QueryInput) {
+  const { dateFrom, dateTo } = availabilityQueryDates(input);
+  params.set("date_from", dateFrom);
+  params.set("date_to", dateTo);
+}
+
+function queryFor(surface: HomestayListSurface, input: QueryInput) {
+  const params = new URLSearchParams({ page: String(input.page), page_size: "20" });
+  appendStatus(params, surface, input.status);
+  if (surface === "bookings") appendBookingQuery(params, input);
+  if (surface === "tasks" || surface === "stays") appendWorkDateQuery(params, surface, input);
+  if (surface === "availability") appendAvailabilityQuery(params, input);
+  return params;
+}
+
+async function loadHomestayUnitOptions(input: {
+  page: number;
+  pageSize: number;
+  signal: AbortSignal;
+}) {
+  const response = await apiRequest<HomestayUnitCandidateListResponse>(
+    `/homestay/unit-candidates?page=${input.page}&page_size=${input.pageSize}`,
+    { token: getAccessToken() ?? undefined, signal: input.signal }
+  );
+  return {
+    items: response.data.items.map((item) => ({
+      id: item.id,
+      label: `${item.unitCode} · ${item.unitName}`
+    })),
+    page: response.data.page,
+    pageSize: response.data.page_size,
+    total: response.data.total
+  };
+}
+
+function endpointFor(surface: HomestayListSurface, params: URLSearchParams): string {
+  return surface === "dashboard"
+    ? "/homestay/dashboard"
+    : `/homestay/${surface}?${params.toString()}`;
+}
+
+interface HomestayListFilters {
+  page: number;
+  status: string;
+  dateFrom: string;
+  dateTo: string;
+  keyword: string;
+  sourceType: string;
+  businessDateValue: string;
+  unit: RemoteEntityOption | null;
+  ready: boolean;
+}
+
+const EMPTY_HOMESTAY_FILTERS: HomestayListFilters = {
+  page: 1, status: "", dateFrom: "", dateTo: "", keyword: "",
+  sourceType: "", businessDateValue: "", unit: null, ready: false
+};
+
+function useHomestayListFilters(surface: HomestayListSurface) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [filters, setFilters] = useState<HomestayListFilters>(EMPTY_HOMESTAY_FILTERS);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const parsedPage = Number(query.get("page") ?? "1");
+    const unitId = query.get("unit_id");
+    setFilters({
+      page: Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1,
+      status: query.get(surface === "stays" ? "queue" : "status") ?? "",
+      dateFrom: query.get("date_from") ?? "",
+      dateTo: query.get("date_to") ?? "",
+      keyword: query.get("keyword") ?? "",
+      sourceType: query.get("source_type") ?? "",
+      businessDateValue: query.get("business_date") ?? "",
+      unit: unitId ? { id: unitId, label: "已选择房源" } : null,
+      ready: true
+    });
+  }, [surface]);
+  function update(patch: Partial<HomestayListFilters>) {
+    const next = { ...filters, ...patch, ready: true };
+    setFilters(next);
+    const params = queryFor(surface, {
+      ...next,
+      unitId: next.unit?.id ?? ""
+    });
+    router.replace(`${pathname}?${params.toString()}` as Route);
+  }
+  return { filters, update };
+}
+
+function useHomestaySurfaceData(
+  surface: HomestayListSurface,
+  filters: HomestayListFilters,
+  readAllowed: boolean,
+  invalidationKey: string
+) {
+  const [data, setData] = useState<HomestaySurfaceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const requestId = useRef(0);
+  const load = useCallback(async () => {
+    if (!shouldLoadHomestayRead(filters.ready, readAllowed)) {
+      setLoading(false);
+      return;
+    }
+    const currentRequest = ++requestId.current;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await apiRequest<HomestaySurfaceData>(
+        endpointFor(surface, queryFor(surface, {
+          ...filters,
+          unitId: filters.unit?.id ?? ""
+        })),
+        { token: getAccessToken() ?? undefined }
+      );
+      if (currentRequest === requestId.current) setData(response.data);
+    } catch (loadError) {
+      if (currentRequest === requestId.current) {
+        setError(loadError instanceof Error ? loadError.message : "数据加载失败");
+      }
+    } finally {
+      if (currentRequest === requestId.current) setLoading(false);
+    }
+  }, [filters, readAllowed, surface]);
+  useEffect(() => void load(), [load, invalidationKey]);
+  return { data, error, load, loading };
+}
+
+function paginatedData(
+  surface: HomestayListSurface,
+  data: HomestaySurfaceData | null
+): Exclude<HomestaySurfaceData, HomestayDashboardResponse> | null {
+  return surface === "dashboard"
+    ? null
+    : data as Exclude<HomestaySurfaceData, HomestayDashboardResponse> | null;
+}
+
+function resultTotal(
+  data: HomestaySurfaceData | null,
+  pageData: Exclude<HomestaySurfaceData, HomestayDashboardResponse> | null
+): number {
+  if (pageData) return pageData.total;
+  return data ? 1 : 0;
+}
+
+function hasActiveFilters(filters: HomestayListFilters): boolean {
+  return [
+    filters.status, filters.dateFrom, filters.dateTo, filters.keyword,
+    filters.sourceType, filters.businessDateValue, filters.unit
+  ].some(Boolean);
+}
 
 function allowedDashboardLinks(user: ReturnType<typeof useAuthUser>): HomestayDashboardLink[] {
   const candidates = [
@@ -84,19 +302,19 @@ export function HomestayListClient({ surface }: { surface: HomestayListSurface }
     surface, filters, readAllowed, capability.invalidationKey
   );
 
-  const pageData = homestayPaginatedData(surface, data);
+  const pageData = paginatedData(surface, data);
   const state = listPageState({
     pageAllowed: capability.pageAllowed,
     readAllowed,
     loading,
     error,
     hasData: Boolean(data),
-    total: homestayResultTotal(data, pageData),
+    total: resultTotal(data, pageData),
     emptyScope: hasExplicitEmptyHomestayUnitScope(user),
-    filtered: hasActiveHomestayFilters(filters)
+    filtered: hasActiveFilters(filters)
   });
   const [title, description] = TITLES[surface];
-  const returnContext = createHomestayReturnContext(surface, filters);
+  const returnContext = createReturnContext(surface, filters);
 
   return (
     <PropertyPageSurface>
