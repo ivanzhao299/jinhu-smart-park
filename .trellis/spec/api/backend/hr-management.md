@@ -73,6 +73,66 @@ await createPayrollRun(scope, actor, { periodId, correctionOfRunId: confirmedRun
 return { responseCount, averageScore };
 ```
 
+## Scenario: Payroll concurrency and accounting integrity
+
+### 1. Scope / Trigger
+
+- Trigger: creating a payroll run, adjusting a payslip, or moving a run from `calculated` to `reviewing` to `confirmed`.
+
+### 2. Signatures
+
+- API: `POST /hr/payroll/runs`, `POST /hr/payroll/runs/:id/review`, `POST /hr/payroll/runs/:id/confirm`, and `PUT /hr/payroll/runs/:runId/payslips/:payslipId`.
+- Database: `uq_hr_payroll_base_run`, `ck_hr_payroll_totals_balance`, and `ck_hr_payslip_amounts_balance`.
+
+### 3. Contracts
+
+- Lock the payroll period while creating a run, and lock the payroll run while adjusting or changing state.
+- Read the current state, validate the action, update affected payslips, and save the run through repositories obtained from the same transaction manager.
+- One active base run is allowed per tenant, park, and period. Correction runs must reference a confirmed run.
+- Run totals satisfy `gross_total = deduction_total + net_total`; payslips satisfy `gross_amount = deduction_amount + personal_tax + net_amount`.
+- Retryable payroll writes use `IdempotencyInterceptor`; payroll audit metadata always sets `captureBody:false`.
+
+### 4. Validation & Error Matrix
+
+- Concurrent or stale review/confirm state -> `ConflictException`.
+- Second active base run for the same scope and period -> database unique conflict translated to `ConflictException`.
+- Adjustment against a confirmed run -> reject and require a correction run.
+- Unbalanced run or payslip amounts -> database check-constraint failure and transaction rollback.
+
+### 5. Good / Base / Bad Cases
+
+- Good: confirmation locks the run, confirms all payslips, and saves the confirmed run in one transaction.
+- Base: replaying the same idempotency key returns the stored response without applying a second mutation.
+- Bad: update payslips outside the run transaction, rely only on an application pre-check for uniqueness, or capture salary values in an audit body.
+
+### 6. Tests Required
+
+- Contract-test transaction-scoped repositories, pessimistic run locks, idempotency interceptors, and body-free payroll audit metadata.
+- Apply all migrations to an isolated fresh PostgreSQL database and assert the unique index, balance constraints, and successful migration-history row.
+- Add database-backed races for duplicate run creation and concurrent state transitions before production release.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const run = await payrollRunRepo.findOneByOrFail({ id });
+await payslipRepo.update({ runId: id }, { status: "confirmed" });
+return payrollRunRepo.save({ ...run, status: "confirmed" });
+```
+
+#### Correct
+
+```ts
+return dataSource.transaction(async (manager) => {
+  const run = await manager.getRepository(HrPayrollRunEntity).findOne({
+    where: { id, tenantId, parkId, isDeleted: false },
+    lock: { mode: "pessimistic_write" },
+  });
+  // validate, update payslips, and save the run with this manager
+});
+```
+
 ## Scenario: HR work reports in the unified Workflow Inbox
 
 ### 1. Scope / Trigger

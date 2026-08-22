@@ -11,6 +11,7 @@ const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
 const service=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
 const performanceMigration=readFileSync(resolve(root,"database/migrations/000232_hr_performance_feedback.sql"),"utf8");
 const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
+const payrollIntegrityMigration=readFileSync(resolve(root,"database/migrations/000243_hr_payroll_concurrency_integrity.sql"),"utf8");
 const approvalMigration=readFileSync(resolve(root,"database/migrations/000234_hr_approval_workflow.sql"),"utf8");
 const fileAccess=readFileSync(resolve(root,"apps/api/src/modules/files/file-business-access.service.ts"),"utf8");
 const employeeUi=readFileSync(resolve(root,"apps/web/app/hr/employees/HrEmployeesClient.tsx"),"utf8");
@@ -54,6 +55,21 @@ test("payroll freezes confirmed snapshots and requires correction runs",()=>{
  assert.match(service,/compensationSnapshot/);
  assert.match(service,/Confirmed payroll cannot be adjusted; create a correction run/);
  assert.match(service,/Deductions and tax cannot exceed gross amount/);
+});
+test("payroll serializes state transitions and enforces accounting integrity",()=>{
+ assert.match(payrollIntegrityMigration,/CREATE UNIQUE INDEX IF NOT EXISTS uq_hr_payroll_base_run/);
+ assert.match(payrollIntegrityMigration,/correction_of_run_id IS NULL/);
+ assert.match(payrollIntegrityMigration,/ck_hr_payroll_totals_balance/);
+ assert.match(payrollIntegrityMigration,/gross_total = deduction_total \+ net_total/);
+ assert.match(payrollIntegrityMigration,/ck_hr_payslip_amounts_balance/);
+ assert.match(payrollIntegrityMigration,/gross_amount = deduction_amount \+ personal_tax \+ net_amount/);
+ assert.match(service,/transitionPayrollRun[\s\S]*dataSource\.transaction/);
+ assert.match(service,/transitionPayrollRun[\s\S]*getRepository\(HrPayrollRunEntity\)[\s\S]*getRepository\(HrPayslipEntity\)/);
+ assert.match(service,/transitionPayrollRun[\s\S]*pessimistic_write/);
+ assert.match(service,/transitionPayrollRun[\s\S]*ConflictException\("Only calculated payroll can enter review"\)/);
+ assert.match(controller,/@Post\("payroll\/runs"\)[\s\S]*IdempotencyInterceptor[\s\S]*resource:"hr\.payroll_run"[\s\S]*captureBody:false/);
+ assert.match(controller,/@Post\("payroll\/runs\/:id\/confirm"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
+ assert.match(controller,/@Put\("payroll\/runs\/:runId\/payslips\/:payslipId"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
 });
 test("performance and 360 flows preserve state and anonymity boundaries",()=>{
  for(const table of ["hr_performance_cycle","hr_performance_plan","hr_performance_item","hr_feedback_cycle","hr_feedback_assignment","hr_feedback_response"])assert.match(performanceMigration,new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
