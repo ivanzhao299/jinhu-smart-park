@@ -63,11 +63,11 @@
 
 ## Phase 5: PR And Release Closure
 
-- [ ] Commit scoped changes only.
-- [ ] Push branch and create Draft PR.
-- [ ] Trigger Codex review.
-- [ ] Address review comments and CI failures.
-- [ ] Merge after checks pass.
+- [x] Commit scoped changes only.
+- [x] Push branch and create Draft PR.
+- [x] Trigger Codex review.
+- [x] Address review comments and CI failures.
+- [x] Merge after checks pass.
 - [ ] Follow production deploy, health/login/context-switch smoke, and Docker cleanup.
 
 ## Risk Points
