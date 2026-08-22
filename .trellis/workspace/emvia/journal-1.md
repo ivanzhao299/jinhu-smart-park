@@ -367,3 +367,37 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - 自动化开发与发布闭环已完成；由外部 UAT coordinator 与业务/财务/安全/运维/发布负责人执行完整真人岗位 UAT 和具名签署。
+
+
+## Session 11: P1 Trellis 账本与待终审分支联合对账
+
+**Date**: 2026-08-22
+**Task**: P1 Trellis 账本与待终审分支联合对账
+**Package**: api
+**Branch**: `codex/p1-trellis-ledger-reconcile`
+
+### Summary
+
+核验 17 个 Trellis 任务并归档 14 个；按六级证据审计 48 个本地分支，删除 46 个并保留 2 个；完整证据写入 report.md，未 push。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4f48ad9e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
