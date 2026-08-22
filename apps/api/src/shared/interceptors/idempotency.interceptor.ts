@@ -1,6 +1,5 @@
 import { ConflictException, Logger, UnauthorizedException, type CallHandler, type ExecutionContext, type NestInterceptor } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { createHash } from "node:crypto";
 import { from, map, mergeMap, of, catchError, concatMap, throwError, type Observable } from "rxjs";
 import type { JwtPrincipal } from "../types/jwt-principal";
 import { getIdempotencyService } from "../services/idempotency.service";
@@ -26,7 +25,6 @@ export class IdempotencyInterceptor implements NestInterceptor {
       throw new UnauthorizedException("Authenticated user is required for idempotent writes");
     }
 
-    const requestBody = this.requestFingerprintBody(request);
     const beginContext: IdempotencyBeginContext = {
       tenantId: user.tenantId,
       parkId: user.parkId,
@@ -42,33 +40,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
         requestMethod: request.method,
         requestPath: request.path,
         query: request.query,
-        body: requestBody
+        body: request.body
       })
     };
 
     return from(idempotencyService.tryBegin(beginContext)).pipe(
       mergeMap((decision) => this.handleDecision(idempotencyService, decision, beginContext, next, response))
     );
-  }
-
-  private requestFingerprintBody(request: Request & {
-    file?: { buffer?: unknown; fieldname: string; mimetype: string; originalname: string; size: number };
-  }): unknown {
-    if (!request.file) return request.body;
-    const file = request.file;
-    if (!Buffer.isBuffer(file.buffer)) {
-      throw new ConflictException("Multipart idempotency requires an in-memory file payload");
-    }
-    return {
-      ...(typeof request.body === "object" && request.body !== null ? request.body : {}),
-      __multipartFile: {
-        fieldname: file.fieldname,
-        mimetype: file.mimetype,
-        originalname: file.originalname,
-        size: file.size,
-        sha256: createHash("sha256").update(file.buffer).digest("hex")
-      }
-    };
   }
 
   private handleDecision(

@@ -1,10 +1,9 @@
 "use client";
 
-import type { FileRecord, HousingLeaseDetailResponse } from "@jinhu/shared";
+import type { FileRecord } from "@jinhu/shared";
 import type { FormEvent } from "react";
 import { useRef, useState } from "react";
-import { FileUploader, type FileUploaderOfflineContext } from "../../../components/files/FileUploader";
-import { propertyOfflinePermissionFingerprint } from "../../../features/property-shared/offline/property-draft-contract";
+import { FileUploader } from "../../../components/files/FileUploader";
 import { PendingAttachmentList } from "../../../components/files/PendingAttachmentList";
 import {
   PropertyPanelSurface,
@@ -13,15 +12,9 @@ import {
   type RemoteEntityOption
 } from "../../../features/property-shared";
 import { apiRequest } from "../../../lib/api-client";
-import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { MutationFeedback } from "./HousingFormPrimitives";
 import styles from "./HousingWorkbench.module.css";
-import {
-  beginHousingRepairQueueGate,
-  housingLeaseProjectionVersion,
-  housingRepairSubmissionBlocked
-} from "./housing-offline-version";
 import { loadHousingLeases } from "./housing-picker-loaders";
 import {
   deletePendingFile,
@@ -36,6 +29,7 @@ export function HousingRepairCreatePanel({
   capabilities: PropertyCapabilityProjection;
   onCreated(): void;
 }) {
+  const [lease, setLease] = useState<RemoteEntityOption | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -45,8 +39,17 @@ export function HousingRepairCreatePanel({
   const removeLock = useRef(false);
   const idempotency = useStableIdempotency();
   const fileCapability = capabilities.fileCapability("housing_repair");
-  const leaseState = useHousingRepairLease(fileCapability.canRead, fileCapability.canUpload, setFiles, setMessage);
-  const queueGate = useRepairQueueGate(fileCapability.canUpload, leaseState.selectLease);
+
+  async function selectLease(value: RemoteEntityOption | null) {
+    setLease(value);
+    setFiles([]);
+    if (!value || !fileCapability.canRead) return;
+    try {
+      setFiles(await loadPendingFiles("housing_repair", value.id));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "待提交图片恢复失败");
+    }
+  }
 
   async function removeFile(fileId: string) {
     if (removeLock.current) return;
@@ -66,15 +69,7 @@ export function HousingRepairCreatePanel({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const lease = leaseState.lease;
-    if (housingRepairSubmissionBlocked({
-      hasLease: Boolean(lease), queuedUploadCount: queueGate.count, removing,
-      submitting: lock.current, uploading: uploading || queueGate.busyRef.current
-    })) {
-      if (queueGate.count > 0) setMessage("请先恢复上传或明确清除全部本机临时图片，再提交报修。");
-      return;
-    }
-    if (!lease) return;
+    if (!lease || uploading || removing || lock.current) return;
     const form = new FormData(event.currentTarget);
     const body = repairBody(form, files);
     lock.current = true;
@@ -86,7 +81,7 @@ export function HousingRepairCreatePanel({
       });
       idempotency.complete("housing-repair-create");
       setMessage("报修已代录。");
-      leaseState.clearLease(); setFiles([]); event.currentTarget.reset(); onCreated();
+      setLease(null); setFiles([]); event.currentTarget.reset(); onCreated();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "报修代录失败");
     } finally {
@@ -95,113 +90,20 @@ export function HousingRepairCreatePanel({
   }
 
   return <RepairCreateView capabilities={capabilities} fileCapability={fileCapability} files={files}
-    lease={leaseState.lease} message={message} offlineQueueContext={leaseState.offlineQueueContext} onFiles={setFiles} onLease={queueGate.selectLease} onRemove={removeFile}
+    lease={lease} message={message} onFiles={setFiles} onLease={selectLease} onRemove={removeFile}
     onSubmit={submit} onUploading={setUploading} removing={removing}
-    onQueueState={queueGate.onQueueState} queuedUploadCount={queueGate.count} queueBusy={queueGate.busy}
-    resolveCurrentEntityVersion={leaseState.resolveCurrentLeaseVersion}
     submitting={submitting} uploading={uploading} />;
-}
-
-function useRepairQueueGate(
-  canUpload: boolean,
-  selectLease: (value: RemoteEntityOption | null) => Promise<void>
-) {
-  const [count, setCount] = useState(0);
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
-  function updateBusy(value: boolean) {
-    busyRef.current = value;
-    setBusy(value);
-  }
-  return {
-    busy,
-    busyRef,
-    count,
-    onQueueState(state: { busy: boolean; count: number }) {
-      setCount(state.count);
-      updateBusy(state.busy);
-    },
-    async selectLease(value: RemoteEntityOption | null) {
-      setCount(0);
-      updateBusy(beginHousingRepairQueueGate(Boolean(value), canUpload));
-      await selectLease(value);
-    }
-  };
-}
-
-function useHousingRepairLease(
-  canReadFiles: boolean,
-  canUploadFiles: boolean,
-  setFiles: (files: FileRecord[]) => void,
-  setMessage: (message: string) => void
-) {
-  const [lease, setLease] = useState<RemoteEntityOption | null>(null);
-  const [leaseVersion, setLeaseVersion] = useState<string | null>(null);
-  const leaseSelection = useRef<string | null>(null);
-  const user = useAuthUser();
-  const offlineQueueContext: FileUploaderOfflineContext | undefined = user && leaseVersion !== null
-    ? {
-      tenantId: user.tenant_id, parkId: user.park_id, userId: user.id, entityVersion: leaseVersion,
-      module: "housing",
-      permissionFingerprint: propertyOfflinePermissionFingerprint({
-        dataScope: user.data_scope,
-        enabledModules: user.enabled_modules,
-        permissions: user.permissions
-      })
-    }
-    : undefined;
-
-  async function selectLease(value: RemoteEntityOption | null) {
-    leaseSelection.current = value?.id ?? null;
-    setLease(value); setLeaseVersion(null); setFiles([]);
-    if (!value) return;
-    try {
-      const [pendingFiles, version] = await Promise.all([
-        canReadFiles ? loadPendingFiles("housing_repair", value.id) : Promise.resolve([]),
-        canUploadFiles ? loadLeaseVersion(value.id) : Promise.resolve(null)
-      ]);
-      if (leaseSelection.current !== value.id) return;
-      setFiles(pendingFiles);
-      if (version !== null) setLeaseVersion(version);
-    } catch (error) {
-      if (leaseSelection.current === value.id) {
-        setMessage(error instanceof Error ? error.message : "待提交图片恢复失败");
-      }
-    }
-  }
-
-  async function resolveCurrentLeaseVersion(): Promise<string> {
-    if (!lease) throw new Error("关联租约已变化");
-    return loadLeaseVersion(lease.id);
-  }
-
-  function clearLease() {
-    leaseSelection.current = null; setLease(null); setLeaseVersion(null);
-  }
-
-  return { clearLease, lease, offlineQueueContext, resolveCurrentLeaseVersion, selectLease };
-}
-
-async function loadLeaseVersion(leaseId: string): Promise<string> {
-  const detail = await apiRequest<HousingLeaseDetailResponse>(
-    `/housing/leases/${encodeURIComponent(leaseId)}`,
-    { token: getAccessToken() }
-  );
-  return housingLeaseProjectionVersion(detail.data.lease);
 }
 
 function RepairCreateView(props: {
   capabilities: PropertyCapabilityProjection;
   fileCapability: ReturnType<PropertyCapabilityProjection["fileCapability"]>; files: FileRecord[];
   lease: RemoteEntityOption | null; message: string; onFiles(value: FileRecord[]): void;
-  offlineQueueContext?: FileUploaderOfflineContext;
-  resolveCurrentEntityVersion(): Promise<string>;
   onLease(value: RemoteEntityOption | null): Promise<void>; onRemove(id: string): Promise<void>;
   onSubmit(event: FormEvent<HTMLFormElement>): void; onUploading(value: boolean): void;
-  onQueueState(state: { busy: boolean; count: number }): void; queuedUploadCount: number; queueBusy: boolean;
   removing: boolean; submitting: boolean; uploading: boolean;
 }) {
-  const locked = props.uploading || props.queueBusy || props.submitting || props.removing;
+  const locked = props.uploading || props.submitting || props.removing;
   return <PropertyPanelSurface title="代录住房报修">
     <form className={styles.stack} onSubmit={props.onSubmit}>
       <fieldset className={styles.fieldset} disabled={props.submitting || props.removing}>
@@ -212,17 +114,12 @@ function RepairCreateView(props: {
         <RepairFields />
         {props.lease && props.fileCapability.canUpload ? <FileUploader bizId={props.lease.id}
           bizType="housing_repair" compact disabled={locked} label="上传现场图片"
-          offlineQueueContext={props.offlineQueueContext}
-          offlineQueueUnavailableReason={props.offlineQueueContext ? undefined : "正在建立租约版本校验，离线图片暂存暂不可用"}
-          resolveCurrentEntityVersion={props.resolveCurrentEntityVersion}
           onUploaded={(file) => props.onFiles([...props.files, file])}
-          onUploadingChange={props.onUploading} onQueueStateChange={props.onQueueState}
-          policyKey="image" /> : null}
+          onUploadingChange={props.onUploading} policyKey="image" /> : null}
         {props.files.length ? <PendingAttachmentList files={props.files} mutationDisabled={locked}
           onRemove={props.fileCapability.canDelete ? (id) => void props.onRemove(id) : undefined} /> : null}
         {props.removing ? <p aria-live="polite">正在移除图片…</p> : null}
-        {props.queuedUploadCount > 0 ? <p aria-live="polite">仍有 {props.queuedUploadCount} 张本机临时图片；必须逐项恢复上传或明确清除后才能提交。</p> : null}
-        <button className="ds-button ds-button-primary" disabled={locked || props.queuedUploadCount > 0} type="submit">{props.submitting ? "提交中…" : "提交报修"}</button>
+        <button className="ds-button ds-button-primary" disabled={locked} type="submit">{props.submitting ? "提交中…" : "提交报修"}</button>
       </fieldset>
     </form>
     <MutationFeedback message={props.message} />
