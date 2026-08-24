@@ -99,6 +99,15 @@ test("HR M4 goals use an execution ledger with explicit actions",()=>{
   assert.match(goals,/当前范围暂无目标/);
 });
 
+test("HR M4 performance separates personal and manager queues",()=>{
+  const performance=readFileSync(resolve(__dirname,"performance/HrPerformanceClient.tsx"),"utf8");
+  assert.match(performance,/团队待办/);
+  assert.match(performance,/setup === "plan" \? <form/);
+  assert.match(performance,/填写员工自评/);
+  assert.match(performance,/填写主管评价/);
+  assert.match(performance,/执行 HR 校准/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
