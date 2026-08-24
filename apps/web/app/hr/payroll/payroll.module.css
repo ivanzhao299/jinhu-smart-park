@@ -1,0 +1,21 @@
+.hero { min-height: auto; }
+.payrollPage :global(.ds-mobile-record-list) { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
+.tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
+.tab,.activeTab { min-height:44px; padding:0 18px; border:1px solid var(--border); border-radius:999px; background:var(--bg-card); color:var(--text-secondary); white-space:nowrap; cursor:pointer; }
+.activeTab { border-color:var(--color-primary); background:color-mix(in srgb,var(--color-primary) 12%,var(--bg-card)); color:var(--color-primary); font-weight:700; }
+.toolbar { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.filters { display:grid; grid-template-columns:repeat(2,minmax(0,220px)) auto; gap:12px; align-items:end; }
+.pager { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:16px; }
+.reviewActions { display:grid; gap:12px; margin-top:16px; }
+.catalogGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.mobileNotice { display:none; }
+.srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+@media (max-width:720px) {
+  .payrollPage :global(.ds-mobile-record-list) { grid-template-columns:1fr; }
+  .filters { grid-template-columns:1fr; }
+  .toolbar,.pager { justify-content:stretch; }
+  .toolbar :global(.ds-button),.pager :global(.ds-button) { flex:1; }
+  .desktopSensitive { display:none; }
+  .mobileNotice { display:block; }
+  .catalogGrid { grid-template-columns:1fr; }
+}

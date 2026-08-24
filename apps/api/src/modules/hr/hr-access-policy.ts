@@ -114,6 +114,12 @@ export function resolveHrInsuranceAccessScope(actor:JwtPrincipal):HrLedgerAccess
  if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ))return "self";
  return "none";
 }
+export type HrPayrollHistoryAccessScope="park"|"self"|"none";
+export function resolveHrPayrollHistoryAccessScope(actor:JwtPrincipal):HrPayrollHistoryAccessScope {
+ if(actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ))return "park";
+ if(actor.permissions.includes(HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ))return "self";
+ return "none";
+}
 
 export function isHrEmployeeIdAccessible(
   accessScope: HrEmployeeAccessScope,
