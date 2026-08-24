@@ -400,3 +400,66 @@ CREATE INDEX ON hr_employee_insurance_item(period_id) WHERE is_deleted=false;
 CREATE INDEX ON hr_employee_insurance_item(period_id);
 -- Keep a separate partial business index only when query access also benefits from it.
 ```
+
+## Scenario: Historical attendance and insurance read productization
+
+### 1. Scope / Trigger
+
+- Trigger: exposing `hr_attendance_calendar_source/hr_attendance_day` or `hr_employee_insurance_period/item` through `/hr/*` APIs and workbenches.
+- Historical attendance calendars are templates without employee ownership. They are not employee punch, schedule, or daily-result facts.
+
+### 2. Signatures
+
+- `GET /hr/attendance/calendars?page&page_size&year&month`.
+- `GET /hr/insurance/periods?page&page_size&keyword&year&month&needs_review`.
+- `GET /hr/insurance/periods/me` and `GET /hr/insurance/periods/:id`.
+- Backend scope resolves to `park | managed_org_tree | self | none` from exact attendance or insurance permissions.
+
+### 3. Contracts
+
+- Never attach an employee ID to a migrated calendar template or describe its dates as actual employee attendance.
+- Insurance scope is enforced by tenant, park, and server-resolved employee IDs. A client employee, keyword, year, month, or review filter may only narrow the result.
+- `park` may receive employer amounts and item detail; `managed_org_tree` receives employee identity, compliance status, and personal totals without item detail; `self` receives own personal item detail without employee identity or employer amounts.
+- Every response is an explicit allowlist projection. Never return source snapshots, legacy IDs, tenant/park, actor fields, remarks, soft-delete, or version columns.
+- Attendance and insurance reads use required audit before returning the response. An authorized empty result is still a sensitive read and must be audited; only a true `none` scope may return the fail-closed empty page without recording a successful read.
+- A `forceSelf` service option does not create authority. Direct service calls still require the exact self-read permission, superuser, or wildcard authority.
+
+### 4. Validation & Error Matrix
+
+- no relevant read permission -> `none`; list returns an empty page and detail returns safe not-found.
+- team permission with an empty managed organization tree -> required audit, then an empty page.
+- self route without self-read permission, even when the service is called directly -> empty page.
+- foreign tenant/park, sibling organization, or another employee -> safe not-found/empty without target disclosure.
+- required-audit persistence failure -> fail before returning data or an authorized empty result.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR sees a scoped monthly insurance ledger with employer totals; the employee sees only personal items for the same period.
+- Base: an `N1` calendar symbol is displayed as an unresolved historical template symbol and remains `needs_review`.
+- Bad: label a template day as an employee absence, let `forceSelf=true` bypass permissions, or skip audit because the authorized query returned zero rows.
+
+### 6. Tests Required
+
+- Unit-test `park`, recursive team, `self`, and `none`, including direct service invocation and an employee without a linked account.
+- Assert exact response keys for HR, team, and self projections and the absence of employer/item/internal fields at lower scopes.
+- Assert audit failure blocks non-empty and authorized-empty responses.
+- Contract-test exact controller metadata, production role seed, menu/page guards, and absence of historical write routes.
+- Re-run the Yuzhou T3 total-accounting contract, production seed replay, Web/API checks, and desktop/390px browser verification.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const access = forceSelf ? "self" : resolveHrInsuranceAccessScope(actor);
+if (employeeIds.length === 0) return emptyPage; // bypasses both permission and required audit
+```
+
+#### Correct
+
+```ts
+const access = forceSelf && canReadSelf(actor) ? "self" : resolveHrInsuranceAccessScope(actor);
+if (access === "none") return emptyPage;
+await recordHrSensitiveRead(auditService, scope, actor, authorizedEmptyAudit);
+return emptyPage;
+```

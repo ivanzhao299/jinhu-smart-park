@@ -22,8 +22,8 @@ suite("HR contract read PostgreSQL gate",()=>{
  before(async()=>{
   dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),database:process.env.POSTGRES_DB??"jinhu_smart_park",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,entities:[HrEmployeeEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity]});
   await dataSource.initialize();
-  const args=Array(27).fill(undefined);
-  args[0]=dataSource.getRepository(HrEmployeeEntity);args[19]=dataSource.getRepository(HrContractTypeEntity);args[20]=dataSource.getRepository(HrContractEntity);args[21]=dataSource.getRepository(HrContractChangeEntity);args[25]=dataSource;args[26]={recordOperationRequired:async(input:Record<string,unknown>)=>{audits.push(input);}};
+  const args=Array(31).fill(undefined);
+  args[0]=dataSource.getRepository(HrEmployeeEntity);args[19]=dataSource.getRepository(HrContractTypeEntity);args[20]=dataSource.getRepository(HrContractEntity);args[21]=dataSource.getRepository(HrContractChangeEntity);args[29]=dataSource;args[30]={recordOperationRequired:async(input:Record<string,unknown>)=>{audits.push(input);}};
   service=Reflect.construct(HrService,args) as HrService;
   await dataSource.query("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status) VALUES ($1,$2,$3,'M5-LOCAL','本园区员工','active'),($4,$2,'m5-foreign-park','M5-FOREIGN','外园区员工','active'),($5,$2,$3,'M5-ONLINE','在线合同员工','active'),($6,$2,$3,'M5-CANCEL','取消合同员工','active')",[employee,scope.tenantId,scope.parkId,foreignEmployee,onlineEmployee,cancelEmployee]);
   await dataSource.query("INSERT INTO hr_contract_type(id,tenant_id,park_id,type_code,type_name,is_historical_import) VALUES ($1,$2,$3,'M5-FIXED','固定期限',true),($4,$2,'m5-foreign-park','M5-FOREIGN','外园区类型',true)",[type,scope.tenantId,scope.parkId,foreignType]);

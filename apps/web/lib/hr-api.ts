@@ -21,8 +21,14 @@ export interface HrContract {id:string;employeeId?:string;employeeCode?:string;e
 export interface HrContractChange {id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
 export interface HrContractDetail extends HrContract {changes:HrContractChange[];}
 export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
+export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
+export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
+export interface HrInsuranceItem {insuranceKind:string;contributionBase:string|null;employeeAmount:string|null;supplementAmount:string|null;legacyBaseNegative:boolean;employerAmount?:string|null;totalAmount?:string|null;}
+export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount:string;supplementAmount:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
 export interface HrEmployeeListFilters {keyword?:string;status?:string;}
 export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
+export interface HrAttendanceFilters {year?:number;month?:number;}
+export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
  employees:(token?:string,page=1,pageSize=100,filters:HrEmployeeListFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrEmployee>>(`/hr/employees?${query.toString()}`,{token}));},
@@ -43,6 +49,9 @@ export const hrApi={
  ,contractAction:(id:string,action:"activate"|"cancel",token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
  ,createContractChange:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${id}/changes`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contractChangeAction:(contractId:string,changeId:string,action:"apply"|"cancel",token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${contractId}/changes/${changeId}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
+ ,attendanceCalendars:(token?:string,page=1,pageSize=20,filters:HrAttendanceFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));return unwrap(apiRequest<PaginatedResult<HrAttendanceCalendar>>(`/hr/attendance/calendars?${query.toString()}`,{token}));}
+ ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
+ ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
  ,goalCycles:(token?:string)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,goals:(selfOnly:boolean,token?:string)=>unwrap(apiRequest<HrGoal[]>(selfOnly?"/hr/goals/me":"/hr/goals",{token}))

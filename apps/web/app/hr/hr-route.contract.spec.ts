@@ -184,6 +184,24 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(menu,/"\/hr\/contracts"/);
 });
 
+test("HR M6 historical attendance and insurance ledgers are scoped, paged, and mobile-first",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");
+ const insurance=readFileSync(resolve(__dirname,"insurance/HrInsuranceClient.tsx"),"utf8");
+ const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
+ for(const page of [attendance,insurance]){assert.match(page,/ds-page/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/ds-mobile-record/);assert.match(page,/加载更多/);assert.match(page,/if\(!canRead\)return/);}
+ assert.match(attendance,/这些日期不是员工实际出勤记录/);
+ assert.match(attendance,/未知符号保留待复核/);
+ assert.match(insurance,/单位成本仅向 HR 授权岗位开放/);
+ assert.match(insurance,/selfOnly/);
+ assert.match(insurance,/full\?<span>单位缴费/);
+ assert.match(api,/attendanceCalendars:/);
+ assert.match(api,/insurancePeriods:/);
+ assert.match(api,/insurancePeriod:/);
+ assert.match(menu,/"\/hr\/attendance"/);
+ assert.match(menu,/"\/hr\/insurance"/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

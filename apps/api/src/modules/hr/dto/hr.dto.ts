@@ -20,6 +20,20 @@ export class HrContractListQueryDto {
  @IsOptional() @IsDateString() expiry_from?:string;
  @IsOptional() @IsDateString() expiry_to?:string;
 }
+export class HrAttendanceCalendarQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1900) @Max(2200) year?:number;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1) @Max(12) month?:number;
+}
+export class HrInsurancePeriodQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1900) @Max(2200) year?:number;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1) @Max(12) month?:number;
+ @IsOptional() @Transform(({value})=>value==="true"?true:value==="false"?false:value) @IsIn([true,false]) needs_review?:boolean;
+}
 export class CreateHrContractDto {
  @IsUUID() employeeId!:string;
  @IsUUID() contractTypeId!:string;

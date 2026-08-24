@@ -101,6 +101,20 @@ export function resolveHrContractAccessScope(actor:JwtPrincipal):HrContractAcces
   };
 }
 
+export type HrLedgerAccessScope="park"|"managed_org_tree"|"self"|"none";
+export function resolveHrAttendanceAccessScope(actor:JwtPrincipal):HrLedgerAccessScope {
+ if(actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_ATTENDANCE_READ))return "park";
+ if(actor.permissions.includes(HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ))return "managed_org_tree";
+ if(actor.permissions.includes(HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ))return "self";
+ return "none";
+}
+export function resolveHrInsuranceAccessScope(actor:JwtPrincipal):HrLedgerAccessScope {
+ if(actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_READ))return "park";
+ if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_TEAM_READ))return "managed_org_tree";
+ if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ))return "self";
+ return "none";
+}
+
 export function isHrEmployeeIdAccessible(
   accessScope: HrEmployeeAccessScope,
   targetEmployeeId: string,

@@ -7,7 +7,7 @@ import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/per
 import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
-import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrContractAccessScope,resolveHrEmployeeAccessScope } from "./hr-access-policy";
+import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope } from "./hr-access-policy";
 import { HrController } from "./hr.controller";
 import { HrService } from "./hr.service";
 
@@ -40,6 +40,24 @@ test("labor contract access composes only its exact park, team, and self permiss
   assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_SELF_READ])),{park:false,managedOrgTree:false,self:true});
   assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])),{park:false,managedOrgTree:true,self:true});
   assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ])),{park:true,managedOrgTree:false,self:false});
+});
+
+test("attendance and insurance ledgers use only their exact park, team, self permissions",()=>{
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_READ])),"none");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ])),"self");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ])),"managed_org_tree");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_READ])),"park");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ])),"none");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_SELF_READ])),"self");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_TEAM_READ])),"managed_org_tree");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_READ])),"park");
+});
+
+test("attendance and insurance read routes retain exact atomic permissions",()=>{
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.attendanceCalendars),[HR_PERMISSIONS.HR_ATTENDANCE_READ,HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ,HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.insurancePeriods),[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.insurancePeriod),[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myInsurancePeriods),[HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
 });
 
 test("labor contract routes retain exact read permissions",()=>{
@@ -123,7 +141,7 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   };
   const service = Reflect.construct(
     HrService,
-    [employees, ...Array(23).fill({}), {}, dataSource]
+    [employees, ...Array(27).fill({}), {}, dataSource]
   ) as HrService;
   const scope = { tenantId: "tenant-1", parkId: "park-1" };
   const manager = actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW]);

@@ -5,13 +5,13 @@ import { DataSource,ILike,In,IsNull,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentTransitionDto,HrListQueryDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
-import { HrApprovalActionEntity,HrApprovalRequestEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
-import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrContractAccessScope,resolveHrEmployeeAccessScope } from "./hr-access-policy";
+import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope,type HrLedgerAccessScope } from "./hr-access-policy";
 
 @Injectable()
 export class HrService {
@@ -38,6 +38,10 @@ export class HrService {
   @InjectRepository(HrContractTypeEntity) private readonly contractTypes:Repository<HrContractTypeEntity>,
   @InjectRepository(HrContractEntity) private readonly contracts:Repository<HrContractEntity>,
   @InjectRepository(HrContractChangeEntity) private readonly contractChanges:Repository<HrContractChangeEntity>,
+  @InjectRepository(HrAttendanceCalendarSourceEntity) private readonly attendanceCalendars:Repository<HrAttendanceCalendarSourceEntity>,
+  @InjectRepository(HrAttendanceDayEntity) private readonly attendanceDays:Repository<HrAttendanceDayEntity>,
+  @InjectRepository(HrEmployeeInsurancePeriodEntity) private readonly insurancePeriods:Repository<HrEmployeeInsurancePeriodEntity>,
+  @InjectRepository(HrEmployeeInsuranceItemEntity) private readonly insuranceItems:Repository<HrEmployeeInsuranceItemEntity>,
   @InjectRepository(OrgEntity) private readonly orgs:Repository<OrgEntity>,
   @InjectRepository(UserEntity) private readonly users:Repository<UserEntity>,
   private readonly notifications:HrNotificationService,
@@ -133,6 +137,46 @@ export class HrService {
   return projected;
  }
  async listContractTypes(scope:TenantParkScope){const rows=await this.contractTypes.find({where:{...scope,status:"enabled",isDeleted:false},order:{typeCode:"ASC"}});return rows.map(row=>({id:row.id,typeCode:row.typeCode,typeName:row.typeName,isHistoricalImport:row.isHistoricalImport}));}
+ async listAttendanceCalendars(scope:TenantParkScope,actor:JwtPrincipal,q:HrAttendanceCalendarQueryDto){
+  const access=resolveHrAttendanceAccessScope(actor);
+  if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
+  const qb=this.attendanceCalendars.createQueryBuilder("calendar").where("calendar.tenant_id=:tenantId AND calendar.park_id=:parkId AND calendar.is_deleted=false",scope);
+  if(q.year)qb.andWhere("calendar.calendar_year=:year",{year:q.year});if(q.month)qb.andWhere("calendar.calendar_month=:month",{month:q.month});
+  const total=await qb.getCount();
+  const calendars=await qb.clone().select(["calendar.id","calendar.calendarName","calendar.calendarYear","calendar.calendarMonth"]).orderBy("calendar.calendar_year","DESC").addOrderBy("calendar.calendar_month","DESC").addOrderBy("calendar.id","ASC").skip((q.page-1)*q.page_size).take(q.page_size).getMany();
+  const ids=calendars.map(row=>row.id),days=ids.length?await this.attendanceDays.createQueryBuilder("day").where("day.tenant_id=:tenantId AND day.park_id=:parkId AND day.is_deleted=false",scope).andWhere("day.calendar_source_id IN (:...ids)",{ids}).select(["day.id","day.calendarSourceId","day.attendanceDate","day.legacySymbol","day.symbolStatus","day.normalizedKind"]).orderBy("day.attendance_date","ASC").getMany():[];
+  const items=calendars.map(calendar=>({id:calendar.id,calendarName:calendar.calendarName,year:calendar.calendarYear,month:calendar.calendarMonth,dayCount:days.filter(day=>day.calendarSourceId===calendar.id).length,days:days.filter(day=>day.calendarSourceId===calendar.id).map(day=>({date:day.attendanceDate,legacySymbol:day.legacySymbol,symbolStatus:day.symbolStatus,normalizedKind:day.normalizedKind}))}));
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.attendance_calendar",action:"读取历史考勤月历",bizType:"hr_attendance_calendar",bizId:null,path:"/hr/attendance/calendars",fieldGroups:["attendance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:items.length});
+  return {items,total,page:q.page,page_size:q.page_size};
+ }
+ async listInsurancePeriods(scope:TenantParkScope,actor:JwtPrincipal,q:HrInsurancePeriodQueryDto,forceSelf=false){
+  const canReadSelf=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ);
+  const access:HrLedgerAccessScope=forceSelf?(canReadSelf?"self":"none"):resolveHrInsuranceAccessScope(actor);
+  if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
+  const employeeIds=await this.ledgerEmployeeIds(scope,actor,access);
+  if(employeeIds!==null&&!employeeIds.length){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:["financial","insurance"],projection:access==="managed_org_tree"?"team":"self",itemCount:0});return {items:[],total:0,page:q.page,page_size:q.page_size};}
+  const qb=this.insurancePeriods.createQueryBuilder("period").innerJoin(HrEmployeeEntity,"employee","employee.id=period.employee_id AND employee.tenant_id=period.tenant_id AND employee.park_id=period.park_id AND employee.is_deleted=false").where("period.tenant_id=:tenantId AND period.park_id=:parkId AND period.is_deleted=false",scope);
+  if(employeeIds!==null)qb.andWhere("period.employee_id IN (:...employeeIds)",{employeeIds});if(q.year)qb.andWhere("period.period_year=:year",{year:q.year});if(q.month)qb.andWhere("period.period_month=:month",{month:q.month});if(q.needs_review!==undefined)qb.andWhere("period.needs_review=:needsReview",{needsReview:q.needs_review});if(q.keyword)qb.andWhere("(employee.full_name ILIKE :keyword OR employee.employee_code ILIKE :keyword)",{keyword:`%${q.keyword}%`});
+  const total=await qb.getCount();
+  const rows=await qb.clone().select(["period.id AS id","period.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","period.period_year AS period_year","period.period_month AS period_month","period.needs_review AS needs_review"]).orderBy("period.period_year","DESC").addOrderBy("period.period_month","DESC").addOrderBy("employee.employee_code","ASC").addOrderBy("period.id","ASC").offset((q.page-1)*q.page_size).limit(q.page_size).getRawMany<Record<string,unknown>>();
+  const items=await Promise.all(rows.map(row=>this.projectInsurancePeriod(scope,row,access)));
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:["financial","insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:items.length});
+  return {items,total,page:q.page,page_size:q.page_size};
+ }
+ async insurancePeriodDetail(scope:TenantParkScope,actor:JwtPrincipal,id:string){
+  const access=resolveHrInsuranceAccessScope(actor);if(access==="none")throw new NotFoundException("Insurance period not found");
+  const employeeIds=await this.ledgerEmployeeIds(scope,actor,access);
+  const qb=this.insurancePeriods.createQueryBuilder("period").innerJoin(HrEmployeeEntity,"employee","employee.id=period.employee_id AND employee.tenant_id=period.tenant_id AND employee.park_id=period.park_id AND employee.is_deleted=false").where("period.id=:id AND period.tenant_id=:tenantId AND period.park_id=:parkId AND period.is_deleted=false",{id,...scope});
+  if(employeeIds!==null){if(!employeeIds.length)throw new NotFoundException("Insurance period not found");qb.andWhere("period.employee_id IN (:...employeeIds)",{employeeIds});}
+  const row=await qb.select(["period.id AS id","period.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","period.period_year AS period_year","period.period_month AS period_month","period.needs_review AS needs_review"]).getRawOne<Record<string,unknown>>();if(!row)throw new NotFoundException("Insurance period not found");
+  const projected=await this.projectInsurancePeriod(scope,row,access,true);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保明细",bizType:"hr_employee_insurance_period",bizId:id,path:"/hr/insurance/periods/:id",fieldGroups:["financial","insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:1});return projected;
+ }
+ private async ledgerEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal,access:HrLedgerAccessScope){if(access==="park")return null;if(access==="self")return [(await this.myEmployee(scope,actor)).id];const ids=await this.managedEmployeeIds(scope,actor);if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ))ids.push((await this.myEmployee(scope,actor)).id);return [...new Set(ids)];}
+ private async projectInsurancePeriod(scope:TenantParkScope,row:Record<string,unknown>,access:HrLedgerAccessScope,includeItems=false){
+  const id=String(row.id);const entities=await this.insuranceItems.find({where:{...scope,periodId:id,isDeleted:false},order:{insuranceKind:"ASC"}});const sum=(field:"totalAmount"|"employerAmount"|"employeeAmount"|"supplementAmount")=>entities.reduce((value,item)=>value+hrMoneyToCents(item[field]??"0"),0n);const full=access==="park";
+  const base={id,periodYear:Number(row.period_year),periodMonth:Number(row.period_month),needsReview:Boolean(row.needs_review),employeeAmount:hrCentsToMoney(sum("employeeAmount")),supplementAmount:hrCentsToMoney(sum("supplementAmount")),itemCount:entities.length,...(access==="self"?{}:{employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name)}),...(full?{employerAmount:hrCentsToMoney(sum("employerAmount")),totalAmount:hrCentsToMoney(sum("totalAmount"))}:{})};
+  if(!includeItems||access==="managed_org_tree")return base;return {...base,items:entities.map(item=>({insuranceKind:item.insuranceKind,contributionBase:item.contributionBase,employeeAmount:item.employeeAmount,supplementAmount:item.supplementAmount,legacyBaseNegative:item.legacyBaseNegative,...(full?{employerAmount:item.employerAmount,totalAmount:item.totalAmount}:{})}))};
+ }
  async createContract(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrContractDto){
   if(dto.endDate&&dto.endDate<dto.startDate)throw new BadRequestException("Contract end date cannot precede start date");
   if(dto.probationEndDate&&(dto.probationEndDate<dto.startDate||(dto.endDate&&dto.probationEndDate>dto.endDate)))throw new BadRequestException("Probation end date must be within the contract term");
