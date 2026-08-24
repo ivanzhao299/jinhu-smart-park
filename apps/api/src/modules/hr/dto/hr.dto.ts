@@ -34,6 +34,20 @@ export class HrInsurancePeriodQueryDto {
  @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1) @Max(12) month?:number;
  @IsOptional() @Transform(({value})=>value==="true"?true:value==="false"?false:value) @IsIn([true,false]) needs_review?:boolean;
 }
+export class HrAttendanceRequestListQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @IsIn(["leave","overtime","business_trip","correction"]) type?:string;
+ @IsOptional() @IsIn(["draft","submitted","approved","returned","cancelled"]) status?:string;
+}
+export class CreateHrAttendanceRequestDto {
+ @IsIn(["leave","overtime","business_trip","correction"]) requestType!:string;
+ @IsOptional() @IsDateString({strict:true}) startAt?:string;
+ @IsOptional() @IsDateString({strict:true}) endAt?:string;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() attendanceDate?:string;
+ @Transform(trim) @IsString() @MaxLength(2000) reason!:string;
+}
+export class ReviewHrAttendanceRequestDto { @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
 export class CreateHrContractDto {
  @IsUUID() employeeId!:string;
  @IsUUID() contractTypeId!:string;

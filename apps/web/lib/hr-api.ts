@@ -23,11 +23,13 @@ export interface HrContractDetail extends HrContract {changes:HrContractChange[]
 export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
 export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
 export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
+export interface HrAttendanceRequest {id:string;requestNo:string;requestType:string;startAt:string|null;endAt:string|null;attendanceDate:string|null;durationMinutes:number;reason:string;status:string;submittedAt:string|null;reviewedAt:string|null;reviewComment:string|null;isSelf:boolean;employeeId?:string;employeeCode?:string;employeeName?:string;}
 export interface HrInsuranceItem {insuranceKind:string;contributionBase:string|null;employeeAmount:string|null;supplementAmount:string|null;legacyBaseNegative:boolean;employerAmount?:string|null;totalAmount?:string|null;}
 export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount:string;supplementAmount:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
 export interface HrEmployeeListFilters {keyword?:string;status?:string;}
 export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
 export interface HrAttendanceFilters {year?:number;month?:number;}
+export interface HrAttendanceRequestFilters {type?:string;status?:string;}
 export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
@@ -50,6 +52,11 @@ export const hrApi={
  ,createContractChange:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${id}/changes`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contractChangeAction:(contractId:string,changeId:string,action:"apply"|"cancel",token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${contractId}/changes/${changeId}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
  ,attendanceCalendars:(token?:string,page=1,pageSize=20,filters:HrAttendanceFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));return unwrap(apiRequest<PaginatedResult<HrAttendanceCalendar>>(`/hr/attendance/calendars?${query.toString()}`,{token}));}
+ ,attendanceRequests:(token?:string,page=1,pageSize=30,filters:HrAttendanceRequestFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.type)query.set("type",filters.type);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrAttendanceRequest>>(`/hr/attendance/requests?${query.toString()}`,{token}));}
+ ,createAttendanceRequest:(body:object,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>("/hr/attendance/requests",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,submitAttendanceRequest:(id:string,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/submit`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,cancelAttendanceRequest:(id:string,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/cancel`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,reviewAttendanceRequest:(id:string,decision:"approve"|"reject",comment:string|undefined,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/${decision}`,{method:"POST",body:comment?{comment}:{},token,idempotencyKey:crypto.randomUUID()}))
  ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
  ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
  ,goalCycles:(token?:string)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token}))

@@ -4,7 +4,7 @@ import type { TenantParkScope } from "@jinhu/shared";
 import type { EntityManager, Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { UserMessageEntity } from "../workflow/entities/user-message.entity";
-import { HrEmployeeEntity, HrWorkReportEntity } from "./entities/hr.entities";
+import { HrAttendanceRequestEntity,HrEmployeeEntity, HrWorkReportEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 
 const scope: TenantParkScope = {
@@ -85,4 +85,18 @@ test("notification is skipped when the actor is also the recipient", async () =>
   const { inserted, manager, service } = harness({ userId: actor.sub });
   await service.publishWorkReportReviewed(scope, actor, report("returned"), manager);
   assert.equal(inserted.length, 0);
+});
+
+test("submitted attendance request becomes a body-free workflow review item",async()=>{
+ const {inserted,service,manager:baseManager}=harness({});
+ const fallback=(entity:unknown)=>(baseManager as unknown as {getRepository:(value:unknown)=>unknown}).getRepository(entity);const manager={getRepository:(entity:unknown)=>entity===HrEmployeeEntity?{findOne:async(input:{where:{id:string}})=>input.where.id==="employee-1"?{managerEmployeeId:"manager-1"}:{userId:"user-manager"}}:fallback(entity)} as unknown as EntityManager;
+ const request={id:"request-1",employeeId:"employee-1",requestType:"leave",status:"submitted"} as HrAttendanceRequestEntity;
+ await service.publishAttendanceRequestSubmitted(scope,actor,request,manager);
+ assert.equal(inserted.length,1);assert.equal(inserted[0]?.sourceType,"hr_attendance_request");assert.equal(inserted[0]?.targetUrl,"/hr/attendance");assert.equal(inserted[0]?.action,"review");assert.deepEqual(inserted[0]?.payload,{requestType:"leave",status:"submitted"});assert.doesNotMatch(JSON.stringify(inserted[0]),/reason|medical/u);
+});
+
+test("returned attendance request notifies the employee without review body",async()=>{
+ const {inserted,service,manager:baseManager}=harness({});const fallback=(entity:unknown)=>(baseManager as unknown as {getRepository:(value:unknown)=>unknown}).getRepository(entity);const manager={getRepository:(entity:unknown)=>entity===HrEmployeeEntity?{findOne:async()=>({userId:"user-employee"})}:fallback(entity)} as unknown as EntityManager;
+ await service.publishAttendanceRequestReviewed(scope,actor,{id:"request-2",employeeId:"employee-2",requestType:"correction",status:"returned",reviewComment:"sensitive"} as HrAttendanceRequestEntity,manager);
+ assert.equal(inserted.length,1);assert.equal(inserted[0]?.priority,"high");assert.equal(inserted[0]?.action,"supplement");assert.doesNotMatch(String(inserted[0]?.content),/sensitive/u);
 });

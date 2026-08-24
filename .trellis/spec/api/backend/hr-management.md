@@ -463,3 +463,67 @@ if (access === "none") return emptyPage;
 await recordHrSensitiveRead(auditService, scope, actor, authorizedEmptyAudit);
 return emptyPage;
 ```
+
+## Scenario: Governed online attendance requests
+
+### 1. Scope / Trigger
+
+- Trigger: creating, submitting, cancelling, reviewing, listing, or notifying for leave, overtime, business-trip, and attendance-correction requests.
+- This workflow creates online business records only. It never rewrites Yuzhou historical calendar templates or imported attendance evidence.
+
+### 2. Signatures
+
+- `GET /hr/attendance/requests` requires an exact park, managed-team, or self attendance read permission.
+- `POST /hr/attendance/requests`, `/:id/submit`, and `/:id/cancel` require `hr:attendance:request`.
+- `POST /hr/attendance/requests/:id/approve` and `/:id/reject` require `hr:attendance:approve`.
+- Every write route uses replay-aware idempotency and body-free audit metadata.
+
+### 3. Contracts
+
+- The employee identity is resolved from the authenticated user and tenant/park scope; a client never chooses the employee for a self-service request.
+- Timed requests require explicit timezone offsets, positive whole-minute boundaries, and a maximum duration of 31 days. The service computes `duration_minutes`; PostgreSQL independently enforces duration, minute precision, and request-type shape.
+- State transitions are `draft -> submitted`, `returned -> submitted`, `submitted -> approved|returned`, and `draft|submitted|returned -> cancelled`. Approved, cancelled, and other terminal records are immutable.
+- Reviewers cannot review their own request. Team review uses the server-resolved recursive managed organization tree; HR review remains tenant-and-park bounded.
+- The employee row is pessimistically locked before overlap checks so concurrent submit or approval decisions for one employee serialize. Submitted and approved requests participate in overlap detection.
+- The attendance request, approval projection, approval action, and user message are written through the same transaction manager. Notification failure rolls back the business transition.
+- Notifications may identify the request type and workflow state but never copy the reason, medical details, or review comment into message content or payload.
+
+### 4. Validation & Error Matrix
+
+- missing linked employee, foreign tenant/park, or unmanaged employee -> safe not-found without target disclosure.
+- self approval -> forbidden; invalid or terminal transition -> conflict; return without actionable comment -> bad request.
+- missing timezone, seconds/milliseconds, non-positive interval, duration over 31 days, or wrong correction shape -> bad request before persistence and database rejection if the service is bypassed.
+- submitted/approved overlap -> conflict; unique-index race -> translated conflict rather than a raw database error.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an employee submits leave, the direct manager approves it, and the request, action history, approval projection, and privacy-safe inbox message commit together.
+- Base: a returned correction request is edited outside this slice only after an explicit edit contract exists; with the current API it may only be resubmitted unchanged or cancelled.
+- Bad: accept a client employee ID, let a manager approve a sibling department, capture the reason in generic audit metadata, or publish a message after the transaction commits.
+
+### 6. Tests Required
+
+- Unit-test every state transition, self/team/park/none scope, self-approval denial, team-tree escape, time validation, projection allowlists, required audit, and notification privacy.
+- Contract-test exact action permissions, idempotency interceptors, body-free audit, production seed role grants, and Web request guards.
+- In isolated PostgreSQL apply and replay the migration and production seed, prove the constraints reject second-level and over-31-day rows, and exercise a two-connection same-employee overlap race.
+- Run focused API/Web tests, the Yuzhou T3 compatibility contract, full lint/type-check/build, and desktop plus 390px role UAT when browser viewport control is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await requestRepo.save({ ...dto, employeeId: dto.employeeId, durationMinutes: dto.durationMinutes });
+await notifyManager(dto.reason);
+```
+
+#### Correct
+
+```ts
+await dataSource.transaction(async manager => {
+  const employee = await lockActorEmployee(manager, scope, actor.sub);
+  const timing = validateAndCalculateServerTiming(dto);
+  await assertNoSubmittedOrApprovedOverlap(manager, scope, employee.id, timing);
+  await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
+});
+```

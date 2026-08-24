@@ -202,6 +202,12 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(menu,/"\/hr\/insurance"/);
 });
 
+test("HR M6 attendance requests expose explicit self and approval actions without unauthorized calls",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
+ for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:crypto\.randomUUID\(\)/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

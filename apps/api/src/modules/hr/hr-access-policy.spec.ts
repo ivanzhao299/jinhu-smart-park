@@ -141,7 +141,7 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   };
   const service = Reflect.construct(
     HrService,
-    [employees, ...Array(27).fill({}), {}, dataSource]
+    [employees, ...Array(28).fill({}), {}, dataSource]
   ) as HrService;
   const scope = { tenantId: "tenant-1", parkId: "park-1" };
   const manager = actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW]);
