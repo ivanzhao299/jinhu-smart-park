@@ -117,6 +117,16 @@ test("HR M4 360 feedback uses explicit setup and personal task actions",()=>{
   assert.match(feedback,/当前没有需要处理的 360 评价/);
 });
 
+test("HR M4 approvals separate applicant records from reviewer queue",()=>{
+  const approvals=readFileSync(resolve(__dirname,"approvals/HrApprovalsClient.tsx"),"utf8");
+  assert.match(approvals,/待我审核/);
+  assert.match(approvals,/showCreate \? <form/);
+  assert.match(approvals,/审核申请/);
+  assert.match(approvals,/提交审核/);
+  assert.match(approvals,/重新提交/);
+  assert.match(approvals,/撤回/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
