@@ -47,7 +47,8 @@ export class HrService {
   if(accessScope==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
   const employee=accessScope==="self"?await this.myEmployee(scope,actor):null;
   const managedIds=accessScope==="managed_org_tree"?await this.managedEmployeeIds(scope,actor):null;
-  const where={tenantId:scope.tenantId,parkId:scope.parkId,isDeleted:false,...(employee?{id:employee.id}:{}),...(managedIds?{id:In(managedIds.length?managedIds:["00000000-0000-0000-0000-000000000000"])}:{}),...(q.status?{employmentStatus:q.status}:{}),...(q.org_id?{primaryOrgId:q.org_id}:{}),...(q.keyword?{fullName:ILike(`%${q.keyword}%`)}:{})};
+  const baseWhere={tenantId:scope.tenantId,parkId:scope.parkId,isDeleted:false,...(employee?{id:employee.id}:{}),...(managedIds?{id:In(managedIds.length?managedIds:["00000000-0000-0000-0000-000000000000"])}:{}),...(q.status?{employmentStatus:q.status}:{}),...(q.org_id?{primaryOrgId:q.org_id}:{})};
+  const where=q.keyword?[{...baseWhere,fullName:ILike(`%${q.keyword}%`)},{...baseWhere,employeeCode:ILike(`%${q.keyword}%`)}]:baseWhere;
   const [items,total]=await this.employees.findAndCount({where,order:{employeeCode:"ASC"},skip:(q.page-1)*q.page_size,take:q.page_size});
   return {items,total,page:q.page,page_size:q.page_size};
  }

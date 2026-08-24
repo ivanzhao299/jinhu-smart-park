@@ -79,6 +79,9 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/visibleRows\.map/);
   assert.match(employees,/rows\.length<total/);
   assert.match(employees,/加载更多员工/);
+  assert.match(employees,/keyword:query\.trim\(\),status:statusFilter/);
+  assert.match(employees,/window\.setTimeout\(\(\)=>void load\(\),300\)/);
+  assert.match(employees,/当前员工详情不在您的数据权限范围内/);
 });
 
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
