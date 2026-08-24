@@ -524,6 +524,66 @@ await dataSource.transaction(async manager => {
   const employee = await lockActorEmployee(manager, scope, actor.sub);
   const timing = validateAndCalculateServerTiming(dto);
   await assertNoSubmittedOrApprovedOverlap(manager, scope, employee.id, timing);
-  await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
+await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
+});
+```
+
+## Scenario: Versioned attendance calculation core
+
+### 1. Scope / Trigger
+
+- Trigger: defining shifts, assigning schedules, ingesting punch events, recalculating employee business days, or reading daily attendance results.
+- `hr_attendance_day` remains a migrated calendar template and is never joined as employee attendance truth or mutated by calculation.
+
+### 2. Signatures
+
+- HR operation writes require the exact `hr:attendance:operate` permission, replay-aware idempotency, and body-free audit.
+- Daily-result reads resolve only to `park | managed_org_tree | self | none` from exact attendance permissions and require audit before response.
+- Punch event identity is `(tenant_id, park_id, source, event_key)`; replay succeeds only when employee, occurred time, event type, source, and device identity match.
+
+### 3. Contracts
+
+- Shift and schedule semantics use the `Asia/Shanghai` local business date. Cross-midnight shifts retain the scheduled start date and an explicit punch window.
+- Raw punch events are immutable facts. A reused identity with different content is a conflict, while identical replay returns the original event.
+- Every recalculation appends a new immutable calculation version and daily-result row. It never updates or deletes an earlier result.
+- Recalculation takes an employee write lock so concurrent calculations serialize and receive distinct versions. Reads select the latest version per employee and business date with deterministic ordering.
+- Results retain source event IDs, schedule/shift identity, rule/calculation version, calculation window, and any approved correction request ID. A correction is evidence for a new version, not an edit to an old result.
+- Response projections exclude device payloads, source internals, tenant/park, audit actors, soft-delete, version-control internals, and legacy source snapshots.
+
+### 4. Validation & Error Matrix
+
+- missing employee, schedule, shift, or foreign scope -> safe not-found; unmanaged team target -> safe not-found.
+- duplicate event identity with changed payload -> conflict; identical replay -> original record without duplicate insertion.
+- invalid local date/time, inverted window, or unsupported event type -> bad request/database rejection.
+- required-audit failure -> no daily result response, including an authorized empty team result.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an overnight shift starting at 22:00 remains on its scheduled business date, consumes the bounded next-day punch window, and produces a traceable new version.
+- Base: a rest day with no events produces an explicit rest classification rather than a fabricated work record.
+- Bad: overwrite yesterday's result during recalculation, deduplicate only by a device key without source, or derive employee facts from `hr_attendance_day`.
+
+### 6. Tests Required
+
+- PostgreSQL-test fresh/upgrade/replay constraints, exact event replay, changed-payload conflict, same key across sources, cross-night windows, approved correction trace, concurrent version allocation, latest-only projection, and zero historical-template writes.
+- Unit-test local business-date calculations, exception classifications, self/team/park/none access, required audit, and exact projections.
+- Contract-test atomic permissions, production seed grants, Web pre-request guards, mobile records, and all write-route idempotency/audit metadata.
+- Run T3 compatibility, focused API/Web, full lint/type-check/build, and desktop/390px UAT when viewport control is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await dailyResultRepo.update({ employeeId, attendanceDate }, nextResult);
+```
+
+#### Correct
+
+```ts
+await dataSource.transaction(async manager => {
+  await lockEmployee(manager, scope, employeeId);
+  const nextVersion = await allocateCalculationVersion(manager, scope, employeeId, businessDate);
+  await appendDailyResult(manager, nextVersion, immutableTrace);
 });
 ```

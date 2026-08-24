@@ -1441,6 +1441,7 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.HR_ATTENDANCE_REQUEST, name: "提交本人考勤申请", resource: "hr.attendance", action: "request" },
   { code: SYSTEM_PERMISSIONS.HR_ATTENDANCE_APPROVE, name: "审批考勤申请", resource: "hr.attendance", action: "approve" },
   { code: SYSTEM_PERMISSIONS.HR_ATTENDANCE_CORRECT, name: "管理考勤更正", resource: "hr.attendance", action: "correct" },
+  { code: SYSTEM_PERMISSIONS.HR_ATTENDANCE_OPERATE, name: "运营排班与考勤计算", resource: "hr.attendance", action: "operate" },
   { code: SYSTEM_PERMISSIONS.HR_INSURANCE_PAGE, name: "五险一金", resource: "hr.insurance", action: "page" },
   { code: SYSTEM_PERMISSIONS.HR_INSURANCE_READ, name: "读取园区社保台账", resource: "hr.insurance", action: "read" },
   { code: SYSTEM_PERMISSIONS.HR_INSURANCE_TEAM_READ, name: "读取团队社保台账", resource: "hr.insurance", action: "team_read" },

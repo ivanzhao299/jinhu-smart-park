@@ -208,6 +208,12 @@ test("HR M6 attendance requests expose explicit self and approval actions withou
  for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:crypto\.randomUUID\(\)/);
 });
 
+test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ assert.match(attendance,/HR_ATTENDANCE_OPERATE/);assert.match(attendance,/员工事实/);assert.match(attendance,/团队考勤异常/);assert.match(attendance,/我的考勤日历/);assert.match(attendance,/班次、排班、打卡与重算/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/if\(!canOperate\)return/);
+ for(const method of ["attendanceShifts","createAttendanceShift","createAttendanceSchedule","createAttendancePunch","attendanceDaily","recalculateAttendance"])assert.match(api,new RegExp(`${method}:`));
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
