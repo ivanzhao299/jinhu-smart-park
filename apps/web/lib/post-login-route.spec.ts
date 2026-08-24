@@ -237,8 +237,8 @@ test("park switches keep an accessible menu route and its detail routes", () => 
     menu_tree: [{ label: "工单管理", href: "/workorders", permission: "workorder:read", module: "workorder" }]
   });
 
-  assert.equal(resolvePostParkSwitchPath(user, "/workorders", desktopSignals), "/workorders");
-  assert.equal(resolvePostParkSwitchPath(user, "/workorders/order-1", desktopSignals), "/workorders/order-1");
+  assert.equal(resolvePostParkSwitchPath(user, "/workorders", null, desktopSignals), "/workorders");
+  assert.equal(resolvePostParkSwitchPath(user, "/workorders/order-1", null, desktopSignals), "/workorders/order-1");
 });
 
 test("park switches redirect an inaccessible menu detail to the next user's landing route", () => {
@@ -248,14 +248,14 @@ test("park switches redirect an inaccessible menu detail to the next user's land
     menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
   });
 
-  assert.equal(resolvePostParkSwitchPath(user, "/engineering/projects/project-1", desktopSignals), "/system/users");
+  assert.equal(resolvePostParkSwitchPath(user, "/engineering/projects/project-1", null, desktopSignals), "/system/users");
 });
 
 test("park switches keep the module-free dashboard and unknown utility routes", () => {
   const user = createUser();
 
-  assert.equal(resolvePostParkSwitchPath(user, "/dashboard", desktopSignals), "/dashboard");
-  assert.equal(resolvePostParkSwitchPath(user, "/profile/preferences", desktopSignals), "/profile/preferences");
+  assert.equal(resolvePostParkSwitchPath(user, "/dashboard", null, desktopSignals), "/dashboard");
+  assert.equal(resolvePostParkSwitchPath(user, "/profile/preferences", null, desktopSignals), "/profile/preferences");
 });
 
 test("park switches keep reachable mobile terminals", () => {
@@ -268,8 +268,8 @@ test("park switches keep reachable mobile terminals", () => {
     enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }]
   });
 
-  assert.equal(resolvePostParkSwitchPath(engineeringUser, "/engineering/terminal", mobileSignals), "/engineering/terminal");
-  assert.equal(resolvePostParkSwitchPath(operationsUser, "/operations/terminal", mobileSignals), "/operations/terminal");
+  assert.equal(resolvePostParkSwitchPath(engineeringUser, "/engineering/terminal", null, mobileSignals), "/engineering/terminal");
+  assert.equal(resolvePostParkSwitchPath(operationsUser, "/operations/terminal", null, mobileSignals), "/operations/terminal");
 });
 
 test("park switches redirect an unreachable mobile terminal with existing mobile landing semantics", () => {
@@ -279,11 +279,59 @@ test("park switches redirect an unreachable mobile terminal with existing mobile
     menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
   });
 
-  assert.equal(resolvePostParkSwitchPath(user, "/engineering/terminal", mobileSignals), "/system/users");
+  assert.equal(resolvePostParkSwitchPath(user, "/engineering/terminal", null, mobileSignals), "/system/users");
 });
 
 test("park switches preserve the desktop wildcard dashboard fallback", () => {
   const user = createUser({ permissions: ["*"], is_super: true });
 
-  assert.equal(resolvePostParkSwitchPath(user, "/operations/terminal", desktopSignals), "/dashboard");
+  assert.equal(resolvePostParkSwitchPath(user, "/operations/terminal", null, desktopSignals), "/dashboard");
+});
+
+test("park switches prefer a denied specific menu over an accessible parent prefix", () => {
+  const user = createUser({
+    permissions: ["ENGINEERING_DASHBOARD_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }],
+    menu_tree: [{ label: "工程运行时", href: "/engineering", permission: "ENGINEERING_DASHBOARD_VIEW", module: "engineering" }]
+  });
+
+  assert.equal(
+    resolvePostParkSwitchPath(user, "/engineering/plans/plan-1", null, desktopSignals),
+    "/engineering"
+  );
+});
+
+test("park switches enforce compound menu permissions", () => {
+  const user = createUser({
+    permissions: ["asset:property-operations:page"],
+    enabled_modules: [{ module_code: "asset", module_name: "资产管理", module_group: "asset", enabled: true }],
+    menu_tree: []
+  });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/assets/property-operations", null, desktopSignals), "/dashboard");
+});
+
+test("park switches redirect a backend menu removed from the target park", () => {
+  const previousUser = createUser({
+    permissions: ["custom:read"],
+    enabled_modules: [{ module_code: "custom", module_name: "自定义", module_group: "custom", enabled: true }],
+    menu_tree: [{ label: "自定义入口", href: "/custom/park-report", permission: "custom:read", module: "custom" }]
+  });
+  const nextUser = createUser({
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(nextUser, "/custom/park-report", previousUser, desktopSignals), "/system/users");
+});
+
+test("park switches require the engineering terminal dashboard permission", () => {
+  const user = createUser({
+    permissions: ["ENGINEERING_PROJECT_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }],
+    menu_tree: [{ label: "工程项目", href: "/engineering/projects", permission: "ENGINEERING_PROJECT_VIEW", module: "engineering" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/engineering/terminal", null, mobileSignals), "/engineering/projects");
 });

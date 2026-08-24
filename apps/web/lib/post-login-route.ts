@@ -1,6 +1,6 @@
 import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
 import { getDashboardAuthorizationMenus } from "./menu";
-import { hasModule, hasPermission } from "./permissions";
+import { hasAllPermissions, hasModule, hasPermission } from "./permissions";
 
 export interface PostLoginDeviceSignals {
   viewportWidth?: number;
@@ -22,6 +22,7 @@ const ENGINEERING_PERMISSIONS = [
 interface RouteMenuItem {
   href?: string;
   permission?: string;
+  permissions?: string[];
   module?: string;
   children?: RouteMenuItem[];
 }
@@ -60,31 +61,50 @@ function pathBelongsToMenu(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+interface MenuPathAccess {
+  accessible: boolean;
+  hrefLength: number;
+}
+
 function resolveMenuPathAccess(
   user: UserContext | null,
   pathname: string,
   items?: RouteMenuItem[],
   inheritedModule?: string
-): boolean | null {
+): MenuPathAccess | null {
   if (!items) {
     return null;
   }
-  let matched = false;
+  let bestMatch: MenuPathAccess | null = null;
   for (const item of items) {
     const moduleCode = item.module ?? inheritedModule;
     if (item.href && pathBelongsToMenu(pathname, item.href)) {
-      matched = true;
-      if (hasPermission(user, item.permission) && hasModule(user, moduleCode)) {
-        return true;
+      const candidate = {
+        accessible:
+          hasPermission(user, item.permission) &&
+          hasAllPermissions(user, item.permissions ?? []) &&
+          hasModule(user, moduleCode),
+        hrefLength: item.href.length
+      };
+      if (
+        !bestMatch ||
+        candidate.hrefLength > bestMatch.hrefLength ||
+        (candidate.hrefLength === bestMatch.hrefLength && candidate.accessible)
+      ) {
+        bestMatch = candidate;
       }
     }
     const nested = resolveMenuPathAccess(user, pathname, item.children, moduleCode);
-    if (nested === true) {
-      return true;
+    if (
+      nested &&
+      (!bestMatch ||
+        nested.hrefLength > bestMatch.hrefLength ||
+        (nested.hrefLength === bestMatch.hrefLength && nested.accessible))
+    ) {
+      bestMatch = nested;
     }
-    matched ||= nested === false;
   }
-  return matched ? false : null;
+  return bestMatch;
 }
 
 export function detectPostLoginDeviceSignals(): PostLoginDeviceSignals {
@@ -141,17 +161,25 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
 export function resolvePostParkSwitchPath(
   user: UserContext | null,
   pathname: string,
+  previousUser: UserContext | null = null,
   signals: PostLoginDeviceSignals = detectPostLoginDeviceSignals()
 ): string {
   if (pathname === "/dashboard") {
     return pathname;
   }
 
-  const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
+  const hasEngineeringTerminalAccess =
+    hasModule(user, "engineering") && hasPermission(user, "ENGINEERING_DASHBOARD_VIEW");
   const hasOperationsAccess =
     hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);
   if (pathname === "/engineering/terminal") {
-    return hasEngineeringAccess ? pathname : resolvePostLoginPath(user, signals);
+    if (hasEngineeringTerminalAccess) {
+      return pathname;
+    }
+    const fallback = resolvePostLoginPath(user, signals);
+    return fallback === pathname
+      ? findFirstAccessibleMenuHref(user, user?.menu_tree ?? user?.menus) ?? "/dashboard"
+      : fallback;
   }
   if (pathname === "/operations/terminal") {
     return hasOperationsAccess ? pathname : resolvePostLoginPath(user, signals);
@@ -162,5 +190,13 @@ export function resolvePostParkSwitchPath(
     pathname,
     getDashboardAuthorizationMenus(user?.menu_tree ?? user?.menus)
   );
-  return menuAccess === false ? resolvePostLoginPath(user, signals) : pathname;
+  if (menuAccess) {
+    return menuAccess.accessible ? pathname : resolvePostLoginPath(user, signals);
+  }
+  const previousMenuAccess = resolveMenuPathAccess(
+    previousUser,
+    pathname,
+    previousUser?.menu_tree ?? previousUser?.menus
+  );
+  return previousMenuAccess ? resolvePostLoginPath(user, signals) : pathname;
 }

@@ -137,6 +137,13 @@ detail subpaths inherit that menu's permission and parent module. Keep `/dashboa
 module-free route, and check mobile engineering/operations terminals with the same access rules
 used by `resolvePostLoginPath`.
 
+When menu hrefs overlap, the longest matching href owns the route; a broader accessible parent
+must not override a denied child. Apply both the singular permission and every compound
+`permissions` requirement. Pass the pre-switch user only to recognize a backend-added menu that
+disappeared from the target park; that case is a proven denial, unlike a route absent from both
+menu contexts. Terminal reachability must use the terminal page's actual guard permission, even
+when the broader post-login workbench heuristic accepts other permissions.
+
 Redirect a provably inaccessible route through `resolvePostLoginPath(nextUser)` so device-specific
 terminal priority, the desktop wildcard `/dashboard`, and ordinary users' first accessible menu
 stay consistent with login. Unknown non-menu utility routes are not proof of denial; keep them and

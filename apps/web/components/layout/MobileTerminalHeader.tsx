@@ -48,7 +48,7 @@ export function MobileTerminalHeader() {
     try {
       const nextUser = await switchParkContext(parkId);
       sessionActions?.publishUser(nextUser, { remountScopedPages: true });
-      const nextPath = resolvePostParkSwitchPath(nextUser, pathname);
+      const nextPath = resolvePostParkSwitchPath(nextUser, pathname, user);
       if (nextPath === pathname) router.refresh();
       else router.replace(nextPath as Route);
     } catch (error) {
