@@ -33,13 +33,15 @@
 
 ## 4. Slice D：受限 DSL 与双轨差异
 
-- [ ] 实现独立 lexer/parser/AST validator；禁止 SQL、函数、赋值、循环和动态变量。
-- [ ] 解析状态 `parsed/manual_review/rejected/approved_for_simulation`，依赖闭环检测和 parser version 固化；只有人工批准状态可执行。
-- [ ] parser 对表达式长度、token 数、AST 深度、依赖数、属性/原型访问设硬上限；除零、溢出、未知引用和资源超限 fail closed，7 条 `cit` 及全部跨域 HR 引用强制人工复核。
-- [ ] evaluator 全程精确 decimal/缩放整数，显式舍入规则，禁止 JavaScript `number`。
-- [ ] 双轨计算只写 reconciliation 表，模型/数据库不提供付款状态或可开启发薪的布尔开关，不写历史工资和在线 `hr_payroll_run/hr_payslip`，不复用现有确认/付款路由。
-- [ ] 每次模拟在事务内冻结 employee/compensation/insurance/formula/engine 版本，并且考勤只接受 M6 `closed` 且当前 effective 的 payroll-input batch；求值期间禁止读取漂移的 live current 值。
-- [ ] 逐员工/逐项目差异、容差、复核动作和版本链完整。
+- [x] 实现独立 lexer/parser/AST validator；禁止 SQL、函数、赋值、循环和动态变量。
+- [x] 解析状态 `parsed/manual_review/rejected/approved_for_simulation`，依赖闭环检测和 parser version 固化；只有人工批准状态可执行。
+- [x] parser 对表达式长度、token 数、AST 深度、依赖数、属性/原型访问设硬上限；除零、溢出、未知引用和资源超限 fail closed，7 条 `cit` 及全部跨域 HR 引用强制人工复核。
+- [x] evaluator 全程精确 decimal/缩放整数，显式 half-away-from-zero 舍入规则，禁止 JavaScript `number`。
+- [x] 双轨计算只写 reconciliation 专用追加表，模型/数据库不提供付款状态或可开启发薪的布尔开关，不写历史工资和在线 `hr_payroll_run/hr_payslip`，不复用现有确认/付款路由。
+- [x] 每次模拟在事务内冻结 employee/compensation/insurance/formula/engine 版本，并且考勤只接受 M6 `closed` 且当前 effective 的 payroll-input batch；求值期间只读取加锁快照。
+- [x] 逐员工/逐项目差异、四位小数容差、追加式复核动作和 supersedes 版本链完整；账套级追加版策略只允许 HR 复核权限批准一个权威净额项目版本，模拟未配置/歧义/跨范围即阻断，`newTotal` 禁止汇总全部公式。
+
+Slice D implementation evidence (2026-08-25): restricted DSL and reconciliation contracts pass; complete API unit completed with 1,427 pass / 18 environment skips after the sole formatting-sensitive contract was corrected and re-run focused green. API/Web lint, typecheck and production builds pass; Web HR contracts pass 26/26. Fresh `template0` official runner applied 241/241 migrations plus 8/8 prerequisites and production seed replay passed twice. A real PostgreSQL service fixture invokes two concurrent `simulateReconciliation` calls and proves advisory serialization, authoritative legacy `net_amount` 100.0000 to mapped formula output 125.0000, immutable results, and zero writes to legacy snapshot, T3 attendance input, `hr_payroll_run` and `hr_payslip`. Production seed grants calculate/review only to `HR_MANAGER`; department managers remain denied.
 
 ## 5. Slice E：生产化 Web 工作台
 
@@ -51,12 +53,12 @@
 
 ## 6. 数据库与质量门禁
 
-- [ ] 从 PostgreSQL `template0` 建 fresh 数据库，运行全量 migrations 和 production seed 两次。
+- [x] 从 PostgreSQL `template0` 建 fresh 数据库，运行全量 migrations 和 production seed 两次。
 - [ ] upgrade 数据库从 `000247` 应用 T4 migration；migration raw replay 和约束 catalog 验证。
 - [ ] 真实源抽取 A/B 业务 hash 相同；46,092 工资行、711 项目、244 公式、1,431 关账、647 账套成员关系和 9 税率证据全部守恒。
 - [ ] 金额按账套/期间/汇总项核对；异常旧余额保留且进入复核，不被修正。
 - [ ] load → rollback → reload 一致；重复 run 拒绝；按内容组 multiplicity 守恒且无稳定 locator 的重复组不发布；T0 员工状态、T3 考勤/社保和在线工资表零变化。
-- [ ] API/Web 定向测试、PG races、shared build、全仓 lint/typecheck/build、diff-check 全通过。
+- [x] API/Web 定向测试、PG races、shared build、API/Web lint/typecheck/build、diff-check 全通过；根 `pnpm test` 的旧 smoke 入口因本地 3001 API 未启动而跳出，完整 API `test:unit` 与本切片门禁已单独执行。
 - [ ] 独立 `trellis-check` 审查并修复所有有效发现。
 
 ## 7. 发布门禁

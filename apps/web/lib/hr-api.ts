@@ -23,6 +23,72 @@ export interface HrPayrollCatalogItem {id:string;bookId:string;itemCode:string;d
 export interface HrPayrollFormula {id:string;bookId:string;legacyScheme:string;itemName:string|null;parseStatus:"parsed"|"manual_review"|"rejected"|"approved_for_simulation";dependencyCodes:string[];calculationOrder:number;reviewedAt:string|null;reviewReason:string|null;}
 export interface HrPayrollReviewAction {id:string;reviewCaseId?:string;sequenceNo:number;action:"comment"|"resolve"|"reject";decision:"needs_follow_up"|"accepted_exception"|"mapping_confirmed"|"unsafe_rejected";comment:string;createdAt:string;}
 export interface HrPayrollReviewCase {id:string;caseType:string;evidenceSummary:Record<string,unknown>;sourceStatus:string;createdAt:string;actionCount?:number;latestSequence?:number|null;actions?:HrPayrollReviewAction[];}
+export interface HrPayrollReconciliationDifference {
+  id: string;
+  resultId: string;
+  itemName: string;
+  oldAmount: string;
+  newAmount: string;
+  deltaAmount: string;
+  toleranceAmount: string;
+  reviewStatus: string;
+}
+export interface HrPayrollReconciliationResult {
+  resultId: string;
+  employeeCode: string;
+  employeeName: string;
+  oldTotal: string;
+  newTotal: string;
+  deltaTotal: string;
+  reviewStatus: string;
+  differences: HrPayrollReconciliationDifference[];
+}
+export interface HrPayrollReconciliation {
+  id: string;
+  status: string;
+  toleranceAmount: string;
+  employeeCount: number;
+  differenceCount: number;
+  engineVersion: string;
+  createdAt: string;
+  legacyBatchCode?: string;
+  attendanceBatchNo?: number;
+  results?: HrPayrollReconciliationResult[];
+  resultPage?: number;
+  resultPageSize?: number;
+  resultTotal?: number;
+}
+export interface HrPayrollReconciliationSetup {
+  books: Array<{
+    id: string;
+    bookName: string;
+    legacyScheme: string;
+    policyVersionId: string | null;
+    netItemVersionId: string | null;
+    netItemName: string | null;
+    toleranceAmount: string | null;
+    policyVersion: number | null;
+  }>;
+  netItems: Array<{
+    bookId: string;
+    id: string;
+    displayName: string;
+    itemCode: string;
+    versionNo: number;
+  }>;
+  legacyBatches: Array<{
+    id: string;
+    batchCode: string;
+    sourceRowCount: number;
+    publishedAt: string;
+  }>;
+  attendanceBatches: Array<{
+    id: string;
+    batchNo: number;
+    periodMonth: string;
+    batchType: string;
+  }>;
+}
 export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bookId?:string;employeeId?:string;}
 export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
@@ -133,6 +199,96 @@ export const hrApi={
  ,payrollHistoryReviewCases:(token?:string,page=1,pageSize=20,filters:HrPayrollCatalogFilters={},signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.status)query.set("status",filters.status);if(filters.caseType)query.set("case_type",filters.caseType);return unwrap(apiRequest<PaginatedResult<HrPayrollReviewCase>>(`/hr/payroll/history-review-cases?${query.toString()}`,{token,signal}));}
  ,payrollHistoryReviewCase:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollReviewCase>(`/hr/payroll/history-review-cases/${id}`,{token,signal}))
  ,addPayrollHistoryReviewAction:(id:string,body:{action:string;decision:string;comment:string},token?:string)=>unwrap(apiRequest<HrPayrollReviewAction>(`/hr/payroll/history-review-cases/${id}/actions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,reviewPayrollFormula: (
+    id: string,
+    body: { decision: "approve_for_simulation" | "reject"; reason: string },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollFormula>(
+        `/hr/payroll/history-formulas/${id}/review`,
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    ),
+payrollReconciliations: (
+    token?: string,
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ) =>
+    unwrap(
+      apiRequest<PaginatedResult<HrPayrollReconciliation>>(
+        `/hr/payroll/reconciliations?page=${page}&page_size=${pageSize}`,
+        { token, signal },
+      ),
+    ),
+payrollReconciliation: (
+    id: string,
+    token?: string,
+    signal?: AbortSignal,
+    resultPage = 1,
+    resultPageSize = 20,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliation>(
+        `/hr/payroll/reconciliations/${id}?result_page=${resultPage}&result_page_size=${resultPageSize}`,
+        { token, signal },
+      ),
+    ),
+payrollReconciliationSetup: (token?: string, signal?: AbortSignal) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliationSetup>(
+        "/hr/payroll/reconciliations/setup",
+        { token, signal },
+      ),
+    ),
+createPayrollReconciliationPolicy: (
+    body: {
+      bookId: string;
+      netItemVersionId: string;
+      toleranceAmount: string;
+      reason: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest("/hr/payroll/reconciliation-policies", {
+        method: "POST",
+        body,
+        token,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ),
+simulatePayrollReconciliation: (
+    body: {
+      legacyBatchId: string;
+      attendanceInputBatchId: string;
+      supersedesRunId?: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliation>(
+        "/hr/payroll/reconciliations/simulate",
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    ),
+reviewPayrollReconciliation: (
+    id: string,
+    body: {
+      decision: string;
+      comment: string;
+      resultId?: string;
+      itemDifferenceId?: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReviewAction>(
+        `/hr/payroll/reconciliations/${id}/review-actions`,
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    )
  ,myApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/me",{token}))
  ,pendingApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/pending",{token}))
  ,createApproval:(body:object,token?:string)=>unwrap(apiRequest<HrApproval>("/hr/approvals",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
