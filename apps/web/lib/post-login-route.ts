@@ -84,6 +84,9 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
     }
     return firstMenuHref ?? "/dashboard";
   }
+  if (hasPermission(user, "*")) {
+    return "/dashboard";
+  }
   if (firstMenuHref) {
     return firstMenuHref;
   }
