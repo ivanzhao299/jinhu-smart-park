@@ -160,3 +160,13 @@ test("mobile dashboard navigation is hidden by default and requires an explicit 
   assert.doesNotMatch(defaultSidebarRule,/display:\s*block/);
   assert.match(globals,/\.dashboard-shell\.mobile-navigation-open \.app-sidebar\s*\{[\s\S]*display:\s*block/);
 });
+
+test("mobile header actions retain the shared 44px touch target",()=>{
+  const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
+  const mobileHeaderStart=globals.lastIndexOf("@media (max-width: 720px)",globals.lastIndexOf(".app-header .header-actions"));
+  const mobileHeaderEnd=globals.indexOf("\n}\n",globals.indexOf(".app-header .user-menu .user-logout-button {",mobileHeaderStart))+3;
+  const mobileHeaderBlock=globals.slice(mobileHeaderStart,mobileHeaderEnd);
+  assert.match(mobileHeaderBlock,/grid-auto-columns:\s*var\(--form-control-height-touch\)/);
+  assert.match(mobileHeaderBlock,/width:\s*var\(--form-control-height-touch\)/);
+  assert.match(mobileHeaderBlock,/height:\s*var\(--form-control-height-touch\)/);
+});
