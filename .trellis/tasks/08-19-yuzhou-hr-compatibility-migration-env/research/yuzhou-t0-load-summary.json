@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-08-20",
+  "targetDatabase": "jinhu_hr_migration_lab_t0_20260820a",
+  "schemaMigrations": { "succeeded": 223, "failed": 0, "prerequisitesSucceeded": 8 },
+  "productionSafeSeedApplied": true,
+  "sourceHashesVerifiedBeforeLoad": true,
+  "successfulRun": "t0load_20260820c",
+  "counts": {
+    "organizationsLoaded": 138,
+    "positionsLoaded": 18,
+    "employeesExtracted": 2949,
+    "employeesLoaded": 2938,
+    "employeesQuarantined": 11,
+    "activeRecordMaps": 3094,
+    "organizationParentOrphans": 0,
+    "employeePositionNull": 169
+  },
+  "employeeStatusCounts": { "active": 255, "departed": 2604, "suspended": 79 },
+  "checks": {
+    "T0_ORGANIZATION_COUNT": true,
+    "T0_POSITION_COUNT": true,
+    "T0_EMPLOYEE_ACCOUNTING": true,
+    "errorEvidenceRedacted": true,
+    "rawSensitiveKeysInErrorEvidence": 0
+  },
+  "rollbackReplay": {
+    "firstRun": "t0load_20260820a",
+    "deletedEmployees": 2938,
+    "deletedPositions": 18,
+    "deletedOrganizations": 138,
+    "seedOrganizationsPreserved": 15,
+    "activeMappingsAfterRollback": 0,
+    "secondRun": "t0load_20260820b",
+    "secondRollbackSucceeded": true,
+    "thirdRunReloadSucceeded": true,
+    "duplicateRunRejectedWithoutCountChange": true
+  }
+}

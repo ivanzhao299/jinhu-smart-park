@@ -1,0 +1,20 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+const script = readFileSync(resolve(import.meta.dirname, "../load-yuzhou-t0.sh"), "utf8");
+assert.match(script, /jinhu_hr_migration_lab_/);
+assert.match(script, /current_database\(\)/);
+assert.match(script, /legacy_record_map/);
+assert.match(script, /legacy_source_object/);
+assert.match(script, /staging SHA-256 mismatch/);
+assert.match(script, /migration_error/);
+assert.match(script, /migration_check/);
+assert.match(script, /migration_rollback_point/);
+assert.match(script, /m\.batch_id=b\.id/);
+assert.match(script, /departure_before_hire/);
+assert.match(script, /chown -R postgres:postgres/);
+assert.match(script, /chmod 600/);
+assert.match(script, /BEGIN;[\s\S]*COMMIT;/);
+assert.doesNotMatch(script, /idcard|password|bank_account/i);
+console.log("Yuzhou T0 load contract passed.");

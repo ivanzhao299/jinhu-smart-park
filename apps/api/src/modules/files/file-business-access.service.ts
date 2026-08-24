@@ -1,6 +1,7 @@
 import { ConflictException, ForbiddenException, Injectable } from "@nestjs/common";
 import {
   PROPERTY_BUSINESS_PERMISSIONS,
+  HR_PERMISSIONS,
   SYSTEM_PERMISSIONS,
   type TenantParkScope
 } from "@jinhu/shared";
@@ -20,12 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
+  ,"hr_employee_document"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -133,6 +135,10 @@ export class FileBusinessAccessService {
       );
       return;
     }
+    if (bizType === "hr_employee_document") {
+      await this.assertHrEmployeeDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
     const rule = ACCESS_RULES[bizType];
     const permissions = action === "upload" || action === "delete"
       ? rule.writePermissions
@@ -171,6 +177,19 @@ export class FileBusinessAccessService {
         throw new ForbiddenException("Project-wide purchase files require unrestricted park data scope");
       }
     }
+  }
+
+  private async assertHrEmployeeDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR employee documents require an employee reference");
+    const write=action==="upload"||action==="delete";
+    const canManage=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);
+    const canReadAll=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ);
+    const canReadSelf=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ);
+    if(write&&!canManage)throw new ForbiddenException(`${HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE} permission is required`);
+    if(!write&&!canManage&&!canReadAll&&!canReadSelf)throw new ForbiddenException("HR employee document read permission is required");
+    const rows=await this.dataSource.query(`SELECT user_id FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]) as Array<{user_id:string|null}>;
+    if(!rows[0])throw new ForbiddenException("HR employee reference is outside the current tenant or park");
+    if(!write&&!canManage&&!canReadAll&&rows[0].user_id!==actor.sub)throw new ForbiddenException("Employees can only read their own HR documents");
   }
 
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {

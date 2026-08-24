@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "capturedAt": "2026-08-20",
+  "sourceDatabase": "YuzhouHR_Lab_20260820_intake01",
+  "sourceReadOnly": true,
+  "extractLoginIsSa": false,
+  "repeatabilityRuns": ["t0extract_20260820d", "t0extract_20260820e"],
+  "deterministicHashesMatched": true,
+  "domains": {
+    "departments": { "rows": 138, "sha256": "24d3d208bbbdbb5fd8a8a0b29804f4473b6c99b31d6d46f16c8d8e795e6366e1" },
+    "positions": { "rows": 18, "sha256": "96489dedc6efb8e4a56cd4f8346aa0b9df18ff3969f9e46f0f0bebaadba7ddb5" },
+    "employees": { "rows": 2949, "sha256": "db17b4631aa7111bc534b6806ab3a6cc181d3efb0ba1d4eb7850503142490b9f" }
+  },
+  "stagingPolicy": "Raw and normalized files are local mode-0600 evidence below git-ignored database/import-reports; committed evidence contains counts and hashes only."
+}

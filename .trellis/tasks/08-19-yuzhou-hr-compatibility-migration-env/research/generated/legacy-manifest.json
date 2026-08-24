@@ -1,0 +1,2226 @@
+{
+  "formatVersion": 1,
+  "sourceSystem": "Yuzhou Group V10",
+  "generatedAt": "2026-08-19T14:25:19.472Z",
+  "sourceRootLabel": "玉舟人力资源管理系统分析产出",
+  "summary": {
+    "files": 220,
+    "textFiles": 218,
+    "textLines": 17570,
+    "bytes": 837943,
+    "countsByKind": {
+      "archive": 1,
+      "column-catalog": 1,
+      "data-dictionary": 1,
+      "function-source": 16,
+      "help": 1,
+      "metadata": 1,
+      "report": 2,
+      "schema": 1,
+      "sql-source": 194,
+      "trigger-source": 2
+    },
+    "duplicateGroups": [
+      [
+        "玉舟人力资源管理系统分析产出/玉舟HR系统功能与数据库结构分析报告.md",
+        "玉舟HR系统功能与数据库结构分析报告.md"
+      ]
+    ]
+  },
+  "files": [
+    {
+      "path": ".DS_Store",
+      "kind": "metadata",
+      "bytes": 8196,
+      "sha256": "6471c18ba3b57bf2aebd93dd9670013bb70191819dffac42a7816c733c5c4276",
+      "text": null
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/帮助文档全文.txt",
+      "kind": "help",
+      "bytes": 32153,
+      "sha256": "c7efa2c3859effde91124bd01ab40c6620d0a3247e8056f9d9279ce313c70485",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 338
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_INLINE_TABLE_VALUED_FUNCTION_dt_sql",
+      "kind": "function-source",
+      "bytes": 1328,
+      "sha256": "61b7755de1c8b341c20663e64085fdf3b78db3c1fb1e4c7f592f78fe4ef5db4c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 30
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_AllDepName_sql",
+      "kind": "function-source",
+      "bytes": 1009,
+      "sha256": "b3350ff1b27d7713e272986878646809083a63517982078249a6fcbcff725c6d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 41
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_FullDays_sql",
+      "kind": "function-source",
+      "bytes": 2143,
+      "sha256": "44c06a473845d44f83f9f5321a90486759a0ab6eb4ec6cf2a8c77bbbd9c5a235",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 55
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_fun_getPY_sql",
+      "kind": "function-source",
+      "bytes": 1974,
+      "sha256": "b3279c0734af25446c2b8167bd3642b9f59eb73b8a23faa76ce1a00c90e72f10",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 61
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getAllDepNameBydepartment_sql",
+      "kind": "function-source",
+      "bytes": 963,
+      "sha256": "53378b32edb5c3aa06f5f556d6f308ce3dae8f35c392d2eb35d9cc3fcb8c6214",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getAllDepNameById_sql",
+      "kind": "function-source",
+      "bytes": 929,
+      "sha256": "a50650e561c4bc9bded8b31ef54deb46f3981a0fda77932adcea9d1c0b5f487d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getAllJobNameById_sql",
+      "kind": "function-source",
+      "bytes": 838,
+      "sha256": "cd9efe5bdd132ba18e1ade323b024187d57226889cad3614fb35d8f3a67b1047",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getAllJobNameByjob_sql",
+      "kind": "function-source",
+      "bytes": 843,
+      "sha256": "2e4e7665f5ddbb0436de76831eea7a919504f126c1d0a525180c88f638d4799e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getdef_sql",
+      "kind": "function-source",
+      "bytes": 347,
+      "sha256": "6891341a1276c7470aa74c0aa65325d4a095a153ad0d761aaa28b4a3d132ea6a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getdefs_sql",
+      "kind": "function-source",
+      "bytes": 1005,
+      "sha256": "06d52da2ca7af26c7d6239ccdc0e417d78e2043af03bb95791cb821351ab4380",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 47
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getNameByassignment_sql",
+      "kind": "function-source",
+      "bytes": 327,
+      "sha256": "762c5c6f623276a39a6b1e754283fdd690e21f8584e442de9fcdff76f72ec1f3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getNameByEdu_sql",
+      "kind": "function-source",
+      "bytes": 296,
+      "sha256": "b69cbbfeb8a51a7d802c4711b37fda4069ef224fe6576502ed8d2ca9e039883e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getNameByemploy_sql",
+      "kind": "function-source",
+      "bytes": 311,
+      "sha256": "8bd145d23e0d41cdb3cb1f07c446d7cceb99611a3b3adddf0e5af7fb489cf963",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getNameByjobstate_sql",
+      "kind": "function-source",
+      "bytes": 321,
+      "sha256": "8a8e58ced3479873b73b4e59c1e481b889b1e271ca8a0b76d6f619a6219357c5",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_getNameBypersonId_sql",
+      "kind": "function-source",
+      "bytes": 248,
+      "sha256": "90564396fdf376e529c932292aea330eab0a0737013aa2be40578e11d605bd38",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_SCALAR_FUNCTION_uf_GetPY_sql",
+      "kind": "function-source",
+      "bytes": 1397,
+      "sha256": "660ff5c0a25c7246cc179e90482c81d92691235193fed7f5f430f6c50426b707",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 43
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_ass_compute_sql",
+      "kind": "sql-source",
+      "bytes": 2324,
+      "sha256": "33c9eb04c04c01a360e5d8987c10fa35c733fe566093803e340e7cd3971ae414",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 51
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_AssCreateRecord_sql",
+      "kind": "sql-source",
+      "bytes": 1659,
+      "sha256": "2981b6a7dbabe949c03d25d17971146e9939344e0051ecd8d52aa90a984a8e9d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 52
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_countofHistory_sql",
+      "kind": "sql-source",
+      "bytes": 1369,
+      "sha256": "0631b1cf643c30ec91b21e67f345db1e6f94ee02646e00143180669dd12759c9",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 44
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_countTotal_bak_sql",
+      "kind": "sql-source",
+      "bytes": 5104,
+      "sha256": "4d7add96229bf8e13a7570ea40335929b496c99757f19fb9d7a0f23a4571f181",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 164
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_countTotal_sql",
+      "kind": "sql-source",
+      "bytes": 5147,
+      "sha256": "8a93e05479d30936f9a3e010527d840428fd20cabd6ee88e4d90eff54ae638d1",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 164
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_createInugural_sql",
+      "kind": "sql-source",
+      "bytes": 422,
+      "sha256": "a8206442f5415bb572880986fdc5163c7c79d8c9c494729cc0bb608f9c8f38ac",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 9
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_gentimekeeprecord_bak_sql",
+      "kind": "sql-source",
+      "bytes": 19812,
+      "sha256": "1e931906d4d3f947fefff01bbe187b3c2c4402f9ef30fac4dde786ee2a3751a6",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 320
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_gentimekeeprecord_sql",
+      "kind": "sql-source",
+      "bytes": 20479,
+      "sha256": "0e10d1f81926aa86e35f63c34cd398b15d034181cebbfbd778586aa9b7ed779a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 376
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_getAllDepartmentname_sql",
+      "kind": "sql-source",
+      "bytes": 384,
+      "sha256": "c1746aed53750e4c4b2854ef9b7fc4019aaed4071f69561ec943aa95c9dea570",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 11
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_getBirthdayFromIdcard_sql",
+      "kind": "sql-source",
+      "bytes": 1163,
+      "sha256": "4420aec4db6cf791511ab57191706f520003287607867b14d1747c4fe0ebac31",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 41
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_GetPersonsByDepartment_sql",
+      "kind": "sql-source",
+      "bytes": 1179,
+      "sha256": "018f57bc73bca23ae9ff717880db817ae5cf6e7fa4dc9feae81eb9989ad2f06c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 40
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_GetPersonsByDepartment0_sql",
+      "kind": "sql-source",
+      "bytes": 1181,
+      "sha256": "7a2d4f4bbdd6a2f417ed9a0f8e633ef04dcf5f6566a1a78194db7df822fbeaa2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 41
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_importatt_bak_sql",
+      "kind": "sql-source",
+      "bytes": 2164,
+      "sha256": "82810e4dde415828a85257357ee8ed38c7fac931140f14030685189b38fe531f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 55
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_importatt_sql",
+      "kind": "sql-source",
+      "bytes": 2334,
+      "sha256": "6851760eaf522cecc0f3f39d1a2af409a88463ce5c317fcae75de79cb927740d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 52
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_insure_compute_bak_sql",
+      "kind": "sql-source",
+      "bytes": 4601,
+      "sha256": "69f7ac6c7173234d481fdc399bd64ee0ef85921c9b2a6a17259c0de226454f2b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 67
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_insure_compute_sql",
+      "kind": "sql-source",
+      "bytes": 4869,
+      "sha256": "c48be83c0d90bf16cc2c5e1ede57bffb3ee299e1bea31ad328b858bc8b267f3b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 63
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_personlink_sql",
+      "kind": "sql-source",
+      "bytes": 412,
+      "sha256": "b1403797eb4603a61af83c19a77c639a659995b07685dee615cb62404dfa2f9c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_personroom_sql",
+      "kind": "sql-source",
+      "bytes": 1003,
+      "sha256": "dc329e174d4f36c7199856fa278ff7f168418194bf0f04cdbbb99d26aa84085d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 24
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_readfromLeave_sql",
+      "kind": "sql-source",
+      "bytes": 1168,
+      "sha256": "dee344b19687b45a4a34640568ec9239e69de16c3640eb666260b62660dd0a6a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_readjustcount_sql",
+      "kind": "sql-source",
+      "bytes": 1021,
+      "sha256": "22130758654a39aa217c08c341c30b20958e4fd0efd1e70ea607d8fa53605782",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_readjustquery_sql",
+      "kind": "sql-source",
+      "bytes": 980,
+      "sha256": "a7b474d796c9ab172f205457521dacd4826c4eff87c92d32fd56c9acb7e72698",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_taxreport_sql",
+      "kind": "sql-source",
+      "bytes": 1634,
+      "sha256": "95e2f35ed50c9e9c169be48cc208d4537d9a660f0539b0d5cee1053efb51b444",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 40
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_timekeepreport_sql",
+      "kind": "sql-source",
+      "bytes": 4077,
+      "sha256": "68e45d634c195f16c4c5282f753b700abb3f09bf56ee850651fd3af86ad8546a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 72
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_bs_vp_sql",
+      "kind": "sql-source",
+      "bytes": 212,
+      "sha256": "cc966235fa5a1438f7f141ca1d597dee0aeb506a0327013978add2ba7faabfc7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 8
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_addtosourcecontrol_sql",
+      "kind": "sql-source",
+      "bytes": 2288,
+      "sha256": "cf3adecd5f958739b1b5889a54683d8f5b71a15eb2ad77e8d9810a2ec332223f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 89
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_addtosourcecontrol_u_sql",
+      "kind": "sql-source",
+      "bytes": 620,
+      "sha256": "860d9064d36473c8981d66cfabcdbf9ef8eb95204b149a85b130d49fb2e415d9",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_adduserobject_sql",
+      "kind": "sql-source",
+      "bytes": 429,
+      "sha256": "53f6670b67a02574b8c0a6195c597ce04f5894c06c2a23c841d0ed70abd1f945",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_adduserobject_vcs_sql",
+      "kind": "sql-source",
+      "bytes": 664,
+      "sha256": "60d9357a45e3aa2a433e5b63dc933c13ec285fba680db943aa145e284c79196f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_checkinobject_sql",
+      "kind": "sql-source",
+      "bytes": 5926,
+      "sha256": "5d931bfc3c5c7bb9631ed749001e9d9f5ff9520a17bc4f0328b4061830e8648d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 183
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_checkinobject_u_sql",
+      "kind": "sql-source",
+      "bytes": 951,
+      "sha256": "3fdd1a345402d9fb9be165a5ef84b16515a11ccc3087f10499220d07abcfb8f7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 30
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_checkoutobject_sql",
+      "kind": "sql-source",
+      "bytes": 3183,
+      "sha256": "324b907cd52c7343050b2e9351a07f5f48f340da42a711670e95c19b38f1df8b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 98
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_checkoutobject_u_sql",
+      "kind": "sql-source",
+      "bytes": 705,
+      "sha256": "e703bb5177d9d928dfe6369e3702f85ea0d80efa3ab88e19cdd68c1c3fc1b9aa",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_displayoaerror_sql",
+      "kind": "sql-source",
+      "bytes": 475,
+      "sha256": "581dfbffd42a204a8a0425584a80aaa9272f2600ef2574f40ae60e748c2dca54",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_displayoaerror_u_sql",
+      "kind": "sql-source",
+      "bytes": 366,
+      "sha256": "baafa24fd163529e99c778026ba905be7d0e51945a9a99642cb74a549d0edbc1",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_droppropertiesbyid_sql",
+      "kind": "sql-source",
+      "bytes": 547,
+      "sha256": "b08d011b45fbfe5cbeb4f74055b7897a57c2b292bdf1e42313006e8a9c286122",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_dropuserobjectbyid_sql",
+      "kind": "sql-source",
+      "bytes": 225,
+      "sha256": "f81395fd9a9cf6233a9132f281bd93ad52007af60d767119b1d8eb16a8fc8a82",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 11
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_generateansiname_sql",
+      "kind": "sql-source",
+      "bytes": 685,
+      "sha256": "d6914d4ef9b69dead6b6142a9ac2b304b5bfc6fa607bc99fb5386298e6f4dd28",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 36
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getobjwithprop_sql",
+      "kind": "sql-source",
+      "bytes": 515,
+      "sha256": "aff5a7b2417dc8c49015e0c57c5037aa2b908e3c76fd8917ad9b53209878c171",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getobjwithprop_u_sql",
+      "kind": "sql-source",
+      "bytes": 524,
+      "sha256": "949cbc54d6f1edd7c3f3eca4bd6604f0ad59cba9ff32b60082b31171e04c2e3a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getpropertiesbyid_sql",
+      "kind": "sql-source",
+      "bytes": 593,
+      "sha256": "c39bcbb94c2733a9e986fddea41eabb1ee9b9461a3c542ff0eaedd9dc6436d2b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 23
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getpropertiesbyid_u_sql",
+      "kind": "sql-source",
+      "bytes": 599,
+      "sha256": "280fbb103d345a72278c1622078b1132e2d42c557cd1327f93bfeb94ebdf6b24",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 23
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getpropertiesbyid_vcs_sql",
+      "kind": "sql-source",
+      "bytes": 364,
+      "sha256": "4daac2ac9b271689463633d55e700b7a824c459439c3594e8de29a3f700d4be6",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_getpropertiesbyid_vcs_u_sql",
+      "kind": "sql-source",
+      "bytes": 471,
+      "sha256": "a88e836cf06c5979a53a1e2a335128eccf8c9db282da107be201a417b8d8c837",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_isundersourcecontrol_sql",
+      "kind": "sql-source",
+      "bytes": 3073,
+      "sha256": "a1d9e54f96d1c45bead37e9e56fe8a3acc0ee69e07843094b137004dd499a0b8",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 94
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_isundersourcecontrol_u_sql",
+      "kind": "sql-source",
+      "bytes": 533,
+      "sha256": "c48fe487d26d4fb2c3b3163c3a98305fb2095bae02cd5cedff2629bb8b276321",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_removefromsourcecontrol_sql",
+      "kind": "sql-source",
+      "bytes": 438,
+      "sha256": "236fa8b7dbcdd4978a04701037835f3b1fbf42f14e63bc6b95042f26c1c9da55",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_setpropertybyid_sql",
+      "kind": "sql-source",
+      "bytes": 1034,
+      "sha256": "7e7e62da139fedf56f47b2266883f76ffa0dabe90c8096f1bcac2310557f5667",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 36
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_setpropertybyid_u_sql",
+      "kind": "sql-source",
+      "bytes": 1464,
+      "sha256": "db496e6b465f21c03c62b3c787ab6671d33b2f8dbff5f89c7b56146a3c8623d3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 54
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_validateloginparams_sql",
+      "kind": "sql-source",
+      "bytes": 1075,
+      "sha256": "f70f3faa0159362862d94fabc6cedd43400a19da5dbcf92ed6b1c8236704259b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 40
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_validateloginparams_u_sql",
+      "kind": "sql-source",
+      "bytes": 428,
+      "sha256": "64e180af50b8c6ed4bb2e496987853014d33f4fc8e1f63accbd44de78bc41844",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 14
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_vcsenabled_sql",
+      "kind": "sql-source",
+      "bytes": 380,
+      "sha256": "98093f480124d4e4f7dafa5782cd3fd9d48e97d654a60ac28c36de2a241e1d3e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_verstamp006_sql",
+      "kind": "sql-source",
+      "bytes": 263,
+      "sha256": "c2b3f3f3c90594b39474a3e108df7a8544d7e1e1b0d4601d1131f05ab4371272",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 11
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_verstamp007_sql",
+      "kind": "sql-source",
+      "bytes": 247,
+      "sha256": "4a9998ea1e0f5899d79886a73a8bbbca82b93cfa1fec5d71e2a98b64a9cb9514",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 11
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_whocheckedout_sql",
+      "kind": "sql-source",
+      "bytes": 1944,
+      "sha256": "b257398e6258f1351b8c38cdec0f884f5310aa8a6555df9b233b55bb6dfecb97",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 65
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_dt_whocheckedout_u_sql",
+      "kind": "sql-source",
+      "bytes": 514,
+      "sha256": "52778aab6b05dff4d2a5885cbbef7cb688a8aa94315c451e3e11293113e13166",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn1insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "077fb5b87ab015731eee471d76dd81deb4170d448c9c7a9cbaf614d59132a185",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn1update_sql",
+      "kind": "sql-source",
+      "bytes": 1600,
+      "sha256": "cc1a91336d969796f99655ecdf4780c8cf785787d2699f7f40b755d735b12ce7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 22
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn2insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "f79584260bc670a4dea48f83cf016dae11ff41c62438e7ff1830c21e2cb7cdb9",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn2update_sql",
+      "kind": "sql-source",
+      "bytes": 4684,
+      "sha256": "be00dbec786f729da86a1cd53d89b84a2294d5af8103b66b87e8ff6001969f52",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn3insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "659636ef2b0898cdb8afe2646ca3ef52871a4030ef4624880bf262fb7439e9a5",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn3update_sql",
+      "kind": "sql-source",
+      "bytes": 4727,
+      "sha256": "b3eeb427af245815353e7994248b4d7843b7e3c243a09e0156c3f10d42bca266",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 44
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn4insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "fb8f74432055aa934616835854074f229311767da3814dc7438e44407661b87a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn4update_sql",
+      "kind": "sql-source",
+      "bytes": 2366,
+      "sha256": "b0d56e6d0ae9463f08c3a2f4821ebbd15335e13cfbc620b73783b3164cc9affc",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 26
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn5insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "a8c1ee2659039eda6af6f7fd55c2b1f9f195a4a1030fd7a946ccddaf7b72bdd6",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn5update_sql",
+      "kind": "sql-source",
+      "bytes": 5574,
+      "sha256": "818e7c93cebec556767e07667a14c436523291a7010683be52c73f7c21caa419",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 42
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn6insert_sql",
+      "kind": "sql-source",
+      "bytes": 250,
+      "sha256": "80b0b235ead47380ee9c4652fcf9e3862329efb3404fe3f1ef39b5bd2a46af9f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tn6update_sql",
+      "kind": "sql-source",
+      "bytes": 3061,
+      "sha256": "8228fa4b5a610f92fed85ebb007a641727d4957ae1dd60e917fd90a4e1b447fb",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 32
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_tx_sql",
+      "kind": "sql-source",
+      "bytes": 793,
+      "sha256": "461b60701dc366d9044b5a1b9ae716d3d4e91e0327300a4aaa29ec6d1333b254",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_ext_txnext_sql",
+      "kind": "sql-source",
+      "bytes": 816,
+      "sha256": "ac870e8766cad5b6d70b65265a29f47e21c346a017bcfe794c472048d0e5f076",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_pe_genprice_sql",
+      "kind": "sql-source",
+      "bytes": 407,
+      "sha256": "24966434a25d112d6e8c02d695b70708d765e2dbd16ffe90c4053a67e7d54c1d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 12
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_agecount_sql",
+      "kind": "sql-source",
+      "bytes": 4220,
+      "sha256": "24e65a1ed0407f965ab8610f8b82b5e01b2138d466e36b4cc47de73ec621be17",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 43
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_analyse2003_sql",
+      "kind": "sql-source",
+      "bytes": 10990,
+      "sha256": "ace3d619684983c865644e21dcf5bed51a75fa484decd40576af989b2828724a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 297
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_assessmentitems_sql",
+      "kind": "sql-source",
+      "bytes": 566,
+      "sha256": "2d8803d925f10bdece4cf00a72d128f8ae7d7b8080d76503794dbfecfb40a7d3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 12
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_assessmentmaster_sql",
+      "kind": "sql-source",
+      "bytes": 992,
+      "sha256": "edc82c9a342bbc9276b163f265002d04bd3e4c9f9f267fbab1009d26e2327946",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 28
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_assessmentquery_sql",
+      "kind": "sql-source",
+      "bytes": 1252,
+      "sha256": "b83b5b63778842eca1a5e6ef98dbb352f2bc4a9cf25210b7f5e381c822e4d851",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 30
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_assessmentvalue_sql",
+      "kind": "sql-source",
+      "bytes": 981,
+      "sha256": "62f8586e560be1955380e79cfe1170beab5b0721f10ac6c54b470eaab5cea0fa",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_assessmentvalueofperson_sql",
+      "kind": "sql-source",
+      "bytes": 864,
+      "sha256": "bc1a1e92c3ede18394de57ed4cc9abe8cf8d734d88cd87755ecbb38829673c8e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_awayperson_r_sql",
+      "kind": "sql-source",
+      "bytes": 671,
+      "sha256": "665d5625f28ebcf02d5c35025e6022a6f36c68d9fc0374be669f530d684b9ad0",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_awayreport_sql",
+      "kind": "sql-source",
+      "bytes": 1024,
+      "sha256": "adeacab40f5c82eb1470ea22ef9d5a0af5a3384bb0657bb53878769ebab31233",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 28
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_birthday_r_sql",
+      "kind": "sql-source",
+      "bytes": 1072,
+      "sha256": "2b933d3f9a292777ac77e95a691ceaf85847afa5249d2a328dad71c3d1726578",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 22
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_birthdayquery_sql",
+      "kind": "sql-source",
+      "bytes": 1184,
+      "sha256": "850ab6232a55e1ddf57f8e600391187b80fcbd36951d95075e0729c5c18e83e2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_bonuscounts_sql",
+      "kind": "sql-source",
+      "bytes": 1569,
+      "sha256": "6fde7f298105b9b017f95b44c20edbd2d3c8fd7effe6fb3cf565a4baea2b4daf",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 36
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_bonuscountsonperson_sql",
+      "kind": "sql-source",
+      "bytes": 2456,
+      "sha256": "7a11c881f164024b8cefa3596a1a4f85e380b49f350f016421d9facd1b3aa8ff",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 42
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_bonusrecords_sql",
+      "kind": "sql-source",
+      "bytes": 605,
+      "sha256": "309082edcd356f8edc12353d3fd81df319caaa08aede31dfb02d471106371a93",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_comethough_sql",
+      "kind": "sql-source",
+      "bytes": 354,
+      "sha256": "651756f52d9fa805e857f40b0155218edff2da252aa5b2753896594e2b07e097",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_computetimekeepdays_sql",
+      "kind": "sql-source",
+      "bytes": 2188,
+      "sha256": "89bb18774da2ce7aa4b166a826e52f124aa760259e28910e76d6d8fb6d54e3a2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 45
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_computetimekeeppay_sql",
+      "kind": "sql-source",
+      "bytes": 1374,
+      "sha256": "0a9f5678f58f2eba23e66cd211a0138d76fbb4f580cefd3b04e2a1b954d7f904",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 40
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_count_jobstate_age_sql",
+      "kind": "sql-source",
+      "bytes": 6839,
+      "sha256": "39cf46331f8aff575a5097977ad1ef54f5f7aad1fd32e644c1a6d2dcd522fab0",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 62
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_count_jobstate_payway_sql",
+      "kind": "sql-source",
+      "bytes": 901,
+      "sha256": "7a2cc30e9a303827bb5fb9e06c768947b67a078dce17ed3f43d788ae13669822",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 27
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_count_jobstate_sql",
+      "kind": "sql-source",
+      "bytes": 627,
+      "sha256": "862a54a055ded842f44186fe3098e92e1b1127ef9c7e831467764ee69f841410",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_count_sql",
+      "kind": "sql-source",
+      "bytes": 9308,
+      "sha256": "a49e3836b0846321c0fcb1e97b44666bf5d2a09b72474b6cd4d2e272ee0a7e36",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 191
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_course_r_sql",
+      "kind": "sql-source",
+      "bytes": 582,
+      "sha256": "70097ec064860cebb51beb0eaa76ac08de1263a602ce6940af75779f8e770513",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_createallcompact_sql",
+      "kind": "sql-source",
+      "bytes": 1379,
+      "sha256": "16e3e7b609e8b2c9e716ef4e919ef66d1f77d653d16ae1bd70a2e6dcfda3fd0c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 29
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_department_r_sql",
+      "kind": "sql-source",
+      "bytes": 526,
+      "sha256": "e97a5d9731230f82e797bba14d1af57be29143cb63f7e61c8c4076369deb3157",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_errandrecords_sql",
+      "kind": "sql-source",
+      "bytes": 466,
+      "sha256": "843efe8aa268d7f06ca21ccf8f3892854876f3bbf5bdd6d05e0c3eea4a778f6a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_family_sql",
+      "kind": "sql-source",
+      "bytes": 335,
+      "sha256": "32ebd704b5e66a9f364421da5288ba29171a6018c26fe45d2d1620eb442307da",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_familybirthday_r_sql",
+      "kind": "sql-source",
+      "bytes": 1193,
+      "sha256": "97f209c16894034df1d1125304e06505287d63293444425919a42278dd3d4ef2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 22
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_fromunit_bak_sql",
+      "kind": "sql-source",
+      "bytes": 5788,
+      "sha256": "3e3dd603b1402c904e4284fd215d798f4213062d4d07747da77da983bc4bae60",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 74
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_fromunit_bak2_sql",
+      "kind": "sql-source",
+      "bytes": 5787,
+      "sha256": "ef22403cf8b23dc5b029bd0e49b00094bcffbc39abd2a7683cd3b4a2472dac1c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 74
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_fromunit_bak3_sql",
+      "kind": "sql-source",
+      "bytes": 5787,
+      "sha256": "aa33e2238b2d8680df2626cb16e50ba27d64012b64a2912986d738e2b872d215",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 74
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_fromunit_sql",
+      "kind": "sql-source",
+      "bytes": 5824,
+      "sha256": "917667914bb582ea4077df32bd52f1ba1cfb99c8d726bec1de32a531378b9c50",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 80
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_getdeppersons_sql",
+      "kind": "sql-source",
+      "bytes": 297,
+      "sha256": "339e01ca6a6c6bdea8fad2c18a60bff9ee9154071ff2e7d62f117b335a78ec77",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 10
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_getjobpersons_sql",
+      "kind": "sql-source",
+      "bytes": 253,
+      "sha256": "6750e2123eac92e15820c451427bdd2b4c7a0fbc78e764a3280a5d8db342c0f8",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 10
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_GetTimekeepTotal_sql",
+      "kind": "sql-source",
+      "bytes": 2242,
+      "sha256": "1db13345dec939d63ab87d3144b327508f53dab54554e0ee0961628bc161b931",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 69
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_hurtpersons_sql",
+      "kind": "sql-source",
+      "bytes": 441,
+      "sha256": "231910ded8bf4c5690380e9dc9b4f65c1444deaf6708c8077ec8e2830c722d55",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_import_bak_sql",
+      "kind": "sql-source",
+      "bytes": 1060,
+      "sha256": "0ad330008459eed6288d2881514d60073d41e2204fc4e571ed7df2d36b5f88fd",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_import_sql",
+      "kind": "sql-source",
+      "bytes": 1076,
+      "sha256": "2a9ec2e5e756aaa5b129c95f33fba8604b9c45457145a34741e64e63be3c4d69",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 32
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inaureport2003_sql",
+      "kind": "sql-source",
+      "bytes": 1022,
+      "sha256": "4672069c52d42d8702b1249438457f418167d73cdc8be15ece82eb0e643d8553",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 29
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputbasepay_sql",
+      "kind": "sql-source",
+      "bytes": 540,
+      "sha256": "7a34ce1db8d1dd772245e8a4f4f5433beee73acc82e09e0611582436e19765d8",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputfrombonus_sql",
+      "kind": "sql-source",
+      "bytes": 1737,
+      "sha256": "d8bc2afb30a748442e342fa0260ea89b75caf485d9aa07f070cbaca9777492d2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 38
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputfromdeductpay_sql",
+      "kind": "sql-source",
+      "bytes": 1757,
+      "sha256": "7e3ee7b874508701d57657f72021c38794006efdcfd684ccd3c32f280c977a49",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 38
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputfrompiece_sql",
+      "kind": "sql-source",
+      "bytes": 1658,
+      "sha256": "b0c63bb10d6eef98430365f8b934b62e71301a230d6bd674bb2edf3ce8772d9e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 38
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputfromtimekeep_sql",
+      "kind": "sql-source",
+      "bytes": 3947,
+      "sha256": "9454a77cbb47228745a620454aa29ea50508cc244a4dc883bd9673b477e43a8f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 69
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_inputjobpay_sql",
+      "kind": "sql-source",
+      "bytes": 539,
+      "sha256": "3bcb2316b7bc062730413c824420552bafa74c9f6fbbc4ca522071ec4de22b0d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_insurecount_bak_sql",
+      "kind": "sql-source",
+      "bytes": 29575,
+      "sha256": "848121363fff4257287daa2d7844d1a1841fb7adf6868c9a152bb169ac44ddf1",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 294
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_insurecount_bak2_sql",
+      "kind": "sql-source",
+      "bytes": 29590,
+      "sha256": "0eaa69c0e80830b7c31f251eaa8c6f9de9038d5f6105d02bb5a470e9f1bf8144",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 295
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_insurecount_sql",
+      "kind": "sql-source",
+      "bytes": 29579,
+      "sha256": "97d8a264bf5ce6b5a96fa15a0b97282d308059f9c71e316fa0b535405be6e600",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 295
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_insureonperson_sql",
+      "kind": "sql-source",
+      "bytes": 3631,
+      "sha256": "276052f1c13a5e966a620af9eed8bb40bf7683c2125631714575efe7c8a64a82",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 70
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_insurepersons_sql",
+      "kind": "sql-source",
+      "bytes": 417,
+      "sha256": "39113ee18b0f8e4eed946fc9c0c068e72c6228e493ae496beb44c3405169a120",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 14
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_job_r_sql",
+      "kind": "sql-source",
+      "bytes": 711,
+      "sha256": "5e3e1525877e2d6810ad48d56b66a9e8fe21d829d788ca822581e75783e57751",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_jobagecount_sql",
+      "kind": "sql-source",
+      "bytes": 4258,
+      "sha256": "05269ec9484e411ee37bb413f5971b244efcfd8362f920472233aa93c6d86aa7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 47
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_knowhow_sql",
+      "kind": "sql-source",
+      "bytes": 296,
+      "sha256": "b400c45fc442ab0126b059bfe855867f46eb40aeeaa9becee3472bdbb7de668e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_knowhowquery2003_sql",
+      "kind": "sql-source",
+      "bytes": 633,
+      "sha256": "fe5add3c4e502e357402c79be1af74f0e8e279edc2752b52bce963807de1118f",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_newperson_r_sql",
+      "kind": "sql-source",
+      "bytes": 684,
+      "sha256": "08b2c45e56992105e193704cdc22f05063a63a57eec1b588089c20c840361800",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_nighttimerecords_sql",
+      "kind": "sql-source",
+      "bytes": 482,
+      "sha256": "7e2f0fa51fe7718ed1048deb0b3fc348fecb327380ae187dea8620ea0a8a0f97",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_personinfo2003_sql",
+      "kind": "sql-source",
+      "bytes": 2344,
+      "sha256": "adf140a230a553b28eca6558dcd324e7ac84fa58f821be23dab75af59437017a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 47
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_photo2003_sql",
+      "kind": "sql-source",
+      "bytes": 174,
+      "sha256": "2fc694d5376a7ecb81d1fe5f0f8f1a24cfefccbc5a49482fce67f1e6c3a44df0",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 12
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_printassessment_bak2_sql",
+      "kind": "sql-source",
+      "bytes": 1135,
+      "sha256": "ef2e114f5b231e02f3fdfedfb7eb5259af785c8b7469e298b13fe83dac786084",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 42
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_printassessment_sql",
+      "kind": "sql-source",
+      "bytes": 980,
+      "sha256": "9d1339aed7a32e8cd6ad139c33706a03fcc675f28c681595cafbeb8cde214986",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_readjusthis2003_sql",
+      "kind": "sql-source",
+      "bytes": 606,
+      "sha256": "67c25f16f1dcdb8c15b0348ae66a74eca0422d28eb6610357e78d0970732409a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 22
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_readreport2003_sql",
+      "kind": "sql-source",
+      "bytes": 1216,
+      "sha256": "1a80da3f48c03d222f04ce64c83d5be91900670ff6bc4222ac1a4ab40859c347",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 33
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_refreshsalarydepartment_sql",
+      "kind": "sql-source",
+      "bytes": 849,
+      "sha256": "cbcdcf5f994d122d85c82e361c6fbd8a4d6d96c4407b95b7ced564096e562e93",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 29
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_repairdep_sql",
+      "kind": "sql-source",
+      "bytes": 944,
+      "sha256": "ae9d5f22f12d79e11d5e7beeccf11d19a4975f38c4439a4fd099b2db14a5c356",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 38
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_repairjob_sql",
+      "kind": "sql-source",
+      "bytes": 812,
+      "sha256": "9e5f963b80f8b4f871391360285d061279cebeeba8e85688c2bf566fe727b748",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 38
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_ticket_r_sql",
+      "kind": "sql-source",
+      "bytes": 508,
+      "sha256": "f044f14d307c13fdc24014e9115cead0bb83def680b5924f15b81ee631ee46e3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 17
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeepexempt_sql",
+      "kind": "sql-source",
+      "bytes": 1892,
+      "sha256": "f1bf076234352c8cfcb610b11da9f674a59a23e3a036c6e10b6938c489a6d2c2",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 59
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeepquery_sql",
+      "kind": "sql-source",
+      "bytes": 955,
+      "sha256": "94dbe1426c3ba2b39f4435269ecd19c5c6730f5c5ae7a7afdb61cf2252300359",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 30
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeeprecord_sql",
+      "kind": "sql-source",
+      "bytes": 615,
+      "sha256": "be9b20ad0c1ee6fa0e28db37db55126e7775a9d9d46a61c94ad1936428f1661a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeeptotaldepartment_sql",
+      "kind": "sql-source",
+      "bytes": 1326,
+      "sha256": "fd9819756f1657a12f865328c1211a2b0012899ef9acf43d78883a337761c491",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 40
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeeptotalperson_new_sql",
+      "kind": "sql-source",
+      "bytes": 2063,
+      "sha256": "6d7d7a1260ac4f41e19a394ac7ee6dc1bd6a37d86a8f051c1a247ff2d3f6cf40",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 44
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_timekeeptotalperson_sql",
+      "kind": "sql-source",
+      "bytes": 1876,
+      "sha256": "b61e4cfa8e0bdf76e696b22db2970f2dc8243d49040733b47f0905edc91c3128",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 39
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_trainmoney_sql",
+      "kind": "sql-source",
+      "bytes": 1200,
+      "sha256": "94d4da5561ec735fd85e06fd4936781ccc223c1694437d4d751aabad0159cc34",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_trainmoneys_sql",
+      "kind": "sql-source",
+      "bytes": 903,
+      "sha256": "150daea145e2f4048a28f2bb60bc70e8a80a305046df7d2f9ac979a3c1837f25",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_trainrecords_sql",
+      "kind": "sql-source",
+      "bytes": 726,
+      "sha256": "62e4231664bf9acc6205592332213b96f8663c51cc2d32b2faae730826c75432",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_u_worktime_r_sql",
+      "kind": "sql-source",
+      "bytes": 990,
+      "sha256": "7f2daf16cb297d00f00e0e97dea8215b70267fd03a31c27c1b760775acc069bf",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 29
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_accept_sql",
+      "kind": "sql-source",
+      "bytes": 471,
+      "sha256": "a2d8ae581c592da9487edd12d282be30f5009590425ec276bbaa6fd8c04edc1b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 10
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_ass_sql",
+      "kind": "sql-source",
+      "bytes": 493,
+      "sha256": "0519e0941c405d98c76795cea378fe347a0dc7577fe9e79e68035761b3248933",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_assessmentquery_sql",
+      "kind": "sql-source",
+      "bytes": 651,
+      "sha256": "2ccc23b92971ea34dffb3e4cd6ef190b57e79192a38dc97900d434995ac88674",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_assquery_sql",
+      "kind": "sql-source",
+      "bytes": 1171,
+      "sha256": "1c828ea8c8afec8238a5e2f35c59cb6d4b97c30305167e4805b82f0722afb27e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 27
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_awayquery_sql",
+      "kind": "sql-source",
+      "bytes": 677,
+      "sha256": "841cf2bc9de0a65089c472d5af28d42abb0bd33312b29eaefc86f3f6c16489b7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_awayreport_sql",
+      "kind": "sql-source",
+      "bytes": 1206,
+      "sha256": "5547f20e8a9b3dfb1d55f82028058693b3d30d8f8115d82a1567caf3ca5e18ea",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 33
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_awaytypecount_sql",
+      "kind": "sql-source",
+      "bytes": 917,
+      "sha256": "f3268bae81316273d17c23ac4da9c222f834d53859bd08257e5263435cdd93e8",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 27
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_bonusquery_sql",
+      "kind": "sql-source",
+      "bytes": 873,
+      "sha256": "738392825f4518853597abe31391a08986d44d9de8fe7b3ec72c4c72327ef639",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 29
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_bonusrecord_sql",
+      "kind": "sql-source",
+      "bytes": 455,
+      "sha256": "8da426c868aaa9bf38fb497dbbdc0b6cae4872f1eb1f9fdd2888e3a1594dcf65",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 14
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_compact_c_sql",
+      "kind": "sql-source",
+      "bytes": 337,
+      "sha256": "f1cc43ab459f8808198bb11ee5834231282546e88656eb16360f4f6535cf2c12",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_compact_new_sql",
+      "kind": "sql-source",
+      "bytes": 975,
+      "sha256": "8bc5465a80c0c8c821ee37f3fa1df52bdde5ebce41ef2669ea4899af9debf97b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_compact_r_sql",
+      "kind": "sql-source",
+      "bytes": 976,
+      "sha256": "da17a2925f6457b631e6d64997759148339579e083b035bf9dc7ca3b1bf01713",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_compact_rs_sql",
+      "kind": "sql-source",
+      "bytes": 1003,
+      "sha256": "99b509b588a180fc27d79aaaa950f9fa2de38680e6306f9da664953bea14e0c5",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_compact_sql",
+      "kind": "sql-source",
+      "bytes": 684,
+      "sha256": "392a1b5d058b9344cfb6e5421456183bea61f03ace6d24b0697ee609730f7a0a",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_copyrights_sql",
+      "kind": "sql-source",
+      "bytes": 308,
+      "sha256": "b33d524356f792fb3dec79cdd89954de7b0bca126ada1f68782a78aad8b22a74",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 13
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_coursequery_sql",
+      "kind": "sql-source",
+      "bytes": 1281,
+      "sha256": "23e3ac56dc94e71e22bc5d3c5f9fd6ee9cbc74c562652e1cafdd8b7dd17f62c3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 33
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_crossquery_sql",
+      "kind": "sql-source",
+      "bytes": 3017,
+      "sha256": "2f0009fe749cb3953e18f2e706fa3aa1c3133af0b705c49bac4e068a05bba08d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 94
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_department_inout_sql",
+      "kind": "sql-source",
+      "bytes": 2059,
+      "sha256": "11d86eb07393c7b4abbb8cb211e5d2c5caf6af594ab08f801e15c4c60550a5c8",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 69
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_formal_r_sql",
+      "kind": "sql-source",
+      "bytes": 618,
+      "sha256": "b47833d9bc5ad81e34dfd7a417cd55754802d77ca4ab76b0a10435ed774d6c4d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_getage_sql",
+      "kind": "sql-source",
+      "bytes": 2999,
+      "sha256": "c143742bb8e2d7c113eb0abdfbbe22aaccc36a7324a9c7a72188c1813a2ec8db",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 58
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_getjobage_sql",
+      "kind": "sql-source",
+      "bytes": 4206,
+      "sha256": "63232a72134be668133d8e5104f2ea5fca238109025e823f1254766160d46eac",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 111
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_getloginid_sql",
+      "kind": "sql-source",
+      "bytes": 587,
+      "sha256": "0045b0bff0e165355eb4b3d64132ad88d0a1260b46a2a26d9107496ee6c8b8ae",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 30
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_getPY_sql",
+      "kind": "sql-source",
+      "bytes": 1926,
+      "sha256": "e9a6c563e417a7c302c601d356c438899fb2d8c43a0246a4484ecaca51055219",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 56
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_getreadjustrecord_sql",
+      "kind": "sql-source",
+      "bytes": 796,
+      "sha256": "ce47ad810cc6f21e281f1b7e077c0096f94c0e804025222e4e5908a3ba3a0807",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_Web_GetSysTab_sql",
+      "kind": "sql-source",
+      "bytes": 159,
+      "sha256": "9c56abf10ac21f35872225139efa1884a770957e9c37c0b7adb9cb73ecc32615",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 11
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_Web_GetUserRight_sql",
+      "kind": "sql-source",
+      "bytes": 290,
+      "sha256": "cfbb33b255dee6aacdd4a9e8ead0fb453daee53f955fdbffd3843892a4c2c063",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 16
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_inaugural_notto_sql",
+      "kind": "sql-source",
+      "bytes": 965,
+      "sha256": "5f9c375e420fd04b69059656442f72ad3e12c5b7961102b825c2167ee6e09c11",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 25
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_inauguralreport_sql",
+      "kind": "sql-source",
+      "bytes": 1206,
+      "sha256": "1b39d8bbfa2aff599926a39c4673b36df91f068567f94a28cc48718649cce290",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 33
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_InOutCount_sql",
+      "kind": "sql-source",
+      "bytes": 1385,
+      "sha256": "f77d301d1246c9c9832d08466801f776128d92948d57ee1d4a40d9a2b6079e1d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 31
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_job_inout_sql",
+      "kind": "sql-source",
+      "bytes": 1769,
+      "sha256": "90da7904e14b5721ff9572e64f6e4a706f78e00429c4f89f8457021f6d0badc9",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 64
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_jobtrain_sql",
+      "kind": "sql-source",
+      "bytes": 285,
+      "sha256": "f08a1fd23cdb0139ee0e23b3b1c1d2c0f22ce2d196ef4295912653813b2d2423",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 14
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_jobtrainofcompleted_sql",
+      "kind": "sql-source",
+      "bytes": 1066,
+      "sha256": "2c98af6ebe69a645e86b499e648ccb276aa6d40dd3e4f78fa58393d08ba1aef7",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 24
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_jobtrainofnotcompleted_sql",
+      "kind": "sql-source",
+      "bytes": 836,
+      "sha256": "7f6369c5911907c9728976d5a69620fc76ba7edf5303d410b4df33ea07852854",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_noticerecorde_sql",
+      "kind": "sql-source",
+      "bytes": 661,
+      "sha256": "2b68874e5b004fe5fce1322d3a342b84eb74b30738248595222ee12fb9f28611",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_paycount_sql",
+      "kind": "sql-source",
+      "bytes": 1396,
+      "sha256": "6fba86a4e541bd114feabfd07e175e6cc82ce883a38a9a0a44b0bdc01ec11dbd",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 45
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_payquery_sql",
+      "kind": "sql-source",
+      "bytes": 1726,
+      "sha256": "a2210dde0ff1f06c9258ccfcef79b9b40a0eae20defecf829f96bdc290168934",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 46
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_personinfo_SelectCommand_sql",
+      "kind": "sql-source",
+      "bytes": 1942,
+      "sha256": "4785a80d7bdc5496c7d64d06567f3a51e3c4fd6aef1f7add7b43d3fc65410868",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_readjustcount_sql",
+      "kind": "sql-source",
+      "bytes": 949,
+      "sha256": "ce77e325169bd315ba6482ccd9a9ac44f1a4cdaf62046de8eeab2990c0cdb674",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 23
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_readjustquery_old_sql",
+      "kind": "sql-source",
+      "bytes": 774,
+      "sha256": "9c6c996a1db1c50ec69588078043326c0c7f85130fa4ac62eda906746eeb769b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 19
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_readjustquery_sql",
+      "kind": "sql-source",
+      "bytes": 1208,
+      "sha256": "bf5eb56e147d066b184371f8e25be9271f78a393d6125622230451bd670f3c1d",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 20
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_readjustreport_sql",
+      "kind": "sql-source",
+      "bytes": 1393,
+      "sha256": "4b6f1a462c3a015c08400219870584d97c01077d1b4919cbad80981cd6b67d00",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 36
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_reports_sql",
+      "kind": "sql-source",
+      "bytes": 564,
+      "sha256": "c393e58ce7bcb8c10ad8654c224436820875ebd09602a15a1d5a4874d59d9fe1",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 31
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_searchmain_SelectCommand_sql",
+      "kind": "sql-source",
+      "bytes": 709,
+      "sha256": "1ff10c01e9237c0bbb6446f270f0fe59f8ab7940bd07d7b26b48ae75c35282b3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 24
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_timekeeprecord_sql",
+      "kind": "sql-source",
+      "bytes": 462,
+      "sha256": "ae5ff1df4bc0711428745d7a0c092c118dc9237a3b6c63f2ec12aa0c69d3cc8b",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_timekeeprecords_sql",
+      "kind": "sql-source",
+      "bytes": 560,
+      "sha256": "ae0acaa1286094d3248e328067313a9b18a75d614f0170f8325b7c14066d2bdd",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 14
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_traincount_sql",
+      "kind": "sql-source",
+      "bytes": 1280,
+      "sha256": "a98bd419754260c51afe2bd46100680b9118e14b89e0b8c2d2a0febbeb90b695",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 21
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_trainquery_sql",
+      "kind": "sql-source",
+      "bytes": 779,
+      "sha256": "4c6d090927d7fb39b8ebe9a5a1505f3bddd954e22d48b8cb026dfc9e8faee21c",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 18
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_trainquerys_sql",
+      "kind": "sql-source",
+      "bytes": 1046,
+      "sha256": "43ece018ef8764fc70072aaf00e5e0b1f2e44a95ab7d635ebc821acb03ef08b3",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 27
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_STORED_PROCEDURE_web_trainrecords_sql",
+      "kind": "sql-source",
+      "bytes": 637,
+      "sha256": "5a3b7621e058dd8c1acf9cec682ff06f489c4992a3ce81637bef8f400aa35dc4",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 26
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_TRIGGER_tr_addtimekeepitem_sql",
+      "kind": "trigger-source",
+      "bytes": 319,
+      "sha256": "47154eb6942627847f604120d3fd67bb6d29502b1e3ec352fcfa52154b61c66e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 12
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/存储过程源码/SQL_TRIGGER_tr_droptimekeepitem_sql",
+      "kind": "trigger-source",
+      "bytes": 422,
+      "sha256": "66b2f7b00c15226a3af41246cd4e6bc6fc33b80f4f0e929106c6f4449de31664",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 15
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/玉舟HR系统功能与数据库结构分析报告.md",
+      "kind": "report",
+      "bytes": 26828,
+      "sha256": "55ad22a8a24a91b1840d87a1d61a045b1b48c4a3cd128b144d0e728d6f9c4deb",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 332
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/字典表数据导出.txt",
+      "kind": "data-dictionary",
+      "bytes": 28042,
+      "sha256": "d81d61c13ba4d9b3e9e73ca1e7bf87fbfa8850b909c7d04f50ed1d192fc82580",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 1046
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/schema_tables.sql",
+      "kind": "schema",
+      "bytes": 111380,
+      "sha256": "4bc267b5b6b5f15cf367ec38caaf4bc2559ebe0666fd2cb9fdecd406c2ec1f2e",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 3507
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出/table_columns.md",
+      "kind": "column-catalog",
+      "bytes": 92727,
+      "sha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 3175
+      }
+    },
+    {
+      "path": "玉舟人力资源管理系统分析产出-260819.7z",
+      "kind": "archive",
+      "bytes": 86044,
+      "sha256": "84c92dbefcaa4db99c6f16f4a8ca9ff54b63d5be1d8bf21676d301b81b465357",
+      "text": null
+    },
+    {
+      "path": "玉舟HR系统功能与数据库结构分析报告.md",
+      "kind": "report",
+      "bytes": 26828,
+      "sha256": "55ad22a8a24a91b1840d87a1d61a045b1b48c4a3cd128b144d0e728d6f9c4deb",
+      "text": {
+        "encoding": "utf-8",
+        "lines": 332
+      }
+    }
+  ]
+}

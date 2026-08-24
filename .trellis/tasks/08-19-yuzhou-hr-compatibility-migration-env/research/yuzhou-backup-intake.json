@@ -1,0 +1,30 @@
+{
+  "formatVersion": 1,
+  "sourceSystem": "Yuzhou Group V10",
+  "sourceLocationLabel": "Downloads/Feishu Inbox",
+  "sourceFilename": "hr2026081914.dbk",
+  "bytes": 364988928,
+  "modifiedAt": "2026-08-20T10:37:53+08:00",
+  "sha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+  "fileIdentification": "Microsoft SQL Server Windows NTbackup archive",
+  "stagedRelativePath": "database/backups/yuzhou-hr/hr2026081914.dbk",
+  "stagedHashVerified": true,
+  "restoreStatus": "restored_read_only",
+  "restoredDatabase": "YuzhouHR_Lab_20260820_intake01",
+  "restoreReport": "database/import-reports/yuzhou-hr/20260820_intake01.txt",
+  "restoredCatalog": {
+    "tables": 162,
+    "procedures": 169,
+    "functions": 16,
+    "triggers": 2,
+    "isReadOnly": true,
+    "collation": "Chinese_PRC_CI_AS",
+    "compatibilityLevel": 100
+  },
+  "notes": [
+    "The original download file was read only and not modified.",
+    "The staged binary is git-ignored and must never be committed.",
+    "Printable backup content references person, personinfo, personjob, personlink, department and readjust objects, consistent with the Yuzhou HR materials.",
+    "RESTORE HEADERONLY, VERIFYONLY and FILELISTONLY passed before the isolated restore on 2026-08-20."
+  ]
+}

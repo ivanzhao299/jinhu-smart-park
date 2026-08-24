@@ -24,6 +24,7 @@ import { FloorsModule } from "./modules/floors/floors.module";
 import { IotModule } from "./modules/iot/iot.module";
 import { HomestayModule } from "./modules/homestay/homestay.module";
 import { HousingModule } from "./modules/housing/housing.module";
+import { HrModule } from "./modules/hr/hr.module";
 import { LeasingContractChangesModule } from "./modules/leasing-contract-changes/leasing-contract-changes.module";
 import { LeasingContractsModule } from "./modules/leasing-contracts/leasing-contracts.module";
 import { LeasingCheckoutsModule } from "./modules/leasing-checkouts/leasing-checkouts.module";
@@ -163,6 +164,7 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
     EngineeringModule,
     HomestayModule,
     HousingModule,
+    HrModule,
     IotModule,
     LeasingContractChangesModule,
     LeasingContractsModule,

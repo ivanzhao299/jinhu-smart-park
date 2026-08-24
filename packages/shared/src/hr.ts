@@ -1,0 +1,20 @@
+export const HR_EMPLOYEE_STATUSES = ["preboarding", "probation", "active", "suspended", "departed"] as const;
+export type HrEmployeeStatus = (typeof HR_EMPLOYEE_STATUSES)[number];
+export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contractor"] as const;
+export type HrEmploymentType = (typeof HR_EMPLOYMENT_TYPES)[number];
+export const HR_PERMISSIONS = {
+  HR_MENU: "hr", HR_DASHBOARD_PAGE: "hr:dashboard", HR_ORGANIZATION_PAGE: "hr:organization", HR_EMPLOYEES_PAGE: "hr:employees", HR_GOALS_PAGE: "hr:goals", HR_WORK_REPORTS_PAGE: "hr:work_reports",
+  HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
+  HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
+  HR_EMPLOYMENT_TRANSITION: "hr:employment:transition",
+  HR_GOAL_READ: "hr:goal:read", HR_GOAL_MANAGE: "hr:goal:manage", HR_GOAL_SELF_READ: "hr:goal:self_read",
+  HR_WORK_REPORT_SELF_MANAGE: "hr:work_report:self_manage", HR_WORK_REPORT_TEAM_REVIEW: "hr:work_report:team_review",
+  HR_PERFORMANCE_PAGE: "hr:performance", HR_FEEDBACK_360_PAGE: "hr:feedback_360",
+  HR_PERFORMANCE_READ: "hr:performance:read", HR_PERFORMANCE_MANAGE: "hr:performance:manage", HR_PERFORMANCE_SELF_REVIEW: "hr:performance:self_review", HR_PERFORMANCE_MANAGER_REVIEW: "hr:performance:manager_review", HR_PERFORMANCE_CALIBRATE: "hr:performance:calibrate",
+  HR_FEEDBACK_MANAGE: "hr:feedback:manage", HR_FEEDBACK_RESPOND: "hr:feedback:respond", HR_FEEDBACK_RESULT_READ: "hr:feedback:result_read",
+  HR_COMPENSATION_PAGE: "hr:compensation", HR_PAYROLL_PAGE: "hr:payroll",
+  HR_COMPENSATION_READ: "hr:compensation:read", HR_COMPENSATION_MANAGE: "hr:compensation:manage",
+  HR_PAYROLL_READ: "hr:payroll:read", HR_PAYROLL_MANAGE: "hr:payroll:manage", HR_PAYROLL_REVIEW: "hr:payroll:review", HR_PAYROLL_CONFIRM: "hr:payroll:confirm", HR_PAYSLIP_SELF_READ: "hr:payslip:self_read",
+  HR_APPROVALS_PAGE: "hr:approvals", HR_APPROVAL_SELF_MANAGE: "hr:approval:self_manage", HR_APPROVAL_REVIEW: "hr:approval:review",
+  HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read"
+} as const;

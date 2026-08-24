@@ -1,0 +1,124 @@
+.page {
+  gap: 24px;
+}
+
+.hero {
+  align-items: flex-end;
+}
+
+.heroSummary {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 270px);
+  padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--border));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+}
+
+.heroSummary strong {
+  font-size: 18px;
+}
+
+.heroSummary span,
+.capabilityCard > span,
+.step p {
+  color: var(--text-secondary);
+}
+
+.heroLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.section {
+  display: grid;
+  gap: 18px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.sectionHeader h2 {
+  margin: 4px 0 0;
+}
+
+.capabilityCard {
+  grid-template-columns: 1fr;
+  align-content: start;
+  align-items: start;
+  cursor: default;
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-primary);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: end;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.stepNumber {
+  color: var(--color-primary);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.step p {
+  margin: 5px 0 0;
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .hero,
+  .sectionHeader {
+    align-items: stretch;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+  }
+
+  .heroSummary {
+    width: 100%;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

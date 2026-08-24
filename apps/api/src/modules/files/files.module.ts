@@ -1,4 +1,4 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuditModule } from "../audit/audit.module";
 import { DataScopesModule } from "../data-scopes/data-scopes.module";
@@ -11,7 +11,7 @@ import { FileStorageService } from "./storage/file-storage.service";
 import { LocalFileStorageProvider } from "./storage/local-file-storage.provider";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([FileEntity]), AuditModule, DataScopesModule, PropertyOperationsModule],
+  imports: [TypeOrmModule.forFeature([FileEntity]), AuditModule, DataScopesModule, forwardRef(() => PropertyOperationsModule)],
   controllers: [FilesController],
   providers: [FilesService, FileBusinessAccessService, FileStorageService, LocalFileStorageProvider],
   exports: [FilesService]
