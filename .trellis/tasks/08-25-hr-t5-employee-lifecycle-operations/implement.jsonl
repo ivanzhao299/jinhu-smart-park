@@ -1,0 +1,8 @@
+{"file": ".trellis/spec/api/backend/index.md", "reason": "HR API、状态机、敏感读取、审计与数据库规则入口"}
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "HR 领域范围、投影、受保护文件、工作流和工资零副作用合同"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "页面、权限、403、API 与移动端规则"}
+{"file": ".trellis/spec/shared/backend/index.md", "reason": "共享权限和跨应用契约"}
+{"file": ".trellis/spec/shared/frontend/index.md", "reason": "Web 使用共享权限和类型"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "数据库到服务、API、Web 的跨层数据流"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "迁移、种子、Release Smoke 与生产发布规则"}
+{"file": ".trellis/tasks/08-25-hr-t5-employee-lifecycle-operations/research/baseline-and-legacy-domain-map.md", "reason": "当前可复用能力和玉舟来源边界"}

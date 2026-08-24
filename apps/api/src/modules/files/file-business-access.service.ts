@@ -21,13 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
-  ,"hr_employee_document"
+  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence" | "hr_employee_document"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -139,6 +139,10 @@ export class FileBusinessAccessService {
       await this.assertHrEmployeeDocumentAccess(scope,actor,bizId,action);
       return;
     }
+    if (bizType === "hr_candidate_resume" || bizType === "hr_candidate_offer_evidence") {
+      await this.assertHrCandidateDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
     const rule = ACCESS_RULES[bizType];
     const permissions = action === "upload" || action === "delete"
       ? rule.writePermissions
@@ -190,6 +194,15 @@ export class FileBusinessAccessService {
     const rows=await this.dataSource.query(`SELECT user_id FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]) as Array<{user_id:string|null}>;
     if(!rows[0])throw new ForbiddenException("HR employee reference is outside the current tenant or park");
     if(!write&&!canManage&&!canReadAll&&rows[0].user_id!==actor.sub)throw new ForbiddenException("Employees can only read their own HR documents");
+  }
+
+  private async assertHrCandidateDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR candidate documents require a candidate reference");
+    const write=action==="upload"||action==="delete";
+    const permission=write?HR_PERMISSIONS.HR_RECRUITMENT_DOCUMENT_MANAGE:HR_PERMISSIONS.HR_RECRUITMENT_DOCUMENT_READ;
+    if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
+    const rows=await this.dataSource.query(`SELECT 1 FROM hr_candidate WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]);
+    if(!rows[0])throw new ForbiddenException("HR candidate reference is outside the current tenant or park");
   }
 
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {

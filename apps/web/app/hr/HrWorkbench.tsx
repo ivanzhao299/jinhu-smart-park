@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, Network, RefreshCw, ShieldCheck, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, Network, RefreshCw, ShieldCheck, Target, UserRoundSearch, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
-const EMPTY: Snapshot = { employees: null, contracts:null, attendance:null, insurance:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+interface Snapshot { recruitment:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
+const EMPTY: Snapshot = { recruitment:null, employees: null, contracts:null, attendance:null, insurance:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -44,6 +44,7 @@ export function HrWorkbench() {
         : hrApi.employees(token).then((result) => ({ value: result.total, detail: `当前页展示 ${result.items.length} 份档案` }));
       add("employees", source);
     }
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_REQUISITION_READ,HR_PERMISSIONS.HR_REQUISITION_TEAM_READ]))add("recruitment",hrApi.recruitmentRequisitions(token,1,1,{status:"open"}).then(result=>({value:result.total,detail:"开放中的招聘需求"})));
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])){
       const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_CONTRACT_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ]);
       add("contracts",hrApi.contracts(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见劳动合同"})));
@@ -84,6 +85,7 @@ export function HrWorkbench() {
 
   useEffect(() => { void load(); }, [load]);
   const cards = useMemo(() => [
+    { key: "recruitment", title: "招聘管理", href: "/hr/recruitment", icon: UserRoundSearch },
     { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
     { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
     { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays },

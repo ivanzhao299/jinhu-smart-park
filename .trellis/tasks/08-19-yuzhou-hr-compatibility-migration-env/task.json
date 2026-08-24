@@ -21,7 +21,8 @@
   "children": [
     "08-24-hr-m3-rbac-privacy-mobile",
     "08-24-hr-m4-production-workbench",
-    "08-24-hr-m6-attendance-insurance-operations"
+    "08-24-hr-m6-attendance-insurance-operations",
+    "08-25-hr-t5-employee-lifecycle-operations"
   ],
   "parent": null,
   "relatedFiles": [],
