@@ -24,7 +24,9 @@ Current production-safe seed files:
 - `000013_apartment_document_defaults.sql`
 - `000014_responsibility_system_admin_reconcile.sql`
 - `000015_property_role_template_reconcile.sql`
+- `000016_hr_management_foundation.sql`
 - `000016_tenant_scope_dictionary_reconcile.sql`
+- `000017_hr_department_manager_directory.sql`
 
 This seed initializes:
 
@@ -41,6 +43,7 @@ This seed initializes:
 - Missing runtime controls for an asset scope created after migrations, initialized through the audited disabled v1 -> v2 -> v3 contract transition; partial or drifting states fail closed
 - The reviewed leasing-lead role aliases `INVEST_MANAGER` and `JH_LEASING_LEAD` receive the least-privilege `workorder:create` grant required by protected go-live UAT; an absent optional alias remains a safe no-op
 - The reviewed engineering project manager role is created when absent, converged to its explicit engineering permission set, and assigned exclusively to `shao_minghong` in place of the two documented broad legacy roles
+- The reviewed `DEPARTMENT_MANAGER` HR role receives only the `hr:employees` page permission; employee rows remain constrained by the API managed-organization-tree policy and the seed does not grant broad employee, profile, compensation, or payroll read permissions.
 
 It does not create fixed-password users or S2 demo房源数据.
 The Admin Issue Runner seed provisions a disabled `studio_runner` machine identity with a non-login sentinel hash,

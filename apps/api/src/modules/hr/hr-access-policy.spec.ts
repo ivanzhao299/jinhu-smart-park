@@ -1,0 +1,187 @@
+import "reflect-metadata";
+import assert from "node:assert/strict";
+import test from "node:test";
+import { NotFoundException } from "@nestjs/common";
+import { HR_PERMISSIONS } from "@jinhu/shared";
+import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
+import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrEmployeeAccessScope } from "./hr-access-policy";
+import { HrController } from "./hr.controller";
+import { HrService } from "./hr.service";
+
+const actor = (permissions: string[], isSuper = false): JwtPrincipal => ({
+  sub: "user-1", username: "tester", tenantId: "tenant-1", parkId: "park-1", roles: [], permissions, isSuper
+});
+
+test("employee access scope is fail-closed from park to managed tree to explicit self or none", () => {
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_READ])), "park");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW])), "managed_org_tree");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW])), "managed_org_tree");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ])), "self");
+  assert.equal(resolveHrEmployeeAccessScope(actor([])), "none");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ])), "none");
+  assert.equal(resolveHrEmployeeAccessScope(actor([], true)), "park");
+});
+
+test("employee scope rejects cross-organization targets and never promotes client input", () => {
+  assert.equal(isHrEmployeeIdAccessible("self", "employee-self", "employee-self", []), true);
+  assert.equal(isHrEmployeeIdAccessible("self", "employee-other", "employee-self", ["employee-other"]), false);
+  assert.equal(isHrEmployeeIdAccessible("managed_org_tree", "employee-child", "manager", ["employee-child"]), true);
+  assert.equal(isHrEmployeeIdAccessible("managed_org_tree", "employee-sibling", "manager", ["employee-child"]), false);
+  assert.equal(isHrEmployeeIdAccessible("park", "employee-other", "manager", []), true);
+  assert.equal(isHrEmployeeIdAccessible("none", "employee-self", "employee-self", ["employee-self"]), false);
+});
+
+test("employee routes expose only the reviewed full, self, and manager permissions", () => {
+  const expected = [
+    HR_PERMISSIONS.HR_EMPLOYEE_READ,
+    HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ,
+    HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW,
+    HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW
+  ];
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY, HrController.prototype.employees), expected);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY, HrController.prototype.employee), expected);
+});
+
+test("service remains fail-closed when invoked without an employee read permission", async () => {
+  const service = Reflect.construct(HrService, Array(23).fill({})) as HrService;
+  const unprivileged = actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ]);
+  assert.deepEqual(
+    await service.listEmployees(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      unprivileged,
+      { page: 2, page_size: 20 }
+    ),
+    { items: [], total: 0, page: 2, page_size: 20 }
+  );
+  await assert.rejects(
+    service.detailEmployeeForActor(
+      { tenantId: "tenant-1", parkId: "park-1" },
+      unprivileged,
+      "00000000-0000-4000-8000-000000000001"
+    ),
+    NotFoundException
+  );
+});
+
+test("manager employee scope is derived from tenant and park bounded organization data", async () => {
+  const queries: Array<{ sql: string; parameters: unknown[] }> = [];
+  let findOptions: { where?: Record<string, unknown> } | undefined;
+  const employees = {
+    findOne: async () => ({ id: "manager-employee" }),
+    findAndCount: async (options: { where?: Record<string, unknown> }) => {
+      findOptions = options;
+      return [[], 0];
+    }
+  };
+  const dataSource = {
+    query: async (sql: string, parameters: unknown[]) => {
+      queries.push({ sql, parameters });
+      return [{ id: "managed-employee" }];
+    }
+  };
+  const service = Reflect.construct(
+    HrService,
+    [employees, ...Array(20).fill({}), {}, dataSource]
+  ) as HrService;
+  const scope = { tenantId: "tenant-1", parkId: "park-1" };
+  const manager = actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW]);
+
+  assert.deepEqual(
+    await service.listEmployees(scope, manager, { page: 1, page_size: 20 }),
+    { items: [], total: 0, page: 1, page_size: 20 }
+  );
+  assert.equal(queries.length, 1);
+  assert.match(queries[0]!.sql, /sys_org WHERE tenant_id=\$1 AND park_id=\$2/u);
+  assert.match(queries[0]!.sql, /child\.tenant_id=\$1 AND child\.park_id=\$2/u);
+  assert.match(queries[0]!.sql, /employee\.tenant_id=\$1 AND employee\.park_id=\$2/u);
+  assert.deepEqual(queries[0]!.parameters, ["tenant-1", "park-1", "user-1", "manager-employee"]);
+  assert.equal(findOptions?.where?.tenantId, "tenant-1");
+  assert.equal(findOptions?.where?.parkId, "park-1");
+  assert.equal(findOptions?.where?.isDeleted, false);
+  assert.ok(findOptions?.where?.id, "manager list must retain the server-derived employee ID filter");
+});
+
+test("sensitive profile projection masks private contact data without full permission", () => {
+  const profile = {
+    id: "profile-1", employeeId: "employee-1", idType: "resident_id", idNumberMasked: "320812198901011234",
+    personalMobile: "13812345678", personalEmail: "person@example.com", address: "江苏省淮安市",
+    emergencyContactName: "王小明", emergencyContactMobile: "13987654321", remark: "private note"
+  } as HrEmployeeProfileEntity;
+  assert.deepEqual(projectHrEmployeeProfile(profile, false), {
+    id: "profile-1", employeeId: "employee-1", idType: "resident_id", idNumberMasked: "32**************34",
+    personalMobile: "138****5678", personalEmail: "p***@example.com", address: "***",
+    emergencyContactName: "王**", emergencyContactMobile: "139****4321", remark: null, masked: true
+  });
+  assert.equal(projectHrEmployeeProfile(profile, true)?.personalMobile, "13812345678");
+  assert.equal(projectHrEmployeeProfile(profile, true)?.masked, false);
+});
+
+test("already masked identity values are never expanded or rewritten", () => {
+  const profile = { id: "p", employeeId: "e", idType: null, idNumberMasked: "3208********1234",
+    personalMobile: null, personalEmail: null, address: null, emergencyContactName: null,
+    emergencyContactMobile: null, remark: null } as HrEmployeeProfileEntity;
+  assert.equal(projectHrEmployeeProfile(profile, false)?.idNumberMasked, "3208********1234");
+});
+
+test("self and team read projections omit scope, audit, reviewer and unpublished score internals", () => {
+  const internal={tenantId:"foreign-tenant",parkId:"foreign-park",createBy:"secret-actor",updateBy:"secret-actor",remark:"internal"};
+  const goal={...internal,id:"goal",cycleId:"cycle",parentGoalId:null,goalLevel:"employee",goalName:"目标",ownerOrgId:null,ownerEmployeeId:"employee",weight:"1",metricName:null,targetValue:null,currentValue:null,unit:null,progress:"0",startDate:"2026-01-01",dueDate:"2026-12-31",status:"active"} as HrGoalEntity;
+  const report={...internal,id:"report",employeeId:"employee",reportType:"daily",periodStart:"2026-08-24",periodEnd:"2026-08-24",completedWork:"done",nextPlan:null,risks:null,collaborationNeeds:null,hours:"8",status:"submitted",reviewerEmployeeId:"manager",reviewComment:null,submittedAt:new Date(),reviewedAt:null} as HrWorkReportEntity;
+  const plan={...internal,id:"plan",cycleId:"cycle",employeeId:"employee",managerEmployeeId:"manager",status:"manager_review",selfScore:"88",managerScore:"91",calibratedScore:"92",finalScore:"92",selfSummary:"self",managerComment:"manager",calibrationComment:"calibration",confirmedAt:null} as HrPerformancePlanEntity;
+  assert.equal("tenantId" in projectHrGoal(goal),false);
+  assert.equal("createBy" in projectHrWorkReport(report),false);
+  assert.equal(projectHrPerformancePlan(plan,"self").managerScore,null);
+  assert.equal(projectHrPerformancePlan(plan,"manager").managerScore,"91");
+  assert.equal(projectHrPerformancePlan(plan,"manager").calibratedScore,null);
+  const inconsistentConfirmed={...plan,status:"confirmed",confirmedAt:null} as HrPerformancePlanEntity;
+  assert.equal(projectHrPerformancePlan(inconsistentConfirmed,"self").managerScore,null);
+  assert.equal(projectHrPerformancePlan(inconsistentConfirmed,"manager").finalScore,null);
+});
+
+test("feedback, self payslip and approval projections expose only task-required fields", () => {
+  const internal={tenantId:"tenant",parkId:"park",createBy:"actor",updateBy:"actor"};
+  const assignment={...internal,id:"assignment",feedbackCycleId:"cycle",subjectEmployeeId:"subject",reviewerEmployeeId:"reviewer",relationType:"peer",weight:"1",status:"pending",submittedAt:null} as HrFeedbackAssignmentEntity;
+  const payslip={...internal,id:"slip",runId:"run",employeeId:"employee",compensationSnapshot:{baseSalary:"10000"},grossAmount:"10000",deductionAmount:"1000",personalTax:"200",netAmount:"8800",status:"confirmed",createTime:new Date("2026-08-24T00:00:00Z")} as unknown as HrPayslipEntity;
+  const approval={...internal,id:"approval",requestNo:"HR-1",requestType:"leave",applicantEmployeeId:"employee",subjectEmployeeId:"employee",title:"请假",payload:{days:1},status:"submitted",currentApproverId:null,submittedAt:new Date(),completedAt:null} as unknown as HrApprovalRequestEntity;
+  assert.equal("reviewerEmployeeId" in projectHrFeedbackAssignment(assignment),false);
+  assert.equal("compensationSnapshot" in projectHrPayslip(payslip,true),false);
+  assert.equal("employeeId" in projectHrPayslip(payslip,true),false);
+  assert.equal("compensationSnapshot" in projectHrPayslip(payslip,false),true);
+  assert.equal("tenantId" in projectHrApproval(approval),false);
+});
+
+test("M3 read projections use exact public field allowlists", () => {
+  const internal={tenantId:"tenant",parkId:"park",createBy:"creator",updateBy:"updater",updateTime:new Date(),isDeleted:false,version:4,remark:"internal"};
+  const goal={...internal,id:"goal",cycleId:"cycle",parentGoalId:null,goalLevel:"employee",goalName:"目标",ownerOrgId:null,ownerEmployeeId:"employee",weight:"1",metricName:null,targetValue:null,currentValue:null,unit:null,progress:"0",startDate:"2026-01-01",dueDate:"2026-12-31",status:"active"} as HrGoalEntity;
+  const assignment={...internal,id:"assignment",feedbackCycleId:"cycle",subjectEmployeeId:"subject",reviewerEmployeeId:"reviewer",relationType:"peer",weight:"1",status:"pending",submittedAt:null} as HrFeedbackAssignmentEntity;
+  assert.deepEqual(Object.keys(projectHrGoal(goal)).sort(),[
+    "currentValue","cycleId","dueDate","goalLevel","goalName","id","metricName","ownerEmployeeId","ownerOrgId","parentGoalId","progress","startDate","status","targetValue","unit","weight"
+  ].sort());
+  assert.deepEqual(Object.keys(projectHrFeedbackAssignment(assignment)).sort(),[
+    "feedbackCycleId","id","relationType","status","subjectEmployeeId","submittedAt","weight"
+  ].sort());
+});
+
+test("slice two read controllers retain their exact pre-existing permissions", () => {
+  const expected: Array<[keyof HrController,string]> = [
+    ["goals",HR_PERMISSIONS.HR_GOAL_READ],
+    ["myGoals",HR_PERMISSIONS.HR_GOAL_SELF_READ],
+    ["myReports",HR_PERMISSIONS.HR_WORK_REPORT_SELF_MANAGE],
+    ["teamReports",HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW],
+    ["myPerformance",HR_PERMISSIONS.HR_PERFORMANCE_SELF_REVIEW],
+    ["managerPerformance",HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW],
+    ["myFeedback",HR_PERMISSIONS.HR_FEEDBACK_RESPOND],
+    ["feedbackResult",HR_PERMISSIONS.HR_FEEDBACK_RESULT_READ],
+    ["payrollRuns",HR_PERMISSIONS.HR_PAYROLL_READ],
+    ["payrollRunPayslips",HR_PERMISSIONS.HR_PAYROLL_READ],
+    ["myPayslips",HR_PERMISSIONS.HR_PAYSLIP_SELF_READ],
+    ["myApprovals",HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE],
+    ["pendingApprovals",HR_PERMISSIONS.HR_APPROVAL_REVIEW]
+  ];
+  for(const [method,permission] of expected){
+    assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[permission]);
+    assert.equal(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype[method]),undefined);
+  }
+});

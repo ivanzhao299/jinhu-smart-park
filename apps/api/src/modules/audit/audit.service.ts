@@ -111,35 +111,39 @@ export class AuditService {
 
   async recordOperation(input: RecordOperationInput): Promise<void> {
     try {
-      const entity = this.opLogRepository.create({
-        tenantId: input.tenantId,
-        parkId: input.parkId,
-        userId: input.userId,
-        username: input.username ?? null,
-        realName: input.realName ?? null,
-        roleCodes: Array.isArray(input.roleCodes) ? input.roleCodes.join(",") : input.roleCodes ?? null,
-        module: input.module,
-        resource: input.resource ?? null,
-        action: input.action,
-        bizType: input.bizType ?? null,
-        bizId: input.bizId ?? null,
-        beforeJson: input.beforeJson ?? null,
-        afterJson: input.afterJson ?? null,
-        clientIp: input.clientIp ?? null,
-        clientUa: input.clientUa ?? null,
-        method: input.method,
-        path: input.path,
-        success: input.success,
-        opTime: new Date(),
-        result: input.result ?? (input.success ? "success" : "fail"),
-        errorMsg: input.errorMsg ?? null,
-        requestId: input.requestId,
-        idempotencyKey: input.idempotencyKey ?? null
-      });
-      await this.opLogRepository.save(entity);
+      await this.recordOperationRequired(input);
     } catch (error) {
       this.logger.error("Failed to record operation log", error instanceof Error ? error.stack : String(error));
     }
+  }
+
+  async recordOperationRequired(input: RecordOperationInput): Promise<void> {
+    const entity = this.opLogRepository.create({
+      tenantId: input.tenantId,
+      parkId: input.parkId,
+      userId: input.userId,
+      username: input.username ?? null,
+      realName: input.realName ?? null,
+      roleCodes: Array.isArray(input.roleCodes) ? input.roleCodes.join(",") : input.roleCodes ?? null,
+      module: input.module,
+      resource: input.resource ?? null,
+      action: input.action,
+      bizType: input.bizType ?? null,
+      bizId: input.bizId ?? null,
+      beforeJson: input.beforeJson ?? null,
+      afterJson: input.afterJson ?? null,
+      clientIp: input.clientIp ?? null,
+      clientUa: input.clientUa ?? null,
+      method: input.method,
+      path: input.path,
+      success: input.success,
+      opTime: new Date(),
+      result: input.result ?? (input.success ? "success" : "fail"),
+      errorMsg: input.errorMsg ?? null,
+      requestId: input.requestId,
+      idempotencyKey: input.idempotencyKey ?? null
+    });
+    await this.opLogRepository.save(entity);
   }
 
   async recordLogin(input: RecordLoginInput): Promise<void> {

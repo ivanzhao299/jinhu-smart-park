@@ -9,6 +9,7 @@ const root=resolve(__dirname,"../../../../..");
 const migration=readFileSync(resolve(root,"database/migrations/000230_hr_employee_foundation.sql"),"utf8");
 const controller=readFileSync(resolve(__dirname,"hr.controller.ts"),"utf8");
 const service=readFileSync(resolve(__dirname,"hr.service.ts"),"utf8");
+const accessPolicy=readFileSync(resolve(__dirname,"hr-access-policy.ts"),"utf8");
 const performanceMigration=readFileSync(resolve(root,"database/migrations/000232_hr_performance_feedback.sql"),"utf8");
 const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
 const payrollIntegrityMigration=readFileSync(resolve(root,"database/migrations/000243_hr_payroll_concurrency_integrity.sql"),"utf8");
@@ -98,8 +99,8 @@ test("HR reference writes fail closed to the current tenant and park",()=>{
  assert.match(service,/Employment status must be changed through a lifecycle action/);
  assert.match(service,/start_probation:"probation"/);
  assert.match(service,/Child goal weights cannot exceed 100 percent/);
- assert.match(service,/WITH RECURSIVE managed_org/);
- assert.match(service,/employee\.primary_org_id IN \(SELECT id FROM managed_org\)/);
+	 assert.match(accessPolicy,/WITH RECURSIVE managed_org/);
+	 assert.match(accessPolicy,/employee\.primary_org_id IN \(SELECT id FROM managed_org\)/);
  assert.match(service,/Work report is outside the manager organization scope/);
  assert.match(service,/Performance plan is outside the manager organization scope/);
 });

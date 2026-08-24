@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "08-24-hr-m3-rbac-privacy-mobile"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",
