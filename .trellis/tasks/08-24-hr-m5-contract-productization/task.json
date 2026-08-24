@@ -1,0 +1,18 @@
+{
+  "id": "hr-m5-contract-productization",
+  "name": "hr-m5-contract-productization",
+  "title": "HR M5 玉舟劳动合同产品化",
+  "description": "将已迁移的玉舟劳动合同及续签变更历史接入受权限保护的 API、员工生命周期详情和生产工作台。",
+  "status": "in_progress",
+  "package": "api",
+  "priority": "P1",
+  "creator": "codex",
+  "assignee": "codex",
+  "createdAt": "2026-08-24",
+  "completedAt": null,
+  "parent": "08-19-yuzhou-hr-compatibility-migration-env",
+  "subtasks": [],
+  "children": [],
+  "relatedFiles": [],
+  "notes": ""
+}

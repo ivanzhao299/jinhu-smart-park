@@ -82,6 +82,9 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/keyword:query\.trim\(\),status:statusFilter/);
   assert.match(employees,/window\.setTimeout\(\(\)=>void load\(\),300\)/);
   assert.match(employees,/当前员工详情不在您的数据权限范围内/);
+  assert.match(employees,/employeeContracts/);
+  assert.match(employees,/员工生命周期/);
+  assert.match(employees,/进入合同台账/);
 });
 
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
@@ -148,6 +151,37 @@ test("HR M4 compensation keeps plan ledger separate from sensitive assignment",(
   assert.match(compensation,/action === "assignment" \? <form/);
   assert.match(compensation,/排除已离职员工/);
   assert.match(compensation,/仅对授权人事人员开放/);
+});
+
+test("HR M5 labor contracts are list-first, server-filtered, and history-aware",()=>{
+  const contracts=readFileSync(resolve(__dirname,"contracts/HrContractsClient.tsx"),"utf8");
+  const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+  const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
+  assert.match(contracts,/劳动合同/);
+  assert.match(contracts,/姓名、员工编号或合同编号/);
+  assert.match(contracts,/加载更多/);
+  assert.match(contracts,/续签与变更历史/);
+  assert.match(contracts,/旧系统历史记录/);
+  assert.match(contracts,/hrLoadErrorMessage\(error,"加载劳动合同失败"\)/);
+  assert.match(contracts,/if\(!canRead\)return/);
+  assert.match(contracts,/fallback=\{forbidden\}/);
+  assert.match(contracts,/canManage/);
+  assert.match(contracts,/新建合同/);
+  assert.match(contracts,/办理续签\/变更/);
+  assert.match(contracts,/保存合同草稿/);
+  assert.match(contracts,/保存变更草稿/);
+  assert.match(contracts,/确认生效/);
+  assert.match(contracts,/确认变更/);
+  assert.match(contracts,/selected\.isHistoricalImport/);
+  assert.match(contracts,/setAction\(null\);try\{setSelected/);
+  assert.match(api,/createContract:/);
+  assert.match(api,/createContractChange:/);
+  assert.match(api,/contractAction:/);
+  assert.match(api,/contractChangeAction:/);
+  assert.match(api,/expiry_from/);
+  assert.match(api,/expiry_to/);
+  assert.match(api,/\/hr\/contracts/);
+  assert.match(menu,/"\/hr\/contracts"/);
 });
 
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
