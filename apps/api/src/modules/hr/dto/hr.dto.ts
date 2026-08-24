@@ -56,6 +56,10 @@ export class CreateHrAttendanceShiftDto { @Transform(trim) @IsString() @MaxLengt
 export class CreateHrEmployeeScheduleDto { @IsUUID() employeeId!:string;@IsUUID() shiftId!:string;@IsDateString() workDate!:string; }
 export class CreateHrAttendancePunchDto { @IsUUID() employeeId!:string;@Transform(trim) @IsString() @MaxLength(160) eventKey!:string;@IsDateString({strict:true}) occurredAt!:string;@IsIn(["clock_in","clock_out","unknown"]) eventType!:string;@IsIn(["terminal","mobile","import","manual"]) source!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(100) deviceCode?:string; }
 export class RecalculateHrAttendanceDto { @IsUUID() employeeId!:string;@IsDateString() workDate!:string;@Transform(trim) @IsString() @MaxLength(32) ruleVersion!:string; }
+export class CreateHrAttendancePeriodDto { @Matches(/^\d{4}-\d{2}-01$/) periodMonth!:string; }
+export class HrAttendancePeriodQueryDto { @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??24)) @IsInt() @Min(1) @Max(100) page_size=24;@IsOptional() @IsIn(["open","calculating","review","closed","failed"]) status?:string; }
+export class HrAttendanceMonthSummaryQueryDto { @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??100)) @IsInt() @Min(1) @Max(100) page_size=100; }
+export class CreateHrAttendanceCorrectionBatchDto { @Transform(trim) @IsString() @MaxLength(1000) reason!:string; }
 export class CreateHrContractDto {
  @IsUUID() employeeId!:string;
  @IsUUID() contractTypeId!:string;

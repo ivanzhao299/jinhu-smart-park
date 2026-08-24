@@ -584,6 +584,69 @@ await dailyResultRepo.update({ employeeId, attendanceDate }, nextResult);
 await dataSource.transaction(async manager => {
   await lockEmployee(manager, scope, employeeId);
   const nextVersion = await allocateCalculationVersion(manager, scope, employeeId, businessDate);
-  await appendDailyResult(manager, nextVersion, immutableTrace);
+await appendDailyResult(manager, nextVersion, immutableTrace);
 });
+```
+
+## Scenario: Attendance month close and payroll input snapshots
+
+### 1. Scope / Trigger
+
+- Trigger: opening, calculating, reviewing, closing, recovering, or correcting a monthly attendance period, or reading its payroll-input snapshot.
+- This boundary produces attendance inputs only. It never starts a payroll run, pays wages, edits `hr_payslip`, or mutates Yuzhou historical attendance templates.
+
+### 2. Signatures
+
+- Period operation requires `hr:attendance:operate`; final close and post-close correction require `hr:attendance:close`.
+- Payroll input reads require the exact high-sensitivity `hr:attendance:payroll_input_read` permission and required audit.
+- Period and employee-summary reads continue to resolve server-side `park | managed_org_tree | self | none` attendance scope.
+
+### 3. Contracts
+
+- Period flow is `open -> calculating -> review -> closed`; calculation failure is persisted as `failed` with a standardized code and may be retried after the cause is repaired.
+- Monthly aggregation selects exactly the latest immutable daily result per employee and business date using a deterministic tie-breaker. Summary trace freezes every daily-result ID and calculation-version ID used.
+- A period with no employee attendance facts fails calculation; it never enters an empty review state that cannot be safely closed.
+- Close takes pessimistic locks and creates an immutable effective payroll-input batch and items. Concurrent close attempts produce exactly one effective batch.
+- A post-close correction appends new summary versions and a new payroll-input batch, then supersedes the prior effective batch in the same transaction. Old summaries and input items never change.
+- Close batches cannot reference a correction or reason. Correction batches must reference the superseded batch and contain a nonblank reason; PostgreSQL enforces this shape.
+- `changedEmployeeCount` counts only employees with a nonzero difference in at least one payroll-input metric. A zero-difference correction remains traceable but reports zero changed employees.
+- Payroll consumers may read only the latest effective batch of a closed period. Public projections exclude reasons, source traces, tenant/park, audit fields, and internal version controls.
+
+### 4. Validation & Error Matrix
+
+- calculate outside `open|failed`, close outside `review`, or correct outside `closed` -> conflict.
+- missing latest daily facts -> persisted `failed`; after facts are appended, retry may produce `review`.
+- period/active-batch race or duplicate version -> conflict with full transaction rollback.
+- no exact payroll-input permission or required-audit failure -> no sensitive snapshot response.
+- any attempt to update prior summary/input rows or touch payroll run, payslip, or historical template tables -> release-blocking failure.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR calculates from latest daily versions, reviews, closes once, and payroll reads one immutable effective input batch with full private trace retained server-side.
+- Base: a correction whose recalculated values are identical creates a new traceable version with `changedEmployeeCount=0`.
+- Bad: sum every historical daily recalculation, overwrite batch 1 during correction, expose the correction reason to payroll readers, or treat closing attendance as salary payment.
+
+### 6. Tests Required
+
+- PostgreSQL-test full migration and raw replay, seed replay, latest-daily aggregation, failed recovery, concurrent close, batch shape constraints, correction versions, zero-difference count, unique effective batch, and immutable old rows.
+- Assert zero writes to `hr_attendance_day`, `hr_payslip`, and `hr_payroll_run`.
+- Unit-test status transitions, self/team/park/none scopes, exact high-sensitive projection, and required-audit failure.
+- Contract-test exact route permissions, idempotency, body-free audit, minimal role grants, Web pre-request guards, and mobile records; run full lint/type-check/build and browser UAT when available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+SELECT * FROM hr_attendance_daily_result WHERE work_date BETWEEN :start AND :end;
+-- This includes every historical recalculation version.
+```
+
+#### Correct
+
+```sql
+SELECT DISTINCT ON (employee_id, work_date) *
+FROM hr_attendance_daily_result
+WHERE work_date BETWEEN :start AND :end AND is_deleted=false
+ORDER BY employee_id, work_date, create_time DESC, id DESC;
 ```

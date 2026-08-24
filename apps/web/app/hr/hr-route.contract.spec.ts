@@ -214,6 +214,8 @@ test("HR M6 attendance calculation exposes governed operations and mobile employ
  for(const method of ["attendanceShifts","createAttendanceShift","createAttendanceSchedule","createAttendancePunch","attendanceDaily","recalculateAttendance"])assert.match(api,new RegExp(`${method}:`));
 });
 
+test("HR M6 month close keeps review, recovery and correction versions explicit",()=>{const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");for(const label of ["月结期间与工资输入版本","新建月结期间","恢复并重算","确认封账","创建更正批次","生成新更正版本","旧快照保持不变","工资输入版本链","相对上一批次变更"])assert.match(attendance,new RegExp(label));assert.match(attendance,/canPayrollInput&&period\.status==="closed"/);assert.match(attendance,/ds-mobile-record-list/);for(const method of ["attendancePeriods","createAttendancePeriod","calculateAttendancePeriod","closeAttendancePeriod","correctAttendancePeriod","attendanceMonthSummaries","payrollAttendanceInputs","attendancePayrollVersions"])assert.match(api,new RegExp(`${method}:`));});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
