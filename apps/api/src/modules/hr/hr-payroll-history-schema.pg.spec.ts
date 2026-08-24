@@ -37,4 +37,17 @@ suite("HR T4 payroll history PostgreSQL schema",()=>{
   await db.query("SET app.yuzhou_t4_loader_rollback='on'");
   await assert.rejects(db.query("DELETE FROM hr_payroll_legacy_batch WHERE id=$1",[rows[0]!.id]),/dedicated rollback procedure/i);
  });
+ it("keeps review decisions append-only and case-scoped",async()=>{
+  const batches=await db.query("INSERT INTO hr_payroll_legacy_batch(tenant_id,park_id,batch_code,source_backup_hash,catalog_hash,manifest_hash,source_row_count) VALUES($1,$2,$3,$4,$4,$4,0) RETURNING id",[scope.tenantId,scope.parkId,`review-${gateSuffix}`,hash]) as Array<{id:string}>;
+  const cases=await db.query("INSERT INTO hr_payroll_review_case(tenant_id,park_id,batch_id,case_type,subject_hash,evidence_summary) VALUES($1,$2,$3,'other',$4,'{}') RETURNING id",[scope.tenantId,scope.parkId,batches[0]!.id,"b".repeat(64)]) as Array<{id:string}>;
+  const action=await db.query("INSERT INTO hr_payroll_review_action(tenant_id,park_id,review_case_id,sequence_no,action,decision,comment,actor_id) VALUES($1,$2,$3,1,'resolve','accepted_exception','reviewed',gen_random_uuid()) RETURNING id",[scope.tenantId,scope.parkId,cases[0]!.id]) as Array<{id:string}>;
+  await assert.rejects(db.query("UPDATE hr_payroll_review_action SET comment='changed' WHERE id=$1",[action[0]!.id]),/append-only/i);
+  await assert.rejects(db.query("DELETE FROM hr_payroll_review_action WHERE id=$1",[action[0]!.id]),/append-only/i);
+  await assert.rejects(db.query("INSERT INTO hr_payroll_review_action(tenant_id,park_id,review_case_id,sequence_no,action,decision,comment,actor_id) VALUES($1,'foreign-park',$2,2,'comment','needs_follow_up','x',gen_random_uuid())",[scope.tenantId,cases[0]!.id]),/foreign key/i);
+  const openCases=await db.query("INSERT INTO hr_payroll_review_case(tenant_id,park_id,batch_id,case_type,subject_hash,evidence_summary) VALUES($1,$2,$3,'other',$4,'{}') RETURNING id",[scope.tenantId,scope.parkId,batches[0]!.id,"c".repeat(64)]) as Array<{id:string}>;
+  await assert.rejects(db.query("INSERT INTO hr_payroll_review_action(tenant_id,park_id,review_case_id,sequence_no,action,decision,comment,actor_id) VALUES($1,$2,$3,1,'comment','mapping_confirmed','x',gen_random_uuid())",[scope.tenantId,scope.parkId,openCases[0]!.id]),/check constraint/i);
+  await assert.rejects(db.query("INSERT INTO hr_payroll_review_action(tenant_id,park_id,review_case_id,sequence_no,action,decision,comment,actor_id) VALUES($1,$2,$3,2,'comment','needs_follow_up','x',gen_random_uuid())",[scope.tenantId,scope.parkId,cases[0]!.id]),/terminal action/i);
+  const indexes=await db.query("SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND tablename='hr_payroll_review_action' AND indexname='idx_hr_payroll_review_action_case_fk'") as Array<{indexdef:string}>;
+  assert.equal(indexes.length,1);assert.match(indexes[0]!.indexdef,/\(tenant_id, park_id, review_case_id\)/);assert.doesNotMatch(indexes[0]!.indexdef,/ WHERE /i);
+ });
 });

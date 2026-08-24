@@ -7,6 +7,8 @@ import { AuditModule } from "../audit/audit.module";
 import { HR_ENTITIES } from "./entities/hr.entities";
 import { HrController } from "./hr.controller";
 import { HrNotificationService } from "./hr-notification.service";
+import { HrPayrollHistoryController } from "./hr-payroll-history.controller";
+import { HrPayrollHistoryService } from "./hr-payroll-history.service";
 import { HrService } from "./hr.service";
-@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController],providers:[HrService,HrNotificationService],exports:[HrService]})
+@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController,HrPayrollHistoryController],providers:[HrService,HrNotificationService,HrPayrollHistoryService],exports:[HrService,HrPayrollHistoryService]})
 export class HrModule {}
