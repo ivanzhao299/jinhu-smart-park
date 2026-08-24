@@ -9519,6 +9519,24 @@ body.mobile-terminal-mode .field select {
 }
 
 @media (max-width: 720px) {
+  .dashboard-shell,
+  .dashboard-shell.sidebar-collapsed,
+  :root[data-sidebar-collapsed="true"] .dashboard-shell {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    background: var(--bg-page);
+  }
+
+  .dashboard-main {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
   .dashboard-shell .app-sidebar {
     display: none;
     position: fixed;

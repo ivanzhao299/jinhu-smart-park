@@ -224,7 +224,18 @@ test("mobile dashboard navigation is hidden by default and requires an explicit 
   const defaultSidebarRule=finalMobileBlock.match(/\.dashboard-shell \.app-sidebar\s*\{([^}]*)\}/)?.[1]??"";
   assert.match(defaultSidebarRule,/display:\s*none/);
   assert.doesNotMatch(defaultSidebarRule,/display:\s*block/);
-  assert.match(globals,/\.dashboard-shell\.mobile-navigation-open \.app-sidebar\s*\{[\s\S]*display:\s*block/);
+  const collapsedShellRule=finalMobileBlock.match(/\.dashboard-shell,\s*\.dashboard-shell\.sidebar-collapsed,\s*:root\[data-sidebar-collapsed="true"\] \.dashboard-shell\s*\{([^}]*)\}/)?.[1]??"";
+  assert.match(collapsedShellRule,/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(collapsedShellRule,/overflow-x:\s*hidden/);
+  assert.doesNotMatch(collapsedShellRule,/sidebar-collapsed-width|64px/);
+  const mobileMainRule=finalMobileBlock.match(/\.dashboard-main\s*\{([^}]*)\}/)?.[1]??"";
+  assert.match(mobileMainRule,/grid-column:\s*1\s*\/\s*-1/);
+  assert.match(mobileMainRule,/width:\s*100%/);
+  assert.match(mobileMainRule,/max-width:\s*100%/);
+  assert.match(mobileMainRule,/min-width:\s*0/);
+  assert.match(mobileMainRule,/overflow-x:\s*hidden/);
+  const openSidebarRule=finalMobileBlock.match(/\.dashboard-shell\.mobile-navigation-open \.app-sidebar\s*\{([^}]*)\}/)?.[1]??"";
+  assert.match(openSidebarRule,/display:\s*block/);
 });
 
 test("mobile header actions retain the shared 44px touch target",()=>{
