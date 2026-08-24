@@ -31,6 +31,9 @@ export const HR_PERMISSIONS = {
   HR_COMPENSATION_PAGE: "hr:compensation", HR_PAYROLL_PAGE: "hr:payroll",
   HR_COMPENSATION_READ: "hr:compensation:read", HR_COMPENSATION_MANAGE: "hr:compensation:manage",
   HR_PAYROLL_READ: "hr:payroll:read", HR_PAYROLL_MANAGE: "hr:payroll:manage", HR_PAYROLL_REVIEW: "hr:payroll:review", HR_PAYROLL_CONFIRM: "hr:payroll:confirm", HR_PAYSLIP_SELF_READ: "hr:payslip:self_read",
+  HR_PAYROLL_HISTORY_READ: "hr:payroll_history:read", HR_PAYROLL_HISTORY_TEAM_SUMMARY: "hr:payroll_history:team_summary", HR_PAYROLL_HISTORY_SELF_READ: "hr:payroll_history:self_read",
+  HR_PAYROLL_RULE_READ: "hr:payroll_rule:read", HR_PAYROLL_FORMULA_REVIEW: "hr:payroll_formula:review",
+  HR_PAYROLL_RECONCILIATION_CALCULATE: "hr:payroll_reconciliation:calculate", HR_PAYROLL_RECONCILIATION_REVIEW: "hr:payroll_reconciliation:review",
   HR_APPROVALS_PAGE: "hr:approvals", HR_APPROVAL_SELF_MANAGE: "hr:approval:self_manage", HR_APPROVAL_REVIEW: "hr:approval:review",
   HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read"
 } as const;

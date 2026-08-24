@@ -1,0 +1,7 @@
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"Verify HR payroll security, immutability, concurrency, audit and migration contracts"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify permission-aware production UI, pagination and phone-width behavior"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Verify atomic permissions remain one cross-app source of truth"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify exact decimal and immutable lineage across every boundary"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify fresh/upgrade migration, seed, provenance, CI and deployment evidence"}
+{"file":".trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/current-payroll-and-t4-gap.md","reason":"Check implementation against authoritative 46,092-row source profile and stated gaps"}
+{"file":".trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json","reason":"Verify every source count and hash remains bound to the reviewed backup and catalog"}
