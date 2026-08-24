@@ -7,6 +7,7 @@ import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { hrApi, type HrApproval } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
+import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 
 const labels: Record<string, string> = { employment_change: "任职变动", profile_change: "档案变更", compensation_change: "薪酬变更", draft: "草稿", submitted: "待审核", pending: "待审核", approved: "已通过", returned: "已退回", withdrawn: "已撤回" };
@@ -24,7 +25,7 @@ export function HrApprovalsClient() {
       const token = getAccessToken();
       const [myRows, pendingRows] = await Promise.all([hrApi.myApprovals(token), canReview ? hrApi.pendingApprovals(token) : Promise.resolve([])]);
       setMine(myRows); setPending(pendingRows); setMessage("");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "加载审批失败"); }
+    } catch (error) { setMessage(hrLoadErrorMessage(error, "加载审批失败")); }
   }, [canReview]);
 
   useEffect(() => { void load(); }, [load]);

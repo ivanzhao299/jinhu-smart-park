@@ -79,6 +79,9 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/visibleRows\.map/);
   assert.match(employees,/rows\.length<total/);
   assert.match(employees,/加载更多员工/);
+  assert.match(employees,/keyword:query\.trim\(\),status:statusFilter/);
+  assert.match(employees,/window\.setTimeout\(\(\)=>void load\(\),300\)/);
+  assert.match(employees,/当前员工详情不在您的数据权限范围内/);
 });
 
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
@@ -125,6 +128,7 @@ test("HR M4 approvals separate applicant records from reviewer queue",()=>{
   assert.match(approvals,/提交审核/);
   assert.match(approvals,/重新提交/);
   assert.match(approvals,/撤回/);
+  assert.match(approvals,/hrLoadErrorMessage\(error, "加载审批失败"\)/);
 });
 
 test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
@@ -155,4 +159,14 @@ test("mobile dashboard navigation is hidden by default and requires an explicit 
   assert.match(defaultSidebarRule,/display:\s*none/);
   assert.doesNotMatch(defaultSidebarRule,/display:\s*block/);
   assert.match(globals,/\.dashboard-shell\.mobile-navigation-open \.app-sidebar\s*\{[\s\S]*display:\s*block/);
+});
+
+test("mobile header actions retain the shared 44px touch target",()=>{
+  const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
+  const mobileHeaderStart=globals.lastIndexOf("@media (max-width: 720px)",globals.lastIndexOf(".app-header .header-actions"));
+  const mobileHeaderEnd=globals.indexOf("\n}\n",globals.indexOf(".app-header .user-menu .user-logout-button {",mobileHeaderStart))+3;
+  const mobileHeaderBlock=globals.slice(mobileHeaderStart,mobileHeaderEnd);
+  assert.match(mobileHeaderBlock,/grid-auto-columns:\s*var\(--form-control-height-touch\)/);
+  assert.match(mobileHeaderBlock,/width:\s*var\(--form-control-height-touch\)/);
+  assert.match(mobileHeaderBlock,/height:\s*var\(--form-control-height-touch\)/);
 });

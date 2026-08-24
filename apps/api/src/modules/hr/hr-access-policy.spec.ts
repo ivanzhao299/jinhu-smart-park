@@ -103,6 +103,28 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   assert.ok(findOptions?.where?.id, "manager list must retain the server-derived employee ID filter");
 });
 
+test("employee directory keyword searches name and code without dropping scope filters", async () => {
+  let findOptions: { where?: Array<Record<string, unknown>> } | undefined;
+  const employees = {
+    findAndCount: async (options: { where?: Array<Record<string, unknown>> }) => {
+      findOptions = options;
+      return [[], 0];
+    }
+  };
+  const service = Reflect.construct(HrService, [employees, ...Array(22).fill({})]) as HrService;
+  await service.listEmployees(
+    { tenantId: "tenant-1", parkId: "park-1" },
+    actor([HR_PERMISSIONS.HR_EMPLOYEE_READ]),
+    { page: 1, page_size: 20, keyword: "JH-001", status: "active" }
+  );
+  assert.equal(findOptions?.where?.length, 2);
+  assert.equal(findOptions?.where?.[0]?.tenantId, "tenant-1");
+  assert.equal(findOptions?.where?.[0]?.parkId, "park-1");
+  assert.equal(findOptions?.where?.[0]?.employmentStatus, "active");
+  assert.ok(findOptions?.where?.[0]?.fullName);
+  assert.ok(findOptions?.where?.[1]?.employeeCode);
+});
+
 test("sensitive profile projection masks private contact data without full permission", () => {
   const profile = {
     id: "profile-1", employeeId: "employee-1", idType: "resident_id", idNumberMasked: "320812198901011234",
