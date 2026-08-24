@@ -65,7 +65,6 @@ export function prefersMobileWorkbench(signals: PostLoginDeviceSignals): boolean
   return Boolean(
     (signals.viewportWidth ?? Number.MAX_SAFE_INTEGER) <= 900 ||
       signals.pointerCoarse ||
-      (signals.touchPoints ?? 0) > 0 ||
       /iphone|ipad|android|mobile|harmonyos/.test(userAgent)
   );
 }
