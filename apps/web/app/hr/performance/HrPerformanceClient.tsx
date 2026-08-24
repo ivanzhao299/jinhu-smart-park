@@ -8,6 +8,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { hrApi, type HrEmployee, type HrPerformanceCycle, type HrPerformancePlan } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
 import styles from "../hr-workbench.module.css";
+import { hrLoadErrorMessage } from "../hr-errors";
 
 type SetupAction = "cycle" | "plan" | null;
 const statusLabel: Record<string, string> = { draft: "待启动", self_review: "员工自评", manager_review: "主管评价", calibrating: "HR 校准", confirmed: "已确认" };
@@ -36,7 +37,7 @@ export function HrPerformanceClient() {
       if (manage) { setCycles(rows[index++] as HrPerformanceCycle[]); setEmployees((rows[index++] as { items: HrEmployee[] }).items); }
       if (review) setTeam(rows[index] as HrPerformancePlan[]);
       setMessage("");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "加载绩效失败"); }
+    } catch (error) { setMessage(hrLoadErrorMessage(error, "加载绩效失败")); }
   }, [manage, review]);
 
   useEffect(() => { void load(); }, [load]);

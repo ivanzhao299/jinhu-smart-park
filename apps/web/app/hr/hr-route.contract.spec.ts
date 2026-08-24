@@ -108,6 +108,44 @@ test("HR M4 performance separates personal and manager queues",()=>{
   assert.match(performance,/执行 HR 校准/);
 });
 
+test("HR M4 360 feedback uses explicit setup and personal task actions",()=>{
+  const feedback=readFileSync(resolve(__dirname,"feedback-360/HrFeedbackClient.tsx"),"utf8");
+  assert.match(feedback,/待我评价/);
+  assert.match(feedback,/action === "cycle" \? <form/);
+  assert.match(feedback,/action === "assignment" \? <form/);
+  assert.match(feedback,/<details className=\{styles\.actionDisclosure\}>/);
+  assert.match(feedback,/当前没有需要处理的 360 评价/);
+});
+
+test("HR M4 approvals separate applicant records from reviewer queue",()=>{
+  const approvals=readFileSync(resolve(__dirname,"approvals/HrApprovalsClient.tsx"),"utf8");
+  assert.match(approvals,/待我审核/);
+  assert.match(approvals,/showCreate \? <form/);
+  assert.match(approvals,/审核申请/);
+  assert.match(approvals,/提交审核/);
+  assert.match(approvals,/重新提交/);
+  assert.match(approvals,/撤回/);
+});
+
+test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
+  const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8");
+  assert.match(payroll,/待复核/);
+  assert.match(payroll,/待确认/);
+  assert.match(payroll,/setup === "run" \? <form/);
+  assert.match(payroll,/确认并冻结/);
+  assert.match(payroll,/校正工资条/);
+  assert.match(payroll,/仅限本人数据/);
+});
+
+test("HR M4 compensation keeps plan ledger separate from sensitive assignment",()=>{
+  const compensation=readFileSync(resolve(__dirname,"compensation/HrCompensationClient.tsx"),"utf8");
+  assert.match(compensation,/方案台账/);
+  assert.match(compensation,/action === "plan" \? <form/);
+  assert.match(compensation,/action === "assignment" \? <form/);
+  assert.match(compensation,/排除已离职员工/);
+  assert.match(compensation,/仅对授权人事人员开放/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

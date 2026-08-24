@@ -195,6 +195,12 @@
   margin-top: 12px;
 }
 
+.recordActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .step {
   display: flex;
   align-items: flex-start;
