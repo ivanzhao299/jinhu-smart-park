@@ -5,13 +5,13 @@ import { DataSource,ILike,In,IsNull,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrCompensationPlanDto,CreateHrEmployeeDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrEmploymentTransitionDto,HrListQueryDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
-import { HrApprovalActionEntity,HrApprovalRequestEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrCompensationPlanDto,CreateHrEmployeeDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrContractListQueryDto,HrEmploymentTransitionDto,HrListQueryDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import { HrApprovalActionEntity,HrApprovalRequestEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
-import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrEmployeeAccessScope } from "./hr-access-policy";
+import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrContractAccessScope,resolveHrEmployeeAccessScope } from "./hr-access-policy";
 
 @Injectable()
 export class HrService {
@@ -35,6 +35,9 @@ export class HrService {
   @InjectRepository(HrPayrollRunEntity) private readonly payrollRuns:Repository<HrPayrollRunEntity>,
   @InjectRepository(HrPayslipEntity) private readonly payslips:Repository<HrPayslipEntity>,
   @InjectRepository(HrApprovalRequestEntity) private readonly approvalRequests:Repository<HrApprovalRequestEntity>,
+  @InjectRepository(HrContractTypeEntity) private readonly contractTypes:Repository<HrContractTypeEntity>,
+  @InjectRepository(HrContractEntity) private readonly contracts:Repository<HrContractEntity>,
+  @InjectRepository(HrContractChangeEntity) private readonly contractChanges:Repository<HrContractChangeEntity>,
   @InjectRepository(OrgEntity) private readonly orgs:Repository<OrgEntity>,
   @InjectRepository(UserEntity) private readonly users:Repository<UserEntity>,
   private readonly notifications:HrNotificationService,
@@ -119,6 +122,55 @@ export class HrService {
  }
  async listPositions(scope:TenantParkScope){return this.positions.find({where:{...scope,isDeleted:false},order:{positionCode:"ASC"}});}
  async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){await this.mustOrg(scope,dto.orgId);if(await this.positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return this.positions.save(this.positions.create({...scope,...dto,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));}
+
+ async listContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
+  const accessibleIds=await this.contractEmployeeIds(scope,actor);
+  return this.findContracts(scope,q,accessibleIds);
+ }
+ async listMyContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
+  const employee=await this.myEmployee(scope,actor);
+  return this.findContracts(scope,q,[employee.id]);
+ }
+ async contractDetail(scope:TenantParkScope,actor:JwtPrincipal,id:string){
+  const accessibleIds=await this.contractEmployeeIds(scope,actor);
+  const row=await this.contracts.findOne({where:{id,...scope,isDeleted:false}});
+  if(!row||(accessibleIds!==null&&!accessibleIds.includes(row.employeeId)))throw new NotFoundException("Contract not found");
+  const [employee,type,changes]=await Promise.all([
+   this.employees.findOne({where:{id:row.employeeId,...scope,isDeleted:false}}),
+   this.contractTypes.findOne({where:{id:row.contractTypeId,...scope,isDeleted:false}}),
+   this.contractChanges.find({where:{contractId:id,...scope,isDeleted:false},order:{sequenceNo:"ASC"}})
+  ]);
+  if(!employee||!type)throw new NotFoundException("Contract not found");
+  return {...this.projectContract(row,employee,type),changes:changes.map(change=>({id:change.id,sequenceNo:change.sequenceNo,changeType:change.changeType,newStartDate:change.newStartDate,newEndDate:change.newEndDate,isHistoricalImport:change.isHistoricalImport}))};
+ }
+
+ private async findContracts(scope:TenantParkScope,q:HrContractListQueryDto,employeeIds:string[]|null):Promise<PaginatedResult<ReturnType<HrService["projectContractRaw"]>>>{
+  if(employeeIds!==null&&!employeeIds.length)return {items:[],total:0,page:q.page,page_size:q.page_size};
+  const query=this.contracts.createQueryBuilder("contract")
+   .innerJoin(HrEmployeeEntity,"employee","employee.id=contract.employee_id AND employee.tenant_id=contract.tenant_id AND employee.park_id=contract.park_id AND employee.is_deleted=false")
+   .innerJoin(HrContractTypeEntity,"type","type.id=contract.contract_type_id AND type.tenant_id=contract.tenant_id AND type.park_id=contract.park_id AND type.is_deleted=false")
+   .where("contract.tenant_id=:tenantId AND contract.park_id=:parkId AND contract.is_deleted=false",scope);
+  if(employeeIds!==null)query.andWhere("contract.employee_id IN (:...employeeIds)",{employeeIds});
+  if(q.status)query.andWhere("contract.status=:status",{status:q.status});
+  if(q.expiry_from)query.andWhere("contract.end_date>=:expiryFrom",{expiryFrom:q.expiry_from});
+  if(q.expiry_to)query.andWhere("contract.end_date<=:expiryTo",{expiryTo:q.expiry_to});
+  if(q.keyword)query.andWhere("(employee.full_name ILIKE :keyword OR employee.employee_code ILIKE :keyword OR contract.contract_no ILIKE :keyword)",{keyword:`%${q.keyword}%`});
+  const total=await query.getCount();
+  const items=await query.clone().select([
+   "contract.id AS id","contract.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","contract.contract_no AS contract_no","contract.contract_type_id AS contract_type_id","type.type_name AS contract_type_name","contract.start_date AS start_date","contract.end_date AS end_date","contract.probation_end_date AS probation_end_date","contract.status AS status","contract.is_historical_import AS is_historical_import"
+  ]).orderBy("contract.end_date","ASC","NULLS LAST").addOrderBy("contract.contract_no","ASC").offset((q.page-1)*q.page_size).limit(q.page_size).getRawMany<Record<string,unknown>>();
+  return {items:items.map(row=>this.projectContractRaw(row)),total,page:q.page,page_size:q.page_size};
+ }
+ private async contractEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal):Promise<string[]|null>{
+  const access=resolveHrContractAccessScope(actor);
+  if(access.park)return null;
+  const ids:string[]=[];
+  if(access.managedOrgTree)ids.push(...await this.managedEmployeeIds(scope,actor));
+  if(access.self)ids.push((await this.myEmployee(scope,actor)).id);
+  return [...new Set(ids)];
+ }
+ private projectContract(row:HrContractEntity,employee:HrEmployeeEntity,type:HrContractTypeEntity){return {id:row.id,employeeId:row.employeeId,employeeCode:employee.employeeCode,employeeName:employee.fullName,contractNo:row.contractNo,contractTypeId:row.contractTypeId,contractTypeName:type.typeName,startDate:row.startDate,endDate:row.endDate,probationEndDate:row.probationEndDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
+ private projectContractRaw(row:Record<string,unknown>){return {id:String(row.id),employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name),contractNo:String(row.contract_no),contractTypeId:String(row.contract_type_id),contractTypeName:String(row.contract_type_name),startDate:row.start_date===null?null:String(row.start_date),endDate:row.end_date===null?null:String(row.end_date),probationEndDate:row.probation_end_date===null?null:String(row.probation_end_date),status:String(row.status),isHistoricalImport:Boolean(row.is_historical_import)};}
 
  async listGoalCycles(scope:TenantParkScope){return this.goalCycles.find({where:{...scope,isDeleted:false},order:{startDate:"DESC"}});}
  async createGoalCycle(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrGoalCycleDto){if(dto.endDate<dto.startDate)throw new BadRequestException("Goal cycle end date must not precede start date");if(await this.goalCycles.exists({where:{...scope,cycleCode:dto.cycleCode,isDeleted:false}}))throw new ConflictException("Goal cycle code already exists");return this.goalCycles.save(this.goalCycles.create({...scope,...dto,status:"draft",createBy:actor.sub,updateBy:actor.sub}));}

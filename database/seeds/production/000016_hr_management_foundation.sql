@@ -72,6 +72,7 @@ INSERT INTO hr_permission_defs VALUES
  ('hr:compensation','薪酬方案','page','/hr/compensation',728),
  ('hr:payroll','工资核算','page','/hr/payroll',729),
  ('hr:approvals','人事审批','page','/hr/approvals',730),
+ ('hr:contracts','劳动合同','page','/hr/contracts',731),
  ('hr:employee:read','读取员工档案','api',NULL,730),
  ('hr:employee:manage','管理员工档案','api',NULL,731),
  ('hr:employee:self_read','读取本人档案','api',NULL,732),
@@ -103,6 +104,11 @@ INSERT INTO hr_permission_defs VALUES
  ('hr:position:read','读取岗位','api',NULL,733),
  ('hr:position:manage','管理岗位','api',NULL,734),
  ('hr:employment_event:read','读取任职历史','api',NULL,735);
+INSERT INTO hr_permission_defs VALUES
+ ('hr:contract:read','读取园区劳动合同','api',NULL,761),
+ ('hr:contract:team_read','读取团队劳动合同','api',NULL,762),
+ ('hr:contract:self_read','读取本人劳动合同','api',NULL,763),
+ ('hr:contract:manage','管理劳动合同','api',NULL,764);
 INSERT INTO sys_permission(id,tenant_id,park_id,code,name,parent_id,resource,action,permission_path,perm_path,permission_level,level,sort_no,permission_type,perm_type,frontend_route,is_system,is_builtin,is_tenant_custom,visible,keep_alive,always_show,is_enabled,status,create_time,update_time,is_deleted,version,remark)
 SELECT uuid_generate_v4(),'10000001','20000001',d.code,d.name,p.id,'hr',d.kind,'hr/'||d.code,'hr/'||d.code,CASE WHEN d.kind='page' THEN 2 ELSE 3 END,CASE WHEN d.kind='page' THEN 2 ELSE 3 END,d.sort_no,d.kind,CASE WHEN d.kind='page' THEN 20 ELSE 30 END,d.route,true,true,false,d.kind='page',true,false,true,'enabled',now(),now(),false,1,'HR employee foundation permission'
 FROM hr_permission_defs d JOIN sys_permission p ON p.tenant_id='10000001' AND p.code='hr' AND p.is_deleted=false
@@ -158,6 +164,10 @@ INSERT INTO hr_foundation_roles VALUES
   ('HR_MANAGER','人力资源负责人','hr:position:read'),
   ('HR_MANAGER','人力资源负责人','hr:position:manage'),
   ('HR_MANAGER','人力资源负责人','hr:employment_event:read'),
+  ('HR_MANAGER','人力资源负责人','hr:contracts'),
+  ('HR_MANAGER','人力资源负责人','hr:contract:read'),
+  ('HR_MANAGER','人力资源负责人','hr:contract:self_read'),
+  ('HR_MANAGER','人力资源负责人','hr:contract:manage'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','system:user:me'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:dashboard');
@@ -181,6 +191,9 @@ INSERT INTO hr_foundation_roles VALUES
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:approvals'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:approval:self_manage');
 INSERT INTO hr_foundation_roles VALUES
+  ('EMPLOYEE_SELF_SERVICE','员工自助','hr:contracts'),
+  ('EMPLOYEE_SELF_SERVICE','员工自助','hr:contract:self_read');
+INSERT INTO hr_foundation_roles VALUES
   ('DEPARTMENT_MANAGER','部门负责人','system:user:me'),
   ('DEPARTMENT_MANAGER','部门负责人','hr'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:dashboard'),
@@ -198,6 +211,10 @@ INSERT INTO hr_foundation_roles VALUES
   ('DEPARTMENT_MANAGER','部门负责人','hr:feedback:respond'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:payslip:self_read'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:approval:self_manage');
+INSERT INTO hr_foundation_roles VALUES
+  ('DEPARTMENT_MANAGER','部门负责人','hr:contracts'),
+  ('DEPARTMENT_MANAGER','部门负责人','hr:contract:team_read'),
+  ('DEPARTMENT_MANAGER','部门负责人','hr:contract:self_read');
 
 INSERT INTO sys_role(
   tenant_id,park_id,code,name,role_path,level,sort_no,role_type,role_scope,data_scope,data_scope_config,
@@ -232,7 +249,7 @@ DO $$ BEGIN
   IF NOT EXISTS(SELECT 1 FROM sys_module WHERE module_code='hr' AND status=1 AND is_deleted=false) THEN
     RAISE EXCEPTION 'HR module foundation missing';
   END IF;
-  IF (SELECT count(*) FROM sys_permission WHERE tenant_id='10000001' AND code IN('hr','hr:dashboard','hr:organization','hr:employees','hr:goals','hr:work_reports','hr:performance','hr:feedback_360','hr:compensation','hr:payroll','hr:approvals','hr:employee:read','hr:employee:manage','hr:employee:self_read','hr:employee_profile:read','hr:employee_profile:manage','hr:employment:transition','hr:goal:read','hr:goal:manage','hr:goal:self_read','hr:work_report:self_manage','hr:work_report:team_review','hr:performance:read','hr:performance:manage','hr:performance:self_review','hr:performance:manager_review','hr:performance:calibrate','hr:feedback:manage','hr:feedback:respond','hr:feedback:result_read','hr:compensation:read','hr:compensation:manage','hr:payroll:read','hr:payroll:manage','hr:payroll:review','hr:payroll:confirm','hr:payslip:self_read','hr:approval:self_manage','hr:approval:review','hr:position:read','hr:position:manage','hr:employment_event:read') AND is_deleted=false AND is_enabled=true) <> 42 THEN
+  IF (SELECT count(*) FROM sys_permission WHERE tenant_id='10000001' AND code IN('hr','hr:dashboard','hr:organization','hr:employees','hr:goals','hr:work_reports','hr:performance','hr:feedback_360','hr:compensation','hr:payroll','hr:approvals','hr:contracts','hr:employee:read','hr:employee:manage','hr:employee:self_read','hr:employee_profile:read','hr:employee_profile:manage','hr:employment:transition','hr:contract:read','hr:contract:team_read','hr:contract:self_read','hr:contract:manage','hr:goal:read','hr:goal:manage','hr:goal:self_read','hr:work_report:self_manage','hr:work_report:team_review','hr:performance:read','hr:performance:manage','hr:performance:self_review','hr:performance:manager_review','hr:performance:calibrate','hr:feedback:manage','hr:feedback:respond','hr:feedback:result_read','hr:compensation:read','hr:compensation:manage','hr:payroll:read','hr:payroll:manage','hr:payroll:review','hr:payroll:confirm','hr:payslip:self_read','hr:approval:self_manage','hr:approval:review','hr:position:read','hr:position:manage','hr:employment_event:read') AND is_deleted=false AND is_enabled=true) <> 47 THEN
     RAISE EXCEPTION 'HR permission foundation incomplete';
   END IF;
   IF (SELECT count(*) FROM sys_role WHERE tenant_id='10000001' AND code IN('HR_MANAGER','EMPLOYEE_SELF_SERVICE','DEPARTMENT_MANAGER') AND is_deleted=false AND is_enabled=true) <> 3 THEN

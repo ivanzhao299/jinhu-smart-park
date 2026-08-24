@@ -4,6 +4,7 @@ import type { HrEmployeeProfileEntity } from "./entities/hr.entities";
 import type { HrApprovalRequestEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 
 export type HrEmployeeAccessScope = "park" | "managed_org_tree" | "self" | "none";
+export interface HrContractAccessScope { park:boolean;managedOrgTree:boolean;self:boolean; }
 
 export const HR_MANAGED_EMPLOYEE_IDS_SQL=`WITH RECURSIVE managed_org AS (
  SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$3 AND is_deleted=false AND status='enabled'
@@ -89,6 +90,15 @@ export function resolveHrEmployeeAccessScope(actor: JwtPrincipal): HrEmployeeAcc
     return "self";
   }
   return "none";
+}
+
+export function resolveHrContractAccessScope(actor:JwtPrincipal):HrContractAccessScope {
+  const all=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_CONTRACT_READ);
+  return {
+    park:all,
+    managedOrgTree:!all&&actor.permissions.includes(HR_PERMISSIONS.HR_CONTRACT_TEAM_READ),
+    self:!all&&actor.permissions.includes(HR_PERMISSIONS.HR_CONTRACT_SELF_READ)
+  };
 }
 
 export function isHrEmployeeIdAccessible(

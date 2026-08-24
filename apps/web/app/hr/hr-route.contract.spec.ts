@@ -150,6 +150,24 @@ test("HR M4 compensation keeps plan ledger separate from sensitive assignment",(
   assert.match(compensation,/仅对授权人事人员开放/);
 });
 
+test("HR M5 labor contracts are list-first, server-filtered, and history-aware",()=>{
+  const contracts=readFileSync(resolve(__dirname,"contracts/HrContractsClient.tsx"),"utf8");
+  const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+  const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
+  assert.match(contracts,/劳动合同/);
+  assert.match(contracts,/姓名、员工编号或合同编号/);
+  assert.match(contracts,/加载更多/);
+  assert.match(contracts,/续签与变更历史/);
+  assert.match(contracts,/旧系统历史记录/);
+  assert.match(contracts,/hrLoadErrorMessage\(error,"加载劳动合同失败"\)/);
+  assert.match(contracts,/if\(!canRead\)return/);
+  assert.match(contracts,/fallback=\{forbidden\}/);
+  assert.match(api,/expiry_from/);
+  assert.match(api,/expiry_to/);
+  assert.match(api,/\/hr\/contracts/);
+  assert.match(menu,/"\/hr\/contracts"/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

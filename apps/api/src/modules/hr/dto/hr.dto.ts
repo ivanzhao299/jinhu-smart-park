@@ -12,6 +12,14 @@ export class HrListQueryDto {
  @IsOptional() @IsIn(HR_EMPLOYEE_STATUSES) status?:string;
  @IsOptional() @IsUUID() org_id?:string;
 }
+export class HrContractListQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsIn(["draft","active","expired","terminated","cancelled","needs_review"]) status?:string;
+ @IsOptional() @IsDateString() expiry_from?:string;
+ @IsOptional() @IsDateString() expiry_to?:string;
+}
 export class CreateHrPositionDto {
  @IsUUID() orgId!:string; @Transform(trim) @IsString() @MaxLength(64) positionCode!:string;
  @Transform(trim) @IsString() @MaxLength(100) positionName!:string;

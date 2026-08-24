@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { BadgeDollarSign, ClipboardCheck, FileClock, Network, RefreshCw, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, ClipboardCheck, FileClock, FileText, Network, RefreshCw, Target, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { employees: MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
-const EMPTY: Snapshot = { employees: null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+interface Snapshot { employees: MetricState; contracts:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
+const EMPTY: Snapshot = { employees: null, contracts:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -43,6 +43,10 @@ export function HrWorkbench() {
         ? hrApi.me(token).then((employee) => ({ value: employee.employmentStatus === "departed" ? 0 : 1, detail: "本人任职档案" }))
         : hrApi.employees(token).then((result) => ({ value: result.total, detail: `当前页展示 ${result.items.length} 份档案` }));
       add("employees", source);
+    }
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])){
+      const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_CONTRACT_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ]);
+      add("contracts",hrApi.contracts(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见劳动合同"})));
     }
     if (hasAnyPermission(user, [HR_PERMISSIONS.HR_GOAL_READ, HR_PERMISSIONS.HR_GOAL_SELF_READ])) {
       add("goals", hrApi.goals(!hasPermission(user, HR_PERMISSIONS.HR_GOAL_READ), token).then((goals) => ({ value: goals.filter((item) => isOpen(item.status)).length, detail: `共 ${goals.length} 项可见目标` })));
@@ -76,6 +80,7 @@ export function HrWorkbench() {
   useEffect(() => { void load(); }, [load]);
   const cards = useMemo(() => [
     { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
+    { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
     { key: "goals", title: "进行中目标", href: "/hr/goals", icon: Target },
     { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
     { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },
