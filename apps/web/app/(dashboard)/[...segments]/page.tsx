@@ -3,8 +3,10 @@
 import { Card } from "@jinhu/ui";
 import Link from "next/link";
 import type { Route } from "next";
-import { usePathname } from "next/navigation";
-import { dashboardMenus, findMenuByPath, type MenuNode } from "../../../lib/menu";
+import { notFound, usePathname } from "next/navigation";
+import { useAuthUser } from "../../../lib/auth-context";
+import { resolveCatchAllRoute } from "../../../lib/catch-all-route";
+import { findMenuByPath, type MenuNode } from "../../../lib/menu";
 import TenantsPage from "../../system/tenants/page";
 
 type MenuLink = {
@@ -14,12 +16,14 @@ type MenuLink = {
 
 export default function PlaceholderPage() {
   const pathname = usePathname();
-  if (pathname === "/system/tenants") {
-    return <TenantsPage />;
-  }
+  const user = useAuthUser();
+  const resolution = resolveCatchAllRoute(pathname, user?.menus ?? user?.menu_tree);
 
-  const menu = findMenuByPath(pathname);
-  const relatedLinks = collectRelatedLinks(pathname, menu);
+  if (resolution.kind === "tenants") return <TenantsPage />;
+  if (resolution.kind === "not-found") notFound();
+
+  const { menu, menus } = resolution;
+  const relatedLinks = collectRelatedLinks(pathname, menu, menus);
 
   return (
     <main className="content ds-page">
@@ -27,7 +31,7 @@ export default function PlaceholderPage() {
         <div style={{ display: "grid", gap: 20 }}>
           <div style={{ display: "grid", gap: 8, maxWidth: 720 }}>
             <span className="panel-tag">继续工作</span>
-            <h1 className="panel-title">{menu?.label ?? "当前入口暂未独立成页"}</h1>
+            <h1 className="panel-title">{menu.label}</h1>
             <p className="muted-text">
               这个入口还没有单独做成完整页面，但同组业务已经可以继续处理。直接从下面这些正式入口进去，不会卡在空白页。
             </p>
@@ -79,11 +83,11 @@ export default function PlaceholderPage() {
   );
 }
 
-function collectRelatedLinks(pathname: string, menu?: MenuNode): MenuLink[] {
+function collectRelatedLinks(pathname: string, menu: MenuNode, menus: MenuNode[]): MenuLink[] {
   const primarySegment = pathname.split("/").filter(Boolean)[0];
   const links = new Map<string, MenuLink>();
 
-  for (const group of dashboardMenus) {
+  for (const group of menus) {
     const children = group.children ?? [];
     const sameModule =
       menu?.module
@@ -100,7 +104,7 @@ function collectRelatedLinks(pathname: string, menu?: MenuNode): MenuLink[] {
 
   if (links.size === 0) {
     for (const href of ["/dashboard", "/workflow/inbox", "/operations/terminal", "/system/modules"]) {
-      const item = findMenuByPath(href);
+      const item = findMenuByPath(href, menus);
       if (item?.href) {
         links.set(item.href, { label: item.label, href: item.href as Route });
       }

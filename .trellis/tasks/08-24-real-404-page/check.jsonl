@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify placeholder/not-found/auth/403 separation and frontend quality gates."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Verify catch-all and related links consume one merged menu source."}
