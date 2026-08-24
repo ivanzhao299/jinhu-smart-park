@@ -8,6 +8,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { hrApi, type HrEmployee, type HrFeedbackAssignment, type HrFeedbackCycle, type HrPerformanceCycle } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
 import styles from "../hr-workbench.module.css";
+import { hrLoadErrorMessage } from "../hr-errors";
 
 type FeedbackAction = "cycle" | "assignment" | null;
 const relationLabel: Record<string, string> = { self: "本人", manager: "上级", peer: "同级", subordinate: "下属" };
@@ -31,7 +32,7 @@ export function HrFeedbackClient() {
         setCycles(cycleRows); setPerformanceCycles(performanceRows); setEmployees(employeeRows.items);
       }
       setMessage("");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "加载评价任务失败"); }
+    } catch (error) { setMessage(hrLoadErrorMessage(error, "加载评价任务失败")); }
   }, [manage]);
 
   useEffect(() => { void load(); }, [load]);

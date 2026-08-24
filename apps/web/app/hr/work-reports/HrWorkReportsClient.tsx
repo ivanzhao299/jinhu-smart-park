@@ -8,6 +8,7 @@ import { getAccessToken } from "../../../lib/authz";
 import { hrApi, type HrGoal, type HrWorkReport } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
 import styles from "../hr-workbench.module.css";
+import { hrLoadErrorMessage } from "../hr-errors";
 
 const label: Record<string, string> = { daily: "日报", weekly: "周报", monthly: "月报", submitted: "待审核", confirmed: "已确认", returned: "已退回" };
 
@@ -28,7 +29,7 @@ export function HrWorkReportsClient() {
         canReview ? hrApi.teamWorkReports(token) : Promise.resolve([])
       ]);
       setMine(myRows); setGoals(myGoals); setTeam(teamRows); setMessage("");
-    } catch (error) { setMessage(error instanceof Error ? error.message : "加载汇报失败"); }
+    } catch (error) { setMessage(hrLoadErrorMessage(error, "加载汇报失败")); }
   }, [canReview]);
 
   useEffect(() => { void load(); }, [load]);
