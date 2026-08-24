@@ -201,6 +201,8 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/hr/payroll",
   "/hr/approvals",
   "/hr/contracts",
+  "/hr/attendance",
+  "/hr/insurance",
   "/workorders",
   "/tenant/service",
   "/workflow/inbox",

@@ -184,6 +184,38 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(menu,/"\/hr\/contracts"/);
 });
 
+test("HR M6 historical attendance and insurance ledgers are scoped, paged, and mobile-first",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");
+ const insurance=readFileSync(resolve(__dirname,"insurance/HrInsuranceClient.tsx"),"utf8");
+ const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ const menu=readFileSync(resolve(__dirname,"../../lib/menu.ts"),"utf8");
+ for(const page of [attendance,insurance]){assert.match(page,/ds-page/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/ds-mobile-record/);assert.match(page,/加载更多/);assert.match(page,/if\(!canRead\)return/);}
+ assert.match(attendance,/这些日期不是员工实际出勤记录/);
+ assert.match(attendance,/未知符号保留待复核/);
+ assert.match(insurance,/单位成本仅向 HR 授权岗位开放/);
+ assert.match(insurance,/selfOnly/);
+ assert.match(insurance,/full\?<span>单位缴费/);
+ assert.match(api,/attendanceCalendars:/);
+ assert.match(api,/insurancePeriods:/);
+ assert.match(api,/insurancePeriod:/);
+ assert.match(menu,/"\/hr\/attendance"/);
+ assert.match(menu,/"\/hr\/insurance"/);
+});
+
+test("HR M6 attendance requests expose explicit self and approval actions without unauthorized calls",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
+ for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:crypto\.randomUUID\(\)/);
+});
+
+test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{
+ const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
+ assert.match(attendance,/HR_ATTENDANCE_OPERATE/);assert.match(attendance,/员工事实/);assert.match(attendance,/团队考勤异常/);assert.match(attendance,/我的考勤日历/);assert.match(attendance,/班次、排班、打卡与重算/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/if\(!canOperate\)return/);
+ for(const method of ["attendanceShifts","createAttendanceShift","createAttendanceSchedule","createAttendancePunch","attendanceDaily","recalculateAttendance"])assert.match(api,new RegExp(`${method}:`));
+});
+
+test("HR M6 month close keeps review, recovery and correction versions explicit",()=>{const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8"),api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");for(const label of ["月结期间与工资输入版本","新建月结期间","恢复并重算","确认封账","创建更正批次","生成新更正版本","旧快照保持不变","工资输入版本链","相对上一批次变更"])assert.match(attendance,new RegExp(label));assert.match(attendance,/canPayrollInput&&period\.status==="closed"/);assert.match(attendance,/ds-mobile-record-list/);for(const method of ["attendancePeriods","createAttendancePeriod","calculateAttendancePeriod","closeAttendancePeriod","correctAttendancePeriod","attendanceMonthSummaries","payrollAttendanceInputs","attendancePayrollVersions"])assert.match(api,new RegExp(`${method}:`));});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

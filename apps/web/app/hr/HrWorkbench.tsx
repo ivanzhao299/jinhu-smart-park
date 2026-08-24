@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { BadgeDollarSign, ClipboardCheck, FileClock, FileText, Network, RefreshCw, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, Network, RefreshCw, ShieldCheck, Target, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { employees: MetricState; contracts:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
-const EMPTY: Snapshot = { employees: null, contracts:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+interface Snapshot { employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
+const EMPTY: Snapshot = { employees: null, contracts:null, attendance:null, insurance:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -47,6 +47,11 @@ export function HrWorkbench() {
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])){
       const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_CONTRACT_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ]);
       add("contracts",hrApi.contracts(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见劳动合同"})));
+    }
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_ATTENDANCE_READ,HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ,HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ]))add("attendance",hrApi.attendanceCalendars(token,1,1).then(result=>({value:result.total,detail:"旧系统历史月历模板"})));
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ])){
+      const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_INSURANCE_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ]);
+      add("insurance",hrApi.insurancePeriods(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见月度社保记录"})));
     }
     if (hasAnyPermission(user, [HR_PERMISSIONS.HR_GOAL_READ, HR_PERMISSIONS.HR_GOAL_SELF_READ])) {
       add("goals", hrApi.goals(!hasPermission(user, HR_PERMISSIONS.HR_GOAL_READ), token).then((goals) => ({ value: goals.filter((item) => isOpen(item.status)).length, detail: `共 ${goals.length} 项可见目标` })));
@@ -81,6 +86,8 @@ export function HrWorkbench() {
   const cards = useMemo(() => [
     { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
     { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
+    { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays },
+    { key: "insurance", title: "五险一金", href: "/hr/insurance", icon: ShieldCheck },
     { key: "goals", title: "进行中目标", href: "/hr/goals", icon: Target },
     { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
     { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },

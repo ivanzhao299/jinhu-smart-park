@@ -21,6 +21,8 @@ export const HR_PERMISSIONS = {
   HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
   HR_EMPLOYMENT_TRANSITION: "hr:employment:transition",
   HR_CONTRACTS_PAGE: "hr:contracts", HR_CONTRACT_READ: "hr:contract:read", HR_CONTRACT_TEAM_READ: "hr:contract:team_read", HR_CONTRACT_SELF_READ: "hr:contract:self_read", HR_CONTRACT_MANAGE: "hr:contract:manage",
+  HR_ATTENDANCE_PAGE: "hr:attendance", HR_ATTENDANCE_READ: "hr:attendance:read", HR_ATTENDANCE_TEAM_READ: "hr:attendance:team_read", HR_ATTENDANCE_SELF_READ: "hr:attendance:self_read", HR_ATTENDANCE_REQUEST: "hr:attendance:request", HR_ATTENDANCE_APPROVE: "hr:attendance:approve", HR_ATTENDANCE_CORRECT: "hr:attendance:correct", HR_ATTENDANCE_OPERATE: "hr:attendance:operate", HR_ATTENDANCE_CLOSE: "hr:attendance:close", HR_ATTENDANCE_PAYROLL_INPUT_READ: "hr:attendance:payroll_input_read",
+  HR_INSURANCE_PAGE: "hr:insurance", HR_INSURANCE_READ: "hr:insurance:read", HR_INSURANCE_TEAM_READ: "hr:insurance:team_read", HR_INSURANCE_SELF_READ: "hr:insurance:self_read",
   HR_GOAL_READ: "hr:goal:read", HR_GOAL_MANAGE: "hr:goal:manage", HR_GOAL_SELF_READ: "hr:goal:self_read",
   HR_WORK_REPORT_SELF_MANAGE: "hr:work_report:self_manage", HR_WORK_REPORT_TEAM_REVIEW: "hr:work_report:team_review",
   HR_PERFORMANCE_PAGE: "hr:performance", HR_FEEDBACK_360_PAGE: "hr:feedback_360",
