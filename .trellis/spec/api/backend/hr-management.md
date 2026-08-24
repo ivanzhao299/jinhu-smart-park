@@ -73,6 +73,65 @@ await createPayrollRun(scope, actor, { periodId, correctionOfRunId: confirmedRun
 return { responseCount, averageScore };
 ```
 
+## Scenario: HR sensitive read projection and required audit
+
+### 1. Scope / Trigger
+
+- Trigger: reading employee sensitive profiles, payroll runs or payslips, or listing/detail/downloading `hr_employee_document` files.
+
+### 2. Signatures
+
+- Projection: `projectHrEmployeeProfile(profile, canReadFull)` and the explicit HR read projection helpers.
+- Audit: `recordHrSensitiveRead(auditService, input)` delegates to `AuditService.recordOperationRequired(input)`.
+- Audit body allowlist: `fieldGroups`, `projection`, and `itemCount` only.
+
+### 3. Contracts
+
+- Read scope is resolved by the backend as `park | managed_org_tree | self | none`; no unrelated permission may fall back to `self`.
+- Client filters may narrow the resolved scope but never expand it.
+- Sensitive reads return explicit allowlist projections rather than TypeORM entities. HR file metadata never exposes storage path, stored name, digest, tenant/park, actor, soft-delete, or version fields.
+- Required audit records actor, tenant/park, action, field groups, business identity, route template, projection level, and item count without sensitive values.
+- Audit persistence completes before the sensitive response, response headers, or download stream. Audit failure blocks the response.
+- The existing best-effort audit entry remains available for non-sensitive historical callers; do not globally change ordinary GET behavior.
+
+### 4. Validation & Error Matrix
+
+- no HR employee-read permission -> `none`; list is empty and detail is safe not-found.
+- cross-tenant, cross-park, or outside managed organization tree -> safe not-found/forbidden without target disclosure.
+- profile read without full-field permission -> masked contact/identity projection and no internal remark.
+- required audit persistence failure -> fail the request before returning metadata or content.
+- HR file business authorization failure -> no success audit, metadata, response header, or stream.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a manager sees only employees in their managed organization tree; a sensitive profile response is masked and strictly audited before delivery.
+- Base: an HR administrator with the precise profile permission receives the approved projection while identity remains stored/provided only in its protected form.
+- Bad: default an unrelated permission to self access, spread an entity into a response, swallow the audit error, or create a download stream before the audit succeeds.
+
+### 6. Tests Required
+
+- Unit-test `park`, `managed_org_tree`, `self`, and `none`, including direct Service invocation without Controller guards.
+- PostgreSQL-test recursive organization scope with sibling, foreign-tenant, and foreign-park rows.
+- Assert exact response keys for profile, payroll, payslip, approval, feedback, and HR file metadata projections.
+- Assert required-audit failure blocks profile/payroll/file responses while legacy best-effort audit behavior remains unchanged.
+- Assert HR downloads authorize and audit before headers and stream creation.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await auditService.recordOperation(input); // errors are swallowed
+return fileEntity; // leaks storage and audit internals
+```
+
+#### Correct
+
+```ts
+await auditService.recordOperationRequired(buildHrSensitiveReadAuditInput(input));
+return projectHrEmployeeDocument(fileEntity);
+```
+
 ## Scenario: Payroll concurrency and accounting integrity
 
 ### 1. Scope / Trigger

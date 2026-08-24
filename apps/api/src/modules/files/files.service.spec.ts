@@ -5,7 +5,8 @@ import test from "node:test";
 import { ForbiddenException } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { FilesService, normalizeMultipartFileName } from "./files.service";
+import { FilesService, normalizeMultipartFileName,projectHrEmployeeDocumentFile } from "./files.service";
+import type { FileEntity } from "./entities/file.entity";
 
 const scope: TenantParkScope = { tenantId: "tenant-1", parkId: "park-1" };
 const actor: JwtPrincipal = {
@@ -16,6 +17,13 @@ const actor: JwtPrincipal = {
   roles: [],
   permissions: []
 };
+
+test("HR employee document projection omits storage, hashes and audit internals",()=>{
+  const file={id:"file-1",fileCode:"F-1",originalName:"contract.pdf",fileUrl:"/api/v1/files/file-1/download",fileSize:"1024",mimeType:"application/pdf",bizType:"hr_employee_document",bizId:"employee-1",status:1,createTime:new Date("2026-08-24T00:00:00Z"),storedName:"secret.pdf",storagePath:"tenant/park/secret.pdf",storageBucket:null,storageType:"local",md5:"secret-md5",contentSha256:"secret-sha",tenantId:"tenant-1",parkId:"park-1",createBy:"actor",updateBy:"actor",remark:"private",isDeleted:false,version:1} as FileEntity;
+  assert.deepEqual(Object.keys(projectHrEmployeeDocumentFile(file)).sort(),[
+    "bizId","bizType","createTime","fileCode","fileSize","fileUrl","id","mimeType","originalName","status"
+  ].sort());
+});
 
 test("pending purchase receipt listing is restricted to the uploader", async () => {
   let where: Record<string, unknown> | undefined;

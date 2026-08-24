@@ -2,6 +2,19 @@ export const HR_EMPLOYEE_STATUSES = ["preboarding", "probation", "active", "susp
 export type HrEmployeeStatus = (typeof HR_EMPLOYEE_STATUSES)[number];
 export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contractor"] as const;
 export type HrEmploymentType = (typeof HR_EMPLOYMENT_TYPES)[number];
+export const HR_ACCESS_ROLES = ["HR_MANAGER", "DEPARTMENT_MANAGER", "EMPLOYEE_SELF_SERVICE"] as const;
+export type HrAccessRole = (typeof HR_ACCESS_ROLES)[number];
+export const HR_SENSITIVE_FIELD_GROUPS = ["identity", "contact", "financial", "compensation", "attachment"] as const;
+export type HrSensitiveFieldGroup = (typeof HR_SENSITIVE_FIELD_GROUPS)[number];
+export const HR_ACCESS_MATRIX = {
+  HR_MANAGER: { employeeScope: "park", sensitiveProfile: "permission", payroll: "permission" },
+  DEPARTMENT_MANAGER: { employeeScope: "managed_org_tree", sensitiveProfile: "masked", payroll: "self_published_only" },
+  EMPLOYEE_SELF_SERVICE: { employeeScope: "self", sensitiveProfile: "self_masked", payroll: "self_published_only" }
+} as const satisfies Record<HrAccessRole, {
+  employeeScope: "park" | "managed_org_tree" | "self";
+  sensitiveProfile: "permission" | "masked" | "self_masked";
+  payroll: "permission" | "self_published_only";
+}>;
 export const HR_PERMISSIONS = {
   HR_MENU: "hr", HR_DASHBOARD_PAGE: "hr:dashboard", HR_ORGANIZATION_PAGE: "hr:organization", HR_EMPLOYEES_PAGE: "hr:employees", HR_GOALS_PAGE: "hr:goals", HR_WORK_REPORTS_PAGE: "hr:work_reports",
   HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
