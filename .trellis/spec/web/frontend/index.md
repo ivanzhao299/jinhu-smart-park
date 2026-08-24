@@ -27,6 +27,28 @@ Reference files:
 - `apps/web/app/safety/inspect-tasks/page.tsx`
 - `apps/web/app/safety/inspect-tasks/InspectTasksPageClient.tsx`
 
+### Catch-all placeholder and not-found contract
+
+The dashboard catch-all is only a compatibility surface for a route present in the current
+authenticated user's merged menu. Resolve it with `resolveCatchAllRoute(pathname, userMenus)`:
+
+- `/system/tenants` keeps its explicit compatibility route.
+- A route found in `getDashboardMenus(userMenus)` may render the existing placeholder surface.
+- A route absent from that merged menu must call Next `notFound()`; never present a typo, retired
+  route, or arbitrary URL as “暂未独立成页”.
+- Related placeholder links must use the same merged menu instance as the classification.
+- An unauthenticated request remains owned by `DashboardLayout` and redirects to `/login` before
+  protected catch-all children render. Do not move this decision into the public root layout.
+
+Tests must cover legacy and backend-added menu placeholders, completely unknown paths, the tenants
+compatibility route, and the catch-all integration with `notFound()`. Keep those specs in the Web
+unit-test gate.
+
+Reference files:
+- `apps/web/lib/catch-all-route.ts`
+- `apps/web/app/(dashboard)/[...segments]/page.tsx`
+- `apps/web/app/not-found.tsx`
+
 Use `"use client"` only in files that need client behavior. Keep presentational subcomponents under a route-local `components/` directory when they are specific to that workflow.
 
 Reference files:
