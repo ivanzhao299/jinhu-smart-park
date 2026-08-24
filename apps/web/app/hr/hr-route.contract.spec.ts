@@ -138,7 +138,7 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8");
   assert.match(payroll,/待复核/);
   assert.match(payroll,/待确认/);
-  assert.match(payroll,/setup === "run" \? <form/);
+  assert.match(payroll,/setup\s*===\s*"run"\s*\?\s*\(?\s*<form/);
   assert.match(payroll,/确认并冻结/);
   assert.match(payroll,/校正工资条/);
   assert.match(payroll,/仅限本人数据/);
@@ -205,7 +205,7 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
 test("HR M6 attendance requests expose explicit self and approval actions without unauthorized calls",()=>{
  const attendance=readFileSync(resolve(__dirname,"attendance/HrAttendanceClient.tsx"),"utf8");const api=readFileSync(resolve(__dirname,"../../lib/hr-api.ts"),"utf8");
  assert.match(attendance,/canRequest=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_REQUEST\)/);assert.match(attendance,/canApprove=hasPermission\(user,HR_PERMISSIONS\.HR_ATTENDANCE_APPROVE\)/);assert.match(attendance,/新建申请/);assert.match(attendance,/保存草稿/);assert.match(attendance,/重新提交/);assert.match(attendance,/取消申请/);assert.match(attendance,/退回补充/);assert.match(attendance,/canApprove&&!row\.isSelf&&row\.status==="submitted"/);assert.match(attendance,/ds-mobile-record-list/);assert.match(attendance,/type="datetime-local"/);assert.match(attendance,/type="date"/);
- for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:crypto\.randomUUID\(\)/);
+ for(const method of ["attendanceRequests","createAttendanceRequest","submitAttendanceRequest","cancelAttendanceRequest","reviewAttendanceRequest"])assert.match(api,new RegExp(`${method}:`));assert.match(api,/idempotencyKey:\s*crypto\.randomUUID\(\)/);
 });
 
 test("HR M6 attendance calculation exposes governed operations and mobile employee facts",()=>{

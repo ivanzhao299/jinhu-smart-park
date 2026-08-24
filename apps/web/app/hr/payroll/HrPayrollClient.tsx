@@ -6,7 +6,20 @@ import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { isForbiddenError } from "../../../lib/api-client";
-import { hrApi, type HrPayrollBook, type HrPayrollCatalogItem, type HrPayrollFormula, type HrPayrollHistoryItem, type HrPayrollHistoryRow, type HrPayrollPeriod, type HrPayrollReviewCase, type HrPayrollRun, type HrPayslip } from "../../../lib/hr-api";
+import {
+  hrApi,
+  type HrPayrollBook,
+  type HrPayrollCatalogItem,
+  type HrPayrollFormula,
+  type HrPayrollHistoryItem,
+  type HrPayrollHistoryRow,
+  type HrPayrollPeriod,
+  type HrPayrollReconciliation,
+  type HrPayrollReconciliationSetup,
+  type HrPayrollReviewCase,
+  type HrPayrollRun,
+  type HrPayslip,
+} from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
 import workbenchStyles from "../hr-workbench.module.css";
 import styles from "./payroll.module.css";
@@ -14,12 +27,45 @@ import styles from "./payroll.module.css";
 type WorkArea = "online" | "history" | "rules" | "difference";
 type ViewState = "loading" | "ready" | "empty" | "forbidden" | "error";
 const EMPTY_PAGE = { items: [], page: 1, page_size: 20, total: 0 };
-const statusLabel: Record<string, string> = { draft: "草稿", calculating: "核算中", calculated: "待复核", reviewing: "复核中", confirmed: "已确认冻结", paid: "已发放" };
-const ruleStatusLabel:Record<string,string>={review_required:"待复核",active:"启用",inactive:"停用",open:"待处理",resolved:"已完成",rejected:"已拒绝"};
-const itemCategoryLabel:Record<string,string>={summary:"汇总项",earning:"收入项",deduction:"扣减项",tax:"税费项",reference:"参考项"};
-const valueTypeLabel:Record<string,string>={decimal:"金额",text:"文本",date:"日期"};
-const caseTypeLabel:Record<string,string>={formula_unsafe:"公式风险",employee_unmapped:"员工待匹配",item_unmapped:"项目待匹配",migration_error:"迁移异常"};
-const reviewActionLabel:Record<string,string>={comment:"继续跟进",resolve:"完成复核",reject:"拒绝"};
+const statusLabel: Record<string, string> = {
+  draft: "草稿",
+  calculating: "核算中",
+  calculated: "待复核",
+  reviewing: "复核中",
+  confirmed: "已确认冻结",
+  paid: "已发放",
+};
+const ruleStatusLabel: Record<string, string> = {
+  review_required:"待复核",
+  active:"启用",
+  inactive:"停用",
+  open:"待处理",
+  resolved:"已完成",
+  rejected:"已拒绝",
+};
+const itemCategoryLabel: Record<string, string> = {
+  summary:"汇总项",
+  earning:"收入项",
+  deduction:"扣减项",
+  tax:"税费项",
+  reference:"参考项",
+};
+const valueTypeLabel: Record<string, string> = {
+  decimal:"金额",
+  text:"文本",
+  date:"日期",
+};
+const caseTypeLabel: Record<string, string> = {
+  formula_unsafe:"公式风险",
+  employee_unmapped:"员工待匹配",
+  item_unmapped:"项目待匹配",
+  migration_error:"迁移异常",
+};
+const reviewActionLabel: Record<string, string> = {
+  comment:"继续跟进",
+  resolve:"完成复核",
+  reject:"拒绝",
+};
 const money = (value: string | number | null | undefined) => {
   if(value==null)return "—";
   const match=String(value).match(/^(-?)(\d+)(?:\.(\d{0,4}))?$/);
@@ -44,37 +90,531 @@ function StatePanel({state,onRetry}:{state:ViewState;onRetry:()=>void}){
 }
 
 export function HrPayrollClient() {
-  const user=useAuthUser();
-  const canManage=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_MANAGE);
-  const canReadOnline=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_READ);
-  const canSelfOnline=hasPermission(user,HR_PERMISSIONS.HR_PAYSLIP_SELF_READ);
-  const canHistory=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ);
-  const canSelfHistory=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ);
-  const canTeamSummary=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_HISTORY_TEAM_SUMMARY);
-  const canRules=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RULE_READ);
-  const canReviewRules=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW);
-  const canReviewOnline=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_REVIEW);
-  const canConfirmOnline=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_CONFIRM);
-  const canDifference=hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE)||hasPermission(user,HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW);
-  const [area,setArea]=useState<WorkArea>(canReadOnline||canSelfOnline?"online":canHistory||canSelfHistory?"history":canRules?"rules":"difference");
-  const availableAreas=useMemo(()=>[
-    ...(canReadOnline||canSelfOnline?[{id:"online" as const,label:"在线工资"}]:[]),
-    ...(canHistory||canSelfHistory?[{id:"history" as const,label:"历史工资"}]:[]),
-    ...(canRules?[{id:"rules" as const,label:"规则复核"}]:[]),
-    ...(canDifference?[{id:"difference" as const,label:"双轨差异"}]:[])
-  ],[canDifference,canHistory,canReadOnline,canRules,canSelfHistory,canSelfOnline]);
+  const user = useAuthUser();
+  const canManage = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_MANAGE);
+  const canReadOnline = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ);
+  const canSelfOnline = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYSLIP_SELF_READ,
+  );
+  const canHistory = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_HISTORY_READ,
+  );
+  const canSelfHistory = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_HISTORY_SELF_READ,
+  );
+  const canTeamSummary = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_HISTORY_TEAM_SUMMARY,
+  );
+  const canRules = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_RULE_READ);
+  const canReviewRules = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_FORMULA_REVIEW,
+  );
+  const canReviewOnline = hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_REVIEW);
+  const canConfirmOnline = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_CONFIRM,
+  );
+  const canDifference =
+    hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE) ||
+    hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW);
+  const canCalculateDifference = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_CALCULATE,
+  );
+  const canReviewDifference = hasPermission(
+    user,
+    HR_PERMISSIONS.HR_PAYROLL_RECONCILIATION_REVIEW,
+  );
+  const [area, setArea] = useState<WorkArea>(
+    canReadOnline || canSelfOnline
+      ? "online"
+      : canHistory || canSelfHistory
+        ? "history"
+        : canRules
+          ? "rules"
+          : "difference",
+  );
+  const availableAreas = useMemo(
+    () => [
+      ...(canReadOnline || canSelfOnline
+        ? [{ id: "online" as const, label: "在线工资" }]
+        : []),
+      ...(canHistory || canSelfHistory
+        ? [{ id: "history" as const, label: "历史工资" }]
+        : []),
+      ...(canRules ? [{ id: "rules" as const, label: "规则复核" }] : []),
+      ...(canDifference
+        ? [{ id: "difference" as const, label: "双轨差异" }]
+        : []),
+    ],
+    [
+      canDifference,
+      canHistory,
+      canReadOnline,
+      canRules,
+      canSelfHistory,
+      canSelfOnline,
+    ],
+  );
 
-  return <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_PAYROLL_PAGE} fallback={<main className="content ds-page"><section className="ds-panel" role="alert"><h1>无法访问工资管理</h1><p>当前账号没有工资模块页面权限。</p></section></main>}>
-    <main className={`content ds-page ${workbenchStyles.page} ${styles.payrollPage}`}>
-      <section className={`ds-hero ${styles.hero}`}><div className="ds-hero-copy"><span className="ds-eyebrow">人力资源 · 薪酬</span><h1>工资管理</h1></div></section>
-      <nav className={styles.tabs} aria-label="工资工作区">{availableAreas.map(item=><button key={item.id} type="button" className={area===item.id?styles.activeTab:styles.tab} aria-current={area===item.id?"page":undefined} onClick={()=>setArea(item.id)}>{item.label}</button>)}</nav>
-      {availableAreas.length===0?<section className="ds-panel"><strong>{canTeamSummary?"团队工资数据不可见":"无可用工资工作区"}</strong><p>{canTeamSummary?"团队权限不包含金额、工资存在性或历史明细；本页面不会请求相关接口。":"当前账号没有工资数据读取权限。"}</p></section>:null}
-      {area==="online"&&(canReadOnline||canSelfOnline)?<OnlinePayroll canManage={canManage} canRead={canReadOnline} selfOnly={!canReadOnline} canReview={canReviewOnline} canConfirm={canConfirmOnline}/>:null}
-      {area==="history"&&(canHistory||canSelfHistory)?<HistoryPayroll selfOnly={!canHistory}/>:null}
-      {area==="rules"&&canRules?<RuleReview canAct={canReviewRules}/>:null}
-      {area==="difference"&&canDifference?<section className="ds-panel"><div className={workbenchStyles.sectionHeading}><div><span className="ds-eyebrow">只算不发</span><h2>双轨差异</h2></div></div><p className={workbenchStyles.emptyState}>差异计算工作台将在规则引擎验证通过后开放。</p></section>:null}
-    </main>
-  </PermissionGuard>;
+  return (
+    <PermissionGuard
+      module="hr"
+      permission={HR_PERMISSIONS.HR_PAYROLL_PAGE}
+      fallback={
+        <main className="content ds-page">
+          <section className="ds-panel" role="alert">
+            <h1>无法访问工资管理</h1>
+            <p>当前账号没有工资模块页面权限。</p>
+          </section>
+        </main>
+      }
+    >
+      <main
+        className={`content ds-page ${workbenchStyles.page} ${styles.payrollPage}`}
+      >
+        <section className={`ds-hero ${styles.hero}`}>
+          <div className="ds-hero-copy">
+            <span className="ds-eyebrow">人力资源 · 薪酬</span>
+            <h1>工资管理</h1>
+          </div>
+        </section>
+        <nav className={styles.tabs} aria-label="工资工作区">
+          {availableAreas.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={area === item.id ? styles.activeTab : styles.tab}
+              aria-current={area === item.id ? "page" : undefined}
+              onClick={() => setArea(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+        {availableAreas.length === 0 ? (
+          <section className="ds-panel">
+            <strong>
+              {canTeamSummary ? "团队工资数据不可见" : "无可用工资工作区"}
+            </strong>
+            <p>
+              {canTeamSummary
+                ? "团队权限不包含金额、工资存在性或历史明细；本页面不会请求相关接口。"
+                : "当前账号没有工资数据读取权限。"}
+            </p>
+          </section>
+        ) : null}
+        {area === "online" && (canReadOnline || canSelfOnline) ? (
+          <OnlinePayroll
+            canManage={canManage}
+            canRead={canReadOnline}
+            selfOnly={!canReadOnline}
+            canReview={canReviewOnline}
+            canConfirm={canConfirmOnline}
+          />
+        ) : null}
+        {area === "history" && (canHistory || canSelfHistory) ? (
+          <HistoryPayroll selfOnly={!canHistory} />
+        ) : null}
+        {area === "rules" && canRules ? (
+          <RuleReview canAct={canReviewRules} />
+        ) : null}
+        {area === "difference" && canDifference ? (
+          <ReconciliationWorkbench
+            canCalculate={canCalculateDifference}
+            canReview={canReviewDifference}
+          />
+        ) : null}
+      </main>
+    </PermissionGuard>
+  );
+}
+
+function ReconciliationWorkbench({
+  canCalculate,
+  canReview,
+}: {
+  canCalculate: boolean;
+  canReview: boolean;
+}) {
+  const [page, setPage] = useState(1),
+    [result, setResult] =
+      useState<PaginatedResult<HrPayrollReconciliation>>(EMPTY_PAGE),
+    [selected, setSelected] = useState<HrPayrollReconciliation | null>(null),
+    [detailTarget, setDetailTarget] = useState<HrPayrollReconciliation | null>(
+      null,
+    ),
+    [reconciliationSetup, setReconciliationSetup] =
+      useState<HrPayrollReconciliationSetup | null>(null),
+    [policyBookId, setPolicyBookId] = useState(""),
+    [state, setState] = useState<ViewState>("loading"),
+    [detailState, setDetailState] = useState<ViewState>("empty"),
+    [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(false);
+  const generation = useRef(0),
+    abort = useRef<AbortController | null>(null);
+  const load = useCallback(async () => {
+    abort.current?.abort();
+    const current = ++generation.current,
+      controller = new AbortController();
+    abort.current = controller;
+    setState("loading");
+    setSelected(null);
+    setDetailTarget(null);
+    setDetailState("empty");
+    try {
+      const [data, setupData] = await Promise.all([
+        hrApi.payrollReconciliations(
+          getAccessToken(),
+          page,
+          20,
+          controller.signal,
+        ),
+        hrApi.payrollReconciliationSetup(getAccessToken(), controller.signal),
+      ]);
+      if (current !== generation.current) return;
+      setResult(data);
+      setReconciliationSetup(setupData);
+      setPolicyBookId((value) => value || setupData.books[0]?.id || "");
+      setState(data.items.length ? "ready" : "empty");
+    } catch (e) {
+      if (
+        current === generation.current &&
+        !(e instanceof DOMException && e.name === "AbortError")
+      )
+        setState(errorState(e));
+    }
+  }, [page]);
+  useEffect(() => {
+    void load();
+    return () => {
+      abort.current?.abort();
+      generation.current += 1;
+    };
+  }, [load]);
+  const open = async (row: HrPayrollReconciliation, resultPage = 1) => {
+    abort.current?.abort();
+    const current = ++generation.current,
+      controller = new AbortController();
+    abort.current = controller;
+    setDetailTarget(row);
+    setSelected(null);
+    setDetailState("loading");
+    try {
+      const detail = await hrApi.payrollReconciliation(
+        row.id,
+        getAccessToken(),
+        controller.signal,
+        resultPage,
+        20,
+      );
+      if (current === generation.current) {
+        setSelected(detail);
+        setDetailState("ready");
+      }
+    } catch (e) {
+      if (
+        current === generation.current &&
+        !(e instanceof DOMException && e.name === "AbortError")
+      )
+        setDetailState(errorState(e));
+    }
+  };
+  const simulate = async (form: FormData) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await hrApi.simulatePayrollReconciliation(
+        {
+          legacyBatchId: String(form.get("legacyBatchId")),
+          attendanceInputBatchId: String(form.get("attendanceInputBatchId")),
+        },
+        getAccessToken(),
+      );
+      setMessage("模拟完成，未触发发薪。");
+      await load();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "模拟失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const savePolicy = async (form: FormData) => {
+    setBusy(true);
+    setMessage("");
+    try {
+      await hrApi.createPayrollReconciliationPolicy(
+        {
+          bookId: String(form.get("bookId")),
+          netItemVersionId: String(form.get("netItemVersionId")),
+          toleranceAmount: String(form.get("toleranceAmount")),
+          reason: String(form.get("reason")),
+        },
+        getAccessToken(),
+      );
+      setMessage("净额核对策略已追加并生效。");
+      await load();
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "策略保存失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const review = async (form: FormData) => {
+    if (!selected) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      await hrApi.reviewPayrollReconciliation(
+        selected.id,
+        {
+          decision: String(form.get("decision")),
+          comment: String(form.get("comment")),
+        },
+        getAccessToken(),
+      );
+      setMessage("复核意见已记录。");
+      await open(detailTarget ?? selected);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "复核失败");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div className={styles.desktopSensitive}>
+        {message ? (
+          <p className="form-error" role="alert">
+            {message}
+          </p>
+        ) : null}
+        {canReview && reconciliationSetup ? (
+          <section className="ds-panel">
+            <div className={workbenchStyles.sectionHeading}>
+              <div>
+                <span className="ds-eyebrow">CONTROL · 追加版本</span>
+                <h2>账套净额核对策略</h2>
+              </div>
+            </div>
+            <form className={workbenchStyles.formGrid} action={savePolicy}>
+              <label className="form-field">
+                <span>工资账套</span>
+                <select
+                  name="bookId"
+                  required
+                  value={policyBookId}
+                  onChange={(event) => setPolicyBookId(event.target.value)}
+                >
+                  {reconciliationSetup.books.map((book) => (
+                    <option key={book.id} value={book.id}>
+                      {book.bookName}
+                      {book.netItemName
+                        ? `（当前：${book.netItemName}，容差 ${money(book.toleranceAmount ?? "0")}）`
+                        : "（未配置）"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-field">
+                <span>权威净额项目</span>
+                <select name="netItemVersionId" required defaultValue="">
+                  <option value="" disabled>
+                    请选择已批准公式项目
+                  </option>
+                  {reconciliationSetup.netItems
+                    .filter((item) => item.bookId === policyBookId)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.displayName}（{item.itemCode} · V{item.versionNo}）
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="form-field">
+                <span>核对容差（元）</span>
+                <input
+                  name="toleranceAmount"
+                  type="number"
+                  min="0"
+                  max="999999999999999"
+                  step="0.0001"
+                  defaultValue="0.0000"
+                  required
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </label>
+              <label className="form-field">
+                <span>复核理由</span>
+                <textarea name="reason" required maxLength={1000} />
+              </label>
+              <button className="ds-button ds-button-primary" disabled={busy}>
+                追加并启用策略
+              </button>
+            </form>
+          </section>
+        ) : null}
+        {canCalculate ? (
+          <section className="ds-panel">
+            <div className={workbenchStyles.sectionHeading}>
+              <div>
+                <span className="ds-eyebrow">SIMULATION · 不可发薪</span>
+                <h2>创建双轨模拟</h2>
+              </div>
+            </div>
+            <form className={workbenchStyles.formGrid} action={simulate}>
+              <label className="form-field">
+                <span>旧系统已发布批次</span>
+                <select name="legacyBatchId" required defaultValue="">
+                  <option value="" disabled>请选择历史批次</option>
+                  {reconciliationSetup?.legacyBatches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.batchCode} · {batch.sourceRowCount} 人
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="form-field">
+                <span>已关闭且生效的考勤输入</span>
+                <select name="attendanceInputBatchId" required defaultValue="">
+                  <option value="" disabled>请选择考勤输入批次</option>
+                  {reconciliationSetup?.attendanceBatches.map((batch) => (
+                    <option key={batch.id} value={batch.id}>
+                      {String(batch.periodMonth).slice(0, 7)} · 批次 {batch.batchNo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="ds-button ds-button-primary" disabled={busy}>
+                开始只算不发
+              </button>
+            </form>
+          </section>
+        ) : null}
+        {state === "loading" || state === "forbidden" || state === "error" ? (
+          <StatePanel state={state} onRetry={() => void load()} />
+        ) : (
+          <section className="ds-panel">
+            <div className={workbenchStyles.sectionHeading}>
+              <h2>模拟记录</h2>
+              <span>{result.total} 次</span>
+            </div>
+            <div className="ds-mobile-record-list">
+              {state === "empty" ? (
+                <p className={workbenchStyles.emptyState}>暂无双轨模拟。</p>
+              ) : (
+                result.items.map((row) => (
+                  <article className="ds-mobile-record" key={row.id}>
+                    <strong>
+                      {new Date(row.createdAt).toLocaleString("zh-CN")} · 复核中
+                    </strong>
+                    <span>
+                      {row.employeeCount} 人 · {row.differenceCount} 人超出容差
+                    </span>
+                    <button
+                      className="ds-button"
+                      type="button"
+                      onClick={() => void open(row)}
+                    >
+                      查看差异
+                    </button>
+                  </article>
+                ))
+              )}
+            </div>
+            <Pager
+              page={result.page}
+              pageSize={result.page_size}
+              total={result.total}
+              onPage={setPage}
+            />
+          </section>
+        )}
+        {detailState === "loading" ||
+        detailState === "forbidden" ||
+        detailState === "error" ? (
+          <StatePanel
+            state={detailState}
+            onRetry={() => selected && void open(selected)}
+          />
+        ) : selected ? (
+          <section className="ds-panel">
+            <div className={workbenchStyles.sectionHeading}>
+              <h2>逐人逐项差异</h2>
+              <button
+                className="ds-button"
+                type="button"
+                onClick={() => {
+                  abort.current?.abort();
+                  generation.current += 1;
+                  setSelected(null);
+                  setDetailState("empty");
+                }}
+              >
+                关闭
+              </button>
+            </div>
+            <div className="ds-mobile-record-list">
+              {selected.results?.map((employee) => (
+                <article className="ds-mobile-record" key={employee.resultId}>
+                  <strong>
+                    {employee.employeeName} · {employee.employeeCode}
+                  </strong>
+                  <span>
+                    旧值 {money(employee.oldTotal)} · 新值{" "}
+                    {money(employee.newTotal)} · 差额{" "}
+                    {money(employee.deltaTotal)}
+                  </span>
+                  {employee.differences.map((item) => (
+                    <small key={item.id}>
+                      {item.itemName}：{money(item.oldAmount)} →{" "}
+                      {money(item.newAmount)}（{money(item.deltaAmount)}）
+                    </small>
+                  ))}
+                </article>
+              ))}
+            </div>
+            <Pager
+              page={selected.resultPage ?? 1}
+              pageSize={selected.resultPageSize ?? 20}
+              total={selected.resultTotal ?? selected.employeeCount}
+              onPage={(nextPage) =>
+                detailTarget && void open(detailTarget, nextPage)
+              }
+            />
+            {canReview ? (
+              <form className={workbenchStyles.formGrid} action={review}>
+                <label className="form-field">
+                  <span>复核结论</span>
+                  <select name="decision">
+                    <option value="request_follow_up">继续核查</option>
+                    <option value="accept_explanation">接受差异说明</option>
+                    <option value="reject_explanation">拒绝差异说明</option>
+                  </select>
+                </label>
+                <label className="form-field">
+                  <span>复核意见</span>
+                  <textarea name="comment" required maxLength={1000} />
+                </label>
+                <button className="ds-button ds-button-primary" disabled={busy}>
+                  记录复核
+                </button>
+              </form>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
+      <section className={`ds-panel ${styles.mobileNotice}`}>
+        <strong>双轨核对请使用电脑端</strong>
+        <p>手机端不提供批量工资模拟和差异复核。</p>
+      </section>
+    </>
+  );
 }
 
 function OnlinePayroll({canManage,canRead,selfOnly,canReview,canConfirm}:{canManage:boolean;canRead:boolean;selfOnly:boolean;canReview:boolean;canConfirm:boolean}){
