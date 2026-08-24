@@ -65,7 +65,6 @@ export function prefersMobileWorkbench(signals: PostLoginDeviceSignals): boolean
   return Boolean(
     (signals.viewportWidth ?? Number.MAX_SAFE_INTEGER) <= 900 ||
       signals.pointerCoarse ||
-      (signals.touchPoints ?? 0) > 0 ||
       /iphone|ipad|android|mobile|harmonyos/.test(userAgent)
   );
 }
@@ -84,6 +83,9 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
       return "/operations/terminal";
     }
     return firstMenuHref ?? "/dashboard";
+  }
+  if (hasPermission(user, "*")) {
+    return "/dashboard";
   }
   if (firstMenuHref) {
     return firstMenuHref;

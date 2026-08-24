@@ -42,6 +42,86 @@ test("mobile engineering users land in engineering terminal", () => {
   assert.equal(route, "/engineering/terminal");
 });
 
+test("touchscreen laptops with a fine pointer use the desktop landing route", () => {
+  const user = createUser({
+    permissions: ["ENGINEERING_PROJECT_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }],
+    menu_tree: [
+      {
+        label: "工程管理",
+        module: "engineering",
+        children: [{ label: "工程项目", href: "/engineering/projects", permission: "ENGINEERING_PROJECT_VIEW" }]
+      }
+    ]
+  });
+
+  const route = resolvePostLoginPath(user, {
+    viewportWidth: 1440,
+    pointerCoarse: false,
+    touchPoints: 10,
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  });
+
+  assert.equal(route, "/engineering/projects");
+});
+
+test("desktop super users ignore a seeded business menu and land on the dashboard", () => {
+  const user = createUser({
+    is_super: true,
+    permissions: ["*"],
+    enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }],
+    menu_tree: [
+      {
+        label: "安全管理",
+        module: "safety",
+        children: [{ label: "安全看板", href: "/safety/dashboard", permission: "safety_statistics:read" }]
+      }
+    ]
+  });
+
+  const route = resolvePostLoginPath(user, {
+    viewportWidth: 1440,
+    pointerCoarse: false,
+    touchPoints: 10,
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  });
+
+  assert.equal(route, "/dashboard");
+});
+
+test("desktop wildcard users also land on the dashboard", () => {
+  const user = createUser({
+    permissions: ["*"],
+    enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }],
+    menu_tree: [{ label: "安全看板", href: "/safety/dashboard", permission: "safety_statistics:read", module: "safety" }]
+  });
+
+  const route = resolvePostLoginPath(user, {
+    viewportWidth: 1440,
+    pointerCoarse: false,
+    touchPoints: 0,
+    userAgent: "Macintosh"
+  });
+
+  assert.equal(route, "/dashboard");
+});
+
+test("narrow desktop windows keep using the mobile engineering workbench", () => {
+  const user = createUser({
+    permissions: ["ENGINEERING_DASHBOARD_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }]
+  });
+
+  const route = resolvePostLoginPath(user, {
+    viewportWidth: 900,
+    pointerCoarse: false,
+    touchPoints: 0,
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+  });
+
+  assert.equal(route, "/engineering/terminal");
+});
+
 test("mobile super users land in operations terminal only when its module is enabled", () => {
   const user = createUser({
     is_super: true,

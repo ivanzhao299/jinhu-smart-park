@@ -19,17 +19,17 @@
 
 ## Acceptance Criteria
 
-- [ ] GitHub Issue 记录根因、分阶段修复计划、验收矩阵和不纳入范围。
-- [ ] Header/User menu 可见当前园区；多园区用户可选择其它 enabled 园区。
-- [ ] 切换园区成功后，`/users/me` 或 `/auth/me` 返回的 `park_id/current_park` 与目标园区一致，菜单和页面数据刷新。
-- [ ] 楼栋新增可选择归属园区；选择第二园区后新增楼栋只出现在第二园区上下文。
-- [ ] 楼层新增可选择归属园区；楼栋候选来自目标园区，新增楼层只出现在目标园区上下文。
-- [ ] 切换失败时当前 session 保留，表单不提交后续业务创建，并显示错误。
-- [ ] 普通用户只能看到其 enabled `accessible_parks`；disabled/deleted/cross-tenant 园区不可切换。
-- [ ] 新增或更新单元测试覆盖 Web 切换入口、表单跨园区写入、失败不提交、后端切换/refresh 关键边界。
+- [x] GitHub Issue 记录根因、分阶段修复计划、验收矩阵和不纳入范围（Issue #310）。
+- [x] Header/User menu 可见当前园区；多园区用户可选择其它 enabled 园区（PR #311 / `a6349580`）。
+- [x] 切换园区成功后，`/users/me` 或 `/auth/me` 返回的 `park_id/current_park` 与目标园区一致，菜单和页面数据刷新（PR #311 / `a6349580`）。
+- [x] 楼栋新增可选择归属园区；选择第二园区后新增楼栋只出现在第二园区上下文（PR #311 / `a6349580`）。
+- [x] 楼层新增可选择归属园区；楼栋候选来自目标园区，新增楼层只出现在目标园区上下文（PR #311 / `a6349580`）。
+- [x] 切换失败时当前 session 保留，表单不提交后续业务创建，并显示错误（PR #311 / `a6349580`）。
+- [x] 普通用户只能看到其 enabled `accessible_parks`；disabled/deleted/cross-tenant 园区不可切换（PR #311 / `a6349580`）。
+- [x] 新增或更新单元测试覆盖 Web 切换入口、表单跨园区写入、失败不提交、后端切换/refresh 关键边界（PR #311 / `a6349580`）。
 - [ ] 新增运行态 E2E 覆盖 login -> accessible parks -> switch-context -> me -> asset write/read isolation。
 - [ ] 相关 lint、typecheck、unit、E2E 通过。
-- [ ] 创建 Draft PR，触发 Codex review，修复审查意见后合并。
+- [x] 创建 Draft PR，触发 Codex review，修复审查意见后合并（PR #311 / `a6349580`）。
 - [ ] 合并后跟进生产部署、health、login/context-switch smoke 和 Docker cleanup。
 
 ## Notes
