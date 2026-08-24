@@ -12,7 +12,7 @@ import {
   type CanonicalDetailState,
   type PropertyCapabilityProjection
 } from "../../../features/property-shared";
-import { ApiError, apiRequest } from "../../../lib/api-client";
+import { ApiError, apiRequest, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import styles from "./HousingWorkbench.module.css";
@@ -46,7 +46,7 @@ function useDetail<T>(definition: DetailDefinition<T>) {
       setData(response.data); setState({ kind: "ready" });
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) setState({ kind: "not-found" });
-      else if (error instanceof ApiError && error.status === 403) setState({ kind: "forbidden" });
+      else if (isForbiddenError(error)) setState({ kind: "forbidden" });
       else if (error instanceof ApiError && error.status === 409) setState({ kind: "conflict", message: error.message });
       else if (typeof navigator !== "undefined" && !navigator.onLine && data) setState({ kind: "ready", stale: true });
       else setState({ kind: "failure", message: error instanceof Error ? error.message : "详情加载失败" });

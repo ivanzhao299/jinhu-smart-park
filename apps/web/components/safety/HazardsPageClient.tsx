@@ -18,6 +18,7 @@ import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { CheckCircle2, Edit3, ExternalLink, Eye, Plus, RefreshCw, RotateCcw, Search, Send, ShieldCheck, Siren, Trash2, Wrench, X, XCircle } from "lucide-react";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionButton } from "../auth/PermissionButton";
+import { ForbiddenState } from "../auth/ForbiddenState";
 import { PermissionGuard } from "../auth/PermissionGuard";
 import { FileUploader } from "../files/FileUploader";
 import { VideoEvidencePanel } from "../video/VideoEvidencePanel";
@@ -1433,7 +1434,13 @@ function EmptyState() {
 }
 
 function ForbiddenInline() {
-  return <main className="content"><Card><div className="empty-state">403，无隐患登记访问权限或 safety 模块未授权</div></Card></main>;
+  return (
+    <main className="content">
+      <Card>
+        <ForbiddenState message="无隐患登记访问权限或 safety 模块未授权" />
+      </Card>
+    </main>
+  );
 }
 
 function displayUserName(user: UserRow): string {

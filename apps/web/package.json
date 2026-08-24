@@ -18,7 +18,7 @@
     "test:unit:system": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/system/*.logic.spec.ts",
     "test:unit:workorders": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/workorders/*.logic.spec.ts",
     "test:unit:admin-issues": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register components/admin-issues/*.logic.spec.ts",
-    "test:unit:auth-routing": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register lib/post-login-route.spec.ts",
+    "test:unit:auth-routing": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register lib/post-login-route.spec.ts lib/dashboard-route-access.spec.ts components/layout/dashboard-route-access.contract.spec.ts",
     "test:unit:android-release": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register lib/android-release.spec.ts",
     "test:unit:hr": "TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node --test --require ts-node/register app/hr/*.spec.ts"
   },

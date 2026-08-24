@@ -3,6 +3,7 @@ import type {
   RemotePickerAction,
   RemotePickerState
 } from "./types";
+import { isForbiddenError } from "../../../lib/api-client";
 
 export const REMOTE_PICKER_MIN_QUERY_LENGTH = 2;
 export const REMOTE_PICKER_DEBOUNCE_MS = 300;
@@ -216,9 +217,7 @@ export function remotePickerReducer(
 }
 
 export function isForbiddenPickerError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { status?: unknown; statusCode?: unknown };
-  return candidate.status === 403 || candidate.statusCode === 403;
+  return isForbiddenError(error);
 }
 
 export function pickerErrorMessage(error: unknown): string {

@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify layered 403 behavior, regression tests, typecheck, and lint."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Verify explicit 403 consumers use the shared classifier without changing specialized projections."}

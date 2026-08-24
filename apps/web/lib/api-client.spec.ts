@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ApiError, apiFormRequest, apiRequest } from "./api-client";
+import { ApiError, apiFormRequest, apiRequest, isForbiddenError } from "./api-client";
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();
@@ -156,6 +156,14 @@ test("apiRequest exposes response headers on ApiError", async () => {
     (error) => error instanceof ApiError
       && error.headers?.get("x-auth-context-switch-rotation") === "not-started"
   );
+});
+
+test("isForbiddenError recognizes shared HTTP error shapes", () => {
+  assert.equal(isForbiddenError(new ApiError("Forbidden", 403)), true);
+  assert.equal(isForbiddenError({ status: 403 }), true);
+  assert.equal(isForbiddenError({ statusCode: 403 }), true);
+  assert.equal(isForbiddenError(new ApiError("Unauthorized", 401)), false);
+  assert.equal(isForbiddenError(null), false);
 });
 
 test("apiRequest awaits refresh cookie cleanup before redirecting unauthorized current sessions", async () => {

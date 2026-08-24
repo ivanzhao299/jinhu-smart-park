@@ -8,7 +8,7 @@ import {
   PageState, PropertyPageSurface, PropertyPanelSurface, projectPropertyCapabilities,
   type PropertyPageState
 } from "../../../features/property-shared";
-import { ApiError, apiRequest } from "../../../lib/api-client";
+import { ApiError, apiRequest, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { HousingCollectionPage } from "./HousingCollectionPage";
@@ -33,7 +33,7 @@ export function HousingDashboardClient() {
       setDashboard(response.data); setState({ kind: "ready" });
     } catch (error) {
       const message = error instanceof Error ? error.message : "看板加载失败";
-      if (error instanceof ApiError && error.status === 403) {
+      if (isForbiddenError(error)) {
         setState(dashboard ? { kind: "forbidden-partial", message } : { kind: "forbidden-full" });
       } else if (error instanceof ApiError && error.status === 409) {
         setState({ kind: "conflict", message });

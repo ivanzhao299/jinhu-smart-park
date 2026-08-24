@@ -6,7 +6,7 @@ import type { UserContext } from "@jinhu/shared";
 import { AuthSessionActionsContext, AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
 import { findMenusByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
-import { hasAccess, hasPermission } from "../../lib/permissions";
+import { dashboardRouteDenialHref, resolveDashboardRouteDenial } from "../../lib/dashboard-route-access";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
@@ -107,6 +107,10 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
 
   const authorizationMenus = useMemo(() => getDashboardAuthorizationMenus(user?.menus ?? user?.menu_tree), [user]);
   const requiredMenus = useMemo(() => findMenusByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
+  const routeDenial = useMemo(
+    () => user ? resolveDashboardRouteDenial(user, requiredMenus) : null,
+    [requiredMenus, user]
+  );
   const publishUser = useCallback((nextUser: UserContext, options?: { remountScopedPages?: boolean }) => {
     setUser(nextUser);
     if (options?.remountScopedPages) setScopedPageRevision((current) => current + 1);
@@ -121,17 +125,10 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     if (!ready || !user) {
       return;
     }
-    if (requiredMenus.length > 0 && requiredMenus.some((menu) => hasAccess(user, menu.permission, menu.module))) {
-      return;
-    }
-    if (requiredMenus.length > 0 && !requiredMenus.some((menu) => hasPermission(user, menu.permission))) {
-      router.replace("/403");
-    } else if (requiredMenus.length > 0) {
-      router.replace("/403?reason=module");
-    }
-  }, [ready, requiredMenus, router, user]);
+    if (routeDenial) router.replace(dashboardRouteDenialHref(routeDenial));
+  }, [ready, routeDenial, router, user]);
 
-  if (!ready || !user) {
+  if (!ready || !user || routeDenial) {
     return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
   }
 

@@ -16,7 +16,7 @@ import {
   PropertyPanelSurface,
   type PropertyPageState
 } from "../../../features/property-shared";
-import { ApiError, apiRequest } from "../../../lib/api-client";
+import { ApiError, apiRequest, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import { hasAccess, hasPermission } from "../../../lib/permissions";
@@ -142,7 +142,7 @@ function hasAuthoritativeEmptyPartyScope(
 
 function partyFailureState(error: unknown, cached: boolean): PropertyPageState {
   const message = error instanceof Error ? error.message : "档案加载失败";
-  if (error instanceof ApiError && error.status === 403) {
+  if (isForbiddenError(error)) {
     return cached ? { kind: "forbidden-partial", message } : { kind: "forbidden-full" };
   }
   if (error instanceof ApiError && error.status === 409) return { kind: "conflict", message };

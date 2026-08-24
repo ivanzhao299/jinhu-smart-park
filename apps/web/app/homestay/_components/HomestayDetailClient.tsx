@@ -17,7 +17,7 @@ import {
 } from "../../../features/property-shared";
 import { AttachmentList } from "../../../components/files/AttachmentList";
 import { FileUploader } from "../../../components/files/FileUploader";
-import { ApiError, apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { ApiError, apiRequest, createIdempotencyKey, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
 import styles from "./HomestayWorkbench.module.css";
@@ -52,7 +52,7 @@ function useDetailQuery(kind: DetailKind, entityId: string, readAllowed: boolean
       setData(response.data);
       setState({ kind: "ready" });
     } catch (loadError) {
-      if (loadError instanceof ApiError && loadError.status === 403) setState({ kind: "forbidden" });
+      if (isForbiddenError(loadError)) setState({ kind: "forbidden" });
       else if (loadError instanceof ApiError && loadError.status === 404) setState({ kind: "not-found" });
       else setState({ kind: "failure", message: loadError instanceof Error ? loadError.message : "详情加载失败" });
     }

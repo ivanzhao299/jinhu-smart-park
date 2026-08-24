@@ -79,6 +79,34 @@ Reference files:
 - `apps/web/lib/authz.ts`
 - `apps/web/lib/auth-context.tsx`
 
+### Layered 403 handling
+
+Treat a 403 according to the boundary that owns the denied capability:
+
+- A menu-backed page-route denial resolves through `resolveDashboardRouteDenial` and redirects to
+  `/403` for permission denial or `/403?reason=module` for module denial. While redirecting,
+  `DashboardLayout` must not render the protected page children.
+- A data request uses `isForbiddenError(error)` and projects the result into the owning page state.
+  Initial denial may use `forbidden-full`; denial after cached data may use `forbidden-partial` and
+  retain the last authorized snapshot.
+- A denied button or local action may remain hidden through `PermissionGuard`. Do not turn its
+  default `null` fallback into an entire-page error.
+- An explicitly optional dictionary or auxiliary read may degrade on 401/403 when the page contract
+  documents that behavior. Do not let a shared handler upgrade it to a route redirect.
+
+Never redirect every API 403 inside `apiRequest`: API responses also represent data-scope and
+business-action denial, so the caller owns the UI projection.
+
+Tests must cover permission/module route classification, the redirect target, protected-child
+suppression, generic 403 error shapes, and any full/partial/optional-data projection changed by the task.
+
+Reference files:
+- `apps/web/lib/dashboard-route-access.ts`
+- `apps/web/lib/api-client.ts`
+- `apps/web/components/layout/DashboardLayout.tsx`
+- `apps/web/features/property-shared/states/page-state.ts`
+- `apps/web/components/safety/HazardsPageClient.tsx`
+
 ## Scenario: Browser Park Context Switch Before Scoped Writes
 
 ### 1. Scope / Trigger
