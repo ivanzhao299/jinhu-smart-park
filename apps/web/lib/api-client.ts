@@ -14,6 +14,12 @@ export class ApiError extends Error {
   }
 }
 
+export function isForbiddenError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { status?: unknown; statusCode?: unknown };
+  return candidate.status === 403 || candidate.statusCode === 403;
+}
+
 export interface ApiRequestOptions extends Omit<RequestInit, "body"> {
   token?: string;
   idempotencyKey?: string;
