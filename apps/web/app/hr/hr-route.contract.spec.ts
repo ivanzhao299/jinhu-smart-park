@@ -48,10 +48,45 @@ test("department manager directory stays team-scoped without broad employee perm
   const seed=readFileSync(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"),"utf8");
   assert.match(employeePage,/HR_WORK_REPORT_TEAM_REVIEW/);
   assert.match(employeePage,/HR_PERFORMANCE_MANAGER_REVIEW/);
-  assert.match(employeePage,/canReadAll\|\|canReadTeam\?\(await hrApi\.employees/);
+  assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
   assert.match(employeePage,/isForbiddenError/);
   assert.match(employeePage,/ForbiddenState/);
   assert.match(seed,/code='DEPARTMENT_MANAGER'/);
   assert.match(seed,/code='hr:employees'/);
   assert.doesNotMatch(seed,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
+});
+
+test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
+  const workbench=readFileSync(resolve(__dirname,"HrWorkbench.tsx"),"utf8");
+  assert.match(workbench,/今日工作/);
+  assert.match(workbench,/快速办理/);
+  assert.match(workbench,/hrApi\.pendingApprovals/);
+  assert.match(workbench,/hrApi\.teamWorkReports/);
+  assert.match(workbench,/isForbiddenError\(error\) \? "unavailable" : "error"/);
+  assert.match(workbench,/当前范围暂无访问权限/);
+  assert.match(workbench,/加载失败，可刷新重试/);
+  assert.doesNotMatch(workbench,/\.catch\(\(\) => undefined\)/);
+  assert.doesNotMatch(workbench,/规划能力|交付路线|基础期|执行期|绩效期|薪酬期/);
+});
+
+test("HR M4 employee directory is list-first with explicit create and filters",()=>{
+  const employees=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
+  assert.match(employees,/createOpen\?"收起新增":"新增员工"/);
+  assert.match(employees,/canManage&&createOpen\?<form/);
+  assert.match(employees,/type="search"/);
+  assert.match(employees,/statusFilter/);
+  assert.match(employees,/visibleRows\.map/);
+  assert.match(employees,/rows\.length<total/);
+  assert.match(employees,/加载更多员工/);
+});
+
+test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
+  const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
+  const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
+  assert.match(layout,/mobileNavigation && !sidebarCollapsed \? " mobile-navigation-open"/);
+  const finalMobileBlock=globals.slice(globals.lastIndexOf("@media (max-width: 720px)"));
+  const defaultSidebarRule=finalMobileBlock.match(/\.dashboard-shell \.app-sidebar\s*\{([^}]*)\}/)?.[1]??"";
+  assert.match(defaultSidebarRule,/display:\s*none/);
+  assert.doesNotMatch(defaultSidebarRule,/display:\s*block/);
+  assert.match(globals,/\.dashboard-shell\.mobile-navigation-open \.app-sidebar\s*\{[\s\S]*display:\s*block/);
 });

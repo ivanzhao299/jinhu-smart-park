@@ -19,7 +19,7 @@ export interface HrPayslip {id:string;runId:string;employeeId:string;grossAmount
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
- employees:(token?:string)=>unwrap(apiRequest<PaginatedResult<HrEmployee>>("/hr/employees?page=1&page_size=100",{token})),
+ employees:(token?:string,page=1,pageSize=100)=>unwrap(apiRequest<PaginatedResult<HrEmployee>>(`/hr/employees?page=${page}&page_size=${pageSize}`,{token})),
  me:(token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees/me",{token,skipUnauthorizedReset:true})),
  createEmployee:(body:object,token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),
  employee:(id:string,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}`,{token})),

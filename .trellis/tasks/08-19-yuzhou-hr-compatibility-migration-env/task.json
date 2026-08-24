@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-24-hr-m3-rbac-privacy-mobile"
+    "08-24-hr-m3-rbac-privacy-mobile",
+    "08-24-hr-m4-production-workbench"
   ],
   "parent": null,
   "relatedFiles": [],

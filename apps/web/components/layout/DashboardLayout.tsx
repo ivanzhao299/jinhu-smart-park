@@ -135,7 +135,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   return (
     <AuthUserContext.Provider value={user}>
       <AuthSessionActionsContext.Provider value={sessionActions}>
-        <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
+        <div className={`dashboard-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${mobileNavigation && !sidebarCollapsed ? " mobile-navigation-open" : ""}${isTerminalRoute ? " dashboard-shell-terminal" : ""}`}>
           {isTerminalRoute ? (
             <>
               <MobileTerminalHeader />

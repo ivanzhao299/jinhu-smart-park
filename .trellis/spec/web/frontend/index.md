@@ -275,6 +275,56 @@ Reference files:
 
 Operational and field-use pages must be mobile-aware. Prefer card/mobile record views over desktop-only tables for inspection, work order, hazard, terminal, device, and operations flows.
 
+### Scenario: Mobile sidebar must be fail-closed before hydration
+
+#### 1. Scope / Trigger
+
+- Trigger: changing the authenticated dashboard shell or any late global mobile override for `.app-sidebar`.
+
+#### 2. Signatures
+
+- Closed state: `.dashboard-shell .app-sidebar { display: none; }` inside the final effective `max-width: 720px` cascade.
+- Open state: `.dashboard-shell.mobile-navigation-open .app-sidebar { display: block; }`.
+- React state class: `mobileNavigation && !sidebarCollapsed ? " mobile-navigation-open" : ""`.
+
+#### 3. Contracts
+
+- Mobile navigation is hidden in the server/loading render and remains hidden after hydration until the user explicitly opens it.
+- Desktop `sidebar-collapsed` persistence does not make the mobile drawer visible.
+- Route navigation closes the mobile drawer.
+
+#### 4. Validation & Error Matrix
+
+- No media-query state yet -> sidebar hidden by CSS.
+- Mobile closed -> hidden.
+- Mobile explicitly open -> fixed drawer visible.
+- Route change -> closed before the destination work surface is used.
+
+#### 5. Good/Base/Bad Cases
+
+- Good: the last matching mobile rule defaults to `display: none` and an explicit class opens it.
+- Base: desktop collapse and expansion keep their existing widths.
+- Bad: an earlier mobile rule hides the sidebar but a later global rule restores `display: block` for every shell.
+
+#### 6. Tests Required
+
+- Contract-test the final matching mobile rule, not merely the first occurrence in `globals.css`.
+- Assert the explicit open class exists in both `DashboardLayout` and CSS.
+- Verify initial render, hydrated closed state, explicit open, route-close, and document overflow at a 390px viewport.
+
+#### 7. Wrong vs Correct
+
+```css
+/* Wrong: visible until React detects the viewport. */
+@media (max-width: 720px) { .dashboard-shell .app-sidebar { display: block; } }
+
+/* Correct: CSS is closed by default; React only opts into open. */
+@media (max-width: 720px) {
+  .dashboard-shell .app-sidebar { display: none; }
+  .dashboard-shell.mobile-navigation-open .app-sidebar { display: block; }
+}
+```
+
 Global overlays such as problem feedback may keep page-local positioning, backdrop, and
 domain-specific layout, but must compose shared `ds-panel`, `ds-button`, `form-field`, and
 `ds-mobile-record` surfaces instead of redefining panel, input, button, border, color, and shadow

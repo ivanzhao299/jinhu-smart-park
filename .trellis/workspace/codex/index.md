@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-0.md`
-- **Total Sessions**: 4
-- **Last Active**: 2026-08-11
+- **Total Sessions**: 5
+- **Last Active**: 2026-08-24
 <!-- @@@/auto:current-status -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-08-24 | HR M3 权限隐私与移动端生产基线 | `6996fcba173a3e30470773d2b8029c26f4649196` | `codex/hr-m4-production-workbench` |
 | 4 | 2026-08-11 | 完善公寓正式文书签署与角色迁移治理 | `3fa8f29b`, `c2bd689d` | `main` |
 | 3 | 2026-08-11 | 吴恩国原子级权限收敛与生产验收 | `a6e89363`, `071cb6a5` | `main` |
 | 2 | 2026-08-11 | 修复公寓登录后白屏并轻量上线 | `05cb22a3` | `main` |
