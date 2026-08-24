@@ -128,6 +128,7 @@ test("HR M4 approvals separate applicant records from reviewer queue",()=>{
   assert.match(approvals,/提交审核/);
   assert.match(approvals,/重新提交/);
   assert.match(approvals,/撤回/);
+  assert.match(approvals,/hrLoadErrorMessage\(error, "加载审批失败"\)/);
 });
 
 test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
