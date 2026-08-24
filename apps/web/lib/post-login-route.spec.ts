@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { UserContext } from "@jinhu/shared";
-import { resolvePostLoginPath } from "./post-login-route";
+import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
+import { resolvePostLoginPath, resolvePostParkSwitchPath } from "./post-login-route";
 
 function createUser(overrides: Partial<UserContext> = {}): UserContext {
   return {
@@ -225,4 +225,65 @@ test("users without an accessible menu fall back to the module-free dashboard", 
   const route = resolvePostLoginPath(user, { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" });
 
   assert.equal(route, "/dashboard");
+});
+
+const desktopSignals = { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" };
+const mobileSignals = { viewportWidth: 390, pointerCoarse: true, touchPoints: 5, userAgent: "iPhone" };
+
+test("park switches keep an accessible menu route and its detail routes", () => {
+  const user = createUser({
+    permissions: ["workorder:read"],
+    enabled_modules: [{ module_code: "workorder", module_name: "工单管理", module_group: "operations", enabled: true }],
+    menu_tree: [{ label: "工单管理", href: "/workorders", permission: "workorder:read", module: "workorder" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/workorders", desktopSignals), "/workorders");
+  assert.equal(resolvePostParkSwitchPath(user, "/workorders/order-1", desktopSignals), "/workorders/order-1");
+});
+
+test("park switches redirect an inaccessible menu detail to the next user's landing route", () => {
+  const user = createUser({
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/engineering/projects/project-1", desktopSignals), "/system/users");
+});
+
+test("park switches keep the module-free dashboard and unknown utility routes", () => {
+  const user = createUser();
+
+  assert.equal(resolvePostParkSwitchPath(user, "/dashboard", desktopSignals), "/dashboard");
+  assert.equal(resolvePostParkSwitchPath(user, "/profile/preferences", desktopSignals), "/profile/preferences");
+});
+
+test("park switches keep reachable mobile terminals", () => {
+  const engineeringUser = createUser({
+    permissions: ["ENGINEERING_DASHBOARD_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }]
+  });
+  const operationsUser = createUser({
+    permissions: [SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY],
+    enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(engineeringUser, "/engineering/terminal", mobileSignals), "/engineering/terminal");
+  assert.equal(resolvePostParkSwitchPath(operationsUser, "/operations/terminal", mobileSignals), "/operations/terminal");
+});
+
+test("park switches redirect an unreachable mobile terminal with existing mobile landing semantics", () => {
+  const user = createUser({
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/engineering/terminal", mobileSignals), "/system/users");
+});
+
+test("park switches preserve the desktop wildcard dashboard fallback", () => {
+  const user = createUser({ permissions: ["*"], is_super: true });
+
+  assert.equal(resolvePostParkSwitchPath(user, "/operations/terminal", desktopSignals), "/dashboard");
 });

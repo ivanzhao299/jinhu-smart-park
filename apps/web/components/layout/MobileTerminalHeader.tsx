@@ -1,18 +1,21 @@
 "use client";
 
 import { Download, Home, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useAuthSessionActions, useAuthUser } from "../../lib/auth-context";
 import { getToken, logoutSession, switchParkContext } from "../../lib/auth";
 import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
+import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
 
 export function MobileTerminalHeader() {
   const branding = useAppBranding();
   const router = useRouter();
+  const pathname = usePathname();
   const user = useAuthUser();
   const sessionActions = useAuthSessionActions();
   const { theme, setTheme, resolvedTheme, themeLabel } = useTheme();
@@ -45,7 +48,9 @@ export function MobileTerminalHeader() {
     try {
       const nextUser = await switchParkContext(parkId);
       sessionActions?.publishUser(nextUser, { remountScopedPages: true });
-      router.refresh();
+      const nextPath = resolvePostParkSwitchPath(nextUser, pathname);
+      if (nextPath === pathname) router.refresh();
+      else router.replace(nextPath as Route);
     } catch (error) {
       setParkMessage(error instanceof Error ? error.message : "园区切换失败");
       if (!getToken()) router.replace("/login");

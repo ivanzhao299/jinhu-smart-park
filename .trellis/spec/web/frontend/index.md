@@ -129,6 +129,26 @@ Reference files:
 - `apps/web/features/property-shared/states/page-state.ts`
 - `apps/web/components/safety/HazardsPageClient.tsx`
 
+### Post-switch route prediction
+
+After a global park-context switch returns the authoritative `nextUser`, publish that user and
+predict whether the current pathname is still reachable before refreshing. A menu href and its
+detail subpaths inherit that menu's permission and parent module. Keep `/dashboard` as a
+module-free route, and check mobile engineering/operations terminals with the same access rules
+used by `resolvePostLoginPath`.
+
+Redirect a provably inaccessible route through `resolvePostLoginPath(nextUser)` so device-specific
+terminal priority, the desktop wildcard `/dashboard`, and ordinary users' first accessible menu
+stay consistent with login. Unknown non-menu utility routes are not proof of denial; keep them and
+leave their page-level guards responsible. Desktop and mobile global park switchers must use the
+same pure prediction helper. Do not move this navigation into `switchParkContext`, which owns token
+rotation and must remain UI-agnostic.
+
+Reference files:
+- `apps/web/lib/post-login-route.ts`
+- `apps/web/components/layout/UserMenu.tsx`
+- `apps/web/components/layout/MobileTerminalHeader.tsx`
+
 ## Scenario: Browser Park Context Switch Before Scoped Writes
 
 ### 1. Scope / Trigger

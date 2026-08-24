@@ -1,4 +1,5 @@
-import { SYSTEM_PERMISSIONS, type UserContext, type UserMenuTreeNode } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
+import { getDashboardAuthorizationMenus } from "./menu";
 import { hasModule, hasPermission } from "./permissions";
 
 export interface PostLoginDeviceSignals {
@@ -18,13 +19,20 @@ const ENGINEERING_PERMISSIONS = [
   "ENGINEERING_ACCEPTANCE_VIEW"
 ];
 
+interface RouteMenuItem {
+  href?: string;
+  permission?: string;
+  module?: string;
+  children?: RouteMenuItem[];
+}
+
 function hasAnyPermission(user: UserContext | null, permissions: string[]): boolean {
   return permissions.some((permission) => hasPermission(user, permission));
 }
 
 function findFirstAccessibleMenuHref(
   user: UserContext | null,
-  items?: UserMenuTreeNode[],
+  items?: RouteMenuItem[],
   inheritedModule?: string
 ): string | null {
   if (!items) {
@@ -46,6 +54,37 @@ function findFirstAccessibleMenuHref(
     }
   }
   return null;
+}
+
+function pathBelongsToMenu(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function resolveMenuPathAccess(
+  user: UserContext | null,
+  pathname: string,
+  items?: RouteMenuItem[],
+  inheritedModule?: string
+): boolean | null {
+  if (!items) {
+    return null;
+  }
+  let matched = false;
+  for (const item of items) {
+    const moduleCode = item.module ?? inheritedModule;
+    if (item.href && pathBelongsToMenu(pathname, item.href)) {
+      matched = true;
+      if (hasPermission(user, item.permission) && hasModule(user, moduleCode)) {
+        return true;
+      }
+    }
+    const nested = resolveMenuPathAccess(user, pathname, item.children, moduleCode);
+    if (nested === true) {
+      return true;
+    }
+    matched ||= nested === false;
+  }
+  return matched ? false : null;
 }
 
 export function detectPostLoginDeviceSignals(): PostLoginDeviceSignals {
@@ -97,4 +136,31 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
     return "/dashboard";
   }
   return "/dashboard";
+}
+
+export function resolvePostParkSwitchPath(
+  user: UserContext | null,
+  pathname: string,
+  signals: PostLoginDeviceSignals = detectPostLoginDeviceSignals()
+): string {
+  if (pathname === "/dashboard") {
+    return pathname;
+  }
+
+  const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
+  const hasOperationsAccess =
+    hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);
+  if (pathname === "/engineering/terminal") {
+    return hasEngineeringAccess ? pathname : resolvePostLoginPath(user, signals);
+  }
+  if (pathname === "/operations/terminal") {
+    return hasOperationsAccess ? pathname : resolvePostLoginPath(user, signals);
+  }
+
+  const menuAccess = resolveMenuPathAccess(
+    user,
+    pathname,
+    getDashboardAuthorizationMenus(user?.menu_tree ?? user?.menus)
+  );
+  return menuAccess === false ? resolvePostLoginPath(user, signals) : pathname;
 }
