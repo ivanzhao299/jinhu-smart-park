@@ -1,142 +1,93 @@
 "use client";
 
-import {
-  BadgeDollarSign,
-  BriefcaseBusiness,
-  ClipboardCheck,
-  FileClock,
-  Network,
-  Target,
-  UsersRound
-} from "lucide-react";
+import { HR_PERMISSIONS } from "@jinhu/shared";
+import { BadgeDollarSign, ClipboardCheck, FileClock, Network, RefreshCw, Target, UsersRound } from "lucide-react";
+import type { Route } from "next";
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionGuard } from "../../components/auth/PermissionGuard";
+import { useAuthUser } from "../../lib/auth-context";
+import { getAccessToken } from "../../lib/authz";
+import { isForbiddenError } from "../../lib/api-client";
+import { hrApi } from "../../lib/hr-api";
+import { hasAnyPermission, hasPermission } from "../../lib/permissions";
 import styles from "./hr-workbench.module.css";
 
-const capabilityGroups = [
-  {
-    icon: UsersRound,
-    title: "组织与员工档案",
-    description: "统一组织、岗位、汇报关系和员工入转调离档案。",
-    phase: "基础期"
-  },
-  {
-    icon: Target,
-    title: "战略与员工目标",
-    description: "把集团目标逐级分解到部门、岗位与每一名员工。",
-    phase: "执行期"
-  },
-  {
-    icon: FileClock,
-    title: "日报·周报·月报",
-    description: "员工汇报关联目标，周期报告可从日常工作自动汇总。",
-    phase: "执行期"
-  },
-  {
-    icon: ClipboardCheck,
-    title: "绩效与 360 考核",
-    description: "覆盖自评、上级评价、多角色反馈、校准与结果确认。",
-    phase: "绩效期"
-  },
-  {
-    icon: BadgeDollarSign,
-    title: "薪酬与工资核算",
-    description: "管理薪资方案、月度工资批次、复核确认与个人工资条。",
-    phase: "薪酬期"
-  },
-  {
-    icon: Network,
-    title: "人事流程审批",
-    description: "承接入转调离、调薪、绩效和工资确认等受控流程。",
-    phase: "贯穿全程"
-  }
-] as const;
-
-const deliverySteps = [
-  ["01", "人事基础", "组织岗位、员工档案与员工自助入口"],
-  ["02", "目标执行", "战略分解、员工目标与日周月报"],
-  ["03", "绩效闭环", "绩效周期、360 评价、校准与确认"],
-  ["04", "薪资核算", "薪酬方案、工资批次、复核与工资条"]
-] as const;
+type Metric = { value: number; detail: string };
+type MetricState = Metric | "unavailable" | "error" | null;
+interface Snapshot { employees: MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
+const EMPTY: Snapshot = { employees: null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 
 export function HrWorkbench() {
-  const forbidden = (
-    <main className="content ds-page">
-      <section className="ds-panel">
-        <h1>无权访问人力资源管理</h1>
-        <p>当前账号缺少人力资源模块或工作台权限，请联系系统管理员授权。</p>
-      </section>
-    </main>
-  );
+  const user = useAuthUser();
+  const [snapshot, setSnapshot] = useState<Snapshot>(EMPTY);
+  const [loading, setLoading] = useState(true);
+  const canReadEmployees = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW]);
+  const canManagePeople = hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_MANAGE, HR_PERMISSIONS.HR_EMPLOYMENT_TRANSITION, HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE]);
+  const canReviewTeam = hasAnyPermission(user, [HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW, HR_PERMISSIONS.HR_APPROVAL_REVIEW]);
 
-  return (
-    <PermissionGuard module="hr" permission="hr:dashboard" fallback={forbidden}>
-      <main className={`content ds-page ${styles.page}`}>
-        <section className={`ds-hero ${styles.hero}`}>
-          <div className="ds-hero-copy">
-            <span className="ds-eyebrow"><BriefcaseBusiness size={15} /> 金湖 Smart Park · 独立业务模块</span>
-            <h1>人力资源管理</h1>
-            <p>以员工为中心，把组织档案、战略目标、日常工作、绩效评价与薪酬核算连接成一条可追溯的管理闭环。</p>
-          </div>
-          <div className={styles.heroSummary} aria-label="模块建设原则">
-            <strong>国内中型企业版</strong>
-            <span>流程规范、权限清晰、分阶段上线</span>
-            <div className={styles.heroLinks}>
-              <Link className="ds-button ds-button-secondary" href="/hr/employees">员工档案</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/organization">组织岗位</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/goals">战略目标</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/work-reports">我的汇报</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/performance">绩效考核</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/feedback-360">360 评价</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/compensation">薪酬方案</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/payroll">工资核算</Link>
-              <Link className="ds-button ds-button-secondary" href="/hr/approvals">人事审批</Link>
-            </div>
-          </div>
-        </section>
+  const load = useCallback(async () => {
+    const token = getAccessToken();
+    const next: Snapshot = { ...EMPTY };
+    const jobs: Promise<void>[] = [];
+    const add = (key: keyof Snapshot, job: Promise<Metric>) => jobs.push(job.then((metric) => { next[key] = metric; }).catch((error: unknown) => { next[key] = isForbiddenError(error) ? "unavailable" : "error"; }));
+    setLoading(true);
 
-        <section className={styles.section} aria-labelledby="hr-capabilities-title">
-          <header className={styles.sectionHeader}>
-            <div>
-              <span className="ds-eyebrow">规划能力</span>
-              <h2 id="hr-capabilities-title">覆盖人力资源部，也服务每一名员工</h2>
-            </div>
-            <span className="status-pill">模块基础已接入</span>
-          </header>
-          <div className="ds-command-grid">
-            {capabilityGroups.map(({ icon: Icon, title, description, phase }) => (
-              <article className={`ds-command-card ${styles.capabilityCard}`} key={title}>
-                <div className={styles.cardTop}>
-                  <Icon size={22} />
-                  <span className="status-pill">{phase}</span>
-                </div>
-                <strong>{title}</strong>
-                <span>{description}</span>
-              </article>
-            ))}
-          </div>
-        </section>
+    if (canReadEmployees) {
+      const selfOnly = hasPermission(user, HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ) && !hasAnyPermission(user, [HR_PERMISSIONS.HR_EMPLOYEE_READ, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW]);
+      const source = selfOnly
+        ? hrApi.me(token).then((employee) => ({ value: employee.employmentStatus === "departed" ? 0 : 1, detail: "本人任职档案" }))
+        : hrApi.employees(token).then((result) => ({ value: result.total, detail: `当前页展示 ${result.items.length} 份档案` }));
+      add("employees", source);
+    }
+    if (hasAnyPermission(user, [HR_PERMISSIONS.HR_GOAL_READ, HR_PERMISSIONS.HR_GOAL_SELF_READ])) {
+      add("goals", hrApi.goals(!hasPermission(user, HR_PERMISSIONS.HR_GOAL_READ), token).then((goals) => ({ value: goals.filter((item) => isOpen(item.status)).length, detail: `共 ${goals.length} 项可见目标` })));
+    }
+    if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW)) {
+      add("reports", hrApi.teamWorkReports(token).then((rows) => ({ value: rows.filter((item) => item.status === "submitted").length, detail: "待审核团队汇报" })));
+    } else if (hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_SELF_MANAGE)) {
+      add("reports", hrApi.myWorkReports(token).then((rows) => ({ value: rows.filter((item) => item.status === "returned").length, detail: "退回待修改汇报" })));
+    }
+    if (hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW)) {
+      add("performance", hrApi.teamPerformancePlans(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "团队绩效待处理" })));
+    } else if (hasPermission(user, HR_PERMISSIONS.HR_PERFORMANCE_SELF_REVIEW)) {
+      add("performance", hrApi.myPerformancePlans(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "个人绩效待处理" })));
+    }
+    if (hasPermission(user, HR_PERMISSIONS.HR_FEEDBACK_RESPOND)) add("feedback", hrApi.myFeedbackAssignments(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "待完成 360 评价" })));
+    if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_REVIEW)) {
+      add("approvals", hrApi.pendingApprovals(token).then((rows) => ({ value: rows.filter((item) => item.status === "pending").length, detail: "待审核人事申请" })));
+    } else if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE)) {
+      add("approvals", hrApi.myApprovals(token).then((rows) => ({ value: rows.filter((item) => ["draft", "pending"].includes(item.status)).length, detail: "我的进行中申请" })));
+    }
+    if (hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ)) {
+      add("payroll", hrApi.payrollRuns(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "进行中工资批次" })));
+    } else if (hasPermission(user, HR_PERMISSIONS.HR_PAYSLIP_SELF_READ)) {
+      add("payroll", hrApi.myPayslips(token).then((rows) => ({ value: rows.length, detail: "可查看工资条" })));
+    }
+    await Promise.all(jobs);
+    setSnapshot(next);
+    setLoading(false);
+  }, [canReadEmployees, user]);
 
-        <section className={`ds-panel ${styles.section}`} aria-labelledby="hr-roadmap-title">
-          <header className={styles.sectionHeader}>
-            <div>
-              <span className="ds-eyebrow">交付路线</span>
-              <h2 id="hr-roadmap-title">先覆盖员工工作，再稳妥接入绩效与工资</h2>
-            </div>
-          </header>
-          <div className={styles.steps}>
-            {deliverySteps.map(([number, title, detail]) => (
-              <article className={`ds-mobile-record ${styles.step}`} key={number}>
-                <span className={styles.stepNumber}>{number}</span>
-                <div>
-                  <strong>{title}</strong>
-                  <p>{detail}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </main>
-    </PermissionGuard>
-  );
+  useEffect(() => { void load(); }, [load]);
+  const cards = useMemo(() => [
+    { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
+    { key: "goals", title: "进行中目标", href: "/hr/goals", icon: Target },
+    { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
+    { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },
+    { key: "feedback", title: "360 评价", href: "/hr/feedback-360", icon: Network },
+    { key: "approvals", title: "人事审批", href: "/hr/approvals", icon: ClipboardCheck },
+    { key: "payroll", title: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) ? "工资批次" : "我的工资条", href: "/hr/payroll", icon: BadgeDollarSign }
+  ].filter((item) => snapshot[item.key as keyof Snapshot] !== null), [snapshot, user]);
+  const roleLabel = canManagePeople ? "人力资源工作台" : canReviewTeam ? "团队管理工作台" : "我的人事工作台";
+  const forbidden = <main className="content ds-page"><section className="ds-panel"><h1>无权访问人力资源管理</h1><p>当前账号缺少人力资源模块或工作台权限，请联系系统管理员授权。</p></section></main>;
+
+  return <PermissionGuard module="hr" permission="hr:dashboard" fallback={forbidden}><main className={`content ds-page ${styles.page}`}>
+    <section className={styles.workbenchHeader}><div><span className="ds-eyebrow">人力资源管理</span><h1>{roleLabel}</h1><p>处理员工、目标、汇报、绩效、审批与薪酬事项。</p></div><button className="ds-button ds-button-secondary" type="button" onClick={() => void load()} disabled={loading}><RefreshCw size={16}/>{loading ? "刷新中" : "刷新"}</button></section>
+    <section aria-labelledby="hr-overview-title" className={styles.section}><header className={styles.sectionHeader}><div><span className="ds-eyebrow">今日工作</span><h2 id="hr-overview-title">需要关注的事项</h2></div></header>
+      {loading ? <div className={`ds-panel ${styles.loadingPanel}`}>正在加载工作台…</div> : cards.length ? <div className={`ds-kpi-grid ${styles.metricGrid}`}>{cards.map(({ key, title, href, icon: Icon }) => { const metric = snapshot[key as keyof Snapshot]; if (metric === null) return null; const unavailable = metric === "unavailable"; const failed = metric === "error"; return <Link className={`ds-kpi-card ${styles.metricCard}`} href={href as Route} key={key}><span className={styles.metricIcon}><Icon size={19}/></span><strong>{unavailable ? "—" : failed ? "!" : metric.value}</strong><span>{title}</span><small>{unavailable ? "当前范围暂无访问权限" : failed ? "加载失败，可刷新重试" : metric.detail}</small></Link>; })}</div> : <div className="ds-panel">当前账号暂无可汇总的 HR 事项。</div>}
+    </section>
+    <section className={styles.section} aria-labelledby="hr-shortcuts-title"><header className={styles.sectionHeader}><div><span className="ds-eyebrow">常用入口</span><h2 id="hr-shortcuts-title">快速办理</h2></div></header><div className={`ds-command-grid ${styles.shortcutGrid}`}>{cards.map(({ key, title, href, icon: Icon }) => <Link className="ds-command-card" href={href as Route} key={key}><Icon size={20}/><strong>{title}</strong><span>进入办理</span></Link>)}</div></section>
+  </main></PermissionGuard>;
 }

@@ -21,6 +21,65 @@
   align-items: flex-end;
 }
 
+.workbenchHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
+  padding: 6px 2px 18px;
+}
+
+.workbenchHeader h1 {
+  margin: 5px 0 6px;
+  font-size: clamp(28px, 3vw, 38px);
+}
+
+.workbenchHeader p,
+.metricCard small {
+  color: var(--text-secondary);
+}
+
+.metricGrid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.metricCard {
+  position: relative;
+  min-height: 142px;
+}
+
+.metricCard strong {
+  font-size: 30px;
+}
+
+.metricIcon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-card));
+  color: var(--color-primary);
+}
+
+.loadingPanel {
+  min-height: 142px;
+  color: var(--text-secondary);
+}
+
+.shortcutGrid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.directoryToolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 240px) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
 .heroSummary {
   display: grid;
   gap: 6px;
@@ -116,6 +175,21 @@
 }
 
 @media (max-width: 520px) {
+  .workbenchHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workbenchHeader :global(.ds-button) {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .directoryToolbar {
+    grid-template-columns: 1fr;
+  }
+
   .hero,
   .sectionHeader {
     align-items: stretch;

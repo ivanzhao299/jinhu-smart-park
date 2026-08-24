@@ -6565,6 +6565,16 @@ textarea:disabled {
     display: none;
   }
 
+  .dashboard-shell.mobile-navigation-open .app-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 100;
+    display: block;
+    width: min(84vw, 320px);
+    max-width: 100%;
+    box-shadow: 20px 0 48px rgba(6, 38, 63, 0.32);
+  }
+
   .page-container {
     padding: var(--phoenix-space-4);
   }
@@ -9510,7 +9520,7 @@ body.mobile-terminal-mode .field select {
 
 @media (max-width: 720px) {
   .dashboard-shell .app-sidebar {
-    display: block;
+    display: none;
     position: fixed;
     inset: calc(74px + env(safe-area-inset-top)) auto 0 0;
     z-index: 120;
@@ -9519,7 +9529,7 @@ body.mobile-terminal-mode .field select {
     box-shadow: 18px 0 40px rgb(15 23 42 / 28%);
   }
 
-  .dashboard-shell.sidebar-collapsed .app-sidebar {
-    display: none;
+  .dashboard-shell.mobile-navigation-open .app-sidebar {
+    display: block;
   }
 }
