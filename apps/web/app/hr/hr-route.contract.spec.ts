@@ -90,6 +90,15 @@ test("HR M4 work reports are record-first and keep write forms behind explicit a
   assert.match(reports,/mine\.length === 0/);
 });
 
+test("HR M4 goals use an execution ledger with explicit actions",()=>{
+  const goals=readFileSync(resolve(__dirname,"goals/HrGoalsClient.tsx"),"utf8");
+  assert.match(goals,/目标台账/);
+  assert.match(goals,/分解目标/);
+  assert.match(goals,/action === "goal" \? <form/);
+  assert.match(goals,/action === "checkin" \? <form/);
+  assert.match(goals,/当前范围暂无目标/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
