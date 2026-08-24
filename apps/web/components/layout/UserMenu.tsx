@@ -1,10 +1,12 @@
 "use client";
 
 import { LogOut, MapPin, UserRound } from "lucide-react";
-import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useAuthSessionActions, useAuthUser } from "../../lib/auth-context";
 import { getToken, logoutSession, switchParkContext } from "../../lib/auth";
+import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
 
 interface UserMenuProps {
   compact?: boolean;
@@ -12,6 +14,7 @@ interface UserMenuProps {
 
 export function UserMenu({ compact = false }: UserMenuProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const user = useAuthUser();
   const actions = useAuthSessionActions();
   const [switching, setSwitching] = useState(false);
@@ -31,7 +34,9 @@ export function UserMenu({ compact = false }: UserMenuProps) {
     try {
       const nextUser = await switchParkContext(parkId);
       actions?.publishUser(nextUser, { remountScopedPages: true });
-      router.refresh();
+      const nextPath = resolvePostParkSwitchPath(nextUser, pathname, user);
+      if (nextPath === pathname) router.refresh();
+      else router.replace(nextPath as Route);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "园区切换失败");
       if (!getToken()) router.replace("/login");
