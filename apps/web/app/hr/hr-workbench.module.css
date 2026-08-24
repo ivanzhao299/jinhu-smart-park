@@ -201,6 +201,13 @@
   gap: 8px;
 }
 
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .step {
   display: flex;
   align-items: flex-start;
@@ -279,5 +286,25 @@
     width: 100%;
     min-height: 44px;
     justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+  .compactKpiGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .compactKpiGrid :global(.ds-kpi-card) {
+    min-height: 0;
+    padding: 14px 10px;
+  }
+
+  .compactKpiGrid :global(.ds-kpi-card) strong {
+    font-size: 1.55rem;
+  }
+
+  .compactKpiGrid :global(.ds-kpi-card) small {
+    display: none;
   }
 }

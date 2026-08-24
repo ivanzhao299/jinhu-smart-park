@@ -245,6 +245,19 @@ JOIN sys_permission p ON p.tenant_id='10000001' AND p.code=d.permission_code AND
 ON CONFLICT(tenant_id,park_id,role_id,permission_id) WHERE is_deleted=false DO UPDATE SET
   is_deleted=false,update_time=now(),remark=EXCLUDED.remark;
 
+LOCK TABLE hr_contract_type IN SHARE ROW EXCLUSIVE MODE;
+INSERT INTO hr_contract_type(tenant_id,park_id,type_code,type_name,status,is_historical_import,create_time,update_time,is_deleted,version,remark)
+SELECT '10000001','20000001',d.type_code,d.type_name,'enabled',false,now(),now(),false,1,'HR online contract standard type'
+FROM (VALUES
+  ('ONLINE_FIXED_TERM','固定期限劳动合同'),
+  ('ONLINE_OPEN_ENDED','无固定期限劳动合同'),
+  ('ONLINE_PROJECT_TERM','以完成一定工作任务为期限')
+) AS d(type_code,type_name)
+WHERE NOT EXISTS(
+  SELECT 1 FROM hr_contract_type t
+  WHERE t.tenant_id='10000001' AND t.park_id='20000001' AND t.type_code=d.type_code AND t.is_deleted=false
+);
+
 DO $$ BEGIN
   IF NOT EXISTS(SELECT 1 FROM sys_module WHERE module_code='hr' AND status=1 AND is_deleted=false) THEN
     RAISE EXCEPTION 'HR module foundation missing';
@@ -254,6 +267,9 @@ DO $$ BEGIN
   END IF;
   IF (SELECT count(*) FROM sys_role WHERE tenant_id='10000001' AND code IN('HR_MANAGER','EMPLOYEE_SELF_SERVICE','DEPARTMENT_MANAGER') AND is_deleted=false AND is_enabled=true) <> 3 THEN
     RAISE EXCEPTION 'HR role foundation incomplete';
+  END IF;
+  IF (SELECT count(*) FROM hr_contract_type WHERE tenant_id='10000001' AND park_id='20000001' AND type_code IN('ONLINE_FIXED_TERM','ONLINE_OPEN_ENDED','ONLINE_PROJECT_TERM') AND status='enabled' AND is_historical_import=false AND is_deleted=false) <> 3 THEN
+    RAISE EXCEPTION 'HR online contract type foundation incomplete';
   END IF;
 END $$;
 

@@ -10,6 +10,9 @@ assert.match(seed, /VALUES\('hr','人力资源管理','management'/);
 assert.match(seed, /'\/hr','briefcase-business',1,72/);
 assert.match(seed, /'hr:employee:manage'/);
 assert.match(seed, /'hr:employee:self_read'/);
+assert.match(seed, /'hr:contract:manage'/);
+assert.match(seed, /'ONLINE_FIXED_TERM','固定期限劳动合同'/);
+assert.match(seed, /HR online contract type foundation incomplete/);
 assert.match(seed, /IN\('HR_MANAGER','EMPLOYEE_SELF_SERVICE','DEPARTMENT_MANAGER'\)/);
 assert.match(seed, /'DEPARTMENT_MANAGER','部门负责人','hr:work_report:team_review'/);
 assert.match(seed, /'DEPARTMENT_MANAGER','部门负责人','hr:performance:manager_review'/);
@@ -18,7 +21,7 @@ assert.doesNotMatch(seed, /INSERT INTO rel_user_role/i, "HR foundation must not 
 assert.doesNotMatch(seed, /password|mobile|email/i, "HR foundation must not seed credentials or employee PII");
 assert.match(menu, /"\/hr"/);
 assert.match(menu, /"\/hr\/employees"/);
-for (const route of ["goals","work-reports","performance","feedback-360","compensation","payroll","approvals"]) assert.match(menu, new RegExp(`"/hr/${route}"`));
+for (const route of ["goals","work-reports","performance","feedback-360","compensation","payroll","approvals","contracts"]) assert.match(menu, new RegExp(`"/hr/${route}"`));
 assert.match(menu, /"briefcase-business": BriefcaseBusiness/);
 assert.match(layout, /<DashboardLayout>\{children\}<\/DashboardLayout>/);
 assert.match(workbench, /module="hr" permission="hr:dashboard"/);

@@ -4,6 +4,7 @@ import test from "node:test";
 import { NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrContractAccessScope,resolveHrEmployeeAccessScope } from "./hr-access-policy";
@@ -46,6 +47,14 @@ test("labor contract routes retain exact read permissions",()=>{
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.contracts),expected);
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.contract),expected);
   assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myContracts),[HR_PERMISSIONS.HR_CONTRACT_SELF_READ]);
+});
+
+test("labor contract writes require the atomic manage permission and body-free audit",()=>{
+ for(const method of ["createContract","contractAction","createContractChange","contractChangeAction"] as const){
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_CONTRACT_MANAGE]);
+  assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);
+  assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);
+ }
 });
 
 test("labor contract service is fail-closed without an exact contract permission",async()=>{

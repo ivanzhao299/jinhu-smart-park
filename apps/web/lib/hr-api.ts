@@ -17,9 +17,10 @@ export interface HrPayrollPeriod {id:string;periodMonth:string;startDate:string;
 export interface HrPayrollRun {id:string;periodId:string;runNo:number;correctionOfRunId:string|null;status:string;employeeCount:number;grossTotal:string;deductionTotal:string;netTotal:string;}
 export interface HrPayslip {id:string;runId:string;employeeId:string;grossAmount:string;deductionAmount:string;personalTax:string;netAmount:string;status:string;createTime:string;}
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
-export interface HrContract {id:string;employeeId:string;employeeCode:string;employeeName:string;contractNo:string;contractTypeId:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate:string|null;status:string;isHistoricalImport:boolean;}
-export interface HrContractChange {id:string;sequenceNo:number;changeType:string;newStartDate:string;newEndDate:string|null;isHistoricalImport:boolean;}
+export interface HrContract {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContractChange {id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
 export interface HrContractDetail extends HrContract {changes:HrContractChange[];}
+export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
 export interface HrEmployeeListFilters {keyword?:string;status?:string;}
 export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
@@ -37,6 +38,11 @@ export const hrApi={
  createPosition:(body:object,token?:string)=>unwrap(apiRequest<HrPosition>("/hr/positions",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contracts:(token?:string,page=1,pageSize=20,filters:HrContractListFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);if(filters.expiryFrom)query.set("expiry_from",filters.expiryFrom);if(filters.expiryTo)query.set("expiry_to",filters.expiryTo);return unwrap(apiRequest<PaginatedResult<HrContract>>(`/hr/contracts${selfOnly?"/me":""}?${query.toString()}`,{token}));}
  ,contract:(id:string,token?:string)=>unwrap(apiRequest<HrContractDetail>(`/hr/contracts/${id}`,{token}))
+ ,contractTypes:(token?:string)=>unwrap(apiRequest<HrContractType[]>("/hr/contract-types",{token}))
+ ,createContract:(body:object,token?:string)=>unwrap(apiRequest<HrContract>("/hr/contracts",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,contractAction:(id:string,action:"activate"|"cancel",token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
+ ,createContractChange:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${id}/changes`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,contractChangeAction:(contractId:string,changeId:string,action:"apply"|"cancel",token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${contractId}/changes/${changeId}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
  ,goalCycles:(token?:string)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,goals:(selfOnly:boolean,token?:string)=>unwrap(apiRequest<HrGoal[]>(selfOnly?"/hr/goals/me":"/hr/goals",{token}))
