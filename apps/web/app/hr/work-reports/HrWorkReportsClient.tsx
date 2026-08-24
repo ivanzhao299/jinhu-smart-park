@@ -1,3 +1,78 @@
 "use client";
-import {HR_PERMISSIONS} from "@jinhu/shared";import {useCallback,useEffect,useState} from "react";import {PermissionGuard} from "../../../components/auth/PermissionGuard";import {useAuthUser} from "../../../lib/auth-context";import {getAccessToken} from "../../../lib/authz";import {hrApi,type HrGoal,type HrWorkReport} from "../../../lib/hr-api";import {hasPermission} from "../../../lib/permissions";import styles from "../hr-workbench.module.css";const label:Record<string,string>={daily:"日报",weekly:"周报",monthly:"月报",submitted:"待审核",confirmed:"已确认",returned:"已退回"};
-export function HrWorkReportsClient(){const user=useAuthUser(),canReview=hasPermission(user,HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW);const [mine,setMine]=useState<HrWorkReport[]>([]),[team,setTeam]=useState<HrWorkReport[]>([]),[goals,setGoals]=useState<HrGoal[]>([]),[message,setMessage]=useState("");const load=useCallback(async()=>{try{const t=getAccessToken(),[m,g,r]=await Promise.all([hrApi.myWorkReports(t),hrApi.goals(true,t),canReview?hrApi.teamWorkReports(t):Promise.resolve([])]);setMine(m);setGoals(g);setTeam(r)}catch(e){setMessage(e instanceof Error?e.message:"加载汇报失败")}},[canReview]);useEffect(()=>{void load()},[load]);const create=async(f:FormData)=>{try{await hrApi.createWorkReport({reportType:String(f.get("reportType")),periodStart:String(f.get("periodStart")),periodEnd:String(f.get("periodEnd")),completedWork:String(f.get("completedWork")),nextPlan:String(f.get("nextPlan"))||undefined,risks:String(f.get("risks"))||undefined,collaborationNeeds:String(f.get("collaborationNeeds"))||undefined,hours:String(f.get("hours"))?Number(f.get("hours")):undefined,goalIds:f.getAll("goalIds").map(String)},getAccessToken());await load()}catch(e){setMessage(e instanceof Error?e.message:"提交失败")}};const review=async(f:FormData)=>{try{await hrApi.reviewWorkReport(String(f.get("reportId")),{action:String(f.get("action")),comment:String(f.get("comment"))},getAccessToken());await load()}catch(e){setMessage(e instanceof Error?e.message:"审核失败")}};return <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_WORK_REPORTS_PAGE}><main className={`content ds-page ${styles.page}`}><section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">我的工作</span><h1>日报、周报与月报</h1><p>汇报工作并关联本人目标。</p></div></section><form className={`ds-panel ${styles.formGrid}`} action={create}><label className="form-field"><span>类型</span><select name="reportType"><option value="daily">日报</option><option value="weekly">周报</option><option value="monthly">月报</option></select></label><label className="form-field"><span>开始</span><input name="periodStart" type="date" required/></label><label className="form-field"><span>结束</span><input name="periodEnd" type="date" required/></label><label className="form-field"><span>工时</span><input name="hours" type="number" min="0" max="744" step="0.25"/></label><label className="form-field"><span>完成工作</span><textarea name="completedWork" required/></label><label className="form-field"><span>下一步</span><textarea name="nextPlan"/></label><label className="form-field"><span>风险</span><textarea name="risks"/></label><label className="form-field"><span>协同需求</span><textarea name="collaborationNeeds"/></label><label className="form-field"><span>关联目标</span><select name="goalIds" multiple>{goals.map(x=><option key={x.id} value={x.id}>{x.goalName}</option>)}</select></label><button className="ds-button ds-button-primary">提交汇报</button></form>{message?<p className="form-error" role="alert">{message}</p>:null}<section className="ds-panel"><h2>我的汇报</h2><div className="ds-mobile-record-list">{mine.map(x=><article className="ds-mobile-record" key={x.id}><strong>{label[x.reportType]} · {x.periodStart}</strong><span>{label[x.status]}</span><span>{x.completedWork}</span>{x.reviewComment?<span>主管意见：{x.reviewComment}</span>:null}</article>)}</div></section>{canReview?<section className="ds-panel"><h2>直属团队审核</h2><div className="ds-mobile-record-list">{team.map(x=><article className="ds-mobile-record" key={x.id}><strong>{label[x.reportType]} · {x.periodStart}</strong><span>{x.completedWork}</span>{x.status==="submitted"?<form className={styles.formGrid} action={review}><input type="hidden" name="reportId" value={x.id}/><label className="form-field"><span>结果</span><select name="action"><option value="confirmed">确认</option><option value="returned">退回</option></select></label><label className="form-field"><span>意见</span><input name="comment" required/></label><button className="ds-button ds-button-primary">提交审核</button></form>:<span>{label[x.status]}</span>}</article>)}</div></section>:null}</main></PermissionGuard>}
+
+import { HR_PERMISSIONS } from "@jinhu/shared";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PermissionGuard } from "../../../components/auth/PermissionGuard";
+import { useAuthUser } from "../../../lib/auth-context";
+import { getAccessToken } from "../../../lib/authz";
+import { hrApi, type HrGoal, type HrWorkReport } from "../../../lib/hr-api";
+import { hasPermission } from "../../../lib/permissions";
+import styles from "../hr-workbench.module.css";
+
+const label: Record<string, string> = { daily: "日报", weekly: "周报", monthly: "月报", submitted: "待审核", confirmed: "已确认", returned: "已退回" };
+
+export function HrWorkReportsClient() {
+  const user = useAuthUser();
+  const canReview = hasPermission(user, HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW);
+  const [mine, setMine] = useState<HrWorkReport[]>([]);
+  const [team, setTeam] = useState<HrWorkReport[]>([]);
+  const [goals, setGoals] = useState<HrGoal[]>([]);
+  const [message, setMessage] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const token = getAccessToken();
+      const [myRows, myGoals, teamRows] = await Promise.all([
+        hrApi.myWorkReports(token), hrApi.goals(true, token),
+        canReview ? hrApi.teamWorkReports(token) : Promise.resolve([])
+      ]);
+      setMine(myRows); setGoals(myGoals); setTeam(teamRows); setMessage("");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "加载汇报失败"); }
+  }, [canReview]);
+
+  useEffect(() => { void load(); }, [load]);
+  const pending = useMemo(() => team.filter((item) => item.status === "submitted").length, [team]);
+
+  const create = async (form: FormData) => {
+    try {
+      await hrApi.createWorkReport({
+        reportType: String(form.get("reportType")), periodStart: String(form.get("periodStart")), periodEnd: String(form.get("periodEnd")),
+        completedWork: String(form.get("completedWork")), nextPlan: String(form.get("nextPlan")) || undefined,
+        risks: String(form.get("risks")) || undefined, collaborationNeeds: String(form.get("collaborationNeeds")) || undefined,
+        hours: String(form.get("hours")) ? Number(form.get("hours")) : undefined, goalIds: form.getAll("goalIds").map(String)
+      }, getAccessToken());
+      setShowCreate(false); await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); }
+  };
+
+  const review = async (form: FormData) => {
+    try {
+      await hrApi.reviewWorkReport(String(form.get("reportId")), { action: String(form.get("action")), comment: String(form.get("comment")) }, getAccessToken());
+      await load();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "审核失败"); }
+  };
+
+  return <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_WORK_REPORTS_PAGE}>
+    <main className={`content ds-page ${styles.page}`}>
+      <section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">工作协同</span><h1>工作汇报</h1><p>日报、周报和月报统一记录，主管在同一处完成反馈。</p></div><div className={styles.heroActions}><button type="button" className="ds-button ds-button-primary" onClick={() => setShowCreate((value) => !value)}>{showCreate ? "收起填写" : "填写汇报"}</button></div></section>
+      <section className="ds-kpi-grid" aria-label="汇报概览">
+        <article className="ds-kpi-card"><span>我的汇报</span><strong>{mine.length}</strong><small>当前可见记录</small></article>
+        <article className="ds-kpi-card"><span>退回修改</span><strong>{mine.filter((item) => item.status === "returned").length}</strong><small>需要补充后重提</small></article>
+        {canReview ? <article className="ds-kpi-card"><span>团队待审</span><strong>{pending}</strong><small>等待主管反馈</small></article> : null}
+      </section>
+      {showCreate ? <form className={`ds-panel ${styles.formGrid}`} action={create}>
+        <div className={styles.sectionHeading}><div><span className="ds-eyebrow">新建</span><h2>填写工作汇报</h2></div></div>
+        <label className="form-field"><span>类型</span><select name="reportType"><option value="daily">日报</option><option value="weekly">周报</option><option value="monthly">月报</option></select></label>
+        <label className="form-field"><span>开始</span><input name="periodStart" type="date" required /></label><label className="form-field"><span>结束</span><input name="periodEnd" type="date" required /></label>
+        <label className="form-field"><span>工时</span><input name="hours" type="number" min="0" max="744" step="0.25" /></label><label className="form-field"><span>完成工作</span><textarea name="completedWork" required /></label>
+        <label className="form-field"><span>下一步</span><textarea name="nextPlan" /></label><label className="form-field"><span>风险</span><textarea name="risks" /></label><label className="form-field"><span>协同需求</span><textarea name="collaborationNeeds" /></label>
+        <label className="form-field"><span>关联目标</span><select name="goalIds" multiple>{goals.map((item) => <option key={item.id} value={item.id}>{item.goalName}</option>)}</select></label>
+        <div className={styles.formActions}><button className="ds-button ds-button-primary">提交汇报</button><button type="button" className="ds-button" onClick={() => setShowCreate(false)}>取消</button></div>
+      </form> : null}
+      {message ? <p className="form-error" role="alert">{message}</p> : null}
+      {canReview ? <section className="ds-panel"><div className={styles.sectionHeading}><div><span className="ds-eyebrow">主管事项</span><h2>直属团队审核</h2></div><strong>{pending} 项待处理</strong></div><div className="ds-mobile-record-list">{team.length === 0 ? <p className={styles.emptyState}>当前没有团队汇报。</p> : team.map((item) => <article className="ds-mobile-record" key={item.id}><strong>{label[item.reportType]} · {item.periodStart}</strong><span>{item.completedWork}</span>{item.status === "submitted" ? <details className={styles.actionDisclosure}><summary>审核这份汇报</summary><form className={styles.formGrid} action={review}><input type="hidden" name="reportId" value={item.id} /><label className="form-field"><span>结果</span><select name="action"><option value="confirmed">确认</option><option value="returned">退回</option></select></label><label className="form-field"><span>意见</span><input name="comment" required /></label><button className="ds-button ds-button-primary">提交审核</button></form></details> : <span>{label[item.status]}</span>}</article>)}</div></section> : null}
+      <section className="ds-panel"><div className={styles.sectionHeading}><div><span className="ds-eyebrow">个人记录</span><h2>我的汇报</h2></div></div><div className="ds-mobile-record-list">{mine.length === 0 ? <p className={styles.emptyState}>暂无汇报，使用右上角“填写汇报”开始记录。</p> : mine.map((item) => <article className="ds-mobile-record" key={item.id}><strong>{label[item.reportType]} · {item.periodStart}</strong><span>{label[item.status]}</span><span>{item.completedWork}</span>{item.reviewComment ? <span>主管意见：{item.reviewComment}</span> : null}</article>)}</div></section>
+    </main>
+  </PermissionGuard>;
+}
