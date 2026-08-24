@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionGuard } from "../../components/auth/PermissionGuard";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
-import { isForbiddenError } from "../../lib/api-client";
+import { ApiError, isForbiddenError } from "../../lib/api-client";
 import { hrApi } from "../../lib/hr-api";
 import { hasAnyPermission, hasPermission } from "../../lib/permissions";
 import styles from "./hr-workbench.module.css";
@@ -18,6 +18,9 @@ type MetricState = Metric | "unavailable" | "error" | null;
 interface Snapshot { employees: MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
 const EMPTY: Snapshot = { employees: null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
+const isEmployeeContextUnavailable = (error: unknown) =>
+  isForbiddenError(error) ||
+  (error instanceof ApiError && error.status === 404 && error.message === "No employee profile is linked to current user");
 
 export function HrWorkbench() {
   const user = useAuthUser();
@@ -31,7 +34,7 @@ export function HrWorkbench() {
     const token = getAccessToken();
     const next: Snapshot = { ...EMPTY };
     const jobs: Promise<void>[] = [];
-    const add = (key: keyof Snapshot, job: Promise<Metric>) => jobs.push(job.then((metric) => { next[key] = metric; }).catch((error: unknown) => { next[key] = isForbiddenError(error) ? "unavailable" : "error"; }));
+    const add = (key: keyof Snapshot, job: Promise<Metric>) => jobs.push(job.then((metric) => { next[key] = metric; }).catch((error: unknown) => { next[key] = isEmployeeContextUnavailable(error) ? "unavailable" : "error"; }));
     setLoading(true);
 
     if (canReadEmployees) {
