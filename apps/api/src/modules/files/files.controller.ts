@@ -38,7 +38,7 @@ export class FilesController {
 
   @Post()
   @RequirePermissions(SYSTEM_PERMISSIONS.FILE_UPLOAD)
-  @AuditLog({ module: "附件中心", resource: "system.file", action: "附件上传", captureBody: true })
+  @AuditLog({ module: "附件中心", resource: "system.file", action: "附件上传", captureBody: false })
   @UseInterceptors(
     FileInterceptor("file", { limits: { fileSize: 100 * 1024 * 1024 } }),
     new IdempotencyInterceptor()

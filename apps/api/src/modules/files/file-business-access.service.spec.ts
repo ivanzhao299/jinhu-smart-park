@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ConflictException, ForbiddenException } from "@nestjs/common";
 import {
+  HR_PERMISSIONS,
   PROPERTY_BUSINESS_PERMISSIONS,
   SYSTEM_PERMISSIONS,
   type TenantParkScope
@@ -48,6 +49,15 @@ test("protected housing files require their business permission", async () => {
   );
   assert.equal(service.isProtectedBizType("housing_handover_move_in"), true);
   assert.equal(service.isProtectedBizType("housing_handover_move_out"), true);
+});
+
+test("candidate evidence is scoped and never readable with manager-only permissions",async()=>{
+ const calls:unknown[][]=[];
+ const service=new FileBusinessAccessService({query:async(_sql:string,params:unknown[])=>{calls.push(params);return [{exists:1}];}} as never,{} as never,unrestrictedDataScopes);
+ await assert.rejects(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_REQUISITION_TEAM_READ]),"hr_candidate_resume","candidate-1","read"),ForbiddenException);
+ assert.equal(calls.length,0);
+ await assert.doesNotReject(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_RECRUITMENT_DOCUMENT_READ]),"hr_candidate_resume","candidate-1","download"));
+ assert.deepEqual(calls,[['candidate-1','tenant-1','park-1']]);
 });
 
 test("protected file references are resolved inside tenant and park before unit scope", async () => {

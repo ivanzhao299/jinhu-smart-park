@@ -1,5 +1,5 @@
 import type { PaginatedResult } from "@jinhu/shared";
-import { apiRequest } from "./api-client";
+import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrPosition {id:string;orgId:string;positionCode:string;positionName:string;jobFamily:string|null;jobLevel:string|null;headcountLimit:number|null;status:string;}
 export interface HrEmploymentEvent {id:string;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
@@ -108,12 +108,22 @@ export interface HrAttendancePayrollVersion {id:string;batchNo:number;batchType:
 export interface HrInsuranceItem {insuranceKind:string;contributionBase:string|null;employeeAmount:string|null;supplementAmount:string|null;legacyBaseNegative:boolean;employerAmount?:string|null;totalAmount?:string|null;}
 export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount:string;supplementAmount:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
 export interface HrEmployeeListFilters {keyword?:string;status?:string;}
+export interface HrRequisition {id:string;requisitionCode:string;title:string;orgId:string;orgName:string;positionId:string|null;positionName:string|null;headcount:number;hiredCount:number;ownerUserId:string;ownerName:string|null;plannedOnboardDate:string|null;status:string;}
+export interface HrCandidate {id:string;candidateNo:string;fullName:string;requisitionId:string;requisitionTitle:string;stage:string;source:string|null;expectedOnboardDate:string|null;latestEvaluation:string|null;mobileMasked:string|null;emailMasked:string|null;identityMasked:string|null;convertedEmployeeId:string|null;}
+export interface HrCandidateSensitiveDetail {id:string;candidateNo:string;fullName:string;requisitionId:string;requisitionTitle:string;stage:string;source:string|null;expectedOnboardDate:string|null;latestEvaluation:string|null;mobile:string|null;email:string|null;identityNumber:string|null;convertedEmployeeId:string|null;}
 export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
 export interface HrAttendanceFilters {year?:number;month?:number;}
 export interface HrAttendanceRequestFilters {type?:string;status?:string;}
 export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},
+ createRecruitmentRequisition:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-requisition-create"))=>unwrap(apiRequest<HrRequisition>("/hr/recruitment/requisitions",{method:"POST",body,token,idempotencyKey})),
+ recruitmentCandidates:(token?:string,page=1,pageSize=50,filters:{keyword?:string;stage?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.stage)q.set("stage",filters.stage);return unwrap(apiRequest<PaginatedResult<HrCandidate>>(`/hr/recruitment/candidates?${q}`,{token,signal}));},
+ recruitmentCandidateDetail:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrCandidateSensitiveDetail>(`/hr/recruitment/candidates/${id}`,{token,signal})),
+ createRecruitmentCandidate:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-create"))=>unwrap(apiRequest<HrCandidate>("/hr/recruitment/candidates",{method:"POST",body,token,idempotencyKey})),
+ moveRecruitmentCandidate:(id:string,body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-stage"))=>unwrap(apiRequest<{id:string;fromStage:string;toStage:string}>(`/hr/recruitment/candidates/${id}/stage-actions`,{method:"POST",body,token,idempotencyKey})),
+ convertRecruitmentCandidate:(id:string,body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-convert"))=>unwrap(apiRequest<{candidateId:string;employeeId:string;employeeStatus:string;checklistId:string;loginCreated:boolean}>(`/hr/recruitment/candidates/${id}/convert`,{method:"POST",body,token,idempotencyKey})),
  employees:(token?:string,page=1,pageSize=100,filters:HrEmployeeListFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrEmployee>>(`/hr/employees?${query.toString()}`,{token}));},
  me:(token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees/me",{token,skipUnauthorizedReset:true})),
  createEmployee:(body:object,token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),
