@@ -137,6 +137,15 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   assert.match(payroll,/仅限本人数据/);
 });
 
+test("HR M4 compensation keeps plan ledger separate from sensitive assignment",()=>{
+  const compensation=readFileSync(resolve(__dirname,"compensation/HrCompensationClient.tsx"),"utf8");
+  assert.match(compensation,/方案台账/);
+  assert.match(compensation,/action === "plan" \? <form/);
+  assert.match(compensation,/action === "assignment" \? <form/);
+  assert.match(compensation,/排除已离职员工/);
+  assert.match(compensation,/仅对授权人事人员开放/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");
