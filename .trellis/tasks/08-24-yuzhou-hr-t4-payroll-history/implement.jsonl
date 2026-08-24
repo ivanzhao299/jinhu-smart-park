@@ -1,0 +1,12 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"NestJS service transaction, migration, DTO and API module conventions"}
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"HR payroll immutability, concurrency, sensitive projection, required audit and Yuzhou migration contracts"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"HR production work surfaces, permission gating, pagination and mobile design-system rules"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Shared permission and cross-app contract ownership"}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"Web consumption of shared permissions and API response contracts"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Database to loader to API to Web exact-decimal and state-flow design"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Forward migration, seed, release smoke, worktree provenance and production gates"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse existing HR migration, scope, projection and audit helpers"}
+{"file":".trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/current-payroll-and-t4-gap.md","reason":"Authoritative real-source counts, years, current model reuse boundaries and T4 risks"}
+{"file":".trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json","reason":"Pinned backup, catalog hashes, actual row counts and duplicate-group prestart evidence"}
+{"file":".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/source-audit.md","reason":"Legacy source inventory and dynamic payroll implementation evidence"}
+{"file":".trellis/tasks/08-19-yuzhou-hr-compatibility-migration-env/research/hr-next-task-roadmap.md","reason":"Parent roadmap and T4 no-formal-payroll boundary"}
