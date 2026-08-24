@@ -602,7 +602,13 @@ export class UsersService {
       relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
     });
     if (!user) throw new NotFoundException("User not found");
-    const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId });
+    const [accessibleParks, tenant] = await Promise.all([
+      this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId }),
+      this.tenantRepository.findOne({
+        where: { tenantId: user.tenantId, isDeleted: false },
+        select: { contactUserId: true }
+      })
+    ]);
     const currentPark = accessibleParks.find((park) => park.park_id === scope.parkId) ?? null;
     const currentParkName = currentPark?.park_name?.trim();
     if (!currentPark || !currentParkName) throw new NotFoundException("User not found");
@@ -619,6 +625,15 @@ export class UsersService {
     const scopedUser = { ...user, parkId: scope.parkId } as UserEntity;
     const principal = this.buildJwtPrincipal(scopedUser);
     const activeRoleLinks = this.getActiveRoleLinks(scopedUser);
+    const hasTenantAdminRole = activeRoleLinks.some((link) => link.role.code === "TENANT_ADMIN");
+    const isTenantBootstrapAdmin = tenant !== null && hasTenantAdminRole && Boolean(
+      tenant?.contactUserId === user.id ||
+      (
+        tenant?.contactUserId == null &&
+        user.createBy === null &&
+        user.remark === "bootstrap-admin created"
+      )
+    );
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
       this.getActivePermissionLinks(link.role, user.tenantId, scope.parkId)
         .map((permissionLink) => permissionLink.permission)
@@ -667,7 +682,8 @@ export class UsersService {
       field_permissions: [],
       field_policies: fieldPolicies,
       enabled_modules: enabledModules,
-      is_super: isSuper
+      is_super: isSuper,
+      is_tenant_bootstrap_admin: isTenantBootstrapAdmin
     };
   }
 

@@ -34,6 +34,7 @@ function createService(overrides: {
   userOrgRepository?: unknown;
   userParkRepository?: unknown;
   parksRepository?: unknown;
+  tenantRepository?: unknown;
   dataScopeService?: unknown;
   fieldPolicyService?: unknown;
   saasModulesService?: unknown;
@@ -45,7 +46,7 @@ function createService(overrides: {
     (overrides.userOrgRepository ?? {}) as never,
     (overrides.userParkRepository ?? {}) as never,
     (overrides.parksRepository ?? {}) as never,
-    {} as never,
+    (overrides.tenantRepository ?? {}) as never,
     (overrides.dataScopeService ?? {}) as never,
     (overrides.fieldPolicyService ?? {}) as never,
     (overrides.saasModulesService ?? {}) as never,
@@ -345,6 +346,7 @@ test("current user context resolves enabled modules for the current park before 
         isDeleted: false
       }]
     },
+    tenantRepository: { findOne: async () => ({ contactUserId: null }) },
     dataScopeService: { getUserDataScopes: async () => [] },
     fieldPolicyService: {
       getUserFieldPolicies: async () => [],
@@ -369,6 +371,120 @@ test("current user context resolves enabled modules for the current park before 
     [dashboard.route]
   );
 });
+
+for (const scenario of [
+  {
+    name: "marks the tenant contact user with an active tenant-admin role as bootstrap admin",
+    contactUserId: "user-1",
+    remark: null,
+    createBy: "platform-admin",
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: true
+  },
+  {
+    name: "does not mark a later tenant-admin when the tenant points to another user",
+    contactUserId: "first-admin",
+    remark: "bootstrap-admin created",
+    createBy: "platform-admin",
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: false
+  },
+  {
+    name: "does not mark an ordinary user even when the tenant contact pointer matches",
+    contactUserId: "user-1",
+    remark: null,
+    createBy: "platform-admin",
+    roleCode: "SYSTEM_USER",
+    roleParkId: PARK_ID,
+    expected: false
+  },
+  {
+    name: "supports the exact production bootstrap marker only for pointer-less tenants",
+    contactUserId: null,
+    remark: "bootstrap-admin created",
+    createBy: null,
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: true
+  },
+  {
+    name: "rejects a later admin that copies the legacy bootstrap marker",
+    contactUserId: null,
+    remark: "bootstrap-admin created",
+    createBy: "platform-admin",
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: false
+  },
+  {
+    name: "evaluates the tenant-admin role in the requested park context",
+    contactUserId: "user-1",
+    remark: null,
+    createBy: "platform-admin",
+    roleCode: "TENANT_ADMIN",
+    roleParkId: OTHER_PARK_ID,
+    expected: false
+  }
+] as const) {
+  test(`current user context ${scenario.name}`, async () => {
+    const currentRole = role(scenario.roleCode, scenario.roleParkId, []);
+    const user = {
+      id: "user-1",
+      tenantId: TENANT_ID,
+      parkId: PARK_ID,
+      username: "operator",
+      displayName: "Operator",
+      mobile: null,
+      email: null,
+      avatarUrl: null,
+      gender: null,
+      lastLoginIp: null,
+      lastLoginTime: null,
+      remark: scenario.remark,
+      createBy: scenario.createBy,
+      roleLinks: [userRole("role-link", scenario.roleParkId, currentRole)]
+    } as UserEntity;
+    const service = createService({
+      usersRepository: { findOne: async () => user },
+      userOrgRepository: { findOne: async () => null },
+      userParkRepository: { find: async () => [], findOne: async () => null },
+      parksRepository: {
+        find: async () => [{
+          tenantId: TENANT_ID,
+          parkId: PARK_ID,
+          parkCode: "PARK-001",
+          parkName: "测试园区",
+          status: 1,
+          isDeleted: false
+        }]
+      },
+      tenantRepository: {
+        findOne: async (options: unknown) => {
+          assert.deepEqual(options, {
+            where: { tenantId: TENANT_ID, isDeleted: false },
+            select: { contactUserId: true }
+          });
+          return { contactUserId: scenario.contactUserId };
+        }
+      },
+      dataScopeService: { getUserDataScopes: async () => [] },
+      fieldPolicyService: {
+        getUserFieldPolicies: async () => [],
+        applyFieldPolicies: async (_scope: unknown, _principal: unknown, _module: string, _entity: string, value: unknown) => value
+      },
+      saasModulesService: { listEnabledModulesForTenant: async () => [] }
+    });
+
+    const context = await service.getCurrentUserContext(
+      { tenantId: TENANT_ID, parkId: PARK_ID },
+      user.id
+    );
+
+    assert.equal(context.is_tenant_bootstrap_admin, scenario.expected);
+  });
+}
 
 function rolePermission(id: string, parkId: string, definition: PermissionEntity) {
   return {

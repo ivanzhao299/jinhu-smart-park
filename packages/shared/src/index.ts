@@ -302,6 +302,7 @@ export interface UserContext {
   menu_tree?: UserMenuTreeNode[];
   menus?: UserMenuTreeNode[];
   is_super: boolean;
+  is_tenant_bootstrap_admin?: boolean;
 }
 
 export interface UserMenuTreeNode {
