@@ -34,27 +34,58 @@ function hasAnyPermission(user: UserContext | null, permissions: string[]): bool
 function findFirstAccessibleMenuHref(
   user: UserContext | null,
   items?: RouteMenuItem[],
-  inheritedModule?: string
+  inheritedModule?: string,
+  authorizationItems?: RouteMenuItem[]
 ): string | null {
   if (!items) {
     return null;
   }
   for (const item of items) {
     const moduleCode = item.module ?? inheritedModule;
+    const authorizationItem = item.href
+      ? findMenuRequirementsByHref(item.href, authorizationItems)
+      : undefined;
     if (
       item.href &&
       item.href !== "/login" &&
       hasPermission(user, item.permission) &&
+      hasAllPermissions(user, authorizationItem?.permissions ?? []) &&
       hasModule(user, moduleCode)
     ) {
       return item.href;
     }
-    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode);
+    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode, authorizationItems);
     if (nested) {
       return nested;
     }
   }
   return null;
+}
+
+function findMenuRequirementsByHref(
+  href: string,
+  items?: RouteMenuItem[]
+): RouteMenuItem | undefined {
+  for (const item of items ?? []) {
+    if (item.href === href) {
+      return item;
+    }
+    const nested = findMenuRequirementsByHref(href, item.children);
+    if (nested) {
+      return nested;
+    }
+  }
+  return undefined;
+}
+
+function findFirstPostLoginMenuHref(user: UserContext | null): string | null {
+  const userMenus = user?.menu_tree ?? user?.menus;
+  return findFirstAccessibleMenuHref(
+    user,
+    userMenus,
+    undefined,
+    getDashboardAuthorizationMenus(userMenus)
+  );
 }
 
 function pathBelongsToMenu(pathname: string, href: string): boolean {
@@ -129,7 +160,7 @@ export function prefersMobileWorkbench(signals: PostLoginDeviceSignals): boolean
 }
 
 export function resolvePostLoginPath(user: UserContext | null, signals: PostLoginDeviceSignals = detectPostLoginDeviceSignals()): string {
-  const firstMenuHref = findFirstAccessibleMenuHref(user, user?.menu_tree ?? user?.menus);
+  const firstMenuHref = findFirstPostLoginMenuHref(user);
   const hasEngineeringAccess = hasModule(user, "engineering") && hasAnyPermission(user, ENGINEERING_PERMISSIONS);
   const hasOperationsAccess =
     hasModule(user, "safety") && hasPermission(user, SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY);
@@ -178,7 +209,7 @@ export function resolvePostParkSwitchPath(
     }
     const fallback = resolvePostLoginPath(user, signals);
     return fallback === pathname
-      ? findFirstAccessibleMenuHref(user, user?.menu_tree ?? user?.menus) ?? "/dashboard"
+      ? findFirstPostLoginMenuHref(user) ?? "/dashboard"
       : fallback;
   }
   if (pathname === "/operations/terminal") {

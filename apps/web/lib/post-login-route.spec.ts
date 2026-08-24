@@ -198,6 +198,22 @@ test("desktop users skip a first menu whose permission is not granted", () => {
   assert.equal(route, "/system/users");
 });
 
+test("desktop users skip a first menu whose compound permission is not granted", () => {
+  const user = createUser({
+    permissions: ["asset:property-operations:page", "user:read"],
+    enabled_modules: [
+      { module_code: "asset", module_name: "资产管理", module_group: "asset", enabled: true },
+      { module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }
+    ],
+    menu_tree: [
+      { label: "物业作业", href: "/assets/property-operations", permission: "asset:property-operations:page", module: "asset" },
+      { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }
+    ]
+  });
+
+  assert.equal(resolvePostLoginPath(user, desktopSignals), "/system/users");
+});
+
 test("post-login menu selection inherits a parent module requirement", () => {
   const user = createUser({
     permissions: ["user:read", "park:read"],
