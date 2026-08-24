@@ -19,6 +19,8 @@ export function resolveDashboardRouteDenial(
   return "module";
 }
 
-export function dashboardRouteDenialHref(denial: Exclude<DashboardRouteDenial, null>): string {
+export function dashboardRouteDenialHref(
+  denial: Exclude<DashboardRouteDenial, null>
+): "/403" | "/403?reason=module" {
   return denial === "module" ? "/403?reason=module" : "/403";
 }
