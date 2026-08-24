@@ -81,6 +81,33 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/加载更多员工/);
 });
 
+test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
+  const reports=readFileSync(resolve(__dirname,"work-reports/HrWorkReportsClient.tsx"),"utf8");
+  assert.match(reports,/填写汇报/);
+  assert.match(reports,/showCreate \? <form/);
+  assert.match(reports,/团队待审/);
+  assert.match(reports,/<details className=\{styles\.actionDisclosure\}>/);
+  assert.match(reports,/mine\.length === 0/);
+});
+
+test("HR M4 goals use an execution ledger with explicit actions",()=>{
+  const goals=readFileSync(resolve(__dirname,"goals/HrGoalsClient.tsx"),"utf8");
+  assert.match(goals,/目标台账/);
+  assert.match(goals,/分解目标/);
+  assert.match(goals,/action === "goal" \? <form/);
+  assert.match(goals,/action === "checkin" \? <form/);
+  assert.match(goals,/当前范围暂无目标/);
+});
+
+test("HR M4 performance separates personal and manager queues",()=>{
+  const performance=readFileSync(resolve(__dirname,"performance/HrPerformanceClient.tsx"),"utf8");
+  assert.match(performance,/团队待办/);
+  assert.match(performance,/setup === "plan" \? <form/);
+  assert.match(performance,/填写员工自评/);
+  assert.match(performance,/填写主管评价/);
+  assert.match(performance,/执行 HR 校准/);
+});
+
 test("mobile dashboard navigation is hidden by default and requires an explicit open class",()=>{
   const layout=readFileSync(resolve(__dirname,"../../components/layout/DashboardLayout.tsx"),"utf8");
   const globals=readFileSync(resolve(__dirname,"../globals.css"),"utf8");

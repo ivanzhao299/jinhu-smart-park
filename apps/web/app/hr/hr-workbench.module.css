@@ -151,6 +151,50 @@
   align-items: end;
 }
 
+.heroActions,
+.formActions,
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sectionHeading {
+  grid-column: 1 / -1;
+}
+
+.sectionHeading h2 {
+  margin: 4px 0 0;
+}
+
+.formActions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.emptyState {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.actionDisclosure {
+  margin-top: 8px;
+}
+
+.actionDisclosure summary {
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.actionDisclosure .formGrid {
+  margin-top: 12px;
+}
+
 .step {
   display: flex;
   align-items: flex-start;
@@ -209,6 +253,13 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .heroActions,
+  .formActions,
+  .sectionHeading {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .heroLinks {
