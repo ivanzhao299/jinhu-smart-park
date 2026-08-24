@@ -401,7 +401,7 @@ for (const scenario of [
     expected: false
   },
   {
-    name: "supports the exact production bootstrap marker only for pointer-less tenants",
+    name: "supports the production bootstrap creator provenance for pointer-less tenants",
     contactUserId: null,
     remark: "bootstrap-admin created",
     createBy: null,
@@ -437,13 +437,13 @@ for (const scenario of [
     expected: false
   },
   {
-    name: "rejects an unknown marker even when the creator is absent",
+    name: "preserves pointer-less bootstrap identity when an editable remark changes",
     contactUserId: null,
     remark: "bootstrap-admin imported",
     createBy: null,
     roleCode: "TENANT_ADMIN",
     roleParkId: PARK_ID,
-    expected: false
+    expected: true
   },
   {
     name: "evaluates the tenant-admin role in the requested park context",

@@ -97,11 +97,6 @@ export interface UserRoleCandidatePage extends PaginatedResult<UserRoleView> {
 }
 
 const MAX_ROLE_CANDIDATES = 200;
-const BOOTSTRAP_ADMIN_REMARKS = new Set([
-  "bootstrap-admin created",
-  "bootstrap-admin ensured",
-  "bootstrap-admin password reset"
-]);
 
 export interface UserLoginContextCandidate {
   id: string;
@@ -635,9 +630,7 @@ export class UsersService {
       tenant?.contactUserId === user.id ||
       (
         tenant?.contactUserId == null &&
-        user.createBy === null &&
-        user.remark !== null &&
-        BOOTSTRAP_ADMIN_REMARKS.has(user.remark)
+        user.createBy === null
       )
     );
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
