@@ -410,10 +410,37 @@ for (const scenario of [
     expected: true
   },
   {
+    name: "preserves pointer-less bootstrap identity after an idempotent ensure rerun",
+    contactUserId: null,
+    remark: "bootstrap-admin ensured",
+    createBy: null,
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: true
+  },
+  {
+    name: "preserves pointer-less bootstrap identity after a password reset rerun",
+    contactUserId: null,
+    remark: "bootstrap-admin password reset",
+    createBy: null,
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: true
+  },
+  {
     name: "rejects a later admin that copies the legacy bootstrap marker",
     contactUserId: null,
     remark: "bootstrap-admin created",
     createBy: "platform-admin",
+    roleCode: "TENANT_ADMIN",
+    roleParkId: PARK_ID,
+    expected: false
+  },
+  {
+    name: "rejects an unknown marker even when the creator is absent",
+    contactUserId: null,
+    remark: "bootstrap-admin imported",
+    createBy: null,
     roleCode: "TENANT_ADMIN",
     roleParkId: PARK_ID,
     expected: false

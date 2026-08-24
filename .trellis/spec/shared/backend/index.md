@@ -49,7 +49,7 @@ Shared changes can affect both apps. Prefer:
 
 ### 3. Contracts
 
-- `true` requires an active `TENANT_ADMIN` role in the requested park and either `sys_tenant.contact_user_id = sys_user.id`, or the pointer-less production-bootstrap provenance `sys_user.create_by IS NULL AND remark = 'bootstrap-admin created'`.
+- `true` requires an active `TENANT_ADMIN` role in the requested park and either `sys_tenant.contact_user_id = sys_user.id`, or pointer-less production-bootstrap provenance: `sys_user.create_by IS NULL` plus one of the script-owned remarks `bootstrap-admin created`, `bootstrap-admin ensured`, or `bootstrap-admin password reset`.
 - The API emits an explicit boolean. Optionality preserves compatibility with older clients and test fixtures.
 - Desktop wildcard/super users and bootstrap administrators land on `/dashboard` before menu-order selection. Mobile engineering and safety terminals retain priority.
 
@@ -67,7 +67,7 @@ Shared changes can affect both apps. Prefer:
 
 ### 6. Tests Required
 
-- API: pointer match, later admin, ordinary user, exact pointer-less bootstrap provenance, copied-marker rejection, and requested-park role filtering.
+- API: pointer match, later admin, ordinary user, all three pointer-less bootstrap rerun states, copied/unknown-marker rejection, and requested-park role filtering.
 - Web: desktop dashboard, both mobile terminal priorities, and park-switch fallback inheritance.
 - Run shared build, API focused spec/typecheck, Web typecheck/lint, and the complete auth-routing gate.
 

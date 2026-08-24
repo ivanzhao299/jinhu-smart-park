@@ -22,7 +22,7 @@
 ## Validation evidence
 
 - `pnpm --filter @jinhu/shared build` — passed.
-- UsersService focused spec — 13/13 passed.
+- UsersService focused spec — 16/16 passed after review-round coverage for bootstrap reruns.
 - `pnpm --filter @jinhu/api typecheck` — passed.
 - `pnpm --filter @jinhu/web typecheck` — passed.
 - `pnpm --filter @jinhu/web lint` — passed.
