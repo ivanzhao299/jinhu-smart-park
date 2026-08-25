@@ -818,16 +818,16 @@ export class SafetyInspectTasksService {
       .innerJoin(
         UserRoleEntity,
         "userRole",
-        `userRole.user_id = user.id
-          AND userRole.tenant_id = user.tenant_id
-          AND userRole.park_id = user.park_id
-          AND userRole.is_deleted = false`
+        `"userRole"."user_id" = "user"."id"
+          AND "userRole"."tenant_id" = "user"."tenant_id"
+          AND "userRole"."park_id" = "user"."park_id"
+          AND "userRole"."is_deleted" = false`
       )
       .innerJoin(
         "userRole.role",
         "role",
-        `role.tenant_id = user.tenant_id
-          AND (role.role_scope = 'tenant' OR role.park_id = user.park_id)`
+        `"role"."tenant_id" = "user"."tenant_id"
+          AND ("role"."role_scope" = 'tenant' OR "role"."park_id" = "user"."park_id")`
       )
       .where("user.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("user.park_id = :parkId", { parkId: scope.parkId })
