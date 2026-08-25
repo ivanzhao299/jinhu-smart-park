@@ -105,13 +105,14 @@ test("HR M4 goals use an execution ledger with explicit actions",()=>{
   assert.match(goals,/当前范围暂无目标/);
 });
 
-test("HR M4 performance separates personal and manager queues",()=>{
+test("HR T6 performance freezes templates, scoped options and cycles before evaluation",()=>{
   const performance=readFileSync(resolve(__dirname,"performance/HrPerformanceClient.tsx"),"utf8");
-  assert.match(performance,/团队待办/);
-  assert.match(performance,/setup === "plan" \? <form/);
-  assert.match(performance,/填写员工自评/);
-  assert.match(performance,/填写主管评价/);
-  assert.match(performance,/执行 HR 校准/);
+  assert.match(performance,/performanceOptionsV2/);
+  assert.match(performance,/mode==="template"\?<form/);
+  assert.match(performance,/mode==="cycle"\?<form/);
+  assert.match(performance,/发布模板/);
+  assert.match(performance,/发布周期/);
+  assert.doesNotMatch(performance,/hrApi\.employees|finalScore|name="score"/);
 });
 
 test("HR M4 360 feedback uses explicit setup and personal task actions",()=>{

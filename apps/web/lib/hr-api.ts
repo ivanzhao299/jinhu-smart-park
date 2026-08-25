@@ -12,6 +12,8 @@ export interface HrWorkReport {id:string;employeeName:string|null;reportType:str
 export interface HrWorkReportAction {id:string;actionType:string;fromStatus:string|null;toStatus:string;submissionNo:number;comment:string|null;createTime:string;}
 export interface HrPerformanceCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}
 export interface HrPerformancePlan {id:string;cycleId:string;employeeId:string;managerEmployeeId:string|null;status:string;selfScore:string|null;managerScore:string|null;calibratedScore:string|null;finalScore:string|null;selfSummary:string|null;managerComment:string|null;calibrationComment:string|null;}
+export interface HrPerformanceTemplateV2 {id:string;templateCode:string;templateName:string;status:string;currentVersionNo:number;versionId:string|null;versionName:string|null;versionStatus:string|null;dimensions:Array<{code:string;name:string;weight:string;scoreMin:string;scoreMax:string}>;levels:Array<{code:string;name:string;scoreMin:string;scoreMax:string}>;}
+export interface HrPerformanceCycleV2 {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;templateName:string;employeeCount:number;}
 export interface HrFeedbackAssignment {id:string;feedbackCycleId:string;subjectEmployeeId:string;reviewerEmployeeId:string;relationType:string;weight:string;status:string;}
 export interface HrFeedbackCycle {id:string;performanceCycleId:string;cycleName:string;anonymous:boolean;minimumAnonymousResponses:number;status:string;}
 export interface HrCompensationPlan {id:string;planCode:string;planName:string;effectiveFrom:string;effectiveTo:string|null;status:string;currency:string;}
@@ -228,6 +230,13 @@ export const hrApi={
  ,selfReviewPerformance:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrPerformancePlan>(`/hr/performance/plans/${id}/self-review`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,managerReviewPerformance:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrPerformancePlan>(`/hr/performance/plans/${id}/manager-review`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,calibratePerformance:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrPerformancePlan>(`/hr/performance/plans/${id}/calibrate`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,performanceTemplatesV2:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPerformanceTemplateV2[]>("/hr/performance-v2/templates",{token,signal}))
+ ,performanceOptionsV2:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<{orgs:Array<{id:string;orgName:string}>;templates:Array<{id:string;templateName:string;versionName:string}>}>("/hr/performance-v2/options",{token,signal}))
+ ,performanceCyclesV2:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPerformanceCycleV2[]>("/hr/performance-v2/cycles",{token,signal}))
+ ,createPerformanceTemplateV2:(body:object,token?:string)=>unwrap(apiRequest<HrPerformanceTemplateV2>("/hr/performance-v2/templates",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-perf-template-create")}))
+ ,publishPerformanceTemplateV2:(id:string,token?:string)=>unwrap(apiRequest(`/hr/performance-v2/templates/${id}/publish`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-perf-template-publish")}))
+ ,createPerformanceCycleV2:(body:object,token?:string)=>unwrap(apiRequest<HrPerformanceCycleV2>("/hr/performance-v2/cycles",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-perf-cycle-create")}))
+ ,publishPerformanceCycleV2:(id:string,token?:string)=>unwrap(apiRequest(`/hr/performance-v2/cycles/${id}/publish`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-perf-cycle-publish")}))
  ,createFeedbackCycle:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/feedback/cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,feedbackCycles:(token?:string)=>unwrap(apiRequest<HrFeedbackCycle[]>("/hr/feedback/cycles",{token}))
  ,createFeedbackAssignment:(body:object,token?:string)=>unwrap(apiRequest<HrFeedbackAssignment>("/hr/feedback/assignments",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
