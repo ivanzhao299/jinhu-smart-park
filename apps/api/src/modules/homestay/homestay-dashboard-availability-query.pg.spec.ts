@@ -128,6 +128,16 @@ test("dashboard and availability distinguish confirmed reservations from in-hous
     const historicalDashboard = await service.dashboard(scope, actor, "2099-08-03");
     assert.equal(historicalDashboard.occupied, 0);
 
+    const historicalAvailability = await service.availability(scope, actor, {
+      date_from: "2099-08-03", date_to: "2099-08-04", page: 1, page_size: 20
+    });
+    assert.deepEqual(
+      (historicalAvailability as Array<{ unit_id: string; room_state: string }>).map(
+        (item) => ({ unit_id: item.unit_id, room_state: item.room_state })
+      ),
+      [{ unit_id: ids.lateUnit, room_state: "reserved" }]
+    );
+
     const dashboard = await service.dashboard(scope, actor, "2099-08-04");
     assert.equal(dashboard.occupied, 2);
     assert.equal(dashboard.rentable_units, 4);

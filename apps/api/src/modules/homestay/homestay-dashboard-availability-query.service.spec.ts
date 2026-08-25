@@ -194,8 +194,12 @@ test("V2 availability preserves cross-domain truth, range boundaries, scope, and
   assert.match(sql, /LEFT JOIN biz_homestay_booking homestay_booking/);
   assert.match(sql, /homestay_booking\.status = 'checked_in'/);
   assert.match(sql, /homestay_booking\.actual_check_in_time IS NOT NULL/);
+  assert.match(sql,
+    /homestay_booking\.actual_check_in_time < \$4::timestamptz/);
   assert.match(sql, /homestay_booking\.status = 'confirmed'/);
   assert.match(sql, /homestay_booking\.actual_check_in_time IS NULL/);
+  assert.match(sql,
+    /homestay_booking\.actual_check_in_time >= \$4::timestamptz/);
   assert.match(sql, /THEN 'reserved'/);
   assert.match(sql,
     /occupancy\.source_type = 'homestay_booking'\s+AND occupancy\.status = 'active'\s+\) THEN 'occupied'/);

@@ -336,12 +336,21 @@ export class HomestayDashboardAvailabilityQueryService {
             occupancy.source_type = 'homestay_booking'
             AND homestay_booking.status = 'checked_in'
             AND homestay_booking.actual_check_in_time IS NOT NULL
+            AND homestay_booking.actual_check_in_time < $4::timestamptz
           ) THEN 'occupied'
           WHEN bool_or(
             occupancy.source_type = 'homestay_booking'
             AND occupancy.status = 'active'
-            AND homestay_booking.status = 'confirmed'
-            AND homestay_booking.actual_check_in_time IS NULL
+            AND (
+              (
+                homestay_booking.status = 'confirmed'
+                AND homestay_booking.actual_check_in_time IS NULL
+              )
+              OR (
+                homestay_booking.status = 'checked_in'
+                AND homestay_booking.actual_check_in_time >= $4::timestamptz
+              )
+            )
           ) THEN 'reserved'
           WHEN bool_or(
             occupancy.source_type = 'homestay_booking'
