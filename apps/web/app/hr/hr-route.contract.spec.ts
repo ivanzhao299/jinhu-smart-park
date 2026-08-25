@@ -115,13 +115,20 @@ test("HR T6 performance freezes templates, scoped options and cycles before eval
   assert.doesNotMatch(performance,/hrApi\.employees|finalScore|name="score"/);
 });
 
-test("HR M4 360 feedback uses explicit setup and personal task actions",()=>{
+test("HR T6 360 feedback uses frozen setup, governed nominations and anonymous results",()=>{
   const feedback=readFileSync(resolve(__dirname,"feedback-360/HrFeedbackClient.tsx"),"utf8");
   assert.match(feedback,/待我评价/);
-  assert.match(feedback,/action === "cycle" \? <form/);
-  assert.match(feedback,/action === "assignment" \? <form/);
+  assert.match(feedback,/panel==="model"\?<form/);
+  assert.match(feedback,/panel==="questionnaire"\?<form/);
+  assert.match(feedback,/panel==="cycle"\?<form/);
+  assert.match(feedback,/评价人提名/);
+  assert.match(feedback,/待审批提名/);
+  assert.match(feedback,/匿名聚合结果/);
+  assert.match(feedback,/AbortController/);
+  assert.match(feedback,/styles\.desktopSensitive/);
   assert.match(feedback,/<details className=\{styles\.actionDisclosure\}>/);
-  assert.match(feedback,/当前没有需要处理的 360 评价/);
+  assert.match(feedback,/当前没有评价任务/);
+  assert.doesNotMatch(feedback,/hrApi\.employees|String\(form\.get\("subjectId"\)\).*input/);
 });
 
 test("HR M4 approvals separate applicant records from reviewer queue",()=>{
