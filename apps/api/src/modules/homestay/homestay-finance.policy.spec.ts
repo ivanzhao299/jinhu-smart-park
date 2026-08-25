@@ -66,6 +66,24 @@ test("manual payment, refund, and waiver cannot exceed their current financial b
   assert.throws(() => assertHomestayManualLedgerMutation("waiver", 650.01, summary));
 });
 
+test("ledger summary combines automatic and manual charges and ignores non-confirmed noise", () => {
+  assert.deepEqual(summarizeHomestayLedger([
+    { entryType: "charge", chargeType: "room", amount: "100.00", status: "confirmed" },
+    { entryType: "charge", chargeType: "service_fee", amount: "25.00", status: "confirmed" },
+    { entryType: "payment", chargeType: "room", amount: "80.00", status: "confirmed" },
+    { entryType: "refund", chargeType: "room", amount: "5.00", status: "confirmed" },
+    { entryType: "waiver", chargeType: "manual_adjustment", amount: "10.00", status: "confirmed" },
+    { entryType: "charge", chargeType: "service_fee", amount: "999.00", status: "registered" },
+    { entryType: "payment", chargeType: "room", amount: "999.00", status: "void" }
+  ]), {
+    charges: "125.00",
+    payments: "80.00",
+    refunds: "5.00",
+    waivers: "10.00",
+    balance: "40.00"
+  });
+});
+
 test("ledger limits preserve cents beyond JavaScript safe integer precision", () => {
   const summary = summarizeHomestayLedger([
     { entryType: "charge", chargeType: "room", amount: "9999999999999999.99", status: "confirmed" },

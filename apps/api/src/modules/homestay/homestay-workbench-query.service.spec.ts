@@ -368,11 +368,13 @@ test("task supervisors keep the full park queue without resolving handler scope"
   }
 });
 
-test("finance uses fixed item/count statements and keeps all money as decimal strings", async () => {
+test("finance uses confirmed ledger totals for mixed automatic and manual entries", async () => {
   let queryCount = 0;
+  const statements: string[] = [];
   const dataSource = {
     query: async (sql: string) => {
       queryCount += 1;
+      statements.push(sql);
       if (sql.includes("SELECT count(*)::int AS total FROM finance")) {
         return [{ total: 12 }];
       }
@@ -380,11 +382,11 @@ test("finance uses fixed item/count statements and keeps all money as decimal st
         bookingId: "booking-1",
         bookingCode: "HS-1",
         bookingStatus: "checked_out",
-        totalAmount: "100",
+        totalAmount: "125",
         paidAmount: "80",
         refundedAmount: "5",
         waivedAmount: "10",
-        balanceAmount: "15"
+        balanceAmount: "40"
       }];
     }
   };
@@ -398,15 +400,26 @@ test("finance uses fixed item/count statements and keeps all money as decimal st
   const result = await service.listFinance(scope, actor, { page: 1, page_size: 20 });
 
   assert.equal(queryCount, 2);
+  for (const sql of statements) {
+    assert.doesNotMatch(sql, /booking\.total_amount/);
+    for (const entryType of ["charge", "payment", "refund", "waiver"]) {
+      assert.match(sql, new RegExp(
+        `sum\\(entry\\.amount\\) FILTER \\(WHERE entry\\.entry_type = '${entryType}'\\s+AND entry\\.status = 'confirmed'\\)`
+      ));
+    }
+    assert.match(sql, /LEFT JOIN biz_homestay_ledger_entry entry/);
+    assert.match(sql, /entry\.is_deleted = false/);
+    assert.match(sql, /COALESCE\(sum\(entry\.amount\)/);
+  }
   assert.deepEqual(result.items[0], {
     bookingId: "booking-1",
     bookingCode: "HS-1",
     bookingStatus: "checked_out",
-    totalAmount: "100.00",
+    totalAmount: "125.00",
     paidAmount: "80.00",
     refundedAmount: "5.00",
     waivedAmount: "10.00",
-    balanceAmount: "15.00"
+    balanceAmount: "40.00"
   });
   assert.deepEqual(Object.keys(result.items[0]!).sort(), [
     "balanceAmount",

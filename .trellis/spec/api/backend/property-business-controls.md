@@ -9,6 +9,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - `GET /homestay/rates/:unitId?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD`
 - `GET /homestay/unit-candidates?page=1&page_size=20`
 - `GET /homestay/turnovers?status=open&page=1&page_size=20`
+- `GET /homestay/finance?page=1&page_size=20`
 - `POST /homestay/bookings/:id/guests`
 - `GET /housing/leases/:id`
 - `POST /housing/leases`
@@ -149,6 +150,11 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Homestay rates, room totals, ledger amounts, summaries, refund limits, waivers, and
   cancellation adjustments remain decimal strings or scaled integer cents across HTTP,
   service calculations, persistence, and frontend submissions.
+- Homestay finance list and booking-detail summaries use confirmed ledger entries as
+  their single amount source. List `totalAmount` is the confirmed charge sum and list
+  `balanceAmount` is `charges - payments + refunds - waivers`; neither field derives
+  from the booking snapshot `total_amount`, because later manual charges update only
+  the ledger.
 - Every aggregate homestay amount is checked against the target `numeric(18,2)` range
   after exact scaled-integer calculation and before any booking or nightly snapshot is saved.
 - A housing purchase with transferred lines cannot be refunded or voided until an
@@ -359,6 +365,7 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 | Commercial conflict query has no exclusion source | Commercial contracts remain visible to the conflict check |
 | Meter reading differs by `0.000001` near the numeric limit | Preserve usage and charge exactly without floating-point collapse |
 | Homestay ledger amount exceeds JavaScript safe-cent range | Preserve exact cents through validation, limits, summary, and persistence |
+| A manual homestay charge is registered after booking confirmation | Finance list and booking detail include it from confirmed ledger entries without rewriting `booking.total_amount` |
 | Purchase with transferred lines is refunded | HTTP 409 |
 | Generic deletion targets referenced protected evidence | HTTP 409 |
 | Channel-less active bookings reuse one external order number | Database unique violation |
@@ -423,6 +430,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Good: three rounded purchase lines reconcile exactly with the purchase header.
 - Good: a January 31 lease keeps the January 31 anchor when a later bill covers February 28 through March 31.
 - Good: a retried homestay ledger submission reuses one idempotency key until that logical payload succeeds.
+- Good: an automatic room charge plus a later confirmed manual charge produces the
+  same total and balance in finance list and booking detail.
 - Good: `99999999999999.99` monthly rent remains exactly `99999999999999.99` for one full billing month.
 - Base: a lease-only operator can inspect lease and handover data without seeing finance data.
 - Bad: trusting a request-level `verification_status=verified` without inspecting the Party identity record.
@@ -441,6 +450,8 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
 - Bad: sharing one paginated candidate list between two mutation forms, echoing
   attachment IDs from a stale aggregate snapshot, or leaving target-bound drafts
   mounted after their booking ID changes.
+- Bad: using `booking.total_amount` as the finance-list balance base while booking
+  detail summarizes the ledger, or synchronizing both values through a second write.
 
 ## 6. Tests Required
 
@@ -499,6 +510,9 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   revokes issued credentials.
 - Unit: homestay ledger and meter calculations cover values above JavaScript safe
   integer precision plus minimum persisted reading increments.
+- Unit/API: finance-list SQL sums confirmed charge/payment/refund/waiver entries,
+  ignores registered/void entries, and matches booking-detail ledger summary for an
+  automatic room charge mixed with manual finance entries.
 - DTO/unit: charge-plan source fields are conditionally required and settlement values
   preserve the final cent near the `numeric(18,2)` boundary.
 - Integration: cancellation and concurrent credential issuance serialize on the booking
@@ -596,4 +610,8 @@ const minimumLeaseEnd = addBusinessDateDays(leaseStart, 1);
 const leaseUnits = await loadUnits(leaseUnitPage);
 const purchaseUnits = await loadUnits(purchaseUnitPage);
 const handoverBizType = `housing_handover_${handoverType}`;
+
+// Homestay finance list and detail share the confirmed ledger formula.
+const totalAmount = confirmedCharges;
+const balanceAmount = confirmedCharges - confirmedPayments + confirmedRefunds - confirmedWaivers;
 ```
