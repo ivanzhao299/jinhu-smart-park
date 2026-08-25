@@ -310,6 +310,7 @@ test("response contracts preserve current casing and freeze A-2.5 pagination wra
   ]);
 
   const rate: HomestayRateCalendarResponse = {
+    configured: true,
     unit_id: "unit-1",
     currency: "CNY",
     base_daily_rate: "199.00",
@@ -334,6 +335,11 @@ test("response contracts preserve current casing and freeze A-2.5 pagination wra
     "late_cancel_fee_type",
     "late_cancel_fee_value"
   ]);
+  const unconfiguredRate: HomestayRateCalendarResponse = {
+    configured: false,
+    unit_id: "unit-2"
+  };
+  assert.deepEqual(Object.keys(unconfiguredRate).sort(), ["configured", "unit_id"]);
 
   const booking: HomestayBookingListItem = {
     id: "booking-1",

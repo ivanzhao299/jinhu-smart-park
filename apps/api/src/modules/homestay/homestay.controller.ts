@@ -137,9 +137,17 @@ export class HomestayController {
     @CurrentUser() actor: JwtPrincipal,
     @Param("unitId", new ParseUUIDPipe({ version: "4" })) unitId: string,
     @Query("date_from") dateFrom: string,
-    @Query("date_to") dateTo: string
+    @Query("date_to") dateTo: string,
+    @Query("response_version") responseVersion?: string
   ) {
-    return this.service.getRateCalendar(scope, actor, unitId, dateFrom, dateTo);
+    return this.service.getRateCalendar(
+      scope,
+      actor,
+      unitId,
+      dateFrom,
+      dateTo,
+      responseVersion
+    );
   }
 
   @Put("rates/:unitId")

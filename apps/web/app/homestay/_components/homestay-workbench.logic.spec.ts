@@ -19,6 +19,7 @@ import {
   listPageState,
   normalizeHomestayAvailabilityResponse,
   pageCount,
+  projectHomestayRateCalendarResponse,
   resolveHomestayLanding,
   shouldLoadHomestayRead,
   taskDetailHref
@@ -63,6 +64,46 @@ test("only the exact missing-rate 404 is treated as an unconfigured workspace", 
   ), true);
   assert.equal(isMissingHomestayRateConfiguration(new ApiError("Unit not found", 404)), false);
   assert.equal(isMissingHomestayRateConfiguration(new ApiError("Forbidden", 403)), false);
+});
+
+test("rate calendar response projects the 2xx unconfigured state without fake pricing", () => {
+  assert.deepEqual(projectHomestayRateCalendarResponse({
+    configured: false,
+    unit_id: "unit-1"
+  }), {
+    calendar: null,
+    notConfigured: true
+  });
+  const configured = {
+    configured: true as const,
+    unit_id: "unit-1",
+    currency: "CNY",
+    base_daily_rate: "688.00",
+    checkout_requires_inspection: false,
+    cancellation_policy: {
+      free_cancel_before_hours: 24,
+      late_cancel_fee_type: "fixed" as const,
+      late_cancel_fee_value: "0.00",
+      captured_at: "2026-08-26T00:00:00.000Z"
+    },
+    days: []
+  };
+  assert.deepEqual(projectHomestayRateCalendarResponse(configured), {
+    calendar: configured,
+    notConfigured: false
+  });
+  const legacyConfigured = {
+    unit_id: configured.unit_id,
+    currency: configured.currency,
+    base_daily_rate: configured.base_daily_rate,
+    checkout_requires_inspection: configured.checkout_requires_inspection,
+    cancellation_policy: configured.cancellation_policy,
+    days: configured.days
+  };
+  assert.deepEqual(projectHomestayRateCalendarResponse(legacyConfigured), {
+    calendar: configured,
+    notConfigured: false
+  });
 });
 
 test("booking setup and occupancy conflicts are translated into actionable Chinese messages", () => {

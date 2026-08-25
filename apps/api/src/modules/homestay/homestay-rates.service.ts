@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { type HomestayRateCalendarResponse, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, type Repository } from "typeorm";
@@ -36,19 +41,26 @@ export class HomestayRatesService {
     actor: JwtPrincipal,
     unitId: string,
     dateFrom: string,
-    dateTo: string
+    dateTo: string,
+    allowUnconfiguredResponse = false
   ): Promise<HomestayRateCalendarResponse> {
     if (!dateFrom || !dateTo) {
       throw new BadRequestException("date_from and date_to are required");
     }
     assertBusinessDate(dateFrom, "date_from");
     assertBusinessDate(dateTo, "date_to");
-    await this.assertUnitReadScope(scope, actor, unitId);
+    const unit = await this.assertUnitReadAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
-    const config = await this.mustFindRate(scope, unitId);
+    const config = await this.findRate(scope, unitId);
+    if (!config) {
+      await this.assertUnconfiguredUnitEligible(scope, unitId, unit.status);
+      if (allowUnconfiguredResponse) return { configured: false, unit_id: unitId };
+      throw new NotFoundException("Homestay rate configuration not found");
+    }
     const overrides = await this.loadOverrides(scope, unitId, dateFrom, dateTo);
     const byDate = new Map(overrides.map((item) => [item.businessDate, item]));
     return {
+      configured: true,
       unit_id: unitId,
       currency: config.currency,
       base_daily_rate: config.baseDailyRate,
@@ -179,22 +191,55 @@ export class HomestayRatesService {
     scope: TenantParkScope,
     unitId: string
   ): Promise<HomestayRateConfigEntity> {
-    const config = await this.ratesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
+    const config = await this.findRate(scope, unitId);
     if (!config) throw new NotFoundException("Homestay rate configuration not found");
     return config;
   }
 
-  private async assertUnitReadScope(
+  private findRate(
+    scope: TenantParkScope,
+    unitId: string
+  ): Promise<HomestayRateConfigEntity | null> {
+    return this.ratesRepository.findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
+    });
+  }
+
+  private async assertUnitReadAccess(
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string
-  ): Promise<void> {
-    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && !allowedUnitIds.includes(unitId)) {
-      throw new NotFoundException("Unit not found");
+  ): Promise<{ status: number }> {
+    try {
+      return await this.unitAccessService.assertAccess(scope, actor, unitId);
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException
+        && error.message === "Unit is outside current data scope"
+      ) {
+        throw new NotFoundException("Unit not found");
+      }
+      throw error;
     }
+  }
+
+  private async assertUnconfiguredUnitEligible(
+    scope: TenantParkScope,
+    unitId: string,
+    unitStatus: number
+  ): Promise<void> {
+    if (unitStatus !== 1) throw new NotFoundException("Homestay unit not found");
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM biz_property_operation_config
+        WHERE tenant_id = $1 AND park_id = $2 AND unit_id = $3
+          AND operating_mode = 'short_stay'
+          AND operating_status = 'enabled'
+          AND is_deleted = false
+        LIMIT 1`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as unknown[];
+    if (rows.length === 0) throw new NotFoundException("Homestay unit not found");
   }
 
   private rateUpsertSql(): string {

@@ -167,9 +167,17 @@ export class HomestayService {
     actor: JwtPrincipal,
     unitId: string,
     dateFrom: string,
-    dateTo: string
+    dateTo: string,
+    responseVersion?: string
   ): Promise<HomestayRateCalendarResponse> {
-    return this.ratesService.getRateCalendar(scope, actor, unitId, dateFrom, dateTo);
+    return this.ratesService.getRateCalendar(
+      scope,
+      actor,
+      unitId,
+      dateFrom,
+      dateTo,
+      responseVersion === "2"
+    );
   }
 
   async upsertRate(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: UpsertHomestayRateDto) {

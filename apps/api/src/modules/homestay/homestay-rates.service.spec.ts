@@ -50,12 +50,12 @@ test("homestay façade delegates the complete rates closure without storage acce
     reason: "周末"
   };
 
-  await facade.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06");
+  await facade.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06", "2");
   await facade.upsertRate(scope, actor, "unit-1", rateDto);
   await facade.upsertRateOverride(scope, actor, "unit-1", overrideDto);
 
   assert.deepEqual(calls, [
-    ["calendar", scope, actor, "unit-1", "2026-08-04", "2026-08-06"],
+    ["calendar", scope, actor, "unit-1", "2026-08-04", "2026-08-06", true],
     ["rate", scope, actor, "unit-1", rateDto],
     ["override", scope, actor, "unit-1", overrideDto]
   ]);
@@ -93,7 +93,7 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
       }
     } as never,
     { createQueryBuilder: () => builder } as never,
-    { allowedUnitIds: async () => ["unit-1"] } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
     {} as never
   );
 
@@ -105,6 +105,8 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
     "2026-08-06"
   );
 
+  assert.equal(result.configured, true);
+  if (!result.configured) assert.fail("expected configured rate calendar");
   assert.equal(result.unit_id, "unit-1");
   assert.equal(result.currency, "CNY");
   assert.equal(result.base_daily_rate, "688.00");
@@ -143,12 +145,71 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
     && (value as { parkId?: string }).parkId === scope.parkId));
 });
 
+test("rate calendar returns an explicit unconfigured state for an authorized unit", async () => {
+  let overrideReads = 0;
+  const service = new HomestayRatesService(
+    { findOne: async () => null } as never,
+    { createQueryBuilder: () => { overrideReads += 1; return {}; } } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
+    { query: async () => [{ eligible: 1 }] } as never
+  );
+
+  const result = await service.getRateCalendar(
+    scope,
+    actor,
+    "unit-1",
+    "2026-08-04",
+    "2026-08-06",
+    true
+  );
+
+  assert.deepEqual(result, { configured: false, unit_id: "unit-1" });
+  assert.equal(overrideReads, 0);
+
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06"),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay rate configuration not found"
+  );
+});
+
+test("unconfigured rate state rejects units outside the active short-stay inventory", async () => {
+  const operationRows: unknown[][] = [[], [{ eligible: 1 }]];
+  const service = new HomestayRatesService(
+    { findOne: async () => null } as never,
+    {} as never,
+    {
+      assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => ({
+        id: unitId,
+        status: unitId === "disabled-unit" ? 0 : 1
+      })
+    } as never,
+    { query: async () => operationRows.shift() ?? [] } as never
+  );
+
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "disabled-unit", "2026-08-04", "2026-08-06", true),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay unit not found"
+  );
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "long-rent-unit", "2026-08-04", "2026-08-06", true),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay unit not found"
+  );
+});
+
 test("rate calendar validates dates and unit scope before repository reads", async () => {
   let repositoryReads = 0;
   const service = new HomestayRatesService(
     { findOne: async () => { repositoryReads += 1; return null; } } as never,
     { createQueryBuilder: () => { repositoryReads += 1; return {}; } } as never,
-    { allowedUnitIds: async () => ["unit-allowed"] } as never,
+    {
+      assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => {
+        if (unitId !== "unit-allowed") throw new NotFoundException("Unit not found");
+        return { id: unitId, status: 1 };
+      }
+    } as never,
     {} as never
   );
 
