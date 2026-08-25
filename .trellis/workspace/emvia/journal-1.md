@@ -401,3 +401,37 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: PR #359 租户首管权威指针闭环
+
+**Date**: 2026-08-25
+**Task**: PR #359 租户首管权威指针闭环
+**Package**: api
+**Branch**: `codex/main-post-bootstrap-landing`
+
+### Summary
+
+将首管身份改为 sys_tenant.contact_user_id 权威指针，新增 000253 历史回填并完成测试、review、squash merge、main CI、生产迁移、健康验收、Docker cleanup 与任务归档。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d0ecac65` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
