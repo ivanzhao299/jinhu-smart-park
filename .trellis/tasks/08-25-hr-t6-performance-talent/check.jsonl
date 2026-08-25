@@ -1,0 +1,7 @@
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"Verify HR state, scope, privacy, workflow and database contracts"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify route guards, 403/error states, stale request handling and mobile UX"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Verify permission atoms and API/Web shared contracts"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify migration, seed, CI, deployment and three-end evidence"}
+{"file":".trellis/tasks/08-25-hr-t6-performance-talent/prd.md","reason":"Verify every product acceptance criterion"}
+{"file":".trellis/tasks/08-25-hr-t6-performance-talent/design.md","reason":"Verify compatibility and transaction boundaries"}
+{"file":".trellis/tasks/08-25-hr-t6-performance-talent/implement.md","reason":"Verify phased completion and NO-GO gates"}

@@ -9,6 +9,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope } from "./hr-access-policy";
 import { HrController } from "./hr.controller";
+import { HrGoalReportController } from "./hr-goal-report.controller";
 import { HrService } from "./hr.service";
 
 const actor = (permissions: string[], isSuper = false): JwtPrincipal => ({
@@ -244,12 +245,8 @@ test("M3 read projections use exact public field allowlists", () => {
   ].sort());
 });
 
-test("slice two read controllers retain their exact pre-existing permissions", () => {
+test("legacy HR reads retain exact permissions and T6 goal/report reads use atomic permissions", () => {
   const expected: Array<[keyof HrController,string]> = [
-    ["goals",HR_PERMISSIONS.HR_GOAL_READ],
-    ["myGoals",HR_PERMISSIONS.HR_GOAL_SELF_READ],
-    ["myReports",HR_PERMISSIONS.HR_WORK_REPORT_SELF_MANAGE],
-    ["teamReports",HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW],
     ["myPerformance",HR_PERMISSIONS.HR_PERFORMANCE_SELF_REVIEW],
     ["managerPerformance",HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW],
     ["myFeedback",HR_PERMISSIONS.HR_FEEDBACK_RESPOND],
@@ -264,4 +261,8 @@ test("slice two read controllers retain their exact pre-existing permissions", (
     assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[permission]);
     assert.equal(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype[method]),undefined);
   }
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrGoalReportController.prototype.myGoals),[HR_PERMISSIONS.HR_GOAL_SELF_READ]);
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrGoalReportController.prototype.myReports),[HR_PERMISSIONS.HR_WORK_REPORT_SELF_READ]);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrGoalReportController.prototype.goals),[HR_PERMISSIONS.HR_GOAL_READ,HR_PERMISSIONS.HR_GOAL_TEAM_READ]);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrGoalReportController.prototype.teamReports),[HR_PERMISSIONS.HR_WORK_REPORT_TEAM_READ,HR_PERMISSIONS.HR_WORK_REPORT_REVIEW]);
 });

@@ -5,9 +5,11 @@ export interface HrPosition {id:string;orgId:string;positionCode:string;position
 export interface HrEmploymentEvent {id:string;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
 export interface HrEmployeeProfile {id:string;employeeId:string;idType:string|null;idNumberMasked:string|null;personalMobile:string|null;personalEmail:string|null;address:string|null;emergencyContactName:string|null;emergencyContactMobile:string|null;remark:string|null;}
 export interface HrGoalCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}
-export interface HrGoal {id:string;cycleId:string;parentGoalId:string|null;goalLevel:string;goalName:string;ownerOrgId:string|null;ownerEmployeeId:string|null;weight:string;metricName:string|null;targetValue:string|null;currentValue:string|null;unit:string|null;progress:string;startDate:string;dueDate:string;status:string;}
-export interface HrGoalCheckin {id:string;goalId:string;progress:string;currentValue:string|null;summary:string;risks:string|null;createTime:string;}
-export interface HrWorkReport {id:string;employeeId:string;reportType:string;periodStart:string;periodEnd:string;completedWork:string;nextPlan:string|null;risks:string|null;collaborationNeeds:string|null;hours:string|null;status:string;reviewComment:string|null;}
+export interface HrGoal {id:string;cycleId:string;parentGoalId:string|null;goalLevel:string;goalName:string;ownerOrgId:string|null;ownerEmployeeId:string|null;ownerName:string|null;weight:string;metricType:string;metricName:string|null;targetValue:string|null;currentValue:string|null;unit:string|null;progress:string;startDate:string;dueDate:string;status:string;currentVersionNo:number;}
+export interface HrGoalOptions {canCreateGroup:boolean;orgs:Array<{id:string;orgName:string}>;employees:Array<{id:string;fullName:string}>;}
+export interface HrGoalCheckin {id:string;goalId:string;progress:string;currentValue:string|null;summary:string;risks:string|null;confidence:string;nextAction:string|null;createTime:string;}
+export interface HrWorkReport {id:string;employeeName:string|null;reportType:string;periodStart:string;periodEnd:string;completedWork:string;nextPlan:string|null;risks:string|null;collaborationNeeds:string|null;hours:string|null;status:string;submissionNo:number;reviewComment:string|null;submittedAt:string|null;reviewedAt:string|null;goalSuggestions:Array<{goalId:string;goalName?:string;proposedProgress:string|null;proposedCurrentValue:string|null;suggestionSummary:string|null}>;}
+export interface HrWorkReportAction {id:string;actionType:string;fromStatus:string|null;toStatus:string;submissionNo:number;comment:string|null;createTime:string;}
 export interface HrPerformanceCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}
 export interface HrPerformancePlan {id:string;cycleId:string;employeeId:string;managerEmployeeId:string|null;status:string;selfScore:string|null;managerScore:string|null;calibratedScore:string|null;finalScore:string|null;selfSummary:string|null;managerComment:string|null;calibrationComment:string|null;}
 export interface HrFeedbackAssignment {id:string;feedbackCycleId:string;subjectEmployeeId:string;reviewerEmployeeId:string;relationType:string;weight:string;status:string;}
@@ -203,16 +205,21 @@ export const hrApi={
  ,attendancePayrollVersions:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePayrollVersion[]>(`/hr/attendance/periods/${id}/payroll-input-versions`,{token}))
  ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
  ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
- ,goalCycles:(token?:string)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token}))
+ ,goalCycles:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token,signal}))
+ ,goalOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrGoalOptions>("/hr/goals/options",{token,signal}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
- ,goals:(selfOnly:boolean,token?:string)=>unwrap(apiRequest<HrGoal[]>(selfOnly?"/hr/goals/me":"/hr/goals",{token}))
+ ,goals:(selfOnly:boolean,token?:string,filters:{cycleId?:string;status?:string}={},signal?:AbortSignal)=>{const query=new URLSearchParams();if(filters.cycleId)query.set("cycle_id",filters.cycleId);if(filters.status)query.set("status",filters.status);const suffix=query.size?`?${query.toString()}`:"";return unwrap(apiRequest<HrGoal[]>(`${selfOnly?"/hr/goals/me":"/hr/goals"}${suffix}`,{token,signal}));}
  ,createGoal:(body:object,token?:string)=>unwrap(apiRequest<HrGoal>("/hr/goals",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,changeGoal:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrGoal>(`/hr/goals/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
  ,goalCheckins:(id:string,token?:string)=>unwrap(apiRequest<HrGoalCheckin[]>(`/hr/goals/${id}/checkins`,{token}))
  ,createGoalCheckin:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrGoalCheckin>(`/hr/goals/${id}/checkins`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
- ,myWorkReports:(token?:string)=>unwrap(apiRequest<HrWorkReport[]>("/hr/work-reports/me",{token}))
+ ,myWorkReports:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrWorkReport[]>("/hr/work-reports/me",{token,signal}))
  ,createWorkReport:(body:object,token?:string)=>unwrap(apiRequest<HrWorkReport>("/hr/work-reports/me",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
- ,teamWorkReports:(token?:string)=>unwrap(apiRequest<HrWorkReport[]>("/hr/work-reports/team",{token}))
+ ,updateWorkReport:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrWorkReport>(`/hr/work-reports/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,submitWorkReport:(id:string,token?:string)=>unwrap(apiRequest<HrWorkReport>(`/hr/work-reports/${id}/submit`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,teamWorkReports:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrWorkReport[]>("/hr/work-reports/team",{token,signal}))
  ,reviewWorkReport:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrWorkReport>(`/hr/work-reports/${id}/review`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,workReportActions:(id:string,token?:string)=>unwrap(apiRequest<HrWorkReportAction[]>(`/hr/work-reports/${id}/actions`,{token}))
  ,performanceCycles:(token?:string)=>unwrap(apiRequest<HrPerformanceCycle[]>("/hr/performance/cycles",{token}))
  ,createPerformanceCycle:(body:object,token?:string)=>unwrap(apiRequest<HrPerformanceCycle>("/hr/performance/cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,createPerformancePlan:(body:object,token?:string)=>unwrap(apiRequest<HrPerformancePlan>("/hr/performance/plans",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))

@@ -86,6 +86,8 @@ export class HrGoalEntity extends AuditableEntity {
  @Column({name:"target_value",type:"numeric",precision:18,scale:4,nullable:true}) targetValue!:string|null; @Column({name:"current_value",type:"numeric",precision:18,scale:4,nullable:true}) currentValue!:string|null;
  @Column({type:"varchar",length:32,nullable:true}) unit!:string|null; @Column({type:"numeric",precision:7,scale:4,default:0}) progress!:string;
  @Column({name:"start_date",type:"date"}) startDate!:string; @Column({name:"due_date",type:"date"}) dueDate!:string; @Column({length:32,default:"draft"}) status!:string;
+ @Column({name:"metric_type",length:24,default:"numeric"}) metricType!:string; @Column({name:"metric_definition",type:"varchar",length:1000,nullable:true}) metricDefinition!:string|null;
+ @Column({name:"aggregation_strategy",length:24,default:"weighted_children"}) aggregationStrategy!:string; @Column({name:"current_version_no",type:"integer",default:1}) currentVersionNo!:number; @Column({name:"source_kind",length:24,default:"legacy_000231"}) sourceKind!:string;
 }
 
 @Entity("hr_goal_checkin")
@@ -94,6 +96,7 @@ export class HrGoalCheckinEntity extends AuditableEntity {
  @Column({name:"current_value",type:"numeric",precision:18,scale:4,nullable:true}) currentValue!:string|null;
  @Column({length:2000}) summary!:string; @Column({type:"varchar",length:2000,nullable:true}) risks!:string|null;
  @Column({name:"evidence_file_id",type:"uuid",nullable:true}) evidenceFileId!:string|null;
+ @Column({length:16,default:"medium"}) confidence!:string; @Column({name:"next_action",type:"varchar",length:2000,nullable:true}) nextAction!:string|null;
 }
 
 @Entity("hr_work_report") @Index(["tenantId","parkId","employeeId","reportType","periodStart"],{unique:true,where:"is_deleted = false"})
@@ -105,12 +108,14 @@ export class HrWorkReportEntity extends AuditableEntity {
  @Column({type:"numeric",precision:8,scale:2,nullable:true}) hours!:string|null; @Column({length:32,default:"draft"}) status!:string;
  @Column({name:"reviewer_employee_id",type:"uuid",nullable:true}) reviewerEmployeeId!:string|null; @Column({name:"review_comment",type:"varchar",length:1000,nullable:true}) reviewComment!:string|null;
  @Column({name:"submitted_at",type:"timestamptz",nullable:true}) submittedAt!:Date|null; @Column({name:"reviewed_at",type:"timestamptz",nullable:true}) reviewedAt!:Date|null;
+ @Column({name:"submission_no",type:"integer",default:0}) submissionNo!:number; @Column({name:"source_kind",length:24,default:"legacy_000231"}) sourceKind!:string;
 }
 
 @Entity("hr_work_report_goal") @Index(["tenantId","parkId","reportId","goalId"],{unique:true,where:"is_deleted = false"})
 export class HrWorkReportGoalEntity extends AuditableEntity {
  @Column({name:"report_id",type:"uuid"}) reportId!:string; @Column({name:"goal_id",type:"uuid"}) goalId!:string;
  @Column({name:"progress_delta",type:"numeric",precision:7,scale:4,nullable:true}) progressDelta!:string|null;
+ @Column({name:"proposed_progress",type:"numeric",precision:7,scale:4,nullable:true}) proposedProgress!:string|null; @Column({name:"proposed_current_value",type:"numeric",precision:18,scale:4,nullable:true}) proposedCurrentValue!:string|null; @Column({name:"suggestion_summary",type:"varchar",length:2000,nullable:true}) suggestionSummary!:string|null;
 }
 
 @Entity("hr_performance_cycle") @Index(["tenantId","parkId","cycleCode"],{unique:true,where:"is_deleted = false"})

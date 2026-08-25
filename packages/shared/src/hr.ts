@@ -4,7 +4,7 @@ export const HR_EMPLOYMENT_TYPES = ["full_time", "part_time", "intern", "contrac
 export type HrEmploymentType = (typeof HR_EMPLOYMENT_TYPES)[number];
 export const HR_ACCESS_ROLES = ["HR_MANAGER", "DEPARTMENT_MANAGER", "EMPLOYEE_SELF_SERVICE"] as const;
 export type HrAccessRole = (typeof HR_ACCESS_ROLES)[number];
-export const HR_SENSITIVE_FIELD_GROUPS = ["identity", "contact", "financial", "compensation", "attachment"] as const;
+export const HR_SENSITIVE_FIELD_GROUPS = ["identity", "contact", "financial", "compensation", "attachment", "work_content"] as const;
 export type HrSensitiveFieldGroup = (typeof HR_SENSITIVE_FIELD_GROUPS)[number];
 export const HR_ACCESS_MATRIX = {
   HR_MANAGER: { employeeScope: "park", sensitiveProfile: "permission", payroll: "permission" },
@@ -30,8 +30,8 @@ export const HR_PERMISSIONS = {
   HR_CONTRACTS_PAGE: "hr:contracts", HR_CONTRACT_READ: "hr:contract:read", HR_CONTRACT_TEAM_READ: "hr:contract:team_read", HR_CONTRACT_SELF_READ: "hr:contract:self_read", HR_CONTRACT_MANAGE: "hr:contract:manage",
   HR_ATTENDANCE_PAGE: "hr:attendance", HR_ATTENDANCE_READ: "hr:attendance:read", HR_ATTENDANCE_TEAM_READ: "hr:attendance:team_read", HR_ATTENDANCE_SELF_READ: "hr:attendance:self_read", HR_ATTENDANCE_REQUEST: "hr:attendance:request", HR_ATTENDANCE_APPROVE: "hr:attendance:approve", HR_ATTENDANCE_CORRECT: "hr:attendance:correct", HR_ATTENDANCE_OPERATE: "hr:attendance:operate", HR_ATTENDANCE_CLOSE: "hr:attendance:close", HR_ATTENDANCE_PAYROLL_INPUT_READ: "hr:attendance:payroll_input_read",
   HR_INSURANCE_PAGE: "hr:insurance", HR_INSURANCE_READ: "hr:insurance:read", HR_INSURANCE_TEAM_READ: "hr:insurance:team_read", HR_INSURANCE_SELF_READ: "hr:insurance:self_read",
-  HR_GOAL_READ: "hr:goal:read", HR_GOAL_MANAGE: "hr:goal:manage", HR_GOAL_SELF_READ: "hr:goal:self_read",
-  HR_WORK_REPORT_SELF_MANAGE: "hr:work_report:self_manage", HR_WORK_REPORT_TEAM_REVIEW: "hr:work_report:team_review",
+  HR_GOAL_READ: "hr:goal:read", HR_GOAL_TEAM_READ: "hr:goal:team_read", HR_GOAL_MANAGE: "hr:goal:manage", HR_GOAL_CYCLE_MANAGE: "hr:goal:cycle_manage", HR_GOAL_CHANGE: "hr:goal:change", HR_GOAL_SELF_READ: "hr:goal:self_read", HR_GOAL_CHECKIN: "hr:goal:checkin",
+  HR_WORK_REPORT_SELF_MANAGE: "hr:work_report:self_manage", HR_WORK_REPORT_TEAM_REVIEW: "hr:work_report:team_review", HR_WORK_REPORT_SELF_READ: "hr:work_report:self_read", HR_WORK_REPORT_TEAM_READ: "hr:work_report:team_read", HR_WORK_REPORT_DRAFT: "hr:work_report:draft", HR_WORK_REPORT_SUBMIT: "hr:work_report:submit", HR_WORK_REPORT_REVIEW: "hr:work_report:review",
   HR_PERFORMANCE_PAGE: "hr:performance", HR_FEEDBACK_360_PAGE: "hr:feedback_360",
   HR_PERFORMANCE_READ: "hr:performance:read", HR_PERFORMANCE_MANAGE: "hr:performance:manage", HR_PERFORMANCE_SELF_REVIEW: "hr:performance:self_review", HR_PERFORMANCE_MANAGER_REVIEW: "hr:performance:manager_review", HR_PERFORMANCE_CALIBRATE: "hr:performance:calibrate",
   HR_FEEDBACK_MANAGE: "hr:feedback:manage", HR_FEEDBACK_RESPOND: "hr:feedback:respond", HR_FEEDBACK_RESULT_READ: "hr:feedback:result_read",
