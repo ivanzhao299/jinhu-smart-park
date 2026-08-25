@@ -73,6 +73,22 @@ await createPayrollRun(scope, actor, { periodId, correctionOfRunId: confirmedRun
 return { responseCount, averageScore };
 ```
 
+## Scenario: Versioned performance planning and frozen evidence
+
+### Contracts
+
+- Published template versions freeze dimensions, decimal weights, score ranges and levels; child INSERT, UPDATE and DELETE all fail.
+- Publishing a review cycle freezes the exact template version, applicable organizations, employee identity snapshot, goal version snapshot and confirmed attendance/reward/training/360 reference versions.
+- Evidence references are read-only facts and never write payroll, attendance, reward, training, feedback or employee aggregates.
+- Clients submit dimension scores only. Weighted total and level are derived by the server from the frozen template snapshot.
+- Planning reads resolve to `park | managed_org_tree | self | none`; query filters only narrow scope and required audit completes before returning cycle data.
+
+### Tests Required
+
+- Template0 fresh, predecessor upgrade, checksum replay and production seed replay.
+- Published child INSERT/UPDATE/DELETE, duplicate-code concurrency, exact decimal recomputation and zero-side-effect PostgreSQL gates.
+- Three-role API/Web projection and desktop/390px browser acceptance before release.
+
 ## Scenario: HR sensitive read projection and required audit
 
 ### 1. Scope / Trigger
