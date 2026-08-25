@@ -39,6 +39,7 @@
 - `pnpm --filter @jinhu/web lint`: passed.
 - `pnpm --filter @jinhu/web build`: passed and emitted `/_not-found` plus the catch-all route.
 - Browser acceptance was not run because this environment exposes no in-app browser; the task remains in progress until deployment evidence is available.
+- 2026-08-25 Windows 真实 Chrome 验收通过：`/nonexistent-xyz` 渲染真 404；已注册无独立页的 `/energy` 保留兼容占位。证据见 `docs/uat/route-governance-browser-acceptance-20260825.md`。
 
 ## Out of scope
 

@@ -12,7 +12,7 @@
 7. 提交并 push 唯一授权分支，创建含 `Closes #<issue>` 的 PR。
 8. 发起 `@codex review`；核实每条发现，最多处理三轮同类问题；CI 全绿且无重大问题后 squash merge。
 9. 观察 main CI 与 Deploy Production；摘录健康检查和 cleanup 成功日志，确认 Issue 关闭。
-10. 本地收尾：主检出 fast-forward、删除已合并本地/远程分支、prune、切到新的 main 跟踪分支；按真实浏览器验收情况更新 Trellis 状态。
+10. [x] 本地真实 Chrome 验收：1440×900、touchPoints=10、fine pointer 的超管落 `/dashboard`；证据见 `docs/uat/route-governance-browser-acceptance-20260825.md`。
 
 ## Rollback / Stop Points
 

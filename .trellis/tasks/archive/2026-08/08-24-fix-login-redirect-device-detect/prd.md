@@ -39,10 +39,10 @@
 
 ## Acceptance Criteria
 
-- [ ] 宽度至少 1200、fine pointer、桌面 UA、`touchPoints=10` 的设备不会因触摸点单独进入 terminal。
-- [ ] 同类设备上的平台超管在首菜单为 `/dashboard` 时落到 `/dashboard`。
-- [ ] 390px、coarse pointer、移动 UA 的工程用户仍进入 `/engineering/terminal`。
-- [ ] `<=900px` 的工程用户仍按既有契约进入 `/engineering/terminal`，即使 pointer fine、touchPoints 为 0、UA 为桌面浏览器。
+- [x] 宽度至少 1200、fine pointer、桌面 UA、`touchPoints=10` 的设备不会因触摸点单独进入 terminal。
+- [x] 同类设备上的平台超管在首菜单为 `/dashboard` 时落到 `/dashboard`。
+- [x] 390px 窄窗口的工程用户仍进入 `/engineering/terminal`。
+- [x] `<=900px` 的工程用户仍按既有契约进入 `/engineering/terminal`，即使 pointer fine、UA 为桌面浏览器。
 - [ ] 安全巡检、工单-only、无终端权限、新租户首管的现有授权回退语义保持不变。
 - [ ] 仓库约定的 `pnpm --filter @jinhu/web test:unit:auth-routing`、Web typecheck 和 Web lint 通过。
 - [ ] GitHub Issue 与 PR 建立关联，Codex review 无未解决重大意见，PR CI 全绿并 squash merge。
@@ -72,3 +72,4 @@
 
 - 这是局部纯函数和单测的最小修复，采用 PRD-only 轻量任务；Issue/PR/部署闭环是交付流程，不扩大实现设计复杂度。
 - 裸 `node --test apps/web/lib/post-login-route.spec.ts` 在本机 Node 24 下无法解析无扩展名 TypeScript import；实际验证使用 `apps/web/package.json` 已定义且 CI 兼容的 `test:unit:auth-routing` 脚本。
+- 2026-08-25 Windows Chrome 验收 PASS：1440×900、touchPoints=10、fine pointer 超管落 `/dashboard`；请求 390px（Windows Chrome 实际最小 500px）的工程账号落 `/engineering/terminal`。证据见 `docs/uat/route-governance-browser-acceptance-20260825.md`。

@@ -37,6 +37,7 @@
 - `pnpm --filter @jinhu/web typecheck` passed.
 - `pnpm --filter @jinhu/web lint` passed.
 - Browser acceptance was not run because this environment exposes no in-app browser; production deployment verification remains required after merge.
+- 2026-08-25 Windows 真实 Chrome 验收通过：窄权限账号直达 `/engineering/dashboard` 后 URL 为 `/403`，受保护工程看板未渲染。证据见 `docs/uat/route-governance-browser-acceptance-20260825.md`。
 
 ## Out of scope
 
