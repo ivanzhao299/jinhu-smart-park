@@ -49,10 +49,11 @@ export class HomestayRatesService {
     }
     assertBusinessDate(dateFrom, "date_from");
     assertBusinessDate(dateTo, "date_to");
-    await this.assertUnitReadAccess(scope, actor, unitId);
+    const unit = await this.assertUnitReadAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.findRate(scope, unitId);
     if (!config) {
+      await this.assertUnconfiguredUnitEligible(scope, unitId, unit.status);
       if (allowUnconfiguredResponse) return { configured: false, unit_id: unitId };
       throw new NotFoundException("Homestay rate configuration not found");
     }
@@ -208,9 +209,9 @@ export class HomestayRatesService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string
-  ): Promise<void> {
+  ): Promise<{ status: number }> {
     try {
-      await this.unitAccessService.assertAccess(scope, actor, unitId);
+      return await this.unitAccessService.assertAccess(scope, actor, unitId);
     } catch (error) {
       if (
         error instanceof ForbiddenException
@@ -220,6 +221,25 @@ export class HomestayRatesService {
       }
       throw error;
     }
+  }
+
+  private async assertUnconfiguredUnitEligible(
+    scope: TenantParkScope,
+    unitId: string,
+    unitStatus: number
+  ): Promise<void> {
+    if (unitStatus !== 1) throw new NotFoundException("Homestay unit not found");
+    const rows = await this.dataSource.query(
+      `SELECT 1
+         FROM biz_property_operation_config
+        WHERE tenant_id = $1 AND park_id = $2 AND unit_id = $3
+          AND operating_mode = 'short_stay'
+          AND operating_status = 'enabled'
+          AND is_deleted = false
+        LIMIT 1`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as unknown[];
+    if (rows.length === 0) throw new NotFoundException("Homestay unit not found");
   }
 
   private rateUpsertSql(): string {

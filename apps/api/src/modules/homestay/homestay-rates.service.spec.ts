@@ -93,7 +93,7 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
       }
     } as never,
     { createQueryBuilder: () => builder } as never,
-    { assertAccess: async () => ({ id: "unit-1" }) } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
     {} as never
   );
 
@@ -150,8 +150,8 @@ test("rate calendar returns an explicit unconfigured state for an authorized uni
   const service = new HomestayRatesService(
     { findOne: async () => null } as never,
     { createQueryBuilder: () => { overrideReads += 1; return {}; } } as never,
-    { assertAccess: async () => ({ id: "unit-1" }) } as never,
-    {} as never
+    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
+    { query: async () => [{ eligible: 1 }] } as never
   );
 
   const result = await service.getRateCalendar(
@@ -173,6 +173,32 @@ test("rate calendar returns an explicit unconfigured state for an authorized uni
   );
 });
 
+test("unconfigured rate state rejects units outside the active short-stay inventory", async () => {
+  const operationRows: unknown[][] = [[], [{ eligible: 1 }]];
+  const service = new HomestayRatesService(
+    { findOne: async () => null } as never,
+    {} as never,
+    {
+      assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => ({
+        id: unitId,
+        status: unitId === "disabled-unit" ? 0 : 1
+      })
+    } as never,
+    { query: async () => operationRows.shift() ?? [] } as never
+  );
+
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "disabled-unit", "2026-08-04", "2026-08-06", true),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay unit not found"
+  );
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "long-rent-unit", "2026-08-04", "2026-08-06", true),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay unit not found"
+  );
+});
+
 test("rate calendar validates dates and unit scope before repository reads", async () => {
   let repositoryReads = 0;
   const service = new HomestayRatesService(
@@ -181,7 +207,7 @@ test("rate calendar validates dates and unit scope before repository reads", asy
     {
       assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => {
         if (unitId !== "unit-allowed") throw new NotFoundException("Unit not found");
-        return { id: unitId };
+        return { id: unitId, status: 1 };
       }
     } as never,
     {} as never
