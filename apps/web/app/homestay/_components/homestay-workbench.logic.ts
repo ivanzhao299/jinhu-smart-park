@@ -3,6 +3,8 @@ import type {
   HomestayAvailabilityResponse,
   HomestayBookingStatus,
   HomestayLedgerEntryType,
+  HomestayRateCalendarConfiguredResponse,
+  HomestayRateCalendarResponse,
   HomestayRoomState,
   UserContext
 } from "@jinhu/shared";
@@ -80,6 +82,17 @@ export function isMissingHomestayRateConfiguration(error: unknown): boolean {
   return error instanceof ApiError
     && error.status === 404
     && error.message === HOMESTAY_RATE_CONFIGURATION_MISSING;
+}
+
+export function projectHomestayRateCalendarResponse(
+  response: HomestayRateCalendarResponse
+): {
+  calendar: HomestayRateCalendarConfiguredResponse | null;
+  notConfigured: boolean;
+} {
+  return response.configured
+    ? { calendar: response, notConfigured: false }
+    : { calendar: null, notConfigured: true };
 }
 
 export function homestaySurfaceQueryKey(

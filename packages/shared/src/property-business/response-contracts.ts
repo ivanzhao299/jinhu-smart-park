@@ -123,7 +123,8 @@ export interface HomestayRateListItem extends PropertyWorkbenchUnitRef {
 export type HomestayRateListResponse =
   PaginatedResult<HomestayRateListItem>;
 
-export interface HomestayRateCalendarResponse {
+export interface HomestayRateCalendarConfiguredResponse {
+  configured: true;
   unit_id: string;
   currency: string;
   base_daily_rate: string;
@@ -136,6 +137,15 @@ export interface HomestayRateCalendarResponse {
   };
   days: HomestayRateDayResponse[];
 }
+
+export interface HomestayRateCalendarUnconfiguredResponse {
+  configured: false;
+  unit_id: string;
+}
+
+export type HomestayRateCalendarResponse =
+  | HomestayRateCalendarConfiguredResponse
+  | HomestayRateCalendarUnconfiguredResponse;
 
 export type HomestayRateDetailResponse = HomestayRateCalendarResponse;
 

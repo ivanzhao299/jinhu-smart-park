@@ -105,6 +105,8 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
     "2026-08-06"
   );
 
+  assert.equal(result.configured, true);
+  if (!result.configured) assert.fail("expected configured rate calendar");
   assert.equal(result.unit_id, "unit-1");
   assert.equal(result.currency, "CNY");
   assert.equal(result.base_daily_rate, "688.00");
@@ -141,6 +143,27 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
   assert.ok(conditions.some(([sql, value]) =>
     sql === "rate.park_id = :parkId"
     && (value as { parkId?: string }).parkId === scope.parkId));
+});
+
+test("rate calendar returns an explicit unconfigured state for an authorized unit", async () => {
+  let overrideReads = 0;
+  const service = new HomestayRatesService(
+    { findOne: async () => null } as never,
+    { createQueryBuilder: () => { overrideReads += 1; return {}; } } as never,
+    { allowedUnitIds: async () => ["unit-1"] } as never,
+    {} as never
+  );
+
+  const result = await service.getRateCalendar(
+    scope,
+    actor,
+    "unit-1",
+    "2026-08-04",
+    "2026-08-06"
+  );
+
+  assert.deepEqual(result, { configured: false, unit_id: "unit-1" });
+  assert.equal(overrideReads, 0);
 });
 
 test("rate calendar validates dates and unit scope before repository reads", async () => {

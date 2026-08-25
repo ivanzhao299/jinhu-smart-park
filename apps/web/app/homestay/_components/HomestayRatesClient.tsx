@@ -1,6 +1,10 @@
 "use client";
 
-import type { HomestayRateCalendarResponse, HomestayUnitCandidateListResponse } from "@jinhu/shared";
+import type {
+  HomestayRateCalendarConfiguredResponse,
+  HomestayRateCalendarResponse,
+  HomestayUnitCandidateListResponse
+} from "@jinhu/shared";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PageState, PropertyPageSurface, PropertyPanelSurface, RemoteEntityPicker,
@@ -14,7 +18,8 @@ import styles from "./HomestayWorkbench.module.css";
 import {
   homestayRateWorkspaceKey,
   homestayRateWindow,
-  isMissingHomestayRateConfiguration
+  isMissingHomestayRateConfiguration,
+  projectHomestayRateCalendarResponse
 } from "./homestay-workbench.logic";
 
 type FeeType = "fixed" | "percentage";
@@ -38,7 +43,7 @@ async function loadUnits(input: { page: number; pageSize: number; signal: AbortS
 }
 
 function useRateCalendar(unit: RemoteEntityOption | null, canRead: boolean, invalidationKey: string) {
-  const [calendar, setCalendar] = useState<HomestayRateCalendarResponse | null>(null);
+  const [calendar, setCalendar] = useState<HomestayRateCalendarConfiguredResponse | null>(null);
   const [notConfigured, setNotConfigured] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,7 +58,9 @@ function useRateCalendar(unit: RemoteEntityOption | null, canRead: boolean, inva
         `/homestay/rates/${unit.id}?date_from=${from}&date_to=${to}`,
         { token: getAccessToken() ?? undefined }
       );
-      setCalendar(response.data);
+      const projected = projectHomestayRateCalendarResponse(response.data);
+      setCalendar(projected.calendar);
+      setNotConfigured(projected.notConfigured);
     } catch (loadError) {
       if (isMissingHomestayRateConfiguration(loadError)) {
         setCalendar(null);
@@ -69,7 +76,7 @@ function useRateCalendar(unit: RemoteEntityOption | null, canRead: boolean, inva
   return { calendar, error, load, loading, notConfigured, setError };
 }
 
-function useRateDraft(calendar: HomestayRateCalendarResponse | null) {
+function useRateDraft(calendar: HomestayRateCalendarConfiguredResponse | null) {
   const [draft, setDraft] = useState<RateDraft>({
     baseRate: "", freeCancelHours: "24", feeType: "fixed",
     feeValue: "0", requiresInspection: false
@@ -207,7 +214,7 @@ function RateWorkspace({
 function RateCalendar({
   calendar, error, loading, notConfigured, reload, unit
 }: {
-  calendar: HomestayRateCalendarResponse | null; error: string; loading: boolean;
+  calendar: HomestayRateCalendarConfiguredResponse | null; error: string; loading: boolean;
   notConfigured: boolean; reload(): Promise<void>; unit: RemoteEntityOption | null;
 }) {
   const state = loading ? { kind: "initial-loading" as const }

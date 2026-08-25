@@ -45,10 +45,12 @@ export class HomestayRatesService {
     assertBusinessDate(dateTo, "date_to");
     await this.assertUnitReadScope(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
-    const config = await this.mustFindRate(scope, unitId);
+    const config = await this.findRate(scope, unitId);
+    if (!config) return { configured: false, unit_id: unitId };
     const overrides = await this.loadOverrides(scope, unitId, dateFrom, dateTo);
     const byDate = new Map(overrides.map((item) => [item.businessDate, item]));
     return {
+      configured: true,
       unit_id: unitId,
       currency: config.currency,
       base_daily_rate: config.baseDailyRate,
@@ -179,11 +181,18 @@ export class HomestayRatesService {
     scope: TenantParkScope,
     unitId: string
   ): Promise<HomestayRateConfigEntity> {
-    const config = await this.ratesRepository.findOne({
-      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
-    });
+    const config = await this.findRate(scope, unitId);
     if (!config) throw new NotFoundException("Homestay rate configuration not found");
     return config;
+  }
+
+  private findRate(
+    scope: TenantParkScope,
+    unitId: string
+  ): Promise<HomestayRateConfigEntity | null> {
+    return this.ratesRepository.findOne({
+      where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
+    });
   }
 
   private async assertUnitReadScope(
