@@ -138,8 +138,9 @@ export class HomestayDashboardAvailabilityQueryService {
          count(*) FILTER (
            WHERE booking.arrival_date <= $3::date
              AND booking.departure_date > $3::date
+             AND booking.actual_check_in_time IS NOT NULL
              AND (
-               booking.status IN ('confirmed', 'checked_in')
+               booking.status = 'checked_in'
                OR (
                  booking.status = 'checked_out'
                  AND (booking.actual_check_out_time AT TIME ZONE 'Asia/Shanghai')::date > $3::date
@@ -330,7 +331,25 @@ export class HomestayDashboardAvailabilityQueryService {
           WHEN mode.operating_status IS DISTINCT FROM 'enabled' THEN 'out_of_service'
           WHEN count(turnover.id) > 0 THEN 'turnover'
           WHEN bool_or(occupancy.source_type = 'homestay_turnover') THEN 'turnover'
-          WHEN bool_or(occupancy.status IN ('held', 'active')) THEN 'occupied'
+          WHEN bool_or(
+            occupancy.source_type = 'homestay_booking'
+            AND homestay_booking.status = 'checked_in'
+            AND homestay_booking.actual_check_in_time IS NOT NULL
+          ) THEN 'occupied'
+          WHEN bool_or(
+            occupancy.source_type = 'homestay_booking'
+            AND occupancy.status = 'active'
+            AND homestay_booking.status = 'confirmed'
+            AND homestay_booking.actual_check_in_time IS NULL
+          ) THEN 'reserved'
+          WHEN bool_or(
+            occupancy.source_type = 'homestay_booking'
+            AND occupancy.status = 'held'
+          ) THEN 'held'
+          WHEN bool_or(
+            occupancy.status IN ('held', 'active')
+            AND occupancy.source_type <> 'homestay_booking'
+          ) THEN 'occupied'
           WHEN EXISTS (
             SELECT 1
             FROM rel_leasing_contract_unit lease_unit
@@ -366,6 +385,13 @@ export class HomestayDashboardAvailabilityQueryService {
             OR occupancy.hold_expires_at > now())
        AND occupancy.start_at < $4::timestamptz
        AND occupancy.end_at > $3::timestamptz
+      LEFT JOIN biz_homestay_booking homestay_booking
+        ON occupancy.source_type = 'homestay_booking'
+       AND homestay_booking.id::text = occupancy.source_id
+       AND homestay_booking.tenant_id = occupancy.tenant_id
+       AND homestay_booking.park_id = occupancy.park_id
+       AND homestay_booking.unit_id = occupancy.unit_id
+       AND homestay_booking.is_deleted = false
       LEFT JOIN biz_homestay_turnover_task turnover
         ON turnover.tenant_id = unit.tenant_id
        AND turnover.park_id = unit.park_id

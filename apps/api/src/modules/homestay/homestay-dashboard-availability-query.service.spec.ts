@@ -63,7 +63,7 @@ test("homestay façade delegates dashboard and availability without querying sto
   ]);
 });
 
-test("dashboard preserves date occupancy, scope, permission, and decimal response behavior", async () => {
+test("dashboard counts only in-house bookings and preserves mixed occupancy rate behavior", async () => {
   const allowedUnitIds = ["00000000-0000-4000-8000-000000000101"];
   const statements: Array<{ sql: string; parameters: unknown[] }> = [];
   const dataSource = {
@@ -108,6 +108,9 @@ test("dashboard preserves date occupancy, scope, permission, and decimal respons
   const summarySql = statements.find(({ sql }) => sql.includes("AS arrivals"))?.sql ?? "";
   assert.match(summarySql, /booking\.arrival_date <= \$3::date/);
   assert.match(summarySql, /booking\.departure_date > \$3::date/);
+  assert.match(summarySql, /booking\.actual_check_in_time IS NOT NULL/);
+  assert.match(summarySql, /booking\.status = 'checked_in'/);
+  assert.doesNotMatch(summarySql, /booking\.status IN \('confirmed', 'checked_in'\)/);
   assert.match(summarySql, /booking\.actual_check_out_time AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(summarySql, /booking\.unit_id = ANY\(\$4::uuid\[\]\)/);
 });
@@ -186,6 +189,13 @@ test("V2 availability preserves cross-domain truth, range boundaries, scope, and
   const sql = statements[0]?.sql ?? "";
   assert.match(sql, /WHEN unit\.status <> 1 THEN 'out_of_service'/);
   assert.match(sql, /bool_or\(occupancy\.source_type = 'homestay_turnover'\)/);
+  assert.match(sql, /LEFT JOIN biz_homestay_booking homestay_booking/);
+  assert.match(sql, /homestay_booking\.status = 'checked_in'/);
+  assert.match(sql, /homestay_booking\.actual_check_in_time IS NOT NULL/);
+  assert.match(sql, /homestay_booking\.status = 'confirmed'/);
+  assert.match(sql, /homestay_booking\.actual_check_in_time IS NULL/);
+  assert.match(sql, /THEN 'reserved'/);
+  assert.match(sql, /occupancy\.source_type <> 'homestay_booking'/);
   assert.match(sql, /FROM rel_leasing_contract_unit lease_unit/);
   assert.match(sql, /AT TIME ZONE 'Asia\/Shanghai'/);
   assert.match(sql, /unit\.id = ANY\(\$5::uuid\[\]\)/);
