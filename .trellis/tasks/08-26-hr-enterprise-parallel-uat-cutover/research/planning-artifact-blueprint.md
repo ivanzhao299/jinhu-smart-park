@@ -66,7 +66,7 @@
 
 ### Architecture and run topology
 
-父状态机：`planned → source_locked → extracted → target_ready → loading → verified → uat_passed → rollback_verified → cleaned`；任意阶段只能转为 `failed → cleanup_pending → cleaned_failed`。父 run id 形如 `yzfull-<utc>-<git8>-rA|rB`，child ids 为 `<parent>-t0`…`<parent>-t5`。父 run 不伪装成 `migration_batch`，manifest 只引用六个 child batch。
+父状态机：`planned → provisioned → extracting → loading → verifying → uat_ready → rollback_ready → cleaned`；失败/信号只写 append-only failure journal 并进入受控恢复清理，不能伪造或跳过成功状态。父 run id 形如 `yzfull-<utc>-<git8>-rA|rB`，child ids 为 `<parent>-t0`…`<parent>-t5`。父 run 不伪装成 `migration_batch`，manifest 只引用六个 child batch。
 
 每轮资源拓扑必须唯一：Compose project、PostgreSQL database/volume/container/port、API/Web port、file root、staging/evidence root、UAT accounts。source snapshot 可以共享只读事实，但抽取输出必须分别验证相同 hashes。资源 registry 在创建前写计划、创建后写 observed identity，cleanup 后逐项查询 residual。
 

@@ -19,7 +19,7 @@ The observed engineering C/S/M baseline is:
 | --- | --- | --- |
 | C | `4dff6b263be68388fd0ef42f68185df00be80c73` | Candidate code HEAD at Slice 1 start; it is not yet a frozen rehearsal SHA because Slice 1 files are uncommitted. |
 | S | `3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e` | Pinned Yuzhou source backup SHA-256 referenced by all current domain loaders and the T4 source evidence. |
-| M | `0b0896340fea2cbbc87d60a75ef98697499f877b09dc03faaaaaa214bac0f446` | Deterministic aggregate SHA-256 over the sorted full-domain contract, parent schema and all six domain transforms after independent review. |
+| M | `998b72632825fdd194c7d080ce236d812f655b69f5f78159b5b3cc8e634ec867` | Slice 2 successor value after aligning the executable parent lifecycle to `planned → provisioned → extracting → loading → verifying → uat_ready → rollback_ready → cleaned`; the earlier Slice 1 hash is superseded and cannot authorize a rehearsal. |
 
 A real A/B rehearsal must recompute and freeze C after commit and prove S plus M byte-for-byte; these observed values must not be copied forward as execution proof without that check.
 

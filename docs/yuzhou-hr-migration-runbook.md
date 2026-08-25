@@ -151,3 +151,31 @@ pnpm hr:migration:manifest -- \
 只停止明确命名的实验 Compose 项目。默认 `down` 保留命名 volume；只有确认数据和证据已经归档，才单独删除该项目的实验 volume。禁止对 Docker 或文件系统做宽泛清理，也不得触及 Homebrew PostgreSQL 的 5432 数据目录。
 
 源库恢复、抽取和目标加载均要记录 run id。目标回滚只能删除当前 run 且有 `legacy_record_map` 证明的记录，或者恢复一次性目标数据库快照；不能使用无条件全表删除。
+
+## 8. 全域生命周期编排（Slice 2）
+
+全域编排只接受 `scripts/hr-cutover/full-domain-lifecycle.mjs` 定义的闭合 JSON 配置，不从当前 shell 继承业务参数。运行前必须同时固定候选代码 SHA、源快照 SHA-256 和映射合同 SHA-256；代码或映射字节变化后，旧配置立即失效。T4 证据文件必须是 `0600`、非符号链接、内容状态为 `COMPLETED/completed`，且与配置中的 SHA-256 相同。该检查发生在创建目录、锁、容器或数据库之前。
+
+生命周期只能依次推进：
+
+```text
+planned → provisioned → extracting → loading → verifying → uat_ready → rollback_ready → cleaned
+```
+
+六域正序固定为 T0→T5，回滚固定为 T5→T0。每个 child 使用 `<parent>-t0`…`<parent>-t5`，adapter 只向旧脚本传递白名单环境变量，并把目标数据库、PostgreSQL 容器和 Compose project 重新绑定到当前 parent。T1～T4 已补齐与 T0/T5 相同的 pnpm 命令面；所有 rollback 都必须同时具备迁移开关与 rollback 开关。旧转换 SQL 和业务映射语义没有复制或放宽。
+
+配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
+
+命令入口为：
+
+```sh
+pnpm hr:migration:full:provision -- --config '<受控配置.json>'
+pnpm hr:migration:full:run -- --config '<受控配置.json>'
+pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
+pnpm hr:migration:full:cleanup -- --config '<受控配置.json>'
+pnpm hr:migration:full:status -- --config '<受控配置.json>'
+```
+
+目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
+
+本入口没有 production import 或 production restore 子命令，也不接受布尔开关作为生产授权。所有结果固定输出 `productionImport=HOLD`。Slice 2 的 fixture 通过只证明编排、失败关闭、信号恢复和零残留合同，不代表真实 A/B 演练、三角色 UAT 或生产导入已经完成。

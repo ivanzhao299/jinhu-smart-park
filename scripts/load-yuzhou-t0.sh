@@ -8,6 +8,7 @@ TARGET_TENANT_ID="${YUZHOU_TARGET_TENANT_ID:-10000001}"
 TARGET_PARK_ID="${YUZHOU_TARGET_PARK_ID:-20000001}"
 STAGING_DIR="${YUZHOU_STAGING_DIR:-$ROOT_DIR/database/import-reports/yuzhou-hr/staging-$RUN_ID}"
 PG_CONTAINER="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"
+EXPECTED_COMPOSE_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 SOURCE_SNAPSHOT_SHA256="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
 DEPARTMENTS_SHA256="${YUZHOU_DEPARTMENTS_SHA256:-24d3d208bbbdbb5fd8a8a0b29804f4473b6c99b31d6d46f16c8d8e795e6366e1}"
 POSITIONS_SHA256="${YUZHOU_POSITIONS_SHA256:-96489dedc6efb8e4a56cd4f8346aa0b9df18ff3969f9e46f0f0bebaadba7ddb5}"
@@ -29,7 +30,7 @@ actual_employees_sha="$(shasum -a 256 "$STAGING_DIR/employees.jsonl" | awk '{pri
 [ "$actual_employees_sha" = "$EMPLOYEES_SHA256" ] || fail "employees staging SHA-256 mismatch"
 
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$PG_CONTAINER" 2>/dev/null || true)"
-[ "$project" = "jinhu_hr_migration_lab" ] || fail "PostgreSQL container is not the migration lab"
+[ "$project" = "$EXPECTED_COMPOSE_PROJECT" ] || fail "PostgreSQL container is not the expected migration lab"
 actual_database="$(docker exec "$PG_CONTAINER" psql -X -A -t -U jinhu -d "$TARGET_DATABASE" -c 'SELECT current_database()' 2>/dev/null || true)"
 [ "$actual_database" = "$TARGET_DATABASE" ] || fail "isolated target database is unavailable"
 

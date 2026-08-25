@@ -8,6 +8,7 @@ TENANT="${YUZHOU_TARGET_TENANT_ID:-10000001}"
 PARK="${YUZHOU_TARGET_PARK_ID:-20000001}"
 STAGE="${YUZHOU_STAGING_DIR:-$ROOT_DIR/database/import-reports/yuzhou-hr/staging-$RUN_ID}"
 PG="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"
+EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 SNAPSHOT="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
 PINNED_BUSINESS_HASH="${YUZHOU_T5_BUSINESS_SHA256:-}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
@@ -21,7 +22,7 @@ printf %s "$PARK" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invali
 [ -f "$STAGE/manifest.json" ] || fail "manifest is missing"
 [ "$(stat -f '%Lp' "$STAGE" 2>/dev/null || stat -c '%a' "$STAGE")" = 700 ] || fail "staging directory must be mode 0700"
 [ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "manifest must be mode 0600"
-[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = jinhu_hr_migration_lab ] || fail "wrong PostgreSQL compose project"
+[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = "$EXPECTED_PROJECT" ] || fail "wrong PostgreSQL compose project"
 node - "$STAGE" "$PINNED_BUSINESS_HASH" <<'NODE'
 const {createHash}=require('crypto'),{readFileSync}=require('fs'),{join}=require('path');
 const [dir,pinned]=process.argv.slice(2),manifest=JSON.parse(readFileSync(join(dir,'manifest.json')));

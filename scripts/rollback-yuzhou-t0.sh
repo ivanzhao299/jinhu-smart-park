@@ -4,6 +4,7 @@ set -eu
 RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"
 TARGET_DATABASE="${YUZHOU_TARGET_DATABASE:-}"
 PG_CONTAINER="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"
+EXPECTED_COMPOSE_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 
 fail() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = "yes" ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
@@ -11,7 +12,7 @@ fail() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 printf '%s' "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid YUZHOU_MIGRATION_RUN_ID"
 printf '%s' "$TARGET_DATABASE" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "invalid isolated target database"
 project="$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$PG_CONTAINER" 2>/dev/null || true)"
-[ "$project" = "jinhu_hr_migration_lab" ] || fail "PostgreSQL container is not the migration lab"
+[ "$project" = "$EXPECTED_COMPOSE_PROJECT" ] || fail "PostgreSQL container is not the expected migration lab"
 
 docker exec -i "$PG_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$TARGET_DATABASE" \
   -v run_id="$RUN_ID" -v target_database="$TARGET_DATABASE" <<'SQL'

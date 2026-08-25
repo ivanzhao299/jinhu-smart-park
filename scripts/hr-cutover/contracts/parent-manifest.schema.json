@@ -26,7 +26,7 @@
     "manifestKind": { "const": "yuzhou_hr_full_domain_rehearsal" },
     "parentRunId": { "type": "string", "pattern": "^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r[AB]$" },
     "rehearsal": { "enum": ["A", "B"] },
-    "state": { "enum": ["planned", "source_locked", "extracted", "target_ready", "loading", "verified", "uat_passed", "rollback_verified", "cleaned", "failed", "cleanup_pending", "cleaned_failed"] },
+    "state": { "enum": ["planned", "provisioned", "extracting", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"] },
     "triple": {
       "type": "object",
       "additionalProperties": false,
