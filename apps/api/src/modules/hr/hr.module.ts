@@ -13,5 +13,7 @@ import { HrService } from "./hr.service";
 import { HrRecruitmentController } from "./hr-recruitment.controller";
 import { HrRecruitmentService } from "./hr-recruitment.service";
 import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
-@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController,HrPayrollHistoryController,HrRecruitmentController],providers:[HrService,HrNotificationService,HrPayrollHistoryService,HrRecruitmentService,PartySensitiveDataService],exports:[HrService,HrPayrollHistoryService,HrRecruitmentService]})
+import { HrLifecycleController } from "./hr-lifecycle.controller";
+import { HrLifecycleService } from "./hr-lifecycle.service";
+@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController,HrPayrollHistoryController,HrRecruitmentController,HrLifecycleController],providers:[HrService,HrNotificationService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService,PartySensitiveDataService],exports:[HrService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService]})
 export class HrModule {}
