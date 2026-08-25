@@ -91,7 +91,7 @@ const mutations = {
     const value = clone(valid); value.children[0].status = "complete"; return value;
   },
   partialVerified: () => {
-    const value = clone(valid); value.state = "verified"; return value;
+    const value = clone(valid); value.state = "verifying"; return value;
   },
   t4Advance: () => {
     const value = clone(valid); value.state = "loading"; return value;

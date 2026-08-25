@@ -1,12 +1,13 @@
 #!/usr/bin/env sh
 set -eu
 RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"; DB="${YUZHOU_TARGET_DATABASE:-}"; PG="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"
+EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2;exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ]||fail "set ALLOW_YUZHOU_MIGRATION=yes"
 [ "${ALLOW_YUZHOU_ROLLBACK:-no}" = yes ]||fail "set ALLOW_YUZHOU_ROLLBACK=yes"
 printf %s "$RUN_ID"|grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$'||fail "invalid run id"
 printf %s "$DB"|grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$'||fail "unsafe target database"
-[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = jinhu_hr_migration_lab ]||fail "wrong PostgreSQL compose project"
+[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = "$EXPECTED_PROJECT" ]||fail "wrong PostgreSQL compose project"
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -v run="$RUN_ID" -v db="$DB" <<'SQL'
 BEGIN;SET LOCAL lock_timeout='10s';SET LOCAL statement_timeout='5min';SELECT set_config('yuzhou.t5_rollback',:'run',true),set_config('yuzhou.t5_db',:'db',true);
 DO $$DECLARE b uuid; expected_records bigint;expected_files bigint;BEGIN

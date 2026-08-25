@@ -95,9 +95,9 @@ function validateChildren(manifest, contract) {
     assertSha(child.manifestSha256, `${child.domain}.manifestSha256`);
   }
   const statuses = manifest.children.map((child) => child.status);
-  if (["verified", "uat_passed"].includes(manifest.state) && statuses.some((status) => status !== "verified")) fail("PARTIAL_RUN", `${manifest.state} requires all children verified`);
-  if (["rollback_verified", "cleaned"].includes(manifest.state) && statuses.some((status) => status !== "rolled_back")) fail("PARTIAL_RUN", `${manifest.state} requires all children rolled back`);
-  if (!["failed", "cleanup_pending", "cleaned_failed"].includes(manifest.state) && statuses.includes("failed")) fail("PARTIAL_RUN", `state ${manifest.state} cannot contain a failed child`);
+  if (["verifying", "uat_ready"].includes(manifest.state) && statuses.some((status) => status !== "verified")) fail("PARTIAL_RUN", `${manifest.state} requires all children verified`);
+  if (["rollback_ready", "cleaned"].includes(manifest.state) && statuses.some((status) => status !== "rolled_back")) fail("PARTIAL_RUN", `${manifest.state} requires all children rolled back`);
+  if (statuses.includes("failed")) fail("PARTIAL_RUN", `state ${manifest.state} cannot contain a failed child`);
 }
 
 function validateLedger(rows, catalog) {
@@ -135,7 +135,7 @@ function validateResources(resources, state, requiredTypes) {
     seen.add(identity);
     seenTypes.add(resource.type);
     if (!Number.isSafeInteger(resource.residualCount) || resource.residualCount < 0) fail("MANIFEST_SCHEMA_INVALID", `${identity}.residualCount invalid`);
-    if (["cleaned", "cleaned_failed"].includes(state) && (!resource.removed || resource.residualCount !== 0)) fail("RESOURCE_RESIDUAL_NONZERO", identity);
+    if (state === "cleaned" && (!resource.removed || resource.residualCount !== 0)) fail("RESOURCE_RESIDUAL_NONZERO", identity);
   }
   for (const type of requiredTypes) if (!seenTypes.has(type)) fail("RESOURCE_TYPE_MISSING", type);
 }
@@ -217,7 +217,7 @@ function validateT4(t4Evidence, manifest) {
     if (manifest.hardGates?.t4Extraction?.status !== "NOT_STARTED" || !manifest.hardGates.t4Extraction.reasonCodes?.includes("T4_EXTRACTION_NOT_STARTED")) {
       fail("T4_EXTRACTION_NOT_STARTED", "T4 source evidence is not completed and must block full rehearsal");
     }
-    if (!["planned", "source_locked", "failed", "cleanup_pending", "cleaned_failed"].includes(manifest.state)) {
+    if (manifest.state !== "planned") {
       fail("T4_EXTRACTION_NOT_STARTED", `state ${manifest.state} is impossible while T4 extraction is not started`);
     }
   }

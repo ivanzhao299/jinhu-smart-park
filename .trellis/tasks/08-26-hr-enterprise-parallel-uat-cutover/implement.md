@@ -12,10 +12,10 @@
 
 ## Slice 2 — Runner 与隔离生命周期
 
-- [ ] 建立唯一 DB/Compose/volume/port/staging/API/Web/file 生命周期和 signal-safe cleanup journal。
-- [ ] 为 T1/T2/T3/T4 增加统一 pnpm entry，通过 adapter 收紧不一致门禁，不改变转换语义。
-- [ ] 实现顺序 T0→T5、反序 T5→T0、child failure stop 和实际 residual verifier。
-- [ ] 验证 wrong host/database/project、重复 run、partial batch、signal、child failure 和 cleanup escape 均 fail closed；0700/0600 生效。
+- [x] 建立唯一 DB/Compose/volume/port/staging/API/Web/file 生命周期和 signal-safe cleanup journal。
+- [x] 为 T1/T2/T3/T4 增加统一 pnpm entry，通过 adapter 收紧不一致门禁，不改变转换语义。
+- [x] 实现顺序 T0→T5、反序 T5→T0、child failure stop 和实际 residual verifier。
+- [x] 验证 wrong host/database/project、重复 run、partial batch、signal、child failure 和 cleanup escape 均 fail closed；0700/0600 生效。
 
 ## Slice 3 — Parent manifest、Global ledger、Canonical hash
 
