@@ -7,22 +7,18 @@
 ## Authority and compatibility
 
 ```text
-has active TENANT_ADMIN in the requested park
-AND (
-  tenant.contact_user_id == user.id
-  OR (tenant.contact_user_id is null AND user.create_by is null)
-)
+tenant.contact_user_id == user.id
 ```
 
-The pointer is authoritative for tenants created through `TenantsService.create`. For pointer-less legacy tenants, the bootstrap script's null creator is the immutable creation provenance; mutable remarks are only historical evidence and never identity authority. Normal API-created users retain a creator. Requiring an active current-park `TENANT_ADMIN` role prevents stale provenance from preserving identity after role removal and keeps park switching scoped to the target context.
+The pointer is authoritative for every tenant. `TenantsService.create` already writes it in the onboarding transaction. A forward-only migration backfills pointer-less legacy tenants from enabled, non-deleted users with enabled, non-deleted tenant-scoped `TENANT_ADMIN` bindings. The tenant-wide role may be reused by target-park bindings whose park differs from the role row. Multiple valid candidates are ordered by `create_time ASC, id ASC`; zero candidates remain NULL; structurally inconsistent tenant identities fail preflight. Runtime role, remark, and creator provenance never redefine the persisted identity.
 
-No migration is needed. Existing clients can omit the optional field; the API always emits a boolean for new responses.
+Existing clients can omit the optional field; the API always emits a boolean for new responses. The migration changes data only and is forward-only; rollback restores application code but does not erase an authoritative pointer.
 
 ## Data flow
 
 1. `/auth/me` or `/users/me` calls `getCurrentUserContext(scope, userId)`.
 2. The existing user query loads role relations; the service performs one tenant lookup by `tenantId`.
-3. The service derives `is_tenant_bootstrap_admin` from tenant pointer/legacy provenance and current-park active roles.
+3. The service derives `is_tenant_bootstrap_admin` only by exact tenant pointer equality.
 4. Park switch already fetches a new `/auth/me`, so `nextUser` carries the field without another transport change.
 
 ## Routing priority
@@ -36,4 +32,4 @@ No migration is needed. Existing clients can omit the optional field; the API al
 
 ## Rollout and rollback
 
-The field is additive and optional, so API and Web can roll together without persisted-state changes. Code rollback restores menu-order landing; no database rollback is required.
+The field is additive and optional, so API and Web can roll together. Code rollback restores menu-order landing; the forward-only pointer backfill remains valid tenant identity data.

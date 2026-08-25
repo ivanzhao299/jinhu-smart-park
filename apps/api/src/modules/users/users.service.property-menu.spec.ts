@@ -374,7 +374,7 @@ test("current user context resolves enabled modules for the current park before 
 
 for (const scenario of [
   {
-    name: "marks the tenant contact user with an active tenant-admin role as bootstrap admin",
+    name: "marks the authoritative tenant contact user as bootstrap admin",
     contactUserId: "user-1",
     remark: null,
     createBy: "platform-admin",
@@ -383,75 +383,39 @@ for (const scenario of [
     expected: true
   },
   {
-    name: "does not mark a later tenant-admin when the tenant points to another user",
-    contactUserId: "first-admin",
-    remark: "bootstrap-admin created",
+    name: "does not mark a user when the authoritative pointer targets another user",
+    contactUserId: "other-user",
+    remark: null,
     createBy: "platform-admin",
     roleCode: "TENANT_ADMIN",
     roleParkId: PARK_ID,
     expected: false
   },
   {
-    name: "does not mark an ordinary user even when the tenant contact pointer matches",
+    name: "uses the authoritative pointer without re-inferring identity from the current role",
     contactUserId: "user-1",
     remark: null,
     createBy: "platform-admin",
     roleCode: "SYSTEM_USER",
     roleParkId: PARK_ID,
-    expected: false
+    expected: true
   },
   {
-    name: "supports the production bootstrap creator provenance for pointer-less tenants",
+    name: "does not infer bootstrap identity when the authoritative pointer is null",
     contactUserId: null,
     remark: "bootstrap-admin created",
     createBy: null,
     roleCode: "TENANT_ADMIN",
     roleParkId: PARK_ID,
-    expected: true
-  },
-  {
-    name: "preserves pointer-less bootstrap identity after an idempotent ensure rerun",
-    contactUserId: null,
-    remark: "bootstrap-admin ensured",
-    createBy: null,
-    roleCode: "TENANT_ADMIN",
-    roleParkId: PARK_ID,
-    expected: true
-  },
-  {
-    name: "preserves pointer-less bootstrap identity after a password reset rerun",
-    contactUserId: null,
-    remark: "bootstrap-admin password reset",
-    createBy: null,
-    roleCode: "TENANT_ADMIN",
-    roleParkId: PARK_ID,
-    expected: true
-  },
-  {
-    name: "rejects a later admin that copies the legacy bootstrap marker",
-    contactUserId: null,
-    remark: "bootstrap-admin created",
-    createBy: "platform-admin",
-    roleCode: "TENANT_ADMIN",
-    roleParkId: PARK_ID,
     expected: false
   },
   {
-    name: "preserves pointer-less bootstrap identity when an editable remark changes",
-    contactUserId: null,
-    remark: "bootstrap-admin imported",
-    createBy: null,
-    roleCode: "TENANT_ADMIN",
-    roleParkId: PARK_ID,
-    expected: true
-  },
-  {
-    name: "evaluates the tenant-admin role in the requested park context",
-    contactUserId: "user-1",
+    name: "does not match a pointer that belongs to another tenant user",
+    contactUserId: "cross-tenant-user",
     remark: null,
     createBy: "platform-admin",
     roleCode: "TENANT_ADMIN",
-    roleParkId: OTHER_PARK_ID,
+    roleParkId: PARK_ID,
     expected: false
   }
 ] as const) {

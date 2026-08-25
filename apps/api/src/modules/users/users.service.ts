@@ -625,14 +625,7 @@ export class UsersService {
     const scopedUser = { ...user, parkId: scope.parkId } as UserEntity;
     const principal = this.buildJwtPrincipal(scopedUser);
     const activeRoleLinks = this.getActiveRoleLinks(scopedUser);
-    const hasTenantAdminRole = activeRoleLinks.some((link) => link.role.code === "TENANT_ADMIN");
-    const isTenantBootstrapAdmin = tenant !== null && hasTenantAdminRole && Boolean(
-      tenant?.contactUserId === user.id ||
-      (
-        tenant?.contactUserId == null &&
-        user.createBy === null
-      )
-    );
+    const isTenantBootstrapAdmin = tenant?.contactUserId === user.id;
     const activePermissionEntities = activeRoleLinks.flatMap((link) =>
       this.getActivePermissionLinks(link.role, user.tenantId, scope.parkId)
         .map((permissionLink) => permissionLink.permission)
