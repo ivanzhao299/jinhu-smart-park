@@ -243,6 +243,12 @@ Apply these contracts to homestay and housing-rental booking dates, guest identi
   confirm, cancel, reschedule, stay, and finance write. The API enforces it together
   with the action permission. Built-in roles that receive an action permission also
   receive booking-read; custom roles must grant the documented composite.
+- The protected `HOMESTAY_OPERATOR` template resolves both the generic task workflow
+  permissions (`property_task:read|claim|process|release`) and the homestay-domain
+  list permission `homestay:task:read`. A bundle membership change advances the
+  shared bundle revision/hash and template definition/signature together, is applied
+  by a new forward-only migration, and lists the released template metadata as the
+  only production-seed predecessor; unknown metadata drift remains fail-closed.
 - After booking context is authorized, stay-manage, finance-read, finance-register,
   and finance-waive remain independently projected at sub-control level. An auditor
   may inspect the authorized detail and ledger summary without stay controls; an

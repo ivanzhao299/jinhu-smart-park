@@ -40,8 +40,8 @@ export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
   "property-bundle:property-homestay-task-operator": {
     code: TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code,
     signingName: "民宿任务处理人",
-    definitionVersion: 1,
-    definitionHash: "07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425"
+    definitionVersion: 2,
+    definitionHash: "7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d"
   },
   "property-bundle:property-housing-operator": {
     code: TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code,
@@ -150,8 +150,8 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     code: "HOMESTAY_OPERATOR",
     name: "民宿经办",
     description: "处理民宿任务；可发起所需业务申请，不可审批",
-    definitionVersion: 1,
-    definitionHash: "c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267",
+    definitionVersion: 2,
+    definitionHash: "8e36158a12eff2a8ad38aa0a418463d72b3b00b433a7a547a7217c2cd71ec4e7",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code],
     additionalPermissions: [
       "property_approval:create",

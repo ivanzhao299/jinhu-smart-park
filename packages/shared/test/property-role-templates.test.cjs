@@ -32,7 +32,7 @@ test("property role template bundle signatures are derived from production seed 
 
   assert.equal(signatures.get("PROPERTY_OPERATIONS_MANAGER"), "5f195e6283ebe78e869a51ac75a793b86bb57d02c78b9b698f4cb2ee1e1c1cfd");
   assert.equal(signatures.get("PROPERTY_OPERATIONS_APPROVER"), "9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972");
-  assert.equal(signatures.get("HOMESTAY_OPERATOR"), "0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0");
+  assert.equal(signatures.get("HOMESTAY_OPERATOR"), "feb2badfa65e82c0e45170bafd0defb07549f49e161e39d836a3cb0bc8d983f3");
   assert.equal(signatures.get("HOUSING_OPERATOR"), "573d8cce9080e97d80f196a634cd342efd8acd5f812d8de56f0abb87e0b0d4c8");
   assert.equal(signatures.get("HOMESTAY_FINANCE"), "91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5");
   assert.equal(signatures.get("HOUSING_FINANCE"), "4001bbd2fe4dc2b552ff493eedc141556ac107e56998e4e2c35e258c4675b593");
@@ -95,13 +95,14 @@ test("property role template lookup and permission resolver are the instantiatio
   assert.deepEqual(shared.resolvePropertyRoleTemplateBundleReferences("HOMESTAY_OPERATOR"), [
     {
       code: shared.TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.code,
-      definitionVersion: 1,
-      definitionHash: "07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425"
+      definitionVersion: 2,
+      definitionHash: "7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d"
     }
   ]);
   assert.deepEqual(
     shared.resolvePropertyRoleTemplatePermissionCodes("HOMESTAY_OPERATOR"),
     [
+      "homestay:task:read",
       "homestay:tasks:page",
       "property:notifications:page",
       "property_approval:create",

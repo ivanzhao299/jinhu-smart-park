@@ -13,6 +13,10 @@ const seed = readFileSync(
   new URL("../../database/seeds/production/000015_property_role_template_reconcile.sql", import.meta.url),
   "utf8"
 );
+const homestayTaskBundleMigration = readFileSync(
+  new URL("../../database/migrations/000262_homestay_task_operator_read_permission.sql", import.meta.url),
+  "utf8"
+);
 const rolesService = readFileSync(
   new URL("../../apps/api/src/modules/roles/roles.service.ts", import.meta.url),
   "utf8"
@@ -63,6 +67,18 @@ assert.match(seed, /permission_code='party:sensitive_read'/);
 assert.match(seed, /template_code<>'PROPERTY_OPERATIONS_APPROVER'.*property_approval:decide/s);
 assert.doesNotMatch(seed, /INSERT INTO sys_user|UPDATE sys_user|DELETE FROM sys_user/);
 assert.doesNotMatch(seed, /code\s*=\s*'SUPER_ADMIN'.*(INSERT|UPDATE)/s);
+assert.match(seed, /\('HOMESTAY_OPERATOR','民宿经办',2,'8e36158a12eff2a8ad38aa0a418463d72b3b00b433a7a547a7217c2cd71ec4e7','feb2badfa65e82c0e45170bafd0defb07549f49e161e39d836a3cb0bc8d983f3',303\)/);
+assert.match(seed, /\('HOMESTAY_OPERATOR',1,'c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267','0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0'\)/);
+
+for (const token of [
+  "property-homestay-task-operator-bundle-predecessor-drift",
+  "property-homestay-task-operator-bundle-definition-drift",
+  "homestay:task:read",
+  "definition_version = 2",
+  "7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d"
+]) {
+  assert.ok(homestayTaskBundleMigration.includes(token), `missing homestay task bundle migration token: ${token}`);
+}
 
 for (const token of [
   "findPropertyRoleTemplateDefinition",
