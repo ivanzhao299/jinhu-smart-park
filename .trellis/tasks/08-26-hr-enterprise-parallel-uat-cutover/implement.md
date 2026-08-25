@@ -19,9 +19,9 @@
 
 ## Slice 3 — Parent manifest、Global ledger、Canonical hash
 
-- [ ] 实现 manifest builder/verifier、append/supersede 和 hash-addressed evidence index。
-- [ ] 实现 PostgreSQL numeric ledger、cross-domain orphan checks、side-effect allowlist 和 canonical hashes。
-- [ ] 覆盖 tamper、NULL/0、随机 UUID/time 排除、approvedIgnored、跨租户/map、金额差一分和 allowlist 外变化负向测试。
+- [x] 实现 manifest builder/verifier、append/supersede 和 hash-addressed evidence index。
+- [x] 实现 PostgreSQL numeric ledger、cross-domain orphan checks、side-effect allowlist 和 canonical hashes。
+- [x] 覆盖 tamper、NULL/0、随机 UUID/time 排除、approvedIgnored、跨租户/map、金额差一分和 allowlist 外变化负向测试。
 
 ## Slice 4 — T4 真实历史与工资双轨
 

@@ -96,6 +96,7 @@
     "hr:migration:full:cleanup": "sh scripts/hr-cutover/full-domain-lifecycle.sh cleanup",
     "hr:migration:full:status": "sh scripts/hr-cutover/full-domain-lifecycle.sh status",
     "test:e2e:yuzhou-full-domain-lifecycle": "node scripts/e2e/yuzhou-full-domain-lifecycle.mjs",
+    "test:e2e:yuzhou-full-domain-slice3": "node scripts/e2e/yuzhou-full-domain-slice3.mjs",
     "test:e2e:yuzhou-t4-payroll-history": "node scripts/e2e/yuzhou-t4-payroll-history-contract.mjs",
     "test:e2e:yuzhou-t5-legacy-history": "node scripts/e2e/yuzhou-t5-legacy-history-contract.mjs",
     "prod:deploy": "sh scripts/prod-deploy.sh",

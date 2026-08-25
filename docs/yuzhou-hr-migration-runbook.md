@@ -179,3 +179,24 @@ pnpm hr:migration:full:status -- --config '<受控配置.json>'
 目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
 
 本入口没有 production import 或 production restore 子命令，也不接受布尔开关作为生产授权。所有结果固定输出 `productionImport=HOLD`。Slice 2 的 fixture 通过只证明编排、失败关闭、信号恢复和零残留合同，不代表真实 A/B 演练、三角色 UAT 或生产导入已经完成。
+
+## 9. Parent manifest 与数据库事实验证（Slice 3）
+
+Parent manifest 是 append-only 状态事实。首次 manifest 写入后不可覆盖；修正必须生成新文件，并用 `supersedesManifestSha256` 精确引用前一份规范化 manifest hash。链中所有 manifest 必须绑定同一个 parent run 和同一 C/S/M，且只允许一个根、一条无环路径和一个 head；断链、分叉、循环、旧文件字节变化都会失败。证据索引不接受工具自报的 bytes、mode 或 SHA：builder 会从 `0700` evidence root 内重新解析 realpath，拒绝符号链接/逃逸，读取实际 `0600` 文件，重新计算 bytes/SHA-256，并扫描秘密和个人/工资字段。
+
+`verifying` 状态的 lab runner 必须同时取得 hash-addressed manifest chain 和 PostgreSQL fact schema；缺任一项均以 `GLOBAL_FACTS_REQUIRED` 停止，不能进入 `uat_ready`。只读 SQL verifier 在目标 PostgreSQL 事务中直接计算：
+
+- 逐 domain/source object 的数量与金额守恒，金额始终为 PostgreSQL `numeric` 并输出 decimal string；
+- `approvedIgnored` 的受控 reason code、detached approval 实际字节 hash；
+- 员工、合同、异动、考勤社保、工资、档案/文件 owner 关系，以及 tenant、park、source identity 和 `legacy_record_map` 一致性；
+- 排除 target UUID、sequence、run id、创建/更新时间后的 domain hash 和 global hash，同时严格区分 JSON `null` 与数值 `0`；
+- 锁定保护表的 before/after 实际 hash，任何 allowlist 外变化或缺少锁定快照都会失败。
+
+fixture 验证入口：
+
+```sh
+pnpm test:e2e:yuzhou-full-domain-slice3
+```
+
+fixture 使用独立 `template0` PostgreSQL 数据库，并在结束时删除该精确数据库。它覆盖 manifest/evidence 篡改、supersede 断链/分叉/循环、金额差 `0.01`、非法或无签署的 approved-ignore、NULL/0、随机 UUID/time 排除、跨租户、孤儿、record-map 错链、保护表变化以及 manifest 自报与数据库事实不一致。该 fixture 不读取真实玉舟 staging，不运行 T4，不创建 A/B 正式演练证据，生产导入仍固定为 `HOLD`。
+fixture lifecycle 只停在 `verifying` 并返回 `FIXTURE_CANNOT_ENTER_UAT_READY`；fixture 结果不能进入或冒充 `uat_ready`。只有 lab backend 的真实 manifest chain、实际 evidence 字节和 PostgreSQL facts 同时通过，才允许推进到 `uat_ready`。

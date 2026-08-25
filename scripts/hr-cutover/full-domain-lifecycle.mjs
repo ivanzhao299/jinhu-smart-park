@@ -19,6 +19,8 @@ import {
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
+import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
+import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
@@ -94,7 +96,7 @@ function validateTriple(triple) {
 }
 
 export function validateConfig(config) {
-  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], [], "config");
+  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
   const match = RUN_ID.exec(config.runId ?? "");
@@ -166,6 +168,11 @@ export function validateConfig(config) {
       }
     }
   }
+  if (config.verification !== undefined) {
+    exactKeys(config.verification, ["manifestChainFile", "factSchema"], [], "verification");
+    if (typeof config.verification.manifestChainFile !== "string" || !isAbsolute(config.verification.manifestChainFile) || !inside(target.evidenceRoot, config.verification.manifestChainFile)) fail("CONFIG_INVALID", "verification manifest chain must be below evidenceRoot");
+    if (!/^hr_cutover_facts_[a-z0-9_]{4,32}$/.test(config.verification.factSchema ?? "")) fail("CONFIG_INVALID", "verification factSchema is invalid");
+  }
   return config;
 }
 
@@ -226,6 +233,24 @@ function transition(config, state, details = {}) {
   appendPrivate(p.journal, { kind: "state", sequence: nextIndex, state, triple: config.triple, ...details });
 }
 
+function verifySlice3AtLifecycleState(config) {
+  const journal = paths(config).journal;
+  if (config.backend === "fixture") {
+    appendPrivate(journal, { kind: "verification", state: "verifying", mode: "fixture_contract_only", qualifiesForUatReady: false, productionImport: "HOLD" });
+    fail("FIXTURE_CANNOT_ENTER_UAT_READY", "fixture contracts are not lab facts");
+  }
+  if (!config.verification) fail("GLOBAL_FACTS_REQUIRED", "lab verifying requires manifest chain and PostgreSQL facts");
+  const chainPath = resolve(config.verification.manifestChainFile);
+  if (!existsSync(chainPath) || lstatSync(chainPath).isSymbolicLink() || mode(chainPath) !== "0600") fail("UNSAFE_FILE_PERMISSION", "manifest chain evidence must be a 0600 regular file");
+  const chain = readJson(chainPath);
+  const chainResult = verifyManifestChain(chain, { evidenceRoot: config.target.evidenceRoot });
+  const head = chain.find((record) => record.sha256 === chainResult.headSha256)?.manifest;
+  if (!head || head.state !== "verifying" || head.parentRunId !== config.runId || JSON.stringify(head.triple) !== JSON.stringify(config.triple)) fail("MANIFEST_LIFECYCLE_MISMATCH", "manifest head must bind the verifying lifecycle state and C/S/M triple");
+  const facts = verifyGlobalFacts({ container: config.target.postgresContainer, database: config.target.database, fixtureSchema: config.verification.factSchema, runId: config.runId });
+  assertManifestFacts(head, facts);
+  appendPrivate(journal, { kind: "verification", state: "verifying", manifestSha256: manifestHash(head), globalHash: facts.globalHash, ledgerRows: facts.ledger.length, ownerFailureCount: 0, sideEffectFailureCount: 0, productionImport: "HOLD" });
+}
+
 export function currentState(config) {
   const journal = paths(config).journal;
   if (!existsSync(journal)) {
@@ -242,7 +267,7 @@ export function currentState(config) {
 
 function resourcePlan(config) {
   const t = config.target;
-  return [
+  const resources = [
     { type: "database", planned: t.database },
     { type: "container", planned: t.postgresContainer },
     { type: "volume", planned: t.volume },
@@ -266,7 +291,9 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children` },
     { type: "credential_artifact", planned: t.credentialArtifact }
-  ].map((item) => ({ ...item, observed: null, removed: false, residualCount: 0 }));
+  ];
+  if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
+  return resources.map((item) => ({ ...item, observed: null, removed: false, residualCount: 0 }));
 }
 
 function assertRegistry(registry) {
@@ -407,7 +434,8 @@ export function runForward(configInput, configPath) {
   validateChildJournal(config, "load");
   transition(config, "verifying");
   validateChildJournal(config, "load");
-  transition(config, "uat_ready", { technicalUat: config.backend === "fixture" ? "fixture_pass" : "pending_external_runner" });
+  verifySlice3AtLifecycleState(config);
+  transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
   return { state: "uat_ready", productionImport: "HOLD" };
 }
 
@@ -423,7 +451,8 @@ async function runForwardAsync(configInput, configPath) {
   validateChildJournal(config, "load");
   transition(config, "verifying");
   validateChildJournal(config, "load");
-  transition(config, "uat_ready", { technicalUat: config.backend === "fixture" ? "fixture_pass" : "pending_external_runner" });
+  verifySlice3AtLifecycleState(config);
+  transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
   return { state: "uat_ready", productionImport: "HOLD" };
 }
 
