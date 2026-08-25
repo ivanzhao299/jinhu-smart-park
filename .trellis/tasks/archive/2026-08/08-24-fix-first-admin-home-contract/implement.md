@@ -31,3 +31,11 @@
 - Isolated PostgreSQL 16 formal runner on the earlier main base — 243/243 migrations and 8/8 prerequisites passed through the then-numbered pointer migration, 0 failures (before the final `role_scope='tenant'` tightening).
 - Final pointer SQL (renumbered to `000253` after main claimed `000252`) on isolated PostgreSQL 16 — deterministic earliest-time/UUID tie-break, tenant-wide cross-park role reuse, zero-candidate NULL, replay stability, and corrupt-tenant preflight rollback passed.
 - Browser inspection skipped: this task changes a pure routing decision and response contract, not rendered UI; no browser result is claimed.
+
+## Closure evidence
+
+- PR #359 was squash-merged as `d0ecac65aaa40eea829a40b5d292b66ae42fe0ab`; Issue #348 closed automatically.
+- Main CI run `32797712746` passed lint, typecheck, unit tests, build, and the complete Release Smoke path, including empty-database migrations and Property API E2E.
+- Deploy Production run `32797712749` passed. Production applied `000253_tenant_bootstrap_admin_pointer_backfill.sql` successfully, then passed API liveness/readiness, Web login, final liveness, and six protected acceptance-account checks.
+- Production Docker cleanup finished and reclaimed 7.51 GB.
+- The canonical bootstrap script still creates `SUPER_ADMIN` after migrations and does not write this pointer. This is an accepted boundary: a zero-candidate tenant keeps NULL and does not receive the bootstrap-admin-specific route; the default wildcard super-admin route still lands on `/dashboard`.
