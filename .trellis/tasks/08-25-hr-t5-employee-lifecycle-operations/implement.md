@@ -35,11 +35,11 @@
 
 ## Phase 4 — 奖惩运营
 
-- [ ] category/case/action/link migration，审批状态、追加动作、已批准终态和外部引用约束。
-- [ ] 草稿/提交/退回/重提/撤回/批准，统一待办、禁止自审和跨组织树审批。
-- [ ] 批准后只创建受控 payroll/performance link；断言在线工资条、薪酬、绩效结果零写。
-- [ ] `/hr/rewards` HR 流程、团队安全摘要、本人已批准最小投影；金额/原因/附件原子字段权限。
-- [ ] 幂等、悲观锁、并发审批、required audit、匿名安全 not-found 和数据库终态测试。
+- [x] category/case/action/link migration，审批状态、追加动作、已批准终态和外部引用约束。
+- [x] 草稿/提交/退回/重提/撤回/批准，统一待办、禁止自审和跨组织树审批。
+- [x] 批准后只创建受控 payroll/performance link；断言在线工资条、薪酬、绩效结果零写。
+- [x] `/hr/rewards` HR 流程、团队安全摘要、本人已批准最小投影；金额/原因/附件原子字段权限。
+- [x] 幂等、悲观锁、并发审批、required audit、匿名安全 not-found 和数据库终态测试。
 
 ## Phase 5 — 玉舟兼容切片
 

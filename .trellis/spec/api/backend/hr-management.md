@@ -132,6 +132,26 @@ await auditService.recordOperationRequired(buildHrSensitiveReadAuditInput(input)
 return projectHrEmployeeDocument(fileEntity);
 ```
 
+## Scenario: Reward and discipline immutable approval evidence
+
+### 1. Scope / Trigger
+
+- Trigger: changes to reward/discipline categories, cases, approval actions, external links, or `hr_reward_evidence` files.
+
+### 2. Contracts
+
+- The state machine is exactly `draft -> submitted -> approved|returned|withdrawn`; only `returned -> submitted` may reopen review, while approved and withdrawn cases remain terminal.
+- Submission freezes the current category version and every active evidence file associated with the case in the same transaction. Submitted evidence cannot be deleted, reassigned, disabled, or soft-deleted through either the generic file API or direct database mutation.
+- `manage` does not imply access to detailed reason, amount, or evidence. Writes to those fields require the matching reason, amount, or document atom; protected file access additionally requires the base reward read/manage atom and generic file permission.
+- Team scope is resolved only through the actor's managed organization tree. Employee self-service returns only the employee's own approved minimum projection. Service direct calls without a matching scope fail closed.
+- Payroll links target an effective attendance payroll input item for the same employee and exact version. Performance links target a still-open performance plan for the same employee and exact version. A case has at most one immutable link per target type, and link creation never writes the target domain.
+- Required audit completes before every sensitive list/detail/file response, including authorized empty lists. Workflow Inbox messages contain only a generic task title and route, never reason, amount, evidence, or disciplinary detail.
+
+### 3. Tests Required
+
+- PostgreSQL-test concurrent approval and link creation, category/case/file inverse immutability, returned resubmission, self-review rejection, cross-tree denial, exact decimal string projection, audit failure, and zero employee/payroll/performance side effects.
+- Apply the migration from `template0`, replay it, rehearse the real predecessor upgrade, and run production seeds twice.
+
 ## Scenario: Payroll concurrency and accounting integrity
 
 ### 1. Scope / Trigger

@@ -176,7 +176,8 @@ export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
   apartment_approval: "pdf",
   apartment_fire_commitment: "pdf",
   apartment_move_in_handover: "general",
-  apartment_move_out_handover: "general"
+  apartment_move_out_handover: "general",
+  hr_reward_evidence: "receipt"
 };
 
 export function resolveFileUploadPolicy(policyKeyOrBizType?: string | null): FileUploadPolicy {

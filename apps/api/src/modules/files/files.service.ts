@@ -222,6 +222,7 @@ export class FilesService {
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.training_document",action:"读取培训附件列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
       return {...result,items:items.map(projectHrEmployeeDocumentFile)};
     }
+    if(query.biz_type==="hr_reward_evidence"&&query.biz_id){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.reward_document",action:"读取奖惩证据列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});return {...result,items:items.map(projectHrEmployeeDocumentFile)};}
     return result;
   }
 
@@ -258,6 +259,7 @@ export class FilesService {
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.training_document",action:"读取培训附件详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
       return projectHrEmployeeDocumentFile(file);
     }
+    if(file.bizType==="hr_reward_evidence"&&file.bizId){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.reward_document",action:"读取奖惩证据详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});return projectHrEmployeeDocumentFile(file);}
     return file;
   }
 
@@ -341,6 +343,7 @@ export class FilesService {
       await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.training_document",action:"下载培训附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
       return;
     }
+    if(file.bizType==="hr_reward_evidence"){await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.reward_document",action:"下载奖惩证据",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});return;}
     await this.auditService.recordOperation({
       tenantId: scope.tenantId,
       parkId: scope.parkId,
