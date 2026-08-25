@@ -435,3 +435,37 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 13: 路由治理真实 Chrome 验收闭环
+
+**Date**: 2026-08-25
+**Task**: 路由治理真实 Chrome 验收闭环
+**Package**: api
+**Branch**: `codex/main-post-route-governance-acceptance`
+
+### Summary
+
+本地隔离全栈与 Windows Chrome 验收完成；#344/#346/#359/#353/#350 通过，#355 不可达模块切换仍落 403；PR #371 合并，main CI 与 Deploy 双绿，环境 residual=0。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `60a3421e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

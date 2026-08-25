@@ -33,8 +33,8 @@ export function UserMenu({ compact = false }: UserMenuProps) {
     setMessage("");
     try {
       const nextUser = await switchParkContext(parkId);
-      actions?.publishUser(nextUser, { remountScopedPages: true });
       const nextPath = resolvePostParkSwitchPath(nextUser, pathname, user);
+      actions?.publishUser(nextUser, { remountScopedPages: true });
       if (nextPath === pathname) router.refresh();
       else router.replace(nextPath as Route);
     } catch (error) {

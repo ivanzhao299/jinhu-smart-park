@@ -24,3 +24,12 @@ export function dashboardRouteDenialHref(
 ): "/403" | "/403?reason=module" {
   return denial === "module" ? "/403?reason=module" : "/403";
 }
+
+export function resolveEffectiveDashboardRouteDenial(
+  denial: DashboardRouteDenial,
+  pathname: string,
+  parkSwitchSourcePath: string | null
+): DashboardRouteDenial {
+  if (denial && parkSwitchSourcePath === pathname) return null;
+  return denial;
+}

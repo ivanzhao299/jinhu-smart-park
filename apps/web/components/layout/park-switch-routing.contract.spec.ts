@@ -11,3 +11,11 @@ for (const component of ["UserMenu.tsx", "MobileTerminalHeader.tsx"]) {
     assert.match(source, /else router\.replace\(nextPath as Route\)/);
   });
 }
+
+test("DashboardLayout defers source-route denial while predicted park-switch navigation settles", () => {
+  const source = readFileSync("components/layout/DashboardLayout.tsx", "utf8");
+
+  assert.match(source, /setParkSwitchSourcePath\(pathname\)/);
+  assert.match(source, /resolveEffectiveDashboardRouteDenial\(/);
+  assert.match(source, /dashboardRouteDenialHref\(effectiveRouteDenial\)/);
+});

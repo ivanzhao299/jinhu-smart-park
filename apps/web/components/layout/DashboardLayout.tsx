@@ -6,7 +6,11 @@ import type { UserContext } from "@jinhu/shared";
 import { AuthSessionActionsContext, AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
 import { findMenusByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
-import { dashboardRouteDenialHref, resolveDashboardRouteDenial } from "../../lib/dashboard-route-access";
+import {
+  dashboardRouteDenialHref,
+  resolveDashboardRouteDenial,
+  resolveEffectiveDashboardRouteDenial
+} from "../../lib/dashboard-route-access";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
@@ -38,6 +42,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileNavigation, setMobileNavigation] = useState(false);
   const [scopedPageRevision, setScopedPageRevision] = useState(0);
+  const [parkSwitchSourcePath, setParkSwitchSourcePath] = useState<string | null>(null);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -111,10 +116,16 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     () => user ? resolveDashboardRouteDenial(user, requiredMenus) : null,
     [requiredMenus, user]
   );
+  const effectiveRouteDenial = resolveEffectiveDashboardRouteDenial(
+    routeDenial,
+    pathname,
+    parkSwitchSourcePath
+  );
   const publishUser = useCallback((nextUser: UserContext, options?: { remountScopedPages?: boolean }) => {
+    if (options?.remountScopedPages) setParkSwitchSourcePath(pathname);
     setUser(nextUser);
     if (options?.remountScopedPages) setScopedPageRevision((current) => current + 1);
-  }, []);
+  }, [pathname]);
   const sessionActions = useMemo(() => ({ publishUser }), [publishUser]);
 
   useEffect(() => {
@@ -122,13 +133,19 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   }, [mobileNavigation, pathname]);
 
   useEffect(() => {
+    if (parkSwitchSourcePath && (pathname !== parkSwitchSourcePath || !routeDenial)) {
+      setParkSwitchSourcePath(null);
+    }
+  }, [parkSwitchSourcePath, pathname, routeDenial]);
+
+  useEffect(() => {
     if (!ready || !user) {
       return;
     }
-    if (routeDenial) router.replace(dashboardRouteDenialHref(routeDenial));
-  }, [ready, routeDenial, router, user]);
+    if (effectiveRouteDenial) router.replace(dashboardRouteDenialHref(effectiveRouteDenial));
+  }, [effectiveRouteDenial, ready, router, user]);
 
-  if (!ready || !user || routeDenial) {
+  if (!ready || !user || effectiveRouteDenial) {
     return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
   }
 
