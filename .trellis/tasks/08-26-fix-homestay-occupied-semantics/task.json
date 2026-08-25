@@ -12,7 +12,7 @@
   "assignee": "emvia",
   "createdAt": "2026-08-26",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/fix-homestay-occupied-semantics",
   "base_branch": "codex/main-post-homestay-uat-20260825-212435",
   "worktree_path": null,
   "commit": null,
