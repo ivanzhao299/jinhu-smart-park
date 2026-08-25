@@ -19,9 +19,9 @@
 
 ## Actual Result
 
-- RUN_ID `20260825-212435`；业务 Case：PASS 7、FAIL 1、BLOCKED 17、GAP/BLOCKED 3；C-UX PARTIAL。
+- RUN_ID `20260825-212435`；Codex review 后业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 18、GAP/BLOCKED 2；C-UX PARTIAL。
 - 产品 FAIL：rate 空态 404 泄漏 Console；confirmed 被 dashboard/availability 当作已入住/occupied。
-- 清理门禁全部通过；任务因 FAIL/BLOCKED 保持 `in_progress`，不得归档。
+- 证据 FAIL：截图/evaluate 未持久化；原 PASS 全部撤销。清理门禁全部通过；任务因 FAIL/BLOCKED 保持 `in_progress`，不得归档。
 
 ## Validation And Gates
 

@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "UAT FAIL: 7 PASS / 1 FAIL / 17 BLOCKED / 3 GAP-BLOCKED; cleanup residual zero; keep in_progress.",
+  "notes": "UAT FAIL after review: 0 PASS / 3 FAIL / 5 PARTIAL / 18 BLOCKED / 2 GAP-BLOCKED; evidence not persisted; cleanup residual zero; keep in_progress.",
   "meta": {}
 }
