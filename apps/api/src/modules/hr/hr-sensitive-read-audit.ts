@@ -1,7 +1,7 @@
 import type { TenantParkScope } from "@jinhu/shared";
 import type { AuditService,RecordOperationInput } from "../audit/audit.service";
 
-export type HrSensitiveReadFieldGroup = "identity" | "contact" | "financial" | "compensation" | "attachment" | "employment_contract" | "attendance" | "insurance" | "payroll_input" | "reward_reason" | "work_content";
+export type HrSensitiveReadFieldGroup = "identity" | "contact" | "financial" | "compensation" | "attachment" | "employment_contract" | "attendance" | "insurance" | "payroll_input" | "reward_reason" | "work_content" | "feedback";
 
 export interface HrSensitiveReadActor {
   sub: string;

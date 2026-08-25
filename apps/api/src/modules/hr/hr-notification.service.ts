@@ -71,6 +71,16 @@ export class HrNotificationService {
     await this.publish(manager,{scope,actor,recipientId:employee.userId,sourceId:request.id,sourceType:"hr_attendance_request",bizType:"hr_attendance_request",targetUrl:"/hr/attendance",action:returned?"supplement":"approved",title:returned?`${this.attendanceTypeLabel(request.requestType)}申请已退回`:`${this.attendanceTypeLabel(request.requestType)}申请已批准`,content:returned?"考勤申请已退回，请确认审批意见后重新提交。":"考勤申请已批准。",payload:{requestType:request.requestType,status:request.status},uniqueKey:`hr:attendance-request:${request.id}:${request.status}:${employee.userId}`});
   }
 
+  async publishFeedback360Task(scope:TenantParkScope,actor:JwtPrincipal,input:{assignmentId:string;reviewerUserId:string},manager:EntityManager):Promise<void>{
+    if(input.reviewerUserId===actor.sub)return;
+    await this.publish(manager,{scope,actor,recipientId:input.reviewerUserId,sourceId:input.assignmentId,sourceType:"hr_feedback360_assignment",bizType:"hr_feedback360_assignment",targetUrl:"/hr/feedback-360",action:"respond",title:"待完成360评价",content:"您有一项360评价任务，请在截止日前完成。",payload:{status:"pending"},uniqueKey:`hr:feedback360:${input.assignmentId}:pending:${input.reviewerUserId}`});
+  }
+
+  async publishFeedback360Result(scope:TenantParkScope,actor:JwtPrincipal,input:{subjectId:string;subjectUserId:string},manager:EntityManager):Promise<void>{
+    if(input.subjectUserId===actor.sub)return;
+    await this.publish(manager,{scope,actor,recipientId:input.subjectUserId,sourceId:input.subjectId,sourceType:"hr_feedback360_subject",bizType:"hr_feedback360_subject",targetUrl:"/hr/feedback-360",action:"result",title:"360评价结果已发布",content:"您的360评价匿名聚合结果已发布。",payload:{status:"published"},uniqueKey:`hr:feedback360:${input.subjectId}:published:${input.subjectUserId}`});
+  }
+
   private async publish(
     manager: EntityManager,
     input: {
