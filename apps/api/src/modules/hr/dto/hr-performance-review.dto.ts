@@ -8,3 +8,9 @@ export class CreateHrPerformanceTemplateDto{@Transform(trim)@IsString()@MaxLengt
 export class CreateHrPerformanceReviewCycleDto{@Transform(trim)@IsString()@MaxLength(64)cycleCode!:string;@Transform(trim)@IsString()@MaxLength(120)cycleName!:string;@IsDateString()startDate!:string;@IsDateString()endDate!:string;@IsUUID()templateVersionId!:string;@IsArray()@ArrayMinSize(1)@ArrayMaxSize(200)@IsUUID("4",{each:true})applicableOrgIds!:string[];}
 export class PreviewHrPerformanceScoreDto{@IsUUID()templateVersionId!:string;@IsObject()dimensionScores!:Record<string,number>;}
 export class HrPerformanceCycleQueryDto{@IsOptional()@IsIn(["planning","self_review","manager_review","calibration","employee_acknowledged","appealed","confirmed"])status?:string;}
+export class HrPerformanceReviewQueryDto{@IsOptional()@IsUUID()cycleId?:string;@IsOptional()@IsIn(["self_review","manager_review","calibration","employee_acknowledged","appealed","confirmed"])status?:string;}
+export class SubmitHrPerformanceReviewDto{@IsObject()dimensionScores!:Record<string,number>;@IsOptional()@IsObject()dimensionComments?:Record<string,string>;}
+export class CreateHrPerformanceCalibrationBatchDto{@IsUUID()cycleId!:string;@Transform(trim)@IsString()@MaxLength(120)batchName!:string;@IsDateString()meetingAt!:string;@IsArray()@ArrayMinSize(1)@ArrayMaxSize(100)@IsUUID("4",{each:true})participantUserIds!:string[];}
+export class AddHrPerformanceCalibrationEntryDto{@IsUUID()cycleEmployeeId!:string;@IsObject()dimensionScores!:Record<string,number>;@Transform(trim)@IsString()@MaxLength(1000)reason!:string;}
+export class SubmitHrPerformanceAppealDto{@Transform(trim)@IsString()@MaxLength(2000)reason!:string;}
+export class ResolveHrPerformanceAppealDto{@IsIn(["upheld","rejected"])decision!:"upheld"|"rejected";@Transform(trim)@IsString()@MaxLength(2000)reason!:string;@IsOptional()@IsObject()dimensionScores?:Record<string,number>;}

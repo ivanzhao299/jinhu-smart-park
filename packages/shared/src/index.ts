@@ -1475,6 +1475,7 @@ export const SYSTEM_PERMISSION_SEEDS: PermissionSeed[] = [
   { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_CALIBRATE, name: "绩效校准确认", resource: "hr.performance", action: "calibrate" },
   { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_ACKNOWLEDGE, name: "签收绩效结果", resource: "hr.performance", action: "acknowledge" },
   { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_APPEAL, name: "申诉绩效结果", resource: "hr.performance", action: "appeal" },
+  { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_APPEAL_REVIEW, name: "处理绩效申诉", resource: "hr.performance", action: "appeal_review" },
   { code: SYSTEM_PERMISSIONS.HR_PERFORMANCE_RESULT_READ, name: "读取绩效结果", resource: "hr.performance", action: "result_read" },
   { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_MANAGE, name: "管理360评价", resource: "hr.feedback", action: "manage" },
   { code: SYSTEM_PERMISSIONS.HR_FEEDBACK_RESPOND, name: "提交360评价", resource: "hr.feedback", action: "respond" },
