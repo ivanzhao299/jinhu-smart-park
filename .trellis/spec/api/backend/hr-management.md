@@ -400,3 +400,253 @@ CREATE INDEX ON hr_employee_insurance_item(period_id) WHERE is_deleted=false;
 CREATE INDEX ON hr_employee_insurance_item(period_id);
 -- Keep a separate partial business index only when query access also benefits from it.
 ```
+
+## Scenario: Historical attendance and insurance read productization
+
+### 1. Scope / Trigger
+
+- Trigger: exposing `hr_attendance_calendar_source/hr_attendance_day` or `hr_employee_insurance_period/item` through `/hr/*` APIs and workbenches.
+- Historical attendance calendars are templates without employee ownership. They are not employee punch, schedule, or daily-result facts.
+
+### 2. Signatures
+
+- `GET /hr/attendance/calendars?page&page_size&year&month`.
+- `GET /hr/insurance/periods?page&page_size&keyword&year&month&needs_review`.
+- `GET /hr/insurance/periods/me` and `GET /hr/insurance/periods/:id`.
+- Backend scope resolves to `park | managed_org_tree | self | none` from exact attendance or insurance permissions.
+
+### 3. Contracts
+
+- Never attach an employee ID to a migrated calendar template or describe its dates as actual employee attendance.
+- Insurance scope is enforced by tenant, park, and server-resolved employee IDs. A client employee, keyword, year, month, or review filter may only narrow the result.
+- `park` may receive employer amounts and item detail; `managed_org_tree` receives employee identity, compliance status, and personal totals without item detail; `self` receives own personal item detail without employee identity or employer amounts.
+- Every response is an explicit allowlist projection. Never return source snapshots, legacy IDs, tenant/park, actor fields, remarks, soft-delete, or version columns.
+- Attendance and insurance reads use required audit before returning the response. An authorized empty result is still a sensitive read and must be audited; only a true `none` scope may return the fail-closed empty page without recording a successful read.
+- A `forceSelf` service option does not create authority. Direct service calls still require the exact self-read permission, superuser, or wildcard authority.
+
+### 4. Validation & Error Matrix
+
+- no relevant read permission -> `none`; list returns an empty page and detail returns safe not-found.
+- team permission with an empty managed organization tree -> required audit, then an empty page.
+- self route without self-read permission, even when the service is called directly -> empty page.
+- foreign tenant/park, sibling organization, or another employee -> safe not-found/empty without target disclosure.
+- required-audit persistence failure -> fail before returning data or an authorized empty result.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR sees a scoped monthly insurance ledger with employer totals; the employee sees only personal items for the same period.
+- Base: an `N1` calendar symbol is displayed as an unresolved historical template symbol and remains `needs_review`.
+- Bad: label a template day as an employee absence, let `forceSelf=true` bypass permissions, or skip audit because the authorized query returned zero rows.
+
+### 6. Tests Required
+
+- Unit-test `park`, recursive team, `self`, and `none`, including direct service invocation and an employee without a linked account.
+- Assert exact response keys for HR, team, and self projections and the absence of employer/item/internal fields at lower scopes.
+- Assert audit failure blocks non-empty and authorized-empty responses.
+- Contract-test exact controller metadata, production role seed, menu/page guards, and absence of historical write routes.
+- Re-run the Yuzhou T3 total-accounting contract, production seed replay, Web/API checks, and desktop/390px browser verification.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const access = forceSelf ? "self" : resolveHrInsuranceAccessScope(actor);
+if (employeeIds.length === 0) return emptyPage; // bypasses both permission and required audit
+```
+
+#### Correct
+
+```ts
+const access = forceSelf && canReadSelf(actor) ? "self" : resolveHrInsuranceAccessScope(actor);
+if (access === "none") return emptyPage;
+await recordHrSensitiveRead(auditService, scope, actor, authorizedEmptyAudit);
+return emptyPage;
+```
+
+## Scenario: Governed online attendance requests
+
+### 1. Scope / Trigger
+
+- Trigger: creating, submitting, cancelling, reviewing, listing, or notifying for leave, overtime, business-trip, and attendance-correction requests.
+- This workflow creates online business records only. It never rewrites Yuzhou historical calendar templates or imported attendance evidence.
+
+### 2. Signatures
+
+- `GET /hr/attendance/requests` requires an exact park, managed-team, or self attendance read permission.
+- `POST /hr/attendance/requests`, `/:id/submit`, and `/:id/cancel` require `hr:attendance:request`.
+- `POST /hr/attendance/requests/:id/approve` and `/:id/reject` require `hr:attendance:approve`.
+- Every write route uses replay-aware idempotency and body-free audit metadata.
+
+### 3. Contracts
+
+- The employee identity is resolved from the authenticated user and tenant/park scope; a client never chooses the employee for a self-service request.
+- Timed requests require explicit timezone offsets, positive whole-minute boundaries, and a maximum duration of 31 days. The service computes `duration_minutes`; PostgreSQL independently enforces duration, minute precision, and request-type shape.
+- State transitions are `draft -> submitted`, `returned -> submitted`, `submitted -> approved|returned`, and `draft|submitted|returned -> cancelled`. Approved, cancelled, and other terminal records are immutable.
+- Reviewers cannot review their own request. Team review uses the server-resolved recursive managed organization tree; HR review remains tenant-and-park bounded.
+- The employee row is pessimistically locked before overlap checks so concurrent submit or approval decisions for one employee serialize. Submitted and approved requests participate in overlap detection.
+- The attendance request, approval projection, approval action, and user message are written through the same transaction manager. Notification failure rolls back the business transition.
+- Notifications may identify the request type and workflow state but never copy the reason, medical details, or review comment into message content or payload.
+
+### 4. Validation & Error Matrix
+
+- missing linked employee, foreign tenant/park, or unmanaged employee -> safe not-found without target disclosure.
+- self approval -> forbidden; invalid or terminal transition -> conflict; return without actionable comment -> bad request.
+- missing timezone, seconds/milliseconds, non-positive interval, duration over 31 days, or wrong correction shape -> bad request before persistence and database rejection if the service is bypassed.
+- submitted/approved overlap -> conflict; unique-index race -> translated conflict rather than a raw database error.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an employee submits leave, the direct manager approves it, and the request, action history, approval projection, and privacy-safe inbox message commit together.
+- Base: a returned correction request is edited outside this slice only after an explicit edit contract exists; with the current API it may only be resubmitted unchanged or cancelled.
+- Bad: accept a client employee ID, let a manager approve a sibling department, capture the reason in generic audit metadata, or publish a message after the transaction commits.
+
+### 6. Tests Required
+
+- Unit-test every state transition, self/team/park/none scope, self-approval denial, team-tree escape, time validation, projection allowlists, required audit, and notification privacy.
+- Contract-test exact action permissions, idempotency interceptors, body-free audit, production seed role grants, and Web request guards.
+- In isolated PostgreSQL apply and replay the migration and production seed, prove the constraints reject second-level and over-31-day rows, and exercise a two-connection same-employee overlap race.
+- Run focused API/Web tests, the Yuzhou T3 compatibility contract, full lint/type-check/build, and desktop plus 390px role UAT when browser viewport control is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await requestRepo.save({ ...dto, employeeId: dto.employeeId, durationMinutes: dto.durationMinutes });
+await notifyManager(dto.reason);
+```
+
+#### Correct
+
+```ts
+await dataSource.transaction(async manager => {
+  const employee = await lockActorEmployee(manager, scope, actor.sub);
+  const timing = validateAndCalculateServerTiming(dto);
+  await assertNoSubmittedOrApprovedOverlap(manager, scope, employee.id, timing);
+await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
+});
+```
+
+## Scenario: Versioned attendance calculation core
+
+### 1. Scope / Trigger
+
+- Trigger: defining shifts, assigning schedules, ingesting punch events, recalculating employee business days, or reading daily attendance results.
+- `hr_attendance_day` remains a migrated calendar template and is never joined as employee attendance truth or mutated by calculation.
+
+### 2. Signatures
+
+- HR operation writes require the exact `hr:attendance:operate` permission, replay-aware idempotency, and body-free audit.
+- Daily-result reads resolve only to `park | managed_org_tree | self | none` from exact attendance permissions and require audit before response.
+- Punch event identity is `(tenant_id, park_id, source, event_key)`; replay succeeds only when employee, occurred time, event type, source, and device identity match.
+
+### 3. Contracts
+
+- Shift and schedule semantics use the `Asia/Shanghai` local business date. Cross-midnight shifts retain the scheduled start date and an explicit punch window.
+- Raw punch events are immutable facts. A reused identity with different content is a conflict, while identical replay returns the original event.
+- Every recalculation appends a new immutable calculation version and daily-result row. It never updates or deletes an earlier result.
+- Recalculation takes an employee write lock so concurrent calculations serialize and receive distinct versions. Reads select the latest version per employee and business date with deterministic ordering.
+- Results retain source event IDs, schedule/shift identity, rule/calculation version, calculation window, and any approved correction request ID. A correction is evidence for a new version, not an edit to an old result.
+- Response projections exclude device payloads, source internals, tenant/park, audit actors, soft-delete, version-control internals, and legacy source snapshots.
+
+### 4. Validation & Error Matrix
+
+- missing employee, schedule, shift, or foreign scope -> safe not-found; unmanaged team target -> safe not-found.
+- duplicate event identity with changed payload -> conflict; identical replay -> original record without duplicate insertion.
+- invalid local date/time, inverted window, or unsupported event type -> bad request/database rejection.
+- required-audit failure -> no daily result response, including an authorized empty team result.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an overnight shift starting at 22:00 remains on its scheduled business date, consumes the bounded next-day punch window, and produces a traceable new version.
+- Base: a rest day with no events produces an explicit rest classification rather than a fabricated work record.
+- Bad: overwrite yesterday's result during recalculation, deduplicate only by a device key without source, or derive employee facts from `hr_attendance_day`.
+
+### 6. Tests Required
+
+- PostgreSQL-test fresh/upgrade/replay constraints, exact event replay, changed-payload conflict, same key across sources, cross-night windows, approved correction trace, concurrent version allocation, latest-only projection, and zero historical-template writes.
+- Unit-test local business-date calculations, exception classifications, self/team/park/none access, required audit, and exact projections.
+- Contract-test atomic permissions, production seed grants, Web pre-request guards, mobile records, and all write-route idempotency/audit metadata.
+- Run T3 compatibility, focused API/Web, full lint/type-check/build, and desktop/390px UAT when viewport control is available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await dailyResultRepo.update({ employeeId, attendanceDate }, nextResult);
+```
+
+#### Correct
+
+```ts
+await dataSource.transaction(async manager => {
+  await lockEmployee(manager, scope, employeeId);
+  const nextVersion = await allocateCalculationVersion(manager, scope, employeeId, businessDate);
+await appendDailyResult(manager, nextVersion, immutableTrace);
+});
+```
+
+## Scenario: Attendance month close and payroll input snapshots
+
+### 1. Scope / Trigger
+
+- Trigger: opening, calculating, reviewing, closing, recovering, or correcting a monthly attendance period, or reading its payroll-input snapshot.
+- This boundary produces attendance inputs only. It never starts a payroll run, pays wages, edits `hr_payslip`, or mutates Yuzhou historical attendance templates.
+
+### 2. Signatures
+
+- Period operation requires `hr:attendance:operate`; final close and post-close correction require `hr:attendance:close`.
+- Payroll input reads require the exact high-sensitivity `hr:attendance:payroll_input_read` permission and required audit.
+- Period and employee-summary reads continue to resolve server-side `park | managed_org_tree | self | none` attendance scope.
+
+### 3. Contracts
+
+- Period flow is `open -> calculating -> review -> closed`; calculation failure is persisted as `failed` with a standardized code and may be retried after the cause is repaired.
+- Monthly aggregation selects exactly the latest immutable daily result per employee and business date using a deterministic tie-breaker. Summary trace freezes every daily-result ID and calculation-version ID used.
+- A period with no employee attendance facts fails calculation; it never enters an empty review state that cannot be safely closed.
+- Close takes pessimistic locks and creates an immutable effective payroll-input batch and items. Concurrent close attempts produce exactly one effective batch.
+- A post-close correction appends new summary versions and a new payroll-input batch, then supersedes the prior effective batch in the same transaction. Old summaries and input items never change.
+- Close batches cannot reference a correction or reason. Correction batches must reference the superseded batch and contain a nonblank reason; PostgreSQL enforces this shape.
+- `changedEmployeeCount` counts only employees with a nonzero difference in at least one payroll-input metric. A zero-difference correction remains traceable but reports zero changed employees.
+- Payroll consumers may read only the latest effective batch of a closed period. Public projections exclude reasons, source traces, tenant/park, audit fields, and internal version controls.
+
+### 4. Validation & Error Matrix
+
+- calculate outside `open|failed`, close outside `review`, or correct outside `closed` -> conflict.
+- missing latest daily facts -> persisted `failed`; after facts are appended, retry may produce `review`.
+- period/active-batch race or duplicate version -> conflict with full transaction rollback.
+- no exact payroll-input permission or required-audit failure -> no sensitive snapshot response.
+- any attempt to update prior summary/input rows or touch payroll run, payslip, or historical template tables -> release-blocking failure.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR calculates from latest daily versions, reviews, closes once, and payroll reads one immutable effective input batch with full private trace retained server-side.
+- Base: a correction whose recalculated values are identical creates a new traceable version with `changedEmployeeCount=0`.
+- Bad: sum every historical daily recalculation, overwrite batch 1 during correction, expose the correction reason to payroll readers, or treat closing attendance as salary payment.
+
+### 6. Tests Required
+
+- PostgreSQL-test full migration and raw replay, seed replay, latest-daily aggregation, failed recovery, concurrent close, batch shape constraints, correction versions, zero-difference count, unique effective batch, and immutable old rows.
+- Assert zero writes to `hr_attendance_day`, `hr_payslip`, and `hr_payroll_run`.
+- Unit-test status transitions, self/team/park/none scopes, exact high-sensitive projection, and required-audit failure.
+- Contract-test exact route permissions, idempotency, body-free audit, minimal role grants, Web pre-request guards, and mobile records; run full lint/type-check/build and browser UAT when available.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+SELECT * FROM hr_attendance_daily_result WHERE work_date BETWEEN :start AND :end;
+-- This includes every historical recalculation version.
+```
+
+#### Correct
+
+```sql
+SELECT DISTINCT ON (employee_id, work_date) *
+FROM hr_attendance_daily_result
+WHERE work_date BETWEEN :start AND :end AND is_deleted=false
+ORDER BY employee_id, work_date, create_time DESC, id DESC;
+```

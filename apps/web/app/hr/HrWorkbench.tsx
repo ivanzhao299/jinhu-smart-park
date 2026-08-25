@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { BadgeDollarSign, ClipboardCheck, FileClock, Network, RefreshCw, Target, UsersRound } from "lucide-react";
+import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, Network, RefreshCw, ShieldCheck, Target, UserRoundSearch, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { employees: MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
-const EMPTY: Snapshot = { employees: null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+interface Snapshot { recruitment:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
+const EMPTY: Snapshot = { recruitment:null, employees: null, contracts:null, attendance:null, insurance:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -43,6 +43,16 @@ export function HrWorkbench() {
         ? hrApi.me(token).then((employee) => ({ value: employee.employmentStatus === "departed" ? 0 : 1, detail: "本人任职档案" }))
         : hrApi.employees(token).then((result) => ({ value: result.total, detail: `当前页展示 ${result.items.length} 份档案` }));
       add("employees", source);
+    }
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_REQUISITION_READ,HR_PERMISSIONS.HR_REQUISITION_TEAM_READ]))add("recruitment",hrApi.recruitmentRequisitions(token,1,1,{status:"open"}).then(result=>({value:result.total,detail:"开放中的招聘需求"})));
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])){
+      const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_CONTRACT_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ]);
+      add("contracts",hrApi.contracts(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见劳动合同"})));
+    }
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_ATTENDANCE_READ,HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ,HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ]))add("attendance",hrApi.attendanceCalendars(token,1,1).then(result=>({value:result.total,detail:"旧系统历史月历模板"})));
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ])){
+      const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_INSURANCE_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ]);
+      add("insurance",hrApi.insurancePeriods(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见月度社保记录"})));
     }
     if (hasAnyPermission(user, [HR_PERMISSIONS.HR_GOAL_READ, HR_PERMISSIONS.HR_GOAL_SELF_READ])) {
       add("goals", hrApi.goals(!hasPermission(user, HR_PERMISSIONS.HR_GOAL_READ), token).then((goals) => ({ value: goals.filter((item) => isOpen(item.status)).length, detail: `共 ${goals.length} 项可见目标` })));
@@ -75,7 +85,11 @@ export function HrWorkbench() {
 
   useEffect(() => { void load(); }, [load]);
   const cards = useMemo(() => [
+    { key: "recruitment", title: "招聘管理", href: "/hr/recruitment", icon: UserRoundSearch },
     { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
+    { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
+    { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays },
+    { key: "insurance", title: "五险一金", href: "/hr/insurance", icon: ShieldCheck },
     { key: "goals", title: "进行中目标", href: "/hr/goals", icon: Target },
     { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
     { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },

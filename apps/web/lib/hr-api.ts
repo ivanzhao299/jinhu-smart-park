@@ -1,5 +1,5 @@
 import type { PaginatedResult } from "@jinhu/shared";
-import { apiRequest } from "./api-client";
+import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrPosition {id:string;orgId:string;positionCode:string;positionName:string;jobFamily:string|null;jobLevel:string|null;headcountLimit:number|null;status:string;}
 export interface HrEmploymentEvent {id:string;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
@@ -16,10 +16,115 @@ export interface HrCompensationPlan {id:string;planCode:string;planName:string;e
 export interface HrPayrollPeriod {id:string;periodMonth:string;startDate:string;endDate:string;status:string;}
 export interface HrPayrollRun {id:string;periodId:string;runNo:number;correctionOfRunId:string|null;status:string;employeeCount:number;grossTotal:string;deductionTotal:string;netTotal:string;}
 export interface HrPayslip {id:string;runId:string;employeeId:string;grossAmount:string;deductionAmount:string;personalTax:string;netAmount:string;status:string;createTime:string;}
+export interface HrPayrollHistoryRow {id:string;periodMonth:string;legacyScheme:string;bookName:string|null;employeeCode?:string;employeeName?:string;grossAmount:string|null;deductionAmount:string|null;taxAmount:string|null;netAmount:string|null;publicationStatus:string;}
+export interface HrPayrollHistoryItem {id:string;itemCode:string|null;displayName:string|null;valueType:"decimal"|"text"|"date"|string;isSourceNull:boolean;decimalValue:string|null;textValue:string|null;dateValue:string|null;sortNo:number;}
+export interface HrPayrollBook {id:string;legacyScheme:string;bookName:string|null;status:string;}
+export interface HrPayrollCatalogItem {id:string;bookId:string;itemCode:string;displayName:string;valueType:string;itemCategory:string;decimalScale:number;sortNo:number;taxable:boolean;printEnabled:boolean;enabled:boolean;}
+export interface HrPayrollFormula {id:string;bookId:string;legacyScheme:string;itemName:string|null;parseStatus:"parsed"|"manual_review"|"rejected"|"approved_for_simulation";dependencyCodes:string[];calculationOrder:number;reviewedAt:string|null;reviewReason:string|null;}
+export interface HrPayrollReviewAction {id:string;reviewCaseId?:string;sequenceNo:number;action:"comment"|"resolve"|"reject";decision:"needs_follow_up"|"accepted_exception"|"mapping_confirmed"|"unsafe_rejected";comment:string;createdAt:string;}
+export interface HrPayrollReviewCase {id:string;caseType:string;evidenceSummary:Record<string,unknown>;sourceStatus:string;createdAt:string;actionCount?:number;latestSequence?:number|null;actions?:HrPayrollReviewAction[];}
+export interface HrPayrollReconciliationDifference {
+  id: string;
+  resultId: string;
+  itemName: string;
+  oldAmount: string;
+  newAmount: string;
+  deltaAmount: string;
+  toleranceAmount: string;
+  reviewStatus: string;
+}
+export interface HrPayrollReconciliationResult {
+  resultId: string;
+  employeeCode: string;
+  employeeName: string;
+  oldTotal: string;
+  newTotal: string;
+  deltaTotal: string;
+  reviewStatus: string;
+  differences: HrPayrollReconciliationDifference[];
+}
+export interface HrPayrollReconciliation {
+  id: string;
+  status: string;
+  toleranceAmount: string;
+  employeeCount: number;
+  differenceCount: number;
+  engineVersion: string;
+  createdAt: string;
+  legacyBatchCode?: string;
+  attendanceBatchNo?: number;
+  results?: HrPayrollReconciliationResult[];
+  resultPage?: number;
+  resultPageSize?: number;
+  resultTotal?: number;
+}
+export interface HrPayrollReconciliationSetup {
+  books: Array<{
+    id: string;
+    bookName: string;
+    legacyScheme: string;
+    policyVersionId: string | null;
+    netItemVersionId: string | null;
+    netItemName: string | null;
+    toleranceAmount: string | null;
+    policyVersion: number | null;
+  }>;
+  netItems: Array<{
+    bookId: string;
+    id: string;
+    displayName: string;
+    itemCode: string;
+    versionNo: number;
+  }>;
+  legacyBatches: Array<{
+    id: string;
+    batchCode: string;
+    sourceRowCount: number;
+    publishedAt: string;
+  }>;
+  attendanceBatches: Array<{
+    id: string;
+    batchNo: number;
+    periodMonth: string;
+    batchType: string;
+  }>;
+}
+export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bookId?:string;employeeId?:string;}
+export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
+export interface HrContract {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContractChange {id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContractDetail extends HrContract {changes:HrContractChange[];}
+export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
+export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
+export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
+export interface HrAttendanceRequest {id:string;requestNo:string;requestType:string;startAt:string|null;endAt:string|null;attendanceDate:string|null;durationMinutes:number;reason:string;status:string;submittedAt:string|null;reviewedAt:string|null;reviewComment:string|null;isSelf:boolean;employeeId?:string;employeeCode?:string;employeeName?:string;}
+export interface HrAttendanceShift {id:string;shiftCode:string;shiftName:string;startLocal:string;endLocal:string;crossesMidnight:boolean;lateGraceMinutes:number;earlyGraceMinutes:number;ruleVersion:string;status:string;}
+export interface HrAttendanceDailyResult {id:string;workDate:string;firstInAt:string|null;lastOutAt:string|null;workedMinutes:number;lateMinutes:number;earlyMinutes:number;resultStatus:string;anomalyCodes:string[];corrected:boolean;calculationVersionId:string;isSelf:boolean;employeeId?:string;employeeCode?:string;employeeName?:string;}
+export interface HrAttendancePeriod {id:string;periodMonth:string;status:string;activeVersion:number;calculationStartedAt:string|null;calculationCompletedAt:string|null;failureCode:string|null;closedAt:string|null;}
+export interface HrAttendanceMonthSummary {id:string;summaryVersion:number;scheduledDays:number;normalDays:number;workedMinutes:number;lateMinutes:number;earlyMinutes:number;absenceDays:number;missingPunchDays:number;employeeId?:string;employeeCode?:string;employeeName?:string;}
+export interface HrAttendancePayrollInput {periodId:string;periodMonth:string;batchId:string;batchNo:number;batchType:string;summaryVersion:number;items:Array<{id:string;employeeId:string;employeeCode:string;employeeName:string;workedMinutes:number;lateMinutes:number;earlyMinutes:number;absenceDays:number;missingPunchDays:number}>;}
+export interface HrAttendancePayrollVersion {id:string;batchNo:number;batchType:string;status:string;summaryVersion:number;employeeCount:number;changedEmployeeCount:number;createdAt:string;}
+export interface HrInsuranceItem {insuranceKind:string;contributionBase:string|null;employeeAmount:string|null;supplementAmount:string|null;legacyBaseNegative:boolean;employerAmount?:string|null;totalAmount?:string|null;}
+export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount:string;supplementAmount:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
+export interface HrEmployeeListFilters {keyword?:string;status?:string;}
+export interface HrRequisition {id:string;requisitionCode:string;title:string;orgId:string;orgName:string;positionId:string|null;positionName:string|null;headcount:number;hiredCount:number;ownerUserId:string;ownerName:string|null;plannedOnboardDate:string|null;status:string;}
+export interface HrCandidate {id:string;candidateNo:string;fullName:string;requisitionId:string;requisitionTitle:string;stage:string;source:string|null;expectedOnboardDate:string|null;latestEvaluation:string|null;mobileMasked:string|null;emailMasked:string|null;identityMasked:string|null;convertedEmployeeId:string|null;}
+export interface HrCandidateSensitiveDetail {id:string;candidateNo:string;fullName:string;requisitionId:string;requisitionTitle:string;stage:string;source:string|null;expectedOnboardDate:string|null;latestEvaluation:string|null;mobile:string|null;email:string|null;identityNumber:string|null;convertedEmployeeId:string|null;}
+export interface HrContractListFilters {keyword?:string;status?:string;expiryFrom?:string;expiryTo?:string;}
+export interface HrAttendanceFilters {year?:number;month?:number;}
+export interface HrAttendanceRequestFilters {type?:string;status?:string;}
+export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
- employees:(token?:string,page=1,pageSize=100)=>unwrap(apiRequest<PaginatedResult<HrEmployee>>(`/hr/employees?page=${page}&page_size=${pageSize}`,{token})),
+ recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},
+ createRecruitmentRequisition:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-requisition-create"))=>unwrap(apiRequest<HrRequisition>("/hr/recruitment/requisitions",{method:"POST",body,token,idempotencyKey})),
+ recruitmentCandidates:(token?:string,page=1,pageSize=50,filters:{keyword?:string;stage?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.stage)q.set("stage",filters.stage);return unwrap(apiRequest<PaginatedResult<HrCandidate>>(`/hr/recruitment/candidates?${q}`,{token,signal}));},
+ recruitmentCandidateDetail:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrCandidateSensitiveDetail>(`/hr/recruitment/candidates/${id}`,{token,signal})),
+ createRecruitmentCandidate:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-create"))=>unwrap(apiRequest<HrCandidate>("/hr/recruitment/candidates",{method:"POST",body,token,idempotencyKey})),
+ moveRecruitmentCandidate:(id:string,body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-stage"))=>unwrap(apiRequest<{id:string;fromStage:string;toStage:string}>(`/hr/recruitment/candidates/${id}/stage-actions`,{method:"POST",body,token,idempotencyKey})),
+ convertRecruitmentCandidate:(id:string,body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-candidate-convert"))=>unwrap(apiRequest<{candidateId:string;employeeId:string;employeeStatus:string;checklistId:string;loginCreated:boolean}>(`/hr/recruitment/candidates/${id}/convert`,{method:"POST",body,token,idempotencyKey})),
+ employees:(token?:string,page=1,pageSize=100,filters:HrEmployeeListFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrEmployee>>(`/hr/employees?${query.toString()}`,{token}));},
  me:(token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees/me",{token,skipUnauthorizedReset:true})),
  createEmployee:(body:object,token?:string)=>unwrap(apiRequest<HrEmployee>("/hr/employees",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),
  employee:(id:string,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}`,{token})),
@@ -30,6 +135,35 @@ export const hrApi={
  transition:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}/transitions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),
  positions:(token?:string)=>unwrap(apiRequest<HrPosition[]>("/hr/positions",{token})),
  createPosition:(body:object,token?:string)=>unwrap(apiRequest<HrPosition>("/hr/positions",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,contracts:(token?:string,page=1,pageSize=20,filters:HrContractListFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);if(filters.expiryFrom)query.set("expiry_from",filters.expiryFrom);if(filters.expiryTo)query.set("expiry_to",filters.expiryTo);return unwrap(apiRequest<PaginatedResult<HrContract>>(`/hr/contracts${selfOnly?"/me":""}?${query.toString()}`,{token}));}
+ ,contract:(id:string,token?:string)=>unwrap(apiRequest<HrContractDetail>(`/hr/contracts/${id}`,{token}))
+ ,contractTypes:(token?:string)=>unwrap(apiRequest<HrContractType[]>("/hr/contract-types",{token}))
+ ,createContract:(body:object,token?:string)=>unwrap(apiRequest<HrContract>("/hr/contracts",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,contractAction:(id:string,action:"activate"|"cancel",token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
+ ,createContractChange:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${id}/changes`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,contractChangeAction:(contractId:string,changeId:string,action:"apply"|"cancel",token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${contractId}/changes/${changeId}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
+ ,attendanceCalendars:(token?:string,page=1,pageSize=20,filters:HrAttendanceFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));return unwrap(apiRequest<PaginatedResult<HrAttendanceCalendar>>(`/hr/attendance/calendars?${query.toString()}`,{token}));}
+ ,attendanceRequests:(token?:string,page=1,pageSize=30,filters:HrAttendanceRequestFilters={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.type)query.set("type",filters.type);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrAttendanceRequest>>(`/hr/attendance/requests?${query.toString()}`,{token}));}
+ ,createAttendanceRequest:(body:object,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>("/hr/attendance/requests",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,submitAttendanceRequest:(id:string,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/submit`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,cancelAttendanceRequest:(id:string,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/cancel`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,reviewAttendanceRequest:(id:string,decision:"approve"|"reject",comment:string|undefined,token?:string)=>unwrap(apiRequest<HrAttendanceRequest>(`/hr/attendance/requests/${id}/${decision}`,{method:"POST",body:comment?{comment}:{},token,idempotencyKey:crypto.randomUUID()}))
+ ,attendanceShifts:(token?:string)=>unwrap(apiRequest<HrAttendanceShift[]>("/hr/attendance/shifts",{token}))
+ ,createAttendanceShift:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/attendance/shifts",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,createAttendanceSchedule:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/attendance/schedules",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,createAttendancePunch:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/attendance/punch-events",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,attendanceDaily:(token?:string,page=1,pageSize=31,filters:{from?:string;to?:string;status?:string}={})=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.from)query.set("from",filters.from);if(filters.to)query.set("to",filters.to);if(filters.status)query.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrAttendanceDailyResult>>(`/hr/attendance/daily-results?${query.toString()}`,{token}));}
+ ,recalculateAttendance:(body:object,token?:string)=>unwrap(apiRequest<HrAttendanceDailyResult>("/hr/attendance/daily-results/recalculate",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,attendancePeriods:(token?:string,page=1,pageSize=24,status?:string)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)query.set("status",status);return unwrap(apiRequest<PaginatedResult<HrAttendancePeriod>>(`/hr/attendance/periods?${query.toString()}`,{token}));}
+ ,createAttendancePeriod:(periodMonth:string,token?:string)=>unwrap(apiRequest<HrAttendancePeriod>("/hr/attendance/periods",{method:"POST",body:{periodMonth},token,idempotencyKey:crypto.randomUUID()}))
+ ,calculateAttendancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePeriod>(`/hr/attendance/periods/${id}/calculate`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,closeAttendancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePeriod>(`/hr/attendance/periods/${id}/close`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
+ ,correctAttendancePeriod:(id:string,reason:string,token?:string)=>unwrap(apiRequest<{id:string;batchNo:number}>(`/hr/attendance/periods/${id}/corrections`,{method:"POST",body:{reason},token,idempotencyKey:crypto.randomUUID()}))
+ ,attendanceMonthSummaries:(id:string,token?:string)=>unwrap(apiRequest<PaginatedResult<HrAttendanceMonthSummary>>(`/hr/attendance/periods/${id}/summaries?page=1&page_size=100`,{token}))
+ ,payrollAttendanceInputs:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePayrollInput>(`/hr/attendance/periods/${id}/payroll-inputs`,{token}))
+ ,attendancePayrollVersions:(id:string,token?:string)=>unwrap(apiRequest<HrAttendancePayrollVersion[]>(`/hr/attendance/periods/${id}/payroll-input-versions`,{token}))
+ ,insurancePeriods:(token?:string,page=1,pageSize=20,filters:HrInsuranceFilters={},selfOnly=false)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.year)query.set("year",String(filters.year));if(filters.month)query.set("month",String(filters.month));if(filters.needsReview!==undefined)query.set("needs_review",String(filters.needsReview));return unwrap(apiRequest<PaginatedResult<HrInsurancePeriod>>(`/hr/insurance/periods${selfOnly?"/me":""}?${query.toString()}`,{token}));}
+ ,insurancePeriod:(id:string,token?:string)=>unwrap(apiRequest<HrInsurancePeriod>(`/hr/insurance/periods/${id}`,{token}))
  ,goalCycles:(token?:string)=>unwrap(apiRequest<HrGoalCycle[]>("/hr/goal-cycles",{token}))
  ,createGoalCycle:(body:object,token?:string)=>unwrap(apiRequest<HrGoalCycle>("/hr/goal-cycles",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,goals:(selfOnly:boolean,token?:string)=>unwrap(apiRequest<HrGoal[]>(selfOnly?"/hr/goals/me":"/hr/goals",{token}))
@@ -65,6 +199,106 @@ export const hrApi={
  ,reviewPayrollRun:(id:string,token?:string)=>unwrap(apiRequest<HrPayrollRun>(`/hr/payroll/runs/${id}/review`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
  ,confirmPayrollRun:(id:string,token?:string)=>unwrap(apiRequest<HrPayrollRun>(`/hr/payroll/runs/${id}/confirm`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))
  ,myPayslips:(token?:string)=>unwrap(apiRequest<HrPayslip[]>("/hr/payslips/me",{token}))
+ ,payrollHistory:(token?:string,page=1,pageSize=20,filters:HrPayrollHistoryFilters={},signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.periodFrom)query.set("period_from",`${filters.periodFrom}-01`);if(filters.periodTo)query.set("period_to",`${filters.periodTo}-01`);if(filters.bookId)query.set("book_id",filters.bookId);if(filters.employeeId)query.set("employee_id",filters.employeeId);return unwrap(apiRequest<PaginatedResult<HrPayrollHistoryRow>>(`/hr/payroll/history?${query.toString()}`,{token,signal}));}
+ ,payrollHistoryDetail:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollHistoryRow>(`/hr/payroll/history/${id}`,{token,signal}))
+ ,payrollHistoryItems:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollHistoryItem[]>(`/hr/payroll/history/${id}/items`,{token,signal}))
+ ,payrollHistoryTeamSummary:(token?:string,page=1,pageSize=20,signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<Record<string,never>>>(`/hr/payroll/history/team-summary?page=${page}&page_size=${pageSize}`,{token,signal}))
+ ,payrollHistoryBooks:(token?:string,page=1,pageSize=50,signal?:AbortSignal)=>unwrap(apiRequest<PaginatedResult<HrPayrollBook>>(`/hr/payroll/history-books?page=${page}&page_size=${pageSize}`,{token,signal}))
+ ,payrollHistoryCatalogItems:(token?:string,page=1,pageSize=50,filters:HrPayrollCatalogFilters={},signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.bookId)query.set("book_id",filters.bookId);return unwrap(apiRequest<PaginatedResult<HrPayrollCatalogItem>>(`/hr/payroll/history-items?${query.toString()}`,{token,signal}));}
+ ,payrollHistoryFormulas:(token?:string,page=1,pageSize=50,filters:HrPayrollCatalogFilters={},signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.bookId)query.set("book_id",filters.bookId);if(filters.parseStatus)query.set("parse_status",filters.parseStatus);return unwrap(apiRequest<PaginatedResult<HrPayrollFormula>>(`/hr/payroll/history-formulas?${query.toString()}`,{token,signal}));}
+ ,payrollHistoryReviewCases:(token?:string,page=1,pageSize=20,filters:HrPayrollCatalogFilters={},signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.status)query.set("status",filters.status);if(filters.caseType)query.set("case_type",filters.caseType);return unwrap(apiRequest<PaginatedResult<HrPayrollReviewCase>>(`/hr/payroll/history-review-cases?${query.toString()}`,{token,signal}));}
+ ,payrollHistoryReviewCase:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayrollReviewCase>(`/hr/payroll/history-review-cases/${id}`,{token,signal}))
+ ,addPayrollHistoryReviewAction:(id:string,body:{action:string;decision:string;comment:string},token?:string)=>unwrap(apiRequest<HrPayrollReviewAction>(`/hr/payroll/history-review-cases/${id}/actions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,reviewPayrollFormula: (
+    id: string,
+    body: { decision: "approve_for_simulation" | "reject"; reason: string },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollFormula>(
+        `/hr/payroll/history-formulas/${id}/review`,
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    ),
+payrollReconciliations: (
+    token?: string,
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ) =>
+    unwrap(
+      apiRequest<PaginatedResult<HrPayrollReconciliation>>(
+        `/hr/payroll/reconciliations?page=${page}&page_size=${pageSize}`,
+        { token, signal },
+      ),
+    ),
+payrollReconciliation: (
+    id: string,
+    token?: string,
+    signal?: AbortSignal,
+    resultPage = 1,
+    resultPageSize = 20,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliation>(
+        `/hr/payroll/reconciliations/${id}?result_page=${resultPage}&result_page_size=${resultPageSize}`,
+        { token, signal },
+      ),
+    ),
+payrollReconciliationSetup: (token?: string, signal?: AbortSignal) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliationSetup>(
+        "/hr/payroll/reconciliations/setup",
+        { token, signal },
+      ),
+    ),
+createPayrollReconciliationPolicy: (
+    body: {
+      bookId: string;
+      netItemVersionId: string;
+      toleranceAmount: string;
+      reason: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest("/hr/payroll/reconciliation-policies", {
+        method: "POST",
+        body,
+        token,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    ),
+simulatePayrollReconciliation: (
+    body: {
+      legacyBatchId: string;
+      attendanceInputBatchId: string;
+      supersedesRunId?: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReconciliation>(
+        "/hr/payroll/reconciliations/simulate",
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    ),
+reviewPayrollReconciliation: (
+    id: string,
+    body: {
+      decision: string;
+      comment: string;
+      resultId?: string;
+      itemDifferenceId?: string;
+    },
+    token?: string,
+  ) =>
+    unwrap(
+      apiRequest<HrPayrollReviewAction>(
+        `/hr/payroll/reconciliations/${id}/review-actions`,
+        { method: "POST", body, token, idempotencyKey: crypto.randomUUID() },
+      ),
+    )
  ,myApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/me",{token}))
  ,pendingApprovals:(token?:string)=>unwrap(apiRequest<HrApproval[]>("/hr/approvals/pending",{token}))
  ,createApproval:(body:object,token?:string)=>unwrap(apiRequest<HrApproval>("/hr/approvals",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))

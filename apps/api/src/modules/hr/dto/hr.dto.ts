@@ -12,6 +12,71 @@ export class HrListQueryDto {
  @IsOptional() @IsIn(HR_EMPLOYEE_STATUSES) status?:string;
  @IsOptional() @IsUUID() org_id?:string;
 }
+export class HrContractListQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @IsIn(["draft","active","expired","terminated","cancelled","needs_review"]) status?:string;
+ @IsOptional() @IsDateString() expiry_from?:string;
+ @IsOptional() @IsDateString() expiry_to?:string;
+}
+export class HrAttendanceCalendarQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1900) @Max(2200) year?:number;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1) @Max(12) month?:number;
+}
+export class HrInsurancePeriodQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?:string;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1900) @Max(2200) year?:number;
+ @IsOptional() @Transform(({value})=>Number(value)) @IsInt() @Min(1) @Max(12) month?:number;
+ @IsOptional() @Transform(({value})=>value==="true"?true:value==="false"?false:value) @IsIn([true,false]) needs_review?:boolean;
+}
+export class HrAttendanceRequestListQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+ @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;
+ @IsOptional() @IsIn(["leave","overtime","business_trip","correction"]) type?:string;
+ @IsOptional() @IsIn(["draft","submitted","approved","returned","cancelled"]) status?:string;
+}
+export class CreateHrAttendanceRequestDto {
+ @IsIn(["leave","overtime","business_trip","correction"]) requestType!:string;
+ @IsOptional() @IsDateString({strict:true}) startAt?:string;
+ @IsOptional() @IsDateString({strict:true}) endAt?:string;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() attendanceDate?:string;
+ @Transform(trim) @IsString() @MaxLength(2000) reason!:string;
+}
+export class ReviewHrAttendanceRequestDto { @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) comment?:string; }
+export class HrAttendanceDailyQueryDto {
+ @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1; @Transform(({value})=>Number(value??31)) @IsInt() @Min(1) @Max(100) page_size=31;
+ @IsOptional() @IsDateString() from?:string; @IsOptional() @IsDateString() to?:string; @IsOptional() @IsIn(["normal","late","early_leave","missing_punch","absence","rest","corrected"]) status?:string;
+}
+export class CreateHrAttendanceShiftDto { @Transform(trim) @IsString() @MaxLength(64) shiftCode!:string;@Transform(trim) @IsString() @MaxLength(100) shiftName!:string;@Matches(/^([01]\d|2[0-3]):[0-5]\d$/) startLocal!:string;@Matches(/^([01]\d|2[0-3]):[0-5]\d$/) endLocal!:string;@IsOptional() @IsInt() @Min(0) @Max(240) lateGraceMinutes?:number;@IsOptional() @IsInt() @Min(0) @Max(240) earlyGraceMinutes?:number;@Transform(trim) @IsString() @MaxLength(32) ruleVersion!:string; }
+export class CreateHrEmployeeScheduleDto { @IsUUID() employeeId!:string;@IsUUID() shiftId!:string;@IsDateString() workDate!:string; }
+export class CreateHrAttendancePunchDto { @IsUUID() employeeId!:string;@Transform(trim) @IsString() @MaxLength(160) eventKey!:string;@IsDateString({strict:true}) occurredAt!:string;@IsIn(["clock_in","clock_out","unknown"]) eventType!:string;@IsIn(["terminal","mobile","import","manual"]) source!:string;@IsOptional() @Transform(trim) @IsString() @MaxLength(100) deviceCode?:string; }
+export class RecalculateHrAttendanceDto { @IsUUID() employeeId!:string;@IsDateString() workDate!:string;@Transform(trim) @IsString() @MaxLength(32) ruleVersion!:string; }
+export class CreateHrAttendancePeriodDto { @Matches(/^\d{4}-\d{2}-01$/) periodMonth!:string; }
+export class HrAttendancePeriodQueryDto { @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??24)) @IsInt() @Min(1) @Max(100) page_size=24;@IsOptional() @IsIn(["open","calculating","review","closed","failed"]) status?:string; }
+export class HrAttendanceMonthSummaryQueryDto { @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;@Transform(({value})=>Number(value??100)) @IsInt() @Min(1) @Max(100) page_size=100; }
+export class CreateHrAttendanceCorrectionBatchDto { @Transform(trim) @IsString() @MaxLength(1000) reason!:string; }
+export class CreateHrContractDto {
+ @IsUUID() employeeId!:string;
+ @IsUUID() contractTypeId!:string;
+ @Transform(trim) @IsString() @MaxLength(64) contractNo!:string;
+ @IsDateString() startDate!:string;
+ @IsOptional() @IsDateString() endDate?:string;
+ @IsOptional() @IsDateString() probationEndDate?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
+}
+export class CreateHrContractChangeDto {
+ @IsIn(["renewal","amendment","termination","correction"]) changeType!:string;
+ @IsDateString() newStartDate!:string;
+ @IsOptional() @IsDateString() newEndDate?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
+}
+export class HrContractActionDto { @IsIn(["activate","cancel"]) action!:string; }
+export class HrContractChangeActionDto { @IsIn(["apply","cancel"]) action!:string; }
 export class CreateHrPositionDto {
  @IsUUID() orgId!:string; @Transform(trim) @IsString() @MaxLength(64) positionCode!:string;
  @Transform(trim) @IsString() @MaxLength(100) positionName!:string;

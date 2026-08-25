@@ -13,6 +13,7 @@ const accessPolicy=readFileSync(resolve(__dirname,"hr-access-policy.ts"),"utf8")
 const performanceMigration=readFileSync(resolve(root,"database/migrations/000232_hr_performance_feedback.sql"),"utf8");
 const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
 const payrollIntegrityMigration=readFileSync(resolve(root,"database/migrations/000243_hr_payroll_concurrency_integrity.sql"),"utf8");
+const contractDraftMigration=readFileSync(resolve(root,"database/migrations/000244_hr_contract_online_drafts.sql"),"utf8");
 const approvalMigration=readFileSync(resolve(root,"database/migrations/000234_hr_approval_workflow.sql"),"utf8");
 const fileAccess=readFileSync(resolve(root,"apps/api/src/modules/files/file-business-access.service.ts"),"utf8");
 const employeeUi=readFileSync(resolve(root,"apps/web/app/hr/employees/HrEmployeesClient.tsx"),"utf8");
@@ -87,8 +88,27 @@ test("HR endpoints require module and distinct manager/self permissions",()=>{
  assert.match(controller,/employees\/me[\s\S]*HR_EMPLOYEE_SELF_READ/);
  assert.match(controller,/Post\("employees"\)[\s\S]*HR_EMPLOYEE_MANAGE/);
  assert.match(controller,/captureBody:false/);
+ assert.match(controller,/@Post\("contracts"\)[\s\S]*HR_CONTRACT_MANAGE[\s\S]*resource:"hr\.contract"[\s\S]*captureBody:false/);
+ assert.match(controller,/@Post\("contracts\/:id\/changes"\)[\s\S]*HR_CONTRACT_MANAGE[\s\S]*resource:"hr\.contract_change"[\s\S]*captureBody:false/);
  assert.match(controller,/employees\/:id\/profile[\s\S]*HR_EMPLOYEE_PROFILE_READ/);
  assert.match(controller,/employees\/:id\/transitions[\s\S]*HR_EMPLOYMENT_TRANSITION/);
+});
+test("online labor contracts serialize draft state and preserve imported history",()=>{
+ assert.match(contractDraftMigration,/ADD COLUMN IF NOT EXISTS status/);
+ assert.match(contractDraftMigration,/CHECK \(status IN \('draft','effective','cancelled'\)\)/);
+ assert.match(contractDraftMigration,/uq_hr_contract_change_one_draft/);
+ assert.match(contractDraftMigration,/WHERE is_deleted=false AND status='draft'/);
+ assert.match(service,/createContractChange[\s\S]*pessimistic_write/);
+ assert.match(service,/Historical imported contracts are immutable/);
+ assert.match(service,/Only a draft online contract can be activated or cancelled/);
+ assert.match(service,/Only a draft contract change can be applied or cancelled/);
+ assert.match(service,/读取劳动合同台账[\s\S]*employment_contract/);
+ assert.match(service,/读取劳动合同详情[\s\S]*employment_contract/);
+ assert.match(service,/projectSelfContract/);
+ assert.match(service,/access\.self&&!access\.park&&!access\.managedOrgTree/);
+ assert.doesNotMatch(service,/projectSelfContract[^{]*\{[^}]*employeeId/);
+ assert.match(controller,/@Post\("contracts\/:id\/actions"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
+ assert.match(controller,/@Post\("contracts\/:id\/changes\/:changeId\/actions"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
 });
 test("HR reference writes fail closed to the current tenant and park",()=>{
  assert.match(service,/User is unavailable in current scope/);

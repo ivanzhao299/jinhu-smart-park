@@ -1,0 +1,3 @@
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"HR 生命周期、敏感投影、玉舟合同迁移契约"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"数据库、API、权限、Web 和迁移跨层数据流"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"前向迁移、生产 seed 和发布门禁"}

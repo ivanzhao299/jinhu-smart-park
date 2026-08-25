@@ -210,6 +210,10 @@ export class FilesService {
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_document",action:"读取员工档案附件列表",bizType:"hr_employee",bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
       return {...result,items:items.map(projectHrEmployeeDocumentFile)};
     }
+    if((query.biz_type==="hr_candidate_resume"||query.biz_type==="hr_candidate_offer_evidence")&&query.biz_id){
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.candidate_document",action:"读取候选人附件列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
+      return {...result,items:items.map(projectHrEmployeeDocumentFile)};
+    }
     return result;
   }
 
@@ -232,6 +236,10 @@ export class FilesService {
     );
     if(file.bizType==="hr_employee_document"&&file.bizId){
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_document",action:"读取员工档案附件详情",bizType:"hr_employee_document",bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
+      return projectHrEmployeeDocumentFile(file);
+    }
+    if((file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence")&&file.bizId){
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.candidate_document",action:"读取候选人附件详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
       return projectHrEmployeeDocumentFile(file);
     }
     return file;
@@ -303,6 +311,10 @@ export class FilesService {
   ): Promise<void> {
     if(file.bizType==="hr_employee_document"){
       await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.employee_document",action:"下载员工档案附件",bizType:"hr_employee_document",bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
+      return;
+    }
+    if(file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence"){
+      await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.candidate_document",action:"下载候选人附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
       return;
     }
     await this.auditService.recordOperation({

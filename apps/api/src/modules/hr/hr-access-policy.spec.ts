@@ -4,9 +4,10 @@ import test from "node:test";
 import { NotFoundException } from "@nestjs/common";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
-import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrEmployeeAccessScope } from "./hr-access-policy";
+import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope } from "./hr-access-policy";
 import { HrController } from "./hr.controller";
 import { HrService } from "./hr.service";
 
@@ -33,6 +34,63 @@ test("employee scope rejects cross-organization targets and never promotes clien
   assert.equal(isHrEmployeeIdAccessible("none", "employee-self", "employee-self", ["employee-self"]), false);
 });
 
+test("labor contract access composes only its exact park, team, and self permissions",()=>{
+  assert.deepEqual(resolveHrContractAccessScope(actor([])),{park:false,managedOrgTree:false,self:false});
+  assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_READ])),{park:false,managedOrgTree:false,self:false});
+  assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_SELF_READ])),{park:false,managedOrgTree:false,self:true});
+  assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])),{park:false,managedOrgTree:true,self:true});
+  assert.deepEqual(resolveHrContractAccessScope(actor([HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ])),{park:true,managedOrgTree:false,self:false});
+});
+
+test("attendance and insurance ledgers use only their exact park, team, self permissions",()=>{
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_READ])),"none");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ])),"self");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ])),"managed_org_tree");
+ assert.equal(resolveHrAttendanceAccessScope(actor([HR_PERMISSIONS.HR_ATTENDANCE_READ])),"park");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ])),"none");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_SELF_READ])),"self");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_TEAM_READ])),"managed_org_tree");
+ assert.equal(resolveHrInsuranceAccessScope(actor([HR_PERMISSIONS.HR_INSURANCE_READ])),"park");
+});
+
+test("attendance and insurance read routes retain exact atomic permissions",()=>{
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.attendanceCalendars),[HR_PERMISSIONS.HR_ATTENDANCE_READ,HR_PERMISSIONS.HR_ATTENDANCE_TEAM_READ,HR_PERMISSIONS.HR_ATTENDANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.insurancePeriods),[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.insurancePeriod),[HR_PERMISSIONS.HR_INSURANCE_READ,HR_PERMISSIONS.HR_INSURANCE_TEAM_READ,HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
+ assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myInsurancePeriods),[HR_PERMISSIONS.HR_INSURANCE_SELF_READ]);
+});
+
+test("labor contract routes retain exact read permissions",()=>{
+  const expected=[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ];
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.contracts),expected);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.contract),expected);
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myContracts),[HR_PERMISSIONS.HR_CONTRACT_SELF_READ]);
+});
+
+test("labor contract writes require the atomic manage permission and body-free audit",()=>{
+ for(const method of ["createContract","contractAction","createContractChange","contractChangeAction"] as const){
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_CONTRACT_MANAGE]);
+  assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);
+  assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);
+ }
+});
+
+test("labor contract service is fail-closed without an exact contract permission",async()=>{
+  const service=Reflect.construct(HrService,Array(27).fill({})) as HrService;
+  assert.deepEqual(await service.listContracts(
+    {tenantId:"tenant-1",parkId:"park-1"},actor([HR_PERMISSIONS.HR_EMPLOYEE_READ]),{page:1,page_size:20}
+  ),{items:[],total:0,page:1,page_size:20});
+});
+
+test("labor contract projection excludes legacy source, salary, scope, and audit internals",()=>{
+  const projector=(HrService.prototype as unknown as {projectContractRaw:(row:Record<string,unknown>)=>Record<string,unknown>}).projectContractRaw;
+  const projected=projector.call({}, {
+    id:"contract-1",employee_id:"employee-1",employee_code:"JH-001",employee_name:"张三",contract_no:"HT-001",contract_type_id:"type-1",contract_type_name:"固定期限",start_date:"2026-01-01",end_date:"2028-01-01",probation_end_date:null,status:"active",is_historical_import:true,
+    source_snapshot:{secret:true},base_salary:"9999",probation_salary:"8888",tenant_id:"tenant-1",park_id:"park-1",create_by:"user-1",remark:"private"
+  });
+  assert.deepEqual(Object.keys(projected),["id","employeeId","employeeCode","employeeName","contractNo","contractTypeId","contractTypeName","startDate","endDate","probationEndDate","status","isHistoricalImport"]);
+});
+
 test("employee routes expose only the reviewed full, self, and manager permissions", () => {
   const expected = [
     HR_PERMISSIONS.HR_EMPLOYEE_READ,
@@ -45,7 +103,7 @@ test("employee routes expose only the reviewed full, self, and manager permissio
 });
 
 test("service remains fail-closed when invoked without an employee read permission", async () => {
-  const service = Reflect.construct(HrService, Array(23).fill({})) as HrService;
+  const service = Reflect.construct(HrService, Array(26).fill({})) as HrService;
   const unprivileged = actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ]);
   assert.deepEqual(
     await service.listEmployees(
@@ -83,7 +141,7 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   };
   const service = Reflect.construct(
     HrService,
-    [employees, ...Array(20).fill({}), {}, dataSource]
+    [employees, ...Array(28).fill({}), {}, dataSource]
   ) as HrService;
   const scope = { tenantId: "tenant-1", parkId: "park-1" };
   const manager = actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW]);
@@ -101,6 +159,28 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   assert.equal(findOptions?.where?.parkId, "park-1");
   assert.equal(findOptions?.where?.isDeleted, false);
   assert.ok(findOptions?.where?.id, "manager list must retain the server-derived employee ID filter");
+});
+
+test("employee directory keyword searches name and code without dropping scope filters", async () => {
+  let findOptions: { where?: Array<Record<string, unknown>> } | undefined;
+  const employees = {
+    findAndCount: async (options: { where?: Array<Record<string, unknown>> }) => {
+      findOptions = options;
+      return [[], 0];
+    }
+  };
+  const service = Reflect.construct(HrService, [employees, ...Array(25).fill({})]) as HrService;
+  await service.listEmployees(
+    { tenantId: "tenant-1", parkId: "park-1" },
+    actor([HR_PERMISSIONS.HR_EMPLOYEE_READ]),
+    { page: 1, page_size: 20, keyword: "JH-001", status: "active" }
+  );
+  assert.equal(findOptions?.where?.length, 2);
+  assert.equal(findOptions?.where?.[0]?.tenantId, "tenant-1");
+  assert.equal(findOptions?.where?.[0]?.parkId, "park-1");
+  assert.equal(findOptions?.where?.[0]?.employmentStatus, "active");
+  assert.ok(findOptions?.where?.[0]?.fullName);
+  assert.ok(findOptions?.where?.[1]?.employeeCode);
 });
 
 test("sensitive profile projection masks private contact data without full permission", () => {

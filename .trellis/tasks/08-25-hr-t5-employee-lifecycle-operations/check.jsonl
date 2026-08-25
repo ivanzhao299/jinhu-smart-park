@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/api/backend/hr-management.md", "reason": "独立审查 HR 安全、权限、审计和状态机"}
+{"file": ".trellis/spec/web/frontend/index.md", "reason": "独立审查页面、403、移动与权限调用"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "跨层完整性审查"}
+{"file": ".trellis/spec/guides/project-operations.md", "reason": "迁移、种子和发布门禁审查"}
+{"file": ".trellis/tasks/08-25-hr-t5-employee-lifecycle-operations/research/baseline-and-legacy-domain-map.md", "reason": "核对旧系统事实与迁移边界"}
