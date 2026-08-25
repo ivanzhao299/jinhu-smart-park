@@ -19,16 +19,16 @@
 
 - [x] 版本化模板/维度/等级、计划冻结快照、状态与追加动作迁移。
 - [x] 自评、主管评、校准会、员工签收/申诉和服务端最终计算。
-- [ ] 奖惩/培训/考勤/360 只读来源引用及可追溯证据。
+- [x] 奖惩/培训/考勤/360 只读来源引用及可追溯证据（最终审计补齐现代 360 已发布 subject、`result_published` 动作序号、模型/问卷版本和发布时间冻结；旧 360 明确标记兼容来源）。
 - [x] 三角色 `/hr/performance` 工作台和 HR 桌面校准区。
 - [x] 并发阶段动作、调分理由、确认前隐藏、终态不可变和复算 PG 门禁。
 
 ## Phase 3 — 胜任力与 360
 
-- [ ] 胜任力模型/版本/行为锚点、问卷快照、提名/批准/assignment/response 迁移。
-- [ ] 评价提名、分派、一次提交、匿名阈值、维度聚合和发布 API。
-- [ ] `/hr/feedback-360` 本人任务、HR 配置和安全聚合结果。
-- [ ] 小样本、身份反推、跨树、自评伪造、重复提交和终态测试。
+- [x] 胜任力模型/版本/行为锚点、问卷快照、提名/批准/assignment/response 迁移。
+- [x] 评价提名、分派、一次提交、匿名阈值、维度聚合和发布 API。
+- [x] `/hr/feedback-360` 本人任务、HR 配置和安全聚合结果。
+- [x] 小样本、身份反推、跨树、自评伪造、重复提交和终态测试。
 
 ## Phase 4 — 人才盘点与发展
 
@@ -40,11 +40,11 @@
 
 ## Phase 5 — 全量发布门禁
 
-- [ ] 独立 Trellis check 修复全部有效发现并更新可执行 spec。
-- [ ] Shared/API/Web lint、typecheck、build、API full unit、HR focused、CSS、diff-check。
-- [ ] template0 fresh、000231/232 upgrade、replay、production seed 两次、真实 PG 并发/不可变/守恒。
+- [x] 独立 Trellis check 修复全部有效发现并更新可执行 spec。
+- [x] Shared/API/Web lint、typecheck、build、API full unit、HR focused、CSS、diff-check（发布 CI 及最终 focused/static 复核通过）。
+- [x] template0 fresh、000231/232 upgrade、replay、production seed 两次、真实 PG 并发/不可变/守恒（逐阶段独立数据库证据及 252/252 Release Smoke 已核对）。
 - [ ] 本地和生产三角色桌面/390px 浏览器 UAT，无横向溢出、无说明书式首屏。
-- [ ] 提交/合并/部署前 fetch；PR CI、Release Smoke、生产迁移、health/ready、受保护账号、Docker cleanup、三 SHA 一致。
+- [ ] 提交/合并/部署前 fetch；PR CI、Release Smoke、生产迁移、health/ready、受保护账号、Docker cleanup、三 SHA 一致（`9b62b410` 历史发布门禁通过；本次审计补丁尚未提交/部署，因此最终门禁保持未完成）。
 
 ## NO-GO Conditions
 
