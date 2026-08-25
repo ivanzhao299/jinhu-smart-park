@@ -17,6 +17,10 @@ const homestayTaskBundleMigration = readFileSync(
   new URL("../../database/migrations/000262_homestay_task_operator_read_permission.sql", import.meta.url),
   "utf8"
 );
+const trackBSeed = readFileSync(
+  new URL("../../database/seeds/production/000006_property_track_b_permission_reconcile.sql", import.meta.url),
+  "utf8"
+);
 const rolesService = readFileSync(
   new URL("../../apps/api/src/modules/roles/roles.service.ts", import.meta.url),
   "utf8"
@@ -79,6 +83,7 @@ for (const token of [
 ]) {
   assert.ok(homestayTaskBundleMigration.includes(token), `missing homestay task bundle migration token: ${token}`);
 }
+assert.match(trackBSeed, /bundle_member_count <> 130/);
 
 for (const token of [
   "findPropertyRoleTemplateDefinition",
