@@ -17,11 +17,12 @@ Codex CLI（WSL2，~/.codex/config.toml）
 每轮先生成唯一 `RUN_ID`，并贯穿 compose project、DB/API/Web/CDP 端口、Chrome `user-data-dir`、fixture 前缀、local-only artifact 目录和报告文件名。例如：
 
 ```bash
-export RUN_ID="pay-uat-20260825-01"
-export UAT_PROJECT="jinhu-${RUN_ID}"
-export UAT_ENV_FILE="/tmp/jinhu-${RUN_ID}.env"
-export UAT_ARTIFACT_DIR="artifacts/${RUN_ID}"       # local-only
-export UAT_REPORT="docs/uat/${RUN_ID}.md"           # 入库
+export UAT_SCOPE="pay"
+export RUN_ID="20260825-01"
+export UAT_PROJECT="jinhu-${UAT_SCOPE}-uat-${RUN_ID}"
+export UAT_ENV_FILE="/tmp/${UAT_PROJECT}.env"
+export UAT_ARTIFACT_DIR="artifacts/${UAT_SCOPE}-uat-${RUN_ID}" # local-only
+export UAT_REPORT="docs/uat/${UAT_SCOPE}-uat-${RUN_ID}.md"     # 入库
 ```
 
 同一 Chrome profile 与同一 origin 不得并发运行不同账号。现有 dev compose 含固定 `container_name`，仅改变 `-p` 不能支持同机并行数据库实例；启动前发现同名容器时，必须串行执行或使用经评审的专用 UAT compose 文件，不得抢占或删除他人实例。
@@ -165,15 +166,28 @@ curl -fsS --connect-timeout 2 --max-time 5 \
 2. Chrome Network 中业务请求发往本轮 Web origin 的 `/<prefix>/...`，并由 `NEXT_PUBLIC_API_TARGET` 指向本轮 API。
 3. 用带 `RUN_ID` 的 fixture 通过真实 UI 创建/读取，再用只读 API/DB 查询确认只出现在本轮库。
 
-### 3.3 设计源与 fixture
+### 3.3 第 0 阶段：设计↔实现闭环审计
 
-测试前先收集模块的权威功能设计：
+真实 Chrome 用例之前，先收集模块的权威功能设计：
 
 - `.trellis/tasks/` 及 `.trellis/tasks/archive/` 中相关任务的 `prd.md`、`design.md`；
 - `docs/` 下架构、模块、发布和验收文档；
 - `AGENTS.md` 中对应模块规则。
 
-报告列出“设计依据清单”（路径 + 关键结论）。fixture 一律使用 `UAT_<SCOPE>_<RUN_ID>_` 前缀；角色矩阵至少考虑管理员、业务岗、窄权限岗和跨园区/数据范围岗。用例设计阶段根据该模块 fixture 的实际触达面，逐表列出 residual 审计清单和 before/after 查询，不能事后只抽查 `users`。
+先审计设计本身是否闭合：每个状态是否有出口，分支是否有出口条件，权限矩阵是否覆盖全部声明操作，异常路径是否有定义，字典、权限、园区上下文等模块依赖在不同文档间是否一致。缺失或矛盾记为 `design gap`。
+
+再逐条核对实现闭环：
+
+1. 交叉检索菜单白名单、`apps/web/app/` 路由和 `packages/shared` 权限契约，确认路由、菜单和权限点一致。
+2. 对照设计核对 API 端点与前端调用接线；用 `rg -n 'TODO|FIXME|暂未|占位' apps packages` 定位并人工判定占位、stub 或假实现。
+3. 沿“写入→存储→查询→展示”检查数据链路是否闭合。
+4. 核对设计声明的校验规则在前端和后端都存在，且边界一致。
+
+产出《设计-实现闭环审计表》，每个设计条目标记“已实现 / 部分实现 / 未实现 / 偏离设计”并附代码或文档证据路径。`部分实现`、`未实现` 的链条不进入浏览器 UAT 矩阵，直接记 gap 和阻断；设计矛盾导致流程无法走通的受影响链路终止，记 `audit finding`，不记浏览器 UAT FAIL。只有审计表完成后才进入后续步骤。
+
+严格执行顺序为：**第 0 阶段闭环审计 → 在报告中形成设计依据清单 → 推导角色 × 流程链矩阵 → 执行真实 Chrome 用例**。审计表未产出，禁止开始浏览器用例。
+
+fixture 一律使用 `UAT_<SCOPE>_<RUN_ID>_` 前缀；角色矩阵至少考虑管理员、业务岗、窄权限岗和跨园区/数据范围岗。用例设计阶段根据该模块 fixture 的实际触达面，逐表列出 residual 审计清单和 before/after 查询，不能事后只抽查 `users`。
 
 ### 3.4 账号切换与会话隔离
 
@@ -298,6 +312,11 @@ docker ps -a --format '{{.ID}} {{.Names}} {{.Status}}' \
 | 路径 | 关键结论 |
 |---|---|
 | .trellis/tasks/.../prd.md | ... |
+
+## 设计-实现闭环审计表
+| 设计条目 | 设计闭环结论 | 实现状态 | 设计/实现证据路径 | gap / 阻断 |
+|---|---|---|---|---|
+| ... | 闭合 / design gap | 已实现 / 部分实现 / 未实现 / 偏离设计 | ... | ... |
 
 ## 流程链矩阵
 | 流程链编号 | 角色 | 页面序列 | 状态迁移 | 分支/异常 | 适用 Case |
