@@ -23,7 +23,8 @@
     "08-24-hr-m4-production-workbench",
     "08-24-hr-m6-attendance-insurance-operations",
     "08-25-hr-t5-employee-lifecycle-operations",
-    "08-25-hr-t6-performance-talent"
+    "08-25-hr-t6-performance-talent",
+    "08-26-hr-enterprise-parallel-uat-cutover"
   ],
   "parent": null,
   "relatedFiles": [],

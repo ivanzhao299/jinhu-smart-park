@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "cases": [
+    { "name": "legacy fragment", "mutation": "legacyFragment", "expectedCode": "LEGACY_FRAGMENT_NOT_FULL_REHEARSAL" },
+    { "name": "wrong code SHA", "mutation": "wrongCodeSha", "expectedCode": "TRIPLE_MISMATCH" },
+    { "name": "wrong source snapshot", "mutation": "wrongSourceHash", "expectedCode": "TRIPLE_MISMATCH" },
+    { "name": "wrong mapping contract", "mutation": "wrongMappingHash", "expectedCode": "TRIPLE_MISMATCH" },
+    { "name": "unsafe target database", "mutation": "unsafeTarget", "expectedCode": "UNSAFE_TARGET_IDENTITY" },
+    { "name": "unsafe file permission", "mutation": "unsafePermission", "expectedCode": "UNSAFE_FILE_PERMISSION" },
+    { "name": "ledger tamper", "mutation": "ledgerTamper", "expectedCode": "LEDGER_IMBALANCE" },
+    { "name": "secret-bearing manifest", "mutation": "secretKey", "expectedCode": "SECRET_PATTERN_DETECTED" },
+    { "name": "unexpected manifest property", "mutation": "unexpectedProperty", "expectedCode": "MANIFEST_SCHEMA_INVALID" },
+    { "name": "path traversal target", "mutation": "targetTraversal", "expectedCode": "UNSAFE_TARGET_IDENTITY" },
+    { "name": "missing registered resource type", "mutation": "missingResourceType", "expectedCode": "RESOURCE_TYPE_MISSING" },
+    { "name": "invalid child status", "mutation": "invalidChildStatus", "expectedCode": "MANIFEST_SCHEMA_INVALID" },
+    { "name": "verified state with partial children", "mutation": "partialVerified", "expectedCode": "PARTIAL_RUN" },
+    { "name": "T4 not started cannot advance", "mutation": "t4Advance", "expectedCode": "T4_EXTRACTION_NOT_STARTED" }
+  ]
+}

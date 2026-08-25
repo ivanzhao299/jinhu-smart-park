@@ -1,0 +1,5 @@
+{"file":".trellis/tasks/08-26-hr-enterprise-parallel-uat-cutover/research/activation-contract-context.md","reason":"Focused complete context for HR scope migration domains A B C S M ledger delta T4 UAT restore cleanup and authorization contracts"}
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"Forward-only migration prerequisite replay and fail-closed requirements"}
+{"file":".trellis/spec/config/backend/database-initialization.md","reason":"Fresh upgrade replay production seed and initialization order"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Shared repository three-end sync release evidence and production safety"}
+{"file":".trellis/tasks/08-26-hr-enterprise-parallel-uat-cutover/research/planning-artifact-blueprint.md","reason":"Task requirements architecture slices and activation gates"}

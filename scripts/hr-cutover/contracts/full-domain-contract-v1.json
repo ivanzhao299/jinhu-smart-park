@@ -1,0 +1,137 @@
+{
+  "formatVersion": 1,
+  "contractVersion": "yuzhou-full-domain-v1",
+  "manifestSchema": "parent-manifest.schema.json",
+  "domainOrder": ["T0", "T1", "T2", "T3", "T4", "T5"],
+  "rollbackOrder": ["T5", "T4", "T3", "T2", "T1", "T0"],
+  "stateMachine": {
+    "planned": ["source_locked", "failed"],
+    "source_locked": ["extracted", "failed"],
+    "extracted": ["target_ready", "failed"],
+    "target_ready": ["loading", "failed"],
+    "loading": ["verified", "failed"],
+    "verified": ["uat_passed", "failed"],
+    "uat_passed": ["rollback_verified", "failed"],
+    "rollback_verified": ["cleaned", "failed"],
+    "failed": ["cleanup_pending"],
+    "cleanup_pending": ["cleaned_failed"],
+    "cleaned": [],
+    "cleaned_failed": []
+  },
+  "triple": {
+    "fields": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
+    "comparison": "byte_exact",
+    "changeInvalidatesBothRehearsals": true,
+    "mappingContractHashAlgorithm": "sha256_path_nul_bytes_nul_sorted",
+    "mappingContractComponents": [
+      "scripts/hr-cutover/contracts/full-domain-contract-v1.json",
+      "scripts/hr-cutover/contracts/parent-manifest.schema.json",
+      "scripts/transform-yuzhou-t0.mjs",
+      "scripts/transform-yuzhou-t1-employment-events.mjs",
+      "scripts/transform-yuzhou-t2-contracts.mjs",
+      "scripts/transform-yuzhou-t3-attendance-insurance.mjs",
+      "scripts/transform-yuzhou-t4-payroll-history.mjs",
+      "scripts/transform-yuzhou-t5-legacy-history.mjs"
+    ]
+  },
+  "isolation": {
+    "targetDatabaseRegex": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$",
+    "composeProjectRegex": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$",
+    "requiredComposeLabel": { "com.docker.compose.project": "${composeProject}" },
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "sourceMustBeReadOnly": true,
+    "sourceForbiddenRoles": ["sa", "sysadmin"]
+  },
+  "resources": ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"],
+  "ledger": {
+    "equation": "source=loaded+quarantined+approvedIgnored",
+    "numericRepresentation": "postgresql_numeric_decimal_string",
+    "zeroAndNullDistinct": true,
+    "crossDomainOwners": ["employee", "contract", "employment_event", "insurance", "payroll", "file"]
+  },
+  "sourceProfileBaseline": {
+    "T0": { "organizations": 138, "positions": 18, "employees": 2949 },
+    "T1": { "employmentEvents": 6887 },
+    "T2": { "contracts": 802, "contractChanges": 357, "contractTypes": 4 },
+    "T3": { "attendancePolicies": 144, "attendanceRows": 4383, "insurancePolicies": 12, "insuranceAccounts": 144, "insuranceRows": 35008 },
+    "T4": { "salaryTables": 35, "payrollRows": 46092, "items": 711, "formulas": 244, "closes": 1431, "memberships": 647, "taxRules": 9 },
+    "T5": { "legacyHistoryRows": 9140 },
+    "authority": "signed_source_snapshot_manifest",
+    "sourceChangeRequiresNewSignedProfile": true
+  },
+  "canonicalNormalization": {
+    "version": "yuzhou-full-canonical-v1",
+    "included": ["domain", "source_table", "source_identity_sha256", "normalized_business_json", "related_source_identity_sha256"],
+    "excluded": ["target_uuid", "sequence", "run_id", "created_at", "updated_at"],
+    "sort": "domain,source_table,source_identity_sha256,normalized_business_json,related_source_identity_sha256",
+    "money": "decimal_string",
+    "unicode": "NFC",
+    "objectKeys": "lexicographic"
+  },
+  "approvedIgnoredReasons": {
+    "catalog": [
+      "SOURCE_OBJECT_OUTSIDE_APPROVED_SCOPE",
+      "SOURCE_OBJECT_DUPLICATE_EXACT_CONTENT",
+      "SOURCE_OBJECT_EXPLICIT_LEGAL_RETENTION_EXCLUSION"
+    ],
+    "requiresDetachedApproval": true,
+    "freeTextBalancesLedger": false
+  },
+  "hardGateReasons": [
+    "FULL_REHEARSAL_MANIFEST_MISSING", "LEGACY_FRAGMENT_NOT_FULL_REHEARSAL", "TRIPLE_MISMATCH", "EVIDENCE_HASH_MISMATCH",
+    "T4_EXTRACTION_NOT_STARTED", "SOURCE_FREEZE_OWNER_MISSING", "UNSTABLE_TABLE_FREEZE_DECISION_MISSING",
+    "T4_FORMULA_SCOPE_UNSIGNED", "T4_TOLERANCE_UNSIGNED", "T4_BUSINESS_ATTESTATION_MISSING", "HUMAN_UAT_UNSIGNED",
+    "RTO_RPO_UNAPPROVED", "PRODUCTION_ON_CALL_MISSING", "PRODUCTION_IMPORT_AUTH_MISSING", "PRODUCTION_RESTORE_AUTH_MISSING",
+    "UNSAFE_TARGET_IDENTITY", "UNSAFE_FILE_PERMISSION", "SECRET_PATTERN_DETECTED", "LEDGER_IMBALANCE", "RESOURCE_RESIDUAL_NONZERO"
+  ],
+  "redaction": {
+    "version": "yuzhou-evidence-redaction-v1",
+    "forbiddenKeyPatterns": ["password", "passwd", "token", "secret", "connectionString", "credential", "privateKey", "bankAccount", "idCard", "insureaccount", "employeeName", "fullName", "mobile", "phone", "salaryAmount", "grossPay", "netPay"],
+    "forbiddenValuePatterns": ["postgres(?:ql)?://", "sqlserver://", "Bearer\\s+", "BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY", "AKIA[0-9A-Z]{16}"],
+    "manifestMayContainCredentials": false,
+    "logsMayContainPersonalOrPayrollValues": false
+  },
+  "onlineSideEffectAllowlist": {
+    "allowed": ["migration_batch", "migration_batch_item", "legacy_record_map", "migration_error", "migration_check", "migration_rollback_point", "hr_legacy_*", "hr_payroll_legacy_*"],
+    "mustRemainHashEqual": ["sys_user", "sys_role", "hr_employee.current_state", "hr_payroll_run", "hr_payslip", "payment", "bank", "tax_submission", "biz_user_message", "workflow_inbox", "hr_performance_result", "file_reference"]
+  },
+  "domains": {
+    "T0": {
+      "dependsOn": [], "extract": "scripts/extract-yuzhou-t0.sh", "transform": "scripts/transform-yuzhou-t0.mjs", "load": "scripts/load-yuzhou-t0.sh", "rollback": "scripts/rollback-yuzhou-t0.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_BACKUP_SHA256"],
+      "inputs": ["departments.jsonl", "positions.jsonl", "employees.jsonl", "manifest.json"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
+      "hashes": ["sourceSnapshot", "departments", "positions", "employees"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    },
+    "T1": {
+      "dependsOn": ["T0"], "extract": "scripts/extract-yuzhou-t1-employment-events.sh", "transform": "scripts/transform-yuzhou-t1-employment-events.mjs", "load": "scripts/load-yuzhou-t1-employment-events.sh", "rollback": "scripts/rollback-yuzhou-t1-employment-events.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_BACKUP_SHA256"],
+      "inputs": ["employment-events.jsonl", "employment-event-types.json", "manifest.json"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
+      "hashes": ["sourceSnapshot", "events", "eventTypes"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    },
+    "T2": {
+      "dependsOn": ["T0", "T1"], "extract": "scripts/extract-yuzhou-t2-contracts.sh", "transform": "scripts/transform-yuzhou-t2-contracts.mjs", "load": "scripts/load-yuzhou-t2-contracts.sh", "rollback": "scripts/rollback-yuzhou-t2-contracts.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_BACKUP_SHA256"],
+      "inputs": ["contract-types.jsonl", "contracts.jsonl", "contract-changes.jsonl", "manifest.json"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
+      "hashes": ["sourceSnapshot", "contractTypes", "contracts", "contractChanges"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    },
+    "T3": {
+      "dependsOn": ["T0", "T1", "T2"], "extract": "scripts/extract-yuzhou-t3-attendance-insurance.sh", "transform": "scripts/transform-yuzhou-t3-attendance-insurance.mjs", "load": "scripts/load-yuzhou-t3-attendance-insurance.sh", "rollback": "scripts/rollback-yuzhou-t3-attendance-insurance.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_BACKUP_SHA256"],
+      "inputs": ["attendance.jsonl", "policies.jsonl", "insurance.jsonl", "manifest.json"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
+      "hashes": ["sourceSnapshot", "attendance", "policies", "insurance"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    },
+    "T4": {
+      "dependsOn": ["T0", "T1", "T2", "T3"], "extract": "scripts/extract-yuzhou-t4-payroll-history.sh", "transform": "scripts/transform-yuzhou-t4-payroll-history.mjs", "load": "scripts/load-yuzhou-t4-payroll-history.sh", "rollback": "scripts/rollback-yuzhou-t4-payroll-history.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_T4_BUSINESS_SHA256"],
+      "inputs": ["scheme-memberships.jsonl", "items.jsonl", "formulas.jsonl", "tax-rules.jsonl", "closes.jsonl", "payslips.jsonl", "manifest.json"], "outputs": ["migration_batch", "legacy_record_map", "migration_check", "hr_payroll_reconciliation"],
+      "hashes": ["sourceSnapshot", "catalog", "businessContent", "manifest"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    },
+    "T5": {
+      "dependsOn": ["T0", "T1", "T2", "T3", "T4"], "extract": "scripts/extract-yuzhou-t5-legacy-history.sh", "transform": "scripts/transform-yuzhou-t5-legacy-history.mjs", "load": "scripts/load-yuzhou-t5-legacy-history.sh", "rollback": "scripts/rollback-yuzhou-t5-legacy-history.sh",
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_T5_BUSINESS_SHA256"],
+      "inputs": ["manifest.json", "recruitment.jsonl", "employee-records.jsonl", "training.jsonl", "reward-discipline.jsonl", "file-evidence.jsonl"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
+      "hashes": ["sourceSnapshot", "catalog", "businessContent"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
+    }
+  }
+}
