@@ -109,6 +109,8 @@ test("dashboard counts only in-house bookings and preserves mixed occupancy rate
   assert.match(summarySql, /booking\.arrival_date <= \$3::date/);
   assert.match(summarySql, /booking\.departure_date > \$3::date/);
   assert.match(summarySql, /booking\.actual_check_in_time IS NOT NULL/);
+  assert.match(summarySql,
+    /booking\.actual_check_in_time AT TIME ZONE 'Asia\/Shanghai'\)::date <= \$3::date/);
   assert.match(summarySql, /booking\.status = 'checked_in'/);
   assert.doesNotMatch(summarySql, /booking\.status IN \('confirmed', 'checked_in'\)/);
   assert.match(summarySql, /booking\.actual_check_out_time AT TIME ZONE 'Asia\/Shanghai'/);
@@ -195,6 +197,11 @@ test("V2 availability preserves cross-domain truth, range boundaries, scope, and
   assert.match(sql, /homestay_booking\.status = 'confirmed'/);
   assert.match(sql, /homestay_booking\.actual_check_in_time IS NULL/);
   assert.match(sql, /THEN 'reserved'/);
+  assert.match(sql,
+    /occupancy\.source_type = 'homestay_booking'\s+AND occupancy\.status = 'active'\s+\) THEN 'occupied'/);
+  assert.match(sql, /homestay_booking\.id = CASE/);
+  assert.match(sql, /occupancy\.source_id::uuid/);
+  assert.doesNotMatch(sql, /homestay_booking\.id::text/);
   assert.match(sql, /occupancy\.source_type <> 'homestay_booking'/);
   assert.match(sql, /FROM rel_leasing_contract_unit lease_unit/);
   assert.match(sql, /AT TIME ZONE 'Asia\/Shanghai'/);

@@ -139,6 +139,7 @@ export class HomestayDashboardAvailabilityQueryService {
            WHERE booking.arrival_date <= $3::date
              AND booking.departure_date > $3::date
              AND booking.actual_check_in_time IS NOT NULL
+             AND (booking.actual_check_in_time AT TIME ZONE 'Asia/Shanghai')::date <= $3::date
              AND (
                booking.status = 'checked_in'
                OR (
@@ -344,6 +345,10 @@ export class HomestayDashboardAvailabilityQueryService {
           ) THEN 'reserved'
           WHEN bool_or(
             occupancy.source_type = 'homestay_booking'
+            AND occupancy.status = 'active'
+          ) THEN 'occupied'
+          WHEN bool_or(
+            occupancy.source_type = 'homestay_booking'
             AND occupancy.status = 'held'
           ) THEN 'held'
           WHEN bool_or(
@@ -387,7 +392,11 @@ export class HomestayDashboardAvailabilityQueryService {
        AND occupancy.end_at > $3::timestamptz
       LEFT JOIN biz_homestay_booking homestay_booking
         ON occupancy.source_type = 'homestay_booking'
-       AND homestay_booking.id::text = occupancy.source_id
+       AND homestay_booking.id = CASE
+         WHEN occupancy.source_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+           THEN occupancy.source_id::uuid
+         ELSE NULL
+       END
        AND homestay_booking.tenant_id = occupancy.tenant_id
        AND homestay_booking.park_id = occupancy.park_id
        AND homestay_booking.unit_id = occupancy.unit_id
