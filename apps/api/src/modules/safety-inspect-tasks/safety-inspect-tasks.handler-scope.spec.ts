@@ -50,9 +50,10 @@ test("role-based inspection handlers use current-scope user-role links", async (
     { handlerUserIds: [], handlerRoleCodes: ["TENANT_ADMIN"] }
   );
 
-  assert.match(joins[0]?.[2] ?? "", /userRole\.tenant_id = user\.tenant_id/);
-  assert.match(joins[0]?.[2] ?? "", /userRole\.park_id = user\.park_id/);
-  assert.match(joins[1]?.[2] ?? "", /role\.role_scope = 'tenant' OR role\.park_id = user\.park_id/);
+  assert.match(joins[0]?.[2] ?? "", /"userRole"\."tenant_id" = "user"\."tenant_id"/);
+  assert.match(joins[0]?.[2] ?? "", /"userRole"\."park_id" = "user"\."park_id"/);
+  assert.match(joins[1]?.[2] ?? "", /"role"\."role_scope" = 'tenant' OR "role"\."park_id" = "user"\."park_id"/);
+  assert.doesNotMatch(joins.map(([, , condition]) => condition).join("\n"), /(?<!")user\.(?:id|tenant_id|park_id)/);
   assert.ok(whereClauses.includes("user.tenant_id = :tenantId"));
   assert.ok(whereClauses.includes("user.park_id = :parkId"));
   assert.ok(whereClauses.includes("user.is_enabled = true"));
