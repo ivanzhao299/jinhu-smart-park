@@ -77,6 +77,9 @@ assert.match(seed, /\('HOMESTAY_OPERATOR',1,'c534047821ae825a4104503ae6d5c8df2da
 for (const token of [
   "property-homestay-task-operator-bundle-predecessor-drift",
   "property-homestay-task-operator-bundle-definition-drift",
+  "target_definition_version=2",
+  "target_drift_count=0",
+  "predecessor_drift_count=0",
   "homestay:task:read",
   "definition_version = 2",
   "7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d"
