@@ -138,20 +138,20 @@ try {
 
   assert.equal(provision(configA).state, "provisioned");
   expectCode("RUN_ALREADY_EXISTS", () => provision(configA));
-  assert.equal(runForward(configA, configAPath).state, "uat_ready");
-  assert.equal(runRollback(configA, configAPath).state, "rollback_ready");
-  const cleaned = cleanup(configA);
-  assert.equal(cleaned.state, "cleaned");
+  expectCode("FIXTURE_CANNOT_ENTER_UAT_READY", () => runForward(configA, configAPath));
+  assert.equal(currentState(configA), "verifying");
+  const cleaned = cleanup(configA, { recovery: true });
+  assert.equal(cleaned.state, "verifying");
   assert.equal(cleaned.residualCount, 0);
   assert(cleaned.resourceLedger.every((entry) => entry.removed && entry.residualCount === 0));
-  assert.equal(currentState(configA), "cleaned");
+  assert.equal(currentState(configA), "verifying");
 
   const auditA = JSON.parse(readFileSync(configA.target.auditBundle, "utf8"));
   const journal = auditA.journal;
-  assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES);
+  assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 5));
   assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "extract").map((row) => row.domain), DOMAIN_ORDER);
   assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "load").map((row) => row.domain), DOMAIN_ORDER);
-  assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "rollback").map((row) => row.domain), ROLLBACK_ORDER);
+  assert.equal(journal.find((row) => row.kind === "verification")?.qualifiesForUatReady, false);
   assert(!readFileSync(configA.target.auditBundle, "utf8").match(/password|token|postgres(?:ql)?:\/\//i));
 
   const interrupted = configFor("A", "slice2_signal_a", [45331, 45332, 45333]);
@@ -194,9 +194,10 @@ try {
   const competingRun = spawnSync(process.execPath, [lifecyclePath, "run", "--config", concurrentPath], { cwd: root, encoding: "utf8" });
   assert.notEqual(competingRun.status, 0, "concurrent run must be rejected");
   assert.match(competingRun.stderr, /RUN_CONCURRENT/);
-  assert.equal(await firstRunClosed, 0);
-  assert.equal(runRollback(concurrent, concurrentPath).state, "rollback_ready");
-  assert.equal(cleanup(concurrent).residualCount, 0);
+  assert.notEqual(await firstRunClosed, 0);
+  assert.equal(currentState(concurrent), "verifying");
+  const concurrentAudit = JSON.parse(readFileSync(concurrent.target.auditBundle, "utf8"));
+  assert(concurrentAudit.resourceLedger.every((entry) => entry.removed && entry.residualCount === 0));
 
   const signalled = configFor("A", "slice2_real_signal_a", [45631, 45632, 45633]);
   signalled.adapterEnv.T0.extract.YUZHOU_FIXTURE_DELAY_MS = "5000";
@@ -225,7 +226,7 @@ try {
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) assert(source.includes(`process.once(\"${signal}\"`), `${signal} trap missing`);
   for (const gate of ['["context", "inspect"', '["inspect", t.postgresContainer]', '["volume", "inspect", t.volume]']) assert(source.includes(gate), `lab pre-write resource gate missing: ${gate}`);
   assert(!source.includes("production import"));
-  console.log("Yuzhou full-domain Slice 2 lifecycle contract passed (fixture provision/run/rollback/recovery/residual and negative gates).");
+  console.log("Yuzhou full-domain Slice 2 lifecycle contract passed (fixture provision/verification-stop/recovery/residual and negative gates).");
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
 }

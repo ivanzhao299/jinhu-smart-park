@@ -104,13 +104,16 @@ function validateLedger(rows, catalog) {
   if (!Array.isArray(rows) || rows.length === 0) fail("LEDGER_MISSING", "globalLedger must contain source-object rows");
   const identities = new Set();
   for (const row of rows) {
-    assertExactKeys(row, ["domain", "sourceObject", "source", "loaded", "quarantined", "approvedIgnored"], ["approvedIgnoredReasonCode", "approvalAttestationSha256"], "globalLedger[]");
+    assertExactKeys(row, ["domain", "sourceObject", "source", "loaded", "quarantined", "approvedIgnored", "sourceAmount", "loadedAmount", "quarantinedAmount", "approvedIgnoredAmount"], ["approvedIgnoredReasonCode", "approvalAttestationSha256"], "globalLedger[]");
     const identity = `${row.domain}:${row.sourceObject}`;
     if (!Object.hasOwn({ T0: 1, T1: 1, T2: 1, T3: 1, T4: 1, T5: 1 }, row.domain) || typeof row.sourceObject !== "string" || row.sourceObject.length === 0) fail("MANIFEST_SCHEMA_INVALID", `${identity} identity invalid`);
     if (identities.has(identity)) fail("LEDGER_DUPLICATE_SOURCE_OBJECT", identity);
     identities.add(identity);
     for (const field of ["source", "loaded", "quarantined", "approvedIgnored"]) {
       if (!Number.isSafeInteger(row[field]) || row[field] < 0) fail("MANIFEST_SCHEMA_INVALID", `${identity}.${field} must be a nonnegative safe integer`);
+    }
+    for (const field of ["sourceAmount", "loadedAmount", "quarantinedAmount", "approvedIgnoredAmount"]) {
+      if (typeof row[field] !== "string" || !/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(row[field])) fail("MANIFEST_SCHEMA_INVALID", `${identity}.${field} must be a decimal string`);
     }
     if (row.source !== row.loaded + row.quarantined + row.approvedIgnored) fail("LEDGER_IMBALANCE", identity);
     if (row.approvedIgnored > 0) {

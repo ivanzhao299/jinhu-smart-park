@@ -7,7 +7,7 @@
   "triple": {
     "codeSha": "9b62b41004ed5a6dfb998cdeddde94d21f60a5e6",
     "sourceSnapshotHash": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
-    "mappingContractHash": "3867c04767e7ee1d7d6c93999074313202d76082cbf3a51f832ca7bec81f2cb5"
+    "mappingContractHash": "c22979b8f3d638f4db5ba1a16c7833f3c0812bd7d4811c38189d93660730a34f"
   },
   "source": {
     "system": "yuzhou-v10",
@@ -50,12 +50,12 @@
     { "type": "credential_artifact", "planned": "/tmp/jinhu_hr_migration_lab_full_contract_a/credentials/uat.env", "observed": null, "removed": false, "residualCount": 0 }
   ],
   "globalLedger": [
-    { "domain": "T0", "sourceObject": "dbo.person", "source": 2949, "loaded": 2949, "quarantined": 0, "approvedIgnored": 0 },
-    { "domain": "T1", "sourceObject": "dbo.personstatus", "source": 6887, "loaded": 6851, "quarantined": 36, "approvedIgnored": 0 },
-    { "domain": "T2", "sourceObject": "dbo.contract", "source": 802, "loaded": 800, "quarantined": 2, "approvedIgnored": 0 },
-    { "domain": "T3", "sourceObject": "dbo.person_insure", "source": 35008, "loaded": 34990, "quarantined": 18, "approvedIgnored": 0 },
-    { "domain": "T4", "sourceObject": "dbo.salary01..35", "source": 46092, "loaded": 45947, "quarantined": 145, "approvedIgnored": 0 },
-    { "domain": "T5", "sourceObject": "legacy-history", "source": 9140, "loaded": 9138, "quarantined": 2, "approvedIgnored": 0 }
+    { "domain": "T0", "sourceObject": "dbo.person", "source": 2949, "loaded": 2949, "quarantined": 0, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" },
+    { "domain": "T1", "sourceObject": "dbo.personstatus", "source": 6887, "loaded": 6851, "quarantined": 36, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" },
+    { "domain": "T2", "sourceObject": "dbo.contract", "source": 802, "loaded": 800, "quarantined": 2, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" },
+    { "domain": "T3", "sourceObject": "dbo.person_insure", "source": 35008, "loaded": 34990, "quarantined": 18, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" },
+    { "domain": "T4", "sourceObject": "dbo.salary01..35", "source": 46092, "loaded": 45947, "quarantined": 145, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" },
+    { "domain": "T5", "sourceObject": "legacy-history", "source": 9140, "loaded": 9138, "quarantined": 2, "approvedIgnored": 0, "sourceAmount": "0.00", "loadedAmount": "0.00", "quarantinedAmount": "0.00", "approvedIgnoredAmount": "0.00" }
   ],
   "canonical": {
     "normalizationVersion": "yuzhou-full-canonical-v1",

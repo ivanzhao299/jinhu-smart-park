@@ -153,15 +153,18 @@
     },
     "ledgerRow": {
       "type": "object", "additionalProperties": false,
-      "required": ["domain", "sourceObject", "source", "loaded", "quarantined", "approvedIgnored"],
+      "required": ["domain", "sourceObject", "source", "loaded", "quarantined", "approvedIgnored", "sourceAmount", "loadedAmount", "quarantinedAmount", "approvedIgnoredAmount"],
       "properties": {
         "domain": { "enum": ["T0", "T1", "T2", "T3", "T4", "T5"] },
         "sourceObject": { "type": "string", "minLength": 1 },
         "source": { "type": "integer", "minimum": 0 }, "loaded": { "type": "integer", "minimum": 0 },
         "quarantined": { "type": "integer", "minimum": 0 }, "approvedIgnored": { "type": "integer", "minimum": 0 },
+        "sourceAmount": { "$ref": "#/$defs/decimal" }, "loadedAmount": { "$ref": "#/$defs/decimal" },
+        "quarantinedAmount": { "$ref": "#/$defs/decimal" }, "approvedIgnoredAmount": { "$ref": "#/$defs/decimal" },
         "approvedIgnoredReasonCode": { "type": "string" }, "approvalAttestationSha256": { "$ref": "#/$defs/sha256" }
       }
     },
+    "decimal": { "type": "string", "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$" },
     "gate": {
       "type": "object", "additionalProperties": false, "required": ["status", "reasonCodes"],
       "properties": { "status": { "enum": ["PASS", "FAIL", "HOLD", "NOT_STARTED"] }, "reasonCodes": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }, "uniqueItems": true } }
