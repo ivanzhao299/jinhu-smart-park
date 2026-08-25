@@ -43,11 +43,11 @@
 
 ## Phase 5 — 玉舟兼容切片
 
-- [ ] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
-- [ ] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
-- [ ] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。
-- [ ] `bonuscode/bonusrecord/jch_1` 奖惩历史保真；空表和未知状态保持可见，不合成业务事实。
-- [ ] 旧文件哈希/MIME/大小/可读性核对；生产导入继续 HOLD，除非另获 run 级授权。
+- [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
+- [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
+- [x] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。
+- [x] `bonuscode/bonusrecord/jch_1` 奖惩历史保真；空表和未知状态保持可见，不合成业务事实。
+- [x] 旧文件哈希/MIME/大小/可读性核对；生产导入继续 HOLD，除非另获 run 级授权。
 
 ## Phase 6 — 全量质量与发布
 

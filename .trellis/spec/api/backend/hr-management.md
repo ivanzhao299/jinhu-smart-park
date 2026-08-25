@@ -747,3 +747,24 @@ await dataSource.transaction(async manager => {
   await appendActionUpdateItemAndPrivateMessage(manager, scope, actor, item, dto);
 });
 ```
+
+## Scenario: Yuzhou T5 protected historical records migration
+
+### 1. Scope / Trigger
+
+- Trigger: extracting or loading `accept/family/his/knowhow/ticket/person.photo/docs/course/train/trainhis/jobtrain/bonuscode/bonusrecord/jch_1`, migration `000256`, or the T5 rollback tool.
+
+### 2. Contracts
+
+- Extraction uses a non-`sa`, non-sysadmin login against a read-only SQL Server database, explicit columns, stable keys, a `0700` staging directory, and `0600` files from their first write.
+- The pinned business hash is recalculated from canonical catalog and domain facts. A manifest's self-reported hash is never trusted; absent and empty source objects remain distinct facts.
+- Every source identity has exactly one loaded or quarantined record map. Enforce total, per-source, quarantine-error, and batch conservation independently rather than deriving one side as a constant remainder.
+- Historical rows accept inserts only while the batch is unpublished. Staged counts and rows are immutable; rollback requires a succeeded staged batch, verified rollback point, matching run setting, and an active map whose target ID plus source table, identity hash, and row hash match the target row.
+- Lock employee, user, compensation, payroll, payslip, performance, and Workflow Inbox tables against concurrent writes while taking before/after hashes. The loader never writes those online domains.
+- Readable file evidence requires a content hash, positive actual size, and detected MIME. Empty/path-only evidence has no content hash and never becomes a download URL.
+
+### 3. Tests Required
+
+- From `template0`, run all migrations and checksum replay, production seed, T0 employee load, then T5 load → unauthorized mutation checks → rollback → reload → duplicate-run rejection.
+- Catalog-test scoped foreign keys, full non-partial child indexes, exact insert/update/delete trigger bits, terminal immutability, and file evidence shape constraints.
+- Contract-test canonical hash recomputation, staging modes, source identity uniqueness, per-source conservation, salary/online hashes, and absence of online-domain inserts/deletes.
