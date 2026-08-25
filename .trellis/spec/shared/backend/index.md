@@ -46,12 +46,12 @@ Shared changes can affect both apps. Prefer:
 - Shared response field: `UserContext.is_tenant_bootstrap_admin?: boolean`.
 - Producer: `UsersService.getCurrentUserContext(scope, userId)` for `/auth/me` and `/users/me`.
 - Consumer: `resolvePostLoginPath(user, signals)` and park-switch fallback routing.
-- Database authority: nullable UUID `sys_tenant.contact_user_id`; historical backfill migration `000252_tenant_bootstrap_admin_pointer_backfill.sql`.
+- Database authority: nullable UUID `sys_tenant.contact_user_id`; historical backfill migration `000253_tenant_bootstrap_admin_pointer_backfill.sql`.
 
 ### 3. Contracts
 
 - `true` requires only exact equality `sys_tenant.contact_user_id = sys_user.id`. Runtime roles, remarks, creator provenance, usernames, and creation time never infer or override identity.
-- `TenantsService.create` writes the pointer in the onboarding transaction. Migration `000252` backfills only non-deleted pointer-less tenants from enabled, non-deleted users with an enabled, non-deleted tenant-wide `TENANT_ADMIN` role; candidate order is `sys_user.create_time ASC, sys_user.id ASC`.
+- `TenantsService.create` writes the pointer in the onboarding transaction. Migration `000253` backfills only non-deleted pointer-less tenants from enabled, non-deleted users with an enabled, non-deleted tenant-wide `TENANT_ADMIN` role; candidate order is `sys_user.create_time ASC, sys_user.id ASC`.
 - `TENANT_ADMIN` is tenant-wide and reused across parks. A valid `rel_user_role.park_id` is the target park and may differ from both the user's home park and the role row's park; tenant identity must match across user, link, and role.
 - Zero-candidate tenants remain NULL. Multiple valid candidates use the stable order. Structurally inconsistent tenant identities fail migration preflight before any update.
 - The API emits an explicit boolean. Optionality preserves compatibility with older clients and test fixtures.
