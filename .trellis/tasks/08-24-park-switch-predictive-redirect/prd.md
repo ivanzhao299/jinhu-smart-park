@@ -23,6 +23,7 @@
 - [x] 桌面和移动切换入口共享同一判定契约。
 - [x] 目标 spec、既有 auth-routing spec、Web typecheck、lint、build 通过。
 - [ ] 浏览器不可用时如实记录，任务保持 `in_progress`。
+- [ ] 2026-08-25 Windows 真实 Chrome：可达 `/system/users` 跨园区保持 pathname 通过；但从 park A `/engineering/dashboard` 切到禁用 engineering 的 park B 连续两次均落 `/403`，未到合理落点，因此保持 `in_progress`。证据见 `docs/uat/route-governance-browser-acceptance-20260825.md`。
 
 ## Notes
 

@@ -69,6 +69,7 @@ GitHub Issue: #345
 - [ ] GitHub PR 经 `@codex review`，重大问题清零且 CI 全绿后 squash merge。
 - [ ] main CI 与 Deploy Production 成功，健康检查成功且部署清理步骤有成功日志；否则停止并如实报告。
 - [ ] Issue 由合并自动关闭或人工确认已关闭。
+- [x] Windows 真实 Chrome 桌面超管登录落 `/dashboard`；租户首管亦落 `/dashboard`，后建 TENANT_ADMIN 精确落首菜单 `/system/orgs`。
 
 ## Out Of Scope / Follow-ups
 
