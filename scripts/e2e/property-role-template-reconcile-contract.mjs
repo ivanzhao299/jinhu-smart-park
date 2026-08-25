@@ -84,6 +84,8 @@ for (const token of [
   assert.ok(homestayTaskBundleMigration.includes(token), `missing homestay task bundle migration token: ${token}`);
 }
 assert.match(trackBSeed, /bundle_member_count <> 130/);
+assert.match(trackBSeed, /bundle_permission_count <> 56/);
+assert.match(trackBSeed, /resolved_bundle_permission_count <> 56/);
 
 for (const token of [
   "findPropertyRoleTemplateDefinition",
