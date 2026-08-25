@@ -177,6 +177,9 @@ export function resolvePostLoginPath(user: UserContext | null, signals: PostLogi
   if (hasPermission(user, "*")) {
     return "/dashboard";
   }
+  if (user?.is_tenant_bootstrap_admin) {
+    return "/dashboard";
+  }
   if (firstMenuHref) {
     return firstMenuHref;
   }

@@ -1,0 +1,4 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"UserContext identity flows across shared, API, and Web."}
+{"file":".trellis/spec/guides/project-operations.md","reason":"The requested closure includes production deployment and cleanup verification."}
+{"file":".trellis/spec/api/backend/index.md","reason":"UsersService implementation and focused backend test conventions."}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Post-login and park-switch route contracts."}

@@ -106,6 +106,43 @@ test("desktop wildcard users also land on the dashboard", () => {
   assert.equal(route, "/dashboard");
 });
 
+test("desktop tenant bootstrap admins land on the dashboard before their first business menu", () => {
+  const user = createUser({
+    is_tenant_bootstrap_admin: true,
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(resolvePostLoginPath(user, { viewportWidth: 1440, pointerCoarse: false }), "/dashboard");
+});
+
+test("mobile tenant bootstrap admins keep the engineering terminal priority", () => {
+  const user = createUser({
+    is_tenant_bootstrap_admin: true,
+    permissions: ["ENGINEERING_DASHBOARD_VIEW"],
+    enabled_modules: [{ module_code: "engineering", module_name: "工程管理", module_group: "engineering", enabled: true }]
+  });
+
+  assert.equal(
+    resolvePostLoginPath(user, { viewportWidth: 390, pointerCoarse: true, userAgent: "iPhone" }),
+    "/engineering/terminal"
+  );
+});
+
+test("mobile tenant bootstrap admins keep the safety terminal priority", () => {
+  const user = createUser({
+    is_tenant_bootstrap_admin: true,
+    permissions: [SYSTEM_PERMISSIONS.SAFETY_INSPECT_TASK_MY],
+    enabled_modules: [{ module_code: "safety", module_name: "安全管理", module_group: "operations", enabled: true }]
+  });
+
+  assert.equal(
+    resolvePostLoginPath(user, { viewportWidth: 390, pointerCoarse: true, userAgent: "Android" }),
+    "/operations/terminal"
+  );
+});
+
 test("narrow desktop windows keep using the mobile engineering workbench", () => {
   const user = createUser({
     permissions: ["ENGINEERING_DASHBOARD_VIEW"],
@@ -265,6 +302,20 @@ test("park switches redirect an inaccessible menu detail to the next user's land
   });
 
   assert.equal(resolvePostParkSwitchPath(user, "/engineering/projects/project-1", null, desktopSignals), "/system/users");
+});
+
+test("park switches inherit the tenant bootstrap admin desktop landing contract", () => {
+  const user = createUser({
+    is_tenant_bootstrap_admin: true,
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(
+    resolvePostParkSwitchPath(user, "/engineering/projects/project-1", null, desktopSignals),
+    "/dashboard"
+  );
 });
 
 test("park switches keep the module-free dashboard and unknown utility routes", () => {

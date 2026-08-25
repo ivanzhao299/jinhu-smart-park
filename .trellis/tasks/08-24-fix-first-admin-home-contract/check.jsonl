@@ -1,0 +1,4 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify the additive field is produced and consumed consistently."}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify deploy health and cleanup evidence."}
+{"file":".trellis/spec/api/backend/index.md","reason":"Verify service and test conventions."}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify routing priority and park-switch regressions."}
