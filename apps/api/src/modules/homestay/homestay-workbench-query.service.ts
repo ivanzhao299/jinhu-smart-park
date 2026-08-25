@@ -527,14 +527,16 @@ export class HomestayWorkbenchQueryService {
     return `WITH finance AS (
       SELECT booking.id AS "bookingId", booking.booking_code AS "bookingCode",
       booking.status AS "bookingStatus",
-      booking.total_amount::text AS "totalAmount",
+      COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'charge'
+        AND entry.status = 'confirmed'), 0)::text AS "totalAmount",
       COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'payment'
         AND entry.status = 'confirmed'), 0)::text AS "paidAmount",
       COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'refund'
         AND entry.status = 'confirmed'), 0)::text AS "refundedAmount",
       COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'waiver'
         AND entry.status = 'confirmed'), 0)::text AS "waivedAmount",
-      (booking.total_amount
+      (COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'charge'
+          AND entry.status = 'confirmed'), 0)
         - COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'payment'
           AND entry.status = 'confirmed'), 0)
         + COALESCE(sum(entry.amount) FILTER (WHERE entry.entry_type = 'refund'
@@ -548,7 +550,7 @@ export class HomestayWorkbenchQueryService {
       AND entry.is_deleted = false
     WHERE booking.tenant_id = $1 AND booking.park_id = $2
       AND booking.is_deleted = false${extraWhere}
-    GROUP BY booking.id, booking.booking_code, booking.status, booking.total_amount, booking.create_time
+    GROUP BY booking.id, booking.booking_code, booking.status, booking.create_time
     )`;
   }
 
