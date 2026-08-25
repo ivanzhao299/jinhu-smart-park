@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, ListChecks, Network, RefreshCw, ShieldCheck, Target, UserRoundSearch, UsersRound } from "lucide-react";
+import { BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, GraduationCap, ListChecks, Network, RefreshCw, ShieldCheck, Target, UserRoundSearch, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { recruitment:MetricState; lifecycle:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals: MetricState; payroll: MetricState }
-const EMPTY: Snapshot = { recruitment:null, lifecycle:null, employees: null, contracts:null, attendance:null, insurance:null, goals: null, reports: null, performance: null, feedback: null, approvals: null, payroll: null };
+interface Snapshot { recruitment:MetricState; lifecycle:MetricState; training:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals:MetricState; payroll:MetricState }
+const EMPTY: Snapshot = { recruitment:null, lifecycle:null, training:null, employees:null, contracts:null, attendance:null, insurance:null, goals:null, reports:null, performance:null, feedback:null, approvals:null, payroll:null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -46,6 +46,7 @@ export function HrWorkbench() {
     }
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_REQUISITION_READ,HR_PERMISSIONS.HR_REQUISITION_TEAM_READ]))add("recruitment",hrApi.recruitmentRequisitions(token,1,1,{status:"open"}).then(result=>({value:result.total,detail:"开放中的招聘需求"})));
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_LIFECYCLE_READ,HR_PERMISSIONS.HR_LIFECYCLE_TEAM_READ,HR_PERMISSIONS.HR_LIFECYCLE_SELF_READ]))add("lifecycle",hrApi.lifecycleChecklists(token,1,1).then(result=>({value:result.total,detail:"当前可见入离职任务"})));
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_TRAINING_READ,HR_PERMISSIONS.HR_TRAINING_TEAM_READ,HR_PERMISSIONS.HR_TRAINING_SELF_READ]))add("training",hrApi.trainingPlans(token,1,1).then(result=>({value:result.total,detail:"当前可见培训任务"})));
     if(hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_SELF_READ])){
       const selfOnly=hasPermission(user,HR_PERMISSIONS.HR_CONTRACT_SELF_READ)&&!hasAnyPermission(user,[HR_PERMISSIONS.HR_CONTRACT_READ,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ]);
       add("contracts",hrApi.contracts(token,1,1,{},selfOnly).then(result=>({value:result.total,detail:"当前可见劳动合同"})));
@@ -88,6 +89,7 @@ export function HrWorkbench() {
   const cards = useMemo(() => [
     { key: "recruitment", title: "招聘管理", href: "/hr/recruitment", icon: UserRoundSearch },
     { key: "lifecycle", title: "入离职办理", href: "/hr/lifecycle", icon: ListChecks },
+    { key: "training", title: "培训管理", href: "/hr/training", icon: GraduationCap },
     { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
     { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
     { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays },

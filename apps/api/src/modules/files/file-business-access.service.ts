@@ -21,13 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
-  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence"
+  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence" | "hr_training_certificate" | "hr_training_evidence"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -151,6 +151,10 @@ export class FileBusinessAccessService {
       await this.assertHrLifecycleDocumentAccess(scope,actor,bizId,action);
       return;
     }
+    if (bizType === "hr_training_certificate" || bizType === "hr_training_evidence") {
+      await this.assertHrTrainingDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
     const rule = ACCESS_RULES[bizType];
     const permissions = action === "upload" || action === "delete"
       ? rule.writePermissions
@@ -229,6 +233,15 @@ export class FileBusinessAccessService {
     if(!rows[0])throw new ForbiddenException("HR lifecycle reference is outside the current tenant or park");
   }
 
+  private async assertHrTrainingDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR training evidence requires a participant reference");
+    const write=action==="upload"||action==="delete",permission=write?HR_PERMISSIONS.HR_TRAINING_DOCUMENT_MANAGE:HR_PERMISSIONS.HR_TRAINING_DOCUMENT_READ;
+    if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
+    const rows=await this.dataSource.query(`SELECT e.user_id FROM hr_training_participant tp JOIN hr_employee e ON e.tenant_id=tp.tenant_id AND e.park_id=tp.park_id AND e.id=tp.employee_id JOIN hr_training_plan p ON p.tenant_id=tp.tenant_id AND p.park_id=tp.park_id AND p.id=tp.plan_id WHERE tp.id=$1 AND tp.tenant_id=$2 AND tp.park_id=$3 AND p.is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]) as Array<{user_id:string|null}>;
+    if(!rows[0])throw new ForbiddenException("HR training reference is outside the current tenant or park");
+    if(!write&&!this.hasPermission(actor,HR_PERMISSIONS.HR_TRAINING_READ)&&rows[0].user_id!==actor.sub)throw new ForbiddenException("Employees can only read their own training evidence");
+  }
+
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {
     if (
       this.isProtectedBizType(file.bizType)
@@ -305,6 +318,15 @@ export class FileBusinessAccessService {
                WHERE tenant_id=$2 AND park_id=$3 AND id=$4::uuid
                  AND photo_file_ids ? $1::text
                  AND is_deleted=false`;
+        break;
+      case "hr_training_certificate":
+        sql = `SELECT 1 FROM hr_training_participant
+               WHERE tenant_id=$2 AND park_id=$3 AND id=$4::uuid
+                 AND certificate_file_id=$1::uuid
+               UNION ALL
+               SELECT 1 FROM hr_training_result_correction
+               WHERE tenant_id=$2 AND park_id=$3 AND participant_id=$4::uuid
+                 AND certificate_file_id=$1::uuid`;
         break;
     }
     if (!sql) return;

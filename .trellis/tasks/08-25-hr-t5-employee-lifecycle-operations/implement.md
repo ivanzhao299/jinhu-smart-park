@@ -27,11 +27,11 @@
 
 ## Phase 3 — 培训运营
 
-- [ ] course/plan/participant/correction migration，计划快照、预算/费用 decimal 和完成后不可变。
-- [ ] 课程、计划发布、参训范围、签到/完成、成绩、证书、费用与更正 API。
-- [ ] 必修/逾期/完成消息与计划动作同事务；不自动改变绩效/工资。
-- [ ] `/hr/training` HR、团队、本人三视图及桌面/390px 适配。
-- [ ] 计划并发、组织树、费用字段权限、员工自助和历史版本 PG/API/Web 测试。
+- [x] course/plan/participant/correction migration，计划快照、预算/费用 decimal 和完成后不可变。
+- [x] 课程、计划发布、参训范围、签到/完成、成绩、证书、费用与更正 API。
+- [x] 必修/逾期/完成消息与计划动作同事务；不自动改变绩效/工资。
+- [x] `/hr/training` HR、团队、本人三视图及桌面/390px 适配。
+- [x] 计划并发、组织树、费用字段权限、员工自助和历史版本 PG/API/Web 测试。
 
 ## Phase 4 — 奖惩运营
 
