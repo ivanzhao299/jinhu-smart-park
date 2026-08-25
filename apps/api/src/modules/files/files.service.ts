@@ -214,6 +214,10 @@ export class FilesService {
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.candidate_document",action:"读取候选人附件列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
       return {...result,items:items.map(projectHrEmployeeDocumentFile)};
     }
+    if((query.biz_type==="hr_employee_credential_evidence"||query.biz_type==="hr_lifecycle_checklist_evidence")&&query.biz_id){
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.protected_evidence",action:"读取人事受保护附件列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
+      return {...result,items:items.map(projectHrEmployeeDocumentFile)};
+    }
     return result;
   }
 
@@ -240,6 +244,10 @@ export class FilesService {
     }
     if((file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence")&&file.bizId){
       await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.candidate_document",action:"读取候选人附件详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
+      return projectHrEmployeeDocumentFile(file);
+    }
+    if((file.bizType==="hr_employee_credential_evidence"||file.bizType==="hr_lifecycle_checklist_evidence")&&file.bizId){
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.protected_evidence",action:"读取人事受保护附件详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
       return projectHrEmployeeDocumentFile(file);
     }
     return file;
@@ -315,6 +323,10 @@ export class FilesService {
     }
     if(file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence"){
       await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.candidate_document",action:"下载候选人附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
+      return;
+    }
+    if(file.bizType==="hr_employee_credential_evidence"||file.bizType==="hr_lifecycle_checklist_evidence"){
+      await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.protected_evidence",action:"下载人事受保护附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
       return;
     }
     await this.auditService.recordOperation({
