@@ -64,7 +64,7 @@ test("returned report becomes a high-priority supplement item for the employee",
   assert.equal(inserted.length, 1);
   assert.equal(inserted[0]?.priority, "high");
   assert.equal(inserted[0]?.action, "supplement");
-  assert.equal(inserted[0]?.content, "请补充风险应对计划");
+  assert.equal(inserted[0]?.content, "负责人已退回，请进入工作汇报查看意见并补充。");
 });
 
 test("notification is skipped when no linked system account exists", async () => {

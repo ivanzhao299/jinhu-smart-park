@@ -768,3 +768,71 @@ await dataSource.transaction(async manager => {
 - From `template0`, run all migrations and checksum replay, production seed, T0 employee load, then T5 load → unauthorized mutation checks → rollback → reload → duplicate-run rejection.
 - Catalog-test scoped foreign keys, full non-partial child indexes, exact insert/update/delete trigger bits, terminal immutability, and file evidence shape constraints.
 - Contract-test canonical hash recomputation, staging modes, source identity uniqueness, per-source conservation, salary/online hashes, and absence of online-domain inserts/deletes.
+
+## Scenario: T6 goal execution and work-report review
+
+### 1. Scope / Trigger
+
+- Trigger: changing goal cycles, hierarchical goals, goal progress, work-report submissions/reviews, migration `000257`, their Web workbenches, or production goal/report RBAC.
+- Existing `000231/000232` rows are a nonempty compatibility baseline. Upgrade them forward; never edit those migrations or fabricate rewritten legacy content.
+
+### 2. Signatures
+
+- Goal reads/options: `GET /hr/goals`, `GET /hr/goals/me`, `GET /hr/goals/options`, `GET /hr/goal-cycles`.
+- Goal writes: create cycle/goal, activate or close a cycle, activate/complete/cancel a goal, and append a check-in. Every write uses exact atomic permission, replay semantics, `captureBody:false`, and scoped locks.
+- Report reads/writes: list/detail/action history plus draft, update, submit, return, resubmit, and confirm. Suggestions are submitted snapshots, not goal mutations.
+- Database: scoped composite foreign keys use `(tenant_id,park_id,target_id)` and every child has a complete non-partial index with that prefix.
+
+### 3. Contracts
+
+- Access resolves independently to `park | managed_org_tree | self | none`. Goal-management options return only park/team-safe organizations and employees plus `canCreateGroup`; Web must not substitute generic organization or employee APIs.
+- Non-managers see only non-draft cycles/goals. A manager with both team and self atoms gets the union for report action history. Query parameters may narrow but never widen scope.
+- A parent goal's progress is `SUM(child.weight * child.progress)`; do not divide by the present child-weight sum because incomplete allocation would overstate progress. Cycle-row locking serializes sibling/root weight checks.
+- Check-ins are accepted only for active goals. Evidence IDs are not accepted until protected-file ownership, business type, authorization, and required audit are implemented end to end.
+- Cycle and goal states move only through explicit actions. Terminal rows, goal versions, actions, and submitted suggestion snapshots are immutable at database level.
+- Report content freezes after submit/resubmit. Return permits a new draft revision; confirm is terminal. The state change, append-only action, and privacy-safe Workflow Inbox message commit in the same transaction. A reviewer is not notified about their own report.
+- Public projections omit compatibility/source flags, tenant/park IDs, storage/audit fields, and internal version rows. Authorized empty sensitive reads still complete required audit before returning.
+
+### 4. Validation & Error Matrix
+
+- cross-park, sibling organization, other employee under self scope, or direct Service call without an exact atom -> safe not-found/forbidden or empty scope without target disclosure.
+- group goal creation without `canCreateGroup`, invalid parent level/date containment, sibling weight above 1, or concurrent conflicting weight write -> validation/conflict and full rollback.
+- check-in on non-active goal, close/cancel with nonterminal children, illegal state jump, or terminal mutation -> conflict/bad request; database bypass is rejected too.
+- submit empty/invalid report, review outside managed scope, self-review, stale submission action, or terminal report mutation -> validation/forbidden/conflict with no action/message side effect.
+- required-audit or inbox insert failure -> block/roll back the response and business transition.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR activates a group cycle and goal, a manager decomposes it to an employee with scoped options, progress aggregates by frozen weights, and a submitted report plus suggestions is returned/resubmitted/confirmed with one action and one private message per transition.
+- Base: legacy goals/reports upgrade with unchanged old-field hashes and matching baseline version/action counts, while remaining readable through explicit projections.
+- Bad: fetch all employees to populate a department-manager form, normalize parent progress by only existing weights, expose draft strategy to self roles, update a submitted suggestion, or notify a reviewer about their own report.
+
+### 6. Tests Required
+
+- Run the official `template0` migration path, prerequisites, production seed twice, and checksum replay; separately seed nonempty 000231/000232 fixtures and assert old-field counts/hashes before and after 000257.
+- PostgreSQL-test root/child weight concurrency, hierarchy/date constraints, state transitions, terminal immutability, suggestion freezing, append-only actions, complete scoped FK indexes, and direct-SQL bypass rejection.
+- Unit/contract-test park/team/self/none including team+self union, exact options scope, draft hiding, exact projections, authorized-empty required audit, notification privacy/deduplication, and zero partial commits on audit/message failure.
+- Web-test permission-gated requests, stale-request abort/generation handling, sensitive-state clearing, loading/empty/403/error/retry states, desktop layout, and a 390px mobile record flow.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+const employees = await hrApi.employees(token); // broad directory read
+parentProgress = weightedTotal / presentChildWeight;
+await reportRepo.update(reportId, { status: "confirmed" });
+await messageRepo.save(message); // separate transaction
+```
+
+#### Correct
+
+```ts
+const options = await hrApi.goalOptions(token); // exact park/team scope
+parentProgress = sum(children.map(child => child.weight * child.progress));
+await dataSource.transaction(async manager => {
+  const report = await lockScopedReport(manager, scope, reportId);
+  await appendReportActionAndTransition(manager, report, decision);
+  await insertPrivacySafeInboxMessage(manager, report, decision);
+});
+```

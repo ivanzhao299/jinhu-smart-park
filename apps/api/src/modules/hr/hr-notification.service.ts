@@ -21,9 +21,7 @@ export class HrNotificationService {
     manager: EntityManager
   ): Promise<void> {
     if (!report.reviewerEmployeeId) return;
-    const reviewer = await manager.getRepository(HrEmployeeEntity).findOne({
-      where: { id: report.reviewerEmployeeId, ...scope, isDeleted: false }
-    });
+    const reviewer = await manager.getRepository(HrEmployeeEntity).findOne({where:{id:report.reviewerEmployeeId,...scope,isDeleted:false}});
     if (!reviewer?.userId || reviewer.userId === actor.sub) return;
     await this.publish(manager, {
       scope,
@@ -33,7 +31,7 @@ export class HrNotificationService {
       action: "review",
       title: `待审核${this.reportTypeLabel(report.reportType)}`,
       content: `${report.periodStart} 至 ${report.periodEnd} 的工作汇报已提交，请审核或退回补充。`,payload:{reportType:report.reportType,periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.status},
-      uniqueKey: `hr:work-report:${report.id}:submitted:${reviewer.userId}`
+      uniqueKey: `hr:work-report:${report.id}:${report.status}:${report.submissionNo}:${reviewer.userId}`
     });
   }
 
@@ -43,9 +41,7 @@ export class HrNotificationService {
     report: HrWorkReportEntity,
     manager: EntityManager
   ): Promise<void> {
-    const employee = await manager.getRepository(HrEmployeeEntity).findOne({
-      where: { id: report.employeeId, ...scope, isDeleted: false }
-    });
+    const employee = await manager.getRepository(HrEmployeeEntity).findOne({where:{id:report.employeeId,...scope,isDeleted:false}});
     if (!employee?.userId || employee.userId === actor.sub) return;
     const returned = report.status === "returned";
     await this.publish(manager, {
@@ -55,8 +51,8 @@ export class HrNotificationService {
       sourceId:report.id,sourceType:"hr_work_report",bizType:"hr_work_report",targetUrl:"/hr/work-reports",
       action: returned ? "supplement" : "confirmed",
       title: returned ? `${this.reportTypeLabel(report.reportType)}需补充` : `${this.reportTypeLabel(report.reportType)}已确认`,
-      content: report.reviewComment ?? (returned ? "负责人已退回，请补充后重新提交。" : "负责人已确认本期工作汇报。"),payload:{reportType:report.reportType,periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.status},
-      uniqueKey: `hr:work-report:${report.id}:${report.status}:${employee.userId}`
+      content: returned ? "负责人已退回，请进入工作汇报查看意见并补充。" : "负责人已确认本期工作汇报。",payload:{reportType:report.reportType,periodStart:report.periodStart,periodEnd:report.periodEnd,status:report.status},
+      uniqueKey: `hr:work-report:${report.id}:${report.status}:${report.submissionNo}:${employee.userId}`
     });
   }
 
@@ -88,37 +84,8 @@ export class HrNotificationService {
       uniqueKey: string;
     }
   ): Promise<void> {
-    const repository = manager.getRepository(UserMessageEntity);
-    const entity = repository.create({
-      ...input.scope,
-      recipientId: input.recipientId,
-      recipientName: null,
-      senderId: input.actor.sub,
-      senderName: "人力资源管理",
-      category: "hr",
-      priority: input.action === "supplement" ? "high" : "normal",
-      sourceType: input.sourceType,
-      sourceId: input.sourceId,
-      bizType: input.bizType,
-      bizId: input.sourceId,
-      action: input.action,
-      title: input.title,
-      content: input.content,
-      targetUrl: input.targetUrl,
-      readAt: null,
-      archivedAt: null,
-      uniqueKey: input.uniqueKey,
-      payload: input.payload,
-      createBy: input.actor.sub,
-      updateBy: input.actor.sub
-    });
-    await repository
-      .createQueryBuilder()
-      .insert()
-      .into(UserMessageEntity)
-      .values(entity as QueryDeepPartialEntity<UserMessageEntity>)
-      .orIgnore()
-      .execute();
+    const repository=manager.getRepository(UserMessageEntity);const entity=repository.create({...input.scope,recipientId:input.recipientId,recipientName:null,senderId:input.actor.sub,senderName:"人力资源管理",category:"hr",priority:input.action==="supplement"?"high":"normal",sourceType:input.sourceType,sourceId:input.sourceId,bizType:input.bizType,bizId:input.sourceId,action:input.action,title:input.title,content:input.content,targetUrl:input.targetUrl,readAt:null,archivedAt:null,uniqueKey:input.uniqueKey,payload:input.payload,createBy:input.actor.sub,updateBy:input.actor.sub});
+    await repository.createQueryBuilder().insert().into(UserMessageEntity).values(entity as QueryDeepPartialEntity<UserMessageEntity>).orIgnore().execute();
   }
 
   private reportTypeLabel(reportType: string): string {

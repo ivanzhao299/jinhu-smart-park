@@ -1,0 +1,8 @@
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"HR goals, reports, performance, 360, sensitive projection, workflow and migration contracts"}
+{"file":".trellis/spec/api/backend/index.md","reason":"NestJS controller, service, DTO, transaction, permissions and migration conventions"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Next.js page state, permission, API, idempotency and responsive UI conventions"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Shared permission and cross-layer contract ownership"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Database to API to Web data-flow planning"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Forward migration, seed, CI and production release gates"}
+{"file":".trellis/tasks/08-25-hr-t6-performance-talent/prd.md","reason":"Approved product scope and acceptance criteria"}
+{"file":".trellis/tasks/08-25-hr-t6-performance-talent/design.md","reason":"Compatibility, service boundaries and transaction design"}

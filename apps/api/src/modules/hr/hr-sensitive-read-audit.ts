@@ -1,7 +1,7 @@
 import type { TenantParkScope } from "@jinhu/shared";
 import type { AuditService,RecordOperationInput } from "../audit/audit.service";
 
-export type HrSensitiveReadFieldGroup = "identity" | "contact" | "financial" | "compensation" | "attachment" | "employment_contract" | "attendance" | "insurance" | "payroll_input" | "reward_reason";
+export type HrSensitiveReadFieldGroup = "identity" | "contact" | "financial" | "compensation" | "attachment" | "employment_contract" | "attendance" | "insurance" | "payroll_input" | "reward_reason" | "work_content";
 
 export interface HrSensitiveReadActor {
   sub: string;
@@ -27,11 +27,14 @@ export function buildHrSensitiveReadAuditInput(
   actor: HrSensitiveReadActor,
   details: HrSensitiveReadAuditDetails
 ): RecordOperationInput {
+  const fieldGroups=details.resource.startsWith("hr.work_report")
+    ? [...new Set([...details.fieldGroups,"work_content" as const])]
+    : [...details.fieldGroups];
   return {
     tenantId:scope.tenantId,parkId:scope.parkId,userId:actor.sub,username:actor.username,
     realName:actor.realName??null,roleCodes:actor.roles,module:"人力资源管理",resource:details.resource,
     action:details.action,bizType:details.bizType,bizId:details.bizId,beforeJson:null,
-    afterJson:{fieldGroups:[...details.fieldGroups],projection:details.projection,...(details.itemCount===undefined?{}:{itemCount:details.itemCount})},
+    afterJson:{fieldGroups,projection:details.projection,...(details.itemCount===undefined?{}:{itemCount:details.itemCount})},
     method:"GET",path:details.path,success:true,result:"success",requestId:details.requestId??null
   };
 }

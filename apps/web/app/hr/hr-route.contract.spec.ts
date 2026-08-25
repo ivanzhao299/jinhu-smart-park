@@ -89,11 +89,11 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
 
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
   const reports=readFileSync(resolve(__dirname,"work-reports/HrWorkReportsClient.tsx"),"utf8");
-  assert.match(reports,/填写汇报/);
-  assert.match(reports,/showCreate \? <form/);
+  assert.match(reports,/写汇报/);
+  assert.match(reports,/editing\?<form/);
   assert.match(reports,/团队待审/);
   assert.match(reports,/<details className=\{styles\.actionDisclosure\}>/);
-  assert.match(reports,/mine\.length === 0/);
+  assert.match(reports,/mine\.length===0/);
 });
 
 test("HR M4 goals use an execution ledger with explicit actions",()=>{
