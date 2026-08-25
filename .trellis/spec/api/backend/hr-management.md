@@ -650,3 +650,64 @@ FROM hr_attendance_daily_result
 WHERE work_date BETWEEN :start AND :end AND is_deleted=false
 ORDER BY employee_id, work_date, create_time DESC, id DESC;
 ```
+
+## Scenario: Lifecycle checklists and sensitive employee extended records
+
+### 1. Scope / Trigger
+
+- Trigger: changing lifecycle templates/checklists/actions, employee family/education/work/skill/credential records, their protected files, migration `000252`, or production HR permission seeds.
+- This scenario extends the real `000251_hr_recruitment_preboarding.sql` schema; never edit or assume an empty 000251 baseline.
+
+### 2. Signatures
+
+- Read: `GET /hr/lifecycle/checklists`, `GET /hr/lifecycle/checklists/:id`, and `GET /hr/employees/:employeeId/records`.
+- Write: `POST /hr/lifecycle/templates`, `POST /hr/lifecycle/templates/:id/versions`, `POST /hr/lifecycle/checklists`, `POST /hr/lifecycle/checklists/:checklistId/items/:itemId/actions`, and `POST /hr/employees/:employeeId/records`; every write is replay-aware and audited with `captureBody:false`.
+- Database: active-only checklist identity `(tenant_id,park_id,employee_id,checklist_type) WHERE is_deleted=false AND status='open'`; offboarding event FK `(tenant_id,park_id,employee_id,employment_event_id)`; action item FK `(tenant_id,park_id,checklist_id,item_id)`; both child FKs require complete non-partial indexes.
+
+### 3. Contracts
+
+- Upgrade preserves every 000251 checklist/item row, including its snapshot and status; legacy rows may retain `template_version_id=NULL`. Only active open checklists are unique. Published template versions/items, checklist snapshots, and action history are append-only.
+- An offboarding checklist references the employee's current, effective, nonhistorical `depart` event whose after-snapshot is `departed`; both checklist writes and later event mutation are protected. Checklist work never changes `hr_employee.employment_status`.
+- Action, item state, and privacy-safe `biz_user_message` commit through one transaction manager under pessimistic locks; dedupe/replay creates at most one action and message, and messages contain no employee or sensitive-record values.
+- Service access independently resolves `park | managed_org_tree | self | none`. `none` fails closed; authorized empty results still use required audit. Sensitive record responses are explicit masked allowlists; encrypted values, plaintext identifiers/contact data, storage internals, and fingerprints never enter responses, logs, messages, or ordinary indexes.
+- Lifecycle evidence and credential files require their exact HR document permission plus tenant/park/employee/business scope. Authorization and required audit finish before metadata, headers, stream creation, upload, or delete; generic file/profile/lifecycle-self permissions never substitute.
+
+### 4. Validation & Error Matrix
+
+- second active checklist for employee/type or concurrent duplicate action -> translated `ConflictException`; identical idempotency replay returns the stored result.
+- offboarding without the valid current departure event, or later mutation that invalidates a linked event -> reject and roll back; employee status remains unchanged.
+- invalid action/state, employee self-waive, unauthorized return/correct/reassign, or foreign/inactive assignee -> `BadRequestException` or `ForbiddenException` without target disclosure.
+- cross-tenant/park, sibling team, other employee under self scope, or missing exact file permission -> safe not-found/forbidden before file metadata or stream.
+- required-audit or inbox insert failure -> roll back/block the response, including an authorized empty sensitive read.
+
+### 5. Good / Base / Bad Cases
+
+- Good: HR instantiates a published snapshot, an assigned employee completes one item, the immutable action and private inbox message commit once, and later template edits cannot rewrite the checklist.
+- Base: a real 000251 open checklist upgrades with `template_version_id=NULL`, unchanged item state, and remains usable without fabricated history.
+- Bad: impose permanent employee/type uniqueness, accept any historical departure event, update employee status from checklist completion, expose encrypted/plaintext record fields, or authorize credential downloads through generic file read.
+
+### 6. Tests Required
+
+- From `template0`, run the official migration runner through 000252, production seed twice, and checksum replay; separately seed actual 000251 checklist/item rows and prove the official 000252 upgrade preserves them.
+- PostgreSQL-test scoped composite FKs/full indexes, bidirectional departure-event protection, append-only rows, concurrent action/idempotency, exactly one message, and zero employee/user/payroll/performance side effects.
+- Unit/contract-test every action transition and self/manager/HR authority; `park/managed_org_tree/self/none`, authorized-empty required audit, exact masked projections, message privacy, and exact file metadata/detail/download/upload/delete authorization before headers/streams.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await checklistRepo.save({ employeeId, checklistType: "offboarding", employmentEventId: anyOldEventId });
+await employeeRepo.update(employeeId, { employmentStatus: "departed" });
+await messages.save({ payload: sensitiveEmployeeRecord });
+```
+
+#### Correct
+
+```ts
+await dataSource.transaction(async manager => {
+  const item = await lockScopedChecklistItem(manager, scope, checklistId, itemId);
+  await assertExactActionAuthorityAndTransition(manager, scope, actor, item, dto);
+  await appendActionUpdateItemAndPrivateMessage(manager, scope, actor, item, dto);
+});
+```

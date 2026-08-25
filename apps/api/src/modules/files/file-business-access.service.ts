@@ -21,13 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
-  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence"
+  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -143,6 +143,14 @@ export class FileBusinessAccessService {
       await this.assertHrCandidateDocumentAccess(scope,actor,bizId,action);
       return;
     }
+    if (bizType === "hr_employee_credential_evidence") {
+      await this.assertHrCredentialDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
+    if (bizType === "hr_lifecycle_checklist_evidence") {
+      await this.assertHrLifecycleDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
     const rule = ACCESS_RULES[bizType];
     const permissions = action === "upload" || action === "delete"
       ? rule.writePermissions
@@ -203,6 +211,22 @@ export class FileBusinessAccessService {
     if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
     const rows=await this.dataSource.query(`SELECT 1 FROM hr_candidate WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]);
     if(!rows[0])throw new ForbiddenException("HR candidate reference is outside the current tenant or park");
+  }
+
+  private async assertHrCredentialDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR credential evidence requires a credential reference");
+    const write=action==="upload"||action==="delete",permission=write?HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_DOCUMENT_MANAGE:HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_DOCUMENT_READ;
+    if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
+    const rows=await this.dataSource.query(`SELECT 1 FROM hr_employee_credential c JOIN hr_employee e ON e.tenant_id=c.tenant_id AND e.park_id=c.park_id AND e.id=c.employee_id WHERE c.id=$1 AND c.tenant_id=$2 AND c.park_id=$3 AND c.is_deleted=false AND e.is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]);
+    if(!rows[0])throw new ForbiddenException("HR credential reference is outside the current tenant or park");
+  }
+
+  private async assertHrLifecycleDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR lifecycle evidence requires an item reference");
+    const write=action==="upload"||action==="delete",permission=write?HR_PERMISSIONS.HR_LIFECYCLE_DOCUMENT_MANAGE:HR_PERMISSIONS.HR_LIFECYCLE_DOCUMENT_READ;
+    if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
+    const rows=await this.dataSource.query(`SELECT 1 FROM hr_lifecycle_checklist_item i JOIN hr_lifecycle_checklist c ON c.tenant_id=i.tenant_id AND c.park_id=i.park_id AND c.id=i.checklist_id JOIN hr_employee e ON e.tenant_id=c.tenant_id AND e.park_id=c.park_id AND e.id=c.employee_id WHERE i.id=$1 AND i.tenant_id=$2 AND i.park_id=$3 AND c.is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]);
+    if(!rows[0])throw new ForbiddenException("HR lifecycle reference is outside the current tenant or park");
   }
 
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {

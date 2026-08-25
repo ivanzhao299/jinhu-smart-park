@@ -1,0 +1,8 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+const root=join(__dirname,"../..");
+const read=(path:string)=>readFileSync(join(root,path),"utf8");
+test("lifecycle workbench uses shared permission gates and mobile records",()=>{const page=read("app/hr/lifecycle/HrLifecycleClient.tsx"),api=read("lib/hr-api.ts"),menu=read("lib/menu.ts");assert.match(page,/HR_LIFECYCLE_PAGE/);assert.match(page,/ds-mobile-record-list/);assert.match(page,/listAbort\.current\?\.abort/);assert.match(page,/eventAbort\.current\?\.abort/);assert.match(page,/clearDetail/);assert.match(page,/i\.responsibleUserId === user\?\.id/);assert.match(page,/\["pending", "returned"\]\.includes\(i\.status\) && canReview/);assert.match(page,/当前没有可见任务/);assert.match(page,/重试/);assert.doesNotMatch(page,/tenantId|parkId|输入 UUID/);assert.match(api,/lifecycleChecklists/);assert.match(menu,/"\/hr\/lifecycle"/);});
+test("employee extended record surface renders only server projections and cancels stale detail",()=>{const page=read("app/hr/employees/HrEmployeesClient.tsx");assert.match(page,/employeeRecords/);assert.match(page,/detailAbort\.current\?\.abort/);assert.match(page,/controller\.signal\.aborted/);assert.match(page,/fullNameMasked/);assert.match(page,/numberMasked/);assert.doesNotMatch(page,/identityEncrypted|numberEncrypted|contactEncrypted/);});

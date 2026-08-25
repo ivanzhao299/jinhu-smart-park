@@ -18,12 +18,12 @@
 
 ## Phase 2 — 入职/离职清单与扩展档案
 
-- [ ] 模板/version/item、实例/item/action 前向 migration 和不可变约束。
-- [ ] 入职/离职模板、实例化快照、负责人动作、逾期和统一 Workflow Inbox 同事务。
-- [ ] 与现有 employment transition/event 建立单向引用，禁止清单直接改员工状态。
-- [ ] 家庭、教育/工作履历、技能、证照模型和 park/team/self/none 精确投影。
-- [ ] 扩展 HR protected files：简历、Offer、证照、培训证书、奖惩/清单证据；审计先于 metadata/header/stream。
-- [ ] HR 员工页与 `/hr/lifecycle`，负责人/员工移动任务卡；切换清敏感详情。
+- [x] 模板/version/item、实例/item/action 前向 migration 和不可变约束。
+- [x] 入职/离职模板、实例化快照、负责人动作、逾期和统一 Workflow Inbox 同事务。
+- [x] 与现有 employment transition/event 建立单向引用，禁止清单直接改员工状态。
+- [x] 家庭、教育/工作履历、技能、证照模型和 park/team/self/none 精确投影。
+- [x] 扩展 HR protected files：简历、Offer、证照、培训证书、奖惩/清单证据；审计先于 metadata/header/stream。
+- [x] HR 员工页与 `/hr/lifecycle`，负责人/员工移动任务卡；切换清敏感详情。
 
 ## Phase 3 — 培训运营
 
