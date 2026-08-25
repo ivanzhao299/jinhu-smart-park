@@ -4,10 +4,12 @@ import {
   HOMESTAY_LANDING_PRIORITY,
   HOMESTAY_DETAIL_READ_ACTIONS,
   HOMESTAY_LIST_READ_ACTIONS,
+  HOMESTAY_ROOM_STATE_PRESENTATION,
   availabilityQueryDates,
   hasExplicitEmptyHomestayUnitScope,
   homestayErrorMessage,
   homestayFinanceEntryTypes,
+  homestayRoomStatePresentation,
   homestayRateWorkspaceKey,
   homestayRateWindow,
   homestaySurfaceQueryKey,
@@ -203,6 +205,30 @@ test("availability always sends a strict non-empty date interval", () => {
     availabilityQueryDates({ dateFrom: "2026-08-10", dateTo: "2026-08-12" }),
     { dateFrom: "2026-08-10", dateTo: "2026-08-12" }
   );
+});
+
+test("availability presents every shared room state in Chinese with distinct occupancy semantics", () => {
+  assert.deepEqual(HOMESTAY_ROOM_STATE_PRESENTATION, {
+    available: { label: "可售", variant: "success" },
+    reserved: { label: "已预订", variant: "warning" },
+    held: { label: "暂时保留", variant: "info" },
+    occupied: { label: "在住", variant: "primary" },
+    turnover: { label: "周转中", variant: "warning" },
+    out_of_service: { label: "停用", variant: "danger" },
+    mode_unavailable: { label: "经营模式不可用", variant: "muted" }
+  });
+  assert.notEqual(
+    HOMESTAY_ROOM_STATE_PRESENTATION.reserved.variant,
+    HOMESTAY_ROOM_STATE_PRESENTATION.occupied.variant
+  );
+  assert.notEqual(
+    HOMESTAY_ROOM_STATE_PRESENTATION.held.variant,
+    HOMESTAY_ROOM_STATE_PRESENTATION.occupied.variant
+  );
+  assert.deepEqual(homestayRoomStatePresentation("legacy_unknown"), {
+    label: "未知房态",
+    variant: "muted"
+  });
 });
 
 test("availability normalizes the legacy array response without changing v2 metadata", () => {

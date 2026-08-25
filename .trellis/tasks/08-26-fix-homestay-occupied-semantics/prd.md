@@ -16,7 +16,9 @@
 - dashboard 的 `occupied` 与 `occupancy_rate` 采用 in-house 口径：只有已办理入住且具备实际入住事实的订单计入；不得把 confirmed-only 订单计入。
 - availability 对民宿 confirmed-only 的有效库存占用返回 `reserved`，对实际在住返回 `occupied`。
 - 保留长租占用为 `occupied`、周转为 `turnover`、不可售与经营模式判断的既有优先级和 API 响应形状。
-- 改动限定在 dashboard/availability 查询服务及其 spec；不改订单状态机、统一占用写入、前端、shared contract 或数据库结构。
+- 改动限定在 dashboard/availability 查询服务、shared 房态契约、availability 前端渲染及其测试；不改订单状态机、统一占用写入、数据库结构或无关页面。
+- shared 房态契约加入 `reserved`、`held`，保留既有状态语义，并提供可执行契约测试。
+- availability 将全部房态映射为中文文案；`reserved`、`held` 与 `occupied` 使用可明确区分的视觉样式。
 - 新增/收紧单测，覆盖 confirmed-only、in-house、混合场景的 dashboard 指标与 availability 状态。
 
 ## Acceptance Criteria
@@ -24,6 +26,8 @@
 - [x] confirmed-only 在 dashboard 中 `occupied=0`、`occupancy_rate=0.00`。
 - [x] checked-in/in-house 在 dashboard 中计入 `occupied`，混合 confirmed+in-house 只统计 in-house，入住率按 `occupied / rentable_units` 保留两位小数。
 - [x] availability 将 confirmed-only 民宿 booking 映射为 `reserved`，将 in-house 映射为 `occupied`，并保留长租/周转既有语义。
+- [x] shared 契约接受 `reserved`、`held`，包级契约测试锁定完整房态集合。
+- [x] availability 对全部房态显示中文，且 `reserved`、`held` 与 `occupied` 的视觉 variant 不同。
 - [x] 目标 spec、API typecheck 与 lint 通过。
 - [ ] PR 经 Codex review、required CI、squash merge、main CI 与 Deploy 双绿后关闭 Issue。
 

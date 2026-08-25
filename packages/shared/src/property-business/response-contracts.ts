@@ -57,12 +57,17 @@ export interface PropertyWorkbenchWorkOrderRef {
   status: string;
 }
 
-export type HomestayRoomState =
-  | "available"
-  | "occupied"
-  | "turnover"
-  | "out_of_service"
-  | "mode_unavailable";
+export const HOMESTAY_ROOM_STATES = [
+  "available",
+  "reserved",
+  "held",
+  "occupied",
+  "turnover",
+  "out_of_service",
+  "mode_unavailable"
+] as const;
+
+export type HomestayRoomState = (typeof HOMESTAY_ROOM_STATES)[number];
 
 export interface HomestayAvailabilityItem {
   unit_id: string;
