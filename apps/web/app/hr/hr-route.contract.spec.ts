@@ -30,7 +30,7 @@ test("HR operational forms collapse to one column on phone width", () => {
 test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
   const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
   const workbench=readFileSync(resolve(__dirname,"HrWorkbench.tsx"),"utf8");
-  const pages=["employees/HrEmployeesClient.tsx","work-reports/HrWorkReportsClient.tsx","performance/HrPerformanceClient.tsx","feedback-360/HrFeedbackClient.tsx","payroll/HrPayrollClient.tsx","approvals/HrApprovalsClient.tsx"];
+  const pages=["employees/HrEmployeesClient.tsx","work-reports/HrWorkReportsClient.tsx","performance/HrPerformanceClient.tsx","feedback-360/HrFeedbackClient.tsx","talent/HrTalentClient.tsx","payroll/HrPayrollClient.tsx","approvals/HrApprovalsClient.tsx"];
   assert.match(workbench,/ds-command-grid/);
   for(const page of pages){
     const source=readFileSync(resolve(__dirname,page),"utf8");

@@ -21,7 +21,7 @@ assert.doesNotMatch(seed, /INSERT INTO rel_user_role/i, "HR foundation must not 
 assert.doesNotMatch(seed, /password|mobile|email/i, "HR foundation must not seed credentials or employee PII");
 assert.match(menu, /"\/hr"/);
 assert.match(menu, /"\/hr\/employees"/);
-for (const route of ["goals","work-reports","performance","feedback-360","compensation","payroll","approvals","contracts"]) assert.match(menu, new RegExp(`"/hr/${route}"`));
+for (const route of ["goals","work-reports","performance","feedback-360","talent","compensation","payroll","approvals","contracts"]) assert.match(menu, new RegExp(`"/hr/${route}"`));
 assert.match(menu, /"briefcase-business": BriefcaseBusiness/);
 assert.match(layout, /<DashboardLayout>\{children\}<\/DashboardLayout>/);
 assert.match(workbench, /module="hr" permission="hr:dashboard"/);
