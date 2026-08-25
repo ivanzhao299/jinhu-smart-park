@@ -1,0 +1,8 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+const root=join(__dirname,"../..");
+const read=(path:string)=>readFileSync(join(root,path),"utf8");
+test("training workbench provides HR team self projections and mobile records",()=>{const page=read("app/hr/training/HrTrainingClient.tsx"),api=read("lib/hr-api.ts"),menu=read("lib/menu.ts");for(const permission of ["HR_TRAINING_PAGE","HR_TRAINING_READ","HR_TRAINING_TEAM_READ","HR_TRAINING_SELF_READ","HR_TRAINING_COST_READ"])assert.match(page,new RegExp(permission));assert.match(page,/ds-mobile-record-list/);assert.match(page,/desktopSensitive/);assert.match(page,/listAbort\.current\?\.abort/);assert.match(page,/detailAbort\.current\?\.abort/);assert.match(page,/clearDetail/);assert.match(page,/x\.id&&x\.canAct/);assert.match(page,/当前没有可见培训任务/);assert.match(page,/重试/);assert.doesNotMatch(page,/hrApi\.employees/);assert.doesNotMatch(page,/tenantId|parkId|输入 UUID/);assert.match(api,/trainingPlanOptions/);assert.match(api,/trainingPlans/);assert.match(api,/correctTraining/);assert.match(menu,/"\/hr\/training"/);});
+test("training forms use readable employee and course options with constrained numeric controls",()=>{const page=read("app/hr/training/HrTrainingClient.tsx");assert.match(page,/employees\.map/);assert.match(page,/courses\.map/);assert.match(page,/type="number"/);assert.match(page,/step="0\.0001"/);assert.match(page,/multiple/);});

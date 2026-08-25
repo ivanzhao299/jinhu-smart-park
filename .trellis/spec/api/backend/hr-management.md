@@ -528,6 +528,22 @@ await saveRequestApprovalActionAndPrivateMessage(manager, employee, timing);
 });
 ```
 
+## Scenario: Training plans, results, corrections, and certificates
+
+### Contracts
+
+- Published course versions and plan snapshots are immutable. Publishing freezes the course/version facts, budget/currency, and participant roster; the only plan transitions are `draft -> published -> in_progress -> completed|cancelled`, and plans are never physically deleted.
+- Resolve `park | managed_org_tree | self | none` in the service. Team readers receive no employee/participant UUID, cost, score, assessment, or certificate fields and cannot perform participant actions; self readers see only their own row. Cost and certificate fields additionally require their exact permissions.
+- Plan selectors use the exact plan-management permission and return only minimal current course/employee options; they must not depend on broad employee-directory read access.
+- Completion/results are immutable. Corrections append exact `numeric(20,4)` deltas and the latest projection is cumulative; state-changing writes, deduplicated privacy-safe `biz_user_message` rows, and audit records share one transaction and pessimistic/advisory locking.
+- Certificate files require `biz_type='hr_training_certificate'`, `biz_id=participant.id`, matching tenant/park, active state, exact document permission, and required audit before metadata/headers/stream. Generic file deletion must reject referenced certificates.
+
+### Tests Required
+
+- Contract-test exact controller permissions, body-free audit, safe projections, self-only actions, selector isolation, protected files, and minimal production role grants.
+- From `template0`, run migrations through the current training migration, seed twice, and checksum replay; also exercise a real predecessor-to-training upgrade.
+- PostgreSQL-test concurrent completion/correction, append-only results, immutable snapshots/terminal states, message atomicity, certificate ownership guards, and zero employee/payroll/performance side effects.
+
 ## Scenario: Versioned attendance calculation core
 
 ### 1. Scope / Trigger
