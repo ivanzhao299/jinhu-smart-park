@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { type HomestayRateCalendarResponse, type TenantParkScope } from "@jinhu/shared";
 import { DataSource, type Repository } from "typeorm";
@@ -43,7 +48,7 @@ export class HomestayRatesService {
     }
     assertBusinessDate(dateFrom, "date_from");
     assertBusinessDate(dateTo, "date_to");
-    await this.assertUnitReadScope(scope, actor, unitId);
+    await this.assertUnitReadAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.findRate(scope, unitId);
     if (!config) return { configured: false, unit_id: unitId };
@@ -195,14 +200,21 @@ export class HomestayRatesService {
     });
   }
 
-  private async assertUnitReadScope(
+  private async assertUnitReadAccess(
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string
   ): Promise<void> {
-    const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
-    if (allowedUnitIds !== null && !allowedUnitIds.includes(unitId)) {
-      throw new NotFoundException("Unit not found");
+    try {
+      await this.unitAccessService.assertAccess(scope, actor, unitId);
+    } catch (error) {
+      if (
+        error instanceof ForbiddenException
+        && error.message === "Unit is outside current data scope"
+      ) {
+        throw new NotFoundException("Unit not found");
+      }
+      throw error;
     }
   }
 

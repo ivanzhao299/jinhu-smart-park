@@ -92,6 +92,18 @@ test("rate calendar response projects the 2xx unconfigured state without fake pr
     calendar: configured,
     notConfigured: false
   });
+  const legacyConfigured = {
+    unit_id: configured.unit_id,
+    currency: configured.currency,
+    base_daily_rate: configured.base_daily_rate,
+    checkout_requires_inspection: configured.checkout_requires_inspection,
+    cancellation_policy: configured.cancellation_policy,
+    days: configured.days
+  };
+  assert.deepEqual(projectHomestayRateCalendarResponse(legacyConfigured), {
+    calendar: configured,
+    notConfigured: false
+  });
 });
 
 test("booking setup and occupancy conflicts are translated into actionable Chinese messages", () => {

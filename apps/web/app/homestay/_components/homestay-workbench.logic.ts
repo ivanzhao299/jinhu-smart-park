@@ -85,14 +85,18 @@ export function isMissingHomestayRateConfiguration(error: unknown): boolean {
 }
 
 export function projectHomestayRateCalendarResponse(
-  response: HomestayRateCalendarResponse
+  response: HomestayRateCalendarResponse | Omit<HomestayRateCalendarConfiguredResponse, "configured">
 ): {
   calendar: HomestayRateCalendarConfiguredResponse | null;
   notConfigured: boolean;
 } {
-  return response.configured
-    ? { calendar: response, notConfigured: false }
-    : { calendar: null, notConfigured: true };
+  if ("configured" in response && response.configured === false) {
+    return { calendar: null, notConfigured: true };
+  }
+  return {
+    calendar: { ...response, configured: true },
+    notConfigured: false
+  };
 }
 
 export function homestaySurfaceQueryKey(

@@ -93,7 +93,7 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
       }
     } as never,
     { createQueryBuilder: () => builder } as never,
-    { allowedUnitIds: async () => ["unit-1"] } as never,
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
     {} as never
   );
 
@@ -150,7 +150,7 @@ test("rate calendar returns an explicit unconfigured state for an authorized uni
   const service = new HomestayRatesService(
     { findOne: async () => null } as never,
     { createQueryBuilder: () => { overrideReads += 1; return {}; } } as never,
-    { allowedUnitIds: async () => ["unit-1"] } as never,
+    { assertAccess: async () => ({ id: "unit-1" }) } as never,
     {} as never
   );
 
@@ -171,7 +171,12 @@ test("rate calendar validates dates and unit scope before repository reads", asy
   const service = new HomestayRatesService(
     { findOne: async () => { repositoryReads += 1; return null; } } as never,
     { createQueryBuilder: () => { repositoryReads += 1; return {}; } } as never,
-    { allowedUnitIds: async () => ["unit-allowed"] } as never,
+    {
+      assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => {
+        if (unitId !== "unit-allowed") throw new NotFoundException("Unit not found");
+        return { id: unitId };
+      }
+    } as never,
     {} as never
   );
 
