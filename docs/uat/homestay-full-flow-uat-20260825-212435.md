@@ -37,13 +37,13 @@
 | 设计条目 | 设计闭环结论 | 实现状态 | 设计/实现证据路径 | gap / 阻断 |
 |---|---|---|---|---|
 | P-FOUNDATION-DATA-01 业务房源链与 unit scope | 闭合：民宿以 `biz_unit` 为权威 unit，后续迁移补复合 owner scope 与 occupancy 反向约束 | 已实现 | `database/migrations/000011_s2_biz_unit.sql:3`; `000176_shared_property_foundation.sql:32`; `000177_homestay_mvp.sql:1`; `000209_property_mvp_owner_scope_integrity.sql:89`; `000212_property_mvp_owner_scope_followup.sql:56` | 无；前提为全量迁移成功 |
-| P-FOUNDATION-DATA-02 短租资格与授权 | 部分闭合：真实资格是 active/not-deleted + `short_stay/enabled` + actor unit scope；设计未权威定义 usage_type | 部分实现 | `apps/api/src/modules/homestay/homestay.service.ts:119`; `property-unit-access.service.ts:17`; `packages/shared/src/index.ts:338` | `GAP-FOUNDATION-01`：API 不校验 fixture 约定的 `usage_type=70`，也不联动 rental_status/available_date；底座冒烟可测真实契约，但不得宣称“单元类型”过滤闭合 |
+| P-FOUNDATION-DATA-02 短租资格与授权 | 闭合：权威经营契约是 active/not-deleted + `short_stay/enabled` + actor unit scope；`usage_type=70` 是通用 housing fixture 字段，不是民宿独占资格 | 已实现 | `docs/architecture/shared-property-foundation.md:19-27`; `apps/api/src/modules/homestay/homestay.service.ts:119`; `property-unit-access.service.ts:17` | 原 `GAP-FOUNDATION-01` 经第三轮 review 撤销；不得把 rental_status/available_date 等租赁旧字段耦合进短租资格 |
 | P-FOUNDATION-DATA-03 fixture 建链 | 闭合：prod seed 有 biz building/floor/unit，property fixture 可配置 short_stay 与 long_rent 对照 | 已实现 | `database/seeds/production/000003_s1_production_asset_bootstrap.sql:28`; `scripts/e2e/property-api-e2e-fixtures.sql:296` | 可进入环境；物理 `asset_*` 链仅在映射场景需要 |
 | P-FOUNDATION-DATA-04 fixture 的真实 UI 建链 | 闭合：operation 列表会投影未配置 unit（`mode=none/version=0`），详情控制面可保存经营配置并申请模式切换；Party、identity submission、角色实例化和用户分配也有 UI | 已实现；本轮执行遗漏 | `property-operations.service.ts:102-168`; `PropertyFoundationControlClient.tsx:804-903`; `assets/parties/PartyWorkbenchClient.tsx:44`; `system/roles/page.tsx:673`; `system/users/page.tsx:735` | `EXEC-GAP-01`：本轮只看了列表空态，没有沿 unit drawer/detail 建链，随后错误使用 SQL fixture；因此所有依赖角色/identity 的结果必须降级，不能归因于产品缺功能 |
 | P-FOUNDATION-API-01 审批注册/冻结策略/effect/proof/outbox | 闭合；取消和退款/减免均有生产请求入口，adapter 是 provider，registry 和 effect proof/outbox 调用完整 | 已实现 | `homestay.module.ts:55`; `homestay-approval.adapter.ts:42`; `homestay-booking-command.service.ts:264`; `homestay-finance.service.ts:260`; `property-approval.service.ts:1205,1329,3130` | 无死代码；进入审批分支 UAT |
 | P-FOUNDATION-WEB-01 授权房源选择与 unit_id | 闭合于实际等价实现 `RemoteEntityPicker`：候选 API 过滤 short_stay/enabled/scope，选中 id 写入 booking/rate API | 已实现（命名偏离） | `features/property-shared/README.md:26`; `HomestayBookingCreatePanel.tsx:27,86`; `HomestayRatesClient.tsx:27,51`; `homestay.service.ts:124` | 简报名 `usePropertySelector` 不存在，但功能等价核心可进入底座冒烟 |
-| P-FOUNDATION-WEB-02 候选关键词 | 设计闭合：08-20 要求最小关键词、服务端分页/限量 | 偏离设计 | `08-20-homestay-booking-finance-boundaries/design.md:3`; `picker/types.ts:15`; `HomestayBookingCreatePanel.tsx:27`; `HomestayUnitCandidateQueryDto` at `homestay.dto.ts:83` | `GAP-FOUNDATION-02`：loader 丢弃 query，API DTO 无 query；关键词过滤分支不进入 PASS 矩阵，记录 BLOCKED/gap |
-| P-FOUNDATION-WEB-03 离线草稿 | 设计边界为创建表单状态保护、高风险写 fail-closed；未声明所有表单离线写 | 部分实现 | `HomestayBookingCreatePanel.tsx:60`; `use-property-draft.ts:43`; `08-20-homestay-web-gates/design.md:3` | `GAP-FOUNDATION-03`：仅 booking create 有草稿，恢复时不重验候选资格；只测创建草稿，其他表单离线恢复不宣称覆盖 |
+| P-FOUNDATION-WEB-02 unit 候选关键词 | 设计未声明 unit 候选必须服务端关键词搜索；08-20 的关键词要求针对 guest candidate | 无产品契约可审 | `08-20-homestay-booking-finance-boundaries/prd.md:6,19`; `HomestayGuestCandidateQueryDto` at `homestay.dto.ts:110-121` | 输入无关 `ZZ` 仍返回 unit 是观察，不构成 gap；原 `GAP-FOUNDATION-02` 撤销 |
+| P-FOUNDATION-WEB-03 离线草稿 | 设计只约束支持草稿的页面行为并禁止离线 mutation queue；booking 写入事务内仍会 `assertUnitBookable` | 已实现边界；本轮未测 UX | `HomestayBookingCreatePanel.tsx:60`; `use-property-draft.ts:43`; `homestay-booking-command.service.ts` | 恢复候选未预先重取不能绕过服务端资格；原 `GAP-FOUNDATION-03` 撤销，保留为未测 UX 观察 |
 | P-BOOKING-01 订单主状态机 | 闭合：六态及入口/出口清晰，无 settled/void booking 状态 | 已实现 | `000177_homestay_mvp.sql:54`; `homestay-booking-command.service.ts:63,155,201,248,303`; `homestay-stay-command.service.ts:166,218` | “结算”只能解释为 ledger balance，不得报告 booking settled |
 | P-BOOKING-02 创建/确认/库存 | 闭合：draft+held occupancy+nights；confirm 激活 occupancy 并生成 room charge；GiST 排斥防重叠 | 已实现 | `homestay-booking-command.service.ts:63-198`; `000176_shared_property_foundation.sql:91-151` | 进入主链与冲突/双击分支 |
 | P-BOOKING-03 改期/no-show/取消 | 闭合：改期原子换 occupancy；confirmed 降价拒绝；no-show 仅到达日后；取消走冻结审批 | 已实现 | `homestay-booking-command.service.ts:201-383`; `homestay-booking.policy.ts:31`; `homestay-cancellation-executor.service.ts:134` | 进入分支矩阵；日期选择须满足当前时钟规则 |
@@ -64,7 +64,7 @@
 ### 阶段 0 结论与 gap 清单
 
 - 可进入浏览器的闭合段：真实资格候选与 unit_id、定价、预订创建/确认、普通 payment、dashboard/房态/任务投影。
-- 设计/实现 gap：`GAP-FOUNDATION-01` usage_type/资格边界；`GAP-FOUNDATION-02` 候选关键词未接线；`GAP-FOUNDATION-03` 离线草稿仅部分适配；`GAP-FINANCE-01` 手工 charge 的 list/detail 公式分叉；`GAP-RBAC-03` task operator bundle 缺 task read。另有漏读 active 07-30 设计源、未沿既有 UI 建 fixture、未执行可回滚冲突分支的执行缺口 `EXEC-GAP-01..03`，均不是产品 gap。
+- 设计/实现 gap 仅保留：`GAP-FINANCE-01` 手工 charge 的 list/detail 公式分叉、`GAP-RBAC-03` task operator bundle 缺 task read。另有漏读 active 07-30 设计源、未沿既有 UI 建 fixture、未执行可回滚冲突分支等执行缺口，均不是产品 gap。
 - 主链不因命名偏离整体阻断：`RemoteEntityPicker` 已提供选择、资格 API 与 `unit_id` 写入；搜索分支单独降级。
 - 本轮不修改产品代码；后续若真实 UI 暴露与以上 gap 相同的现象，仍记 gap/BLOCKED，不重复计产品 FAIL。
 
@@ -75,7 +75,7 @@
 | FLOW-00 | 管理员/业务岗 | 房产经营配置（fixture 前置）→`/homestay/bookings` 创建面板→`/homestay/rates` | unit 无资格→short_stay/enabled→候选可见；选择后 body/path 使用同一 `unit_id` | long_rent/disabled/无 unit scope 不可见；关键词搜索为 gap | C00-A/C00-B |
 | FLOW-01 | 民宿运营 | rates→availability→bookings→booking detail | base/override→draft+held→confirmed+active+room charge | 必填/金额/日期边界；同夜冲突；快速双击；改期成功/冲突/confirmed 降价 409 | C01-A…E |
 | FLOW-02 | 前台/管家 | stays→stay detail→guest/credential→check-in→check-out | confirmed→checked_in→checked_out；issued→returned/lost；生成 pending turnover | 人数上限；未核验/无凭证拒绝；凭证 lost 幂等；no-show | C02-A…E |
-| FLOW-03 | 财务+独立审批人 | finance→booking detail→approval deep link→finance | charge/payment→部分余额；refund/waiver pending→executed→余额更新 | draft/terminal 非法动作 409；source 超额；窄权限 refund gap | C03-A…E |
+| FLOW-03 | 财务+独立审批人 | finance→booking detail→approval deep link→finance | charge/payment→部分余额；refund/waiver pending→executed→余额更新 | draft/terminal 非法动作 409；source 超额；refund 权限要求 register+waive+approval:create | C03-A…E |
 | FLOW-04 | 保洁/管家 | tasks/turnovers→turnover detail→上传/执行/复检→availability | pending→cleaning→inspection/completed；operations occupancy→completed | exception→关联同 unit 已有工单→复检；跨 unit 工单拒绝；未完成不可售 | C04-A…D |
 | FLOW-05 | 管理员/业务岗 | dashboard→各列表/详情 | KPI/队列/财务/房态与事实同步 | 列表筛选、分页、后退、returnTo、taskId/requestId | C05-A…C |
 | FLOW-06 | 业务岗/窄权限/跨园区岗 | login→菜单→民宿页面→登出→另一账号→园区切换 | 权限/范围随会话和 current park 变化 | 403/404 不泄露；模块依赖；storage/cookie 残留控制；task bundle gap | C06-A…D |
@@ -85,12 +85,12 @@
 | Case | 流程链编号 | 角色/范围 | 交互路径与核心断言 | viewport | 结果 |
 |---|---|---|---|---|---|
 | C00-A | FLOW-00 | 管理员/当前园区 | 创建面板仅列 short_stay/enabled；选择后创建；DB booking.unit_id 等于选中 unit | desktop | PARTIAL：交互/DB 观察成立，但无持久化截图/原始 evaluate 证据，不计 PASS |
-| C00-B | FLOW-00 | 受限 unit 岗 | short_stay/enabled 可见，long_rent/disabled 不可见；输入无关 `ZZ` 仍返回 SHORT | desktop | GAP/BLOCKED（GAP-FOUNDATION-02；本轮未用既有 UI 建受限账号） |
+| C00-B | FLOW-00 | 受限 unit 岗 | short_stay/enabled 可见，long_rent/disabled 不可见；受限 scope | desktop | NOT EXECUTED：本轮未用既有 UI 建受限账号；unit keyword 不属于声明分支 |
 | C01-A | FLOW-01 | 运营 | rates 必填校验→保存 base 688/取消 24h/固定费 50/需检查→14 日显示 688→创建 draft；保存与创建快速双击各仅 1 次写请求/1 行 | desktop | FAIL：首次正常空态 404 泄漏 Console，且 override 分支未执行 |
 | C01-B | FLOW-01 | 运营 | confirm→active occupancy+688 charge；详情、finance、dashboard、availability、tasks 同步 | desktop+narrow | FAIL：confirmed 被错误投影为 occupied/在住，见 FAIL-02 |
 | C01-C | FLOW-01 | 运营 | 同夜冲突 | desktop | NOT EXECUTED（EXEC-GAP-03）：同一 operator 可提交冲突 draft，事务会整体回滚且不破坏主 fixture；原 BLOCKED 理由不成立 |
 | C01-D | FLOW-01 | 运营 | 改期及冲突/降价 | desktop | BLOCKED：未建立第二合法库存链 |
-| C01-E | FLOW-01 | 运营+审批 | 取消审批 | desktop | BLOCKED：无独立审批账号；不以管理员自批伪造证据 |
+| C01-E | FLOW-01 | 运营+审批 | 取消审批 | desktop | NOT EXECUTED：既有角色/用户 UI 可建独立审批账号，本轮未准备 |
 | C02-A | FLOW-02 | 前台 | 住客、实名、凭证、入住 | desktop+narrow | NOT EXECUTED（EXEC-GAP-01）：本轮未沿已存在的 Party/identity submission UI 建链；不是产品无 UI |
 | C02-B | FLOW-02 | 前台 | 无实名入住拒绝且状态不变 | desktop | PARTIAL：拒绝与 DB 状态观察成立，但无持久化 Case 证据 |
 | C02-C | FLOW-02 | 前台 | issued→lost 重放 | narrow | BLOCKED：依赖 C02-A |
@@ -98,9 +98,9 @@
 | C02-E | FLOW-02 | 前台 | no_show | desktop | BLOCKED：为保留主证据未破坏式终结唯一订单，且无第二订单链 |
 | C03-A | FLOW-03 | 财务 | confirmed payment 300→已收 300、余额 388；DB charge/payment 各一条；快速双击仅一条 payment | desktop+narrow | PARTIAL：仅部分 payment，未测全额/手工 charge，且无持久化 Case 证据 |
 | C03-B | FLOW-03 | 财务 | 非法财务矩阵 | desktop | BLOCKED：缺各终态独立订单 fixture |
-| C03-C | FLOW-03 | 财务+审批人 | refund 审批 | desktop | BLOCKED：无独立审批账号 |
-| C03-D | FLOW-03 | 财务+审批人 | waiver 审批 | desktop | BLOCKED：无独立审批账号 |
-| C03-E | FLOW-03 | 窄财务岗 | register-only/waive-only 前端入口与 API 契约对照 | desktop | BLOCKED：本轮未用既有 UI 建角色；静态点验表明 refund 双权限契约一致 |
+| C03-C | FLOW-03 | 财务+审批人 | refund 审批 | desktop | NOT EXECUTED：本轮未准备独立审批账号 |
+| C03-D | FLOW-03 | 财务+审批人 | waiver 审批 | desktop | NOT EXECUTED：本轮未准备独立审批账号 |
+| C03-E | FLOW-03 | 窄财务岗 | register-only/waive-only 前端入口与 API 契约对照 | desktop | NOT EXECUTED：本轮未建窄角色；静态点验表明 refund 双权限契约一致 |
 | C04-A | FLOW-04 | 保洁 | 周转执行 | narrow | BLOCKED：依赖退房 |
 | C04-B | FLOW-04 | 保洁/检查 | 检查型周转 | narrow | BLOCKED：依赖退房 |
 | C04-C | FLOW-04 | 保洁+维修 | 异常/工单 | desktop+narrow | BLOCKED：依赖退房和独立工单 fixture |
@@ -109,7 +109,7 @@
 | C05-B | FLOW-05 | 业务岗 | 深链/返回上下文 | desktop | PARTIAL：观察到 booking/stay/tasks/finance returnTo；筛选分页数据量与持久化证据不足 |
 | C05-C | FLOW-05 | 业务/审批 | taskId/requestId 深链 | desktop+narrow | BLOCKED：无 approval projection |
 | C06-A | FLOW-06 | 管理员代业务 | 真实登录→菜单/动作→真实登出 | desktop | PARTIAL：管理员交互成立，但无独立业务岗与持久化 Case 证据 |
-| C06-B | FLOW-06 | 窄权限岗 | 403/隐藏 | desktop | BLOCKED：无合法 UI 角色 fixture 链 |
+| C06-B | FLOW-06 | 窄权限岗 | 403/隐藏 | desktop | NOT EXECUTED：既有角色/用户 UI 可建 fixture，本轮未准备 |
 | C06-C | FLOW-06 | 跨园区岗 | 园区切换数据范围 | desktop | BLOCKED：仅一个园区，切换控件 disabled |
 | C06-D | FLOW-06 | task operator | 菜单与 `/homestay/tasks` API 对照 | desktop | GAP-RBAC-03；fixture 无补权时 BLOCKED |
 | C-UX | 全部 | 适用角色 | 三态、console/network、双击、窄窗 | desktop+实际窄窗 | PARTIAL：空态/错误态/双击与 500px 无溢出已测；缩放、forced-colors、离线草稿未测 |
@@ -134,7 +134,7 @@ fixture 前缀统一为 `UAT_HOMESTAY_20260825-212435_`。建链顺序：product
 ### Case 证据与统计
 
 - 环境五步初始化及三门禁：迁移 `248/248` 成功（既有重复 `000136` 仅告警）；production seed 成功；bootstrap 前 strict baseline 按预期仅缺管理员；bootstrap 后 strict baseline 全部通过；`/health`、`/ready`、登录页均通过。首次 API 编译暴露 stale shared dist，执行 `pnpm --filter @jinhu/shared build` 后零错误；属于环境修复，未改源码。
-- 第二轮 Codex review 后按 SOP 证据门禁重分类 28 个业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 16、NOT EXECUTED 2、GAP/BLOCKED 2；另 C-UX 为 PARTIAL。3 个 FAIL Case 对应 2 个独立产品缺陷（C01-B/C05-A 为同一房态缺陷）。结论：**FAIL / 不可发布为“民宿全流程已通过”**。
+- 第三轮 Codex review 后按 SOP 证据门禁重分类 28 个业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 11、NOT EXECUTED 8、GAP/BLOCKED 1；另 C-UX 为 PARTIAL。3 个 FAIL Case 对应 2 个独立产品缺陷（C01-B/C05-A 为同一房态缺陷）。结论：**FAIL / 不可发布为“民宿全流程已通过”**。
 - 网络关键证据：rate PUT、booking POST、confirm POST、ledger POST 在快速双击下各只产生一次成功写；对应 DB 为 1 booking、1 night、1 occupancy、2 ledger（charge 688、payment 300）、2 action log。
 - Console：价格配置首次读取不存在的资源发出两次 HTTP 404 Console error；后续 dashboard/availability 页面无 error，存在开发模式 React DevTools/Fast Refresh 信息和表单缺 id/name 的 DevTools issue。
 - 看板/列表事实：今日到店 1、ADR 688、收入 300、余额 388、岗位到店任务 1 均与订单/ledger 一致；但 confirmed（尚未入住）在 dashboard 显示“在住房间 1”、availability 显示 `occupied`。
@@ -163,8 +163,8 @@ fixture 前缀统一为 `UAT_HOMESTAY_20260825-212435_`。建链顺序：product
 
 - `FAIL-01`：未配置 rate 的正常空态以 404 返回并在 Console 报错两次；UI 虽能继续配置，但不满足 SOP 的“Console 零未解释错误”。根因假设：前端把资源不存在当空态，但仍通过通用 fetch 打印 404。
 - `FAIL-02`：confirmed、实际未入住的订单在 availability 显示 `occupied`，dashboard 计入“在住房间 1/入住率 100%”。数据库 occupancy 的 active 语义被直接映射成入住语义，和 `actual_check_in_time IS NULL`、booking.status=confirmed 不一致；会误导经营指标。
-- gap：`GAP-FOUNDATION-01..03`、`GAP-FINANCE-01`、`GAP-RBAC-03`；`GAP-DESIGN-01`、`GAP-FOUNDATION-04`、`GAP-RBAC-01..02` 经 review 点验撤销。`EXEC-GAP-01..03` 分别是未沿既有 UI 建 fixture、首版漏读 active 设计源、未执行可回滚冲突分支。
-- UAT 结论：**FAIL，PASS=0，且 16 个 Case Blocked、2 个 NOT EXECUTED、2 个 Gap/Blocked、5 个 Partial**。瞬时观察不能外推为可审计通过；产品代码零改动。
-- 建议优先级：P0 修正 confirmed/occupied KPI 语义；P1 修复 rate 空态 404、候选 query 与 finance 手工 charge list/detail 公式；P2 收敛 task operator bundle 权限契约。复测必须先用现有 operation/party/identity/role/user UI 完成全 fixture 链，并确保截图/evaluate 写入可审计 local-only 根。
+- gap：`GAP-FINANCE-01`、`GAP-RBAC-03`；此前的设计源、qualification、unit keyword、offline draft、fixture UI、refund、asset dependency gap 均经三轮 review 点验撤销。执行缺口包括未沿既有 UI 建角色/身份 fixture、首版漏读 active 设计源、未执行可回滚冲突分支。
+- UAT 结论：**FAIL，PASS=0，且 11 个 Case Blocked、8 个 NOT EXECUTED、1 个 Gap/Blocked、5 个 Partial**。瞬时观察不能外推为可审计通过；产品代码零改动。
+- 建议优先级：P0 修正 confirmed/occupied KPI 语义；P1 修复 rate 空态 404 与 finance 手工 charge list/detail 公式；P2 收敛 task operator bundle 权限契约。复测必须先用现有 operation/party/identity/role/user UI 完成全 fixture 链，并确保截图/evaluate 写入可审计 local-only 根。
 - 发布状态：报告 PR [#382](https://github.com/ivanzhao299/jinhu-smart-park/pull/382) 已创建；review/CI/merge/Deploy 在后续收尾填写，与 UAT 产品结论分开记录。
 - 外部真人门：即使本轮自动化操作者真实 Chrome UAT 全部通过，也不替代 `homestay-mvp-evidence.md` 定义的多岗位真人代表具名签署，除非用户另行完成该外部门。

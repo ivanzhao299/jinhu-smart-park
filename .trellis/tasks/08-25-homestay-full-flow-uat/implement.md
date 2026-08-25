@@ -12,14 +12,14 @@
 - [x] 启动独占 9222 专用 Chrome，记录版本与实际 viewport/device 媒体特征。
 - [x] 按矩阵执行可合法进入的流程链，记录 UI、DB 辅证、console/network、防双击、三态和窄窗证据；阻断链如实标记，未用后台数据硬绕。
 - [x] 对 FAIL 做环境排除并分类 gap/限制，产品代码零改动。
-- [x] 完成真实 UI 登出、逐表 fixture 删除与 residual=0、精确 PID/compose/端口清理和非本轮容器前后对比。
+- [ ] 完成真实 UI 登出、逐表 fixture 删除与 residual=0、精确 PID/compose/端口清理和非本轮容器前后对比。UI/PID/compose/端口及实际触达表已清；候选副作用表未逐表 pre-down 查询，故本项不勾选。
 - [x] 完成 SOP §8 报告；截图因工具 workspace-root 限制未落盘并已如实披露。
 - [ ] 提交并 push 唯一 UAT 分支，创建 PR，最多三轮 `@codex review`，等待 CI 绿后 squash merge；核验 main CI+Deploy 并做 RBAC ff、删分支、prune、切新分支。
 - [ ] 全部条件 PASS 才归档任务；否则保持 in_progress，并在报告和最终答复中列明缺口。
 
 ## Actual Result
 
-- RUN_ID `20260825-212435`；第二轮 Codex review 后业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 16、NOT EXECUTED 2、GAP/BLOCKED 2；C-UX PARTIAL。
+- RUN_ID `20260825-212435`；第三轮 Codex review 后业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 11、NOT EXECUTED 8、GAP/BLOCKED 1；C-UX PARTIAL。
 - 产品 FAIL：rate 空态 404 泄漏 Console；confirmed 被 dashboard/availability 当作已入住/occupied。
 - 证据 FAIL：截图/evaluate 未持久化；原 PASS 全部撤销。清理门禁全部通过；任务因 FAIL/BLOCKED 保持 `in_progress`，不得归档。
 
