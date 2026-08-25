@@ -5,7 +5,8 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SYSTEM_PERMISSIONS, type OrgPostOption, type OrgTreeNode, type PaginatedResult, type UserOrgAssignment } from "@jinhu/shared";
 import { PermissionButton } from "../../../components/permission-button";
-import { apiRequest, createIdempotencyKey } from "../../../lib/api-client";
+import { ForbiddenState } from "../../../components/auth/ForbiddenState";
+import { apiRequest, createIdempotencyKey, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { hasPermission } from "../../../lib/permissions";
 import {
@@ -102,6 +103,7 @@ export default function UsersPage() {
   const [status, setStatus] = useState("");
   const [tenantId, setTenantId] = useState("");
   const [message, setMessage] = useState("");
+  const [apiForbidden, setApiForbidden] = useState(false);
   const [drawerError, setDrawerError] = useState("");
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [roleOnlyEditing, setRoleOnlyEditing] = useState(false);
@@ -258,12 +260,21 @@ export default function UsersPage() {
     if (keyword) params.set("keyword", keyword);
     if (status) params.set("status", status);
     if (tenantId) params.set("tenantId", tenantId);
-    const [userResponse, tenantResponse] = await Promise.all([
-      apiRequest<PaginatedResult<UserRow>>(`/users?${params.toString()}`, { token }),
-      apiRequest<PaginatedResult<TenantRow>>("/tenants?page=1&page_size=100", { token })
-    ]);
-    setData(userResponse.data);
-    setTenants(tenantResponse.data);
+    try {
+      const [userResponse, tenantResponse] = await Promise.all([
+        apiRequest<PaginatedResult<UserRow>>(`/users?${params.toString()}`, { token }),
+        apiRequest<PaginatedResult<TenantRow>>("/tenants?page=1&page_size=100", { token })
+      ]);
+      setData(userResponse.data);
+      setTenants(tenantResponse.data);
+      setApiForbidden(false);
+    } catch (error) {
+      if (!isForbiddenError(error)) throw error;
+      setData(emptyUsers);
+      setTenants(emptyTenants);
+      setMessage("");
+      setApiForbidden(true);
+    }
   }
 
   async function loadLoginSettings(targetTenantId: string, existingUser?: UserRow | null) {
@@ -511,6 +522,14 @@ export default function UsersPage() {
   useEffect(() => {
     void load().catch((error: Error) => setMessage(error.message));
   }, []);
+
+  if (apiForbidden) {
+    return (
+      <main className="page-container">
+        <ForbiddenState message="当前账号拥有用户管理页面入口，但没有用户目录的数据访问权限。" />
+      </main>
+    );
+  }
 
   return (
     <main className="page-container">
