@@ -41,7 +41,8 @@ export class HomestayRatesService {
     actor: JwtPrincipal,
     unitId: string,
     dateFrom: string,
-    dateTo: string
+    dateTo: string,
+    allowUnconfiguredResponse = false
   ): Promise<HomestayRateCalendarResponse> {
     if (!dateFrom || !dateTo) {
       throw new BadRequestException("date_from and date_to are required");
@@ -51,7 +52,10 @@ export class HomestayRatesService {
     await this.assertUnitReadAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
     const config = await this.findRate(scope, unitId);
-    if (!config) return { configured: false, unit_id: unitId };
+    if (!config) {
+      if (allowUnconfiguredResponse) return { configured: false, unit_id: unitId };
+      throw new NotFoundException("Homestay rate configuration not found");
+    }
     const overrides = await this.loadOverrides(scope, unitId, dateFrom, dateTo);
     const byDate = new Map(overrides.map((item) => [item.businessDate, item]));
     return {

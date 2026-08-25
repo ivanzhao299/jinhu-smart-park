@@ -55,7 +55,7 @@ function useRateCalendar(unit: RemoteEntityOption | null, canRead: boolean, inva
     try {
       const { from, to } = homestayRateWindow();
       const response = await apiRequest<HomestayRateCalendarResponse>(
-        `/homestay/rates/${unit.id}?date_from=${from}&date_to=${to}`,
+        `/homestay/rates/${unit.id}?date_from=${from}&date_to=${to}&response_version=2`,
         { token: getAccessToken() ?? undefined }
       );
       const projected = projectHomestayRateCalendarResponse(response.data);

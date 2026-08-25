@@ -50,12 +50,12 @@ test("homestay façade delegates the complete rates closure without storage acce
     reason: "周末"
   };
 
-  await facade.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06");
+  await facade.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06", "2");
   await facade.upsertRate(scope, actor, "unit-1", rateDto);
   await facade.upsertRateOverride(scope, actor, "unit-1", overrideDto);
 
   assert.deepEqual(calls, [
-    ["calendar", scope, actor, "unit-1", "2026-08-04", "2026-08-06"],
+    ["calendar", scope, actor, "unit-1", "2026-08-04", "2026-08-06", true],
     ["rate", scope, actor, "unit-1", rateDto],
     ["override", scope, actor, "unit-1", overrideDto]
   ]);
@@ -159,11 +159,18 @@ test("rate calendar returns an explicit unconfigured state for an authorized uni
     actor,
     "unit-1",
     "2026-08-04",
-    "2026-08-06"
+    "2026-08-06",
+    true
   );
 
   assert.deepEqual(result, { configured: false, unit_id: "unit-1" });
   assert.equal(overrideReads, 0);
+
+  await assert.rejects(
+    service.getRateCalendar(scope, actor, "unit-1", "2026-08-04", "2026-08-06"),
+    (error: unknown) => error instanceof NotFoundException
+      && error.message === "Homestay rate configuration not found"
+  );
 });
 
 test("rate calendar validates dates and unit scope before repository reads", async () => {
