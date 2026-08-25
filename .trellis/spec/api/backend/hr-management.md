@@ -89,6 +89,23 @@ return { responseCount, averageScore };
 - Published child INSERT/UPDATE/DELETE, duplicate-code concurrency, exact decimal recomputation and zero-side-effect PostgreSQL gates.
 - Three-role API/Web projection and desktop/390px browser acceptance before release.
 
+## Scenario: Append-only performance evaluation, calibration and appeal
+
+### Contracts
+
+- Self and manager submissions are append-only frozen-dimension evidence; the server recomputes every numeric total and rejects actor drift, self-review and cross-management-tree review.
+- Calibration is an active meeting batch with explicit participants. Every adjustment records before/after frozen dimension scores and a non-blank reason; completing the batch derives the final score and level from immutable evidence in the same transaction.
+- Before `employee_acknowledged`, a self projection exposes neither manager scores, calibration scores, final result nor result-bearing action history. Required audit must succeed before any review/action projection is returned.
+- Acknowledgement and appeal belong only to the evaluated employee. Appeal review has its own atomic permission; upheld decisions provide replacement dimension scores for database recomputation, while rejected decisions preserve the previous result.
+- `confirmed` results and all submissions, calibration entries and actions are immutable. State, append-only action and privacy-safe workflow notification commit together, and evaluation never writes employee, attendance, payroll or payslip facts.
+- Every POST is protected by one exact permission, `IdempotencyInterceptor`, and body-free audit metadata. Direct service access resolves only to `park | managed_org_tree | self | none` and fails closed.
+
+### Tests Required
+
+- PostgreSQL-test score/level recomputation, invalid transition, missing calibration reason, terminal immutability, duplicate/concurrent actions, appeal upheld/rejected, and zero online-domain side effects.
+- Contract-test exact controller atoms, employee result hiding, body-free idempotent writes, least-privilege seed and direct-service fail-closed behavior.
+- Three-role desktop and 390px workbench acceptance must use exact options rather than UUID entry and cover loading, forbidden, empty, error and retry states.
+
 ## Scenario: HR sensitive read projection and required audit
 
 ### 1. Scope / Trigger
