@@ -8,7 +8,7 @@
 - [x] 只把闭合链路转成流程链/Case 矩阵；预列 fixture 建链和 residual 逐表查询。
 - [x] 实测选择空闲 DB/API/Web 端口与固定容器冲突；创建 0600 env、隔离 compose project 和文件根。
 - [x] 执行 migrate→prod seed→首次 baseline→bootstrap admin→再次 baseline，随后启动 API/Web 并通过 health/ready/login 三门禁。
-- [x] 建立带 RUN_ID 的底座 fixture；证明 Web/API/DB 未串默认环境。角色/住客身份链因缺少合法 UI 建链记录为 GAP/BLOCKED。
+- [x] 建立带 RUN_ID 的底座 fixture；证明 Web/API/DB 未串默认环境。第二轮 review 确认角色/住客身份 UI 已存在，本轮未沿其建链属于 EXEC-GAP，不是产品阻断。
 - [x] 启动独占 9222 专用 Chrome，记录版本与实际 viewport/device 媒体特征。
 - [x] 按矩阵执行可合法进入的流程链，记录 UI、DB 辅证、console/network、防双击、三态和窄窗证据；阻断链如实标记，未用后台数据硬绕。
 - [x] 对 FAIL 做环境排除并分类 gap/限制，产品代码零改动。
@@ -19,7 +19,7 @@
 
 ## Actual Result
 
-- RUN_ID `20260825-212435`；Codex review 后业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 18、GAP/BLOCKED 2；C-UX PARTIAL。
+- RUN_ID `20260825-212435`；第二轮 Codex review 后业务 Case：PASS 0、FAIL 3、PARTIAL 5、BLOCKED 16、NOT EXECUTED 2、GAP/BLOCKED 2；C-UX PARTIAL。
 - 产品 FAIL：rate 空态 404 泄漏 Console；confirmed 被 dashboard/availability 当作已入住/occupied。
 - 证据 FAIL：截图/evaluate 未持久化；原 PASS 全部撤销。清理门禁全部通过；任务因 FAIL/BLOCKED 保持 `in_progress`，不得归档。
 
