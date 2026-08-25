@@ -164,5 +164,5 @@ fixture 前缀统一为 `UAT_HOMESTAY_20260825-212435_`。建链顺序：product
 - gap：`GAP-DESIGN-01`、`GAP-FOUNDATION-01..04`、`GAP-RBAC-01..03`。其中 04 直接阻断住客身份、多角色、跨园区及后续全链；其余见审计表。
 - UAT 结论：**FAIL，且 17 个 Case Blocked、3 个 Case Gap/Blocked**。已通过的闭合段不能外推为全流程通过；产品代码零改动。
 - 建议优先级：P0 修正 confirmed/occupied KPI 语义；P1 给空环境提供受权限控制的 operation/role/party-identity UAT 建链，修复 rate 空态 404 和候选 query；P2 收敛 Web/API asset 与 refund/task bundle 权限契约，再重跑完整多角色审批、入住、退房、周转链。
-- 发布状态：报告 PR/CI/Deploy 在后续收尾填写；与 UAT 产品结论分开记录。
+- 发布状态：报告 PR [#382](https://github.com/ivanzhao299/jinhu-smart-park/pull/382) 已创建；review/CI/merge/Deploy 在后续收尾填写，与 UAT 产品结论分开记录。
 - 外部真人门：即使本轮自动化操作者真实 Chrome UAT 全部通过，也不替代 `homestay-mvp-evidence.md` 定义的多岗位真人代表具名签署，除非用户另行完成该外部门。
