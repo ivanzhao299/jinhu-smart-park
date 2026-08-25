@@ -82,6 +82,35 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t0:rollback
 ```
 
+### T5 招聘、档案、培训和奖惩历史
+
+T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，不调用在线 HR Service。当前恢复库的真实 profile 是 9,140 行：`family=4560`、`his=375`、`knowhow=6`、`ticket=237`、`person.photo=2949`、`docs=1003`、`trainhis=2`、`bonuscode=8`；`accept/course/train/jobtrain/bonusrecord` 为空，`jch_1` 不存在。旧静态报告里的候选人数不能替代这次实测和确定性抽取证据。
+
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c`。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
+
+加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
+
+```sh
+export ALLOW_YUZHOU_MIGRATION=yes
+export YUZHOU_ETL_CREDENTIAL_FILE='<本机 0600 的只读 ETL 凭据文件>'
+export YUZHOU_MIGRATION_RUN_ID=t5extract_<run>
+pnpm hr:migration:t5:extract
+
+export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
+export YUZHOU_STAGING_DIR='<上述抽取 staging 目录>'
+export YUZHOU_T5_BUSINESS_SHA256=ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c
+pnpm hr:migration:t5:load
+
+export ALLOW_YUZHOU_ROLLBACK=yes
+pnpm hr:migration:t5:rollback
+```
+
+`docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
+
+生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
+
+回滚仅接受 `staged + succeeded` 且已有已验证 rollback point 的批次。每个 active map 的目标 ID、来源表、来源 identity hash 和 row hash 都必须与历史目标一致；普通更新/删除、staged 后追加、修改已冻结计数和错误 run 均由数据库拒绝。
+
 ## 4. 旧资料清单
 
 生成清单：

@@ -1,0 +1,55 @@
+{
+  "capturedAt": "2026-08-25T13:40:00+08:00",
+  "source": {
+    "database": "YuzhouHR_Lab_20260820_intake01",
+    "readOnly": true,
+    "loginIsSa": false,
+    "dbDataReader": true,
+    "viewDefinition": true,
+    "familySelect": true,
+    "familyUpdate": false,
+    "procedureExecute": false,
+    "credentialFileMode": "0600",
+    "backupSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+    "catalogSha256": "d58a3e11a6241a2654331096ebf4c6bc83c0936e8a2e35983add32f5eb0bbab6"
+  },
+  "profile": {
+    "rows": {
+      "accept": 0,
+      "family": 4560,
+      "his": 375,
+      "knowhow": 6,
+      "ticket": 237,
+      "person.photo": 2949,
+      "docs": 1003,
+      "course": 0,
+      "train": 0,
+      "trainhis": 2,
+      "jobtrain": 0,
+      "bonuscode": 8,
+      "bonusrecord": 0,
+      "jch_1": 0
+    },
+    "emptyTables": ["accept", "bonusrecord", "course", "jobtrain", "train"],
+    "absentObjects": ["jch_1"],
+    "files": {
+      "photoRows": 2949,
+      "readablePhotos": 2155,
+      "photoBytes": 273936570,
+      "distinctPhotoHashes": 2150,
+      "docsRows": 1003,
+      "docsWithContent": 0,
+      "docsWithPath": 0,
+      "docsWithNameOnly": 1003,
+      "ticketFilenameReferences": 0,
+      "detectedBmpPhotos": 2155,
+      "legacyPhotoSizeMismatch": 2155
+    }
+  },
+  "accounting": { "totalRows": 9140 },
+  "determinism": {
+    "extractA": { "runId": "t5profile20260825a", "businessSha256": "ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c" },
+    "extractB": { "runId": "t5profile20260825b", "businessSha256": "ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c" }
+  },
+  "productionImport": "HOLD"
+}
