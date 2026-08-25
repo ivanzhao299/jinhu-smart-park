@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { Award, BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, GraduationCap, ListChecks, Network, RefreshCw, ShieldCheck, Target, UserRoundSearch, UsersRound } from "lucide-react";
+import { Award, BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, GraduationCap, ListChecks, Network, RefreshCw, ShieldCheck, Sparkles, Target, UserRoundSearch, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,8 @@ import styles from "./hr-workbench.module.css";
 
 type Metric = { value: number; detail: string };
 type MetricState = Metric | "unavailable" | "error" | null;
-interface Snapshot { recruitment:MetricState; lifecycle:MetricState; training:MetricState; rewards:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; approvals:MetricState; payroll:MetricState }
-const EMPTY: Snapshot = { recruitment:null, lifecycle:null, training:null, rewards:null, employees:null, contracts:null, attendance:null, insurance:null, goals:null, reports:null, performance:null, feedback:null, approvals:null, payroll:null };
+interface Snapshot { recruitment:MetricState; lifecycle:MetricState; training:MetricState; rewards:MetricState; employees: MetricState; contracts:MetricState; attendance:MetricState; insurance:MetricState; goals: MetricState; reports: MetricState; performance: MetricState; feedback: MetricState; talent:MetricState; approvals:MetricState; payroll:MetricState }
+const EMPTY: Snapshot = { recruitment:null, lifecycle:null, training:null, rewards:null, employees:null, contracts:null, attendance:null, insurance:null, goals:null, reports:null, performance:null, feedback:null, talent:null, approvals:null, payroll:null };
 const isOpen = (status: string) => !["completed", "confirmed", "cancelled", "rejected", "paid"].includes(status);
 const isEmployeeContextUnavailable = (error: unknown) =>
   isForbiddenError(error) ||
@@ -71,6 +71,7 @@ export function HrWorkbench() {
       add("performance", hrApi.myPerformancePlans(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "个人绩效待处理" })));
     }
     if (hasPermission(user, HR_PERMISSIONS.HR_FEEDBACK_RESPOND)) add("feedback", hrApi.myFeedbackAssignments(token).then((rows) => ({ value: rows.filter((item) => isOpen(item.status)).length, detail: "待完成 360 评价" })));
+    if(hasAnyPermission(user,[HR_PERMISSIONS.HR_TALENT_READ,HR_PERMISSIONS.HR_TALENT_TEAM_READ,HR_PERMISSIONS.HR_TALENT_SELF_READ,HR_PERMISSIONS.HR_DEVELOPMENT_MANAGE,HR_PERMISSIONS.HR_DEVELOPMENT_SELF_ACTION]))add("talent",hrApi.developmentPlans(token).then(rows=>({value:rows.flatMap(x=>x.actions).filter(x=>isOpen(x.status)).length,detail:"待推进发展行动"})));
     if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_REVIEW)) {
       add("approvals", hrApi.pendingApprovals(token).then((rows) => ({ value: rows.filter((item) => item.status === "pending").length, detail: "待审核人事申请" })));
     } else if (hasPermission(user, HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE)) {
@@ -100,6 +101,7 @@ export function HrWorkbench() {
     { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
     { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },
     { key: "feedback", title: "360 评价", href: "/hr/feedback-360", icon: Network },
+    { key: "talent", title: "人才发展", href: "/hr/talent", icon: Sparkles },
     { key: "approvals", title: "人事审批", href: "/hr/approvals", icon: ClipboardCheck },
     { key: "payroll", title: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) ? "工资批次" : "我的工资条", href: "/hr/payroll", icon: BadgeDollarSign }
   ].filter((item) => snapshot[item.key as keyof Snapshot] !== null), [snapshot, user]);

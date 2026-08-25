@@ -197,6 +197,7 @@ export const FIRST_RELEASE_MENU_PATHS = [
   "/hr/work-reports",
   "/hr/performance",
   "/hr/feedback-360",
+  "/hr/talent",
   "/hr/compensation",
   "/hr/payroll",
   "/hr/approvals",

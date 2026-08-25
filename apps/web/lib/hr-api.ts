@@ -21,6 +21,12 @@ export interface HrFeedback360Cycle {id:string;cycleCode:string;cycleName:string
 export interface HrFeedback360Result {cycleName:string;subjectName:string;publishedAt:string;dimensions:Array<{dimensionCode:string;averageScore:string}>;}
 export interface HrFeedback360Options {employees:Array<{id:string;fullName:string;employeeCode:string;orgId:string|null}>;models:Array<{id:string;modelName:string;versionName:string}>;questionnaires:Array<{id:string;questionnaireName:string;versionName:string;modelVersionId:string}>;subjects:Array<{id:string;cycleName:string;subjectName:string;status:string}>;}
 export interface HrFeedback360Nomination {id:string;subjectId:string;cycleName:string;subjectName:string;nomineeName:string;relationType:string;status:string;canDecide:boolean;}
+export interface HrTalentOptions {employees:Array<{id:string;employeeCode:string;fullName:string;orgId:string|null}>;positions:Array<{id:string;positionCode:string;positionName:string}>;}
+export interface HrTalentProfile {id:string;snapshotNo:number;asOfDate:string;employeeName:string;employeeCode:string;performanceSource:Record<string,unknown>;feedbackSource:Record<string,unknown>;createdAt:string;}
+export interface HrTalentSession {id:string;sessionCode:string;sessionName:string;reviewDate:string;status:string;subjectCount:number;}
+export interface HrTalentSubject {id:string;employeeName:string;employeeCode:string;profileAsOf:string;performanceBand:string|null;potentialBand:string|null;nineBox:string|null;potentialScore:string|null;reason:string|null;}
+export interface HrSuccessionRow {criticalPositionId:string;positionName:string;criticality:string;positionRisk:string;candidateName:string|null;employeeCode:string|null;readiness:string|null;candidateRisk:string|null;riskReason:string|null;assessedAt:string|null;}
+export interface HrDevelopmentPlan {id:string;planCode:string;planName:string;developmentGoal:string;startDate:string;endDate:string;status:string;employeeName:string;actions:Array<{id:string;actionName:string;ownerName:string;dueDate:string;status:string;evidence:unknown[];canAct:boolean}>;}
 export interface HrFeedbackCycle {id:string;performanceCycleId:string;cycleName:string;anonymous:boolean;minimumAnonymousResponses:number;status:string;}
 export interface HrCompensationPlan {id:string;planCode:string;planName:string;effectiveFrom:string;effectiveTo:string|null;status:string;currency:string;}
 export interface HrPayrollPeriod {id:string;periodMonth:string;startDate:string;endDate:string;status:string;}
@@ -276,6 +282,23 @@ export const hrApi={
  ,closeFeedback360Subject:(id:string,token?:string)=>unwrap(apiRequest(`/hr/feedback360-v2/subjects/${id}/close`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-feedback360-close")}))
  ,publishFeedback360Result:(id:string,token?:string)=>unwrap(apiRequest(`/hr/feedback360-v2/subjects/${id}/publish`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-feedback360-publish")}))
  ,feedback360Results:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrFeedback360Result[]>("/hr/feedback360-v2/results",{token,signal}))
+ ,talentOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentOptions>("/hr/talent/options",{token,signal}))
+ ,talentProfiles:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentProfile[]>("/hr/talent/profiles",{token,signal}))
+ ,createTalentProfile:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/talent/profiles",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-talent-profile")}))
+ ,talentSessions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentSession[]>("/hr/talent/sessions",{token,signal}))
+ ,talentSubjects:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrTalentSubject[]>(`/hr/talent/sessions/${id}/subjects`,{token,signal}))
+ ,createTalentSession:(body:object,token?:string)=>unwrap(apiRequest<{id:string;status:string}>("/hr/talent/sessions",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-talent-session")}))
+ ,activateTalentSession:(id:string,token?:string)=>unwrap(apiRequest(`/hr/talent/sessions/${id}/activate`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-talent-activate")}))
+ ,closeTalentSession:(id:string,token?:string)=>unwrap(apiRequest(`/hr/talent/sessions/${id}/close`,{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-talent-close")}))
+ ,decideTalentSubject:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/subjects/${id}/decisions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-talent-decision")}))
+ ,talentSuccession:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrSuccessionRow[]>("/hr/talent/succession",{token,signal}))
+ ,createCriticalPosition:(body:object,token?:string)=>unwrap(apiRequest("/hr/talent/critical-positions",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-critical-position")}))
+ ,createSuccessor:(body:object,token?:string)=>unwrap(apiRequest("/hr/talent/succession",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-successor")}))
+ ,developmentPlans:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrDevelopmentPlan[]>("/hr/talent/development-plans",{token,signal}))
+ ,createDevelopmentPlan:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/talent/development-plans",{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-plan")}))
+ ,transitionDevelopmentPlan:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/development-plans/${id}/transitions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-plan-transition")}))
+ ,addDevelopmentAction:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/development-plans/${id}/actions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-action")}))
+ ,transitionDevelopmentAction:(id:string,body:object,token?:string)=>unwrap(apiRequest(`/hr/talent/development-actions/${id}/transitions`,{method:"POST",body,token,idempotencyKey:createIdempotencyKey("hr-development-transition")}))
  ,compensationPlans:(token?:string)=>unwrap(apiRequest<HrCompensationPlan[]>("/hr/compensation/plans",{token}))
  ,createCompensationPlan:(body:object,token?:string)=>unwrap(apiRequest<HrCompensationPlan>("/hr/compensation/plans",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,assignCompensation:(body:object,token?:string)=>unwrap(apiRequest<{id:string}>("/hr/compensation/assignments",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))

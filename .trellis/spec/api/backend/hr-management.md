@@ -106,6 +106,21 @@ return { responseCount, averageScore };
 - Contract-test exact controller atoms, employee result hiding, body-free idempotent writes, least-privilege seed and direct-service fail-closed behavior.
 - Three-role desktop and 390px workbench acceptance must use exact options rather than UUID entry and cover loading, forbidden, empty, error and retry states.
 
+## Scenario: Frozen talent review, succession and development
+
+### Contracts
+
+- A talent profile references only confirmed performance and published anonymous 360 source versions. Every downstream review subject, succession version and development plan must reference a profile for the same tenant, park and employee; a scoped UUID alone is insufficient.
+- Talent decisions and succession assessments are append-only chains. `supersedes_id` must name the immediately preceding version for the same subject or the same critical-position/employee pair, and database insertion serializes that chain.
+- A nine-box decision may be inserted only while its review session is active. A succession version may be inserted only while its critical position is active. Direct SQL must not bypass either state gate.
+- Development actions may be added only to a non-terminal plan and their deadline must remain inside the frozen plan dates. The employee projection exposes `canAct` per action; an employee who owns one action must not receive another owner's action evidence or controls.
+- Talent operations never mutate employee employment status, performance final results, payroll runs or payslips.
+
+### Tests Required
+
+- PostgreSQL-test cross-employee profile references, cross-subject/cross-candidate predecessor pointers, inactive parent insertion, terminal-plan insertion, deadline bounds, concurrent decision/version numbering and zero online-domain side effects.
+- Contract-test exact talent permissions, body-free idempotent writes, required-audit reads, direct-service fail-closed scope and per-record development `canAct` projection.
+
 ## Scenario: HR sensitive read projection and required audit
 
 ### 1. Scope / Trigger

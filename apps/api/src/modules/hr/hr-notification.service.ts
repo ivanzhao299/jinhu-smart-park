@@ -81,6 +81,12 @@ export class HrNotificationService {
     await this.publish(manager,{scope,actor,recipientId:input.subjectUserId,sourceId:input.subjectId,sourceType:"hr_feedback360_subject",bizType:"hr_feedback360_subject",targetUrl:"/hr/feedback-360",action:"result",title:"360评价结果已发布",content:"您的360评价匿名聚合结果已发布。",payload:{status:"published"},uniqueKey:`hr:feedback360:${input.subjectId}:published:${input.subjectUserId}`});
   }
 
+  async publishDevelopmentAction(scope:TenantParkScope,actor:JwtPrincipal,input:{actionId:string;ownerEmployeeId:string},manager:EntityManager):Promise<void>{
+    const owner=await manager.getRepository(HrEmployeeEntity).findOne({where:{id:input.ownerEmployeeId,...scope,isDeleted:false}});
+    if(!owner?.userId||owner.userId===actor.sub)return;
+    await this.publish(manager,{scope,actor,recipientId:owner.userId,sourceId:input.actionId,sourceType:"hr_development_action",bizType:"hr_development_action",targetUrl:"/hr/talent",action:"develop",title:"待完成发展行动",content:"您有一项个人发展行动，请在截止日前完成并提交证据。",payload:{status:"pending"},uniqueKey:`hr:development:${input.actionId}:pending:${owner.userId}`});
+  }
+
   private async publish(
     manager: EntityManager,
     input: {
