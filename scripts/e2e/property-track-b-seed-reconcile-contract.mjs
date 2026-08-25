@@ -414,9 +414,9 @@ for (const assertionToken of [
   "permission_count <> 25",
   "super_admin_grant_count <> 25",
   "bundle_count <> 16",
-  "bundle_member_count <> 129",
-  "bundle_permission_count <> 55",
-  "resolved_bundle_permission_count <> 55"
+  "bundle_member_count <> 130",
+  "bundle_permission_count <> 56",
+  "resolved_bundle_permission_count <> 56"
 ]) {
   assert.ok(seed.includes(assertionToken), `missing post-seed cardinality assertion: ${assertionToken}`);
 }

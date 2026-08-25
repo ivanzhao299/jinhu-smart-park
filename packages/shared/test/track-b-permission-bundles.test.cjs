@@ -13,13 +13,19 @@ test("Track B bundles match the independently frozen 16-bundle matrix", () => {
       (total, bundle) => total + bundle.permissions.length,
       0
     ),
-    129
+    130
   );
   assert.deepEqual(validateTrackBPermissionBundles(), []);
   assert.deepEqual(validatePropertyPermissionBundles(), []);
   assert.ok(
     TRACK_B_PERMISSION_BUNDLES.IDENTITY_OPERATOR.permissions.includes("file:download")
   );
+  assert.deepEqual(TRACK_B_PERMISSION_BUNDLES.HOMESTAY_TASK_OPERATOR.permissions, [
+    "homestay:tasks:page", "property:notifications:page", "property_task:read",
+    "property_task:claim", "property_task:process", "property_task:release",
+    "property_notification:read", "property_notification:mark_read",
+    "homestay:task:read"
+  ]);
   assert.deepEqual(TRACK_B_PERMISSION_BUNDLES.ASSET_MANAGER.permissions, [
     "asset:property-operations:page", "asset:property-occupancies:page",
     "asset:property-mode-transitions:page", "property:notifications:page",

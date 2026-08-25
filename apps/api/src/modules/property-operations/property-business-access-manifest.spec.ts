@@ -692,21 +692,42 @@ test("permission bundles compose capabilities and never translate legacy operati
     assert.equal(bundle.permissions.some((permission) => legacy.has(permission)), false);
   }
   const owningReadExtensions = {
-    HOMESTAY_OVERVIEW: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASK_READ,
-    HOMESTAY_STAYS: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ,
-    HOUSING_OVERVIEW: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ,
-    HOUSING_TENANTS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
-    HOUSING_HANDOVERS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
-    HOUSING_BILLING: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ,
-    HOUSING_REPAIRS: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ
+    HOMESTAY_OVERVIEW: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASK_READ,
+      owners: ["HOMESTAY_OVERVIEW", "HOMESTAY_TASK_OPERATOR"]
+    },
+    HOMESTAY_STAYS: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAY_READ,
+      owners: ["HOMESTAY_STAYS"]
+    },
+    HOUSING_OVERVIEW: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ,
+      owners: ["HOUSING_OVERVIEW"]
+    },
+    HOUSING_TENANTS: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
+      owners: ["HOUSING_TENANTS"]
+    },
+    HOUSING_HANDOVERS: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
+      owners: ["HOUSING_HANDOVERS"]
+    },
+    HOUSING_BILLING: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_READ,
+      owners: ["HOUSING_BILLING"]
+    },
+    HOUSING_REPAIRS: {
+      permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ,
+      owners: ["HOUSING_REPAIRS"]
+    }
   } as const;
-  for (const [bundleKey, permission] of Object.entries(owningReadExtensions)) {
+  for (const { permission, owners: expectedOwners } of Object.values(owningReadExtensions)) {
     const owners = Object.entries(PROPERTY_PERMISSION_BUNDLES)
       .filter(([, bundle]) =>
         (bundle.permissions as readonly string[]).includes(permission)
       )
       .map(([key]) => key);
-    assert.deepEqual(owners, [bundleKey]);
+    assert.deepEqual(owners, expectedOwners);
   }
 });
 

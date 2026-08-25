@@ -38,7 +38,8 @@ export const TRACK_B_PERMISSION_BUNDLES = {
     permissions: [
       "homestay:tasks:page", "property:notifications:page", "property_task:read",
       "property_task:claim", "property_task:process", "property_task:release",
-      "property_notification:read", "property_notification:mark_read"
+      "property_notification:read", "property_notification:mark_read",
+      "homestay:task:read"
     ]
   },
   HOUSING_OPERATOR: {
