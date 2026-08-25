@@ -17,5 +17,6 @@ import { HrLifecycleController } from "./hr-lifecycle.controller";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 import { HrTrainingController } from "./hr-training.controller";
 import { HrTrainingService } from "./hr-training.service";
-@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController,HrPayrollHistoryController,HrRecruitmentController,HrLifecycleController,HrTrainingController],providers:[HrService,HrNotificationService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService,HrTrainingService,PartySensitiveDataService],exports:[HrService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService,HrTrainingService]})
+import {HrRewardsController} from "./hr-rewards.controller";import {HrRewardsService} from "./hr-rewards.service";
+@Module({imports:[TypeOrmModule.forFeature([...HR_ENTITIES,OrgEntity,UserEntity,UserMessageEntity]),AuditModule],controllers:[HrController,HrPayrollHistoryController,HrRecruitmentController,HrLifecycleController,HrTrainingController,HrRewardsController],providers:[HrService,HrNotificationService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService,HrTrainingService,HrRewardsService,PartySensitiveDataService],exports:[HrService,HrPayrollHistoryService,HrRecruitmentService,HrLifecycleService,HrTrainingService,HrRewardsService]})
 export class HrModule {}
