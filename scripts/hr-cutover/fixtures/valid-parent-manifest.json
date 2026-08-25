@@ -1,0 +1,88 @@
+{
+  "formatVersion": 1,
+  "manifestKind": "yuzhou_hr_full_domain_rehearsal",
+  "parentRunId": "yzfull-20260826T010000Z-9b62b410-rA",
+  "rehearsal": "A",
+  "state": "planned",
+  "triple": {
+    "codeSha": "9b62b41004ed5a6dfb998cdeddde94d21f60a5e6",
+    "sourceSnapshotHash": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+    "mappingContractHash": "0b0896340fea2cbbc87d60a75ef98697499f877b09dc03faaaaaa214bac0f446"
+  },
+  "source": {
+    "system": "yuzhou-v10",
+    "databaseAlias": "YuzhouHR_Lab_20260820_intake01",
+    "readOnly": true,
+    "backupSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+    "catalogSha256": "caa5883cc46822a4d1ff4809640510312b8d7f372668a93c2deb8ae9eb233728",
+    "tableLedgerSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  },
+  "target": {
+    "database": "jinhu_hr_migration_lab_full_contract_a",
+    "composeProject": "jinhu_hr_migration_lab_full_contract_a",
+    "volume": "jinhu_hr_migration_lab_full_contract_a_pgdata",
+    "postgresContainer": "jinhu_hr_migration_lab_full_contract_a-postgres-1",
+    "apiPort": 43101,
+    "webPort": 43102,
+    "fileRoot": "/tmp/jinhu_hr_migration_lab_full_contract_a/files",
+    "stagingRoot": "/tmp/jinhu_hr_migration_lab_full_contract_a/staging",
+    "evidenceRoot": "/tmp/jinhu_hr_migration_lab_full_contract_a/evidence",
+    "accountNamespace": "yzfull_a_contract"
+  },
+  "children": [
+    { "domain": "T0", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t0", "status": "not_started", "manifestSha256": "3000000000000000000000000000000000000000000000000000000000000000" },
+    { "domain": "T1", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t1", "status": "not_started", "manifestSha256": "3100000000000000000000000000000000000000000000000000000000000000" },
+    { "domain": "T2", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t2", "status": "not_started", "manifestSha256": "3200000000000000000000000000000000000000000000000000000000000000" },
+    { "domain": "T3", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t3", "status": "not_started", "manifestSha256": "3300000000000000000000000000000000000000000000000000000000000000" },
+    { "domain": "T4", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t4", "status": "not_started", "manifestSha256": "3400000000000000000000000000000000000000000000000000000000000000" },
+    { "domain": "T5", "runId": "yzfull-20260826T010000Z-9b62b410-rA-t5", "status": "not_started", "manifestSha256": "3500000000000000000000000000000000000000000000000000000000000000" }
+  ],
+  "resourceRegistry": [
+    { "type": "database", "planned": "jinhu_hr_migration_lab_full_contract_a", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "container", "planned": "jinhu_hr_migration_lab_full_contract_a-postgres-1", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "volume", "planned": "jinhu_hr_migration_lab_full_contract_a_pgdata", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "role", "planned": "yzfull_a_contract_role", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "directory", "planned": "/tmp/jinhu_hr_migration_lab_full_contract_a/evidence", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "account", "planned": "yzfull_a_contract_hr", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "file", "planned": "/tmp/jinhu_hr_migration_lab_full_contract_a/files/evidence.json", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "port", "planned": "43101", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "process", "planned": "yzfull_a_contract_api", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "credential_artifact", "planned": "/tmp/jinhu_hr_migration_lab_full_contract_a/credentials/uat.env", "observed": null, "removed": false, "residualCount": 0 }
+  ],
+  "globalLedger": [
+    { "domain": "T0", "sourceObject": "dbo.person", "source": 2949, "loaded": 2949, "quarantined": 0, "approvedIgnored": 0 },
+    { "domain": "T1", "sourceObject": "dbo.personstatus", "source": 6887, "loaded": 6851, "quarantined": 36, "approvedIgnored": 0 },
+    { "domain": "T2", "sourceObject": "dbo.contract", "source": 802, "loaded": 800, "quarantined": 2, "approvedIgnored": 0 },
+    { "domain": "T3", "sourceObject": "dbo.person_insure", "source": 35008, "loaded": 34990, "quarantined": 18, "approvedIgnored": 0 },
+    { "domain": "T4", "sourceObject": "dbo.salary01..35", "source": 46092, "loaded": 45947, "quarantined": 145, "approvedIgnored": 0 },
+    { "domain": "T5", "sourceObject": "legacy-history", "source": 9140, "loaded": 9138, "quarantined": 2, "approvedIgnored": 0 }
+  ],
+  "canonical": {
+    "normalizationVersion": "yuzhou-full-canonical-v1",
+    "globalHash": "4000000000000000000000000000000000000000000000000000000000000000",
+    "domainHashes": {
+      "T0": "4100000000000000000000000000000000000000000000000000000000000000",
+      "T1": "4200000000000000000000000000000000000000000000000000000000000000",
+      "T2": "4300000000000000000000000000000000000000000000000000000000000000",
+      "T3": "4400000000000000000000000000000000000000000000000000000000000000",
+      "T4": "4500000000000000000000000000000000000000000000000000000000000000",
+      "T5": "4600000000000000000000000000000000000000000000000000000000000000"
+    },
+    "quarantineReasonLedgerHash": "4700000000000000000000000000000000000000000000000000000000000000"
+  },
+  "hardGates": {
+    "t4Extraction": { "status": "NOT_STARTED", "reasonCodes": ["T4_EXTRACTION_NOT_STARTED"] },
+    "technicalUat": { "status": "NOT_STARTED", "reasonCodes": [] },
+    "humanUat": { "status": "HOLD", "reasonCodes": ["HUMAN_UAT_UNSIGNED"] },
+    "restore": { "status": "NOT_STARTED", "reasonCodes": [] },
+    "cleanup": { "status": "NOT_STARTED", "reasonCodes": [] },
+    "productionImport": { "status": "HOLD", "reasonCodes": ["PRODUCTION_IMPORT_AUTH_MISSING"] }
+  },
+  "evidence": [],
+  "security": {
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "containsSecrets": false,
+    "redactionContractVersion": "yuzhou-evidence-redaction-v1"
+  }
+}

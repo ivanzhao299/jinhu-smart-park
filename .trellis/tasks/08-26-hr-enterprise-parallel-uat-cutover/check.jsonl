@@ -1,0 +1,5 @@
+{"file":".trellis/tasks/08-26-hr-enterprise-parallel-uat-cutover/research/activation-contract-context.md","reason":"Disprove HR scope migration-domain A B C S M ledger delta T4 UAT restore cleanup and authorization defects using focused complete context"}
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"Disprove historical mutation prerequisite checksum and replay bypass"}
+{"file":".trellis/spec/config/backend/database-initialization.md","reason":"Disprove incomplete fresh upgrade replay and seed evidence"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"Disprove unsafe shared-repository release or production claims"}
+{"file":".trellis/tasks/08-26-hr-enterprise-parallel-uat-cutover/research/planning-artifact-blueprint.md","reason":"Audit eight slices business-input dependency gates 0700 0600 secret-free evidence fail-stop semantics and separate run-level import restore authorization"}

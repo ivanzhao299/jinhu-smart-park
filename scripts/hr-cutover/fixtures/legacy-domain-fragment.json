@@ -1,0 +1,7 @@
+{
+  "formatVersion": 1,
+  "sourceSystem": "yuzhou-v10",
+  "sourceDatabase": "YuzhouHR_Lab_20260820_intake01",
+  "sourceReadOnly": true,
+  "pendingExtractionEvidence": { "status": "not_started" }
+}

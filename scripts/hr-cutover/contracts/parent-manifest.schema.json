@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-full-domain-parent-manifest-v1.json",
+  "title": "Yuzhou HR full-domain rehearsal parent manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "manifestKind",
+    "parentRunId",
+    "rehearsal",
+    "state",
+    "triple",
+    "source",
+    "target",
+    "children",
+    "resourceRegistry",
+    "globalLedger",
+    "canonical",
+    "hardGates",
+    "evidence",
+    "security"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "manifestKind": { "const": "yuzhou_hr_full_domain_rehearsal" },
+    "parentRunId": { "type": "string", "pattern": "^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r[AB]$" },
+    "rehearsal": { "enum": ["A", "B"] },
+    "state": { "enum": ["planned", "source_locked", "extracted", "target_ready", "loading", "verified", "uat_passed", "rollback_verified", "cleaned", "failed", "cleanup_pending", "cleaned_failed"] },
+    "triple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
+      "properties": {
+        "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceSnapshotHash": { "$ref": "#/$defs/sha256" },
+        "mappingContractHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "databaseAlias", "readOnly", "backupSha256", "catalogSha256", "tableLedgerSha256"],
+      "properties": {
+        "system": { "const": "yuzhou-v10" },
+        "databaseAlias": { "type": "string", "pattern": "^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$" },
+        "readOnly": { "const": true },
+        "backupSha256": { "$ref": "#/$defs/sha256" },
+        "catalogSha256": { "$ref": "#/$defs/sha256" },
+        "tableLedgerSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["database", "composeProject", "volume", "postgresContainer", "apiPort", "webPort", "fileRoot", "stagingRoot", "evidenceRoot", "accountNamespace"],
+      "properties": {
+        "database": { "type": "string", "pattern": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$" },
+        "composeProject": { "type": "string", "pattern": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$" },
+        "volume": { "type": "string", "pattern": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,64}$" },
+        "postgresContainer": { "type": "string", "pattern": "^jinhu_hr_migration_lab_full_[a-z0-9_-]{6,64}$" },
+        "apiPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "webPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "fileRoot": { "$ref": "#/$defs/controlledPath" },
+        "stagingRoot": { "$ref": "#/$defs/controlledPath" },
+        "evidenceRoot": { "$ref": "#/$defs/controlledPath" },
+        "accountNamespace": { "type": "string", "pattern": "^yzfull_[ab]_[a-z0-9_]{6,32}$" }
+      }
+    },
+    "children": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": { "$ref": "#/$defs/child" }
+    },
+    "resourceRegistry": {
+      "type": "array",
+      "minItems": 10,
+      "items": { "$ref": "#/$defs/resource" }
+    },
+    "globalLedger": {
+      "type": "array",
+      "minItems": 6,
+      "items": { "$ref": "#/$defs/ledgerRow" }
+    },
+    "canonical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalizationVersion", "globalHash", "domainHashes", "quarantineReasonLedgerHash"],
+      "properties": {
+        "normalizationVersion": { "const": "yuzhou-full-canonical-v1" },
+        "globalHash": { "$ref": "#/$defs/sha256" },
+        "domainHashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["T0", "T1", "T2", "T3", "T4", "T5"],
+          "properties": {
+            "T0": { "$ref": "#/$defs/sha256" }, "T1": { "$ref": "#/$defs/sha256" },
+            "T2": { "$ref": "#/$defs/sha256" }, "T3": { "$ref": "#/$defs/sha256" },
+            "T4": { "$ref": "#/$defs/sha256" }, "T5": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "quarantineReasonLedgerHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "hardGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["t4Extraction", "technicalUat", "humanUat", "restore", "cleanup", "productionImport"],
+      "properties": {
+        "t4Extraction": { "$ref": "#/$defs/gate" }, "technicalUat": { "$ref": "#/$defs/gate" },
+        "humanUat": { "$ref": "#/$defs/gate" }, "restore": { "$ref": "#/$defs/gate" },
+        "cleanup": { "$ref": "#/$defs/gate" }, "productionImport": { "$ref": "#/$defs/gate" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/evidenceEntry" }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directoryMode", "fileMode", "containsSecrets", "redactionContractVersion"],
+      "properties": {
+        "directoryMode": { "const": "0700" }, "fileMode": { "const": "0600" },
+        "containsSecrets": { "const": false }, "redactionContractVersion": { "const": "yuzhou-evidence-redaction-v1" }
+      }
+    },
+    "supersedesManifestSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "controlledPath": { "type": "string", "pattern": "^/[^\\u0000]*jinhu_hr_migration_lab_full_[^/]+(?:/[^\\u0000]*)?$" },
+    "child": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domain", "runId", "status", "manifestSha256"],
+      "properties": {
+        "domain": { "enum": ["T0", "T1", "T2", "T3", "T4", "T5"] },
+        "runId": { "type": "string", "pattern": "^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r[AB]-t[0-5]$" },
+        "status": { "enum": ["not_started", "running", "verified", "rolled_back", "failed"] },
+        "manifestSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "resource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "planned", "observed", "removed", "residualCount"],
+      "properties": {
+        "type": { "enum": ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"] },
+        "planned": { "type": "string", "minLength": 1 }, "observed": { "type": ["string", "null"] },
+        "removed": { "type": "boolean" }, "residualCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ledgerRow": {
+      "type": "object", "additionalProperties": false,
+      "required": ["domain", "sourceObject", "source", "loaded", "quarantined", "approvedIgnored"],
+      "properties": {
+        "domain": { "enum": ["T0", "T1", "T2", "T3", "T4", "T5"] },
+        "sourceObject": { "type": "string", "minLength": 1 },
+        "source": { "type": "integer", "minimum": 0 }, "loaded": { "type": "integer", "minimum": 0 },
+        "quarantined": { "type": "integer", "minimum": 0 }, "approvedIgnored": { "type": "integer", "minimum": 0 },
+        "approvedIgnoredReasonCode": { "type": "string" }, "approvalAttestationSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "gate": {
+      "type": "object", "additionalProperties": false, "required": ["status", "reasonCodes"],
+      "properties": { "status": { "enum": ["PASS", "FAIL", "HOLD", "NOT_STARTED"] }, "reasonCodes": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" }, "uniqueItems": true } }
+    },
+    "evidenceEntry": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "relativePath", "sha256", "bytes", "mode", "redacted"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 }, "relativePath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+        "sha256": { "$ref": "#/$defs/sha256" }, "bytes": { "type": "integer", "minimum": 0 }, "mode": { "const": "0600" }, "redacted": { "const": true }
+      }
+    }
+  }
+}
