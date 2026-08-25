@@ -1,6 +1,6 @@
 import {BadRequestException,ConflictException,ForbiddenException,Injectable,NotFoundException} from "@nestjs/common";
 import {HR_PERMISSIONS,type TenantParkScope} from "@jinhu/shared";
-import type {DataSource,EntityManager} from "typeorm";
+import {DataSource,type EntityManager} from "typeorm";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 import {AuditService} from "../audit/audit.service";
 import {recordHrSensitiveRead} from "./hr-sensitive-read-audit";
