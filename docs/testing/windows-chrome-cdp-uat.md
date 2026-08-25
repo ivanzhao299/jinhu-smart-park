@@ -67,6 +67,9 @@ POSTGRES_PORT=<unused-db-port>
 POSTGRES_DB=jinhu_<scope>_uat_<run_id>
 POSTGRES_USER=jinhu
 POSTGRES_PASSWORD=<random-local-only-password>
+FILE_STORAGE_LOCAL_ROOT=/tmp/jinhu-<RUN_ID>-files
+AUTH_SMS_CODE_VISIBLE=false
+AUTH_WECHAT_MOCK_ENABLED=false
 ```
 
 env 文件只能放本机临时目录或其他已忽略位置，禁止提交。`db:migrate` 和 `db:seed:prod` 不读取 `ENV_FILE`，所以必须先导出文件中的变量；`COMPOSE_PROJECT_NAME` 使脚本内部未写 `-p` 的 compose 调用仍命中本轮 project。
@@ -111,7 +114,7 @@ TENANT_ID=10000001 PARK_ID=20000001 STRICT=true pnpm db:check:init
 
 ### 3.2 启动 Web/API 并建立门禁
 
-API 实际读取 `POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`，不是 `DATABASE_URL`。Web 通过 `NEXT_PUBLIC_API_PREFIX` 发起相对请求，并由 `NEXT_PUBLIC_API_TARGET` rewrite 到本轮 API。示例：
+API 实际读取 `POSTGRES_HOST`、`POSTGRES_PORT`、`POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`，不是 `DATABASE_URL`。`FILE_STORAGE_LOCAL_ROOT` 必须指向本轮独占目录。Web 通过 `NEXT_PUBLIC_API_PREFIX` 发起相对请求，并由 `NEXT_PUBLIC_API_TARGET` rewrite 到本轮 API。当前 Next 配置只 rewrite `/api/:path*`，因此 `API_PREFIX` 必须位于 `api/` 命名空间；选择其他前缀会使浏览器请求无法转发，应阻断而不是继续验收。示例：
 
 ```bash
 export API_PORT=<unused-api-port>
@@ -132,19 +135,26 @@ echo $! >"$UAT_LOG_DIR/web.pid"
 报告记录 API/Web PID 和失败日志路径，不复制含秘密的日志正文。轮询等待，不用单次固定 sleep 掩盖慢启动；例如用以下 120 秒门禁，进程提前退出或超时即 FAIL：
 
 ```bash
-for attempt in $(seq 1 60); do
+deadline=$((SECONDS + 120))
+while (( SECONDS < deadline )); do
   kill -0 "$(cat "$UAT_LOG_DIR/api.pid")" 2>/dev/null || break
   kill -0 "$(cat "$UAT_LOG_DIR/web.pid")" 2>/dev/null || break
-  if curl -fsS "http://127.0.0.1:${API_PORT}/${API_PREFIX}/health" >/dev/null && \
-     curl -fsS "http://127.0.0.1:${API_PORT}/${API_PREFIX}/ready" >/dev/null && \
-     curl -fsS "http://127.0.0.1:${WEB_PORT}/login" >/dev/null; then
+  if curl -fsS --connect-timeout 1 --max-time 2 \
+       "http://127.0.0.1:${API_PORT}/${API_PREFIX}/health" >/dev/null && \
+     curl -fsS --connect-timeout 1 --max-time 2 \
+       "http://127.0.0.1:${API_PORT}/${API_PREFIX}/ready" >/dev/null && \
+     curl -fsS --connect-timeout 1 --max-time 2 \
+       "http://127.0.0.1:${WEB_PORT}/login" >/dev/null; then
     break
   fi
   sleep 2
 done
-curl -fsS "http://127.0.0.1:${API_PORT}/${API_PREFIX}/health"
-curl -fsS "http://127.0.0.1:${API_PORT}/${API_PREFIX}/ready"
-curl -fsS "http://127.0.0.1:${WEB_PORT}/login" >/dev/null
+curl -fsS --connect-timeout 2 --max-time 5 \
+  "http://127.0.0.1:${API_PORT}/${API_PREFIX}/health"
+curl -fsS --connect-timeout 2 --max-time 5 \
+  "http://127.0.0.1:${API_PORT}/${API_PREFIX}/ready"
+curl -fsS --connect-timeout 2 --max-time 5 \
+  "http://127.0.0.1:${WEB_PORT}/login" >/dev/null
 ```
 
 `API_PREFIX` 可覆盖，先记录本轮实际值，再构造 health/readiness URL；readiness 是 `/<prefix>/ready`，不是 `/health/ready`。`/health` 只证明进程存活，`/ready` 才包含数据库和初始化基线检查。
@@ -227,7 +237,7 @@ FAIL 先排除 fixture/环境；同一问题最多重试 2 次。仍失败则记
 
 1. 所有账号经真实 UI logout 并断言 `/login`，Chrome 停在 `about:blank`；不关闭常驻专用实例。
 2. 按用例设计阶段列出的逐表 before/after 清单删除 fixture 和文件，证明 residual=0。
-3. 先用 `ps -p "$(cat <pid-file>)" -o pid=,args=` 核对命令和日志路径属于本轮，再向确切 PID 发送 SIGINT；身份不符则停止清理并人工核查。端口清零仅指本轮声明的 DB/API/Web 端口；设计上常驻的 9222 CDP 不计入。
+3. 对每个 pid file，先用 `ps -p <pid> -o pid=,args=` 核对命令，再用 `readlink -f /proc/<pid>/fd/1` 和 `/proc/<pid>/fd/2` 核对 stdout/stderr 都指向本轮 `api.log` 或 `web.log`；全部匹配后才向确切 PID 发送 SIGINT。身份不符则停止清理并人工核查。端口清零仅指本轮声明的 DB/API/Web 端口；设计上常驻的 9222 CDP 不计入。
 4. 先快照全部现存容器，再用 compose label 精确圈定本轮资源；确认目标 project 后才清理：
 
 ```bash
@@ -246,6 +256,8 @@ docker ps -a --format '{{.ID}} {{.Names}} {{.Status}}' \
 ```
 
 `down` 必须与 `up` 使用完全相同的 `-p/-f/--env-file`。清理后再次按 project label 核对容器、卷、网络为空，核对本轮 DB/API/Web 端口无监听，并对清理前快照中的非本轮容器做前后对比。禁止按名称模糊匹配或操作他人容器。最后安全删除本轮临时 env 文件。
+
+附件物理文件也属于 residual：先校验 `test "$FILE_STORAGE_LOCAL_ROOT" = "/tmp/jinhu-${RUN_ID}-files"`，再删除这个精确目录并确认不存在；校验失败时禁止递归删除，改为人工核查。数据库软删除不能代替本轮文件根清理。
 
 ### 6.4 报告、验收与发布状态
 
