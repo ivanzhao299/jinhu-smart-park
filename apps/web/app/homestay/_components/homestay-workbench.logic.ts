@@ -3,6 +3,7 @@ import type {
   HomestayAvailabilityResponse,
   HomestayBookingStatus,
   HomestayLedgerEntryType,
+  HomestayRoomState,
   UserContext
 } from "@jinhu/shared";
 import type {
@@ -17,6 +18,28 @@ import { addBusinessDateDays, businessDate } from "../../../lib/business-date";
 import { ApiError } from "../../../lib/api-client";
 
 export const HOMESTAY_RATE_CONFIGURATION_MISSING = "Homestay rate configuration not found";
+
+export const HOMESTAY_ROOM_STATE_PRESENTATION: Record<
+  HomestayRoomState,
+  { label: string; variant: "success" | "warning" | "info" | "primary" | "danger" | "muted" }
+> = {
+  available: { label: "可售", variant: "success" },
+  reserved: { label: "已预订", variant: "warning" },
+  held: { label: "暂时保留", variant: "info" },
+  occupied: { label: "在住", variant: "primary" },
+  turnover: { label: "周转中", variant: "warning" },
+  out_of_service: { label: "停用", variant: "danger" },
+  mode_unavailable: { label: "经营模式不可用", variant: "muted" }
+};
+
+export function homestayRoomStatePresentation(state: string): {
+  label: string;
+  variant: "success" | "warning" | "info" | "primary" | "danger" | "muted";
+} {
+  return Object.prototype.hasOwnProperty.call(HOMESTAY_ROOM_STATE_PRESENTATION, state)
+    ? HOMESTAY_ROOM_STATE_PRESENTATION[state as HomestayRoomState]
+    : { label: "未知房态", variant: "muted" };
+}
 
 const HOMESTAY_ERROR_MESSAGES = [
   {

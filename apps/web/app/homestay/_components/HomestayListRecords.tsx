@@ -22,7 +22,11 @@ import {
 } from "../../../features/property-shared";
 import styles from "./HomestayWorkbench.module.css";
 import type { HomestayListSurface } from "./HomestayListClient";
-import { homestayDetailHref, taskDetailHref } from "./homestay-workbench.logic";
+import {
+  homestayDetailHref,
+  homestayRoomStatePresentation,
+  taskDetailHref
+} from "./homestay-workbench.logic";
 
 export interface HomestayListReturnContext {
   route: HomestayListSurface;
@@ -93,7 +97,10 @@ function Availability({ data }: { data: HomestayAvailabilityListResponse }) {
   return <PropertyResponsiveRecords items={data.items} label="民宿房态" getKey={(item) => item.unit_id} getTitle={(item) => `${item.unit_code} · ${item.unit_name}`} fields={[
     { key: "unit", label: "房源", render: (item) => `${item.unit_code} · ${item.unit_name}` },
     { key: "mode", label: "经营模式", render: (item) => item.operation_mode ?? "未设置" },
-    { key: "state", label: "房态", render: (item) => <StatusPill value={item.room_state} /> }
+    { key: "state", label: "房态", render: (item) => {
+      const presentation = homestayRoomStatePresentation(item.room_state);
+      return <StatusPill variant={presentation.variant}>{presentation.label}</StatusPill>;
+    } }
   ]} />;
 }
 
