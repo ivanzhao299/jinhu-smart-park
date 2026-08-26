@@ -85,6 +85,13 @@ test("HR enterprise UI keeps compact hierarchy and phone-safe navigation",()=>{
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.shortcutGrid\s*\{[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
+test("HR enterprise panels keep text away from rounded borders on desktop and phone",()=>{
+ const css=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
+ assert.match(css,/\.page > :global\(\.ds-panel\)\s*\{\s*padding:\s*22px;/);
+ const phone=css.slice(css.indexOf("@media (max-width: 520px)"));
+ assert.match(phone,/\.page > :global\(\.ds-panel\)\s*\{\s*padding:\s*18px;/);
+});
+
 test("HR M4 employee directory is list-first with explicit create and filters",()=>{
   const employees=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
   assert.match(employees,/createOpen\?"收起新增":"新增员工"/);

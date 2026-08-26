@@ -242,7 +242,7 @@ export function HrLifecycleClient() {
     }
   };
   const forbidden = (
-    <main className="content ds-page">
+    <main className={`content ds-page ${styles.page}`}>
       <section className="ds-panel">
         <ForbiddenState message="无权访问员工生命周期" />
       </section>

@@ -212,7 +212,7 @@ export function HrRewardsClient() {
       "创建奖惩类别失败",
     );
   const forbidden = (
-    <main className="content ds-page">
+    <main className={`content ds-page ${styles.page}`}>
       <section className="ds-panel">
         <ForbiddenState message="无权访问奖惩管理" />
       </section>

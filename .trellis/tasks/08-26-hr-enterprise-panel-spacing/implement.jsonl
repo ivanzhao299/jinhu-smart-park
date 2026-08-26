@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"All HR production pages must compose the shared design system without redefining non-HR surfaces."}
+{"file":".trellis/spec/guides/index.md","reason":"Apply repository-wide change discipline and validation guidance."}
