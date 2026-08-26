@@ -3,7 +3,9 @@
 ## 结论
 
 - RUN_ID：`20260826-193245`
-- 基线：PR #408/#409/#410/#413/#414 与 production seed 同步后的 `main`
+- 被测 revision：`d16f4bfd8b8668b8923f0a09dfc10f87c8db91ff`（包含 PR #408/#409/#410/#413/#414 与当时 production seed；不使用可移动 `main` 作为证据）
+- 执行人：`jinhuit`；开始/结束：2026-08-26 19:37 / 19:57（Asia/Singapore）
+- API/Web PID：`525848` / `525942`；进程输出接入本轮受控 PTY，未写独立 failure-log 文件，故日志路径记为 **未持久化（证据限制）**
 - 结论：**PARTIAL / 不归档住房 UAT**。#402/#403/#404/#405/#406 对应修复均已上线；原 C03-D executor 缺陷在真实 PostgreSQL 16 中复测通过，住房主链推进到租约、账单、支付、维修、采购和 dashboard。但住房域无续租入口，押金退还复测在 API 参数契约处停止，且任务 reconciliation 暴露新的 PostgreSQL 参数类型错误，因此不能声明全链 PASS。
 
 ## 隔离环境与开关审计
@@ -21,7 +23,10 @@
 
 | Case | 首轮 | 本轮 | 证据与边界 |
 |---|---|---|---|
-| C00-C02 | 部分 PASS/FAIL | PASS（入口与管理员真实 Chrome） | 独立 Chrome profile 登录，住房菜单可见；#414 CLI 真实可用 |
+| C00 | PASS | PASS | 独立 Chrome profile 真实表单登录，住房菜单可见 |
+| C01 | PASS | PARTIAL | 本轮复用 production-safe asset 后通过受控 API 改住房用途；未重新执行完整 UI 建链，不能算 UI 回归 PASS |
+| C02-A | FAIL | **NOT RETESTED** | 未重走“无 eligible approver→409→弹窗可见错误”场景，#408 的交互修复不得由本轮其他证据外推 |
+| C02-B | PASS | NOT RETESTED | 本轮审批账号由隔离 bootstrap 创建，未重复角色模板 UI 实例化流程 |
 | C03-A/B/C | RBAC/深链 FAIL，审批 PASS | 修复上线；本轮聚焦主链 | #409/#410/#413 已合并并主链双绿 |
 | C03-D | FAIL：executor 参数类型错误 | **PASS** | mode request `bf20e584-8bf8-46d7-bef6-5d21dbca6f00` 为 approved/executed；房源 `none → long_rent`、version 2；Chrome 显示“已批准/已执行” |
 | C04 | BLOCKED | PASS（系统链）/真人签署外部门 | draft→pending_approval→pending_signature→active；使用本轮合成 PDF 只验证系统附件门禁，不代表真人签署 |
@@ -51,10 +56,10 @@
 ## residual 与清理
 
 - before：本轮创建 party 1、lease 1、workorder 1、file 1、purchase 1，并产生审批/执行/财务/占用关联事实。
-- after：`biz_party`、identity submission、approval request、property outbox、work order、`sys_file`、housing lease 均为 0；关联表通过外键级联归零；物理文件为 0。
-- 清理仅发生在本轮 disposable database。为保证逐表归零，清理事务 truncate 了隔离库相关业务聚合并级联其关联数据；随后才销毁本轮 volume，未用 volume 删除倒推 residual。
+- after：truncate 后 `biz_party`、identity submission、approval request、property outbox、work order、`sys_file`、housing lease 均为 0；物理文件为 0。
+- **residual gate 未验证**：清理使用了隔离库内的 `TRUNCATE ... CASCADE`，而不是预先冻结的 RUN_ID/fixture 谓词逐表删除。该结果会同时移除 baseline 与未跟踪副作用，因此零计数是环境清空结果，不能作为 fixture-scoped residual closure。随后销毁 volume 不改变此判定。
 - UI 已真实点击退出并回到 `/login`。
 
 ## 归档决定
 
-住房 UAT 父任务及修复任务暂不归档。只有任务 reconciliation 参数错误、completed repair 任务语义、deposit refund/checkout 契约闭合并复测通过后，才满足“完整复测 PASS 才归档”。真人签署与跨园区仍保留为外部门。
+住房 UAT 父任务及修复任务暂不归档。后续归档必须完整补齐：任务 reconciliation 参数错误、completed repair 任务语义、deposit refund/checkout 契约、住房续租设计缺口、C02-A 可见错误、角色/数据范围与 fail-closed、跨园区、幂等 replay/conflict、terminal write 与 void/审计、并发保护、真实 PostgreSQL `housing-checkout-concurrency.pg.spec.ts`、fixture-scoped residual before/after、完整真实 UI 写链。真人签署仍保留为外部门；以上任一未完成都不得归档。
