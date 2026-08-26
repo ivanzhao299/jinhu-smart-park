@@ -477,7 +477,7 @@ export class PropertyOperationsService {
          operator_id,operator_name,transition_time,create_by,update_by,
          approval_execution_key,approval_effect_kind,approval_effect_line_key,
          approval_effect_hash,source_config_id,source_expected_version)
-       SELECT $1,$2,$3,$4,$5,$6,$7::jsonb,request.requester_id,$8,clock_timestamp(),
+       SELECT $1::varchar(64),$2::varchar(64),$3,$4,$5,$6,$7::jsonb,request.requester_id,$8,clock_timestamp(),
               request.requester_id,request.requester_id,$9,'property.mode.transition',$10,$11,$12,$13
          FROM biz_property_approval_request request
         WHERE request.tenant_id=$1 AND request.park_id=$2 AND request.id=$14

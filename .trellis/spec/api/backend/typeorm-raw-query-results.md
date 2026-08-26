@@ -73,3 +73,63 @@ if (rows.length !== 1 || rows[0]?.version !== expectedVersion + 1) {
   throw new ConflictException("stale version");
 }
 ```
+
+## Scenario: Stable Parameter Types In `INSERT ... SELECT`
+
+### 1. Scope / Trigger
+
+Apply when a raw PostgreSQL `INSERT ... SELECT` reuses one positional parameter as
+both a projected insert value and a predicate/function argument.
+
+### 2. Signatures
+
+The database column type is the authority. For tenant/park owner columns in current
+property tables, anchor projected parameters as `$1::varchar(64)` and
+`$2::varchar(64)` before reusing them in scoped predicates.
+
+### 3. Contracts
+
+- PostgreSQL may initially infer an uncast projected parameter as `text`, then infer
+  the same parameter as `character varying` from a later `WHERE` predicate.
+- The query must make the projected value's target type explicit; do not change the
+  schema or split tenant/park parameters merely to silence SQLSTATE `42P08`.
+- The cast must preserve the same tenant/park predicate and transaction boundary.
+
+### 4. Validation & Error Matrix
+
+| Condition | Required result |
+|---|---|
+| Projected parameter and scoped predicate infer different string types | SQLSTATE `42P08`; no partial effect |
+| Explicit cast matches both owner columns | Insert and scoped aggregate update commit together |
+| Cast would require a schema or owner-type change | Stop and reconcile schema history separately |
+
+### 5. Good / Base / Bad Cases
+
+- Good: transition audit projects `$1::varchar(64)` and also filters the approval
+  request with `request.tenant_id=$1`.
+- Base: a parameter used only in one typed predicate needs no redundant cast.
+- Bad: add casts to unrelated snapshot queries without reproducing the failing SQL.
+
+### 6. Tests Required
+
+- Real PostgreSQL regression invokes the complete effect method, not a mocked worker.
+- Assert both the owning aggregate update and immutable audit insert.
+- Run the test against a freshly migrated schema so legacy local column drift cannot
+  create a false diagnosis.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+INSERT INTO audit(tenant_id, source_id)
+SELECT $1, source.id FROM source WHERE source.tenant_id=$1 AND source.id=$2;
+```
+
+#### Correct
+
+```sql
+INSERT INTO audit(tenant_id, source_id)
+SELECT $1::varchar(64), source.id
+FROM source WHERE source.tenant_id=$1 AND source.id=$2;
+```
