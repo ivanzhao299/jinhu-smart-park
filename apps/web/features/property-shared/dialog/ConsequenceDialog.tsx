@@ -17,9 +17,9 @@ import {
   ReasonField
 } from "./ConsequenceDialogParts";
 import {
-  confirmationShouldClose,
   createSingleFlightGate,
   reduceDialogDraft,
+  runDialogConfirmation,
   visibleDialogReason,
   type SingleFlightGate
 } from "./dialog-state";
@@ -186,18 +186,14 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
       return;
     }
     const submittedTargetId = input.targetId;
-    try {
-      const value = input.reasonPolicy.kind === "none" ? undefined : reason.trim() || undefined;
-      const confirmed = await input.onConfirm(value);
-      if (!confirmationShouldClose(confirmed)) {
-        return;
-      }
-      dispatchDraft({ type: "confirmed", targetId: submittedTargetId });
-      if (activeTargetRef.current === submittedTargetId) {
-        input.onOpenChange(false);
-      }
-    } finally {
-      gate.leave();
+    const value = input.reasonPolicy.kind === "none" ? undefined : reason.trim() || undefined;
+    const shouldClose = await runDialogConfirmation(gate, () => input.onConfirm(value));
+    if (!shouldClose) {
+      return;
+    }
+    dispatchDraft({ type: "confirmed", targetId: submittedTargetId });
+    if (activeTargetRef.current === submittedTargetId) {
+      input.onOpenChange(false);
     }
   }
   function changeReason(nextReason: string) {

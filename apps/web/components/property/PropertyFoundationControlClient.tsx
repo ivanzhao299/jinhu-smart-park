@@ -950,7 +950,7 @@ function OperationWriteControls({ item, onCompleted }: {
               onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
             ><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option></select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}
-              onClick={() => { setTransitionFeedback(""); setTransitionOpen(true); }} type="button">提交切换审批</button>
+              onClick={() => { setFeedback(""); setTransitionFeedback(""); setTransitionOpen(true); }} type="button">提交切换审批</button>
           </div>
         </PropertyPanelSurface>
       </PermissionGuard>
