@@ -77,6 +77,12 @@ assert.match(seed, /\('HOMESTAY_OPERATOR',1,'c534047821ae825a4104503ae6d5c8df2da
 for (const token of [
   "property-homestay-task-operator-bundle-predecessor-drift",
   "property-homestay-task-operator-bundle-definition-drift",
+  "property-homestay-task-operator-permission-cardinality-drift tenants=",
+  "affected_tenants AS",
+  "role.applied_bundle_codes ? 'property-bundle:property-homestay-task-operator'",
+  "active_api_permission_count",
+  "tenant_id || ':total=' || permission_count::text",
+  "WHERE permission_count<>1 OR active_api_permission_count<>1",
   "target_definition_version=2",
   "target_drift_count=0",
   "predecessor_drift_count=0",
@@ -86,6 +92,11 @@ for (const token of [
 ]) {
   assert.ok(homestayTaskBundleMigration.includes(token), `missing homestay task bundle migration token: ${token}`);
 }
+assert.doesNotMatch(homestayTaskBundleMigration, /SELECT count\(\*\) INTO permission_count\s+FROM sys_permission/);
+assert.match(
+  homestayTaskBundleMigration,
+  /FILTER \(\s*WHERE permission\.permission_type='api'\s+AND permission\.is_enabled=true\s+AND permission\.status='enabled'\s+AND permission\.is_deleted=false\s*\)/s
+);
 assert.match(trackBSeed, /bundle_member_count <> 130/);
 assert.match(trackBSeed, /bundle_permission_count <> 56/);
 assert.match(trackBSeed, /resolved_bundle_permission_count <> 56/);

@@ -24,7 +24,7 @@ DECLARE
   target_bundle_id uuid;
   target_definition_version integer;
   target_definition_hash varchar(64);
-  permission_count integer;
+  unresolved_tenants text;
   predecessor_actual_hash varchar(64);
   target_actual_hash varchar(64);
   predecessor_drift_count integer;
@@ -42,10 +42,40 @@ BEGIN
       USING ERRCODE='23514';
   END IF;
 
-  SELECT count(*) INTO permission_count
-  FROM sys_permission
-  WHERE code='homestay:task:read' AND permission_type='api'
-    AND is_enabled=true AND status='enabled' AND is_deleted=false;
+  WITH affected_tenants AS (
+    SELECT DISTINCT role.tenant_id
+    FROM sys_role role
+    WHERE role.is_deleted=false
+      AND role.applied_bundle_codes ? 'property-bundle:property-homestay-task-operator'
+  ), permission_counts AS (
+    SELECT tenant.tenant_id,
+           count(permission.id)::integer AS permission_count,
+           count(permission.id) FILTER (
+             WHERE permission.permission_type='api'
+               AND permission.is_enabled=true
+               AND permission.status='enabled'
+               AND permission.is_deleted=false
+           )::integer AS active_api_permission_count
+    FROM affected_tenants tenant
+    LEFT JOIN sys_permission permission
+      ON permission.tenant_id=tenant.tenant_id
+     AND permission.code='homestay:task:read'
+    GROUP BY tenant.tenant_id
+  )
+  SELECT string_agg(
+    tenant_id || ':total=' || permission_count::text
+      || ':active_api=' || active_api_permission_count::text,
+    ', ' ORDER BY tenant_id
+  )
+  INTO unresolved_tenants
+  FROM permission_counts
+  WHERE permission_count<>1 OR active_api_permission_count<>1;
+
+  IF unresolved_tenants IS NOT NULL THEN
+    RAISE EXCEPTION 'property-homestay-task-operator-permission-cardinality-drift tenants=%',
+      unresolved_tenants
+      USING ERRCODE='23514';
+  END IF;
 
   SELECT encode(digest(convert_to(
     'property-bundle-v1' || chr(10) || bundle.bundle_code || chr(9)
@@ -81,14 +111,12 @@ BEGIN
     (SELECT * FROM actual EXCEPT SELECT * FROM homestay_task_operator_v2_member)
   ) SELECT count(*) INTO target_drift_count FROM drift;
 
-  IF permission_count=1
-     AND target_definition_version=2
+  IF target_definition_version=2
      AND target_definition_hash='7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d'
      AND predecessor_actual_hash='7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d'
      AND target_drift_count=0 THEN
     target_actual_hash := predecessor_actual_hash;
-  ELSIF permission_count=1
-     AND target_definition_version=1
+  ELSIF target_definition_version=1
      AND target_definition_hash='07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425'
      AND predecessor_actual_hash='07dfe5888e0928b439839b28c707bd9f1d557587714dfe473ece846205c3d425'
      AND predecessor_drift_count=0 THEN
@@ -119,9 +147,9 @@ BEGIN
     WHERE id=target_bundle_id
       AND target_actual_hash='7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d';
   ELSE
-    RAISE EXCEPTION 'property-homestay-task-operator-bundle-predecessor-drift version=% stored_hash=% actual_hash=% predecessor_drift=% target_drift=% permission_count=%',
+    RAISE EXCEPTION 'property-homestay-task-operator-bundle-predecessor-drift version=% stored_hash=% actual_hash=% predecessor_drift=% target_drift=%',
       target_definition_version,target_definition_hash,predecessor_actual_hash,
-      predecessor_drift_count,target_drift_count,permission_count
+      predecessor_drift_count,target_drift_count
       USING ERRCODE='23514';
   END IF;
 
