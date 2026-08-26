@@ -4,15 +4,15 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const source = readFileSync(
-  resolve(process.cwd(), "apps/web/features/property-shared/dialog/ConsequenceDialog.tsx"),
+  resolve(process.cwd(), "features/property-shared/dialog/ConsequenceDialog.tsx"),
   "utf8"
 );
 const partsSource = readFileSync(
-  resolve(process.cwd(), "apps/web/features/property-shared/dialog/ConsequenceDialogParts.tsx"),
+  resolve(process.cwd(), "features/property-shared/dialog/ConsequenceDialogParts.tsx"),
   "utf8"
 );
 const cssSource = readFileSync(
-  resolve(process.cwd(), "apps/web/features/property-shared/dialog/ConsequenceDialog.module.css"),
+  resolve(process.cwd(), "features/property-shared/dialog/ConsequenceDialog.module.css"),
   "utf8"
 );
 const combinedSource = `${source}\n${partsSource}`;
@@ -40,6 +40,13 @@ test("dialog exposes stable target, outcome, consequences, and reason policy", (
   }
   assert.match(source, /aria-labelledby=/);
   assert.match(source, /aria-describedby=/);
+});
+
+test("dialog renders caller failures inside the modal as an assertive alert", () => {
+  assert.match(source, /errorMessage\?: string/);
+  assert.match(source, /props\.errorMessage \? \(/);
+  assert.match(source, /aria-live="assertive"/);
+  assert.match(source, /role="alert"/);
 });
 
 test("focus behavior remains registered for real route browser verification", () => {

@@ -43,6 +43,7 @@ export interface ConsequenceDialogProps {
   actionLabel: string;
   cancelLabel?: string;
   busy?: boolean;
+  errorMessage?: string;
   children?: ReactNode;
   onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
@@ -92,6 +93,7 @@ export function ConsequenceDialog({
   actionLabel,
   cancelLabel = "取消",
   busy = false,
+  errorMessage,
   children,
   onConfirm,
   onOpenChange
@@ -118,6 +120,7 @@ export function ConsequenceDialog({
       consequences={consequences}
       descriptionId={controller.descriptionId}
       dialogRef={controller.dialogRef}
+      errorMessage={errorMessage}
       onCancel={controller.handleCancel}
       onConfirm={controller.handleSubmit}
       onReasonChange={controller.changeReason}
@@ -232,6 +235,7 @@ interface ConsequenceDialogSurfaceProps extends DialogContractInput {
   children?: ReactNode;
   descriptionId: string;
   dialogRef: RefObject<HTMLDialogElement | null>;
+  errorMessage?: string;
   onCancel: (event: SyntheticEvent<HTMLDialogElement>) => void;
   onConfirm: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onReasonChange: (reason: string) => void;
@@ -272,6 +276,11 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
           reason={props.reason}
           reasonId={props.reasonId}
         />
+        {props.errorMessage ? (
+          <p aria-live="assertive" className="form-error" role="alert">
+            {props.errorMessage}
+          </p>
+        ) : null}
         <DialogActions
           actionLabel={props.actionLabel}
           busy={props.busy}
