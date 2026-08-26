@@ -702,7 +702,7 @@ test("permission bundles compose capabilities and never translate legacy operati
     },
     HOUSING_OVERVIEW: {
       permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASK_READ,
-      owners: ["HOUSING_OVERVIEW"]
+      owners: ["HOUSING_OVERVIEW", "HOUSING_APPROVER"]
     },
     HOUSING_TENANTS: {
       permission: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
