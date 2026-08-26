@@ -103,8 +103,8 @@ assert.match(
   /FILTER \(\s*WHERE permission\.permission_type='api'\s+AND permission\.is_enabled=true\s+AND permission\.status='enabled'\s+AND permission\.is_deleted=false\s*\)/s
 );
 assert.match(trackBSeed, /bundle_member_count <> 131/);
-assert.match(trackBSeed, /bundle_permission_count <> 56/);
-assert.match(trackBSeed, /resolved_bundle_permission_count <> 56/);
+assert.match(trackBSeed, /bundle_permission_count <> 57/);
+assert.match(trackBSeed, /resolved_bundle_permission_count <> 57/);
 
 for (const token of [
   "property-housing-approver-bundle-predecessor-drift",
