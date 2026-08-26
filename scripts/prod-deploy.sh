@@ -98,6 +98,11 @@ deploy_web() {
 
 deploy_api() {
   compose build api
+  compose up -d api
+  MODE=full sh "$ROOT_DIR/scripts/prod-healthcheck.sh"
+}
+
+deploy_database() {
   compose up -d postgres
   wait_for_postgres
   quiesce_api_for_migrations
@@ -128,6 +133,9 @@ case "$PROD_DEPLOY_MODE" in
   api)
     deploy_api
     ;;
+  database)
+    deploy_database
+    ;;
   full)
     deploy_full
     ;;
@@ -137,7 +145,7 @@ case "$PROD_DEPLOY_MODE" in
     ;;
   *)
     printf "Unknown PROD_DEPLOY_MODE: %s\n" "$PROD_DEPLOY_MODE" >&2
-    printf "Supported values: auto, fast-css, web, api, full\n" >&2
+    printf "Supported values: auto, fast-css, web, api, database, full\n" >&2
     exit 1
     ;;
 esac

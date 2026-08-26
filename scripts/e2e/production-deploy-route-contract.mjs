@@ -51,6 +51,20 @@ assert.match(
   /PRUNE_DOCKER_AFTER_DEPLOY=yes/,
   "production deployment must retain post-health Docker cleanup",
 );
+assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
+assert.match(source, /- database/);
+assert.match(source, /mode != 'ops-only'/);
+assert.match(source, /mode == 'database' \|\| steps\.deploy-mode\.outputs\.mode == 'full'/);
+
+const deployScript = readFileSync(resolve(root, "scripts/prod-deploy.sh"), "utf8");
+assert.match(deployScript, /deploy_database\(\)/);
+assert.match(deployScript, /database\)\s*\n\s*deploy_database/);
+const apiFunction = deployScript.match(/deploy_api\(\) \{([\s\S]*?)\n\}/)?.[1] || "";
+assert.match(apiFunction, /compose build api/);
+assert.doesNotMatch(apiFunction, /run_migrations_and_optional_seed/);
+const databaseFunction = deployScript.match(/deploy_database\(\) \{([\s\S]*?)\n\}/)?.[1] || "";
+assert.match(databaseFunction, /run_migrations_and_optional_seed/);
+assert.doesNotMatch(databaseFunction, /compose build (?:api|web)/);
 
 for (const { name: candidateName, source: candidateSource } of workflowFiles) {
   if (candidateName === "deploy-production.yml") continue;

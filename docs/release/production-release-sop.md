@@ -105,6 +105,17 @@ rsync -a --delete <FILE_STORAGE_LOCAL_ROOT>/ <backup_dir>/jinhu_files/
 
 ## 6. 镜像准备
 
+正式发布由唯一的 `Deploy Production` workflow 按变更类别执行：纯 Web、纯 API、纯数据库、运行时 CSS、全量和仅治理文档。分类以生产 `.release.json` 的上次成功 SHA 到本次 SHA 的完整差异为准，分类器为 `scripts/resolve-production-deploy-scope.mjs`。
+
+- `web` 不构建或重启 API，不执行 migration/seed。
+- `api` 不构建 Web，不执行 migration/seed。
+- `database` 不重建 API/Web 镜像，但会停止 API、执行受控 migration/可选 production seed，再启动原 API 并完成健康检查。
+- API 与数据库同时变化、Web 与 API 同时变化、共享依赖/锁文件/基础设施/workflow 变化及未知路径均提升为 `full`。
+- `ops-only` 不写 release marker，不访问业务部署步骤，也不改变生产运行版本。
+- 手动指定的窄模式必须与自动分类完全一致；只有 `full` 可以作为更保守的人工覆盖。模式不匹配在生产写入前直接失败。
+
+分类部署只缩小构建和重启范围，不取消串行发布、路径隔离、回滚快照、迁移前置检查、受保护账号验收、健康检查和 Docker 清理。
+
 | 项目 | 值 |
 |---|---|
 | API 镜像 tag | `<待填写>` |

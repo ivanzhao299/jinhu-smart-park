@@ -84,7 +84,8 @@ describe("AdminIssuesService", () => {
     assert.match(deployment, /cleanup_rollback_snapshot/);
     assert.match(deployment, /run_production_seed/);
     assert.match(deployment, /000001_s1_production_core/);
-    assert.match(deployment, /Production seed changes require an API-capable full deployment/);
+    assert.match(deployment, /Production seed changes require a database-capable deployment/);
+    assert.match(deployment, /resolved="database"/);
     assert.match(deployment, /Diagnose 000189 asset scope parity \(read-only\)/);
     assert.match(deployment, /Enforce 000189 asset scope parity before deployment/);
     const diagnosticStart = deployment.indexOf("Diagnose 000189 asset scope parity (read-only)");
