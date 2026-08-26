@@ -242,6 +242,10 @@ test("HR attendance uses task-grouped enterprise controls and a one-column phone
  for(const label of ["当日排班","班次模板","人工打卡","日考勤重算","结果状态","期间月份"])assert.match(attendance,new RegExp(label));
  for(const className of ["operationGrid","operationGroup","operationFields","compactFilterBar","periodToolbar","timeRange"])assert.match(attendance,new RegExp(`styles\\.${className}`));
  assert.match(css,/\.operationGrid\s*\{[\s\S]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+ assert.match(css,/\.operationGrid\s*\{[\s\S]*gap:\s*20px;[\s\S]*margin-top:\s*22px/);
+ assert.match(css,/\.operationGroup\s*\{[\s\S]*gap:\s*20px;[\s\S]*padding:\s*22px/);
+ assert.match(css,/\.operationGroup > header\s*\{[\s\S]*padding-bottom:\s*16px/);
+ assert.match(css,/\.operationFields\s*\{[\s\S]*gap:\s*16px/);
  const phone=css.slice(css.indexOf("@media (max-width: 520px)"));
  assert.match(phone,/\.filterBar,[\s\S]*\.operationFields,[\s\S]*\.periodToolbar\s*\{[\s\S]*grid-template-columns:\s*1fr/);
  assert.match(phone,/\.operationGroup > :global\(\.ds-button\),[\s\S]*width:\s*100%/);
