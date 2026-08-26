@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { randomInt } from "node:crypto";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,13 +9,24 @@ const root = resolve(import.meta.dirname, "../..");
 const script = join(root, "scripts/e2e/enable-property-approval-runtime.mjs");
 const source = readFileSync(script, "utf8");
 const temp = mkdtempSync(join(tmpdir(), "jinhu-approval-runtime-contract-"));
-const runId = "20990101-010203";
-const disposableRoot = `/tmp/jinhu-housing-uat-${runId}`;
+let runId = "";
+let disposableRoot = "";
+for (let attempt = 0; attempt < 20; attempt += 1) {
+  const candidate = `20990101-${String(randomInt(0, 1_000_000)).padStart(6, "0")}`;
+  const candidateRoot = `/tmp/jinhu-housing-uat-${candidate}`;
+  try {
+    mkdirSync(candidateRoot);
+    runId = candidate;
+    disposableRoot = candidateRoot;
+    break;
+  } catch (error) {
+    if (error?.code !== "EEXIST") throw error;
+  }
+}
+assert.ok(runId && disposableRoot, "failed to allocate an exclusive disposable UAT directory");
 const compose = join(disposableRoot, "compose.yml");
 const fakeDocker = join(temp, "docker");
 const fakeContainerId = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-import { mkdirSync } from "node:fs";
-mkdirSync(disposableRoot, { recursive: true });
 writeFileSync(compose, "services:\n  postgres:\n    image: postgres\n");
 writeFileSync(fakeDocker, `#!/bin/sh
 if [ "$1" = "compose" ] && [ "$6" = "ps" ]; then
@@ -44,10 +56,10 @@ const baseEnv = {
   PROPERTY_APPROVAL_RUNTIME_EXPECTED_VERSION: "3",
   PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN: fakeDocker,
   POSTGRES_USER: "jinhu",
-  POSTGRES_DB: "jinhu_housing_uat_20990101_010203",
+  POSTGRES_DB: `jinhu_housing_uat_${runId.replaceAll("-", "_")}`,
   FAKE_COMPOSE_PROJECT: `jinhu-housing-uat-${runId}`,
   FAKE_COMPOSE_FILE: compose,
-  FAKE_POSTGRES_DB: "jinhu_housing_uat_20990101_010203",
+  FAKE_POSTGRES_DB: `jinhu_housing_uat_${runId.replaceAll("-", "_")}`,
   CAPTURE_SQL: join(temp, "captured.sql")
 };
 
@@ -56,6 +68,15 @@ try {
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /production-like.*forbidden/);
   assert.equal(existsSync(baseEnv.CAPTURE_SQL), false, "production rejection must happen before docker runs");
+
+  for (const missingSelector of ["PROPERTY_APPROVAL_RUNTIME_POSTGRES_SERVICE", "POSTGRES_USER"]) {
+    const env = { ...baseEnv, NODE_ENV: "test" };
+    delete env[missingSelector];
+    const omitted = spawnSync(process.execPath, [script], { env, encoding: "utf8" });
+    assert.notEqual(omitted.status, 0);
+    assert.match(omitted.stderr, new RegExp(`${missingSelector} is required`));
+    assert.equal(existsSync(baseEnv.CAPTURE_SQL), false, `${missingSelector} rejection must happen before docker runs`);
+  }
 
   const disguisedProduction = spawnSync(process.execPath, [script], {
     env: { ...baseEnv, NODE_ENV: "test", FAKE_POSTGRES_DB: "jinhu_smart_park" }, encoding: "utf8"
