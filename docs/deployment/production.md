@@ -809,6 +809,12 @@ The single `Deploy Production` workflow classifies the complete change set again
 
 An API and database change in the same release is deliberately promoted to `full`, because the new application binary and schema must be verified and released together. Production-seed changes can never remain in `web`, `fast-css`, or `ops-only`. All mutating modes retain serial execution, the deployment-path boundary, source rollback snapshot, health checks, protected-account acceptance, release marker, and Docker cleanup.
 
+The workflow performs the same classification before its verification job. `web` verifies Shared plus Web only; `api` verifies Shared plus API only; `database` runs migration/seed contracts without rebuilding unchanged Web assets; `fast-css` runs the Design System CSS gate; and `ops-only` runs governance contracts without opening a production SSH session. Full PR CI remains unchanged, and database/release-sensitive paths continue to require the separate `Release Smoke` job.
+
+Production is still authoritative. Immediately before deployment the workflow recomputes the range from the live `.release.json`. If that result is broader than the pre-verified mode, the run stops before release-marker creation or source mutation and must be rerun as `full`.
+
+Narrow modes use `scripts/production-deploy-transfer-manifest.mjs` instead of a whole-repository rsync. The allowlist transfers only the selected application and required shared packages, or `database/` plus the reviewed migration/seed scripts. Directory entries are synchronized with deletion semantics so removed component files do not remain on the host. `full` retains the existing full-tree transfer and all modes retain the complete pre-deploy rollback snapshot.
+
 Manual `auto` mode uses the same classifier. An explicit narrow mode is accepted only when it exactly matches the classified scope; `full` is always allowed as the safe override. A mismatched narrow request fails before production mutation.
 
 Supported modes:

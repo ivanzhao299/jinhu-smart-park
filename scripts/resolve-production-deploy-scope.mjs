@@ -59,7 +59,7 @@ const result = {
   mode,
   build_web: mode === "web" || mode === "full",
   build_api: mode === "api" || mode === "full",
-  run_migrations: mode === "api" || mode === "database" || mode === "full",
+  run_migrations: mode === "database" || mode === "full",
   deploy: mode !== "ops-only",
 };
 

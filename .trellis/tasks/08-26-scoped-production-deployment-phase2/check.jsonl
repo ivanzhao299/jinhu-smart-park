@@ -1,0 +1,1 @@
+{"file":".trellis/spec/guides/project-operations.md","reason":"Verify scoped validation/transfer never bypasses database and production safety gates."}

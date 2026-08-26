@@ -1,0 +1,1 @@
+{"file":".trellis/spec/guides/project-operations.md","reason":"Scoped CI and transfer must preserve production, migration, seed, rollback and cleanup gates."}
