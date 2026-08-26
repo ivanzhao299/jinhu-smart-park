@@ -76,8 +76,8 @@ export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
   "property-bundle:property-housing-approver": {
     code: TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code,
     signingName: "住房出租审批人",
-    definitionVersion: 1,
-    definitionHash: "ebc48ebd63433714db7049f69135f4296d3ef94be98b94e07e3ee37cea0725ff"
+    definitionVersion: 2,
+    definitionHash: "7e08f8fe91b9889d1769f72d92d4cd5de395d0ba5dacd20acf00d1d810783d3e"
   },
   "property-bundle:property-auditor": {
     code: TRACK_B_PERMISSION_BUNDLES.AUDITOR.code,
@@ -119,8 +119,8 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
     code: "PROPERTY_OPERATIONS_APPROVER",
     name: "房源经营审批人",
     description: "审批房产业务变更并读取必要任务摘要；不可发起经营变更",
-    definitionVersion: 1,
-    definitionHash: "ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102",
+    definitionVersion: 2,
+    definitionHash: "38ef71a8cd4b612c1683334f5575678b5d50af9dce4af42faffde0b9da4b68d5",
     bundleCodes: [
       TRACK_B_PERMISSION_BUNDLES.HOMESTAY_APPROVER.code,
       TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code

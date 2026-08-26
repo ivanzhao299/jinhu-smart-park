@@ -31,7 +31,7 @@ test("property role template bundle signatures are derived from production seed 
   );
 
   assert.equal(signatures.get("PROPERTY_OPERATIONS_MANAGER"), "5f195e6283ebe78e869a51ac75a793b86bb57d02c78b9b698f4cb2ee1e1c1cfd");
-  assert.equal(signatures.get("PROPERTY_OPERATIONS_APPROVER"), "9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972");
+  assert.equal(signatures.get("PROPERTY_OPERATIONS_APPROVER"), "1474c9b46fbab59394d3e7d43d181c6cc3f2b32dd0fcbd527e8d9b43a060376e");
   assert.equal(signatures.get("HOMESTAY_OPERATOR"), "feb2badfa65e82c0e45170bafd0defb07549f49e161e39d836a3cb0bc8d983f3");
   assert.equal(signatures.get("HOUSING_OPERATOR"), "573d8cce9080e97d80f196a634cd342efd8acd5f812d8de56f0abb87e0b0d4c8");
   assert.equal(signatures.get("HOMESTAY_FINANCE"), "91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5");
@@ -76,8 +76,10 @@ test("maker, checker, finance and audit templates do not silently cross privileg
   assert.ok(managerPermissions.has("property_operation:update"));
   assert.ok(!managerPermissions.has("property_approval:decide"));
   assert.ok(approverPermissions.has("property_approval:decide"));
+  assert.ok(approverPermissions.has("housing:task:read"));
   assert.ok(!approverPermissions.has("property_approval:create"));
   assert.ok(!approverPermissions.has("property_operation:update"));
+  assert.ok(!approverPermissions.has("housing:lease:create"));
   assert.ok(homestayFinancePermissions.has("homestay:finance:register"));
   assert.ok(!homestayFinancePermissions.has("housing:finance:register"));
   assert.ok(housingFinancePermissions.has("housing:finance:waive"));

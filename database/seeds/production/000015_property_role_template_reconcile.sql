@@ -61,7 +61,7 @@ CREATE TEMP TABLE property_role_template_expected (
 
 INSERT INTO property_role_template_expected VALUES
   ('PROPERTY_OPERATIONS_MANAGER','房源经营管理员',1,'b99a427b74a2a08e256c9c6c76946df063813ab68458e60e67b2d8fbbc0b0b9e','5f195e6283ebe78e869a51ac75a793b86bb57d02c78b9b698f4cb2ee1e1c1cfd',301),
-  ('PROPERTY_OPERATIONS_APPROVER','房源经营审批人',1,'ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102','9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972',302),
+  ('PROPERTY_OPERATIONS_APPROVER','房源经营审批人',2,'38ef71a8cd4b612c1683334f5575678b5d50af9dce4af42faffde0b9da4b68d5','1474c9b46fbab59394d3e7d43d181c6cc3f2b32dd0fcbd527e8d9b43a060376e',302),
   ('HOMESTAY_OPERATOR','民宿经办',2,'8e36158a12eff2a8ad38aa0a418463d72b3b00b433a7a547a7217c2cd71ec4e7','feb2badfa65e82c0e45170bafd0defb07549f49e161e39d836a3cb0bc8d983f3',303),
   ('HOUSING_OPERATOR','住房经办',1,'c5e76001d2a51adffda88b4f5138e5a68c1c7ba032822498decc6430a65ece95','573d8cce9080e97d80f196a634cd342efd8acd5f812d8de56f0abb87e0b0d4c8',304),
   ('HOMESTAY_FINANCE','民宿财务',1,'8bd6a8a04c21835375164f72dcb2cfd808ecabfc64b4ff409745c3806fdc8a05','91e7c40677d9a26926e8d5e951631c3a5149786b6d361fa7f2f82408804a93a5',305),
@@ -80,6 +80,7 @@ CREATE TEMP TABLE property_role_template_allowed_predecessor (
 -- advancing the expected definition. Unknown metadata drift remains fail-closed.
 
 INSERT INTO property_role_template_allowed_predecessor VALUES
+  ('PROPERTY_OPERATIONS_APPROVER',1,'ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102','9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972'),
   ('HOMESTAY_OPERATOR',1,'c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267','0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0');
 
 CREATE TEMP TABLE property_role_template_bundle (
@@ -93,7 +94,7 @@ CREATE TEMP TABLE property_role_template_bundle (
 INSERT INTO property_role_template_bundle VALUES
   ('PROPERTY_OPERATIONS_MANAGER','property-bundle:property-asset-manager',2,'171bd526f60587378ee5ff944a84402964e299d683058526ad3f07f973394be7'),
   ('PROPERTY_OPERATIONS_APPROVER','property-bundle:property-homestay-approver',1,'a332f427d5ebd7aab985041c72ba9e26ddd85b53647b00394e5d346c3167ea3c'),
-  ('PROPERTY_OPERATIONS_APPROVER','property-bundle:property-housing-approver',1,'ebc48ebd63433714db7049f69135f4296d3ef94be98b94e07e3ee37cea0725ff'),
+  ('PROPERTY_OPERATIONS_APPROVER','property-bundle:property-housing-approver',2,'7e08f8fe91b9889d1769f72d92d4cd5de395d0ba5dacd20acf00d1d810783d3e'),
   ('HOMESTAY_OPERATOR','property-bundle:property-homestay-task-operator',2,'7f37a1f402fa331a805e1bb601822ddddfc1a719a1ed723f72c65acdd98f723d'),
   ('HOUSING_OPERATOR','property-bundle:property-housing-operator',1,'25ff2287f99d3c8c3f1db67a6f6ec28bbbed7bbc85cbc014617ffe287df30f33'),
   ('HOMESTAY_FINANCE','property-bundle:property-homestay-finance-operator',1,'a45cbf14acba5b7eacd82232ed33541746d96dfe1a16207d776a2ec89c0ee58b'),
