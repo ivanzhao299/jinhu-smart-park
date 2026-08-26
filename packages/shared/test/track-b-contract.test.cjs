@@ -10,6 +10,7 @@ const {
   PROPERTY_ERROR_CODES,
   PROPERTY_EVENT_DELIVERY_INCIDENT_STATUSES,
   PROPERTY_NOTIFICATION_DELIVERY_STATUSES,
+  PROPERTY_NOTIFICATION_DEEP_LINK_TEMPLATES,
   PROPERTY_TASK_STATUSES,
   PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST,
   PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256,
@@ -30,6 +31,13 @@ const {
   TRACK_B_SCHEMA_PHYSICAL_ADDENDUM_SHA256,
   validatePropertyTrackBEndpointPermissionManifest
 } = require("../dist/index.js");
+
+test("housing approval notifications retain the housing task deep-link contract", () => {
+  assert.equal(
+    PROPERTY_NOTIFICATION_DEEP_LINK_TEMPLATES["housing-approval-stage-assigned"],
+    "/housing/tasks?requestId=[requestId]"
+  );
+});
 
 function canonicalJson(value) {
   if (value === null || typeof value !== "object") return JSON.stringify(value);

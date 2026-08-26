@@ -1,0 +1,30 @@
+{
+  "id": "08-26-fix-housing-03-deeplink-source",
+  "name": "08-26-fix-housing-03-deeplink-source",
+  "title": "修复住房审批深链来源白名单",
+  "description": "Allow property-operation-config approval deep links in the housing runtime slot while preserving fail-closed source validation.",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "web/shared approval deep-link contracts",
+  "package": "web",
+  "priority": "P1",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-26",
+  "completedAt": null,
+  "branch": "codex/fix-housing-03-deeplink-source",
+  "base_branch": "codex/fix-housing-03-deeplink-source",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-26-housing-full-flow-browser-uat",
+  "relatedFiles": [
+    "apps/web/app/housing/_components/housing-workbench-contract.ts",
+    "apps/web/app/housing/_components/housing-workbench-contract.spec.ts",
+    "packages/shared/test/track-b-contract.test.cjs"
+  ],
+  "notes": "",
+  "meta": {}
+}

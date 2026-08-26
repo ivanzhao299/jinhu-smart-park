@@ -66,6 +66,7 @@ export const HOUSING_DETAIL_ROUTES = {
 } as const;
 
 export const HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES = [
+  "property-operation-config",
   "housing-lease",
   "housing-handover",
   "housing-purchase"
