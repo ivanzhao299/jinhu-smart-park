@@ -34,6 +34,10 @@
   min-width: 0;
 }
 
+.page > :global(.ds-panel) {
+  padding: 22px;
+}
+
 .formGrid input,
 .formGrid select,
 .formGrid textarea {
@@ -504,6 +508,10 @@
 @media (max-width: 520px) {
   .page {
     gap: 16px;
+  }
+
+  .page > :global(.ds-panel) {
+    padding: 18px;
   }
 
   .page :global(.ds-hero) {

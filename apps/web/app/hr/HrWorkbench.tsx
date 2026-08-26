@@ -108,7 +108,7 @@ export function HrWorkbench() {
   const attentionCards = cards.filter(({ key, attention }) => { const metric = snapshot[key as keyof Snapshot]; return metric === "error" || (attention && typeof metric === "object" && metric !== null && metric.value > 0); });
   const groups = ["人员运营", "组织效能", "薪酬保障"].map((title) => ({ title, items: cards.filter((item) => item.group === title) })).filter((group) => group.items.length > 0);
   const roleLabel = canManagePeople ? "人力资源工作台" : canReviewTeam ? "团队管理工作台" : "我的人事工作台";
-  const forbidden = <main className="content ds-page"><section className="ds-panel"><h1>无权访问人力资源管理</h1><p>当前账号缺少人力资源模块或工作台权限，请联系系统管理员授权。</p></section></main>;
+  const forbidden = <main className={`content ds-page ${styles.page}`}><section className="ds-panel"><h1>无权访问人力资源管理</h1><p>当前账号缺少人力资源模块或工作台权限，请联系系统管理员授权。</p></section></main>;
 
   return <PermissionGuard module="hr" permission="hr:dashboard" fallback={forbidden}><main className={`content ds-page ${styles.page}`}>
     <section className={styles.workbenchHeader}><div><span className="ds-eyebrow">人力资源管理</span><h1>{roleLabel}</h1><p>处理员工、目标、汇报、绩效、审批与薪酬事项。</p></div><button className="ds-button ds-button-secondary" type="button" onClick={() => void load()} disabled={loading}><RefreshCw size={16}/>{loading ? "刷新中" : "刷新"}</button></section>

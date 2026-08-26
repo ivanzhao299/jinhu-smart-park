@@ -58,7 +58,7 @@ export function HrOrganizationClient() {
   };
 
   return (
-    <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_ORGANIZATION_PAGE} fallback={<main className="content ds-page"><section className="ds-panel"><h1>无权访问组织与岗位</h1></section></main>}>
+    <PermissionGuard module="hr" permission={HR_PERMISSIONS.HR_ORGANIZATION_PAGE} fallback={<main className={`content ds-page ${styles.page}`}><section className="ds-panel"><h1>无权访问组织与岗位</h1></section></main>}>
       <main className={`content ds-page ${styles.page}`}>
         <section className="ds-hero"><div className="ds-hero-copy"><span className="ds-eyebrow">人力资源管理</span><h1>组织与岗位</h1><p>复用系统组织树，在其上维护岗位、职族、职级与编制。</p></div></section>
         {canManage ? <form className={`ds-panel ${styles.formGrid}`} action={create}>

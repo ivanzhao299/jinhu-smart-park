@@ -167,7 +167,7 @@ export function HrPayrollClient() {
       module="hr"
       permission={HR_PERMISSIONS.HR_PAYROLL_PAGE}
       fallback={
-        <main className="content ds-page">
+        <main className={`content ds-page ${workbenchStyles.page}`}>
           <section className="ds-panel" role="alert">
             <h1>无法访问工资管理</h1>
             <p>当前账号没有工资模块页面权限。</p>
