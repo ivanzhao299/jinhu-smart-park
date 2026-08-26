@@ -1,8 +1,13 @@
 .hero { min-height: auto; }
 .payrollPage :global(.ds-mobile-record-list) { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; }
-.tabs { display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; }
-.tab,.activeTab { min-height:44px; padding:0 18px; border:1px solid var(--border); border-radius:999px; background:var(--bg-card); color:var(--text-secondary); white-space:nowrap; cursor:pointer; }
-.activeTab { border-color:var(--color-primary); background:color-mix(in srgb,var(--color-primary) 12%,var(--bg-card)); color:var(--color-primary); font-weight:700; }
+.workspaceNav { display:grid; grid-template-columns:minmax(180px,0.7fr) minmax(0,2.3fr); gap:22px; align-items:center; }
+.workspaceIntro { display:grid; gap:6px; }
+.workspaceIntro strong { font-size:20px; color:var(--text-primary); }
+.workspaceIntro p { margin:0; color:var(--text-secondary); line-height:1.65; }
+.tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.tab,.activeTab { min-height:74px; display:grid; align-content:center; gap:5px; padding:12px 14px; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); color:var(--text-secondary); text-align:left; cursor:pointer; }
+.tab span,.activeTab span { font-size:12px; line-height:1.45; white-space:normal; }
+.activeTab { border-color:var(--color-primary); background:color-mix(in srgb,var(--color-primary) 10%,var(--bg-card)); color:var(--color-primary); box-shadow:inset 3px 0 0 var(--color-primary); }
 .toolbar { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .filters { display:grid; grid-template-columns:repeat(2,minmax(0,220px)) auto; gap:12px; align-items:end; }
 .pager { display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:16px; }
@@ -11,6 +16,9 @@
 .mobileNotice { display:none; }
 .srOnly { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 @media (max-width:720px) {
+  .workspaceNav { grid-template-columns:1fr; gap:16px; }
+  .tabs { grid-template-columns:1fr 1fr; }
+  .tab,.activeTab { min-height:64px; }
   .payrollPage :global(.ds-mobile-record-list) { grid-template-columns:1fr; }
   .filters { grid-template-columns:1fr; }
   .toolbar,.pager { justify-content:stretch; }
@@ -18,4 +26,7 @@
   .desktopSensitive { display:none; }
   .mobileNotice { display:block; }
   .catalogGrid { grid-template-columns:1fr; }
+}
+@media (max-width:420px) {
+  .tabs { grid-template-columns:1fr; }
 }

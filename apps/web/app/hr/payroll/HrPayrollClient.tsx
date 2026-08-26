@@ -142,14 +142,14 @@ export function HrPayrollClient() {
   const availableAreas = useMemo(
     () => [
       ...(canReadOnline || canSelfOnline
-        ? [{ id: "online" as const, label: "在线工资" }]
+        ? [{ id: "online" as const, label: "在线工资", description: "工资期间、批次复核与冻结" }]
         : []),
       ...(canHistory || canSelfHistory
-        ? [{ id: "history" as const, label: "历史工资" }]
+        ? [{ id: "history" as const, label: "历史工资", description: "旧系统工资台账与个人明细" }]
         : []),
-      ...(canRules ? [{ id: "rules" as const, label: "规则复核" }] : []),
+      ...(canRules ? [{ id: "rules" as const, label: "规则复核", description: "历史公式解析与人工复核" }] : []),
       ...(canDifference
-        ? [{ id: "difference" as const, label: "双轨差异" }]
+        ? [{ id: "difference" as const, label: "双轨差异", description: "新旧口径模拟与差异审阅" }]
         : []),
     ],
     [
@@ -184,18 +184,26 @@ export function HrPayrollClient() {
             <h1>工资管理</h1>
           </div>
         </section>
-        <nav className={styles.tabs} aria-label="工资工作区">
-          {availableAreas.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={area === item.id ? styles.activeTab : styles.tab}
-              aria-current={area === item.id ? "page" : undefined}
-              onClick={() => setArea(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
+        <nav className={`ds-panel ${styles.workspaceNav}`} aria-label="工资工作区">
+          <div className={styles.workspaceIntro}>
+            <span className="ds-eyebrow">工资工作区</span>
+            <strong>{availableAreas.find((item) => item.id === area)?.label ?? "工资管理"}</strong>
+            <p>{availableAreas.find((item) => item.id === area)?.description ?? "按权限进入对应工资业务。"}</p>
+          </div>
+          <div className={styles.tabs}>
+            {availableAreas.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={area === item.id ? styles.activeTab : styles.tab}
+                aria-current={area === item.id ? "page" : undefined}
+                onClick={() => setArea(item.id)}
+              >
+                <strong>{item.label}</strong>
+                <span>{item.description}</span>
+              </button>
+            ))}
+          </div>
         </nav>
         {availableAreas.length === 0 ? (
           <section className="ds-panel">

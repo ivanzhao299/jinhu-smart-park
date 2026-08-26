@@ -1,0 +1,3 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"HR 页面设计系统、响应式与浏览器验收规则"}
+{"file":".trellis/spec/api/backend/hr-management.md","reason":"培训查询范围、投影与服务端回归要求"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用 HR 共享页面结构，避免三个模块重复定义视觉系统"}
