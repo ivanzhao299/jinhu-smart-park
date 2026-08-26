@@ -469,3 +469,38 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 14: 民宿权限迁移上线与全量自动复测闭环
+
+**Date**: 2026-08-26
+**Task**: 民宿权限迁移上线与全量自动复测闭环
+**Package**: api
+**Branch**: `codex/homestay-fix-retest-uat-20260826-1015`
+
+### Summary
+
+000262 逐租户权限基数修复已部署成功；RUN_ID 20260826-1015 完成 UI 角色用户链、四项场景、PG spec、截图持久化、六类 residual 与证据报告，并按事实归档权限修复和民宿 UAT 任务。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7df23ad5` | (see git log) |
+| `cfc8975c` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

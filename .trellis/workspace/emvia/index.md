@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 13
-- **Last Active**: 2026-08-25
+- **Total Sessions**: 14
+- **Last Active**: 2026-08-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~471 | Active |
+| `journal-1.md` | ~506 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 14 | 2026-08-26 | 民宿权限迁移上线与全量自动复测闭环 | `7df23ad5`, `cfc8975c` | `codex/homestay-fix-retest-uat-20260826-1015` |
 | 13 | 2026-08-25 | 路由治理真实 Chrome 验收闭环 | `60a3421e` | `codex/main-post-route-governance-acceptance` |
 | 12 | 2026-08-25 | PR #359 租户首管权威指针闭环 | `d0ecac65` | `codex/main-post-bootstrap-landing` |
 | 11 | 2026-08-22 | P1 Trellis 账本与待终审分支联合对账 | `c808eb71`（PR #341 squash merge） | `codex/p1-trellis-ledger-reconcile` |
