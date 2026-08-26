@@ -4,6 +4,7 @@ import {
   confirmationShouldClose,
   createSingleFlightGate,
   reduceDialogDraft,
+  runDialogConfirmation,
   visibleDialogReason
 } from "./dialog-state";
 
@@ -53,4 +54,27 @@ test("single-flight gate rejects same-tick duplicate entry until released", () =
   gate.leave();
   assert.equal(gate.isActive(), false);
   assert.equal(gate.tryEnter(), true);
+});
+
+test("a failed async confirmation keeps the dialog open and releases the gate", async () => {
+  const gate = createSingleFlightGate();
+  assert.equal(gate.tryEnter(), true);
+
+  const shouldClose = await runDialogConfirmation(gate, async () => false);
+
+  assert.equal(shouldClose, false);
+  assert.equal(gate.isActive(), false);
+});
+
+test("a rejected async confirmation releases the gate before propagating", async () => {
+  const gate = createSingleFlightGate();
+  assert.equal(gate.tryEnter(), true);
+
+  await assert.rejects(
+    runDialogConfirmation(gate, async () => {
+      throw new Error("conflict");
+    }),
+    /conflict/
+  );
+  assert.equal(gate.isActive(), false);
 });

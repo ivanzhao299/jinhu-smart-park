@@ -64,6 +64,17 @@ export function createSingleFlightGate(): SingleFlightGate {
   };
 }
 
+export async function runDialogConfirmation(
+  gate: SingleFlightGate,
+  onConfirm: () => boolean | void | Promise<boolean | void>
+): Promise<boolean> {
+  try {
+    return confirmationShouldClose(await onConfirm());
+  } finally {
+    gate.leave();
+  }
+}
+
 function assertNever(value: never): never {
   throw new Error(`Unhandled dialog draft event: ${JSON.stringify(value)}`);
 }

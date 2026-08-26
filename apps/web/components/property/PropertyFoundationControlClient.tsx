@@ -840,6 +840,7 @@ function OperationWriteControls({ item, onCompleted }: {
   const [transitionOpen, setTransitionOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [transitionFeedback, setTransitionFeedback] = useState("");
   const configureKey = useRef<string | null>(null);
   const transitionKey = useRef<string | null>(null);
   const transitionPayload = useRef<string | null>(null);
@@ -890,7 +891,7 @@ function OperationWriteControls({ item, onCompleted }: {
   async function requestTransition(reason: string | undefined) {
     if (busy) return;
     setBusy(true);
-    setFeedback("");
+    setTransitionFeedback("");
     const payloadFingerprint = JSON.stringify({ targetMode, reason: reason?.trim() ?? "" });
     if (transitionPayload.current !== payloadFingerprint) transitionKey.current = null;
     transitionKey.current ??= createIdempotencyKey("property-mode-transition");
@@ -908,8 +909,8 @@ function OperationWriteControls({ item, onCompleted }: {
       setFeedback("经营模式切换审批已提交。");
       await onCompleted();
     } catch (cause) {
-      setFeedback(cause instanceof Error ? cause.message : "模式切换审批提交失败");
-      throw cause;
+      setTransitionFeedback(cause instanceof Error ? cause.message : "模式切换审批提交失败");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -949,7 +950,7 @@ function OperationWriteControls({ item, onCompleted }: {
               onChange={(event) => { transitionKey.current = null; transitionPayload.current = null; setTargetMode(event.target.value); }}
             ><option value="none">{OPERATING_MODE_LABELS.none}</option><option value="short_stay">{OPERATING_MODE_LABELS.short_stay}</option><option value="long_rent">{OPERATING_MODE_LABELS.long_rent}</option></select></label>
             <button className="ds-button" disabled={busy || targetMode === item.configuredMode || !item.canRequestTransition}
-              onClick={() => setTransitionOpen(true)} type="button">提交切换审批</button>
+              onClick={() => { setFeedback(""); setTransitionFeedback(""); setTransitionOpen(true); }} type="button">提交切换审批</button>
           </div>
         </PropertyPanelSurface>
       </PermissionGuard>
@@ -959,8 +960,16 @@ function OperationWriteControls({ item, onCompleted }: {
       actionLabel="提交审批"
       busy={busy}
       consequences={["当前经营模式不会立即改变", "审批执行前会重新校验占用、合同、工单和财务阻断项"]}
+      errorMessage={transitionFeedback || undefined}
       onConfirm={requestTransition}
-      onOpenChange={(open) => { if (!open) { transitionKey.current = null; transitionPayload.current = null; } setTransitionOpen(open); }}
+      onOpenChange={(open) => {
+        if (!open) {
+          transitionKey.current = null;
+          transitionPayload.current = null;
+          setTransitionFeedback("");
+        }
+        setTransitionOpen(open);
+      }}
       open={transitionOpen}
       reasonPolicy={{ kind: "required", minLength: 2, label: "切换原因" }}
       resultingState="等待审批"

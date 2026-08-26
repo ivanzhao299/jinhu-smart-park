@@ -17,9 +17,9 @@ import {
   ReasonField
 } from "./ConsequenceDialogParts";
 import {
-  confirmationShouldClose,
   createSingleFlightGate,
   reduceDialogDraft,
+  runDialogConfirmation,
   visibleDialogReason,
   type SingleFlightGate
 } from "./dialog-state";
@@ -43,6 +43,7 @@ export interface ConsequenceDialogProps {
   actionLabel: string;
   cancelLabel?: string;
   busy?: boolean;
+  errorMessage?: string;
   children?: ReactNode;
   onConfirm: (reason: string | undefined) => boolean | void | Promise<boolean | void>;
   onOpenChange: (open: boolean) => void;
@@ -92,6 +93,7 @@ export function ConsequenceDialog({
   actionLabel,
   cancelLabel = "取消",
   busy = false,
+  errorMessage,
   children,
   onConfirm,
   onOpenChange
@@ -118,6 +120,7 @@ export function ConsequenceDialog({
       consequences={consequences}
       descriptionId={controller.descriptionId}
       dialogRef={controller.dialogRef}
+      errorMessage={errorMessage}
       onCancel={controller.handleCancel}
       onConfirm={controller.handleSubmit}
       onReasonChange={controller.changeReason}
@@ -183,18 +186,14 @@ function useConsequenceDialogController(input: ConsequenceDialogControllerInput)
       return;
     }
     const submittedTargetId = input.targetId;
-    try {
-      const value = input.reasonPolicy.kind === "none" ? undefined : reason.trim() || undefined;
-      const confirmed = await input.onConfirm(value);
-      if (!confirmationShouldClose(confirmed)) {
-        return;
-      }
-      dispatchDraft({ type: "confirmed", targetId: submittedTargetId });
-      if (activeTargetRef.current === submittedTargetId) {
-        input.onOpenChange(false);
-      }
-    } finally {
-      gate.leave();
+    const value = input.reasonPolicy.kind === "none" ? undefined : reason.trim() || undefined;
+    const shouldClose = await runDialogConfirmation(gate, () => input.onConfirm(value));
+    if (!shouldClose) {
+      return;
+    }
+    dispatchDraft({ type: "confirmed", targetId: submittedTargetId });
+    if (activeTargetRef.current === submittedTargetId) {
+      input.onOpenChange(false);
     }
   }
   function changeReason(nextReason: string) {
@@ -232,6 +231,7 @@ interface ConsequenceDialogSurfaceProps extends DialogContractInput {
   children?: ReactNode;
   descriptionId: string;
   dialogRef: RefObject<HTMLDialogElement | null>;
+  errorMessage?: string;
   onCancel: (event: SyntheticEvent<HTMLDialogElement>) => void;
   onConfirm: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onReasonChange: (reason: string) => void;
@@ -272,6 +272,11 @@ function ConsequenceDialogSurface(props: ConsequenceDialogSurfaceProps) {
           reason={props.reason}
           reasonId={props.reasonId}
         />
+        {props.errorMessage ? (
+          <p aria-live="assertive" className="form-error" role="alert">
+            {props.errorMessage}
+          </p>
+        ) : null}
         <DialogActions
           actionLabel={props.actionLabel}
           busy={props.busy}
