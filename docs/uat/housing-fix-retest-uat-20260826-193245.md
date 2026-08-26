@@ -25,21 +25,21 @@
 |---|---|---|---|
 | C00 | PASS | PASS | 独立 Chrome profile 真实表单登录，住房菜单可见 |
 | C01 | PASS | PARTIAL | 本轮复用 production-safe asset 后通过受控 API 改住房用途；未重新执行完整 UI 建链，不能算 UI 回归 PASS |
-| C02-A | FAIL | **NOT RETESTED** | 未重走“无 eligible approver→409→弹窗可见错误”场景，#408 的交互修复不得由本轮其他证据外推 |
+| C02-A | FAIL | **NOT RETESTED** | 未重走“无 eligible approver→409→弹窗可见错误”场景，#409（`ca45597`）的交互反馈修复不得由本轮其他证据外推 |
 | C02-B | PASS | NOT RETESTED | 本轮审批账号由隔离 bootstrap 创建，未重复角色模板 UI 实例化流程 |
 | C03-A/B/C | RBAC/深链 FAIL，审批 PASS | 修复上线；本轮聚焦主链 | #409/#410/#413 已合并并主链双绿 |
-| C03-D | FAIL：executor 参数类型错误 | **PASS** | mode request `bf20e584-8bf8-46d7-bef6-5d21dbca6f00` 为 approved/executed；房源 `none → long_rent`、version 2；Chrome 显示“已批准/已执行” |
+| C03-D | FAIL：executor 参数类型错误 | **PASS** | #408（`10feefb`）；mode request `bf20e584-8bf8-46d7-bef6-5d21dbca6f00` 为 approved/executed；房源 `none → long_rent`、version 2；Chrome 显示“已批准/已执行” |
 | C04 | BLOCKED | PASS（系统链）/真人签署外部门 | draft→pending_approval→pending_signature→active；使用本轮合成 PDF 只验证系统附件门禁，不代表真人签署 |
 | C05 | BLOCKED | PARTIAL | 固定费用出账 96.67；40.00 部分支付后 56.67 全额核销；押金 2500 入账；采购转收费 35 后核销。未构造时钟回拨，逾期分支未实测；void 未以物理删除替代 |
 | C06 | BLOCKED | **BLOCKED / OPERATOR ERROR** | move-out handover completed，lease 进入 checkout_pending；住房域没有续租 UI/API。两次 deposit_refund API 请求漏传现有必填 `receivable_id`，400 属于操作者输入错误，不能归因产品契约；环境已销毁，正确带 deposit receivable 的 refund/checkout 记为 NOT RETESTED，未伪造 terminated |
 | C07 | BLOCKED | PASS（状态链） | 报修 10→20→30→40→50→60 完成；housing tasks 返回 `status=completed` 是历史集合设计。eligibility resolver 排除 status 60，本轮不再把历史可见性误判为 completed-eligible 缺陷 |
 | C08 | BLOCKED | PASS（系统链） | draft→approved→paid；独立审批；转收费由第二审批人批准并执行，生成 35.00 receivable |
-| C09 | BLOCKED | PASS | Chrome KPI 与 DB/API 事实一致：active 1（handover 后 checkout 1）、应收 2631.67、已收 2631.67、未收 0、approved purchase 35；390×844 无横向溢出 |
+| C09 | BLOCKED | PASS | handover 前 Chrome：active 1；handover 后 Chrome：active 0、checkout_pending 1。财务最终为应收 2631.67、已收 2631.67、未收 0、approved purchase 35；390×844 无横向溢出 |
 | C10 | PARTIAL | BLOCKED | production-safe baseline 只有一个园区；未伪造跨园区 fixture |
 
 ## 新观察与阻断
 
-1. `PropertyTaskReconciliationScheduler` 对 housing billing、repair、purchase、lease source 反复出现 `inconsistent types deduced for parameter $1` 或随后 `property-runtime-unavailable`。审批 execution 主链不受影响，但任务投影/重建可靠性不能判 PASS。
+1. `PropertyTaskReconciliationScheduler` 对 housing billing、repair、purchase、lease source 反复出现 `inconsistent types deduced for parameter $1` 或随后 `property-runtime-unavailable`。审批 execution 主链不受影响，但任务投影/重建可靠性不能判 PASS。P1 Issue #420；Trellis child `08-26-fix-housing-task-reconciliation-parameter-typing`（planning）。
 2. work order 确认完成（status 60）后，`GET /housing/tasks` 仍返回 completed 历史；代码核验确认 eligibility resolver 不包含 60，因此 completed-eligible 风险未成立。
 3. 住房域当前没有续租入口；商业 leasing renewal 不能冒充住房续租。
 4. deposit refund 两次请求均由操作者漏传表单已有的必填 `receivable_id`，不能作为产品 finding；正确请求和 checkout 留作 NOT RETESTED。
@@ -50,7 +50,7 @@
 - local-only 根：`/tmp/jinhu-housing-uat-20260826-193245/`
 - 截图：10 个 PNG，包含登录、C03-D、active lease、finance、repair、purchase、dashboard desktop/mobile、logout。
 - SHA-256：`/tmp/jinhu-housing-uat-20260826-193245/screenshots-manifest.sha256`（10 行）。
-- Chrome：151.0.7922.138，独立 CDP 9333/profile；desktop 1440×960，mobile 390×844，dashboard mobile `overflow=false`。
+- Chrome：151.0.7922.138，独立 CDP 9333/profile；desktop 1440×960，mobile 390×844，dashboard mobile `overflow=false`。本轮通过自建 raw CDP driver 执行，未使用 chrome-devtools MCP，故 MCP version=`N/A (not used)`。
 - 敏感信息未写入报告、截图文件名或 manifest。
 
 ## residual 与清理
