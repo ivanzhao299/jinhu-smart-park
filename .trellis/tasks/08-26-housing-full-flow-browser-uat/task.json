@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-26-fix-housing-04-mode-executor-sql"
+    "08-26-fix-housing-04-mode-executor-sql",
+    "08-26-08-26-fix-housing-03-deeplink-source"
   ],
   "parent": null,
   "relatedFiles": [],

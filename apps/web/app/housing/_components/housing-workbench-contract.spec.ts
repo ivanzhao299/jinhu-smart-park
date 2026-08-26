@@ -2,11 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   HOUSING_DETAIL_ROUTES,
+  HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES,
+  HOUSING_RETURN_CONTEXT_POLICY,
   HOUSING_WORKBENCH_SURFACES,
   housingHandoverTypes,
   isHousingFinancialHandover,
   resolveHousingLanding
 } from "./housing-workbench-contract";
+import { propertyApprovalTargetAllowed } from "../../../components/property/property-runtime-slots.logic";
+import {
+  createReturnHref,
+  decodeReturnContext,
+  encodeReturnContext
+} from "../../../features/property-shared/detail/return-context";
 import { hasAuthoritativeEmptyUnitScope, returnToSearch } from "./housing-list-logic";
 import { payloadFingerprint } from "./idempotency-logic";
 import {
@@ -35,6 +43,29 @@ test("housing exposes the frozen nine surfaces and four detail routes", () => {
     "/housing/repairs/[repairId]",
     "/housing/purchases/[purchaseId]"
   ]);
+});
+
+test("housing approval deep links accept property operation config and remain fail-closed", () => {
+  assert.equal(propertyApprovalTargetAllowed(
+    { sourceType: "property-operation-config" } as never,
+    HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES
+  ), true);
+  for (const sourceType of ["homestay-booking", "unknown-source"]) {
+    assert.equal(propertyApprovalTargetAllowed(
+      { sourceType } as never,
+      HOUSING_RUNTIME_APPROVAL_SOURCE_TYPES
+    ), false);
+  }
+
+  const context = {
+    route: "/housing/tasks",
+    query: { requestId: "22222222-2222-4222-8222-222222222222" }
+  } as const;
+  assert.deepEqual(decodeReturnContext(encodeReturnContext(context)), context);
+  assert.equal(
+    createReturnHref(context, HOUSING_RETURN_CONTEXT_POLICY),
+    "/housing/tasks?requestId=22222222-2222-4222-8222-222222222222"
+  );
 });
 
 test("handover types follow the lease lifecycle enforced by the command service", () => {
