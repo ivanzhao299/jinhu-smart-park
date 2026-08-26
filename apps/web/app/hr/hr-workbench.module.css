@@ -288,6 +288,134 @@
   align-items: end;
 }
 
+.filterBar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 260px));
+  gap: 12px;
+  align-items: end;
+  margin: 16px 0 18px;
+}
+
+.compactFilterBar {
+  grid-template-columns: minmax(180px, 260px);
+}
+
+.operationGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.operationGroup {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-card) 94%, var(--color-primary) 6%);
+}
+
+.operationGroup > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.operationGroup > header > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.operationGroup h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.operationGroup > header small {
+  max-width: 190px;
+  color: var(--text-secondary);
+  text-align: right;
+  line-height: 1.45;
+}
+
+.operationIndex {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--bg-card));
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.operationFields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.operationFields input,
+.operationFields select,
+.periodToolbar input {
+  width: 100%;
+  max-width: 100%;
+}
+
+.operationGroup > :global(.ds-button) {
+  justify-self: end;
+  min-width: 156px;
+}
+
+.timeRange {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.operationContext {
+  display: grid;
+  align-content: center;
+  min-height: 72px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.operationContext > span,
+.operationContext > small {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.operationContext > strong {
+  overflow: hidden;
+  margin: 3px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.periodToolbar {
+  display: grid;
+  grid-template-columns: minmax(170px, 220px) auto;
+  gap: 10px;
+  align-items: end;
+  min-width: min(100%, 390px);
+}
+
 .heroActions,
 .formActions,
 .sectionHeading {
@@ -366,6 +494,10 @@
   .steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .operationGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 520px) {
@@ -436,6 +568,41 @@
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  .filterBar,
+  .compactFilterBar,
+  .operationFields,
+  .periodToolbar {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .operationGrid {
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .operationGroup {
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .operationGroup > header {
+    display: grid;
+    gap: 6px;
+  }
+
+  .operationGroup > header small {
+    max-width: none;
+    text-align: left;
+  }
+
+  .operationGroup > :global(.ds-button),
+  .periodToolbar :global(.ds-button) {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
   }
 
   .heroActions,
