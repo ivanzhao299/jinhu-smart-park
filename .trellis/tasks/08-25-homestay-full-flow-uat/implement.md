@@ -23,6 +23,18 @@
 - 产品 FAIL：rate 空态 404 泄漏 Console；confirmed 被 dashboard/availability 当作已入住/occupied。
 - 证据 FAIL：截图/evaluate 未持久化；原 PASS 全部撤销。清理门禁全部通过；任务因 FAIL/BLOCKED 保持 `in_progress`，不得归档。
 
+## 2026-08-26 上线后复测终态
+
+- [x] 权限迁移修复已合并并完成真实生产部署；Issue #395 已关闭。
+- [x] RUN_ID `20260826-1015` 使用隔离 PostgreSQL/API/Web 与独立 Chrome 完成四项自动复测。
+- [x] 费率空态 200、入住率 reserved/occupied 口径、财务列表/详情同账、任务经办 RBAC 均 PASS。
+- [x] 9 张桌面/390px 截图持久化到绝对 `/tmp` 路径并逐个证明非零。
+- [x] PostgreSQL spec 真实执行 1/1 PASS、0 skip；修正的只是历史 availability 完整列表测试期望。
+- [x] party、identity、approval、outbox、workorder、file 六类候选表按 RUN_ID 同谓词清理后逐表为 0。
+- [x] 事实报告：`docs/uat/homestay-fix-retest-uat-20260826-1015.md`。
+
+本任务针对 08-25 两个产品阻断和 P2 权限 gap 的自动复测已 PASS，可在证据 PR 合并后归档。外部真人岗位具名签署仍是独立门，不影响本自动复测任务的事实完成状态。
+
 ## Validation And Gates
 
 - `git diff --name-only <base>`：只能出现本任务 Trellis 工件和 UAT 报告。

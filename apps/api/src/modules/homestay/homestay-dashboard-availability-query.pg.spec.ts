@@ -135,7 +135,12 @@ test("dashboard and availability distinguish confirmed reservations from in-hous
       (historicalAvailability as Array<{ unit_id: string; room_state: string }>).map(
         (item) => ({ unit_id: item.unit_id, room_state: item.room_state })
       ),
-      [{ unit_id: ids.lateUnit, room_state: "reserved" }]
+      [
+        { unit_id: ids.fallbackUnit, room_state: "available" },
+        { unit_id: ids.lateUnit, room_state: "reserved" },
+        { unit_id: ids.occupiedUnit, room_state: "available" },
+        { unit_id: ids.reservedUnit, room_state: "available" }
+      ]
     );
 
     const dashboard = await service.dashboard(scope, actor, "2099-08-04");
