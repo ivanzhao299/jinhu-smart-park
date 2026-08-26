@@ -59,7 +59,13 @@ test("department manager directory stays team-scoped without broad employee perm
 test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
   const workbench=readFileSync(resolve(__dirname,"HrWorkbench.tsx"),"utf8");
   assert.match(workbench,/今日工作/);
-  assert.match(workbench,/快速办理/);
+  assert.match(workbench,/待办与提醒/);
+  assert.match(workbench,/按场景办理/);
+  assert.match(workbench,/人员运营/);
+  assert.match(workbench,/组织效能/);
+  assert.match(workbench,/薪酬保障/);
+  assert.match(workbench,/attention && typeof metric === "object"/);
+  assert.match(workbench,/当前没有待处理事项/);
   assert.match(workbench,/hrApi\.pendingApprovals/);
   assert.match(workbench,/hrApi\.teamWorkReports/);
   assert.match(workbench,/isEmployeeContextUnavailable\(error\) \? "unavailable" : "error"/);
@@ -68,6 +74,15 @@ test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
   assert.match(workbench,/加载失败，可刷新重试/);
   assert.doesNotMatch(workbench,/\.catch\(\(\) => undefined\)/);
   assert.doesNotMatch(workbench,/规划能力|交付路线|基础期|执行期|绩效期|薪酬期/);
+});
+
+test("HR enterprise UI keeps compact hierarchy and phone-safe navigation",()=>{
+  const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
+  assert.match(styles,/\.page :global\(\.ds-hero\)[\s\S]*min-height:\s*176px/);
+  assert.match(styles,/\.metricCard[\s\S]*grid-template-columns:\s*38px minmax\(0, 1fr\) auto/);
+  assert.match(styles,/\.businessGroups[\s\S]*display:\s*grid/);
+  assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.metricGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/);
+  assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.shortcutGrid\s*\{[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
 test("HR M4 employee directory is list-first with explicit create and filters",()=>{

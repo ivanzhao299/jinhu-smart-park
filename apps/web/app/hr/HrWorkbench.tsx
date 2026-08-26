@@ -1,7 +1,7 @@
 "use client";
 
 import { HR_PERMISSIONS } from "@jinhu/shared";
-import { Award, BadgeDollarSign, CalendarDays, ClipboardCheck, FileClock, FileText, GraduationCap, ListChecks, Network, RefreshCw, ShieldCheck, Sparkles, Target, UserRoundSearch, UsersRound } from "lucide-react";
+import { Award, BadgeDollarSign, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, FileClock, FileText, GraduationCap, ListChecks, Network, RefreshCw, ShieldCheck, Sparkles, Target, UserRoundSearch, UsersRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -89,30 +89,32 @@ export function HrWorkbench() {
 
   useEffect(() => { void load(); }, [load]);
   const cards = useMemo(() => [
-    { key: "recruitment", title: "招聘管理", href: "/hr/recruitment", icon: UserRoundSearch },
-    { key: "lifecycle", title: "入离职办理", href: "/hr/lifecycle", icon: ListChecks },
-    { key: "training", title: "培训管理", href: "/hr/training", icon: GraduationCap },
-    { key: "rewards", title: "奖惩管理", href: "/hr/rewards", icon: Award },
-    { key: "employees", title: "在职员工", href: "/hr/employees", icon: UsersRound },
-    { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText },
-    { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays },
-    { key: "insurance", title: "五险一金", href: "/hr/insurance", icon: ShieldCheck },
-    { key: "goals", title: "进行中目标", href: "/hr/goals", icon: Target },
-    { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock },
-    { key: "performance", title: "绩效任务", href: "/hr/performance", icon: ClipboardCheck },
-    { key: "feedback", title: "360 评价", href: "/hr/feedback-360", icon: Network },
-    { key: "talent", title: "人才发展", href: "/hr/talent", icon: Sparkles },
-    { key: "approvals", title: "人事审批", href: "/hr/approvals", icon: ClipboardCheck },
-    { key: "payroll", title: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) ? "工资批次" : "我的工资条", href: "/hr/payroll", icon: BadgeDollarSign }
+    { key: "recruitment", title: "招聘管理", href: "/hr/recruitment", icon: UserRoundSearch, group: "人员运营", attention: true },
+    { key: "lifecycle", title: "入离职办理", href: "/hr/lifecycle", icon: ListChecks, group: "人员运营", attention: true },
+    { key: "employees", title: "员工档案", href: "/hr/employees", icon: UsersRound, group: "人员运营", attention: false },
+    { key: "contracts", title: "劳动合同", href: "/hr/contracts", icon: FileText, group: "人员运营", attention: false },
+    { key: "training", title: "培训管理", href: "/hr/training", icon: GraduationCap, group: "组织效能", attention: true },
+    { key: "rewards", title: "奖惩管理", href: "/hr/rewards", icon: Award, group: "组织效能", attention: true },
+    { key: "goals", title: "战略与目标", href: "/hr/goals", icon: Target, group: "组织效能", attention: true },
+    { key: "reports", title: "工作汇报", href: "/hr/work-reports", icon: FileClock, group: "组织效能", attention: true },
+    { key: "performance", title: "绩效考核", href: "/hr/performance", icon: ClipboardCheck, group: "组织效能", attention: true },
+    { key: "feedback", title: "360 评价", href: "/hr/feedback-360", icon: Network, group: "组织效能", attention: true },
+    { key: "talent", title: "人才发展", href: "/hr/talent", icon: Sparkles, group: "组织效能", attention: true },
+    { key: "approvals", title: "人事审批", href: "/hr/approvals", icon: ClipboardCheck, group: "人员运营", attention: true },
+    { key: "attendance", title: "考勤管理", href: "/hr/attendance", icon: CalendarDays, group: "薪酬保障", attention: false },
+    { key: "insurance", title: "五险一金", href: "/hr/insurance", icon: ShieldCheck, group: "薪酬保障", attention: false },
+    { key: "payroll", title: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) ? "工资核算" : "我的工资条", href: "/hr/payroll", icon: BadgeDollarSign, group: "薪酬保障", attention: hasPermission(user, HR_PERMISSIONS.HR_PAYROLL_READ) }
   ].filter((item) => snapshot[item.key as keyof Snapshot] !== null), [snapshot, user]);
+  const attentionCards = cards.filter(({ key, attention }) => { const metric = snapshot[key as keyof Snapshot]; return metric === "error" || (attention && typeof metric === "object" && metric !== null && metric.value > 0); });
+  const groups = ["人员运营", "组织效能", "薪酬保障"].map((title) => ({ title, items: cards.filter((item) => item.group === title) })).filter((group) => group.items.length > 0);
   const roleLabel = canManagePeople ? "人力资源工作台" : canReviewTeam ? "团队管理工作台" : "我的人事工作台";
   const forbidden = <main className="content ds-page"><section className="ds-panel"><h1>无权访问人力资源管理</h1><p>当前账号缺少人力资源模块或工作台权限，请联系系统管理员授权。</p></section></main>;
 
   return <PermissionGuard module="hr" permission="hr:dashboard" fallback={forbidden}><main className={`content ds-page ${styles.page}`}>
     <section className={styles.workbenchHeader}><div><span className="ds-eyebrow">人力资源管理</span><h1>{roleLabel}</h1><p>处理员工、目标、汇报、绩效、审批与薪酬事项。</p></div><button className="ds-button ds-button-secondary" type="button" onClick={() => void load()} disabled={loading}><RefreshCw size={16}/>{loading ? "刷新中" : "刷新"}</button></section>
-    <section aria-labelledby="hr-overview-title" className={styles.section}><header className={styles.sectionHeader}><div><span className="ds-eyebrow">今日工作</span><h2 id="hr-overview-title">需要关注的事项</h2></div></header>
-      {loading ? <div className={`ds-panel ${styles.loadingPanel}`}>正在加载工作台…</div> : cards.length ? <div className={`ds-kpi-grid ${styles.metricGrid}`}>{cards.map(({ key, title, href, icon: Icon }) => { const metric = snapshot[key as keyof Snapshot]; if (metric === null) return null; const unavailable = metric === "unavailable"; const failed = metric === "error"; return <Link className={`ds-kpi-card ${styles.metricCard}`} href={href as Route} key={key}><span className={styles.metricIcon}><Icon size={19}/></span><strong>{unavailable ? "—" : failed ? "!" : metric.value}</strong><span>{title}</span><small>{unavailable ? "当前范围暂无访问权限" : failed ? "加载失败，可刷新重试" : metric.detail}</small></Link>; })}</div> : <div className="ds-panel">当前账号暂无可汇总的 HR 事项。</div>}
+    <section aria-labelledby="hr-overview-title" className={styles.section}><header className={styles.sectionHeader}><div><span className="ds-eyebrow">今日工作</span><h2 id="hr-overview-title">待办与提醒</h2></div><span className={styles.sectionMeta}>{attentionCards.length} 类事项需要关注</span></header>
+      {loading ? <div className={`ds-panel ${styles.loadingPanel}`}>正在加载工作台…</div> : attentionCards.length ? <div className={`ds-kpi-grid ${styles.metricGrid}`}>{attentionCards.map(({ key, title, href, icon: Icon }) => { const metric = snapshot[key as keyof Snapshot]; if (metric === null) return null; const unavailable = metric === "unavailable"; const failed = metric === "error"; return <Link className={`ds-kpi-card ${styles.metricCard}`} href={href as Route} key={key}><span className={styles.metricIcon}><Icon size={19}/></span><span className={styles.metricLabel}>{title}</span><strong>{unavailable ? "—" : failed ? "!" : metric.value}</strong><small>{unavailable ? "当前范围暂无访问权限" : failed ? "加载失败，可刷新重试" : metric.detail}</small><ChevronRight className={styles.metricArrow} size={18}/></Link>; })}</div> : <div className={`ds-panel ${styles.allClear}`}><span className={styles.allClearIcon}><CheckCircle2 size={22}/></span><div><strong>当前没有待处理事项</strong><p>已授权范围内的招聘、合同、目标、汇报、绩效、审批和工资任务均无待办。</p></div></div>}
     </section>
-    <section className={styles.section} aria-labelledby="hr-shortcuts-title"><header className={styles.sectionHeader}><div><span className="ds-eyebrow">常用入口</span><h2 id="hr-shortcuts-title">快速办理</h2></div></header><div className={`ds-command-grid ${styles.shortcutGrid}`}>{cards.map(({ key, title, href, icon: Icon }) => <Link className="ds-command-card" href={href as Route} key={key}><Icon size={20}/><strong>{title}</strong><span>进入办理</span></Link>)}</div></section>
+    <section className={styles.section} aria-labelledby="hr-shortcuts-title"><header className={styles.sectionHeader}><div><span className="ds-eyebrow">业务导航</span><h2 id="hr-shortcuts-title">按场景办理</h2></div></header><div className={styles.businessGroups}>{groups.map((group) => <section className={`ds-panel ${styles.businessGroup}`} key={group.title}><header><h3>{group.title}</h3><span>{group.items.length} 个入口</span></header><div className={`ds-command-grid ${styles.shortcutGrid}`}>{group.items.map(({ key, title, href, icon: Icon }) => <Link className={`ds-command-card ${styles.shortcutCard}`} href={href as Route} key={key}><span className={styles.shortcutIcon}><Icon size={18}/></span><strong>{title}</strong><ChevronRight size={16}/></Link>)}</div></section>)}</div></section>
   </main></PermissionGuard>;
 }

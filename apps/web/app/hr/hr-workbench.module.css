@@ -1,7 +1,31 @@
 .page {
-  gap: 24px;
+  gap: 22px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.page :global(.ds-hero) {
+  min-height: 176px;
+  padding: 28px 32px;
+}
+
+.page :global(.ds-hero-copy h1) {
+  font-size: clamp(30px, 3vw, 42px);
+}
+
+.page :global(.ds-hero-copy p) {
+  max-width: 720px;
+}
+
+.page > :global(.ds-kpi-grid) {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.page > :global(.ds-kpi-grid) :global(.ds-kpi-card) {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-height: 118px;
 }
 
 .page :global(.ds-panel),
@@ -41,16 +65,49 @@
 }
 
 .metricGrid {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 
 .metricCard {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 12px;
   position: relative;
-  min-height: 142px;
+  min-height: 112px;
+  padding: 16px;
+  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.metricCard:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--border));
+  box-shadow: 0 16px 34px rgb(15 37 61 / 12%);
+  transform: translateY(-2px);
 }
 
 .metricCard strong {
-  font-size: 30px;
+  grid-column: 3;
+  grid-row: 1;
+  margin: 0;
+  font-size: 28px;
+}
+
+.metricLabel {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--text-primary) !important;
+  font-size: 14px !important;
+  font-weight: 760 !important;
+}
+
+.metricCard small {
+  grid-column: 2 / 4;
+  grid-row: 2;
+}
+
+.metricArrow {
+  display: none;
 }
 
 .metricIcon {
@@ -64,12 +121,92 @@
 }
 
 .loadingPanel {
-  min-height: 142px;
+  min-height: 112px;
   color: var(--text-secondary);
 }
 
 .shortcutGrid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  padding: 0;
+}
+
+.sectionMeta {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.allClear {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 96px;
+  padding: 18px 20px;
+}
+
+.allClearIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--status-success) 14%, var(--bg-card));
+  color: var(--status-success);
+}
+
+.allClear p {
+  margin: 4px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.businessGroups {
+  display: grid;
+  gap: 14px;
+}
+
+.businessGroup {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.businessGroup > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.businessGroup h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.businessGroup > header span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.shortcutCard {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  min-height: 58px;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.shortcutCard > strong {
+  font-size: 13px;
+}
+
+.shortcutIcon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--bg-card));
+  color: var(--color-primary);
 }
 
 .directoryToolbar {
@@ -232,6 +369,38 @@
 }
 
 @media (max-width: 520px) {
+  .page {
+    gap: 16px;
+  }
+
+  .page :global(.ds-hero) {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .page :global(.ds-hero-copy h1),
+  .workbenchHeader h1 {
+    font-size: 28px;
+  }
+
+  .page > :global(.ds-kpi-grid) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .page > :global(.ds-kpi-grid) :global(.ds-kpi-card) {
+    min-height: 94px;
+    padding: 12px 10px;
+  }
+
+  .page > :global(.ds-kpi-grid) :global(.ds-kpi-card) strong {
+    font-size: 24px;
+  }
+
+  .page > :global(.ds-kpi-grid) :global(.ds-kpi-card) small {
+    display: none;
+  }
+
   .workbenchHeader {
     align-items: stretch;
     flex-direction: column;
@@ -254,6 +423,7 @@
 
   .sectionHeader {
     flex-direction: column;
+    gap: 8px;
   }
 
   .heroSummary {
@@ -286,6 +456,50 @@
     width: 100%;
     min-height: 44px;
     justify-content: center;
+  }
+
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .metricCard {
+    grid-template-columns: 38px minmax(0, 1fr) auto auto;
+    min-height: 78px;
+    padding: 12px;
+  }
+
+  .metricCard strong {
+    grid-column: 3;
+  }
+
+  .metricCard small {
+    grid-column: 2 / 4;
+  }
+
+  .metricArrow {
+    display: block;
+    grid-column: 4;
+    grid-row: 1 / 3;
+    color: var(--text-secondary);
+  }
+
+  .businessGroup {
+    padding: 14px;
+  }
+
+  .shortcutGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .shortcutCard {
+    grid-template-columns: 30px minmax(0, 1fr);
+    min-height: 58px;
+    padding: 10px;
+  }
+
+  .shortcutCard > svg:last-child {
+    display: none;
   }
 }
 
