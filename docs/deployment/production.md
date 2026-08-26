@@ -794,6 +794,23 @@ Use these checks for shared, staging, pre-production, and production acceptance 
 pnpm prod:health
 ```
 
+### Classified Production Deployment
+
+The single `Deploy Production` workflow classifies the complete change set against the last deployed release marker. It uses `scripts/resolve-production-deploy-scope.mjs`; unknown paths and missing or invalid release baselines fail closed to `full`.
+
+| Mode | Intended change | Build/restart | Database |
+| --- | --- | --- | --- |
+| `fast-css` | only `runtime-design-system.css` | copy CSS into the running Web container | none |
+| `web` | `apps/web` or `packages/ui` only | build/restart Web only | none |
+| `api` | `apps/api` only, without migration files | build/restart API only | none |
+| `database` | migrations or production seeds only | restart the existing API after the guarded migration | migrate and optionally seed |
+| `full` | mixed layers, shared/config/lockfile, infrastructure, workflow, or unknown paths | build/restart API and Web | guarded migration and optional seed |
+| `ops-only` | documentation and Trellis governance only | no production mutation | none |
+
+An API and database change in the same release is deliberately promoted to `full`, because the new application binary and schema must be verified and released together. Production-seed changes can never remain in `web`, `fast-css`, or `ops-only`. All mutating modes retain serial execution, the deployment-path boundary, source rollback snapshot, health checks, protected-account acceptance, release marker, and Docker cleanup.
+
+Manual `auto` mode uses the same classifier. An explicit narrow mode is accepted only when it exactly matches the classified scope; `full` is always allowed as the safe override. A mismatched narrow request fails before production mutation.
+
 Supported modes:
 
 - `MODE=liveness`
