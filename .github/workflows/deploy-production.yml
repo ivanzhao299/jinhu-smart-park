@@ -80,6 +80,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Enable pnpm
         if: ${{ needs.classify.outputs.mode != 'ops-only' && needs.classify.outputs.mode != 'fast-css' }}

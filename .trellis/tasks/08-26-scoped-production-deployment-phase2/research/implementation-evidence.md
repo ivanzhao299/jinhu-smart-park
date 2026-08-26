@@ -23,3 +23,9 @@
 - Fresh fetch and three-end SHA check before commit/PR.
 - GitHub CI and required Release Smoke.
 - Merge, production deployment, runtime SHA, health, protected-account acceptance, and cleanup evidence.
+
+## Post-merge release correction
+
+- Merge `84d6a06353acdd029c870866626cfdbafe068bd3` passed the main CI lint/typecheck/unit/build job, but its production verification failed closed before deployment.
+- The only failure was the signed real-HTTP gate invoking `git merge-base --is-ancestor` for fixed commit `0152616f...` from the verify job's default shallow checkout. The same gate passes in the full-history main CI checkout.
+- The production verify checkout now uses `fetch-depth: 0`; the deployment route contract freezes that requirement so future workflow edits cannot silently remove the required signed history.
