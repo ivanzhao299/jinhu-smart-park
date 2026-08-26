@@ -1,7 +1,7 @@
 {
-  "id": "housing-full-flow-browser-uat",
-  "name": "housing-full-flow-browser-uat",
-  "title": "住房出租全流程真实浏览器 UAT 与缺陷闭环",
+  "id": "fix-housing-04-mode-executor-sql",
+  "name": "fix-housing-04-mode-executor-sql",
+  "title": "修复住房经营模式审批执行 SQL 参数类型",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -13,15 +13,13 @@
   "createdAt": "2026-08-26",
   "completedAt": null,
   "branch": null,
-  "base_branch": "codex/post-homestay-retest-20260826",
+  "base_branch": "codex/fix-housing-04-mode-executor-sql",
   "worktree_path": null,
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "08-26-fix-housing-04-mode-executor-sql"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "08-26-housing-full-flow-browser-uat",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

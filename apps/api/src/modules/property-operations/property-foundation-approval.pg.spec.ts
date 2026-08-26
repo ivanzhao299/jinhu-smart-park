@@ -8,10 +8,119 @@ import type {
 } from "../property-approvals/property-approval.ports";
 import { PropertyFoundationApprovalAdapter } from
   "./property-foundation-approval.adapter";
+import { PropertyOperationsService } from "./property-operations.service";
 
 const databaseUrl = process.env.PROPERTY_FOUNDATION_PG_URL;
 const modeAction = "property.mode-transition.request" as const;
 const occupancyAction = "property.occupancy.force-release.request" as const;
+
+test("approved mode transition executes with stable PostgreSQL parameter types", {
+  skip: !databaseUrl,
+  timeout: 30_000
+}, async () => {
+  const dataSource = new DataSource({ type: "postgres", url: databaseUrl });
+  await dataSource.initialize();
+  const runner = dataSource.createQueryRunner();
+  await runner.connect();
+  await runner.startTransaction();
+  const manager = runner.manager;
+  const tenantId = randomUUID();
+  const parkId = randomUUID();
+  const actorId = randomUUID();
+  const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+  const service = new PropertyOperationsService(
+    {} as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, {} as never, dataSource
+  );
+  const privateService = service as unknown as {
+    buildTransitionSnapshot(
+      manager: EntityManager,
+      scope: { tenantId: string; parkId: string },
+      unitId: string,
+      targetMode: "long_rent"
+    ): Promise<{ blocking_reasons: string[] }>;
+  };
+
+  try {
+    await manager.query(
+      `INSERT INTO biz_park(tenant_id,park_id,park_code,park_name)
+       VALUES($1,$2,$3,'Mode snapshot PG park')`,
+      [tenantId, parkId, `P-${suffix}`]
+    );
+    const { unitId } = await createUnit(manager, {
+      tenantId, parkId, actorId, suffix, aggregate: "complete", audit: false
+    });
+    const snapshot = await privateService.buildTransitionSnapshot(
+      manager, { tenantId, parkId }, unitId, "long_rent"
+    );
+    assert.deepEqual(snapshot.blocking_reasons, []);
+    const configId = randomUUID();
+    const requestId = randomUUID();
+    const executionKey = `mode-execute-${suffix}`;
+    const payload = {
+      unitId,
+      configId,
+      fromMode: "none",
+      targetMode: "long_rent",
+      operatingStatus: "enabled",
+      reason: "PG parameter regression",
+      actorName: "PG operator",
+      checkSnapshot: snapshot
+    };
+    await manager.query(
+      `INSERT INTO biz_property_operation_config(
+         id,tenant_id,park_id,unit_id,operating_mode,operating_status,version)
+       VALUES($1,$2,$3,$4,'none','enabled',1)`,
+      [configId, tenantId, parkId, unitId]
+    );
+    await manager.query(
+      `INSERT INTO biz_property_approval_request(
+         id,tenant_id,park_id,action_id,source_type,source_id,source_expected_version,
+         requester_id,submitter_id,client_idempotency_key,business_intent_key,
+         canonical_payload,payload_schema_version,payload_hash,policy_id,policy_version,
+         policy_hash,decision_status,execution_status,execution_idempotency_key)
+       VALUES($1,$2,$3,$4,'property-operation-config',$5,1,$6,$6,$7,$8,$9::jsonb,1,
+         $10,$11,1,$10,'approved','not_started',$12)`,
+      [requestId, tenantId, parkId, modeAction, configId, actorId,
+        `client-${suffix}`, `intent-${suffix}`, JSON.stringify(payload),
+        "c".repeat(64), randomUUID(), executionKey]
+    );
+    await manager.query(
+      `INSERT INTO biz_property_execution_effect_manifest(
+         tenant_id,park_id,request_id,effect_kind,effect_ordinal,effect_line_key,
+         owning_table,owning_unique_name,expected_cardinality,invariant_hash)
+       VALUES($1,$2,$3,'property.mode.transition',0,$4,
+         'biz_property_mode_transition_log','uq_property_mode_transition_approval_line',2,$5)`,
+      [tenantId, parkId, requestId, `mode-${suffix}`, "a".repeat(64)]
+    );
+    await service.executeApprovedModeTransition({
+      manager,
+      requestId,
+      executionIdempotencyKey: executionKey,
+      canonicalPayload: payload,
+      sourceExpectedVersion: 1,
+      request: { tenantId, parkId, sourceId: configId, sourceExpectedVersion: 1 }
+    });
+    const [updated] = await manager.query(
+      `SELECT operating_mode AS "operatingMode", version
+         FROM biz_property_operation_config
+        WHERE tenant_id=$1 AND park_id=$2 AND id=$3`,
+      [tenantId, parkId, configId]
+    ) as Array<{ operatingMode: string; version: number }>;
+    assert.deepEqual(updated, { operatingMode: "long_rent", version: 2 });
+    const [audit] = await manager.query(
+      `SELECT to_mode AS "toMode", approval_execution_key AS "executionKey"
+         FROM biz_property_mode_transition_log
+        WHERE tenant_id=$1 AND park_id=$2 AND source_config_id=$3`,
+      [tenantId, parkId, configId]
+    ) as Array<{ toMode: string; executionKey: string }>;
+    assert.deepEqual(audit, { toMode: "long_rent", executionKey });
+  } finally {
+    if (runner.isTransactionActive) await runner.rollbackTransaction();
+    await runner.release();
+    await dataSource.destroy();
+  }
+});
 
 test("property foundation proof and reconcile require both audit and matching aggregate truth", {
   skip: !databaseUrl,
