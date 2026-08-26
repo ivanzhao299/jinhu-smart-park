@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "08-26-fix-housing-04-mode-executor-sql",
-    "08-26-08-26-fix-housing-03-deeplink-source"
+    "08-26-08-26-fix-housing-03-deeplink-source",
+    "08-26-08-26-fix-housing-g01-uat-runtime-entry"
   ],
   "parent": null,
   "relatedFiles": [],
