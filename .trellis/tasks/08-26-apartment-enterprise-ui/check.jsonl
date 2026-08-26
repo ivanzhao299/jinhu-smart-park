@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify Design System and desktop/mobile production page contracts"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Verify the six pages do not drift through duplicated navigation markup"}

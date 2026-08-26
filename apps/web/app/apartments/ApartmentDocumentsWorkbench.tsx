@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Download, FileSignature, Printer, RefreshCw, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PermissionGuard } from "../../components/auth/PermissionGuard";
@@ -8,8 +7,8 @@ import { FileUploader } from "../../components/files/FileUploader";
 import { getAccessToken } from "../../lib/authz";
 import { apartmentsApi, type ApartmentRecord } from "../../lib/apartments-api";
 import styles from "./ApartmentWorkbench.module.css";
+import { ApartmentSectionNav } from "./ApartmentSectionNav";
 
-const nav=[['总览','/apartments'],['房源','/apartments/rooms'],['申请','/apartments/applications'],['在住','/apartments/stays'],['退房','/apartments/checkouts'],['文书','/apartments/documents']] as const;
 const statusLabels:Record<string,string>={pending_signature:'待签署',online_signed:'线上已签',paper_signed:'纸签已归档',void:'已作废'};
 
 export function ApartmentDocumentsWorkbench(){
@@ -28,7 +27,7 @@ export function ApartmentDocumentsWorkbench(){
  const forbidden=<main className="content ds-page"><section className="ds-panel"><h1>无权访问文书档案</h1></section></main>;
  return <PermissionGuard module="apartment" permission="apartment:documents" fallback={forbidden}><main className="content ds-page">
   <section className={`ds-hero ${styles.hero}`}><div className={`ds-hero-copy ${styles.heroCopy}`}><span className="ds-eyebrow">集团人才公寓 · 正式文书中心</span><h1>文书档案</h1><p>生成正式文本、打印签字、线上签署和签后归档全程留痕。</p></div><div className={`ds-action-bar ${styles.heroActions}`}><button className="ds-button ds-button-secondary" onClick={()=>void load()}><RefreshCw size={16}/>刷新</button></div></section>
-  <nav aria-label="公寓管理栏目" className={styles.nav}>{nav.map(([n,h])=><Link aria-current={h==='/apartments/documents'?'page':undefined} href={h} key={h}>{n}</Link>)}</nav>
+  <ApartmentSectionNav active="documents"/>
   {message?<p className="form-error">{message}</p>:null}
   <section className={`ds-panel ${styles.panel}`}><header className={styles.sectionHeader}><div><h2>默认入住理由</h2><p>新建申请自动带出，申请人仍可按实际情况修改；不会改写历史申请。</p></div></header><div className={styles.settingsForm}><label className="form-field"><span>默认内容</span><textarea maxLength={1000} value={defaultReason} onChange={e=>setDefaultReason(e.target.value)} /></label><button className="ds-button ds-button-secondary" onClick={()=>void saveReason()}>保存默认理由</button></div></section>
   <section className={`ds-panel ${styles.panel}`}><header className={styles.sectionHeader}><div><h2>生成正式文书</h2><p>选择已发布模板并关联业务记录，系统将生成可打印、可签署的正式版本。</p></div></header><div className={styles.form}><label className="form-field"><span>文书模板</span><select value={templateId} onChange={e=>setTemplateId(e.target.value)}><option value="">请选择</option>{templates.map(t=><option key={t.id} value={t.id}>{String(t.title)} · V{String(t.version_no)}</option>)}</select></label><label className={`form-field ${styles.wide}`}><span>关联{usesStay?'入住记录':'申请记录'}</span><select value={targetId} onChange={e=>setTargetId(e.target.value)}><option value="">请选择</option>{targets.map(x=><option key={x.id} value={x.id}>{String(x.applicant_name??x.occupant_name)} · {String(x.application_code??x.stay_code)}</option>)}</select></label><div className={styles.formActions}><button className="ds-button ds-button-primary" onClick={()=>void generate()}><FileSignature size={16}/>生成待签文书</button></div></div></section>
