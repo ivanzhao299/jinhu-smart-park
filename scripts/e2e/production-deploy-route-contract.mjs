@@ -37,6 +37,7 @@ const deployStep = source.indexOf("      - name: Deploy\n");
 const classifyJob = source.indexOf("  classify:\n");
 const verifyJob = source.indexOf("  verify:\n");
 const verifiedScopeGate = source.indexOf("Enforce verified deployment scope");
+const verifyJobSource = source.slice(verifyJob, source.indexOf("  deploy:\n"));
 
 assert.ok(boundaryGate >= 0, "production workflow must call the path boundary gate");
 assert.ok(
@@ -46,6 +47,11 @@ assert.ok(
 assert.ok(boundaryGate < deployStep, "path boundary gate must run before deployment");
 assert.ok(classifyJob >= 0 && classifyJob < verifyJob, "classification must run before verification");
 assert.match(source, /verify:\n[\s\S]*?needs: classify/);
+assert.match(
+  verifyJobSource,
+  /- name: Checkout\n\s+uses: actions\/checkout@v5\n\s+with:\n\s+fetch-depth: 0/,
+  "production verification must retain the signed gate's fixed ancestor commit",
+);
 assert.match(source, /deploy:\n[\s\S]*?needs: \[classify, verify\]/);
 assert.match(source, /needs\.classify\.outputs\.mode != 'ops-only'/);
 assert.ok(verifiedScopeGate > deploymentMode && verifiedScopeGate < deployStep);
