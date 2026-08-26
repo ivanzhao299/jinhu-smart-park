@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 const allowedTargets = new Set(["local", "disposable", "test", "ci"]);
 const target = process.env.PROPERTY_APPROVAL_RUNTIME_TARGET ?? "";
 const allowWrite = process.env.ALLOW_PROPERTY_APPROVAL_RUNTIME_ENABLE === "yes";
@@ -65,6 +65,51 @@ function validate() {
   requireValue("PROPERTY_APPROVAL_RUNTIME_APPROVAL_REFERENCE", approvalReference, /^[A-Za-z0-9_.:@/-]+$/);
   requireValue("PROPERTY_APPROVAL_RUNTIME_REQUEST_ID", requestId, /^[A-Za-z0-9_.:@/-]+$/);
   if (!/^\d+$/.test(expectedVersion)) fail("PROPERTY_APPROVAL_RUNTIME_EXPECTED_VERSION must be an integer");
+}
+
+function runDocker(args, stdin = "") {
+  const executable = process.env.PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN ?? "docker";
+  return new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(executable, args, { stdio: [stdin ? "pipe" : "ignore", "pipe", "pipe"] });
+    let stdoutBuffer = "";
+    let stderrBuffer = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => { stdoutBuffer += chunk; });
+    child.stderr.setEncoding("utf8").on("data", (chunk) => { stderrBuffer += chunk; });
+    child.on("error", rejectPromise);
+    child.on("close", (code) => code === 0
+      ? resolvePromise({ stdout: stdoutBuffer, stderr: stderrBuffer })
+      : rejectPromise(new Error(`docker command failed (${code}): ${stderrBuffer.trim()}`)));
+    if (stdin) child.stdin.end(stdin);
+  });
+}
+
+async function validateDisposableContainer() {
+  const composeArgs = ["compose", "-f", composeFile, "-p", composeProject];
+  const { stdout: psOutput } = await runDocker([...composeArgs, "ps", "-q", postgresService]);
+  const containerIds = psOutput.trim().split(/\s+/).filter(Boolean);
+  if (containerIds.length !== 1 || !/^[a-f0-9]{12,64}$/i.test(containerIds[0])) {
+    fail("the disposable compose scope must resolve exactly one PostgreSQL container");
+  }
+  const { stdout: inspectOutput } = await runDocker([
+    "inspect", "--format", "{{json .Config}}", containerIds[0]
+  ]);
+  let config;
+  try {
+    config = JSON.parse(inspectOutput.trim());
+  } catch {
+    fail("could not inspect the selected PostgreSQL container identity");
+  }
+  const labels = config?.Labels ?? {};
+  const env = Array.isArray(config?.Env) ? config.Env : [];
+  const configuredDb = env.find((entry) => entry.startsWith("POSTGRES_DB="))?.slice("POSTGRES_DB=".length);
+  const configFiles = String(labels["com.docker.compose.project.config_files"] ?? "")
+    .split(",").filter(Boolean).map((file) => realpathSync(file));
+  if (labels["com.docker.compose.project"] !== composeProject
+      || labels["com.docker.compose.service"] !== postgresService
+      || configFiles.length !== 1 || configFiles[0] !== realpathSync(composeFile)
+      || configuredDb !== postgresDb) {
+    fail("selected container is not bound to the disposable housing UAT compose and database");
+  }
 }
 
 const sql = String.raw`
@@ -133,6 +178,7 @@ SELECT request_id, action, success, op_time
 `;
 
 validate();
+await validateDisposableContainer();
 const args = [
   "compose", "-f", composeFile, "-p", composeProject, "exec", "-T", postgresService,
   "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", postgresUser, "-d", postgresDb,
@@ -142,19 +188,7 @@ const args = [
   "-v", `audit_id=${auditId}`,
   "-v", `contract_hash=${contractHash}`
 ];
-const executable = process.env.PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN ?? "docker";
-const { stdout, stderr } = await new Promise((resolvePromise, rejectPromise) => {
-  const child = spawn(executable, args, { stdio: ["pipe", "pipe", "pipe"] });
-  let stdoutBuffer = "";
-  let stderrBuffer = "";
-  child.stdout.setEncoding("utf8").on("data", (chunk) => { stdoutBuffer += chunk; });
-  child.stderr.setEncoding("utf8").on("data", (chunk) => { stderrBuffer += chunk; });
-  child.on("error", rejectPromise);
-  child.on("close", (code) => code === 0
-    ? resolvePromise({ stdout: stdoutBuffer, stderr: stderrBuffer })
-    : rejectPromise(new Error(`docker compose psql failed (${code}): ${stderrBuffer.trim()}`)));
-  child.stdin.end(sql);
-});
+const { stdout, stderr } = await runDocker(args, sql);
 if (stderr.trim()) process.stderr.write(stderr);
 process.stdout.write(`[AUDIT] target=${target} compose_project=${composeProject} tenant=${tenantId} park=${parkId} actor=${actorName} approval_reference=${approvalReference} request_id=${requestId}\n`);
 process.stdout.write(stdout);

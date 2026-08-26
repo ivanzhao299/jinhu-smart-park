@@ -12,10 +12,20 @@ const runId = "20990101-010203";
 const disposableRoot = `/tmp/jinhu-housing-uat-${runId}`;
 const compose = join(disposableRoot, "compose.yml");
 const fakeDocker = join(temp, "docker");
+const fakeContainerId = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 import { mkdirSync } from "node:fs";
 mkdirSync(disposableRoot, { recursive: true });
 writeFileSync(compose, "services:\n  postgres:\n    image: postgres\n");
-writeFileSync(fakeDocker, "#!/bin/sh\ncat > \"$CAPTURE_SQL\"\nprintf 'approval.enforce|t|enforce|4|UAT-REF\\nREQ-1|uat-enable|t|now\\n'\n", { mode: 0o700 });
+writeFileSync(fakeDocker, `#!/bin/sh
+if [ "$1" = "compose" ] && [ "$6" = "ps" ]; then
+  printf '%s\\n' "${fakeContainerId}"
+elif [ "$1" = "inspect" ]; then
+  printf '{"Labels":{"com.docker.compose.project":"%s","com.docker.compose.service":"postgres","com.docker.compose.project.config_files":"%s"},"Env":["POSTGRES_DB=%s"]}\\n' "$FAKE_COMPOSE_PROJECT" "$FAKE_COMPOSE_FILE" "$FAKE_POSTGRES_DB"
+else
+  cat > "$CAPTURE_SQL"
+  printf 'approval.enforce|t|enforce|4|UAT-REF\\nREQ-1|uat-enable|t|now\\n'
+fi
+`, { mode: 0o700 });
 
 const baseEnv = {
   ...process.env,
@@ -35,6 +45,9 @@ const baseEnv = {
   PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN: fakeDocker,
   POSTGRES_USER: "jinhu",
   POSTGRES_DB: "jinhu_housing_uat_20990101_010203",
+  FAKE_COMPOSE_PROJECT: `jinhu-housing-uat-${runId}`,
+  FAKE_COMPOSE_FILE: compose,
+  FAKE_POSTGRES_DB: "jinhu_housing_uat_20990101_010203",
   CAPTURE_SQL: join(temp, "captured.sql")
 };
 
@@ -43,6 +56,13 @@ try {
   assert.notEqual(rejected.status, 0);
   assert.match(rejected.stderr, /production-like.*forbidden/);
   assert.equal(existsSync(baseEnv.CAPTURE_SQL), false, "production rejection must happen before docker runs");
+
+  const disguisedProduction = spawnSync(process.execPath, [script], {
+    env: { ...baseEnv, NODE_ENV: "test", FAKE_POSTGRES_DB: "jinhu_smart_park" }, encoding: "utf8"
+  });
+  assert.notEqual(disguisedProduction.status, 0);
+  assert.match(disguisedProduction.stderr, /not bound to the disposable housing UAT compose and database/);
+  assert.equal(existsSync(baseEnv.CAPTURE_SQL), false, "container identity rejection must happen before SQL runs");
 
   const enabled = spawnSync(process.execPath, [script], { env: { ...baseEnv, NODE_ENV: "test" }, encoding: "utf8" });
   assert.equal(enabled.status, 0, enabled.stderr);
