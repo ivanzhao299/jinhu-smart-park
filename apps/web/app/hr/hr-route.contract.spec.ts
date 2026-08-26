@@ -92,6 +92,22 @@ test("HR enterprise panels keep text away from rounded borders on desktop and ph
  assert.match(phone,/\.page > :global\(\.ds-panel\)\s*\{\s*padding:\s*18px;/);
 });
 
+test("payroll training and rewards share the enterprise HR page hierarchy",()=>{
+ const payroll=readFileSync(resolve(__dirname,"payroll/HrPayrollClient.tsx"),"utf8"),payrollCss=readFileSync(resolve(__dirname,"payroll/payroll.module.css"),"utf8"),training=readFileSync(resolve(__dirname,"training/HrTrainingClient.tsx"),"utf8"),rewards=readFileSync(resolve(__dirname,"rewards/HrRewardsClient.tsx"),"utf8");
+ assert.match(payroll,/className={`ds-panel \$\{styles\.workspaceNav\}`}/);
+ for(const label of ["在线工资","历史工资","规则复核","双轨差异"])assert.match(payroll,new RegExp(`label: "${label}"`));
+ assert.match(payroll,/description: "工资期间、批次复核与冻结"/);
+ assert.match(payrollCss,/\.tabs \{ display:grid; grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+ assert.match(payrollCss,/@media \(max-width:420px\)[\s\S]*?\.tabs \{ grid-template-columns:1fr; \}/);
+ assert.doesNotMatch(payrollCss,/border-radius:999px/);
+ for(const source of [training,rewards]){
+  assert.match(source,/className="ds-hero"/);
+  assert.match(source,/className="ds-hero-copy"/);
+  assert.match(source,/styles\.heroActions/);
+  assert.doesNotMatch(source,/className=\{styles\.workbenchHeader\}/);
+ }
+});
+
 test("HR M4 employee directory is list-first with explicit create and filters",()=>{
   const employees=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
   assert.match(employees,/createOpen\?"收起新增":"新增员工"/);

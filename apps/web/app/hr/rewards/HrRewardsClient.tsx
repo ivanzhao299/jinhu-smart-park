@@ -225,11 +225,13 @@ export function HrRewardsClient() {
       fallback={forbidden}
     >
       <main className={`content ds-page ${styles.page}`}>
-        <section className={styles.workbenchHeader}>
-          <div>
-            <span className="ds-eyebrow">人事运营</span>
+        <section className="ds-hero">
+          <div className="ds-hero-copy">
+            <span className="ds-eyebrow">人事运营 · 员工关系</span>
             <h1>奖惩管理</h1>
+            <p>按制度维护奖励与处分事项，保留提交、审核、证据和后续引用的完整记录。</p>
           </div>
+          <div className={styles.heroActions}>
           <button
             className="ds-button"
             disabled={loading}
@@ -237,6 +239,7 @@ export function HrRewardsClient() {
           >
             {loading ? "刷新中" : "刷新"}
           </button>
+          </div>
         </section>
         {error ? (
           <section className="ds-panel">
