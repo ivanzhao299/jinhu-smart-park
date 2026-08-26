@@ -41,6 +41,40 @@ test("property menus expose the shared 8/9 canonical surfaces with exact page pe
   assert.equal(FIRST_RELEASE_MENU_PATH_SET.has("/housing"), false);
 });
 
+test("HR is a discoverable first-level sidebar module with every production page permission", () => {
+  const hr = getDashboardMenus().find((menu) => menu.module === "hr");
+  assert.equal(hr?.label, "人力资源管理");
+  assert.deepEqual(
+    hr?.children?.map(({ href, permission, module }) => ({ href, permission, module })),
+    [
+      ["/hr", "hr:dashboard"], ["/hr/organization", "hr:organization"], ["/hr/employees", "hr:employees"],
+      ["/hr/recruitment", "hr:recruitment"], ["/hr/lifecycle", "hr:lifecycle"], ["/hr/contracts", "hr:contracts"],
+      ["/hr/attendance", "hr:attendance"], ["/hr/insurance", "hr:insurance"], ["/hr/compensation", "hr:compensation"],
+      ["/hr/payroll", "hr:payroll"], ["/hr/goals", "hr:goals"], ["/hr/work-reports", "hr:work_reports"],
+      ["/hr/performance", "hr:performance"], ["/hr/feedback-360", "hr:feedback_360"], ["/hr/talent", "hr:talent"],
+      ["/hr/training", "hr:training"], ["/hr/rewards", "hr:rewards"], ["/hr/approvals", "hr:approvals"]
+    ].map(([href, permission]) => ({ href, permission, module: "hr" }))
+  );
+  for (const child of hr?.children ?? []) {
+    assert.equal(FIRST_RELEASE_MENU_PATH_SET.has(child.href ?? ""), true);
+    assert.equal(findMenuByPath(child.href ?? "", getDashboardMenus())?.permission, child.permission);
+  }
+});
+
+test("backend HR metadata merges into the canonical HR sidebar without duplicate entries", () => {
+  const backendMenus = [{
+    label: "人力资源管理",
+    module: "hr",
+    children: [
+      { label: "人才发展", href: "/hr/talent", permission: "hr:talent", module: "hr" },
+      { label: "未来人事扩展", href: "/hr/future", permission: "hr:future", module: "hr" }
+    ]
+  }] satisfies UserMenuTreeNode[];
+  const hr = getDashboardMenus(backendMenus).find((menu) => menu.module === "hr");
+  assert.equal(hr?.children?.filter((child) => child.href === "/hr/talent").length, 1);
+  assert.equal(hr?.children?.filter((child) => child.href === "/hr/future").length, 1);
+});
+
 test("backend projection cannot restore legacy operations entries or duplicate canonical surfaces", () => {
   const backendGroups = (["homestay", "housing_rental"] as const).map((moduleCode) => ({
     label: moduleCode === "homestay" ? "民宿管理" : "住房出租",

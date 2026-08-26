@@ -325,6 +325,31 @@ export const dashboardMenus: MenuNode[] = [
     ]
   },
   {
+    label: "人力资源管理",
+    icon: BriefcaseBusiness,
+    module: "hr",
+    children: [
+      { label: "人力资源工作台", href: "/hr", permission: "hr:dashboard", module: "hr" },
+      { label: "组织与岗位", href: "/hr/organization", permission: "hr:organization", module: "hr" },
+      { label: "员工档案", href: "/hr/employees", permission: "hr:employees", module: "hr" },
+      { label: "招聘管理", href: "/hr/recruitment", permission: "hr:recruitment", module: "hr" },
+      { label: "入离职办理", href: "/hr/lifecycle", permission: "hr:lifecycle", module: "hr" },
+      { label: "劳动合同", href: "/hr/contracts", permission: "hr:contracts", module: "hr" },
+      { label: "考勤管理", href: "/hr/attendance", permission: "hr:attendance", module: "hr" },
+      { label: "五险一金", href: "/hr/insurance", permission: "hr:insurance", module: "hr" },
+      { label: "薪酬方案", href: "/hr/compensation", permission: "hr:compensation", module: "hr" },
+      { label: "工资核算", href: "/hr/payroll", permission: "hr:payroll", module: "hr" },
+      { label: "战略与目标", href: "/hr/goals", permission: "hr:goals", module: "hr" },
+      { label: "工作汇报", href: "/hr/work-reports", permission: "hr:work_reports", module: "hr" },
+      { label: "绩效考核", href: "/hr/performance", permission: "hr:performance", module: "hr" },
+      { label: "360评价", href: "/hr/feedback-360", permission: "hr:feedback_360", module: "hr" },
+      { label: "人才发展", href: "/hr/talent", permission: "hr:talent", module: "hr" },
+      { label: "培训管理", href: "/hr/training", permission: "hr:training", module: "hr" },
+      { label: "奖惩管理", href: "/hr/rewards", permission: "hr:rewards", module: "hr" },
+      { label: "人事审批", href: "/hr/approvals", permission: "hr:approvals", module: "hr" }
+    ]
+  },
+  {
     label: "IoT 平台",
     icon: Cpu,
     module: "iot",
@@ -644,6 +669,9 @@ function inferMenuModule(menu: MenuNode): string | undefined {
   }
   if (href.startsWith("/workorders") || href.startsWith("/tenant/service") || href.startsWith("/workflow") || permission.startsWith("workorder")) {
     return "workorder";
+  }
+  if (href === "/hr" || href.startsWith("/hr/") || permission === "hr" || permission.startsWith("hr:")) {
+    return "hr";
   }
   if (href.startsWith("/safety") || permission.startsWith("safety")) {
     return "safety";
