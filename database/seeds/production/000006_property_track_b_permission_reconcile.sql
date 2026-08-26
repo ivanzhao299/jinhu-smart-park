@@ -389,8 +389,8 @@ BEGIN
   END IF;
   IF bundle_count <> 16
      OR bundle_member_count <> 131
-     OR bundle_permission_count <> 56
-     OR resolved_bundle_permission_count <> 56 THEN
+     OR bundle_permission_count <> 57
+     OR resolved_bundle_permission_count <> 57 THEN
     RAISE EXCEPTION
       'property-track-b-seed-bundle-resolution-failed: bundles=%, members=%, permissions=%, resolved=%',
       bundle_count, bundle_member_count, bundle_permission_count,
