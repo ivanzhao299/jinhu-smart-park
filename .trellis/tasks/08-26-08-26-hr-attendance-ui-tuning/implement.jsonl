@@ -1,0 +1,2 @@
+{"file":".trellis/spec/web/frontend/index.md","reason":"HR attendance is a production Web surface and must follow the shared design system, authorization UI, pagination, and mobile contracts."}
+{"file":".trellis/spec/guides/index.md","reason":"Apply repository-wide implementation, validation, and change-discipline guidance."}
