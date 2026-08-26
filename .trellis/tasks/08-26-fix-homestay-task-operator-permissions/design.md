@@ -3,7 +3,7 @@
 ## Boundary
 
 - Shared 继续作为 bundle/template 权限集合与冻结签名的源码所有者。
-- 新 forward migration 只把新增的既有系统权限投影到数据库 bundle，并升级 bundle revision/signature；不编辑历史 migration。
+- `000262` 在生产仅有失败记录且事务已回滚，因此按 failed-only retry 契约原位修正其 preflight；不新增无法越过先行 fail-fast 的后续 migration。
 - Production seed 继续只维护受保护角色模板及其权限关系，不创建用户或业务 fixture。
 
 ## Data Flow
@@ -19,4 +19,5 @@
 ## Rollback Shape
 
 - migration forward-only，不提供反向删除；若发布前失败只修复未成功 migration。
+- 每个已应用目标 bundle 的 tenant 必须恰有一条 active API permission；缺失、重复或异常状态均按 tenant 明细 fail closed，不改生产权限数据。
 - shared/seed 必须与 migration 同批发布，避免签名漂移。
