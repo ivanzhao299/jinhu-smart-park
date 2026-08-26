@@ -34,6 +34,9 @@ const boundaryGate = source.indexOf(
 );
 const deploymentMode = source.indexOf("Resolve deployment mode");
 const deployStep = source.indexOf("      - name: Deploy\n");
+const classifyJob = source.indexOf("  classify:\n");
+const verifyJob = source.indexOf("  verify:\n");
+const verifiedScopeGate = source.indexOf("Enforce verified deployment scope");
 
 assert.ok(boundaryGate >= 0, "production workflow must call the path boundary gate");
 assert.ok(
@@ -41,6 +44,12 @@ assert.ok(
   "path boundary gate must run before deployment mode resolution",
 );
 assert.ok(boundaryGate < deployStep, "path boundary gate must run before deployment");
+assert.ok(classifyJob >= 0 && classifyJob < verifyJob, "classification must run before verification");
+assert.match(source, /verify:\n[\s\S]*?needs: classify/);
+assert.match(source, /deploy:\n[\s\S]*?needs: \[classify, verify\]/);
+assert.match(source, /needs\.classify\.outputs\.mode != 'ops-only'/);
+assert.ok(verifiedScopeGate > deploymentMode && verifiedScopeGate < deployStep);
+assert.match(source, /scripts\/assert-verified-production-deploy-scope\.mjs/);
 assert.match(
   source,
   /scripts\/validate-production-deploy-path\.sh/,
@@ -52,6 +61,10 @@ assert.match(
   "production deployment must retain post-health Docker cleanup",
 );
 assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
+assert.match(source, /scripts\/production-deploy-transfer-manifest\.mjs/);
+assert.match(source, /production-deploy-transfer\.contract\.mjs/);
+assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);
+assert.match(source, /rsync -az --delete[\s\S]*?--exclude='node_modules\/'[\s\S]*?"\$path\/"/);
 assert.match(source, /- database/);
 assert.match(source, /mode != 'ops-only'/);
 assert.match(source, /mode == 'database' \|\| steps\.deploy-mode\.outputs\.mode == 'full'/);

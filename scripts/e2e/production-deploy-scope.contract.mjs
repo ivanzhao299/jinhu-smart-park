@@ -42,5 +42,6 @@ assert.deepEqual(
   { build_web: database.build_web, build_api: database.build_api, run_migrations: database.run_migrations, deploy: database.deploy },
   { build_web: false, build_api: false, run_migrations: true, deploy: true },
 );
+assert.equal(classify(["apps/api/src/app.module.ts"]).run_migrations, false);
 
 console.log("Production deploy scope contract passed.");
