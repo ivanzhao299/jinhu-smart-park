@@ -6,7 +6,7 @@ Track Issue #420: reproduce and fix PropertyTaskReconciliationScheduler PostgreS
 
 ## Requirements
 
-- Reproduce Issue #420 against disposable PostgreSQL with housing billing, repair, purchase, lease, and handover sources.
+- Reproduce Issue #420 against disposable PostgreSQL with housing billing, repair, purchase, lease, handover, and the shared `homestay_turnover` scheduler source.
 - Identify the exact reconciliation query/bind that causes PostgreSQL to infer incompatible types for parameter 1.
 - Preserve tenant/park scoping, runtime-control fail-closed behavior, retries, and task projection idempotency.
 - Add focused real-PostgreSQL regression coverage and rerun the housing UAT gates affected by task projection.
@@ -14,7 +14,7 @@ Track Issue #420: reproduce and fix PropertyTaskReconciliationScheduler PostgreS
 ## Acceptance Criteria
 
 - [ ] A focused test fails on the pre-fix query with the observed PostgreSQL error.
-- [ ] All five housing source types reconcile without parameter inference errors.
+- [ ] All five housing source types and `homestay_turnover` reconcile without parameter inference errors.
 - [ ] Completed work-order status 60 remains excluded from eligibility while completed history remains queryable.
 - [ ] Relevant lint, typecheck, unit/PG tests, CI, review, merge, and main Deploy are green.
 - [ ] Housing UAT report is updated with fixture-scoped before/after residual evidence.
