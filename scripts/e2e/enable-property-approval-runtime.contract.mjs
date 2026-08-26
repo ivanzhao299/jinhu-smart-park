@@ -69,12 +69,17 @@ try {
   assert.match(enabled.stdout, /\[AUDIT\].*approval_reference=UAT-REF.*request_id=REQ-1/);
   const sql = readFileSync(baseEnv.CAPTURE_SQL, "utf8");
   assert.match(sql, /BEGIN;[\s\S]*FOR UPDATE;[\s\S]*UPDATE public\.sys_property_runtime_control/);
+  assert.match(sql, /SET LOCAL lock_timeout = '5s';[\s\S]*SET LOCAL statement_timeout = '30s';/);
   assert.match(sql, /public\.sys_user[\s\S]*username=input_row\.actor_name/);
+  assert.doesNotMatch(sql, /tenant_id\s*=\s*input_row\.tenant_id::uuid|park_id\s*=\s*input_row\.park_id::uuid/);
   assert.match(sql, /control_kind <> 'enforce'[\s\S]*adapter_version IS NOT NULL/);
   assert.match(sql, /contract_hash <> input_row\.contract_hash/);
   assert.match(sql, /version = input_row\.expected_version/);
   assert.match(sql, /INSERT INTO public\.sys_op_log/);
   assert.match(sql, /to_jsonb\(control_row\), to_jsonb\(after_row\)/);
+  assert.match(sql, /disabled_reason = ''/);
+  assert.doesNotMatch(sql, /disabled_reason = NULL/);
+  assert.doesNotMatch(sql, /tenant_id = :'tenant_id'::uuid|park_id = :'park_id'::uuid/);
   assert.match(sql, /COMMIT;[\s\S]*SELECT request_id, action, success, op_time/);
   assert.doesNotMatch(source, /docker-compose\.prod\.yml|prod:deploy/);
   console.log("PASS enable-property-approval-runtime contract");

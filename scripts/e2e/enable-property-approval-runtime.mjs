@@ -115,6 +115,8 @@ async function validateDisposableContainer() {
 const sql = String.raw`
 \set QUIET 1
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
   CREATE TEMP TABLE uat_approval_runtime_input ON COMMIT DROP AS
 SELECT :'tenant_id'::varchar AS tenant_id, :'park_id'::varchar AS park_id,
        :'actor_id'::uuid AS actor_id, :'actor_name'::varchar AS actor_name,
@@ -131,8 +133,8 @@ DECLARE
 BEGIN
   SELECT * INTO STRICT input_row FROM uat_approval_runtime_input;
   SELECT * INTO STRICT actor_row FROM public.sys_user
-   WHERE id=input_row.actor_id AND tenant_id=input_row.tenant_id::uuid
-     AND park_id=input_row.park_id::uuid AND username=input_row.actor_name
+   WHERE id=input_row.actor_id AND tenant_id=input_row.tenant_id
+     AND park_id=input_row.park_id AND username=input_row.actor_name
      AND is_enabled=true AND is_deleted=false;
   SELECT * INTO STRICT control_row
     FROM public.sys_property_runtime_control
@@ -149,7 +151,7 @@ BEGIN
   UPDATE public.sys_property_runtime_control
      SET enabled = true, control_mode = 'enforce', enabled_by = input_row.actor_id,
          enabled_at = clock_timestamp(), approval_reference = input_row.approval_reference,
-         disabled_reason = NULL,
+         disabled_reason = '',
          update_time = clock_timestamp(), version = version + 1
    WHERE id = control_row.id AND version = input_row.expected_version
    RETURNING * INTO STRICT after_row;
@@ -174,7 +176,7 @@ SELECT control_key, enabled, control_mode, version, approval_reference
  WHERE tenant_id = :'tenant_id' AND park_id = :'park_id' AND control_key = 'approval.enforce';
 SELECT request_id, action, success, op_time
   FROM public.sys_op_log
- WHERE id = :'audit_id'::uuid AND tenant_id = :'tenant_id'::uuid AND park_id = :'park_id'::uuid AND is_deleted = false;
+ WHERE id = :'audit_id'::uuid AND tenant_id = :'tenant_id' AND park_id = :'park_id' AND is_deleted = false;
 `;
 
 validate();
