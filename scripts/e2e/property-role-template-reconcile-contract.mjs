@@ -17,6 +17,10 @@ const homestayTaskBundleMigration = readFileSync(
   new URL("../../database/migrations/000262_homestay_task_operator_read_permission.sql", import.meta.url),
   "utf8"
 );
+const housingApproverMigration = readFileSync(
+  new URL("../../database/migrations/000263_housing_approver_task_read_permission.sql", import.meta.url),
+  "utf8"
+);
 const trackBSeed = readFileSync(
   new URL("../../database/seeds/production/000006_property_track_b_permission_reconcile.sql", import.meta.url),
   "utf8"
@@ -73,6 +77,7 @@ assert.doesNotMatch(seed, /INSERT INTO sys_user|UPDATE sys_user|DELETE FROM sys_
 assert.doesNotMatch(seed, /code\s*=\s*'SUPER_ADMIN'.*(INSERT|UPDATE)/s);
 assert.match(seed, /\('HOMESTAY_OPERATOR','民宿经办',2,'8e36158a12eff2a8ad38aa0a418463d72b3b00b433a7a547a7217c2cd71ec4e7','feb2badfa65e82c0e45170bafd0defb07549f49e161e39d836a3cb0bc8d983f3',303\)/);
 assert.match(seed, /\('HOMESTAY_OPERATOR',1,'c534047821ae825a4104503ae6d5c8df2da625199b6a2471b545c230aba67267','0f18c9719cf6df9342d1d4c83a87e33283b58ebcc7fca485952250b6c7733ad0'\)/);
+assert.match(seed, /\('PROPERTY_OPERATIONS_APPROVER',1,'ec8371f75e168bb260873f135d9ab1677123714770cff7ccea83e115a8015102','9bb64e651981515dfbca11fc3d495f3eb4f01551fee54cfd2807b9eadba96972'\)/);
 
 for (const token of [
   "property-homestay-task-operator-bundle-predecessor-drift",
@@ -97,9 +102,25 @@ assert.match(
   homestayTaskBundleMigration,
   /FILTER \(\s*WHERE permission\.permission_type='api'\s+AND permission\.is_enabled=true\s+AND permission\.status='enabled'\s+AND permission\.is_deleted=false\s*\)/s
 );
-assert.match(trackBSeed, /bundle_member_count <> 130/);
+assert.match(trackBSeed, /bundle_member_count <> 131/);
 assert.match(trackBSeed, /bundle_permission_count <> 56/);
 assert.match(trackBSeed, /resolved_bundle_permission_count <> 56/);
+
+for (const token of [
+  "property-housing-approver-bundle-predecessor-drift",
+  "property-housing-approver-permission-cardinality-drift tenants=",
+  "Copied from role PROPERTY_OPERATIONS_APPROVER",
+  "managed_template_code='PROPERTY_OPERATIONS_APPROVER'",
+  "role.applied_bundle_codes='[\"property-bundle:property-homestay-approver\",\"property-bundle:property-housing-approver\"]'::jsonb",
+  "housing:task:read",
+  "definition_version=2",
+  "7e08f8fe91b9889d1769f72d92d4cd5de395d0ba5dacd20acf00d1d810783d3e",
+  "38ef71a8cd4b612c1683334f5575678b5d50af9dce4af42faffde0b9da4b68d5",
+  "1474c9b46fbab59394d3e7d43d181c6cc3f2b32dd0fcbd527e8d9b43a060376e"
+]) {
+  assert.ok(housingApproverMigration.includes(token), `missing housing approver migration token: ${token}`);
+}
+assert.doesNotMatch(housingApproverMigration, /tenant_id\s*=\s*'10000001'/);
 
 for (const token of [
   "findPropertyRoleTemplateDefinition",
