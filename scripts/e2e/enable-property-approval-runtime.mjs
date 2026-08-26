@@ -6,6 +6,7 @@ const target = process.env.PROPERTY_APPROVAL_RUNTIME_TARGET ?? "";
 const allowWrite = process.env.ALLOW_PROPERTY_APPROVAL_RUNTIME_ENABLE === "yes";
 const composeFile = process.env.PROPERTY_APPROVAL_RUNTIME_COMPOSE_FILE ?? "";
 const composeProject = process.env.PROPERTY_APPROVAL_RUNTIME_COMPOSE_PROJECT ?? "";
+const runId = process.env.PROPERTY_APPROVAL_RUNTIME_RUN_ID ?? "";
 const postgresService = process.env.PROPERTY_APPROVAL_RUNTIME_POSTGRES_SERVICE ?? "postgres";
 const postgresUser = process.env.POSTGRES_USER ?? "jinhu";
 const postgresDb = process.env.POSTGRES_DB ?? "";
@@ -14,8 +15,9 @@ const parkId = process.env.PROPERTY_APPROVAL_RUNTIME_PARK_ID ?? "";
 const actorId = process.env.PROPERTY_APPROVAL_RUNTIME_ACTOR_ID ?? "";
 const actorName = process.env.PROPERTY_APPROVAL_RUNTIME_ACTOR_NAME ?? "";
 const approvalReference = process.env.PROPERTY_APPROVAL_RUNTIME_APPROVAL_REFERENCE ?? "";
-const expectedVersion = process.env.PROPERTY_APPROVAL_RUNTIME_EXPECTED_VERSION ?? "3";
+const expectedVersion = process.env.PROPERTY_APPROVAL_RUNTIME_EXPECTED_VERSION ?? "";
 const requestId = process.env.PROPERTY_APPROVAL_RUNTIME_REQUEST_ID ?? `uat-approval-runtime-${randomUUID()}`;
+const auditId = randomUUID();
 const contractHash = "e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944";
 
 function fail(message) {
@@ -46,6 +48,13 @@ function validate() {
   if (!allowWrite) fail("ALLOW_PROPERTY_APPROVAL_RUNTIME_ENABLE=yes is required");
   if (!existsSync(composeFile)) fail(`Compose file does not exist: ${composeFile}`);
   requireValue("PROPERTY_APPROVAL_RUNTIME_COMPOSE_PROJECT", composeProject, /^[A-Za-z0-9_.-]+$/);
+  requireValue("PROPERTY_APPROVAL_RUNTIME_RUN_ID", runId, /^\d{8}-\d{6}$/);
+  const expectedProject = `jinhu-housing-uat-${runId}`;
+  const expectedCompose = `/tmp/${expectedProject}/compose.yml`;
+  const expectedDb = `jinhu_housing_uat_${runId.replaceAll("-", "_")}`;
+  if (composeProject !== expectedProject || composeFile !== expectedCompose || postgresDb !== expectedDb) {
+    fail("compose project, file, and database must match the disposable housing UAT run id");
+  }
   requireValue("PROPERTY_APPROVAL_RUNTIME_POSTGRES_SERVICE", postgresService, /^[A-Za-z0-9_.-]+$/);
   requireValue("POSTGRES_USER", postgresUser, /^[A-Za-z0-9_.-]+$/);
   requireValue("POSTGRES_DB", postgresDb, /^[A-Za-z0-9_.-]+$/);
@@ -61,26 +70,33 @@ function validate() {
 const sql = String.raw`
 \set QUIET 1
 BEGIN;
-CREATE TEMP TABLE uat_approval_runtime_input ON COMMIT DROP AS
+  CREATE TEMP TABLE uat_approval_runtime_input ON COMMIT DROP AS
 SELECT :'tenant_id'::varchar AS tenant_id, :'park_id'::varchar AS park_id,
        :'actor_id'::uuid AS actor_id, :'actor_name'::varchar AS actor_name,
        :'approval_reference'::varchar AS approval_reference,
-       :'request_id'::varchar AS request_id, :'expected_version'::integer AS expected_version,
+       :'request_id'::varchar AS request_id, :'audit_id'::uuid AS audit_id,
+       :'expected_version'::integer AS expected_version,
        :'contract_hash'::varchar AS contract_hash;
 DO $uat$
 DECLARE
   control_row public.sys_property_runtime_control%ROWTYPE;
   after_row public.sys_property_runtime_control%ROWTYPE;
-  audit_id uuid := uuid_generate_v4();
   input_row uat_approval_runtime_input%ROWTYPE;
+  actor_row public.sys_user%ROWTYPE;
 BEGIN
   SELECT * INTO STRICT input_row FROM uat_approval_runtime_input;
+  SELECT * INTO STRICT actor_row FROM public.sys_user
+   WHERE id=input_row.actor_id AND tenant_id=input_row.tenant_id::uuid
+     AND park_id=input_row.park_id::uuid AND username=input_row.actor_name
+     AND is_enabled=true AND is_deleted=false;
   SELECT * INTO STRICT control_row
     FROM public.sys_property_runtime_control
    WHERE tenant_id = input_row.tenant_id AND park_id = input_row.park_id
-     AND control_key = 'approval.enforce' AND is_deleted = false
+     AND control_key = 'approval.enforce'
    FOR UPDATE;
-  IF control_row.enabled OR control_row.control_mode <> 'disabled'
+  IF control_row.control_kind <> 'enforce' OR control_row.target <> 'approval'
+     OR control_row.adapter_version IS NOT NULL
+     OR control_row.enabled OR control_row.control_mode <> 'disabled'
      OR control_row.contract_hash <> input_row.contract_hash
      OR control_row.version <> input_row.expected_version THEN
     RAISE EXCEPTION 'approval runtime control is not the expected signed disabled version';
@@ -88,7 +104,7 @@ BEGIN
   UPDATE public.sys_property_runtime_control
      SET enabled = true, control_mode = 'enforce', enabled_by = input_row.actor_id,
          enabled_at = clock_timestamp(), approval_reference = input_row.approval_reference,
-         disabled_reason = NULL, update_by = input_row.actor_id,
+         disabled_reason = NULL,
          update_time = clock_timestamp(), version = version + 1
    WHERE id = control_row.id AND version = input_row.expected_version
    RETURNING * INTO STRICT after_row;
@@ -97,7 +113,7 @@ BEGIN
     biz_type, biz_id, before_json, after_json, method, path, success,
     op_time, result, request_id, create_by, update_by, remark
   ) VALUES (
-    audit_id, input_row.tenant_id, input_row.park_id, input_row.actor_id, input_row.actor_name,
+    input_row.audit_id, input_row.tenant_id, input_row.park_id, actor_row.id, actor_row.username,
     'property-approval', 'property.runtime-control', 'uat-enable',
     'property_runtime_control', control_row.id, to_jsonb(control_row), to_jsonb(after_row),
     'UAT', '/scripts/enable-property-approval-runtime', true, clock_timestamp(),
@@ -110,10 +126,10 @@ COMMIT;
 \set QUIET 0
 SELECT control_key, enabled, control_mode, version, approval_reference
   FROM public.sys_property_runtime_control
- WHERE tenant_id = :'tenant_id' AND park_id = :'park_id' AND control_key = 'approval.enforce' AND is_deleted = false;
+ WHERE tenant_id = :'tenant_id' AND park_id = :'park_id' AND control_key = 'approval.enforce';
 SELECT request_id, action, success, op_time
   FROM public.sys_op_log
- WHERE tenant_id = :'tenant_id' AND park_id = :'park_id' AND request_id = :'request_id' AND is_deleted = false;
+ WHERE id = :'audit_id'::uuid AND tenant_id = :'tenant_id'::uuid AND park_id = :'park_id'::uuid AND is_deleted = false;
 `;
 
 validate();
@@ -123,6 +139,7 @@ const args = [
   "-v", `tenant_id=${tenantId}`, "-v", `park_id=${parkId}`, "-v", `actor_id=${actorId}`,
   "-v", `actor_name=${actorName}`, "-v", `approval_reference=${approvalReference}`,
   "-v", `request_id=${requestId}`, "-v", `expected_version=${expectedVersion}`,
+  "-v", `audit_id=${auditId}`,
   "-v", `contract_hash=${contractHash}`
 ];
 const executable = process.env.PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN ?? "docker";

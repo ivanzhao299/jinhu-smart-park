@@ -8,8 +8,12 @@ const root = resolve(import.meta.dirname, "../..");
 const script = join(root, "scripts/e2e/enable-property-approval-runtime.mjs");
 const source = readFileSync(script, "utf8");
 const temp = mkdtempSync(join(tmpdir(), "jinhu-approval-runtime-contract-"));
-const compose = join(temp, "compose.yml");
+const runId = "20990101-010203";
+const disposableRoot = `/tmp/jinhu-housing-uat-${runId}`;
+const compose = join(disposableRoot, "compose.yml");
 const fakeDocker = join(temp, "docker");
+import { mkdirSync } from "node:fs";
+mkdirSync(disposableRoot, { recursive: true });
 writeFileSync(compose, "services:\n  postgres:\n    image: postgres\n");
 writeFileSync(fakeDocker, "#!/bin/sh\ncat > \"$CAPTURE_SQL\"\nprintf 'approval.enforce|t|enforce|4|UAT-REF\\nREQ-1|uat-enable|t|now\\n'\n", { mode: 0o700 });
 
@@ -18,7 +22,8 @@ const baseEnv = {
   ALLOW_PROPERTY_APPROVAL_RUNTIME_ENABLE: "yes",
   PROPERTY_APPROVAL_RUNTIME_TARGET: "disposable",
   PROPERTY_APPROVAL_RUNTIME_COMPOSE_FILE: compose,
-  PROPERTY_APPROVAL_RUNTIME_COMPOSE_PROJECT: "jinhu-housing-uat-contract",
+  PROPERTY_APPROVAL_RUNTIME_RUN_ID: runId,
+  PROPERTY_APPROVAL_RUNTIME_COMPOSE_PROJECT: `jinhu-housing-uat-${runId}`,
   PROPERTY_APPROVAL_RUNTIME_POSTGRES_SERVICE: "postgres",
   PROPERTY_APPROVAL_RUNTIME_TENANT_ID: "10000001",
   PROPERTY_APPROVAL_RUNTIME_PARK_ID: "20000001",
@@ -26,9 +31,10 @@ const baseEnv = {
   PROPERTY_APPROVAL_RUNTIME_ACTOR_NAME: "uat-operator",
   PROPERTY_APPROVAL_RUNTIME_APPROVAL_REFERENCE: "UAT-REF",
   PROPERTY_APPROVAL_RUNTIME_REQUEST_ID: "REQ-1",
+  PROPERTY_APPROVAL_RUNTIME_EXPECTED_VERSION: "3",
   PROPERTY_APPROVAL_RUNTIME_DOCKER_BIN: fakeDocker,
   POSTGRES_USER: "jinhu",
-  POSTGRES_DB: "jinhu_housing_uat_contract",
+  POSTGRES_DB: "jinhu_housing_uat_20990101_010203",
   CAPTURE_SQL: join(temp, "captured.sql")
 };
 
@@ -43,6 +49,8 @@ try {
   assert.match(enabled.stdout, /\[AUDIT\].*approval_reference=UAT-REF.*request_id=REQ-1/);
   const sql = readFileSync(baseEnv.CAPTURE_SQL, "utf8");
   assert.match(sql, /BEGIN;[\s\S]*FOR UPDATE;[\s\S]*UPDATE public\.sys_property_runtime_control/);
+  assert.match(sql, /public\.sys_user[\s\S]*username=input_row\.actor_name/);
+  assert.match(sql, /control_kind <> 'enforce'[\s\S]*adapter_version IS NOT NULL/);
   assert.match(sql, /contract_hash <> input_row\.contract_hash/);
   assert.match(sql, /version = input_row\.expected_version/);
   assert.match(sql, /INSERT INTO public\.sys_op_log/);
@@ -52,4 +60,5 @@ try {
   console.log("PASS enable-property-approval-runtime contract");
 } finally {
   rmSync(temp, { recursive: true, force: true });
+  rmSync(disposableRoot, { recursive: true, force: true });
 }
