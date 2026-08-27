@@ -1,0 +1,3705 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_module_mapping",
+  "sourceInventoryHash": "b34ba532888fee122f93305403f8985bcb9bd1a5ccec69e8013b1d4c4f14e296",
+  "status": "mapped_not_implementation_complete",
+  "items": [
+    {
+      "legacyId": 1,
+      "parentId": -1,
+      "level": 1,
+      "order": 1,
+      "name": "组织管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 2,
+      "parentId": 1,
+      "level": 2,
+      "order": 1,
+      "name": "组织结构",
+      "legacyUrl": "Organization/Orgchart/detail.asp?t=1",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 4,
+      "parentId": 1,
+      "level": 2,
+      "order": 2,
+      "name": "部门分析",
+      "legacyUrl": "Organization/deptanalysis/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 5,
+      "parentId": 1,
+      "level": 2,
+      "order": 3,
+      "name": "岗位分析",
+      "legacyUrl": "Organization/jobanalysis/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 7,
+      "parentId": 1,
+      "level": 2,
+      "order": 4,
+      "name": "管理模板",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 8,
+      "parentId": 7,
+      "level": 3,
+      "order": 1,
+      "name": "任职资格",
+      "legacyUrl": "Organization/competency/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 9,
+      "parentId": 7,
+      "level": 3,
+      "order": 2,
+      "name": "能力要求",
+      "legacyUrl": "Organization/ability/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 10,
+      "parentId": 1,
+      "level": 2,
+      "order": 5,
+      "name": "报表中心",
+      "legacyUrl": "Organization/repcenter/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "organization",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/organization"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 11,
+      "parentId": -1,
+      "level": 1,
+      "order": 2,
+      "name": "招聘管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 12,
+      "parentId": 11,
+      "level": 2,
+      "order": 1,
+      "name": "申请管理",
+      "legacyUrl": "engage/applay/Browse.asp",
+      "legacyTable": "Rec_Engage_tApplay",
+      "legacyView": "Rec_Engage_vApplay",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 13,
+      "parentId": 11,
+      "level": 2,
+      "order": 2,
+      "name": "计划管理",
+      "legacyUrl": "engage/plan/Browse.asp",
+      "legacyTable": "Rec_Plan_tApplay",
+      "legacyView": "Rec_Plan_vApplay",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 14,
+      "parentId": 11,
+      "level": 2,
+      "order": 3,
+      "name": "安排管理",
+      "legacyUrl": "engage/arrange/browse.asp",
+      "legacyTable": "Rec_Arrange_tApplay",
+      "legacyView": "Rec_Arrange_vApplay",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 16,
+      "parentId": 11,
+      "level": 2,
+      "order": 4,
+      "name": "信息发布",
+      "legacyUrl": "engage/issuance/browse.asp",
+      "legacyTable": "Rec_tArrangeIssuance",
+      "legacyView": "Rec_vArrangeIssuance",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 18,
+      "parentId": 11,
+      "level": 2,
+      "order": 5,
+      "name": "应聘信息",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 19,
+      "parentId": 18,
+      "level": 3,
+      "order": 1,
+      "name": "应聘简历",
+      "legacyUrl": "engage/muster/resume/basicinfo/main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 20,
+      "parentId": 18,
+      "level": 3,
+      "order": 2,
+      "name": "职位匹配",
+      "legacyUrl": "engage/muster/matching/Browse.asp",
+      "legacyTable": "Rec_tResumeBasic",
+      "legacyView": "Rec_vjobmatching",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 21,
+      "parentId": 18,
+      "level": 3,
+      "order": 3,
+      "name": "内部应聘",
+      "legacyUrl": "engage/muster/inside/Browse.asp",
+      "legacyTable": "Rec_tInEngane",
+      "legacyView": "Rec_vInEngane",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 22,
+      "parentId": 11,
+      "level": 2,
+      "order": 6,
+      "name": "招聘面试",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 23,
+      "parentId": 22,
+      "level": 3,
+      "order": 1,
+      "name": "面试安排",
+      "legacyUrl": "engage/msarrange/Browse.asp",
+      "legacyTable": "Rec_tInterArrange",
+      "legacyView": "Rec_vMsapInfo",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 25,
+      "parentId": 22,
+      "level": 3,
+      "order": 2,
+      "name": "面试记录",
+      "legacyUrl": "engage/note/Browse.asp",
+      "legacyTable": "Rec_tInterArrange",
+      "legacyView": "Rec_vMsapInfo",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 26,
+      "parentId": 22,
+      "level": 3,
+      "order": 3,
+      "name": "面试结果",
+      "legacyUrl": "engage/result/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 15,
+      "parentId": 11,
+      "level": 2,
+      "order": 7,
+      "name": "发布渠道",
+      "legacyUrl": "engage/channel/browse.asp",
+      "legacyTable": "Rec_tEnganeChannel",
+      "legacyView": "Rec_vEnganeChannel",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 17,
+      "parentId": 11,
+      "level": 2,
+      "order": 8,
+      "name": "招聘经费",
+      "legacyUrl": "engage/outlay/year/browse.asp",
+      "legacyTable": "Rec_tYearFee",
+      "legacyView": "Rec_vYearFee",
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 27,
+      "parentId": 11,
+      "level": 2,
+      "order": 9,
+      "name": "考试题库",
+      "legacyUrl": "engage/rubricdepot/questionstor/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 250,
+      "parentId": 11,
+      "level": 2,
+      "order": 10,
+      "name": "试题组卷",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 248,
+      "parentId": 250,
+      "level": 3,
+      "order": 1,
+      "name": "自动组卷",
+      "legacyUrl": "engage/autopaper/Sort/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 186,
+      "parentId": 250,
+      "level": 3,
+      "order": 2,
+      "name": "手工组卷",
+      "legacyUrl": "engage/paper/Sort/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 28,
+      "parentId": 11,
+      "level": 2,
+      "order": 11,
+      "name": "数据分析",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 29,
+      "parentId": 28,
+      "level": 3,
+      "order": 1,
+      "name": "招聘收益",
+      "legacyUrl": "engage/analysis/income/query.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 30,
+      "parentId": 28,
+      "level": 3,
+      "order": 2,
+      "name": "招聘效益",
+      "legacyUrl": "engage/analysis/benefit/query.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 31,
+      "parentId": 28,
+      "level": 3,
+      "order": 3,
+      "name": "渠道效益",
+      "legacyUrl": "engage/analysis/chbenefit/query.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "recruitment",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/recruitment"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 33,
+      "parentId": -1,
+      "level": 1,
+      "order": 3,
+      "name": "员工信息",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 34,
+      "parentId": 33,
+      "level": 2,
+      "order": 1,
+      "name": "员工入职",
+      "legacyUrl": "employee/register/browse.asp",
+      "legacyTable": "Emp_tJoinApplay",
+      "legacyView": "Emp_vJoinApplay",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 35,
+      "parentId": 33,
+      "level": 2,
+      "order": 2,
+      "name": "员工信息",
+      "legacyUrl": "EMPLOYEE/INFORMATION/main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 262,
+      "parentId": 35,
+      "level": 3,
+      "order": 1,
+      "name": "在职员工",
+      "legacyUrl": "employee/INFORMATION/main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 263,
+      "parentId": 35,
+      "level": 3,
+      "order": 2,
+      "name": "离职员工",
+      "legacyUrl": "employee/INFORMATIONOLD/main_old.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 37,
+      "parentId": 33,
+      "level": 2,
+      "order": 3,
+      "name": "员工合同",
+      "legacyUrl": "employee/contract/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/contracts"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 36,
+      "parentId": 33,
+      "level": 2,
+      "order": 4,
+      "name": "员工转正",
+      "legacyUrl": "employee/probation/Browse.asp",
+      "legacyTable": "Emp_Probation_tApplay",
+      "legacyView": "Emp_Probation_vApplay",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 38,
+      "parentId": 33,
+      "level": 2,
+      "order": 5,
+      "name": "人事变更",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 39,
+      "parentId": 38,
+      "level": 3,
+      "order": 1,
+      "name": "岗位变更",
+      "legacyUrl": "employee/changejob/Browse.asp",
+      "legacyTable": "Emp_JobChange_tApplay",
+      "legacyView": "Emp_JobChange_vApplay",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 49,
+      "parentId": 33,
+      "level": 2,
+      "order": 6,
+      "name": "员工处罚",
+      "legacyUrl": "employee/punishment/browse.asp",
+      "legacyTable": "Emp_Punish_tApplay",
+      "legacyView": "Emp_Punish_vApplay",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/rewards"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 48,
+      "parentId": 33,
+      "level": 2,
+      "order": 7,
+      "name": "员工奖励",
+      "legacyUrl": "employee/hortation/browse.asp",
+      "legacyTable": "Emp_Reward_tApplay",
+      "legacyView": "Emp_Reward_vApplay",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/rewards"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 41,
+      "parentId": 33,
+      "level": 2,
+      "order": 8,
+      "name": "员工离职",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 42,
+      "parentId": 41,
+      "level": 3,
+      "order": 1,
+      "name": "离职申请",
+      "legacyUrl": "employee/dimission/browse.asp",
+      "legacyTable": "Emp_tDimission",
+      "legacyView": "Emp_vDimission",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 43,
+      "parentId": 41,
+      "level": 3,
+      "order": 2,
+      "name": "离职面谈",
+      "legacyUrl": "employee/interview/browse.asp",
+      "legacyTable": "Emp_tInterview",
+      "legacyView": "Emp_vInterview",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 44,
+      "parentId": 41,
+      "level": 3,
+      "order": 3,
+      "name": "离职调查",
+      "legacyUrl": "employee/indagate/browse.asp",
+      "legacyTable": "Emp_tDimission",
+      "legacyView": "Emp_vDimission_Indagate",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 45,
+      "parentId": 41,
+      "level": 3,
+      "order": 4,
+      "name": "离职交接",
+      "legacyUrl": "employee/connect/browse.asp",
+      "legacyTable": "Emp_tConnect",
+      "legacyView": "Emp_vConnect",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 46,
+      "parentId": 41,
+      "level": 3,
+      "order": 5,
+      "name": "工资结算",
+      "legacyUrl": "employee/wage/browse.asp",
+      "legacyTable": "Emp_tDimission",
+      "legacyView": "Emp_vDimission_wage",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 47,
+      "parentId": 41,
+      "level": 3,
+      "order": 6,
+      "name": "关闭档案",
+      "legacyUrl": "employee/closedoc/browse.asp",
+      "legacyTable": "Emp_tDimission",
+      "legacyView": "Emp_vDimission_CloseDoc",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 50,
+      "parentId": 33,
+      "level": 2,
+      "order": 9,
+      "name": "管理模板",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 51,
+      "parentId": 50,
+      "level": 3,
+      "order": 1,
+      "name": "离职原因",
+      "legacyUrl": "employee/tempreason/submain.asp",
+      "legacyTable": "Emp_tReasonModule",
+      "legacyView": "Emp_vReasonModule",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/lifecycle"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 54,
+      "parentId": 50,
+      "level": 3,
+      "order": 2,
+      "name": "意见与建议",
+      "legacyUrl": "employee/tempadvice/browse.asp",
+      "legacyTable": "Emp_tAdviceModule",
+      "legacyView": "Emp_vAdviceModule",
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 55,
+      "parentId": 33,
+      "level": 2,
+      "order": 10,
+      "name": "报表中心",
+      "legacyUrl": "Employee/empreport/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "employee",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/employees"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 56,
+      "parentId": -1,
+      "level": 1,
+      "order": 4,
+      "name": "考勤管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 57,
+      "parentId": 56,
+      "level": 2,
+      "order": 1,
+      "name": "数据设定",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 58,
+      "parentId": 57,
+      "level": 3,
+      "order": 1,
+      "name": "班次设定",
+      "legacyUrl": "checkmag/dataset/classhypo/submain.asp",
+      "legacyTable": "Att_tClassNumb",
+      "legacyView": "Att_vClassNumb",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 59,
+      "parentId": 57,
+      "level": 3,
+      "order": 2,
+      "name": "班种设定",
+      "legacyUrl": "checkmag/dataset/classkindmanage/browse.asp",
+      "legacyTable": "Att_tClassKind",
+      "legacyView": "Att_vClassKindTypeBrowse",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 60,
+      "parentId": 57,
+      "level": 3,
+      "order": 3,
+      "name": "人员排班",
+      "legacyUrl": "checkmag/makeup/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 61,
+      "parentId": 57,
+      "level": 3,
+      "order": 4,
+      "name": "公共假日",
+      "legacyUrl": "checkmag/dataset/holiday/browse.asp",
+      "legacyTable": "Att_tHoliday",
+      "legacyView": "Att_vHoliday",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 217,
+      "parentId": 57,
+      "level": 3,
+      "order": 5,
+      "name": "工资系数",
+      "legacyUrl": "checkmag/dataset/AttendWageseries/browse.asp",
+      "legacyTable": "Att_tAttendWageseries",
+      "legacyView": "Att_VAttendWageseries",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 62,
+      "parentId": 56,
+      "level": 2,
+      "order": 2,
+      "name": "人工考勤",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 64,
+      "parentId": 62,
+      "level": 3,
+      "order": 1,
+      "name": "考勤记录",
+      "legacyUrl": "checkmag/checkmanage/checknote/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 63,
+      "parentId": 56,
+      "level": 2,
+      "order": 3,
+      "name": "机器考勤",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 219,
+      "parentId": 63,
+      "level": 3,
+      "order": 1,
+      "name": "数据提取",
+      "legacyUrl": "CHECKMAG/machinecheck/getdata/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 220,
+      "parentId": 63,
+      "level": 3,
+      "order": 2,
+      "name": "刷卡记录",
+      "legacyUrl": "CHECKMAG/machinecheck/checknote/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 222,
+      "parentId": 63,
+      "level": 3,
+      "order": 3,
+      "name": "手工补卡",
+      "legacyUrl": "CHECKMAG/MACHINECHECK/handcard/Browse.asp",
+      "legacyTable": "Att_vHandCardbrowse",
+      "legacyView": "Att_vHandCardbrowse",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 221,
+      "parentId": 63,
+      "level": 3,
+      "order": 4,
+      "name": "机器考勤",
+      "legacyUrl": "CHECKMAG/machinecheck/checknote/calculateset.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 315,
+      "parentId": 56,
+      "level": 3,
+      "order": 4,
+      "name": "考勤结果",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 316,
+      "parentId": 315,
+      "level": 2,
+      "order": 1,
+      "name": "考勤运算",
+      "legacyUrl": "Checkmag/CHECKMANAGE/docheck/calculateset.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 317,
+      "parentId": 315,
+      "level": 2,
+      "order": 2,
+      "name": "考勤统计",
+      "legacyUrl": "Checkmag/CHECKMANAGE/docheck/stateset.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 318,
+      "parentId": 315,
+      "level": 2,
+      "order": 3,
+      "name": "日报查询",
+      "legacyUrl": "CHECKMAG/CHECKMANAGE/dayReport/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 223,
+      "parentId": 56,
+      "level": 2,
+      "order": 5,
+      "name": "假期管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 214,
+      "parentId": 223,
+      "level": 3,
+      "order": 1,
+      "name": "假期设置",
+      "legacyUrl": "CHECKMAG/leaveset/submain.asp",
+      "legacyTable": "Att_tLeaveSet",
+      "legacyView": "Att_vLeaveSet",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 215,
+      "parentId": 223,
+      "level": 3,
+      "order": 2,
+      "name": "员工假期",
+      "legacyUrl": "checkmag/empleave/browse.asp",
+      "legacyTable": "Att_tEmployeeLeavet",
+      "legacyView": "Att_vEmployeeLeavebrowse",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 216,
+      "parentId": 223,
+      "level": 3,
+      "order": 3,
+      "name": "管理计算",
+      "legacyUrl": "CHECKMAG/leavestate/submain.asp",
+      "legacyTable": "Att_tLeaveRecord",
+      "legacyView": "Att_vLeaveRecord",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 66,
+      "parentId": 56,
+      "level": 2,
+      "order": 6,
+      "name": "请假管理",
+      "legacyUrl": "checkmag/leave/Browse.asp",
+      "legacyTable": "Att_tLeaveApplay",
+      "legacyView": "Att_vLeaveApplay",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 213,
+      "parentId": 56,
+      "level": 2,
+      "order": 7,
+      "name": "销假管理",
+      "legacyUrl": "checkmag/leavemanage/Browse.asp",
+      "legacyTable": "Att_tWritingOffLeave",
+      "legacyView": "Att_vleavemanage",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 67,
+      "parentId": 56,
+      "level": 2,
+      "order": 8,
+      "name": "加班管理",
+      "legacyUrl": "CHECKMAG/overtime/Browse.asp",
+      "legacyTable": "Att_Overtime_tApplay",
+      "legacyView": "Att_Overtime_vApplay",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 68,
+      "parentId": 56,
+      "level": 2,
+      "order": 9,
+      "name": "出差管理",
+      "legacyUrl": "checkmag/evection/Browse.asp",
+      "legacyTable": "Att_Applay_tEvection",
+      "legacyView": "Att_Applay_vEvection",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 319,
+      "parentId": 56,
+      "level": 2,
+      "order": 10,
+      "name": "销差管理",
+      "legacyUrl": "checkmag/EvectionManage/Browse.asp",
+      "legacyTable": "Att_tClearEvection",
+      "legacyView": "Att_vClearEvection",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 69,
+      "parentId": 56,
+      "level": 2,
+      "order": 11,
+      "name": "报销管理",
+      "legacyUrl": "checkmag/chargeapplay/Browse.asp",
+      "legacyTable": "Att_tEvectionFee",
+      "legacyView": "Att_vEvectionFee",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 218,
+      "parentId": 56,
+      "level": 2,
+      "order": 12,
+      "name": "考勤工资",
+      "legacyUrl": "CHECKMAG/CHECKMANAGE/AttendWage/submain.asp",
+      "legacyTable": "Att_tAttendWage",
+      "legacyView": "Att_vAttendWageinfo",
+      "domain": "attendance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 71,
+      "parentId": -1,
+      "level": 1,
+      "order": 5,
+      "name": "薪酬福利",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 72,
+      "parentId": 71,
+      "level": 2,
+      "order": 1,
+      "name": "数据设定",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 74,
+      "parentId": 72,
+      "level": 3,
+      "order": 1,
+      "name": "工资项目",
+      "legacyUrl": "compensation/dataset/salaryitem/Browse.asp",
+      "legacyTable": "Com_tSalarModule",
+      "legacyView": "Com_vSalarModule",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 75,
+      "parentId": 72,
+      "level": 3,
+      "order": 2,
+      "name": "社保项目",
+      "legacyUrl": "compensation/dataset/SocialItems/Browse.asp",
+      "legacyTable": "Com_tSocialItems",
+      "legacyView": "Com_vSocialItemsbrowse",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/insurance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 197,
+      "parentId": 72,
+      "level": 3,
+      "order": 3,
+      "name": "个人所得税",
+      "legacyUrl": "compensation/dataset/PerIncomeTax/Browse.asp",
+      "legacyTable": "Com_tIncomeTax",
+      "legacyView": "Com_vIncomeTax",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 198,
+      "parentId": 72,
+      "level": 3,
+      "order": 4,
+      "name": "社保单位",
+      "legacyUrl": "compensation/dataset/insuranceunit/Browse.asp",
+      "legacyTable": "Com_tSocialUnit",
+      "legacyView": "Com_vSocialUnit",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/insurance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 73,
+      "parentId": 72,
+      "level": 3,
+      "order": 5,
+      "name": "工资套账",
+      "legacyUrl": "compensation/dataset/convention/Browse.asp",
+      "legacyTable": "Com_tConvention",
+      "legacyView": "Com_vConvention",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 312,
+      "parentId": 72,
+      "level": 3,
+      "order": 6,
+      "name": "社保套账",
+      "legacyUrl": "Compensation/dataset/socialcata/browse.asp",
+      "legacyTable": "Com_tSocialcata",
+      "legacyView": "Com_vSocialcata",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/insurance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 76,
+      "parentId": 72,
+      "level": 3,
+      "order": 7,
+      "name": "计件产品",
+      "legacyUrl": "compensation/dataset/PriceProduct/Browse.asp",
+      "legacyTable": "Com_tPriceProduct",
+      "legacyView": "Com_vPriceProduct",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 77,
+      "parentId": 72,
+      "level": 3,
+      "order": 8,
+      "name": "计件工序",
+      "legacyUrl": "compensation/dataset/hourlywages/Browse.asp",
+      "legacyTable": "Com_tPriceProcedure",
+      "legacyView": "Com_vPriceProcedure",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 200,
+      "parentId": 72,
+      "level": 3,
+      "order": 10,
+      "name": "计时工种",
+      "legacyUrl": "compensation/dataset/TimeWork/Browse.asp",
+      "legacyTable": "Com_tTimeWork",
+      "legacyView": "Com_vTimeWork",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 321,
+      "parentId": 72,
+      "level": 3,
+      "order": 11,
+      "name": "提成率",
+      "legacyUrl": "compensation/dataset/DeductRate/Browse.asp",
+      "legacyTable": "Com_tDeductRate",
+      "legacyView": "Com_vDeductRate",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 322,
+      "parentId": 72,
+      "level": 3,
+      "order": 12,
+      "name": "提成项目",
+      "legacyUrl": "compensation/dataset/DeductItems/Browse.asp",
+      "legacyTable": "Com_tDeductItems",
+      "legacyView": "Com_vDeductItems",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 323,
+      "parentId": 72,
+      "level": 3,
+      "order": 13,
+      "name": "提成税率",
+      "legacyUrl": "compensation/dataset/DeductTaxRate/Browse.asp",
+      "legacyTable": "Com_tDeductTaxRate",
+      "legacyView": "Com_vDeductTaxRate",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 314,
+      "parentId": 71,
+      "level": 2,
+      "order": 2,
+      "name": "调薪管理",
+      "legacyUrl": "Compensation/SalaryChange/Browse.asp",
+      "legacyTable": "Com_tSalary_Change",
+      "legacyView": "Com_vSalary_Change",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 78,
+      "parentId": 71,
+      "level": 2,
+      "order": 3,
+      "name": "薪酬管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/compensation"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 79,
+      "parentId": 78,
+      "level": 3,
+      "order": 1,
+      "name": "薪酬计算",
+      "legacyUrl": "compensation/compensation/calculate/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 81,
+      "parentId": 78,
+      "level": 3,
+      "order": 2,
+      "name": "社保管理",
+      "legacyUrl": "compensation/compensation/INSURANCE/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/insurance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 201,
+      "parentId": 78,
+      "level": 3,
+      "order": 3,
+      "name": "计件工资",
+      "legacyUrl": "compensation/COMPENSATION/PriceSalary/Browse.asp",
+      "legacyTable": "com_tpricesalary",
+      "legacyView": "Com_vPriceSalary",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 202,
+      "parentId": 78,
+      "level": 3,
+      "order": 4,
+      "name": "计时工资",
+      "legacyUrl": "compensation/COMPENSATION/TimeWage/Browse.asp",
+      "legacyTable": "Com_tTimeWage",
+      "legacyView": "Com_vTimeWage",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 324,
+      "parentId": 78,
+      "level": 3,
+      "order": 5,
+      "name": "提成工资",
+      "legacyUrl": "compensation/compensation/DeductSalary/Browse.asp",
+      "legacyTable": "Com_tDeductSalary",
+      "legacyView": "Com_vDeductSalary",
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 83,
+      "parentId": 71,
+      "level": 2,
+      "order": 4,
+      "name": "报表中心",
+      "legacyUrl": "compensation/reportcenter/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "compensation",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 84,
+      "parentId": -1,
+      "level": 1,
+      "order": 6,
+      "name": "绩效管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 85,
+      "parentId": 84,
+      "level": 2,
+      "order": 1,
+      "name": "标准指标",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 87,
+      "parentId": 85,
+      "level": 3,
+      "order": 1,
+      "name": "度量方法",
+      "legacyUrl": "performance/guideline/measurement/browse.asp",
+      "legacyTable": "Per_tMetricMethod",
+      "legacyView": "Per_vSelMetricType",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 86,
+      "parentId": 85,
+      "level": 3,
+      "order": 2,
+      "name": "标准指标",
+      "legacyUrl": "performance/guideline/guideline/browse.asp",
+      "legacyTable": "Per_tGuideline",
+      "legacyView": "Per_vGuidelinebrowse",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 88,
+      "parentId": 84,
+      "level": 2,
+      "order": 2,
+      "name": "指标集",
+      "legacyUrl": "performance/aggregate/browse.asp",
+      "legacyTable": "Per_tGuideGather",
+      "legacyView": "Per_vGuideGatherbrowse",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 90,
+      "parentId": 84,
+      "level": 2,
+      "order": 3,
+      "name": "考核模板",
+      "legacyUrl": "performance/asstemplet/Browse.asp",
+      "legacyTable": "Per_tAssessTemplate",
+      "legacyView": "Per_vAssessTemplate",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 89,
+      "parentId": 84,
+      "level": 2,
+      "order": 4,
+      "name": "考核体系",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 226,
+      "parentId": 89,
+      "level": 3,
+      "order": 1,
+      "name": "员工体系",
+      "legacyUrl": "performance/SYSTEMATISM/JobSystem/Basic/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 225,
+      "parentId": 89,
+      "level": 3,
+      "order": 2,
+      "name": "部门体系",
+      "legacyUrl": "performance/SYSTEMATISM/DepartmentSystem/Basic/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 91,
+      "parentId": 84,
+      "level": 2,
+      "order": 5,
+      "name": "考核任务",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 224,
+      "parentId": 91,
+      "level": 3,
+      "order": 1,
+      "name": "员工任务",
+      "legacyUrl": "performance/ASSIGNMENT/employeetask/basicinfo/Browse.asp",
+      "legacyTable": "Per_tAssessTask",
+      "legacyView": "Per_vAssessTaskinfo",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 92,
+      "parentId": 91,
+      "level": 3,
+      "order": 2,
+      "name": "部门任务",
+      "legacyUrl": "performance/assignment/DepartmentTask/Basic/Browse.asp",
+      "legacyTable": "Per_Task_tDeptBasic",
+      "legacyView": "Per_Task_vDeptBasic",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 93,
+      "parentId": 84,
+      "level": 2,
+      "order": 6,
+      "name": "考核修正",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 207,
+      "parentId": 93,
+      "level": 3,
+      "order": 1,
+      "name": "员工修正",
+      "legacyUrl": "performance/REVISE/employeerevise/basicinfo/Browse.asp",
+      "legacyTable": "Per_tAssessTask",
+      "legacyView": "Per_vAssessTaskinfo",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 206,
+      "parentId": 93,
+      "level": 3,
+      "order": 2,
+      "name": "部门修正",
+      "legacyUrl": "performance/revise/DepartmentRevise/Basic/Browse.asp",
+      "legacyTable": "Per_Task_tDeptBasic",
+      "legacyView": "Per_Task_vDeptBasic",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 94,
+      "parentId": 84,
+      "level": 2,
+      "order": 7,
+      "name": "绩效评估",
+      "legacyUrl": "performance/assess/Browse.asp",
+      "legacyTable": "Per_tAssessTask",
+      "legacyView": "Per_vAssessTaskinfo",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 205,
+      "parentId": 84,
+      "level": 2,
+      "order": 8,
+      "name": "关键事件",
+      "legacyUrl": "performance/keyevent/browse.asp",
+      "legacyTable": "Per_tKeything",
+      "legacyView": "Per_vKeything",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 211,
+      "parentId": 84,
+      "level": 2,
+      "order": 9,
+      "name": "绩效等级",
+      "legacyUrl": "performance/permount/browse.asp",
+      "legacyTable": "Per_tPerformanceGrade",
+      "legacyView": "Per_vPerformanceGrade",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 212,
+      "parentId": 84,
+      "level": 2,
+      "order": 10,
+      "name": "绩效工资",
+      "legacyUrl": "performance/performancewage/Browse.asp",
+      "legacyTable": "Per_tPerformanceWage",
+      "legacyView": "Per_vPerformanceWage",
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 95,
+      "parentId": 84,
+      "level": 2,
+      "order": 11,
+      "name": "报表中心",
+      "legacyUrl": "performance/reportcenter/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "performance",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 96,
+      "parentId": -1,
+      "level": 1,
+      "order": 7,
+      "name": "培训开发",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 97,
+      "parentId": 96,
+      "level": 2,
+      "order": 1,
+      "name": "职业规划",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/talent"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 187,
+      "parentId": 97,
+      "level": 3,
+      "order": 1,
+      "name": "规划任务",
+      "legacyUrl": "train/career/careertask/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 188,
+      "parentId": 97,
+      "level": 3,
+      "order": 2,
+      "name": "员工规划",
+      "legacyUrl": "train/career/career/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 98,
+      "parentId": 96,
+      "level": 2,
+      "order": 2,
+      "name": "关键岗位",
+      "legacyUrl": "train/pivotal/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/talent"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 99,
+      "parentId": 96,
+      "level": 2,
+      "order": 3,
+      "name": "接班人",
+      "legacyUrl": "train/successor/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/talent"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 100,
+      "parentId": 96,
+      "level": 2,
+      "order": 4,
+      "name": "培训调查",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 189,
+      "parentId": 100,
+      "level": 3,
+      "order": 1,
+      "name": "调查任务",
+      "legacyUrl": "train/investigate/investigatetask/Browse.asp",
+      "legacyTable": "tra_InvestigateTask",
+      "legacyView": "tra_vInvestigateTask",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 191,
+      "parentId": 100,
+      "level": 3,
+      "order": 2,
+      "name": "员工调查",
+      "legacyUrl": "TRAIN/INVESTIGATE/EMPINVESTIGATE/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 101,
+      "parentId": 96,
+      "level": 2,
+      "order": 5,
+      "name": "培训申请",
+      "legacyUrl": "train/trainapplay/Browse.asp",
+      "legacyTable": "Tra_Train_tApplay",
+      "legacyView": "Tra_Train_vApplay",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 193,
+      "parentId": 96,
+      "level": 2,
+      "order": 6,
+      "name": "培训需求",
+      "legacyUrl": "train/trainanalyse/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 102,
+      "parentId": 96,
+      "level": 2,
+      "order": 7,
+      "name": "培训计划",
+      "legacyUrl": "train/plan/Browse.asp",
+      "legacyTable": "Tra_TraPlan_tPlan",
+      "legacyView": "Tra_TraPlan_vPlan",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 194,
+      "parentId": 96,
+      "level": 2,
+      "order": 8,
+      "name": "培训安排",
+      "legacyUrl": "train/trainarrange/browse.asp",
+      "legacyTable": "Tra_tTrainArrange",
+      "legacyView": "Tra_vTrainArrangeinfo",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 104,
+      "parentId": 96,
+      "level": 2,
+      "order": 9,
+      "name": "培训实施",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 105,
+      "parentId": 104,
+      "level": 3,
+      "order": 1,
+      "name": "培训报名",
+      "legacyUrl": "train/signup/Browse.asp",
+      "legacyTable": "tra_tsignup",
+      "legacyView": "tra_vsignup",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 106,
+      "parentId": 104,
+      "level": 3,
+      "order": 2,
+      "name": "培训出勤",
+      "legacyUrl": "train/beout/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 107,
+      "parentId": 104,
+      "level": 3,
+      "order": 3,
+      "name": "培训考核",
+      "legacyUrl": "train/actualize/assess/Browse.asp",
+      "legacyTable": "tra_tTrainExamine",
+      "legacyView": "tra_vTrainExaminebrowse",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 108,
+      "parentId": 104,
+      "level": 3,
+      "order": 4,
+      "name": "培训发证",
+      "legacyUrl": "train/actualize/certificate/Browse.asp",
+      "legacyTable": "tra_tCertificate",
+      "legacyView": "tra_vCertificatebrowse",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 265,
+      "parentId": 96,
+      "level": 2,
+      "order": 10,
+      "name": "效果调查",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 264,
+      "parentId": 265,
+      "level": 3,
+      "order": 1,
+      "name": "调查任务",
+      "legacyUrl": "TRAIN/INVESTIGATERESULT/INVESTIGATERTASK/Browse.asp",
+      "legacyTable": "tra_tEffectInvestigarTask",
+      "legacyView": "tra_vEffectInvestigarTask",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 109,
+      "parentId": 265,
+      "level": 3,
+      "order": 2,
+      "name": "调查结果",
+      "legacyUrl": "train/investigateResult/Browse.asp",
+      "legacyTable": "tra_tEffectInvestigate",
+      "legacyView": "Tra_vEffectInvestigateinfo",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 110,
+      "parentId": 96,
+      "level": 2,
+      "order": 11,
+      "name": "培训资源",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 111,
+      "parentId": 110,
+      "level": 3,
+      "order": 1,
+      "name": "培训机构",
+      "legacyUrl": "train/resource/organization/Browse.asp",
+      "legacyTable": "tra_torgan",
+      "legacyView": "tra_vorgan",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 112,
+      "parentId": 110,
+      "level": 3,
+      "order": 2,
+      "name": "培训经费",
+      "legacyUrl": "TRAIN/resource/outlay/year/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 113,
+      "parentId": 110,
+      "level": 3,
+      "order": 3,
+      "name": "培训教师",
+      "legacyUrl": "train/resource/teacher/Browse.asp",
+      "legacyTable": "Tra_Resource_tTeacher",
+      "legacyView": "Tra_Resource_vTeacher",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 114,
+      "parentId": 110,
+      "level": 3,
+      "order": 4,
+      "name": "培训课程",
+      "legacyUrl": "train/resource/course/Browse.asp",
+      "legacyTable": "Tra_Resource_tCourse",
+      "legacyView": "Tra_Resource_vCourse",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 115,
+      "parentId": 110,
+      "level": 3,
+      "order": 5,
+      "name": "培训教材",
+      "legacyUrl": "train/resource/material/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 236,
+      "parentId": 110,
+      "level": 3,
+      "order": 6,
+      "name": "教室信息",
+      "legacyUrl": "TRAIN/resource/room/Browse.asp",
+      "legacyTable": "Tra_Resource_tRoom",
+      "legacyView": "Tra_Resource_vRoom",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 239,
+      "parentId": 110,
+      "level": 3,
+      "order": 7,
+      "name": "教室安排",
+      "legacyUrl": "train/resource/roomarrange/Browse.asp",
+      "legacyTable": "Tra_Resource_tRoomApplay",
+      "legacyView": "Tra_Resource_vRoomApplay",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 320,
+      "parentId": 96,
+      "level": 2,
+      "order": 12,
+      "name": "培训合同",
+      "legacyUrl": "Train/TrainContract/browse.asp",
+      "legacyTable": "Tra_tContract",
+      "legacyView": "Tra_vContract",
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 116,
+      "parentId": 96,
+      "level": 2,
+      "order": 13,
+      "name": "报表中心",
+      "legacyUrl": "train/repcenter/main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "training",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 240,
+      "parentId": -1,
+      "level": 1,
+      "order": 8,
+      "name": "事务管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 184,
+      "parentId": 240,
+      "level": 2,
+      "order": 1,
+      "name": "建议管理",
+      "legacyUrl": "civilservice/advicemag/browse.asp",
+      "legacyTable": "ser_tadvise",
+      "legacyView": "ser_vadvise",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 185,
+      "parentId": 240,
+      "level": 2,
+      "order": 2,
+      "name": "投诉管理",
+      "legacyUrl": "civilservice/hulmanage/browse.asp",
+      "legacyTable": "ser_tnethull",
+      "legacyView": "ser_vnethull",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 119,
+      "parentId": 240,
+      "level": 2,
+      "order": 3,
+      "name": "信息发布",
+      "legacyUrl": "civilservice/news/browse.asp",
+      "legacyTable": "ser_tnews",
+      "legacyView": "ser_vnews",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 120,
+      "parentId": 240,
+      "level": 2,
+      "order": 4,
+      "name": "论坛管理",
+      "legacyUrl": "CIVILSERVICE/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 3,
+      "parentId": 240,
+      "level": 2,
+      "order": 5,
+      "name": "文档管理",
+      "legacyUrl": "civilservice/HRPOLICY/submain.asp",
+      "legacyTable": "org_tCatalog",
+      "legacyView": "Civ_File_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 252,
+      "parentId": 240,
+      "level": 2,
+      "order": 6,
+      "name": "活动安排",
+      "legacyUrl": "civilservice/ployplan/Browse.asp",
+      "legacyTable": "Civ_tployplan",
+      "legacyView": "Civ_vployplan",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 253,
+      "parentId": 240,
+      "level": 2,
+      "order": 7,
+      "name": "行政接待",
+      "legacyUrl": "civilservice/politicalTa/Browse.asp",
+      "legacyTable": "Civ_tpoliticalTalk",
+      "legacyView": "Civ_vpoliticalTalk",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 257,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "图书管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 254,
+      "parentId": 257,
+      "level": 3,
+      "order": 1,
+      "name": "图书信息",
+      "legacyUrl": "civilservice/bookmanage/submain.asp",
+      "legacyTable": "Civ_tbookbasicinfo",
+      "legacyView": "Civ_vbookbasicinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 256,
+      "parentId": 257,
+      "level": 3,
+      "order": 3,
+      "name": "图书借还",
+      "legacyUrl": "civilservice/bookmanage/BookLoan/browse.asp",
+      "legacyTable": "Civ_tbookloaninfo",
+      "legacyView": "Civ_vbookloaninfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 244,
+      "parentId": 240,
+      "level": 2,
+      "order": 9,
+      "name": "会议管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 241,
+      "parentId": 244,
+      "level": 3,
+      "order": 1,
+      "name": "会议室",
+      "legacyUrl": "civilservice/meetingroom/Browse.asp",
+      "legacyTable": "Civ_tBoardroom",
+      "legacyView": "Civ_vBoardroom",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 242,
+      "parentId": 244,
+      "level": 3,
+      "order": 2,
+      "name": "会议安排",
+      "legacyUrl": "civilservice/meetingarrange/Browse.asp",
+      "legacyTable": "Civ_tMeetinfo",
+      "legacyView": "Civ_vMeetinfo",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 295,
+      "parentId": 240,
+      "level": 2,
+      "order": 10,
+      "name": "办公用品",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 296,
+      "parentId": 295,
+      "level": 3,
+      "order": 1,
+      "name": "物品入库",
+      "legacyUrl": "civilservice/office/InRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tInRepertory",
+      "legacyView": "civ_Office_vInRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 297,
+      "parentId": 295,
+      "level": 3,
+      "order": 2,
+      "name": "物品出库",
+      "legacyUrl": "civilservice/office/OutRepertory/Browse.asp",
+      "legacyTable": "civ_Office_tOutRepertory",
+      "legacyView": "civ_Office_vOutRepertory",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 298,
+      "parentId": 295,
+      "level": 3,
+      "order": 3,
+      "name": "库存查询",
+      "legacyUrl": "civilservice/office/Repertory/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 299,
+      "parentId": 295,
+      "level": 3,
+      "order": 4,
+      "name": "物品清单",
+      "legacyUrl": "civilservice/office/Goods/Browse.asp",
+      "legacyTable": "civ_Office_tgoods",
+      "legacyView": "civ_Office_vgoods",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 302,
+      "parentId": 240,
+      "level": 3,
+      "order": 11,
+      "name": "车辆管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 303,
+      "parentId": 302,
+      "level": 3,
+      "order": 1,
+      "name": "驾驶员",
+      "legacyUrl": "civilservice/car/Driver/Browse.asp",
+      "legacyTable": "Civ_Car_tDrivers",
+      "legacyView": "Civ_Car_vDrivers",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 304,
+      "parentId": 302,
+      "level": 3,
+      "order": 2,
+      "name": "车辆登记",
+      "legacyUrl": "civilservice/car/basic/Browse.asp",
+      "legacyTable": "Civ_Car_tBasic",
+      "legacyView": "Civ_Car_vBasic",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 305,
+      "parentId": 302,
+      "level": 3,
+      "order": 3,
+      "name": "日常费用",
+      "legacyUrl": "civilservice/car/DailyFee/Browse.asp",
+      "legacyTable": "civ_Car_tDailyFee",
+      "legacyView": "civ_Car_vDailyFee",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 306,
+      "parentId": 302,
+      "level": 3,
+      "order": 4,
+      "name": "车辆杂费",
+      "legacyUrl": "civilservice/car/Incidental/Browse.asp",
+      "legacyTable": "civ_car_tIncidental",
+      "legacyView": "civ_car_vIncidental",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 307,
+      "parentId": 302,
+      "level": 3,
+      "order": 5,
+      "name": "车辆维修",
+      "legacyUrl": "civilservice/Maintain/basic/Browse.asp",
+      "legacyTable": "civ_Car_tMaintain",
+      "legacyView": "civ_Car_vMaintain",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 308,
+      "parentId": 302,
+      "level": 3,
+      "order": 6,
+      "name": "用油登记",
+      "legacyUrl": "civilservice/car/Oil/Browse.asp",
+      "legacyTable": "civ_Car_tOil",
+      "legacyView": "civ_Car_vOil",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 309,
+      "parentId": 302,
+      "level": 3,
+      "order": 7,
+      "name": "车辆保险",
+      "legacyUrl": "civilservice/car/Insurance/Browse.asp",
+      "legacyTable": "civ_Car_tInsurance",
+      "legacyView": "civ_Car_vInsurance",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 310,
+      "parentId": 302,
+      "level": 3,
+      "order": 8,
+      "name": "车辆申请",
+      "legacyUrl": "civilservice/car/Applay/Browse.asp",
+      "legacyTable": "Civ_Car_tApplay",
+      "legacyView": "Civ_Car_vApplay",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 311,
+      "parentId": 240,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "CIVILSERVICE/PubAddressBook/submain.asp",
+      "legacyTable": "Civ_AddressBook_tCata",
+      "legacyView": "Civ_AddressBook_vCata",
+      "domain": "enterprise_service",
+      "ownership": "cross_module",
+      "targetRoutes": [
+        "/workflow"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 258,
+      "parentId": -1,
+      "level": 1,
+      "order": 9,
+      "name": "数据配置",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 173,
+      "parentId": 258,
+      "level": 2,
+      "order": 1,
+      "name": "数据字典",
+      "legacyUrl": "configure/dictionary/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 174,
+      "parentId": 258,
+      "level": 2,
+      "order": 2,
+      "name": "流程定义",
+      "legacyUrl": "Configure/flow/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 181,
+      "parentId": 258,
+      "level": 2,
+      "order": 3,
+      "name": "提醒设置",
+      "legacyUrl": "configure/awoke/browse.asp",
+      "legacyTable": "Con_tAwoke",
+      "legacyView": "Con_vAwoke",
+      "domain": "data_configuration",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 166,
+      "parentId": -1,
+      "level": 1,
+      "order": 10,
+      "name": "决策中心",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 167,
+      "parentId": 166,
+      "level": 2,
+      "order": 1,
+      "name": "统计查询",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 228,
+      "parentId": 167,
+      "level": 3,
+      "order": 1,
+      "name": "人员编制信息",
+      "legacyUrl": "Organization/repcenter/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 229,
+      "parentId": 167,
+      "level": 3,
+      "order": 2,
+      "name": "员工流动信息",
+      "legacyUrl": "decisioncenter/centerquery/EmployeeFlow/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 230,
+      "parentId": 167,
+      "level": 3,
+      "order": 3,
+      "name": "员工结构信息",
+      "legacyUrl": "decisioncenter/centerquery/EmployeeStructure/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 231,
+      "parentId": 167,
+      "level": 3,
+      "order": 4,
+      "name": "人员招聘信息",
+      "legacyUrl": "decisioncenter/centerquery/EmployeeInvite/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 232,
+      "parentId": 167,
+      "level": 3,
+      "order": 5,
+      "name": "员工培训信息",
+      "legacyUrl": "train/repcenter/main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 233,
+      "parentId": 167,
+      "level": 3,
+      "order": 6,
+      "name": "员工绩效信息",
+      "legacyUrl": "performance/reportcenter/submain.asp?isNewQuery=newquery",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 234,
+      "parentId": 167,
+      "level": 3,
+      "order": 7,
+      "name": "员工考勤信息",
+      "legacyUrl": "CHECKMAG/CHECKMANAGE/dayReport/Browse.asp?isNewQuery=newquery",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 235,
+      "parentId": 167,
+      "level": 3,
+      "order": 8,
+      "name": "薪酬福利信息",
+      "legacyUrl": "compensation/reportcenter/Main.asp?isNewQuery=newquery",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 246,
+      "parentId": 167,
+      "level": 3,
+      "order": 9,
+      "name": "员工信息统计",
+      "legacyUrl": "Employee/empreport/ygxxzhck/query.asp?IsNewQuery=newquery",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 247,
+      "parentId": 167,
+      "level": 3,
+      "order": 10,
+      "name": "员工信息汇总",
+      "legacyUrl": "Employee/empreport/EmployeeQuery/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 168,
+      "parentId": 166,
+      "level": 2,
+      "order": 2,
+      "name": "人力资源预测",
+      "legacyUrl": "2",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 208,
+      "parentId": 168,
+      "level": 3,
+      "order": 1,
+      "name": "人力需求预测",
+      "legacyUrl": "decisioncenter/forecast/ManpowerDemand/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 209,
+      "parentId": 168,
+      "level": 3,
+      "order": 2,
+      "name": "内部供给预测",
+      "legacyUrl": "decisioncenter/forecast/InsideSupply/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 210,
+      "parentId": 168,
+      "level": 3,
+      "order": 3,
+      "name": "资本价值分析",
+      "legacyUrl": "decisioncenter/forecast/CapitalMerit/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "decision_center",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 169,
+      "parentId": -1,
+      "level": 1,
+      "order": 11,
+      "name": "系统管理",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 170,
+      "parentId": 169,
+      "level": 2,
+      "order": 1,
+      "name": "用户管理",
+      "legacyUrl": "system/user/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 171,
+      "parentId": 169,
+      "level": 2,
+      "order": 2,
+      "name": "角色管理",
+      "legacyUrl": "system/role/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 290,
+      "parentId": 169,
+      "level": 2,
+      "order": 4,
+      "name": "权限设置",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 292,
+      "parentId": 290,
+      "level": 3,
+      "order": 1,
+      "name": "角色权限",
+      "legacyUrl": "system/RoleRight/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 293,
+      "parentId": 290,
+      "level": 3,
+      "order": 2,
+      "name": "范围权限",
+      "legacyUrl": "system/rangright/employee_list.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 175,
+      "parentId": 169,
+      "level": 2,
+      "order": 3,
+      "name": "系统日志",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 177,
+      "parentId": 175,
+      "level": 3,
+      "order": 1,
+      "name": "登录日志",
+      "legacyUrl": "system/login/Login_List.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 176,
+      "parentId": 175,
+      "level": 3,
+      "order": 2,
+      "name": "操作日志",
+      "legacyUrl": "system/operation/Oper_List.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "system_management",
+      "ownership": "platform",
+      "targetRoutes": [
+        "/admin"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 117,
+      "parentId": -1,
+      "level": 1,
+      "order": 12,
+      "name": "个人办公",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 125,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "个人信息",
+      "legacyUrl": null,
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 149,
+      "parentId": 117,
+      "level": 2,
+      "order": 1,
+      "name": "我的监控",
+      "legacyUrl": "SERVICE/myMonitor/browse.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Con_vMonitorList",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 126,
+      "parentId": 125,
+      "level": 3,
+      "order": 1,
+      "name": "员工信息",
+      "legacyUrl": "SERVICE/EMPLOYEE/basicinfo/Browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 127,
+      "parentId": 125,
+      "level": 3,
+      "order": 2,
+      "name": "考勤信息",
+      "legacyUrl": "SERVICE/query/checkinfo/query.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/attendance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 128,
+      "parentId": 125,
+      "level": 3,
+      "order": 3,
+      "name": "培训信息",
+      "legacyUrl": "SERVICE/QUERY/TRAIN/Browse.asp",
+      "legacyTable": "tra_tSignup",
+      "legacyView": "tra_vTraininfo",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/training"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 129,
+      "parentId": 125,
+      "level": 3,
+      "order": 4,
+      "name": "工资信息",
+      "legacyUrl": "compensation/compensation/calculate/Main.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/payroll"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 130,
+      "parentId": 125,
+      "level": 3,
+      "order": 5,
+      "name": "绩效信息",
+      "legacyUrl": "SERVICE/query/performance/Browse.asp",
+      "legacyTable": "Per_tTaskBeAssessPer",
+      "legacyView": "pub_vPerformance",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/performance"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 132,
+      "parentId": 117,
+      "level": 2,
+      "order": 2,
+      "name": "我的申请",
+      "legacyUrl": "Service/netapplay/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/approvals"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 148,
+      "parentId": 117,
+      "level": 2,
+      "order": 3,
+      "name": "我的审批",
+      "legacyUrl": "SERVICE/netapprove/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/approvals"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 121,
+      "parentId": 117,
+      "level": 2,
+      "order": 4,
+      "name": "我的建议",
+      "legacyUrl": "Service/netadvice/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 123,
+      "parentId": 117,
+      "level": 2,
+      "order": 5,
+      "name": "我的投诉",
+      "legacyUrl": "Service/nethull/browse.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 259,
+      "parentId": 117,
+      "level": 2,
+      "order": 6,
+      "name": "内部论坛",
+      "legacyUrl": "Service/bbs/submain.asp",
+      "legacyTable": null,
+      "legacyView": null,
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 300,
+      "parentId": 117,
+      "level": 2,
+      "order": 7,
+      "name": "日程安排",
+      "legacyUrl": "Service/PerCalendar/browse.asp",
+      "legacyTable": "Ser_tDayPlan",
+      "legacyView": "Ser_vDayPlan",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 301,
+      "parentId": 117,
+      "level": 2,
+      "order": 8,
+      "name": "通讯录",
+      "legacyUrl": "Service/PerAddressBook/submain.asp",
+      "legacyTable": "Ser_AddressBook_tCata",
+      "legacyView": "Ser_AddressBook_vCata",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 122,
+      "parentId": 117,
+      "level": 2,
+      "order": 9,
+      "name": "建议反馈",
+      "legacyUrl": "Service/adviceback/browse.asp",
+      "legacyTable": "ser_tReAdvise",
+      "legacyView": "ser_vreadvise",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 124,
+      "parentId": 117,
+      "level": 2,
+      "order": 10,
+      "name": "投诉反馈",
+      "legacyUrl": "Service/Renethull/browse.asp",
+      "legacyTable": "Ser_tRe_nethull",
+      "legacyView": "Ser_vRe_nethull",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr"
+      ],
+      "mappingStatus": "mapped"
+    },
+    {
+      "legacyId": 313,
+      "parentId": 117,
+      "level": 2,
+      "order": 11,
+      "name": "工作日志",
+      "legacyUrl": "Service/WorkLog/browse.asp",
+      "legacyTable": "Ser_tWorkLog",
+      "legacyView": "Ser_vWorkLog",
+      "domain": "personal_office",
+      "ownership": "hr",
+      "targetRoutes": [
+        "/hr/work-reports"
+      ],
+      "mappingStatus": "mapped"
+    }
+  ],
+  "productionImport": "HOLD"
+}

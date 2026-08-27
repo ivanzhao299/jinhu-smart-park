@@ -13,10 +13,10 @@
     },
     {
       "id": "classic_group_network",
-      "runtime": "observed_login_shell",
+      "runtime": "observed_source_and_database",
       "technology": "classic_asp_dedicated_iis_site",
-      "roleModel": "person_login_self_service",
-      "entryEvidence": ["default.asp", "index.asp", "logincheck.asp", "main.asp", "menu.asp", "top.asp", "bottom.asp", "desktop.asp", "workmain.asp"]
+      "roleModel": "role_module_seven_action_department_scope",
+      "entryEvidence": ["default.asp", "index.asp", "logincheck.asp", "main.asp", "menu.asp", "top.asp", "bottom.asp", "desktop.asp", "workmain.asp", "231-module-live-database", "186-of-186-route-source-reconciliation"]
     },
     {
       "id": "database_web_menu",
@@ -29,7 +29,7 @@
   "compatibilityDecision": {
     "functionallyIdentical": false,
     "desktopAuthority": "hr_backoffice_workflows",
-    "classicWebAuthority": "employee_self_service_shell",
+    "classicWebAuthority": "enterprise_hr_backoffice_employee_self_service_workflow_and_office",
     "databaseMenuAuthority": "legacy_web_navigation_and_permission_evidence",
     "targetStrategy": "one_modern_hr_module_with_atomic_role_scopes"
   },
@@ -40,9 +40,8 @@
     "writeActionsExecuted": false
   },
   "remainingRuntimeGates": [
-    "classic_web_authenticated_page_matrix",
     "database_web_menu_deployment_identity",
-    "employee_manager_hr_projection_matrix"
+    "employee_manager_hr_projection_target_acceptance"
   ],
   "productionImport": "HOLD"
 }
