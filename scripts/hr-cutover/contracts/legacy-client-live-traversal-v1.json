@@ -128,7 +128,7 @@
     {
       "id": "group_web_self_service",
       "runtimeStatus": "partial",
-      "entryPoints": ["集团版登录"],
+      "entryPoints": ["人员浏览", "人员照片", "信息查询", "人事异动查询", "人事异动统计", "用户列表", "修改密码", "合同到期查询", "培训记录查询", "考核记录查询", "奖惩记录查询", "保险福利", "工资数据查询", "考勤管理", "招聘管理"],
       "pageChecks": ["group-web-independent-iis-site-and-login"],
       "decision": "modernize",
       "reasonCode": "WEB_ROLE_MENUS_AND_FIELD_PROJECTIONS_PENDING"

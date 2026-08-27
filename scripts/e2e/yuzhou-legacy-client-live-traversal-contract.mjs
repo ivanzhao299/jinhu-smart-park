@@ -15,7 +15,7 @@ test("live traversal reports exact progress without claiming L4 completion", () 
   assert.equal(report.observedFamilies, 0);
   assert.equal(report.partialFamilies, 13);
   assert.equal(report.missingFamilies, 0);
-  assert.equal(report.entryPoints, 67);
+  assert.equal(report.entryPoints, 81);
   assert.equal(report.pageChecks, 18);
   assert.equal(report.status, "in_progress");
   assert.equal(report.evidenceLevel, "L3_RUNTIME_PARTIAL");
