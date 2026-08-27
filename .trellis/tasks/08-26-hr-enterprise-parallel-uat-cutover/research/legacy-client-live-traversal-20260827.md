@@ -169,6 +169,8 @@
 - 当前仅完成 Web 独立站点及登录入口的 L3 运行时确认；登录后菜单和 HR/经理/员工角色仍待使用有效 Web 身份逐项脱敏遍历。
 - 结构化数据库目录确认 Web 菜单至少包含 15 个独立入口：人员浏览、人员照片、信息查询、人事异动查询、人事异动统计、合同到期查询、培训记录查询、考核记录查询、奖惩记录查询、保险福利、工资数据查询、考勤管理、招聘管理、用户列表和修改密码。该清单是 L2/L3 结构证据，不等于登录后页面已完成现场验收。
 - Web 权限由 `Web_GetUserRight(username, programunit)` 查询 `Rights.authorise`，菜单由 `Web_GetSysTab(tabid)` 按 `indexid` 排序生成；旧客户端系统管理员账号不能直接获得 Web 会话，进一步证明客户端用户与 `person.loginid/password/allowlogin/manageruser` 自助身份是两套认证和授权边界。
+- 15 个入口已逐项绑定旧页面地址：`personlist.aspx`、`photos.aspx`、`personquery.aspx`、`inoutquery.aspx`、`inoutcount.aspx`、`useradmin.aspx`、`changepassword.aspx`、`remindcompact.aspx`、`trainquery.aspx`、`assquery.aspx`、`bonusquery.aspx`、`insure.aspx`、`salaryquery.aspx`、`timekeep.aspx`、`accept.aspx`。
+- Web 查询过程已按业务域完成结构目录：人员/检索、任职异动、合同、培训、绩效、奖惩、工资、考勤、招聘、报表及菜单/权限，共确认 49 个 `web_*` / `Web_*` 过程。该证据可用于字段和口径映射，但不能代替真实员工、经理、Web 管理员三角色的页面可见性验证。
 
 - [ ] 完成全部入口的精确名称和可访问/权限拒绝结果（系统管理员登录、93 条授权目录和管理员内置判断冲突已记录）。
 - [ ] 员工档案附属页、家庭/履历/技能/证照/照片/自定义字段。
