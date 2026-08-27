@@ -1,0 +1,200 @@
+{
+  "formatVersion": 1,
+  "ledgerKind": "yuzhou_hr_legacy_compatibility_ledger",
+  "contractVersion": 1,
+  "baselineReference": ".trellis/tasks/08-26-hr-enterprise-parallel-uat-cutover/research/legacy-page-field-rule-coverage-baseline.md",
+  "legacyRuntimeTraversal": {
+    "status": "missing",
+    "evidenceLevel": "L0",
+    "evidenceRefs": [],
+    "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+  },
+  "businessSignoff": {
+    "status": "missing",
+    "evidenceLevel": "L0",
+    "evidenceRefs": [],
+    "reasonCode": "LEGACY_BUSINESS_L5_SIGNOFF_MISSING"
+  },
+  "items": [
+    {
+      "id": "PAGE-ORG-001",
+      "dimension": "page_entry",
+      "menuFamily": "organization_job",
+      "legacyObject": { "kind": "page_family", "name": "系统设置、组织与岗位", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:organization_job"] },
+      "currentTarget": { "routes": ["/hr/organization"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-PROFILE-001",
+      "dimension": "page_entry",
+      "menuFamily": "employee_profile",
+      "legacyObject": { "kind": "page_family", "name": "人事档案", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:employee_profile"] },
+      "currentTarget": { "routes": ["/hr/employees", "/hr/talent"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-CHANGE-001",
+      "dimension": "page_entry",
+      "menuFamily": "employment_change",
+      "legacyObject": { "kind": "page_family", "name": "调动管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:employment_change"] },
+      "currentTarget": { "routes": ["/hr/lifecycle"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-CONTRACT-001",
+      "dimension": "page_entry",
+      "menuFamily": "contract",
+      "legacyObject": { "kind": "page_family", "name": "合同管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:contract"] },
+      "currentTarget": { "routes": ["/hr/contracts"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-TRAINING-001",
+      "dimension": "page_entry",
+      "menuFamily": "training",
+      "legacyObject": { "kind": "page_family", "name": "培训管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:training"] },
+      "currentTarget": { "routes": ["/hr/training"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-PERFORMANCE-001",
+      "dimension": "page_entry",
+      "menuFamily": "performance",
+      "legacyObject": { "kind": "page_family", "name": "绩效考核", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:performance"] },
+      "currentTarget": { "routes": ["/hr/performance", "/hr/feedback-360"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-REWARD-001",
+      "dimension": "page_entry",
+      "menuFamily": "reward_discipline",
+      "legacyObject": { "kind": "page_family", "name": "奖惩管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:reward_discipline"] },
+      "currentTarget": { "routes": ["/hr/rewards"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-PAYROLL-001",
+      "dimension": "page_entry",
+      "menuFamily": "payroll",
+      "legacyObject": { "kind": "page_family", "name": "工资管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:payroll"] },
+      "currentTarget": { "routes": ["/hr/compensation", "/hr/payroll"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-ATTENDANCE-001",
+      "dimension": "page_entry",
+      "menuFamily": "attendance",
+      "legacyObject": { "kind": "page_family", "name": "考勤管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:attendance"] },
+      "currentTarget": { "routes": ["/hr/attendance"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-INSURANCE-001",
+      "dimension": "page_entry",
+      "menuFamily": "insurance_welfare",
+      "legacyObject": { "kind": "page_family", "name": "保险福利", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:insurance_welfare"] },
+      "currentTarget": { "routes": ["/hr/insurance"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-RECRUITMENT-001",
+      "dimension": "page_entry",
+      "menuFamily": "recruitment",
+      "legacyObject": { "kind": "page_family", "name": "招聘管理", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:recruitment"] },
+      "currentTarget": { "routes": ["/hr/recruitment"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-SELF-001",
+      "dimension": "page_entry",
+      "menuFamily": "group_web_self_service",
+      "legacyObject": { "kind": "page_family", "name": "集团 Web 自助", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:group_web_self_service"] },
+      "currentTarget": { "routes": ["/hr"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "PAGE-RBAC-001",
+      "dimension": "page_entry",
+      "menuFamily": "permission_log_reminder",
+      "legacyObject": { "kind": "page_family", "name": "权限、日志与提醒", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:permission_log_reminder"] },
+      "currentTarget": { "routes": ["/hr/approvals"], "apis": [], "entities": [], "permissions": [] },
+      "status": "mapped",
+      "testRefs": [],
+      "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+    },
+    {
+      "id": "FIELD-CATALOG-001",
+      "dimension": "field_dictionary",
+      "menuFamily": "employee_profile",
+      "legacyObject": { "kind": "field_catalog", "name": "162 表字段与字典原子展开", "evidenceLevel": "L3", "evidenceRefs": ["baseline#2:table_columns_sha256", "baseline#2:schema_sha256"] },
+      "currentTarget": { "routes": [], "apis": [], "entities": [], "permissions": [] },
+      "status": "unassessed",
+      "testRefs": [],
+      "reasonCode": "ATOMIC_FIELD_EXPANSION_PENDING"
+    },
+    {
+      "id": "RULE-CATALOG-001",
+      "dimension": "state_action_rule",
+      "menuFamily": "payroll",
+      "legacyObject": { "kind": "rule_catalog", "name": "194 存储过程、16 函数、2 触发器原子展开", "evidenceLevel": "L3", "evidenceRefs": ["baseline#2:analysis_report_sha256"] },
+      "currentTarget": { "routes": [], "apis": [], "entities": [], "permissions": [] },
+      "status": "unassessed",
+      "testRefs": [],
+      "reasonCode": "ATOMIC_RULE_EXPANSION_PENDING"
+    },
+    {
+      "id": "RBAC-CATALOG-001",
+      "dimension": "permission_scope",
+      "menuFamily": "permission_log_reminder",
+      "legacyObject": { "kind": "authorization_catalog", "name": "915 条旧授权原子映射", "evidenceLevel": "L3", "evidenceRefs": ["baseline#4:permission_scope"] },
+      "currentTarget": { "routes": [], "apis": [], "entities": [], "permissions": [] },
+      "status": "unassessed",
+      "testRefs": [],
+      "reasonCode": "HUMAN_UAT_UNSIGNED"
+    },
+    {
+      "id": "MIGRATION-AB-001",
+      "dimension": "migration_reconciliation",
+      "menuFamily": "payroll",
+      "legacyObject": { "kind": "migration_gate", "name": "T0 至 T5 双独立演练", "evidenceLevel": "L3", "evidenceRefs": ["task-prd:requirements-1-10"] },
+      "currentTarget": { "routes": [], "apis": ["lab:full-domain-rehearsal"], "entities": [], "permissions": [] },
+      "status": "implemented",
+      "testRefs": ["scripts/e2e/yuzhou-full-domain-contract.mjs", "scripts/e2e/yuzhou-full-domain-lifecycle.mjs"],
+      "reasonCode": "REHEARSAL_AB_NOT_STARTED"
+    },
+    {
+      "id": "MODERN-LOOP-001",
+      "dimension": "modern_enterprise",
+      "menuFamily": null,
+      "legacyObject": { "kind": "modern_extension", "name": "战略至员工汇报、绩效、360 与审批闭环", "evidenceLevel": "L2", "evidenceRefs": ["baseline#3:modern_extension"] },
+      "currentTarget": { "routes": ["/hr/goals", "/hr/work-reports", "/hr/performance", "/hr/feedback-360", "/hr/approvals"], "apis": [], "entities": [], "permissions": [] },
+      "status": "implemented",
+      "testRefs": [],
+      "reasonCode": "MODERN_END_TO_END_ACCEPTANCE_PENDING"
+    }
+  ]
+}

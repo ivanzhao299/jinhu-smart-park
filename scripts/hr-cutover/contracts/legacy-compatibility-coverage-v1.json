@@ -1,0 +1,101 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_compatibility_coverage",
+  "scoreScale": 100,
+  "statusCredit": {
+    "unassessed": 0,
+    "mapped": 0.25,
+    "implemented": 0.5,
+    "tested": 0.75,
+    "verified": 1,
+    "approved_archived": 1,
+    "approved_rejected": 1
+  },
+  "dimensions": {
+    "page_entry": { "weight": 15, "label": "页面与入口覆盖" },
+    "field_dictionary": { "weight": 25, "label": "字段与字典覆盖" },
+    "state_action_rule": { "weight": 25, "label": "状态、动作与业务规则" },
+    "permission_scope": { "weight": 15, "label": "权限、数据范围与脱敏" },
+    "migration_reconciliation": { "weight": 15, "label": "数据迁移与对账" },
+    "modern_enterprise": { "weight": 5, "label": "新时代企业能力" }
+  },
+  "evidenceLevels": ["L0", "L1", "L2", "L3", "L4", "L5"],
+  "atomicLocatorFields": ["sourceTable", "sourceColumn", "sourceRoutine", "page", "action", "state", "report"],
+  "minimumEvidenceByStatus": {
+    "mapped": "L2",
+    "implemented": "L2",
+    "tested": "L3",
+    "verified": "L4",
+    "approved_archived": "L5",
+    "approved_rejected": "L5"
+  },
+  "pageRuntimeGate": {
+    "requiredEvidenceLevel": "L4",
+    "missingRuntimeMaximumRatio": 0.8,
+    "reasonCode": "LEGACY_CLIENT_L4_TRAVERSAL_MISSING"
+  },
+  "completionGate": {
+    "requiredScore": 100,
+    "requiredEvidenceLevel": "L5",
+    "reasonCode": "LEGACY_BUSINESS_L5_SIGNOFF_MISSING"
+  },
+  "inventoryGate": {
+    "reasonCode": "ATOMIC_INVENTORY_INCOMPLETE",
+    "minimumItemsByDimension": {
+      "page_entry": 36,
+      "field_dictionary": 162,
+      "state_action_rule": 212,
+      "permission_scope": 915,
+      "migration_reconciliation": 1,
+      "modern_enterprise": 1
+    }
+  },
+  "sourceBaselines": {
+    "helpTopics": 46,
+    "menuFamilies": 13,
+    "tables": 162,
+    "storedProcedures": 194,
+    "functions": 16,
+    "triggers": 2,
+    "legacyAuthorizationRows": 915
+  },
+  "requiredMenuFamilies": [
+    "organization_job",
+    "employee_profile",
+    "employment_change",
+    "contract",
+    "training",
+    "performance",
+    "reward_discipline",
+    "payroll",
+    "attendance",
+    "insurance_welfare",
+    "recruitment",
+    "group_web_self_service",
+    "permission_log_reminder"
+  ],
+  "allowedDispositionReasons": [
+    "LEGACY_CLIENT_L4_TRAVERSAL_MISSING",
+    "LEGACY_BUSINESS_L5_SIGNOFF_MISSING",
+    "ATOMIC_INVENTORY_INCOMPLETE",
+    "ATOMIC_FIELD_EXPANSION_PENDING",
+    "ATOMIC_RULE_EXPANSION_PENDING",
+    "TARGET_IMPLEMENTATION_PENDING",
+    "AUTOMATED_TEST_PENDING",
+    "HUMAN_UAT_UNSIGNED",
+    "REHEARSAL_AB_NOT_STARTED",
+    "T4_COMPLEX_RULE_GATE_DEFERRED",
+    "MODERN_END_TO_END_ACCEPTANCE_PENDING",
+    "NO_LEGACY_EQUIVALENT",
+    "DEFERRED_COLD_ARCHIVE",
+    "LEGACY_DEFECT_NOT_REPLICATED"
+  ],
+  "forbiddenSourcePatterns": [
+    "/Users/",
+    "Downloads/",
+    "玉舟人力资源管理系统分析产出/",
+    "BEGIN PRIVATE KEY",
+    "postgresql://",
+    "sqlserver://"
+  ]
+}
