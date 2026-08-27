@@ -35,6 +35,8 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 
 ## 计划矩阵与实际状态
 
+本轮没有在启动 Chrome 前形成 SOP 要求的“设计依据清单、设计→实现闭环审计表、角色 × 流程链矩阵”。下面矩阵来自执行请求与修复 PR 的直接测试目标，只能视为未执行计划，不能替代第 0 阶段工件。浏览器执行在第 0 阶段缺失时已经开始，这是本轮除 login selector 超时之外的另一项流程 blocker；下轮必须先补齐并审阅第 0 阶段工件，才能启动任何浏览器 Case。
+
 | Case | 预期 | 实际 | 结果 |
 | --- | --- | --- | --- |
 | PAM-004-DISABLED | 模块禁用后 `/users/me` 空树；Web 不显示静态 fallback；直达 `/housing` 为 403 | 浏览器未到达登录表单交互，未产生 UI/API 断言 | BLOCKED |
@@ -70,7 +72,9 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 ## 后续门禁
 
 1. 从最新 main 使用新 RUN_ID 重建隔离环境；不得复用本轮 fixture 或浏览器 profile。
-2. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图、实际 viewport 与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
-3. PAM-005 必须包含园区切换用例：previous user 位于会被 normalize 剔除的 legacy/placeholder 路径，切换后必须回落到 current user Sidebar 中存在的 normalized 首跳。
-4. 完成六项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 两个子任务标记复测 PASS并归档。
-5. 审计父任务还必须完整执行审计报告第十五节七组回归（包含四象限、模块时间窗、畸形元数据、双 tab/删权/重登、双园区 scope 以及原安全回归）；六项修复矩阵不能替代父任务的完整归档门禁。
+2. Chrome 前先完成设计依据清单、设计→实现闭环审计表、角色 × 流程链矩阵，并证明 Case 覆盖 PAM-004/PAM-005 PRD、园区切换和父审计第十五节；缺一项则禁止启动浏览器。
+3. 使用 SOP 规定的 chrome-devtools MCP 路径并记录 MCP 版本；若该工具不可用，必须在执行前取得并记录“等价工具例外”批准，不能由执行者自行把 raw CDP 视为等价。
+4. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图、实际 viewport 与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
+5. PAM-005 必须包含园区切换用例：previous user 位于会被 normalize 剔除的 legacy/placeholder 路径，切换后必须回落到 current user Sidebar 中存在的 normalized 首跳。
+6. 完成六项矩阵、逐步截图、SHA-256 manifest 和标准 MCP/获批等价工具证据后，才可将 PAM-004/PAM-005 两个子任务标记复测 PASS并归档。
+7. 审计父任务还必须完整执行审计报告第十五节七组回归（包含四象限、模块时间窗、畸形元数据、双 tab/删权/重登、双园区 scope 以及原安全回归）；六项修复矩阵不能替代父任务的完整归档门禁。
