@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
+import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
@@ -513,9 +514,11 @@ export function runForward(configInput, configPath) {
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "extract");
   validateChildJournal(config, "extract");
   transition(config, "loading");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "after");
   validateChildJournal(config, "load");
   verifySlice3AtLifecycleState(config);
   transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
@@ -530,9 +533,11 @@ async function runForwardAsync(configInput, configPath) {
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "extract");
   validateChildJournal(config, "extract");
   transition(config, "loading");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "after");
   validateChildJournal(config, "load");
   verifySlice3AtLifecycleState(config);
   transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
