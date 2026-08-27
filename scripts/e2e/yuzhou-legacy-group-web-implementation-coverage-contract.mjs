@@ -14,8 +14,8 @@ test("all 231 Group Web modules receive a conservative implementation score", ()
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
   assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 4, score80: 158, score60: 0, score40: 27, score20: 42 });
-  assert.equal(result.summary.averageScore, 64.59);
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 6, score80: 156, score60: 0, score40: 27, score20: 42 });
+  assert.equal(result.summary.averageScore, 64.68);
   assert.equal(result.gates.productionImport, "HOLD");
 });
 
@@ -63,6 +63,15 @@ test("Yuzhou probation confirmation reaches approval and atomic effect parity", 
   assert.equal(probation.dimensions.legacyRuleParity, true);
   assert.equal(probation.ruleParityOutcome, "probation_application_batch_approval_and_atomic_confirmation");
   assert.deepEqual(probation.blockers, ["live_role_uat"]);
+});
+
+test("Yuzhou job change combines Group Web approval with the client movement ledger", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  const jobChange = result.items.find(item => item.legacyId === 39);
+  assert.equal(jobChange.score, 90);
+  assert.equal(jobChange.dimensions.legacyRuleParity, true);
+  assert.equal(jobChange.ruleParityOutcome, "dual_source_job_change_approval_manual_apply_and_atomic_event_ledger");
+  assert.deepEqual(jobChange.blockers, ["live_role_uat"]);
 });
 
 test("production import release and source shrinkage fail closed", () => {

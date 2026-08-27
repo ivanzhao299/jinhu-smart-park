@@ -20,6 +20,7 @@ export const HR_PERMISSIONS = {
   HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
   HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
   HR_EMPLOYMENT_TRANSITION: "hr:employment:transition",
+  HR_JOB_CHANGE_READ: "hr:job_change:read", HR_JOB_CHANGE_TEAM_READ: "hr:job_change:team_read", HR_JOB_CHANGE_SELF_READ: "hr:job_change:self_read", HR_JOB_CHANGE_MANAGE: "hr:job_change:manage", HR_JOB_CHANGE_REVIEW: "hr:job_change:review", HR_JOB_CHANGE_APPLY: "hr:job_change:apply",
   HR_RECRUITMENT_PAGE: "hr:recruitment", HR_REQUISITION_READ: "hr:requisition:read", HR_REQUISITION_TEAM_READ: "hr:requisition:team_read", HR_REQUISITION_MANAGE: "hr:requisition:manage",
   HR_CANDIDATE_READ: "hr:candidate:read", HR_CANDIDATE_MANAGE: "hr:candidate:manage", HR_CANDIDATE_SENSITIVE_READ: "hr:candidate:sensitive_read", HR_CANDIDATE_STAGE: "hr:candidate:stage", HR_CANDIDATE_CONVERT: "hr:candidate:convert",
   HR_ONBOARDING_READ: "hr:onboarding:read", HR_ONBOARDING_MANAGE: "hr:onboarding:manage", HR_RECRUITMENT_DOCUMENT_READ: "hr:recruitment_document:read", HR_RECRUITMENT_DOCUMENT_MANAGE: "hr:recruitment_document:manage",

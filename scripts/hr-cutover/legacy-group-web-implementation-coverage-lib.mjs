@@ -49,6 +49,21 @@ const ITEM_RULE_PARITY = Object.freeze({
       "apps/web/app/hr/contracts/HrContractsClient.tsx"
     ]
   },
+  39: {
+    legacyFieldEvidenceHash: "b279850a9053621fd3ab890b5fd85092292f886f6150092ccc28ab4138b9dc06",
+    outcome: "dual_source_job_change_approval_manual_apply_and_atomic_event_ledger",
+    evidenceFiles: [
+      "scripts/hr-cutover/contracts/yuzhou-job-change-dual-source-evidence-v1.json",
+      "database/migrations/000273_hr_job_change_application_parity.sql",
+      "database/seeds/production/000028_hr_job_change_rbac.sql",
+      "apps/api/src/modules/hr/dto/hr-job-change.dto.ts",
+      "apps/api/src/modules/hr/hr-job-change.controller.ts",
+      "apps/api/src/modules/hr/hr-job-change.service.ts",
+      "apps/api/src/modules/hr/hr-job-change.contract.spec.ts",
+      "apps/api/src/modules/hr/hr-job-change.pg.spec.ts",
+      "apps/web/app/hr/lifecycle/JobChangeApplicationsPanel.tsx"
+    ]
+  },
   36: {
     legacyFieldEvidenceHash: "0d2dc3193b08211f178816baf77f64f6a5bf01c5fae96a476c35e8d87736b26a",
     outcome: "probation_application_batch_approval_and_atomic_confirmation",
