@@ -60,6 +60,16 @@ test("candidate evidence is scoped and never readable with manager-only permissi
  assert.deepEqual(calls,[['candidate-1','tenant-1','park-1']]);
 });
 
+test("employee photos use the sensitive-profile permission and employee scope",async()=>{
+ const calls:unknown[][]=[];
+ const service=new FileBusinessAccessService({query:async(_sql:string,params:unknown[])=>{calls.push(params);return [{user_id:"employee-user"}];}} as never,{} as never,unrestrictedDataScopes);
+ await assert.rejects(service.assertReferenceAccess(scope,actor([]),"hr_employee_photo","employee-1","read"),ForbiddenException);
+ assert.equal(calls.length,0);
+ await assert.doesNotReject(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ]),"hr_employee_photo","employee-1","read"));
+ await assert.doesNotReject(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE]),"hr_employee_photo","employee-1","upload"));
+ assert.deepEqual(calls,[["employee-1","tenant-1","park-1"],["employee-1","tenant-1","park-1"]]);
+});
+
 test("protected file references are resolved inside tenant and park before unit scope", async () => {
   const queries: unknown[][] = [];
   const checkedUnits: string[] = [];

@@ -17,6 +17,7 @@ import type { SelectContextDto } from "./dto/select-context.dto";
 import type { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
 import type { WechatBindDto } from "./dto/wechat-bind.dto";
 import type { WechatCallbackDto } from "./dto/wechat-callback.dto";
+import type { ChangePasswordDto } from "./dto/change-password.dto";
 import { AuthLoginTicketEntity } from "./entities/auth-login-ticket.entity";
 import { AuthOauthStateEntity } from "./entities/auth-oauth-state.entity";
 import { AuthOtpCodeEntity } from "./entities/auth-otp-code.entity";
@@ -24,7 +25,7 @@ import { AuthRefreshTokenEntity } from "./entities/auth-refresh-token.entity";
 import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
 import { UsersService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/users.service";
-import type { UserEntity } from "../users/entities/user.entity";
+import { UserEntity } from "../users/entities/user.entity";
 
 export interface LoginContextOption {
   userId: string;
@@ -774,6 +775,39 @@ export class AuthService implements OnModuleInit {
     );
   }
 
+  async changeOwnPassword(user: JwtPrincipal, dto: ChangePasswordDto): Promise<{ userId: string; reauthenticate: true }> {
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException("New password must be different from the current password");
+    }
+    await this.refreshTokenRepository.manager.transaction(async (manager) => {
+      const users = manager.getRepository(UserEntity);
+      const current = await users.findOne({
+        where: { id: user.sub, tenantId: user.tenantId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!current || !current.isEnabled || current.status !== "enabled") {
+        throw new UnauthorizedException("Current account is unavailable");
+      }
+      if (!(await bcrypt.compare(dto.currentPassword, current.passwordHash))) {
+        throw new UnauthorizedException("Current password is incorrect");
+      }
+      const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
+      current.passwordHash = await bcrypt.hash(dto.newPassword, saltRounds);
+      current.authVersion = Math.max(1, current.authVersion || 1) + 1;
+      current.passwordFailedCount = 0;
+      current.passwordFailedWindowStartedAt = null;
+      current.passwordLockedUntil = null;
+      current.lastPasswordFailedAt = null;
+      current.updateBy = user.sub;
+      await users.save(current);
+      await manager.getRepository(AuthRefreshTokenEntity).update(
+        { tenantId: user.tenantId, userId: user.sub, revoked: false, isDeleted: false },
+        { revoked: true, revokedTime: new Date(), updateBy: user.sub }
+      );
+    });
+    return { userId: user.sub, reauthenticate: true };
+  }
+
   private async issueLoginResult(
     user: UserEntity,
     meta: LoginRequestMeta,
@@ -813,7 +847,8 @@ export class AuthService implements OnModuleInit {
       sub: authUser.id,
       username: authUser.username,
       tenantId: authUser.tenantId,
-      parkId: authUser.parkId
+      parkId: authUser.parkId,
+      authVersion: user.authVersion || 1
     };
 
     const result: LoginResult = {
@@ -858,7 +893,8 @@ export class AuthService implements OnModuleInit {
       sub: principal.sub,
       username: principal.username,
       tenantId: principal.tenantId,
-      parkId: principal.parkId
+      parkId: principal.parkId,
+      authVersion: principal.authVersion ?? profile.authVersion ?? 1
     } satisfies JwtSessionClaims);
     const refreshToken = await this.createScopedRefreshToken(principal, meta);
     await this.usersService.recordSuccessfulLogin({ tenantId: principal.tenantId, parkId: principal.parkId }, principal.sub, meta.ipAddress);

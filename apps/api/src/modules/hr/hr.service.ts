@@ -5,7 +5,7 @@ import { DataSource,ILike,In,IsNull,Not,type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
-import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
+import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
 import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
@@ -64,6 +64,33 @@ export class HrService {
  async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){const accessScope=resolveHrEmployeeAccessScope(actor);if(accessScope==="park")return this.detailEmployee(scope,id);if(accessScope==="none")throw new NotFoundException("Employee not found");const employee=await this.myEmployee(scope,actor);const managedIds=accessScope==="managed_org_tree"?await this.managedEmployeeIds(scope,actor):[];if(!isHrEmployeeIdAccessible(accessScope,id,employee.id,managedIds))throw new NotFoundException("Employee not found");return employee.id===id?employee:this.detailEmployee(scope,id);}
  async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return row;}
  async employeeEvents(scope:TenantParkScope,id:string){await this.detailEmployee(scope,id);return this.events.find({where:{...scope,employeeId:id,isDeleted:false},order:{effectiveDate:"DESC",createTime:"DESC"}});}
+ async employmentEventStatistics(scope:TenantParkScope,actor:JwtPrincipal,q:HrEmploymentEventStatisticsQueryDto){
+  const from=Date.parse(`${q.from}T00:00:00.000Z`),to=Date.parse(`${q.to}T00:00:00.000Z`),maxSpan=366*25*24*60*60*1000;
+  if(!Number.isFinite(from)||!Number.isFinite(to)||from>to)throw new BadRequestException("Employment event statistics date range is invalid");
+  if(to-from>maxSpan)throw new BadRequestException("Employment event statistics range exceeds 25 years");
+  const rows=await this.dataSource.query(`WITH filtered AS (
+    SELECT event_type,effective_date,employee_id,is_historical_import
+    FROM hr_employment_event
+    WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND effective_date>=$3::date AND effective_date<=$4::date
+   ), totals AS (
+    SELECT count(*)::int total,count(DISTINCT employee_id)::int employee_count,
+      count(*) FILTER(WHERE is_historical_import)::int historical_count,
+      count(*) FILTER(WHERE NOT is_historical_import)::int online_count
+    FROM filtered
+   ), by_type AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('eventType',event_type,'count',event_count) ORDER BY event_count DESC,event_type),'[]'::jsonb) items
+    FROM (SELECT event_type,count(*)::int event_count FROM filtered GROUP BY event_type) grouped
+   ), by_month AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('month',month_key,'count',event_count) ORDER BY month_key),'[]'::jsonb) items
+    FROM (SELECT to_char(date_trunc('month',effective_date),'YYYY-MM') month_key,count(*)::int event_count FROM filtered GROUP BY date_trunc('month',effective_date)) grouped
+   )
+   SELECT totals.total,totals.employee_count,totals.historical_count,totals.online_count,by_type.items "byType",by_month.items "byMonth"
+   FROM totals CROSS JOIN by_type CROSS JOIN by_month`,[scope.tenantId,scope.parkId,q.from,q.to]);
+  const row=(rows[0]??{}) as Record<string,unknown>,normalize=(value:unknown,key:string)=>Array.isArray(value)?value.map(item=>({[key]:String((item as Record<string,unknown>)[key]),count:Number((item as Record<string,unknown>).count)})):[];
+  const result={from:q.from,to:q.to,total:Number(row.total??0),employeeCount:Number(row.employee_count??0),historicalCount:Number(row.historical_count??0),onlineCount:Number(row.online_count??0),byType:normalize(row.byType,"eventType"),byMonth:normalize(row.byMonth,"month")};
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employment_event.statistics",action:"读取人事异动统计",bizType:"hr_employment_event",bizId:null,path:"/hr/employment-events/statistics",fieldGroups:[],projection:"park",itemCount:result.total});
+  return result;
+ }
  async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){await this.detailEmployee(scope,id);const row=await this.profiles.findOne({where:{...scope,employeeId:id,isDeleted:false}});const canReadFull=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);const projected=projectHrEmployeeProfile(row,canReadFull);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path:"/hr/employees/:id/profile",fieldGroups:["identity","contact"],projection:canReadFull?"full":"masked",itemCount:projected?1:0});return projected;}
 
  async updateEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){

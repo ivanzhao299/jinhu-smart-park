@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Post, Req, Res, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, HttpCode, Post, Req, Res, UnauthorizedException, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import type { Request, Response } from "express";
 import type { AuditScopeRequest } from "../../shared/interceptors/audit-log.interceptor";
@@ -39,7 +39,9 @@ import { SwitchContextDto } from "./dto/switch-context.dto";
 import { WechatAuthorizeDto } from "./dto/wechat-authorize.dto";
 import { WechatBindDto } from "./dto/wechat-bind.dto";
 import { WechatCallbackDto } from "./dto/wechat-callback.dto";
+import { ChangePasswordDto } from "./dto/change-password.dto";
 import { UsersService } from "../users/users.service";
+import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
 @Controller("auth")
 export class AuthController {
@@ -190,6 +192,27 @@ export class AuthController {
   @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
   me(@CurrentUser() user: JwtPrincipal) {
     return this.usersService.getCurrentUserContext({ tenantId: user.tenantId, parkId: user.parkId }, user.sub);
+  }
+
+  @Post("password/change")
+  @HttpCode(200)
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_ME)
+  @AuditLog({ module: "认证中心", resource: "system.auth", action: "修改本人密码", bizType: "user", captureBody: false })
+  async changePassword(
+    @CurrentUser() user: JwtPrincipal,
+    @Body() dto: ChangePasswordDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ): Promise<{ userId: string; reauthenticate: true }> {
+    this.authRateLimitService.assertAllowed({
+      endpoint: "password-change",
+      ipAddress: this.getIpAddress(request),
+      identifier: user.sub
+    });
+    const result = await this.authService.changeOwnPassword(user, dto);
+    clearRefreshTokenCookie(response, getRefreshCookieConfig(this.configService));
+    return result;
   }
 
   @Post("switch-context")

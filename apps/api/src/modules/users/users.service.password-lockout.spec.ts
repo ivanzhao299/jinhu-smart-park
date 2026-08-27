@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as bcrypt from "bcrypt";
 import { normalizePasswordLockoutConfig } from "../auth/auth-password-lockout.policy";
+import { AuthRefreshTokenEntity } from "../auth/entities/auth-refresh-token.entity";
 import { UsersService } from "./users.service";
-import type { UserEntity } from "./entities/user.entity";
+import { UserEntity } from "./entities/user.entity";
 
 function makeUser(overrides: Partial<UserEntity> = {}): UserEntity {
   return {
@@ -13,6 +14,7 @@ function makeUser(overrides: Partial<UserEntity> = {}): UserEntity {
     username: "admin",
     displayName: "Admin",
     passwordHash: "old-hash",
+    authVersion: 1,
     mobile: null,
     email: null,
     avatarUrl: null,
@@ -101,11 +103,29 @@ test("users service reset password clears password lockout state", async () => {
     lastPasswordFailedAt: new Date("2026-06-17T08:00:00.000Z")
   });
   const savedUsers: UserEntity[] = [];
+  const revoked: unknown[] = [];
+  const requestedEntities: unknown[] = [];
   const repository = {
-    findOne: async () => lockedUser,
-    save: async (user: UserEntity) => {
-      savedUsers.push(user);
-      return user;
+    manager: {
+      transaction: async (callback: (manager: unknown) => Promise<unknown>) => callback({
+        getRepository: (entity: unknown) => {
+          requestedEntities.push(entity);
+          return entity === UserEntity
+            ? {
+                findOne: async () => lockedUser,
+                save: async (user: UserEntity) => {
+                  savedUsers.push(user);
+                  return user;
+                }
+              }
+            : {
+                update: async (...args: unknown[]) => {
+                  revoked.push(args);
+                  return { affected: 2 };
+                }
+              };
+        }
+      })
     }
   };
   const service = createUsersService(repository, { BCRYPT_SALT_ROUNDS: "4" });
@@ -119,7 +139,10 @@ test("users service reset password clears password lockout state", async () => {
   assert.equal(savedUser.passwordFailedWindowStartedAt, null);
   assert.equal(savedUser.passwordLockedUntil, null);
   assert.equal(savedUser.lastPasswordFailedAt, null);
+  assert.equal(savedUser.authVersion, 2);
   assert.equal(await bcrypt.compare("NewPassword#2026", savedUser.passwordHash), true);
+  assert.equal(revoked.length, 1);
+  assert.deepEqual(requestedEntities, [UserEntity, AuthRefreshTokenEntity]);
 });
 
 test("users service refreshes latest lockout state under a row lock", async () => {

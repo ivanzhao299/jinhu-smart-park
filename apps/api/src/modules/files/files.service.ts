@@ -206,8 +206,9 @@ export class FilesService {
       take: query.page_size
     });
     const result={ items, total, page: query.page, page_size: query.page_size };
-    if(query.biz_type==="hr_employee_document"&&query.biz_id){
-      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_document",action:"读取员工档案附件列表",bizType:"hr_employee",bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
+    if((query.biz_type==="hr_employee_document"||query.biz_type==="hr_employee_photo")&&query.biz_id){
+      const photo=query.biz_type==="hr_employee_photo";
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:photo?"hr.employee_photo":"hr.employee_document",action:photo?"读取员工照片列表":"读取员工档案附件列表",bizType:query.biz_type,bizId:query.biz_id,path:"/files",fieldGroups:["attachment"],projection:"metadata",itemCount:items.length});
       return {...result,items:items.map(projectHrEmployeeDocumentFile)};
     }
     if((query.biz_type==="hr_candidate_resume"||query.biz_type==="hr_candidate_offer_evidence")&&query.biz_id){
@@ -243,8 +244,9 @@ export class FilesService {
       file.createBy ?? undefined,
       file.id
     );
-    if(file.bizType==="hr_employee_document"&&file.bizId){
-      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_document",action:"读取员工档案附件详情",bizType:"hr_employee_document",bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
+    if((file.bizType==="hr_employee_document"||file.bizType==="hr_employee_photo")&&file.bizId){
+      const photo=file.bizType==="hr_employee_photo";
+      await recordHrSensitiveRead(this.auditService,scope,actor,{resource:photo?"hr.employee_photo":"hr.employee_document",action:photo?"读取员工照片详情":"读取员工档案附件详情",bizType:file.bizType,bizId:file.id,path:"/files/:id",fieldGroups:["attachment"],projection:"metadata",itemCount:1});
       return projectHrEmployeeDocumentFile(file);
     }
     if((file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence")&&file.bizId){
@@ -327,8 +329,9 @@ export class FilesService {
     file: FileEntity,
     requestId: string | null
   ): Promise<void> {
-    if(file.bizType==="hr_employee_document"){
-      await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:"hr.employee_document",action:"下载员工档案附件",bizType:"hr_employee_document",bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
+    if(file.bizType==="hr_employee_document"||file.bizType==="hr_employee_photo"){
+      const photo=file.bizType==="hr_employee_photo";
+      await recordHrSensitiveRead(this.auditService,scope,{sub:user.id,username:user.username,realName:user.realName,roles:user.roles},{resource:photo?"hr.employee_photo":"hr.employee_document",action:photo?"下载员工照片":"下载员工档案附件",bizType:file.bizType,bizId:file.id,path:"/files/:id/download",fieldGroups:["attachment"],projection:"download",itemCount:1,requestId});
       return;
     }
     if(file.bizType==="hr_candidate_resume"||file.bizType==="hr_candidate_offer_evidence"){

@@ -38,6 +38,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       }
       throw principalResult.reason;
     }
-    return principalResult.value;
+    const principal = principalResult.value;
+    if ((payload.authVersion ?? 1) !== (principal.authVersion ?? 1)) {
+      throw new UnauthorizedException("Authentication session has been revoked");
+    }
+    return principal;
   }
 }

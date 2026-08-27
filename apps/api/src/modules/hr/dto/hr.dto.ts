@@ -12,6 +12,10 @@ export class HrListQueryDto {
  @IsOptional() @IsIn(HR_EMPLOYEE_STATUSES) status?:string;
  @IsOptional() @IsUUID() org_id?:string;
 }
+export class HrEmploymentEventStatisticsQueryDto {
+ @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() from!:string;
+ @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() to!:string;
+}
 export class HrContractListQueryDto {
  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
  @Transform(({value})=>Number(value??20)) @IsInt() @Min(1) @Max(100) page_size=20;

@@ -21,13 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
-  ,"hr_employee_document","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence","hr_reward_evidence"
+  ,"hr_employee_document","hr_employee_photo","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence","hr_reward_evidence"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence" | "hr_training_certificate" | "hr_training_evidence" | "hr_reward_evidence"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_employee_photo" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence" | "hr_training_certificate" | "hr_training_evidence" | "hr_reward_evidence"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -135,7 +135,7 @@ export class FileBusinessAccessService {
       );
       return;
     }
-    if (bizType === "hr_employee_document") {
+    if (bizType === "hr_employee_document" || bizType === "hr_employee_photo") {
       await this.assertHrEmployeeDocumentAccess(scope,actor,bizId,action);
       return;
     }

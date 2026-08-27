@@ -341,7 +341,7 @@ test("auth service preserves login relations after refreshing lockout state", as
   assert.deepEqual(result.user?.permissions, ["system:user:me"]);
 });
 
-test("auth service signs compact session claims instead of embedding authorization lists", async () => {
+test("auth service signs compact revocable session claims instead of embedding authorization lists", async () => {
   const user = await makeUser();
   const { service, signedPayloads } = createFixture([user]);
 
@@ -352,7 +352,8 @@ test("auth service signs compact session claims instead of embedding authorizati
       sub: user.id,
       username: user.username,
       tenantId: user.tenantId,
-      parkId: user.parkId
+      parkId: user.parkId,
+      authVersion: 1
     }
   ]);
 });

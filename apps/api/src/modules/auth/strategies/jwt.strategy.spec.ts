@@ -48,6 +48,12 @@ test("JWT strategy restores current permissions from the server-side user contex
   ]);
 });
 
+test("JWT strategy rejects access tokens issued before a password session-version change",async()=>{
+  const claims:JwtSessionClaims={sub:"00000000-0000-0000-0000-000000000001",username:"manager",tenantId:"10000001",parkId:"20000001",authVersion:1};
+  const strategy=new JwtStrategy({getOrThrow:()=>"unit-test-secret"} as never,{assertTenantActive:async()=>undefined} as never,{resolveJwtPrincipal:async()=>({...claims,roles:[],permissions:["system:user:me"],authVersion:2})} as never);
+  await assert.rejects(strategy.validate(claims),(error:unknown)=>error instanceof UnauthorizedException&&error.message==="Authentication session has been revoked");
+});
+
 test("JWT strategy preserves tenant failure precedence while checks run concurrently", async () => {
   const claims: JwtSessionClaims = {
     sub: "00000000-0000-0000-0000-000000000001",

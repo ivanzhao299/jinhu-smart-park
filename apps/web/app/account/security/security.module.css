@@ -1,0 +1,18 @@
+.form {
+  display: grid;
+  max-width: 620px;
+  gap: 18px;
+}
+
+.form button {
+  width: fit-content;
+  min-width: 220px;
+}
+
+@media (max-width: 720px) {
+  .form,
+  .form button {
+    width: 100%;
+    max-width: none;
+  }
+}
