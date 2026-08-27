@@ -1,0 +1,7 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"API 权限守卫、scope、审批与数据库契约的项目规范入口"}
+{"file":".trellis/spec/api/frontend/index.md","reason":"API 包跨前端菜单与访问面的规范入口"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web 菜单、路由与页面权限的项目规范入口"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"shared 权限契约的后端消费者规范入口"}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"shared 权限契约的前端消费者规范入口"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"审计 shared/DB/API/menu/route 的跨层一致性"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"审计 seed、迁移、发布与验证建议的生产规则"}
