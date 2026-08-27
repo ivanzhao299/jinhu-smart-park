@@ -412,8 +412,13 @@ function provisionLab(config, registry) {
   command("docker", ["volume", "create", "--label", `com.docker.compose.project=${t.composeProject}`, t.volume], { capture: true });
   command("docker", ["compose", "-p", t.composeProject, "-f", p.compose, "up", "-d", "postgres"], { capture: true });
   let ready = false;
+  let consecutiveReady = 0;
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (spawnSync("docker", ["exec", t.postgresContainer, "pg_isready", "-U", "jinhu", "-d", t.database], { stdio: "ignore" }).status === 0) { ready = true; break; }
+    const logs = spawnSync("docker", ["logs", t.postgresContainer], { encoding: "utf8", stdio: "pipe" });
+    const initComplete = `${logs.stdout ?? ""}\n${logs.stderr ?? ""}`.includes("PostgreSQL init process complete; ready for start up.");
+    const acceptsConnections = spawnSync("docker", ["exec", t.postgresContainer, "pg_isready", "-U", "jinhu", "-d", t.database], { stdio: "ignore" }).status === 0;
+    consecutiveReady = initComplete && acceptsConnections ? consecutiveReady + 1 : 0;
+    if (consecutiveReady >= 3) { ready = true; break; }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
   }
   if (!ready) fail("POSTGRES_NOT_READY", t.postgresContainer);
