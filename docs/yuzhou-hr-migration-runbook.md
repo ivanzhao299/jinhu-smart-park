@@ -229,3 +229,51 @@ node scripts/hr-cutover/compile-t4-readiness.mjs \
 ```
 
 公式批准范围、逐账套/项目容差和 HR/payroll/finance 三方真人签署是三个独立、hash-addressed 的业务输入。三方 `signerSubjectId` 必须不同，自动测试不能生成真人签署。缺输入时稳定输出 `T4_FORMULA_SCOPE_UNSIGNED`、`T4_TOLERANCE_UNSIGNED`、`T4_BUSINESS_ATTESTATION_MISSING` 与 `NO_GO`；无论是否齐备，Slice 4 的 `productionImport` 始终为 `HOLD`。
+
+## 11. 客户端与集团 Web 双源核对
+
+玉舟迁移现在有两个数据库来源：`yuzhou_desktop_client_salary` 与 `yuzhou_group_web_enterprise_hr`。抽取、暂存、映射、隔离和审计记录必须带明确 `source_id`；不得把相同表意的两行无来源覆盖，也不得按姓名自动去重。字段级来源优先级需要逐域批准，默认只允许证件规范化哈希确认同一自然人，其次使用工号；证件与工号互相冲突时整行进入人工隔离。
+
+运行任何双源装载前先验证静态基线：
+
+```sh
+pnpm test:e2e:yuzhou-legacy-dual-source-reconciliation
+```
+
+当前只读基线固定集团 Web 为 438 表、5449 字段、320406 行和 548 个员工主档；专用只读账号还能看到 768 个视图、340 个过程、9 个函数和 79 个触发器。表/字段口径包含 SQL Server 2005 的 1 张零行兼容表，结构核对不得擅自增加 `is_ms_shipped=0` 过滤。134 个在职候选中，19 个与客户端来源匹配，115 个必须形成脱敏人工核对任务；不得直接创建 `hr_employee` 或 `sys_user`。核对证据只允许保存来源身份哈希、匹配原因码、冲突码和人工决定，不得保存姓名、证件原文、联系方式或凭据。
+
+双源演练的最小闭环为：两次只读抽取哈希一致 → catalog/关键表计数一致 → 生成核对队列 → 人工决定作为独立签署证据 → 隔离 PostgreSQL 装载 → 数量和关联核对 → 精确回滚 → residual=0 → 同内容重装。尚未实现或签署任一步时，状态保持 `HOLD`。普通生产部署、schema migration、production seed 和服务启动均不得隐式执行双源历史 loader。
+
+集团 Web 数据库为 SQL Server 2005，Microsoft ODBC 18 会在预登录阶段被旧协议重置；本机只读工具使用 FreeTDS 1.5+ 和 `TDSVER=7.0`。专用 ETL 账号必须由一次性受控 provisioner 创建，使用随机强密码，权限固定为数据库 `SELECT + VIEW DEFINITION`，并显式拒绝 `INSERT/UPDATE/DELETE/EXECUTE`；旧应用的 `sysadmin/db_owner` 账号不得用于抽取。凭据只写 Git 忽略的 0600 文件，命令输出不得包含地址、用户名或密码。
+
+真实只读剖面入口：
+
+```sh
+export ALLOW_YUZHOU_MIGRATION=yes
+export YUZHOU_MIGRATION_RUN_ID='groupweb_profile_<run>'
+export YUZHOU_GROUP_WEB_ETL_CREDENTIAL_FILE='<0600 集团 Web ETL 文件>'
+pnpm hr:migration:group-web:profile
+```
+
+2026-08-28 连续两次真实剖面文件 SHA 一致，精确结果为 438 表、5449 字段、215 个非空表、320406 行、768 个视图、340 个过程、9 个函数和 79 个触发器；17 个关键表及逐表 `COUNT_BIG(*)` 前缀汇总均通过合同。剖面只含结构和数量，不含人员值。
+
+员工双源核对入口会在内存中读取集团 Web `vEmployeeNumb/vNumber/vIDCard/DelFlag/isfire` 与客户端 `person.person/idcard`，使用独立 32 字节 0600 HMAC 密钥产生不可逆摘要，原文不落盘：
+
+```sh
+export YUZHOU_MIGRATION_RUN_ID='dual_source_employees_<run>'
+export YUZHOU_CLIENT_ETL_CREDENTIAL_FILE='<0600 客户端恢复库 ETL 文件>'
+pnpm hr:migration:dual-source:employees
+```
+
+真实 A/B 抽取的 artifact SHA 一致：2949 个客户端员工、548 个集团 Web 员工、134 个在职候选；工号匹配 313、证件 HMAC 匹配 308、并集匹配 316、无匹配 232；在职候选中 19 个匹配，115 个进入 `pending_manual_review`。姓名匹配被禁止，队列不自动创建员工或账号。
+
+一次性 PostgreSQL 演练入口：
+
+```sh
+export YUZHOU_MIGRATION_RUN_ID='dual_recon_pg_<run>'
+export YUZHOU_RECONCILIATION_ARTIFACT='<0600 employee-reconciliation.json>'
+export YUZHOU_RECONCILIATION_REHEARSAL_REPORT='<0700 目录中的报告路径>'
+pnpm hr:migration:dual-source:rehearse
+```
+
+A/B 演练均得到 `loaded=115`、`rollbackResidual=0`、`reloaded=115`、`containerResidual=0`、`personalValuesStored=false`。PostgreSQL 随机密码通过 0600 临时 env 文件传递，容器启动后立即删除，结束时删除精确命名容器。该技术闭环不等于 115 人已经完成人工业务认定，也不解除生产 `HOLD`。
