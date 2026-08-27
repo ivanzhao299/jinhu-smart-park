@@ -10,8 +10,42 @@ import {
   FIRST_RELEASE_MENU_PATH_SET,
   findMenuByPath,
   findMenusByPath,
+  getDashboardAuthorizationMenus,
   getDashboardMenus
 } from "./menu";
+
+test("explicit API empty trees remain authoritative while missing fields use legacy compatibility", () => {
+  assert.deepEqual(getDashboardMenus([]), []);
+  assert.ok(getDashboardAuthorizationMenus([]).length > 0);
+  assert.ok(getDashboardMenus(undefined).length > 0);
+  assert.ok(getDashboardAuthorizationMenus(null).length > 0);
+});
+
+test("API trees pruned to empty cannot restore display menus but retain route metadata", () => {
+  const legacyOnlyTree = [{
+    label: "住房出租",
+    module: "housing_rental",
+    children: [{
+      label: "旧运营入口",
+      href: "/housing",
+      permission: "*",
+      module: "housing_rental"
+    }]
+  }] satisfies UserMenuTreeNode[];
+
+  assert.deepEqual(getDashboardMenus(legacyOnlyTree), []);
+  assert.ok(getDashboardAuthorizationMenus(legacyOnlyTree).length > 0);
+});
+
+test("dependency-filtered API empty trees do not recreate property surfaces", () => {
+  const displayMenus = getDashboardMenus([]);
+  const authorizationMenus = getDashboardAuthorizationMenus([]);
+
+  for (const surface of PROPERTY_BUSINESS_SURFACES) {
+    assert.equal(findMenuByPath(surface.route, displayMenus), undefined);
+    assert.equal(findMenuByPath(surface.route, authorizationMenus)?.permission, surface.pageCode);
+  }
+});
 
 test("property menus expose the shared 8/9 canonical surfaces with exact page permissions", () => {
   const menus = getDashboardMenus();

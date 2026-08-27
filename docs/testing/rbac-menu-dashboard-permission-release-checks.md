@@ -75,9 +75,9 @@ For the property-business modules, distinguish the controls explicitly:
 
 The legacy first-release whitelist only records `/homestay` and `/housing` for compatibility. It is not a substitute for these runtime samples.
 
-## 5. Menu Fallback Manual Interception
+## 5. Authoritative Empty Menu Manual Interception
 
-The automated Go-Live Browser UAT now derives its page set from the actual rendered sidebar, so authorized canonical links merged into an empty or nonempty-but-incomplete `/users/me` tree are included in page checks. Its report records the raw API count and `rendered_only_pages`. Use the following controlled procedure when release evidence must demonstrate the exact empty-tree and partial-tree merge cases.
+The automated Go-Live Browser UAT derives its page set from the actual rendered sidebar. A nonempty but incomplete `/users/me` tree may still be enriched with matching canonical metadata, while an explicit empty tree is authoritative and must remain empty. Use the following controlled procedure when release evidence must demonstrate the exact empty-tree and partial-tree cases.
 
 Use this read-only Chrome procedure in Local or UAT with an approved standard-role account:
 
@@ -86,7 +86,7 @@ Use this read-only Chrome procedure in Local or UAT with an approved standard-ro
 3. In **Network**, locate the successful `/users/me` request, right-click it, and choose **Override content**.
 4. First set both `data.menu_tree` and `data.menus` to empty arrays. Do not change the user ID, tenant, park, roles, permissions, `is_super`, or enabled-module fields.
 5. Save the override and reload `/dashboard`. Confirm in Network that `/users/me` is served from the local override.
-6. Capture the rendered sidebar. It must not be empty, proving the Web used `dashboardMenus`; every visible link must still be allowed by the retained permissions and enabled modules.
+6. Capture the rendered sidebar. It must contain no business menu entries, proving the Web respected the API's authoritative empty result and did not use `dashboardMenus` as a display fallback.
 7. Next replace both menu fields with the same nonempty partial tree containing only one known authorized page. Reload and capture the sidebar again. Confirm that other authorized canonical links are merged into the rendered menu and are not limited to the single API link.
 8. Open at least one merged authorized link and confirm it renders. Then pick one permission-denied or module-disabled canonical path and open it directly; it must be rejected through redirect, 403, forbidden/disabled state, or equivalent no-access behavior.
 9. Remove or disable the override, reload, and confirm the original backend-provided menu tree is restored.
@@ -114,7 +114,7 @@ Copy this table into the release evidence report for each target environment.
 | A4-MENU-02 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-DASH-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 | A4-PERM-01 | `<local/preprod/prod>` | `<url>` | `<label>` | `<expected>` | `<actual>` | `<screenshot/log>` | `<PASS/FAIL>` | `<name>` | `<time>` |
-| A4-MENU-FALLBACK-01 | `<local/uat>` | `<url>` | `<standard-role-label>` | `dashboardMenus` fallback renders and remains permission/module filtered | `<actual>` | `<override response/screenshots>` | `<PASS/FAIL>` | `<name>` | `<time>` |
+| A4-MENU-AUTHORITY-01 | `<local/uat>` | `<url>` | `<standard-role-label>` | explicit API empty tree renders no business menu fallback | `<actual>` | `<override response/screenshots>` | `<PASS/FAIL>` | `<name>` | `<time>` |
 
 ## 7. Required Approval Record For Production
 
@@ -138,7 +138,7 @@ Stop the release gate and open a follow-up task if any of these happen:
 - unauthorized access succeeds;
 - an entry required by the sampled role's approved UAT exposure is missing;
 - a menu or route denied by the sampled role's permissions or disabled modules is exposed;
-- fallback sidebar is empty, exposes a permission/module-denied entry, or permits a denied direct route;
+- an explicit API empty tree renders any static business entry or permits a denied direct route;
 - dashboard visibility does not match role permissions;
 - `/users/me` context does not match the visible menu or route result;
 - any production sampling writes data or changes permissions without approval.

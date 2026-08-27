@@ -283,6 +283,57 @@ Superuser status bypasses permission-code checks only; it does not bypass tenant
 availability. For module menus, routes, and login destinations, follow the cross-layer contract
 in [Tenant Module Access Control](../../api/backend/module-access-control.md).
 
+### Scenario: Authenticated API menu authority
+
+#### 1. Scope / Trigger
+
+- Trigger: changing `/users/me` menu consumption, canonical menu merging, Sidebar/Breadcrumb display, or dashboard route authorization.
+
+#### 2. Signatures
+
+- Runtime fields: `UserContext.menus?: UserMenuTreeNode[]` and `UserContext.menu_tree?: UserMenuTreeNode[]`.
+- Display helper: `getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[]`.
+- Authorization helper: `getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[]`.
+
+#### 3. Contracts
+
+- For authenticated display, an array is authoritative even when it is empty or every node is pruned as legacy/placeholder.
+- Only a legacy response where both menu fields are absent may use static `dashboardMenus` as a display compatibility fallback.
+- Static canonical metadata may remain available to route authorization so a direct canonical URL is classified and rejected instead of treated as an unknown utility route. Authorization metadata must never be fed back into rendered navigation.
+- Super/`*` cannot turn an authoritative empty display tree into visible menus and still cannot bypass `enabled_modules` checks.
+- Field-source normalization across Sidebar, Breadcrumb, login landing, and park switching is one contract; do not give consumers independent precedence rules.
+
+#### 4. Validation & Error Matrix
+
+- explicit `[]` -> no rendered business menu; canonical direct route remains classifiable by the route guard.
+- nonempty API tree -> normalize/prune, then enrich matching canonical metadata.
+- both fields absent -> explicit legacy display compatibility fallback.
+- module disabled, including super user -> menu hidden and direct route module 403.
+
+#### 5. Good / Base / Bad Cases
+
+- Good: housing dependency filtering returns `[]`; Sidebar stays empty and a direct housing route fails closed.
+- Base: a partial nonempty API tree receives canonical labels/compound permission metadata without adding an unrelated API-empty module.
+- Bad: `normalizeMenuTree(userMenus).length === 0 ? dashboardMenus : ...` restores hidden business entries.
+
+#### 6. Tests Required
+
+- Unit-test explicit empty, missing fields, fully pruned legacy input, dependency-filtered property surfaces, super/`*`, and canonical surface metadata.
+- Route tests must prove the empty display tree does not make a canonical direct URL an unclassified utility route.
+- Cross-consumer tests must prove login/park-switch landing never selects a node absent from the normalized Sidebar tree.
+
+#### 7. Wrong vs Correct
+
+```ts
+// Wrong: empty and missing are collapsed into one display fallback.
+return normalizeMenuTree(userMenus).length > 0 ? merged : dashboardMenus;
+
+// Correct: missing is compatibility; an explicit array is display authority.
+if (userMenus == null) return dashboardMenus;
+const menus = normalizeMenuTree(userMenus);
+return menus.length > 0 ? mergeWithDashboardMenus(menus) : [];
+```
+
 Reference files:
 - `apps/web/components/auth/PermissionGuard.tsx`
 - `apps/web/components/auth/PermissionButton.tsx`

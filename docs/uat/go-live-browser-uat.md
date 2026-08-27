@@ -52,9 +52,9 @@ pnpm go-live:uat-browser -- \
 
 ## Canonical Menu Merge Coverage
 
-This command no longer limits page discovery to the raw `/users/me` `menu_tree` or `menus`. It loads the real dashboard, extracts links from the rendered sidebar, and then visits that rendered set. This covers authorized canonical links added by the Web when the API tree is empty or nonempty but incomplete.
+This command no longer limits page discovery to the raw `/users/me` `menu_tree` or `menus`. It loads the real dashboard, extracts links from the rendered sidebar, and then visits that rendered set. This covers authorized canonical links added by the Web when the API tree is nonempty but incomplete. An explicit API empty tree remains authoritative and produces no rendered business links; only a legacy response with both menu fields absent uses the display compatibility fallback.
 
-The JSON result records `api_menu_pages_total`, `menu_pages_total`, and `rendered_only_pages`. A `NO_RENDERED_MENU_PAGE` failure means no rendered link remained after optional path filtering. Use [Menu Fallback Manual Interception](../testing/rbac-menu-dashboard-permission-release-checks.md#5-menu-fallback-manual-interception) when controlled empty-tree and partial-tree evidence is required in addition to the real-account automated run.
+The JSON result records `api_menu_pages_total`, `menu_pages_total`, and `rendered_only_pages`. A `NO_RENDERED_MENU_PAGE` failure means no rendered link remained after optional path filtering. Use [Authoritative Empty Menu Manual Interception](../testing/rbac-menu-dashboard-permission-release-checks.md#5-authoritative-empty-menu-manual-interception) when controlled empty-tree and partial-tree evidence is required in addition to the real-account automated run.
 
 ## Latest Focused Engineering Result
 

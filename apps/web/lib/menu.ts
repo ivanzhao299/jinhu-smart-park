@@ -493,11 +493,18 @@ export const dashboardMenus: MenuNode[] = [
 ];
 
 export function getDashboardMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  // Missing fields identify the explicit legacy-API compatibility path. An
+  // array, including an empty or fully-pruned one, is authoritative display data.
+  if (userMenus == null) {
+    return dashboardMenus;
+  }
   const menus = normalizeMenuTree(userMenus);
-  return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
+  return menus.length > 0 ? mergeWithDashboardMenus(menus) : [];
 }
 
 export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | null): MenuNode[] {
+  // Canonical metadata remains available to fail closed on direct navigation;
+  // this helper is not a source for rendered navigation.
   const menus = normalizeMenuTree(userMenus);
   return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
 }
