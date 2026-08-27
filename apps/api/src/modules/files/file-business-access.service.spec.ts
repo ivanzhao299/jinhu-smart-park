@@ -70,6 +70,21 @@ test("employee photos use the sensitive-profile permission and employee scope",a
  assert.deepEqual(calls,[["employee-1","tenant-1","park-1"],["employee-1","tenant-1","park-1"]]);
 });
 
+test("contract documents preserve park, manager-tree and self scopes with a separate write grant",async()=>{
+ const calls:unknown[][]=[];
+ const service=new FileBusinessAccessService({query:async(_sql:string,params:unknown[])=>{calls.push(params);return [{user_id:"employee-user",is_historical_import:false,is_self:true,is_team:false}];}} as never,{} as never,unrestrictedDataScopes);
+ await assert.rejects(service.assertReferenceAccess(scope,actor([]),"hr_contract_document","contract-1","read"),ForbiddenException);
+ assert.equal(calls.length,0);
+ await assert.doesNotReject(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_SELF_READ],"employee-user"),"hr_contract_document","contract-1","download"));
+ await assert.rejects(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_READ]),"hr_contract_document","contract-1","upload"),ForbiddenException);
+ await assert.doesNotReject(service.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_MANAGE]),"hr_contract_document","contract-1","upload"));
+ assert.equal(service.isProtectedBizType("hr_contract_document"),true);
+ assert.equal(calls.length,2);
+ assert.deepEqual(calls[0],["contract-1","tenant-1","park-1","employee-user"]);
+ const historical=new FileBusinessAccessService({query:async()=>[{user_id:"employee-user",is_historical_import:true,is_self:true,is_team:false}]} as never,{} as never,unrestrictedDataScopes);
+ await assert.rejects(historical.assertReferenceAccess(scope,actor([HR_PERMISSIONS.HR_CONTRACT_MANAGE]),"hr_contract_document","contract-history","delete"),/immutable/u);
+});
+
 test("protected file references are resolved inside tenant and park before unit scope", async () => {
   const queries: unknown[][] = [];
   const checkedUnits: string[] = [];

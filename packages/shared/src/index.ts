@@ -178,6 +178,7 @@ export const FILE_UPLOAD_BIZ_POLICY_MAP: Record<string, FileUploadPolicyKey> = {
   apartment_move_in_handover: "general",
   apartment_move_out_handover: "general",
   hr_employee_photo: "image",
+  hr_contract_document: "contract",
   hr_reward_evidence: "receipt"
 };
 

@@ -18,7 +18,7 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/hr/approvals": { page: "apps/web/app/hr/approvals/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000234_hr_approval_workflow.sql"] },
   "/hr/attendance": { page: "apps/web/app/hr/attendance/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000245_hr_attendance_requests.sql", "database/migrations/000246_hr_attendance_calculation_core.sql"] },
   "/hr/compensation": { page: "apps/web/app/hr/compensation/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000233_hr_compensation_payroll.sql"] },
-  "/hr/contracts": { page: "apps/web/app/hr/contracts/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000238_hr_contract_history.sql", "database/migrations/000244_hr_contract_online_drafts.sql"] },
+  "/hr/contracts": { page: "apps/web/app/hr/contracts/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000238_hr_contract_history.sql", "database/migrations/000244_hr_contract_online_drafts.sql", "database/migrations/000272_hr_contract_legacy_parity.sql"] },
   "/hr/employees": { page: "apps/web/app/hr/employees/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000230_hr_employee_foundation.sql"] },
   "/hr/insurance": { page: "apps/web/app/hr/insurance/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000239_hr_attendance_insurance_history.sql"] },
   "/hr/lifecycle": { page: "apps/web/app/hr/lifecycle/page.tsx", api: ["apps/api/src/modules/hr/hr-lifecycle.controller.ts"], migrations: ["database/migrations/000252_hr_lifecycle_employee_records.sql"] },
@@ -35,6 +35,20 @@ const ROUTE_EVIDENCE = Object.freeze({
 });
 
 const ITEM_RULE_PARITY = Object.freeze({
+  37: {
+    legacyFieldEvidenceHash: "71721d33d52f7fe9bd09db05c35668890825f0956d6f0927165ad2a103ef3964",
+    outcome: "contract_legacy_fields_protected_documents_salary_boundary_and_append_only_actions",
+    evidenceFiles: [
+      "scripts/hr-cutover/contracts/yuzhou-contract-source-evidence-v1.json",
+      "database/migrations/000272_hr_contract_legacy_parity.sql",
+      "apps/api/src/modules/hr/dto/hr.dto.ts",
+      "apps/api/src/modules/hr/hr.controller.ts",
+      "apps/api/src/modules/hr/hr.service.ts",
+      "apps/api/src/modules/hr/hr-contract-read.pg.spec.ts",
+      "apps/api/src/modules/files/file-business-access.service.ts",
+      "apps/web/app/hr/contracts/HrContractsClient.tsx"
+    ]
+  },
   36: {
     legacyFieldEvidenceHash: "0d2dc3193b08211f178816baf77f64f6a5bf01c5fae96a476c35e8d87736b26a",
     outcome: "probation_application_batch_approval_and_atomic_confirmation",

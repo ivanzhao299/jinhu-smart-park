@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_contract_source_evidence",
+  "legacyId": 37,
+  "legacyFieldEvidenceHash": "71721d33d52f7fe9bd09db05c35668890825f0956d6f0927165ad2a103ef3964",
+  "operationMode": "read_only",
+  "sourceFiles": [
+    {"path":"EMPLOYEE/contract/add.asp","sha256":"fe95eb75d4c3ddfefdc3b5fbe95bb64bc0fd957ec0f62dd9d242bee0b93893cf"},
+    {"path":"EMPLOYEE/contract/browse.asp","sha256":"5cd8469edd70466a3bfe49f480baf8795965bf021cb8a2a11d7b25339947ec15"},
+    {"path":"EMPLOYEE/contract/detail.asp","sha256":"68d157f11e9ff32c7dc64c21b75149c3d1250405e91853c3b22c167eded5a9d7"},
+    {"path":"EMPLOYEE/contract/edit.asp","sha256":"4cd8add29f056866ef49a40e1e4147c32d9557918d40adf30f694d7dc64fbeaa"},
+    {"path":"EMPLOYEE/contract/library/ModifyDataBase.Class.asp","sha256":"3af166713b0b2ff678f4f076963461212a1d476dbe818aa45ceb2d5f313443b0"},
+    {"path":"EMPLOYEE/contract/library/OperationSave.asp","sha256":"e62c05596777c7dd6df8442f7f72f312e4d6928b55b3e56daee80e59a4265fa3"},
+    {"path":"EMPLOYEE/contract/library/browse.Class.asp","sha256":"0e0de285d3ee88ea4ffbfcba5619a5a945520fec633ce33452b6aead125ed65f"},
+    {"path":"EMPLOYEE/contract/library/del.asp","sha256":"cd161074989214e30ebe0627dd303ff14af91278117c154b9fb070b11f365a81"},
+    {"path":"EMPLOYEE/contract/library/save.Class.asp","sha256":"7cd05c9142900a3a89eef7524ff700bbebea5187ef5108a412cb05678ad0ba8d"},
+    {"path":"EMPLOYEE/contract/library/upfilesave.asp","sha256":"b7e7a0de3ae0ba37c5706524ca6692723111abd86a2d597776506fcf8081f519"},
+    {"path":"EMPLOYEE/contract/query.asp","sha256":"387d27fc885d0780aa7a30ea6805ebf5595620ef7371ec52eca7dc0a71b508c7"},
+    {"path":"EMPLOYEE/contract/readonly.asp","sha256":"17f0c7953bd7d1bea475cfbc99df85064fb66015750278c1db6f1b1059beafbc"}
+  ],
+  "legacyRules": {
+    "identity": ["contractNumberUnique","contractType","employee"],
+    "dates": ["term","startDate","endDate","signatureDate","confirmationDate","effectiveDate"],
+    "employment": ["positionTitle","workType","departmentSnapshot"],
+    "probationAndSalary": ["probationMonths","probationSalary","baseSalary"],
+    "documentsAndHistory": ["remark","contractAttachment","createUpdateDeleteOperationLog"]
+  },
+  "targetControls": {
+    "legacyPhysicalDeleteReplacedByAuditedCancel": true,
+    "draftOnlyEdit": true,
+    "contractNumberUniqueness": true,
+    "salaryRequiresCompensationPermission": true,
+    "contractAttachmentIsProtected": true,
+    "appendOnlyActionHistory": true,
+    "tenantParkAndEmployeeScope": true,
+    "idempotentWrites": true,
+    "productionImport": "HOLD"
+  },
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false
+}

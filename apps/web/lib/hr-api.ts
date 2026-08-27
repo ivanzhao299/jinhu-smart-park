@@ -109,9 +109,10 @@ export interface HrPayrollReconciliationSetup {
 export interface HrPayrollHistoryFilters {periodFrom?:string;periodTo?:string;bookId?:string;employeeId?:string;}
 export interface HrPayrollCatalogFilters {bookId?:string;parseStatus?:string;status?:string;caseType?:string;}
 export interface HrApproval {id:string;requestNo:string;requestType:string;applicantEmployeeId:string;subjectEmployeeId:string;title:string;payload:Record<string,unknown>;status:string;submittedAt:string|null;completedAt:string|null;}
-export interface HrContract {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;status:string;isHistoricalImport:boolean;}
+export interface HrContract {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;contractNo:string;contractTypeId?:string;contractTypeName:string;startDate:string|null;endDate:string|null;probationEndDate?:string|null;contractTermMonths?:number|null;signatureDate?:string|null;effectiveDate?:string|null;positionTitle?:string|null;workType?:string|null;departmentNameSnapshot?:string|null;probationMonths?:number|null;probationSalary?:string|null;baseSalary?:string|null;remark?:string|null;status:string;isHistoricalImport:boolean;}
 export interface HrContractChange {id:string;sequenceNo:number;changeType:string;previousStartDate:string|null;previousEndDate:string|null;newStartDate:string;newEndDate:string|null;status:string;isHistoricalImport:boolean;}
-export interface HrContractDetail extends HrContract {changes:HrContractChange[];}
+export interface HrContractAction {id:string;sequenceNo:number;action:string;fromStatus:string|null;toStatus:string;occurredAt:string;}
+export interface HrContractDetail extends HrContract {changes:HrContractChange[];actions:HrContractAction[];}
 export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
 export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
 export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
@@ -211,6 +212,7 @@ export const hrApi={
  ,contract:(id:string,token?:string)=>unwrap(apiRequest<HrContractDetail>(`/hr/contracts/${id}`,{token}))
  ,contractTypes:(token?:string)=>unwrap(apiRequest<HrContractType[]>("/hr/contract-types",{token}))
  ,createContract:(body:object,token?:string)=>unwrap(apiRequest<HrContract>("/hr/contracts",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
+ ,updateContract:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contractAction:(id:string,action:"activate"|"cancel",token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
  ,createContractChange:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${id}/changes`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contractChangeAction:(contractId:string,changeId:string,action:"apply"|"cancel",token?:string)=>unwrap(apiRequest<HrContractChange>(`/hr/contracts/${contractId}/changes/${changeId}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))

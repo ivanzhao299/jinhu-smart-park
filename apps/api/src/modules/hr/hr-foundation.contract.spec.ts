@@ -15,6 +15,7 @@ const performanceMigration=readFileSync(resolve(root,"database/migrations/000232
 const payrollMigration=readFileSync(resolve(root,"database/migrations/000233_hr_compensation_payroll.sql"),"utf8");
 const payrollIntegrityMigration=readFileSync(resolve(root,"database/migrations/000243_hr_payroll_concurrency_integrity.sql"),"utf8");
 const contractDraftMigration=readFileSync(resolve(root,"database/migrations/000244_hr_contract_online_drafts.sql"),"utf8");
+const contractLegacyParityMigration=readFileSync(resolve(root,"database/migrations/000272_hr_contract_legacy_parity.sql"),"utf8");
 const approvalMigration=readFileSync(resolve(root,"database/migrations/000234_hr_approval_workflow.sql"),"utf8");
 const fileAccess=readFileSync(resolve(root,"apps/api/src/modules/files/file-business-access.service.ts"),"utf8");
 const employeeUi=readFileSync(resolve(root,"apps/web/app/hr/employees/HrEmployeesClient.tsx"),"utf8");
@@ -114,6 +115,18 @@ test("online labor contracts serialize draft state and preserve imported history
  assert.doesNotMatch(service,/projectSelfContract[^{]*\{[^}]*employeeId/);
  assert.match(controller,/@Post\("contracts\/:id\/actions"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
  assert.match(controller,/@Post\("contracts\/:id\/changes\/:changeId\/actions"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
+});
+test("Yuzhou contract parity preserves legacy fields behind salary and append-only audit boundaries",()=>{
+ for(const column of ["contract_term_months","signature_date","effective_date","position_title","work_type","department_name_snapshot"])assert.match(contractLegacyParityMigration,new RegExp(`ADD COLUMN IF NOT EXISTS ${column}`));
+ assert.match(contractLegacyParityMigration,/CREATE TABLE IF NOT EXISTS hr_contract_action/);
+ assert.match(contractLegacyParityMigration,/BEFORE UPDATE OR DELETE ON hr_contract_action/);
+ assert.match(service,/Compensation management permission is required to write contract salary/);
+ assert.match(service,/HR_COMPENSATION_READ/);
+ assert.match(service,/async updateContract/);
+ assert.match(controller,/@Put\("contracts\/:id"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
+ assert.match(fileAccess,/"hr_contract_document"/);
+ assert.match(fileAccess,/assertHrContractDocumentAccess/);
+ assert.deepEqual(resolveFileUploadPolicy("hr_contract_document").mimeTypes,resolveFileUploadPolicy("contract").mimeTypes);
 });
 test("HR reference writes fail closed to the current tenant and park",()=>{
  assert.match(service,/User is unavailable in current scope/);
