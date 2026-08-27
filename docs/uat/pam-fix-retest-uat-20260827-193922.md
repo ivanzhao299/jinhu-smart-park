@@ -49,6 +49,7 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 ## 浏览器尝试与证据
 
 - Chrome：Windows Chrome 151，`--headless=new`、独立 profile `pam-fix-20260827-193922`、CDP `9461`；未连接或关闭主 Chrome。
+- MCP version：`N/A`。本轮没有可用的 chrome-devtools MCP，使用 local-only Node 24 原生 WebSocket raw-CDP harness；harness 未发布独立版本号，脚本路径为 `/tmp/jinhu-pam-fix-20260827-193922/pam-uat.mjs`。
 - local-only 根：`/tmp/jinhu-pam-fix-20260827-193922/`。
 - 第 1 次：target attach 后未显式重新导航，首个 login selector 在 15 秒内未出现；profile 的 WSL 删除权限不足，但 `Browser.close` 已释放 CDP。
 - 第 2 次：增加显式 `/login` 导航并改用 Windows 精确 profile cleanup；login selector 仍在 15 秒内未出现。
@@ -71,4 +72,5 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 1. 从最新 main 使用新 RUN_ID 重建隔离环境；不得复用本轮 fixture 或浏览器 profile。
 2. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图、实际 viewport 与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
 3. PAM-005 必须包含园区切换用例：previous user 位于会被 normalize 剔除的 legacy/placeholder 路径，切换后必须回落到 current user Sidebar 中存在的 normalized 首跳。
-4. 完成六项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 标记复测 PASS并归档父子 Trellis 任务。
+4. 完成六项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 两个子任务标记复测 PASS并归档。
+5. 审计父任务还必须完整执行审计报告第十五节七组回归（包含四象限、模块时间窗、畸形元数据、双 tab/删权/重登、双园区 scope 以及原安全回归）；六项修复矩阵不能替代父任务的完整归档门禁。
