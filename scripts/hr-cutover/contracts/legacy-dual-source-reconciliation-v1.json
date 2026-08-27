@@ -1,0 +1,110 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_dual_source_reconciliation",
+  "status": "reviewed_read_only_baseline",
+  "sources": {
+    "desktopClient": {
+      "sourceId": "yuzhou_desktop_client_salary",
+      "systemSurface": "windows_desktop_client",
+      "databaseRole": "client_and_payroll_history",
+      "catalog": {
+        "tables": 162,
+        "fields": 2364,
+        "rules": 212,
+        "helpTopics": 46,
+        "authorizationRows": 915
+      },
+      "employees": 2949
+    },
+    "groupWeb": {
+      "sourceId": "yuzhou_group_web_enterprise_hr",
+      "systemSurface": "classic_asp_group_web",
+      "databaseRole": "enterprise_hr_operations",
+      "catalog": {
+        "tables": 438,
+        "fields": 5449,
+        "nonemptyTables": 215,
+        "rows": 320406,
+        "views": 768,
+        "procedures": 340,
+        "functions": 9,
+        "triggers": 79,
+        "schemaHash": "bc87605a3008dcea521de85a9105bb546667ab2441c42ca32c059cce7744d8ac",
+        "tableRowCountHash": "8aa9b2b7b2abc842dd95e2925641d3c9225837f2010cfe93ca42f7e33ad84b40"
+      },
+      "employees": {
+        "all": 548,
+        "activeCandidates": 134,
+        "snapshotHash": "7f42ba9c120d0dd969174c2b4ac970d7aec85226899c9a5c1f34dffa2706ab78"
+      }
+    }
+  },
+  "groupWebCatalogRollup": [
+    { "prefix": "sys", "tables": 14, "rows": 253992 },
+    { "prefix": "att", "tables": 72, "rows": 28101 },
+    { "prefix": "com", "tables": 36, "rows": 20095 },
+    { "prefix": "dic", "tables": 7, "rows": 4751 },
+    { "prefix": "pub", "tables": 11, "rows": 3712 },
+    { "prefix": "emp", "tables": 28, "rows": 3102 },
+    { "prefix": "org", "tables": 19, "rows": 1495 },
+    { "prefix": "rec", "tables": 48, "rows": 1087 },
+    { "prefix": "con", "tables": 13, "rows": 939 },
+    { "prefix": "per", "tables": 81, "rows": 453 },
+    { "prefix": "tra", "tables": 41, "rows": 355 },
+    { "prefix": "ser", "tables": 13, "rows": 88 },
+    { "prefix": "civ", "tables": 30, "rows": 72 },
+    { "prefix": "other", "tables": 25, "rows": 2164 }
+  ],
+  "groupWebKeyTableCounts": {
+    "Emp_tBasicInfo": 548,
+    "Emp_tExperiences": 944,
+    "Emp_tFamily": 643,
+    "Emp_tContract": 233,
+    "Emp_tDimission": 28,
+    "Emp_Punish_tApplay": 8,
+    "Att_tAttend": 930,
+    "Com_tTimeWage": 19408,
+    "Com_tPricesalary": 87,
+    "Com_tDeductSalary": 26,
+    "Per_tGuideline": 131,
+    "Per_tAssessTemplate": 23,
+    "Tra_TraPlan_tPlan": 25,
+    "Tra_tEmployeeCourse": 38,
+    "Rec_tResumeBasic": 5,
+    "Sys_tOperation": 9528,
+    "Sys_tLogin": 716
+  },
+  "reconciliation": {
+    "allGroupWeb": {
+      "matchedByEmployeeCode": 313,
+      "matchedByIdentityHash": 308,
+      "matchedByEither": 316,
+      "unmatched": 232
+    },
+    "activeGroupWeb": {
+      "matchedByCodeOrIdentityHash": 19,
+      "uniqueToGroupWeb": 115,
+      "disposition": "manual_reconciliation_required"
+    },
+    "evidenceHash": "72f967ceadb8d8396fa7db8fddabf58fbe9bd2094a2f73524edcfea7c1d59caf"
+  },
+  "identityPolicy": {
+    "matchPriority": ["identity_hash", "employee_code", "manual_review"],
+    "nameOnlyMatch": "forbidden",
+    "conflictDisposition": "quarantine",
+    "sourceProvenanceRequired": true,
+    "automaticEmployeeCreation": false
+  },
+  "migrationPolicy": {
+    "operationMode": "read_only_inventory_and_reconciliation",
+    "productionImport": "HOLD",
+    "onlineSideEffectsAllowed": false,
+    "requiredBeforeImport": [
+      "review_115_active_group_web_unique_candidates",
+      "resolve_identity_and_employee_code_conflicts",
+      "approve_field_level_source_precedence",
+      "complete_isolated_load_rollback_reload_rehearsal",
+      "obtain_distinct_hr_payroll_finance_signatures"
+    ]
+  }
+}
