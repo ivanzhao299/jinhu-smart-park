@@ -38,6 +38,11 @@
   padding: 22px;
 }
 
+.statisticsKpis,
+.statisticsRecords {
+  margin-top: 18px;
+}
+
 /* HR pages historically used the neutral ds-button class directly. Give that
  * variant an explicit surface so the browser's native outset border cannot
  * stack with focus/hover styling and produce a heavy double outline. */

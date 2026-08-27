@@ -9,7 +9,7 @@ const clone=value=>structuredClone(value);
 const expectCode=(code,callback)=>assert.throws(callback,error=>error instanceof LegacyWebEntryBindingError&&error.code===code);
 
 test("all 15 Yuzhou Web entries have a mapped target or an explicit gap",()=>{
-  assert.deepEqual(verifyLegacyWebEntryTargetBinding(manifest,{root}),{ok:true,entries:15,mapped:12,gaps:3,roleMatrixVerified:false,compatibilityScoreContribution:0,productionImport:"HOLD"});
+  assert.deepEqual(verifyLegacyWebEntryTargetBinding(manifest,{root}),{ok:true,entries:15,mapped:13,gaps:2,roleMatrixVerified:false,compatibilityScoreContribution:0,productionImport:"HOLD"});
 });
 test("entry substitution and legacy path drift fail closed",()=>{
   const substituted=clone(manifest);substituted.entries[0].name="invented";
@@ -26,7 +26,7 @@ test("mapped entries require route API permission and test evidence",()=>{
 test("gaps cannot carry fabricated targets and summary cannot drift",()=>{
   const invented=clone(manifest);invented.entries[1].targetRoute="/hr/photos";
   expectCode("BINDING_GAP_ENTRY_INVALID",()=>verifyLegacyWebEntryTargetBinding(invented,{root}));
-  const swapped=clone(manifest);swapped.entries[1].reasonCode="TARGET_EMPLOYMENT_CHANGE_STATISTICS_NOT_IMPLEMENTED";
+  const swapped=clone(manifest);swapped.entries[1].reasonCode="TARGET_SELF_SERVICE_PASSWORD_CHANGE_NOT_IMPLEMENTED";
   expectCode("BINDING_GAP_ENTRY_INVALID",()=>verifyLegacyWebEntryTargetBinding(swapped,{root}));
   const route=clone(manifest);route.entries[0].targetRoute="/hr/invented";
   expectCode("BINDING_MAPPED_ENTRY_INVALID",()=>verifyLegacyWebEntryTargetBinding(route,{root}));

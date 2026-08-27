@@ -3,6 +3,7 @@ import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrPosition {id:string;orgId:string;positionCode:string;positionName:string;jobFamily:string|null;jobLevel:string|null;headcountLimit:number|null;status:string;}
 export interface HrEmploymentEvent {id:string;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
+export interface HrEmploymentEventStatistics {from:string;to:string;total:number;employeeCount:number;historicalCount:number;onlineCount:number;byType:Array<{eventType:string;count:number}>;byMonth:Array<{month:string;count:number}>;}
 export interface HrEmployeeProfile {id:string;employeeId:string;idType:string|null;idNumberMasked:string|null;personalMobile:string|null;personalEmail:string|null;address:string|null;emergencyContactName:string|null;emergencyContactMobile:string|null;remark:string|null;}
 export interface HrGoalCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}
 export interface HrGoal {id:string;cycleId:string;parentGoalId:string|null;goalLevel:string;goalName:string;ownerOrgId:string|null;ownerEmployeeId:string|null;ownerName:string|null;weight:string;metricType:string;metricName:string|null;targetValue:string|null;currentValue:string|null;unit:string|null;progress:string;startDate:string;dueDate:string;status:string;currentVersionNo:number;}
@@ -185,6 +186,7 @@ export const hrApi={
  employee:(id:string,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}`,{token})),
  updateEmployee:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()})),
  events:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrEmploymentEvent[]>(`/hr/employees/${id}/events`,{token,signal})),
+ employmentEventStatistics:(token:string|undefined,filters:{from:string;to:string},signal?:AbortSignal)=>{const query=new URLSearchParams(filters);return unwrap(apiRequest<HrEmploymentEventStatistics>(`/hr/employment-events/statistics?${query.toString()}`,{token,signal}));},
  profile:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrEmployeeProfile|null>(`/hr/employees/${id}/profile`,{token,signal})),
  updateProfile:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrEmployeeProfile>(`/hr/employees/${id}/profile`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()})),
  transition:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrEmployee>(`/hr/employees/${id}/transitions`,{method:"POST",body,token,idempotencyKey:crypto.randomUUID()})),

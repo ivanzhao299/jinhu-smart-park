@@ -9,6 +9,7 @@ import {
   hrApi,
   type HrEmployee,
   type HrEmploymentEvent,
+  type HrEmploymentEventStatistics,
   type HrLifecycleChecklist,
   type HrLifecycleChecklistDetail,
   type HrLifecycleTemplate,
@@ -24,6 +25,15 @@ const typeLabel: Record<string, string> = {
     onboarding: "入职",
     offboarding: "离职",
   },
+  eventTypeLabel: Record<string, string> = {
+    created: "新建档案",
+    start_probation: "入职试用",
+    confirm_employment: "转正",
+    transfer: "调动",
+    suspend: "停职",
+    resume: "复职",
+    depart: "离职",
+  },
   statusLabel: Record<string, string> = {
     open: "待开始",
     in_progress: "办理中",
@@ -33,6 +43,7 @@ const typeLabel: Record<string, string> = {
     returned: "已退回",
     waived: "已豁免",
   };
+const initialStatisticsTo=new Date().toISOString().slice(0,10),initialStatisticsFrom=`${initialStatisticsTo.slice(0,4)}-01-01`;
 export function HrLifecycleClient() {
   const user = useAuthUser(),
     canRead = hasAnyPermission(user, [
@@ -43,6 +54,7 @@ export function HrLifecycleClient() {
     canAct = hasPermission(user, HR_PERMISSIONS.HR_LIFECYCLE_SELF_ACTION),
     canReview = hasPermission(user, HR_PERMISSIONS.HR_LIFECYCLE_REVIEW),
     canAssign = hasPermission(user, HR_PERMISSIONS.HR_LIFECYCLE_ASSIGN),
+    canReadEmploymentEvents = hasPermission(user, HR_PERMISSIONS.HR_EMPLOYMENT_EVENT_READ),
     canManageTemplates = hasPermission(
       user,
       HR_PERMISSIONS.HR_LIFECYCLE_TEMPLATE_MANAGE,
@@ -58,11 +70,17 @@ export function HrLifecycleClient() {
     [employees, setEmployees] = useState<HrEmployee[]>([]),
     [users, setUsers] = useState<ReferenceUserOption[]>([]),
     [events, setEvents] = useState<HrEmploymentEvent[]>([]),
+    [statistics, setStatistics] = useState<HrEmploymentEventStatistics | null>(null),
+    [statisticsFrom, setStatisticsFrom] = useState(initialStatisticsFrom),
+    [statisticsTo, setStatisticsTo] = useState(initialStatisticsTo),
+    [statisticsLoading, setStatisticsLoading] = useState(false),
+    [statisticsError, setStatisticsError] = useState(""),
     [busy, setBusy] = useState(false);
   const generation = useRef(0),
     listAbort = useRef<AbortController | null>(null),
     detailAbort = useRef<AbortController | null>(null),
     eventAbort = useRef<AbortController | null>(null),
+    statisticsAbort = useRef<AbortController | null>(null),
     pageSize = 20;
   const clearDetail = () => {
     detailAbort.current?.abort();
@@ -111,6 +129,22 @@ export function HrLifecycleClient() {
       if (g === generation.current) setLoading(false);
     }
   }, [canAssign, canManageTemplates, canRead, page]);
+  const loadStatistics = useCallback(async (from:string,to:string) => {
+    if (!canReadEmploymentEvents) return;
+    const controller=new AbortController();
+    statisticsAbort.current?.abort();
+    statisticsAbort.current=controller;
+    setStatisticsLoading(true);
+    setStatisticsError("");
+    try {
+      const result=await hrApi.employmentEventStatistics(getAccessToken(),{from,to},controller.signal);
+      if(!controller.signal.aborted&&statisticsAbort.current===controller)setStatistics(result);
+    } catch (e) {
+      if((e as Error).name!=="AbortError"&&statisticsAbort.current===controller)setStatisticsError(hrLoadErrorMessage(e,"加载人事异动统计失败"));
+    } finally {
+      if(statisticsAbort.current===controller)setStatisticsLoading(false);
+    }
+  },[canReadEmploymentEvents]);
   useEffect(() => {
     void load();
     return () => {
@@ -120,6 +154,10 @@ export function HrLifecycleClient() {
       eventAbort.current?.abort();
     };
   }, [load]);
+  useEffect(()=>{
+    void loadStatistics(initialStatisticsFrom,initialStatisticsTo);
+    return()=>statisticsAbort.current?.abort();
+  },[loadStatistics]);
   const open = async (row: HrLifecycleChecklist) => {
     clearDetail();
     const c = new AbortController();
@@ -263,7 +301,7 @@ export function HrLifecycleClient() {
           <button
             className="ds-button"
             disabled={loading}
-            onClick={() => void load()}
+            onClick={() => {void load();void loadStatistics(statisticsFrom,statisticsTo);}}
           >
             {loading ? "刷新中" : "刷新"}
           </button>
@@ -276,6 +314,35 @@ export function HrLifecycleClient() {
             <button className="ds-button" onClick={() => void load()}>
               重试
             </button>
+          </section>
+        ) : null}
+        {canReadEmploymentEvents ? (
+          <section className="ds-panel">
+            <div className={styles.sectionHeading}>
+              <div>
+                <span className="ds-eyebrow">玉舟兼容查询</span>
+                <h2>人事异动统计</h2>
+              </div>
+              <span>{statistics?.from ?? statisticsFrom} 至 {statistics?.to ?? statisticsTo}</span>
+            </div>
+            <form className={styles.formGrid} onSubmit={(event)=>{event.preventDefault();void loadStatistics(statisticsFrom,statisticsTo);}}>
+              <label className="form-field"><span>开始日期</span><input type="date" value={statisticsFrom} max={statisticsTo} onChange={(event)=>setStatisticsFrom(event.target.value)} required /></label>
+              <label className="form-field"><span>结束日期</span><input type="date" value={statisticsTo} min={statisticsFrom} onChange={(event)=>setStatisticsTo(event.target.value)} required /></label>
+              <button className="ds-button ds-button-primary" disabled={statisticsLoading}>{statisticsLoading?"统计中":"重新统计"}</button>
+            </form>
+            {statisticsError ? <p className="form-error" role="alert">{statisticsError}</p> : null}
+            {statistics ? <>
+              <div className={`ds-kpi-grid ${styles.statisticsKpis}`} aria-label="人事异动概览">
+                <article className="ds-kpi-card"><span>异动事件</span><strong>{statistics.total}</strong><small>所选日期范围</small></article>
+                <article className="ds-kpi-card"><span>涉及员工</span><strong>{statistics.employeeCount}</strong><small>按员工去重</small></article>
+                <article className="ds-kpi-card"><span>旧系统历史</span><strong>{statistics.historicalCount}</strong><small>玉舟迁移记录</small></article>
+                <article className="ds-kpi-card"><span>新系统办理</span><strong>{statistics.onlineCount}</strong><small>上线后在线记录</small></article>
+              </div>
+              <div className={`ds-mobile-record-list ${styles.statisticsRecords}`}>
+                {statistics.byType.length?statistics.byType.map((item)=><article className="ds-mobile-record" key={item.eventType}><strong>{eventTypeLabel[item.eventType]??item.eventType}</strong><span>{item.count} 次</span></article>):<p>所选日期范围暂无异动记录。</p>}
+              </div>
+              {statistics.byMonth.length?<div className={`ds-mobile-record-list ${styles.statisticsRecords}`} aria-label="异动月份趋势">{statistics.byMonth.slice(-12).map((item)=><article className="ds-mobile-record" key={item.month}><strong>{item.month}</strong><span>{item.count} 次异动</span></article>)}</div>:null}
+            </> : null}
           </section>
         ) : null}
         {canManageTemplates ? (
