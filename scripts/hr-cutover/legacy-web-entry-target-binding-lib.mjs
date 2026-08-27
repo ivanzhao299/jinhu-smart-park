@@ -6,8 +6,8 @@ const fail=(code,detail)=>{throw new LegacyWebEntryBindingError(code,detail)};
 const object=value=>value&&typeof value==="object"&&!Array.isArray(value);
 const exactKeys=(value,keys,label)=>{if(!object(value)||JSON.stringify(Object.keys(value).sort())!==JSON.stringify([...keys].sort()))fail("BINDING_SHAPE_INVALID",label)};
 const EXPECTED=new Map([["人员浏览","personlist.aspx"],["人员照片","photos.aspx"],["信息查询","personquery.aspx"],["人事异动查询","inoutquery.aspx"],["人事异动统计","inoutcount.aspx"],["用户列表","useradmin.aspx"],["修改密码","changepassword.aspx"],["合同到期查询","remindcompact.aspx"],["培训记录查询","trainquery.aspx"],["考核记录查询","assquery.aspx"],["奖惩记录查询","bonusquery.aspx"],["保险福利","insure.aspx"],["工资数据查询","salaryquery.aspx"],["考勤管理","timekeep.aspx"],["招聘管理","accept.aspx"]]);
-const TARGETS=new Map([["人员浏览","/hr/employees"],["信息查询","/hr/employees"],["人事异动查询","/hr/lifecycle"],["人事异动统计","/hr/lifecycle"],["用户列表","/system/users"],["合同到期查询","/hr/contracts"],["培训记录查询","/hr/training"],["考核记录查询","/hr/performance"],["奖惩记录查询","/hr/rewards"],["保险福利","/hr/insurance"],["工资数据查询","/hr/payroll"],["考勤管理","/hr/attendance"],["招聘管理","/hr/recruitment"]]);
-const GAPS=new Map([["人员照片","TARGET_DEDICATED_PHOTO_VIEW_NOT_IMPLEMENTED"],["修改密码","TARGET_SELF_SERVICE_PASSWORD_CHANGE_NOT_IMPLEMENTED"]]);
+const TARGETS=new Map([["人员浏览","/hr/employees"],["人员照片","/hr/employees"],["信息查询","/hr/employees"],["人事异动查询","/hr/lifecycle"],["人事异动统计","/hr/lifecycle"],["用户列表","/system/users"],["合同到期查询","/hr/contracts"],["培训记录查询","/hr/training"],["考核记录查询","/hr/performance"],["奖惩记录查询","/hr/rewards"],["保险福利","/hr/insurance"],["工资数据查询","/hr/payroll"],["考勤管理","/hr/attendance"],["招聘管理","/hr/recruitment"]]);
+const GAPS=new Map([["修改密码","TARGET_SELF_SERVICE_PASSWORD_CHANGE_NOT_IMPLEMENTED"]]);
 const WORKSTATION_PATH=/(?:\/Users\/|Downloads\/|file:\/\/)/;
 const SECRET_MATERIAL=/(?:postgres(?:ql)?|sqlserver):\/\/|(?:pass(?:word)?|passwd|pwd|token|secret)\s*[=:]|BEGIN [A-Z ]*PRIVATE KEY/i;
 

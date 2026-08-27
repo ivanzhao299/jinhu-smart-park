@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { getMetadataArgsStorage } from "typeorm";
+import { resolveFileUploadPolicy } from "@jinhu/shared";
 import { HR_ENTITIES } from "./entities/hr.entities";
 
 const root=resolve(__dirname,"../../../../..");
@@ -33,11 +34,15 @@ test("nullable HR columns declare database types instead of relying on union ref
 });
 test("HR employee documents reuse protected file surfaces without generic exposure",()=>{
  assert.match(fileAccess,/"hr_employee_document"/);
+ assert.match(fileAccess,/"hr_employee_photo"/);
  assert.match(fileAccess,/HR_EMPLOYEE_PROFILE_MANAGE/);
  assert.match(fileAccess,/Employees can only read their own HR documents/);
  assert.match(fileAccess,/FROM hr_employee WHERE id=\$1 AND tenant_id=\$2 AND park_id=\$3/);
  assert.match(employeeUi,/FileUploader bizType="hr_employee_document"/);
  assert.match(employeeUi,/AttachmentList bizType="hr_employee_document"/);
+ assert.match(employeeUi,/FileUploader bizType="hr_employee_photo"/);
+ assert.match(employeeUi,/AttachmentList bizType="hr_employee_photo"/);
+ assert.deepEqual(resolveFileUploadPolicy("hr_employee_photo").mimeTypes,["image/jpeg","image/png","image/webp"]);
 });
 test("HR approvals support submit, return, resubmit, approve and withdraw with action history",()=>{
  assert.match(approvalMigration,/CREATE TABLE IF NOT EXISTS hr_approval_request/);
