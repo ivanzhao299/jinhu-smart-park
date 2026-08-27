@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_employee_basic_profile_source_evidence",
+  "legacyId": 35,
+  "legacyFieldEvidenceHash": "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622",
+  "operationMode": "read_only",
+  "sourceFiles": [
+    {"path":"EMPLOYEE/INFORMATION/basicinfo/add.asp","sha256":"38121f374b596a6fbd85cd61b05ae2b615a2d73dc82d9b9a0c5cf7533cfcb6d2"},
+    {"path":"EMPLOYEE/INFORMATION/basicinfo/edit.asp","sha256":"c9bf27f2ddc7dfb66dc9d0cfcd05b937073c3662efff2cc97636d3ed0af63f47"},
+    {"path":"EMPLOYEE/INFORMATION/basicinfo/Library/save.Class.asp","sha256":"5fd661afff1744a8fdba1b0e0e065835098cd951585d4715ae0e109fe11ff299"},
+    {"path":"EMPLOYEE/INFORMATION/basicinfo/Library/detail.Class.asp","sha256":"126c72c42d3cd0350e40039da95e22756cf294bfe2996f25bbd629b5f8fbecd6"},
+    {"path":"EMPLOYEE/INFORMATION/basicinfo/Browse.asp","sha256":"cae0da786fda47c1d294e4105b117d197dcfc1b31e7097ef7f781bc0238a5ff4"}
+  ],
+  "fieldGroups": {
+    "identity": ["vCardID","vEmployeeNumb","vCHName","vENName","vSex","vRace","vNativePlace","vPoliticalFace","dJoinClan","iStature","decAvoirdupois","vMarriage","vHealth","vCardType","vIDCard","dBirth","txtNative"],
+    "education": ["vEducational","vSpeciality","vDergee","vLanguage","vLanguageDegree","GraduateTime","finishschool"],
+    "contact": ["vHomePhone","vMobile","vWorkPhone","vEmail","vAddress","vLinkman","vLinkPhone"],
+    "employment": ["vDept","vJob","vHeadShip","vHeadShipGrade","vSort","vTechnical","vTechnicalGrade","dJoinDate","iProbationTerm","isfire","DFiredate","txtRemark"]
+  },
+  "targetControls": {
+    "identityNumber": "encrypted_plus_masked_plus_fingerprint",
+    "tenantParkScope": true,
+    "uniqueEmployeeCode": true,
+    "uniqueIdentityFingerprint": true,
+    "sensitiveReadAudit": true,
+    "sourceSnapshot": "metadata_only",
+    "productionImport": "HOLD"
+  },
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false
+}

@@ -35,6 +35,19 @@ const ROUTE_EVIDENCE = Object.freeze({
 });
 
 const ITEM_RULE_PARITY = Object.freeze({
+  35: {
+    legacyFieldEvidenceHash: "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622",
+    outcome: "basic_profile_fields_with_encrypted_identity_and_scoped_audit",
+    evidenceFiles: [
+      "scripts/hr-cutover/contracts/yuzhou-employee-basic-profile-source-evidence-v1.json",
+      "database/migrations/000270_hr_employee_basic_profile_parity.sql",
+      "apps/api/src/modules/hr/entities/hr.entities.ts",
+      "apps/api/src/modules/hr/dto/hr.dto.ts",
+      "apps/api/src/modules/hr/hr.service.ts",
+      "apps/api/src/modules/hr/hr-employee-basic-profile-parity.contract.spec.ts",
+      "apps/web/app/hr/employees/HrEmployeesClient.tsx"
+    ]
+  },
   34: {
     legacyFieldEvidenceHash: "71824793f3b8d9002aa245b98c29747082d3e0d4f2e3b4a68b2ead1c50eff3e8",
     outcome: "onboarding_application_approval_and_atomic_confirmation",

@@ -107,7 +107,32 @@ export class CreateHrEmployeeDto {
 export class UpdateHrEmployeeDto extends CreateHrEmployeeDto {}
 export class UpdateHrEmployeeProfileDto {
  @IsOptional() @IsIn(["resident_id","passport","other"]) idType?:string;
- @IsOptional() @Transform(trim) @IsString() @MaxLength(64) idNumberMasked?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) idNumber?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) englishName?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) gender?:string;
+ @IsOptional() @IsDateString() dateOfBirth?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) ethnicity?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(128) nativePlace?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) politicalStatus?:string;
+ @IsOptional() @IsDateString() partyJoinDate?:string;
+ @IsOptional() @Transform(({value})=>value===""?undefined:Number(value)) @IsNumber() @Min(30) @Max(300) heightCm?:number;
+ @IsOptional() @Transform(({value})=>value===""?undefined:Number(value)) @IsNumber() @Min(1) @Max(500) weightKg?:number;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) maritalStatus?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) healthStatus?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(256) householdRegistration?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) highestEducation?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(128) major?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) degree?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) foreignLanguage?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) languageLevel?:string;
+ @IsOptional() @IsDateString() graduationDate?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(160) graduationSchool?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(32) homePhone?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) jobTitle?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) jobGrade?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) employeeCategory?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) technicalTitle?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(64) technicalGrade?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(32) personalMobile?:string;
  @IsOptional() @Transform(trim) @IsEmail() @MaxLength(128) personalEmail?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) address?:string;

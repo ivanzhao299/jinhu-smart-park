@@ -190,11 +190,10 @@ test("sensitive profile projection masks private contact data without full permi
     personalMobile: "13812345678", personalEmail: "person@example.com", address: "江苏省淮安市",
     emergencyContactName: "王小明", emergencyContactMobile: "13987654321", remark: "private note"
   } as HrEmployeeProfileEntity;
-  assert.deepEqual(projectHrEmployeeProfile(profile, false), {
-    id: "profile-1", employeeId: "employee-1", idType: "resident_id", idNumberMasked: "32**************34",
-    personalMobile: "138****5678", personalEmail: "p***@example.com", address: "***",
-    emergencyContactName: "王**", emergencyContactMobile: "139****4321", remark: null, masked: true
-  });
+  const masked=projectHrEmployeeProfile(profile, false);
+  assert.deepEqual({id:masked?.id,employeeId:masked?.employeeId,idType:masked?.idType,idNumberMasked:masked?.idNumberMasked,personalMobile:masked?.personalMobile,personalEmail:masked?.personalEmail,address:masked?.address,emergencyContactName:masked?.emergencyContactName,emergencyContactMobile:masked?.emergencyContactMobile,remark:masked?.remark,masked:masked?.masked},{id:"profile-1",employeeId:"employee-1",idType:"resident_id",idNumberMasked:"32**************34",personalMobile:"138****5678",personalEmail:"p***@example.com",address:"***",emergencyContactName:"王**",emergencyContactMobile:"139****4321",remark:null,masked:true});
+  assert.equal(masked?.dateOfBirth,null);
+  assert.equal(masked?.highestEducation,null);
   assert.equal(projectHrEmployeeProfile(profile, true)?.personalMobile, "13812345678");
   assert.equal(projectHrEmployeeProfile(profile, true)?.masked, false);
 });

@@ -20,7 +20,33 @@ export interface HrEmployeeProfileProjection {
   id: string;
   employeeId: string;
   idType: string | null;
+  idNumber?: string | null;
   idNumberMasked: string | null;
+  englishName: string | null;
+  gender: string | null;
+  dateOfBirth: string | null;
+  ethnicity: string | null;
+  nativePlace: string | null;
+  politicalStatus: string | null;
+  partyJoinDate: string | null;
+  heightCm: string | null;
+  weightKg: string | null;
+  maritalStatus: string | null;
+  healthStatus: string | null;
+  householdRegistration: string | null;
+  highestEducation: string | null;
+  major: string | null;
+  degree: string | null;
+  foreignLanguage: string | null;
+  languageLevel: string | null;
+  graduationDate: string | null;
+  graduationSchool: string | null;
+  homePhone: string | null;
+  jobTitle: string | null;
+  jobGrade: string | null;
+  employeeCategory: string | null;
+  technicalTitle: string | null;
+  technicalGrade: string | null;
   personalMobile: string | null;
   personalEmail: string | null;
   address: string | null;
@@ -143,6 +169,31 @@ export function projectHrEmployeeProfile(
     employeeId: profile.employeeId,
     idType: profile.idType,
     idNumberMasked: maskIdentity(profile.idNumberMasked),
+    englishName: canReadFull ? profile.englishName??null : null,
+    gender: canReadFull ? profile.gender??null : null,
+    dateOfBirth: canReadFull ? profile.dateOfBirth??null : null,
+    ethnicity: canReadFull ? profile.ethnicity??null : null,
+    nativePlace: canReadFull ? profile.nativePlace??null : null,
+    politicalStatus: canReadFull ? profile.politicalStatus??null : null,
+    partyJoinDate: canReadFull ? profile.partyJoinDate??null : null,
+    heightCm: canReadFull ? profile.heightCm??null : null,
+    weightKg: canReadFull ? profile.weightKg??null : null,
+    maritalStatus: canReadFull ? profile.maritalStatus??null : null,
+    healthStatus: canReadFull ? profile.healthStatus??null : null,
+    householdRegistration: canReadFull ? profile.householdRegistration??null : null,
+    highestEducation: canReadFull ? profile.highestEducation??null : null,
+    major: canReadFull ? profile.major??null : null,
+    degree: canReadFull ? profile.degree??null : null,
+    foreignLanguage: canReadFull ? profile.foreignLanguage??null : null,
+    languageLevel: canReadFull ? profile.languageLevel??null : null,
+    graduationDate: canReadFull ? profile.graduationDate??null : null,
+    graduationSchool: canReadFull ? profile.graduationSchool??null : null,
+    homePhone: canReadFull ? profile.homePhone??null : maskPhone(profile.homePhone??null),
+    jobTitle: profile.jobTitle??null,
+    jobGrade: profile.jobGrade??null,
+    employeeCategory: profile.employeeCategory??null,
+    technicalTitle: profile.technicalTitle??null,
+    technicalGrade: profile.technicalGrade??null,
     personalMobile: canReadFull ? profile.personalMobile : maskPhone(profile.personalMobile),
     personalEmail: canReadFull ? profile.personalEmail : maskEmail(profile.personalEmail),
     address: canReadFull ? profile.address : profile.address ? "***" : null,
