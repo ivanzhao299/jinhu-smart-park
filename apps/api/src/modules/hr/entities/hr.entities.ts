@@ -28,6 +28,7 @@ export class HrEmployeeEntity extends AuditableEntity {
  @Column({name:"work_location",type:"varchar",length:128,nullable:true}) workLocation!:string|null;
  @Column({name:"work_mobile",type:"varchar",length:32,nullable:true}) workMobile!:string|null;
  @Column({name:"work_email",type:"varchar",length:128,nullable:true}) workEmail!:string|null;
+ @Column({name:"attendance_card_no",type:"varchar",length:20,nullable:true}) attendanceCardNo!:string|null;
 }
 
 @Entity("hr_employee_profile")

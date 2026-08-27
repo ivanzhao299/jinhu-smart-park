@@ -1,0 +1,40 @@
+{
+  "formatVersion": 1,
+  "legacyId": 34,
+  "legacyFunction": "员工入职",
+  "sourceFiles": [
+    { "path": "employee/register/Admin.asp", "sha256": "0d3f0b961ab0cf7f916fa5111df65d551922510d057beb3393101faf12be647d" },
+    { "path": "employee/register/Approve.asp", "sha256": "ce7a79a19478a147b4d262e1b2bc362411827c2a31f194d2d5e0d08212d88e89" },
+    { "path": "employee/register/Browse.asp", "sha256": "72587926b7dacb3a27bb2c7233341e8c7e95782ad2d39a5fb045afaa48e39aae" },
+    { "path": "employee/register/LIBRARY/ApplaySave.class.asp", "sha256": "9f151bf20e59bb1804c66b0e7db7abc84ec09cc198163c26858eff2d344d78a9" },
+    { "path": "employee/register/LIBRARY/browse.Class.asp", "sha256": "f020498c3fe33fd74545ef019bf2ecf2819a781ec5cd05bef7aa63d73f67d544" },
+    { "path": "employee/register/LIBRARY/detail.js", "sha256": "9f6ced1502010214dfdf3daca0655ffb77b955c3645bb596a271d9d24df87dfa" }
+  ],
+  "legacyTable": "Emp_tJoinApplay",
+  "verifiedRules": [
+    "application_name_and_date_required",
+    "employee_code_and_numeric_attendance_card_required_unique",
+    "employee_organization_and_position_required",
+    "planned_hire_date_not_before_application_date",
+    "probation_months_required",
+    "department_scoped_browse",
+    "approval_must_finish_with_agree_before_confirm",
+    "confirmation_copies_preboarding_record_to_employee_master",
+    "operation_history_retained"
+  ],
+  "modernizationDecisions": [
+    "legacy_recycle_delete_replaced_by_audited_cancel",
+    "applicant_cannot_self_approve",
+    "confirmation_is_one_locked_database_transaction",
+    "sensitive_candidate_values_are_not_copied_to_audit_payloads"
+  ],
+  "databaseProfile": {
+    "applicationRows": 5,
+    "confirmedRows": 3,
+    "approvedUnconfirmedRows": 1,
+    "unapprovedRows": 1
+  },
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false,
+  "productionImport": "HOLD"
+}

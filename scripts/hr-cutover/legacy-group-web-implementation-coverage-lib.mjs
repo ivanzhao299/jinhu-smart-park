@@ -25,7 +25,7 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/hr/organization": { page: "apps/web/app/hr/organization/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts"], migrations: ["database/migrations/000230_hr_employee_foundation.sql"] },
   "/hr/payroll": { page: "apps/web/app/hr/payroll/page.tsx", api: ["apps/api/src/modules/hr/hr.controller.ts", "apps/api/src/modules/hr/hr-payroll-history.controller.ts"], migrations: ["database/migrations/000233_hr_compensation_payroll.sql", "database/migrations/000248_hr_payroll_legacy_history.sql"] },
   "/hr/performance": { page: "apps/web/app/hr/performance/page.tsx", api: ["apps/api/src/modules/hr/hr-performance-review.controller.ts"], migrations: ["database/migrations/000258_hr_performance_template_planning.sql", "database/migrations/000259_hr_performance_review_calibration.sql"] },
-  "/hr/recruitment": { page: "apps/web/app/hr/recruitment/page.tsx", api: ["apps/api/src/modules/hr/hr-recruitment.controller.ts"], migrations: ["database/migrations/000251_hr_recruitment_preboarding.sql"] },
+  "/hr/recruitment": { page: "apps/web/app/hr/recruitment/page.tsx", api: ["apps/api/src/modules/hr/hr-recruitment.controller.ts", "apps/api/src/modules/hr/hr-onboarding.controller.ts"], migrations: ["database/migrations/000251_hr_recruitment_preboarding.sql", "database/migrations/000269_hr_onboarding_application_parity.sql"] },
   "/hr/rewards": { page: "apps/web/app/hr/rewards/page.tsx", api: ["apps/api/src/modules/hr/hr-rewards.controller.ts"], migrations: ["database/migrations/000255_hr_reward_discipline_operations.sql"] },
   "/hr/talent": { page: "apps/web/app/hr/talent/page.tsx", api: ["apps/api/src/modules/hr/hr-talent.controller.ts"], migrations: ["database/migrations/000261_hr_talent_management.sql"] },
   "/hr/training": { page: "apps/web/app/hr/training/page.tsx", api: ["apps/api/src/modules/hr/hr-training.controller.ts"], migrations: ["database/migrations/000254_hr_training_operations.sql"] },
@@ -35,6 +35,19 @@ const ROUTE_EVIDENCE = Object.freeze({
 });
 
 const ITEM_RULE_PARITY = Object.freeze({
+  34: {
+    legacyFieldEvidenceHash: "71824793f3b8d9002aa245b98c29747082d3e0d4f2e3b4a68b2ead1c50eff3e8",
+    outcome: "onboarding_application_approval_and_atomic_confirmation",
+    evidenceFiles: [
+      "scripts/hr-cutover/contracts/yuzhou-onboarding-source-evidence-v1.json",
+      "database/migrations/000269_hr_onboarding_application_parity.sql",
+      "apps/api/src/modules/hr/hr-onboarding.controller.ts",
+      "apps/api/src/modules/hr/hr-onboarding.service.ts",
+      "apps/api/src/modules/hr/hr-onboarding.contract.spec.ts",
+      "apps/web/app/hr/recruitment/HrRecruitmentClient.tsx",
+      "apps/web/app/hr/hr-recruitment.contract.spec.ts"
+    ]
+  },
   313: {
     legacyFieldEvidenceHash: "0128915ef043ec7f6e5efd5c9f6e4ed2d598f5fe5ab9783c4be35c024386c149",
     outcome: "work_log_create_update_query_and_audited_cancel",
