@@ -11,6 +11,8 @@
 3. 对 housing_rental、homestay、property 分别检查每个 MEC，并对高风险结论进行局部源码点验。
 4. 将差距转化为分级问题；静态无法确认运行时实例数据或交互行为时标注 UAT。
 5. 方案保持产品代码零改动，仅描述未来改动面；数据库方案必须区分已成功迁移与 failed-only 可编辑迁移。
+6. 对“权限到菜单”建立独立条件链：principal scope → page grant → park module assignment/time window → hard dependency → permission metadata → seeded/canonical projection → Web normalize/filter → first href → session refresh。
+7. 将 Track-B action-only/任务台语义与真正的菜单缺陷分开；产品语义不明确时设决策门，不擅自判为实现漂移。
 
 ## 关键契约
 
@@ -23,3 +25,5 @@
 ## 兼容与运行风险
 
 本轮不执行数据库、生产或浏览器 UAT。报告中的迁移建议须包含前驱 hash/version、逐租户 preflight、reconcile 与回滚/停止条件。动态行为只在现有测试或 UAT 证据充分时判为静态确认，否则列为建议 UAT。
+
+补充核查以静态证据优先；只有 permission/assignment 实例状态或缓存时序无法由代码定性时才进入隔离 UAT。API 空树与 Web fallback、首跳树分叉可由当前代码直接推出，不需要为了定性而启动容器或浏览器。

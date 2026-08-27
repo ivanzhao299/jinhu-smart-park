@@ -162,3 +162,129 @@ owner matrix、模板测试、seed/reconcile 均冻结了“Track-B 任务/审�
 - 历史 PR #410/#413 当前状态与现行代码点验。
 
 未执行：数据库迁移/seed、真实 HTTP、多租户/多园区数据、浏览器/人工 UAT、生产检查。原因是本轮为零产品代码改动的只读审计，且明确禁止生产直操作。最主要剩余风险是：生产角色可能有额外叠加授权，静态模板不能代表每个实例；跨园区 UAT 和文件上传在现有历史报告中仍不完整。
+
+## 十一、补充核查：权限到菜单的全条件链
+
+> 本章响应“用户已获授权但没有菜单”的实测反馈。它补充 MEC-3 的反向检查，不回改前述审计结论；问题总数以本章后的统一清单为准。
+
+### 11.1 API 生成链与全部必要条件
+
+`GET /users/me` 先按当前 tenant/park 筛选有效角色与权限链接，再读取同园区的运行时模块集合，最后调用 `buildPermissionMenuTree`；`menu_tree` 与 `menus` 当前返回同一结果，见 `apps/api/src/modules/users/users.service.ts:600-676,1623-1687`。
+
+对民宿/住房任一 canonical 菜单项，以下条件必须同时成立：
+
+1. 用户在当前 tenant/park 的有效角色链接中持有该 surface 的 **canonical page permission**；action/read 权限与 legacy `homestay:operations`、`housing_rental:operations` 均不能替代 page permission，见 `apps/api/src/modules/users/users.service.ts:1735-1739`、`apps/api/src/modules/users/users.service.property-menu.spec.ts:148-159`。
+2. `homestay` 或 `housing_rental` assignment 在当前 park 有效：assignment 和标准模块均启用、未删除、状态有效、已到开始时间且未过期，见 `apps/api/src/modules/saas-modules/saas-modules.service.ts:423-476`。
+3. shared manifest 声明的所有 dependency 同样在当前 park 有效；两模块目前都硬依赖 `asset`。API 的 enabled-module 查询与 canonical 投影各做一次 dependency closure，见 `database/migrations/000189_property_b_module_rbac_definitions.sql:251-269`、`apps/api/src/modules/users/users.service.ts:1723-1734`。
+4. 页面权限元数据若存在，必须恰好一个实体 ID，且 active、visible、`permissionType=page`、`permType=20`、`action=page`、route 与 module 均和 shared surface 完全一致；重复或任一字段漂移会 fail-closed 丢弃页面，见 `apps/api/src/modules/users/users.service.ts:1781-1815`。
+5. seeded permission 树只接收可见、启用、未删除的 menu/page 实体。孤立 `parentId` 不会成为根；seeded 树一旦有可导航根，就不会使用静态 `USER_MENU_TREE` fallback，见 `apps/api/src/modules/users/users.service.ts:1690-1703,1830-1853`。
+
+DB seeded menu 与 canonical property menus 是两套表示，但正常路径不是相同 href 竞争：DB 仍保留不可见兼容入口 `/homestay`、`/housing`，canonical surface 使用 `/homestay/*`、`/housing/*`。API 先移除顶层旧 property 节点，再按 shared surface 重建 8+9 个 children；Web 又删除两个 legacy landing，见 `database/migrations/000183_property_business_granular_rbac.sql:14-47,120-259`、`apps/api/src/modules/users/users.service.ts:1706-1778,1817-1828`、`apps/web/lib/menu.ts:523-588`。最终树没有全局 href 去重；若租户把 property route 嵌入非 property 顶层，仍可能形成重复，需隔离数据验证。
+
+### 11.2 Web 过滤、首跳与会话刷新
+
+- Sidebar 先规范化/合并菜单，再要求 page permission 与模块同时通过；super/`*` 只绕过 permission，不绕过 module，见 `apps/web/components/layout/AppSidebar.tsx:28-46`、`apps/web/lib/permissions.ts:19-28,41-50`。
+- `normalizeMenuTree` 会删除 placeholder、`/homestay` 和 `/housing`；已知 canonical href 与静态菜单合并时，以静态 permission/module 为准，见 `apps/web/lib/menu.ts:523-620`。
+- `firstMenuHref` 却遍历原始 API tree，而不是 Sidebar 规范化后的树；因此首跳可能选中随后被 Sidebar 删除的 legacy/placeholder 路由，见 `apps/web/lib/post-login-route.ts:34-89`。
+- 登录会用新 token 立即重取 `/users/me`；DashboardLayout 启动也会在读本地缓存后重取。园区主切换入口用新 token 重取 `/users/me` 并发布 `nextUser`，菜单、权限和 enabled modules 随新 park 重建，见 `apps/web/lib/auth.ts:72-89,149-226`、`apps/web/components/layout/UserMenu.tsx:28-45`。
+- 服务端在 token 不变时调整角色/权限，当前 tab 会在下一次成功重取 `/users/me` 后更新；跨 tab 仅监听 token storage 变化，单独 user cache 更新不会触发 reload，见 `apps/web/components/layout/DashboardLayout.tsx:63-105`。资产页局部园区切换只发布 `nextUser`、不强制 remount，当前页面本地状态与降权深链需动态验证。
+
+### 11.3 条件矩阵
+
+| 断点 | 触发条件 | 用户感知 | 定性 |
+| --- | --- | --- | --- |
+| 角色/权限 scope | role link、permission link、role 或 permission 不属于当前 tenant/park，或已禁用/删除 | 后台看似授过权，当前园区没有菜单 | 静态确认；实例需查角色链接 |
+| page/action 语义 | 只授 action/read/legacy permission，未授 canonical `*:page` | 能力被授予但无业务 surface 菜单 | 静态确认；可能是 Track-B 设计语义 |
+| 业务模块 assignment | 当前 park 未启用、禁用、未开始或已过期 | 有 page 权限仍无整个模块菜单，API 403 | 静态确认 |
+| `asset` dependency | 业务模块有 assignment，但当前 park 缺有效 `asset` | 有 page 权限仍无整个模块菜单 | 静态确认；Homestay 部分 API 仍可能通过即 PAM-001 |
+| permission metadata | 同 code 多实体，或 visible/type/action/route/module 漂移 | 仅对应页面或整组 children 缺失 | 静态确认；真实行状态需隔离/目标环境只读核验 |
+| seeded parent tree | parent 缺失/孤立，或 seeded 非空导致静态 fallback 不再使用 | 非 property 菜单局部缺失 | 静态确认机制；实例数据需验证 |
+| 双重表示 | legacy DB landing 与 canonical shared surface 同时存在 | 正常会被两层清理；异常嵌套可重复/竞争 | 正常路径静态核销；异常数据需动态验证 |
+| Web 空树 fallback | API 因 module/dependency 返回空树，Web 改用静态 `dashboardMenus` | 反而显示本应隐藏的菜单，点击后 forbidden | 静态确认，列 PAM-004 |
+| Web 首跳来源 | 原始 tree 含会被 normalize 删除的 legacy/placeholder | 登录跳转到 Sidebar 不显示的路径 | 静态确认机制，列 PAM-005 |
+| 权限变更缓存 | token 不变、旧 tab 未重新拉 `/users/me`；跨 tab 只监听 token | 新授权短时无菜单，刷新/重登后出现 | 静态确认刷新边界；时序需 UAT |
+| 园区切换 | 主入口会重建；资产页局部入口不 remount | 菜单已变但当前页面/本地状态可能残留 | 静态确认边界；需 UAT |
+
+### 11.4 模块启用的正确入口与生效时机
+
+运行时权威是 `(tenant_id, park_id)` 维度的 `rel_tenant_module` 联接 active `sys_module`，不是角色 grant，也不是单独的 `sys_module` 行。正确运维入口为“系统管理 → 模块管理”，调用 `POST /tenant-modules`、`POST /tenant-modules/:moduleId/enable|disable`，见 `apps/api/src/modules/saas-modules/saas-modules.controller.ts:72-96`、`apps/web/app/system/modules/page.tsx:69,108-121`。启用会校验依赖；启用 `asset` 时还会执行 asset scope provisioning，见 `apps/api/src/modules/saas-modules/saas-modules.service.ts:244-422`。新请求会即时按数据库和时间窗口判断，但 Web 必须重新取得 `/users/me` 才能刷新本地 user context；不得直接改表或以临时补权代替模块 assignment/reconcile。
+
+## 十二、民宿/住房对 MEC 的补充裁定
+
+1. **MEC-1/7/8**：维持原结论。Housing class gate 已闭合 `housing_rental+asset`；Homestay 仍有 PAM-001/PAM-003。
+2. **MEC-2**：16 个 Track-B bundle、7 个 managed templates、production seed/reconcile cardinality/hash 未发现新增漂移，见 `packages/shared/src/property-business/permission-bundles.ts:13-159,312-409`、`packages/shared/src/property-business/role-templates.ts:104-287`、`database/seeds/production/000006_property_track_b_permission_reconcile.sql:314-399`、`database/seeds/production/000015_property_role_template_reconcile.sql:53-227`。
+3. **MEC-3**：原报告“housing/homestay 符合（静态）”需补充为 **部分符合**。API canonical 投影本身闭合，但 Web 空树 fallback 可绕过 dependency-aware 投影（PAM-004），首跳与 Sidebar 使用不同树（PAM-005）；权限到菜单还受 page/module/metadata/scope 全条件链影响。
+4. **MEC-4/5/6**：未发现超出原报告的新静态缺口；PAM-002 仍是字段写策略能力缺口而非已证实字段越权。
+
+Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 进入任务台并持共享审批委托能力，不自动获得全部 canonical 业务 surface；finance 模板则带 finance page/action。`PARTY_PROFILE_CLERK` 与 `TASK_ADMIN` 是明确允许无 canonical page 的后台/委托 bundle，见 `packages/shared/src/property-business/permission-bundles.ts:14-18,35-53,154-158`、`packages/shared/src/property-business/role-templates.ts:119-218`。因此“岗位授权后只有任务台、没有全部业务菜单”当前判定为设计语义，不计缺陷；若产品期望岗位直达业务 surface，需要先改变 owner matrix 与模板定义。
+
+## 十三、统一问题清单与修复方案
+
+统一统计：**P0 1 项、P1 2 项、P2 3 项**。PAM-001～003 沿用第五节定义；新增如下。
+
+### PAM-004（P1）Web 空菜单回退重建了被 API 依赖过滤的 property 菜单
+
+- 违反：MEC-1、MEC-3、MEC-7。
+- 状态：**静态确认**。
+- 证据：API 按 surface dependencies 过滤模块，见 `apps/api/src/modules/users/users.service.ts:1723-1734`；Web 在后端树为空时回退静态 `dashboardMenus`，而静态 property menu 和 Sidebar 只检查自身 module/page permission、不检查 `asset` dependency，见 `apps/web/lib/menu.ts:161-169,495-503`、`apps/web/components/layout/AppSidebar.tsx:28-44`。
+- 影响：缺 `asset` 时后端正确不发菜单，前端却可能重新显示民宿/住房入口；点击后 route guard/API forbidden，重现“菜单、路由、API 不一致”的另一方向。
+
+| 方案 | 改动面 | 风险 / 迁移 | 验证 |
+| --- | --- | --- | --- |
+| A. 已认证用户以 API menu tree 为展示权威；空数组保持空，不回退静态树，静态树只用于授权元数据/开发兜底 | `apps/web/lib/menu.ts`、相关 Sidebar/route tests | 推荐；无 DB migration。需保证 API 旧版本缺字段时有显式 compatibility 分支，而非把“空”当“缺失” | 空树、缺字段、dependency disabled、super/wildcard、17 surfaces 单测与 UAT |
+| B. 保留 fallback，但静态树也消费 access manifest dependencies | shared/Web menu 与 route access | 改动更广，仍保留 API/Web 双权威漂移风险；无迁移 | dependency 正反例、manifest 同源测试 |
+
+**推荐 A**：区分“字段不存在”与“权威结果为空”，避免前端重新授权；静态 canonical tree 只补充标签、icon 和路径授权元数据。
+
+### PAM-005（P1）首跳与 Sidebar 消费不同阶段的菜单树
+
+- 违反：MEC-3、MEC-8。
+- 状态：**静态确认；真实首项顺序需 UAT**。
+- 证据：Sidebar 使用 normalize/prune 后菜单，`firstMenuHref` 使用原始 API tree；前者删除 placeholder 和 legacy landing，见 `apps/web/lib/menu.ts:523-561`、`apps/web/lib/post-login-route.ts:34-89`。
+- 影响：登录/切园区后可能跳到侧栏不展示的路径，用户感知为“有权限但找不到菜单”或“刷新后落点异常”。
+
+| 方案 | 改动面 | 风险 / 迁移 | 验证 |
+| --- | --- | --- | --- |
+| A. 导出单一 normalized authorization tree，Sidebar、breadcrumb、首跳和 park-switch access 全部消费 | Web menu/post-login/layout | 推荐；无迁移。需防循环依赖并冻结排序 | legacy/placeholder、空树、父子权限、park switch 单测 |
+| B. 仅在 `firstMenuHref` 复制 prune 规则 | post-login-route | 改动小但规则继续双写，未来易漂移 | 同上，加规则一致性测试 |
+
+**推荐 A**：消除两个消费者对“可见菜单”的不同定义。
+
+### PAM-006（P2）权限/模块刷新语义缺少显式即时性契约
+
+- 违反：MEC-3、MEC-4。
+- 状态：**静态确认的缓存边界；是否命中本次实测需 UAT**。
+- 证据：登录与主园区切换会重取 `/users/me`；DashboardLayout 启动也会刷新，但跨 tab 只监听 access token，服务端在 token 不变时调整授权不会主动推送，见 `apps/web/lib/auth.ts:149-226`、`apps/web/components/layout/DashboardLayout.tsx:63-105`。
+- 影响：管理员完成授权后，已登录用户可能直到刷新、重登或下一次 context fetch 才看到菜单；同一浏览器其他 tab 也可能暂时保留旧 user cache。
+
+| 方案 | 改动面 | 风险 / 迁移 | 验证 |
+| --- | --- | --- | --- |
+| A. 明确“授权变更后用户需刷新/重登”的产品契约，并在管理端成功提示 | 管理 UI/docs | 最小；无迁移，但体验仍非即时 | 管理端提示与手工 UAT |
+| B. user cache 增加 authorization revision/短轮询或窗口聚焦重取，并监听 user storage 变更 | API user context + Web auth/layout | 推荐用于即时预期；需防请求风暴和跨 tab 循环，无 DB migration 或仅 revision 存储设计 | 同 token 变更、跨 tab、离线/失败、park switch UAT |
+| C. 强制撤销/轮换受影响用户 token | auth/admin | 风险高、干扰会话，不推荐作为常规授权同步 | 会话失效与重登回归 |
+
+**推荐取决于产品即时性要求**：若允许明确刷新，先 A；若承诺即时生效，采用 B，不建议 C。
+
+## 十四、统一修复队列与决策门
+
+1. **决策门 D1（先行）**：确认 Track-B 岗位是“只进任务台”还是“同时直达 canonical 业务 surface”。维持现设计则不改 bundle/template；改变语义则须同步 owner matrix、template hash/signature、逐租户 reconcile/migration 和 UAT。
+2. **决策门 D2（先行）**：确认角色/模块变更是“刷新后生效”还是“已登录会话即时生效”。它决定 PAM-006 采用 A 还是 B。
+3. **串行安全组 S1（P0）**：PAM-003 先加 endpoint dependency closure 失败测试，随后 PAM-001 把 Homestay class gate 收敛到 `homestay+asset`；同一修复 PR，避免只修实现不补门禁。
+4. **并行菜单组 M1（P1）**：PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree。两者可与 S1 并行开发，但应在同一集成 UAT 验证菜单/route/API。
+5. **字段设计组 F1（P2）**：PAM-002 先固定 read-only 能力边界；待产品定义 readonly/editable 缺省语义后，再设计统一 write policy。若涉及 policy 数据，使用新 migration、逐租户 preflight/reconcile，不能编辑已成功 migration。
+6. **会话组 C1（P2）**：按 D2 修 PAM-006；若选即时刷新，依赖统一 normalized menu contract，但不依赖字段策略。
+7. **集成 UAT（依赖 S1+M1，按需含 C1）**：执行第十五节；不得通过生产直改表或临时 extra grant 绕过模板/assignment/reconcile。
+
+## 十五、统一修复后 UAT 回归清单
+
+在第九节基础上补齐：
+
+1. **permission→menu 四象限**：分别验证 page 有/无 × action 有/无；action-only 不出现业务 surface，page-only 可出现但按钮/API fail-closed；Track-B operator 只出现任务台；finance 模板出现 finance surface。
+2. **模块组合**：`business+asset`、business only、asset only、均无、disabled、expired、future-start；普通、super、`*` 三类用户的 `/users/me.enabled_modules`、menu tree、Sidebar、route、API 必须一致。
+3. **菜单元数据**：canonical page 正常、重复 code、错误 route/module/type/action、visible=false、孤立 parent；确认 fail-closed 且管理/诊断可定位原因。
+4. **双重表示/首跳**：DB legacy landing 与 canonical 8+9 surfaces 同时存在时只显示 canonical；空 API tree 不被 Web 重建；登录和切园区首跳必须属于实际 Sidebar tree。
+5. **授权刷新**：管理员给已登录用户增/删 page/action、启停模块；验证当前 tab、第二 tab、刷新、重登以及产品承诺的生效时限。
+6. **园区切换**：双园区具有不同 role links 与 module assignments；主切换入口和资产页局部切换后，菜单、当前 route、页面 state、API scope 均按 nextUser 收敛。
+7. **原安全回归**：继续执行第九节的 Homestay asset 403/恢复、跨 tenant/park/data、maker-checker-executor、字段 hidden/masked、五类文件全链和 housing approval 深链。
+
+本补充核查仍未连接生产、未执行数据库写入、未操作浏览器或容器。静态证据已经足以定义 PAM-004/PAM-005；PAM-006 与本次用户实测的对应关系、真实 permission/assignment 行状态仍应在经批准的隔离 UAT 或目标环境只读诊断中确认。
