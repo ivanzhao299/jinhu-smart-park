@@ -528,6 +528,7 @@
       "domain": "employee",
       "ownership": "hr",
       "targetRoutes": [
+        "/hr/recruitment",
         "/hr/employees"
       ],
       "mappingStatus": "mapped"
