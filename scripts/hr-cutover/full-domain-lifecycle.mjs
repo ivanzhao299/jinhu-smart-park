@@ -310,11 +310,11 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.postgresPort}` },
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
-    { type: "process", planned: `${config.runId}:managed_children` },
+    { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
     { type: "credential_artifact", planned: t.credentialArtifact }
   ];
   if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
-  return resources.map((item) => ({ ...item, observed: null, removed: false, residualCount: 0 }));
+  return resources.map((item) => ({ ...item, observed: item.observed ?? null, removed: false, residualCount: 0 }));
 }
 
 function assertRegistry(registry) {
@@ -338,6 +338,24 @@ function command(binary, args, options = {}) {
   });
   if (result.error || result.status !== 0) fail(options.code ?? "COMMAND_FAILED", `${binary} ${args[0] ?? ""} failed`);
   return (result.stdout ?? "").trim();
+}
+
+function verifyLabInitializationBaseline(env) {
+  const result = spawnSync("sh", [resolve(ROOT, "scripts/check-init-baseline.sh")], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: "pipe",
+    env: { ...env, STRICT: "false" }
+  });
+  if (result.status === 0 && !result.error) return "passed";
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  const failures = output.split("\n").filter((line) => line.startsWith("[FAIL]"));
+  if (!result.error && result.status === 2 && failures.length === 1 && failures[0] === "[FAIL] no bootstrap admin found") {
+    return "passed_with_expected_missing_lab_uat_admin";
+  }
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  fail("LAB_INITIALIZATION_BASELINE_FAILED", failures.join("; ") || "baseline command failed");
 }
 
 function portBusy(port) {
@@ -410,14 +428,12 @@ function provisionLab(config, registry) {
   command("sh", [resolve(ROOT, "scripts/db-seed-prod.sh")], {
     env: { ...releaseEnv, ALLOW_PRODUCTION_SEED: "yes" }
   });
-  command("sh", [resolve(ROOT, "scripts/check-init-baseline.sh")], {
-    env: { ...releaseEnv, STRICT: "false" }
-  });
+  const initializationBaseline = verifyLabInitializationBaseline(releaseEnv);
   appendPrivate(p.journal, {
     kind: "lab_bootstrap",
     migration: "succeeded",
     productionSeed: "succeeded",
-    initializationBaseline: "pass_or_warn",
+    initializationBaseline,
     productionImport: "HOLD"
   });
   const roles = [t.role, `${t.accountNamespace}_hr`, `${t.accountNamespace}_manager`, `${t.accountNamespace}_employee`];
@@ -622,6 +638,12 @@ export function cleanup(configInput, options = {}) {
     appendPrivate(cleanupJournal, { type: entry.type, planned: entry.planned, observed: entry.observed, action: "remove_planned" });
     if (config.backend === "fixture") removeFixture(config, entry);
     else if (!filesystemTypes.has(entry.type)) removeLab(config, entry);
+  }
+  if (config.backend === "lab") {
+    const ports = registry.filter((entry) => entry.type === "port").map((entry) => Number(entry.planned.split(":").at(-1)));
+    for (let attempt = 0; attempt < 40 && ports.some(portBusy); attempt += 1) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
   }
   if (config.backend === "fixture" && existsSync(p.fixtureRoot) && readdirSync(p.fixtureRoot).length > 0) {
     const unexpected = readdirSync(p.fixtureRoot).length;

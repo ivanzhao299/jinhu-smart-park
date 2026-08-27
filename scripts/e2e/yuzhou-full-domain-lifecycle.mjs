@@ -84,6 +84,8 @@ try {
   assert.match(lifecycleSource, /COMPOSE_PROJECT_NAME: t\.composeProject/u, "release scripts must resolve the same isolated Compose project");
   assert.match(lifecycleSource, /scripts\/db-seed-prod\.sh/u, "lab provisioning must apply production-safe seed data");
   assert.match(lifecycleSource, /scripts\/check-init-baseline\.sh/u, "lab provisioning must verify the initialized target baseline");
+  assert.match(lifecycleSource, /failures\.length === 1 && failures\[0\] === "\[FAIL\] no bootstrap admin found"/u, "only the pre-UAT missing-admin baseline gap may be staged");
+  assert.match(lifecycleSource, /ports\.some\(portBusy\)/u, "cleanup must wait for exact loopback port release before residual verification");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
