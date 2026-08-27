@@ -1,4 +1,4 @@
-# 实施计划：HR 全域双演练与增量切换
+# 实施计划：HR 全域双演练与停用源切换
 
 每个 Slice 开始前 fresh fetch、三端/工作树和远端迁移号检查；结束后独立 Trellis check。任一代码/source/mapping 合同变化会使依赖旧三元组的演练证据作废。
 
@@ -25,10 +25,11 @@
 
 ## Slice 4 — T4 真实历史与工资双轨
 
-- [ ] 固定源两次 extract hash 相同，完成真实 load→verify→rollback→reload，守恒 46,092/711/244/1,431/647/9 及金额分层。
-- [ ] 仅用批准公式运行双轨，输出逐项差异、review 流程和 detached HR/payroll/finance attestation schema。
-- [ ] 未批准/不可解析公式 fail closed；正式 payroll/payslip/payment/tax/message 零写且无发薪入口。
-- [ ] 在公式范围/容差/签署人未确定时，schema、fixture、负向测试和 dry-run 可完成，但真实双轨执行必须输出 `T4_*_MISSING` 并停止；不得用默认容差或自动签署继续。
+- [x] 固定源两次 extract hash 相同；全量审计46,092行，生产候选固定2024～2026的8,342行，2010～2023的37,750行登记为deferred cold archive。
+- [x] 三年候选完成真实 load→verify→rollback→reload，守恒8,342=8,320+22、190,374明细、266关账及金额分层。
+- [x] 仅用批准公式运行双轨，输出逐项差异、review 流程和 detached HR/payroll/finance attestation schema。
+- [x] 未批准/不可解析公式 fail closed；正式 payroll/payslip/payment/tax/message 零写且无发薪入口。
+- [x] 在公式范围/容差/签署人未确定时，schema、fixture、负向测试和 dry-run 可完成，但真实双轨执行必须输出 `T4_*_MISSING` 并停止；不得用默认容差或自动签署继续。
 
 ## Slice 5 — Rehearsal A/B
 
@@ -36,11 +37,11 @@
 - [ ] 固定逐字节相同的 `codeSha/sourceSnapshotHash/mappingContractHash` 后，B 使用另一套全新 DB/Compose/volume/container/ports/file/staging/evidence/accounts/run 重复同一连续序列。
 - [ ] 比较 source/staging hashes、逐对象守恒式、global ledgers、canonical hashes、quarantine reasons 和 versioned UAT task-card 结果；独立 checker 审查且两轮逐资源 residual=0。
 
-## Slice 6 — 最终冻结与 Delta
+## Slice 6 — 固定源复核（无 Delta）
 
-- [ ] 获取 S1 backup/catalog/read-only proof，逐表生成 identity/hash diff 和 zero/controlled delta。
-- [ ] 在候选 clone 应用 delta，另建空库执行 S1 full load，比对 global/canonical hash。
-- [ ] 无稳定键表只走冻结全量；source unlock/drift 使候选失效。
+- [ ] 复核唯一停用源 backup/catalog/read-only proof 与既有固定 hash 一致，不创建 S1 或 delta。
+- [ ] A/B 均以相同固定源和三年热窗口重建，比对 global/canonical hash 与 cold archive ledger。
+- [ ] source unlock/hash drift 使候选失效；不再等待停写责任人或窗口。
 
 ## Slice 7 — 三角色 UAT、备份恢复与受控回滚
 
@@ -62,7 +63,7 @@
 - template0 fresh、真实 predecessor upgrade、checksum replay、production seed 两次。
 - migration-control/PG/API/Web unit/contract、lint/typecheck/build、desktop/390。
 - 每轮提交/部署前 fetch 和三 SHA；所有临时资源实际 residual=0。
-- 规划输入依赖测试：未决 stop-write/T4/UAT/RTO-RPO/on-call 输入生成稳定 reason code；Slice 1～3 及不依赖真实输入的后续工程测试仍可执行。
+- 规划输入依赖测试：未决 T4/UAT/RTO-RPO/on-call 输入生成稳定 reason code；delta/stop-write 不再是输入或硬门禁。
 
 ## Risk and rollback points
 

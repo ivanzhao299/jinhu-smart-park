@@ -11,7 +11,7 @@ const enabled=process.env.HR_T4_RECONCILIATION_PG_ALLOW_MUTATION==="yes"&&Boolea
 
 test("real PostgreSQL reconciliation calculation is serialized, immutable and isolated",{skip:!enabled},async()=>{
  const db=new DataSource({type:"postgres",url:databaseUrl,ssl:false});await db.initialize();
- const ids={actor:randomUUID(),employee:randomUUID(),plan:randomUUID(),period:randomUUID(),summary:randomUUID(),attendanceBatch:randomUUID(),attendanceItem:randomUUID(),book:randomUUID(),definition:randomUUID(),item:randomUUID(),formula:randomUUID(),bookPeriod:randomUUID(),legacyBatch:randomUUID(),snapshot:randomUUID(),snapshotItem:randomUUID(),policy:randomUUID()};
+ const ids={actor:randomUUID(),employee:randomUUID(),plan:randomUUID(),insurancePeriod:randomUUID(),period:randomUUID(),summary:randomUUID(),attendanceBatch:randomUUID(),attendanceItem:randomUUID(),book:randomUUID(),definition:randomUUID(),item:randomUUID(),formula:randomUUID(),bookPeriod:randomUUID(),legacyBatch:randomUUID(),snapshot:randomUUID(),snapshotItem:randomUUID(),policy:randomUUID()};
  const legacyFormulaId=100000+Number.parseInt(ids.formula.slice(0,6),16)%800000;
  const scopeRow=(await db.query("SELECT tenant_id,park_id FROM biz_park WHERE is_deleted=false ORDER BY id LIMIT 1"))[0] as {tenant_id:string;park_id:string};
  const scope={tenantId:scopeRow.tenant_id,parkId:scopeRow.park_id};
@@ -21,6 +21,7 @@ test("real PostgreSQL reconciliation calculation is serialized, immutable and is
   await q("INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,employment_status) VALUES($1,$2,$3,$4,'PG核对员工','active')",[ids.employee,scope.tenantId,scope.parkId,`PG-${ids.employee.slice(0,8)}`]);
   await q("INSERT INTO hr_compensation_plan(id,tenant_id,park_id,plan_code,plan_name,effective_from,status) VALUES($1,$2,$3,$4,'PG核对方案','2026-06-01','active')",[ids.plan,scope.tenantId,scope.parkId,`PG-${ids.plan.slice(0,8)}`]);
   await q("INSERT INTO hr_employee_compensation(tenant_id,park_id,employee_id,plan_id,effective_from,base_salary,allowance_amount,variable_target,status) VALUES($1,$2,$3,$4,'2026-06-01',120,5,0,'active')",[scope.tenantId,scope.parkId,ids.employee,ids.plan]);
+  await q("INSERT INTO hr_employee_insurance_period(id,tenant_id,park_id,employee_id,period_year,period_month,legacy_id,status) VALUES($1,$2,$3,$4,2026,6,$5,'historical')",[ids.insurancePeriod,scope.tenantId,scope.parkId,ids.employee,100000+Number.parseInt(ids.insurancePeriod.slice(0,6),16)%800000]);
   await q("INSERT INTO hr_attendance_period(id,tenant_id,park_id,period_month,status,active_version,closed_at,closed_by) VALUES($1,$2,$3,'2026-06-01','closed',1,now(),$4)",[ids.period,scope.tenantId,scope.parkId,ids.actor]);
   await q("INSERT INTO hr_attendance_month_summary(id,tenant_id,park_id,period_id,employee_id,summary_version,worked_minutes) VALUES($1,$2,$3,$4,$5,1,9600)",[ids.summary,scope.tenantId,scope.parkId,ids.period,ids.employee]);
   await q("INSERT INTO hr_attendance_payroll_input_batch(id,tenant_id,park_id,period_id,batch_no,batch_type,status,created_from_summary_version) VALUES($1,$2,$3,$4,1,'close','effective',1)",[ids.attendanceBatch,scope.tenantId,scope.parkId,ids.period]);

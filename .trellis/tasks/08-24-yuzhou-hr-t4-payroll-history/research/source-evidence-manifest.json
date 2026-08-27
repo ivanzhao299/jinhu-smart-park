@@ -95,15 +95,48 @@
     "noTempFilter": true,
     "duplicateIdentityPolicy": "validated_business_key_else_content_group_hash_and_multiplicity"
   },
+  "productionCandidate": {
+    "policyVersion": "three-natural-years-2026-v1",
+    "sourceSystemRetired": true,
+    "incrementalDeltaRequired": false,
+    "periodStart": "2024-01-01",
+    "periodEnd": "2026-12-31",
+    "fullSourceRows": 46092,
+    "candidateRows": 8342,
+    "candidateLoadedRows": 8320,
+    "candidateQuarantinedRows": 22,
+    "candidateSnapshotItems": 190374,
+    "candidateCloseRecords": 266,
+    "candidateSourceNet": "15723009.9100",
+    "candidateLoadedNet": "15723009.9100",
+    "coldArchiveRows": 37750,
+    "coldArchiveSourceNet": "86471046.8900",
+    "coldArchiveDisposition": "deferred",
+    "rowsByYear": { "2024": 784, "2025": 6690, "2026": 868 }
+  },
   "pendingExtractionEvidence": {
-    "status": "not_started",
-    "requiredFiles": [
-      "scheme-memberships.jsonl",
-      "items.jsonl",
-      "formulas.jsonl",
-      "tax-rules.jsonl",
-      "closes.jsonl",
-      "payslips.jsonl"
-    ]
+    "status": "completed",
+    "completedAt": "2026-08-26",
+    "extractRuns": ["yzfull-t4-final-hot-a-20260826", "yzfull-t4-final-hot-b-20260826"],
+    "doubleExtractMatched": true,
+    "actualCatalogSha256": "da9ea678a20e07b67a57727bee6feec27de06a7026943a79793efabb9559c663",
+    "rawBusinessContentSha256": "3d04e180e70f2c71d16fed909be7fec28eca3e5376cc5ab500f9d39ab7136f8c",
+    "businessContentSha256": "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800",
+    "files": {
+      "scheme-memberships.jsonl": { "rows": 647, "sha256": "79dcb8476655c7fc78ecf1016f32314187134083cc03ee3998b7a54cec3d9d81" },
+      "items.jsonl": { "rows": 711, "sha256": "2d3bb9e66dd1b7935c3214b5b1eaba392d66a1c2d52d9280a82e541977c25305" },
+      "formulas.jsonl": { "rows": 244, "sha256": "6d9e66803099298b2ff1b403b27ba66b01470dd2e1a5b55a6f13746586008b76" },
+      "tax-rules.jsonl": { "rows": 9, "sha256": "a569736b3127749d712edd195368d054c04617ff3cc93f1eaee4459c3154ba7c" },
+      "closes.jsonl": { "rows": 1431, "sha256": "c9169b3fef170b4fa2e5efb72a75215ff164a1401f00b154ee651546eafd1310" },
+      "payslips.jsonl": { "rows": 46092, "sha256": "1a15c28eb6acf5bff650f5587cfa7ba304571bf13e764d7e7306252105f39801" }
+    },
+    "sourceProof": {
+      "readOnly": true,
+      "etlSa": false,
+      "etlSysadmin": false,
+      "dbDataReader": true,
+      "viewDefinition": true,
+      "credentialFileMode": "0600"
+    }
   }
 }

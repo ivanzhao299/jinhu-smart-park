@@ -138,6 +138,25 @@ export function validateConfig(config) {
     if (!profile || Object.entries(expected).some(([key, value]) => profile[key] !== value)) {
       fail("T4_EVIDENCE_INVALID", "T4 evidence does not prove the fixed 35/46092/711/244/1431/647/9 source profile");
     }
+    const candidate = t4Record.productionCandidate;
+    const candidateExpected = {
+      periodStart: "2024-01-01", periodEnd: "2026-12-31", fullSourceRows: 46092,
+      candidateRows: 8342, candidateLoadedRows: 8320, candidateQuarantinedRows: 22,
+      candidateSnapshotItems: 190374, candidateCloseRecords: 266,
+      candidateSourceNet: "15723009.9100", candidateLoadedNet: "15723009.9100",
+      coldArchiveRows: 37750, coldArchiveDisposition: "deferred"
+    };
+    if (!candidate || Object.entries(candidateExpected).some(([key, value]) => candidate[key] !== value)
+      || candidate.sourceSystemRetired !== true || candidate.incrementalDeltaRequired !== false
+      || candidate.candidateRows !== candidate.candidateLoadedRows + candidate.candidateQuarantinedRows
+      || candidate.fullSourceRows !== candidate.candidateRows + candidate.coldArchiveRows) {
+      fail("T4_EVIDENCE_INVALID", "T4 evidence does not prove the fixed 2024-2026 hot candidate and deferred cold archive ledger");
+    }
+    const authority = t4Record.pendingExtractionEvidence?.sourceProof;
+    if (authority?.readOnly !== true || authority.etlSa !== false || authority.etlSysadmin !== false
+      || authority.dbDataReader !== true || authority.viewDefinition !== true || authority.credentialFileMode !== "0600") {
+      fail("T4_EVIDENCE_INVALID", "T4 evidence does not prove the minimum read-only source authority");
+    }
     const worktree = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
     if (worktree.status !== 0 || worktree.stdout.trim() !== "") fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }

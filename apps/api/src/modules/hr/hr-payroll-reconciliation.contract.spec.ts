@@ -35,7 +35,11 @@ test("simulation requires exact permissions, idempotency, body-free audit and fr
  assert.match(service,/Each payroll book requires exactly one current approved net-item mapping/u);
  assert.match(service,/const newTotal = this\.decimalToScaled\(mappedNetValue\)/u);
  assert.doesNotMatch(service,/for \(const value of calculated\.values\(\)\)/u);
- assert.match(service,/String\(snapshot\.net_amount \?\? "0"\)/u);
+ assert.match(service,/Legacy net amount is missing and no authoritative net policy can be applied/u);
+ assert.match(service,/Frozen compensation input is incomplete for a legacy employee/u);
+ assert.match(service,/Frozen insurance input is incomplete for a legacy employee/u);
+ assert.match(service,/Legacy payroll item required by an approved formula is missing/u);
+ assert.doesNotMatch(service,/snapshot\.net_amount \?\? "0"|old\?\.decimal_value \?\? "0"|comp\?\.base_salary \?\? "0"/u);
 });
 test("DSL uses a standalone parser and BigInt evaluator with hard limits",()=>{
  assert.match(dsl,/LIMITS=\{expression:2000,tokens:256,depth:24,dependencies:64\}/u);

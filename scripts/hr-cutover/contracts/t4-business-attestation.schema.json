@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jinhu://hr-cutover/t4-business-attestation-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "artifactKind", "subjectManifestSha256", "role", "signerSubjectId", "signedAt", "decision", "artifactSha256"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "artifactKind": { "const": "yuzhou_t4_business_attestation" },
+    "subjectManifestSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "role": { "enum": ["hr", "payroll", "finance"] },
+    "signerSubjectId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "signedAt": { "type": "string", "format": "date-time" },
+    "decision": { "enum": ["accepted", "rejected"] },
+    "artifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
