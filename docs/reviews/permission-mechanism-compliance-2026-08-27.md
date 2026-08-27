@@ -273,4 +273,4 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 2. **D2 已决：授权变更保持“刷新后生效”**。已登录页面不承诺同 token 下主动推送权限/模块变化；刷新、重登或重新获取 context 后生效。PAM-006 采用这一产品契约，不升级为缺陷，不实施即时推送代码。
 3. **PAM-001/002/003 终局仍为核销**，不进入修复队列；核销理由以第五、十二节为准。
 4. **PAM-004/PAM-005 已实施**：分别由 Issue #432 / PR #434 / squash `087582378e7d603d5ee5f388b312258c29784abf` 与 Issue #433 / PR #435 / squash `d41407b5fe066adf70ca3f4ae5e613999ed44db6` 交付，review、PR CI、main CI 与 Deploy 均通过。
-5. **归档仍受 UAT 门禁约束**：隔离复测 `20260827-193922` 因 raw-CDP harness 在登录前两次超时而 BLOCKED，没有业务 PASS 或截图，见 `docs/uat/pam-fix-retest-uat-20260827-193922.md`。PAM-004/PAM-005 子任务需完成该报告列出的六项修复矩阵；审计父任务还需完整完成本报告第十五节七组回归，二者不得互相替代。
+5. **归档仍受 UAT 门禁约束**：最新隔离复测 `20260827-210211` 已补齐 Phase 0 且 login 预检 PASS，但 UI fixture harness 两次失败，六项业务 Case 未开始，且 residual/network/logout 原始证据不完整，见 `docs/uat/pam-fix2-retest-uat-20260827-210211.md`。PAM-004/PAM-005 子任务需完成六项修复矩阵；审计父任务还需完整完成本报告第十五节七组回归，二者不得互相替代。
