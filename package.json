@@ -61,6 +61,8 @@
     "test:e2e:yuzhou-full-domain-contract": "node scripts/e2e/yuzhou-full-domain-contract.mjs",
     "test:e2e:yuzhou-legacy-compatibility-coverage": "node scripts/e2e/yuzhou-legacy-compatibility-coverage-contract.mjs",
     "test:e2e:yuzhou-legacy-atomic-inventory": "node scripts/e2e/yuzhou-legacy-atomic-inventory-contract.mjs",
+    "test:e2e:yuzhou-legacy-core-domain-mapping": "node scripts/e2e/yuzhou-legacy-core-domain-mapping-contract.mjs",
+    "test:e2e:yuzhou-legacy-client-live-traversal": "node scripts/e2e/yuzhou-legacy-client-live-traversal-contract.mjs",
     "smoke:cleanup": "sh scripts/smoke-cleanup.sh",
     "db:up": "docker compose -f infra/docker/docker-compose.yml up -d",
     "db:down": "docker compose -f infra/docker/docker-compose.yml down",

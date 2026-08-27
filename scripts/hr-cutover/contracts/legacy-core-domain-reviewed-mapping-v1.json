@@ -1,0 +1,120 @@
+{
+  "formatVersion": 1,
+  "mappingKind": "yuzhou_hr_legacy_core_domain_reviewed_mapping",
+  "mappingVersion": "1.0.0",
+  "inventoryContract": {
+    "kind": "yuzhou_hr_legacy_structural_atomic_inventory",
+    "generatorVersion": "1.0.0",
+    "inventoryHash": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "selectedTables": 12,
+    "selectedFields": 260
+  },
+  "allowedGapReasons": [
+    "TARGET_FIELD_NOT_IMPLEMENTED",
+    "LEGACY_SEMANTICS_UNCONFIRMED",
+    "SENSITIVE_VALUE_REQUIRES_SEPARATE_REVIEW",
+    "LEGACY_CUSTOM_FIELD_REQUIRES_DICTIONARY_REVIEW",
+    "TARGET_RULE_NOT_IMPLEMENTED",
+    "TARGET_REMINDER_NOT_IMPLEMENTED"
+  ],
+  "domains": [
+    {
+      "domain": "employee_profile",
+      "route": "/hr/employees",
+      "tables": ["person", "family", "knowhow", "ticket", "person_user", "person_user_item"],
+      "defaultGapReason": "TARGET_FIELD_NOT_IMPLEMENTED",
+      "columnMappings": {
+        "person.person": "employee_code",
+        "person.name": "full_name",
+        "person.department": "primary_org_id",
+        "person.job": "position_id",
+        "person.injobdate": "hire_date",
+        "person.formaldate": "probation_end_date",
+        "person.awaydate": "departure_date"
+      },
+      "targetEvidence": [
+        {"kind":"route","file":"apps/web/app/hr/employees/page.tsx","symbol":"HrEmployeesClient"},
+        {"kind":"api","file":"apps/api/src/modules/hr/hr.controller.ts","symbol":"employees/:id/profile"},
+        {"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"HrEmployeeProfileEntity"},
+        {"kind":"entity","file":"database/migrations/000230_hr_employee_foundation.sql","symbol":"id_number_masked"},
+        {"kind":"entity","file":"database/migrations/000252_hr_lifecycle_employee_records.sql","symbol":"full_name_masked"},
+        {"kind":"permission","file":"packages/shared/src/hr.ts","symbol":"HR_EMPLOYEE_PROFILE_READ"},
+        {"kind":"test","file":"apps/api/src/modules/hr/hr-lifecycle.contract.spec.ts","symbol":"hr_employee_family"},
+        {"kind":"test","file":"scripts/e2e/yuzhou-t0-load-contract.mjs","symbol":"legacy_record_map"}
+      ]
+    },
+    {
+      "domain": "employment_change",
+      "route": "/hr/lifecycle",
+      "tables": ["readjust", "readjustitem", "jobstatecode"],
+      "defaultGapReason": "LEGACY_SEMANTICS_UNCONFIRMED",
+      "columnMappings": {
+        "readjust.no": "legacy_event_no",
+        "readjust.readjusttype": "legacy_event_type",
+        "readjust.readjustdate": "effective_date",
+        "readjust.person": "employee_id",
+        "readjust.olddepartment": "before_snapshot",
+        "readjust.department": "after_snapshot",
+        "readjust.oldjob": "before_snapshot",
+        "readjust.job": "after_snapshot",
+        "readjust.cause": "reason",
+        "readjust.jobstate": "legacy_state",
+        "readjust.state": "migration_decision"
+      },
+      "targetEvidence": [
+        {"kind":"route","file":"apps/web/app/hr/lifecycle/page.tsx","symbol":"HrLifecycleClient"},
+        {"kind":"api","file":"apps/api/src/modules/hr/hr.controller.ts","symbol":"employees/:id/transitions"},
+        {"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"HrEmploymentEventEntity"},
+        {"kind":"entity","file":"database/migrations/000237_hr_employment_event_legacy_compatibility.sql","symbol":"legacy_event_no"},
+        {"kind":"api","file":"scripts/load-yuzhou-t1-employment-events.sh","symbol":"beforeOrgCode"},
+        {"kind":"permission","file":"packages/shared/src/hr.ts","symbol":"HR_EMPLOYMENT_TRANSITION"},
+        {"kind":"test","file":"scripts/e2e/yuzhou-t1-employment-events-contract.mjs","symbol":"legacy_record_map"}
+      ]
+    },
+    {
+      "domain": "contract",
+      "route": "/hr/contracts",
+      "tables": ["compact", "compact_c", "compacttypecode"],
+      "defaultGapReason": "LEGACY_SEMANTICS_UNCONFIRMED",
+      "columnMappings": {
+        "compact.compact": "contract_no",
+        "compact.compacttype": "contract_type_id",
+        "compact.person": "employee_id",
+        "compact.startdate": "start_date",
+        "compact.enddate": "end_date",
+        "compact.testenddate": "probation_end_date",
+        "compact.testtime": "probation_months",
+        "compact.testpay": "probation_salary",
+        "compact.basepay": "base_salary",
+        "compact.state": "status",
+        "compact.bmxy": "confidentiality_agreement",
+        "compact.jyxzxy": "non_compete_agreement",
+        "compact.pxfwxy": "training_service_agreement",
+        "compact_c.compact": "contract_id",
+        "compact_c.startdate": "new_start_date",
+        "compact_c.enddate": "new_end_date",
+        "compact_c.cjddate": "signed_at",
+        "compacttypecode.compacttype": "type_name",
+        "compacttypecode.myorder": "type_code"
+      },
+      "targetEvidence": [
+        {"kind":"route","file":"apps/web/app/hr/contracts/page.tsx","symbol":"HrContractsClient"},
+        {"kind":"api","file":"apps/api/src/modules/hr/hr.controller.ts","symbol":"contracts/:id/changes"},
+        {"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"HrContractEntity"},
+        {"kind":"entity","file":"database/migrations/000238_hr_contract_history.sql","symbol":"training_service_agreement"},
+        {"kind":"permission","file":"packages/shared/src/hr.ts","symbol":"HR_CONTRACT_MANAGE"},
+        {"kind":"test","file":"scripts/e2e/yuzhou-t2-contracts-contract.mjs","symbol":"hr_contract_change"},
+        {"kind":"test","file":"apps/api/src/modules/hr/hr-contract-read.pg.spec.ts","symbol":"creates online drafts transactionally"}
+      ]
+    }
+  ],
+  "businessRules": [
+    {"id":"employee-code-non-reuse","domain":"employee_profile","status":"gap","reasonCode":"TARGET_RULE_NOT_IMPLEMENTED","sourceLocators":["person.person"],"targetEvidence":[]},
+    {"id":"jobstate-mapping","domain":"employee_profile","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["person.jobstate","jobstatecode.jobstate","jobstatecode.jobstatename"],"targetEvidence":[]},
+    {"id":"employment-event-number-jz-dz-lz-fz","domain":"employment_change","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["readjust.no","readjust.readjusttype"],"targetEvidence":[]},
+    {"id":"employment-before-after-snapshot","domain":"employment_change","status":"mapped","reasonCode":null,"sourceLocators":["readjust.olddepartment","readjust.department","readjust.oldjob","readjust.job"],"targetEvidence":[{"kind":"api","file":"scripts/load-yuzhou-t1-employment-events.sh","symbol":"before_snapshot"},{"kind":"test","file":"scripts/e2e/yuzhou-t1-employment-events-contract.mjs","symbol":"T1_EMPLOYEE_STATE_UNCHANGED"}]},
+    {"id":"contract-renewal-chain","domain":"contract","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["compact.continuetimes","compact.continueyears","compact_c.compact"],"targetEvidence":[]},
+    {"id":"contract-three-agreements","domain":"contract","status":"mapped","reasonCode":null,"sourceLocators":["compact.bmxy","compact.jyxzxy","compact.pxfwxy"],"targetEvidence":[{"kind":"entity","file":"database/migrations/000238_hr_contract_history.sql","symbol":"confidentiality_agreement"},{"kind":"test","file":"scripts/e2e/yuzhou-t2-contracts-contract.mjs","symbol":"hr_contract"}]},
+    {"id":"contract-expiry-reminder","domain":"contract","status":"gap","reasonCode":"TARGET_REMINDER_NOT_IMPLEMENTED","sourceLocators":["compact.enddate"],"targetEvidence":[]}
+  ]
+}

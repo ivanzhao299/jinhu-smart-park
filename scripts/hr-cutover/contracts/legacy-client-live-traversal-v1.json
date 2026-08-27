@@ -1,0 +1,154 @@
+{
+  "formatVersion": 1,
+  "traversalKind": "yuzhou_hr_legacy_client_live_traversal",
+  "traversalVersion": "1.0.0",
+  "status": "in_progress",
+  "evidenceLevel": "L3_RUNTIME_PARTIAL",
+  "compatibilityScoreContribution": 0,
+  "decisionMaturity": "provisional",
+  "operationMode": "read_only",
+  "inventoryContract": {
+    "inventoryHash": "182e49369910e0b251459b91fe79c5f465f9f78c1f35ee46c388f45a947ca19c",
+    "tables": 162,
+    "fields": 2364,
+    "rules": 212,
+    "helpTopics": 46
+  },
+  "security": {
+    "credentialsRecorded": false,
+    "personalValuesRecorded": false,
+    "screenshotsCommitted": false,
+    "writeActionsExecuted": false,
+    "forbiddenActions": ["save", "approve", "reverse_approve", "close_period", "payroll_payment", "export_personal_data"]
+  },
+  "requiredMenuFamilies": [
+    "organization_job",
+    "employee_profile",
+    "employment_change",
+    "contract",
+    "training",
+    "performance",
+    "reward_discipline",
+    "payroll",
+    "attendance",
+    "insurance_welfare",
+    "recruitment",
+    "group_web_self_service",
+    "permission_log_reminder"
+  ],
+  "menuFamilies": [
+    {
+      "id": "organization_job",
+      "runtimeStatus": "partial",
+      "entryPoints": ["单位设置", "部门管理", "职位管理"],
+      "pageChecks": ["department-hierarchy-and-actions"],
+      "decision": "modernize",
+      "reasonCode": "ORGANIZATION_JOB_ACTIONS_AND_ROLE_MATRIX_PENDING"
+    },
+    {
+      "id": "employee_profile",
+      "runtimeStatus": "partial",
+      "entryPoints": ["员工浏览", "档案维护", "档案查询", "统计分析", "人事报表", "生日查询", "批量维护", "Excel导入"],
+      "pageChecks": ["employee-onboarding-empty-form"],
+      "decision": "modernize",
+      "reasonCode": "PROFILE_SUBPAGES_PENDING"
+    },
+    {
+      "id": "employment_change",
+      "runtimeStatus": "partial",
+      "entryPoints": ["人员录入", "人员转入转出", "人员调动", "人员复职", "人事异动维护", "人事异动查询"],
+      "pageChecks": ["employee-onboarding-empty-form"],
+      "decision": "preserve",
+      "reasonCode": "EMPLOYMENT_EVENT_PAGES_PENDING"
+    },
+    {
+      "id": "contract",
+      "runtimeStatus": "partial",
+      "entryPoints": ["劳动合同维护", "劳动合同查询", "员工转正处理", "劳动合同导入", "试用期到期提醒", "合同到期提醒"],
+      "pageChecks": ["contract-ledger-columns"],
+      "decision": "preserve",
+      "reasonCode": "CONTRACT_ACTION_PAGES_PENDING"
+    },
+    {
+      "id": "training",
+      "runtimeStatus": "partial",
+      "entryPoints": ["培训课程设置", "培训计划维护", "培训记录管理", "培训记录查询", "培训统计分析"],
+      "pageChecks": ["training-course-fields", "training-plan-fields-and-participants"],
+      "decision": "modernize",
+      "reasonCode": "TRAINING_RECORD_AND_REPORT_PAGES_PENDING"
+    },
+    {
+      "id": "performance",
+      "runtimeStatus": "partial",
+      "entryPoints": ["考核标准设置", "考核记录录入", "考核结果管理", "考核结果汇总"],
+      "pageChecks": ["performance-standard-projects"],
+      "decision": "modernize",
+      "reasonCode": "PERFORMANCE_RECORD_RESULT_PAGES_PENDING"
+    },
+    {
+      "id": "reward_discipline",
+      "runtimeStatus": "partial",
+      "entryPoints": ["奖惩设置", "奖惩记录管理", "奖惩记录查询", "奖惩记录分析", "奖惩统计"],
+      "pageChecks": ["reward-category-values"],
+      "decision": "modernize",
+      "reasonCode": "REWARD_RECORD_AND_LINKAGE_PENDING"
+    },
+    {
+      "id": "payroll",
+      "runtimeStatus": "partial",
+      "entryPoints": ["工资核算设置", "工资数据输入", "工资账表打印", "员工工资查询", "银行代发工资", "月末工资结账", "工资账套管理"],
+      "pageChecks": ["payroll-set-selection", "payroll-items-and-formulas", "bank-file-format-configuration", "payroll-close-period-ledger"],
+      "decision": "preserve",
+      "reasonCode": "PAYROLL_INPUT_AND_REPORT_PAGES_PENDING"
+    },
+    {
+      "id": "attendance",
+      "runtimeStatus": "partial",
+      "entryPoints": ["考勤方案设置", "考勤项目设置", "员工考勤表", "考勤数据管理", "考勤记录查询", "考勤结果查询"],
+      "pageChecks": ["attendance-scheme-project-person-assignment", "attendance-project-thresholds"],
+      "decision": "modernize",
+      "reasonCode": "ATTENDANCE_DATA_CALCULATION_PAGES_PENDING"
+    },
+    {
+      "id": "insurance_welfare",
+      "runtimeStatus": "partial",
+      "entryPoints": ["保险事务", "人员缴费方案", "社会保险维护", "保险明细统计"],
+      "pageChecks": ["insurance-person-period-plan"],
+      "decision": "modernize",
+      "reasonCode": "INSURANCE_POLICY_CALCULATION_PAGES_PENDING"
+    },
+    {
+      "id": "recruitment",
+      "runtimeStatus": "partial",
+      "entryPoints": ["招聘申请", "招聘审批", "招聘发布", "招聘录用", "应聘人员"],
+      "pageChecks": ["recruitment-request-fields-and-status"],
+      "decision": "modernize",
+      "reasonCode": "RECRUITMENT_APPROVAL_PUBLISH_HIRE_PAGES_PENDING"
+    },
+    {
+      "id": "group_web_self_service",
+      "runtimeStatus": "partial",
+      "entryPoints": ["集团版登录"],
+      "pageChecks": ["group-web-independent-iis-site-and-login"],
+      "decision": "modernize",
+      "reasonCode": "WEB_ROLE_MENUS_AND_FIELD_PROJECTIONS_PENDING"
+    },
+    {
+      "id": "permission_log_reminder",
+      "runtimeStatus": "partial",
+      "entryPoints": ["用户管理", "自定义档案", "数据字典", "菜单设置", "数据备份", "数据恢复", "操作日志"],
+      "pageChecks": ["current-user-permission-denial"],
+      "decision": "modernize",
+      "reasonCode": "PERMISSION_MATRIX_AND_REMINDERS_PENDING"
+    }
+  ],
+  "completionRequirements": {
+    "allFamiliesObserved": false,
+    "allRequiredPagesChecked": false,
+    "atomicInventoryReconciled": false,
+    "targetEvidenceBound": false,
+    "roleMatrixVerified": false,
+    "businessSignoffAttached": false
+  },
+  "productionImport": "HOLD"
+}
