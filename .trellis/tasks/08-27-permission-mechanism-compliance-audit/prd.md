@@ -30,7 +30,7 @@
 - [ ] PR 完成一轮 `@codex review`，CI 绿色，squash merge；main 分支 CI 与 Deploy 均绿色。
 - [ ] 终报包含 MEC 摘要、矩阵结论、问题分级统计、推荐方案摘要、PR 与 commit。
 - [ ] 条件矩阵覆盖 page/action、tenant/park role link、module assignment、asset dependency、permission metadata、seeded/canonical 双重表示、Web fallback/first href 与会话刷新。
-- [ ] 最终问题清单含 PAM-004+ 与 PAM-001/002/003 review 核销记录，明确 Track-B 两层语义和授权即时性为产品决策点。
+- [ ] 最终问题清单含 PAM-004/005、PAM-001/002/003 review 核销记录，并将 PAM-006 明确为授权即时性的产品决策门/建议 UAT，而非已确认缺陷。
 
 ## Notes
 
@@ -38,3 +38,4 @@
 - 当前检出分支名称虽为 `codex/post-housing-archive-20260827-143620`，但 HEAD 已静态确认等于用户指定的 `origin/main@2526b577`。
 - 2026-08-27 补充任务开始时 #431 仍为 OPEN，故在同一报告与任务追加，不创建姊妹报告。
 - 首轮 `@codex review` 指出有效模块查询已经闭合 hard dependency、write field policy 是显式边界；这些 findings 经源码点验成立，必须以核销结论取代原 P0/P2 候选。
+- 复核指出现有 MEC 与产品文档未承诺授权变更即时推送；PAM-006 只能作为决策门与 UAT 项，不能在契约未定前计为 P2。

@@ -16,7 +16,7 @@
 - `homestay`：**部分符合**。权限码、surface、action、scope、字段/文件与审批框架完整；`ModuleGuard` 消费的有效模块集合已经闭合 `asset` 硬依赖。当前差距集中在 Web 空树 fallback、首跳树不一致和授权刷新语义，而不是 API 模块旁路。
 - `property/asset`：**基本符合**。approval/task/operation/file 委托均保留 tenant/park/data scope，maker-checker-executor 与不可变审计较完整；独立 property runtime surface 尚未纳入与住房/民宿同形的 access-manifest，字段策略也主要覆盖 asset CRUD 和两上层模块的 GET 投影。
 
-最终问题统计：**P0 0 项、P1 2 项、P2 1 项**。首轮候选 PAM-001/002/003 已在 `@codex review` 后核销；另有运行时证据缺口，不作为已确认产品缺陷计数。
+最终问题统计：**P0 0 项、P1 2 项、P2 0 项**。PAM-001/002/003 已在首轮 `@codex review` 后核销；PAM-006 在复核后降为产品决策门/建议 UAT，不作为已确认缺陷计数。
 
 ## 二、机制设计要求（MEC）
 
@@ -110,7 +110,7 @@ owner matrix、模板测试、seed/reconcile 均冻结了“Track-B 任务/审�
 ## 八、建议修复队列
 
 1. **菜单一致性组（P1）**：经用户另行批准后，PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree。
-2. **会话语义组（P2）**：先由产品决定“刷新后生效”或“已登录会话即时生效”，再选择 PAM-006 方案；未决定前不开修复。
+2. **会话语义决策门（非缺陷）**：先由产品决定“刷新后生效”或“已登录会话即时生效”；未发现既有承诺或 UAT 违约前，不为 PAM-006 开修复。
 3. **UAT 组**：模块组合、菜单/首跳、授权刷新、跨 tenant/park、maker-checker-executor、文件、深链回归。不得以生产 SQL 临时补权代替模板/assignment/reconcile 验证。
 
 如未来修复涉及 bundle/template/seed：
@@ -198,7 +198,7 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 
 ## 十三、统一问题清单与修复方案
 
-统一统计：**P0 0 项、P1 2 项、P2 1 项**。PAM-001～003 为首轮候选并已在第五节记录核销原因；确认问题如下。
+统一统计：**P0 0 项、P1 2 项、P2 0 项**。PAM-001～003 为首轮候选并已在第五节记录核销原因；确认问题如下。
 
 ### PAM-004（P1）Web 空菜单回退重建了被 API 依赖过滤的 property 菜单
 
@@ -228,12 +228,11 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 
 **推荐 A**：消除两个消费者对“可见菜单”的不同定义。
 
-### PAM-006（P2）权限/模块刷新语义缺少显式即时性契约
+### PAM-006（产品决策门 / 建议 UAT）权限与模块刷新语义
 
-- 违反：MEC-3、MEC-4。
-- 状态：**静态确认的缓存边界；是否命中本次实测需 UAT**。
+- 状态：**静态确认的缓存边界，不是已确认契约缺陷；是否命中本次实测需 UAT**。
 - 证据：登录与主园区切换会重取 `/users/me`；DashboardLayout 启动也会刷新，但跨 tab 只监听 access token，服务端在 token 不变时调整授权不会主动推送，见 `apps/web/lib/auth.ts:149-226`、`apps/web/components/layout/DashboardLayout.tsx:63-105`。
-- 影响：管理员完成授权后，已登录用户可能直到刷新、重登或下一次 context fetch 才看到菜单；同一浏览器其他 tab 也可能暂时保留旧 user cache。
+- 影响：管理员完成授权后，已登录用户可能直到刷新、重登或下一次 context fetch 才看到菜单；同一浏览器其他 tab 也可能暂时保留旧 user cache。MEC-3/4 与现有产品文档未承诺同 token 下主动推送授权变更，主园区切换也会用新 token 重取 `/users/me`，因此该现状只能作为体验决策与 UAT 项。
 
 | 方案 | 改动面 | 风险 / 迁移 | 验证 |
 | --- | --- | --- | --- |
@@ -249,8 +248,8 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 2. **决策门 D2（先行）**：确认角色/模块变更是“刷新后生效”还是“已登录会话即时生效”。它决定 PAM-006 采用 A 还是 B。
 3. **核销项 N1（不实施）**：PAM-001/002/003 不进入修复队列；仅保留对应模块组合、字段负例和 dependency closure 回归。
 4. **菜单组 M1（P1）**：PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree；在同一集成 UAT 验证菜单/route/API。
-5. **会话组 C1（P2）**：按 D2 处理 PAM-006；若选即时刷新，依赖统一 normalized menu contract。
-6. **集成 UAT（依赖 M1，按需含 C1）**：执行第十五节；不得通过生产直改表或临时 extra grant 绕过模板/assignment/reconcile。
+5. **会话决策门 C1（非缺陷）**：按 D2 定义产品生效时限；只有文档承诺即时生效或 UAT 证明未达到既定时限，才把 PAM-006 恢复为缺陷候选。
+6. **集成 UAT（依赖 M1）**：执行第十五节并记录授权刷新时序；不得通过生产直改表或临时 extra grant 绕过模板/assignment/reconcile。
 
 ## 十五、统一修复后 UAT 回归清单
 
@@ -264,4 +263,4 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 6. **园区切换**：双园区具有不同 role links 与 module assignments；主切换入口和资产页局部切换后，菜单、当前 route、页面 state、API scope 均按 nextUser 收敛。
 7. **原安全回归**：继续执行第九节的 Homestay asset 403/恢复、跨 tenant/park/data、maker-checker-executor、字段 hidden/masked、五类文件全链和 housing approval 深链。
 
-本补充核查仍未连接生产、未执行数据库写入、未操作浏览器或容器。静态证据已经足以定义 PAM-004/PAM-005；PAM-006 与本次用户实测的对应关系、真实 permission/assignment 行状态仍应在经批准的隔离 UAT 或目标环境只读诊断中确认。
+本补充核查仍未连接生产、未执行数据库写入、未操作浏览器或容器。静态证据已经足以定义 PAM-004/PAM-005；PAM-006 仅为产品决策门，其与本次用户实测的对应关系、真实 permission/assignment 行状态仍应在经批准的隔离 UAT 或目标环境只读诊断中确认。
