@@ -3,7 +3,7 @@
   "name": "fix-housing-task-reconciliation-parameter-typing",
   "title": "Fix housing task reconciliation PostgreSQL parameter typing",
   "description": "Track Issue #420: reproduce and fix PropertyTaskReconciliationScheduler PostgreSQL parameter typing failures across housing sources, then retest UAT.",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",

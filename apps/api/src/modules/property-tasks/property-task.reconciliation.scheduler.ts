@@ -144,10 +144,10 @@ implements OnApplicationBootstrap, OnApplicationShutdown {
               source_id AS "sourceId",authority_updated_at AS "authorityUpdatedAt",
               authority_deleted AS "authorityDeleted",head_updated_at AS "headUpdatedAt"
          FROM candidates
-        WHERE $1::text IS NULL OR (tenant_id,park_id,source_type,source_id)>
-          ($1::text,$2::text,$3::text,$4::uuid)
+        WHERE $1::varchar(64) IS NULL OR (tenant_id,park_id,source_type,source_id)>
+          ($1::varchar(64),$2::varchar(64),$3::varchar(64),$4::uuid)
         ORDER BY tenant_id,park_id,source_type,source_id
-        LIMIT $5`,
+        LIMIT $5::integer`,
       [
         cursor?.tenantId ?? null,
         cursor?.parkId ?? null,
