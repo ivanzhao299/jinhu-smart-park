@@ -31,6 +31,7 @@ import {
   PROPERTY_BUSINESS_PERMISSIONS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_TRACK_B_SURFACES,
+  type UserContext,
   type UserMenuTreeNode
 } from "@jinhu/shared";
 
@@ -507,6 +508,24 @@ export function getDashboardAuthorizationMenus(userMenus?: UserMenuTreeNode[] | 
   // this helper is not a source for rendered navigation.
   const menus = normalizeMenuTree(userMenus);
   return menus.length > 0 ? mergeWithDashboardMenus(menus) : dashboardMenus;
+}
+
+type MenuTreeUser = Pick<UserContext, "menu_tree" | "menus">;
+
+export function resolveUserMenuTree(user?: MenuTreeUser | null): UserMenuTreeNode[] | undefined {
+  return user?.menu_tree ?? user?.menus;
+}
+
+export function getUserDashboardMenus(user?: MenuTreeUser | null): MenuNode[] {
+  return getDashboardMenus(resolveUserMenuTree(user));
+}
+
+export function getUserNormalizedMenuTree(user?: MenuTreeUser | null): MenuNode[] {
+  return normalizeMenuTree(resolveUserMenuTree(user));
+}
+
+export function getUserDashboardAuthorizationMenus(user?: MenuTreeUser | null): MenuNode[] {
+  return getDashboardAuthorizationMenus(resolveUserMenuTree(user));
 }
 
 export function filterFirstReleaseMenus(menus: MenuNode[]): MenuNode[] {

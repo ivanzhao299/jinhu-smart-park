@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
 import { AuthSessionActionsContext, AuthUserContext } from "../../lib/auth-context";
 import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
-import { findMenusByPath, getDashboardAuthorizationMenus } from "../../lib/menu";
+import { findMenusByPath, getUserDashboardAuthorizationMenus } from "../../lib/menu";
 import {
   dashboardRouteDenialHref,
   resolveDashboardRouteDenial,
@@ -110,7 +110,7 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     if (!mobileNavigation) writeSidebarCollapsedPreference(collapsed);
   };
 
-  const authorizationMenus = useMemo(() => getDashboardAuthorizationMenus(user?.menus ?? user?.menu_tree), [user]);
+  const authorizationMenus = useMemo(() => getUserDashboardAuthorizationMenus(user), [user]);
   const requiredMenus = useMemo(() => findMenusByPath(pathname, authorizationMenus), [authorizationMenus, pathname]);
   const routeDenial = useMemo(
     () => user ? resolveDashboardRouteDenial(user, requiredMenus) : null,

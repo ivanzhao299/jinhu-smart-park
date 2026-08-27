@@ -1,5 +1,10 @@
 import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
-import { getDashboardAuthorizationMenus } from "./menu";
+import {
+  getUserDashboardAuthorizationMenus,
+  getUserDashboardMenus,
+  getUserNormalizedMenuTree,
+  resolveUserMenuTree
+} from "./menu";
 import { hasAllPermissions, hasModule, hasPermission } from "./permissions";
 
 export interface PostLoginDeviceSignals {
@@ -35,7 +40,8 @@ function findFirstAccessibleMenuHref(
   user: UserContext | null,
   items?: RouteMenuItem[],
   inheritedModule?: string,
-  authorizationItems?: RouteMenuItem[]
+  authorizationItems?: RouteMenuItem[],
+  displayItems?: RouteMenuItem[]
 ): string | null {
   if (!items) {
     return null;
@@ -45,16 +51,20 @@ function findFirstAccessibleMenuHref(
     const authorizationItem = item.href
       ? findMenuRequirementsByHref(item.href, authorizationItems)
       : undefined;
+    const displayItem = item.href
+      ? findMenuRequirementsByHref(item.href, displayItems)
+      : undefined;
     if (
       item.href &&
       item.href !== "/login" &&
+      displayItem &&
       hasPermission(user, item.permission) &&
       hasAllPermissions(user, authorizationItem?.permissions ?? []) &&
       hasModule(user, moduleCode)
     ) {
       return item.href;
     }
-    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode, authorizationItems);
+    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode, authorizationItems, displayItems);
     if (nested) {
       return nested;
     }
@@ -79,12 +89,13 @@ function findMenuRequirementsByHref(
 }
 
 function findFirstPostLoginMenuHref(user: UserContext | null): string | null {
-  const userMenus = user?.menu_tree ?? user?.menus;
+  const userMenus = getUserNormalizedMenuTree(user);
   return findFirstAccessibleMenuHref(
     user,
     userMenus,
     undefined,
-    getDashboardAuthorizationMenus(userMenus)
+    getUserDashboardAuthorizationMenus(user),
+    getUserDashboardMenus(user)
   );
 }
 
@@ -219,18 +230,21 @@ export function resolvePostParkSwitchPath(
     return hasOperationsAccess ? pathname : resolvePostLoginPath(user, signals);
   }
 
+  const userMenus = getUserDashboardMenus(user);
   const menuAccess = resolveMenuPathAccess(
     user,
     pathname,
-    getDashboardAuthorizationMenus(user?.menu_tree ?? user?.menus)
+    getUserDashboardAuthorizationMenus(user)
   );
   if (menuAccess) {
-    return menuAccess.accessible ? pathname : resolvePostLoginPath(user, signals);
+    return userMenus.length > 0 && menuAccess.accessible
+      ? pathname
+      : resolvePostLoginPath(user, signals);
   }
   const previousMenuAccess = resolveMenuPathAccess(
     previousUser,
     pathname,
-    previousUser?.menu_tree ?? previousUser?.menus
+    resolveUserMenuTree(previousUser)
   );
   return previousMenuAccess ? resolvePostLoginPath(user, signals) : pathname;
 }

@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useAuthUser } from "../../lib/auth-context";
-import { getDashboardMenus, type MenuNode } from "../../lib/menu";
+import { getUserDashboardMenus, type MenuNode } from "../../lib/menu";
 import { hasAccess, hasAllPermissions, hasAnyPermission, hasModule } from "../../lib/permissions";
 
 interface AppSidebarProps {
@@ -25,7 +25,7 @@ export function AppSidebar({ collapsed, onNavigate, terminalMode = false }: AppS
   const branding = useAppBranding();
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const sourceMenus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
+  const sourceMenus = useMemo(() => getUserDashboardMenus(user), [user]);
   const menus = useMemo(
     () =>
       sourceMenus
