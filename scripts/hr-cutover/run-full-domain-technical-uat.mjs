@@ -2,12 +2,14 @@
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { basename, resolve } from "node:path";
-import bcrypt from "bcrypt";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
 
 const ROOT=resolve(import.meta.dirname,"../..");
+const require=createRequire(resolve(ROOT,"apps/api/package.json"));
+const bcrypt=require("bcrypt");
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const writePrivate=(path,value)=>{writeFileSync(path,`${JSON.stringify(value,null,2)}\n`,{mode:0o600});chmodSync(path,0o600);};
 const sleep=(ms)=>new Promise((done)=>setTimeout(done,ms));
