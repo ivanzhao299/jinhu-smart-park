@@ -4,7 +4,7 @@ import { ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import { useAuthUser } from "../../lib/auth-context";
-import { findMenuByPath, getDashboardMenus } from "../../lib/menu";
+import { findMenuByPath, getUserDashboardMenus } from "../../lib/menu";
 
 interface AppBreadcrumbProps {
   variant?: "standalone" | "inline";
@@ -13,7 +13,7 @@ interface AppBreadcrumbProps {
 export function AppBreadcrumb({ variant = "standalone" }: AppBreadcrumbProps) {
   const pathname = usePathname();
   const user = useAuthUser();
-  const menus = useMemo(() => getDashboardMenus(user?.menus ?? user?.menu_tree), [user]);
+  const menus = useMemo(() => getUserDashboardMenus(user), [user]);
   const current = findMenuByPath(pathname, menus);
   const parent = menus.find((menu) => menu.children?.some((child) => child.href === pathname));
 

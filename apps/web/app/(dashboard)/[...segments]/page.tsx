@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { notFound, usePathname } from "next/navigation";
 import { useAuthUser } from "../../../lib/auth-context";
 import { resolveCatchAllRoute } from "../../../lib/catch-all-route";
-import { findMenuByPath, type MenuNode } from "../../../lib/menu";
+import { findMenuByPath, resolveUserMenuTree, type MenuNode } from "../../../lib/menu";
 import TenantsPage from "../../system/tenants/page";
 
 type MenuLink = {
@@ -17,7 +17,7 @@ type MenuLink = {
 export default function PlaceholderPage() {
   const pathname = usePathname();
   const user = useAuthUser();
-  const resolution = resolveCatchAllRoute(pathname, user?.menus ?? user?.menu_tree);
+  const resolution = resolveCatchAllRoute(pathname, resolveUserMenuTree(user));
 
   if (resolution.kind === "tenants") return <TenantsPage />;
   if (resolution.kind === "not-found") notFound();

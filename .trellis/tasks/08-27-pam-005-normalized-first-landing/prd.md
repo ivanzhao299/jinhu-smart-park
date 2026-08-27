@@ -14,7 +14,7 @@
 
 ## Acceptance Criteria
 
-- [ ] 登录首跳与 Sidebar 的第一个可访问菜单一致。
+- [ ] 登录首跳目标必须存在于 Sidebar 的 normalized 候选树；API 顺序可继续决定首个业务入口，不能被静态 `/dashboard` 顺序强制覆盖。
 - [ ] legacy/placeholder 节点被统一剔除，不能成为首跳或园区切换回落目标。
 - [ ] current/previous user 的园区切换判断使用同一 normalized authorization tree。
 - [ ] Web 聚焦单测、lint、typecheck、build 与 CI 通过。

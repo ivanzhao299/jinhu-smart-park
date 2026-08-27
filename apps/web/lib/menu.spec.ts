@@ -11,7 +11,10 @@ import {
   findMenuByPath,
   findMenusByPath,
   getDashboardAuthorizationMenus,
-  getDashboardMenus
+  getDashboardMenus,
+  getUserDashboardMenus,
+  getUserNormalizedMenuTree,
+  resolveUserMenuTree
 } from "./menu";
 
 test("explicit API empty trees remain authoritative while missing fields use legacy compatibility", () => {
@@ -45,6 +48,21 @@ test("dependency-filtered API empty trees do not recreate property surfaces", ()
     assert.equal(findMenuByPath(surface.route, displayMenus), undefined);
     assert.equal(findMenuByPath(surface.route, authorizationMenus)?.permission, surface.pageCode);
   }
+});
+
+test("user menu consumers share menu_tree priority and normalized display output", () => {
+  const menuTree: UserMenuTreeNode[] = [
+    { label: "旧住房入口", href: "/housing", module: "housing_rental" }
+  ];
+  const menus: UserMenuTreeNode[] = [
+    { label: "用户管理", href: "/system/users", module: "system" }
+  ];
+
+  assert.equal(resolveUserMenuTree({ menu_tree: menuTree, menus }), menuTree);
+  assert.deepEqual(getUserDashboardMenus({ menu_tree: menuTree, menus }), []);
+  assert.deepEqual(getUserNormalizedMenuTree({ menu_tree: menuTree, menus }), []);
+  assert.equal(resolveUserMenuTree({ menus }), menus);
+  assert.equal(findMenuByPath("/system/users", getUserDashboardMenus({ menus }))?.href, "/system/users");
 });
 
 test("property menus expose the shared 8/9 canonical surfaces with exact page permissions", () => {

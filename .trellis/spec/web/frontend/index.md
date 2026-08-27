@@ -302,6 +302,7 @@ in [Tenant Module Access Control](../../api/backend/module-access-control.md).
 - Static canonical metadata may remain available to route authorization so a direct canonical URL is classified and rejected instead of treated as an unknown utility route. Authorization metadata must never be fed back into rendered navigation.
 - Super/`*` cannot turn an authoritative empty display tree into visible menus and still cannot bypass `enabled_modules` checks.
 - Field-source normalization across Sidebar, Breadcrumb, login landing, and park switching is one contract; do not give consumers independent precedence rules.
+- Login landing may preserve the API menu order for the first business destination, but it must traverse the shared normalized API tree and the selected href must survive the Sidebar's canonical merge. Do not traverse raw legacy/placeholder nodes, and do not force the static `/dashboard` ordering to replace every existing business landing.
 
 #### 4. Validation & Error Matrix
 

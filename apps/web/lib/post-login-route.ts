@@ -1,5 +1,9 @@
 import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
-import { getDashboardAuthorizationMenus } from "./menu";
+import {
+  getUserDashboardAuthorizationMenus,
+  getUserDashboardMenus,
+  getUserNormalizedMenuTree
+} from "./menu";
 import { hasAllPermissions, hasModule, hasPermission } from "./permissions";
 
 export interface PostLoginDeviceSignals {
@@ -79,12 +83,12 @@ function findMenuRequirementsByHref(
 }
 
 function findFirstPostLoginMenuHref(user: UserContext | null): string | null {
-  const userMenus = user?.menu_tree ?? user?.menus;
+  const userMenus = getUserNormalizedMenuTree(user);
   return findFirstAccessibleMenuHref(
     user,
     userMenus,
     undefined,
-    getDashboardAuthorizationMenus(userMenus)
+    getUserDashboardAuthorizationMenus(user)
   );
 }
 
@@ -219,18 +223,21 @@ export function resolvePostParkSwitchPath(
     return hasOperationsAccess ? pathname : resolvePostLoginPath(user, signals);
   }
 
+  const userMenus = getUserDashboardMenus(user);
   const menuAccess = resolveMenuPathAccess(
     user,
     pathname,
-    getDashboardAuthorizationMenus(user?.menu_tree ?? user?.menus)
+    getUserDashboardAuthorizationMenus(user)
   );
   if (menuAccess) {
-    return menuAccess.accessible ? pathname : resolvePostLoginPath(user, signals);
+    return userMenus.length > 0 && menuAccess.accessible
+      ? pathname
+      : resolvePostLoginPath(user, signals);
   }
   const previousMenuAccess = resolveMenuPathAccess(
     previousUser,
     pathname,
-    previousUser?.menu_tree ?? previousUser?.menus
+    getUserNormalizedMenuTree(previousUser)
   );
   return previousMenuAccess ? resolvePostLoginPath(user, signals) : pathname;
 }
