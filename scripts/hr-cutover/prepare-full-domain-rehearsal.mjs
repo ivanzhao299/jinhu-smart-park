@@ -17,16 +17,21 @@ const DEFAULT_PARK = "20000001";
 const fail = (message) => { throw new Error(message); };
 const mode = (path) => (statSync(path).mode & 0o777).toString(8).padStart(4, "0");
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const fileSha256 = (path) => {
+  const result = spawnSync("shasum", ["-a", "256", path], { encoding: "utf8", stdio: "pipe" });
+  if (result.status !== 0) fail("cannot hash source backup");
+  return result.stdout.trim().split(/\s+/)[0];
+};
 
 function parseArgs(argv) {
   const args = {};
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer"]) {
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup"]) {
     if (!args[key]) fail(`missing --${key.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`);
   }
   if (!["A", "B"].includes(args.rehearsal)) fail("rehearsal must be A or B");
@@ -79,6 +84,8 @@ function configFor(args, codeSha, mappingContractHash) {
   const t4Record = JSON.parse(readFileSync(t4Copy, "utf8"));
   const sourceSnapshotHash = t4Record.sourceBackupSha256;
   if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
+  const sourceBackup = realpathSync(resolve(args.sourceBackup));
+  if (!statSync(sourceBackup).isFile() || fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -93,6 +100,7 @@ function configFor(args, codeSha, mappingContractHash) {
     load: { ...commonLoad },
     rollback: {}
   }]));
+  adapterEnv.T4.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T4.load = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
     YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,

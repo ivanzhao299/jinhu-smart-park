@@ -43,7 +43,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
 };
 
@@ -479,13 +479,14 @@ export function provision(configInput) {
 
 function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  command(process.execPath, args, { code: "CHILD_FAILED" });
+  try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
+  finally { registerControlledFilesystem(config); }
   appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
 }
 
 async function runAdapterAsync(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  await new Promise((resolveChild, rejectChild) => {
+  try { await new Promise((resolveChild, rejectChild) => {
     const child = spawn(process.execPath, args, { stdio: "inherit" });
     ACTIVE_CHILD = child;
     child.once("error", () => rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`)));
@@ -494,8 +495,33 @@ async function runAdapterAsync(config, domain, phase) {
       if (code === 0 && !signal) resolveChild();
       else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
     });
-  });
+  }); } finally { registerControlledFilesystem(config); }
   appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+}
+
+function registerControlledFilesystem(config) {
+  const registryPath = paths(config).registry;
+  if (!existsSync(registryPath) || !existsSync(config.target.root)) return;
+  const registry = readJson(registryPath);
+  const identities = new Set(registry.map((entry) => `${entry.type}:${resolve(entry.planned)}`));
+  const additions = [];
+  const visit = (parent) => {
+    for (const name of readdirSync(parent).sort()) {
+      const child = resolve(parent, name);
+      const info = lstatSync(child);
+      if (info.isSymbolicLink()) fail("CLEANUP_PATH_ESCAPE", "runtime output contains a symbolic link");
+      const type = info.isDirectory() ? "directory" : info.isFile() ? "file" : null;
+      if (!type) fail("UNREGISTERED_RESOURCE", "runtime output contains an unsupported filesystem object");
+      const identity = `${type}:${child}`;
+      if (!identities.has(identity)) {
+        additions.push({ type, planned: child, observed: child, removed: false, residualCount: 0 });
+        identities.add(identity);
+      }
+      if (type === "directory") visit(child);
+    }
+  };
+  visit(config.target.root);
+  if (additions.length) replacePrivate(registryPath, [...registry, ...additions]);
 }
 
 function validateChildJournal(config, requiredPhase) {

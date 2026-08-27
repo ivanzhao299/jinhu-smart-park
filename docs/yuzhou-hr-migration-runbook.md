@@ -171,7 +171,7 @@ planned → provisioned → extracting → loading → verifying → uat_ready �
 命令入口为：
 
 ```sh
-pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>'
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'

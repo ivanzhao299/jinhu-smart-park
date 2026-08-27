@@ -39,11 +39,17 @@ export function materializeFullDomainFacts(config,phase){
   const t4=JSON.parse(readFileSync(config.source.t4EvidenceFile,"utf8"));
   const summaryPath=resolve(config.target.evidenceRoot,"global-facts-summary.json");
   writePrivate(summaryPath,{formatVersion:1,parentRunId:config.runId,ledgerRows:facts.ledger.length,canonicalGlobalSha256:facts.globalHash,domainHashes:facts.domainHashes,ownerFailureCount:0,sideEffectFailureCount:0,productionImport:"HOLD"});
+  const registryPath=resolve(config.target.evidenceRoot,"resource-registry.json");
+  const registryRows=JSON.parse(readFileSync(registryPath,"utf8"));
+  if(!registryRows.some((entry)=>entry.type==="file"&&resolve(entry.planned)===summaryPath)){
+    registryRows.push({type:"file",planned:summaryPath,observed:summaryPath,removed:false,residualCount:0});
+    writePrivate(registryPath,registryRows);
+  }
   const evidence=buildEvidenceIndex(config.target.evidenceRoot,[
     {kind:"approved_ignored_attestation",relativePath:basename(attestationPath)},
     {kind:"global_facts_summary",relativePath:basename(summaryPath)}
   ]);
-  const registry=JSON.parse(readFileSync(resolve(config.target.evidenceRoot,"resource-registry.json"),"utf8")).map((entry)=>({...entry,observed:typeof entry.observed==='string'?entry.observed:null}));
+  const registry=JSON.parse(readFileSync(registryPath,"utf8")).map((entry)=>({...entry,observed:typeof entry.observed==='string'?entry.observed:null}));
   const manifest={
     formatVersion:1,manifestKind:"yuzhou_hr_full_domain_rehearsal",parentRunId:config.runId,rehearsal:config.rehearsal,state:"verifying",triple:config.triple,
     source:{system:"yuzhou-v10",databaseAlias:config.source.databaseAlias,readOnly:true,backupSha256:config.triple.sourceSnapshotHash,catalogSha256:t4.catalogAggregateSha256,tableLedgerSha256:t4.profileEvidenceSha256},
