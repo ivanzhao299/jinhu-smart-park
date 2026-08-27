@@ -1,0 +1,163 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_live_runtime",
+  "status": "verified_read_only",
+  "evidenceLevel": "L4_RUNTIME_SOURCE_AND_DATABASE",
+  "operationMode": "read_only",
+  "deploymentEvidence": {
+    "technology": "classic_asp_dedicated_iis_site",
+    "databaseKind": "separate_enterprise_hr_database",
+    "sourceFiles": 6304,
+    "classicAspFiles": 4026,
+    "databaseTables": 438,
+    "modules": {
+      "total": 231,
+      "level1": 12,
+      "level2": 100,
+      "level3": 119,
+      "navigable": 186,
+      "routeFilesResolved": 186,
+      "moduleInventoryHash": "b34ba532888fee122f93305403f8985bcb9bd1a5ccec69e8013b1d4c4f14e296"
+    }
+  },
+  "atomicAuthorization": {
+    "actions": ["browse", "query", "add", "edit", "delete", "state", "print"],
+    "dataScopes": ["assigned_department", "assigned_department_range"],
+    "roleTemplates": [
+      "organization_admin",
+      "recruitment_admin",
+      "employee_admin",
+      "attendance_admin",
+      "compensation_admin",
+      "performance_admin",
+      "training_admin",
+      "service_admin",
+      "configuration_admin",
+      "decision_user",
+      "system_admin",
+      "enterprise_employee"
+    ],
+    "deployedUsers": 15,
+    "deployedRoleAssignments": 181,
+    "deployedDepartmentScopeRows": 694,
+    "legacyAssignmentDecision": "do_not_clone_overbroad_assignments"
+  },
+  "topLevelDomains": [
+    {
+      "id": "organization",
+      "legacyName": "组织管理",
+      "legacyModuleCount": 8,
+      "targetRoutes": ["/hr/organization"],
+      "disposition": "modernize",
+      "targetStatus": "implemented"
+    },
+    {
+      "id": "recruitment",
+      "legacyName": "招聘管理",
+      "legacyModuleCount": 23,
+      "targetRoutes": ["/hr/recruitment"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "employee",
+      "legacyName": "员工信息",
+      "legacyModuleCount": 22,
+      "targetRoutes": ["/hr/employees", "/hr/contracts", "/hr/lifecycle", "/hr/rewards"],
+      "disposition": "preserve",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "attendance",
+      "legacyName": "考勤管理",
+      "legacyModuleCount": 29,
+      "targetRoutes": ["/hr/attendance"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "compensation",
+      "legacyName": "薪酬福利",
+      "legacyModuleCount": 22,
+      "targetRoutes": ["/hr/compensation", "/hr/payroll", "/hr/insurance"],
+      "disposition": "preserve",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "performance",
+      "legacyName": "绩效管理",
+      "legacyModuleCount": 20,
+      "targetRoutes": ["/hr/performance", "/hr/feedback-360", "/hr/goals"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "training",
+      "legacyName": "培训开发",
+      "legacyModuleCount": 31,
+      "targetRoutes": ["/hr/training", "/hr/talent"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "enterprise_service",
+      "legacyName": "事务管理",
+      "legacyModuleCount": 29,
+      "targetRoutes": ["/workflow", "/hr/approvals"],
+      "disposition": "cross_module",
+      "targetStatus": "mapped"
+    },
+    {
+      "id": "data_configuration",
+      "legacyName": "数据配置",
+      "legacyModuleCount": 4,
+      "targetRoutes": ["/admin", "/hr"],
+      "disposition": "cross_module",
+      "targetStatus": "mapped"
+    },
+    {
+      "id": "decision_center",
+      "legacyName": "决策中心",
+      "legacyModuleCount": 16,
+      "targetRoutes": ["/hr"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    },
+    {
+      "id": "system_management",
+      "legacyName": "系统管理",
+      "legacyModuleCount": 9,
+      "targetRoutes": ["/admin"],
+      "disposition": "cross_module",
+      "targetStatus": "implemented"
+    },
+    {
+      "id": "personal_office",
+      "legacyName": "个人办公",
+      "legacyModuleCount": 18,
+      "targetRoutes": ["/hr/work-reports", "/hr/goals", "/hr/approvals"],
+      "disposition": "modernize",
+      "targetStatus": "partial"
+    }
+  ],
+  "roleProjection": {
+    "employee": ["self", "masked_sensitive_fields"],
+    "manager": ["self", "managed_org_subtree", "team_workflow"],
+    "hrAdministrator": ["park_hr", "sensitive_field_audit"],
+    "specialist": ["module_action_atoms", "assigned_org_scope"]
+  },
+  "security": {
+    "credentialsRecorded": false,
+    "personalValuesRecorded": false,
+    "screenshotsCommitted": false,
+    "sourceFilesCommitted": false,
+    "writeActionsExecuted": false,
+    "forbiddenActions": ["save", "approve", "close_period", "payroll_payment", "export_personal_data"]
+  },
+  "remainingCompatibilityGates": [
+    "module_action_field_target_binding",
+    "cross_module_ownership_acceptance",
+    "human_business_signoff"
+  ],
+  "productionImport": "HOLD"
+}

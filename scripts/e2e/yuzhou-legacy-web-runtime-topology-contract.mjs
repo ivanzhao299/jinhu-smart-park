@@ -11,8 +11,17 @@ const rejects=(code,callback)=>assert.throws(callback,error=>error instanceof Le
 
 test("desktop client, classic Group Network and database Web menu are three distinct legacy surfaces",()=>{
  const report=verifyLegacyWebRuntimeTopology(manifest);
- assert.deepEqual(report,{ok:true,surfaces:3,runtimeObserved:2,remainingRuntimeGates:3,productionImport:"HOLD"});
+ assert.deepEqual(report,{ok:true,surfaces:3,runtimeObserved:2,remainingRuntimeGates:2,productionImport:"HOLD"});
  assert.equal(manifest.compatibilityDecision.functionallyIdentical,false);
+});
+
+test("deployed classic Group Web is a full enterprise surface, not an employee-only login shell",()=>{
+ const classic=manifest.surfaces.find(item=>item.id==="classic_group_network");
+ assert.equal(classic.runtime,"observed_source_and_database");
+ assert.equal(classic.roleModel,"role_module_seven_action_department_scope");
+ assert.match(manifest.compatibilityDecision.classicWebAuthority,/enterprise_hr_backoffice/);
+ assert.ok(classic.entryEvidence.includes("231-module-live-database"));
+ assert.ok(classic.entryEvidence.includes("186-of-186-route-source-reconciliation"));
 });
 
 test("classic ASP shell and ASP.NET database menu cannot be collapsed into one claimed runtime",()=>{
