@@ -1,0 +1,51 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_job_change_dual_source_evidence",
+  "legacyId": 39,
+  "legacyFieldEvidenceHash": "b279850a9053621fd3ab890b5fd85092292f886f6150092ccc28ab4138b9dc06",
+  "operationMode": "read_only",
+  "groupWeb": {
+    "sourceFiles": [
+      {"path":"EMPLOYEE/CHANGEJOB/Admin.asp","sha256":"9677e62672da40f8f4f074731ccd0ac0c50ee3c2809a67d9c7aca2c0f0adaa87"},
+      {"path":"EMPLOYEE/CHANGEJOB/Browse.asp","sha256":"3738971ca9242d72f402651d013c13417953485b9396ad6cca8889e76fce37cb"},
+      {"path":"EMPLOYEE/CHANGEJOB/Detail.asp","sha256":"d9db89b30c485be5ef1f0c00c9291bad3bf2343e09b0385466c4bd2f69919379"},
+      {"path":"EMPLOYEE/CHANGEJOB/approve.asp","sha256":"9e3a611ad5359cacbd3e5467893671e77de72c8cb1200c5237ce92c915a7c78a"},
+      {"path":"EMPLOYEE/CHANGEJOB/query.asp","sha256":"24bb95ca97d6f0c79d573c55398764f0af88a51d02e53a3c20a399339860776c"},
+      {"path":"EMPLOYEE/CHANGEJOB/readonly.asp","sha256":"d30c267367996ffb0d9932a7a9f3ceac3d65a7717e892338bb59df9993ea8fb7"},
+      {"path":"EMPLOYEE/CHANGEJOB/recycle.asp","sha256":"3006ee0a282e7a39fc739f5b997f713d20fa282f03715d64f1fd56024a30f5f0"},
+      {"path":"EMPLOYEE/CHANGEJOB/save.asp","sha256":"ef1895b8f932692a2b7574515af150f5d3975ee084f14fc880fe891070bac4d2"},
+      {"path":"EMPLOYEE/CHANGEJOB/LIBRARY/browse.Class.asp","sha256":"aa2a32cdaf0d1d734123d5c744007e9639dfb4a565ac0a4986ced727ed424723"},
+      {"path":"EMPLOYEE/CHANGEJOB/LIBRARY/save.Class.asp","sha256":"26c798d5eb26dde43dbadf16c98c8bd1c4516026763e070da4e7f3ab5018d373"}
+    ],
+    "applicationFields": ["applicationName","applicant","applicationDate","employee","changeType","beforeJob","afterJob","beforeDepartment","afterDepartment","reason"],
+    "approvalResults": ["disagree","agree","return"],
+    "applyGate": ["approved","workflowEnded","notPreviouslyApplied"],
+    "applyEffects": ["markApplicationApplied","recordAppliedDate","updateEmployeeDepartment","updateEmployeeJob"],
+    "visibility": "department_range",
+    "legacyRecycle": "soft_recycle_with_operation_log"
+  },
+  "desktopClient": {
+    "table": "readjust",
+    "tableArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+    "columnCount": 32,
+    "columns": ["id","no","readjusttype","readjustdate","person","name","department","job","olddepartment","oldjob","oldpay","pay","oldgradepay","gradepay","oldbaseepay","baseepay","oldjobpay","jobpay","pausetodate","awaytype","readjustitem","cause","recdate","operator","jobstate","state","username","approve","departmentflag","jobflag","payflag","otherflag"],
+    "numberRule": "DZyyyymmxxxx",
+    "unifiedLedgerTypes": ["hire","transfer","depart","resume"],
+    "differenceFromGroupWeb": "client keeps the effective movement ledger while Group Web owns application approval and manual apply"
+  },
+  "targetControls": {
+    "workflow": ["draft","submitted","returned","approved","cancelled","applied"],
+    "makerChecker": true,
+    "manualApplyAfterApproval": true,
+    "atomicEmployeeAndEventWrite": true,
+    "staleAssignmentConflict": true,
+    "immutableSubmissionAndActionEvidence": true,
+    "idempotentWrites": true,
+    "departmentTreeScope": true,
+    "separateCompensationChange": true,
+    "legacyPhysicalRecycleReplacedByAuditedCancel": true,
+    "productionImport": "HOLD"
+  },
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false
+}

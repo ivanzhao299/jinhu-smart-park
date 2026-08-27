@@ -1,0 +1,6 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
+import {test} from "node:test";
+const root=resolve(__dirname,"../../../../../"),read=(path:string)=>readFileSync(resolve(root,path),"utf8"),controller=read("apps/api/src/modules/hr/hr-job-change.controller.ts"),service=read("apps/api/src/modules/hr/hr-job-change.service.ts"),migration=read("database/migrations/000273_hr_job_change_application_parity.sql"),seed=read("database/seeds/production/000028_hr_job_change_rbac.sql");
+test("job-change compatibility has atomic RBAC, state guards and idempotent writes",()=>{for(const atom of ["HR_JOB_CHANGE_READ","HR_JOB_CHANGE_TEAM_READ","HR_JOB_CHANGE_SELF_READ","HR_JOB_CHANGE_MANAGE","HR_JOB_CHANGE_REVIEW","HR_JOB_CHANGE_APPLY"])assert.match(controller,new RegExp(atom));assert.match(service,/managed_org_tree/);assert.match(service,/Applicants cannot review their own/);assert.match(service,/pg_advisory_xact_lock/);assert.match(service,/Employee organization or position changed after approval/);assert.match(controller,/IdempotencyInterceptor/g);assert.match(migration,/HR_JOB_CHANGE_SUBMITTED_FACTS_IMMUTABLE/);assert.match(migration,/hr_job_change_action_append_only/);assert.match(seed,/broad permission leaked/);});

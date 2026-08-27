@@ -1,0 +1,6 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
+import {test} from "node:test";
+const root=resolve(__dirname,"../../../.."),read=(path:string)=>readFileSync(resolve(root,path),"utf8"),panel=read("apps/web/app/hr/lifecycle/JobChangeApplicationsPanel.tsx"),page=read("apps/web/app/hr/lifecycle/HrLifecycleClient.tsx"),api=read("apps/web/lib/hr-api.ts"),css=read("apps/web/app/hr/hr-workbench.module.css");
+test("job-change UI is permission-gated, wired and list-first",()=>{for(const atom of ["HR_JOB_CHANGE_READ","HR_JOB_CHANGE_TEAM_READ","HR_JOB_CHANGE_SELF_READ","HR_JOB_CHANGE_MANAGE","HR_JOB_CHANGE_REVIEW","HR_JOB_CHANGE_APPLY"])assert.match(panel,new RegExp(atom));assert.match(page,/JobChangeApplicationsPanel/);for(const method of ["jobChangeApplications","jobChangeOptions","createJobChangeApplication","updateJobChangeApplication","jobChangeApplicationAction","reviewJobChangeApplication","applyJobChangeApplication"])assert.match(api,new RegExp(method));assert.match(panel,/ds-panel/);assert.match(panel,/ds-mobile-record-list/);assert.match(panel,/ds-mobile-record/);assert.match(panel,/row\.effectiveDate>today\(\)/);assert.match(css,/@media \(max-width: 720px\)/);assert.match(css,/\.formGrid\s*\{[\s\S]*grid-template-columns: 1fr/);});
