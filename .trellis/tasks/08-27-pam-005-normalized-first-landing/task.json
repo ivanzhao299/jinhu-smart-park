@@ -15,12 +15,12 @@
   "branch": "codex/fix-pam-005-normalized-first-landing",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
-  "pr_url": null,
+  "commit": "d41407b5fe066adf70ca3f4ae5e613999ed44db6",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/435",
   "subtasks": [],
   "children": [],
   "parent": "08-27-permission-mechanism-compliance-audit",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Issue #433 closed; Codex round 1 两项 P2 已修复，round 2 无重大问题，PR CI、main CI、Deploy 均通过。复测 UAT 20260827-193922 BLOCKED，待新 RUN_ID PASS 后归档。",
   "meta": {}
 }

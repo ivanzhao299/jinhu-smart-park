@@ -264,3 +264,13 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 7. **原安全回归**：继续执行第九节的 Homestay asset 403/恢复、跨 tenant/park/data、maker-checker-executor、字段 hidden/masked、五类文件全链和 housing approval 深链。
 
 本补充核查仍未连接生产、未执行数据库写入、未操作浏览器或容器。静态证据已经足以定义 PAM-004/PAM-005；PAM-006 仅为产品决策门，其与本次用户实测的对应关系、真实 permission/assignment 行状态仍应在经批准的隔离 UAT 或目标环境只读诊断中确认。
+
+## 十六、产品决策与修复执行状态（2026-08-27）
+
+本节记录审计报告合并后的用户批准结果，取代第十三、十四节中仍以“待决策”表述的 D1、D2 和 PAM-006 条件推荐；原文保留作为当时审计过程记录。
+
+1. **D1 已决：Track-B 岗位保持“只进任务台”**。维持现有 owner matrix、bundle/template hash 与逐租户 reconcile，不让 `HOMESTAY_OPERATOR` / `HOUSING_OPERATOR` 因岗位身份自动获得全部 canonical 业务 surface，不改产品代码。
+2. **D2 已决：授权变更保持“刷新后生效”**。已登录页面不承诺同 token 下主动推送权限/模块变化；刷新、重登或重新获取 context 后生效。PAM-006 采用这一产品契约，不升级为缺陷，不实施即时推送代码。
+3. **PAM-001/002/003 终局仍为核销**，不进入修复队列；核销理由以第五、十二节为准。
+4. **PAM-004/PAM-005 已实施**：分别由 Issue #432 / PR #434 / squash `087582378e7d603d5ee5f388b312258c29784abf` 与 Issue #433 / PR #435 / squash `d41407b5fe066adf70ca3f4ae5e613999ed44db6` 交付，review、PR CI、main CI 与 Deploy 均通过。
+5. **归档仍受 UAT 门禁约束**：隔离复测 `20260827-193922` 因 raw-CDP harness 在登录前两次超时而 BLOCKED，没有业务 PASS 或截图，见 `docs/uat/pam-fix-retest-uat-20260827-193922.md`。PAM-004/PAM-005 子任务需完成该报告列出的六项修复矩阵；审计父任务还需完整完成本报告第十五节七组回归，二者不得互相替代。
