@@ -10,7 +10,7 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const T4_BUSINESS_SHA256 = "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800";
-const T5_BUSINESS_SHA256 = "3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be";
+const T5_BUSINESS_SHA256 = "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce";
 const DEFAULT_TENANT = "10000001";
 const DEFAULT_PARK = "20000001";
 

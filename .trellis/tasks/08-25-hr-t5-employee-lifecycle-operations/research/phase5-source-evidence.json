@@ -66,8 +66,8 @@
     "payloadSanitization": "nul_to_literal_escape_v1"
   },
   "determinism": {
-    "extractA": { "runId": "yz-t5-core-residue-20260827c", "businessSha256": "3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be" },
-    "extractB": { "runId": "yz-t5-core-residue-20260827d", "businessSha256": "3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be" }
+    "extractA": { "runId": "yz-t5-core-residue-20260827c", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" },
+    "extractB": { "runId": "yz-t5-core-residue-20260827d", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" }
   },
   "isolatedDatabaseProof": {
     "sourceRows": 20163,

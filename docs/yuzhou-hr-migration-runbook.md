@@ -86,7 +86,7 @@ pnpm hr:migration:t0:rollback
 
 T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_hr_legacy_core_residue_domains.sql` 扩展核心残余字段归档，不调用在线 HR Service。当前恢复库的真实 profile 是 20,163 行：原 9,140 行招聘、档案、培训、奖惩和附件证据保持不变，另纳入 `person=2949`、`person_user=0`、`person_user_item=8`、`readjust=6887`、`readjustitem=8`、`jobstatecode=8`、`compact=802`、`compact_c=357`、`compacttypecode=4`。核心 260 个字段的处置为 38 个直接映射、220 个受控原始归档、2 个安全排除、0 个未覆盖；旧登录密码不迁移，照片二进制继续只保存文件证据。
 
-抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be`。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce`。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。核心残余使用 `*.core_residue` 投影身份，与 T0/T1/T2 已迁移的物理源行保持可追溯但不争用 active source identity。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
 
 加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
 
@@ -98,7 +98,7 @@ pnpm hr:migration:t5:extract
 
 export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
 export YUZHOU_STAGING_DIR='<上述抽取 staging 目录>'
-export YUZHOU_T5_BUSINESS_SHA256=3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be
+export YUZHOU_T5_BUSINESS_SHA256=8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce
 pnpm hr:migration:t5:load
 
 export ALLOW_YUZHOU_ROLLBACK=yes

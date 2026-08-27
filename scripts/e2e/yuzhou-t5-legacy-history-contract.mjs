@@ -20,7 +20,7 @@ assert.equal(evidence.source.readOnly,true);
 assert.equal(evidence.source.loginIsSa,false);
 assert.equal(evidence.accounting.totalRows,20163);
 assert.equal(evidence.determinism.extractA.businessSha256,evidence.determinism.extractB.businessSha256);
-assert.equal(evidence.determinism.extractA.businessSha256,"3c80f00ebfdee0939f94b550550d81753ff97827808201c70cd2bd7ff470d0be");
+assert.equal(evidence.determinism.extractA.businessSha256,"8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce");
 assert.deepEqual(evidence.compatibilityCoverage,{reviewedTables:12,reviewedFields:260,directMappedFields:38,rawArchivedFields:220,securityExcludedFields:2,uncoveredFields:0,payloadSanitization:"nul_to_literal_escape_v1"});
 assert.deepEqual(evidence.isolatedDatabaseProof,{sourceRows:20163,loadedRows:19700,quarantinedRows:463,checksPassed:5,rollbackActiveMaps:0,rollbackRecordResidual:0,rollbackFileResidual:0});
 assert.deepEqual(evidence.profile.emptyTables,["accept","bonusrecord","course","jobtrain","train"]);
@@ -43,6 +43,7 @@ assert.match(transform,/productionImport:"HOLD"/);
 assert.match(transform,/payloadSanitization:"nul_to_literal_escape_v1"/);
 assert.match(transform,/replaceAll\("\\0","\\\\u0000"\)/);
 assert.match(transform,/Object\.hasOwn\(row,"password"\)\|\|Object\.hasOwn\(row,"photo"\)/);
+for(const projection of ["person.core_residue","readjust.core_residue","compact.core_residue"]){assert.match(transform,new RegExp(projection.replace(".","\\.")));assert.match(load,new RegExp(projection.replace(".","\\.")));}
 assert.match(transform,/jch_1:0/);
 
 for(const domain of ["employee_profile_raw","employment_change_raw","contract_raw"]){assert.match(residueMigration,new RegExp(domain));}
