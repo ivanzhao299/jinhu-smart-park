@@ -21,6 +21,7 @@ import { fileURLToPath } from "node:url";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
+import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
@@ -42,7 +43,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
-  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
+  T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
 };
 
@@ -233,6 +234,7 @@ function readJson(path) {
 
 function paths(config) {
   return {
+    compose: join(config.target.root, "compose.yml"),
     plan: join(config.target.evidenceRoot, "lifecycle-plan.json"),
     journal: join(config.target.evidenceRoot, "lifecycle-journal.jsonl"),
     registry: join(config.target.evidenceRoot, "resource-registry.json"),
@@ -305,14 +307,15 @@ function resourcePlan(config) {
     { type: "file", planned: paths(config).cleanup },
     { type: "file", planned: paths(config).lock },
     { type: "file", planned: paths(config).operationLock },
+    { type: "file", planned: paths(config).compose },
     { type: "port", planned: `127.0.0.1:${t.postgresPort}` },
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
-    { type: "process", planned: `${config.runId}:managed_children` },
+    { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
     { type: "credential_artifact", planned: t.credentialArtifact }
   ];
   if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
-  return resources.map((item) => ({ ...item, observed: null, removed: false, residualCount: 0 }));
+  return resources.map((item) => ({ ...item, observed: item.observed ?? null, removed: false, residualCount: 0 }));
 }
 
 function assertRegistry(registry) {
@@ -328,9 +331,32 @@ function assertRegistry(registry) {
 }
 
 function command(binary, args, options = {}) {
-  const result = spawnSync(binary, args, { encoding: "utf8", stdio: options.capture ? "pipe" : "inherit", env: options.env ?? process.env });
+  const result = spawnSync(binary, args, {
+    cwd: options.cwd ?? ROOT,
+    encoding: "utf8",
+    stdio: options.capture ? "pipe" : "inherit",
+    env: options.env ?? process.env
+  });
   if (result.error || result.status !== 0) fail(options.code ?? "COMMAND_FAILED", `${binary} ${args[0] ?? ""} failed`);
   return (result.stdout ?? "").trim();
+}
+
+function verifyLabInitializationBaseline(env) {
+  const result = spawnSync("sh", [resolve(ROOT, "scripts/check-init-baseline.sh")], {
+    cwd: ROOT,
+    encoding: "utf8",
+    stdio: "pipe",
+    env: { ...env, STRICT: "false" }
+  });
+  if (result.status === 0 && !result.error) return "passed";
+  const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+  const failures = output.split("\n").filter((line) => line.startsWith("[FAIL]"));
+  if (!result.error && result.status === 2 && failures.length === 1 && failures[0] === "[FAIL] no bootstrap admin found") {
+    return "passed_with_expected_missing_lab_uat_admin";
+  }
+  if (result.stdout) process.stdout.write(result.stdout);
+  if (result.stderr) process.stderr.write(result.stderr);
+  fail("LAB_INITIALIZATION_BASELINE_FAILED", failures.join("; ") || "baseline command failed");
 }
 
 function portBusy(port) {
@@ -351,6 +377,7 @@ function provisionFixture(config, registry) {
 
 function provisionLab(config, registry) {
   const t = config.target;
+  const p = paths(config);
   if (!existsSync(t.credentialArtifact) || mode(t.credentialArtifact) !== "0600" || lstatSync(t.credentialArtifact).isSymbolicLink()) fail("UNSAFE_FILE_PERMISSION", "credential artifact must be an existing 0600 regular file");
   const credentialLines = readFileSync(t.credentialArtifact, "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
   const credentialValues = Object.fromEntries(credentialLines.map((line) => {
@@ -364,14 +391,57 @@ function provisionLab(config, registry) {
   for (const port of [t.postgresPort, t.apiPort, t.webPort]) if (portBusy(port)) fail("PORT_IN_USE", `127.0.0.1:${port}`);
   if (spawnSync("docker", ["inspect", t.postgresContainer], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target container already exists");
   if (spawnSync("docker", ["volume", "inspect", t.volume], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target volume already exists");
+  const compose = [
+    "services:",
+    "  postgres:",
+    "    image: postgres:16-alpine",
+    `    container_name: ${JSON.stringify(t.postgresContainer)}`,
+    "    env_file:",
+    `      - ${JSON.stringify(t.credentialArtifact)}`,
+    "    ports:",
+    `      - ${JSON.stringify(`127.0.0.1:${t.postgresPort}:5432`)}`,
+    "    volumes:",
+    `      - ${JSON.stringify("postgres_data:/var/lib/postgresql/data")}`,
+    "volumes:",
+    "  postgres_data:",
+    "    external: true",
+    `    name: ${JSON.stringify(t.volume)}`,
+    ""
+  ].join("\n");
+  writePrivate(p.compose, compose);
   command("docker", ["volume", "create", "--label", `com.docker.compose.project=${t.composeProject}`, t.volume], { capture: true });
-  command("docker", ["run", "-d", "--name", t.postgresContainer, "--label", `com.docker.compose.project=${t.composeProject}`, "--label", "com.docker.compose.service=postgres", "--env-file", t.credentialArtifact, "-p", `127.0.0.1:${t.postgresPort}:5432`, "-v", `${t.volume}:/var/lib/postgresql/data`, "postgres:16-alpine"], { capture: true });
+  command("docker", ["compose", "-p", t.composeProject, "-f", p.compose, "up", "-d", "postgres"], { capture: true });
   let ready = false;
+  let consecutiveReady = 0;
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    if (spawnSync("docker", ["exec", t.postgresContainer, "pg_isready", "-U", "jinhu", "-d", t.database], { stdio: "ignore" }).status === 0) { ready = true; break; }
+    const logs = spawnSync("docker", ["logs", t.postgresContainer], { encoding: "utf8", stdio: "pipe" });
+    const initComplete = `${logs.stdout ?? ""}\n${logs.stderr ?? ""}`.includes("PostgreSQL init process complete; ready for start up.");
+    const acceptsConnections = spawnSync("docker", ["exec", t.postgresContainer, "pg_isready", "-U", "jinhu", "-d", t.database], { stdio: "ignore" }).status === 0;
+    consecutiveReady = initComplete && acceptsConnections ? consecutiveReady + 1 : 0;
+    if (consecutiveReady >= 3) { ready = true; break; }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
   }
   if (!ready) fail("POSTGRES_NOT_READY", t.postgresContainer);
+  const releaseEnv = {
+    ...process.env,
+    COMPOSE_FILE: p.compose,
+    COMPOSE_PROJECT_NAME: t.composeProject,
+    POSTGRES_USER: "jinhu",
+    POSTGRES_DB: t.database,
+    MIGRATION_BASELINE_ON_NONEMPTY_DB: "no"
+  };
+  command("sh", [resolve(ROOT, "scripts/db-migrate.sh")], { env: releaseEnv });
+  command("sh", [resolve(ROOT, "scripts/db-seed-prod.sh")], {
+    env: { ...releaseEnv, ALLOW_PRODUCTION_SEED: "yes" }
+  });
+  const initializationBaseline = verifyLabInitializationBaseline(releaseEnv);
+  appendPrivate(p.journal, {
+    kind: "lab_bootstrap",
+    migration: "succeeded",
+    productionSeed: "succeeded",
+    initializationBaseline,
+    productionImport: "HOLD"
+  });
   const roles = [t.role, `${t.accountNamespace}_hr`, `${t.accountNamespace}_manager`, `${t.accountNamespace}_employee`];
   const roleSql = roles.map((role) => `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;`).join(" ");
   command("docker", ["exec", t.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", t.database, "-c", roleSql], { capture: true });
@@ -414,13 +484,14 @@ export function provision(configInput) {
 
 function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  command(process.execPath, args, { code: "CHILD_FAILED" });
+  try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
+  finally { registerControlledFilesystem(config); }
   appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
 }
 
 async function runAdapterAsync(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  await new Promise((resolveChild, rejectChild) => {
+  try { await new Promise((resolveChild, rejectChild) => {
     const child = spawn(process.execPath, args, { stdio: "inherit" });
     ACTIVE_CHILD = child;
     child.once("error", () => rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`)));
@@ -429,8 +500,33 @@ async function runAdapterAsync(config, domain, phase) {
       if (code === 0 && !signal) resolveChild();
       else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
     });
-  });
+  }); } finally { registerControlledFilesystem(config); }
   appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+}
+
+function registerControlledFilesystem(config) {
+  const registryPath = paths(config).registry;
+  if (!existsSync(registryPath) || !existsSync(config.target.root)) return;
+  const registry = readJson(registryPath);
+  const identities = new Set(registry.map((entry) => `${entry.type}:${resolve(entry.planned)}`));
+  const additions = [];
+  const visit = (parent) => {
+    for (const name of readdirSync(parent).sort()) {
+      const child = resolve(parent, name);
+      const info = lstatSync(child);
+      if (info.isSymbolicLink()) fail("CLEANUP_PATH_ESCAPE", "runtime output contains a symbolic link");
+      const type = info.isDirectory() ? "directory" : info.isFile() ? "file" : null;
+      if (!type) fail("UNREGISTERED_RESOURCE", "runtime output contains an unsupported filesystem object");
+      const identity = `${type}:${child}`;
+      if (!identities.has(identity)) {
+        additions.push({ type, planned: child, observed: child, removed: false, residualCount: 0 });
+        identities.add(identity);
+      }
+      if (type === "directory") visit(child);
+    }
+  };
+  visit(config.target.root);
+  if (additions.length) replacePrivate(registryPath, [...registry, ...additions]);
 }
 
 function validateChildJournal(config, requiredPhase) {
@@ -449,9 +545,11 @@ export function runForward(configInput, configPath) {
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "extract");
   validateChildJournal(config, "extract");
   transition(config, "loading");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "after");
   validateChildJournal(config, "load");
   verifySlice3AtLifecycleState(config);
   transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
@@ -466,9 +564,11 @@ async function runForwardAsync(configInput, configPath) {
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "extract");
   validateChildJournal(config, "extract");
   transition(config, "loading");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
+  if (config.backend === "lab") materializeFullDomainFacts(config, "after");
   validateChildJournal(config, "load");
   verifySlice3AtLifecycleState(config);
   transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
@@ -574,6 +674,12 @@ export function cleanup(configInput, options = {}) {
     appendPrivate(cleanupJournal, { type: entry.type, planned: entry.planned, observed: entry.observed, action: "remove_planned" });
     if (config.backend === "fixture") removeFixture(config, entry);
     else if (!filesystemTypes.has(entry.type)) removeLab(config, entry);
+  }
+  if (config.backend === "lab") {
+    const ports = registry.filter((entry) => entry.type === "port").map((entry) => Number(entry.planned.split(":").at(-1)));
+    for (let attempt = 0; attempt < 40 && ports.some(portBusy); attempt += 1) {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 250);
+    }
   }
   if (config.backend === "fixture" && existsSync(p.fixtureRoot) && readdirSync(p.fixtureRoot).length > 0) {
     const unexpected = readdirSync(p.fixtureRoot).length;

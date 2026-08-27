@@ -28,6 +28,7 @@
         "person.name": "full_name",
         "person.department": "primary_org_id",
         "person.job": "position_id",
+        "person.jobstate": "employment_status",
         "person.injobdate": "hire_date",
         "person.formaldate": "probation_end_date",
         "person.awaydate": "departure_date"
@@ -38,6 +39,7 @@
         {"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"HrEmployeeProfileEntity"},
         {"kind":"entity","file":"database/migrations/000230_hr_employee_foundation.sql","symbol":"id_number_masked"},
         {"kind":"entity","file":"database/migrations/000252_hr_lifecycle_employee_records.sql","symbol":"full_name_masked"},
+        {"kind":"api","file":"scripts/load-yuzhou-t0.sh","symbol":"employment_status"},
         {"kind":"permission","file":"packages/shared/src/hr.ts","symbol":"HR_EMPLOYEE_PROFILE_READ"},
         {"kind":"test","file":"apps/api/src/modules/hr/hr-lifecycle.contract.spec.ts","symbol":"hr_employee_family"},
         {"kind":"test","file":"scripts/e2e/yuzhou-t0-load-contract.mjs","symbol":"legacy_record_map"}
@@ -108,13 +110,40 @@
       ]
     }
   ],
+  "residueArchive": {
+    "version": "yuzhou-core-residue-v1",
+    "productionImport": "HOLD",
+    "tableDomains": {
+      "person": "employee_profile_raw",
+      "family": "family",
+      "knowhow": "skill",
+      "ticket": "credential",
+      "person_user": "employee_profile_raw",
+      "person_user_item": "employee_profile_raw",
+      "readjust": "employment_change_raw",
+      "readjustitem": "employment_change_raw",
+      "jobstatecode": "employment_change_raw",
+      "compact": "contract_raw",
+      "compact_c": "contract_raw",
+      "compacttypecode": "contract_raw"
+    },
+    "securityExclusions": [
+      {"locator":"person.password","reasonCode":"LEGACY_CREDENTIAL_NOT_MIGRATED"},
+      {"locator":"person.photo","reasonCode":"BINARY_FILE_EVIDENCE_ONLY"}
+    ],
+    "targetEvidence": [
+      {"kind":"api","file":"scripts/extract-yuzhou-t5-legacy-history.sh","symbol":"person_core.raw.json"},
+      {"kind":"entity","file":"database/migrations/000267_hr_legacy_core_residue_domains.sql","symbol":"employee_profile_raw"},
+      {"kind":"test","file":"scripts/e2e/yuzhou-t5-legacy-history-contract.mjs","symbol":"core residue"}
+    ]
+  },
   "businessRules": [
-    {"id":"employee-code-non-reuse","domain":"employee_profile","status":"gap","reasonCode":"TARGET_RULE_NOT_IMPLEMENTED","sourceLocators":["person.person"],"targetEvidence":[]},
-    {"id":"jobstate-mapping","domain":"employee_profile","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["person.jobstate","jobstatecode.jobstate","jobstatecode.jobstatename"],"targetEvidence":[]},
-    {"id":"employment-event-number-jz-dz-lz-fz","domain":"employment_change","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["readjust.no","readjust.readjusttype"],"targetEvidence":[]},
+    {"id":"employee-code-non-reuse","domain":"employee_profile","status":"mapped","reasonCode":null,"sourceLocators":["person.person"],"targetEvidence":[{"kind":"entity","file":"database/migrations/000266_hr_employee_identity_event_number.sql","symbol":"uq_hr_employee_scope_code"},{"kind":"api","file":"apps/api/src/modules/hr/hr.service.ts","symbol":"Employee code cannot be changed after allocation"},{"kind":"test","file":"apps/api/src/modules/hr/hr-identity-event-number.contract.spec.ts","symbol":"employee code"}]},
+    {"id":"jobstate-mapping","domain":"employee_profile","status":"mapped","reasonCode":null,"sourceLocators":["person.jobstate","jobstatecode.jobstate","jobstatecode.jobstatename"],"targetEvidence":[{"kind":"api","file":"scripts/load-yuzhou-t0.sh","symbol":"legacyStatus"},{"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"employmentStatus"},{"kind":"test","file":"scripts/e2e/yuzhou-t0-load-contract.mjs","symbol":"legacyStatus"}]},
+    {"id":"employment-event-number-jz-dz-lz-fz","domain":"employment_change","status":"mapped","reasonCode":null,"sourceLocators":["readjust.no","readjust.readjusttype"],"targetEvidence":[{"kind":"entity","file":"database/migrations/000266_hr_employee_identity_event_number.sql","symbol":"hr_assign_employment_event_no"},{"kind":"entity","file":"apps/api/src/modules/hr/entities/hr.entities.ts","symbol":"eventNo"},{"kind":"test","file":"apps/api/src/modules/hr/hr-identity-event-number.contract.spec.ts","symbol":"JZ/DZ/LZ/FZ"}]},
     {"id":"employment-before-after-snapshot","domain":"employment_change","status":"mapped","reasonCode":null,"sourceLocators":["readjust.olddepartment","readjust.department","readjust.oldjob","readjust.job"],"targetEvidence":[{"kind":"api","file":"scripts/load-yuzhou-t1-employment-events.sh","symbol":"before_snapshot"},{"kind":"test","file":"scripts/e2e/yuzhou-t1-employment-events-contract.mjs","symbol":"T1_EMPLOYEE_STATE_UNCHANGED"}]},
-    {"id":"contract-renewal-chain","domain":"contract","status":"gap","reasonCode":"LEGACY_SEMANTICS_UNCONFIRMED","sourceLocators":["compact.continuetimes","compact.continueyears","compact_c.compact"],"targetEvidence":[]},
+    {"id":"contract-renewal-chain","domain":"contract","status":"mapped","reasonCode":null,"sourceLocators":["compact.continuetimes","compact.continueyears","compact_c.compact"],"targetEvidence":[{"kind":"api","file":"apps/api/src/modules/hr/hr.service.ts","symbol":"createContractChange"},{"kind":"entity","file":"database/migrations/000238_hr_contract_history.sql","symbol":"sequence_no"},{"kind":"test","file":"apps/api/src/modules/hr/hr-contract-read.pg.spec.ts","symbol":"creates online drafts transactionally"}]},
     {"id":"contract-three-agreements","domain":"contract","status":"mapped","reasonCode":null,"sourceLocators":["compact.bmxy","compact.jyxzxy","compact.pxfwxy"],"targetEvidence":[{"kind":"entity","file":"database/migrations/000238_hr_contract_history.sql","symbol":"confidentiality_agreement"},{"kind":"test","file":"scripts/e2e/yuzhou-t2-contracts-contract.mjs","symbol":"hr_contract"}]},
-    {"id":"contract-expiry-reminder","domain":"contract","status":"gap","reasonCode":"TARGET_REMINDER_NOT_IMPLEMENTED","sourceLocators":["compact.enddate"],"targetEvidence":[]}
+    {"id":"contract-expiry-reminder","domain":"contract","status":"mapped","reasonCode":null,"sourceLocators":["compact.enddate"],"targetEvidence":[{"kind":"api","file":"apps/api/src/modules/hr/hr.service.ts","symbol":"expiry_from"},{"kind":"route","file":"apps/web/app/hr/contracts/HrContractsClient.tsx","symbol":"dateAfter(60)"},{"kind":"test","file":"apps/web/app/hr/hr-route.contract.spec.ts","symbol":"expiry_from"}]}
   ]
 }

@@ -84,9 +84,9 @@ pnpm hr:migration:t0:rollback
 
 ### T5 招聘、档案、培训和奖惩历史
 
-T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，不调用在线 HR Service。当前恢复库的真实 profile 是 9,140 行：`family=4560`、`his=375`、`knowhow=6`、`ticket=237`、`person.photo=2949`、`docs=1003`、`trainhis=2`、`bonuscode=8`；`accept/course/train/jobtrain/bonusrecord` 为空，`jch_1` 不存在。旧静态报告里的候选人数不能替代这次实测和确定性抽取证据。
+T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_hr_legacy_core_residue_domains.sql` 扩展核心残余字段归档，不调用在线 HR Service。当前恢复库的真实 profile 是 20,163 行：原 9,140 行招聘、档案、培训、奖惩和附件证据保持不变，另纳入 `person=2949`、`person_user=0`、`person_user_item=8`、`readjust=6887`、`readjustitem=8`、`jobstatecode=8`、`compact=802`、`compact_c=357`、`compacttypecode=4`。核心 260 个字段的处置为 38 个直接映射、220 个受控原始归档、2 个安全排除、0 个未覆盖；旧登录密码不迁移，照片二进制继续只保存文件证据。
 
-抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c`。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce`。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。核心残余使用 `*.core_residue` 投影身份，与 T0/T1/T2 已迁移的物理源行保持可追溯但不争用 active source identity。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
 
 加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
 
@@ -98,7 +98,7 @@ pnpm hr:migration:t5:extract
 
 export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
 export YUZHOU_STAGING_DIR='<上述抽取 staging 目录>'
-export YUZHOU_T5_BUSINESS_SHA256=ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c
+export YUZHOU_T5_BUSINESS_SHA256=8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce
 pnpm hr:migration:t5:load
 
 export ALLOW_YUZHOU_ROLLBACK=yes
@@ -166,15 +166,21 @@ planned → provisioned → extracting → loading → verifying → uat_ready �
 
 配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
 
+`lab provision` 使用运行目录内受控的 `0600` Compose 文件创建 PostgreSQL，而不是直接执行未登记的 `docker run`。容器就绪后，它按正式顺序调用官方 `db-migrate.sh`、production-safe seed 和初始化基线检查；进入 UAT 账号 provisioner 前，初始化检查只允许唯一的 `no bootstrap admin found` 阶段性缺口，出现第二个 FAIL 或其他 FAIL 仍立即停止。任一步失败都会阻断六域抽取/装载并触发本轮精确资源恢复。演练数据库因此必须从空 volume 和当前候选代码的完整迁移历史开始，不能以手工导入 schema、污染的 `template1` 或跳过迁移历史来代替。
+
 命令入口为：
 
 ```sh
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
 pnpm hr:migration:full:cleanup -- --config '<受控配置.json>'
+pnpm hr:migration:full:cleanup -- --config '<受控配置.json>' --recover
 pnpm hr:migration:full:status -- --config '<受控配置.json>'
 ```
+
+`prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
 目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
 

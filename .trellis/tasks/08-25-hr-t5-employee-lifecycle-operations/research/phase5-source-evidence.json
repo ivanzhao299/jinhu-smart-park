@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-08-25T13:40:00+08:00",
+  "capturedAt": "2026-08-27T22:50:00+08:00",
   "source": {
     "database": "YuzhouHR_Lab_20260820_intake01",
     "readOnly": true,
@@ -11,7 +11,7 @@
     "procedureExecute": false,
     "credentialFileMode": "0600",
     "backupSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
-    "catalogSha256": "d58a3e11a6241a2654331096ebf4c6bc83c0936e8a2e35983add32f5eb0bbab6"
+    "catalogSha256": "77273bb0d21fd09d917151b0bf6cb339f027b2b6ff564923cde691bed97fabf0"
   },
   "profile": {
     "rows": {
@@ -20,6 +20,15 @@
       "his": 375,
       "knowhow": 6,
       "ticket": 237,
+      "person": 2949,
+      "person_user": 0,
+      "person_user_item": 8,
+      "readjust": 6887,
+      "readjustitem": 8,
+      "jobstatecode": 8,
+      "compact": 802,
+      "compact_c": 357,
+      "compacttypecode": 4,
       "person.photo": 2949,
       "docs": 1003,
       "course": 0,
@@ -46,10 +55,28 @@
       "legacyPhotoSizeMismatch": 2155
     }
   },
-  "accounting": { "totalRows": 9140 },
+  "accounting": { "totalRows": 20163 },
+  "compatibilityCoverage": {
+    "reviewedTables": 12,
+    "reviewedFields": 260,
+    "directMappedFields": 38,
+    "rawArchivedFields": 220,
+    "securityExcludedFields": 2,
+    "uncoveredFields": 0,
+    "payloadSanitization": "nul_to_literal_escape_v1"
+  },
   "determinism": {
-    "extractA": { "runId": "t5profile20260825a", "businessSha256": "ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c" },
-    "extractB": { "runId": "t5profile20260825b", "businessSha256": "ab16152a6dbcb36219e9f3b1476be0ef3d925391ae6c41fc27b8609cbc4ee96c" }
+    "extractA": { "runId": "yz-t5-core-residue-20260827c", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" },
+    "extractB": { "runId": "yz-t5-core-residue-20260827d", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" }
+  },
+  "isolatedDatabaseProof": {
+    "sourceRows": 20163,
+    "loadedRows": 19700,
+    "quarantinedRows": 463,
+    "checksPassed": 5,
+    "rollbackActiveMaps": 0,
+    "rollbackRecordResidual": 0,
+    "rollbackFileResidual": 0
   },
   "productionImport": "HOLD"
 }

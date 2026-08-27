@@ -22,6 +22,8 @@ import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-con
 
 const root = resolve(import.meta.dirname, "../..");
 const lifecyclePath = resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs");
+const lifecycleSource = readFileSync(lifecyclePath, "utf8");
+const t4LoaderSource = readFileSync(resolve(root, "scripts/sql/load-yuzhou-t4-payroll-history.sql"), "utf8");
 const contract = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const codeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
 const mappingContractHash = computeMappingContractHash(contract);
@@ -78,6 +80,16 @@ const clone = (value) => structuredClone(value);
 const expectCode = (code, operation) => assert.throws(operation, (error) => error instanceof LifecycleError && error.code === code, `expected ${code}`);
 
 try {
+  assert.match(lifecycleSource, /docker", \["compose", "-p", t\.composeProject/u, "lab PostgreSQL must be created through its pinned Compose project");
+  assert.match(lifecycleSource, /scripts\/db-migrate\.sh/u, "lab provisioning must use the official migration runner");
+  assert.match(lifecycleSource, /COMPOSE_PROJECT_NAME: t\.composeProject/u, "release scripts must resolve the same isolated Compose project");
+  assert.match(lifecycleSource, /scripts\/db-seed-prod\.sh/u, "lab provisioning must apply production-safe seed data");
+  assert.match(lifecycleSource, /scripts\/check-init-baseline\.sh/u, "lab provisioning must verify the initialized target baseline");
+  assert.match(lifecycleSource, /PostgreSQL init process complete; ready for start up\./u, "lab provisioning must wait past the temporary init server");
+  assert.match(lifecycleSource, /consecutiveReady >= 3/u, "lab provisioning must require stable PostgreSQL readiness");
+  assert.match(lifecycleSource, /failures\.length === 1 && failures\[0\] === "\[FAIL\] no bootstrap admin found"/u, "only the pre-UAT missing-admin baseline gap may be staged");
+  assert.match(lifecycleSource, /ports\.some\(portBusy\)/u, "cleanup must wait for exact loopback port release before residual verification");
+  assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
   const configAPath = join(sandbox, "config-a.json");
@@ -99,6 +111,9 @@ try {
     }
   }
   assert(contract.triple.mappingContractComponents.includes("scripts/hr-cutover/domain-adapter.mjs"));
+  assert(contract.triple.mappingContractComponents.includes("scripts/sql/load-yuzhou-t4-payroll-history.sql"), "T4 SQL must be pinned by the mapping hash");
+  assert.doesNotMatch(t4LoaderSource, /digest\(t\|\|x\.id::text/u, "T4 canonical identity must not derive from random target UUIDs");
+  assert.match(t4LoaderSource, /source_content_group_hash\|\|':'\|\|i\.legacy_column_name/u, "T4 snapshot-item identity must derive from stable source content");
 
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;
   expectCode("REHEARSAL_RESOURCE_REUSE", () => compareIsolation(configA, reused));

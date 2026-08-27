@@ -2,7 +2,7 @@ import type { PaginatedResult } from "@jinhu/shared";
 import { apiRequest, createIdempotencyKey } from "./api-client";
 export interface HrEmployee {id:string;employeeCode:string;fullName:string;userId:string|null;primaryOrgId:string|null;positionId:string|null;managerEmployeeId:string|null;employmentType:string;employmentStatus:string;hireDate:string|null;departureDate:string|null;workLocation:string|null;workMobile:string|null;workEmail:string|null;}
 export interface HrPosition {id:string;orgId:string;positionCode:string;positionName:string;jobFamily:string|null;jobLevel:string|null;headcountLimit:number|null;status:string;}
-export interface HrEmploymentEvent {id:string;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
+export interface HrEmploymentEvent {id:string;eventNo:string|null;eventType:string;effectiveDate:string;reason:string|null;createTime:string;}
 export interface HrEmploymentEventStatistics {from:string;to:string;total:number;employeeCount:number;historicalCount:number;onlineCount:number;byType:Array<{eventType:string;count:number}>;byMonth:Array<{month:string;count:number}>;}
 export interface HrEmployeeProfile {id:string;employeeId:string;idType:string|null;idNumberMasked:string|null;personalMobile:string|null;personalEmail:string|null;address:string|null;emergencyContactName:string|null;emergencyContactMobile:string|null;remark:string|null;}
 export interface HrGoalCycle {id:string;cycleCode:string;cycleName:string;startDate:string;endDate:string;status:string;}

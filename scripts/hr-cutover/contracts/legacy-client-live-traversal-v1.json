@@ -48,7 +48,7 @@
     {
       "id": "employee_profile",
       "runtimeStatus": "partial",
-      "entryPoints": ["员工浏览", "档案维护", "档案查询", "统计分析", "人事报表", "生日查询", "批量维护", "Excel导入"],
+      "entryPoints": ["员工浏览", "档案维护", "档案查询", "统计分析", "人事报表", "生日查询", "编号维护", "快速维护", "人事导入"],
       "pageChecks": ["employee-onboarding-empty-form"],
       "decision": "modernize",
       "reasonCode": "PROFILE_SUBPAGES_PENDING"
@@ -80,7 +80,7 @@
     {
       "id": "performance",
       "runtimeStatus": "partial",
-      "entryPoints": ["考核标准设置", "考核记录录入", "考核结果管理", "考核结果汇总"],
+      "entryPoints": ["建立考核方案", "建立考核项目", "员工考核表", "考核期间管理", "考评记录管理", "考评结果查询"],
       "pageChecks": ["performance-standard-projects"],
       "decision": "modernize",
       "reasonCode": "PERFORMANCE_RECORD_RESULT_PAGES_PENDING"
@@ -88,7 +88,7 @@
     {
       "id": "reward_discipline",
       "runtimeStatus": "partial",
-      "entryPoints": ["奖惩设置", "奖惩记录管理", "奖惩记录查询", "奖惩记录分析", "奖惩统计"],
+      "entryPoints": ["奖惩设置", "奖惩记录管理", "奖惩记录查询", "奖惩记录导入", "部门奖惩统计", "员工奖惩统计"],
       "pageChecks": ["reward-category-values"],
       "decision": "modernize",
       "reasonCode": "REWARD_RECORD_AND_LINKAGE_PENDING"
@@ -104,7 +104,7 @@
     {
       "id": "attendance",
       "runtimeStatus": "partial",
-      "entryPoints": ["考勤方案设置", "考勤项目设置", "员工考勤表", "考勤数据管理", "考勤记录查询", "考勤结果查询"],
+      "entryPoints": ["考勤系统设置", "考勤记录导入", "考勤结果管理", "考勤查询汇总"],
       "pageChecks": ["attendance-scheme-project-person-assignment", "attendance-project-thresholds"],
       "decision": "modernize",
       "reasonCode": "ATTENDANCE_DATA_CALCULATION_PAGES_PENDING"
@@ -136,7 +136,7 @@
     {
       "id": "permission_log_reminder",
       "runtimeStatus": "partial",
-      "entryPoints": ["用户管理", "自定义档案", "数据字典", "菜单设置", "数据备份", "数据恢复", "操作日志"],
+      "entryPoints": ["用户管理", "自定义档案", "数据字典", "提醒设置", "数据备份", "数据恢复", "操作日志"],
       "pageChecks": ["database-verified-admin-login-and-builtin-permission-conflict"],
       "decision": "modernize",
       "reasonCode": "ADMIN_BUILTIN_CHECK_AND_PERMISSION_MATRIX_PENDING"

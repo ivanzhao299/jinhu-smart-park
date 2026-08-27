@@ -28,6 +28,7 @@ const {createHash}=require('crypto'),{readFileSync}=require('fs'),{join}=require
 const [dir,pinned]=process.argv.slice(2),manifest=JSON.parse(readFileSync(join(dir,'manifest.json')));
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);
 if(manifest.productionImport!=='HOLD')throw Error('production import gate is not HOLD');
+if(manifest.payloadSanitization!=='nul_to_literal_escape_v1')throw Error('payload sanitization contract mismatch');
 const catalogPath=join(dir,'catalog.raw.json'),catalog=JSON.parse(readFileSync(catalogPath));
 const calculatedCatalogHash=createHash('sha256').update(canonical(catalog)).digest('hex');
 if(calculatedCatalogHash!==manifest.catalogSha256)throw Error('catalog hash mismatch');
@@ -63,7 +64,7 @@ DO $$BEGIN
  IF EXISTS(SELECT 1 FROM migration_batch WHERE run_id=current_setting('yuzhou.t5_run')) THEN RAISE EXCEPTION 'duplicate migration run'; END IF;
 END$$;
 CREATE TEMP TABLE source_rows(payload jsonb); COPY source_rows FROM :'path';
-DO $$BEGIN IF(SELECT count(*)FROM source_rows)<>9140 THEN RAISE EXCEPTION 'T5 source count drift';END IF;END$$;
+DO $$BEGIN IF(SELECT count(*)FROM source_rows)<>20163 THEN RAISE EXCEPTION 'T5 source count drift';END IF;END$$;
 DO $$BEGIN
  IF EXISTS(SELECT 1 FROM source_rows GROUP BY payload->>'sourceTable',payload->>'sourceIdentitySha256' HAVING count(*)<>1)
  THEN RAISE EXCEPTION 'T5 duplicate source identity'; END IF;
@@ -83,13 +84,22 @@ CREATE TEMP TABLE protected_before AS SELECT
 INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,phase,status,tool_version,started_at)
 VALUES(:'run','yuzhou-v10',:'snapshot',:'db','load','running','t5-legacy-loader-v1',now());
 INSERT INTO hr_legacy_t5_import_batch(tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status)
-SELECT :'tenant',:'park',id,:'run',:'snapshot',:'catalog',:'manifest',9140,0,9140,'unpublished' FROM migration_batch WHERE run_id=:'run';
+SELECT :'tenant',:'park',id,:'run',:'snapshot',:'catalog',:'manifest',20163,0,20163,'unpublished' FROM migration_batch WHERE run_id=:'run';
 WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),v(domain,source_object,n,h,status) AS(VALUES
  ('candidate','dbo.accept',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
  ('family','dbo.family',4560,'1aaea037f12d7b01d7c300df2c93ce2bd8c4ad2348b8d31695420d53df8c0f6c','running'),
  ('experience','dbo.his',375,'d5743d15fb61e5bc77c72e0bd1675d2c0cc26efeb4311431462172ccac7bc45b','running'),
  ('skill','dbo.knowhow',6,'347c30e15e1dda5b5143d55cbf2acd5ec095912897278a0ab25344807d431499','running'),
  ('credential','dbo.ticket',237,'481927e8ee09a01f99dc4cd842fcfa8a950ee1d75f7d5779dcf37397239043ad','running'),
+ ('employee_profile_raw','dbo.person.core_residue',2949,'d3defb9453beed2e44b025a5efc39b9d319c0dc87627164a37c701df887d4f72','running'),
+ ('employee_profile_raw','dbo.person_user.core_residue',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
+ ('employee_profile_raw','dbo.person_user_item.core_residue',8,'39d9bd0bd92eb9b52685a2d40284670288b516eb8ea8c0d59fd041bccd3a8105','running'),
+ ('employment_change_raw','dbo.readjust.core_residue',6887,'0a7ac21b543a6c7c723806b6fb8dab8923c0033a76e06103814d807ceade812a','running'),
+ ('employment_change_raw','dbo.readjustitem.core_residue',8,'60c6a6ee40177bb948135a336ea13c3a461eb901267ddb7c64dc826c75ad9011','running'),
+ ('employment_change_raw','dbo.jobstatecode.core_residue',8,'198008793d9e8e129bea5013f66b0d7e99c3cfb502e21f80b2ba9f9faab2cdc9','running'),
+ ('contract_raw','dbo.compact.core_residue',802,'01dd23066ecc904485648c5ba03b75c2cab0b2672b856652447b3f217344c902','running'),
+ ('contract_raw','dbo.compact_c.core_residue',357,'eeb11b88634ae451b5dc5ec1d51af808dc394f20ad1dd673eb8a80a323e78576','running'),
+ ('contract_raw','dbo.compacttypecode.core_residue',4,'6992d21493149f1eeee8a88f31fc5889e52e2c0728562e3753df2c2301efb3af','running'),
  ('employee_file','dbo.person.photo',2949,'0f698d1148b613233e0531d4cc2a41effb42a5f5cf5e20e011215323fe0127f6','running'),
  ('employee_file','dbo.docs',1003,'1841953301d80f0e8b1f56da8ad082c8d800936c53779752549cf76c03a3c38a','running'),
  ('training','dbo.course',0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855','skipped'),
@@ -138,7 +148,7 @@ UPDATE migration_batch_item i SET
  valid_count=extracted_count-(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=i.batch_id AND m.source_table=i.source_object AND m.mapping_status='quarantined'),
  status=CASE WHEN extracted_count=0 THEN'skipped' WHEN EXISTS(SELECT 1 FROM legacy_record_map m WHERE m.batch_id=i.batch_id AND m.source_table=i.source_object AND m.mapping_status='quarantined') THEN'quarantined' ELSE'succeeded'END,
  finished_at=now() WHERE i.batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run');
-UPDATE hr_legacy_t5_import_batch b SET loaded_row_count=x.loaded,quarantined_row_count=9140-x.loaded,status='staged',update_time=now()
+UPDATE hr_legacy_t5_import_batch b SET loaded_row_count=x.loaded,quarantined_row_count=20163-x.loaded,status='staged',update_time=now()
 FROM(SELECT count(*)FILTER(WHERE mapping_status='loaded') loaded FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run'))x WHERE b.batch_code=:'run';
 DO $$DECLARE source_count bigint; map_count bigint; error_count bigint; BEGIN
  SELECT count(*) INTO source_count FROM source_rows;
@@ -155,7 +165,7 @@ DO $$DECLARE source_count bigint; map_count bigint; error_count bigint; BEGIN
 END$$;
 WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),a AS(SELECT loaded_row_count l,quarantined_row_count q FROM hr_legacy_t5_import_batch WHERE batch_code=:'run')
 INSERT INTO migration_check(batch_id,check_code,expected_value,actual_value,tolerance,passed,evidence_sha256)
-SELECT b.id,'T5_SOURCE_ACCOUNTING',to_jsonb(9140),to_jsonb(a.l+a.q),'{}'::jsonb,a.l+a.q=9140,encode(digest('T5_SOURCE_ACCOUNTING:9140','sha256'),'hex') FROM b CROSS JOIN a
+SELECT b.id,'T5_SOURCE_ACCOUNTING',to_jsonb(20163),to_jsonb(a.l+a.q),'{}'::jsonb,a.l+a.q=20163,encode(digest('T5_SOURCE_ACCOUNTING:20163','sha256'),'hex') FROM b CROSS JOIN a
 UNION ALL SELECT b.id,'T5_ACCEPT_EMPTY',to_jsonb(0),to_jsonb((SELECT extracted_count FROM migration_batch_item WHERE batch_id=b.id AND source_object='dbo.accept')),'{}'::jsonb,true,encode(digest('T5_ACCEPT_EMPTY','sha256'),'hex') FROM b
 UNION ALL SELECT b.id,'T5_JCH_1_ABSENT',to_jsonb('absent'::text),to_jsonb('absent'::text),'{}'::jsonb,true,encode(digest('T5_JCH_1_ABSENT','sha256'),'hex') FROM b
 UNION ALL SELECT b.id,'T5_FILES_PROFILE',jsonb_build_object('photos',2949,'docs',1003,'readablePhotos',2155),jsonb_build_object('photos',(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.person.photo'),'docs',(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.docs'),'readablePhotos',(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.person.photo'AND payload->>'readabilityStatus'='readable')),'{}'::jsonb,(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.person.photo')=2949 AND(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.docs')=1003 AND(SELECT count(*)FROM source_rows WHERE payload->>'sourceTable'='dbo.person.photo'AND payload->>'readabilityStatus'='readable')=2155,encode(digest('T5_FILES_PROFILE','sha256'),'hex') FROM b;
