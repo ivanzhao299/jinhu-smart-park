@@ -100,6 +100,8 @@
     "test:e2e:yuzhou-full-domain-lifecycle": "node scripts/e2e/yuzhou-full-domain-lifecycle.mjs",
     "test:e2e:yuzhou-full-domain-slice3": "node scripts/e2e/yuzhou-full-domain-slice3.mjs",
     "test:e2e:yuzhou-t4-payroll-history": "node scripts/e2e/yuzhou-t4-payroll-history-contract.mjs",
+    "test:e2e:yuzhou-t4-bulk-guard": "node scripts/e2e/yuzhou-t4-bulk-guard-contract.mjs",
+    "test:e2e:yuzhou-t4-readiness": "node scripts/e2e/yuzhou-t4-readiness-contract.mjs",
     "test:e2e:yuzhou-t5-legacy-history": "node scripts/e2e/yuzhou-t5-legacy-history-contract.mjs",
     "prod:deploy": "sh scripts/prod-deploy.sh",
     "android:verify-release": "node scripts/verify-android-release.mjs",

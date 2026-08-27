@@ -7,6 +7,7 @@ RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"
 DATABASE="${YUZHOU_SQLSERVER_DATABASE:-YuzhouHR_Lab_20260820_intake01}"
 CONTAINER="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}"
 CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$ROOT_DIR/database/import-reports/yuzhou-hr/20260820_intake01-etl.env}"
+BACKUP_FILE="${YUZHOU_SOURCE_BACKUP_FILE:-$ROOT_DIR/database/backups/yuzhou-hr/hr2026081914.dbk}"
 OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
 EVIDENCE="$ROOT_DIR/.trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json"
 
@@ -14,7 +15,13 @@ fail() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
+[ -f "$BACKUP_FILE" ] || fail "pinned SQL Server source backup is missing"
 [ -f "$EVIDENCE" ] || fail "pinned T4 source evidence manifest is missing"
+credential_mode="$(stat -f '%Lp' "$CREDENTIAL_FILE" 2>/dev/null || stat -c '%a' "$CREDENTIAL_FILE")"
+[ "$credential_mode" = 600 ] || fail "read-only ETL credential file must be mode 0600"
+backup_sha256="$(shasum -a 256 "$BACKUP_FILE" | awk '{print $1}')"
+expected_backup_sha256="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(process.argv[1])).sourceBackupSha256)' "$EVIDENCE")"
+[ "$backup_sha256" = "$expected_backup_sha256" ] || fail "source backup SHA-256 mismatch"
 . "$CREDENTIAL_FILE"
 [ -n "${YUZHOU_SQLSERVER_ETL_LOGIN:-}" ] || fail "read-only ETL login is missing"
 [ -n "${YUZHOU_SQLSERVER_ETL_PASSWORD:-}" ] || fail "read-only ETL password is missing"
@@ -28,8 +35,8 @@ sqlcmd() {
     q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE" "$1"
 }
 
-ro="$(sqlcmd 'SET NOCOUNT ON; SELECT CONVERT(int,is_read_only) FROM sys.databases WHERE name=DB_NAME();' | tr -d '[:space:]')"
-[ "$ro" = 1 ] || fail "source database is not read-only"
+source_authority="$(sqlcmd "SET NOCOUNT ON; SELECT CONCAT(CONVERT(int,is_read_only),'|',CONVERT(int,IS_SRVROLEMEMBER('sysadmin')),'|',CONVERT(int,IS_ROLEMEMBER('db_datareader')),'|',CONVERT(int,HAS_PERMS_BY_NAME(DB_NAME(),'DATABASE','VIEW DEFINITION'))) FROM sys.databases WHERE name=DB_NAME();" | tr -d '[:space:]')"
+[ "$source_authority" = '1|0|1|1' ] || fail "source must be read-only and ETL must be non-sysadmin db_datareader with VIEW DEFINITION"
 
 OUT="$OUTPUT_ROOT/staging-t4-$RUN_ID"
 [ ! -e "$OUT" ] || fail "staging run already exists"

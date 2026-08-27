@@ -938,10 +938,22 @@ export class HrPayrollHistoryService {
           ]),
         );
         const comp = compBy.get(employeeId);
+        if (!comp)
+          throw new ConflictException(
+            "Frozen compensation input is incomplete for a legacy employee",
+          );
+        if (!insuranceBy.has(employeeId))
+          throw new ConflictException(
+            "Frozen insurance input is incomplete for a legacy employee",
+          );
+        if (snapshot.net_amount == null)
+          throw new ConflictException(
+            "Legacy net amount is missing and no authoritative net policy can be applied",
+          );
         Object.assign(inputs, {
-          "hr:基本工资": String(comp?.base_salary ?? "0"),
-          "hr:津贴": String(comp?.allowance_amount ?? "0"),
-          "hr:浮动目标": String(comp?.variable_target ?? "0"),
+          "hr:基本工资": String(comp.base_salary),
+          "hr:津贴": String(comp.allowance_amount),
+          "hr:浮动目标": String(comp.variable_target),
           "hr:工作分钟": `${attendanceInput.worked_minutes}.0000`,
           "hr:迟到分钟": `${attendanceInput.late_minutes}.0000`,
           "hr:早退分钟": `${attendanceInput.early_minutes}.0000`,
@@ -960,7 +972,7 @@ export class HrPayrollHistoryService {
           );
         }
         const oldTotal = this.decimalToScaled(
-          String(snapshot.net_amount ?? "0"),
+          String(snapshot.net_amount),
         );
         const mappedNetValue = calculated.get(String(policy.item_code));
         if (mappedNetValue == null)
@@ -982,8 +994,8 @@ export class HrPayrollHistoryService {
               employeeId,
               snapshot.id,
               snapshot.employee_version,
-              comp?.id ?? null,
-              insuranceBy.get(employeeId)?.id ?? null,
+              comp.id,
+              insuranceBy.get(employeeId)!.id,
               attendanceInput.id,
               this.scaledToDecimal(oldTotal),
               this.scaledToDecimal(newTotal),
@@ -999,8 +1011,12 @@ export class HrPayrollHistoryService {
           const old = oldItems.find(
               (i) =>
                 String(i.item_version_id) === String(formula.item_version_id),
-            ),
-            oldAmount = this.decimalToScaled(String(old?.decimal_value ?? "0")),
+            );
+          if (!old || old.decimal_value == null)
+            throw new ConflictException(
+              "Legacy payroll item required by an approved formula is missing",
+            );
+          const oldAmount = this.decimalToScaled(String(old.decimal_value)),
             newAmount = this.decimalToScaled(calculated.get(formula.itemCode)!),
             itemDelta = newAmount - oldAmount,
             status =
@@ -1027,8 +1043,8 @@ export class HrPayrollHistoryService {
               status,
               JSON.stringify({
                 attendanceInputItemId: attendanceInput.id,
-                compensationVersionId: comp?.id ?? null,
-                insurancePeriodId: insuranceBy.get(employeeId)?.id ?? null,
+                compensationVersionId: comp.id,
+                insurancePeriodId: insuranceBy.get(employeeId)!.id,
                 formulaVersionId: formula.id,
                 reconciliationPolicyVersionId: policy.policy_version_id,
                 reconciliationPolicyVersionNo: policy.policy_version_no,

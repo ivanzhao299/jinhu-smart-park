@@ -1,4 +1,4 @@
-# 技术设计：HR 全域双演练与增量切换
+# 技术设计：HR 全域双演练与停用源切换
 
 ## 1. 架构与状态机
 
@@ -28,9 +28,9 @@ Parent manifest 记录 format version、逐字节可比的 `codeSha/sourceSnapsh
 
 Canonical row 为：`domain | source_table | source_identity_sha256 | normalized_business_json | related_source_identity_sha256[]`。稳定排序后先形成领域 hash，再形成 global hash。金额保存 decimal string，NULL 与 0 分离；排除目标 UUID、时间戳、sequence 和 run id。
 
-## 5. Source freeze 与 Delta
+## 5. 停用源固定快照与热/冷边界
 
-基线 S0 和最终 S1 都绑定 backup、catalog、table ledger hash 和只读证明。每张表声明 identity contract、normalization 以及 insert/update/delete 是否可证明。稳定表生成 delta manifest；宽工资表或无可靠键表在业务冻结后重新全量抽取。Delta 仅在 rehearsal clone 验证，完成后必须与 S1 空库全量重建 hash 等价。源解除只读或被重写立即使候选失效。
+玉舟已停用且无新增数据，只绑定一个固定 backup、catalog、table ledger hash 和只读证明，不生成 S0/S1 或 delta manifest，也不要求停写窗口。T4 全量抽取与 manifest 继续覆盖2010～2026；loader 参数固定为2024-01-01～2026-12-31，早年行写入 `deferred_cold_archive` ledger 而不写热历史表。固定源 hash 被替换或恢复库解除只读仍立即使候选失效。
 
 ## 6. T4 双轨
 
@@ -42,13 +42,13 @@ Canonical row 为：`domain | source_table | source_identity_sha256 | normalized
 
 ## 8. 恢复、回滚与 Go/No-Go
 
-备份使用 custom dump/TOC/hash，永远 restore-to-new-db，不覆盖事故库。领域回滚按 T5→T4→T3→T2→T1→T0，逐域核对 active maps/target rows。Go/No-Go compiler 校验 evidence schema/hash、A/B、delta、T4、UAT、restore、cleanup、三端 SHA 和 detached attestations，只输出候选，不代签。
+备份使用 custom dump/TOC/hash，永远 restore-to-new-db，不覆盖事故库。领域回滚按 T5→T4→T3→T2→T1→T0，逐域核对 active maps/target rows。Go/No-Go compiler 校验 evidence schema/hash、A/B、T4热/冷ledger、UAT、restore、cleanup、三端 SHA 和 detached attestations，只输出候选，不代签。
 
 生产 wrapper 与普通部署完全分离。Import 和 restore 使用不同 workflow、不同 operation/run id、不同审批 token 和不同临时角色；各自固定 main SHA、target/backup/manifest/window/expiry，二次显示并默认 dry-run。token 只能从秘密通道注入，不得写日志、manifest 或 evidence，且完成/失败/过期即撤权。生产 restore 的灾备授权不能由 import 授权继承，也不能放进自动 trap。
 
 ## 10. Gate dependency model
 
-规划输入分为 `engineering` 与 `business-execution` 两类。Slice 1～3 无条件可激活；Slice 4～8 的 schema、fixture、negative test、dry-run wrapper 和 compiler 也可先实现。真实源冻结/抽取、真实 T4 差异接受、真人 UAT、正式 RTO/RPO 判定和生产执行分别读取明确 gate。缺失时生成可测试 reason code（如 `SOURCE_FREEZE_OWNER_MISSING`、`T4_TOLERANCE_UNSIGNED`、`HUMAN_UAT_UNSIGNED`、`RTO_RPO_UNAPPROVED`、`PRODUCTION_IMPORT_AUTH_MISSING`），保持 `NO_GO/HOLD`，但不得阻断不依赖该输入的工程 slice。
+规划输入分为 `engineering` 与 `business-execution` 两类。停用源固定 hash 与三年窗口属于已决工程输入，不再产生 delta/停写 reason。真实 T4 差异接受、真人 UAT、正式 RTO/RPO 判定和生产执行分别读取明确 gate；缺失时生成 `T4_TOLERANCE_UNSIGNED`、`HUMAN_UAT_UNSIGNED`、`RTO_RPO_UNAPPROVED`、`PRODUCTION_IMPORT_AUTH_MISSING` 并保持 `NO_GO/HOLD`。
 
 ## 9. Rollback boundary
 

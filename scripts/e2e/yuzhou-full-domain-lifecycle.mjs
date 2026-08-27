@@ -130,8 +130,15 @@ try {
   chmodSync(realT4Gate.source.t4EvidenceFile, 0o600);
   realT4Gate.triple.sourceSnapshotHash = JSON.parse(actualT4Evidence).sourceBackupSha256;
   realT4Gate.t4Evidence.sha256 = createHash("sha256").update(actualT4Evidence).digest("hex");
-  expectCode("T4_EXTRACTION_NOT_STARTED", () => validateConfig(realT4Gate));
-  assert(!existsSync(realT4Gate.target.root), "real NOT_STARTED T4 evidence must block before any resource write");
+  const dirty = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).stdout.trim() !== "";
+  if (dirty) expectCode("CODE_WORKTREE_DIRTY", () => validateConfig(realT4Gate));
+  else assert.doesNotThrow(() => validateConfig(realT4Gate));
+  const candidateDrift = JSON.parse(actualT4Evidence);
+  candidateDrift.productionCandidate.candidateRows = 8343;
+  privateJson(realT4Gate.source.t4EvidenceFile, candidateDrift);
+  realT4Gate.t4Evidence.sha256 = createHash("sha256").update(readFileSync(realT4Gate.source.t4EvidenceFile)).digest("hex");
+  expectCode("T4_EVIDENCE_INVALID", () => validateConfig(realT4Gate));
+  assert(!existsSync(realT4Gate.target.root), "invalid real T4 evidence must block before any resource write");
   chmodSync(configA.source.etlEnvFile, 0o644);
   expectCode("UNSAFE_FILE_PERMISSION", () => validateConfig(configA));
   chmodSync(configA.source.etlEnvFile, 0o600);
