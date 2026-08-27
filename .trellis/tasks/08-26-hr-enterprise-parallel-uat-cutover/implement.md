@@ -37,6 +37,9 @@
 - [ ] 生成机器可读的 legacy field/rule ledger，将旧页面→字段→动作→状态→报表逐项绑定当前 route/API/entity/RBAC/test；无证据项计 0，mapped/archived/rejected 均需明确理由。
   - [x] 第一阶段：固化 13 类菜单种子台账、六维 100 分合同、证据等级、原子 locator 扩展结构和 fail-closed 自动评分；字段/过程逐原子展开仍未完成。
   - [ ] 第二阶段：从只读旧源结构生成逐表/字段/过程候选，人工审阅后绑定目标与测试；不得把 Downloads 源文件、字段值或 PII 写入仓库。
+    - [x] 完成离线只读候选生成器、schema、独立 verifier 和正负向 contract：显式传入 legacy root 与输出路径，真实资料稳定生成 162 表/2,364 字段、194 procedure/16 function/2 trigger（212 rules）及 46 页面主题；两次生成 byte-for-byte/hash 一致，输出只含结构名、类型、nullable/default、脱敏说明、artifact SHA 和稳定 ID/hash。
+    - [x] 权限 915 条仅固化 redacted importer contract 与 `pending_review` 门禁，不生成占位授权、不自动批准；候选输出不覆盖正式 reviewed ledger，生产历史 import 继续 `HOLD`。
+    - [ ] 由人工审阅候选 inventory 后，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；未审阅候选不得提高兼容评分。
 - [ ] 在 Rehearsal A 前完成高优先级兼容缺口门禁：档案扩展域、异动快照、合同续签链、培训/奖惩/招聘历史查询、自助投影；工资继续最近三年热窗口，复杂公式/银行报盘保留为后置硬门禁。
 - [ ] A 使用全新资源完成 source→extract→migrate/seed→T0…T5→ledger/hash→三角色 API + desktop/390 browser 技术矩阵→反序 rollback/cleanup；六域与 UAT 完成前不得 rollback，修复后必须从头重跑。
 - [ ] 固定逐字节相同的 `codeSha/sourceSnapshotHash/mappingContractHash` 后，B 使用另一套全新 DB/Compose/volume/container/ports/file/staging/evidence/accounts/run 重复同一连续序列。
