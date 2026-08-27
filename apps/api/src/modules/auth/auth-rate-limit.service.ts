@@ -34,7 +34,8 @@ const DEFAULT_LIMITS: Record<string, number> = {
   "mobile-send-code": 5,
   "mobile-login": 20,
   "wechat-authorize": 20,
-  "wechat-callback": 20
+  "wechat-callback": 20,
+  "password-change": 5
 };
 const DEFAULT_IP_LIMITS: Record<string, number> = {
   login: 100,
@@ -43,7 +44,8 @@ const DEFAULT_IP_LIMITS: Record<string, number> = {
   "mobile-send-code": 30,
   "mobile-login": 100,
   "wechat-authorize": 100,
-  "wechat-callback": 100
+  "wechat-callback": 100,
+  "password-change": 20
 };
 const DEFAULT_STABLE_LIMITS: Record<string, number> = {
   login: 300,
@@ -52,7 +54,8 @@ const DEFAULT_STABLE_LIMITS: Record<string, number> = {
   "mobile-send-code": 60,
   "mobile-login": 150,
   "wechat-authorize": 150,
-  "wechat-callback": 150
+  "wechat-callback": 150,
+  "password-change": 20
 };
 
 @Injectable()

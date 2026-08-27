@@ -1,6 +1,6 @@
 "use client";
 
-import { Download, Home, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
+import { Download, Home, KeyRound, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -91,6 +91,7 @@ export function MobileTerminalHeader() {
         <Link aria-label="返回作业终端" href="/operations/terminal" title="返回作业终端">
           <Home size={18} />
         </Link>
+        <Link aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={18} /></Link>
         <button aria-label="刷新当前任务" className={refreshing ? "is-refreshing" : undefined} title="刷新当前任务" type="button" onClick={refresh}>
           <RefreshCw size={18} />
         </button>

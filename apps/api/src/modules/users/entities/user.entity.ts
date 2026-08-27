@@ -14,6 +14,9 @@ export class UserEntity extends AuditableEntity {
   @Column({ name: "password_hash", type: "varchar", length: 255 })
   passwordHash!: string;
 
+  @Column({ name: "auth_version", type: "integer", default: 1 })
+  authVersion!: number;
+
   @Column({ name: "mobile", type: "varchar", length: 32, nullable: true })
   mobile!: string | null;
 

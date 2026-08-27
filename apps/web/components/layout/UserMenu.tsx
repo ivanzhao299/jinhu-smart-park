@@ -1,6 +1,7 @@
 "use client";
 
-import { LogOut, MapPin, UserRound } from "lucide-react";
+import { KeyRound, LogOut, MapPin, UserRound } from "lucide-react";
+import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -76,6 +77,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
         </select>
       </label>
       {message ? <span className="user-menu-message" role="alert">{message}</span> : null}
+      <Link className="header-icon-link" aria-label="账号安全" href="/account/security" title="账号安全"><KeyRound size={15} /></Link>
       <button className="user-logout-button" aria-label="退出登录" title="退出登录" type="button" onClick={() => void logout()}>
         <LogOut size={15} />
         <span>退出</span>

@@ -8,6 +8,7 @@ export interface JwtPrincipal {
   permissions: string[];
   dataScope?: string;
   isSuper?: boolean;
+  authVersion?: number;
 }
 
 export interface JwtSessionClaims {
@@ -15,4 +16,5 @@ export interface JwtSessionClaims {
   username: string;
   tenantId: string;
   parkId: string;
+  authVersion?: number;
 }

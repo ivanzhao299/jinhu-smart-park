@@ -20,6 +20,7 @@ import {
 } from "@jinhu/shared";
 import type { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
+import { AuthRefreshTokenEntity } from "../auth/entities/auth-refresh-token.entity";
 import { DataScopeService } from "../data-scopes/data-scope.service";
 import { FieldPolicyService } from "../field-policies/field-policy.service";
 import { UserOrgEntity } from "../orgs/entities/user-org.entity";
@@ -126,6 +127,7 @@ interface JwtPrincipalRow {
   user_park_id: string;
   user_is_enabled: boolean;
   user_status: string;
+  user_auth_version: number;
   role_link_id: string | null;
   role_code: string | null;
   role_is_super: boolean | null;
@@ -689,6 +691,7 @@ export class UsersService {
          usr.park_id AS user_park_id,
          usr.is_enabled AS user_is_enabled,
          usr.status AS user_status,
+         usr.auth_version AS user_auth_version,
          user_role.id AS role_link_id,
          role.code AS role_code,
          role.is_super AS role_is_super,
@@ -796,7 +799,8 @@ export class UsersService {
         ? ["*"]
         : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]),
       dataScope: isSuper ? "all" : this.resolveDataScope(activeRoles.map((role) => role.dataScope)),
-      isSuper
+      isSuper,
+      authVersion: Number(first.user_auth_version)
     };
   }
 
@@ -909,12 +913,27 @@ export class UsersService {
   }
 
   async resetPassword(scope: TenantParkScope, actorId: string, id: string, dto: ResetPasswordDto): Promise<{ id: string }> {
-    const user = await this.getEntityInScope(scope, id);
     const saltRounds = Number(this.configService.get<string>("BCRYPT_SALT_ROUNDS", "12"));
-    user.passwordHash = await bcrypt.hash(dto.password, saltRounds);
-    Object.assign(user, clearPasswordLockoutState());
-    user.updateBy = actorId;
-    await this.usersRepository.save(user);
+    const passwordHash = await bcrypt.hash(dto.password, saltRounds);
+    await this.usersRepository.manager.transaction(async (manager) => {
+      const users = manager.getRepository(UserEntity);
+      const user = await users.findOne({
+        where: { id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        lock: { mode: "pessimistic_write" }
+      });
+      if (!user) {
+        throw new NotFoundException("User not found");
+      }
+      user.passwordHash = passwordHash;
+      user.authVersion = Math.max(1, user.authVersion || 1) + 1;
+      Object.assign(user, clearPasswordLockoutState());
+      user.updateBy = actorId;
+      await users.save(user);
+      await manager.getRepository(AuthRefreshTokenEntity).update(
+        { tenantId: user.tenantId, userId: user.id, revoked: false, isDeleted: false },
+        { revoked: true, revokedTime: new Date(), updateBy: actorId }
+      );
+    });
     return { id };
   }
 
