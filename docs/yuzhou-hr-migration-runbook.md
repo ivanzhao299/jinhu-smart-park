@@ -166,15 +166,20 @@ planned → provisioned → extracting → loading → verifying → uat_ready �
 
 配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
 
+`lab provision` 使用运行目录内受控的 `0600` Compose 文件创建 PostgreSQL，而不是直接执行未登记的 `docker run`。容器就绪后，它按正式顺序调用官方 `db-migrate.sh`、production-safe seed 和初始化基线检查；任一步失败都会停止六域抽取/装载并触发本轮精确资源恢复。演练数据库因此必须从空 volume 和当前候选代码的完整迁移历史开始，不能以手工导入 schema、污染的 `template1` 或跳过迁移历史来代替。
+
 命令入口为：
 
 ```sh
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
 pnpm hr:migration:full:cleanup -- --config '<受控配置.json>'
 pnpm hr:migration:full:status -- --config '<受控配置.json>'
 ```
+
+`prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
 目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
 

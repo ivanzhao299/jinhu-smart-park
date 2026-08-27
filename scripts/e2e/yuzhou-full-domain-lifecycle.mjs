@@ -22,6 +22,7 @@ import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-con
 
 const root = resolve(import.meta.dirname, "../..");
 const lifecyclePath = resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs");
+const lifecycleSource = readFileSync(lifecyclePath, "utf8");
 const contract = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const codeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
 const mappingContractHash = computeMappingContractHash(contract);
@@ -78,6 +79,12 @@ const clone = (value) => structuredClone(value);
 const expectCode = (code, operation) => assert.throws(operation, (error) => error instanceof LifecycleError && error.code === code, `expected ${code}`);
 
 try {
+  assert.match(lifecycleSource, /docker", \["compose", "-p", t\.composeProject/u, "lab PostgreSQL must be created through its pinned Compose project");
+  assert.match(lifecycleSource, /scripts\/db-migrate\.sh/u, "lab provisioning must use the official migration runner");
+  assert.match(lifecycleSource, /COMPOSE_PROJECT_NAME: t\.composeProject/u, "release scripts must resolve the same isolated Compose project");
+  assert.match(lifecycleSource, /scripts\/db-seed-prod\.sh/u, "lab provisioning must apply production-safe seed data");
+  assert.match(lifecycleSource, /scripts\/check-init-baseline\.sh/u, "lab provisioning must verify the initialized target baseline");
+  assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
   const configAPath = join(sandbox, "config-a.json");

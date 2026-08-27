@@ -233,6 +233,7 @@ function readJson(path) {
 
 function paths(config) {
   return {
+    compose: join(config.target.root, "compose.yml"),
     plan: join(config.target.evidenceRoot, "lifecycle-plan.json"),
     journal: join(config.target.evidenceRoot, "lifecycle-journal.jsonl"),
     registry: join(config.target.evidenceRoot, "resource-registry.json"),
@@ -305,6 +306,7 @@ function resourcePlan(config) {
     { type: "file", planned: paths(config).cleanup },
     { type: "file", planned: paths(config).lock },
     { type: "file", planned: paths(config).operationLock },
+    { type: "file", planned: paths(config).compose },
     { type: "port", planned: `127.0.0.1:${t.postgresPort}` },
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
@@ -328,7 +330,12 @@ function assertRegistry(registry) {
 }
 
 function command(binary, args, options = {}) {
-  const result = spawnSync(binary, args, { encoding: "utf8", stdio: options.capture ? "pipe" : "inherit", env: options.env ?? process.env });
+  const result = spawnSync(binary, args, {
+    cwd: options.cwd ?? ROOT,
+    encoding: "utf8",
+    stdio: options.capture ? "pipe" : "inherit",
+    env: options.env ?? process.env
+  });
   if (result.error || result.status !== 0) fail(options.code ?? "COMMAND_FAILED", `${binary} ${args[0] ?? ""} failed`);
   return (result.stdout ?? "").trim();
 }
@@ -351,6 +358,7 @@ function provisionFixture(config, registry) {
 
 function provisionLab(config, registry) {
   const t = config.target;
+  const p = paths(config);
   if (!existsSync(t.credentialArtifact) || mode(t.credentialArtifact) !== "0600" || lstatSync(t.credentialArtifact).isSymbolicLink()) fail("UNSAFE_FILE_PERMISSION", "credential artifact must be an existing 0600 regular file");
   const credentialLines = readFileSync(t.credentialArtifact, "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
   const credentialValues = Object.fromEntries(credentialLines.map((line) => {
@@ -364,14 +372,54 @@ function provisionLab(config, registry) {
   for (const port of [t.postgresPort, t.apiPort, t.webPort]) if (portBusy(port)) fail("PORT_IN_USE", `127.0.0.1:${port}`);
   if (spawnSync("docker", ["inspect", t.postgresContainer], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target container already exists");
   if (spawnSync("docker", ["volume", "inspect", t.volume], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target volume already exists");
+  const compose = [
+    "services:",
+    "  postgres:",
+    "    image: postgres:16-alpine",
+    `    container_name: ${JSON.stringify(t.postgresContainer)}`,
+    "    env_file:",
+    `      - ${JSON.stringify(t.credentialArtifact)}`,
+    "    ports:",
+    `      - ${JSON.stringify(`127.0.0.1:${t.postgresPort}:5432`)}`,
+    "    volumes:",
+    `      - ${JSON.stringify("postgres_data:/var/lib/postgresql/data")}`,
+    "volumes:",
+    "  postgres_data:",
+    "    external: true",
+    `    name: ${JSON.stringify(t.volume)}`,
+    ""
+  ].join("\n");
+  writePrivate(p.compose, compose);
   command("docker", ["volume", "create", "--label", `com.docker.compose.project=${t.composeProject}`, t.volume], { capture: true });
-  command("docker", ["run", "-d", "--name", t.postgresContainer, "--label", `com.docker.compose.project=${t.composeProject}`, "--label", "com.docker.compose.service=postgres", "--env-file", t.credentialArtifact, "-p", `127.0.0.1:${t.postgresPort}:5432`, "-v", `${t.volume}:/var/lib/postgresql/data`, "postgres:16-alpine"], { capture: true });
+  command("docker", ["compose", "-p", t.composeProject, "-f", p.compose, "up", "-d", "postgres"], { capture: true });
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     if (spawnSync("docker", ["exec", t.postgresContainer, "pg_isready", "-U", "jinhu", "-d", t.database], { stdio: "ignore" }).status === 0) { ready = true; break; }
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
   }
   if (!ready) fail("POSTGRES_NOT_READY", t.postgresContainer);
+  const releaseEnv = {
+    ...process.env,
+    COMPOSE_FILE: p.compose,
+    COMPOSE_PROJECT_NAME: t.composeProject,
+    POSTGRES_USER: "jinhu",
+    POSTGRES_DB: t.database,
+    MIGRATION_BASELINE_ON_NONEMPTY_DB: "no"
+  };
+  command("sh", [resolve(ROOT, "scripts/db-migrate.sh")], { env: releaseEnv });
+  command("sh", [resolve(ROOT, "scripts/db-seed-prod.sh")], {
+    env: { ...releaseEnv, ALLOW_PRODUCTION_SEED: "yes" }
+  });
+  command("sh", [resolve(ROOT, "scripts/check-init-baseline.sh")], {
+    env: { ...releaseEnv, STRICT: "false" }
+  });
+  appendPrivate(p.journal, {
+    kind: "lab_bootstrap",
+    migration: "succeeded",
+    productionSeed: "succeeded",
+    initializationBaseline: "pass_or_warn",
+    productionImport: "HOLD"
+  });
   const roles = [t.role, `${t.accountNamespace}_hr`, `${t.accountNamespace}_manager`, `${t.accountNamespace}_employee`];
   const roleSql = roles.map((role) => `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;`).join(" ");
   command("docker", ["exec", t.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", t.database, "-c", roleSql], { capture: true });

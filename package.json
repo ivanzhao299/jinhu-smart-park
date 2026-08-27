@@ -101,6 +101,7 @@
     "hr:migration:legacy-inventory:generate": "node scripts/hr-cutover/generate-legacy-atomic-inventory.mjs",
     "hr:migration:legacy-inventory:verify": "node scripts/hr-cutover/verify-legacy-atomic-inventory.mjs",
     "hr:migration:full:provision": "sh scripts/hr-cutover/full-domain-lifecycle.sh provision",
+    "hr:migration:full:prepare": "node scripts/hr-cutover/prepare-full-domain-rehearsal.mjs",
     "hr:migration:full:run": "sh scripts/hr-cutover/full-domain-lifecycle.sh run",
     "hr:migration:full:rollback": "sh scripts/hr-cutover/full-domain-lifecycle.sh rollback",
     "hr:migration:full:cleanup": "sh scripts/hr-cutover/full-domain-lifecycle.sh cleanup",
