@@ -48,6 +48,7 @@
       "scripts/transform-yuzhou-t3-attendance-insurance.mjs",
       "scripts/extract-yuzhou-t4-payroll-history.sh",
       "scripts/load-yuzhou-t4-payroll-history.sh",
+      "scripts/sql/load-yuzhou-t4-payroll-history.sql",
       "scripts/rollback-yuzhou-t4-payroll-history.sh",
       "scripts/transform-yuzhou-t4-payroll-history.mjs",
       "scripts/extract-yuzhou-t5-legacy-history.sh",

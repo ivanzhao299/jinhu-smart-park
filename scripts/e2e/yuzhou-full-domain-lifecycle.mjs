@@ -23,6 +23,7 @@ import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-con
 const root = resolve(import.meta.dirname, "../..");
 const lifecyclePath = resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs");
 const lifecycleSource = readFileSync(lifecyclePath, "utf8");
+const t4LoaderSource = readFileSync(resolve(root, "scripts/sql/load-yuzhou-t4-payroll-history.sql"), "utf8");
 const contract = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const codeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).stdout.trim();
 const mappingContractHash = computeMappingContractHash(contract);
@@ -110,6 +111,9 @@ try {
     }
   }
   assert(contract.triple.mappingContractComponents.includes("scripts/hr-cutover/domain-adapter.mjs"));
+  assert(contract.triple.mappingContractComponents.includes("scripts/sql/load-yuzhou-t4-payroll-history.sql"), "T4 SQL must be pinned by the mapping hash");
+  assert.doesNotMatch(t4LoaderSource, /digest\(t\|\|x\.id::text/u, "T4 canonical identity must not derive from random target UUIDs");
+  assert.match(t4LoaderSource, /source_content_group_hash\|\|':'\|\|i\.legacy_column_name/u, "T4 snapshot-item identity must derive from stable source content");
 
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;
   expectCode("REHEARSAL_RESOURCE_REUSE", () => compareIsolation(configA, reused));
