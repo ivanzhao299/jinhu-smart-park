@@ -137,9 +137,9 @@
       "id": "permission_log_reminder",
       "runtimeStatus": "partial",
       "entryPoints": ["用户管理", "自定义档案", "数据字典", "菜单设置", "数据备份", "数据恢复", "操作日志"],
-      "pageChecks": ["current-user-permission-denial"],
+      "pageChecks": ["database-verified-admin-login-and-builtin-permission-conflict"],
       "decision": "modernize",
-      "reasonCode": "PERMISSION_MATRIX_AND_REMINDERS_PENDING"
+      "reasonCode": "ADMIN_BUILTIN_CHECK_AND_PERMISSION_MATRIX_PENDING"
     }
   ],
   "completionRequirements": {
