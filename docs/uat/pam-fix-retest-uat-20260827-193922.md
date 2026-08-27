@@ -1,0 +1,69 @@
+# PAM-004 + PAM-005 修复复测 UAT
+
+## 结论
+
+- RUN_ID：`20260827-193922`
+- 被测 revision：`d41407b5fe066adf70ca3f4ae5e613999ed44db6`
+- 执行日期：2026-08-27（Asia/Singapore）
+- 结论：**BLOCKED（浏览器 harness）/ 不归档**。
+- PAM-004 与 PAM-005 的代码、单测、PR CI、main CI 和 Deploy 均已通过；本报告不把这些自动门禁冒充真实浏览器 UAT。
+- 两次独立 Chrome 执行均在首个登录表单 DOM 定位前超时，没有账号成功登录、没有业务断言、没有截图。依照“同题失败不超过 2 次”停止重试，因此本轮不能给出菜单/首跳场景 PASS。
+
+## 修复交付状态
+
+| 项目 | Issue / PR | Squash commit | Review / CI | main CI / Deploy |
+| --- | --- | --- | --- | --- |
+| PAM-004 | [#432](https://github.com/ivanzhao299/jinhu-smart-park/issues/432) / [#434](https://github.com/ivanzhao299/jinhu-smart-park/pull/434) | `087582378e7d603d5ee5f388b312258c29784abf` | Codex 第 2 轮无重大问题；PR CI 全绿 | CI [33061820608](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/33061820608) success；Deploy [33061820640](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/33061820640) success |
+| PAM-005 | [#433](https://github.com/ivanzhao299/jinhu-smart-park/issues/433) / [#435](https://github.com/ivanzhao299/jinhu-smart-park/pull/435) | `d41407b5fe066adf70ca3f4ae5e613999ed44db6` | Codex 第 1 轮两项 P2 均修复；第 2 轮无重大问题；PR CI [33065683981](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/33065683981) success | CI [33066658926](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/33066658926) success；Deploy [33066658940](https://github.com/ivanzhao299/jinhu-smart-park/actions/runs/33066658940) success |
+
+PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和受保护验收账号检查；部署命令保留既定 Docker post-deploy cleanup 契约。本轮没有直接操作生产。
+
+## 隔离环境与初始化
+
+- compose project：`jinhu-pam-fix-uat-20260827-193922`
+- 手写 compose：`/tmp/jinhu-pam-fix-20260827-193922/compose.yml`（local-only）
+- PostgreSQL / API / Web / Chrome CDP：`55527 / 3151 / 3152 / 9461`
+- 数据库：`jinhu_pam_fix_uat_20260827_193922`
+- 256/256 migrations、8/8 prerequisites、27 个 production-safe seed 全部成功。
+- bootstrap 前 baseline 只有预期的 `no bootstrap admin found`；bootstrap 后 baseline 全 PASS。
+- frozen env 权限为 `0600`，密码、JWT 和数据库 secret 均未进入报告；teardown 后 frozen env 与临时 hash/SQL 已删除。
+- fixture：3 个普通 park role 与 3 个用户；page/action/Track-B 权限数分别为 `3 / 2 / 12`。初始 `asset=enabled`、`housing_rental=disabled`。
+
+## 计划矩阵与实际状态
+
+| Case | 预期 | 实际 | 结果 |
+| --- | --- | --- | --- |
+| PAM-004-DISABLED | 模块禁用后 `/users/me` 空树；Web 不显示静态 fallback；直达 `/housing` 为 403 | 浏览器未到达登录表单交互，未产生 UI/API 断言 | BLOCKED |
+| PAM-005-ENABLED-LANDING | 模块启用且授 page 后菜单出现；登录首跳 href 存在于 Sidebar | 未执行 | BLOCKED |
+| ACTION-ONLY | 仅 action、无 page 时无业务菜单 | 未执行 | BLOCKED |
+| TRACK-B-TASK-DESK-ONLY | `HOUSING_OPERATOR` 派生普通角色只显示 `/housing/tasks` | 未执行 | BLOCKED |
+| AUTH-AFTER-REFRESH | 登录态新增 page 授权时当前视图不即时变化；刷新后出现菜单 | 未执行 | BLOCKED |
+
+上述 BLOCKED 不等于产品 FAIL，也不构成 UAT PASS。PAM-004/PAM-005 子任务以及审计父任务必须保持未归档，直到新的 RUN_ID 完成真实浏览器矩阵。
+
+## 浏览器尝试与证据
+
+- Chrome：Windows Chrome 151，`--headless=new`、独立 profile `pam-fix-20260827-193922`、CDP `9461`；未连接或关闭主 Chrome。
+- local-only 根：`/tmp/jinhu-pam-fix-20260827-193922/`。
+- 第 1 次：target attach 后未显式重新导航，首个 login selector 在 15 秒内未出现；profile 的 WSL 删除权限不足，但 `Browser.close` 已释放 CDP。
+- 第 2 次：增加显式 `/login` 导航并改用 Windows 精确 profile cleanup；login selector 仍在 15 秒内未出现。
+- 日志：`browser-run.log`、`browser-run-2.log`、`browser-failure.txt`、`web.log`、`api.log`（local-only）。
+- 截图：`0`。因为没有 Case 完成，不创建或伪造截图/manifest。
+- 两次失败均发生在账号登录之前；没有旧会话需要 UI logout。专用 Chrome 最终由 `Browser.close` 关闭，CDP 端口与 profile 均归零。
+
+## 清理与 residual
+
+- 精确 fixture before：`sys_user=3`、`sys_role=3`、`rel_user_role=3`、`rel_user_park=3`、`rel_role_perm=17`。
+- 按本轮 remark/用户名精确删除后，上述五表全部为 `0`；未使用宽谓词、`TRUNCATE`、trigger 绕过或 `session_replication_role`。
+- API/Web 启动进程已随受控执行会话停止；3151/3152 无监听。
+- 使用与 `up` 完全相同的 `-p`、`-f`、`--env-file` 执行 `down -v --remove-orphans`。
+- compose project 的 container、volume、network 均为 `0`；55527/3151/3152/9461 四端口监听均为 `0`。
+- 独占文件根 `/tmp/jinhu-pam-fix-20260827-193922/files` 经精确路径校验后删除。
+- `phoenix-v3-db`、`yuzhou-mssql`、`jinhu-smart-park-postgres` 的名称与状态在清理后保持原状，未触碰他人资源。
+
+## 后续门禁
+
+1. 从最新 main 使用新 RUN_ID 重建隔离环境；不得复用本轮 fixture 或浏览器 profile。
+2. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
+3. 完成五项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 标记复测 PASS并归档父子 Trellis 任务。
+

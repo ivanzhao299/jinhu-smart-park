@@ -15,12 +15,12 @@
   "branch": "codex/fix-pam-004-menu-authority",
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
-  "pr_url": null,
+  "commit": "087582378e7d603d5ee5f388b312258c29784abf",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/434",
   "subtasks": [],
   "children": [],
   "parent": "08-27-permission-mechanism-compliance-audit",
   "relatedFiles": [],
-  "notes": "",
+  "notes": "Issue #432 closed; review、PR CI、main CI、Deploy 均通过。复测 UAT 20260827-193922 因 browser harness 登录前两次超时而 BLOCKED，待新 RUN_ID PASS 后归档。",
   "meta": {}
 }
