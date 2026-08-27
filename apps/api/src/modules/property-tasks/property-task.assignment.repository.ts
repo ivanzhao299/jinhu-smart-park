@@ -51,14 +51,16 @@ export class PropertyTaskAssignmentRepository {
          tenant_id,park_id,task_key,task_key_version,task_kind,source_type,
          source_id,source_version_at_generation,assignment_status
        )
-       SELECT $1,$2,candidate.task_key,1,candidate.task_kind,candidate.source_type,
+       SELECT $1::varchar(64),$2::varchar(64),candidate.task_key,1,
+              candidate.task_kind,candidate.source_type,
               candidate.source_id,candidate.source_version,'open'
          FROM jsonb_to_recordset($3::jsonb) AS candidate(
            task_key text,task_kind text,source_type text,source_id uuid,source_version integer
          )
         WHERE NOT EXISTS (
           SELECT 1 FROM biz_property_task_assignment existing
-           WHERE existing.tenant_id=$1 AND existing.park_id=$2
+           WHERE existing.tenant_id=$1::varchar(64)
+             AND existing.park_id=$2::varchar(64)
              AND existing.task_key=candidate.task_key AND existing.is_deleted=false
              AND existing.assignment_status IN ('open','claimed','in_progress','blocked')
         )

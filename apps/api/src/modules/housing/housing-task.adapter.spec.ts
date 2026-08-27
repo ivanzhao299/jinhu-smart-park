@@ -59,6 +59,9 @@ describe("housing derived property-task resolvers", () => {
     assert.equal(snapshot?.owningAssignment, null);
     assert.equal(snapshot?.sourceDeepLink, `/housing/leases/${sourceId}`);
     assert.match(statements[0] ?? "", /FOR UPDATE OF source/);
+    assert.match(statements[0] ?? "", /source\.tenant_id=\$1::varchar\(64\)/);
+    assert.match(statements[0] ?? "", /source\.park_id=\$2::varchar\(64\)/);
+    assert.match(statements[0] ?? "", /source\.id=\$3::uuid/);
     await assert.rejects(resolver.lockAndResolve({
       manager,
       scope,
@@ -71,17 +74,21 @@ describe("housing derived property-task resolvers", () => {
 
   test("uses a stable UUID cursor and preserves terminal lifecycle", async () => {
     const resolver = createHousingTaskResolvers().purchase;
-    const manager = port(async () => [{
-      id: sourceId,
-      version: 8,
-      lifecycle: "cancelled",
-      title: "采购 · P-001",
-      sourceLabel: "P-001",
-      priority: 50,
-      dueAt: null,
-      createTime: "2026-08-03T01:00:00.000Z",
-      updateTime: "2026-08-03T02:00:00.000Z"
-    }]);
+    let statement = "";
+    const manager = port(async (sql) => {
+      statement = sql;
+      return [{
+        id: sourceId,
+        version: 8,
+        lifecycle: "cancelled",
+        title: "采购 · P-001",
+        sourceLabel: "P-001",
+        priority: 50,
+        dueAt: null,
+        createTime: "2026-08-03T01:00:00.000Z",
+        updateTime: "2026-08-03T02:00:00.000Z"
+      }];
+    });
 
     const page = await resolver.scanCandidates({ manager, scope, after: null, limit: 1 });
     assert.equal(page.items[0]?.lifecycle, "cancelled");
@@ -89,6 +96,7 @@ describe("housing derived property-task resolvers", () => {
       sourceId,
       businessOccurrenceKey: `housing-purchase:${sourceId}`
     });
+    assert.match(statement, /LIMIT \$4::integer/);
   });
 
   test("projects tenant repair work orders into the shared task runtime", async () => {

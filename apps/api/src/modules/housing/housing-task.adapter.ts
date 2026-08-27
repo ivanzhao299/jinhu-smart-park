@@ -68,7 +68,7 @@ PropertyTaskProjectorSource {
     taskKey: string;
   }): Promise<PropertyTaskSourceSnapshot | null> {
     const rows = await this.manager(input.manager).query(
-      `${this.config.selectSql} AND source.id=$3 FOR UPDATE OF source`,
+      `${this.config.selectSql} AND source.id=$3::uuid FOR UPDATE OF source`,
       [input.scope.tenantId, input.scope.parkId, input.sourceId]
     ) as DerivedRow[];
     const row = rows[0];
@@ -88,7 +88,7 @@ PropertyTaskProjectorSource {
   }) {
     const rows = await this.manager(input.manager).query(
       `${this.config.selectSql} AND ($3::uuid IS NULL OR source.id>$3::uuid)
-       ORDER BY source.id LIMIT $4`,
+       ORDER BY source.id LIMIT $4::integer`,
       [input.scope.tenantId, input.scope.parkId, input.after?.sourceId ?? null, input.limit]
     ) as DerivedRow[];
     const items = rows.map((row) => this.snapshot(row));
@@ -143,7 +143,7 @@ const LEASE_SQL = `SELECT source.id::text AS id,source.version,
   source.end_date::timestamp AT TIME ZONE 'Asia/Shanghai' AS "dueAt",
   source.create_time AS "createTime",source.update_time AS "updateTime"
  FROM biz_housing_lease source
- WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false
+ WHERE source.tenant_id=$1::varchar(64) AND source.park_id=$2::varchar(64) AND source.is_deleted=false
    AND source.status<>'draft'`;
 
 const HANDOVER_SQL = `SELECT source.id::text AS id,source.version,
@@ -156,7 +156,7 @@ const HANDOVER_SQL = `SELECT source.id::text AS id,source.version,
  FROM biz_housing_handover source
  JOIN biz_housing_lease lease ON lease.tenant_id=source.tenant_id
   AND lease.park_id=source.park_id AND lease.id=source.lease_id AND lease.is_deleted=false
- WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false`;
+ WHERE source.tenant_id=$1::varchar(64) AND source.park_id=$2::varchar(64) AND source.is_deleted=false`;
 
 const BILLING_SQL = `SELECT source.id::text AS id,source.version,
   CASE WHEN source.status='void' THEN 'cancelled'
@@ -169,7 +169,7 @@ const BILLING_SQL = `SELECT source.id::text AS id,source.version,
  FROM biz_housing_receivable source
  JOIN biz_housing_lease lease ON lease.tenant_id=source.tenant_id
   AND lease.park_id=source.park_id AND lease.id=source.lease_id AND lease.is_deleted=false
- WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false`;
+ WHERE source.tenant_id=$1::varchar(64) AND source.park_id=$2::varchar(64) AND source.is_deleted=false`;
 
 const PURCHASE_SQL = `SELECT source.id::text AS id,source.version,
   CASE WHEN source.approval_status='void' THEN 'cancelled'
@@ -182,7 +182,7 @@ const PURCHASE_SQL = `SELECT source.id::text AS id,source.version,
   source.purchase_date::timestamp AT TIME ZONE 'Asia/Shanghai' AS "dueAt",
   source.create_time AS "createTime",source.update_time AS "updateTime"
  FROM biz_housing_purchase source
- WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false`;
+ WHERE source.tenant_id=$1::varchar(64) AND source.park_id=$2::varchar(64) AND source.is_deleted=false`;
 
 const REPAIR_SQL = `SELECT source.id::text AS id,source.version,
   'eligible'::text AS lifecycle,
@@ -199,7 +199,7 @@ const REPAIR_SQL = `SELECT source.id::text AS id,source.version,
  FROM biz_work_order source
  JOIN biz_housing_lease lease ON lease.id::text=source.source_id
   AND lease.tenant_id=source.tenant_id AND lease.park_id=source.park_id AND lease.is_deleted=false
- WHERE source.tenant_id=$1 AND source.park_id=$2 AND source.is_deleted=false
+ WHERE source.tenant_id=$1::varchar(64) AND source.park_id=$2::varchar(64) AND source.is_deleted=false
    AND source.source_type='tenant_request'
    AND source.status IN ('10','20','30','40','45','50','80','91')`;
 

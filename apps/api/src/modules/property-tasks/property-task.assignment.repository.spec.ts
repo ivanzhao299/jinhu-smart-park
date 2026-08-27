@@ -18,6 +18,9 @@ test("rebuild materializes missing derived assignments before locking projection
   }]);
   assert.equal(calls.length, 1);
   assert.match(calls[0]!.sql, /INSERT INTO biz_property_task_assignment/u);
+  assert.match(calls[0]!.sql, /SELECT \$1::varchar\(64\),\$2::varchar\(64\)/u);
+  assert.match(calls[0]!.sql, /existing\.tenant_id=\$1::varchar\(64\)/u);
+  assert.match(calls[0]!.sql, /existing\.park_id=\$2::varchar\(64\)/u);
   assert.match(calls[0]!.sql, /ON CONFLICT DO NOTHING/u);
   assert.match(String(calls[0]!.params[2]), /"source_version":3/u);
 });

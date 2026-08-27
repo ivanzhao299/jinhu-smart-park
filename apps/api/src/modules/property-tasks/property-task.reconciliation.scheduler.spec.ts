@@ -38,5 +38,9 @@ describe("PropertyTaskReconciliationScheduler", () => {
     assert.match(authoritySql, /FROM biz_work_order work_order/);
     assert.match(authoritySql, /JOIN biz_housing_lease lease ON lease\.id::text=work_order\.source_id/);
     assert.match(authoritySql, /WHERE work_order\.source_type='tenant_request'/);
+    assert.match(authoritySql, /\$1::varchar\(64\) IS NULL/);
+    assert.match(authoritySql, /\$2::varchar\(64\)/);
+    assert.match(authoritySql, /\$3::varchar\(64\)/);
+    assert.match(authoritySql, /LIMIT \$5::integer/);
   });
 });
