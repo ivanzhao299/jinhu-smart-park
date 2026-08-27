@@ -230,10 +230,11 @@ jobs:
           PROPERTY_TASK_RECONCILIATION_PG_URL: postgresql://jinhu:JinhuReleaseSmokeDb%232026@127.0.0.1:5432/jinhu_release_smoke
           PROPERTY_TASK_PG_GATE_REQUIRED: "1"
           PROPERTY_TASK_PG_DISPOSABLE: "1"
-        run: >-
-          pnpm --filter @jinhu/api exec node --test --require ts-node/register
-          src/modules/property-tasks/property-task.reconciliation.scheduler.pg.spec.ts
-          2>&1 | tee /tmp/release-smoke-logs/property-task-reconciliation-pg.log
+        run: |
+          pnpm --filter @jinhu/shared build
+          pnpm --filter @jinhu/api exec node --test --require ts-node/register \
+            src/modules/property-tasks/property-task.reconciliation.scheduler.pg.spec.ts \
+            2>&1 | tee /tmp/release-smoke-logs/property-task-reconciliation-pg.log
 
       - name: Verify property MVP owner scope constraints
         env:
