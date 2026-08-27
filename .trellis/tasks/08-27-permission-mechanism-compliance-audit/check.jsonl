@@ -1,0 +1,6 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"复核权限、scope、审批与数据库结论"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"复核菜单、路由、页面权限结论"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"复核 shared 权限契约结论"}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"复核 shared 双端影响结论"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核跨层权限三视角完整性"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"复核迁移、seed、发布建议合规性"}
