@@ -9,8 +9,8 @@
 7. 执行 Trellis quality check；提交并推送报告分支，创建 PR，请求一轮 `@codex review`，处理报告问题。
 8. 等待 PR CI 绿色后 squash merge；等待 main CI 与 Deploy 绿色；归档 Trellis 任务并终报。
 9. 追加核查 API 菜单构建、Web normalize/first href、session/park switch、role template/bundle 与 module assignment/seed 双重表示，形成条件矩阵。
-10. 把 PAM-004+ 与 PAM-001/002/003 合并为统一方案、决策门、并行组和 UAT 清单；只追加报告/Trellis 工件。
-11. 更新既有 #431，重新请求一轮 `@codex review`，等待 PR CI、squash merge 与 main CI/Deploy 双绿。
+10. 把 PAM-004+ 与 PAM-001/002/003 合并为统一裁定；对 review 证实的误报记录核销并移出修复队列，再形成决策门、并行组和 UAT 清单；只改报告/Trellis 工件。
+11. 更新既有 #431，完成 review findings 修正，等待最新 PR CI、squash merge 与 main CI/Deploy 双绿。
 
 ## 验证与停止条件
 

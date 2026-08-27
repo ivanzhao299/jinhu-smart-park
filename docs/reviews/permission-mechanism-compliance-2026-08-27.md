@@ -13,10 +13,10 @@
 三模块总体结论：
 
 - `housing_rental`：**基本符合**。九个 canonical surface 的菜单、路由、page/action API、scope、字段/文件、审批与共享底座链路均已接线。#410 与 #413 在当前基线已修复。跨租户/跨园区和多角色叠加仍需 UAT。
-- `homestay`：**部分符合**。权限码、surface、action、scope、字段/文件与审批框架完整，但多数 controller method 只继承 class-level `@RequireModule("homestay")`，没有落实 shared manifest 声明的 `asset` 硬依赖；这是静态确认的模块授权旁路。
+- `homestay`：**部分符合**。权限码、surface、action、scope、字段/文件与审批框架完整；`ModuleGuard` 消费的有效模块集合已经闭合 `asset` 硬依赖。当前差距集中在 Web 空树 fallback、首跳树不一致和授权刷新语义，而不是 API 模块旁路。
 - `property/asset`：**基本符合**。approval/task/operation/file 委托均保留 tenant/park/data scope，maker-checker-executor 与不可变审计较完整；独立 property runtime surface 尚未纳入与住房/民宿同形的 access-manifest，字段策略也主要覆盖 asset CRUD 和两上层模块的 GET 投影。
 
-问题统计：**P0 1 项、P1 0 项、P2 2 项**。另有 3 项 UAT 证据缺口，不作为已确认产品缺陷计数。
+最终问题统计：**P0 0 项、P1 2 项、P2 1 项**。首轮候选 PAM-001/002/003 已在 `@codex review` 后核销；另有运行时证据缺口，不作为已确认产品缺陷计数。
 
 ## 二、机制设计要求（MEC）
 
@@ -24,7 +24,7 @@
 | --- | --- | --- | --- |
 | MEC-1 | 分层 fail-closed：module 启用后仍须分别通过 page、action/API、data、field、file。任一受保护 API 未声明权限应拒绝。 | 六层结构见 `packages/shared/src/property-business/access-manifest.ts:83-97`；全局 guard 顺序见 `apps/api/src/app.module.ts:221-240`；无权限元数据拒绝见 `apps/api/src/shared/guards/permission.guard.ts:15-58`；文件二次业务授权见 `apps/api/src/modules/files/file-business-access.service.ts:111-200`。 | 每个 canonical feature 声明 required module/dependencies、page、actions、data、fields、files；controller 的 module/permission metadata 不弱于 manifest；data/field/file 不能只靠前端隐藏。 |
 | MEC-2 | 权限包和角色模板为可演进契约：成员集合、顺序、version/hash、模板签名和实例 reconcile 必须一致且 fail-closed。 | bundle 校验见 `packages/shared/src/property-business/permission-bundles.ts:312-345`；模板解析与 revision 校验见 `packages/shared/src/property-business/role-templates.ts:230-302`；production seed 基数断言见 `database/seeds/production/000006_property_track_b_permission_reconcile.sql:314-399`；模板 reconcile 见 `database/seeds/production/000015_property_role_template_reconcile.sql:53-84,230-289`。 | shared 测试独立重算 hash；seed 双向比对定义和固定基数；迁移只接受精确前驱；已有租户按 tenant 逐户校验和 reconcile，缺失/重复/禁用均失败。 |
-| MEC-3 | 菜单、路由、按钮与 API 是同一能力的不同投影，必须三方一致；深链和 legacy alias 也要 fail-closed。 | canonical surface 菜单构建见 `apps/web/lib/menu.ts:161-186,301-313`；动态菜单 metadata 校验见 `apps/api/src/modules/users/users.service.ts:1712-1814`；住房路由边界见 `apps/web/app/housing/_components/HousingRouteBoundary.tsx:14-39`；民宿边界见 `apps/web/app/homestay/_components/HomestayRouteGuard.tsx:8-35`。 | page permission 决定菜单和 route；action capability 与 controller decorator 一致；未知 canonical route 与受保护 approval source 被拒，legacy alias 仅进入受控 landing；页面所需初始请求不因岗位模板缺权而 403；API 能力若无菜单须有明确的委托/深链/无 UI 理由。 |
+| MEC-3 | 菜单、路由、按钮与 API 是同一能力的不同投影，必须三方一致；深链和 legacy alias 也要 fail-closed。 | canonical surface 菜单构建见 `apps/web/lib/menu.ts:161-186,301-313`；动态菜单 metadata 校验见 `apps/api/src/modules/users/users.service.ts:1712-1814`；住房路由边界见 `apps/web/app/housing/_components/HousingRouteBoundary.tsx:14-39`；民宿边界见 `apps/web/app/homestay/_components/HomestayRouteGuard.tsx:8-32`。 | page permission 决定菜单和 route；action capability 与 controller decorator 一致；未知 canonical route 与受保护 approval source 被拒，legacy alias 仅进入受控 landing；页面所需初始请求不因岗位模板缺权而 403；API 能力若无菜单须有明确的委托/深链/无 UI 理由。 |
 | MEC-4 | tenant、park 与业务数据范围独立收敛；园区切换后权限、role link、scope predicate 必须全部基于新 scope。 | JWT scope 来源见 `apps/api/src/shared/decorators/current-scope.decorator.ts:6-11`；用户/park 有效性见 `apps/api/src/modules/users/users.service.ts:599-625`；role link scope 见 `apps/api/src/modules/users/users.service.ts:1663-1687`；空范围 `1=0` 见 `apps/api/src/modules/data-scopes/data-scope.service.ts:270-278`。 | 查询/写入/审批/文件引用均含 tenant+park；building/floor/unit/assignee 等声明维度实际进入谓词；空 scope 拒绝而非放宽；迁移 cardinality 不做跨租户全局唯一假设。 |
 | MEC-5 | 字段与文件为服务端授权层：敏感字段投影、受保护文件通用权限与领域权限都必须实际接线。 | 字段优先级及投影见 `apps/api/src/modules/field-policies/field-policy.service.ts:184-227,451-472`；住房/民宿 GET interceptor 见 `apps/api/src/modules/field-policies/property-field-policy.interceptor.ts:8-54`；文件 controller 权限见 `apps/api/src/modules/files/files.controller.ts:39-116`；文件 tenant/park 和引用校验见 `apps/api/src/modules/files/files.service.ts:266-295,379-395`。 | 每个声明为 hidden/masked 的响应路径经过字段策略；写字段若纳入策略则在持久化前拒绝；文件同时满足 `file:*`、biz type/domain permission、tenant/park/data scope、引用状态与删除保护。 |
 | MEC-6 | 高风险写遵守 maker-checker、幂等、不可变 effect audit；发起、审批、执行主体与权限边界明确。 | manifest mutation 默认幂等及 high-risk approval policy 见 `packages/shared/src/property-business/access-manifest.ts:125-157,1014-1080`；checker 排除规则见 `apps/api/src/modules/property-approvals/property-approval.service.ts:918-934`；effect worker fence 见同文件 `:1205-1233`；不可变 trigger 见 `database/migrations/000191_property_b_homestay_effect_schema.sql:246-286`。 | 高风险 endpoint 有 idempotency 与 approval policy，controller/全局审计接线另行点验；requester/submitter/source creator 不能 checker；effect 由 claim/fence 执行并可重试不重复；decision/effect audit 不可修改。 |
@@ -35,14 +35,14 @@
 
 | MEC | housing_rental | homestay | property / asset 底座 |
 | --- | --- | --- | --- |
-| MEC-1 分层权限 | **符合（静态）**：controller class 同时要求 housing+asset，并挂字段拦截器，见 `apps/api/src/modules/housing/housing.controller.ts:40-43`；九 surface manifest 见 `packages/shared/src/property-business/access-manifest.ts:472-865`。 | **不符合（静态）**：manifest 每个 feature 依赖 asset，但多数 method 只继承 homestay class gate，见 `packages/shared/src/property-business/access-manifest.ts:224-470`、`apps/api/src/modules/homestay/homestay.controller.ts:50-53,59-71,118-197,254-483`。 | **部分符合（静态）**：approval/task/operation/file 服务端分层完整，但没有与 17 个上层 surface 同形的 property runtime access-manifest；见 `apps/api/src/modules/property-approvals/property-approval.controller.ts:25-37`、`apps/api/src/modules/property-tasks/property-task.controller.ts:28-50`。 |
+| MEC-1 分层权限 | **符合（静态）**：controller class 同时要求 housing+asset，并挂字段拦截器，见 `apps/api/src/modules/housing/housing.controller.ts:40-43`；九 surface manifest 见 `packages/shared/src/property-business/access-manifest.ts:472-865`。 | **符合 API 层（静态）**：manifest 每个 feature 依赖 asset；虽然 class metadata 只写 homestay，`ModuleGuard` 使用的有效模块查询会在 hard dependency 缺失时排除 homestay，见 `apps/api/src/modules/saas-modules/saas-modules.service.ts:423-476`、`apps/api/src/shared/guards/module.guard.ts:26-50`。 | **部分符合（静态）**：approval/task/operation/file 服务端分层完整，但没有与 17 个上层 surface 同形的 property runtime access-manifest；见 `apps/api/src/modules/property-approvals/property-approval.controller.ts:25-37`、`apps/api/src/modules/property-tasks/property-task.controller.ts:28-50`。 |
 | MEC-2 bundle/template | **符合（静态）**：000263 逐租户补 approver task read 并升级 hash/template signature，见 `database/migrations/000263_housing_approver_task_read_permission.sql:91-117,150-227`。 | **符合（静态）**：000262 逐租户校验 `homestay:task:read` 并升级 v2，见 `database/migrations/000262_homestay_task_operator_read_permission.sql:22-78,114-174`。 | **符合（静态）**：16 bundles、7 templates、seed/reconcile/hash/cardinality 均有冻结契约；见 MEC-2 证据。 |
 | MEC-3 菜单/路由/API | **符合（静态）**：canonical 菜单同源、route boundary 和 action capability 接线；#410/#413 已修。真实深链见建议 UAT。 | **符合（静态）**：8 surfaces、route guard、action capability 和 controller permissions 一致；legacy landing 仅作兼容。 | **部分符合（静态）**：runtime slots、approval/task 深链有严格 source allowlist，但共享底座主要通过上层 surface 暴露，不是独立 canonical 菜单面；需保持 endpoint manifest 覆盖。 |
 | MEC-4 tenant/park/data | **符合（静态）/建议 UAT**：lease/unit/file/query 均带 tenant+park，见 `apps/api/src/modules/housing/housing-transaction-support.service.ts:34-74`、`apps/api/src/modules/housing/housing-workbench-query.service.ts:195-214,261-283`。 | **符合（静态）/建议 UAT**：unit/assignee/workorder scope 接线，见 `apps/api/src/modules/homestay/homestay-workbench-query.service.ts:101-145,239-295,362-370`。 | **符合（静态）/建议 UAT**：authorization SQL、projection、operation writes 均含 tenant+park，见 `apps/api/src/modules/property-approvals/property-approval.authorization.ts:214-277`、`apps/api/src/modules/property-tasks/property-task.projection.repository.ts:85-150`。 |
 | MEC-5 field/file | **符合读侧与文件（静态）/写侧部分符合**：GET 字段策略、lease/handover/repair/purchase 文件契约接线；写字段策略能力未提供。 | **符合读侧与文件（静态）/写侧部分符合**：booking/stay 敏感字段 GET 投影及 turnover file 双重授权存在；写字段策略能力未提供。 | **部分符合（静态）**：asset CRUD 与 file reference 接线；approval/task/operation 自身无独立字段投影策略，当前也未声明需保护字段。 |
 | MEC-6 审批/高风险 | **符合（静态）/建议 UAT**：7 类 housing approval adapter、eligibility exclusions、effect proof 完整，见 `apps/api/src/modules/housing/housing-approval.adapter.ts:16-36,116-232,298-310`。 | **符合（静态）/建议 UAT**：cancel/finance high-risk、maker/checker exclusions 和 effect proof 接线，见 `apps/api/src/modules/homestay/homestay.controller.ts:282-299`、`apps/api/src/modules/homestay/homestay-approval.adapter.ts:135-183`。 | **符合（静态）/建议 UAT**：requester/checker/executor 分离及 immutable triggers 完整，见 MEC-6。 |
-| MEC-7 共享委托 | **符合（静态）/建议 UAT**：occupancy port 和 unit access 均传原 scope。 | **部分符合（静态）**：service 委托及 unit scope 保留，但 controller 的 asset module dependency 未完整 gate，违反入口闭包。 | **符合（静态）/建议 UAT**：task/operation/approval/file 均重新校验 scope，不直接信任上层 source id。 |
-| MEC-8 自动门禁 | **符合**：manifest/controller/owner/route 相关测试覆盖；#410/#413 均有回归。 | **部分符合**：现有测试验证 manifest 含 asset，却未逐 endpoint 比较实际 module metadata，导致本次缺口未被阻断。 | **符合主要契约**：hash、endpoint、seed/reconcile、runtime controller metadata 有测试；建议扩展 module dependency closure。 |
+| MEC-7 共享委托 | **符合（静态）/建议 UAT**：occupancy port 和 unit access 均传原 scope。 | **符合（静态）/建议 UAT**：service 委托及 unit scope 保留，有效模块投影闭合 hard dependency。 | **符合（静态）/建议 UAT**：task/operation/approval/file 均重新校验 scope，不直接信任上层 source id。 |
+| MEC-8 自动门禁 | **符合**：manifest/controller/owner/route 相关测试覆盖；#410/#413 均有回归。 | **符合 API 主要契约**：有效模块 dependency closure 已有专项测试；Web 菜单与首跳仍有 PAM-004/005。 | **符合主要契约**：hash、endpoint、seed/reconcile、runtime controller metadata 有测试。 |
 
 ## 四、权限码三视角扫描
 
@@ -62,27 +62,22 @@
 
 ## 五、问题清单
 
-### PAM-001（P0）Homestay API 未闭合 asset 硬依赖
+### PAM-001（原 P0 候选，评审核销）Homestay API 未闭合 asset 硬依赖
 
-- 违反：MEC-1、MEC-7、MEC-8。
-- 状态：**静态确认**。
-- 证据：全部 homestay feature 的 shared manifest 均声明 `dependencies: ["asset"]`，见 `packages/shared/src/property-business/access-manifest.ts:226-227,240-242,255-257,266-268,296-298,340-342,388-390,422-424`；controller class 只声明 `@RequireModule("homestay")`，见 `apps/api/src/modules/homestay/homestay.controller.ts:50-53`。只有 tasks、guest/workorder candidates、stays、finance、turnover detail 等少数 method 覆盖为双模块，见同文件 `:79-115,199-251,460-469`；dashboard、availability、unit-candidates、rates、bookings、stay mutations、ledger、turnovers list/execute 等仍只继承单模块 gate。
-- 复现推理：`ModuleGuard` 使用 `getAllAndOverride`，handler 无 metadata 时回退 class，不会与 manifest 合并，见 `apps/api/src/shared/guards/module.guard.ts:26-50`。租户仅启用 `homestay`、未启用 `asset`，且用户仍持目标 action permission 时，这些 endpoint 的 module guard 会通过。在 `apps/api/src/modules/homestay` 的 service/query/command 文件中未查到额外的模块启用校验。
-- 影响：asset 是 homestay 的声明性硬依赖，API 入口却可在依赖停用时继续访问/写入，破坏 module fail-closed 和共享底座授权闭包。实际生产是否存在“权限仍在但 asset 被停用”的实例组合需 UAT/数据核验，但代码路径本身已确认。
+- 初始线索：manifest 声明 `dependencies: ["asset"]`，而 Homestay controller class 只声明 `@RequireModule("homestay")`。
+- 核销证据：`ModuleGuard` 并非直接读取 assignment；它调用 `listEnabledModulesForTenant()`，该查询用 hard-dependency `NOT EXISTS` 闭包排除缺失、禁用或过期依赖的业务模块，见 `apps/api/src/modules/saas-modules/saas-modules.service.ts:423-476`、`apps/api/src/shared/guards/module.guard.ts:41-50`。模块写入口也禁止在依赖未启用时启用 dependent，并禁止先停用仍被 active dependent 使用的 required module，见同 service `:529-633`。
+- 结论：缺 asset 时 homestay 不会进入有效模块集合，class-level gate 已返回 403；原复现遗漏了有效模块投影层，**撤销 P0 定性与产品修复建议**。保留“controller metadata 与 manifest 不同形”作为可读性观察，但不能据此推断旁路。
 
-### PAM-002（P2）字段策略只覆盖读投影，写策略能力显式不可用
+### PAM-002（原 P2 候选，评审核销）字段策略只覆盖读投影
 
-- 违反：MEC-5。
-- 状态：**静态确认的能力缺口；未静态证明已发生字段越权**。
+- 状态：**声明的产品边界，不是契约漂移；未静态证明字段越权**。
 - 证据：角色契约明确 `fieldPolicyReadProjectionEnforced: ["hidden", "masked"]`、`fieldPolicyWriteEnforcementAvailable: false`，见 `packages/shared/src/property-business/role-templates.ts:93-102`；住房/民宿 interceptor 只处理 GET，见 `apps/api/src/modules/field-policies/property-field-policy.interceptor.ts:13-20`；字段服务响应投影只实际改变 hidden/masked，见 `apps/api/src/modules/field-policies/field-policy.service.ts:206-227`。
-- 影响：当前字段策略可以隐藏/脱敏返回值，却不能表达“某角色可读但不得写”或在持久化前统一拒绝字段写入。booking guest identity、credential reference、住房财务字段等仍主要依赖 action DTO/业务校验，而非字段策略。由于 manifest 当前主要声明 read permission，不能据此断言现有写接口越权。
+- 核销理由：MEC-5 只要求“写字段若纳入策略则在持久化前拒绝”，而 shared contract 明确冻结 `fieldPolicyWriteEnforcementAvailable: false`，并无承诺服务端 write field policy。当前敏感写由 action、DTO 和 domain service 校验；在没有具体未授权写路径前，不能把未来能力建议计为缺陷。
 
-### PAM-003（P2）自动契约门禁未比较 manifest dependency 与每个 endpoint 的 module metadata
+### PAM-003（原 P2 候选，评审核销）未逐 endpoint 比较 manifest dependency 与 module metadata
 
-- 违反：MEC-8。
-- 状态：**静态确认**。
-- 证据：access-manifest 测试确认 17 feature 都含 asset dependency，见 `apps/api/src/modules/property-operations/property-business-access-manifest.spec.ts:754-764`；同一测试只冻结 Homestay controller class metadata 为 `["homestay"]`，见同文件 `:813-815`。现有 homestay controller metadata tests 只覆盖部分显式双模块 GET，没有覆盖 PAM-001 的 dashboard/rates/bookings/mutations/turnover list+execute。
-- 影响：manifest 自身可通过校验，而实现 metadata 仍可更弱；此次 P0 因此未被 CI 阻断。
+- 状态：**可选的测试增强，不是已确认缺陷**。
+- 核销理由：PAM-001 不成立，且 dependency closure 的权威实现位于有效模块查询，不要求每个 endpoint metadata 重复列出 dependency。现有 `saas-modules.property-dependency.spec.ts` 已冻结 hard dependency 查询与启停冲突；逐 endpoint metadata 同形断言反而会把实现细节误当安全边界。
 
 ## 六、已核销历史问题与非问题
 
@@ -100,40 +95,23 @@ owner matrix、模板测试、seed/reconcile 均冻结了“Track-B 任务/审�
 
 ## 七、解决方案与推荐
 
-### PAM-001 方案
+### PAM-001 处置
 
-| 方案 | 改动面 | 风险 / 迁移 | 验证 |
-| --- | --- | --- | --- |
-| A. 将 Homestay controller class gate 改为 `@RequireModule("homestay", "asset")`，删除可省略的重复 method gate | 单 controller + metadata tests | 最小、无 DB migration；所有 endpoint 与 manifest 一次性收敛。需确认不存在“无 asset 仍允许的 homestay endpoint”产品例外。 | controller metadata test；逐 endpoint manifest closure test；模块组合 HTTP 403/2xx UAT。 |
-| B. 保留 class gate，逐 method 补 asset | controller 多处 + tests | 易漏新增 endpoint，重复高；无迁移。 | 同上，并冻结完整 method list。 |
-| C. ModuleGuard 直接消费 route→manifest dependency | shared guard/registry/启动校验 | 架构性改动大，可能影响其他模块；无数据迁移但回归面最大。 | 全 controller metadata/manifest 集成测试、全模块 smoke。 |
+**推荐不修产品代码**：有效模块查询已经 fail-closed 闭合 hard dependency。只保留模块组合 HTTP UAT，验证 `homestay+asset` 为 2xx、缺 asset 时所有 Homestay endpoint 为 403；若 UAT 与静态结论冲突，再以真实请求链重新立项。
 
-**推荐 A**：它与 Housing controller 的 class-level 双模块模式一致，改动最小且 fail-closed。若存在明确不依赖 asset 的 endpoint，应先修改 shared manifest 把它拆成独立 feature，而不是在 controller 静默放宽。
+### PAM-002 处置
 
-### PAM-002 方案
+**推荐不进入缺陷队列**：维持已冻结的 read-only field policy 边界。若产品未来要求 per-role readonly/editable 写控制，应作为新能力经产品定义、威胁建模和迁移设计后另行立项，不能从本审计直接生成修复任务。
 
-| 方案 | 改动面 | 风险 / 迁移 | 验证 |
-| --- | --- | --- | --- |
-| A. 本期维持 read-only field policy，补齐文档和自动断言，所有敏感写继续由细粒度 action + DTO/service 校验 | shared contract/tests/docs | 风险最低；无迁移；不能提供 per-role readonly/editable。 | 敏感写 action negative tests、read masking tests。 |
-| B. 增加显式 write field policy contract，在 DTO→service 持久化前统一校验 changed fields | shared、field-policy service、住房/民宿/property 写服务 | 中高风险；可能需要 policy 数据 migration/reconcile；需定义缺省是拒绝还是沿用 action。 | 每实体/字段 allow/deny、partial update、maker/checker、tenant/park 测试。 |
-| C. 只对 identity/financial/credential 三类高敏字段做 domain-specific write guard | shared manifest + 对应 command services | 中等改动、比 B 易落地但规则分散；可能需 policy seed。 | 三类字段的角色矩阵与审计测试。 |
+### PAM-003 处置
 
-**推荐分两步 A→B**：先把当前能力边界固定为不会被误称为“完整字段写权限”，再单独设计统一 write policy。B 需要产品确定 readonly/editable 的默认语义，不应夹带在 PAM-001 安全修复中。
-
-### PAM-003 方案
-
-| 方案 | 改动面 | 风险 / 迁移 | 验证 |
-| --- | --- | --- | --- |
-| A. 扩展现有 access-manifest spec，逐 endpoint 解析 controller metadata，断言 required module + dependencies 闭包 | API test | 小、无迁移；能直接防回归。 | 新测试先对当前 main 失败，配合 PAM-001 后通过。 |
-| B. 增加独立静态 inventory generator，统一校验 menu/route/API/module/permissions | scripts + CI | 覆盖更广但维护成本高。 | fixture 正反例、CI 集成。 |
-
-**推荐 A**：先封住本次真实缺口；若后续出现第二类三视角漂移，再提炼 B，避免过早复制 manifest registry。
+**推荐不增加逐 endpoint 重复断言**：继续以有效模块查询的 dependency closure 专项测试为安全门禁。若未来把依赖解析从查询层迁移到 manifest/controller 层，再同步调整测试权威源。
 
 ## 八、建议修复队列
 
-1. **串行安全组（P0）**：PAM-001 方案 A + PAM-003 方案 A 同一修复任务/PR。先写能暴露缺口的 dependency closure test，再收紧 controller class gate。
-2. **字段策略设计组（P2，可与 P0 后续验证并行）**：PAM-002 先执行方案 A 的契约澄清；write policy B 另建设计任务，待用户确定字段写默认语义后实施。
-3. **UAT 组（依赖 P0 合并部署）**：模块组合、跨 tenant/park、maker-checker-executor、文件、深链回归。不得以生产 SQL 临时补权代替模板/reconcile 验证。
+1. **菜单一致性组（P1）**：经用户另行批准后，PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree。
+2. **会话语义组（P2）**：先由产品决定“刷新后生效”或“已登录会话即时生效”，再选择 PAM-006 方案；未决定前不开修复。
+3. **UAT 组**：模块组合、菜单/首跳、授权刷新、跨 tenant/park、maker-checker-executor、文件、深链回归。不得以生产 SQL 临时补权代替模板/assignment/reconcile 验证。
 
 如未来修复涉及 bundle/template/seed：
 
@@ -196,7 +174,7 @@ DB seeded menu 与 canonical property menus 是两套表示，但正常路径不
 | 角色/权限 scope | role link、permission link、role 或 permission 不属于当前 tenant/park，或已禁用/删除 | 后台看似授过权，当前园区没有菜单 | 静态确认；实例需查角色链接 |
 | page/action 语义 | 只授 action/read/legacy permission，未授 canonical `*:page` | 能力被授予但无业务 surface 菜单 | 静态确认；可能是 Track-B 设计语义 |
 | 业务模块 assignment | 当前 park 未启用、禁用、未开始或已过期 | 有 page 权限仍无整个模块菜单，API 403 | 静态确认 |
-| `asset` dependency | 业务模块有 assignment，但当前 park 缺有效 `asset` | 有 page 权限仍无整个模块菜单 | 静态确认；Homestay 部分 API 仍可能通过即 PAM-001 |
+| `asset` dependency | 业务模块有 assignment，但当前 park 缺有效 `asset` | 有 page 权限仍无整个模块菜单，API 由有效模块投影拒绝 | 静态确认；PAM-001 已核销 |
 | permission metadata | 同 code 多实体，或 visible/type/action/route/module 漂移 | 仅对应页面或整组 children 缺失 | 静态确认；真实行状态需隔离/目标环境只读核验 |
 | seeded parent tree | parent 缺失/孤立，或 seeded 非空导致静态 fallback 不再使用 | 非 property 菜单局部缺失 | 静态确认机制；实例数据需验证 |
 | 双重表示 | legacy DB landing 与 canonical shared surface 同时存在 | 正常会被两层清理；异常嵌套可重复/竞争 | 正常路径静态核销；异常数据需动态验证 |
@@ -211,16 +189,16 @@ DB seeded menu 与 canonical property menus 是两套表示，但正常路径不
 
 ## 十二、民宿/住房对 MEC 的补充裁定
 
-1. **MEC-1/7/8**：维持原结论。Housing class gate 已闭合 `housing_rental+asset`；Homestay 仍有 PAM-001/PAM-003。
+1. **MEC-1/7/8**：Housing class gate 显式声明 `housing_rental+asset`；Homestay 通过有效模块查询闭合 hard dependency。PAM-001/PAM-003 已核销。
 2. **MEC-2**：16 个 Track-B bundle、7 个 managed templates、production seed/reconcile cardinality/hash 未发现新增漂移，见 `packages/shared/src/property-business/permission-bundles.ts:13-159,312-409`、`packages/shared/src/property-business/role-templates.ts:104-287`、`database/seeds/production/000006_property_track_b_permission_reconcile.sql:314-399`、`database/seeds/production/000015_property_role_template_reconcile.sql:53-227`。
 3. **MEC-3**：原报告“housing/homestay 符合（静态）”需补充为 **部分符合**。API canonical 投影本身闭合，但 Web 空树 fallback 可绕过 dependency-aware 投影（PAM-004），首跳与 Sidebar 使用不同树（PAM-005）；权限到菜单还受 page/module/metadata/scope 全条件链影响。
-4. **MEC-4/5/6**：未发现超出原报告的新静态缺口；PAM-002 仍是字段写策略能力缺口而非已证实字段越权。
+4. **MEC-4/5/6**：未发现超出原报告的新静态缺口；PAM-002 是明确声明的能力边界，已从缺陷清单核销。
 
 Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 进入任务台并持共享审批委托能力，不自动获得全部 canonical 业务 surface；finance 模板则带 finance page/action。`PARTY_PROFILE_CLERK` 与 `TASK_ADMIN` 是明确允许无 canonical page 的后台/委托 bundle，见 `packages/shared/src/property-business/permission-bundles.ts:14-18,35-53,154-158`、`packages/shared/src/property-business/role-templates.ts:119-218`。因此“岗位授权后只有任务台、没有全部业务菜单”当前判定为设计语义，不计缺陷；若产品期望岗位直达业务 surface，需要先改变 owner matrix 与模板定义。
 
 ## 十三、统一问题清单与修复方案
 
-统一统计：**P0 1 项、P1 2 项、P2 3 项**。PAM-001～003 沿用第五节定义；新增如下。
+统一统计：**P0 0 项、P1 2 项、P2 1 项**。PAM-001～003 为首轮候选并已在第五节记录核销原因；确认问题如下。
 
 ### PAM-004（P1）Web 空菜单回退重建了被 API 依赖过滤的 property 菜单
 
@@ -269,11 +247,10 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 
 1. **决策门 D1（先行）**：确认 Track-B 岗位是“只进任务台”还是“同时直达 canonical 业务 surface”。维持现设计则不改 bundle/template；改变语义则须同步 owner matrix、template hash/signature、逐租户 reconcile/migration 和 UAT。
 2. **决策门 D2（先行）**：确认角色/模块变更是“刷新后生效”还是“已登录会话即时生效”。它决定 PAM-006 采用 A 还是 B。
-3. **串行安全组 S1（P0）**：PAM-003 先加 endpoint dependency closure 失败测试，随后 PAM-001 把 Homestay class gate 收敛到 `homestay+asset`；同一修复 PR，避免只修实现不补门禁。
-4. **并行菜单组 M1（P1）**：PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree。两者可与 S1 并行开发，但应在同一集成 UAT 验证菜单/route/API。
-5. **字段设计组 F1（P2）**：PAM-002 先固定 read-only 能力边界；待产品定义 readonly/editable 缺省语义后，再设计统一 write policy。若涉及 policy 数据，使用新 migration、逐租户 preflight/reconcile，不能编辑已成功 migration。
-6. **会话组 C1（P2）**：按 D2 修 PAM-006；若选即时刷新，依赖统一 normalized menu contract，但不依赖字段策略。
-7. **集成 UAT（依赖 S1+M1，按需含 C1）**：执行第十五节；不得通过生产直改表或临时 extra grant 绕过模板/assignment/reconcile。
+3. **核销项 N1（不实施）**：PAM-001/002/003 不进入修复队列；仅保留对应模块组合、字段负例和 dependency closure 回归。
+4. **菜单组 M1（P1）**：PAM-004 先确立 API 空树权威，再实施 PAM-005 的统一 normalized tree；在同一集成 UAT 验证菜单/route/API。
+5. **会话组 C1（P2）**：按 D2 处理 PAM-006；若选即时刷新，依赖统一 normalized menu contract。
+6. **集成 UAT（依赖 M1，按需含 C1）**：执行第十五节；不得通过生产直改表或临时 extra grant 绕过模板/assignment/reconcile。
 
 ## 十五、统一修复后 UAT 回归清单
 

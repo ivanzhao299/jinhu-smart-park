@@ -17,7 +17,7 @@
 - 只允许修改报告与本任务 Trellis 工件；不创建修复 Issue，不改产品代码，不触碰生产环境、他人容器、主 Chrome、HR 分支/PR。
 - 报告分支为 `codex/permission-compliance-audit`，经 `@codex review`、CI、squash merge 后验证 main 双绿。
 - 追加反向 MEC-3 核查：从 API seeded/canonical menu、Web filter/first href、会话缓存、角色模板与 bundle、模块启用链枚举“有权限无菜单”的全部必要条件与断点。
-- 将新增问题续编 PAM-004+，与 PAM-001/002/003 形成统一修复方案、决策门、依赖/并行队列和合并 UAT；不新开修复 Issue。
+- 将新增问题续编 PAM-004+；首轮 review 若推翻 PAM-001/002/003，报告必须保留核销证据、撤销错误分级与修复建议，再形成最终决策门、依赖/并行队列和合并 UAT；不新开修复 Issue。
 
 ## Acceptance Criteria
 
@@ -30,10 +30,11 @@
 - [ ] PR 完成一轮 `@codex review`，CI 绿色，squash merge；main 分支 CI 与 Deploy 均绿色。
 - [ ] 终报包含 MEC 摘要、矩阵结论、问题分级统计、推荐方案摘要、PR 与 commit。
 - [ ] 条件矩阵覆盖 page/action、tenant/park role link、module assignment、asset dependency、permission metadata、seeded/canonical 双重表示、Web fallback/first href 与会话刷新。
-- [ ] 统一问题清单含 PAM-004+，明确 Track-B 两层语义和授权即时性为产品决策点。
+- [ ] 最终问题清单含 PAM-004+ 与 PAM-001/002/003 review 核销记录，明确 Track-B 两层语义和授权即时性为产品决策点。
 
 ## Notes
 
 - 已知历史风险线索：#410 模板 page 与 bundle action 漂移；#413 深链 surface 来源白名单脱节；000262/000263 逐租户与 replay-safe 契约先例。最终结论仍须以当前代码核验。
 - 当前检出分支名称虽为 `codex/post-housing-archive-20260827-143620`，但 HEAD 已静态确认等于用户指定的 `origin/main@2526b577`。
 - 2026-08-27 补充任务开始时 #431 仍为 OPEN，故在同一报告与任务追加，不创建姊妹报告。
+- 首轮 `@codex review` 指出有效模块查询已经闭合 hard dependency、write field policy 是显式边界；这些 findings 经源码点验成立，必须以核销结论取代原 P0/P2 候选。
