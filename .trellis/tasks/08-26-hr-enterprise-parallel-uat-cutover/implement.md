@@ -40,6 +40,7 @@
     - [x] 完成离线只读候选生成器、schema、独立 verifier 和正负向 contract：显式传入 legacy root 与输出路径，真实资料稳定生成 162 表/2,364 字段、194 procedure/16 function/2 trigger（212 rules）及 46 页面主题；两次生成 byte-for-byte/hash 一致，输出只含结构名、类型、nullable/default、脱敏说明、artifact SHA 和稳定 ID/hash。
     - [x] 权限 915 条仅固化 redacted importer contract 与 `pending_review` 门禁，不生成占位授权、不自动批准；候选输出不覆盖正式 reviewed ledger，生产历史 import 继续 `HOLD`。
     - [x] 第三阶段第一批：为员工档案、异动、合同 3 个核心域建立 reviewed mapping contract/verifier；固定原子 inventory hash 并展开 person 及档案关联表、readjust/readjustitem/jobstatecode、compact/compact_c/compacttypecode 的 12 表/260 字段，只有仓库内 route/API/entity/permission/test 文件与符号真实存在才标 mapped/tested，未绑定字段和工号不复用、jobstate、JZ/DZ/LZ/FZ 编号语义、合同续签链/提醒等规则以稳定 gap reason 保留。
+    - [x] 第三阶段第二批：逐项绑定玉舟集团 Web 版 15 个入口；12 个具备新 route/API/permission/test 的源码闭环，人员照片、人事异动统计、员工自助修改密码 3 个保持显式 gap；该证据不替代三角色运行时矩阵，兼容分仍为 0，生产历史 import 继续 `HOLD`。
     - [ ] 第三阶段现场补证：对仍可运行的玉舟 V10 客户端执行只读全菜单遍历，逐页记录菜单层级、查询条件、列表列、空白新增/编辑字段、状态动作、编号、校验、审批、打印/导出和角色可见性；禁止保存、审核、结账、发薪或导出个人数据，截图/证据必须脱敏且不得记录连接地址或凭据。当前 v1 仅为 L3 进度证据，兼容分贡献固定为 0，不得以 `candidate` 或人工布尔值冒充 L4。
       - [ ] 首轮覆盖员工档案、人事异动、劳动合同、考勤、工资、培训、奖惩、招聘、绩效、自助和系统字典；页面证据逐项绑定 atomic inventory stable ID 与 reviewed mapping，修正帮助文档或数据库结构无法证明的交互语义。
       - [ ] 对员工已习惯的流程区分 `preserve`、`modernize`、`archive`、`reject` 四类决策；保留业务语义与编号/状态链，不复制旧 UI、弱权限或不合规做法，每项决策要求新 route/API/entity/atomic permission/test evidence。
