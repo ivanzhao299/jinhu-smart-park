@@ -105,6 +105,21 @@ rsync -a --delete <FILE_STORAGE_LOCAL_ROOT>/ <backup_dir>/jinhu_files/
 
 ## 6. 镜像准备
 
+正式发布由唯一的 `Deploy Production` workflow 按变更类别执行：纯 Web、纯 API、纯数据库、运行时 CSS、全量和仅治理文档。分类以生产 `.release.json` 的上次成功 SHA 到本次 SHA 的完整差异为准，分类器为 `scripts/resolve-production-deploy-scope.mjs`。
+
+- `web` 不构建或重启 API，不执行 migration/seed。
+- `api` 不构建 Web，不执行 migration/seed。
+- `database` 不重建 API/Web 镜像，但会停止 API、执行受控 migration/可选 production seed，再启动原 API 并完成健康检查。
+- API 与数据库同时变化、Web 与 API 同时变化、共享依赖/锁文件/基础设施/workflow 变化及未知路径均提升为 `full`。
+- `ops-only` 不写 release marker，不访问业务部署步骤，也不改变生产运行版本。
+- 手动指定的窄模式必须与自动分类完全一致；只有 `full` 可以作为更保守的人工覆盖。模式不匹配在生产写入前直接失败。
+
+分类部署只缩小构建和重启范围，不取消串行发布、路径隔离、回滚快照、迁移前置检查、受保护账号验收、健康检查和 Docker 清理。
+
+部署 workflow 在验证前先分类：纯 Web 仅验证 Shared/Web，纯 API 仅验证 Shared/API，纯数据库运行迁移与种子合同且不构建未变化的 Web，`fast-css` 只运行 CSS 架构门禁，`ops-only` 只运行治理合同且不建立生产 SSH 连接。PR 的完整 CI 不缩减，数据库及发布敏感路径仍必须通过独立 `Release Smoke`。
+
+生产 `.release.json` 的权威差异会在部署前再次计算。若权威范围大于预验证范围，必须在写 release marker、同步源码和执行远端变更前失败，并以 `full` 重跑。窄模式只按 `scripts/production-deploy-transfer-manifest.mjs` 白名单同步对应应用、共享包或数据库资产；目录同步保留删除语义，完整模式仍使用全树同步，回滚快照仍覆盖部署前完整生产源码。
+
 | 项目 | 值 |
 |---|---|
 | API 镜像 tag | `<待填写>` |

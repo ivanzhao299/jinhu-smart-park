@@ -16,6 +16,7 @@ on:
           - fast-css
           - web
           - api
+          - database
           - full
           - diagnose-000189-scope
           - diagnose-000194-runtime-control
@@ -28,42 +29,130 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    name: Classify production release
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Resolve pre-verification scope
+        id: scope
+        env:
+          REQUESTED_DEPLOY_MODE: ${{ inputs.deploy_mode }}
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -eu
+          requested="${REQUESTED_DEPLOY_MODE:-auto}"
+          case "$requested" in
+            diagnose-000189-scope|diagnose-000194-runtime-control)
+              echo "mode=ops-only" >> "$GITHUB_OUTPUT"
+              exit 0
+              ;;
+          esac
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$requested" = "auto" ]; then
+              echo "mode=full" >> "$GITHUB_OUTPUT"
+            else
+              case "$requested" in
+                fast-css|web|api|database|full) echo "mode=$requested" >> "$GITHUB_OUTPUT" ;;
+                *) echo "Unsupported deployment mode: $requested" >&2; exit 2 ;;
+              esac
+            fi
+            exit 0
+          fi
+          changed_files=""
+          if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE_SHA^{commit}" 2>/dev/null; then
+            changed_files="$(git diff --name-only "$BEFORE_SHA" "$GITHUB_SHA")"
+          fi
+          printf '%s\n' "$changed_files" | node scripts/resolve-production-deploy-scope.mjs --requested=auto --github-output >> "$GITHUB_OUTPUT"
+
   verify:
     name: Verify production release
+    needs: classify
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Enable pnpm
+        if: ${{ needs.classify.outputs.mode != 'ops-only' && needs.classify.outputs.mode != 'fast-css' }}
         run: corepack enable
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
 
       - name: Install dependencies
+        if: ${{ needs.classify.outputs.mode != 'ops-only' && needs.classify.outputs.mode != 'fast-css' }}
         run: pnpm install --frozen-lockfile
 
-      - name: Build workspace contracts
-        run: pnpm --filter @jinhu/shared build
-
-      - name: Validate release
+      - name: Validate deployment governance contracts
         run: |
           sh scripts/e2e/production-deploy-path-contract.sh
           node scripts/e2e/production-deploy-route-contract.mjs
+          node scripts/e2e/production-deploy-scope.contract.mjs
+          node scripts/e2e/production-deploy-transfer.contract.mjs
+          node scripts/e2e/production-deploy-verified-scope.contract.mjs
+          git diff --check
+
+      - name: Validate runtime design system CSS
+        if: ${{ needs.classify.outputs.mode == 'fast-css' }}
+        run: node scripts/check-css-architecture.mjs
+
+      - name: Build shared contracts
+        if: ${{ needs.classify.outputs.mode == 'web' || needs.classify.outputs.mode == 'api' }}
+        run: pnpm --filter @jinhu/shared build
+
+      - name: Validate Web release
+        if: ${{ needs.classify.outputs.mode == 'web' }}
+        run: |
+          pnpm --filter @jinhu/shared test
+          pnpm --filter @jinhu/web typecheck
+          pnpm --filter @jinhu/web lint
+          pnpm test:unit:web
+          pnpm css:check
+          pnpm --filter @jinhu/web build
+
+      - name: Validate API release
+        if: ${{ needs.classify.outputs.mode == 'api' }}
+        run: |
+          pnpm --filter @jinhu/shared test
+          pnpm --filter @jinhu/api typecheck
+          pnpm --filter @jinhu/api lint
+          pnpm --filter @jinhu/api test:unit
+          pnpm --filter @jinhu/api build
+
+      - name: Validate database-sensitive release
+        if: ${{ needs.classify.outputs.mode == 'database' }}
+        run: |
+          sh -n scripts/db-migrate.sh scripts/db-seed-prod.sh scripts/bootstrap-admin.sh scripts/check-init-baseline.sh
+          node scripts/e2e/migration-prerequisite-contract.mjs
+          sh scripts/e2e/prod-deploy-seed-precedence.sh
+
+      - name: Validate full release
+        if: ${{ needs.classify.outputs.mode == 'full' }}
+        run: |
+          pnpm --filter @jinhu/shared build
           pnpm typecheck
           pnpm lint
+          pnpm test:unit
           pnpm css:check
           pnpm build
-          git diff --check
 
   deploy:
     name: Deploy to production host
-    needs: verify
+    needs: [classify, verify]
+    if: ${{ needs.classify.outputs.mode != 'ops-only' || startsWith(inputs.deploy_mode, 'diagnose-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -110,7 +199,6 @@ jobs:
           set -eu
           SSH_OPTS="-p $PROD_SSH_PORT -o ServerAliveInterval=30 -o ServerAliveCountMax=20 -o TCPKeepAlive=yes -o ConnectTimeout=30"
           requested="${REQUESTED_DEPLOY_MODE:-auto}"
-          resolved="$requested"
           run_production_seed="no"
           previous_commit="$(ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "node -e \"try{const r=require('$PROD_DEPLOY_PATH/.release.json'); process.stdout.write(r.commit||'')}catch(e){}\"" || true)"
           previous_commit_valid="no"
@@ -122,34 +210,29 @@ jobs:
           if [ "$previous_commit_valid" = "no" ] || printf "%s\n" "$changed_files" | grep -Eq '^database/seeds/(000001_s1_production_core\.sql|production/)'; then
             run_production_seed="yes"
           fi
-          if [ "$requested" = "auto" ]; then
-            if [ -z "$changed_files" ]; then
-              resolved="full"
-            elif printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/public/runtime-design-system\.css|\.release\.json)$' >/dev/null; then
-              if printf "%s\n" "$changed_files" | grep -Ev '^(apps/web/|packages/ui/|android-app/|docs/|README\.md|AGENTS\.md|\.trellis/|\.github/workflows/android-build\.yml$|scripts/verify-android-release\.mjs$)' >/dev/null; then
-                if printf "%s\n" "$changed_files" | grep -Ev '^(apps/api/|docs/|README\.md|AGENTS\.md|\.trellis/)' >/dev/null; then
-                  resolved="full"
-                else
-                  resolved="api"
-                fi
-              else
-                resolved="web"
-              fi
-            else
-              resolved="fast-css"
-            fi
-          fi
+          resolved="$(printf '%s\n' "$changed_files" | node scripts/resolve-production-deploy-scope.mjs --requested="$requested" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).mode))")"
           if [ "$run_production_seed" = "yes" ]; then
             case "$resolved" in
-              web|fast-css)
-                echo "Production seed changes require an API-capable full deployment; overriding mode '$resolved' to 'full'."
-                resolved="full"
+              web|fast-css|ops-only)
+                echo "Production seed changes require a database-capable deployment; overriding mode '$resolved' to 'database'."
+                resolved="database"
                 ;;
             esac
           fi
           printf "requested=%s\nresolved=%s\nprevious_commit=%s\nrun_production_seed=%s\n" "$requested" "$resolved" "$previous_commit" "$run_production_seed"
           echo "mode=$resolved" >> "$GITHUB_OUTPUT"
           echo "run_production_seed=$run_production_seed" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce verified deployment scope
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
+        env:
+          VERIFIED_DEPLOY_MODE: ${{ needs.classify.outputs.mode }}
+          RESOLVED_DEPLOY_MODE: ${{ steps.deploy-mode.outputs.mode }}
+        run: |
+          set -eu
+          node scripts/assert-verified-production-deploy-scope.mjs \
+            --verified="$VERIFIED_DEPLOY_MODE" \
+            --resolved="$RESOLVED_DEPLOY_MODE"
 
       - name: Diagnose 000189 asset scope parity (read-only)
         if: ${{ inputs.deploy_mode == 'diagnose-000189-scope' }}
@@ -178,7 +261,7 @@ jobs:
             "sh -s -- report '$PROD_DEPLOY_PATH'" < scripts/diagnose-000194-runtime-control.sh
 
       - name: Ensure required production secrets
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -195,7 +278,7 @@ jobs:
             "cd '$PROD_DEPLOY_PATH' && sh scripts/ensure-production-secrets.sh"
 
       - name: Enforce 000189 asset scope parity before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -208,7 +291,7 @@ jobs:
             "sh -s -- enforce '$PROD_DEPLOY_PATH'" < scripts/diagnose-000189-asset-scope.sh
 
       - name: Repair retired 000194 runtime owner rows before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -221,7 +304,7 @@ jobs:
             "sh -s -- repair '$PROD_DEPLOY_PATH'" < scripts/repair-000194-retired-runtime-owner.sh
 
       - name: Enforce 000194 runtime control parity before deployment
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'api' || steps.deploy-mode.outputs.mode == 'full') }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && (steps.deploy-mode.outputs.mode == 'database' || steps.deploy-mode.outputs.mode == 'full') }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -235,7 +318,7 @@ jobs:
             "sh -s -- enforce '$PROD_DEPLOY_PATH' '' '$RUN_PRODUCTION_SEED'" < scripts/diagnose-000194-runtime-control.sh
 
       - name: Write release marker
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         run: |
           cat > .release.json <<EOF
           {
@@ -249,7 +332,7 @@ jobs:
           EOF
 
       - name: Deploy
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
           PROD_SSH_USER: ${{ secrets.PROD_SSH_USER }}
@@ -295,12 +378,7 @@ jobs:
             fi
           }
           trap rollback_release ERR
-          if [ "$PROD_DEPLOY_MODE" = "fast-css" ]; then
-            rsync -azR \
-              -e "ssh $SSH_OPTS" \
-              .release.json apps/web/public/runtime-design-system.css \
-              "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
-          else
+          if [ "$PROD_DEPLOY_MODE" = "full" ]; then
             rsync -az --delete \
               -e "ssh $SSH_OPTS" \
               --exclude='.git/' \
@@ -321,13 +399,38 @@ jobs:
               --exclude='storage/' \
               --exclude='data/' \
               ./ "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/"
+          else
+            manifest="$(mktemp)"
+            trap 'rm -f "$manifest"' EXIT INT TERM
+            node scripts/production-deploy-transfer-manifest.mjs "$PROD_DEPLOY_MODE" > "$manifest"
+            while IFS=: read -r kind path; do
+              case "$kind:$path" in
+                file:.release.json|file:apps/web/public/runtime-design-system.css|file:scripts/*.sh|dir:apps/web|dir:apps/api|dir:packages/config|dir:packages/shared|dir:packages/ui|dir:database) ;;
+                *) echo "Unsafe production transfer entry: $kind:$path" >&2; exit 2 ;;
+              esac
+              remote_parent="${path%/*}"
+              [ "$remote_parent" = "$path" ] && remote_parent="."
+              ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "mkdir -p '$PROD_DEPLOY_PATH/$remote_parent'"
+              if [ "$kind" = "dir" ]; then
+                rsync -az --delete \
+                  --exclude='node_modules/' --exclude='.next/' --exclude='dist/' --exclude='coverage/' \
+                  -e "ssh $SSH_OPTS" "$path/" "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/$path/"
+              elif [ "$kind" = "file" ]; then
+                rsync -az -e "ssh $SSH_OPTS" "$path" "$PROD_SSH_USER@$PROD_SSH_HOST:$PROD_DEPLOY_PATH/$path"
+              else
+                echo "Unsupported production transfer kind: $kind" >&2
+                exit 2
+              fi
+            done < "$manifest"
+            rm -f "$manifest"
+            trap - EXIT INT TERM
           fi
           ssh $SSH_OPTS "$PROD_SSH_USER@$PROD_SSH_HOST" "cd '$PROD_DEPLOY_PATH' && PROD_DEPLOY_MODE='$PROD_DEPLOY_MODE' RUN_PRODUCTION_SEED='$RUN_PRODUCTION_SEED' PRUNE_DOCKER_AFTER_DEPLOY=yes PRUNE_DOCKER_BUILD_CACHE=yes pnpm prod:deploy && pnpm prod:health"
           trap - ERR
           cleanup_rollback_snapshot
 
       - name: Verify protected acceptance accounts in Production
-        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' }}
+        if: ${{ inputs.deploy_mode != 'diagnose-000189-scope' && inputs.deploy_mode != 'diagnose-000194-runtime-control' && steps.deploy-mode.outputs.mode != 'ops-only' }}
         env:
           PROD_UAT_CREDENTIALS_CSV: ${{ secrets.PROD_UAT_CREDENTIALS_CSV }}
         run: |

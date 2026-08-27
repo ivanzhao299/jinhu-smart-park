@@ -34,6 +34,10 @@ const boundaryGate = source.indexOf(
 );
 const deploymentMode = source.indexOf("Resolve deployment mode");
 const deployStep = source.indexOf("      - name: Deploy\n");
+const classifyJob = source.indexOf("  classify:\n");
+const verifyJob = source.indexOf("  verify:\n");
+const verifiedScopeGate = source.indexOf("Enforce verified deployment scope");
+const verifyJobSource = source.slice(verifyJob, source.indexOf("  deploy:\n"));
 
 assert.ok(boundaryGate >= 0, "production workflow must call the path boundary gate");
 assert.ok(
@@ -41,6 +45,17 @@ assert.ok(
   "path boundary gate must run before deployment mode resolution",
 );
 assert.ok(boundaryGate < deployStep, "path boundary gate must run before deployment");
+assert.ok(classifyJob >= 0 && classifyJob < verifyJob, "classification must run before verification");
+assert.match(source, /verify:\n[\s\S]*?needs: classify/);
+assert.match(
+  verifyJobSource,
+  /- name: Checkout\n\s+uses: actions\/checkout@v5\n\s+with:\n\s+fetch-depth: 0/,
+  "production verification must retain the signed gate's fixed ancestor commit",
+);
+assert.match(source, /deploy:\n[\s\S]*?needs: \[classify, verify\]/);
+assert.match(source, /needs\.classify\.outputs\.mode != 'ops-only'/);
+assert.ok(verifiedScopeGate > deploymentMode && verifiedScopeGate < deployStep);
+assert.match(source, /scripts\/assert-verified-production-deploy-scope\.mjs/);
 assert.match(
   source,
   /scripts\/validate-production-deploy-path\.sh/,
@@ -51,6 +66,24 @@ assert.match(
   /PRUNE_DOCKER_AFTER_DEPLOY=yes/,
   "production deployment must retain post-health Docker cleanup",
 );
+assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
+assert.match(source, /scripts\/production-deploy-transfer-manifest\.mjs/);
+assert.match(source, /production-deploy-transfer\.contract\.mjs/);
+assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);
+assert.match(source, /rsync -az --delete[\s\S]*?--exclude='node_modules\/'[\s\S]*?"\$path\/"/);
+assert.match(source, /- database/);
+assert.match(source, /mode != 'ops-only'/);
+assert.match(source, /mode == 'database' \|\| steps\.deploy-mode\.outputs\.mode == 'full'/);
+
+const deployScript = readFileSync(resolve(root, "scripts/prod-deploy.sh"), "utf8");
+assert.match(deployScript, /deploy_database\(\)/);
+assert.match(deployScript, /database\)\s*\n\s*deploy_database/);
+const apiFunction = deployScript.match(/deploy_api\(\) \{([\s\S]*?)\n\}/)?.[1] || "";
+assert.match(apiFunction, /compose build api/);
+assert.doesNotMatch(apiFunction, /run_migrations_and_optional_seed/);
+const databaseFunction = deployScript.match(/deploy_database\(\) \{([\s\S]*?)\n\}/)?.[1] || "";
+assert.match(databaseFunction, /run_migrations_and_optional_seed/);
+assert.doesNotMatch(databaseFunction, /compose build (?:api|web)/);
 
 for (const { name: candidateName, source: candidateSource } of workflowFiles) {
   if (candidateName === "deploy-production.yml") continue;
