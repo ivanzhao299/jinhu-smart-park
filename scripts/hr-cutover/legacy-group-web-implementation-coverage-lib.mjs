@@ -35,6 +35,18 @@ const ROUTE_EVIDENCE = Object.freeze({
 });
 
 const ITEM_RULE_PARITY = Object.freeze({
+  36: {
+    legacyFieldEvidenceHash: "0d2dc3193b08211f178816baf77f64f6a5bf01c5fae96a476c35e8d87736b26a",
+    outcome: "probation_application_batch_approval_and_atomic_confirmation",
+    evidenceFiles: [
+      "scripts/hr-cutover/contracts/yuzhou-probation-confirmation-source-evidence-v1.json",
+      "database/migrations/000271_hr_probation_confirmation_parity.sql",
+      "apps/api/src/modules/hr/dto/hr-probation.dto.ts",
+      "apps/api/src/modules/hr/hr-probation.controller.ts",
+      "apps/api/src/modules/hr/hr-probation.service.ts",
+      "apps/api/src/modules/hr/hr-probation.contract.spec.ts"
+    ]
+  },
   35: {
     legacyFieldEvidenceHash: "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622",
     outcome: "basic_profile_fields_with_encrypted_identity_and_scoped_audit",

@@ -1,0 +1,35 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_probation_confirmation_source_evidence",
+  "legacyId": 36,
+  "legacyFieldEvidenceHash": "0d2dc3193b08211f178816baf77f64f6a5bf01c5fae96a476c35e8d87736b26a",
+  "operationMode": "read_only",
+  "sourceFiles": [
+    {"path":"EMPLOYEE/PROBATION/Admin.asp","sha256":"6dd2f1e1fa3f8e66a6aef6142538560d00be95478ee99620ceaa23d59701b9da"},
+    {"path":"EMPLOYEE/PROBATION/Detail.asp","sha256":"ed8a21c40b808514a84d3f0b54c0ad3d2b6f7d4132ed03bc4752b338ae35e686"},
+    {"path":"EMPLOYEE/PROBATION/Save.asp","sha256":"456cb07596af39e08a2f973608548c7e0442ce836ac1ba13737b834a7812ab1e"},
+    {"path":"EMPLOYEE/PROBATION/approve.asp","sha256":"16d0b5974d973ed4bd45bd63003d86746cd5c66e6871c90a35c4dc7e99556601"},
+    {"path":"EMPLOYEE/PROBATION/readonly.asp","sha256":"cdc3524e18e36a235f5101fcedd3b8a3fadd07c836a56de07ae882b48c178446"},
+    {"path":"EMPLOYEE/PROBATION/LIBRARY/Applaysave.Class.asp","sha256":"7d8238e2ab69b8a770185490649e1578f9b03d71a9f25dd9a6e7df6639eff86e"},
+    {"path":"EMPLOYEE/PROBATION/PROBEMP/Admin.asp","sha256":"d49d1c1e0056538b1db95e882529c4075371064d3b10f05a3804d42304389738"},
+    {"path":"EMPLOYEE/PROBATION/PROBEMP/Library/Save.Class.asp","sha256":"750ce7187f37013bf2fb83c1bcefe3bc770d92ab0937fe2f0473a0c316834e23"}
+  ],
+  "legacyRules": {
+    "applicationHeader": ["applicationName","applicant","applicationDate","reason"],
+    "employeeBatch": ["employeeId","plannedConfirmationDate"],
+    "approvalGate": ["approved","workflowEnded","notPreviouslyConfirmed"],
+    "confirmationEffects": ["markApplicationConfirmed","markParticipantsConfirmed","updateEmployeeStatusAndDate"]
+  },
+  "targetControls": {
+    "workflow": ["draft","submitted","returned","approved","cancelled","confirmed"],
+    "makerChecker": true,
+    "atomicBatchConfirmation": true,
+    "immutableActionEvidence": true,
+    "idempotentWrites": true,
+    "legacyAmbiguousEmployeeFieldsReplaced": true,
+    "payrollOrPerformanceWrites": false,
+    "productionImport": "HOLD"
+  },
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false
+}
