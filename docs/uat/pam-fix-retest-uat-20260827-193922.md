@@ -5,6 +5,10 @@
 - RUN_ID：`20260827-193922`
 - 被测 revision：`d41407b5fe066adf70ca3f4ae5e613999ed44db6`
 - 执行日期：2026-08-27（Asia/Singapore）
+- 执行者：`emvia`（Codex CLI）
+- 执行窗口：`2026-08-27 19:39:48` 至 `19:55:11`（Asia/Singapore；分别取 compose 工件与 cleanup 快照 mtime）
+- API / Web 启动 PID：`1236399 / 1236400`；两者在 cleanup 身份核验时已退出，故 `/proc/<pid>/fd` 不再可用。本轮仅据端口归零和无残留进程陈述 cleanup，不声称保存了退出前 fd 链证据。
+- 浏览器请求 viewport：`1440 × 960`。实际 viewport 未采集：两次均在首个 login selector 出现前超时，未进入 Case 的 `evaluate` 阶段；不得把请求值冒充实测值。
 - 结论：**BLOCKED（浏览器 harness）/ 不归档**。
 - PAM-004 与 PAM-005 的代码、单测、PR CI、main CI 和 Deploy 均已通过；本报告不把这些自动门禁冒充真实浏览器 UAT。
 - 两次独立 Chrome 执行均在首个登录表单 DOM 定位前超时，没有账号成功登录、没有业务断言、没有截图。依照“同题失败不超过 2 次”停止重试，因此本轮不能给出菜单/首跳场景 PASS。
@@ -38,6 +42,7 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 | ACTION-ONLY | 仅 action、无 page 时无业务菜单 | 未执行 | BLOCKED |
 | TRACK-B-TASK-DESK-ONLY | `HOUSING_OPERATOR` 派生普通角色只显示 `/housing/tasks` | 未执行 | BLOCKED |
 | AUTH-AFTER-REFRESH | 登录态新增 page 授权时当前视图不即时变化；刷新后出现菜单 | 未执行 | BLOCKED |
+| PAM-005-PARK-SWITCH | current/previous user 的园区切换以 normalized tree 判定；legacy/placeholder 旧路径回落到新园区 Sidebar 可见首跳 | 未执行 | BLOCKED |
 
 上述 BLOCKED 不等于产品 FAIL，也不构成 UAT PASS。PAM-004/PAM-005 子任务以及审计父任务必须保持未归档，直到新的 RUN_ID 完成真实浏览器矩阵。
 
@@ -64,6 +69,6 @@ PAM-005 的 Deploy 工作流完成 `Validate full release`、实际 `Deploy` 和
 ## 后续门禁
 
 1. 从最新 main 使用新 RUN_ID 重建隔离环境；不得复用本轮 fixture 或浏览器 profile。
-2. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
-3. 完成五项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 标记复测 PASS并归档父子 Trellis 任务。
-
+2. 在正式 Case 前增加 login 页 title/body/input selector 的预检截图、实际 viewport 与 CDP target URL 证据；预检失败即停止，不消耗业务 Case 重试。
+3. PAM-005 必须包含园区切换用例：previous user 位于会被 normalize 剔除的 legacy/placeholder 路径，切换后必须回落到 current user Sidebar 中存在的 normalized 首跳。
+4. 完成六项矩阵、逐步截图和 SHA-256 manifest 后，才可将 PAM-004/PAM-005 标记复测 PASS并归档父子 Trellis 任务。
