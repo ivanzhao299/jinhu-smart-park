@@ -10,7 +10,12 @@ test("HR employee context errors are presented as a Chinese business state", () 
   );
 });
 
-test("HR load errors preserve real service failures", () => {
-  assert.equal(hrLoadErrorMessage(new ApiError("Database unavailable", 500), "加载失败"), "Database unavailable");
+test("HR load errors do not expose database or internal service details", () => {
+  assert.equal(hrLoadErrorMessage(new ApiError("Database unavailable", 500), "加载失败"), "加载失败");
+  assert.equal(
+    hrLoadErrorMessage(new ApiError('bind message supplies 5 parameters, but prepared statement "" requires 4', 500), "加载失败"),
+    "加载失败",
+  );
+  assert.equal(hrLoadErrorMessage(new ApiError("业务状态冲突", 409), "加载失败"), "业务状态冲突");
   assert.equal(hrLoadErrorMessage(null, "加载失败"), "加载失败");
 });

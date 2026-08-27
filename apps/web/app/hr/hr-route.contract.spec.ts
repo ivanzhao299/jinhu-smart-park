@@ -144,6 +144,13 @@ test("HR M4 goals use an execution ledger with explicit actions",()=>{
   assert.match(goals,/当前范围暂无目标/);
 });
 
+test("HR pages normalize neutral buttons without changing other modules",()=>{
+  const css=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
+  assert.match(css,/\.page :global\(\.ds-button:not\(\.ds-button-primary\):not\(\.ds-button-secondary\)\)/);
+  assert.match(css,/appearance:\s*none/);
+  assert.match(css,/\.page :global\(\.form-error\) \+ :global\(\.ds-button\)[\s\S]*margin-top:\s*14px/);
+});
+
 test("HR T6 performance freezes templates, scoped options and cycles before evaluation",()=>{
   const performance=readFileSync(resolve(__dirname,"performance/HrPerformanceClient.tsx"),"utf8");
   assert.match(performance,/performanceOptionsV2/);

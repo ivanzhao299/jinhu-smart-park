@@ -176,9 +176,9 @@ export class HrLifecycleService {
         s.parkId,
         q.page_size,
         (q.page - 1) * q.page_size,
-        a.sub,
       ],
       filters = [`c.tenant_id=$1`, `c.park_id=$2`, `c.is_deleted=false`];
+    const actorParam = access === "park" ? null : (params.push(a.sub), params.length);
     if (q.type) {
       params.push(q.type);
       filters.push(`c.checklist_type=$${params.length}`);
@@ -191,13 +191,13 @@ export class HrLifecycleService {
       params.push(q.employee_id);
       filters.push(`c.employee_id=$${params.length}`);
     }
-    if (access === "self") filters.push(`e.user_id=$5`);
+    if (access === "self") filters.push(`e.user_id=$${actorParam}`);
     if (access === "managed_org_tree")
       filters.push(
-        `(EXISTS(SELECT 1 FROM hr_lifecycle_checklist_item assigned WHERE assigned.tenant_id=c.tenant_id AND assigned.park_id=c.park_id AND assigned.checklist_id=c.id AND assigned.responsible_user_id=$5)
-          OR e.manager_employee_id=(SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND user_id=$5 AND is_deleted=false LIMIT 1)
+        `(EXISTS(SELECT 1 FROM hr_lifecycle_checklist_item assigned WHERE assigned.tenant_id=c.tenant_id AND assigned.park_id=c.park_id AND assigned.checklist_id=c.id AND assigned.responsible_user_id=$${actorParam})
+          OR e.manager_employee_id=(SELECT id FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND user_id=$${actorParam} AND is_deleted=false LIMIT 1)
           OR e.primary_org_id IN (WITH RECURSIVE managed_org AS (
-            SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$5 AND is_deleted=false AND status='enabled'
+            SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$${actorParam} AND is_deleted=false AND status='enabled'
             UNION ALL SELECT child.id FROM sys_org child JOIN managed_org parent ON child.parent_id=parent.id
             WHERE child.tenant_id=$1 AND child.park_id=$2 AND child.is_deleted=false AND child.status='enabled'
           ) SELECT id FROM managed_org))`,
