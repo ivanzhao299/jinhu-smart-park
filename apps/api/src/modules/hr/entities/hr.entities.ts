@@ -12,7 +12,7 @@ export class HrPositionEntity extends AuditableEntity {
  @Column({length:32,default:"enabled"}) status!:string;
 }
 
-@Entity("hr_employee") @Index(["tenantId","parkId","employeeCode"],{unique:true,where:"is_deleted = false"})
+@Entity("hr_employee") @Index(["tenantId","parkId","employeeCode"],{unique:true})
 export class HrEmployeeEntity extends AuditableEntity {
  @Column({name:"employee_code",length:64}) employeeCode!:string;
  @Column({name:"full_name",length:100}) fullName!:string;
@@ -45,6 +45,7 @@ export class HrEmployeeProfileEntity extends AuditableEntity {
 @Entity("hr_employment_event")
 export class HrEmploymentEventEntity extends AuditableEntity {
  @Column({name:"employee_id",type:"uuid"}) employeeId!:string;
+ @Column({name:"event_no",type:"varchar",length:32,nullable:true}) eventNo!:string|null;
  @Column({name:"event_type",length:32}) eventType!:string;
  @Column({name:"effective_date",type:"date"}) effectiveDate!:string;
  @Column({name:"before_snapshot",type:"jsonb",default:()=>"'{}'::jsonb"}) beforeSnapshot!:Record<string,unknown>;

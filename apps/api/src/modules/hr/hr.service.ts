@@ -133,7 +133,7 @@ export class HrService {
   await this.validateEmployeeReferences(scope,dto);
   return this.dataSource.transaction(async manager=>{
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
-   if(await repo.exists({where:{...scope,employeeCode:dto.employeeCode,isDeleted:false}}))throw new ConflictException("Employee code already exists");
+   if(await repo.exists({where:{...scope,employeeCode:dto.employeeCode}}))throw new ConflictException("Employee code has already been allocated and cannot be reused");
    if(dto.userId&&await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false}}))throw new ConflictException("User is already linked to another employee");
    const row=await repo.save(repo.create({...scope,...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,employmentType:dto.employmentType??"full_time",employmentStatus:"preboarding",hireDate:dto.hireDate??null,probationEndDate:null,departureDate:null,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
    await eventRepo.save(eventRepo.create({...scope,employeeId:row.id,eventType:"created",effectiveDate:dto.hireDate??new Date().toISOString().slice(0,10),beforeSnapshot:{},afterSnapshot:this.eventSnapshot(row),reason:"创建员工档案",createBy:actor.sub,updateBy:actor.sub}));
@@ -147,7 +147,7 @@ export class HrService {
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});if(!row)throw new NotFoundException("Employee not found");
    if(dto.employmentStatus!==row.employmentStatus)throw new BadRequestException("Employment status must be changed through a lifecycle action");
-   if(await repo.exists({where:{...scope,employeeCode:dto.employeeCode,isDeleted:false,id:Not(id)}}))throw new ConflictException("Employee code already exists");
+   if(dto.employeeCode!==row.employeeCode)throw new ConflictException("Employee code cannot be changed after allocation");
    const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:dto.departureDate??null,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
    const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return saved;
   });

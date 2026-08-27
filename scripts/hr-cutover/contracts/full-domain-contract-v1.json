@@ -79,7 +79,7 @@
     "T2": { "contracts": 802, "contractChanges": 357, "contractTypes": 4 },
     "T3": { "attendancePolicies": 144, "attendanceRows": 4383, "insurancePolicies": 12, "insuranceAccounts": 144, "insuranceRows": 35008 },
     "T4": { "salaryTables": 35, "payrollRows": 46092, "items": 711, "formulas": 244, "closes": 1431, "memberships": 647, "taxRules": 9 },
-    "T5": { "legacyHistoryRows": 9140 },
+    "T5": { "legacyHistoryRows": 20163 },
     "authority": "signed_source_snapshot_manifest",
     "sourceChangeRequiresNewSignedProfile": true
   },

@@ -26,13 +26,20 @@ const fixtureMapping=structuredClone(mapping);fixtureMapping.inventoryContract.i
 const clone=value=>structuredClone(value);
 const code=fn=>assert.throws(fn,error=>error instanceof LegacyCoreMappingError&&error.code===code.expected);
 
-test("reviewed core mapping expands every selected field and keeps unsupported semantics as gaps",()=>{
+test("reviewed core mapping gives every field a mapped, core residue archive, or security exclusion disposition",()=>{
  const report=verifyLegacyCoreDomainMapping(fixture,fixtureMapping,{root});
  assert.equal(report.selectedTables,12);assert.equal(report.fields,Object.values(columns).reduce((sum,value)=>sum+value.length,0));assert.equal(report.mappedFields,38);
- assert.equal(report.fields,260);assert.equal(report.gapFields,222);
- assert.deepEqual(report.ruleLedger.filter(rule=>rule.status==="gap").map(rule=>rule.id),["employee-code-non-reuse","employment-event-number-jz-dz-lz-fz"]);
- assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person"&&row.sourceColumn==="jobstate")?.status,"mapped");
- assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person_user"&&row.sourceColumn==="A00007")?.status,"gap");
+ assert.equal(report.fields,260);assert.equal(report.gapFields,222);assert.equal(report.rawArchivedFields,220);assert.equal(report.securityExcludedFields,2);assert.equal(report.uncoveredFields,0);
+ assert.deepEqual(report.ruleLedger.filter(rule=>rule.status==="gap").map(rule=>rule.id),[]);
+ assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person"&&row.sourceColumn==="jobstate")?.compatibilityDisposition,"mapped");
+ assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person_user"&&row.sourceColumn==="A00007")?.compatibilityDisposition,"raw_archived");
+ assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person"&&row.sourceColumn==="password")?.securityReason,"LEGACY_CREDENTIAL_NOT_MIGRATED");
+ assert.equal(report.fieldLedger.find(row=>row.sourceTable==="person"&&row.sourceColumn==="photo")?.securityReason,"BINARY_FILE_EVIDENCE_ONLY");
+});
+
+test("core residue coverage fails closed when a table or security exclusion is removed",()=>{
+ const missingTable=clone(fixtureMapping);delete missingTable.residueArchive.tableDomains.person_user;code.expected="RESIDUE_ARCHIVE_TABLE_SET_INCOMPLETE";code(()=>verifyLegacyCoreDomainMapping(fixture,missingTable,{root}));
+ const missingExclusion=clone(fixtureMapping);missingExclusion.residueArchive.securityExclusions=missingExclusion.residueArchive.securityExclusions.filter(item=>item.locator!=="person.password");code.expected="RESIDUE_SECURITY_EXCLUSION_SET_INVALID";code(()=>verifyLegacyCoreDomainMapping(fixture,missingExclusion,{root}));
 });
 
 test("missing source table or reviewed column fails closed",()=>{
@@ -47,8 +54,8 @@ test("mapped rules require real target symbols and real test evidence",()=>{
 });
 
 test("gaps require a stable reason and cannot carry target evidence",()=>{
- const invalid=clone(fixtureMapping),rule=invalid.businessRules.find(item=>item.id==="employee-code-non-reuse");rule.reasonCode="free text";code.expected="BUSINESS_RULE_GAP_INVALID";code(()=>verifyLegacyCoreDomainMapping(fixture,invalid,{root}));
- const invented=clone(fixtureMapping),gap=invented.businessRules.find(item=>item.id==="employee-code-non-reuse");gap.targetEvidence=[{kind:"test",file:"scripts/e2e/yuzhou-t2-contracts-contract.mjs",symbol:"hr_contract"}];code.expected="BUSINESS_RULE_GAP_INVALID";code(()=>verifyLegacyCoreDomainMapping(fixture,invented,{root}));
+ const invalid=clone(fixtureMapping),rule=invalid.businessRules.find(item=>item.id==="employee-code-non-reuse");rule.status="gap";rule.reasonCode="free text";rule.targetEvidence=[];code.expected="BUSINESS_RULE_GAP_INVALID";code(()=>verifyLegacyCoreDomainMapping(fixture,invalid,{root}));
+ const invented=clone(fixtureMapping),gap=invented.businessRules.find(item=>item.id==="employee-code-non-reuse");gap.status="gap";gap.reasonCode="TARGET_RULE_NOT_IMPLEMENTED";gap.targetEvidence=[{kind:"test",file:"scripts/e2e/yuzhou-t2-contracts-contract.mjs",symbol:"hr_contract"}];code.expected="BUSINESS_RULE_GAP_INVALID";code(()=>verifyLegacyCoreDomainMapping(fixture,invented,{root}));
 });
 
 test("mapping is pinned to the reviewed inventory hash and exact 12-table/260-field scope",()=>{

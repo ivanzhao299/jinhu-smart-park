@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "topologyKind": "yuzhou_hr_legacy_runtime_topology",
+  "status": "verified_distinct_surfaces",
+  "operationMode": "read_only",
+  "surfaces": [
+    {
+      "id": "desktop_client",
+      "runtime": "observed",
+      "technology": "windows_desktop_client",
+      "roleModel": "client_user_permission_tree",
+      "entryEvidence": ["organization", "employee", "employment", "contract", "payroll", "training", "reward", "performance", "insurance", "attendance", "recruitment", "system"]
+    },
+    {
+      "id": "classic_group_network",
+      "runtime": "observed_login_shell",
+      "technology": "classic_asp_dedicated_iis_site",
+      "roleModel": "person_login_self_service",
+      "entryEvidence": ["default.asp", "index.asp", "logincheck.asp", "main.asp", "menu.asp", "top.asp", "bottom.asp", "desktop.asp", "workmain.asp"]
+    },
+    {
+      "id": "database_web_menu",
+      "runtime": "structural_only",
+      "technology": "asp_net_menu_contract",
+      "roleModel": "systab_func_user_right",
+      "entryEvidence": ["sysTab", "func", "Web_GetSysTab", "Web_GetUserRight"]
+    }
+  ],
+  "compatibilityDecision": {
+    "functionallyIdentical": false,
+    "desktopAuthority": "hr_backoffice_workflows",
+    "classicWebAuthority": "employee_self_service_shell",
+    "databaseMenuAuthority": "legacy_web_navigation_and_permission_evidence",
+    "targetStrategy": "one_modern_hr_module_with_atomic_role_scopes"
+  },
+  "security": {
+    "credentialsRecorded": false,
+    "personalValuesRecorded": false,
+    "screenshotsCommitted": false,
+    "writeActionsExecuted": false
+  },
+  "remainingRuntimeGates": [
+    "classic_web_authenticated_page_matrix",
+    "database_web_menu_deployment_identity",
+    "employee_manager_hr_projection_matrix"
+  ],
+  "productionImport": "HOLD"
+}

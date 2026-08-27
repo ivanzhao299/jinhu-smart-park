@@ -75,6 +75,31 @@ export function verifyLegacyCoreDomainMapping(inventory,mapping,{root=process.cw
   if(domains.size!==3)fail("DOMAIN_SET_INCOMPLETE",[...domains].join(","));
   if(JSON.stringify([...selectedTables].sort())!==JSON.stringify(EXPECTED_TABLES))fail("TABLE_SET_INCOMPLETE",[...selectedTables].sort().join(","));
   if(selectedTables.size!==mapping.inventoryContract.selectedTables||rows.length!==mapping.inventoryContract.selectedFields)fail("INVENTORY_SELECTION_COUNT_MISMATCH",`tables=${selectedTables.size},fields=${rows.length}`);
+  const residue=mapping.residueArchive;
+  if(!plain(residue)||residue.version!=="yuzhou-core-residue-v1"||residue.productionImport!=="HOLD")fail("RESIDUE_ARCHIVE_CONTRACT_INVALID","identity or production gate");
+  validateEvidence(root,residue.targetEvidence,"residueArchive.targetEvidence");
+  const archiveTables=new Map(Object.entries(residue.tableDomains??{}));
+  if(JSON.stringify([...archiveTables.keys()].sort())!==JSON.stringify(EXPECTED_TABLES))fail("RESIDUE_ARCHIVE_TABLE_SET_INCOMPLETE",[...archiveTables.keys()].sort().join(","));
+  const allowedArchiveDomains=new Set(["employee_profile_raw","family","skill","credential","employment_change_raw","contract_raw"]);
+  for(const [table,domain] of archiveTables)if(!allowedArchiveDomains.has(domain))fail("RESIDUE_ARCHIVE_DOMAIN_INVALID",`${table}:${domain}`);
+  const securityExclusions=new Map();
+  for(const item of residue.securityExclusions??[]){
+    if(!plain(item)||!["LEGACY_CREDENTIAL_NOT_MIGRATED","BINARY_FILE_EVIDENCE_ONLY"].includes(item.reasonCode)||securityExclusions.has(item.locator))fail("RESIDUE_SECURITY_EXCLUSION_INVALID",String(item?.locator));
+    const row=rows.find(candidate=>`${candidate.sourceTable}.${candidate.sourceColumn}`===item.locator);
+    if(!row||row.status!=="gap")fail("RESIDUE_SECURITY_EXCLUSION_INVALID",item.locator);
+    securityExclusions.set(item.locator,item.reasonCode);
+  }
+  if(JSON.stringify([...securityExclusions.keys()].sort())!==JSON.stringify(["person.password","person.photo"]))fail("RESIDUE_SECURITY_EXCLUSION_SET_INVALID",[...securityExclusions.keys()].sort().join(","));
+  const fieldCoverage=rows.map(row=>{
+    const locator=`${row.sourceTable}.${row.sourceColumn}`;
+    if(row.status==="mapped")return{...row,compatibilityDisposition:"mapped",archiveDomain:null,securityReason:null};
+    const securityReason=securityExclusions.get(locator)??null;
+    if(securityReason)return{...row,compatibilityDisposition:"security_excluded",archiveDomain:null,securityReason};
+    const archiveDomain=archiveTables.get(row.sourceTable);
+    if(!archiveDomain)fail("RESIDUE_FIELD_UNCOVERED",locator);
+    return{...row,compatibilityDisposition:"raw_archived",archiveDomain,securityReason:null};
+  });
+  if(fieldCoverage.length!==260||fieldCoverage.some(row=>!["mapped","raw_archived","security_excluded"].includes(row.compatibilityDisposition)))fail("RESIDUE_FIELD_COVERAGE_INCOMPLETE","every selected field needs a disposition");
   const rules=[];
   for(const rule of mapping.businessRules??[]){
     if(!plain(rule)||!domains.has(rule.domain)||!["mapped","tested","gap"].includes(rule.status))fail("BUSINESS_RULE_INVALID",String(rule?.id));
@@ -92,5 +117,5 @@ export function verifyLegacyCoreDomainMapping(inventory,mapping,{root=process.cw
   const expectedRules=["employee-code-non-reuse","jobstate-mapping","employment-event-number-jz-dz-lz-fz","employment-before-after-snapshot","contract-renewal-chain","contract-three-agreements","contract-expiry-reminder"];
   if(JSON.stringify(rules.map(rule=>rule.id).sort())!==JSON.stringify(expectedRules.sort()))fail("BUSINESS_RULE_SET_INCOMPLETE","required core rules missing");
   const byDomain=Object.fromEntries([...domains].sort().map(domain=>{const fields=rows.filter(row=>row.domain===domain),domainRules=rules.filter(rule=>rule.domain===domain);return[domain,{fields:fields.length,mappedFields:fields.filter(row=>row.status==="mapped").length,gapFields:fields.filter(row=>row.status==="gap").length,rules:domainRules.length,mappedOrTestedRules:domainRules.filter(rule=>rule.status!=="gap").length,gapRules:domainRules.filter(rule=>rule.status==="gap").length}]}));
-  return {ok:true,mappingVersion:mapping.mappingVersion,selectedTables:selectedTables.size,fields:rows.length,mappedFields:rows.filter(row=>row.status==="mapped").length,gapFields:rows.filter(row=>row.status==="gap").length,rules:rules.length,mappedOrTestedRules:rules.filter(rule=>rule.status!=="gap").length,gapRules:rules.filter(rule=>rule.status==="gap").length,byDomain,fieldLedger:rows,ruleLedger:rules};
+  return {ok:true,mappingVersion:mapping.mappingVersion,selectedTables:selectedTables.size,fields:rows.length,mappedFields:rows.filter(row=>row.status==="mapped").length,gapFields:rows.filter(row=>row.status==="gap").length,rawArchivedFields:fieldCoverage.filter(row=>row.compatibilityDisposition==="raw_archived").length,securityExcludedFields:fieldCoverage.filter(row=>row.compatibilityDisposition==="security_excluded").length,uncoveredFields:fieldCoverage.filter(row=>!row.compatibilityDisposition).length,rules:rules.length,mappedOrTestedRules:rules.filter(rule=>rule.status!=="gap").length,gapRules:rules.filter(rule=>rule.status==="gap").length,byDomain,fieldLedger:fieldCoverage,ruleLedger:rules};
 }
