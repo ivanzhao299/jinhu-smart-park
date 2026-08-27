@@ -55,3 +55,27 @@
 - 独立 Chrome 进程同时匹配 CDP 9353 与 RUN_ID profile 后精确停止；未触碰主 Chrome。
 - 同参 compose `down --volumes --remove-orphans`；compose 资源 0，四端口监听 0。`phoenix-v3-db`、`yuzhou-mssql`、`jinhu-smart-park-postgres` 状态未改动。
 - 未执行 `TRUNCATE CASCADE`，未禁用不可变审计 trigger。由于 residual gate FAIL，本轮报告合并后仍不归档住房父 UAT 任务及 #408/#409/#410/#413/#414/#420 六个修复子任务。
+
+## 归档时 residual gate 重分类（2026-08-27）
+
+本节是 [PR #428](https://github.com/ivanzhao299/jinhu-smart-park/pull/428) 合并新 SOP 后的归档判定，不追溯改写上面的原始执行结论。按新口径，可删业务表仍要求逐 fixture 精确 `DELETE` 后归零；不可变审计/效果表保留审计记录，并以本轮独占 `RUN_ID` 的 compose 数据卷整体销毁、project 资源归零和端口归零作为归零证据。本轮 teardown 已满足后一组证据，且未绕过任何审计保护，因此 immutable 类 residual gate 重分类为 PASS。
+
+本轮 `residual-before.log` 只保存了聚合 before：`housing_domain=11`、`property_task=30`、`approval_runtime=66`，未保存可将聚合值可靠拆分到单表的逐表计数；归档不得事后推造逐表数字。根据本轮数据库 schema，阻止相关记录 `DELETE` 的已核验 trigger/table 审计痕迹如下：
+
+| 类别 | trigger | table | 不可删原因 |
+| --- | --- | --- | --- |
+| approval runtime/effect | `trg_biz_property_approval_decision_immutable` | `biz_property_approval_decision` | `fn_property_approval_immutable()` 抛出 `property-approval-record-immutable` |
+| approval runtime/effect | `trg_biz_property_approval_audit_immutable` | `biz_property_approval_audit` | 同上 |
+| approval runtime/effect | `trg_biz_property_effect_manifest_immutable` | `biz_property_execution_effect_manifest` | 同上 |
+| approval runtime/effect | `trg_biz_property_effect_receipt_immutable` | `biz_property_execution_effect_receipt` | 同上 |
+| approval runtime/effect | `trg_property_mutation_receipt_guard_v2` | `biz_property_mutation_receipt` | DELETE 分支抛出 `property-mutation-receipt-delete-forbidden` |
+| housing effect | `trg_housing_ledger_approval_link_immutable` | `biz_housing_ledger_entry` | 存在 approval execution key 时拒绝 DELETE |
+| housing effect | `trg_housing_handover_approval_link_immutable` | `biz_housing_handover` | 存在 approval execution key 时拒绝 DELETE |
+| housing effect | `trg_housing_lease_effect_audit_immutable` | `biz_housing_lease_effect_audit` | `fn_property_approval_immutable()` 拒绝 DELETE |
+| housing effect | `trg_housing_purchase_effect_audit_immutable` | `biz_housing_purchase_effect_audit` | 同上 |
+| housing effect | `trg_housing_purchase_transfer_effect_audit_immutable` | `biz_housing_purchase_transfer_effect_audit` | 同上 |
+| property task audit | `trg_biz_property_task_assignment_audit_immutable` | `biz_property_task_assignment_audit` | 抛出 `property-task-audit-immutable` |
+| property task audit | `trg_biz_property_task_projection_rebuild_audit_immutable` | `biz_property_task_projection_rebuild_audit` | 抛出 `property-task-projection-audit-immutable` |
+| property task audit | `trg_sys_property_runtime_control_contract_audit_immutable` | `sys_property_runtime_control_contract_audit` | 抛出 `property-runtime-control-contract-audit-immutable` |
+
+该清单证明 schema 中适用的删除保护，不声称聚合 before 的每一行都来自清单中的每一张表。归档依据同时保留真人具名签署、跨园区 fixture 和 Chrome MCP `N/A` 限制；这些不因 residual 重分类而变为已执行。

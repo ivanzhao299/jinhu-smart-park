@@ -55,3 +55,10 @@
 - Stop after two same-topic PostgreSQL environment failures and report the evidence.
 - Do not touch HR files, production data, other users' containers, or the primary Chrome profile.
 - Do not use `TRUNCATE CASCADE`; cleanup targets must be fixture-specific and recoverable from the manifest.
+
+## Closure evidence (2026-08-27)
+
+- Issue #420 的 pre-fix 42P08 与修复后 PostgreSQL 16 gate 由 PR [#423](https://github.com/ivanzhao299/jinhu-smart-park/pull/423) 固化；PR CI 的 five-source gate 通过，Issue 随 merge `5a3b02cb` 关闭，Deploy 成功，后续 main CI 成功链覆盖该提交。
+- 最终复测确认 billing/handover/lease/purchase/repair 五源恰集、无 `inconsistent types deduced`/42P08，同时覆盖正确押金退款、C02 409/深链与 Dashboard KPI；证据见 `docs/uat/housing-final-retest-uat-20260827-114806.md` 和 PR [#426](https://github.com/ivanzhao299/jinhu-smart-park/pull/426)。
+- residual 按 PR [#428](https://github.com/ivanzhao299/jinhu-smart-park/pull/428) 修订口径通过：可删业务 fixture 精确清理；immutable 审计/效果记录以独占 RUN_ID 的 compose 数据卷整体销毁、project/端口归零为证据，且未绕过 trigger、未使用 `session_replication_role`、未 TRUNCATE。
+- 原计划中真人签署、跨园区 fixture 与 Chrome MCP `N/A` 仍按报告保留，不伪造为本轮已执行。
