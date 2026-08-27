@@ -81,6 +81,7 @@ test("HR enterprise UI keeps compact hierarchy and phone-safe navigation",()=>{
   assert.match(styles,/\.page :global\(\.ds-hero\)[\s\S]*min-height:\s*176px/);
   assert.match(styles,/\.metricCard[\s\S]*grid-template-columns:\s*38px minmax\(0, 1fr\) auto/);
   assert.match(styles,/\.businessGroups[\s\S]*display:\s*grid/);
+  assert.match(styles,/\.shortcutGrid\s*\{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.metricGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.shortcutGrid\s*\{[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
 });

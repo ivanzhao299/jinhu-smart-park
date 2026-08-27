@@ -131,7 +131,10 @@
 
 .shortcutGrid {
   grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  border: 0;
   padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .sectionMeta {
