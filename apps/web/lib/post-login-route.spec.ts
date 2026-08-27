@@ -316,6 +316,23 @@ test("post-login landing falls back to dashboard when the raw tree normalizes to
   assert.equal(resolvePostLoginPath(user, desktopSignals), "/dashboard");
 });
 
+test("post-login landing skips normalized backend nodes absent from the Sidebar tree", () => {
+  const user = createUser({
+    permissions: ["custom:read", "user:read"],
+    enabled_modules: [
+      { module_code: "custom", module_name: "自定义", module_group: "custom", enabled: true },
+      { module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }
+    ],
+    menu_tree: [
+      { label: "自定义报表", href: "/custom/report", permission: "custom:read", module: "custom" },
+      { label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }
+    ]
+  });
+
+  assert.equal(resolvePostLoginPath(user, desktopSignals), "/system/users");
+  assert.equal(findMenuByPath("/custom/report", getUserDashboardMenus(user)), undefined);
+});
+
 const desktopSignals = { viewportWidth: 1440, pointerCoarse: false, touchPoints: 0, userAgent: "Macintosh" };
 const mobileSignals = { viewportWidth: 390, pointerCoarse: true, touchPoints: 5, userAgent: "iPhone" };
 
@@ -427,6 +444,25 @@ test("park switches redirect a backend menu removed from the target park", () =>
   });
 
   assert.equal(resolvePostParkSwitchPath(nextUser, "/system/extension-console", previousUser, desktopSignals), "/system/users");
+});
+
+test("park switches classify a previous legacy route without selecting it as the new landing", () => {
+  const previousUser = createUser({
+    permissions: ["housing_rental:operations"],
+    enabled_modules: [
+      { module_code: "housing_rental", module_name: "住房出租", module_group: "property", enabled: true }
+    ],
+    menu_tree: [
+      { label: "旧住房入口", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
+    ]
+  });
+  const nextUser = createUser({
+    permissions: ["user:read"],
+    enabled_modules: [{ module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }],
+    menu_tree: [{ label: "用户管理", href: "/system/users", permission: "user:read", module: "system" }]
+  });
+
+  assert.equal(resolvePostParkSwitchPath(nextUser, "/housing", previousUser, desktopSignals), "/system/users");
 });
 
 test("park switches require the engineering terminal dashboard permission", () => {

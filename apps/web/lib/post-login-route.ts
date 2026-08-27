@@ -2,7 +2,8 @@ import { SYSTEM_PERMISSIONS, type UserContext } from "@jinhu/shared";
 import {
   getUserDashboardAuthorizationMenus,
   getUserDashboardMenus,
-  getUserNormalizedMenuTree
+  getUserNormalizedMenuTree,
+  resolveUserMenuTree
 } from "./menu";
 import { hasAllPermissions, hasModule, hasPermission } from "./permissions";
 
@@ -39,7 +40,8 @@ function findFirstAccessibleMenuHref(
   user: UserContext | null,
   items?: RouteMenuItem[],
   inheritedModule?: string,
-  authorizationItems?: RouteMenuItem[]
+  authorizationItems?: RouteMenuItem[],
+  displayItems?: RouteMenuItem[]
 ): string | null {
   if (!items) {
     return null;
@@ -49,16 +51,20 @@ function findFirstAccessibleMenuHref(
     const authorizationItem = item.href
       ? findMenuRequirementsByHref(item.href, authorizationItems)
       : undefined;
+    const displayItem = item.href
+      ? findMenuRequirementsByHref(item.href, displayItems)
+      : undefined;
     if (
       item.href &&
       item.href !== "/login" &&
+      displayItem &&
       hasPermission(user, item.permission) &&
       hasAllPermissions(user, authorizationItem?.permissions ?? []) &&
       hasModule(user, moduleCode)
     ) {
       return item.href;
     }
-    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode, authorizationItems);
+    const nested = findFirstAccessibleMenuHref(user, item.children, moduleCode, authorizationItems, displayItems);
     if (nested) {
       return nested;
     }
@@ -88,7 +94,8 @@ function findFirstPostLoginMenuHref(user: UserContext | null): string | null {
     user,
     userMenus,
     undefined,
-    getUserDashboardAuthorizationMenus(user)
+    getUserDashboardAuthorizationMenus(user),
+    getUserDashboardMenus(user)
   );
 }
 
@@ -237,7 +244,7 @@ export function resolvePostParkSwitchPath(
   const previousMenuAccess = resolveMenuPathAccess(
     previousUser,
     pathname,
-    getUserNormalizedMenuTree(previousUser)
+    resolveUserMenuTree(previousUser)
   );
   return previousMenuAccess ? resolvePostLoginPath(user, signals) : pathname;
 }
