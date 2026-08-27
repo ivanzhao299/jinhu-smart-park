@@ -38,8 +38,8 @@ export function projectHrGoal(row: HrGoalEntity) {
 }
 
 export function projectHrWorkReport(row: HrWorkReportEntity) {
-  const {id,employeeId,reportType,periodStart,periodEnd,completedWork,nextPlan,risks,collaborationNeeds,hours,status,reviewerEmployeeId,reviewComment,submittedAt,reviewedAt}=row;
-  return {id,employeeId,reportType,periodStart,periodEnd,completedWork,nextPlan,risks,collaborationNeeds,hours,status,reviewerEmployeeId,reviewComment,submittedAt,reviewedAt};
+  const {id,employeeId,reportType,periodStart,periodEnd,title,completedWork,nextPlan,risks,questionsAndSuggestions,collaborationNeeds,hours,status,reviewerEmployeeId,reviewComment,submittedAt,reviewedAt}=row;
+  return {id,employeeId,reportType,periodStart,periodEnd,title,completedWork,nextPlan,risks,questionsAndSuggestions,collaborationNeeds,hours,status,reviewerEmployeeId,reviewComment,submittedAt,reviewedAt};
 }
 
 export function projectHrPerformancePlan(row: HrPerformancePlanEntity, mode: HrPerformanceProjectionMode) {

@@ -104,8 +104,8 @@ export class HrGoalCheckinEntity extends AuditableEntity {
 export class HrWorkReportEntity extends AuditableEntity {
  @Column({name:"employee_id",type:"uuid"}) employeeId!:string; @Column({name:"report_type",length:16}) reportType!:string;
  @Column({name:"period_start",type:"date"}) periodStart!:string; @Column({name:"period_end",type:"date"}) periodEnd!:string;
- @Column({name:"completed_work",type:"text"}) completedWork!:string; @Column({name:"next_plan",type:"text",nullable:true}) nextPlan!:string|null;
- @Column({type:"text",nullable:true}) risks!:string|null; @Column({name:"collaboration_needs",type:"text",nullable:true}) collaborationNeeds!:string|null;
+ @Column({type:"varchar",length:64,nullable:true}) title!:string|null; @Column({name:"completed_work",type:"text"}) completedWork!:string; @Column({name:"next_plan",type:"text",nullable:true}) nextPlan!:string|null;
+ @Column({type:"text",nullable:true}) risks!:string|null; @Column({name:"questions_and_suggestions",type:"text",nullable:true}) questionsAndSuggestions!:string|null; @Column({name:"collaboration_needs",type:"text",nullable:true}) collaborationNeeds!:string|null;
  @Column({type:"numeric",precision:8,scale:2,nullable:true}) hours!:string|null; @Column({length:32,default:"draft"}) status!:string;
  @Column({name:"reviewer_employee_id",type:"uuid",nullable:true}) reviewerEmployeeId!:string|null; @Column({name:"review_comment",type:"varchar",length:1000,nullable:true}) reviewComment!:string|null;
  @Column({name:"submitted_at",type:"timestamptz",nullable:true}) submittedAt!:Date|null; @Column({name:"reviewed_at",type:"timestamptz",nullable:true}) reviewedAt!:Date|null;
