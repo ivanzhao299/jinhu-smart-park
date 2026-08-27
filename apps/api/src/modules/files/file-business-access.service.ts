@@ -21,13 +21,13 @@ export const PROPERTY_BUSINESS_FILE_TYPES = [
   "homestay_turnover",
   "floorplan",
   "party_identity_evidence"
-  ,"hr_employee_document","hr_employee_photo","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence","hr_reward_evidence"
+  ,"hr_employee_document","hr_employee_photo","hr_candidate_resume","hr_candidate_offer_evidence","hr_employee_credential_evidence","hr_lifecycle_checklist_evidence","hr_training_certificate","hr_training_evidence","hr_reward_evidence","hr_contract_document"
 ] as const;
 
 type PropertyBusinessFileType = (typeof PROPERTY_BUSINESS_FILE_TYPES)[number];
 type RuleBasedPropertyBusinessFileType = Exclude<
   PropertyBusinessFileType,
-  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_employee_photo" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence" | "hr_training_certificate" | "hr_training_evidence" | "hr_reward_evidence"
+  "floorplan" | "party_identity_evidence" | "hr_employee_document" | "hr_employee_photo" | "hr_candidate_resume" | "hr_candidate_offer_evidence" | "hr_employee_credential_evidence" | "hr_lifecycle_checklist_evidence" | "hr_training_certificate" | "hr_training_evidence" | "hr_reward_evidence" | "hr_contract_document"
 >;
 type AccessAction = "upload" | "read" | "download" | "delete";
 type FloorAccessAction = "read" | "write";
@@ -159,6 +159,10 @@ export class FileBusinessAccessService {
       await this.assertHrRewardDocumentAccess(scope,actor,bizId,action);
       return;
     }
+    if (bizType === "hr_contract_document") {
+      await this.assertHrContractDocumentAccess(scope,actor,bizId,action);
+      return;
+    }
     const rule = ACCESS_RULES[bizType];
     const permissions = action === "upload" || action === "delete"
       ? rule.writePermissions
@@ -253,6 +257,31 @@ export class FileBusinessAccessService {
     const rows=await this.dataSource.query(`SELECT status FROM hr_reward_discipline_case WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]) as Array<{status:string}>;
     if(!rows[0])throw new ForbiddenException("HR reward reference is outside the current tenant or park");
     if(write&&!['draft','returned'].includes(rows[0].status))throw new ForbiddenException("Reward evidence can only change while the case is draft or returned");
+  }
+
+  private async assertHrContractDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
+    if(!bizId)throw new ForbiddenException("HR contract documents require a contract reference");
+    const write=action==="upload"||action==="delete";
+    if(write&&!this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_MANAGE))throw new ForbiddenException(`${HR_PERMISSIONS.HR_CONTRACT_MANAGE} permission is required`);
+    const parkRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_READ)||this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_MANAGE);
+    const teamRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ),selfRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SELF_READ);
+    if(!write&&!parkRead&&!teamRead&&!selfRead)throw new ForbiddenException("HR contract read permission is required");
+    const rows=await this.dataSource.query(`WITH RECURSIVE managed_org AS (
+      SELECT id FROM sys_org WHERE tenant_id=$2 AND park_id=$3 AND leader_user_id=$4 AND is_deleted=false AND status='enabled'
+      UNION ALL SELECT child.id FROM sys_org child JOIN managed_org parent ON child.parent_id=parent.id
+      WHERE child.tenant_id=$2 AND child.park_id=$3 AND child.is_deleted=false AND child.status='enabled'
+    ), actor_employee AS (
+      SELECT id FROM hr_employee WHERE tenant_id=$2 AND park_id=$3 AND user_id=$4 AND is_deleted=false
+    ) SELECT employee.user_id,contract.is_historical_import,(employee.user_id=$4) AS is_self,
+        (employee.primary_org_id IN (SELECT id FROM managed_org) OR employee.manager_employee_id IN (SELECT id FROM actor_employee)) AS is_team
+      FROM hr_contract contract JOIN hr_employee employee ON employee.id=contract.employee_id AND employee.tenant_id=contract.tenant_id AND employee.park_id=contract.park_id
+      WHERE contract.id=$1 AND contract.tenant_id=$2 AND contract.park_id=$3 AND contract.is_deleted=false AND employee.is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId,actor.sub]) as Array<{user_id:string|null;is_historical_import:boolean;is_self:boolean;is_team:boolean}>;
+    const reference=rows[0];if(!reference)throw new ForbiddenException("HR contract reference is outside the current tenant or park");
+    if(write&&reference.is_historical_import)throw new ForbiddenException("Historical imported contract documents are immutable");
+    if(write||parkRead)return;
+    if(selfRead&&reference.is_self)return;
+    if(teamRead&&reference.is_team)return;
+    throw new ForbiddenException("Contract document is outside the actor's employee scope");
   }
 
   assertPendingFileOwner(actor: JwtPrincipal, file: FileEntity): void {

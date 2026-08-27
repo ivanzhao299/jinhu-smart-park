@@ -3,7 +3,7 @@ import { after,before,describe,it } from "node:test";
 import { HR_PERMISSIONS } from "@jinhu/shared";
 import { DataSource } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeEntity } from "./entities/hr.entities";
+import { HrContractActionEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeEntity } from "./entities/hr.entities";
 import { HrService } from "./hr.service";
 
 const required=process.env.HR_CONTRACT_READ_PG_REQUIRED==="1";
@@ -20,7 +20,7 @@ suite("HR contract read PostgreSQL gate",()=>{
  const actor:JwtPrincipal={sub:"00000000-0000-4000-8000-00000000c001",username:"contract-gate",tenantId:scope.tenantId,parkId:scope.parkId,roles:[],permissions:[HR_PERMISSIONS.HR_CONTRACT_READ]};
 
  before(async()=>{
-  dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),database:process.env.POSTGRES_DB??"jinhu_smart_park",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,entities:[HrEmployeeEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity]});
+  dataSource=new DataSource({type:"postgres",host:process.env.POSTGRES_HOST??"127.0.0.1",port:Number(process.env.POSTGRES_PORT??"5432"),database:process.env.POSTGRES_DB??"jinhu_smart_park",username:process.env.POSTGRES_USER??"jinhu",password:process.env.POSTGRES_PASSWORD,entities:[HrEmployeeEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity]});
   await dataSource.initialize();
   const args=Array(32).fill(undefined);
   args[0]=dataSource.getRepository(HrEmployeeEntity);args[19]=dataSource.getRepository(HrContractTypeEntity);args[20]=dataSource.getRepository(HrContractEntity);args[21]=dataSource.getRepository(HrContractChangeEntity);args[30]=dataSource;args[31]={recordOperationRequired:async(input:Record<string,unknown>)=>{audits.push(input);}};
@@ -32,6 +32,9 @@ suite("HR contract read PostgreSQL gate",()=>{
  });
  after(async()=>{
   if(dataSource?.isInitialized){
+   await dataSource.query("ALTER TABLE hr_contract_action DISABLE TRIGGER USER");
+   await dataSource.query("DELETE FROM hr_contract_action WHERE contract_id IN (SELECT id FROM hr_contract WHERE contract_no IN ('M5-ONLINE-001','M5-CANCEL-001'))");
+   await dataSource.query("ALTER TABLE hr_contract_action ENABLE TRIGGER USER");
    await dataSource.query("DELETE FROM hr_contract_change WHERE id=$1 OR contract_id IN (SELECT id FROM hr_contract WHERE contract_no IN ('M5-ONLINE-001','M5-CANCEL-001'))",[change]);
    await dataSource.query("DELETE FROM hr_contract WHERE contract_no IN ('M5-ONLINE-001','M5-CANCEL-001')");
    await dataSource.query("DELETE FROM hr_contract WHERE id IN ($1,$2)",[contract,foreignContract]);
@@ -47,7 +50,7 @@ suite("HR contract read PostgreSQL gate",()=>{
   assert.deepEqual(Object.keys(page.items[0]!).sort(),["contractNo","contractTypeId","contractTypeName","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","probationEndDate","startDate","status"].sort());
   assert.equal(page.items[0]!.contractNo,"M5-LOCAL-001");
   const detail=await service.contractDetail(scope,actor,contract);
-  assert.deepEqual(Object.keys(detail).sort(),["changes","contractNo","contractTypeId","contractTypeName","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","probationEndDate","startDate","status"].sort());
+  assert.deepEqual(Object.keys(detail).sort(),["actions","changes","contractNo","contractTypeId","contractTypeName","contractTermMonths","departmentNameSnapshot","effectiveDate","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","positionTitle","probationEndDate","probationMonths","remark","signatureDate","startDate","status","workType"].sort());
   assert.deepEqual(Object.keys(detail.changes[0]!).sort(),["changeType","id","isHistoricalImport","newEndDate","newStartDate","previousEndDate","previousStartDate","sequenceNo","status"].sort());
   await assert.rejects(service.contractDetail(scope,actor,foreignContract),/Contract not found/u);
   assert.equal(audits.length,2);
@@ -61,9 +64,17 @@ suite("HR contract read PostgreSQL gate",()=>{
 
  it("creates online drafts transactionally and keeps imported history immutable",async()=>{
   const manager={...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE,HR_PERMISSIONS.HR_CONTRACT_READ]};
-  const created=await service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-001",startDate:"2027-01-01",endDate:"2028-12-31"});
+  await assert.rejects(service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-SALARY-DENIED",startDate:"2027-01-01",baseSalary:"9000.00"}),/Compensation management permission/u);
+  const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_COMPENSATION_READ]};
+  const created=await service.createContract(scope,salaryManager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-001",startDate:"2027-01-01",endDate:"2028-12-31",contractTermMonths:24,signatureDate:"2026-12-20",effectiveDate:"2027-01-01",positionTitle:"测试岗位",workType:"全日制",departmentNameSnapshot:"测试部门",probationMonths:3,probationSalary:"8000.00",baseSalary:"9000.00"});
   assert.equal(created.status,"draft");
   assert.equal(created.isHistoricalImport,false);
+  assert.equal(created.baseSalary,"9000.00");
+  const updated=await service.updateContract(scope,manager,created.id,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-001",startDate:"2027-01-01",endDate:"2028-12-31",positionTitle:"更新岗位"});
+  assert.equal(updated.positionTitle,"更新岗位");
+  assert.equal("baseSalary" in updated,false);
+  const salaryAfter=await dataSource.query("SELECT base_salary::text FROM hr_contract WHERE id=$1",[created.id]) as Array<{base_salary:string}>;
+  assert.equal(salaryAfter[0]?.base_salary,"9000.00");
   await assert.rejects(service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-002",startDate:"2027-01-01"}),/active or draft contract/u);
   assert.equal((await service.actContract(scope,manager,created.id,{action:"activate"})).status,"active");
   await assert.rejects(service.actContract(scope,manager,created.id,{action:"cancel"}),/Only a draft/u);
@@ -71,7 +82,7 @@ suite("HR contract read PostgreSQL gate",()=>{
   assert.equal(draft.status,"draft");
   assert.equal(draft.isHistoricalImport,false);
   await assert.rejects(service.createContractChange(scope,manager,created.id,{changeType:"amendment",newStartDate:"2029-01-01"}),/pending change draft/u);
-  await dataSource.query("DELETE FROM hr_contract_change WHERE id=$1",[draft.id]);
+  await service.actContractChange(scope,manager,created.id,draft.id,{action:"cancel"});
   const race=await Promise.allSettled([
    service.createContractChange(scope,manager,created.id,{changeType:"amendment",newStartDate:"2029-02-01"}),
    service.createContractChange(scope,manager,created.id,{changeType:"correction",newStartDate:"2029-03-01"})
@@ -86,6 +97,9 @@ suite("HR contract read PostgreSQL gate",()=>{
   assert.equal((await service.actContractChange(scope,manager,created.id,cancelledChange.id,{action:"cancel"})).status,"cancelled");
   const cancelledContract=await service.createContract(scope,manager,{employeeId:cancelEmployee,contractTypeId:type,contractNo:"M5-CANCEL-001",startDate:"2027-01-01"});
   assert.equal((await service.actContract(scope,manager,cancelledContract.id,{action:"cancel"})).status,"cancelled");
+  const actions=await dataSource.getRepository(HrContractActionEntity).find({where:{...scope,contractId:created.id},order:{sequenceNo:"ASC"}});
+  assert.deepEqual(actions.map(item=>item.action),["created","updated","activated","change_created","change_cancelled","change_created","change_applied","change_created","change_cancelled"]);
+  await assert.rejects(dataSource.query("UPDATE hr_contract_action SET remark='tampered' WHERE id=$1",[actions[0]!.id]),/append-only/u);
   await assert.rejects(service.actContract(scope,manager,contract,{action:"cancel"}),/immutable/u);
   await assert.rejects(service.createContractChange(scope,manager,contract,{changeType:"renewal",newStartDate:"2028-01-01"}),/immutable/u);
  });

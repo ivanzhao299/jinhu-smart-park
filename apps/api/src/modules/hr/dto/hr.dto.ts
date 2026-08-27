@@ -68,9 +68,18 @@ export class CreateHrContractDto {
  @IsUUID() employeeId!:string;
  @IsUUID() contractTypeId!:string;
  @Transform(trim) @IsString() @MaxLength(64) contractNo!:string;
- @IsDateString() startDate!:string;
- @IsOptional() @IsDateString() endDate?:string;
- @IsOptional() @IsDateString() probationEndDate?:string;
+ @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() startDate!:string;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() endDate?:string;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() probationEndDate?:string;
+ @IsOptional() @Transform(({value})=>value===""?undefined:Number(value)) @IsInt() @Min(0) @Max(1200) contractTermMonths?:number;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() signatureDate?:string;
+ @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) @IsDateString() effectiveDate?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) positionTitle?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(100) workType?:string;
+ @IsOptional() @Transform(trim) @IsString() @MaxLength(200) departmentNameSnapshot?:string;
+ @IsOptional() @Transform(({value})=>value===""?undefined:Number(value)) @IsInt() @Min(0) @Max(120) probationMonths?:number;
+ @IsOptional() @Transform(money) @Matches(MONEY_PATTERN) probationSalary?:string;
+ @IsOptional() @Transform(money) @Matches(MONEY_PATTERN) baseSalary?:string;
  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) remark?:string;
 }
 export class CreateHrContractChangeDto {

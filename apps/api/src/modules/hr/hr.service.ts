@@ -6,7 +6,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { OrgEntity } from "../orgs/entities/org.entity";
 import { UserEntity } from "../users/entities/user.entity";
 import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,CreateHrAttendanceCorrectionBatchDto,CreateHrAttendancePeriodDto,CreateHrAttendancePunchDto,CreateHrAttendanceRequestDto,CreateHrAttendanceShiftDto,CreateHrCompensationPlanDto,CreateHrContractChangeDto,CreateHrContractDto,CreateHrEmployeeDto,CreateHrEmployeeScheduleDto,CreateHrFeedbackAssignmentDto,CreateHrFeedbackCycleDto,CreateHrGoalCheckinDto,CreateHrGoalCycleDto,CreateHrGoalDto,CreateHrPayrollPeriodDto,CreateHrPayrollRunDto,CreateHrPerformanceCycleDto,CreateHrPerformancePlanDto,CreateHrPositionDto,CreateHrWorkReportDto,HrApprovalActionDto,HrAttendanceCalendarQueryDto,HrAttendanceDailyQueryDto,HrAttendanceMonthSummaryQueryDto,HrAttendancePeriodQueryDto,HrAttendanceRequestListQueryDto,HrContractActionDto,HrContractChangeActionDto,HrContractListQueryDto,HrEmploymentEventStatisticsQueryDto,HrEmploymentTransitionDto,HrInsurancePeriodQueryDto,HrListQueryDto,RecalculateHrAttendanceDto,ReviewHrAttendanceRequestDto,ReviewHrWorkReportDto,ScoreHrPerformanceDto,SubmitHrFeedbackDto,UpdateHrEmployeeDto,UpdateHrEmployeeProfileDto } from "./dto/hr.dto";
-import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
+import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractActionEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
 import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
@@ -247,9 +247,20 @@ export class HrService {
  private projectAttendancePeriod(row:HrAttendancePeriodEntity){return {id:row.id,periodMonth:row.periodMonth,status:row.status,activeVersion:row.activeVersion,calculationStartedAt:row.calculationStartedAt?.toISOString()??null,calculationCompletedAt:row.calculationCompletedAt?.toISOString()??null,failureCode:row.failureCode,closedAt:row.closedAt?.toISOString()??null};}
  private nextMonth(periodMonth:string){const date=new Date(`${periodMonth}T00:00:00Z`);date.setUTCMonth(date.getUTCMonth()+1);return date.toISOString().slice(0,10);}
  private attendanceFailureCode(error:unknown){return error instanceof ConflictException?"INCOMPLETE_DAILY_RESULTS":"CALCULATION_FAILED";}
- async createContract(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrContractDto){
+ private hasPermission(actor:JwtPrincipal,permission:string){return Boolean(actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(permission));}
+ private validateContractDto(actor:JwtPrincipal,dto:CreateHrContractDto){
   if(dto.endDate&&dto.endDate<dto.startDate)throw new BadRequestException("Contract end date cannot precede start date");
   if(dto.probationEndDate&&(dto.probationEndDate<dto.startDate||(dto.endDate&&dto.probationEndDate>dto.endDate)))throw new BadRequestException("Probation end date must be within the contract term");
+  if(dto.effectiveDate&&dto.endDate&&dto.effectiveDate>dto.endDate)throw new BadRequestException("Contract effective date cannot follow the end date");
+  if((dto.probationSalary!==undefined||dto.baseSalary!==undefined)&&!this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_MANAGE))throw new ForbiddenException("Compensation management permission is required to write contract salary");
+ }
+ private contractValues(dto:CreateHrContractDto){return {employeeId:dto.employeeId,contractTypeId:dto.contractTypeId,contractNo:dto.contractNo,startDate:dto.startDate,endDate:dto.endDate??null,probationEndDate:dto.probationEndDate??null,contractTermMonths:dto.contractTermMonths??null,signatureDate:dto.signatureDate??null,effectiveDate:dto.effectiveDate??null,positionTitle:dto.positionTitle??null,workType:dto.workType??null,departmentNameSnapshot:dto.departmentNameSnapshot??null,probationMonths:dto.probationMonths??null,probationSalary:dto.probationSalary??null,baseSalary:dto.baseSalary??null,remark:dto.remark??null};}
+ private async appendContractAction(manager:import("typeorm").EntityManager,scope:TenantParkScope,contract:HrContractEntity,actorId:string,action:string,fromStatus:string|null,changeId:string|null=null){
+  const repo=manager.getRepository(HrContractActionEntity),latest=await repo.findOne({where:{...scope,contractId:contract.id},order:{sequenceNo:"DESC"}});
+  await repo.save(repo.create({...scope,contractId:contract.id,changeId,sequenceNo:(latest?.sequenceNo??0)+1,action,fromStatus,toStatus:contract.status,snapshot:{contractNo:contract.contractNo,employeeId:contract.employeeId,contractTypeId:contract.contractTypeId,startDate:contract.startDate,endDate:contract.endDate,probationEndDate:contract.probationEndDate,contractTermMonths:contract.contractTermMonths,signatureDate:contract.signatureDate,effectiveDate:contract.effectiveDate,positionTitle:contract.positionTitle,workType:contract.workType,departmentNameSnapshot:contract.departmentNameSnapshot},actorUserId:actorId,occurredAt:new Date(),createBy:actorId,updateBy:actorId}));
+ }
+ async createContract(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrContractDto){
+  this.validateContractDto(actor,dto);
   try{return await this.dataSource.transaction(async manager=>{
    const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
    const employee=await employeeRepo.findOne({where:{id:dto.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
@@ -258,8 +269,29 @@ export class HrService {
    if(!type)throw new BadRequestException("Contract type is unavailable in current scope");
    if(await contractRepo.exists({where:{...scope,employeeId:dto.employeeId,status:In(["draft","active"]),isDeleted:false}}))throw new ConflictException("Employee already has an active or draft contract");
    if(await contractRepo.exists({where:{...scope,contractNo:dto.contractNo,isDeleted:false}}))throw new ConflictException("Contract number already exists");
-   const row=await contractRepo.save(contractRepo.create({...scope,employeeId:dto.employeeId,contractTypeId:dto.contractTypeId,contractNo:dto.contractNo,startDate:dto.startDate,endDate:dto.endDate??null,probationEndDate:dto.probationEndDate??null,status:"draft",isHistoricalImport:false,sourceSnapshot:{},remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
-   return this.projectContract(row,employee,type);
+   const row=await contractRepo.save(contractRepo.create({...scope,...this.contractValues(dto),status:"draft",isHistoricalImport:false,sourceSnapshot:{},createBy:actor.sub,updateBy:actor.sub}));
+   await this.appendContractAction(manager,scope,row,actor.sub,"created",null);
+   return this.projectContract(row,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
+  });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract draft conflicts with an existing record");throw error;}
+ }
+ async updateContract(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:CreateHrContractDto){
+  this.validateContractDto(actor,dto);
+  try{return await this.dataSource.transaction(async manager=>{
+   const employeeRepo=manager.getRepository(HrEmployeeEntity),typeRepo=manager.getRepository(HrContractTypeEntity),contractRepo=manager.getRepository(HrContractEntity);
+   const contract=await contractRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
+   if(!contract)throw new NotFoundException("Contract not found");
+   if(contract.isHistoricalImport)throw new ConflictException("Historical imported contracts are immutable");
+   if(contract.status!=="draft")throw new ConflictException("Only a draft online contract can be edited");
+   const employee=await employeeRepo.findOne({where:{id:dto.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:dto.contractTypeId,...scope,status:"enabled",isDeleted:false}});
+   if(!employee||!type)throw new BadRequestException("Contract references are unavailable in current scope");
+   const duplicateNo=await contractRepo.createQueryBuilder("contract").where("contract.tenant_id=:tenantId AND contract.park_id=:parkId AND contract.contract_no=:contractNo AND contract.id<>:id AND contract.is_deleted=false",{...scope,contractNo:dto.contractNo,id}).getExists();
+   if(duplicateNo)throw new ConflictException("Contract number already exists");
+   const duplicateEmployee=await contractRepo.createQueryBuilder("contract").where("contract.tenant_id=:tenantId AND contract.park_id=:parkId AND contract.employee_id=:employeeId AND contract.status IN ('draft','active') AND contract.id<>:id AND contract.is_deleted=false",{...scope,employeeId:dto.employeeId,id}).getExists();
+   if(duplicateEmployee)throw new ConflictException("Employee already has an active or draft contract");
+   const values=this.contractValues(dto);if(dto.probationSalary===undefined)values.probationSalary=contract.probationSalary;if(dto.baseSalary===undefined)values.baseSalary=contract.baseSalary;
+   Object.assign(contract,values,{updateBy:actor.sub});
+   const saved=await contractRepo.save(contract);await this.appendContractAction(manager,scope,saved,actor.sub,"updated","draft");
+   return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
   });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract draft conflicts with an existing record");throw error;}
  }
  async actContract(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:HrContractActionDto){return this.dataSource.transaction(async manager=>{
@@ -271,8 +303,9 @@ export class HrService {
   const employee=await employeeRepo.findOne({where:{id:contract.employeeId,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}}),type=await typeRepo.findOne({where:{id:contract.contractTypeId,...scope,isDeleted:false}});
   if(!employee||!type)throw new ConflictException("Contract references are unavailable");
   if(dto.action==="activate"&&await contractRepo.exists({where:{...scope,employeeId:contract.employeeId,status:"active",isDeleted:false}}))throw new ConflictException("Employee already has an active contract");
-  contract.status=dto.action==="activate"?"active":"cancelled";contract.updateBy=actor.sub;
-  return this.projectContract(await contractRepo.save(contract),employee,type);
+  const fromStatus=contract.status;contract.status=dto.action==="activate"?"active":"cancelled";contract.updateBy=actor.sub;
+  const saved=await contractRepo.save(contract);await this.appendContractAction(manager,scope,saved,actor.sub,dto.action==="activate"?"activated":"cancelled",fromStatus);
+  return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
  });}
  async createContractChange(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:CreateHrContractChangeDto){
   if(dto.newEndDate&&dto.newEndDate<dto.newStartDate)throw new BadRequestException("Contract change end date cannot precede start date");
@@ -288,7 +321,7 @@ export class HrService {
    if(await changeRepo.exists({where:{...scope,contractId:id,status:"draft",isDeleted:false}}))throw new ConflictException("Contract already has a pending change draft");
    const latest=await changeRepo.findOne({where:{...scope,contractId:id,isDeleted:false},order:{sequenceNo:"DESC"}});
    const row=await changeRepo.save(changeRepo.create({...scope,contractId:id,sequenceNo:(latest?.sequenceNo??0)+1,changeType:dto.changeType,previousStartDate:contract.startDate,previousEndDate:contract.endDate,newStartDate:dto.newStartDate,newEndDate:dto.newEndDate??null,signedAt:null,status:"draft",isHistoricalImport:false,sourceSnapshot:{},remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
-   return this.projectContractChange(row);
+   await this.appendContractAction(manager,scope,contract,actor.sub,"change_created",contract.status,row.id);return this.projectContractChange(row);
   });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract already has a pending change draft");throw error;}
  }
  async actContractChange(scope:TenantParkScope,actor:JwtPrincipal,contractId:string,changeId:string,dto:HrContractChangeActionDto){return this.dataSource.transaction(async manager=>{
@@ -300,12 +333,13 @@ export class HrService {
   if(!change)throw new NotFoundException("Contract change not found");
   if(change.isHistoricalImport)throw new ConflictException("Historical imported contract changes are immutable");
   if(change.status!=="draft")throw new ConflictException("Only a draft contract change can be applied or cancelled");
+  const contractStatusBefore=contract.status;
   if(dto.action==="apply"){
    if(contract.status!=="active")throw new ConflictException("Only an active online contract can apply a change");
    if(change.changeType==="termination"){contract.endDate=change.newEndDate;contract.status="terminated";}else{contract.startDate=change.newStartDate;contract.endDate=change.newEndDate;}
    contract.updateBy=actor.sub;await contractRepo.save(contract);change.status="effective";change.signedAt=new Date();
   }else change.status="cancelled";
-  change.updateBy=actor.sub;return this.projectContractChange(await changeRepo.save(change));
+  change.updateBy=actor.sub;const saved=await changeRepo.save(change);await this.appendContractAction(manager,scope,contract,actor.sub,dto.action==="apply"?"change_applied":"change_cancelled",contractStatusBefore,saved.id);return this.projectContractChange(saved);
  });}
  async listMyContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){
   const employee=await this.myEmployee(scope,actor);
@@ -317,14 +351,15 @@ export class HrService {
   const accessibleIds=await this.contractEmployeeIds(scope,actor);
   const row=await this.contracts.findOne({where:{id,...scope,isDeleted:false}});
   if(!row||(accessibleIds!==null&&!accessibleIds.includes(row.employeeId)))throw new NotFoundException("Contract not found");
-  const [employee,type,changes]=await Promise.all([
+  const [employee,type,changes,actions]=await Promise.all([
    this.employees.findOne({where:{id:row.employeeId,...scope,isDeleted:false}}),
    this.contractTypes.findOne({where:{id:row.contractTypeId,...scope,isDeleted:false}}),
-   this.contractChanges.find({where:{contractId:id,...scope,isDeleted:false},order:{sequenceNo:"ASC"}})
+   this.contractChanges.find({where:{contractId:id,...scope,isDeleted:false},order:{sequenceNo:"ASC"}}),
+   this.dataSource.getRepository(HrContractActionEntity).find({where:{contractId:id,...scope,isDeleted:false},order:{sequenceNo:"ASC"}})
   ]);
   if(!employee||!type)throw new NotFoundException("Contract not found");
-  const access=resolveHrContractAccessScope(actor),main=this.projectContract(row,employee,type);
-  const result={...(access.self&&!access.park&&!access.managedOrgTree?this.projectSelfContract(main):main),changes:changes.map(change=>this.projectContractChange(change))};
+  const access=resolveHrContractAccessScope(actor),canReadSalary=access.park&&this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ),main=this.projectContract(row,employee,type,canReadSalary);
+  const result={...(access.self&&!access.park&&!access.managedOrgTree?this.projectSelfContract(main):main),changes:changes.map(change=>this.projectContractChange(change)),actions:actions.map(action=>({id:action.id,sequenceNo:action.sequenceNo,action:action.action,fromStatus:action.fromStatus,toStatus:action.toStatus,occurredAt:action.occurredAt.toISOString()}))};
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.contract",action:"读取劳动合同详情",bizType:"hr_contract",bizId:id,path:"/hr/contracts/:id",fieldGroups:["employment_contract"],projection:access.park?"park":access.managedOrgTree?"team":"self",itemCount:1});
   return result;
  }
@@ -354,9 +389,9 @@ export class HrService {
   if(access.self)ids.push((await this.myEmployee(scope,actor)).id);
   return [...new Set(ids)];
  }
- private projectContract(row:HrContractEntity,employee:HrEmployeeEntity,type:HrContractTypeEntity){return {id:row.id,employeeId:row.employeeId,employeeCode:employee.employeeCode,employeeName:employee.fullName,contractNo:row.contractNo,contractTypeId:row.contractTypeId,contractTypeName:type.typeName,startDate:row.startDate,endDate:row.endDate,probationEndDate:row.probationEndDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
+ private projectContract(row:HrContractEntity,employee:HrEmployeeEntity,type:HrContractTypeEntity,includeSalary=false){return {id:row.id,employeeId:row.employeeId,employeeCode:employee.employeeCode,employeeName:employee.fullName,contractNo:row.contractNo,contractTypeId:row.contractTypeId,contractTypeName:type.typeName,startDate:row.startDate,endDate:row.endDate,probationEndDate:row.probationEndDate,contractTermMonths:row.contractTermMonths,signatureDate:row.signatureDate,effectiveDate:row.effectiveDate,positionTitle:row.positionTitle,workType:row.workType,departmentNameSnapshot:row.departmentNameSnapshot,probationMonths:row.probationMonths,...(includeSalary?{probationSalary:row.probationSalary,baseSalary:row.baseSalary}:{}),remark:row.remark,status:row.status,isHistoricalImport:row.isHistoricalImport};}
  private projectContractChange(row:HrContractChangeEntity){return {id:row.id,sequenceNo:row.sequenceNo,changeType:row.changeType,previousStartDate:row.previousStartDate,previousEndDate:row.previousEndDate,newStartDate:row.newStartDate,newEndDate:row.newEndDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
- private projectSelfContract(row:ReturnType<HrService["projectContractRaw"]>|ReturnType<HrService["projectContract"]>){return {id:row.id,contractNo:row.contractNo,contractTypeName:row.contractTypeName,startDate:row.startDate,endDate:row.endDate,status:row.status,isHistoricalImport:row.isHistoricalImport};}
+ private projectSelfContract(row:ReturnType<HrService["projectContractRaw"]>|ReturnType<HrService["projectContract"]>){return {id:row.id,contractNo:row.contractNo,contractTypeName:row.contractTypeName,startDate:row.startDate,endDate:row.endDate,...("probationEndDate" in row?{probationEndDate:row.probationEndDate}:{}),...("contractTermMonths" in row?{contractTermMonths:row.contractTermMonths,signatureDate:row.signatureDate,effectiveDate:row.effectiveDate,positionTitle:row.positionTitle,workType:row.workType,departmentNameSnapshot:row.departmentNameSnapshot,probationMonths:row.probationMonths,remark:row.remark}:{}),status:row.status,isHistoricalImport:row.isHistoricalImport};}
  private projectContractRaw(row:Record<string,unknown>){return {id:String(row.id),employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name),contractNo:String(row.contract_no),contractTypeId:String(row.contract_type_id),contractTypeName:String(row.contract_type_name),startDate:row.start_date===null?null:String(row.start_date),endDate:row.end_date===null?null:String(row.end_date),probationEndDate:row.probation_end_date===null?null:String(row.probation_end_date),status:String(row.status),isHistoricalImport:Boolean(row.is_historical_import)};}
 
  async listGoalCycles(scope:TenantParkScope){return this.goalCycles.find({where:{...scope,isDeleted:false},order:{startDate:"DESC"}});}
