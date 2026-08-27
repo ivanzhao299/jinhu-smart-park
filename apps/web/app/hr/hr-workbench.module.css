@@ -322,6 +322,25 @@
   align-items: end;
 }
 
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.inlineFields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr);
+  gap: 16px;
+  align-items: end;
+}
+
+.inlineFields > label:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+
 .profileGroup {
   grid-column: 1 / -1;
   display: grid;
@@ -633,6 +652,11 @@
 
   .profileGroup {
     grid-template-columns: 1fr;
+  }
+
+  .inlineFields {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .filterBar,
