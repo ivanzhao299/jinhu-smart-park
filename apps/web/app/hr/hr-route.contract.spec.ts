@@ -81,6 +81,7 @@ test("HR enterprise UI keeps compact hierarchy and phone-safe navigation",()=>{
   assert.match(styles,/\.page :global\(\.ds-hero\)[\s\S]*min-height:\s*176px/);
   assert.match(styles,/\.metricCard[\s\S]*grid-template-columns:\s*38px minmax\(0, 1fr\) auto/);
   assert.match(styles,/\.businessGroups[\s\S]*display:\s*grid/);
+  assert.match(styles,/\.shortcutGrid\s*\{[\s\S]*border:\s*0;[\s\S]*background:\s*transparent;[\s\S]*box-shadow:\s*none;/);
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.metricGrid\s*\{[\s\S]*grid-template-columns:\s*1fr/);
   assert.match(styles,/@media \(max-width: 520px\)[\s\S]*\.shortcutGrid\s*\{[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/);
 });
@@ -141,6 +142,13 @@ test("HR M4 goals use an execution ledger with explicit actions",()=>{
   assert.match(goals,/action === "goal" \? <form/);
   assert.match(goals,/action === "checkin" \? <form/);
   assert.match(goals,/当前范围暂无目标/);
+});
+
+test("HR pages normalize neutral buttons without changing other modules",()=>{
+  const css=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
+  assert.match(css,/\.page :global\(\.ds-button:not\(\.ds-button-primary\):not\(\.ds-button-secondary\)\)/);
+  assert.match(css,/appearance:\s*none/);
+  assert.match(css,/\.page :global\(\.form-error\) \+ :global\(\.ds-button\)[\s\S]*margin-top:\s*14px/);
 });
 
 test("HR T6 performance freezes templates, scoped options and cycles before evaluation",()=>{

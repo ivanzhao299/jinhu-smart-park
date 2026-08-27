@@ -38,6 +38,28 @@
   padding: 22px;
 }
 
+/* HR pages historically used the neutral ds-button class directly. Give that
+ * variant an explicit surface so the browser's native outset border cannot
+ * stack with focus/hover styling and produce a heavy double outline. */
+.page :global(.ds-button:not(.ds-button-primary):not(.ds-button-secondary)) {
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-muted));
+  color: var(--text-primary);
+  box-shadow: none;
+  appearance: none;
+}
+
+.page :global(.ds-button:not(.ds-button-primary):not(.ds-button-secondary):hover),
+.page :global(.ds-button:not(.ds-button-primary):not(.ds-button-secondary):focus-visible) {
+  border-color: color-mix(in srgb, var(--color-primary) 34%, var(--border));
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--bg-card));
+  color: var(--color-primary);
+}
+
+.page :global(.form-error) + :global(.ds-button) {
+  margin-top: 14px;
+}
+
 .formGrid input,
 .formGrid select,
 .formGrid textarea {
@@ -131,7 +153,10 @@
 
 .shortcutGrid {
   grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  border: 0;
   padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .sectionMeta {
