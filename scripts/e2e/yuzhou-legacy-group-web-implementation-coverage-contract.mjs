@@ -14,8 +14,8 @@ test("all 231 Group Web modules receive a conservative implementation score", ()
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
   assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 2, score80: 160, score60: 0, score40: 27, score20: 42 });
-  assert.equal(result.summary.averageScore, 64.5);
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 3, score80: 159, score60: 0, score40: 27, score20: 42 });
+  assert.equal(result.summary.averageScore, 64.55);
   assert.equal(result.gates.productionImport, "HOLD");
 });
 
@@ -46,6 +46,14 @@ test("Yuzhou onboarding reaches rule parity but still requires three-role live U
   assert.equal(onboarding.implementationStatus, "partial");
   assert.equal(onboarding.ruleParityOutcome, "onboarding_application_approval_and_atomic_confirmation");
   assert.deepEqual(onboarding.blockers, ["live_role_uat"]);
+});
+
+test("Yuzhou employee basic profile reaches field and privacy parity", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  const profile = result.items.find(item => item.legacyId === 35);
+  assert.equal(profile.score, 90);
+  assert.equal(profile.ruleParityOutcome, "basic_profile_fields_with_encrypted_identity_and_scoped_audit");
+  assert.deepEqual(profile.blockers, ["live_role_uat"]);
 });
 
 test("production import release and source shrinkage fail closed", () => {

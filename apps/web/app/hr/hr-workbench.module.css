@@ -322,6 +322,28 @@
   align-items: end;
 }
 
+.profileGroup {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 2px 0 8px;
+  padding: 18px 0 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.profileFields {
+  display: contents;
+}
+
+.profileGroup legend {
+  padding: 0 12px 0 0;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
 .filterBar {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 260px));
@@ -606,6 +628,10 @@
   }
 
   .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .profileGroup {
     grid-template-columns: 1fr;
   }
 

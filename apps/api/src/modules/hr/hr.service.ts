@@ -9,6 +9,7 @@ import type { AdjustHrPayslipDto,AssignHrCompensationDto,CreateHrApprovalDto,Cre
 import { HrApprovalActionEntity,HrApprovalRequestEntity,HrAttendanceCalculationVersionEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity,HrAttendancePeriodEntity,HrAttendancePunchEventEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrCompensationPlanEntity,HrContractChangeEntity,HrContractEntity,HrContractTypeEntity,HrEmployeeAttendanceDailyResultEntity,HrEmployeeCompensationEntity,HrEmployeeEntity,HrEmployeeInsuranceItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeProfileEntity,HrEmployeeScheduleEntity,HrEmploymentEventEntity,HrFeedbackAssignmentEntity,HrFeedbackCycleEntity,HrFeedbackResponseEntity,HrGoalCheckinEntity,HrGoalCycleEntity,HrGoalEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformanceCycleEntity,HrPerformanceItemEntity,HrPerformancePlanEntity,HrPositionEntity,HrWorkReportEntity,HrWorkReportGoalEntity } from "./entities/hr.entities";
 import { HrNotificationService } from "./hr-notification.service";
 import { AuditService } from "../audit/audit.service";
+import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
 import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope,type HrLedgerAccessScope } from "./hr-access-policy";
@@ -47,7 +48,8 @@ export class HrService {
   @InjectRepository(UserEntity) private readonly users:Repository<UserEntity>,
   private readonly notifications:HrNotificationService,
   private readonly dataSource:DataSource,
-  private readonly auditService:AuditService
+  private readonly auditService:AuditService,
+  private readonly sensitiveData:PartySensitiveDataService
  ){}
 
  async listEmployees(scope:TenantParkScope,actor:JwtPrincipal,q:HrListQueryDto):Promise<PaginatedResult<HrEmployeeEntity>>{
@@ -91,7 +93,7 @@ export class HrService {
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employment_event.statistics",action:"读取人事异动统计",bizType:"hr_employment_event",bizId:null,path:"/hr/employment-events/statistics",fieldGroups:[],projection:"park",itemCount:result.total});
   return result;
  }
- async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){await this.detailEmployee(scope,id);const row=await this.profiles.findOne({where:{...scope,employeeId:id,isDeleted:false}});const canReadFull=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);const projected=projectHrEmployeeProfile(row,canReadFull);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path:"/hr/employees/:id/profile",fieldGroups:["identity","contact"],projection:canReadFull?"full":"masked",itemCount:projected?1:0});return projected;}
+ async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){await this.detailEmployee(scope,id);const row=await this.profiles.findOne({where:{...scope,employeeId:id,isDeleted:false}});const canReadFull=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);const projected=projectHrEmployeeProfile(row,canReadFull);const result=projected&&canReadFull?{...projected,idNumber:this.sensitiveData.decrypt(row?.idNumberEncrypted??null)}:projected;await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path:"/hr/employees/:id/profile",fieldGroups:["identity","contact","demographic","education","qualification"],projection:canReadFull?"full":"masked",itemCount:result?1:0});return result;}
 
  async updateEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){
   await this.detailEmployee(scope,id);
@@ -99,8 +101,10 @@ export class HrService {
    const repo=manager.getRepository(HrEmployeeProfileEntity);
    let row=await repo.findOne({where:{...scope,employeeId:id,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!row)row=repo.create({...scope,employeeId:id,createBy:actor.sub});
-   Object.assign(row,{...dto,idType:dto.idType??null,idNumberMasked:dto.idNumberMasked??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null,updateBy:actor.sub});
-   return repo.save(row);
+   const identity=dto.idNumber===undefined?undefined:dto.idNumber?this.sensitiveData.identityProfile(dto.idNumber.replace(/\s+/g,"").toUpperCase()):null;
+   Object.assign(row,{idType:dto.idType??null,englishName:dto.englishName??null,gender:dto.gender??null,dateOfBirth:dto.dateOfBirth??null,ethnicity:dto.ethnicity??null,nativePlace:dto.nativePlace??null,politicalStatus:dto.politicalStatus??null,partyJoinDate:dto.partyJoinDate??null,heightCm:dto.heightCm===undefined?null:String(dto.heightCm),weightKg:dto.weightKg===undefined?null:String(dto.weightKg),maritalStatus:dto.maritalStatus??null,healthStatus:dto.healthStatus??null,householdRegistration:dto.householdRegistration??null,highestEducation:dto.highestEducation??null,major:dto.major??null,degree:dto.degree??null,foreignLanguage:dto.foreignLanguage??null,languageLevel:dto.languageLevel??null,graduationDate:dto.graduationDate??null,graduationSchool:dto.graduationSchool??null,homePhone:dto.homePhone??null,jobTitle:dto.jobTitle??null,jobGrade:dto.jobGrade??null,employeeCategory:dto.employeeCategory??null,technicalTitle:dto.technicalTitle??null,technicalGrade:dto.technicalGrade??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null,updateBy:actor.sub});
+   if(identity!==undefined)Object.assign(row,{idNumberEncrypted:identity?.encrypted??null,idNumberMasked:identity?.masked??null,idNumberFingerprint:identity?.hash??null});
+   try{const saved=await repo.save(row);return projectHrEmployeeProfile(saved,true)!;}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Employee identity number already exists");throw error;}
   });
  }
 
