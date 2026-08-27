@@ -243,14 +243,18 @@ fixture 一律使用 `UAT_<SCOPE>_<RUN_ID>_` 前缀；角色矩阵至少考虑�
 
 截图禁止包含密码、JWT、Cookie、Authorization 头、连接串、个人敏感数据或签名 URL。提交前对本轮 artifact 目录逐图审查，并对文件名、伴随 JSON/text、OCR 可检索内容做敏感词扫描；发现泄漏先删除或脱敏本地证据，再写报告。报告不得嵌入秘密。
 
-### 6.3 FAIL、清理与 residual=0
+### 6.3 FAIL、清理与 residual gate
 
 FAIL 先排除 fixture/环境；同一问题最多重试 2 次。仍失败则记录产品 FAIL、疑似根因和 local-only 证据，验收轮不改代码。无关异常作为 observation，设计差异作为 gap。
 
 结束时：
 
 1. 所有账号经真实 UI logout 并断言 `/login`，Chrome 停在 `about:blank`；不关闭常驻专用实例。
-2. 按用例设计阶段列出的逐表 before/after 清单删除 fixture 和文件，证明 residual=0。
+2. 按用例设计阶段冻结的 residual 清单逐表取证，并按表的审计保护属性执行对应门禁：
+   - **可删业务表**：继续使用逐 fixture 的精确谓词 `DELETE`，记录逐表 before/after，并证明 after=`0`。软删除不等于 residual 归零；不得用宽谓词、`TRUNCATE` 或清空整表代替 fixture 精确删除。
+   - **不可变审计/效果表**：审批审计、效果、任务审计等表如存在阻止 `DELETE` 的 immutable trigger，不删除其中的本轮记录。报告必须逐表记录 before 计数、表名、阻止删除的 trigger 名和不可删原因，作为审计痕迹；以同一 `RUN_ID` 隔离环境执行 `docker compose ... down --volumes --remove-orphans` 后，compose project 的容器、卷、网络均为 `0`，且本轮 DB/API/Web 端口无监听，作为该类表的归零证据。
+
+   residual gate 只有在两类表分别满足上述证据后才 PASS。**禁止为了满足 residual gate 禁用或删除审计 trigger、设置 `session_replication_role` 绕过 trigger、执行 `TRUNCATE`，或以其他方式削弱不可变审计保护。** 不可变表若与非本轮共享数据库或共享卷，环境整体销毁不能作为归零证据，本轮必须 FAIL/BLOCKED 并重新使用独占 `RUN_ID` 环境执行。
 3. 对每个 pid file，先用 `ps -p <pid> -o pid=,args=` 核对命令，再用 `readlink -f /proc/<pid>/fd/1` 和 `/proc/<pid>/fd/2` 核对 stdout/stderr 都指向本轮 `api.log` 或 `web.log`；全部匹配后才向确切 PID 发送 SIGINT。身份不符则停止清理并人工核查。端口清零仅指本轮声明的 DB/API/Web 端口；设计上常驻的 9222 CDP 不计入。
 4. 先快照全部现存容器，再用 compose label 精确圈定本轮资源；确认目标 project 后才清理：
 
@@ -269,9 +273,11 @@ docker ps -a --format '{{.ID}} {{.Names}} {{.Status}}' \
   >"/tmp/jinhu-${RUN_ID}-containers-after.txt"
 ```
 
-`down` 必须与 `up` 使用完全相同的 `-p/-f/--env-file`。清理后再次按 project label 核对容器、卷、网络为空，核对本轮 DB/API/Web 端口无监听，并对清理前快照中的非本轮容器做前后对比。禁止按名称模糊匹配或操作他人容器。最后安全删除本轮临时 env 文件。
+`down` 必须与 `up` 使用完全相同的 `-p/-f/--env-file`。清理后再次按 project label 核对容器、卷、网络为空，核对本轮 DB/API/Web 端口无监听，并对清理前快照中的非本轮容器做前后对比。不可变审计/效果表只有在承载数据库卷随该隔离 project 一并销毁时，才能以这组证据通过 residual gate。禁止按名称模糊匹配或操作他人容器。最后安全删除本轮临时 env 文件。
 
 附件物理文件也属于 residual：先校验 `test "$FILE_STORAGE_LOCAL_ROOT" = "/tmp/jinhu-${RUN_ID}-files"`，再删除这个精确目录并确认不存在；校验失败时禁止递归删除，改为人工核查。数据库软删除不能代替本轮文件根清理。
+
+住房收尾复测首次完整记录了 immutable DELETE trigger 阻止逐表清零、同时隔离 compose project 与端口已归零的证据；本节的新口径以该报告为修订依据：[`docs/uat/housing-final-retest-uat-20260827-114806.md`](../uat/housing-final-retest-uat-20260827-114806.md)。历史报告保留其执行当时的结论，不追溯改写。
 
 ### 6.4 报告、验收与发布状态
 
