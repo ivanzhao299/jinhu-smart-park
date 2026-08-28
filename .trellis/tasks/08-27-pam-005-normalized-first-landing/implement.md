@@ -6,3 +6,4 @@
 4. 补 raw legacy/placeholder、首跳/Sidebar 一致、previous user 场景测试。
 5. 运行聚焦测试、Web lint/typecheck/build 和 Trellis check。
 6. 提交、push、创建 `Closes #433` PR、`@codex review`（最多 3 轮）、CI 绿后 squash merge，并确认 main CI/Deploy 双绿。
+7. UAT 证据链：R2 `20260827-210211` 阻断于 UI fixture；R3 `20260827-220612` 的 enabled landing PASS，但 Park-switch runner 过早判定，selector 仍为 Park A；R4 `20260828-011900` 已实现 `/users/me park_id`、selector value、`switch-context` 2xx 三重等待，但 Park B 产品 API fixture 两次失败，浏览器 Case 未启动。依总矩阵全 PASS 门禁，本子任务继续保持 `in_progress`。
