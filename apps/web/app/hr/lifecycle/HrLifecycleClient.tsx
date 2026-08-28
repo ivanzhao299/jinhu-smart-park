@@ -23,6 +23,7 @@ import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import {ProbationApplicationsPanel} from "./ProbationApplicationsPanel";
 import {JobChangeApplicationsPanel} from "./JobChangeApplicationsPanel";
+import {DepartureApplicationsPanel} from "./DepartureApplicationsPanel";
 const typeLabel: Record<string, string> = {
     onboarding: "入职",
     offboarding: "离职",
@@ -320,6 +321,7 @@ export function HrLifecycleClient() {
         ) : null}
         <ProbationApplicationsPanel />
         <JobChangeApplicationsPanel />
+        <DepartureApplicationsPanel />
         {canReadEmploymentEvents ? (
           <section className="ds-panel">
             <div className={styles.sectionHeading}>
