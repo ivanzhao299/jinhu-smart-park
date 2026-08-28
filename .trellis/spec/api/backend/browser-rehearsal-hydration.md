@@ -17,7 +17,9 @@
 
 - Server-rendered DOM presence is not interaction readiness. The runner must wait for client hydration before setting controlled inputs or clicking submit.
 - The readiness poll is bounded and occurs independently in every browser context; a cold first context must not hide a warm-context race.
+- The runner must activate each newly created target and disable background timer/renderer throttling. A headless background tab must not suppress the same debounced data load that an active user tab executes.
 - Authentication success still requires navigation away from `/login` and a stored access token. Hydration readiness alone is never recorded as a successful login.
+- A direct URL denial is a valid browser result only when the versioned matrix explicitly binds the requested route to its distinct `expectedPath` and verifies the global forbidden copy. Silent redirects or unbound path drift fail closed.
 
 ### 4. Validation & Error Matrix
 
@@ -25,6 +27,7 @@
 - controls present but React props not attached -> keep polling; do not click.
 - hydrated form submits but no token/navigation appears -> fail `LOGIN_FAILED` for that actor and viewport.
 - API/runtime/role failure after login -> preserve its more specific downstream browser-matrix gate.
+- expected redirect reaches a different or unbound path -> fail the browser path gate; do not weaken the visible-text assertion.
 
 ### 5. Good / Base / Bad Cases
 
@@ -34,7 +37,7 @@
 
 ### 6. Tests Required
 
-- Real headless-Chrome integration must delay attachment of the login click handler and the React-owned readiness marker, then complete all actors and both viewports.
+- Real headless-Chrome integration must delay attachment of the login click handler, the React-owned readiness marker, and route data text, then complete all actors and both viewports.
 - The full rehearsal must prove API login and the desktop/390 browser matrix independently; direct HTTP login cannot substitute for the browser path.
 - Failure evidence must identify actor and viewport without recording usernames, passwords, tokens, or personal data.
 

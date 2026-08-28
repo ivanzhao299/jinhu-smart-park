@@ -26,6 +26,7 @@ test("browser coverage, role, route, masking and assertion drift fail closed", (
     draft => { draft.checks[0].route = "/dashboard"; },
     draft => { draft.checks[0].masked = true; },
     draft => { draft.checks[0].visibleTexts = []; },
+    draft => { draft.checks[0].expectedPath = draft.checks[0].route; },
     draft => { draft.productionImport = "GO"; }
   ];
   for (const mutate of cases) {

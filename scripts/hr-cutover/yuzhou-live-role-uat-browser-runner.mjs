@@ -127,6 +127,7 @@ function writePrivateBinary(path, bytes) {
 
 export function validateYuzhouBrowserObservation(observation, check, viewport, browserAssertions) {
   if (observation?.legacyId !== check.legacyId || observation?.roleType !== check.roleType || observation?.actor !== check.actor || observation?.route !== check.route) fail("YUZHOU_UAT_BROWSER_OBSERVATION_BINDING_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+  if (observation.renderedPath !== (check.expectedPath ?? check.route)) fail("YUZHOU_UAT_BROWSER_OBSERVATION_PATH_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.viewportId !== viewport.id || observation.width !== viewport.width || observation.height !== viewport.height || observation.mobile !== viewport.mobile) fail("YUZHOU_UAT_BROWSER_OBSERVATION_VIEWPORT_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.status !== "PASS" || !Number.isInteger(observation.clientWidth) || !Number.isInteger(observation.scrollWidth) || observation.clientWidth > viewport.width || observation.scrollWidth > observation.clientWidth) fail("YUZHOU_UAT_BROWSER_OBSERVATION_LAYOUT_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions) || !/^[0-9a-f]{64}$/u.test(observation.screenshotSha256 ?? "")) fail("YUZHOU_UAT_BROWSER_OBSERVATION_EVIDENCE_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
@@ -150,6 +151,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
   chmodSync(profileRoot, 0o700);
   const chrome = spawn(executable, [
     "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+    "--disable-background-timer-throttling", "--disable-backgrounding-occluded-windows", "--disable-renderer-backgrounding",
     "--remote-debugging-address=127.0.0.1", "--remote-debugging-port=0", `--user-data-dir=${profileRoot}`, "about:blank"
   ], { stdio: "ignore" });
   onProcess(chrome.pid);
@@ -165,6 +167,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
         const actorChecks = browserMatrix.checks.filter(check => check.actor === actor);
         const { browserContextId } = await cdp.send("Target.createBrowserContext", { disposeOnDetach: true });
         const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank", browserContextId });
+        await cdp.send("Target.activateTarget", { targetId });
         const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
         const runtimeErrors = [];
         const off = cdp.on(message => {
@@ -190,7 +193,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
             await pollVisibleTexts(cdp, sessionId, check, viewport);
             const result = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; const clientWidth=document.documentElement.clientWidth; const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0); return { path:location.pathname,text,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].map(node=>node.textContent??'').filter(Boolean) }; })()`);
-            if (result.path !== check.route || runtimeErrors.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:alerts=${result.alerts.length}`);
+            if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:alerts=${result.alerts.length}`);
             if (check.forbiddenTexts.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             if (check.masked && sensitiveNeedles.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_SENSITIVE_VALUE_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             const screenshotKey = `${check.actor}:${check.route}:${viewport.id}`;
@@ -210,7 +213,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
             }
             observations.push(validateYuzhouBrowserObservation({
               legacyId: check.legacyId, roleType: check.roleType, actor: check.actor, route: check.route,
-              viewportId: viewport.id, status: "PASS", width: viewport.width, height: viewport.height,
+              viewportId: viewport.id, status: "PASS", width: viewport.width, height: viewport.height, renderedPath: result.path,
               mobile: viewport.mobile, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth,
               assertions: [...taskCard.browserAssertions], screenshotSha256: screenshot.sha256
             }, check, viewport, taskCard.browserAssertions));

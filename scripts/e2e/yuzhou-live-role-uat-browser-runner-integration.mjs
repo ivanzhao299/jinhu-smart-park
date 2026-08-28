@@ -15,13 +15,14 @@ const visibleByActorRoute = Object.fromEntries(Object.keys(actorNames).map(actor
 for (const check of browserMatrix.checks) {
   const route = visibleByActorRoute[check.actor][check.route] ?? [];
   visibleByActorRoute[check.actor][check.route] = [...new Set([...route, ...check.visibleTexts])];
+  if (check.expectedPath !== check.route) visibleByActorRoute[check.actor][check.expectedPath] = [...check.visibleTexts];
 }
 
 const loginPage = `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><input autocomplete="username"><input autocomplete="current-password" type="password"><button type="submit">登录</button><script>
 setTimeout(()=>{const button=document.querySelector('button');button.__reactProps$fixture={};button.addEventListener('click',()=>{const value=document.querySelector('input[autocomplete=username]').value;const actors=${JSON.stringify(actorNames)};const actor=Object.entries(actors).find(([,username])=>username===value)?.[0];if(!actor)return;localStorage.setItem('jinhu_access_token','fixture-token');localStorage.setItem('fixture-actor',actor);location.href='/dashboard';});},150);
 </script></body></html>`;
 const routePage = `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>html,body{margin:0;width:100%;max-width:100%;overflow-x:hidden}</style></head><body><script>
-const rows=${JSON.stringify(visibleByActorRoute)};const actor=localStorage.getItem('fixture-actor');document.body.innerText=(rows[actor]?.[location.pathname]??['fixture dashboard']).join(' · ');
+const rows=${JSON.stringify(visibleByActorRoute)};const actor=localStorage.getItem('fixture-actor');if(actor==='employee'&&location.pathname==='/hr/recruitment')location.replace('/403');else setTimeout(()=>{document.body.innerText=(rows[actor]?.[location.pathname]??['fixture dashboard']).join(' · ');},300);
 </script></body></html>`;
 
 test("real headless Chrome waits for hydration and executes all 56 item-role-viewport browser cells", { timeout: 60000 }, async () => {

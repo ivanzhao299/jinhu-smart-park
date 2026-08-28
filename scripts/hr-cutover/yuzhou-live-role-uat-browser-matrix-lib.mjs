@@ -29,9 +29,11 @@ export function validateYuzhouLiveRoleUatBrowserMatrix(matrix, taskCard) {
   for (const check of matrix.checks) {
     const keys = Object.keys(check).sort();
     const wanted = ["actor", "forbiddenTexts", "legacyId", "masked", "roleType", "route", "visibleTexts"].sort();
-    if (JSON.stringify(keys) !== JSON.stringify(wanted)) fail("YUZHOU_UAT_BROWSER_MATRIX_SHAPE_INVALID", String(check.legacyId));
+    const wantedWithRedirect = [...wanted, "expectedPath"].sort();
+    if (JSON.stringify(keys) !== JSON.stringify(wanted) && JSON.stringify(keys) !== JSON.stringify(wantedWithRedirect)) fail("YUZHOU_UAT_BROWSER_MATRIX_SHAPE_INVALID", String(check.legacyId));
     const item = itemById.get(check.legacyId);
     if (!item || item.route !== check.route || actorForRole[check.roleType] !== check.actor) fail("YUZHOU_UAT_BROWSER_MATRIX_BINDING_INVALID", `${check.legacyId}:${check.roleType}`);
+    if (check.expectedPath !== undefined && (typeof check.expectedPath !== "string" || !check.expectedPath.startsWith("/") || check.expectedPath === check.route)) fail("YUZHOU_UAT_BROWSER_MATRIX_EXPECTED_PATH_INVALID", `${check.legacyId}:${check.roleType}`);
     if (!Array.isArray(check.visibleTexts) || check.visibleTexts.length === 0 || check.visibleTexts.some(text => typeof text !== "string" || text.length < 2)) fail("YUZHOU_UAT_BROWSER_MATRIX_VISIBLE_INVALID", `${check.legacyId}:${check.roleType}`);
     if (!Array.isArray(check.forbiddenTexts) || check.forbiddenTexts.some(text => typeof text !== "string" || text.length < 2)) fail("YUZHOU_UAT_BROWSER_MATRIX_FORBIDDEN_INVALID", `${check.legacyId}:${check.roleType}`);
     if (check.masked !== (check.roleType !== "hr_manager")) fail("YUZHOU_UAT_BROWSER_MATRIX_MASKING_INVALID", `${check.legacyId}:${check.roleType}`);
