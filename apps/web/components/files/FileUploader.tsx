@@ -38,6 +38,7 @@ interface FileUploaderProps {
   policyKey?: FileUploadPolicyKey;
   label?: string;
   helperText?: string;
+  safeErrorMessage?: string;
   compact?: boolean;
   disabled?: boolean;
   onUploadingChange?: (uploading: boolean) => void;
@@ -55,6 +56,7 @@ export function FileUploader({
   policyKey,
   label,
   helperText,
+  safeErrorMessage,
   compact = false,
   disabled = false,
   onUploadingChange,
@@ -204,6 +206,10 @@ export function FileUploader({
       clearSelection();
       setMessage("上传成功");
     } catch (error) {
+      if (safeErrorMessage) {
+        setMessage(safeErrorMessage);
+        return;
+      }
       if (queueContext && offlineQueue.consent && selectedFile) {
         try {
           await queueSelectedFile(selectedFile, expectedGeneration, uploadRemark);

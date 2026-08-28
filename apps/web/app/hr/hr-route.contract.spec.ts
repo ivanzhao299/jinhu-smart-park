@@ -138,6 +138,8 @@ test("HR employee attachments use exact document atoms without generic file perm
  assert.match(employees,/canManageEmployeeDocuments=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\)/);
  assert.match(employees,/FileUploader compact bizType="hr_employee_photo"/);
  assert.match(employees,/FileUploader compact bizType="hr_employee_document"/);
+ assert.match(employees,/safeErrorMessage="员工照片上传失败"/);
+ assert.match(employees,/safeErrorMessage="员工档案附件上传失败"/);
  assert.match(employees,/label="员工照片" emptyLabel="暂无员工照片"/);
  assert.match(employees,/label="档案附件" emptyLabel="暂无档案附件"/);
  assert.match(employees,/mutationPermission=\{HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\}/);
