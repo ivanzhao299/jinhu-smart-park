@@ -10,6 +10,7 @@ import {
 } from "../hr-cutover/yuzhou-live-role-uat-recorder.mjs";
 import { apiMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-api-matrix-lib.mjs";
 import { browserMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-browser-matrix-lib.mjs";
+import { technicalUatAuditSemantic } from "../hr-cutover/yuzhou-live-role-uat-evidence-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8"));
@@ -18,9 +19,9 @@ const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
-function observation(legacyId, kind, checkId) {
+function observation(legacyId, kind, checkId, auditBizIdSha256) {
   const check = apiMatrix.checks.find(candidate => candidate.legacyId === legacyId && candidate.kind === kind && candidate.checkId === checkId);
-  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
+  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), auditBizIdSha256: operation.outcome === "success" ? auditBizIdSha256 : null, requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
   const assertions = Object.fromEntries(check.assertions.map(assertion => [assertion, true]));
   return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
 }
@@ -40,8 +41,9 @@ function complete(rehearsal) {
     }))
   });
   for (const item of taskCard.items) {
-    for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id));
-    for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id));
+    const auditBizIdSha256=hash(`biz:${item.legacyId}`);
+    for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id, auditBizIdSha256));
+    for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id, auditBizIdSha256));
     for (const roleType of item.roleTypes) for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, roleType, viewport.id, {
       runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, viewportId: viewport.id,
       route: item.route,
@@ -59,7 +61,7 @@ function complete(rehearsal) {
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       cellEvidenceSha256: hash(JSON.stringify({ runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, roleType, actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor, actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "hr_reviewer" : roleType === "department_manager" ? "manager" : "employee"}`), route: item.route, renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), networkFailureCount: 0 }))
     });
-    const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations[0],row={actor:auditCheck.actor,actorSubjectHash:hash(`${rehearsal}-${auditCheck.actor}`),operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:hash(`biz:${item.legacyId}`),bizTypeSha256:hash(`type:${item.legacyId}`),actionSha256:hash(`action:${item.legacyId}`)},audit={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
+    const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations.find(candidate=>technicalUatAuditSemantic(candidate.method,candidate.route)),semantic=technicalUatAuditSemantic(operation.method,operation.route),row={actor:auditCheck.actor,actorSubjectHash:hash(`${rehearsal}-${auditCheck.actor}`),operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:auditBizIdSha256,bizTypeSha256:hash(semantic.bizType),actionSha256:hash(semantic.action)},audit={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
     recorder.passAuditEvidence(item.legacyId,audit);
   }
   return recorder.finalize();

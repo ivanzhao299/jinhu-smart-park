@@ -31,6 +31,11 @@ function responseShape(value) {
   return typeof value;
 }
 
+function responseEntityId(value) {
+  const candidate = value?.data?.id ?? value?.id;
+  return typeof candidate === "string" && /^[0-9a-f-]{36}$/iu.test(candidate) ? candidate : null;
+}
+
 function validateLoopbackApiBase(apiBase) {
   let url;
   try {
@@ -131,6 +136,11 @@ export class YuzhouLiveRoleUatHttpRunner {
         routeTemplate: operation.route,
         outcome: operation.outcome,
         statusCode: response.status,
+        auditBizIdSha256: (() => {
+          const routeIds = route.match(/[0-9a-f-]{36}/giu) ?? [];
+          const bizId = routeIds.at(-1) ?? responseEntityId(payload);
+          return bizId ? sha256(bizId) : null;
+        })(),
         requestBodySha256: sha256(body === undefined ? null : body),
         responseShapeSha256: sha256(responseShape(payload))
       });

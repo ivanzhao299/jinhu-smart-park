@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import {
   YuzhouLiveRoleUatEvidenceError,
+  technicalUatAuditSemantic,
   validateYuzhouLiveRoleUatEvidencePair
 } from "../hr-cutover/yuzhou-live-role-uat-evidence-lib.mjs";
 import { taskCardHash } from "../hr-cutover/yuzhou-live-role-uat-task-card-lib.mjs";
@@ -19,9 +20,9 @@ const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
-function observation(legacyId, kind, checkId) {
+function observation(legacyId, kind, checkId, auditBizIdSha256) {
   const check = apiMatrix.checks.find(candidate => candidate.legacyId === legacyId && candidate.kind === kind && candidate.checkId === checkId);
-  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
+  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), auditBizIdSha256: operation.outcome === "success" ? auditBizIdSha256 : null, requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
   const assertions = Object.fromEntries(check.assertions.map(assertion => [assertion, true]));
   return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
 }
@@ -68,9 +69,9 @@ function passingEvidence(rehearsal) {
     triple: { ...triple },
     actors,
     items: taskCard.items.map(item => {
-      const positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) }));
-      const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) }));
-      const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations[0],actor=actors.find(row=>row.actor===auditCheck.actor),row={actor:auditCheck.actor,actorSubjectHash:actor.subjectHash,operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:hash(`${rehearsal}:${item.legacyId}:biz`),bizTypeSha256:hash(`${item.legacyId}:type`),actionSha256:hash(`${item.legacyId}:action`)},auditEvidence={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
+      const auditBizIdSha256=hash(`${rehearsal}:${item.legacyId}:biz`),positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id, auditBizIdSha256) }));
+      const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id, auditBizIdSha256) }));
+      const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations.find(candidate=>technicalUatAuditSemantic(candidate.method,candidate.route)),semantic=technicalUatAuditSemantic(operation.method,operation.route),actor=actors.find(row=>row.actor===auditCheck.actor),row={actor:auditCheck.actor,actorSubjectHash:actor.subjectHash,operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:auditBizIdSha256,bizTypeSha256:hash(semantic.bizType),actionSha256:hash(semantic.action)},auditEvidence={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
       return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
     }),
     p0P1Count: 0,
@@ -89,6 +90,11 @@ function reuseReviewerAcrossPair(pair) {
     cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount }));
   }
   for(const item of pair.B.items){for(const row of item.auditEvidence.rows)if(row.actor==="hr_reviewer")row.actorSubjectHash=subjectHash;item.auditEvidence.rowsSha256=hash(JSON.stringify(item.auditEvidence.rows));item.auditEvidenceSha256=hash(JSON.stringify(item.auditEvidence));}
+}
+
+function resealAudit(item) {
+  item.auditEvidence.rowsSha256=hash(JSON.stringify(item.auditEvidence.rows));
+  item.auditEvidenceSha256=hash(JSON.stringify(item.auditEvidence));
 }
 
 test("independent Smart Park A/B evidence promotes only target implementation and never legacy runtime", () => {
@@ -141,7 +147,10 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [reuseReviewerAcrossPair, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"],
     [pair => { delete pair.A.items[0].auditEvidence; }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
     [pair => { pair.A.items[0].auditEvidenceSha256 = "0".repeat(64); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
-    [pair => { pair.A.items[0].auditEvidence.delta = 0; }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"]
+    [pair => { pair.A.items[0].auditEvidence.delta = 0; }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
+    [pair => { pair.A.items[0].auditEvidence.rows[0].bizIdSha256="a".repeat(64);resealAudit(pair.A.items[0]); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
+    [pair => { pair.A.items[0].auditEvidence.rows[0].bizTypeSha256="b".repeat(64);resealAudit(pair.A.items[0]); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
+    [pair => { pair.A.items[0].auditEvidence.rows[0].actionSha256="c".repeat(64);resealAudit(pair.A.items[0]); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"]
   ];
   for (const [mutate, code] of cases) {
     const pair = { A: passingEvidence("A"), B: passingEvidence("B") };

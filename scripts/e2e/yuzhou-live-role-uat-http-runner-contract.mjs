@@ -1,5 +1,6 @@
 /* global Response, structuredClone */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { readFileSync } from "node:fs";
@@ -15,6 +16,7 @@ const load = relative => JSON.parse(readFileSync(resolve(root, relative), "utf8"
 const taskCard = load("scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json");
 const apiMatrix = load("scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json");
 const tokens = { hr_maker: "maker-token-isolated", hr_reviewer: "reviewer-token-isolated", manager: "manager-token-isolated", employee: "employee-token-isolated" };
+const hash = value => createHash("sha256").update(value).digest("hex");
 
 async function withServer(handler, run) {
   const server = createServer(handler);
@@ -56,6 +58,8 @@ test("the HTTP runner performs real loopback calls and emits value-free evidence
     assert.equal(seen.length, 2);
     assert.equal(seen[0].authorization, `Bearer ${tokens.hr_maker}`);
     assert.equal(observation.operations.length, 2);
+    assert.equal(observation.operations[0].auditBizIdSha256, hash("11111111-1111-4111-8111-111111111111"));
+    assert.equal(observation.operations[1].auditBizIdSha256, hash("11111111-1111-4111-8111-111111111111"));
     assert.match(observation.observationSha256, /^[0-9a-f]{64}$/u);
     assert.doesNotMatch(JSON.stringify(observation), /must-not-enter-evidence|synthetic|Bearer/u);
   });
