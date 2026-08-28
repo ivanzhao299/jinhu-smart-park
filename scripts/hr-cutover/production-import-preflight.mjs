@@ -1,20 +1,24 @@
 #!/usr/bin/env node
 /* global process, structuredClone, URL */
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const DEFAULT_CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/production-import-preflight-v1.json");
 const DEFAULT_ALLOWLIST_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json");
-const DEFAULT_CONTRACT = JSON.parse(readFileSync(DEFAULT_CONTRACT_PATH, "utf8"));
-const DEFAULT_ALLOWLIST = JSON.parse(readFileSync(DEFAULT_ALLOWLIST_PATH, "utf8"));
+const FINAL_PAIR_CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json");
+const readRepositoryJson = path => { try { return JSON.parse(readFileSync(path, "utf8")); } catch { return null; } };
+const DEFAULT_CONTRACT = readRepositoryJson(DEFAULT_CONTRACT_PATH);
+const DEFAULT_ALLOWLIST = readRepositoryJson(DEFAULT_ALLOWLIST_PATH);
+const FINAL_PAIR_CONTRACT = readRepositoryJson(FINAL_PAIR_CONTRACT_PATH);
 const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const OPERATION_ID = /^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/u;
 const SAFE_ALIAS = /^[a-z0-9][a-z0-9-]{5,63}$/u;
+const SAFE_RELATIVE_PATH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/u;
+const SAFE_GIT_REF = /^refs\/[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/u;
 const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|credential|privatekey|bankaccount|idcard|insureaccount|employeename|fullname|mobile|phone|salaryamount|grosspay|netpay/iu;
 const FORBIDDEN_VALUE = /postgres(?:ql)?:\/\/|sqlserver:\/\/|Bearer\s+|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}/iu;
 const FORBIDDEN_PII_VALUE = /(?<!\d)(?:1[3-9]\d{9}|\d{17}[0-9Xx]|\d{16,19})(?!\d)/u;
@@ -36,6 +40,7 @@ const canonicalJson = value => {
   return JSON.stringify(value);
 };
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
+const prettyJson = value => `${JSON.stringify(value, null, 2)}\n`;
 
 function object(value, code, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail(code, `${label} must be an object`);
@@ -65,7 +70,7 @@ function scanArtifact(value, at = "$") {
     if (FORBIDDEN_KEY.test(key) && key !== "secretDelivery") fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", `${at}.${key} is forbidden`);
     scanArtifact(child, `${at}.${key}`);
   });
-  if (typeof value === "string" && (FORBIDDEN_VALUE.test(value) || FORBIDDEN_PII_VALUE.test(value))) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", `${at} contains forbidden material`);
+  if (typeof value === "string" && (FORBIDDEN_VALUE.test(value) || ((!SHA256.test(value) && !CODE_SHA.test(value)) && FORBIDDEN_PII_VALUE.test(value)))) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", `${at} contains forbidden material`);
 }
 
 function timestamp(value, code, label) {
@@ -83,15 +88,80 @@ export function computeProductionImportPlanningContractHash(contract = DEFAULT_C
     if (typeof relativePath !== "string" || isAbsolute(relativePath) || relativePath.split(/[\\/]/u).includes("..") || seen.has(relativePath)) fail("PRODUCTION_IMPORT_PLAN_INVALID", "planning contract component invalid");
     seen.add(relativePath);
     const absolute = resolve(ROOT, relativePath);
-    if (!absolute.startsWith(`${ROOT}${sep}`) || !statSync(absolute).isFile()) fail("PRODUCTION_IMPORT_PLAN_INVALID", "planning contract component unavailable");
-    hash.update(relativePath).update("\0").update(readFileSync(absolute)).update("\0");
+    if (!absolute.startsWith(`${ROOT}${sep}`) || !existsSync(absolute) || lstatSync(absolute).isSymbolicLink()) fail("PRODUCTION_IMPORT_PLAN_INVALID", "planning contract component unavailable");
+    const actual = realpathSync(absolute);
+    if (!actual.startsWith(`${ROOT}${sep}`) || !statSync(actual).isFile()) fail("PRODUCTION_IMPORT_PLAN_INVALID", "planning contract component unavailable");
+    hash.update(relativePath).update("\0").update(readFileSync(actual)).update("\0");
   }
   return hash.digest("hex");
+}
+
+function readSmallRegularFile(path, code, label) {
+  if (!existsSync(path) || lstatSync(path).isSymbolicLink()) fail(code, `${label} unavailable`);
+  const stat = statSync(path);
+  if (!stat.isFile() || stat.size > 1024 * 1024) fail(code, `${label} invalid`);
+  return readFileSync(path, "utf8");
+}
+
+function repositoryGitDirectories() {
+  const marker = resolve(ROOT, ".git");
+  if (!existsSync(marker) || lstatSync(marker).isSymbolicLink()) fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "repository metadata unavailable");
+  let gitDir;
+  if (statSync(marker).isDirectory()) gitDir = realpathSync(marker);
+  else {
+    const declaration = readSmallRegularFile(marker, "PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "gitdir").trim();
+    const match = /^gitdir: (.+)$/u.exec(declaration);
+    if (!match) fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "gitdir declaration invalid");
+    gitDir = realpathSync(resolve(dirname(marker), match[1]));
+  }
+  const commonMarker = resolve(gitDir, "commondir");
+  const commonDir = existsSync(commonMarker)
+    ? realpathSync(resolve(gitDir, readSmallRegularFile(commonMarker, "PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "commondir").trim()))
+    : gitDir;
+  if (!statSync(gitDir).isDirectory() || !statSync(commonDir).isDirectory()) fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "git metadata directories invalid");
+  return { gitDir, commonDir };
+}
+
+function readLooseGitRef(directory, refName) {
+  const candidate = resolve(directory, refName);
+  if (!candidate.startsWith(`${directory}${sep}`) || !existsSync(candidate)) return null;
+  return readSmallRegularFile(candidate, "PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "git ref").trim();
+}
+
+function readPackedGitRef(commonDir, refName) {
+  const path = resolve(commonDir, "packed-refs");
+  if (!existsSync(path)) return null;
+  for (const line of readSmallRegularFile(path, "PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "packed refs").split("\n")) {
+    if (!line || line.startsWith("#") || line.startsWith("^")) continue;
+    const separator = line.indexOf(" ");
+    if (separator > 0 && line.slice(separator + 1) === refName) return line.slice(0, separator);
+  }
+  return null;
+}
+
+function resolveGitRef(refName, directories, depth = 0) {
+  if (depth > 4 || (refName !== "HEAD" && (!SAFE_GIT_REF.test(refName) || refName.split("/").includes("..")))) fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "git ref invalid");
+  const loose = readLooseGitRef(directories.gitDir, refName)
+    ?? (directories.commonDir !== directories.gitDir ? readLooseGitRef(directories.commonDir, refName) : null);
+  const value = loose ?? (refName === "HEAD" ? null : readPackedGitRef(directories.commonDir, refName));
+  if (typeof value !== "string") fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "git ref unavailable");
+  if (value.startsWith("ref: ")) return resolveGitRef(value.slice(5), directories, depth + 1);
+  if (!CODE_SHA.test(value)) fail("PRODUCTION_IMPORT_CURRENT_CODE_SHA_MISMATCH", "git ref SHA invalid");
+  return value;
+}
+
+export function readRepositoryCodeShas() {
+  const directories = repositoryGitDirectories();
+  return {
+    currentCodeSha: resolveGitRef("HEAD", directories),
+    mergedCodeSha: resolveGitRef("refs/remotes/origin/main", directories),
+  };
 }
 
 function validatePlanShape(plan, contract) {
   const keys = ["formatVersion", "planKind", "operationId", "mode", "sourceSurface", "triple", "planningContractSha256", "target", "window", "artifacts", "authorityBoundary", "productionImport"];
   exactKeys(plan, keys, [], "PRODUCTION_IMPORT_PLAN_INVALID", "plan");
+  scanArtifact(plan, "plan");
   if (plan.formatVersion !== 1 || plan.planKind !== "yuzhou_hr_production_import_preflight_plan" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_PLAN_INVALID", "identity/boundary invalid");
   if (!OPERATION_ID.test(plan.operationId ?? "")) fail("PRODUCTION_IMPORT_OPERATION_ID_INVALID", "operationId invalid");
   if (plan.mode !== "DRY_RUN") fail("PRODUCTION_IMPORT_MODE_NOT_DRY_RUN", "only DRY_RUN is accepted");
@@ -116,7 +186,7 @@ function validatePlanShape(plan, contract) {
     exactKeys(artifact, ["role", "relativePath", "sha256"], [], "PRODUCTION_IMPORT_ARTIFACT_INVALID", "artifact");
     if (typeof artifact.role !== "string" || roles.has(artifact.role)) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", "artifact role duplicate/invalid");
     roles.add(artifact.role);
-    if (typeof artifact.relativePath !== "string" || !artifact.relativePath || isAbsolute(artifact.relativePath) || artifact.relativePath.split(/[\\/]/u).includes("..") || paths.has(artifact.relativePath)) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", "artifact path duplicate/invalid");
+    if (typeof artifact.relativePath !== "string" || !SAFE_RELATIVE_PATH.test(artifact.relativePath) || isAbsolute(artifact.relativePath) || artifact.relativePath.split("/").includes("..") || paths.has(artifact.relativePath)) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", "artifact path duplicate/invalid");
     paths.add(artifact.relativePath);
     assertSha(artifact.sha256, "PRODUCTION_IMPORT_ARTIFACT_INVALID", artifact.role);
   }
@@ -163,11 +233,20 @@ function loadArtifacts(plan, evidenceRoot) {
   return loaded;
 }
 
-function validatePairEvidence(pair, plan) {
+function validateFinalPairContract(contract) {
+  exactKeys(contract, ["formatVersion", "contractKind", "contractVersion", "executionBoundary", "productionImport", "rehearsalOrder", "domainOrder", "rollbackOrder", "sourceFacts", "requiredStages", "requiredFinalState"], [], "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "final rehearsal pair contract");
+  if (contract.formatVersion !== 1 || contract.contractKind !== "yuzhou_hr_final_rehearsal_pair" || contract.executionBoundary !== "isolated_lab_only" || contract.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "final pair contract identity invalid");
+  if (!same(contract.rehearsalOrder, ["A", "B"]) || !same(contract.domainOrder, ["T0", "T1", "T2", "T3", "T4", "T5"]) || !same(contract.rollbackOrder, ["T5", "T4", "T3", "T2", "T1", "T0"])) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "final pair contract order invalid");
+  if (!same(contract.requiredStages, ["provision", "T0_T5", "technical_uat", "p0_matrix", "backup_restore_fault", "pair_compare", "T5_T0_rollback", "cleanup"]) || !same(contract.requiredFinalState, { state: "cleaned", residualCount: 0, p0Execution: "PASS", productionImport: "HOLD" })) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "final pair contract stages/final state invalid");
+  return sha256(prettyJson(contract));
+}
+
+function validatePairEvidence(pair, plan, finalPairContract = FINAL_PAIR_CONTRACT) {
   exactKeys(pair, ["formatVersion", "status", "contractSha256", "triple", "rehearsals", "sourceFacts", "humanUat", "productionImport"], [], "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "final rehearsal pair");
   if (pair.formatVersion !== 1 || pair.status !== "PASS" || pair.humanUat !== "HOLD" || pair.productionImport !== "HOLD" || !same(pair.triple, plan.triple)) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "pair identity/status invalid");
   validateTriple(pair.triple, "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "pair.triple");
   assertSha(pair.contractSha256, "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "pair contract");
+  if (pair.contractSha256 !== validateFinalPairContract(finalPairContract) || !same(pair.sourceFacts, finalPairContract.sourceFacts)) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "pair contract/source facts are not the pinned final rehearsal contract");
   if (!Array.isArray(pair.rehearsals) || pair.rehearsals.length !== 2 || pair.rehearsals.map(row => row.rehearsal).join("") !== "AB") fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "A/B exact pair missing");
   for (const row of pair.rehearsals) {
     exactKeys(row, ["rehearsal", "manifestSha256", "cleanupAuditSha256", "residualCount"], [], "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "rehearsal");
@@ -175,15 +254,17 @@ function validatePairEvidence(pair, plan) {
     assertSha(row.cleanupAuditSha256, "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "cleanup");
     if (row.residualCount !== 0) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "A/B residual must be zero");
   }
+  if (new Set(pair.rehearsals.map(row => row.manifestSha256)).size !== 2 || new Set(pair.rehearsals.map(row => row.cleanupAuditSha256)).size !== 2) fail("PRODUCTION_IMPORT_AB_EVIDENCE_INVALID", "A/B must reference independent manifest and cleanup evidence");
 }
 
-function validateConflictDecision(decision, phase, contract) {
+function validateConflictDecision(decision, phase, contract, expected) {
   exactKeys(decision, ["sourceIdentitySha256", "strategy", "existingTargetIdentitySha256", "beforeImageSha256", "legacyRecordMapSha256"], ["decisionAttestationSha256"], "PRODUCTION_IMPORT_MANIFEST_INVALID", `${phase}.conflictDecision`);
   for (const field of ["sourceIdentitySha256", "existingTargetIdentitySha256", "beforeImageSha256", "legacyRecordMapSha256"]) assertSha(decision[field], "PRODUCTION_IMPORT_MANIFEST_INVALID", `${phase}.${field}`);
   if (decision.strategy === "overwrite") fail("PRODUCTION_IMPORT_OVERWRITE_FORBIDDEN", phase);
   if (!contract.allowedConflictStrategies.includes(decision.strategy)) fail("PRODUCTION_IMPORT_CONFLICT_STRATEGY_INVALID", phase);
   if (!decision.decisionAttestationSha256) fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", phase);
   assertSha(decision.decisionAttestationSha256, "PRODUCTION_IMPORT_CONFLICT_UNSIGNED", phase);
+  if (decision.strategy !== expected.strategy || decision.beforeImageSha256 !== expected.beforeImageSha256 || decision.legacyRecordMapSha256 !== expected.legacyRecordMapSha256) fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", `${phase}:conflict decision is not bound to its declared strategy/before-image/record-map`);
 }
 
 function validatePhaseArtifact(value, phase, targetIdentitySha256, kind) {
@@ -241,7 +322,7 @@ function validateImportManifest(manifest, plan, artifacts, contract) {
     if (!Number.isSafeInteger(phase.existingConflictCount) || phase.existingConflictCount < 0 || !Array.isArray(phase.conflictDecisions) || phase.conflictDecisions.length !== phase.existingConflictCount) fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", phase.phase);
     const identities = new Set();
     for (const decision of phase.conflictDecisions) {
-      validateConflictDecision(decision, phase.phase, contract);
+      validateConflictDecision(decision, phase.phase, contract, { strategy: phase.existingRecordStrategy, beforeImageSha256: phase.beforeImageSha256, legacyRecordMapSha256: phase.legacyRecordMapSha256 });
       if (identities.has(decision.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", `${phase.phase}:duplicate decision`);
       identities.add(decision.sourceIdentitySha256);
       const ledgerEntry = conflictEntries.get(`${phase.phase}:${decision.sourceIdentitySha256}`);
@@ -258,6 +339,7 @@ function validateImportManifest(manifest, plan, artifacts, contract) {
         legacyRecordMapSha256: decision.legacyRecordMapSha256,
         decisionAttestationSha256: decision.decisionAttestationSha256,
       })) fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", `${phase.phase}:detached conflict decision missing`);
+      if (ledgerEntry.strategy === "skip_approved" && ledgerEntry.signerRole !== "hr_owner") fail("PRODUCTION_IMPORT_CONFLICT_UNSIGNED", `${phase.phase}:skip_approved requires HR owner attestation`);
     }
     const beforeRole = `before_image_${phase.phase}`;
     const mapRole = `legacy_record_map_${phase.phase}`;
@@ -289,7 +371,10 @@ function validateAuthorization(authorization, plan, artifacts, contract, nowMs) 
   assertSha(authorization.authorizationNonceSha256, "PRODUCTION_IMPORT_AUTH_MISSING", "authorization nonce digest");
   const issuedAt = timestamp(authorization.issuedAt, "PRODUCTION_IMPORT_AUTH_MISSING", "authorization.issuedAt");
   const expiresAt = timestamp(authorization.expiresAt, "PRODUCTION_IMPORT_AUTH_MISSING", "authorization.expiresAt");
-  if (issuedAt >= expiresAt || nowMs < issuedAt || nowMs > expiresAt) fail("PRODUCTION_IMPORT_AUTH_STALE", "authorization is outside its validity interval");
+  const windowStartsAt = timestamp(plan.window.startsAt, "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "plan.window.startsAt");
+  const windowEndsAt = timestamp(plan.window.endsAt, "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "plan.window.endsAt");
+  if (issuedAt >= expiresAt || nowMs < issuedAt || nowMs >= expiresAt) fail("PRODUCTION_IMPORT_AUTH_STALE", "authorization is outside its validity interval");
+  if (issuedAt < windowStartsAt || expiresAt > windowEndsAt) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization validity escapes the pinned import window");
   exactKeys(authorization.binding, ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "importManifestSha256", "windowStartsAt", "windowEndsAt"], [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
   validateTriple(authorization.binding.triple, "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding.triple");
   const expected = {
@@ -303,32 +388,45 @@ function validateAuthorization(authorization, plan, artifacts, contract, nowMs) 
   if (!same(authorization.binding, expected)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization binding differs");
   if (!Array.isArray(authorization.approvalSet) || authorization.approvalSet.length !== contract.requiredApprovalRoles.length) fail("PRODUCTION_IMPORT_AUTH_MISSING", "approval set incomplete");
   const roles = [];
+  const subjects = new Set();
+  const decisions = new Set();
   for (const approval of authorization.approvalSet) {
     exactKeys(approval, ["role", "subjectRefSha256", "signedDecisionSha256"], [], "PRODUCTION_IMPORT_AUTH_MISSING", "approval");
     assertSha(approval.subjectRefSha256, "PRODUCTION_IMPORT_AUTH_MISSING", approval.role);
     assertSha(approval.signedDecisionSha256, "PRODUCTION_IMPORT_AUTH_MISSING", approval.role);
     roles.push(approval.role);
+    subjects.add(approval.subjectRefSha256);
+    decisions.add(approval.signedDecisionSha256);
   }
-  if (!same(roles.sort(), [...contract.requiredApprovalRoles].sort()) || new Set(roles).size !== roles.length) fail("PRODUCTION_IMPORT_AUTH_MISSING", "approval roles differ");
+  if (!same(roles.sort(), [...contract.requiredApprovalRoles].sort()) || new Set(roles).size !== roles.length || subjects.size !== roles.length || decisions.size !== roles.length) fail("PRODUCTION_IMPORT_AUTH_MISSING", "approval roles/subjects/decisions must be independent");
 }
 
-function validateUsageLedger(ledger, plan, authorizationSha256) {
+function validateUsageLedger(ledger, plan, authorization, authorizationSha256, nowMs) {
   exactKeys(ledger, ["formatVersion", "artifactKind", "entries"], [], "PRODUCTION_IMPORT_ARTIFACT_INVALID", "authorization usage ledger");
   if (ledger.formatVersion !== 1 || ledger.artifactKind !== "yuzhou_hr_production_authorization_usage_ledger" || !Array.isArray(ledger.entries)) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", "usage ledger invalid");
   for (const entry of ledger.entries) {
-    exactKeys(entry, ["operationId", "authorizationArtifactSha256", "intent", "status", "consumedAt"], [], "PRODUCTION_IMPORT_ARTIFACT_INVALID", "usage entry");
+    exactKeys(entry, ["operationId", "authorizationArtifactSha256", "authorizationNonceSha256", "intent", "status", "consumedAt"], [], "PRODUCTION_IMPORT_ARTIFACT_INVALID", "usage entry");
     assertSha(entry.authorizationArtifactSha256, "PRODUCTION_IMPORT_ARTIFACT_INVALID", "used authorization");
-    timestamp(entry.consumedAt, "PRODUCTION_IMPORT_ARTIFACT_INVALID", "consumedAt");
+    assertSha(entry.authorizationNonceSha256, "PRODUCTION_IMPORT_ARTIFACT_INVALID", "used authorization nonce");
+    const consumedAt = timestamp(entry.consumedAt, "PRODUCTION_IMPORT_ARTIFACT_INVALID", "consumedAt");
+    if (!["production_import", "production_restore"].includes(entry.intent) || entry.status !== "CONSUMED" || consumedAt > nowMs) fail("PRODUCTION_IMPORT_ARTIFACT_INVALID", "usage entry intent/status/time invalid");
     if (entry.operationId === plan.operationId) fail("PRODUCTION_IMPORT_OPERATION_REUSED", "operation id already recorded");
     if (entry.authorizationArtifactSha256 === authorizationSha256) fail("PRODUCTION_IMPORT_AUTH_REUSED", "authorization already recorded");
+    if (entry.authorizationNonceSha256 === authorization.authorizationNonceSha256) fail("PRODUCTION_IMPORT_AUTH_REUSED", "authorization nonce already recorded");
   }
 }
 
 function validateTargetAllowlist(allowlist, plan) {
   exactKeys(allowlist, ["formatVersion", "contractKind", "status", "allowedTargets", "reasonCodes"], [], "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "target allowlist");
-  if (allowlist.formatVersion !== 1 || allowlist.contractKind !== "yuzhou_hr_production_import_target_allowlist" || allowlist.status !== "PASS" || !Array.isArray(allowlist.allowedTargets)) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "allowlist is not activated");
+  scanArtifact(allowlist, "target allowlist");
+  if (allowlist.formatVersion !== 1 || allowlist.contractKind !== "yuzhou_hr_production_import_target_allowlist" || allowlist.status !== "PASS" || !Array.isArray(allowlist.allowedTargets) || !Array.isArray(allowlist.reasonCodes) || allowlist.reasonCodes.length !== 0) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "allowlist is not activated");
+  for (const target of allowlist.allowedTargets) {
+    exactKeys(target, ["environment", "alias", "identitySha256"], [], "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "allowed target");
+    if (target.environment !== "production" || !SAFE_ALIAS.test(target.alias ?? "")) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "allowed target identity invalid");
+    assertSha(target.identitySha256, "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "allowed target identity");
+  }
   const matching = allowlist.allowedTargets.filter(row => row?.alias === plan.target.alias && row?.identitySha256 === plan.target.identitySha256 && row?.environment === "production");
-  if (matching.length !== 1 || allowlist.allowedTargets.length !== new Set(allowlist.allowedTargets.map(row => `${row?.alias}:${row?.identitySha256}`)).size) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "target identity not uniquely allowlisted");
+  if (matching.length !== 1 || allowlist.allowedTargets.length !== new Set(allowlist.allowedTargets.map(row => row.alias)).size || allowlist.allowedTargets.length !== new Set(allowlist.allowedTargets.map(row => row.identitySha256)).size) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "target identity not uniquely allowlisted");
 }
 
 function evaluateOrThrow(plan, options) {
@@ -339,13 +437,13 @@ function evaluateOrThrow(plan, options) {
   const nowMs = options.now instanceof Date ? options.now.getTime() : Date.parse(options.now ?? new Date().toISOString());
   if (!Number.isFinite(nowMs)) fail("PRODUCTION_IMPORT_PLAN_INVALID", "now invalid");
   if (nowMs < startsAt) fail("PRODUCTION_IMPORT_WINDOW_NOT_OPEN", "window not open");
-  if (nowMs > endsAt) fail("PRODUCTION_IMPORT_WINDOW_EXPIRED", "window expired");
+  if (nowMs >= endsAt) fail("PRODUCTION_IMPORT_WINDOW_EXPIRED", "window expired");
   const artifacts = loadArtifacts(plan, options.evidenceRoot);
   validateTargetAllowlist(options.allowlist ?? DEFAULT_ALLOWLIST, plan);
-  validatePairEvidence(artifacts.get("final_rehearsal_pair").json, plan);
+  validatePairEvidence(artifacts.get("final_rehearsal_pair").json, plan, FINAL_PAIR_CONTRACT);
   validateImportManifest(artifacts.get("import_manifest").json, plan, artifacts, contract);
   validateAuthorization(artifacts.get("one_time_import_authorization").json, plan, artifacts, contract, nowMs);
-  validateUsageLedger(artifacts.get("authorization_usage_ledger").json, plan, artifacts.get("one_time_import_authorization").declaration.sha256);
+  validateUsageLedger(artifacts.get("authorization_usage_ledger").json, plan, artifacts.get("one_time_import_authorization").json, artifacts.get("one_time_import_authorization").declaration.sha256, nowMs);
   return { operationId: plan.operationId, phaseOrder: [...contract.firstWavePhaseOrder] };
 }
 
@@ -355,15 +453,16 @@ export function evaluateProductionImportPreflight(plan, options = {}) {
   try { gate = evaluateOrThrow(structuredClone(plan), options); }
   catch (error) { failure = error instanceof ProductionImportPreflightError ? error.code : "PRODUCTION_IMPORT_PLAN_INVALID"; }
   const reasons = failure ? [failure, "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE"] : ["PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE"];
-  const catalog = options.contract?.reasonCatalog ?? DEFAULT_CONTRACT.reasonCatalog;
-  const unique = [...new Set(reasons)].sort((left, right) => catalog.indexOf(left) - catalog.indexOf(right));
+  const catalog = options.contract?.reasonCatalog ?? DEFAULT_CONTRACT?.reasonCatalog ?? [];
+  const rank = code => { const index = catalog.indexOf(code); return index < 0 ? Number.MAX_SAFE_INTEGER : index; };
+  const unique = [...new Set(reasons)].sort((left, right) => rank(left) - rank(right));
   return {
     formatVersion: 1,
     status: "HOLD",
     engineeringPreflight: failure ? "HOLD" : "PASS",
     reasonCodes: unique,
     operationId: plan?.operationId ?? null,
-    firstWave: gate?.phaseOrder ?? [...DEFAULT_CONTRACT.firstWavePhaseOrder],
+    firstWave: gate?.phaseOrder ?? [...(DEFAULT_CONTRACT?.firstWavePhaseOrder ?? [])],
     optionalT5A: "HOLD",
     productionImport: "HOLD",
     executionReachable: false,
@@ -384,17 +483,19 @@ function parse(argv) {
 }
 
 function cliHold(code, operationId = null) {
-  process.stdout.write(`${JSON.stringify({ formatVersion: 1, status: "HOLD", engineeringPreflight: "HOLD", reasonCodes: [...new Set([code, "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE"])], operationId, firstWave: [...DEFAULT_CONTRACT.firstWavePhaseOrder], optionalT5A: "HOLD", productionImport: "HOLD", executionReachable: false })}\n`);
+  process.stdout.write(`${JSON.stringify({ formatVersion: 1, status: "HOLD", engineeringPreflight: "HOLD", reasonCodes: [...new Set([code, "PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE"])], operationId, firstWave: [...(DEFAULT_CONTRACT?.firstWavePhaseOrder ?? [])], optionalT5A: "HOLD", productionImport: "HOLD", executionReachable: false })}\n`);
   process.exitCode = 2;
 }
 
 function readPlanFromRoot(evidenceRoot, relativePath) {
-  if (typeof evidenceRoot !== "string" || typeof relativePath !== "string" || isAbsolute(relativePath) || relativePath.split(/[\\/]/u).includes("..")) fail("PRODUCTION_IMPORT_PLAN_INVALID", "controlled plan path required");
+  if (typeof evidenceRoot !== "string" || !isAbsolute(evidenceRoot) || !existsSync(evidenceRoot) || lstatSync(evidenceRoot).isSymbolicLink() || typeof relativePath !== "string" || !SAFE_RELATIVE_PATH.test(relativePath) || isAbsolute(relativePath) || relativePath.split("/").includes("..")) fail("PRODUCTION_IMPORT_PLAN_INVALID", "controlled plan path required");
   const root = realpathSync(resolve(evidenceRoot));
-  if ((statSync(root).mode & 0o777) !== 0o700) fail("PRODUCTION_IMPORT_ARTIFACT_UNSAFE", "evidence root mode");
+  const rootStat = statSync(root);
+  if (!rootStat.isDirectory() || (rootStat.mode & 0o777) !== 0o700 || (typeof process.getuid === "function" && rootStat.uid !== process.getuid())) fail("PRODUCTION_IMPORT_ARTIFACT_UNSAFE", "evidence root must be owned 0700");
   assertNoSymlinkComponents(root, relativePath);
   const planPath = realpathSync(resolve(root, relativePath));
-  if (relative(root, planPath).startsWith("..") || (statSync(planPath).mode & 0o777) !== 0o600 || !statSync(planPath).isFile()) fail("PRODUCTION_IMPORT_ARTIFACT_UNSAFE", "plan must be a controlled 0600 file");
+  const planStat = statSync(planPath);
+  if (relative(root, planPath).startsWith("..") || (planStat.mode & 0o777) !== 0o600 || !planStat.isFile() || (typeof process.getuid === "function" && planStat.uid !== process.getuid())) fail("PRODUCTION_IMPORT_ARTIFACT_UNSAFE", "plan must be an owned controlled 0600 file");
   return JSON.parse(readFileSync(planPath, "utf8"));
 }
 
@@ -405,8 +506,7 @@ if (process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import
     else if (args.command !== "preflight" || !args.evidenceRoot || !args.planRelative) cliHold("PRODUCTION_IMPORT_PLAN_INVALID");
     else {
       const plan = readPlanFromRoot(args.evidenceRoot, args.planRelative);
-      const currentCodeSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-      const mergedCodeSha = execFileSync("git", ["rev-parse", "origin/main"], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+      const { currentCodeSha, mergedCodeSha } = readRepositoryCodeShas();
       const result = evaluateProductionImportPreflight(plan, { evidenceRoot: args.evidenceRoot, currentCodeSha, mergedCodeSha });
       process.stdout.write(`${JSON.stringify(result)}\n`);
       process.exitCode = result.engineeringPreflight === "PASS" ? 2 : 1;

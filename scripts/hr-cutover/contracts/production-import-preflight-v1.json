@@ -39,6 +39,7 @@
   "requiredApprovalRoles": ["hr_owner", "data_security_owner", "release_owner"],
   "planningContractHashAlgorithm": "sha256_path_nul_bytes_nul_sorted",
   "planningContractComponents": [
+    "scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json",
     "scripts/hr-cutover/contracts/production-import-preflight-v1.json",
     "scripts/hr-cutover/contracts/production-import-plan.schema.json",
     "scripts/hr-cutover/contracts/production-import-target-allowlist-v1.json",
