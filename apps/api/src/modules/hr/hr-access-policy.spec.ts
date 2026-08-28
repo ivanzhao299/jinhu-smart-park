@@ -270,13 +270,14 @@ test("legacy HR reads retain exact permissions and T6 goal/report reads use atom
     ["payrollRuns",HR_PERMISSIONS.HR_PAYROLL_READ],
     ["payrollRunPayslips",HR_PERMISSIONS.HR_PAYROLL_READ],
     ["myPayslips",HR_PERMISSIONS.HR_PAYSLIP_SELF_READ],
-    ["myApprovals",HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE],
-    ["pendingApprovals",HR_PERMISSIONS.HR_APPROVAL_REVIEW]
+    ["myApprovals",HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE]
   ];
   for(const [method,permission] of expected){
     assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[permission]);
     assert.equal(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype[method]),undefined);
   }
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.pendingApprovals),[HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW,HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW]);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.reviewApproval),[HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW,HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW]);
   assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrGoalReportController.prototype.myGoals),[HR_PERMISSIONS.HR_GOAL_SELF_READ]);
   assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrGoalReportController.prototype.myReports),[HR_PERMISSIONS.HR_WORK_REPORT_SELF_READ]);
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrGoalReportController.prototype.goals),[HR_PERMISSIONS.HR_GOAL_READ,HR_PERMISSIONS.HR_GOAL_TEAM_READ]);

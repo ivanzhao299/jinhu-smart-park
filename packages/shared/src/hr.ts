@@ -46,13 +46,13 @@ export const HR_PERMISSIONS = {
   HR_PAYROLL_HISTORY_READ: "hr:payroll_history:read", HR_PAYROLL_HISTORY_TEAM_SUMMARY: "hr:payroll_history:team_summary", HR_PAYROLL_HISTORY_SELF_READ: "hr:payroll_history:self_read",
   HR_PAYROLL_RULE_READ: "hr:payroll_rule:read", HR_PAYROLL_FORMULA_REVIEW: "hr:payroll_formula:review",
   HR_PAYROLL_RECONCILIATION_CALCULATE: "hr:payroll_reconciliation:calculate", HR_PAYROLL_RECONCILIATION_REVIEW: "hr:payroll_reconciliation:review",
-  HR_APPROVALS_PAGE: "hr:approvals", HR_APPROVAL_SELF_MANAGE: "hr:approval:self_manage", HR_APPROVAL_REVIEW: "hr:approval:review",
+  HR_APPROVALS_PAGE: "hr:approvals", HR_APPROVAL_SELF_MANAGE: "hr:approval:self_manage", HR_APPROVAL_PARK_REVIEW: "hr:approval:park_review", HR_APPROVAL_TEAM_REVIEW: "hr:approval:team_review", HR_APPROVAL_REVIEW: "hr:approval:park_review",
   HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read",
   HR_LEGACY_DICTIONARY_READ: "hr:legacy_dictionary:read", HR_LEGACY_DICTIONARY_MANAGE: "hr:legacy_dictionary:manage", HR_LEGACY_DICTIONARY_APPROVE: "hr:legacy_dictionary:approve"
 } as const;
 
 export type HrAccessScope = "park" | "managed_org_tree" | "self" | "none";
-export type HrAccessDomain = "employee" | "employee_profile";
+export type HrAccessDomain = "employee" | "employee_profile" | "approval_review";
 export interface HrAccessPrincipal {
   permissions: readonly string[];
   isSuper?: boolean;
@@ -68,6 +68,11 @@ export const HR_RUNTIME_ACCESS_CONTRACT = {
     park: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE],
     managed_org_tree: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ],
     self: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ],
+  },
+  approval_review: {
+    park: [HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW],
+    managed_org_tree: [HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW],
+    self: [],
   },
 } as const satisfies Record<HrAccessDomain,Record<Exclude<HrAccessScope,"none">,readonly string[]>>;
 

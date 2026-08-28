@@ -11,7 +11,7 @@ test("onboarding API separates manage, review and confirmation permissions",()=>
  assert.match(controller,/@Controller\("hr\/onboarding-applications"\)/);
  assert.match(controller,/HR_ONBOARDING_READ/);
  assert.match(controller,/HR_ONBOARDING_MANAGE/);
- assert.match(controller,/HR_APPROVAL_REVIEW/);
+ assert.match(controller,/HR_APPROVAL_PARK_REVIEW/);
  assert.match(controller,/HR_EMPLOYMENT_TRANSITION/);
  assert.equal((controller.match(/@UseInterceptors\(new IdempotencyInterceptor\(\)\)/g)??[]).length,5);
  assert.equal((controller.match(/captureBody:false/g)??[]).length,5);

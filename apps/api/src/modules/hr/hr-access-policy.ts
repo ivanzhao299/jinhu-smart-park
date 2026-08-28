@@ -4,6 +4,7 @@ import type { HrEmployeeProfileEntity } from "./entities/hr.entities";
 import type { HrApprovalRequestEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 
 export type HrEmployeeAccessScope = HrAccessScope;
+export type HrApprovalReviewAccessScope = Exclude<HrAccessScope,"self">;
 export interface HrContractAccessScope { park:boolean;managedOrgTree:boolean;self:boolean; }
 export type HrEmployeeProfileProjectionMode="full"|"masked"|"self_masked";
 export interface HrEmployeeProfileAccess {scope:HrEmployeeAccessScope;projection:HrEmployeeProfileProjectionMode|null;}
@@ -106,6 +107,10 @@ export function projectHrApproval(row: HrApprovalRequestEntity) {
 
 export function resolveHrEmployeeAccessScope(actor: JwtPrincipal): HrEmployeeAccessScope {
   return resolveHrAccessScope("employee",actor);
+}
+
+export function resolveHrApprovalReviewAccessScope(actor:JwtPrincipal):HrApprovalReviewAccessScope {
+  return resolveHrAccessScope("approval_review",actor) as HrApprovalReviewAccessScope;
 }
 
 export function resolveHrEmployeeProfileAccess(actor:JwtPrincipal):HrEmployeeProfileAccess {

@@ -14,6 +14,7 @@ suite("HR employee access scope PostgreSQL gate",()=>{
   await dataSource.initialize();
   await dataSource.query("CREATE TEMP TABLE sys_org(id uuid PRIMARY KEY,parent_id uuid,tenant_id text,park_id text,leader_user_id uuid,is_deleted boolean,status text)");
   await dataSource.query("CREATE TEMP TABLE hr_employee(id uuid PRIMARY KEY,tenant_id text,park_id text,user_id uuid,manager_employee_id uuid,primary_org_id uuid,is_deleted boolean)");
+  await dataSource.query("CREATE TEMP TABLE hr_approval_request(id uuid PRIMARY KEY,tenant_id text,park_id text,applicant_employee_id uuid,subject_employee_id uuid,status text,is_deleted boolean)");
  });
  after(async()=>{if(dataSource?.isInitialized)await dataSource.destroy();});
 
@@ -35,5 +36,9 @@ suite("HR employee access scope PostgreSQL gate",()=>{
   assert.equal(isHrEmployeeIdAccessible("self",manager,manager,[]),true);
   assert.equal(isHrEmployeeIdAccessible("park",rows[2]![0]!,manager,[]),true);
   assert.equal(isHrEmployeeIdAccessible("none",manager,manager,[manager]),false);
+  await dataSource.query("INSERT INTO hr_approval_request VALUES ('00000000-0000-4000-8000-000000000030','tenant-a','park-a',$1,$1,'submitted',false),('00000000-0000-4000-8000-000000000031','tenant-a','park-a',$2,$2,'submitted',false),('00000000-0000-4000-8000-000000000032','tenant-a','park-b',$1,$1,'submitted',false)",[rows[1]![0],rows[2]![0]]);
+  const managed=result.map(row=>row.id);
+  const approvals=await dataSource.query("SELECT id FROM hr_approval_request WHERE tenant_id=$1 AND park_id=$2 AND applicant_employee_id=ANY($3::uuid[]) AND subject_employee_id=ANY($3::uuid[]) AND status='submitted' AND is_deleted=false ORDER BY id",["tenant-a","park-a",managed]) as Array<{id:string}>;
+  assert.deepEqual(approvals.map(row=>row.id),["00000000-0000-4000-8000-000000000030"]);
  });
 });
