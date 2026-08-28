@@ -1,0 +1,6 @@
+{"file":".trellis/spec/guides/index.md","reason":"Shared engineering and quality conventions for cross-layer changes."}
+{"file":".trellis/spec/api/backend/index.md","reason":"NestJS user/RBAC service, DTO, transaction, guard and test conventions."}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web page, responsive UI, API request and frontend test conventions."}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Shared cross-app contract conventions for UserParkContext."}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"Frontend consumption rules for shared context types."}
+{"file":"docs/reviews/park-switch-permission-investigation-2026-08-28.md","reason":"Authoritative PSW root-cause evidence and approved D2 boundary."}

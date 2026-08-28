@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-28-psw-001-tenant-super"
+    "08-28-psw-001-tenant-super",
+    "08-29-08-29-psw-002-park-role-integrity"
   ],
   "parent": null,
   "relatedFiles": [],
