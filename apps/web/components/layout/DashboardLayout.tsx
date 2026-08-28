@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserContext } from "@jinhu/shared";
 import { AuthSessionActionsContext, AuthUserContext } from "../../lib/auth-context";
-import { clearSession, fetchCurrentUser, getStoredUser, getToken } from "../../lib/auth";
+import { clearSession, fetchCurrentUser, getStoredUser, getToken, switchParkContext } from "../../lib/auth";
 import { findMenusByPath, getUserDashboardAuthorizationMenus } from "../../lib/menu";
 import {
   dashboardRouteDenialHref,
@@ -17,6 +18,15 @@ import { AppSidebar } from "./AppSidebar";
 import { MobileTerminalHeader } from "./MobileTerminalHeader";
 import { MobileTerminalReliability } from "../runtime/MobileTerminalReliability";
 import { AdminIssueFeedback } from "../admin-issues/AdminIssueFeedback";
+import { ParkRoleEmptyState } from "../auth/ParkRoleEmptyState";
+import {
+  clearParkRoleRecoverySource,
+  isCurrentParkAccessOnly,
+  readParkRoleRecoverySource,
+  type ParkRoleRecoverySource,
+  updateParkRoleRecoverySource
+} from "../../lib/park-role-recovery";
+import { resolvePostLoginPath } from "../../lib/post-login-route";
 
 const SIDEBAR_COLLAPSED_KEY = "jinhu_sidebar_collapsed";
 const TERMINAL_LAYOUT_PATHS = [
@@ -43,6 +53,9 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
   const [mobileNavigation, setMobileNavigation] = useState(false);
   const [scopedPageRevision, setScopedPageRevision] = useState(0);
   const [parkSwitchSourcePath, setParkSwitchSourcePath] = useState<string | null>(null);
+  const [parkRoleRecoverySource, setParkRoleRecoverySource] = useState<ParkRoleRecoverySource | null>(null);
+  const [recoveringPark, setRecoveringPark] = useState(false);
+  const [parkRecoveryError, setParkRecoveryError] = useState("");
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 720px)");
@@ -121,12 +134,18 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     pathname,
     parkSwitchSourcePath
   );
+  const accessOnlyCurrentPark = isCurrentParkAccessOnly(user);
   const publishUser = useCallback((nextUser: UserContext, options?: { remountScopedPages?: boolean }) => {
     if (options?.remountScopedPages) setParkSwitchSourcePath(pathname);
+    setParkRoleRecoverySource(updateParkRoleRecoverySource(user, nextUser));
     setUser(nextUser);
     if (options?.remountScopedPages) setScopedPageRevision((current) => current + 1);
-  }, [pathname]);
+  }, [pathname, user]);
   const sessionActions = useMemo(() => ({ publishUser }), [publishUser]);
+
+  useEffect(() => {
+    setParkRoleRecoverySource(readParkRoleRecoverySource(user));
+  }, [user]);
 
   useEffect(() => {
     if (mobileNavigation) setSidebarCollapsed(true);
@@ -142,10 +161,27 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
     if (!ready || !user) {
       return;
     }
-    if (effectiveRouteDenial) router.replace(dashboardRouteDenialHref(effectiveRouteDenial));
-  }, [effectiveRouteDenial, ready, router, user]);
+    if (effectiveRouteDenial && !accessOnlyCurrentPark) router.replace(dashboardRouteDenialHref(effectiveRouteDenial));
+  }, [accessOnlyCurrentPark, effectiveRouteDenial, ready, router, user]);
 
-  if (!ready || !user || effectiveRouteDenial) {
+  const returnToRecoveryPark = async () => {
+    if (!parkRoleRecoverySource || recoveringPark) return;
+    setRecoveringPark(true);
+    setParkRecoveryError("");
+    try {
+      const nextUser = await switchParkContext(parkRoleRecoverySource.parkId);
+      clearParkRoleRecoverySource();
+      publishUser(nextUser, { remountScopedPages: true });
+      router.replace(resolvePostLoginPath(nextUser) as Route);
+    } catch (error) {
+      setParkRecoveryError(error instanceof Error ? error.message : "返回原园区失败，请使用顶部园区选择器重试");
+      if (!getToken()) router.replace("/login");
+    } finally {
+      setRecoveringPark(false);
+    }
+  };
+
+  if (!ready || !user || (effectiveRouteDenial && !accessOnlyCurrentPark)) {
     return <DashboardShellSkeleton collapsed={sidebarCollapsed} terminalMode={isTerminalRoute} />;
   }
 
@@ -171,7 +207,14 @@ export function DashboardLayout({ children, forceTerminalMode = false }: Dashboa
             </>
           )}
           <div key={scopedPageRevision} className={`dashboard-main${isTerminalRoute ? " dashboard-main-terminal" : ""}`}>
-            {children}
+            {accessOnlyCurrentPark ? (
+              <ParkRoleEmptyState
+                recoverySource={parkRoleRecoverySource}
+                recovering={recoveringPark}
+                error={parkRecoveryError}
+                onReturn={() => void returnToRecoveryPark()}
+              />
+            ) : children}
           </div>
           <AdminIssueFeedback />
         </div>

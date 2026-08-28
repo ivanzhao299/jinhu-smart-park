@@ -7,6 +7,7 @@ import {
   propertyDataScopeFingerprint,
   propertyModuleAssignmentFingerprint
 } from "../features/property-shared/offline/property-draft-contract";
+import { clearParkRoleRecoverySource } from "./park-role-recovery";
 
 const TOKEN_KEY = "jinhu_access_token";
 const REFRESH_TOKEN_KEY = "jinhu_refresh_token";
@@ -114,6 +115,7 @@ export async function clearSession(options: { lockAlreadyHeld?: boolean } = {}):
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(PARK_SWITCH_KEY);
+    clearParkRoleRecoverySource();
     await purgePropertyOfflineState();
   };
   return options.lockAlreadyHeld ? clear() : withAuthSessionLock(clear);
@@ -278,6 +280,7 @@ function clearSessionStorageOnly(): void {
   sessionStorage.removeItem(TOKEN_KEY);
   sessionStorage.removeItem(REFRESH_TOKEN_KEY);
   sessionStorage.removeItem(USER_KEY);
+  clearParkRoleRecoverySource();
 }
 
 async function withCrossTabParkSwitchLock<T>(operation: () => Promise<T>): Promise<T> {

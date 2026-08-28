@@ -140,6 +140,7 @@ test("clearSession removes legacy refresh token storage", async () => {
   local.setItem("jinhu_access_token", "access-token");
   local.setItem("jinhu_auth_user", JSON.stringify(user));
   local.setItem("jinhu_refresh_token", "local-refresh");
+  session.setItem("jinhu_park_role_recovery_source", "stale-recovery");
 
   await clearSession();
 
@@ -149,6 +150,7 @@ test("clearSession removes legacy refresh token storage", async () => {
   assert.equal(local.getItem("jinhu_access_token"), null);
   assert.equal(local.getItem("jinhu_auth_user"), null);
   assert.equal(local.getItem("jinhu_refresh_token"), null);
+  assert.equal(session.getItem("jinhu_park_role_recovery_source"), null);
 });
 
 test("shared session supersedes stale per-tab credentials after another tab advances it", () => {
@@ -490,6 +492,7 @@ test("switchParkContext clears stale private credentials when a marked rejection
   session.setItem("jinhu_access_token", "old-token");
   local.setItem("jinhu_access_token", "old-token");
   session.setItem("jinhu_auth_user", JSON.stringify(current));
+  session.setItem("jinhu_park_role_recovery_source", "stale-recovery");
   local.setItem("jinhu_auth_user", JSON.stringify(current));
   Object.defineProperty(globalThis, "fetch", {
     configurable: true,
@@ -507,6 +510,7 @@ test("switchParkContext clears stale private credentials when a marked rejection
 
   assert.equal(session.getItem("jinhu_access_token"), null);
   assert.equal(session.getItem("jinhu_auth_user"), null);
+  assert.equal(session.getItem("jinhu_park_role_recovery_source"), null);
   assert.equal(local.getItem("jinhu_access_token"), "new-cross-tab-token");
   assert.equal(JSON.parse(local.getItem("jinhu_auth_user") ?? "{}").username, "new-cross-tab");
 });

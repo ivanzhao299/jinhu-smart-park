@@ -21,3 +21,17 @@ test("DashboardLayout defers source-route denial while predicted park-switch nav
   assert.match(source, /resolveEffectiveDashboardRouteDenial\(/);
   assert.match(source, /dashboardRouteDenialHref\(effectiveRouteDenial\)/);
 });
+
+test("the access-only state preserves both global switcher variants and logout guidance", () => {
+  const layout = readFileSync("components/layout/DashboardLayout.tsx", "utf8");
+  const emptyState = readFileSync("components/auth/ParkRoleEmptyState.tsx", "utf8");
+  const css = readFileSync("app/globals.css", "utf8");
+
+  assert.match(layout, /<AppHeader/);
+  assert.match(layout, /<MobileTerminalHeader \/>/);
+  assert.match(emptyState, /已获得园区访问权，但尚未配置园区角色/);
+  assert.match(emptyState, /顶部园区选择器/);
+  assert.match(emptyState, /退出登录/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*\.park-role-empty-actions \.ds-button[\s\S]*width: 100%/);
+  assert.match(css, /\.park-role-empty-page[\s\S]*width: 100%/);
+});

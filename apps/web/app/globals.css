@@ -3784,6 +3784,106 @@ textarea:disabled {
   background: var(--phoenix-color-surface-muted);
 }
 
+.park-role-empty-page {
+  display: grid;
+  width: 100%;
+  min-height: 100%;
+  place-items: center;
+  padding-block: clamp(20px, 7vh, 72px);
+}
+
+.park-role-empty-panel {
+  display: grid;
+  width: min(100%, 720px);
+  gap: 18px;
+  padding: clamp(24px, 5vw, 44px);
+  text-align: center;
+}
+
+.park-role-empty-icon {
+  display: inline-grid;
+  width: 54px;
+  height: 54px;
+  margin-inline: auto;
+  place-items: center;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--color-warning) 18%, var(--bg-card));
+  color: var(--color-warning-strong, #9a6700);
+}
+
+.park-role-empty-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.park-role-empty-copy h1,
+.park-role-empty-copy p {
+  margin: 0;
+}
+
+.park-role-empty-copy h1 {
+  color: var(--text-primary);
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1.25;
+}
+
+.park-role-empty-copy > p:last-child,
+.park-role-empty-hint {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.park-role-empty-eyebrow {
+  color: var(--color-warning-strong, #9a6700);
+  font-size: 13px;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+}
+
+.park-role-empty-actions {
+  justify-content: center;
+}
+
+.park-role-empty-hint {
+  flex-basis: 100%;
+  font-size: 13px;
+}
+
+.park-role-empty-error {
+  margin: 0;
+  color: var(--color-danger);
+  font-weight: 650;
+}
+
+@media (max-width: 720px) {
+  .park-role-empty-page {
+    min-height: auto;
+    place-items: start stretch;
+    padding: 16px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+
+  .park-role-empty-panel {
+    width: 100%;
+    gap: 16px;
+    padding: 24px 18px;
+    text-align: left;
+  }
+
+  .park-role-empty-icon {
+    margin-inline: 0;
+  }
+
+  .park-role-empty-actions {
+    align-items: stretch;
+  }
+
+  .park-role-empty-actions .ds-button {
+    width: 100%;
+    min-height: 48px;
+    white-space: normal;
+  }
+}
+
 .code-chip {
   display: inline-flex;
   max-width: 100%;
