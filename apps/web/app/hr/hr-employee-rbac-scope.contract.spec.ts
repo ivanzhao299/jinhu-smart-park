@@ -26,6 +26,7 @@ test("self masked profile and independently permitted detail sections remain usa
   assert.match(page,/Promise\.allSettled\(\[/u);
   assert.match(page,/canReadEvents\?hrApi\.events/u);
   assert.match(page,/canReadContracts\?hrApi\.contracts/u);
+  assert.match(page,/setEmployeeContracts\(contractsSelfOnly\?contracts:contracts\.filter\(contract=>contract\.employeeId===row\.id\)\)/u);
   assert.match(page,/canReadRecords\?hrApi\.employeeRecords/u);
   assert.match(page,/profile\.masked\?"脱敏敏感档案":"敏感档案"/u);
 });
