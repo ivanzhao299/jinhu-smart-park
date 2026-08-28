@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { chmodSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { validateYuzhouLiveRoleUatP0Matrix } from "./yuzhou-live-role-uat-p0-matrix-lib.mjs";
 
 const SHA=/^[0-9a-f]{64}$/u,CODE_SHA=/^[0-9a-f]{40}$/u;
@@ -19,16 +20,22 @@ export async function runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,bi
   if(!runner?.execute||!Array.isArray(plans)||plans.length!==identity.checkCount)fail("YUZHOU_UAT_P0_PLAN_INVALID","exact executable plan required");
   const expected=matrix.checks.map(row=>row.id),actual=plans.map(row=>row?.id);
   if(JSON.stringify(actual)!==JSON.stringify(expected)||plans.some(row=>typeof row.assert!=="function"))fail("YUZHOU_UAT_P0_PLAN_INVALID","stable ids/order/assertions");
+  const expectedRequests=matrix.checks.reduce((sum,row)=>sum+1+(row.supportRoutes?.length??0),0),requestCountBefore=runner.requestCount;
+  if(!Number.isInteger(requestCountBefore))fail("YUZHOU_UAT_P0_RUNNER_INVALID","request counter required");
   const observations=[];
   for(const plan of plans){
-    try{const observed=await runner.execute(plan);observations.push({...observed,status:"PASS"});}
+    try{const observed=await runner.execute(plan);const row={...observed,status:"PASS"};observations.push({...row,evidenceSha256:hash(row)});}
     catch(error){observations.push({id:plan.id,status:"FAIL",failureCodeHash:hash(String(error?.code??"YUZHOU_UAT_P0_FAILED"))});}
   }
+  const requestCount=runner.requestCount-requestCountBefore;
   const responseEvidenceSha256=hash(observations),failedChecks=observations.filter(row=>row.status!=="PASS").length;
-  const evidence={formatVersion:1,parentRunId:binding.runId,triple:binding.triple,p0MatrixSha256:identity.sha256,responseEvidenceSha256,status:failedChecks===0?"PASS":"HOLD",observedChecks:observations.length,failedChecks,observations,technicalUat:failedChecks===0?"PASS":"HOLD",humanUat:"HOLD",productionImport:"HOLD"};
+  if(failedChecks===0&&requestCount!==expectedRequests)fail("YUZHOU_UAT_P0_REQUEST_COUNT_MISMATCH",`${requestCount}/${expectedRequests}`);
+  const evidence={formatVersion:1,parentRunId:binding.runId,triple:binding.triple,p0MatrixSha256:identity.sha256,responseEvidenceSha256,requestCount,status:failedChecks===0?"PASS":"HOLD",observedChecks:observations.length,failedChecks,observations,technicalUat:failedChecks===0?"PASS":"HOLD",humanUat:"HOLD",productionImport:"HOLD"};
   if(typeof evidencePath==="string"){
-    try{if(lstatSync(evidencePath).isSymbolicLink())fail("YUZHOU_UAT_P0_EVIDENCE_UNSAFE","symlink");}catch(error){if(error?.code!=="ENOENT")throw error;}
-    writeFileSync(evidencePath,stable(evidence),{mode:0o600});chmodSync(evidencePath,0o600);
+    const absolute=resolve(evidencePath),parent=dirname(absolute);
+    if(!existsSync(parent)||existsSync(absolute))fail("YUZHOU_UAT_P0_EVIDENCE_UNSAFE","new file in existing parent required");
+    const canonicalPath=resolve(realpathSync(parent),absolute.slice(parent.length+1));
+    writeFileSync(canonicalPath,stable(evidence),{mode:0o600,flag:"wx"});chmodSync(canonicalPath,0o600);
     if(lstatSync(evidencePath).isSymbolicLink()||(lstatSync(evidencePath).mode&0o777)!==0o600)fail("YUZHOU_UAT_P0_EVIDENCE_UNSAFE","0600 regular file required");
     const roundTrip=JSON.parse(readFileSync(evidencePath,"utf8"));if(hash(roundTrip.observations)!==responseEvidenceSha256)fail("YUZHOU_UAT_P0_EVIDENCE_DRIFT","response evidence hash");
   }

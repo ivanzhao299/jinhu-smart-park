@@ -50,13 +50,36 @@ test("the exact 25 runtime observations are hash-bound, private and remain HOLD 
   assert.equal(requests,25);assert.equal(evidence.observedChecks,25);assert.equal(evidence.status,"HOLD");assert.equal(evidence.technicalUat,"HOLD");assert.equal(evidence.humanUat,"HOLD");assert.equal(evidence.productionImport,"HOLD");assert.match(evidence.responseEvidenceSha256,/^[0-9a-f]{64}$/u);assert.equal(lstatSync(evidencePath).mode&0o777,0o600);
   assert.doesNotMatch(readFileSync(evidencePath,"utf8"),/isolated dependency unavailable|Bearer|aaaaaaaa-aaaa/u);
   const target=resolve(dir,"target.json"),link=resolve(dir,"linked.json");writeFileSync(target,"{}\n");chmodSync(target,0o600);symlinkSync(target,link);
+  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-B",triple,matrixSha256},evidencePath}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");
   await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath:link}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");
+});
+
+test("constant callbacks cannot create PASS evidence without the exact primary and support requests",async()=>{
+  const matrixSha256=validateYuzhouLiveRoleUatP0Matrix(matrix).sha256,triple={codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)};
+  const fake={requestCount:0,execute:async plan=>({id:plan.id,actor:"hr_reviewer",statusCode:200,responseKind:"json",responseSha256:"a".repeat(64),responseByteLength:1,supportResponses:0,assertions:Object.fromEntries(matrix.checks.find(row=>row.id===plan.id).assertions.map(key=>[key,true]))})};
+  const plans=matrix.checks.map(check=>({id:check.id,assert:()=>Object.fromEntries(check.assertions.map(key=>[key,true]))}));
+  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner:fake,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256}}),error=>error.code==="YUZHOU_UAT_P0_REQUEST_COUNT_MISMATCH");
+});
+
+test("support routes are real requests bound to the primary check",async()=>{
+  let requests=0;
+  const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>{requests+=1;return new Response(JSON.stringify({data:{id:"safe"}}),{status:200,headers:{"content-type":"application/json"}});}});
+  const result=await runner.execute({id:"profile_full_projection",substitutions:{employeeId:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},assert:observed=>({full_projection:observed.payload!==null,structured_relations_present:observed.support.length===2,gap_codes_preserved:observed.support[1].status===200,required_audit_written:true})});
+  assert.equal(requests,3);assert.equal(result.supportResponses,2);assert.equal(result.responseByteLength>0,true);
 });
 
 test("binary failure probes reject a leaked header or byte and unsafe non-loopback execution",async()=>{
   const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://localhost/api/v1",tokens,matrix,request:async()=>new Response(new Uint8Array([1]),{status:500,headers:{"content-disposition":"attachment; filename=secret.pdf"}})});
   await assert.rejects(runner.execute({id:"contract_document_storage_failure",substitutions:{storageFailureFileId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"},assert:()=>({no_sensitive_headers:true,zero_bytes:true,audit_precedes_storage:true})}),error=>error.code==="YUZHOU_UAT_P0_BINARY_FAILURE_LEAK");
   assert.throws(()=>new YuzhouLiveRoleUatP0Runner({apiBase:"https://park.cnjinhu.com/api/v1",tokens,matrix}),/YUZHOU_UAT_P0_BASE_UNSAFE/u);
+});
+
+test("binary Nest error envelopes remain non-file bytes but cannot contain target or sensitive fields",async()=>{
+  const target="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  for(const payload of [{statusCode:503,target},{statusCode:503,originalName:"private.pdf"}]){
+    const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify(payload),{status:503,headers:{"content-type":"application/json"}})});
+    await assert.rejects(runner.execute({id:"contract_document_audit_failure",substitutions:{auditFailureFileId:target},assert:()=>({no_sensitive_headers:true,zero_bytes:true,storage_not_opened:true})}),error=>error.code==="YUZHOU_UAT_P0_BINARY_FAILURE_SENSITIVE_LEAK");
+  }
 });
 
 test("JSON negative probes cannot self-attest through target or sensitive-field leakage",async()=>{
