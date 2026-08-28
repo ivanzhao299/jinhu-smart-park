@@ -218,6 +218,28 @@ test("seeded property metadata is preferred and any route, type, module, or dupl
   ]), []);
 });
 
+test("test-only malformed tree injection skips an orphan parent instead of promoting it to a root", () => {
+  const orphan = permission(SYSTEM_PERMISSIONS.PARK_READ, "/assets/parks", {
+    id: "test-only-orphan",
+    parentId: "missing-test-only-parent",
+    isSystem: false,
+    isBuiltin: false,
+    isTenantCustom: true
+  });
+
+  const tree = internals().buildPermissionMenuTree(
+    [orphan],
+    [orphan.code],
+    [enabledModule("asset")]
+  );
+
+  const flattened = tree.flatMap(function visit(node): UserMenuTreeNode[] {
+    return [node, ...(node.children ?? []).flatMap(visit)];
+  });
+  assert.equal(flattened.some((node) => node.href === orphan.frontendRoute), false);
+  assert.equal(flattened.some((node) => node.permission === orphan.code), false);
+});
+
 test("visible controls menu projection while API permissions never become menu nodes", () => {
   const surface = PROPERTY_BUSINESS_SURFACES[0];
   const service = internals();
