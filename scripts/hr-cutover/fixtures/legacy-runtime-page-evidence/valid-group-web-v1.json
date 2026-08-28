@@ -4,7 +4,7 @@
   "surface": "group_web",
   "batchId": "redacted-group-web-001",
   "operationMode": "read_only",
-  "sourceContractSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "sourceContractSha256": "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af",
   "observations": [
     {
       "stableId": "group-web:101:group_web_hr:employee-list:page",
@@ -36,9 +36,9 @@
       "stateEvidence": [],
       "permissionEvidence": {
         "expected": "allow",
-        "observed": "unproven",
+        "observed": "allow",
         "dataScope": "park",
-        "directRouteChecked": false
+        "directRouteChecked": true
       },
       "artifact": {
         "descriptorSha256": "215ebb2c644c2f1de839e5fd4b07362eb51e6e9212b6a8bd816f974683fb6d86",
@@ -46,7 +46,7 @@
         "bytes": 0,
         "externalMode": "0600"
       },
-      "observationSha256": "019426fdc754615d1e0ba94eec1a578efeca5182395386d260e2ad2cc3e2cc35"
+      "observationSha256": "ce2bf6ba58a2c92bce897cc3438001a1b09c462d6a0bdc917df798472479da4d"
     }
   ],
   "sensitiveScan": "PASS",

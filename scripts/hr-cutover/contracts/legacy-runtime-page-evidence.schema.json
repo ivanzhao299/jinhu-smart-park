@@ -26,6 +26,7 @@
       "if": { "properties": { "surface": { "const": "client" } }, "required": ["surface"] },
       "then": {
         "properties": {
+          "sourceContractSha256": { "const": "a63c4d0460c7e208e5525572f9fbcb06a277cb4a3d0df2e507b73aa356d1ba0d" },
           "observations": {
             "items": {
               "allOf": [
@@ -44,6 +45,7 @@
       },
       "else": {
         "properties": {
+          "sourceContractSha256": { "const": "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af" },
           "observations": {
             "items": {
               "allOf": [
@@ -116,9 +118,9 @@
       "required": ["expected", "observed", "dataScope", "directRouteChecked"],
       "properties": {
         "expected": { "enum": ["allow", "deny"] },
-        "observed": { "enum": ["allow", "deny", "unproven"] },
+        "observed": { "enum": ["allow", "deny"] },
         "dataScope": { "enum": ["self", "team", "park", "admin", "none"] },
-        "directRouteChecked": { "type": "boolean" }
+        "directRouteChecked": { "const": true }
       }
     },
     "artifact": {
@@ -150,7 +152,11 @@
         "permissionEvidence": { "$ref": "#/$defs/permissionEvidence" },
         "artifact": { "$ref": "#/$defs/artifact" },
         "observationSha256": { "$ref": "#/$defs/sha256" }
-      }
+      },
+      "anyOf": [
+        { "properties": { "fieldEvidence": { "minItems": 1 } } },
+        { "properties": { "actionEvidence": { "minItems": 1 } } }
+      ]
     }
   }
 }

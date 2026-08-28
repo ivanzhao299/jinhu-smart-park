@@ -17,6 +17,10 @@ const SLUG = /^[a-z0-9][a-z0-9_-]{0,79}$/u;
 const CLIENT_PAGE_ID = /^client:([a-z0-9][a-z0-9_-]*):([a-z0-9][a-z0-9_-]*):page$/u;
 const GROUP_WEB_PAGE_ID = /^group-web:([1-9][0-9]*):([a-z0-9][a-z0-9_-]*):([a-z0-9][a-z0-9_-]*):page$/u;
 const PRECONDITION = /^[A-Z][A-Z0-9_]{1,63}$/u;
+export const LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256 = Object.freeze({
+  client: "a63c4d0460c7e208e5525572f9fbcb06a277cb4a3d0df2e507b73aa356d1ba0d",
+  group_web: "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af"
+});
 
 const stableValue = value => {
   if (Array.isArray(value)) return value.map(stableValue);
@@ -135,15 +139,17 @@ const verifyObservation = (item, surface, index) => {
   oneOf(item.viewport, ["desktop", "phone_390"], `${label}.viewport`);
   sha256(item.locatorSha256, `${label}.locatorSha256`); sha256(item.pageStructureSha256, `${label}.pageStructureSha256`); sha256(item.observationSha256, `${label}.observationSha256`);
   if (!Array.isArray(item.fieldEvidence) || !Array.isArray(item.actionEvidence) || !Array.isArray(item.stateEvidence)) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_SHAPE_INVALID", label);
+  if (item.fieldEvidence.length + item.actionEvidence.length === 0) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_ATOMIC_EVIDENCE_REQUIRED", label);
   item.fieldEvidence.forEach((entry, entryIndex) => verifyField(entry, item.stableId, entryIndex));
   item.actionEvidence.forEach((entry, entryIndex) => verifyAction(entry, item.stableId, entryIndex));
   item.stateEvidence.forEach((entry, entryIndex) => verifyState(entry, item.stableId, entryIndex));
   uniqueStableIds([...item.fieldEvidence, ...item.actionEvidence, ...item.stateEvidence], label);
   exactKeys(item.permissionEvidence, ["expected", "observed", "dataScope", "directRouteChecked"], `${label}.permissionEvidence`);
   oneOf(item.permissionEvidence.expected, ["allow", "deny"], `${label}.permissionEvidence.expected`);
-  oneOf(item.permissionEvidence.observed, ["allow", "deny", "unproven"], `${label}.permissionEvidence.observed`);
+  oneOf(item.permissionEvidence.observed, ["allow", "deny"], `${label}.permissionEvidence.observed`);
   oneOf(item.permissionEvidence.dataScope, ["self", "team", "park", "admin", "none"], `${label}.permissionEvidence.dataScope`);
   boolean(item.permissionEvidence.directRouteChecked, `${label}.permissionEvidence.directRouteChecked`);
+  if (item.permissionEvidence.directRouteChecked !== true) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_PERMISSION_UNVERIFIED", label);
   exactKeys(item.artifact, ["descriptorSha256", "screenshotSha256", "bytes", "externalMode"], `${label}.artifact`);
   sha256(item.artifact.descriptorSha256, `${label}.artifact.descriptorSha256`);
   if (item.artifact.screenshotSha256 !== null) sha256(item.artifact.screenshotSha256, `${label}.artifact.screenshotSha256`);
@@ -160,6 +166,7 @@ export function verifyLegacyRuntimePageEvidence(manifest) {
   if (typeof manifest.batchId !== "string" || !SAFE_ID.test(manifest.batchId)) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_IDENTITY_INVALID", "batchId");
   if (manifest.operationMode !== "read_only") fail("LEGACY_RUNTIME_PAGE_EVIDENCE_READ_ONLY_REQUIRED", "operationMode");
   sha256(manifest.sourceContractSha256, "sourceContractSha256");
+  if (manifest.sourceContractSha256 !== LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256[manifest.surface]) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_SOURCE_CONTRACT_INVALID", manifest.surface);
   if (manifest.sensitiveScan !== "PASS") fail("LEGACY_RUNTIME_PAGE_EVIDENCE_SENSITIVE_SCAN_REQUIRED", "sensitiveScan");
   if (manifest.humanSignoff !== "HOLD" || manifest.productionImport !== "HOLD") fail("LEGACY_RUNTIME_PAGE_EVIDENCE_HOLD_REQUIRED", "humanSignoff and productionImport");
   if (!Array.isArray(manifest.observations) || manifest.observations.length === 0) fail("LEGACY_RUNTIME_PAGE_EVIDENCE_SHAPE_INVALID", "observations");

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -7,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 import {
+  LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256,
   legacyRuntimePageArtifactDescriptorHash,
   legacyRuntimePageObservationHash,
   verifyLegacyRuntimePageEvidence
@@ -33,8 +35,34 @@ test("accepts independent client and group Web hash-only fixtures", () => {
   });
 });
 
+test("surface source hashes bind the current authoritative traversal contracts", () => {
+  const authorities = {
+    client: resolve(root, "scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json"),
+    group_web: resolve(root, "scripts/hr-cutover/contracts/legacy-group-web-live-runtime-v1.json")
+  };
+  for (const [surface, path] of Object.entries(authorities)) {
+    assert.equal(createHash("sha256").update(readFileSync(path)).digest("hex"), LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256[surface]);
+  }
+  const wrongSurfaceHash = clone(load(clientPath)); wrongSurfaceHash.sourceContractSha256 = LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256.group_web;
+  rejects(wrongSurfaceHash, "LEGACY_RUNTIME_PAGE_EVIDENCE_SOURCE_CONTRACT_INVALID");
+});
+
+test("an observation cannot pass without field or action atomic evidence", () => {
+  const emptyAtomicEvidence = clone(load(clientPath));
+  emptyAtomicEvidence.observations[0].fieldEvidence = [];
+  emptyAtomicEvidence.observations[0].actionEvidence = [];
+  rejects(rehash(emptyAtomicEvidence), "LEGACY_RUNTIME_PAGE_EVIDENCE_ATOMIC_EVIDENCE_REQUIRED");
+});
+
+test("permission observation and direct-route verification are mandatory", () => {
+  const unproven = clone(load(clientPath)); unproven.observations[0].permissionEvidence.observed = "unproven";
+  rejects(rehash(unproven), "LEGACY_RUNTIME_PAGE_EVIDENCE_VALUE_INVALID");
+  const routeUnchecked = clone(load(groupWebPath)); routeUnchecked.observations[0].permissionEvidence.directRouteChecked = false;
+  rejects(rehash(routeUnchecked), "LEGACY_RUNTIME_PAGE_EVIDENCE_PERMISSION_UNVERIFIED");
+});
+
 test("surface identity is non-substitutable and binds group legacyId", () => {
-  const substituted = clone(load(clientPath)); substituted.surface = "group_web";
+  const substituted = clone(load(clientPath)); substituted.surface = "group_web"; substituted.sourceContractSha256 = LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256.group_web;
   rejects(substituted, "LEGACY_RUNTIME_PAGE_EVIDENCE_SURFACE_INVALID");
   const mismatchedLegacyId = clone(load(groupWebPath)); mismatchedLegacyId.observations[0].legacyId = 102;
   rejects(rehash(mismatchedLegacyId), "LEGACY_RUNTIME_PAGE_EVIDENCE_SURFACE_INVALID");
@@ -104,8 +132,12 @@ test("schema preserves exact-shape, non-execution, and double-HOLD boundaries", 
   assert.equal(schema.properties.operationMode.const, "read_only");
   assert.equal(schema.properties.humanSignoff.const, "HOLD");
   assert.equal(schema.properties.productionImport.const, "HOLD");
+  assert.equal(schema.allOf[0].then.properties.sourceContractSha256.const, LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256.client);
+  assert.equal(schema.allOf[0].else.properties.sourceContractSha256.const, LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256.group_web);
   assert.equal(schema.$defs.actionEvidence.properties.executed.const, false);
   assert.equal(schema.$defs.stateEvidence.properties.executed.const, false);
+  assert.deepEqual(schema.$defs.permissionEvidence.properties.observed.enum, ["allow", "deny"]);
+  assert.equal(schema.$defs.permissionEvidence.properties.directRouteChecked.const, true);
   assert.equal(schema.$defs.observation.additionalProperties, false);
 });
 

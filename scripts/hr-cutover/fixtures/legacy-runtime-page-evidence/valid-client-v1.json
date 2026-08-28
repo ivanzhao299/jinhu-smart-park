@@ -4,7 +4,7 @@
   "surface": "client",
   "batchId": "redacted-client-001",
   "operationMode": "read_only",
-  "sourceContractSha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "sourceContractSha256": "a63c4d0460c7e208e5525572f9fbcb06a277cb4a3d0df2e507b73aa356d1ba0d",
   "observations": [
     {
       "stableId": "client:employee_profile:employee-list:page",
@@ -36,9 +36,9 @@
       "stateEvidence": [],
       "permissionEvidence": {
         "expected": "allow",
-        "observed": "unproven",
+        "observed": "allow",
         "dataScope": "admin",
-        "directRouteChecked": false
+        "directRouteChecked": true
       },
       "artifact": {
         "descriptorSha256": "215ebb2c644c2f1de839e5fd4b07362eb51e6e9212b6a8bd816f974683fb6d86",
@@ -46,7 +46,7 @@
         "bytes": 0,
         "externalMode": "0600"
       },
-      "observationSha256": "193529b5bd37df2fc3275abcb2cd47375633cf7414fbe41e7b3feae0f3bffb98"
+      "observationSha256": "8abc34ab97f5fad53d649b4bbdc4e0a252f425572b5f24bb7ab332b639d16f5a"
     }
   ],
   "sensitiveScan": "PASS",
