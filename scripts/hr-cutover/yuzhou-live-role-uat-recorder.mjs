@@ -50,10 +50,18 @@ export class YuzhouLiveRoleUatRecorder {
     }
     if (!observation || typeof observation !== "object") fail("YUZHOU_UAT_RECORDER_OBSERVATION_MISSING", `${legacyId}.${kind}.${checkId}`);
     this.#checks.set(`${legacyId}:${kind}:${checkId}`, structuredClone(observation));
-    if (observation.assertions?.audit_written === true || observation.assertions?.required_audit_written === true) {
-      if (!/^[0-9a-f]{64}$/u.test(observation.observationSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_AUDIT_EVIDENCE_INVALID", `${legacyId}.${kind}.${checkId}`);
-      this.#audit.set(legacyId, observation.observationSha256);
+  }
+
+  passAuditEvidence(legacyId, evidence) {
+    this.#item(legacyId);
+    if (!evidence || typeof evidence !== "object" || evidence.status !== "PASS"
+      || !Number.isInteger(evidence.beforeCount) || !Number.isInteger(evidence.afterCount) || !Number.isInteger(evidence.delta)
+      || evidence.delta <= 0 || evidence.afterCount - evidence.beforeCount !== evidence.delta
+      || !Array.isArray(evidence.rows) || evidence.rows.length !== evidence.delta
+      || !/^[0-9a-f]{64}$/u.test(evidence.rowsSha256 ?? "") || evidence.rowsSha256 !== sha256(evidence.rows)) {
+      fail("YUZHOU_UAT_RECORDER_AUDIT_EVIDENCE_INVALID", String(legacyId));
     }
+    this.#audit.set(legacyId, structuredClone(evidence));
   }
 
   passBrowser(legacyId, roleType, viewportId, measurement) {
@@ -108,7 +116,8 @@ export class YuzhouLiveRoleUatRecorder {
         return [viewport.id, result];
       }))])),
       auditStatus: this.#audit.has(item.legacyId) ? "PASS" : fail("YUZHOU_UAT_RECORDER_AUDIT_MISSING", String(item.legacyId)),
-      auditEvidenceSha256: this.#audit.get(item.legacyId)
+      auditEvidence: this.#audit.get(item.legacyId),
+      auditEvidenceSha256: sha256(this.#audit.get(item.legacyId))
     }));
     return {
       formatVersion: 1,

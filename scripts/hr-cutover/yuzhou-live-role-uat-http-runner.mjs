@@ -80,7 +80,8 @@ export class YuzhouLiveRoleUatHttpRunner {
     this.#matrixByKey = new Map(apiMatrix.checks.map(check => [`${check.legacyId}:${check.kind}:${check.checkId}`, check]));
     this.#tokens = { ...tokens };
     if (Object.keys(this.#tokens).sort().join(",") !== "employee,hr_maker,hr_reviewer,manager"
-      || Object.values(this.#tokens).some(token => typeof token !== "string" || token.length < 16)) {
+      || Object.values(this.#tokens).some(token => typeof token !== "string" || token.length < 16)
+      || new Set(Object.values(this.#tokens)).size !== 4) {
       fail("YUZHOU_UAT_HTTP_ACTORS_INVALID", "four separated tokens required");
     }
     if (!/^[a-z0-9][a-z0-9._-]{5,80}$/u.test(idempotencyPrefix ?? "")) fail("YUZHOU_UAT_HTTP_IDEMPOTENCY_INVALID", "prefix");

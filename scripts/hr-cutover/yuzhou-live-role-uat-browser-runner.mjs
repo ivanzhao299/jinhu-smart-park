@@ -113,14 +113,15 @@ export function missingVisibleTexts(pageText, visibleTexts) {
 
 export function observeSameOriginApiNetworkEvent(message, webBase, requests, failures) {
   if (message.method === "Network.requestWillBeSent" && ["Fetch", "XHR"].includes(message.params?.type) && message.params.request?.url?.startsWith(`${webBase}/api/`)) requests.set(message.params.requestId, message.params.request.url);
-  if (message.method === "Network.responseReceived" && requests.has(message.params?.requestId)) {
-    if (message.params.response?.status >= 400) failures.push(`http:${message.params.response.status}`);
+  if (message.method === "Network.responseReceived" && requests.has(message.params?.requestId) && message.params.response?.status >= 400) {
+    failures.push(`http:${message.params.response.status}`);
     requests.delete(message.params.requestId);
   }
   if (message.method === "Network.loadingFailed" && requests.has(message.params?.requestId)) {
     if (message.params?.canceled !== true) failures.push("loading_failed");
     requests.delete(message.params.requestId);
   }
+  if (message.method === "Network.loadingFinished" && requests.has(message.params?.requestId)) requests.delete(message.params.requestId);
 }
 
 async function pollVisibleTexts(cdp, sessionId, check, viewport, attempts = 200) {
@@ -167,21 +168,22 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   return observation;
 }
 
-export function buildTechnicalUatBrowserBinding(config, usernames) {
-  const actorUsernames = {
-    hr_reviewer: usernames?.hrReviewer,
-    manager: usernames?.manager,
-    employee: usernames?.employee
-  };
-  if (BOUND_ACTORS.some(actor => typeof actorUsernames[actor] !== "string" || actorUsernames[actor].length === 0)
-    || new Set(Object.values(actorUsernames)).size !== BOUND_ACTORS.length) {
-    fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "three distinct isolated usernames required");
-  }
+export function technicalUatActorSubjectHash(identity) {
+  if (!/^[0-9a-f-]{36}$/iu.test(identity?.id ?? "") || typeof identity?.username !== "string" || identity.username.length === 0
+    || !/^[0-9a-f-]{36}$/iu.test(identity?.tenantId ?? "") || !/^[0-9a-f-]{36}$/iu.test(identity?.parkId ?? "")
+    || typeof identity?.roleCode !== "string" || identity.roleCode.length === 0) fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "verified /users/me identity required");
+  return sha256(JSON.stringify({ id: identity.id, username: identity.username, tenantId: identity.tenantId, parkId: identity.parkId, roleCode: identity.roleCode }));
+}
+
+export function buildTechnicalUatBrowserBinding(config, actorIdentities) {
+  if (JSON.stringify(Object.keys(actorIdentities ?? {}).sort()) !== JSON.stringify([...BOUND_ACTORS].sort())) fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "exact browser identities required");
+  const actorSubjectHashes=Object.fromEntries(BOUND_ACTORS.map(actor=>[actor,technicalUatActorSubjectHash(actorIdentities[actor])]));
+  if (new Set(Object.values(actorSubjectHashes)).size !== BOUND_ACTORS.length) fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "three distinct verified subjects required");
   return {
     rehearsal: config.rehearsal,
     runId: config.runId,
     triple: { ...config.triple },
-    actorSubjectHashes: Object.fromEntries(BOUND_ACTORS.map(actor => [actor, sha256(`${config.runId}:${actorUsernames[actor]}`)]))
+    actorSubjectHashes
   };
 }
 

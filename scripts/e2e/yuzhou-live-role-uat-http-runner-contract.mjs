@@ -103,6 +103,10 @@ test("wrong status, incomplete assertions, unsafe origins and matrix drift fail 
     () => new YuzhouLiveRoleUatHttpRunner({ apiBase: "https://park.example/api/v1", tokens, apiMatrix, taskCard, idempotencyPrefix: "uat-http-unsafe" }),
     error => error instanceof YuzhouLiveRoleUatHttpRunnerError && error.code === "YUZHOU_UAT_HTTP_BASE_UNSAFE"
   );
+  assert.throws(
+    () => new YuzhouLiveRoleUatHttpRunner({ apiBase: "http://127.0.0.1:12345/api/v1", tokens: { ...tokens, hr_reviewer: tokens.hr_maker }, apiMatrix, taskCard, idempotencyPrefix: "uat-http-duplicate" }),
+    error => error instanceof YuzhouLiveRoleUatHttpRunnerError && error.code === "YUZHOU_UAT_HTTP_ACTORS_INVALID"
+  );
   const drifted = structuredClone(apiMatrix);
   drifted.checks.pop();
   assert.throws(

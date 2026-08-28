@@ -59,6 +59,8 @@ function complete(rehearsal) {
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       cellEvidenceSha256: hash(JSON.stringify({ runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, roleType, actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor, actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "hr_reviewer" : roleType === "department_manager" ? "manager" : "employee"}`), route: item.route, renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), networkFailureCount: 0 }))
     });
+    const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations[0],row={actor:auditCheck.actor,actorSubjectHash:hash(`${rehearsal}-${auditCheck.actor}`),operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:hash(`biz:${item.legacyId}`),bizTypeSha256:hash(`type:${item.legacyId}`),actionSha256:hash(`action:${item.legacyId}`)},audit={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
+    recorder.passAuditEvidence(item.legacyId,audit);
   }
   return recorder.finalize();
 }

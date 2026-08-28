@@ -53,6 +53,7 @@ function browserEvidence(item, rehearsal) {
 }
 
 function passingEvidence(rehearsal) {
+  const actors=["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({actor,roleType:index<2?"hr_manager":index===2?"department_manager":"employee_self_service",subjectHash:hash(`${rehearsal}-${actor}`)}));
   return {
     formatVersion: 1,
     contractKind: "yuzhou_hr_live_role_uat_evidence",
@@ -65,16 +66,12 @@ function passingEvidence(rehearsal) {
     apiMatrixSha256: apiMatrixHash(apiMatrix),
     browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple: { ...triple },
-    actors: ["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({
-      actor,
-      roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
-      subjectHash: hash(`${rehearsal}-${actor}`)
-    })),
+    actors,
     items: taskCard.items.map(item => {
       const positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) }));
       const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) }));
-      const audit = [...positive, ...negative].find(check => check.observation.assertions.audit_written === true || check.observation.assertions.required_audit_written === true);
-      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidenceSha256: audit.observation.observationSha256 };
+      const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations[0],actor=actors.find(row=>row.actor===auditCheck.actor),row={actor:auditCheck.actor,actorSubjectHash:actor.subjectHash,operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:hash(`${rehearsal}:${item.legacyId}:biz`),bizTypeSha256:hash(`${item.legacyId}:type`),actionSha256:hash(`${item.legacyId}:action`)},auditEvidence={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
+      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
     }),
     p0P1Count: 0,
     sensitiveScan: "PASS",
@@ -91,6 +88,7 @@ function reuseReviewerAcrossPair(pair) {
     cell.actorSubjectHash = subjectHash;
     cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount }));
   }
+  for(const item of pair.B.items){for(const row of item.auditEvidence.rows)if(row.actor==="hr_reviewer")row.actorSubjectHash=subjectHash;item.auditEvidence.rowsSha256=hash(JSON.stringify(item.auditEvidence.rows));item.auditEvidenceSha256=hash(JSON.stringify(item.auditEvidence));}
 }
 
 test("independent Smart Park A/B evidence promotes only target implementation and never legacy runtime", () => {
@@ -141,7 +139,9 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.A.productionImport = "GO"; }, "YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE"],
     [pair => { pair.A.actors[1].subjectHash = pair.A.actors[0].subjectHash; }, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"],
     [reuseReviewerAcrossPair, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"],
-    [pair => { pair.A.items[0].auditEvidenceSha256 = "0".repeat(64); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"]
+    [pair => { delete pair.A.items[0].auditEvidence; }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
+    [pair => { pair.A.items[0].auditEvidenceSha256 = "0".repeat(64); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"],
+    [pair => { pair.A.items[0].auditEvidence.delta = 0; }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"]
   ];
   for (const [mutate, code] of cases) {
     const pair = { A: passingEvidence("A"), B: passingEvidence("B") };

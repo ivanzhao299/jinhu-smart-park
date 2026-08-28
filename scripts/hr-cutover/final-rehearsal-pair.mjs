@@ -116,6 +116,7 @@ function assertManifestEvidence(manifest,config,kind,relativePath,path){
   const bytes=readFileSync(path),digest=sha256(bytes),matches=(manifest?.evidence??[]).filter(row=>row.kind===kind&&row.relativePath===relativePath);
   if(matches.length!==1||matches[0].sha256!==digest||matches[0].bytes!==bytes.length||matches[0].mode!=="0600"||matches[0].redacted!==true)fail("FINAL_PAIR_BROWSER_MANIFEST_UNBOUND",`${config.rehearsal}:${relativePath}`);
 }
+export function assertTechnicalUatTargetIdentity(evidence,config){if(evidence?.targetIdentityHash!==sha256(JSON.stringify(config.target)))fail("FINAL_PAIR_TARGET_IDENTITY_UNBOUND",config.rehearsal);return {status:"PASS",targetIdentityHash:evidence.targetIdentityHash};}
 export function assertTechnicalUatPairEvidence(configs,manifests){
   const pair={},expectedCells=UAT_BROWSER_MATRIX.checks.length*UAT_TASK_CARD.viewports.length;
   for(const config of configs){
@@ -123,6 +124,7 @@ export function assertTechnicalUatPairEvidence(configs,manifests){
     const files={legacy:"technical-uat-legacy-evidence.json",browser:"technical-uat-browser-matrix-observations.json",summary:"technical-uat-summary.json"};
     const paths=Object.fromEntries(Object.entries(files).map(([key,name])=>[key,privateEvidencePath(config,name)]));
     const legacy=JSON.parse(readFileSync(paths.legacy,"utf8")),browser=JSON.parse(readFileSync(paths.browser,"utf8")),summary=JSON.parse(readFileSync(paths.summary,"utf8"));
+    assertTechnicalUatTargetIdentity(legacy,config);
     if(summary.parentRunId!==config.runId||summary.status!=="PASS"||summary.humanUat!=="HOLD"||summary.productionImport!=="HOLD"||summary.legacyTaskCard?.browserViewportCells!==expectedCells)fail("FINAL_PAIR_BROWSER_SUMMARY_INVALID",config.rehearsal);
     if(browser.parentRunId!==config.runId||browser.runId!==config.runId||browser.rehearsal!==config.rehearsal||JSON.stringify(browser.triple)!==JSON.stringify(config.triple)||browser.status!=="PASS"||browser.humanAttestation!=="HOLD"||browser.productionImport!=="HOLD"||browser.observedCells!==expectedCells||browser.observations?.length!==expectedCells||!Array.isArray(browser.screenshots)||browser.screenshots.length===0)fail("FINAL_PAIR_BROWSER_EVIDENCE_INVALID",config.rehearsal);
     const actorHashes=Object.fromEntries((legacy.actors??[]).map(actor=>[actor.actor,actor.subjectHash])),proofs=browser.sessionCleanupProofs,expectedProofKeys=new Set(["hr_reviewer","manager","employee"].flatMap(actor=>UAT_TASK_CARD.viewports.map(viewport=>`${actor}:${viewport.id}`)));
@@ -184,7 +186,7 @@ export function runFinalPair(configAInput,configBInput,contract,{execute=command
       completed.push({rehearsal:config.rehearsal,manifestSha256:sha256(canonical(manifest)),cleanupAuditSha256:cleanupGate(config,cleanup),residualCount:0});
     }
     completed.sort((a,b)=>a.rehearsal.localeCompare(b.rehearsal));
-    return {formatVersion:1,status:"PASS",contractSha256:sha256(canonical(contract)),triple:configs[0].triple,rehearsals:completed,sourceFacts:contract.sourceFacts,productionImport:"HOLD"};
+    return {formatVersion:1,status:"PASS",contractSha256:sha256(canonical(contract)),triple:configs[0].triple,rehearsals:completed,sourceFacts:contract.sourceFacts,humanUat:"HOLD",productionImport:"HOLD"};
   }catch(error){
     const recoveryFailures=[];for(const config of configs){try{recovery(config);}catch(recoveryError){recoveryFailures.push(`${config.rehearsal}:${recoveryError.code??"FAILED"}`);}}
     if(recoveryFailures.length)fail("FINAL_PAIR_RECOVERY_FAILED",`${error.code??"STAGE_FAILED"};${recoveryFailures.join(",")}`);

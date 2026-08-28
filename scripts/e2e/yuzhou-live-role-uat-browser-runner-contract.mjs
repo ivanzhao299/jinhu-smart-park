@@ -50,7 +50,11 @@ test("same-origin API 4xx, 5xx and loading failures cannot be hidden by static p
   observeSameOriginApiNetworkEvent({ method: "Network.requestWillBeSent", params: { requestId: "b", type: "XHR", request: { url: `${origin}/api/v1/hr/payroll` } } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.responseReceived", params: { requestId: "b", response: { status: 500 } } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.requestWillBeSent", params: { requestId: "c", type: "Fetch", request: { url: `${origin}/api/v1/hr/contracts` } } }, origin, requests, failures);
+  observeSameOriginApiNetworkEvent({ method: "Network.responseReceived", params: { requestId: "c", response: { status: 200 } } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.loadingFailed", params: { requestId: "c", canceled: false } }, origin, requests, failures);
+  observeSameOriginApiNetworkEvent({ method: "Network.requestWillBeSent", params: { requestId: "d", type: "Fetch", request: { url: `${origin}/api/v1/hr/rewards` } } }, origin, requests, failures);
+  observeSameOriginApiNetworkEvent({ method: "Network.responseReceived", params: { requestId: "d", response: { status: 200 } } }, origin, requests, failures);
+  observeSameOriginApiNetworkEvent({ method: "Network.loadingFinished", params: { requestId: "d" } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.requestWillBeSent", params: { requestId: "x", type: "Fetch", request: { url: "https://example.invalid/api" } } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.responseReceived", params: { requestId: "x", response: { status: 500 } } }, origin, requests, failures);
   assert.deepEqual(failures, ["http:403", "http:500", "loading_failed"]);

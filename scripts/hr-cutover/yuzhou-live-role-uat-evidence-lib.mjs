@@ -95,9 +95,14 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   for (const item of evidence.items) {
     const expected = taskById.get(item.legacyId);
     if (item.status !== "PASS" || item.auditStatus !== "PASS") fail("YUZHOU_UAT_EVIDENCE_ITEM_FAILED", String(item.legacyId));
-    const itemChecks = [...(item.positive ?? []), ...(item.negative ?? [])];
-    if (!sha64(item.auditEvidenceSha256) || !itemChecks.some(check => check.observation?.observationSha256 === item.auditEvidenceSha256
-      && (check.observation.assertions?.audit_written === true || check.observation.assertions?.required_audit_written === true))) {
+    const auditChecks=apiMatrix.checks.filter(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion)));
+    const auditOperationKeys=new Set(auditChecks.flatMap(check=>check.operations.map(operation=>sha256({actor:check.actor,method:operation.method,routeTemplate:operation.route}))));
+    const audit=item.auditEvidence;
+    if (!audit || !sha64(item.auditEvidenceSha256)
+      || audit.status!=="PASS"||!Number.isInteger(audit.beforeCount)||!Number.isInteger(audit.afterCount)||!Number.isInteger(audit.delta)||audit.delta<=0||audit.afterCount-audit.beforeCount!==audit.delta
+      || !Array.isArray(audit.rows)||audit.rows.length!==audit.delta||!sha64(audit.rowsSha256)||audit.rowsSha256!==sha256(audit.rows)
+      || audit.rows.some(row=>!expectedActors.some(([actor])=>actor===row.actor)||!evidence.actors.some(actor=>actor.actor===row.actor&&actor.subjectHash===row.actorSubjectHash)||!auditOperationKeys.has(row.operationKeySha256)||!sha64(row.bizIdSha256)||!sha64(row.bizTypeSha256)||!sha64(row.actionSha256))
+      || item.auditEvidenceSha256!==sha256(audit)) {
       fail("YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID", String(item.legacyId));
     }
     for (const [kind, expectedIds] of [["positive", expected.positive], ["negative", expected.negative]]) {
