@@ -1,4 +1,5 @@
 /* global structuredClone */
+import { createHash } from "node:crypto";
 import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 import { taskCardHash, validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
 
@@ -13,6 +14,7 @@ export class YuzhouLiveRoleUatRecorderError extends Error {
 const fail = (code, detail) => {
   throw new YuzhouLiveRoleUatRecorderError(code, detail);
 };
+const sha256 = value => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
 export class YuzhouLiveRoleUatRecorder {
   #taskCard;
@@ -47,8 +49,13 @@ export class YuzhouLiveRoleUatRecorder {
       || JSON.stringify(measurement.triple) !== JSON.stringify(this.#meta.triple)
       || !/^[0-9a-f]{64}$/u.test(measurement.actorSubjectHash ?? "")
       || !this.#meta.actors.some(actor => actor.roleType === roleType && actor.subjectHash === measurement.actorSubjectHash)
+      || !measurement.runId.endsWith(`-r${measurement.rehearsal}`)
+      || measurement.legacyId !== legacyId
+      || measurement.viewportId !== viewportId
       || !/^[0-9a-f]{64}$/u.test(measurement.domAssertionSha256 ?? "")
       || !/^[0-9a-f]{64}$/u.test(measurement.cellEvidenceSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_BROWSER_BINDING_INVALID", `${legacyId}.${roleType}.${viewportId}`);
+    const cell = { runId: measurement.runId, rehearsal: measurement.rehearsal, triple: measurement.triple, legacyId, roleType, actor: measurement.actor, actorSubjectHash: measurement.actorSubjectHash, route: measurement.route, renderedPath: measurement.renderedPath, viewportId, width: measurement.width, height: measurement.height, mobile: measurement.mobile, screenshotSha256: measurement.screenshotSha256, domAssertionSha256: measurement.domAssertionSha256 };
+    if (measurement.cellEvidenceSha256 !== sha256(cell)) fail("YUZHOU_UAT_RECORDER_BROWSER_CELL_HASH_INVALID", `${legacyId}.${roleType}.${viewportId}`);
     this.#browser.set(`${legacyId}:${roleType}:${viewportId}`, {
       status: "PASS",
       runId: measurement.runId,

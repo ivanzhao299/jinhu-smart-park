@@ -135,6 +135,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions)
     || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
     || !["A", "B"].includes(observation.rehearsal)
+    || !observation.runId.endsWith(`-r${observation.rehearsal}`)
     || !SHA40.test(observation.triple?.codeSha ?? "")
     || !SHA64.test(observation.triple?.sourceSnapshotHash ?? "")
     || !SHA64.test(observation.triple?.mappingContractHash ?? "")
@@ -156,6 +157,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
 function validateBinding(binding) {
   if (!binding || !["A", "B"].includes(binding.rehearsal)
     || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
+    || !binding.runId.endsWith(`-r${binding.rehearsal}`)
     || !SHA40.test(binding.triple?.codeSha ?? "")
     || !SHA64.test(binding.triple?.sourceSnapshotHash ?? "")
     || !SHA64.test(binding.triple?.mappingContractHash ?? "")) fail("YUZHOU_UAT_BROWSER_BINDING_REQUIRED", "runId/rehearsal/C/S/M");
@@ -195,7 +197,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
     cdp = await CdpClient.connect(`ws://127.0.0.1:${port}${browserPath}`);
     const observations = [], screenshotCache = new Map(), screenshotsByHash = new Map();
     const captureSanitizedScreenshot = async (sessionId, screenshotKey) => {
-      await evaluate(cdp, sessionId, `(() => { const needles=${JSON.stringify(sensitiveNeedles)};const redact=value=>{let next=value??'';for(const needle of needles)next=next.split(needle).join('[REDACTED]');return next;};for(const input of document.querySelectorAll('input,textarea'))input.value='';const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))node.nodeValue=redact(node.nodeValue);return true;})()`);
+      await evaluate(cdp, sessionId, `(() => { const needles=${JSON.stringify(sensitiveNeedles)};const redact=value=>{let next=value??'';for(const needle of needles)next=next.split(needle).join('[REDACTED]');return next;};for(const input of document.querySelectorAll('input,textarea')){input.value='';input.setAttribute('value','');}for(const editable of document.querySelectorAll('[contenteditable]'))editable.textContent='';for(const media of document.querySelectorAll('img,video,canvas'))media.style.visibility='hidden';for(const element of document.querySelectorAll('*')){element.style.backgroundImage='none';for(const attribute of [...element.getAttributeNames()].filter(name=>['placeholder','title','aria-label','alt','href','src','action','formaction'].includes(name)||name.startsWith('data-')))element.setAttribute(attribute,redact(element.getAttribute(attribute)));}const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))node.nodeValue=redact(node.nodeValue);return true;})()`);
       const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
       const bytes = Buffer.from(shot.data, "base64"), digest = sha256(bytes);
       let screenshot = screenshotsByHash.get(digest);
@@ -240,11 +242,11 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
             runtimeErrors.length = 0;
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
             await pollVisibleTexts(cdp, sessionId, check, viewport);
-            const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{const e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&s.opacity!=='0'&&e.getClientRects().length>0;};const nodes=[...document.querySelectorAll('body *')].filter(visible);const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:nodes.some(node=>(node.innerText??node.textContent??'').includes(value))}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:nodes.some(node=>(node.innerText??node.textContent??'').includes(value))}));const text=document.body?.innerText??'';const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,text,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
+            const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{let e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const leaf=e;for(;e;e=e.parentElement){const s=getComputedStyle(e);if(e.hidden||e.inert||e.getAttribute('aria-hidden')==='true'||s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;}return leaf.getClientRects().length>0;};const textNodes=[];const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:node=>visible(node)&&node.nodeValue?.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});let node;while((node=walker.nextNode()))textNodes.push(node.nodeValue);const visibleText=textNodes.join('\\n');const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,visibleText,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
             if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:alerts=${result.alerts.length}`);
-            if (check.forbiddenTexts.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+            if (check.forbiddenTexts.some(text => result.visibleText.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             if (result.visibleTexts.some(row => !row.matched) || result.forbiddenTexts.some(row => row.matched)) fail("YUZHOU_UAT_BROWSER_DOM_ASSERTION_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
-            if (check.masked && sensitiveNeedles.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_SENSITIVE_VALUE_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+            if (check.masked && sensitiveNeedles.some(text => result.visibleText.includes(text))) fail("YUZHOU_UAT_BROWSER_SENSITIVE_VALUE_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             const screenshotKey = `${check.actor}:${check.route}:${viewport.id}`;
             let screenshot = screenshotCache.get(screenshotKey);
             if (!screenshot) screenshot = await captureSanitizedScreenshot(sessionId, screenshotKey);

@@ -42,7 +42,7 @@ function complete(rehearsal) {
     for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id));
     for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id));
     for (const roleType of item.roleTypes) for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, roleType, viewport.id, {
-      runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple,
+      runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, viewportId: viewport.id,
       route: item.route,
       roleType,
       actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
@@ -95,4 +95,21 @@ test("missing checks, audit or browser measurements cannot be finalized", () => 
     () => recorder.passCheck(34, "positive", "hr_maker_create_submit"),
     error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_OBSERVATION_MISSING"
   );
+});
+
+test("recorder independently rejects a replayed or drifted browser cell hash", () => {
+  const rehearsal = "A", item = taskCard.items[0], roleType = item.roleTypes[0], viewport = taskCard.viewports[0];
+  const recorder = new YuzhouLiveRoleUatRecorder(taskCard, {
+    rehearsal, runId: "yzfull-recorder-replay-rA", targetIdentityHash: hash("replay-target"),
+    apiMatrixSha256: apiMatrixHash(apiMatrix), browserMatrixSha256: browserMatrixHash(browserMatrix), triple,
+    actors: [
+      { roleType: "hr_manager", subjectHash: hash("replay-reviewer") },
+      { roleType: "hr_manager", subjectHash: hash("replay-maker") },
+      { roleType: "department_manager", subjectHash: hash("replay-manager") },
+      { roleType: "employee_self_service", subjectHash: hash("replay-employee") }
+    ]
+  });
+  const check = browserMatrix.checks.find(row => row.legacyId === item.legacyId && row.roleType === roleType);
+  const measurement = { runId: "yzfull-recorder-replay-rA", rehearsal, triple, legacyId: item.legacyId, roleType, actor: check.actor, actorSubjectHash: hash("replay-reviewer"), route: check.route, renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, clientWidth: viewport.width, scrollWidth: viewport.width, screenshotSha256: hash("shot"), domAssertionSha256: hash("dom"), cellEvidenceSha256: "f".repeat(64) };
+  assert.throws(() => recorder.passBrowser(item.legacyId, roleType, viewport.id, measurement), error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_BROWSER_CELL_HASH_INVALID");
 });

@@ -60,7 +60,7 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   if (evidence.productionImport !== "HOLD" || evidence.humanAttestation !== "HOLD" || evidence.executionBoundary !== "isolated_lab_only") {
     fail("YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE", rehearsal);
   }
-  if (evidence.rehearsal !== rehearsal || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(evidence.runId ?? "")) {
+  if (evidence.rehearsal !== rehearsal || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(evidence.runId ?? "") || !evidence.runId.endsWith(`-r${rehearsal}`)) {
     fail("YUZHOU_UAT_EVIDENCE_RUN_INVALID", rehearsal);
   }
   if (!sha64(evidence.targetIdentityHash)

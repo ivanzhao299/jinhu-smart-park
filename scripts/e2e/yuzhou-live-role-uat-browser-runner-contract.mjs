@@ -29,6 +29,7 @@ test("browser observation drift and horizontal overflow fail closed", () => {
     value => { value.width = 500; }, value => { value.scrollWidth = 391; },
     value => { value.assertions.pop(); }, value => { value.screenshotSha256 = "not-a-hash"; },
     value => { value.runId = "other"; }, value => { value.triple.codeSha = "f".repeat(40); },
+    value => { value.runId = "yzfull-browser-contract-rB"; },
     value => { value.actorSubjectHash = "5".repeat(64); }, value => { value.domAssertionSha256 = "c".repeat(64); }
   ];
   for (const mutate of cases) {
