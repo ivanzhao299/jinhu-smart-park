@@ -1,0 +1,88 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_employee_job_state_reviewed_decision",
+  "artifactVersion": "v1",
+  "artifactStatus": "DRAFT",
+  "scopeBinding": {
+    "tenantIdentitySha256": "1000000000000000000000000000000000000000000000000000000000000001",
+    "parkIdentitySha256": "2000000000000000000000000000000000000000000000000000000000000002"
+  },
+  "sourceContract": {
+    "sourceSystem": "yuzhou-v10",
+    "dictionaryCode": "employee_job_state",
+    "sourceSnapshotSha256": "3000000000000000000000000000000000000000000000000000000000000003",
+    "sourceDistinctStateCount": 7,
+    "sourceRecordCount": 100
+  },
+  "decisions": [
+    {
+      "sourceIdentitySha256": "4100000000000000000000000000000000000000000000000000000000000001",
+      "sourceRowSha256": "5100000000000000000000000000000000000000000000000000000000000001",
+      "observedRecordCount": 31,
+      "decision": "map",
+      "targetEmploymentStatus": "active",
+      "reasonCode": "APPROVED_MAPPING"
+    },
+    {
+      "sourceIdentitySha256": "4200000000000000000000000000000000000000000000000000000000000002",
+      "sourceRowSha256": "5200000000000000000000000000000000000000000000000000000000000002",
+      "observedRecordCount": 19,
+      "decision": "map",
+      "targetEmploymentStatus": "probation",
+      "reasonCode": "APPROVED_MAPPING"
+    },
+    {
+      "sourceIdentitySha256": "4300000000000000000000000000000000000000000000000000000000000003",
+      "sourceRowSha256": "5300000000000000000000000000000000000000000000000000000000000003",
+      "observedRecordCount": 17,
+      "decision": "map",
+      "targetEmploymentStatus": "suspended",
+      "reasonCode": "APPROVED_MAPPING"
+    },
+    {
+      "sourceIdentitySha256": "4400000000000000000000000000000000000000000000000000000000000004",
+      "sourceRowSha256": "5400000000000000000000000000000000000000000000000000000000000004",
+      "observedRecordCount": 13,
+      "decision": "map",
+      "targetEmploymentStatus": "departed",
+      "reasonCode": "APPROVED_MAPPING"
+    },
+    {
+      "sourceIdentitySha256": "4500000000000000000000000000000000000000000000000000000000000005",
+      "sourceRowSha256": "5500000000000000000000000000000000000000000000000000000000000005",
+      "observedRecordCount": 9,
+      "decision": "quarantine",
+      "targetEmploymentStatus": null,
+      "reasonCode": "AMBIGUOUS_SEMANTICS"
+    },
+    {
+      "sourceIdentitySha256": "4600000000000000000000000000000000000000000000000000000000000006",
+      "sourceRowSha256": "5600000000000000000000000000000000000000000000000000000000000006",
+      "observedRecordCount": 6,
+      "decision": "quarantine",
+      "targetEmploymentStatus": null,
+      "reasonCode": "UNKNOWN_SOURCE_VALUE"
+    },
+    {
+      "sourceIdentitySha256": "4700000000000000000000000000000000000000000000000000000000000007",
+      "sourceRowSha256": "5700000000000000000000000000000000000000000000000000000000000007",
+      "observedRecordCount": 5,
+      "decision": "quarantine",
+      "targetEmploymentStatus": null,
+      "reasonCode": "CONFLICTING_SOURCE_EVIDENCE"
+    }
+  ],
+  "canonicalDecisionSha256": "ae607b60e5cd4a8d2d4cc8a2f15d2685e6219c0a3cb6f996a44ef4c9af84e2bc",
+  "review": {
+    "status": "DRAFT",
+    "reviewerSubjectSha256": null,
+    "reviewedDecisionSha256": null,
+    "reviewedAt": null
+  },
+  "detachedHrApproval": {
+    "required": true,
+    "status": "HOLD",
+    "attestationSha256": null
+  },
+  "productionImport": "HOLD"
+}
