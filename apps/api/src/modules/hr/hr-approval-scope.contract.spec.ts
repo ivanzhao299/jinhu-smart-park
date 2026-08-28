@@ -33,19 +33,30 @@ test("production seed grants exact review scopes without legacy broad review",()
  const seed=read("database/seeds/production/000016_hr_management_foundation.sql");
  assert.match(seed,/HR_MANAGER','人力资源负责人','hr:approval:park_review/);
  assert.match(seed,/DEPARTMENT_MANAGER','部门负责人','hr:approval:team_review/);
- assert.doesNotMatch(seed,/hr:approval:review/);
+ assert.match(seed,/code='hr:approval:review'.*is_deleted=false/s);
+ assert.match(seed,/is_enabled=false,status='disabled',is_deleted=true/);
 });
 
 test("team pending approvals apply both applicant and subject managed-tree predicates",async()=>{
  let where:Record<string,unknown>|undefined;
  const service={
   managedEmployeeIds:async()=>["00000000-0000-4000-8000-000000000020"],
+  auditService:{recordOperationRequired:async()=>undefined},
   approvalRequests:{find:async(options:{where:Record<string,unknown>})=>{where=options.where;return [];}}
  };
  const result=await HrService.prototype.pendingApprovals.call(service as never,{tenantId:"tenant",parkId:"park"},{sub:"actor",permissions:[HR_PERMISSIONS.HR_APPROVAL_TEAM_REVIEW]} as never);
  assert.deepEqual(result,[]);
  assert.deepEqual((where?.applicantEmployeeId as {value:unknown}).value,["00000000-0000-4000-8000-000000000020"]);
  assert.deepEqual((where?.subjectEmployeeId as {value:unknown}).value,["00000000-0000-4000-8000-000000000020"]);
+});
+
+test("pending approval payload is not returned when required audit fails",async()=>{
+ const auditFailure=new Error("required audit unavailable");
+ const service={
+  auditService:{recordOperationRequired:async()=>{throw auditFailure;}},
+  approvalRequests:{find:async()=>[{id:"request",payload:{sensitive:"redacted"}}]}
+ };
+ await assert.rejects(()=>HrService.prototype.pendingApprovals.call(service as never,{tenantId:"tenant",parkId:"park"},{sub:"actor",username:"actor",roles:[],permissions:[HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW]} as never),auditFailure);
 });
 
 test("direct cross-tree review is safe not-found and self-review is forbidden",async()=>{

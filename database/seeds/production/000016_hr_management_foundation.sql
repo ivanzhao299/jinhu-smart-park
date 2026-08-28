@@ -135,6 +135,10 @@ SELECT uuid_generate_v4(),'10000001','20000001',d.code,d.name,p.id,'hr',d.kind,'
 FROM hr_permission_defs d JOIN sys_permission p ON p.tenant_id='10000001' AND p.code='hr' AND p.is_deleted=false
 ON CONFLICT(tenant_id,code) WHERE is_deleted=false DO UPDATE SET name=EXCLUDED.name,park_id=EXCLUDED.park_id,parent_id=EXCLUDED.parent_id,resource=EXCLUDED.resource,action=EXCLUDED.action,permission_path=EXCLUDED.permission_path,perm_path=EXCLUDED.perm_path,permission_level=EXCLUDED.permission_level,level=EXCLUDED.level,sort_no=EXCLUDED.sort_no,permission_type=EXCLUDED.permission_type,perm_type=EXCLUDED.perm_type,frontend_route=EXCLUDED.frontend_route,visible=EXCLUDED.visible,is_enabled=true,status='enabled',is_deleted=false,update_time=now(),remark=EXCLUDED.remark;
 
+UPDATE sys_permission
+SET is_enabled=false,status='disabled',is_deleted=true,update_time=now(),remark='Retired by atomic HR approval review scopes'
+WHERE tenant_id='10000001' AND code='hr:approval:review' AND is_deleted=false;
+
 CREATE TEMP TABLE hr_foundation_roles(code varchar(64),name varchar(100),permission_code varchar(128)) ON COMMIT DROP;
 INSERT INTO hr_foundation_roles VALUES
   ('HR_MANAGER','人力资源负责人','system:user:me'),
