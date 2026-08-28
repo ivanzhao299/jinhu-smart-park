@@ -66,3 +66,57 @@ const target = await authorizeTargetPark(scope, actor, userId, dto.parkId);
 await replaceManageableRoles(target, dto.roleIds, { auditScope: target });
 return accessibleParks.map((park) => ({ ...park, role_summary: minimalEffectiveRoleSummary(park) }));
 ```
+
+## Scenario: Recoverable access-only park context
+
+### 1. Scope / Trigger
+
+- Trigger: changing authenticated layout denial handling, global park switch publication, session cleanup, or access-only diagnostics/audit tooling.
+
+### 2. Signatures
+
+- Web classifier: `isCurrentParkAccessOnly(user): boolean`.
+- Tab recovery projection: `{ userId, tenantId, parkId, parkName }` in `sessionStorage`; never in shared `localStorage`.
+- Read-only diagnostic: `TENANT_ID=<required> PARK_ID=<optional> sh scripts/audit-access-only-users.sh`.
+
+### 3. Contracts
+
+- Only an explicit current-park `role_summary.has_business_role === false` means access-only. A missing summary means diagnostics are unavailable and must not be converted into a negative role claim.
+- The authenticated dashboard shell remains mounted for access-only: desktop/mobile park switcher and logout stay available while protected business children stay suppressed. Ordinary permission/module denials retain the shared `/403` projection.
+- A successful global switch into access-only may remember the previous enabled, role-bearing park. Recovery state is tab-scoped, bound to the same user/tenant, revalidated against authoritative accessible parks, cleared on logout/configured-role context, and never fabricates a return target.
+- The D5 audit is SELECT-only, requires an explicit tenant, separates explicit `access_only` from `legacy_home_without_access_row`, and emits no contact, credential, permission, data-scope, or candidate-role details.
+
+### 4. Validation & Error Matrix
+
+- `role_summary` omitted -> normal route authorization; never show the dedicated no-role claim.
+- stored source user/tenant mismatch, disabled/inaccessible/same park, malformed JSON, or source without an explicit business role -> omit return action and clear stale state.
+- return switch failure -> retain the access-only shell and show an inline error; do not claim recovery or clear the authenticated session unless the shared switch contract does so for an ambiguous rotation.
+- D5 missing `TENANT_ID` -> exit 2 before database access; optional `PARK_ID` remains a bound psql variable.
+
+### 5. Good / Base / Bad Cases
+
+- Good: role-bearing park A switches to access-only park B, sees the exact dedicated message, then explicitly returns to A.
+- Base: user logs directly into access-only B without a trustworthy source; selector/logout/guidance remain, but no return button is invented.
+- Bad: treat an omitted summary as access-only, persist source across accounts in localStorage, render protected children behind the empty state, or turn every permission denial into the dedicated state.
+
+### 6. Tests Required
+
+- Pure Web tests cover explicit-false classification, omitted summary, source record/reload, stale identity/access cleanup, role-configured cleanup, and access-only-to-access-only suppression.
+- Layout contracts assert exact Chinese copy, authenticated desktop/mobile headers, protected-child replacement, return switch, normal 403 redirect, 720px/390px-safe full-width action, and logout cleanup.
+- D5 static contract asserts mandatory tenant binding, optional park binding, no DML/DDL, runtime effective-role predicates, protected tenant-super predicate, legacy classification, and absence of sensitive columns.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+if (!user.current_park?.role_summary) showNoRoleState();
+localStorage.setItem("returnPark", previousParkId);
+```
+
+#### Correct
+
+```ts
+if (user.current_park?.role_summary?.has_business_role === false) showRecoverableState();
+sessionStorage.setItem("jinhu_park_role_recovery_source", JSON.stringify(boundMinimalSource));
+```
