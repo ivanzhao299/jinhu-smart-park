@@ -12,7 +12,7 @@
 - [x] Add API/shared/Web tests for projection, cross-tenant/current-park boundary, protected roles, no-leak response shape, explicit target save and both switchers.
 - [x] Run focused tests, shared build, API/Web typecheck, lint/build and relevant full regression in proportion to risk.
 - [x] Run `trellis-check`, update specs if an executable convention was learned, and record validation evidence here.
-- [ ] Commit/push only `codex/fix-psw-002-park-role-integrity`; open PR with `Closes #468`.
+- [x] Commit/push only `codex/fix-psw-002-park-role-integrity`; open PR with `Closes #468`.
 - [ ] Complete Codex review in at most 3 rounds, fix findings, wait PR CI green, squash merge, then wait main CI + Deploy Production green and capture Docker cleanup evidence.
 - [ ] Close/verify Issue #468, archive PSW-002, fast-forward local tracking state, delete merged branch where safe, prune, then start PSW-003.
 
@@ -38,3 +38,4 @@
 - 2026-08-29: Restored from PSW-001 main double-green. Issue #468 and branch already exist. Four read-only scouts confirmed current default-park coupling, missing per-park projection, switcher contract, and test gaps. Planning artifacts completed; next point is task activation followed by `trellis-before-dev`.
 - 2026-08-29: Implementation complete. Added permission-gated per-park summaries, explicit target-park read/write flow, desktop/mobile switcher summaries, and one-step management UI. Focused API 19/19 after final write-path case; Web system 54/54; Web auth-routing 49/49; full API 1582 pass, 40 skip, 0 fail; shared build, API/Web typecheck, API/Web lint and API/Web production build PASS. `git diff --check` PASS. Real desktop/390px browser inspection remains pending because this environment exposes neither the in-app browser nor Playwright; do not report it as passed.
 - 2026-08-29: `trellis-check` found and fixed diagnostic leakage: `USER_LIST` alone now receives neither per-park summaries nor role names; Web renders neutral “角色状态不可见” instead of falsely declaring access-only. Added `.trellis/spec/api/backend/park-role-integrity.md`. Next point: workspace gates, commit/push, PR review/CI/merge/main double-green.
+- 2026-08-29: Opened PR #470 with `Closes #468`. Codex review round 1 identified four valid gaps: preserve global-super target management, reject blank target park IDs, include access-linked users in an ordinary target-park list, and bound/wrap switcher role summaries for 390px layouts. All four are fixed with focused API 20/20, Web system 55/55, and full API 1584 pass / 40 skip / 0 fail. Next point: final workspace gates, review-fix commit/push, request review round 2, then CI/merge/main double-green.

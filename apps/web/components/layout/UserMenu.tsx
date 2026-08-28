@@ -9,6 +9,7 @@ import { useMemo, useState } from "react";
 import { useAuthSessionActions, useAuthUser } from "../../lib/auth-context";
 import { getToken, logoutSession, switchParkContext } from "../../lib/auth";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
+import { formatParkRoleSummary } from "../../lib/park-role-summary";
 
 interface UserMenuProps {
   compact?: boolean;
@@ -89,8 +90,6 @@ export function UserMenu({ compact = false }: UserMenuProps) {
 
 function formatParkOptionLabel(park: UserParkContext): string {
   const prefix = park.park_code ? `${park.park_code} · ` : "";
-  const roles = park.role_summary?.has_business_role
-    ? park.role_summary.role_names.join("、") || `${park.role_summary.role_count} 个角色`
-    : "未配置园区角色";
+  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
   return `${prefix}${park.park_name}｜${roles}`;
 }

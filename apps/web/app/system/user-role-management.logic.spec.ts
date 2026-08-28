@@ -45,6 +45,7 @@ test("each accessible park exposes its role integrity without hiding access-only
   assert.match(source, /可切换但无业务角色/);
   assert.match(source, /summary && !hasRole \? " status-danger" : ""/);
   assert.match(source, /角色状态不可见/);
+  assert.match(source, /formatParkRoleSummary\(summary, "可切换但无业务角色"\)/);
   assert.match(source, /aria-label="角色配置目标园区"/);
 });
 

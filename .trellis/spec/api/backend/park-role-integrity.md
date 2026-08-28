@@ -19,14 +19,14 @@
 - Effective summaries include only live, enabled, same-tenant roles whose binding and role scope apply to the projected park. The complete protected tenant-super predicate applies its role to every live tenant park.
 - Management summaries and assignability diagnostics require `USER_DETAIL`, `USER_ASSIGN_ROLES`, super, or wildcard. `USER_LIST` alone must not receive per-park role names or negative access-only diagnosis.
 - An authenticated user may receive only their own minimal accessible-park role names/count for switcher display; never include permissions, data scopes, candidates, protected flags, assignability reasons, or another user's roles.
-- The service—not only the controller—authorizes the explicit target. Protected tenant super may target any live park in the same tenant. An ordinary role administrator may target only the actor's current park, and the target user must have effective access to it.
+- The service—not only the controller—authorizes the explicit target. Protected tenant super may target any live park in the same tenant. Existing global-super/wildcard user-management semantics remain available across target scopes. An ordinary role administrator may target only the actor's current park, and the target user must have effective access to it.
 - The write transaction locks the user scope, validates every role against the target tenant/park, preserves protected links, replaces only manageable links at the target park, and overrides audit scope to the target park. Audit body capture stays disabled.
 - Role summaries are display-only; `/auth/switch-context` still resolves a fresh target principal and remains the authorization authority.
 
 ### 4. Validation & Error Matrix
 
 - blank/oversized park id or invalid/too many role UUIDs -> DTO HTTP 400.
-- actor tenant differs from target user -> safe not found.
+- actor tenant differs from target user -> safe not found, except for an existing global-super/wildcard user manager.
 - ordinary actor targets another park -> HTTP 403 before target role disclosure.
 - missing, disabled, deleted, cross-tenant, or inaccessible target park -> safe not found.
 - foreign, disabled, deleted, template, system, builtin, protected, or wrong-park requested role -> reject the complete replacement.
@@ -42,7 +42,7 @@
 ### 6. Tests Required
 
 - DTO and controller contract tests assert target field, idempotency interceptor, body-free audit, and target audit override.
-- Service tests cover ordinary current-park success, ordinary cross-park denial, tenant-super same-tenant success, cross-tenant denial, inaccessible target, protected-link preservation, and exact target-only writes.
+- Service tests cover ordinary current-park success, ordinary cross-park denial, tenant-super same-tenant success, global-super cross-tenant compatibility, ordinary cross-tenant denial, inaccessible target, protected-link preservation, and exact target-only writes.
 - Projection tests cover role-bearing/access-only parks, protected tenant super across future parks, inactive/foreign roles, and diagnostic omission without permission.
 - Web tests assert exact access-only danger text, neutral hidden-diagnostic text, explicit target selector/payload, and identical desktop/mobile switcher summaries.
 - Run the complete API unit suite plus shared build, API/Web typecheck, lint, and build after changing this contract.

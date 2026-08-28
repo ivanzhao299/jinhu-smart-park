@@ -9,7 +9,7 @@ for (const component of ["UserMenu.tsx", "MobileTerminalHeader.tsx"]) {
     assert.match(source, /resolvePostParkSwitchPath\(nextUser, pathname, user\)/);
     assert.match(source, /nextPath === pathname\) router\.refresh\(\)/);
     assert.match(source, /else router\.replace\(nextPath as Route\)/);
-    assert.match(source, /park\.role_summary\?\.has_business_role/);
+    assert.match(source, /formatParkRoleSummary\(park\.role_summary, "未配置园区角色"\)/);
     assert.match(source, /未配置园区角色/);
   });
 }

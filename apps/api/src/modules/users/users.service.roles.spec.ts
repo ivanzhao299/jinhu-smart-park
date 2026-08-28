@@ -102,6 +102,27 @@ test("explicit target-park role DTO requires a bounded park id", async () => {
   assert.equal((await validate(valid)).length, 0);
   const missing = plainToInstance(AssignParkRolesDto, { roleIds: [] });
   assert.notEqual((await validate(missing)).length, 0);
+  const blank = plainToInstance(AssignParkRolesDto, { parkId: "   ", roleIds: [] });
+  assert.notEqual((await validate(blank)).length, 0);
+});
+
+test("global super role reads preserve cross-tenant target management", async () => {
+  const assignedRole = role({});
+  const service = createService({
+    usersRepository: { findOne: async () => ({ ...target, roleLinks: [] }) },
+    parksRepository: { findOne: async () => ({ tenantId: target.tenantId, parkId: target.parkId, status: 1 }) },
+    userParkRepository: { findOne: async () => ({ userId: target.id, tenantId: target.tenantId, parkId: target.parkId }) },
+    rolesRepository: createRoleCandidateRepository([assignedRole]),
+    userRoleRepository: { find: async () => [{ role: assignedRole }] }
+  });
+
+  const result = await service.getUserRoleContext(
+    scope,
+    actor,
+    target.id,
+    Object.assign(new UserRoleCandidatesQueryDto(), { parkId: target.parkId })
+  );
+  assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
 });
 
 test("target-park role reads reject ordinary cross-park actors before disclosing target state", async () => {

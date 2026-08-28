@@ -541,6 +541,13 @@ body {
 .park-role-summary-item {
   flex-wrap: wrap;
   align-items: center;
+  max-width: 100%;
+}
+
+.park-role-summary-item .status-pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 html.operations-terminal-safe-area,

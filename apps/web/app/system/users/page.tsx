@@ -9,6 +9,7 @@ import { ForbiddenState } from "../../../components/auth/ForbiddenState";
 import { apiRequest, createIdempotencyKey, isForbiddenError } from "../../../lib/api-client";
 import { useAuthUser } from "../../../lib/auth-context";
 import { hasPermission } from "../../../lib/permissions";
+import { formatParkRoleSummary } from "../../../lib/park-role-summary";
 import {
   deduplicateUserParkOptions,
   resolveUserParkLabels,
@@ -863,11 +864,12 @@ function ParkRoleSummaries({ parks }: { parks: UserParkContext[] }) {
       {parks.map((park) => {
         const summary = park.role_summary;
         const hasRole = summary?.has_business_role === true;
+        const summaryLabel = formatParkRoleSummary(summary, "可切换但无业务角色");
         return (
           <span className="park-role-summary-item" key={park.park_id}>
             <span>{park.park_name}{park.is_default ? "（默认）" : ""}</span>
             <span className={`status-pill${summary && !hasRole ? " status-danger" : ""}`}>
-              {!summary ? "角色状态不可见" : hasRole ? summary.role_names.join("、") || `${summary.role_count} 个角色` : "可切换但无业务角色"}
+              {summaryLabel ?? "角色状态不可见"}
             </span>
           </span>
         );

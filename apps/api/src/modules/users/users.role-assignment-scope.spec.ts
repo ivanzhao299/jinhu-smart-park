@@ -35,6 +35,9 @@ test("explicit park-role endpoint carries target park through DTO, service autho
   assert.match(source, /actor\.permissions\.includes\(SYSTEM_PERMISSIONS\.USER_DETAIL\)/);
   assert.match(source, /actor\.permissions\.includes\(SYSTEM_PERMISSIONS\.USER_ASSIGN_ROLES\)/);
   assert.match(source, /roleLinks: includeRoleDiagnostics \? userRoleLinks : undefined/);
+  assert.match(source, /userParkRepository\.find\(/);
+  assert.match(source, /id: In\(ordinaryUserIds\)/);
+  assert.match(source, /globalRoleManager = Boolean\(actor\.isSuper \|\| actor\.permissions\.includes\("\*"\)\)/);
 });
 
 test("role candidate catalog is paginated and keeps the legacy array contract opt-out", () => {

@@ -170,6 +170,16 @@ export class UsersService {
     const statusWhere =
       query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
     const superUser = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
+    const ordinaryUserIds = superUser ? [] : [...new Set([
+      ...(await this.usersRepository.find({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+        select: { id: true }
+      })).map((user) => user.id),
+      ...(await this.userParkRepository.find({
+        where: { tenantId: scope.tenantId, parkId: scope.parkId, status: "enabled", isDeleted: false },
+        select: { userId: true }
+      })).map((link) => link.userId)
+    ])];
     const rawBaseWhere = superUser
       ? {
           ...(queryTenantId ? { tenantId: queryTenantId } : {}),
@@ -179,13 +189,13 @@ export class UsersService {
         }
       : {
           tenantId: scope.tenantId,
-          parkId: scope.parkId,
+          id: In(ordinaryUserIds),
           isDeleted: false,
           ...statusWhere
         };
     const baseWhere = superUser
       ? rawBaseWhere
-      : await this.dataScopeService.buildFindWhere<UserEntity>(scope, actor, "tenant", rawBaseWhere, { tenant: "tenantId", park: "parkId" });
+      : await this.dataScopeService.buildFindWhere<UserEntity>(scope, actor, "tenant", rawBaseWhere, { tenant: "tenantId" });
     const where = query.keyword
       ? [
           { ...baseWhere, username: ILike(`%${query.keyword}%`) },
@@ -1339,12 +1349,13 @@ export class UsersService {
     const userRepository = manager?.getRepository(UserEntity) ?? this.usersRepository;
     const parkRepository = manager?.getRepository(ParkEntity) ?? this.parksRepository;
     const userParkRepository = manager?.getRepository(UserParkEntity) ?? this.userParkRepository;
+    const globalRoleManager = Boolean(actor.isSuper || actor.permissions.includes("*"));
     const user = await userRepository.findOne({
-      where: { id, tenantId: scope.tenantId, isDeleted: false },
+      where: { id, ...(globalRoleManager ? {} : { tenantId: scope.tenantId }), isDeleted: false },
       relations: { roleLinks: { role: true } }
     });
-    if (!user || actor.tenantId !== user.tenantId) throw new NotFoundException("User not found");
-    if (!actor.isTenantSuper && targetParkId !== actor.parkId) {
+    if (!user || (!globalRoleManager && actor.tenantId !== user.tenantId)) throw new NotFoundException("User not found");
+    if (!globalRoleManager && !actor.isTenantSuper && targetParkId !== actor.parkId) {
       throw new ForbiddenException("Target park role configuration is not allowed");
     }
     const targetPark = await parkRepository.findOne({

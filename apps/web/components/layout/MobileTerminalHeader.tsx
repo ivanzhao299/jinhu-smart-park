@@ -12,6 +12,7 @@ import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
+import { formatParkRoleSummary } from "../../lib/park-role-summary";
 
 export function MobileTerminalHeader() {
   const branding = useAppBranding();
@@ -115,8 +116,6 @@ export function MobileTerminalHeader() {
 
 function formatParkOptionLabel(park: UserParkContext): string {
   const prefix = park.park_code ? `${park.park_code} · ` : "";
-  const roles = park.role_summary?.has_business_role
-    ? park.role_summary.role_names.join("、") || `${park.role_summary.role_count} 个角色`
-    : "未配置园区角色";
+  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
   return `${prefix}${park.park_name}｜${roles}`;
 }
