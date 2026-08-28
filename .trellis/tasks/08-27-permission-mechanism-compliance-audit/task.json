@@ -12,7 +12,7 @@
   "assignee": "emvia",
   "createdAt": "2026-08-27",
   "completedAt": null,
-  "branch": "codex/permission-compliance-audit",
+  "branch": "codex/pam-audit-s15-20260828",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -24,6 +24,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "产品决策已记录于 decision-record.md；PAM-004/#434 与 PAM-005/#435 已合并并完成 main CI/Deploy。最新隔离 UAT 20260827-210211 的 Phase 0/login 预检 PASS，但 UI fixture harness 两次失败，六项 Case 与 §15 均未执行，且 residual/network/logout 证据不完整；父子任务保持 in_progress。",
+  "notes": "产品决策已记录于 decision-record.md；PAM-004/#434 与 PAM-005/#435 已合并，并由 R5 20260828-095912 以 6/6 PASS 复测后归档。父任务最新 §15 隔离轮 20260828-112051 完成 8 个 Chrome 子 Case 与专项契约测试，但 G2/G3/G5/G6/G7 尚有权威子路径 BLOCKED；父任务保持 in_progress。",
   "meta": {}
 }

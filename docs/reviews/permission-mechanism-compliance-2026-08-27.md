@@ -274,3 +274,4 @@ Track-B 的两层模型是有意设计：`HOMESTAY_OPERATOR`/`HOUSING_OPERATOR` 
 3. **PAM-001/002/003 终局仍为核销**，不进入修复队列；核销理由以第五、十二节为准。
 4. **PAM-004/PAM-005 已实施**：分别由 Issue #432 / PR #434 / squash `087582378e7d603d5ee5f388b312258c29784abf` 与 Issue #433 / PR #435 / squash `d41407b5fe066adf70ca3f4ae5e613999ed44db6` 交付，review、PR CI、main CI 与 Deploy 均通过。
 5. **归档仍受 UAT 门禁约束**：最新隔离复测 `20260827-210211` 已补齐 Phase 0 且 login 预检 PASS，但 UI fixture harness 两次失败，六项业务 Case 未开始，且 residual/network/logout 原始证据不完整，见 `docs/uat/pam-fix2-retest-uat-20260827-210211.md`。PAM-004/PAM-005 子任务需完成六项修复矩阵；审计父任务还需完整完成本报告第十五节七组回归，二者不得互相替代。
+6. **最新 §15 收口轮（2026-08-28）**：隔离运行 `20260828-112051` 完成 8 个真实 Chrome 子 Case 与专项契约测试；G1 完整 PASS，G4 由浏览器与契约证据闭合，G2/G3/G5/G6/G7 仍有权威子路径未执行而 BLOCKED。PAM-004/PAM-005 已由 R5 `20260828-095912` 6/6 PASS 后归档，但父任务继续保持 `in_progress`。详见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。
