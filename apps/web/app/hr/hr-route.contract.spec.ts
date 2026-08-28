@@ -199,6 +199,11 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   assert.match(payroll,/确认并冻结/);
   assert.match(payroll,/校正工资条/);
   assert.match(payroll,/仅限本人数据/);
+  assert.match(payroll,/canReadOnlineDetail = hasPermission\(user, HR_PERMISSIONS\.HR_PAYROLL_DETAIL_READ\)/);
+  assert.match(payroll,/canReadDetail\?<button className="ds-button" type="button" onClick=\{\(\)=>void inspect\(r\)\}>查看工资条/);
+  assert.match(payroll,/detailAbort\.current\?\.abort\(\)/);
+  assert.match(payroll,/current!==detailGeneration\.current/);
+  assert.match(payroll,/canManage&&selectedRun\.status!=="confirmed"/);
 });
 
 test("HR M4 compensation keeps plan ledger separate from sensitive assignment",()=>{
@@ -231,9 +236,30 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/合同期限（月）/);
   assert.match(contracts,/签订日期/);
   assert.match(contracts,/合同岗位/);
-  assert.match(contracts,/canManageSalary/);
-  assert.match(contracts,/FileUploader bizType="hr_contract_document"/);
-  assert.match(contracts,/AttachmentList bizType="hr_contract_document"/);
+  assert.match(contracts,/HR_CONTRACT_SALARY_READ/);
+  assert.match(contracts,/canManageSalary=canManage&&hasPermission\(user,HR_PERMISSIONS\.HR_COMPENSATION_MANAGE\)/);
+  assert.match(contracts,/canReadSalary&&\(selected\.probationSalary/);
+  assert.match(contracts,/FileUploader compact bizType="hr_contract_document"/);
+  assert.match(contracts,/AttachmentList compact label="合同附件"/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_READ/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_TEAM_READ/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_SELF_READ/);
+  assert.match(contracts,/mutationPermission=\{HR_PERMISSIONS\.HR_CONTRACT_DOCUMENT_MANAGE\}/);
+  assert.match(contracts,/合同提醒工作区/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_PARK_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_TEAM_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_SELF_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_ACK/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_MANAGE/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_RUN/);
+  assert.match(contracts,/\[30,60,90\]/);
+  assert.match(contracts,/contract_expiry/);
+  assert.match(contracts,/probation_expiry/);
+  assert.match(contracts,/标记已读/);
+  assert.match(contracts,/确认收到/);
+  assert.match(contracts,/完成提醒/);
+  assert.match(contracts,/取消提醒/);
+  assert.doesNotMatch(contracts,/expiryFrom:today\(\)/);
   assert.match(contracts,/办理轨迹/);
   assert.match(contracts,/确认生效/);
   assert.match(contracts,/确认变更/);
@@ -244,6 +270,10 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(api,/createContractChange:/);
   assert.match(api,/contractAction:/);
   assert.match(api,/contractChangeAction:/);
+  assert.match(api,/contractReminders:/);
+  assert.match(api,/runContractReminders:/);
+  assert.match(api,/actContractReminder:/);
+  assert.match(api,/\/hr\/contract-reminders/);
   assert.match(api,/expiry_from/);
   assert.match(api,/expiry_to/);
   assert.match(api,/\/hr\/contracts/);
@@ -260,7 +290,9 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(attendance,/未知符号保留待复核/);
  assert.match(insurance,/单位成本仅向 HR 授权岗位开放/);
  assert.match(insurance,/selfOnly/);
- assert.match(insurance,/full\?<span>单位缴费/);
+ assert.match(insurance,/canReadAmount=selfOnly\|\|hasPermission\(user,HR_PERMISSIONS\.HR_INSURANCE_AMOUNT_READ\)/);
+ assert.match(insurance,/canReadAmount&&full\?<span>单位缴费/);
+ assert.match(insurance,/canReadAmount\?<><span>缴费基数/);
  assert.match(api,/attendanceCalendars:/);
  assert.match(api,/insurancePeriods:/);
  assert.match(api,/insurancePeriod:/);
