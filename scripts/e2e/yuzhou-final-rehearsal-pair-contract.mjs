@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, runFinalPair, validatePairContract } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, runFinalPair, validatePairContract, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -19,6 +19,12 @@ test("fact, order, final-state and import drift fail closed",()=>{
   for(const mutate of [draft=>{draft.sourceFacts.T4.items++;},draft=>{draft.rollbackOrder.reverse();},draft=>{draft.requiredFinalState.residualCount=1;},draft=>{draft.productionImport="GO";}]){
     const draft=structuredClone(contract);mutate(draft);assert.throws(()=>validatePairContract(draft));
   }
+});
+
+test("runtime vacancy rejects occupied ports and residual Docker identities before provision",()=>{
+ const configs=["A","B"].map((rehearsal,index)=>({target:{postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,postgresContainer:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready-postgres-1`,volume:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready_postgres_data`}}));
+ assert.equal(validateRuntimeVacancy(configs).status,"PASS");
+ for(const observed of [{busyPorts:[15441]},{composeProjects:[configs[0].target.composeProject]},{containers:[configs[1].target.postgresContainer]},{volumes:[configs[0].target.volume]},{networks:[`${configs[1].target.composeProject}_default`]}])assert.throws(()=>validateRuntimeVacancy(configs,observed),error=>error.code==="FINAL_PAIR_RUNTIME_BUSY");
 });
 
 test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{

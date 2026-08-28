@@ -42,6 +42,26 @@ export function validatePairPreflight(configAInput,configBInput,contract,{curren
   return {status:"PASS",triple:a.triple,contractSha256:sha256(canonical(contract)),productionImport:"HOLD"};
 }
 
+export function validateRuntimeVacancy(configs,{busyPorts=[],composeProjects=[],containers=[],volumes=[],networks=[]}={}){
+  const busy=new Set(busyPorts.map(Number)),projects=new Set(composeProjects),containerNames=new Set(containers),volumeNames=new Set(volumes),networkNames=new Set(networks);
+  for(const config of configs){
+    for(const port of [config.target.postgresPort,config.target.apiPort,config.target.webPort])if(busy.has(port))fail("FINAL_PAIR_RUNTIME_BUSY",`port:${port}`);
+    if(projects.has(config.target.composeProject))fail("FINAL_PAIR_RUNTIME_BUSY",`compose:${config.target.composeProject}`);
+    if(containerNames.has(config.target.postgresContainer))fail("FINAL_PAIR_RUNTIME_BUSY",`container:${config.target.postgresContainer}`);
+    if(volumeNames.has(config.target.volume))fail("FINAL_PAIR_RUNTIME_BUSY",`volume:${config.target.volume}`);
+    if(networkNames.has(`${config.target.composeProject}_default`))fail("FINAL_PAIR_RUNTIME_BUSY",`network:${config.target.composeProject}_default`);
+  }
+  return {status:"PASS",checkedPorts:6,checkedProjects:2,productionImport:"HOLD"};
+}
+
+function lines(commandName,args){const result=spawnSync(commandName,args,{encoding:"utf8",stdio:["ignore","pipe","pipe"]});if(result.status!==0)fail("FINAL_PAIR_RUNTIME_CHECK_FAILED",commandName);return result.stdout.split("\n").map(row=>row.trim()).filter(Boolean);}
+function runtimeSnapshot(configs){
+  const busyPorts=[];for(const config of configs)for(const port of [config.target.postgresPort,config.target.apiPort,config.target.webPort])if(spawnSync("nc",["-z","127.0.0.1",String(port)],{stdio:"ignore"}).status===0)busyPorts.push(port);
+  const containers=lines("docker",["ps","-a","--format","{{.Names}}"]),volumes=lines("docker",["volume","ls","--format","{{.Name}}"]),networks=lines("docker",["network","ls","--format","{{.Name}}"]),composeProjects=[];
+  for(const config of configs)if(lines("docker",["ps","-a","--filter",`label=com.docker.compose.project=${config.target.composeProject}`,"--format","{{.ID}}"]).length)composeProjects.push(config.target.composeProject);
+  return {busyPorts,composeProjects,containers,volumes,networks};
+}
+
 function command(script,args){
   const result=spawnSync(process.execPath,[resolve(ROOT,script),...args],{cwd:ROOT,encoding:"utf8",stdio:["ignore","pipe","pipe"]});
   if(result.status!==0)fail("FINAL_PAIR_STAGE_FAILED",`${script}:${result.stderr.trim().split("\n").at(-1)??result.status}`);
@@ -119,6 +139,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const configPaths=[realpathSync(resolve(args.configA)),realpathSync(resolve(args.configB))],configs=configPaths.map((path,index)=>({...JSON.parse(readFileSync(path,"utf8")),__configPath:path,__ordinal:index}));
     const git=spawnSync("git",["status","--porcelain=v1","--untracked-files=all"],{cwd:ROOT,encoding:"utf8"}),head=spawnSync("git",["rev-parse","HEAD"],{cwd:ROOT,encoding:"utf8"}).stdout.trim();
     const preflight=validatePairPreflight(configs[0],configs[1],contract,{currentSha:head,mappingContractHash:computeMappingContractHash(FULL_CONTRACT),worktreeClean:git.status===0&&!git.stdout.trim()});
+    validateRuntimeVacancy(configs,runtimeSnapshot(configs));
     if(!args.execute){process.stdout.write(`${JSON.stringify(preflight)}\n`);process.exit(0);}
     if(process.env.ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"||!args.summary)fail("FINAL_PAIR_EXECUTION_AUTH_MISSING","explicit lab authorization and --summary required");
     const summary=resolve(args.summary),summaryParentInput=dirname(summary);if(!existsSync(summaryParentInput))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
