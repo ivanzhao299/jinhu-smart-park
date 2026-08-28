@@ -8,6 +8,7 @@ export interface JwtPrincipal {
   permissions: string[];
   dataScope?: string;
   isSuper?: boolean;
+  isTenantSuper?: boolean;
   authVersion?: number;
 }
 

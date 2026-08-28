@@ -5,12 +5,46 @@ import { UsersService } from "./users.service";
 type ResolveAccessibleParks = (
   userId: string,
   tenantId: string,
-  options?: { activeOnly?: boolean; homeParkId?: string }
+  options?: { activeOnly?: boolean; homeParkId?: string; isTenantSuper?: boolean }
 ) => Promise<Array<{ park_id: string; park_name: string; status: string }>>;
 
 const resolveAccessibleParks = (UsersService.prototype as unknown as {
   resolveAccessibleParks: ResolveAccessibleParks;
 }).resolveAccessibleParks;
+
+test("protected tenant super sees every live tenant park without per-park access links", async () => {
+  let accessReads = 0;
+  const parkQueries: unknown[] = [];
+  const service = {
+    userParkRepository: {
+      find: async () => {
+        accessReads += 1;
+        return [];
+      }
+    },
+    parksRepository: {
+      find: async (options: unknown) => {
+        parkQueries.push(options);
+        return [
+          { tenantId: "tenant-a", parkId: "park-home", parkCode: "HOME", parkName: "初始园区", status: 1 },
+          { tenantId: "tenant-a", parkId: "park-future", parkCode: "FUTURE", parkName: "未来园区", status: 1 }
+        ];
+      }
+    }
+  };
+
+  const parks = await resolveAccessibleParks.call(service, "user-a", "tenant-a", {
+    homeParkId: "park-home",
+    isTenantSuper: true
+  });
+
+  assert.equal(accessReads, 0);
+  assert.deepEqual(parkQueries, [{
+    where: { tenantId: "tenant-a", status: 1, isDeleted: false },
+    order: { createTime: "ASC" }
+  }]);
+  assert.deepEqual(parks.map((park) => park.park_id), ["park-home", "park-future"]);
+});
 
 test("accessible parks use only current-tenant links and add the exact active home park", async () => {
   const linkQueries: unknown[] = [];

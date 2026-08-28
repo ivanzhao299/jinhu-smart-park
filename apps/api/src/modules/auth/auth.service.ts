@@ -26,6 +26,7 @@ import { UserIdentityEntity } from "./entities/user-identity.entity";
 import { normalizePasswordLockoutConfig, type PasswordLockoutConfig } from "./auth-password-lockout.policy";
 import { UsersService, type PasswordFailureRecordResult, type PasswordLoginSuccessResult } from "../users/users.service";
 import { UserEntity } from "../users/entities/user.entity";
+import { isProtectedTenantSuperRole } from "../roles/protected-super-role";
 
 export interface LoginContextOption {
   userId: string;
@@ -734,7 +735,38 @@ export class AuthService implements OnModuleInit {
       { revoked: true, revokedTime, updateBy: user.sub }
     );
     if (claim.affected !== 1) throw new UnauthorizedException("Refresh token expired");
-    return this.issuePrincipalLoginResult(target, meta, "context_switch");
+    const result = await this.issuePrincipalLoginResult(target, meta, "context_switch");
+    if (target.isTenantSuper === true) {
+      await this.auditService.recordOperation({
+        tenantId: target.tenantId,
+        parkId: target.parkId,
+        userId: target.sub,
+        username: target.username,
+        realName: target.realName ?? null,
+        roleCodes: target.roles,
+        module: "auth",
+        resource: "tenant-super-context",
+        action: "tenant_super_context_activated",
+        bizType: "tenant_super_context",
+        bizId: target.sub,
+        beforeJson: {
+          tenantId: user.tenantId,
+          parkId: user.parkId
+        },
+        afterJson: {
+          tenantId: target.tenantId,
+          parkId: target.parkId,
+          identity: "SUPER_ADMIN"
+        },
+        clientIp: meta.ipAddress,
+        clientUa: Array.isArray(meta.userAgent) ? meta.userAgent.join(", ") : meta.userAgent,
+        method: "POST",
+        path: "/auth/switch-context",
+        success: true,
+        requestId: meta.requestId ?? null
+      });
+    }
+    return result;
   }
 
   isSmsLoginEnabled(): boolean {
@@ -922,13 +954,18 @@ export class AuthService implements OnModuleInit {
     const activeRoleLinks = (user.roleLinks ?? []).filter(
       (link) =>
         link.tenantId === user.tenantId &&
-        link.parkId === user.parkId &&
         !link.isDeleted &&
         link.role.isEnabled &&
         !link.role.isDeleted &&
         link.role.status === "enabled" &&
         link.role.tenantId === user.tenantId &&
-        (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
+        (
+          isProtectedTenantSuperRole(link.role)
+          || (
+            link.parkId === user.parkId
+            && (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
+          )
+        )
     );
     const basePermissions = activeRoleLinks.flatMap((link) =>
       (link.role.permissionLinks ?? [])
@@ -945,10 +982,11 @@ export class AuthService implements OnModuleInit {
         .map((permissionLink) => permissionLink.permission.code)
     );
     const permissions = this.expandPermissionAliases([...new Set(basePermissions)]);
+    const isTenantSuper = activeRoleLinks.some((link) => isProtectedTenantSuperRole(link.role));
     return {
       activeRoleLinks,
       permissions,
-      isSuper: activeRoleLinks.some((link) => link.role.isSuper) || permissions.includes("*")
+      isSuper: isTenantSuper || activeRoleLinks.some((link) => link.role.isSuper) || permissions.includes("*")
     };
   }
 

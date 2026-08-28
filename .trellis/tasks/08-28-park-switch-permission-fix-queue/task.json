@@ -1,0 +1,28 @@
+{
+  "id": "park-switch-permission-fix-queue",
+  "name": "park-switch-permission-fix-queue",
+  "title": "园区切换权限修复队列",
+  "description": "串行完成 PSW-001/002/003、D5 审计清单、S3 reconciliation 与最终 UAT 闭环。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P0",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/fix-psw-001-tenant-super",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-28-psw-001-tenant-super"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
