@@ -67,4 +67,3 @@ The proposed control root `/Users/mac/Documents/jinhu_hr_rehearsal_control` does
 5. Run pair preflight without `--execute`; require runtime vacancy PASS and pair contract PASS.
 6. Only after the real 25-item P0 executor exists, use the explicit isolated-lab execution authorization. The runner must compare both manifests before B→A rollback and prove actual residual zero for both.
 7. Keep production historical import `HOLD`; this readiness audit grants no production authorization.
-
