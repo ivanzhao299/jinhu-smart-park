@@ -360,8 +360,20 @@ function verifyLabInitializationBaseline(env) {
 }
 
 function portBusy(port) {
-  const result = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8", stdio: "pipe" });
-  return result.status === 0 && result.stdout.trim().length > 0;
+  const probe = [
+    "const net = require('node:net');",
+    "const socket = net.createConnection({ host: '127.0.0.1', port: Number(process.argv[1]) });",
+    "socket.setTimeout(1000);",
+    "socket.once('connect', () => { socket.destroy(); process.exit(0); });",
+    "socket.once('error', () => process.exit(1));",
+    "socket.once('timeout', () => { socket.destroy(); process.exit(1); });"
+  ].join("");
+  const result = spawnSync(process.execPath, ["-e", probe, String(port)], {
+    encoding: "utf8",
+    stdio: "pipe",
+    timeout: 2000
+  });
+  return result.status === 0;
 }
 
 function provisionFixture(config, registry) {
