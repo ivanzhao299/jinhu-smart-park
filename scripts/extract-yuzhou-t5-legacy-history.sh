@@ -15,10 +15,7 @@ printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "inva
 [ "$(stat -f '%Lp' "$CREDENTIAL_FILE" 2>/dev/null || stat -c '%a' "$CREDENTIAL_FILE")" = 600 ] || fail "credential file must be mode 0600"
 if [ -n "$MATERIALIZATION_KEY_FILE" ]; then
   [ "${MATERIALIZATION_KEY_FILE#/}" != "$MATERIALIZATION_KEY_FILE" ] || fail "materialization key file must be an absolute path"
-  [ -f "$MATERIALIZATION_KEY_FILE" ] && [ ! -L "$MATERIALIZATION_KEY_FILE" ] || fail "materialization key file must be a regular non-symlink file"
-  [ "$(stat -f '%Lp' "$MATERIALIZATION_KEY_FILE" 2>/dev/null || stat -c '%a' "$MATERIALIZATION_KEY_FILE")" = 600 ] || fail "materialization key file must be mode 0600"
-  awk 'END{exit NR==1?0:1}' "$MATERIALIZATION_KEY_FILE" || fail "materialization key file must contain one line"
-  grep -Eq '^[0-9a-fA-F]{64}$' "$MATERIALIZATION_KEY_FILE" || fail "materialization key file must contain a 32-byte hex key"
+  node "$ROOT_DIR/scripts/hr-cutover/materialization-key-contract.mjs" verify "$MATERIALIZATION_KEY_FILE" || fail "materialization key contract rejected the file"
 fi
 [ -n "$MATERIALIZATION_KEY_FILE" ] || fail "protected materialization key file is required"
 . "$CREDENTIAL_FILE"
