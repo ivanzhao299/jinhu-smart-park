@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { lstatSync, readFileSync, realpathSync } from "node:fs";
+import { resolve, sep } from "node:path";
 
 export class LegacyDualSurfaceAtomicInventoryError extends Error { constructor(code,detail){super(`${code}: ${detail}`);this.code=code;} }
 const fail=(code,detail)=>{throw new LegacyDualSurfaceAtomicInventoryError(code,detail);};
@@ -14,6 +14,10 @@ const record=({locator,surface,category,legacyValues,evidenceLevel,evidenceHash=
 const shortcutCoverageKeys=["page","tabs","dialogs","thirdLevelMenus","fields","actions","states","rules"];
 const shortcutListKeys=["pageIds","tabIds","dialogIds","thirdLevelMenuIds","fieldIds","actionIds","stateIds","ruleIds"];
 const groupWebShortcutAuthority=Object.freeze({contractHash:"c8326ad75e81811eba11f08fc458715be65479786e0a020e03d66c67b5f95711",bindingHash:"ac1164055853cef37ba00ad68759ea0411ca4b7b8407619155ddfa5f819ca433",identityHash:"c1c870fa2fe7d9ec6c76bdfc33d76e1ab812944b913c23ba4d7b07d725dd1b48"});
+const sourceContractsBySurface=Object.freeze({
+  client:["scripts/hr-cutover/contracts/legacy-client-live-traversal-v1.json","scripts/hr-cutover/contracts/legacy-atomic-inventory.schema.json"],
+  group_web:["scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json","scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json","scripts/hr-cutover/contracts/legacy-group-web-shortcut-cross-reference-v1.json","scripts/hr-cutover/contracts/legacy-web-entry-target-binding-v1.json"]
+});
 const exactKeys=(value,keys)=>value&&typeof value==="object"&&!Array.isArray(value)&&JSON.stringify(Object.keys(value).sort())===JSON.stringify([...keys].sort());
 const securityPattern=/(?:Bearer\s+[A-Za-z0-9._-]+|(?:password|passwd|pwd|secret|token)\s*[:=]\s*\S+|(?:https?:\/\/)?(?:localhost|127\.0\.0\.1|10\.\d{1,3}|192\.168\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3})(?::\d+)?|\/Users\/|[A-Za-z]:[\\/]|BEGIN (?:RSA |OPENSSH )?PRIVATE KEY)/iu;
 const decodeEntities=value=>value.replace(/&#(?:x([0-9a-f]+)|(\d+));?/giu,(_match,hex,decimal)=>String.fromCodePoint(Number.parseInt(hex??decimal,hex?16:10)));
@@ -36,9 +40,13 @@ function assertNoSensitiveContent(value,label){
 function loadSources(root,manifest){
   if(manifest.productionImport!=="HOLD"||manifest.status!=="skeleton_with_existing_evidence")fail("DUAL_SURFACE_BOUNDARY_INVALID",manifest.surface);
   if(!Number.isInteger(manifest.inventoryVersion)||manifest.inventoryVersion<1||(manifest.inventoryVersion===1?manifest.previousInventoryHash!==null:!sha64(manifest.previousInventoryHash)))fail("DUAL_SURFACE_CHAIN_INVALID",manifest.surface);
+  const expectedPaths=sourceContractsBySurface[manifest.surface];
+  if(!expectedPaths||!Array.isArray(manifest.sourceContracts)||manifest.sourceContracts.some(source=>!exactKeys(source,["path","sha256"]))||JSON.stringify(manifest.sourceContracts.map(source=>source.path))!==JSON.stringify(expectedPaths))fail("DUAL_SURFACE_SOURCE_SET_INVALID",String(manifest.surface));
+  const rootPath=realpathSync(root),rootPrefix=`${rootPath}${sep}`;
   return Object.fromEntries(manifest.sourceContracts.map(source=>{
-    const path=resolve(root,source.path);if(!sha64(source.sha256)||fileHash(path)!==source.sha256)fail("DUAL_SURFACE_SOURCE_HASH_DRIFT",source.path);
-    return[source.path,JSON.parse(readFileSync(path,"utf8"))];
+    const path=resolve(rootPath,source.path),stat=lstatSync(path);if(stat.isSymbolicLink()||!stat.isFile())fail("DUAL_SURFACE_SOURCE_PATH_INVALID",source.path);
+    const canonicalPath=realpathSync(path);if(!canonicalPath.startsWith(rootPrefix)||!sha64(source.sha256)||fileHash(canonicalPath)!==source.sha256)fail("DUAL_SURFACE_SOURCE_HASH_DRIFT",source.path);
+    return[source.path,JSON.parse(readFileSync(canonicalPath,"utf8"))];
   }));
 }
 
@@ -80,7 +88,12 @@ export function verifyMaterializedDualSurfaceAtomicInventories(client,groupWeb,p
   if(Object.hasOwn(client,"crossReferences"))fail("DUAL_SURFACE_CROSS_SURFACE_AUTHORITY","client shortcut references forbidden");
   for(const inventory of [client,groupWeb]){
     if(inventory.formatVersion!==1||!Number.isInteger(inventory.inventoryVersion)||inventory.inventoryVersion<1||(inventory.inventoryVersion===1?inventory.previousInventoryHash!==null:!sha64(inventory.previousInventoryHash))||!sha64(inventory.sourceSetSha256)||inventory.evidenceAuthoritySha256!==valueHash(inventory.evidenceAuthority))fail("DUAL_SURFACE_CHAIN_INVALID",inventory.surface);
-    if(inventory.inventoryVersion>1){const previous=inventory.surface==="client"?previousPair?.client:previousPair?.groupWeb;if(!previous||inventory.previousInventoryHash!==valueHash(previous)||inventory.inventoryVersion!==previous.inventoryVersion+1)fail("DUAL_SURFACE_CHAIN_INVALID",`${inventory.surface}:previous`);const priorByLocator=new Map(previous.records.map(row=>[row.locator,row]));const rank={MISSING:0,INFERRED:1,DB:2,SOURCE:2,TRAVERSED:3,TARGET:4};for(const row of inventory.records){const prior=priorByLocator.get(row.locator);if(!prior||rank[row.evidenceLevel]<rank[prior.evidenceLevel])fail("DUAL_SURFACE_CHAIN_DOWNGRADE",row.locator);}}
+    if(inventory.inventoryVersion>1){
+      const previous=inventory.surface==="client"?previousPair?.client:previousPair?.groupWeb;if(!previous||inventory.previousInventoryHash!==valueHash(previous)||inventory.inventoryVersion!==previous.inventoryVersion+1)fail("DUAL_SURFACE_CHAIN_INVALID",`${inventory.surface}:previous`);
+      const priorByLocator=new Map(previous.records.map(row=>[row.locator,row])),rank={MISSING:0,INFERRED:1,DB:2,SOURCE:2,TRAVERSED:3,TARGET:4};
+      if(inventory.records.length!==previous.records.length)fail("DUAL_SURFACE_CHAIN_SEMANTIC_DRIFT",`${inventory.surface}:record-count`);
+      for(const row of inventory.records){const prior=priorByLocator.get(row.locator);if(!prior||rank[row.evidenceLevel]<rank[prior.evidenceLevel])fail("DUAL_SURFACE_CHAIN_DOWNGRADE",row.locator);if(row.surface!==prior.surface||row.category!==prior.category||valueHash(row.legacy)!==valueHash(prior.legacy)||row.target.disposition!==prior.target.disposition)fail("DUAL_SURFACE_CHAIN_SEMANTIC_DRIFT",row.locator);}
+    }
   }
   if(!Array.isArray(groupWeb.crossReferences)||groupWeb.crossReferences.length!==15)fail("DUAL_SURFACE_SHORTCUT_COUNT_INVALID",String(groupWeb.crossReferences?.length));
   const groupMenuLocators=new Set(groupWeb.records.filter(row=>row.category==="menu").map(row=>row.locator));
@@ -89,6 +102,14 @@ export function verifyMaterializedDualSurfaceAtomicInventories(client,groupWeb,p
     if(!exactKeys(shortcut,shortcutShape)||shortcut.surface!=="group_web"||!/^group-web:shortcut:\d{3}$/u.test(shortcut.locator)||locators.has(shortcut.locator))fail("DUAL_SURFACE_SHORTCUT_LOCATOR_INVALID",String(shortcut.locator));locators.add(shortcut.locator);
     if(shortcut.observationStatus!=="pending"||shortcut.gapReasonCode!=="GROUP_WEB_SHORTCUT_LIVE_OBSERVATION_PENDING"||!exactKeys(shortcut.coverage,shortcutCoverageKeys)||shortcutCoverageKeys.some(key=>shortcut.coverage[key]!==false)||shortcutListKeys.some(key=>!Array.isArray(shortcut[key])||shortcut[key].length)||!exactKeys(shortcut.evidence,["mode","sha256"])||shortcut.evidence.mode!=="hash_only"||!Array.isArray(shortcut.evidence.sha256)||shortcut.evidence.sha256.length)fail("DUAL_SURFACE_SHORTCUT_FALSE_OBSERVATION",shortcut.locator);
     if(!Array.isArray(shortcut.canonicalMenuLocators)||new Set(shortcut.canonicalMenuLocators).size!==shortcut.canonicalMenuLocators.length||shortcut.canonicalMenuLocators.some(locator=>!groupMenuLocators.has(locator))||(shortcut.canonicalMenuLocators.length?shortcut.referenceStatus!=="mapped_to_group_menu":shortcut.referenceStatus!=="target_route_only"))fail("DUAL_SURFACE_SHORTCUT_MENU_REFERENCE_INVALID",shortcut.locator);
+  }
+  if(groupWeb.inventoryVersion>1){
+    const previous=previousPair?.groupWeb;if(!Array.isArray(previous?.crossReferences)||previous.crossReferences.length!==groupWeb.crossReferences.length)fail("DUAL_SURFACE_SHORTCUT_CHAIN_DRIFT","count");
+    for(let index=0;index<groupWeb.crossReferences.length;index+=1){
+      const current=groupWeb.crossReferences[index],prior=previous.crossReferences[index];
+      if(current.locator!==prior.locator||current.entryPoint!==prior.entryPoint||current.legacyPath!==prior.legacyPath||current.targetRoute!==prior.targetRoute)fail("DUAL_SURFACE_SHORTCUT_CHAIN_DRIFT",current.locator);
+      if(JSON.stringify(current.canonicalMenuLocators)!==JSON.stringify(prior.canonicalMenuLocators)||current.referenceStatus!==prior.referenceStatus)fail("DUAL_SURFACE_SHORTCUT_CHAIN_DRIFT",`${current.locator}:canonical-menu`);
+    }
   }
   const shortcutIdentityHash=valueHash(groupWeb.crossReferences.map(({locator,entryPoint,legacyPath,targetRoute,canonicalMenuLocators,referenceStatus})=>({locator,entryPoint,legacyPath,targetRoute,canonicalMenuLocators,referenceStatus})));
   if(groupWeb.evidenceAuthority.shortcutIdentityHash!==shortcutIdentityHash||groupWeb.inventoryVersion===1&&(groupWeb.evidenceAuthority.shortcutContractHash!==groupWebShortcutAuthority.contractHash||groupWeb.evidenceAuthority.shortcutBindingHash!==groupWebShortcutAuthority.bindingHash||shortcutIdentityHash!==groupWebShortcutAuthority.identityHash))fail("DUAL_SURFACE_SHORTCUT_AUTHORITY_DRIFT","group_web");

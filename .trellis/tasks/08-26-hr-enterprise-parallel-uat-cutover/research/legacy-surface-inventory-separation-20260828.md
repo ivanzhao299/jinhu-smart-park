@@ -8,6 +8,8 @@
 - 玉舟集团 Web：231 个菜单和 186 个源码路径仍是完整结构库存；原混合台账中的 15 个 Web 快捷入口改为独立 `group-web:shortcut:NNN` 交叉引用，不进入客户端分母，也不替代 231 项集团菜单。
 - 每个快捷入口按绑定合同顺序取得稳定 locator，并保留 page/tab/dialog/M3/field/action/state/rule 原子链。未取得真实 Web 会话证据前，所有链均为空、`observationStatus=pending`、`compatibilityScoreContribution=0`、`productionImport=HOLD`。
 - 快捷入口只允许引用集团 Web 菜单 locator 或记录为 `target_route_only`；后者明确表示尚无可证明的一对一旧菜单对应关系，不得自动补猜。
+- 两端 source contract 使用精确、唯一且有序的仓库内相对路径集合；重复、遗漏、额外、重排、路径别名、绝对路径、越界或符号链接全部失败即停。
+- inventory v2 及以后必须逐 locator 继承前版 surface、category、legacy identity 与 target disposition。集团 Web 快捷入口还必须保持 locator 顺序及 name/path/target route；当前 pending 合同没有独立演进批准机制，因此 canonical menu 引用必须逐字节继承，增加、删除、替换或重排均失败即停。
 
 ## 评分影响
 
