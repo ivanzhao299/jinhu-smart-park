@@ -11,7 +11,7 @@
 9. 追加核查 API 菜单构建、Web normalize/first href、session/park switch、role template/bundle 与 module assignment/seed 双重表示，形成条件矩阵。
 10. 把 PAM-004+ 与 PAM-001/002/003 合并为统一裁定；对 review 证实的误报记录核销并移出修复队列，再形成决策门、并行组和 UAT 清单；只改报告/Trellis 工件。
 11. 更新既有 #431，完成 review findings 修正，等待最新 PR CI、squash merge 与 main CI/Deploy 双绿。
-12. §15 父任务收口轮 `20260828-112051`：完成 Phase 0 三工件、隔离 migrate/seed/bootstrap/strict baseline、curl/Chrome 预检、产品 API fixture、8 个真实 Chrome Case、专项 API/Web 契约测试、Network/DB/hash/teardown 证据链。结果见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。G1/G5/G6 PASS，G3/G4 有契约测试替代；G2 完整普通/super/`*` 浏览器笛卡尔矩阵、G3 orphan-parent、G7 Docker safety gate 所要求的完整文件/审批安全链仍 BLOCKED，因此父任务不得归档。
+12. §15 父任务收口轮 `20260828-112051`：完成 Phase 0 三工件、隔离 migrate/seed/bootstrap/strict baseline、curl/Chrome 预检、产品 API fixture、8 个真实 Chrome 子 Case、专项 API/Web 契约测试、Network/DB/hash/teardown 证据链。结果见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。终局按权威组级口径为 G1 PASS、G4 浏览器+契约证据闭合；G2 完整普通/super/`*` 矩阵、G3 产品 API drift/orphan-parent、G5 module/relogin、G6 asset-local/page-state/API scope、G7 完整文件/审批安全链仍 BLOCKED，因此父任务不得归档。
 
 ## 验证与停止条件
 

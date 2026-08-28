@@ -15,5 +15,5 @@
 
 - PAM-004：Issue #432、PR #434、squash `087582378e7d603d5ee5f388b312258c29784abf`；review、PR CI、main CI、Deploy 均通过。
 - PAM-005：Issue #433、PR #435、squash `d41407b5fe066adf70ca3f4ae5e613999ed44db6`；review、PR CI、main CI、Deploy 均通过。
-- 最新隔离 UAT `20260827-210211` 已补齐 Phase 0 且 login 预检 PASS，但 UI fixture harness 两次失败，六项业务 Case 未开始；另有 residual/network/logout 证据缺口。详见 `docs/uat/pam-fix2-retest-uat-20260827-210211.md`。
-- 因用户要求“两个修复子任务复测 PASS 后归档”，审计父任务与 PAM-004/PAM-005 子任务继续保持 `in_progress`，不得按代码合并事实提前归档。
+- PAM-004/PAM-005 已由 R5 `20260828-095912` 以 6/6 PASS 完成复测并归档，详见 `docs/uat/pam-fix5-retest-uat-20260828-095912.md`。
+- 最新父任务 §15 隔离轮为 `20260828-112051`：G1 完整 PASS，G4 由浏览器与契约证据闭合；G2/G3/G5/G6/G7 仍有权威子路径 BLOCKED。父任务保持 `in_progress`，详见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。

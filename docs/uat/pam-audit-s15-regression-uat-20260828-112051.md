@@ -4,7 +4,7 @@
 
 - Baseline: `origin/main@f39540a35c0b83f5e8e675c766880c220fa0d7c9` (PR #450 merge revision).
 - Isolation: Compose project `jinhu-pam-s15-uat-20260828-112051`; PostgreSQL/API/Web/CDP ports `56631/3291/3292/9601`.
-- Outcome: **2 groups PASS, 3 groups PASS with contract-test substitution, 2 groups BLOCKED; no product FAIL**.
+- Outcome: **1 group PASS, 1 group PASS with contract-test substitution, 5 groups BLOCKED; no product FAIL**.
 - Archive decision: **do not archive** `.trellis/tasks/08-27-permission-mechanism-compliance-audit`. Section 15 is not fully closed.
 - Product issues: none opened. The blockers are missing legal fixture/test infrastructure, not observed product defects.
 
@@ -27,11 +27,11 @@ Raw CDP was used under the user's explicit exception. No production service, HR 
 | §15 group | Result | Browser assertion | Network evidence | DB evidence / equivalent proof |
 | --- | --- | --- | --- | --- |
 | 1. permission→menu quadrants | **PASS** | Chrome cases `G1-BOTH`, `G1-PAGE-ONLY`, `G1-ACTION-ONLY`, `G1-NEITHER`, `G1-FINANCE`, `G1-TRACK-B` verified Sidebar, landing and permission separation. Track-B exposed `/housing/tasks` without `/housing/dashboard`; finance exposed `/housing/finance`. | `network/browser-cases-network.json`, `network/api-fixture-network.json` | `db/touched-before.txt`, `db/touched-after-fixture.txt`; API/Web permission/menu contract suites PASS. |
-| 2. module combinations/time windows | **BLOCKED** | The enabled housing+asset state and module fail-closed behavior were exercised indirectly by G1 and G6, but the complete normal/super/`*` Cartesian matrix was not run in Chrome. | Legal enable/disable paths exist, but business-only conflicts with the asset dependency; system future/expiry states are rejected by product rules. | `saas-modules.property-dependency.spec.ts`, property-menu, Web permissions/menu suites PASS for disabled/expired/future and super/`*`. These do not replace the requested full browser matrix. |
-| 3. malformed menu metadata | **PASS with substitution, one BLOCKED subcase** | Canonical metadata and legal display projection were exercised through G1. Malformed persisted states were not inserted. | Product API/UI cannot create duplicate permission codes or route/module/type/action drift; no SQL insertion was used. | API property-menu tests PASS for duplicate code, wrong route/type/action and `visible=false`. No existing orphan-parent contract test or legal construction path was found; that subcase is **BLOCKED**. |
+| 2. module combinations/time windows | **BLOCKED** | The enabled housing+asset state and module fail-closed behavior were exercised indirectly by G1 and G6, but the complete normal/super/`*` Cartesian matrix was not run in Chrome. | Legal enable/disable paths exist, but business-only conflicts with the asset dependency; system future/expiry states are rejected by product rules. | `saas-modules.property-dependency.spec.ts`, property-menu, explicit Web permissions, and menu suites PASS for disabled/expired/future and super/`*`. These do not replace the requested full browser matrix. |
+| 3. malformed menu metadata | **BLOCKED** | Canonical metadata and legal display projection were exercised through G1. Malformed persisted states were not exercised in this run. | Duplicate permission codes remain non-constructible through the product API, but review confirmed a superuser can legally PATCH built-in permission `permType`, `action`, and `frontendRoute`; those drift paths should have been exercised and were not. | API property-menu tests PASS for duplicate code, wrong route/type/action and `visible=false`. No existing orphan-parent contract test or legal construction path was found. Contract evidence is supplementary only. |
 | 4. dual representation / first landing | **PASS with substitution** | Every G1 login landing was either `/dashboard` or an href in the actual Sidebar; G6 Park B landing belonged to Park B Sidebar. | `/users/me` and `switch-context` paths are captured. | Web menu and auth-routing suites PASS for legacy+canonical pruning, explicit empty tree authority, login and park-switch normalized landing. |
-| 5. authorization refresh | **PASS** | `G5-TWO-TAB-ADD-REMOVE-REFRESH`: current tab retained cached Sidebar after add; a newly logged-in second tab received the page; both retained cached state after revoke; refresh converged both to the revoked state. | Admin role-permission writes and both tabs' `/users/me` paths are captured. | Role/permission/user links are included in before/after table counts. This matches the approved “refresh/relogin” contract and does not claim active push. |
-| 6. park switch | **PASS** | `G6-PARK-SWITCH`: Park A → Park B converged `parkId`, selector, Sidebar and landing; final logout returned to `/login`. | A 2xx `/auth/switch-context` response is required by the runner and captured. | Product API created Park B and per-park role links; the bootstrap admin primary park remained A. R5 16-table park set was frozen and extended for users/auth/role policy. |
+| 5. authorization refresh | **BLOCKED** | `G5-TWO-TAB-ADD-REMOVE-REFRESH` passed the add/remove page and two-tab refresh subset. | Admin role-permission writes and both tabs' `/users/me` paths are captured. | Module enable/disable and an explicit logout/relogin convergence assertion were not executed, so the authoritative group remains open. |
+| 6. park switch | **BLOCKED** | `G6-PARK-SWITCH` passed the main selector A → B subset and converged `parkId`, Sidebar and landing. | A 2xx `/auth/switch-context` response is required by the runner and captured. | The asset-page-local switch, page-state convergence and scoped business API assertion were not executed, so the authoritative group remains open. |
 | 7. original security regression | **BLOCKED** | This run did not execute the complete Homestay asset toggle, cross-scope, actor-separation, hidden/masked, five-file-chain and housing approval deep-link browser matrix. | Focused API/unit suites passed for dependency, scope, decisions/effects, field projection, file business access and housing projection. | The repository's full property API E2E gate requires both API and PostgreSQL to run inside the same disposable Compose project with audited DB and file volumes. The reused R5 topology containerized PostgreSQL only, so bypassing the gate would violate its safety contract. Existing focused tests are supplementary, not a complete §15 UAT replacement. |
 
 ## 4. Browser case results
@@ -66,9 +66,11 @@ pnpm --filter @jinhu/api exec node --test --require ts-node/register \
   src/modules/housing/housing-projection-access.spec.ts
 pnpm --filter @jinhu/web test:unit:menu
 pnpm --filter @jinhu/web test:unit:auth-routing
+TS_NODE_TRANSPILE_ONLY=true TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS","moduleResolution":"node"}' \
+  pnpm --filter @jinhu/web exec node --test --require ts-node/register lib/permissions.spec.ts
 ```
 
-Logs are `logs/s15-api-contract-tests.log`, `logs/s15-web-menu-tests.log`, and `logs/s15-web-auth-routing-tests.log`.
+Logs are `logs/s15-api-contract-tests.log`, `logs/s15-web-menu-tests.log`, `logs/s15-web-auth-routing-tests.log`, and `logs/s15-web-permissions-tests.log`.
 
 ## 6. Evidence index
 
@@ -99,7 +101,9 @@ The isolated database volume was destroyed, which is the zero-residual boundary 
 The parent task can be archived only after a new isolated run provides:
 
 1. the complete G2 normal/super/`*` module/time-window browser matrix using only legal product states and explicit negative API evidence for forbidden states;
-2. an orphan-parent fail-closed contract test or a legal product construction path;
-3. a Dockerized API+PostgreSQL+file-volume topology accepted by `property-api-e2e-safety.mjs`, followed by the complete G7 browser/network/DB matrix.
+2. G3 product-API drift cases plus an orphan-parent fail-closed contract test or legal construction path;
+3. G5 module toggle and explicit relogin paths;
+4. G6 asset-page-local switch with page-state and business API scope assertions;
+5. a Dockerized API+PostgreSQL+file-volume topology accepted by `property-api-e2e-safety.mjs`, followed by the complete G7 browser/network/DB matrix.
 
 Until then, §15 is partially executed and the parent remains `in_progress`.
