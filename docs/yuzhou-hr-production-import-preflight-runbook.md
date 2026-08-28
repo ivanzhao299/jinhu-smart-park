@@ -144,7 +144,37 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 当前默认 allowlist 尚未通过独立生产目标审阅，所以使用仓库默认合同还会返回 `PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED`。不得在运行时传入临时 allowlist 或修改证据绕过该门禁。
 
-## 8. 后续才允许实现的生产写入口
+## 8. 已实现但默认不可达的生产控制面
+
+`000278_hr_yuzhou_production_import_control.sql`、`production-import-sealed-plan-lib.mjs` 和
+`production-import-writer.mjs` 已建立生产写入所需的最小控制面，但仓库内执行合同继续保持：
+
+- `activation.status=HOLD`；
+- `allowedTargets=[]`；
+- `productionImport=HOLD`；
+- 无 CLI、workflow、普通 deploy、seed 或 lab runner 引用写入口；
+- 数据库函数和控制表均撤销 `PUBLIC` 权限，未来只能向一次性最小角色临时授权。
+
+sealed plan 只允许 T0→T3，逐来源记录固定 `insert|merge|quarantine|skip_approved`。T1～T3
+必须引用 T0 的稳定 source identity，禁止姓名匹配和自动创建登录账号。`merge` 必须绑定外部 KEK
+管理的 AES-256-GCM before-image、明文 canonical hash 和目标行 CAS hash；回退只能删除本 operation
+插入的记录，或在目标仍等于导入后 hash 时恢复加密 before-image。
+
+一次性授权消费与业务写入不是同一事务：
+
+1. 第一笔独立 `SERIALIZABLE` 控制事务写入不可复用的 import authorization receipt 并提交；
+2. 第二笔独立 `SERIALIZABLE` 业务事务连续执行 T0→T3，任一失败整体回滚；
+3. 失败后第三笔控制事务写入脱敏 failure receipt。业务回滚不得回滚第一笔 authorization receipt，
+   因此同一 operation、授权 artifact 或 nonce 不能重放。
+
+生产回退使用 `intent=production_import_rollback`、独立 rollback operation id、独立 artifact 和独立
+nonce。import 授权与 nonce 在机器契约中不能作为 rollback 授权，rollback 授权也不改变或复用 import
+authorization receipt。
+
+此控制面不等于批准执行。只有独立审阅把固定生产目标加入版本化执行合同并把状态改为 `PASS/READY`，
+且再次完成 C/S/M、窗口、真人签署和临时角色门禁后，注入式数据库 adapter 才能到达 writer。
+
+## 9. 生产写入激活前仍必须完成的门禁
 
 只有以下条件全部完成后，才能另开任务实现生产写入；不得在本预检文件中直接添加 loader 调用：
 
@@ -155,7 +185,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 5. before-image/record-map/conflict decision 全量生成并独立复核；
 6. RTO/RPO、值班、暂停和回退职责签署；
 7. 新的一次性 import 授权与独立的灾备 restore 授权分别建立；
-8. 写入口使用新的最小临时角色、原子授权消费、完成即撤权和实际 residual/hash 检查；
+8. 写入口使用新的最小临时角色、独立提交的一次性授权消费、完成即撤权和实际 residual/hash 检查；
 9. 再次证明普通 deploy、seed、migration 和 lab runner 无法调用写入口。
 
 在上述事项完成前，生产历史导入继续 `HOLD`。

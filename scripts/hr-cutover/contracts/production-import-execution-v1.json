@@ -1,0 +1,29 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_production_import_execution",
+  "contractVersion": "2026-08-29.1",
+  "activation": {
+    "status": "HOLD",
+    "allowedTargets": [],
+    "reasonCodes": ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"]
+  },
+  "transactionIsolation": "SERIALIZABLE",
+  "phaseOrder": ["T0", "T1", "T2", "T3"],
+  "rollbackOrder": ["T3", "T2", "T1", "T0"],
+  "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"],
+  "beforeImageAlgorithm": "aes-256-gcm-external-kek-v1",
+  "identityResolution": {
+    "sourceIdentity": "stable_source_identity_sha256",
+    "dependentOwnerResolution": "t0_production_record_map_exact",
+    "nameMatching": false,
+    "autoCreateLogin": false,
+    "overwrite": false
+  },
+  "targetTables": {
+    "T0": ["sys_org", "hr_position", "hr_employee"],
+    "T1": ["hr_employment_event"],
+    "T2": ["hr_contract_type", "hr_contract", "hr_contract_change", "hr_contract_legacy_evidence"],
+    "T3": ["hr_attendance_import_batch", "hr_attendance_symbol_rule", "hr_attendance_calendar_source", "hr_attendance_day", "hr_insurance_policy", "hr_insurance_policy_item", "hr_employee_insurance_period", "hr_employee_insurance_item"]
+  },
+  "productionImport": "HOLD"
+}
