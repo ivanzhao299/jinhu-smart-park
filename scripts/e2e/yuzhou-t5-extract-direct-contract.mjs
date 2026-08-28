@@ -10,7 +10,7 @@ const repositoryRoot = resolve(import.meta.dirname, "../..");
 const extractor = resolve(repositoryRoot, "scripts/extract-yuzhou-t5-legacy-history.sh");
 const source = readFileSync(extractor, "utf8");
 assert.match(source, /YUZHOU_PARTY_DATA_KEY_FILE/);
-assert.match(source, /materialization key file must be mode 0600/);
+assert.match(source, /materialization-key-contract\.mjs" verify/);
 assert.match(source, /sqlcmd -b -V 16/);
 assert.match(source, /sqlcmd -b -V 16[\s\S]*\[ -s "\$OUT\/\$name" \] \|\| printf '\[\]'/);
 
@@ -70,9 +70,26 @@ try {
   chmodSync(keyFile, 0o644);
   const unsafe = run("fixture-t5-unsafe-key", { YUZHOU_PARTY_DATA_KEY_FILE: keyFile });
   assert.equal(unsafe.status, 1);
-  assert.match(unsafe.stderr, /ERROR: materialization key file must be mode 0600/);
+  assert.match(unsafe.stderr, /materialization key must be a non-symlink 0600 regular file/);
   assert.equal(existsSync(dockerMarker), false, "unsafe key file must fail before source access");
   chmodSync(keyFile, 0o600);
+
+  const invalidKeys = [
+    ["short", `${"ab".repeat(31)}\n`],
+    ["overlong", `${"ab".repeat(48)}\n`],
+    ["nonhex", `${"zz".repeat(32)}\n`],
+    ["multiline", `${"ab".repeat(32)}\n${"cd".repeat(32)}\n`],
+    ["blank-lines", `\n${"ab".repeat(32)}\n\n`],
+    ["crlf", `${"ab".repeat(32)}\r\n`],
+  ];
+  for (const [label, value] of invalidKeys) {
+    writeFileSync(keyFile, value, { mode: 0o600 });
+    const rejected = run(`fixture-t5-${label}-key`, { YUZHOU_PARTY_DATA_KEY_FILE: keyFile });
+    assert.equal(rejected.status, 1, label);
+    assert.match(rejected.stderr, /MATERIALIZATION_KEY_CONTRACT_FAILED/, label);
+    assert.equal(existsSync(dockerMarker), false, `${label} key must fail before source access`);
+  }
+  writeFileSync(keyFile, `${"ab".repeat(32)}\n`, { mode: 0o600 });
 
   const queryFailure = run("fixture-t5-query-failure", { YUZHOU_PARTY_DATA_KEY_FILE: keyFile });
   assert.equal(queryFailure.status, 1);

@@ -5,6 +5,7 @@ import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { DOMAIN_ORDER, validateConfig } from "./full-domain-lifecycle.mjs";
+import { readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -76,7 +77,9 @@ function configFor(args, codeSha, mappingContractHash) {
   const projectRoot = join(args.controlRoot, project);
   const credentialRoot = join(projectRoot, "credentials");
   const runtimeRoot = join(projectRoot, "runtime");
+  const materializationKeySource = resolve(args.materializationKey);
   if (existsSync(projectRoot)) fail(`controlled project already exists: ${project}`);
+  const materializationKeyValue = readMaterializationKeyFile(materializationKeySource);
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 });
   chmodSync(projectRoot, 0o700);
   chmodSync(credentialRoot, 0o700);
@@ -101,9 +104,7 @@ function configFor(args, codeSha, mappingContractHash) {
   if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
   const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
   if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
-  const materializationKeySource = assertRegularFile(args.materializationKey, "materialization key", { privateFile: true });
-  if (Buffer.byteLength(readFileSync(materializationKeySource, "utf8").trim(), "utf8") < 32) fail("materialization key must contain at least 32 bytes");
-  privateCopy(materializationKeySource, materializationKey);
+  writePrivate(materializationKey, `${materializationKeyValue}\n`);
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");

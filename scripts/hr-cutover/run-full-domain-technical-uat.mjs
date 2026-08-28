@@ -2,11 +2,12 @@
 /* global fetch, process, setTimeout, structuredClone */
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { chmodSync, existsSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, resolve } from "node:path";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
+import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import { validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
 import { validateYuzhouLiveRoleUatApiMatrix } from "./yuzhou-live-role-uat-api-matrix-lib.mjs";
 import { YuzhouLiveRoleUatHttpRunner } from "./yuzhou-live-role-uat-http-runner.mjs";
@@ -37,7 +38,7 @@ const fixtureKeyFor=runId=>`uat${sha256(runId).slice(0,16)}`;
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
-function materializationKey(path){if(!existsSync(path)||lstatSync(path).isSymbolicLink()||!statSync(path).isFile()||(statSync(path).mode&0o777)!==0o600)fail("TECHNICAL_UAT_KEY_INVALID","materialization key must be a non-symlink 0600 file");const value=readFileSync(path,"utf8").trim();if(Buffer.byteLength(value,"utf8")<32)fail("TECHNICAL_UAT_KEY_INVALID","materialization key must contain at least 32 bytes");return value;}
+function materializationKey(path){try{return readMaterializationKeyFile(path);}catch(error){if(error instanceof MaterializationKeyContractError)fail("TECHNICAL_UAT_KEY_INVALID",error.message);throw error;}}
 function psql(config,vars,sql){const args=["exec","-i",config.target.postgresContainer,"psql","-X","-qAt","-v","ON_ERROR_STOP=1","-U","jinhu","-d",config.target.database];for(const [key,value]of Object.entries(vars))args.push("-v",`${key}=${value}`);const result=spawnSync("docker",args,{input:sql,encoding:"utf8",stdio:["pipe","pipe","pipe"]});if(result.status!==0)fail("TECHNICAL_UAT_DATABASE_FAILED",result.stderr.trim().split("\n").at(-1)??"psql");return result.stdout.trim();}
 async function waitUrl(url){for(let n=0;n<120;n+=1){try{const response=await fetch(url);if(response.status<500)return;}catch{/* retry until the isolated service is ready */}await sleep(500);}fail("TECHNICAL_UAT_SERVER_NOT_READY",url);}
 async function request(url,options={},expected=200){const response=await fetch(url,options);if(response.status!==expected)fail("TECHNICAL_UAT_HTTP_FAILED",`${response.status} ${url}`);let body=null;try{body=await response.json();}catch{/* a successful empty response is valid */}return body;}
@@ -66,10 +67,11 @@ function buildWebForTarget(config){
 export async function runTechnicalUat(configInput){
  const config=validateConfig(structuredClone(configInput));
  if(config.backend!=="lab"||currentState(config)!=="uat_ready")fail("STATE_TRANSITION_INVALID","technical UAT requires lab uat_ready state");
+ const partyDataEncryptionKey=materializationKey(config.target.materializationKeyArtifact);
  const apiMain=resolve(ROOT,"apps/api/dist/main.js");
  if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","build API before the rehearsal");
  buildWebForTarget(config);
- const pg=credential(config.target.credentialArtifact),partyDataEncryptionKey=materializationKey(config.target.materializationKeyArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
+ const pg=credential(config.target.credentialArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
  const users=[`${config.target.accountNamespace}_hr_maker`,`${config.target.accountNamespace}_hr_reviewer`,`${config.target.accountNamespace}_manager`,`${config.target.accountNamespace}_employee`];
  // Business-code columns are intentionally narrower than the globally unique rehearsal run id.
  // Use a deterministic short key for all isolated fixture codes while the manifest retains the full run id.

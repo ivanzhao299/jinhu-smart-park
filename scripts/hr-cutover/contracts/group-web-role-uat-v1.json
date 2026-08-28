@@ -1,0 +1,37 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_legacy_group_web_role_uat",
+  "surface": "legacy_group_web",
+  "roles": ["employee", "manager", "web_admin"],
+  "sourceInventoryHash": "b34ba532888fee122f93305403f8985bcb9bd1a5ccec69e8013b1d4c4f14e296",
+  "legacyRuntimeSourceContractSha256": "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af",
+  "collectorContractSha256": "72725d0e9ceb755a1d1908329e70bd1f033913fd94db4d6cf76b6b1c8271fd13",
+  "collectorSourcePath": "scripts/hr-cutover/group-web-role-uat-readonly-collector.mjs",
+  "collectorSourceRawSha256": "6a885c6676f6634f39a418e538397f52ab7b82c5f8b9e086d9692fd72d8961a8",
+  "liveCaptureAuthorityPath": "scripts/hr-cutover/contracts/group-web-role-uat-live-capture-authority-v1.json",
+  "liveCaptureAuthorityRawSha256": "e72e5521e099d8ebe5a55f45dcefbe9c7cd5bb15fa1847391980825cfe754fd7",
+  "runtimeRoleClasses": {"employee": "group_web_employee", "manager": "group_web_manager", "web_admin": "group_web_web_admin"},
+  "requiredChecks": ["menu", "field", "action", "state", "direct_route", "audit", "no_write", "logout_cleanup"],
+  "items": [
+    {"legacyId": 34, "domain": "employee", "pageSlug": "onboarding", "legacyRouteSha256": "4807e2b2dcbb711ecddebe418225d2cc0aa0b762f03538a4d025d915c126ecce", "sourceAuditHash": "71824793f3b8d9002aa245b98c29747082d3e0d4f2e3b4a68b2ead1c50eff3e8"},
+    {"legacyId": 35, "domain": "employee", "pageSlug": "employee-profile", "legacyRouteSha256": "c4513e2e72aa0fd3451666020bd3937234a8ba6340bf12f23acc82025f7a294e", "sourceAuditHash": "61b79273ffb92aa27bd4e4efc137f6c0676384d7ccee0c6362001ddd51fa1622"},
+    {"legacyId": 36, "domain": "employee", "pageSlug": "probation", "legacyRouteSha256": "9b2b99d3562306086f3d0808ceb08e23d73d491aab86083cda22b6efebe9a2fc", "sourceAuditHash": "0d2dc3193b08211f178816baf77f64f6a5bf01c5fae96a476c35e8d87736b26a"},
+    {"legacyId": 37, "domain": "employee", "pageSlug": "contract", "legacyRouteSha256": "b0771da44fc0766885601f4fd03166f55e755118ac59848aaa15663b18476077", "sourceAuditHash": "71721d33d52f7fe9bd09db05c35668890825f0956d6f0927165ad2a103ef3964"},
+    {"legacyId": 39, "domain": "employee", "pageSlug": "job-change", "legacyRouteSha256": "c3baa5d9d328be76fda96dab72d541d25ae84783a7456b9d7bf89b7a6821a00c", "sourceAuditHash": "b279850a9053621fd3ab890b5fd85092292f886f6150092ccc28ab4138b9dc06"},
+    {"legacyId": 42, "domain": "employee", "pageSlug": "departure", "legacyRouteSha256": "f105a0acde0dd716ffe7d8e882950560d140fe87e6d53a11390c12e962f5614e", "sourceAuditHash": "ed79e32572bba6abe7775e0b116865c5cf4eac5f484e50aa0aae09d327b5401a"},
+    {"legacyId": 43, "domain": "employee", "pageSlug": "exit-interview", "legacyRouteSha256": "a1d64c77611539c328e76796fe2402cdfb9ba6c55a39d66a7c8aec746e0a5379", "sourceAuditHash": "dd1f376e0b80c4bbf6cd6e7f4859daeb9d1e4a15dc88442727b8523e851942d2"},
+    {"legacyId": 44, "domain": "employee", "pageSlug": "exit-survey", "legacyRouteSha256": "c4a090ea503b904e4bc23be82a1b5a3780a74bb6d16f87daf8e96550a3e052bf", "sourceAuditHash": "d3bb7e47ea11c6fd601f95974797e3335501721147670936503dd496fac55d0b"},
+    {"legacyId": 45, "domain": "employee", "pageSlug": "handover", "legacyRouteSha256": "ad23336e29db453250f4a0dcb4f267703192fbb13428ff36dc3165fb5c43e8fe", "sourceAuditHash": "10760f5cd0c22867ffd00230fdcc89a388ec7253defc2545d46ab9e1ec013a0a"},
+    {"legacyId": 46, "domain": "employee", "pageSlug": "wage-settlement", "legacyRouteSha256": "1fc6fc30b621ae50fdac6c0d28e9332f0e697ac1954851fad556198062351b8d", "sourceAuditHash": "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee"},
+    {"legacyId": 47, "domain": "employee", "pageSlug": "archive-close", "legacyRouteSha256": "1e66e83cf51404aab0acf85a9f1f213ca0a9d1c03ac0e825ee5f58b1242d66cb", "sourceAuditHash": "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee"},
+    {"legacyId": 313, "domain": "personal_office", "pageSlug": "work-log", "legacyRouteSha256": "286c5028963b5423fe98963e1a1ddec87be3045c89c38784f571bc2b8e4d9ad3", "sourceAuditHash": "0128915ef043ec7f6e5efd5c9f6e4ed2d598f5fe5ab9783c4be35c024386c149"}
+  ],
+  "security": {
+    "externalEvidenceOnly": true,
+    "requiredDirectoryMode": "0700",
+    "requiredFileMode": "0600",
+    "forbiddenPayloads": ["screenshot", "dom", "cookie", "credential", "personal_data"]
+  },
+  "humanAttestation": "HOLD",
+  "productionImport": "HOLD"
+}

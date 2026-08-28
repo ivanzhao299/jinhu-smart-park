@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import {
   LifecycleError,
@@ -47,7 +47,7 @@ function configFor(rehearsal, suffix, ports) {
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
-  writeFileSync(materializationKey, "fixture-materialization-key-32-bytes-minimum\n", { mode: 0o600 });
+  writeFileSync(materializationKey, `${"ab".repeat(32)}\n`, { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
   return {
     formatVersion: 1,
@@ -144,8 +144,18 @@ try {
   assert(!existsSync(configA.target.root), "T4 gate must fail before the first runtime write");
   const t4Tampered = clone(configA); t4Tampered.t4Evidence.sha256 = "9".repeat(64);
   expectCode("T4_EVIDENCE_HASH_MISMATCH", () => validateConfig(t4Tampered));
+  const invalidKey = configFor("A", "invalid_key_preflight", [45041, 45042, 45043]);
+  writeFileSync(invalidKey.target.materializationKeyArtifact, `${"ab".repeat(48)}\n`, { mode: 0o600 });
+  expectCode("UNSAFE_FILE_PERMISSION", () => provision(invalidKey));
+  assert(!existsSync(invalidKey.target.root), "invalid key must fail before provision writes any runtime resource");
   const realT4Gate = configFor("A", "slice2_real_t4_gate", [45031, 45032, 45033]);
   realT4Gate.backend = "lab";
+  const realCredentialRoot = dirname(realT4Gate.target.materializationKeyArtifact);
+  Object.assign(realT4Gate.target, {
+    jobStateDecisionArtifact: join(realCredentialRoot, "employee-job-state.reviewed.json"),
+    jobStateSourcePayloadArtifact: join(realCredentialRoot, "employee-job-state.private.json"),
+    jobStateApprovalArtifact: join(realCredentialRoot, "employee-job-state.approval.json")
+  });
   const actualT4Evidence = readFileSync(resolve(root, ".trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json"));
   writeFileSync(realT4Gate.source.t4EvidenceFile, actualT4Evidence, { mode: 0o600 });
   chmodSync(realT4Gate.source.t4EvidenceFile, 0o600);
