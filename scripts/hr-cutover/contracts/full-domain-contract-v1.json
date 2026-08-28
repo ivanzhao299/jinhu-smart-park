@@ -83,7 +83,7 @@
     "sourceMustBeReadOnly": true,
     "sourceForbiddenRoles": ["sa", "sysadmin"]
   },
-  "resources": ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"],
+  "resources": ["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"],
   "ledger": {
     "equation": "source=loaded+quarantined+approvedIgnored",
     "numericRepresentation": "postgresql_numeric_decimal_string",

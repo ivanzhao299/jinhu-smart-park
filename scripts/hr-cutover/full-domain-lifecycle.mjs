@@ -28,7 +28,7 @@ const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-co
 const DOMAIN_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5"];
 const ROLLBACK_ORDER = [...DOMAIN_ORDER].reverse();
 const STATES = ["planned", "provisioned", "extracting", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"];
-const RESOURCE_TYPES = ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"];
+const RESOURCE_TYPES = ["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"];
 const RUN_ID = /^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r([AB])$/;
 const LAB_ID = /^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -291,6 +291,7 @@ function resourcePlan(config) {
   const resources = [
     { type: "database", planned: t.database },
     { type: "container", planned: t.postgresContainer },
+    { type: "network", planned: `${t.composeProject}_default` },
     { type: "volume", planned: t.volume },
     { type: "role", planned: t.role },
     { type: "directory", planned: t.root },
@@ -402,6 +403,7 @@ function provisionLab(config, registry) {
   if (dockerEndpoint.status !== 0 || !dockerEndpoint.stdout.trim().startsWith("unix://")) fail("UNSAFE_DOCKER_ENDPOINT", "lab Docker must use a local Unix socket");
   for (const port of [t.postgresPort, t.apiPort, t.webPort]) if (portBusy(port)) fail("PORT_IN_USE", `127.0.0.1:${port}`);
   if (spawnSync("docker", ["inspect", t.postgresContainer], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target container already exists");
+  if (spawnSync("docker", ["network", "inspect", `${t.composeProject}_default`], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target network already exists");
   if (spawnSync("docker", ["volume", "inspect", t.volume], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target volume already exists");
   const compose = [
     "services:",
@@ -458,7 +460,7 @@ function provisionLab(config, registry) {
   const roleSql = roles.map((role) => `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;`).join(" ");
   command("docker", ["exec", t.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", t.database, "-c", roleSql], { capture: true });
   for (const entry of registry) {
-    if (["database", "container", "volume", "role", "directory", "account", "file", "port", "credential_artifact"].includes(entry.type)) entry.observed = entry.planned;
+    if (["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "credential_artifact"].includes(entry.type)) entry.observed = entry.planned;
     else if (entry.type === "process") entry.observed = [];
   }
 }
@@ -614,6 +616,7 @@ function actualResidual(config, entry) {
     return existsSync(marker) ? 1 : 0;
   }
   if (entry.type === "container") return spawnSync("docker", ["inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
+  if (entry.type === "network") return spawnSync("docker", ["network", "inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
   if (entry.type === "volume") return spawnSync("docker", ["volume", "inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
   if (entry.type === "port") return portBusy(Number(entry.planned.split(":").at(-1))) ? 1 : 0;
   if (["directory", "file", "credential_artifact"].includes(entry.type)) return existsSync(entry.planned) ? 1 : 0;
@@ -639,6 +642,7 @@ function removeFixture(config, entry) {
 
 function removeLab(config, entry) {
   if (entry.type === "container") spawnSync("docker", ["rm", "-f", entry.planned], { stdio: "ignore" });
+  else if (entry.type === "network") spawnSync("docker", ["network", "rm", entry.planned], { stdio: "ignore" });
   else if (entry.type === "volume") spawnSync("docker", ["volume", "rm", entry.planned], { stdio: "ignore" });
   else if (["role", "account"].includes(entry.type)) spawnSync("docker", ["exec", config.target.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database, "-c", `DROP ROLE IF EXISTS "${entry.planned}";`], { stdio: "ignore" });
   else if (["file", "credential_artifact"].includes(entry.type) && existsSync(entry.planned)) unlinkSync(entry.planned);
@@ -681,7 +685,7 @@ export function cleanup(configInput, options = {}) {
   const cleanupJournal = p.cleanup;
   if (!existsSync(cleanupJournal)) writePrivate(cleanupJournal, "");
   const filesystemTypes = new Set(["directory", "file", "credential_artifact"]);
-  const cleanupPriority = { account: 10, role: 20, process: 30, container: 40, volume: 50, database: 60, port: 70, file: 80, credential_artifact: 90, directory: 100 };
+  const cleanupPriority = { account: 10, role: 20, process: 30, container: 40, network: 45, volume: 50, database: 60, port: 70, file: 80, credential_artifact: 90, directory: 100 };
   for (const entry of [...registry].sort((a, b) => cleanupPriority[a.type] - cleanupPriority[b.type])) {
     appendPrivate(cleanupJournal, { type: entry.type, planned: entry.planned, observed: entry.observed, action: "remove_planned" });
     if (config.backend === "fixture") removeFixture(config, entry);

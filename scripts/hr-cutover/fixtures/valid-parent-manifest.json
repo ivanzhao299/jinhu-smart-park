@@ -7,7 +7,7 @@
   "triple": {
     "codeSha": "9b62b41004ed5a6dfb998cdeddde94d21f60a5e6",
     "sourceSnapshotHash": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
-    "mappingContractHash": "b2672bae879733d28a7c4f84e544a5c3cf9540eb28b255c5e0e1dfad3f4fa7c9"
+    "mappingContractHash": "8236a0a4c5796ecd7177ff650d13a1fdf9e6066199ef3c3f3dda5d3d592e3cde"
   },
   "source": {
     "system": "yuzhou-v10",
@@ -40,6 +40,7 @@
   "resourceRegistry": [
     { "type": "database", "planned": "jinhu_hr_migration_lab_full_contract_a", "observed": null, "removed": false, "residualCount": 0 },
     { "type": "container", "planned": "jinhu_hr_migration_lab_full_contract_a-postgres-1", "observed": null, "removed": false, "residualCount": 0 },
+    { "type": "network", "planned": "jinhu_hr_migration_lab_full_contract_a_default", "observed": null, "removed": false, "residualCount": 0 },
     { "type": "volume", "planned": "jinhu_hr_migration_lab_full_contract_a_pgdata", "observed": null, "removed": false, "residualCount": 0 },
     { "type": "role", "planned": "yzfull_a_contract_role", "observed": null, "removed": false, "residualCount": 0 },
     { "type": "directory", "planned": "/tmp/jinhu_hr_migration_lab_full_contract_a/evidence", "observed": null, "removed": false, "residualCount": 0 },

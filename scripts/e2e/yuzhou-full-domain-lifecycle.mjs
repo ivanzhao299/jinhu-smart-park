@@ -89,6 +89,9 @@ try {
   assert.match(lifecycleSource, /consecutiveReady >= 3/u, "lab provisioning must require stable PostgreSQL readiness");
   assert.match(lifecycleSource, /failures\.length === 1 && failures\[0\] === "\[FAIL\] no bootstrap admin found"/u, "only the pre-UAT missing-admin baseline gap may be staged");
   assert.match(lifecycleSource, /ports\.some\(portBusy\)/u, "cleanup must wait for exact loopback port release before residual verification");
+  assert.match(lifecycleSource, /type: "network", planned: `\$\{t\.composeProject\}_default`/u, "Compose network must be a first-class planned resource");
+  assert.match(lifecycleSource, /\["network", "inspect", entry\.planned\]/u, "network residual verification must inspect the exact planned identity");
+  assert.match(lifecycleSource, /\["network", "rm", entry\.planned\]/u, "cleanup must remove the exact registered Compose network");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);

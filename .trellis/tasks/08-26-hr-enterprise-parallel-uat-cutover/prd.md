@@ -43,7 +43,7 @@
 - [ ] 停用源只接受固定 backup/catalog/business hash；不存在 delta、S1 或停写责任人硬门禁，任何源 hash 漂移仍使候选失效。
 - [ ] T4 双轨金额全为 database numeric；未解释差异为零或有逐项风险接受与 HR/payroll/finance 签署；正式发薪域零写。
 - [ ] 三角色 API 与 desktop/390 浏览器 UAT 覆盖正负向、范围、字段、审计、空态、错误/重试和切换清理，P0/P1=0；技术证据与真人签署分离。
-- [ ] 备份恢复、故障注入、反序 rollback、RTO/RPO 事实和 residual verifier 全通过；检查实际 DB/container/volume/role/directory/account/file/port/process/credential artifact，而非只看退出码，并输出逐资源 `planned/observed/removed/residualCount=0` 总账。
+- [ ] 备份恢复、故障注入、反序 rollback、RTO/RPO 事实和 residual verifier 全通过；检查实际 DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact，而非只看退出码，并输出逐资源 `planned/observed/removed/residualCount=0` 总账。
 - [ ] fresh/upgrade/replay/seed×2、契约/负向/PG/API/Web/build、三端 SHA 和证据 bundle hash 全部通过。
 - [ ] 任一硬门禁或签署缺失时为 `NO_GO`；在独立生产授权前始终为 `productionImport=HOLD`。
 
