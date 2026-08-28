@@ -64,7 +64,9 @@ function scanSensitive(value, path = "$") {
     return;
   }
   for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_KEYS.test(key) && !SAFE_CONTRACT_KEYS.has(key)) fail("SECRET_PATTERN_DETECTED", `forbidden key at ${path}.${key}`);
+    const safeDeviceFlag = key === "mobile" && typeof child === "boolean";
+    const safeViewport = key === "phone_390" && child && typeof child === "object" && !Array.isArray(child);
+    if (FORBIDDEN_KEYS.test(key) && !SAFE_CONTRACT_KEYS.has(key) && !safeDeviceFlag && !safeViewport) fail("SECRET_PATTERN_DETECTED", `forbidden key at ${path}.${key}`);
     scanSensitive(child, `${path}.${key}`);
   }
 }

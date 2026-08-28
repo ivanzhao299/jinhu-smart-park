@@ -78,6 +78,9 @@ INSERT INTO hr_cutover_side_effect_required VALUES(${q(run)},'sys_user');`);
 
   const evidenceDir=evidence; const gate=join(evidenceDir,"gate.json"); writeFileSync(gate,'{"status":"PASS"}\n',{mode:0o600}); chmodSync(gate,0o600);
   const index=buildEvidenceIndex(evidenceDir,[{kind:"gate",relativePath:"gate.json"}]); assert.equal(index[0].sha256,sha(readFileSync(gate)));
+  const verifyTypedEvidence=(content)=>{writeFileSync(gate,content,{mode:0o600});chmodSync(gate,0o600);const evidenceIndex=buildEvidenceIndex(evidenceDir,[{kind:"gate",relativePath:"gate.json"}]);const manifest=structuredClone(base);manifest.evidence=evidenceIndex;assert.equal(verifyManifestChain([{sha256:manifestHash(manifest),manifest}],{evidenceRoot:evidenceDir}).length,1);};
+  verifyTypedEvidence('{"mobile":true,"phone_390":{"status":"PASS"}}\n');
+  writeFileSync(gate,'{"status":"PASS"}\n',{mode:0o600}); chmodSync(gate,0o600);
   const first=structuredClone(base); first.evidence=index; const firstHash=manifestHash(first);
   const second=structuredClone(first); second.supersedesManifestSha256=firstHash; second.canonical.globalHash="9".repeat(64); const secondHash=manifestHash(second);
   assert.equal(verifyManifestChain([{sha256:firstHash,manifest:first},{sha256:secondHash,manifest:second}],{evidenceRoot:evidenceDir}).length,2);
