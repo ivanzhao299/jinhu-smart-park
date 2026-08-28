@@ -23,6 +23,7 @@ export class YuzhouLiveRoleUatRecorder {
   constructor(taskCard, meta) {
     validateYuzhouLiveRoleUatTaskCard(taskCard);
     if (!["A", "B"].includes(meta?.rehearsal)) fail("YUZHOU_UAT_RECORDER_META_INVALID", "rehearsal");
+    if (!/^[0-9a-f]{64}$/u.test(meta?.apiMatrixSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_META_INVALID", "api matrix hash");
     this.#taskCard = taskCard;
     this.#meta = { ...meta };
   }
@@ -77,6 +78,7 @@ export class YuzhouLiveRoleUatRecorder {
       runId: this.#meta.runId,
       targetIdentityHash: this.#meta.targetIdentityHash,
       taskCardSha256: taskCardHash(this.#taskCard),
+      apiMatrixSha256: this.#meta.apiMatrixSha256,
       triple: { ...this.#meta.triple },
       actors: this.#meta.actors.map(actor => ({ ...actor })),
       items,
@@ -101,6 +103,6 @@ export class YuzhouLiveRoleUatRecorder {
   }
 }
 
-export function validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, expectedTriple) {
-  return validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple);
+export function validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, expectedTriple, apiMatrix) {
+  return validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple, apiMatrix);
 }

@@ -197,7 +197,8 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root, option
     ? validateYuzhouLiveRoleUatEvidencePair(
       options.liveRoleUatEvidencePair,
       JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8")),
-      options.expectedTriple ?? null
+      options.expectedTriple ?? null,
+      JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"))
     )
     : null;
   const liveRoleUatIds = new Set(liveRoleUat?.eligibleLegacyIds ?? []);

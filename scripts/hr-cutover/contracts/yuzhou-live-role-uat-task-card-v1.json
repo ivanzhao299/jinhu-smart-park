@@ -137,6 +137,7 @@
   "evidenceRequirements": {
     "tripleBound": true,
     "taskCardHashBound": true,
+    "apiMatrixHashBound": true,
     "allItemsPass": true,
     "allPositiveChecksPass": true,
     "allNegativeChecksPass": true,

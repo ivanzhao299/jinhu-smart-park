@@ -7,6 +7,7 @@ import { basename, resolve } from "node:path";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
 import { validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
+import { validateYuzhouLiveRoleUatApiMatrix } from "./yuzhou-live-role-uat-api-matrix-lib.mjs";
 
 const ROOT=resolve(import.meta.dirname,"../..");
 const require=createRequire(resolve(ROOT,"apps/api/package.json"));
@@ -60,8 +61,9 @@ COMMIT;`;
   await request(`${apiBase}/users/me`,{headers:headers[3]}); await request(`${apiBase}/hr/employees/me`,{headers:headers[3]}); await request(`${apiBase}/hr/payroll/history?page=1&page_size=5`,{headers:headers[3]}); await request(`${apiBase}/hr/payroll/history-books?page=1&page_size=5`,{headers:headers[3]},403);
   for(const route of ["/hr","/hr/employees","/hr/payroll"]){const response=await fetch(`http://127.0.0.1:${config.target.webPort}${route}`,{redirect:"manual"});if(![200,307,308].includes(response.status))fail("TECHNICAL_UAT_WEB_ROUTE_FAILED",`${response.status} ${route}`);}
   const taskCard=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"),"utf8")),taskCardIdentity=validateYuzhouLiveRoleUatTaskCard(taskCard);
+  const apiMatrix=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8")),apiMatrixIdentity=validateYuzhouLiveRoleUatApiMatrix(apiMatrix,taskCard);
   const summaryPath=resolve(config.target.evidenceRoot,"technical-uat-summary.json");
-  writePrivate(summaryPath,{formatVersion:1,parentRunId:config.runId,status:"PASS",roleTypes:["hr_manager","department_manager","employee_self_service"],actors:["hr_maker","hr_reviewer","department_manager","employee_self_service"],apiChecks:13,negativeAuthorizationChecks:2,webRouteChecks:3,legacyTaskCard:{sha256:taskCardIdentity.sha256,status:"HOLD_PENDING_FULL_MATRIX"},humanUat:"HOLD",productionImport:"HOLD"});registryFile(config,summaryPath);
+  writePrivate(summaryPath,{formatVersion:1,parentRunId:config.runId,status:"PASS",roleTypes:["hr_manager","department_manager","employee_self_service"],actors:["hr_maker","hr_reviewer","department_manager","employee_self_service"],apiChecks:13,negativeAuthorizationChecks:2,webRouteChecks:3,legacyTaskCard:{sha256:taskCardIdentity.sha256,apiMatrixSha256:apiMatrixIdentity.sha256,apiMatrixChecks:apiMatrixIdentity.checkCount,status:"HOLD_PENDING_FULL_MATRIX"},humanUat:"HOLD",productionImport:"HOLD"});registryFile(config,summaryPath);
   const chainPath=config.verification.manifestChainFile,chain=JSON.parse(readFileSync(chainPath,"utf8")),head=chain.find((row)=>!chain.some((candidate)=>candidate.manifest.supersedesManifestSha256===row.sha256));
   if(!head)fail("MANIFEST_CHAIN_INVALID","head missing");
   const evidence=buildEvidenceIndex(config.target.evidenceRoot,[{kind:"approved_ignored_attestation",relativePath:"cold-archive-scope-attestation.json"},{kind:"global_facts_summary",relativePath:"global-facts-summary.json"},{kind:"technical_uat_summary",relativePath:basename(summaryPath)}]);

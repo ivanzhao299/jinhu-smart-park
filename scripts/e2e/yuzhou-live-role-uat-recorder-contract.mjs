@@ -8,9 +8,11 @@ import {
   YuzhouLiveRoleUatRecorderError,
   validateRecordedYuzhouLiveRoleUatPair
 } from "../hr-cutover/yuzhou-live-role-uat-recorder.mjs";
+import { apiMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-api-matrix-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8"));
+const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 
@@ -19,6 +21,7 @@ function complete(rehearsal) {
     rehearsal,
     runId: `yzfull-recorder-r${rehearsal}`,
     targetIdentityHash: hash(`target-${rehearsal}`),
+    apiMatrixSha256: apiMatrixHash(apiMatrix),
     triple,
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
@@ -43,7 +46,7 @@ function complete(rehearsal) {
 
 test("the recorder emits a pair only after every task-card cell is observed", () => {
   const pair = { A: complete("A"), B: complete("B") };
-  const result = validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, triple);
+  const result = validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, triple, apiMatrix);
   assert.equal(result.status, "PASS");
   assert.equal(result.eligibleLegacyIds.length, 12);
 });
@@ -53,6 +56,7 @@ test("missing checks, audit or browser measurements cannot be finalized", () => 
     rehearsal: "A",
     runId: "yzfull-recorder-negative-rA",
     targetIdentityHash: hash("negative-target"),
+    apiMatrixSha256: apiMatrixHash(apiMatrix),
     triple,
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",

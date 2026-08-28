@@ -8,10 +8,12 @@ import {
   validateYuzhouLiveRoleUatEvidencePair
 } from "../hr-cutover/yuzhou-live-role-uat-evidence-lib.mjs";
 import { taskCardHash } from "../hr-cutover/yuzhou-live-role-uat-task-card-lib.mjs";
+import { apiMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-api-matrix-lib.mjs";
 import { assessLegacyGroupWebImplementationCoverage } from "../hr-cutover/legacy-group-web-implementation-coverage-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8"));
+const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 
@@ -25,6 +27,7 @@ function passingEvidence(rehearsal) {
     runId: `yzfull-contract-r${rehearsal}`,
     targetIdentityHash: hash(`target-${rehearsal}`),
     taskCardSha256: taskCardHash(taskCard),
+    apiMatrixSha256: apiMatrixHash(apiMatrix),
     triple: { ...triple },
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
@@ -56,7 +59,7 @@ function passingEvidence(rehearsal) {
 
 test("independent A/B evidence promotes only the exact twelve bound items", () => {
   const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
-  const result = validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple);
+  const result = validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix);
   assert.equal(result.status, "PASS");
   assert.deepEqual(result.eligibleLegacyIds, [34, 35, 36, 37, 39, 42, 43, 44, 45, 46, 47, 313]);
   assert.equal(result.productionImport, "HOLD");
@@ -75,6 +78,7 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.A.items[0].browser.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.A.items[0].browser.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.B.triple.mappingContractHash = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_TRIPLE_MISMATCH"],
+    [pair => { pair.B.apiMatrixSha256 = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_BINDING_INVALID"],
     [pair => { pair.B.targetIdentityHash = pair.A.targetIdentityHash; }, "YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE"],
     [pair => { pair.A.productionImport = "GO"; }, "YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE"],
     [pair => { pair.A.actors[1].subjectHash = pair.A.actors[0].subjectHash; }, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"]
@@ -83,7 +87,7 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
     mutate(pair);
     assert.throws(
-      () => validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple),
+      () => validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix),
       error => error instanceof YuzhouLiveRoleUatEvidenceError && error.code === code
     );
   }

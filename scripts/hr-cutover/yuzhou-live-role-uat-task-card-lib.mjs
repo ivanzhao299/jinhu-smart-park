@@ -79,7 +79,7 @@ export function validateYuzhouLiveRoleUatTaskCard(taskCard) {
     fail("YUZHOU_UAT_TASK_CARD_BROWSER_ASSERTION_DRIFT", "browser assertions");
   }
   exactKeys(taskCard.evidenceRequirements, [
-    "tripleBound", "taskCardHashBound", "allItemsPass", "allPositiveChecksPass",
+    "tripleBound", "taskCardHashBound", "apiMatrixHashBound", "allItemsPass", "allPositiveChecksPass",
     "allNegativeChecksPass", "bothViewportsPass", "auditChecksPass", "p0P1Count",
     "humanAttestationSeparate", "credentialsExcluded", "personalDataExcluded"
   ], "YUZHOU_UAT_TASK_CARD_EVIDENCE_SHAPE_INVALID");
