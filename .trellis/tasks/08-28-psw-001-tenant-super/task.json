@@ -1,0 +1,30 @@
+{
+  "id": "psw-001-tenant-super",
+  "name": "psw-001-tenant-super",
+  "title": "PSW-001 SUPER_ADMIN 租户级控制面",
+  "description": "GitHub #463：使受保护 SUPER_ADMIN 在同租户所有 active 园区保持控制面身份，同时维持模块、园区和租户边界。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P0",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-28",
+  "completedAt": null,
+  "branch": "codex/fix-psw-001-tenant-super",
+  "base_branch": "codex/fix-psw-001-tenant-super",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-28-park-switch-permission-fix-queue",
+  "relatedFiles": [
+    "docs/reviews/park-switch-permission-investigation-2026-08-28.md",
+    "apps/api/src/modules/users/users.service.ts",
+    "apps/api/src/modules/auth/auth.service.ts"
+  ],
+  "notes": "GitHub Issue #463. Base origin/main@0ee4b471; user-supplied investigation baseline was 07a27b45.",
+  "meta": {}
+}
