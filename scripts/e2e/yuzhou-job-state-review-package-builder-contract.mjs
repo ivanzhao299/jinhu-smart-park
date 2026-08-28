@@ -60,14 +60,16 @@ function fixture() {
   const staging = join(stagingRoot, `staging-${runId}-t0`); mkdirSync(staging, { mode: 0o700 }); chmodSync(staging, 0o700);
   const counts = [100, 200, 300, 400, 500, 600, 849];
   const states = counts.map((usageCount, index) => ({ sourceCode: `legacy-${index + 1}`, usageCount }));
-  const statesPath = join(staging, "employee-job-states.raw.json"), metadataPath = join(staging, "job-state-code-metadata.raw.json");
-  writePrivate(statesPath, states); writePrivate(metadataPath, []);
+  const codes = [...states.map((row, index) => ({ sourceCode: row.sourceCode, sourceName: `state-${index + 1}`, sortOrder: index + 1, isEnabled: 1, defaultCount: 1 })), { sourceCode: "unused", sourceName: "unused-state", sortOrder: 8, isEnabled: 1, defaultCount: 1 }];
+  const statesPath = join(staging, "employee-job-states.raw.json"), metadataPath = join(staging, "job-state-code-metadata.raw.json"), codesPath = join(staging, "job-state-codes.raw.json");
+  writePrivate(statesPath, states); writePrivate(metadataPath, []); writePrivate(codesPath, codes);
   const manifest = {
     formatVersion: 1,
     generatedAt: "2026-08-28T12:00:00Z",
     domains: {
       employeeJobStates: { rows: 7, file: "employee-job-states.raw.json", fileSha256: sha256(readFileSync(statesPath)) },
-      jobStateCodeMetadata: { rows: 0, file: "job-state-code-metadata.raw.json", fileSha256: sha256(readFileSync(metadataPath)) }
+      jobStateCodeMetadata: { rows: 0, file: "job-state-code-metadata.raw.json", fileSha256: sha256(readFileSync(metadataPath)) },
+      jobStateCodes: { rows: 8, file: "job-state-codes.raw.json", fileSha256: sha256(readFileSync(codesPath)) }
     }
   };
   const manifestPath = join(staging, "manifest.json"); writePrivate(manifestPath, manifest);
@@ -111,7 +113,7 @@ function fixture() {
   const plan = { formatVersion: 1, kind: "yuzhou-job-state-decision-plan", runId, rehearsal: "A", decisions: rows };
   const planPath = join(sandbox, "plan.json"); writePrivate(planPath, plan);
   return {
-    sandbox, config, configPath, checkpoint, checkpointPath, plan, planPath, states, statesPath,
+    sandbox, config, configPath, checkpoint, checkpointPath, plan, planPath, states, statesPath, codes, codesPath,
     outputPath: join(reviewRoot, "decision-draft.json")
   };
 }
@@ -142,6 +144,8 @@ test("controlled builder emits only a hash-bound DRAFT while approval remains HO
   assert.equal(artifact.sourceContract.sourceSnapshotSha256, canonicalHash({
     employeeJobStatesSha256: sha256(readFileSync(join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/employee-job-states.raw.json`))),
     jobStateCodeMetadataSha256: sha256(readFileSync(join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/job-state-code-metadata.raw.json`))),
+    jobStateCodesSha256: sha256(readFileSync(join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/job-state-codes.raw.json`))),
+    sourceDictionaryRowCount: 8,
     sourceDistinctStateCount: 7,
     sourceRecordCount: 2949
   }));
@@ -201,6 +205,23 @@ test("checkpoint and source-byte drift fail before output is created", () => {
   {
     const value = fixture(); value.states[0].usageCount += 1; writePrivate(value.statesPath, value.states);
     rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_DRIFT");
+  }
+  {
+    const value = fixture(); value.codes[0].sourceName = "changed meaning"; writePrivate(value.codesPath, value.codes);
+    rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_DRIFT");
+  }
+  {
+    const value = fixture(); value.codes[0].sourceName = ""; writePrivate(value.codesPath, value.codes);
+    const bytes = readFileSync(value.codesPath), manifestPath = join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/manifest.json`);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")); manifest.domains.jobStateCodes.fileSha256 = sha256(bytes); writePrivate(manifestPath, manifest);
+    value.checkpoint.runs[0].t0ExtractManifestSha256 = sha256(readFileSync(manifestPath)); writePrivate(value.checkpointPath, value.checkpoint);
+    rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_INVALID");
+  }
+  {
+    const value = fixture(), manifestPath = join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/manifest.json`);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")); manifest.domains.jobStateCodes.rows = 7; writePrivate(manifestPath, manifest);
+    value.checkpoint.runs[0].t0ExtractManifestSha256 = sha256(readFileSync(manifestPath)); writePrivate(value.checkpointPath, value.checkpoint);
+    rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_INVALID");
   }
 });
 

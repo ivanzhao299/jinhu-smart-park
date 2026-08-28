@@ -48,6 +48,7 @@ query_json positions.raw.json "SET NOCOUNT ON; SELECT job AS legacyCode,jobname 
 query_json employees.raw.json "SET NOCOUNT ON; SELECT person AS employeeCode,name AS fullName,department AS departmentCode,job AS positionCode,jobstate AS legacyStatus,persontype AS legacyEmploymentType,CONVERT(varchar(10),injobdate,23) AS hireDate,CONVERT(varchar(10),formaldate,23) AS formalDate,CONVERT(varchar(10),awaydate,23) AS departureDate,sex AS legacySex FROM dbo.person ORDER BY person FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query_json employee-job-states.raw.json "SET NOCOUNT ON; SELECT CONVERT(varchar(128),jobstate) AS sourceCode,COUNT_BIG(*) AS usageCount FROM dbo.person GROUP BY jobstate ORDER BY CONVERT(varchar(128),jobstate) FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query_json job-state-code-metadata.raw.json "SET NOCOUNT ON; SELECT COLUMN_NAME AS columnName,DATA_TYPE AS dataType,ORDINAL_POSITION AS ordinalPosition FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='jobstatecode' ORDER BY ORDINAL_POSITION FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query_json job-state-codes.raw.json "SET NOCOUNT ON; SELECT CONVERT(varchar(128),jobstate) AS sourceCode,NULLIF(LTRIM(RTRIM(jobstatename)),'') AS sourceName,myorder AS sortOrder,isuse AS isEnabled,defcount AS defaultCount FROM dbo.jobstatecode ORDER BY myorder,CONVERT(varchar(128),jobstate) FOR JSON PATH,INCLUDE_NULL_VALUES;"
 
 node "$ROOT_DIR/scripts/transform-yuzhou-t0.mjs" "$OUTPUT_DIR"
 printf 'YUZHOU_T0_EXTRACT_OK run_id=%s database=%s output=%s\n' "$RUN_ID" "$DATABASE" "$OUTPUT_DIR"

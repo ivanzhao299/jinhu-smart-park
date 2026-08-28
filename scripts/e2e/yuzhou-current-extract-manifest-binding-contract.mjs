@@ -29,7 +29,8 @@ const DOMAIN_FIXTURES = {
     positions: { file: "positions.jsonl", env: "YUZHOU_POSITIONS_SHA256" },
     employees: { file: "employees.jsonl", env: "YUZHOU_EMPLOYEES_SHA256" },
     employeeJobStates: { file: "employee-job-states.raw.json" },
-    jobStateCodeMetadata: { file: "job-state-code-metadata.raw.json" }
+    jobStateCodeMetadata: { file: "job-state-code-metadata.raw.json" },
+    jobStateCodes: { file: "job-state-codes.raw.json" }
   },
   T1: {
     employmentEvents: { file: "employment-events.jsonl", env: "YUZHOU_T1_EVENTS_SHA256" },
