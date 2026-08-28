@@ -7,7 +7,7 @@
 5. 同步测试/部署文档中的 fallback 契约。
 6. 运行聚焦测试、Web lint/typecheck/build，再执行 Trellis check。
 7. 提交、push 规定分支、创建 `Closes #432` PR、`@codex review`（最多 3 轮）、等待 CI，squash merge，并确认 main CI/Deploy 双绿。
-8. UAT 证据链：R2 `20260827-210211` 阻断于 UI fixture；R3 `20260827-220612` 取得本 Case PASS，但矩阵因 Park-switch 为 5/6；R4 `20260828-011900` 的 Park B API fixture 两次失败，矩阵仍为 5/6。依总矩阵全 PASS 门禁，本子任务继续保持 `in_progress`。
+8. UAT 证据链：R2 `20260827-210211` 阻断于 UI fixture；R3 `20260827-220612` 取得本 Case PASS，但矩阵因 Park-switch 为 5/6；R4 `20260828-011900` 的 Park B API fixture 两次失败，矩阵仍为 5/6；R5 `20260828-095912` 使用 bootstrap admin 只追加 B access + 产品 switch-context 的 fixture 编排，Park-switch PASS，六项矩阵 6/6，满足归档门禁。
 
 ## Risk / Rollback Points
 
