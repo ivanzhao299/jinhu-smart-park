@@ -23,6 +23,7 @@ import type {
   TransitionHrDevelopmentPlanDto,
 } from "./dto/hr-talent.dto";
 import { HrNotificationService } from "./hr-notification.service";
+import { firstHrMutationRow } from "./hr-query-result";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type Row = Record<string, unknown>;
@@ -313,13 +314,13 @@ export class HrTalentService {
     if (!has(a, HR_PERMISSIONS.HR_TALENT_REVIEW))
       throw new ForbiddenException("Talent review permission required");
     return this.db.transaction(async (m) => {
-      const rows = await m.query(
+      const result = firstHrMutationRow<Row>(await m.query(
         `UPDATE hr_talent_review_session SET status='active',activated_at=now() WHERE id=$3 AND tenant_id=$1 AND park_id=$2 AND status='draft' RETURNING id,status`,
         [s.tenantId, s.parkId, sessionId],
-      );
-      if (rows.length !== 1)
+      ));
+      if (!result)
         throw new ConflictException("Talent session is not draft");
-      return rows[0];
+      return result;
     });
   }
   async closeSession(s: TenantParkScope, a: JwtPrincipal, sessionId: string) {
@@ -345,12 +346,12 @@ export class HrTalentService {
         throw new ConflictException(
           "Every talent subject requires a decision before closure",
         );
-      return (
-        await m.query(
+      const result = firstHrMutationRow<Row>(await m.query(
           `UPDATE hr_talent_review_session SET status='closed',closed_at=now() WHERE id=$3 AND tenant_id=$1 AND park_id=$2 RETURNING id,status`,
           [s.tenantId, s.parkId, sessionId],
-        )
-      )[0];
+        ));
+      if (!result) throw new ConflictException("Talent session changed concurrently");
+      return result;
     });
   }
   async sessions(s: TenantParkScope, a: JwtPrincipal, q: HrTalentQueryDto) {
@@ -643,12 +644,11 @@ export class HrTalentService {
             "Complete all development actions before closing the plan",
           );
       }
-      const result = (
-        await m.query(
+      const result = firstHrMutationRow<Row>(await m.query(
           `UPDATE hr_development_plan SET status=$4,submitted_at=CASE WHEN $4='active' THEN now() ELSE submitted_at END,completed_at=CASE WHEN $4='completed' THEN now() ELSE completed_at END WHERE id=$3 AND tenant_id=$1 AND park_id=$2 RETURNING id,status`,
           [s.tenantId, s.parkId, planId, transition[1]],
-        )
-      )[0];
+        ));
+      if (!result) throw new ConflictException("Development plan changed concurrently");
       await m.query(
         `INSERT INTO hr_development_plan_history(tenant_id,park_id,plan_id,event_no,event_type,from_status,to_status,reason,actor_user_id)SELECT $1::varchar,$2::varchar,$3::uuid,COALESCE(max(event_no),0)+1,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::uuid FROM hr_development_plan_history WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND plan_id=$3::uuid`,
         [

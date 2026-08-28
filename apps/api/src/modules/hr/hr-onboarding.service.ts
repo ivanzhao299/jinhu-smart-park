@@ -3,6 +3,7 @@ import type { TenantParkScope } from "@jinhu/shared";
 import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { HrOnboardingActionDto,HrOnboardingListDto,HrOnboardingReviewDto,SaveHrOnboardingApplicationDto } from "./dto/hr-onboarding.dto";
+import { firstHrMutationRow } from "./hr-query-result";
 
 type ApplicationRow=Record<string,unknown>&{id:string;employee_id:string;candidate_id:string|null;applicant_user_id:string;status:string;application_date:string;planned_hire_date:string;probation_months:number;attendance_card_no:string;application_name:string};
 
@@ -37,9 +38,10 @@ export class HrOnboardingService {
    const row=await this.lock(m,s,id);
    if(!["draft","returned"].includes(row.status))throw new ConflictException("Only draft or returned onboarding applications can be edited");
    await this.assertReferences(m,s,d);
-   const rows=await m.query(`UPDATE hr_onboarding_application SET application_name=$1,employee_id=$2,candidate_id=$3,application_date=$4,planned_hire_date=$5,probation_months=$6,attendance_card_no=$7,remark=$8,review_comment=NULL,reviewed_by=NULL,reviewed_at=NULL,status='draft',update_by=$9,update_time=now(),version=version+1 WHERE id=$10 RETURNING *`,[d.applicationName,d.employeeId,d.candidateId??null,d.applicationDate,d.plannedHireDate,d.probationMonths,d.attendanceCardNo,d.remark??null,a.sub,id]) as ApplicationRow[];
+   const updated=firstHrMutationRow<ApplicationRow>(await m.query(`UPDATE hr_onboarding_application SET application_name=$1,employee_id=$2,candidate_id=$3,application_date=$4,planned_hire_date=$5,probation_months=$6,attendance_card_no=$7,remark=$8,review_comment=NULL,reviewed_by=NULL,reviewed_at=NULL,status='draft',update_by=$9,update_time=now(),version=version+1 WHERE id=$10 RETURNING *`,[d.applicationName,d.employeeId,d.candidateId??null,d.applicationDate,d.plannedHireDate,d.probationMonths,d.attendanceCardNo,d.remark??null,a.sub,id]));
+   if(!updated)throw new ConflictException("Onboarding application changed concurrently");
    await this.append(m,s,id,"updated",row.status,"draft",a.sub,null);
-   return this.project(rows[0]!);
+   return this.project(updated);
   });}catch(e){this.translateConflict(e);}
  }
 
@@ -48,8 +50,9 @@ export class HrOnboardingService {
   if(!allowed[d.action]?.includes(row.status))throw new ConflictException("Onboarding action is not allowed from current status");
   if(d.action!=="cancel")await this.assertSubmitReady(m,s,row);
   const next=d.action==="cancel"?"cancelled":"submitted",action=d.action==="submit"?"submitted":d.action==="resubmit"?"resubmitted":"cancelled";
-  const rows=await m.query(`UPDATE hr_onboarding_application SET status=$1,review_comment=NULL,reviewed_by=NULL,reviewed_at=NULL,update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING *`,[next,a.sub,id]) as ApplicationRow[];
-  await this.append(m,s,id,action,row.status,next,a.sub,d.comment??null);return this.project(rows[0]!);
+  const updated=firstHrMutationRow<ApplicationRow>(await m.query(`UPDATE hr_onboarding_application SET status=$1,review_comment=NULL,reviewed_by=NULL,reviewed_at=NULL,update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING *`,[next,a.sub,id]));
+  if(!updated)throw new ConflictException("Onboarding application changed concurrently");
+  await this.append(m,s,id,action,row.status,next,a.sub,d.comment??null);return this.project(updated);
  });}
 
  async review(s:TenantParkScope,a:JwtPrincipal,id:string,d:HrOnboardingReviewDto){return this.db.transaction(async m=>{
@@ -57,8 +60,9 @@ export class HrOnboardingService {
   if(row.applicant_user_id===a.sub)throw new ForbiddenException("Applicants cannot review their own onboarding application");
   if(d.action==="return"&&!d.comment?.trim())throw new BadRequestException("A return comment is required");
   const next=d.action==="approve"?"approved":"returned",action=d.action==="approve"?"approved":"returned";
-  const rows=await m.query(`UPDATE hr_onboarding_application SET status=$1,review_comment=$2,reviewed_by=$3,reviewed_at=now(),update_by=$3,update_time=now(),version=version+1 WHERE id=$4 RETURNING *`,[next,d.comment??null,a.sub,id]) as ApplicationRow[];
-  await this.append(m,s,id,action,"submitted",next,a.sub,d.comment??null);return this.project(rows[0]!);
+  const updated=firstHrMutationRow<ApplicationRow>(await m.query(`UPDATE hr_onboarding_application SET status=$1,review_comment=$2,reviewed_by=$3,reviewed_at=now(),update_by=$3,update_time=now(),version=version+1 WHERE id=$4 RETURNING *`,[next,d.comment??null,a.sub,id]));
+  if(!updated)throw new ConflictException("Onboarding application changed concurrently");
+  await this.append(m,s,id,action,"submitted",next,a.sub,d.comment??null);return this.project(updated);
  });}
 
  async confirm(s:TenantParkScope,a:JwtPrincipal,id:string){
@@ -67,10 +71,12 @@ export class HrOnboardingService {
    const employees=await m.query(`SELECT id,employee_code,full_name,employment_status,primary_org_id,position_id,hire_date,probation_end_date,attendance_card_no FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false FOR UPDATE`,[row.employee_id,s.tenantId,s.parkId]) as Array<Record<string,unknown>>;
    const employee=employees[0];if(!employee)throw new NotFoundException("Employee not found");if(employee.employment_status!=="preboarding")throw new ConflictException("Only preboarding employees can be confirmed");
    const status=row.probation_months>0?"probation":"active",eventType=row.probation_months>0?"start_probation":"confirm_employment";
-   const updated=(await m.query(`UPDATE hr_employee SET employment_status=$1,hire_date=$2,probation_end_date=CASE WHEN $3::int>0 THEN ($2::date+make_interval(months=>$3::int))::date ELSE NULL END,attendance_card_no=$4,update_by=$5,update_time=now(),version=version+1 WHERE id=$6 RETURNING *`,[status,row.planned_hire_date,row.probation_months,row.attendance_card_no,a.sub,row.employee_id]))[0] as Record<string,unknown>;
+   const updated=firstHrMutationRow<Record<string,unknown>>(await m.query(`UPDATE hr_employee SET employment_status=$1,hire_date=$2,probation_end_date=CASE WHEN $3::int>0 THEN ($2::date+make_interval(months=>$3::int))::date ELSE NULL END,attendance_card_no=$4,update_by=$5,update_time=now(),version=version+1 WHERE id=$6 RETURNING *`,[status,row.planned_hire_date,row.probation_months,row.attendance_card_no,a.sub,row.employee_id]));
+   if(!updated)throw new ConflictException("Employee changed concurrently");
    await m.query(`INSERT INTO hr_employment_event(tenant_id,park_id,employee_id,event_type,effective_date,before_snapshot,after_snapshot,reason,status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'effective',$9,$9)`,[s.tenantId,s.parkId,row.employee_id,eventType,row.planned_hire_date,JSON.stringify(employee),JSON.stringify(updated),`入职申请 ${row.application_name} 审批确认`,a.sub]);
-   const rows=await m.query(`UPDATE hr_onboarding_application SET status='confirmed',confirmed_by=$1,confirmed_at=now(),update_by=$1,update_time=now(),version=version+1 WHERE id=$2 RETURNING *`,[a.sub,id]) as ApplicationRow[];
-   await this.append(m,s,id,"confirmed","approved","confirmed",a.sub,null);return this.project(rows[0]!);
+   const confirmed=firstHrMutationRow<ApplicationRow>(await m.query(`UPDATE hr_onboarding_application SET status='confirmed',confirmed_by=$1,confirmed_at=now(),update_by=$1,update_time=now(),version=version+1 WHERE id=$2 RETURNING *`,[a.sub,id]));
+   if(!confirmed)throw new ConflictException("Onboarding application changed concurrently");
+   await this.append(m,s,id,"confirmed","approved","confirmed",a.sub,null);return this.project(confirmed);
   });}catch(e){this.translateConflict(e);}
  }
 
