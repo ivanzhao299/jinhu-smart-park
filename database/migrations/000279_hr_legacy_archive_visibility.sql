@@ -135,7 +135,8 @@ CREATE TABLE hr_legacy_file_blob_object (
   CONSTRAINT ck_hr_legacy_blob_size CHECK (size_bytes>=0),
   CONSTRAINT ck_hr_legacy_blob_availability CHECK (availability IN ('available','missing','empty','quarantine')),
   CONSTRAINT ck_hr_legacy_blob_ref CHECK (
-    (availability='available' AND encrypted_blob_ref ~ '^encrypted-object://[A-Za-z0-9._/-]+$')
+    (availability='available' AND encrypted_blob_ref IS NOT NULL
+      AND encrypted_blob_ref ~ '^encrypted-object://[A-Za-z0-9._/-]+$')
     OR (availability<>'available' AND encrypted_blob_ref IS NULL)
   ),
   CONSTRAINT uq_hr_legacy_blob_scope_hash UNIQUE(tenant_id,park_id,content_sha256)

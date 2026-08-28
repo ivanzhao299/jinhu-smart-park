@@ -35,6 +35,7 @@ test("legacy archive keeps display projections apart from encrypted originals an
  assert.match(sql,/hr_legacy_file_blob_object[\s\S]*tenant_id varchar\(64\) NOT NULL[\s\S]*content_sha256 char\(64\) NOT NULL/);
  assert.match(sql,/uq_hr_legacy_blob_scope_hash UNIQUE\(tenant_id,park_id,content_sha256\)/);
  assert.match(sql,/fk_hr_legacy_file_blob FOREIGN KEY\(tenant_id,park_id,blob_object_id\)/);
+ assert.match(sql,/availability='available' AND encrypted_blob_ref IS NOT NULL/);
  assert.match(sql,/logical_kind IN \('photo','document','attachment'\)/);
  assert.match(sql,/HR_LEGACY_ARCHIVE_IMMUTABLE/);
  assert.match(sql,/HR_LEGACY_ARCHIVE_IDENTITY_KIND_INVALID/);
