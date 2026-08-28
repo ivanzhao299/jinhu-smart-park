@@ -64,4 +64,5 @@ git diff --check
 - 2026-08-29：Trellis validate 与 diff/document consistency PASS；进入队列归档。
 - 2026-08-29：PR #476 review round 1 returned four valid findings. UAT and parent tasks were restored to active; the initial browser lifecycle remains recorded as FAIL because statistics-page floor/dictionary dependencies returned 403.
 - 2026-08-29：第二且最后一次 business-browser attempt 已在统一 RUN_ID `20260829-061634` 的 fresh lifecycle PASS；PR #476 review round 2 返回三个证据完整性 P2，不再执行新的浏览器重试。
-- Next：修正 round 2 的续跑点、preliminary failure 路径和 PSW-003 release closure 记录；推送后发起第三轮（最后一轮）review，然后等待 PR CI/merge/main CI/Deploy。
+- 2026-08-29：PR #476 review round 3（最后一轮）返回两个证据完整性 P2；PR CI run `33218392826` 的 Detect Release Smoke Scope、Lint/Typecheck/Build 和 Release Smoke（含 teardown）全部 PASS。不再请求第 4 轮 review。
+- Next：修正本续跑点与 PSW-001 release closure 归档记录，推送并等待最终 PR CI；然后 squash merge，等待 main CI/Deploy 及 production Docker cleanup 终态。

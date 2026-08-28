@@ -11,7 +11,7 @@
 - [x] 使用 `trellis-check` 做全范围质量核验并修复发现。
 - [x] 使用 `trellis-update-spec` 将 tenant-super 可执行契约写入 API backend spec。
 - [x] 按 Trellis 提交确认流程提交，push 仅 `codex/fix-psw-001-tenant-super`。
-- [ ] PR body `Closes #463`；review 最多 3 轮；CI 绿后合并；等待 main 双绿再开始 PSW-002。
+- [x] PR body `Closes #463`；review 最多 3 轮；CI 绿后合并；等待 main 双绿再开始 PSW-002。
 
 ## Validation commands
 
@@ -41,3 +41,4 @@ node scripts/e2e/first-release-context-switch.mjs
 - 2026-08-29：用户已按既定两提交方案确认 `ok`；提交前复核 `git diff --check` 通过，准备依次提交 API 修复/spec 与 Trellis 队列工件，然后仅 push `codex/fix-psw-001-tenant-super`。
 - 2026-08-29：PR #466 第 1 轮 Codex review 返回 2 个 P2：ORM tenant binding 完整性与 JWT 热路径重复 tenant-super lookup。已用共享 binding predicate 强制 link/role/user tenant 对齐，并用 materialized principal CTE 单次求值复用；定向测试第 2 次实际执行 20 项，19 pass，唯一失败为 SQL 入口别名契约已随 CTE 从 `usr` 改为 `candidate`，现已同步断言，后续以标准 API 全量门禁验证。
 - 2026-08-29：第 1 轮 findings 修复后标准 API 全量单测 1616 tests / 1576 pass / 40 skip / 0 fail；API typecheck、build、受影响 ESLint、`git diff --check` 均通过。下一步提交并 push review fix，触发第 2 轮 Codex review。
+- 2026-08-29：PR #466 后续 review 在不超过 3 轮的限制内收敛；PR CI run `33190840919` 的 Detect Release Smoke Scope、Lint/Typecheck/Build 和 Release Smoke 全部 PASS。Squash merge 产生 `main@f9df968c99c46e2e58814f0c4106066e7b111fdc` 并关闭 Issue #463。Main CI run `33193599212` 与 Deploy Production run `33193599094` 均 SUCCESS；Deploy log 记录 full healthcheck/API liveness PASS、`Production Docker cleanup started`、unused-image/build-cache pruning、`Production Docker cleanup finished` 及 post-cleanup liveness PASS，清理未跳过且未失败。PSW-001 release closure 完成。
