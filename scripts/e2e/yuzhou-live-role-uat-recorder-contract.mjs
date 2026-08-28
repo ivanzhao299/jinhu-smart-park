@@ -33,7 +33,8 @@ function complete(rehearsal) {
     apiMatrixSha256: apiMatrixHash(apiMatrix),
     browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple,
-    actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
+    actors: ["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({
+      actor,
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
       subjectHash: hash(`${rehearsal}-${actor}`)
     }))
@@ -46,18 +47,18 @@ function complete(rehearsal) {
       route: item.route,
       roleType,
       actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
-      actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "reviewer" : roleType === "department_manager" ? "manager" : "employee"}`),
+      actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "hr_reviewer" : roleType === "department_manager" ? "manager" : "employee"}`),
       renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route,
       width: viewport.width,
       height: viewport.height,
       mobile: viewport.mobile,
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
+      networkFailureCount: 0,
       screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
-      cellEvidenceSha256: hash(JSON.stringify({ runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, roleType, actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor, actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "reviewer" : roleType === "department_manager" ? "manager" : "employee"}`), route: item.route, renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`) }))
+      cellEvidenceSha256: hash(JSON.stringify({ runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, roleType, actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor, actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "hr_reviewer" : roleType === "department_manager" ? "manager" : "employee"}`), route: item.route, renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), networkFailureCount: 0 }))
     });
-    recorder.passAudit(item.legacyId);
   }
   return recorder.finalize();
 }
@@ -77,12 +78,15 @@ test("missing checks, audit or browser measurements cannot be finalized", () => 
     apiMatrixSha256: apiMatrixHash(apiMatrix),
     browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple,
-    actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
+    actors: ["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({
+      actor,
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
       subjectHash: hash(`negative-${actor}`)
     }))
   };
   const recorder = new YuzhouLiveRoleUatRecorder(taskCard, meta);
+  const swapped = structuredClone(meta);[swapped.actors[0],swapped.actors[1]]=[swapped.actors[1],swapped.actors[0]];
+  assert.throws(() => new YuzhouLiveRoleUatRecorder(taskCard, swapped), error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_META_INVALID");
   assert.throws(
     () => recorder.finalize(),
     error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_CHECK_MISSING"
@@ -103,13 +107,13 @@ test("recorder independently rejects a replayed or drifted browser cell hash", (
     rehearsal, runId: "yzfull-recorder-replay-rA", targetIdentityHash: hash("replay-target"),
     apiMatrixSha256: apiMatrixHash(apiMatrix), browserMatrixSha256: browserMatrixHash(browserMatrix), triple,
     actors: [
-      { roleType: "hr_manager", subjectHash: hash("replay-reviewer") },
-      { roleType: "hr_manager", subjectHash: hash("replay-maker") },
-      { roleType: "department_manager", subjectHash: hash("replay-manager") },
-      { roleType: "employee_self_service", subjectHash: hash("replay-employee") }
+      { actor: "hr_maker", roleType: "hr_manager", subjectHash: hash("replay-maker") },
+      { actor: "hr_reviewer", roleType: "hr_manager", subjectHash: hash("replay-reviewer") },
+      { actor: "manager", roleType: "department_manager", subjectHash: hash("replay-manager") },
+      { actor: "employee", roleType: "employee_self_service", subjectHash: hash("replay-employee") }
     ]
   });
   const check = browserMatrix.checks.find(row => row.legacyId === item.legacyId && row.roleType === roleType);
-  const measurement = { runId: "yzfull-recorder-replay-rA", rehearsal, triple, legacyId: item.legacyId, roleType, actor: check.actor, actorSubjectHash: hash("replay-reviewer"), route: check.route, renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, clientWidth: viewport.width, scrollWidth: viewport.width, screenshotSha256: hash("shot"), domAssertionSha256: hash("dom"), cellEvidenceSha256: "f".repeat(64) };
+  const measurement = { runId: "yzfull-recorder-replay-rA", rehearsal, triple, legacyId: item.legacyId, roleType, actor: check.actor, actorSubjectHash: hash("replay-reviewer"), route: check.route, renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, clientWidth: viewport.width, scrollWidth: viewport.width, networkFailureCount: 0, screenshotSha256: hash("shot"), domAssertionSha256: hash("dom"), cellEvidenceSha256: "f".repeat(64) };
   assert.throws(() => recorder.passBrowser(item.legacyId, roleType, viewport.id, measurement), error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_BROWSER_CELL_HASH_INVALID");
 });

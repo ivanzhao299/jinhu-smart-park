@@ -19,6 +19,7 @@ const sha64 = value => typeof value === "string" && /^[0-9a-f]{64}$/u.test(value
 const exactArray = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected);
 const sha256 = value => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
 const outcomeStatuses = Object.freeze({ success: [200, 201, 204], forbidden: [403], not_found_or_forbidden: [403, 404], conflict: [409] });
+const expectedActors = [["hr_maker", "hr_manager"], ["hr_reviewer", "hr_manager"], ["manager", "department_manager"], ["employee", "employee_self_service"]];
 
 function validateObservation(observation, matrixCheck, key) {
   if (observation?.actor !== matrixCheck.actor
@@ -76,8 +77,8 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   if (evidence.p0P1Count !== 0 || evidence.sensitiveScan !== "PASS" || evidence.auditStatus !== "PASS") {
     fail("YUZHOU_UAT_EVIDENCE_HARD_GATE_FAILED", rehearsal);
   }
-  const actorTypes = evidence.actors?.map(actor => actor.roleType);
-  if (!exactArray(actorTypes, ["hr_manager", "hr_manager", "department_manager", "employee_self_service"])) {
+  const actorTypes = evidence.actors?.map(actor => [actor.actor, actor.roleType]);
+  if (!exactArray(actorTypes, expectedActors)) {
     fail("YUZHOU_UAT_EVIDENCE_ACTORS_INVALID", rehearsal);
   }
   if (evidence.actors.some(actor => !sha64(actor.subjectHash))) fail("YUZHOU_UAT_EVIDENCE_ACTOR_HASH_INVALID", rehearsal);
@@ -94,6 +95,11 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   for (const item of evidence.items) {
     const expected = taskById.get(item.legacyId);
     if (item.status !== "PASS" || item.auditStatus !== "PASS") fail("YUZHOU_UAT_EVIDENCE_ITEM_FAILED", String(item.legacyId));
+    const itemChecks = [...(item.positive ?? []), ...(item.negative ?? [])];
+    if (!sha64(item.auditEvidenceSha256) || !itemChecks.some(check => check.observation?.observationSha256 === item.auditEvidenceSha256
+      && (check.observation.assertions?.audit_written === true || check.observation.assertions?.required_audit_written === true))) {
+      fail("YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID", String(item.legacyId));
+    }
     for (const [kind, expectedIds] of [["positive", expected.positive], ["negative", expected.negative]]) {
       const checks = item[kind];
       if (!Array.isArray(checks) || !exactArray(checks.map(check => check.id), expectedIds) || checks.some(check => check.status !== "PASS")) {
@@ -115,7 +121,7 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
           || result.legacyId !== item.legacyId
           || result.roleType !== roleType
           || result.actor !== browserCheck?.actor
-          || !evidence.actors.some(actor => actor.roleType === roleType && actor.subjectHash === result.actorSubjectHash)
+          || !evidence.actors.some(actor => actor.actor === result.actor && actor.roleType === roleType && actor.subjectHash === result.actorSubjectHash)
           || result.route !== browserCheck.route
           || result.renderedPath !== (browserCheck.expectedPath ?? browserCheck.route)
           || result.viewportId !== viewport.id
@@ -128,7 +134,8 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
           || result.scrollWidth > result.clientWidth
           || !sha64(result.screenshotSha256)
           || !sha64(result.domAssertionSha256)
-          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256 })
+          || result.networkFailureCount !== 0
+          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256, networkFailureCount: result.networkFailureCount })
           || !exactArray(result.assertions, taskCard.browserAssertions)) {
           fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${roleType}.${viewport.id}`);
         }
@@ -159,6 +166,8 @@ export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTr
   if (rehearsalA.runId === rehearsalB.runId || rehearsalA.targetIdentityHash === rehearsalB.targetIdentityHash) {
     fail("YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE", "A/B must be independent");
   }
+  const actorHashesA = new Set(rehearsalA.actors.map(actor => actor.subjectHash));
+  if (rehearsalB.actors.some(actor => actorHashesA.has(actor.subjectHash))) fail("YUZHOU_UAT_EVIDENCE_ACTOR_REUSE", "A/B actors must be independent");
   return {
     status: "PASS",
     triple: { ...rehearsalA.triple },

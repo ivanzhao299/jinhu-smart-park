@@ -46,6 +46,8 @@ test("the full-domain technical runner binds separated actors to API and real br
   assert.match(source, /hrReviewer','HR Reviewer UAT/);
   assert.match(source, /runYuzhouWorkReportScenario/);
   assert.match(source, /runYuzhouLiveRoleUatBrowserMatrix/);
+  assert.match(source, /binding:browserBinding/);
+  assert.match(source, /assertTechnicalUatBrowserResultBinding/);
   assert.match(source, /\/hr\/directory-options/);
   assert.match(source, /buildWebForTarget\(config\)/);
   assert.match(source, /NEXT_PUBLIC_API_TARGET:apiTarget/);
@@ -55,6 +57,7 @@ test("the full-domain technical runner binds separated actors to API and real br
   assert.match(source, /humanUat:"HOLD"/);
   assert.match(source, /observedChecks:matrixObservations\.length/);
   assert.doesNotMatch(source, /DELETE FROM sys_user/);
+  assert.doesNotMatch(source, /recorder\.passAudit/);
   assert.match(source, /full lifecycle removes the registered database\/container/);
   assert.doesNotMatch(source, /humanUat:"PASS"|productionImport:"GO"/);
 });

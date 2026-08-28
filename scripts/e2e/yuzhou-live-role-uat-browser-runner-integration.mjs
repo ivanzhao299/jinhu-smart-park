@@ -52,7 +52,11 @@ test("real headless Chrome waits for hydration and executes all 56 item-role-vie
     assert.equal(result.productionImport, "HOLD");
     assert.equal(result.observedCells, 56);
     assert.equal(result.observations.filter(row => row.viewportId === "phone_390").length, 28);
+    assert.ok(result.observations.every(row => row.networkFailureCount === 0));
     assert.ok(result.observations.every(row => row.runId === binding.runId && row.cellEvidenceSha256 && row.domAssertionSha256));
+    assert.equal(result.sessionCleanupProofs.length, 6);
+    assert.equal(new Set(result.sessionCleanupProofs.map(row => `${row.actor}:${row.viewportId}`)).size, 6);
+    assert.ok(result.sessionCleanupProofs.every(row => row.status === "PASS" && row.localStorageEntries === 0 && row.sessionStorageEntries === 0 && row.cookieEntries === 0 && row.sensitiveDomMatches === 0 && row.proofSha256));
     assert.ok(result.screenshots.length > 0);
   } finally {
     await new Promise(resolvePromise => server.close(resolvePromise));

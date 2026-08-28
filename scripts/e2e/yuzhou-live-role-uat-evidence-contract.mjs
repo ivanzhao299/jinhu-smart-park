@@ -31,22 +31,22 @@ function browserEvidence(item, rehearsal) {
     roleType,
     Object.fromEntries(taskCard.viewports.map(viewport => {
       const check = browserMatrix.checks.find(candidate => candidate.legacyId === item.legacyId && candidate.roleType === roleType);
-      const actorLabel = check.actor === "hr_reviewer" ? "reviewer" : check.actor;
       const value = {
       status: "PASS",
       runId: `yzfull-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
-      actor: check.actor, actorSubjectHash: hash(`${rehearsal}-${actorLabel}`), route: check.route,
+      actor: check.actor, actorSubjectHash: hash(`${rehearsal}-${check.actor}`), route: check.route,
       renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id,
       width: viewport.width,
       height: viewport.height,
       mobile: viewport.mobile,
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
+      networkFailureCount: 0,
       screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       assertions: taskCard.browserAssertions
       };
-      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256 }));
+      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount }));
       return [viewport.id, value];
     }))
   ]));
@@ -65,24 +65,32 @@ function passingEvidence(rehearsal) {
     apiMatrixSha256: apiMatrixHash(apiMatrix),
     browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple: { ...triple },
-    actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
+    actors: ["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({
+      actor,
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
       subjectHash: hash(`${rehearsal}-${actor}`)
     })),
-    items: taskCard.items.map(item => ({
-      legacyId: item.legacyId,
-      status: "PASS",
-      positive: item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) })),
-      negative: item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) })),
-      browser: browserEvidence(item, rehearsal),
-      auditStatus: "PASS"
-    })),
+    items: taskCard.items.map(item => {
+      const positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) }));
+      const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) }));
+      const audit = [...positive, ...negative].find(check => check.observation.assertions.audit_written === true || check.observation.assertions.required_audit_written === true);
+      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidenceSha256: audit.observation.observationSha256 };
+    }),
     p0P1Count: 0,
     sensitiveScan: "PASS",
     auditStatus: "PASS",
     humanAttestation: "HOLD",
     productionImport: "HOLD"
   };
+}
+
+function reuseReviewerAcrossPair(pair) {
+  const subjectHash = pair.A.actors[1].subjectHash;
+  pair.B.actors[1].subjectHash = subjectHash;
+  for (const item of pair.B.items) for (const cell of Object.values(item.browser.hr_manager ?? {})) {
+    cell.actorSubjectHash = subjectHash;
+    cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount }));
+  }
 }
 
 test("independent Smart Park A/B evidence promotes only target implementation and never legacy runtime", () => {
@@ -131,7 +139,9 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.B.apiMatrixSha256 = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_BINDING_INVALID"],
     [pair => { pair.B.targetIdentityHash = pair.A.targetIdentityHash; }, "YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE"],
     [pair => { pair.A.productionImport = "GO"; }, "YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE"],
-    [pair => { pair.A.actors[1].subjectHash = pair.A.actors[0].subjectHash; }, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"]
+    [pair => { pair.A.actors[1].subjectHash = pair.A.actors[0].subjectHash; }, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"],
+    [reuseReviewerAcrossPair, "YUZHOU_UAT_EVIDENCE_ACTOR_REUSE"],
+    [pair => { pair.A.items[0].auditEvidenceSha256 = "0".repeat(64); }, "YUZHOU_UAT_EVIDENCE_AUDIT_PROOF_INVALID"]
   ];
   for (const [mutate, code] of cases) {
     const pair = { A: passingEvidence("A"), B: passingEvidence("B") };

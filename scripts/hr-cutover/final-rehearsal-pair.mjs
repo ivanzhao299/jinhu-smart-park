@@ -8,11 +8,15 @@ import { fileURLToPath } from "node:url";
 import { validateConfig } from "./full-domain-lifecycle.mjs";
 import { verifyManifestChain } from "./parent-manifest.mjs";
 import { compareRehearsals, computeMappingContractHash } from "./verify-full-domain-contract.mjs";
+import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 
 const ROOT=resolve(fileURLToPath(new URL("../../",import.meta.url)));
 const FULL_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/full-domain-contract-v1.json"),"utf8"));
 const DEFAULT_PAIR_CONTRACT=resolve(ROOT,"scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json");
 const P0_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-p0-matrix-v1.json"),"utf8"));
+const UAT_TASK_CARD=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"),"utf8"));
+const UAT_API_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8"));
+const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"),"utf8"));
 const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
@@ -89,6 +93,43 @@ function assertP0Executed(config){
   if(summary.parentRunId!==config.runId||evidence.parentRunId!==config.runId)fail("FINAL_PAIR_P0_HOLD",`${config.rehearsal}:run identity mismatch`);
   return assertP0Summary(summary,config.rehearsal,evidence);
 }
+function privateEvidencePath(config,relativePath){
+  if(typeof relativePath!=="string"||basename(relativePath)!==relativePath)fail("FINAL_PAIR_BROWSER_EVIDENCE_INVALID",`${config.rehearsal}:path`);
+  const path=resolve(config.target.evidenceRoot,relativePath);
+  if(!existsSync(path)||lstatSync(path).isSymbolicLink()||(statSync(path).mode&0o777)!==0o600)fail("FINAL_PAIR_BROWSER_EVIDENCE_INVALID",`${config.rehearsal}:${relativePath}`);
+  return path;
+}
+function assertManifestEvidence(manifest,config,kind,relativePath,path){
+  const bytes=readFileSync(path),digest=sha256(bytes),matches=(manifest?.evidence??[]).filter(row=>row.kind===kind&&row.relativePath===relativePath);
+  if(matches.length!==1||matches[0].sha256!==digest||matches[0].bytes!==bytes.length||matches[0].mode!=="0600"||matches[0].redacted!==true)fail("FINAL_PAIR_BROWSER_MANIFEST_UNBOUND",`${config.rehearsal}:${relativePath}`);
+}
+export function assertTechnicalUatPairEvidence(configs,manifests){
+  const pair={},expectedCells=UAT_BROWSER_MATRIX.checks.length*UAT_TASK_CARD.viewports.length;
+  for(const config of configs){
+    const manifest=manifests.find(row=>row.rehearsal===config.rehearsal)??fail("FINAL_PAIR_MANIFEST_MISSING",config.rehearsal);
+    const files={legacy:"technical-uat-legacy-evidence.json",browser:"technical-uat-browser-matrix-observations.json",summary:"technical-uat-summary.json"};
+    const paths=Object.fromEntries(Object.entries(files).map(([key,name])=>[key,privateEvidencePath(config,name)]));
+    const legacy=JSON.parse(readFileSync(paths.legacy,"utf8")),browser=JSON.parse(readFileSync(paths.browser,"utf8")),summary=JSON.parse(readFileSync(paths.summary,"utf8"));
+    if(summary.parentRunId!==config.runId||summary.status!=="PASS"||summary.humanUat!=="HOLD"||summary.productionImport!=="HOLD"||summary.legacyTaskCard?.browserViewportCells!==expectedCells)fail("FINAL_PAIR_BROWSER_SUMMARY_INVALID",config.rehearsal);
+    if(browser.parentRunId!==config.runId||browser.runId!==config.runId||browser.rehearsal!==config.rehearsal||JSON.stringify(browser.triple)!==JSON.stringify(config.triple)||browser.status!=="PASS"||browser.humanAttestation!=="HOLD"||browser.productionImport!=="HOLD"||browser.observedCells!==expectedCells||browser.observations?.length!==expectedCells||!Array.isArray(browser.screenshots)||browser.screenshots.length===0)fail("FINAL_PAIR_BROWSER_EVIDENCE_INVALID",config.rehearsal);
+    const actorHashes=Object.fromEntries((legacy.actors??[]).map(actor=>[actor.actor,actor.subjectHash])),proofs=browser.sessionCleanupProofs;
+    if(!Array.isArray(proofs)||proofs.length!==6||new Set(proofs.map(proof=>`${proof.actor}:${proof.viewportId}`)).size!==6||proofs.some(proof=>proof.runId!==config.runId||proof.rehearsal!==config.rehearsal||JSON.stringify(proof.triple)!==JSON.stringify(config.triple)||proof.actorSubjectHash!==actorHashes[proof.actor]||proof.status!=="PASS"||proof.localStorageEntries!==0||proof.sessionStorageEntries!==0||proof.cookieEntries!==0||proof.sensitiveDomMatches!==0||proof.proofSha256!==sha256(JSON.stringify({runId:proof.runId,rehearsal:proof.rehearsal,triple:proof.triple,actor:proof.actor,actorSubjectHash:proof.actorSubjectHash,viewportId:proof.viewportId,localStorageEntries:proof.localStorageEntries,sessionStorageEntries:proof.sessionStorageEntries,cookieEntries:proof.cookieEntries,sensitiveDomMatches:proof.sensitiveDomMatches,status:proof.status})))||browser.sessionCleanupProofsSha256!==sha256(JSON.stringify(proofs)))fail("FINAL_PAIR_BROWSER_SESSION_PROOF_INVALID",config.rehearsal);
+    const screenshotHashes=new Set();
+    for(const descriptor of browser.screenshots){
+      if(!/^[0-9a-f]{64}$/u.test(descriptor?.sha256??""))fail("FINAL_PAIR_BROWSER_SCREENSHOT_INVALID",config.rehearsal);
+      const path=privateEvidencePath(config,descriptor.relativePath),digest=sha256(readFileSync(path));
+      if(digest!==descriptor.sha256||screenshotHashes.has(digest))fail("FINAL_PAIR_BROWSER_SCREENSHOT_INVALID",`${config.rehearsal}:${descriptor.relativePath}`);
+      screenshotHashes.add(digest);assertManifestEvidence(manifest,config,"technical_uat_browser_screenshot",descriptor.relativePath,path);
+    }
+    if(browser.observations.some(row=>!screenshotHashes.has(row.screenshotSha256)))fail("FINAL_PAIR_BROWSER_SCREENSHOT_UNBOUND",config.rehearsal);
+    assertManifestEvidence(manifest,config,"technical_uat_legacy_evidence",files.legacy,paths.legacy);
+    assertManifestEvidence(manifest,config,"technical_uat_browser_matrix_observations",files.browser,paths.browser);
+    assertManifestEvidence(manifest,config,"technical_uat_summary",files.summary,paths.summary);
+    pair[config.rehearsal]=legacy;
+  }
+  const result=validateYuzhouLiveRoleUatEvidencePair(pair,UAT_TASK_CARD,configs[0].triple,UAT_API_MATRIX,UAT_BROWSER_MATRIX);
+  return {...result,humanUat:"HOLD",productionImport:"HOLD"};
+}
 export function assertCleanupEvidence(result,bundle,rehearsal){
   if(result?.state!=="cleaned"||result.residualCount!==0||result.productionImport!=="HOLD")fail("FINAL_PAIR_RESIDUAL_NONZERO",rehearsal);
   if(bundle?.finalState!=="cleaned"||bundle.productionImport!=="HOLD"||!Array.isArray(bundle.resourceLedger)||bundle.resourceLedger.some(row=>row.removed!==true||row.residualCount!==0))fail("FINAL_PAIR_CLEANUP_EVIDENCE_INVALID",rehearsal);
@@ -107,7 +148,7 @@ function recover(config){
   if(row.residualCount!==0||row.productionImport!=="HOLD")fail("FINAL_PAIR_RECOVERY_FAILED",`${config.rehearsal}:residual`);
 }
 
-export function runFinalPair(configAInput,configBInput,contract,{execute=command,p0Gate=assertP0Executed,manifestHead=readHead,pairCompare=compareRehearsals,cleanupGate=assertCleanup,recovery=recover}={}){
+export function runFinalPair(configAInput,configBInput,contract,{execute=command,p0Gate=assertP0Executed,manifestHead=readHead,pairCompare=compareRehearsals,uatPairGate=assertTechnicalUatPairEvidence,cleanupGate=assertCleanup,recovery=recover}={}){
   const configs=[structuredClone(configAInput),structuredClone(configBInput)],completed=[],manifests=[];
   try{
     for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);
@@ -119,6 +160,7 @@ export function runFinalPair(configAInput,configBInput,contract,{execute=command
       manifests.push(manifestHead(config));
     }
     pairCompare(manifests[0],manifests[1]);
+    uatPairGate(configs,manifests);
     for(const config of [...configs].reverse()){
       const manifest=manifests.find(row=>row.rehearsal===config.rehearsal)??manifests[config.rehearsal==="A"?0:1];
       execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["rollback","--config",config.__configPath]);
