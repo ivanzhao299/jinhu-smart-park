@@ -42,15 +42,20 @@ function complete(rehearsal) {
     for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id));
     for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id));
     for (const roleType of item.roleTypes) for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, roleType, viewport.id, {
+      runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple,
       route: item.route,
       roleType,
       actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
+      actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "reviewer" : roleType === "department_manager" ? "manager" : "employee"}`),
+      renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route,
       width: viewport.width,
       height: viewport.height,
       mobile: viewport.mobile,
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
-      screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`)
+      screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
+      domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
+      cellEvidenceSha256: hash(JSON.stringify({ runId: `yzfull-recorder-r${rehearsal}`, rehearsal, triple, legacyId: item.legacyId, roleType, actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor, actorSubjectHash: hash(`${rehearsal}-${roleType === "hr_manager" ? "reviewer" : roleType === "department_manager" ? "manager" : "employee"}`), route: item.route, renderedPath: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).expectedPath ?? item.route, viewportId: viewport.id, width: viewport.width, height: viewport.height, mobile: viewport.mobile, screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`), domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`) }))
     });
     recorder.passAudit(item.legacyId);
   }

@@ -17,6 +17,8 @@ export class YuzhouLiveRoleUatBrowserRunnerError extends Error {
 const fail = (code, detail) => { throw new YuzhouLiveRoleUatBrowserRunnerError(code, detail); };
 const sleep = ms => new Promise(resolvePromise => setTimeout(resolvePromise, ms));
 const sha256 = value => createHash("sha256").update(value).digest("hex");
+const SHA40 = /^[0-9a-f]{40}$/u;
+const SHA64 = /^[0-9a-f]{64}$/u;
 const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{4,5}$/u;
 const CHROME_DEFAULT = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const LOGIN_FORM_READY = `(() => {
@@ -130,14 +132,44 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   if (observation.renderedPath !== (check.expectedPath ?? check.route)) fail("YUZHOU_UAT_BROWSER_OBSERVATION_PATH_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.viewportId !== viewport.id || observation.width !== viewport.width || observation.height !== viewport.height || observation.mobile !== viewport.mobile) fail("YUZHOU_UAT_BROWSER_OBSERVATION_VIEWPORT_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.status !== "PASS" || !Number.isInteger(observation.clientWidth) || !Number.isInteger(observation.scrollWidth) || observation.clientWidth > viewport.width || observation.scrollWidth > observation.clientWidth) fail("YUZHOU_UAT_BROWSER_OBSERVATION_LAYOUT_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
-  if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions) || !/^[0-9a-f]{64}$/u.test(observation.screenshotSha256 ?? "")) fail("YUZHOU_UAT_BROWSER_OBSERVATION_EVIDENCE_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+  if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions)
+    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
+    || !["A", "B"].includes(observation.rehearsal)
+    || !SHA40.test(observation.triple?.codeSha ?? "")
+    || !SHA64.test(observation.triple?.sourceSnapshotHash ?? "")
+    || !SHA64.test(observation.triple?.mappingContractHash ?? "")
+    || !SHA64.test(observation.actorSubjectHash ?? "")
+    || !SHA64.test(observation.screenshotSha256 ?? "")
+    || !SHA64.test(observation.domAssertionSha256 ?? "")
+    || !SHA64.test(observation.cellEvidenceSha256 ?? "")) fail("YUZHOU_UAT_BROWSER_OBSERVATION_EVIDENCE_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+  const cell = {
+    runId: observation.runId, rehearsal: observation.rehearsal, triple: observation.triple,
+    legacyId: observation.legacyId, roleType: observation.roleType, actor: observation.actor,
+    actorSubjectHash: observation.actorSubjectHash, route: observation.route, renderedPath: observation.renderedPath,
+    viewportId: observation.viewportId, width: observation.width, height: observation.height, mobile: observation.mobile,
+    screenshotSha256: observation.screenshotSha256, domAssertionSha256: observation.domAssertionSha256
+  };
+  if (observation.cellEvidenceSha256 !== sha256(JSON.stringify(cell))) fail("YUZHOU_UAT_BROWSER_OBSERVATION_CELL_HASH_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   return observation;
 }
 
+function validateBinding(binding) {
+  if (!binding || !["A", "B"].includes(binding.rehearsal)
+    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
+    || !SHA40.test(binding.triple?.codeSha ?? "")
+    || !SHA64.test(binding.triple?.sourceSnapshotHash ?? "")
+    || !SHA64.test(binding.triple?.mappingContractHash ?? "")) fail("YUZHOU_UAT_BROWSER_BINDING_REQUIRED", "runId/rehearsal/C/S/M");
+  const actors = ["hr_reviewer", "manager", "employee"];
+  if (JSON.stringify(Object.keys(binding.actorSubjectHashes ?? {}).sort()) !== JSON.stringify([...actors].sort())
+    || actors.some(actor => !SHA64.test(binding.actorSubjectHashes[actor]))
+    || new Set(Object.values(binding.actorSubjectHashes)).size !== actors.length) fail("YUZHOU_UAT_BROWSER_ACTOR_BINDING_INVALID", "isolated actor hashes required");
+}
+
 export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
-  const { taskCard, browserMatrix, webBase, credentials, evidenceRoot, profileRoot, sensitiveNeedles = [], onProcess = () => {}, onEvidenceFile = () => {} } = options;
+  const { taskCard, browserMatrix, webBase, credentials, evidenceRoot, profileRoot, binding, sensitiveNeedles = [], onProcess = () => {}, onEvidenceFile = () => {} } = options;
   validateYuzhouLiveRoleUatTaskCard(taskCard);
   validateYuzhouLiveRoleUatBrowserMatrix(browserMatrix, taskCard);
+  validateBinding(binding);
   if (!LOOPBACK.test(webBase)) fail("YUZHOU_UAT_BROWSER_ORIGIN_UNSAFE", webBase);
   if (!resolve(evidenceRoot).includes("jinhu_hr_migration_lab_full_") || !resolve(profileRoot).includes("jinhu_hr_migration_lab_full_")) fail("YUZHOU_UAT_BROWSER_PATH_UNSAFE", "lab namespace required");
   const requiredActors = ["hr_reviewer", "manager", "employee"];
@@ -162,6 +194,21 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
     const [port, browserPath] = readFileSync(portFile, "utf8").trim().split("\n");
     cdp = await CdpClient.connect(`ws://127.0.0.1:${port}${browserPath}`);
     const observations = [], screenshotCache = new Map(), screenshotsByHash = new Map();
+    const captureSanitizedScreenshot = async (sessionId, screenshotKey) => {
+      await evaluate(cdp, sessionId, `(() => { const needles=${JSON.stringify(sensitiveNeedles)};const redact=value=>{let next=value??'';for(const needle of needles)next=next.split(needle).join('[REDACTED]');return next;};for(const input of document.querySelectorAll('input,textarea'))input.value='';const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))node.nodeValue=redact(node.nodeValue);return true;})()`);
+      const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
+      const bytes = Buffer.from(shot.data, "base64"), digest = sha256(bytes);
+      let screenshot = screenshotsByHash.get(digest);
+      if (!screenshot) {
+        const filename = `browser-${sha256(screenshotKey).slice(0, 16)}.png`, path = resolve(evidenceRoot, filename);
+        writePrivateBinary(path, bytes);
+        onEvidenceFile(path);
+        screenshot = { relativePath: filename, sha256: digest };
+        screenshotsByHash.set(digest, screenshot);
+      }
+      screenshotCache.set(screenshotKey, screenshot);
+      return screenshot;
+    };
     for (const viewport of taskCard.viewports) {
       for (const actor of requiredActors) {
         const actorChecks = browserMatrix.checks.filter(check => check.actor === actor);
@@ -189,34 +236,34 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
           await evaluate(cdp, sessionId, `(() => { const set=(element,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(element,value);element.dispatchEvent(new Event('input',{bubbles:true}));};set(document.querySelector('input[autocomplete=username]'),${JSON.stringify(login.username)});set(document.querySelector('input[autocomplete=current-password]'),${JSON.stringify(login.password)});document.querySelector('button[type=submit]').click();return true;})()`);
           await poll(cdp, sessionId, "location.pathname !== '/login' && !!localStorage.getItem('jinhu_access_token')", "YUZHOU_UAT_BROWSER_LOGIN_FAILED", `${actor}:${viewport.id}`);
           for (const check of actorChecks) {
+            try {
             runtimeErrors.length = 0;
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
             await pollVisibleTexts(cdp, sessionId, check, viewport);
-            const result = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; const clientWidth=document.documentElement.clientWidth; const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0); return { path:location.pathname,text,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].map(node=>node.textContent??'').filter(Boolean) }; })()`);
+            const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{const e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const s=getComputedStyle(e);return s.display!=='none'&&s.visibility!=='hidden'&&s.opacity!=='0'&&e.getClientRects().length>0;};const nodes=[...document.querySelectorAll('body *')].filter(visible);const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:nodes.some(node=>(node.innerText??node.textContent??'').includes(value))}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:nodes.some(node=>(node.innerText??node.textContent??'').includes(value))}));const text=document.body?.innerText??'';const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,text,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
             if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:alerts=${result.alerts.length}`);
             if (check.forbiddenTexts.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+            if (result.visibleTexts.some(row => !row.matched) || result.forbiddenTexts.some(row => row.matched)) fail("YUZHOU_UAT_BROWSER_DOM_ASSERTION_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             if (check.masked && sensitiveNeedles.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_SENSITIVE_VALUE_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);
             const screenshotKey = `${check.actor}:${check.route}:${viewport.id}`;
             let screenshot = screenshotCache.get(screenshotKey);
-            if (!screenshot) {
-              const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
-              const bytes = Buffer.from(shot.data, "base64"), digest = sha256(bytes);
-              screenshot = screenshotsByHash.get(digest);
-              if (!screenshot) {
-                const filename = `browser-${sha256(screenshotKey).slice(0, 16)}.png`, path = resolve(evidenceRoot, filename);
-                writePrivateBinary(path, bytes);
-                onEvidenceFile(path);
-                screenshot = { relativePath: filename, sha256: digest };
-                screenshotsByHash.set(digest, screenshot);
-              }
-              screenshotCache.set(screenshotKey, screenshot);
-            }
-            observations.push(validateYuzhouBrowserObservation({
+            if (!screenshot) screenshot = await captureSanitizedScreenshot(sessionId, screenshotKey);
+            const domAssertionSha256 = sha256(JSON.stringify({ path: result.path, visibleTexts: result.visibleTexts, forbiddenTexts: result.forbiddenTexts, alerts: result.alerts.length, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth }));
+            const cell = {
+              runId: binding.runId, rehearsal: binding.rehearsal, triple: { ...binding.triple },
               legacyId: check.legacyId, roleType: check.roleType, actor: check.actor, route: check.route,
+              actorSubjectHash: binding.actorSubjectHashes[check.actor],
               viewportId: viewport.id, status: "PASS", width: viewport.width, height: viewport.height, renderedPath: result.path,
               mobile: viewport.mobile, clientWidth: result.clientWidth, scrollWidth: result.scrollWidth,
-              assertions: [...taskCard.browserAssertions], screenshotSha256: screenshot.sha256
-            }, check, viewport, taskCard.browserAssertions));
+              assertions: [...taskCard.browserAssertions], screenshotSha256: screenshot.sha256, domAssertionSha256
+            };
+            const hashInput = { runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256 };
+            cell.cellEvidenceSha256 = sha256(JSON.stringify(hashInput));
+            observations.push(validateYuzhouBrowserObservation(cell, check, viewport, taskCard.browserAssertions));
+            } catch (error) {
+              await captureSanitizedScreenshot(sessionId, `failure:${binding.runId}:${check.actor}:${check.legacyId}:${viewport.id}`).catch(() => {});
+              throw error;
+            }
           }
           await evaluate(cdp, sessionId, "localStorage.clear(); sessionStorage.clear(); true");
           await cdp.send("Network.clearBrowserCookies", {}, sessionId);
@@ -234,6 +281,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
     return {
       formatVersion: 1, contractKind: "yuzhou_hr_live_role_uat_browser_observations", status: "PASS",
       taskCardSha256: taskCardHash(taskCard), browserMatrixSha256: browserMatrixHash(browserMatrix),
+      runId: binding.runId, rehearsal: binding.rehearsal, triple: { ...binding.triple },
       observedCells: observations.length, observations, screenshots: [...screenshotsByHash.values()], p0P1Count: 0, sensitiveScan: "PASS",
       humanAttestation: "HOLD", productionImport: "HOLD"
     };

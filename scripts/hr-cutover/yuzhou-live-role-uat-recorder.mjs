@@ -43,15 +43,32 @@ export class YuzhouLiveRoleUatRecorder {
     const item = this.#item(legacyId);
     const viewport = this.#taskCard.viewports.find(candidate => candidate.id === viewportId);
     if (!item.roleTypes.includes(roleType) || !viewport || item.route !== measurement?.route || measurement?.roleType !== roleType) fail("YUZHOU_UAT_RECORDER_BROWSER_UNKNOWN", `${legacyId}.${roleType}.${viewportId}`);
+    if (measurement.runId !== this.#meta.runId || measurement.rehearsal !== this.#meta.rehearsal
+      || JSON.stringify(measurement.triple) !== JSON.stringify(this.#meta.triple)
+      || !/^[0-9a-f]{64}$/u.test(measurement.actorSubjectHash ?? "")
+      || !this.#meta.actors.some(actor => actor.roleType === roleType && actor.subjectHash === measurement.actorSubjectHash)
+      || !/^[0-9a-f]{64}$/u.test(measurement.domAssertionSha256 ?? "")
+      || !/^[0-9a-f]{64}$/u.test(measurement.cellEvidenceSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_BROWSER_BINDING_INVALID", `${legacyId}.${roleType}.${viewportId}`);
     this.#browser.set(`${legacyId}:${roleType}:${viewportId}`, {
       status: "PASS",
+      runId: measurement.runId,
+      rehearsal: measurement.rehearsal,
+      triple: { ...measurement.triple },
+      legacyId,
+      roleType,
       actor: measurement.actor,
+      actorSubjectHash: measurement.actorSubjectHash,
+      route: measurement.route,
+      renderedPath: measurement.renderedPath,
+      viewportId,
       width: measurement.width,
       height: measurement.height,
       mobile: measurement.mobile,
       clientWidth: measurement.clientWidth,
       scrollWidth: measurement.scrollWidth,
       screenshotSha256: measurement.screenshotSha256,
+      domAssertionSha256: measurement.domAssertionSha256,
+      cellEvidenceSha256: measurement.cellEvidenceSha256,
       assertions: [...this.#taskCard.browserAssertions]
     });
   }

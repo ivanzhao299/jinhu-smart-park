@@ -29,17 +29,26 @@ function observation(legacyId, kind, checkId) {
 function browserEvidence(item, rehearsal) {
   return Object.fromEntries(item.roleTypes.map(roleType => [
     roleType,
-    Object.fromEntries(taskCard.viewports.map(viewport => [viewport.id, {
+    Object.fromEntries(taskCard.viewports.map(viewport => {
+      const check = browserMatrix.checks.find(candidate => candidate.legacyId === item.legacyId && candidate.roleType === roleType);
+      const actorLabel = check.actor === "hr_reviewer" ? "reviewer" : check.actor;
+      const value = {
       status: "PASS",
-      actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
+      runId: `yzfull-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
+      actor: check.actor, actorSubjectHash: hash(`${rehearsal}-${actorLabel}`), route: check.route,
+      renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id,
       width: viewport.width,
       height: viewport.height,
       mobile: viewport.mobile,
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
       screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
+      domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       assertions: taskCard.browserAssertions
-    }]))
+      };
+      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256 }));
+      return [viewport.id, value];
+    }))
   ]));
 }
 
@@ -118,7 +127,7 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.B.items.pop(); }, "YUZHOU_UAT_EVIDENCE_ITEM_DRIFT"],
     [pair => { pair.A.items[0].browser.hr_manager.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.A.items[0].browser.hr_manager.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
-    [pair => { pair.B.triple.mappingContractHash = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_TRIPLE_MISMATCH"],
+    [pair => { pair.B.triple.mappingContractHash = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.B.apiMatrixSha256 = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_BINDING_INVALID"],
     [pair => { pair.B.targetIdentityHash = pair.A.targetIdentityHash; }, "YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE"],
     [pair => { pair.A.productionImport = "GO"; }, "YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE"],

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { YUZHOU_LIVE_ROLE_UAT_EXPECTED_IDS, taskCardHash, validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
 import { apiMatrixHash, validateYuzhouLiveRoleUatApiMatrix } from "./yuzhou-live-role-uat-api-matrix-lib.mjs";
 import { browserMatrixHash, validateYuzhouLiveRoleUatBrowserMatrix } from "./yuzhou-live-role-uat-browser-matrix-lib.mjs";
@@ -108,7 +109,16 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
       for (const viewport of taskCard.viewports) {
         const result = item.browser?.[roleType]?.[viewport.id];
         if (result?.status !== "PASS"
+          || result.runId !== evidence.runId
+          || result.rehearsal !== evidence.rehearsal
+          || JSON.stringify(result.triple) !== JSON.stringify(evidence.triple)
+          || result.legacyId !== item.legacyId
+          || result.roleType !== roleType
           || result.actor !== browserCheck?.actor
+          || !evidence.actors.some(actor => actor.roleType === roleType && actor.subjectHash === result.actorSubjectHash)
+          || result.route !== browserCheck.route
+          || result.renderedPath !== (browserCheck.expectedPath ?? browserCheck.route)
+          || result.viewportId !== viewport.id
           || result.width !== viewport.width
           || result.height !== viewport.height
           || result.mobile !== viewport.mobile
@@ -117,6 +127,8 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
           || result.clientWidth > viewport.width
           || result.scrollWidth > result.clientWidth
           || !sha64(result.screenshotSha256)
+          || !sha64(result.domAssertionSha256)
+          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256 })
           || !exactArray(result.assertions, taskCard.browserAssertions)) {
           fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${roleType}.${viewport.id}`);
         }
@@ -158,4 +170,3 @@ export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTr
     productionImport: "HOLD"
   };
 }
-import { createHash } from "node:crypto";
