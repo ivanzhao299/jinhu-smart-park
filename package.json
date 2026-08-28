@@ -141,6 +141,7 @@
     "test:e2e:yuzhou-t4-bulk-guard": "node scripts/e2e/yuzhou-t4-bulk-guard-contract.mjs",
     "test:e2e:yuzhou-t4-readiness": "node scripts/e2e/yuzhou-t4-readiness-contract.mjs",
     "test:e2e:yuzhou-t5-legacy-history": "node scripts/e2e/yuzhou-t5-legacy-history-contract.mjs",
+    "test:e2e:yuzhou-photo-readiness": "node --test scripts/e2e/yuzhou-photo-readiness-contract.mjs",
     "prod:deploy": "sh scripts/prod-deploy.sh",
     "android:verify-release": "node scripts/verify-android-release.mjs",
     "android:build:debug": "cd android-app && gradle :app:assembleDebug",
