@@ -45,12 +45,15 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
 
 test("department manager directory stays team-scoped without broad employee permission",()=>{
   const employeePage=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
+  const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
   const seed=readFileSync(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"),"utf8");
   assert.match(employeePage,/HR_WORK_REPORT_TEAM_REVIEW/);
   assert.match(employeePage,/HR_PERFORMANCE_MANAGER_REVIEW/);
   assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
   assert.match(employeePage,/isForbiddenError/);
   assert.match(employeePage,/ForbiddenState/);
+  assert.match(employeePage,/ds-mobile-record-list \$\{styles\.employeeRecordList\}/);
+  assert.match(styles,/\.employeeRecordList\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(260px, 1fr\)\)/);
   assert.match(seed,/code='DEPARTMENT_MANAGER'/);
   assert.match(seed,/code='hr:employees'/);
   assert.doesNotMatch(seed,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
