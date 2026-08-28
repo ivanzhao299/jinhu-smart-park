@@ -1,0 +1,3 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核端到端权限调整链是否闭合。"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"复核隔离、证据、PR/CI/merge 与安全边界。"}
+{"file":"docs/reviews/permission-mechanism-compliance-2026-08-27.md","reason":"复核新结论与既有 MEC-3/MEC-4、G6/R5 事实不冲突。"}

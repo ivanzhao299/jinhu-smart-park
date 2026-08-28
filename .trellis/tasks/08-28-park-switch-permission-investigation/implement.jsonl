@@ -1,0 +1,5 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"园区切换权限跨 token、API、Web、数据库关系与守卫链。"}
+{"file":".trellis/spec/guides/project-operations.md","reason":"隔离 compose、证据、CI/PR/merge 与生产安全约束。"}
+{"file":".trellis/spec/api/backend/index.md","reason":"API auth、users、RBAC 与 scope 静态核查入口。"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Web 园区切换、菜单与路由预测契约。"}
+{"file":"docs/reviews/permission-mechanism-compliance-2026-08-27.md","reason":"上一轮权限机制审计与 §15 回归基线。"}
