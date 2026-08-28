@@ -12,6 +12,8 @@ These rules describe the current NestJS API in `apps/api`. Follow them when chan
 
 Human resources lifecycle, goals, performance, protected documents, approvals, and payroll: [HR Management Domain Contract](./hr-management.md).
 
+Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
+
 ## Package Boundary
 
 - Source lives in `apps/api/src`.

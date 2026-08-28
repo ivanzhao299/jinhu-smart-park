@@ -19,6 +19,14 @@ const sleep = ms => new Promise(resolvePromise => setTimeout(resolvePromise, ms)
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{4,5}$/u;
 const CHROME_DEFAULT = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const LOGIN_FORM_READY = `(() => {
+  if (document.readyState !== 'complete') return false;
+  const username = document.querySelector('input[autocomplete=username]');
+  const password = document.querySelector('input[autocomplete=current-password]');
+  const submit = document.querySelector('button[type=submit]');
+  if (!username || !password || !submit) return false;
+  return Object.keys(submit).some(key => key.startsWith('__reactProps$'));
+})()`;
 
 class CdpClient {
   #socket;
@@ -154,7 +162,10 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
           ]);
           await cdp.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile }, sessionId);
           await cdp.send("Page.navigate", { url: `${webBase}/login` }, sessionId);
-          await poll(cdp, sessionId, "document.readyState === 'complete' && !!document.querySelector('input[autocomplete=username]')", "YUZHOU_UAT_BROWSER_LOGIN_FORM_MISSING", `${actor}:${viewport.id}`);
+          // A warm Next.js document can expose the server-rendered form before React has
+          // attached the delegated submit handler. Waiting for the React-owned props on
+          // the submit control prevents a no-op click in later isolated browser contexts.
+          await poll(cdp, sessionId, LOGIN_FORM_READY, "YUZHOU_UAT_BROWSER_LOGIN_FORM_MISSING", `${actor}:${viewport.id}`);
           const login = credentials[actor];
           await evaluate(cdp, sessionId, `(() => { const set=(element,value)=>{const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(element,value);element.dispatchEvent(new Event('input',{bubbles:true}));};set(document.querySelector('input[autocomplete=username]'),${JSON.stringify(login.username)});set(document.querySelector('input[autocomplete=current-password]'),${JSON.stringify(login.password)});document.querySelector('button[type=submit]').click();return true;})()`);
           await poll(cdp, sessionId, "location.pathname !== '/login' && !!localStorage.getItem('jinhu_access_token')", "YUZHOU_UAT_BROWSER_LOGIN_FAILED", `${actor}:${viewport.id}`);
