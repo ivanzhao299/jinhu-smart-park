@@ -4,6 +4,7 @@ import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "nod
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTER_ENV_ALLOWLIST, LifecycleError, resolveVerifiedExtractBindings, validateConfig } from "./full-domain-lifecycle.mjs";
+import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -81,9 +82,10 @@ function validateCredentialBoundary(config, domain, phase) {
   if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !statSync(path).isFile() || mode(path) !== "0600") fail("UNSAFE_FILE_PERMISSION", "ETL env file must be a non-symlink 0600 file");
   if (domain === "T5") {
     const keyPath = config.target.materializationKeyArtifact;
-    if (!existsSync(keyPath) || lstatSync(keyPath).isSymbolicLink() || !statSync(keyPath).isFile() || mode(keyPath) !== "0600") fail("UNSAFE_FILE_PERMISSION", "materialization key must be a non-symlink 0600 file");
-    if (!/^[0-9a-fA-F]{64}$/u.test(readFileSync(keyPath, "utf8").trim())) {
-      fail("UNSAFE_FILE_PERMISSION", "materialization key must contain exactly one 32-byte hexadecimal key");
+    try { readMaterializationKeyFile(keyPath); }
+    catch (error) {
+      if (error instanceof MaterializationKeyContractError) fail("UNSAFE_FILE_PERMISSION", error.message);
+      throw error;
     }
   }
 }
