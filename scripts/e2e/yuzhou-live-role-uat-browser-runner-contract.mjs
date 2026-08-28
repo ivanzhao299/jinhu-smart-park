@@ -54,6 +54,7 @@ test("same-origin API 4xx, 5xx and loading failures cannot be hidden by static p
   observeSameOriginApiNetworkEvent({ method: "Network.requestWillBeSent", params: { requestId: "x", type: "Fetch", request: { url: "https://example.invalid/api" } } }, origin, requests, failures);
   observeSameOriginApiNetworkEvent({ method: "Network.responseReceived", params: { requestId: "x", response: { status: 500 } } }, origin, requests, failures);
   assert.deepEqual(failures, ["http:403", "http:500", "loading_failed"]);
+  assert.equal(requests.size, 0);
 });
 
 test("browser execution without immutable run and C/S/M binding fails before launch", async () => {
