@@ -17,8 +17,8 @@ export const HR_ACCESS_MATRIX = {
 }>;
 export const HR_PERMISSIONS = {
   HR_MENU: "hr", HR_DASHBOARD_PAGE: "hr:dashboard", HR_ORGANIZATION_PAGE: "hr:organization", HR_EMPLOYEES_PAGE: "hr:employees", HR_GOALS_PAGE: "hr:goals", HR_WORK_REPORTS_PAGE: "hr:work_reports",
-  HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
-  HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
+  HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_TEAM_READ: "hr:employee:team_read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
+  HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_TEAM_READ: "hr:employee_profile:team_read", HR_EMPLOYEE_PROFILE_SELF_READ: "hr:employee_profile:self_read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
   HR_EMPLOYMENT_TRANSITION: "hr:employment:transition",
   HR_JOB_CHANGE_READ: "hr:job_change:read", HR_JOB_CHANGE_TEAM_READ: "hr:job_change:team_read", HR_JOB_CHANGE_SELF_READ: "hr:job_change:self_read", HR_JOB_CHANGE_MANAGE: "hr:job_change:manage", HR_JOB_CHANGE_REVIEW: "hr:job_change:review", HR_JOB_CHANGE_APPLY: "hr:job_change:apply",
   HR_DEPARTURE_READ: "hr:departure:read", HR_DEPARTURE_TEAM_READ: "hr:departure:team_read", HR_DEPARTURE_SELF_READ: "hr:departure:self_read", HR_DEPARTURE_MANAGE: "hr:departure:manage", HR_DEPARTURE_REVIEW: "hr:departure:review", HR_DEPARTURE_INTERVIEW: "hr:departure:interview", HR_DEPARTURE_SURVEY: "hr:departure:survey", HR_DEPARTURE_HANDOVER: "hr:departure:handover", HR_DEPARTURE_WAGE_SETTLE: "hr:departure:wage_settle", HR_DEPARTURE_ARCHIVE_CLOSE: "hr:departure:archive_close", HR_DEPARTURE_APPLY: "hr:departure:apply",
@@ -50,3 +50,32 @@ export const HR_PERMISSIONS = {
   HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read",
   HR_LEGACY_DICTIONARY_READ: "hr:legacy_dictionary:read", HR_LEGACY_DICTIONARY_MANAGE: "hr:legacy_dictionary:manage", HR_LEGACY_DICTIONARY_APPROVE: "hr:legacy_dictionary:approve"
 } as const;
+
+export type HrAccessScope = "park" | "managed_org_tree" | "self" | "none";
+export type HrAccessDomain = "employee" | "employee_profile";
+export interface HrAccessPrincipal {
+  permissions: readonly string[];
+  isSuper?: boolean;
+}
+
+export const HR_RUNTIME_ACCESS_CONTRACT = {
+  employee: {
+    park: [HR_PERMISSIONS.HR_EMPLOYEE_READ],
+    managed_org_tree: [HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ],
+    self: [HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ],
+  },
+  employee_profile: {
+    park: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE],
+    managed_org_tree: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ],
+    self: [HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ],
+  },
+} as const satisfies Record<HrAccessDomain,Record<Exclude<HrAccessScope,"none">,readonly string[]>>;
+
+export function resolveHrAccessScope(domain:HrAccessDomain,actor:HrAccessPrincipal):HrAccessScope {
+  if(actor.isSuper||actor.permissions.includes("*"))return HR_ACCESS_MATRIX.HR_MANAGER.employeeScope;
+  const contract=HR_RUNTIME_ACCESS_CONTRACT[domain];
+  if(contract.park.some(permission=>actor.permissions.includes(permission)))return HR_ACCESS_MATRIX.HR_MANAGER.employeeScope;
+  if(contract.managed_org_tree.some(permission=>actor.permissions.includes(permission)))return HR_ACCESS_MATRIX.DEPARTMENT_MANAGER.employeeScope;
+  if(contract.self.some(permission=>actor.permissions.includes(permission)))return HR_ACCESS_MATRIX.EMPLOYEE_SELF_SERVICE.employeeScope;
+  return "none";
+}

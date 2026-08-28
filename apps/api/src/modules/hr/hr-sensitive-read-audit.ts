@@ -17,7 +17,7 @@ export interface HrSensitiveReadAuditDetails {
   bizId: string | null;
   path: string;
   fieldGroups: readonly HrSensitiveReadFieldGroup[];
-  projection: "masked" | "full" | "self" | "team" | "park" | "admin" | "metadata" | "download";
+  projection: "masked" | "self_masked" | "full" | "self" | "team" | "park" | "admin" | "metadata" | "download";
   itemCount?: number;
   requestId?: string | null;
 }

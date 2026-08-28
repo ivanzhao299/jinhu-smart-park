@@ -1,6 +1,6 @@
 -- Production-safe least-privilege convergence for the reviewed DEPARTMENT_MANAGER role.
--- Grants the employee directory page only. Team data remains enforced by the existing
--- work-report/performance manager permissions and the API managed-org-tree scope.
+-- Grants the employee directory page, its exact team-read atom, and the masked profile
+-- team-read atom. The API managed-org-tree scope remains the authoritative boundary.
 BEGIN;
 
 LOCK TABLE sys_role, sys_permission, rel_role_perm IN SHARE ROW EXCLUSIVE MODE;
@@ -20,10 +20,11 @@ BEGIN
 
   SELECT count(*) INTO permission_count
   FROM sys_permission
-  WHERE tenant_id='10000001' AND park_id='20000001' AND code='hr:employees'
+  WHERE tenant_id='10000001' AND park_id='20000001'
+    AND code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
     AND is_deleted=false AND is_enabled=true AND status='enabled';
-  IF permission_count <> 1 THEN
-    RAISE EXCEPTION 'Expected exactly one active hr:employees permission, found %', permission_count;
+  IF permission_count <> 3 THEN
+    RAISE EXCEPTION 'Expected exactly three active department employee permissions, found %', permission_count;
   END IF;
 END $$;
 
@@ -32,12 +33,12 @@ INSERT INTO rel_role_perm(
 )
 SELECT
   '10000001','20000001',role.id,permission.id,now(),now(),false,1,
-  'HR M3 department manager directory page least-privilege convergence'
+  'HR department manager directory and masked profile least-privilege convergence'
 FROM sys_role role
 JOIN sys_permission permission
   ON permission.tenant_id=role.tenant_id
  AND permission.park_id=role.park_id
- AND permission.code='hr:employees'
+ AND permission.code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
  AND permission.is_deleted=false
  AND permission.is_enabled=true
  AND permission.status='enabled'
@@ -68,12 +69,12 @@ BEGIN
       AND role.status='enabled'
       AND permission.tenant_id='10000001'
       AND permission.park_id='20000001'
-      AND permission.code='hr:employees'
+      AND permission.code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
       AND permission.is_deleted=false
       AND permission.is_enabled=true
       AND permission.status='enabled'
-  ) <> 1 THEN
-    RAISE EXCEPTION 'DEPARTMENT_MANAGER employee directory permission convergence incomplete';
+  ) <> 3 THEN
+    RAISE EXCEPTION 'DEPARTMENT_MANAGER employee directory and masked profile permission convergence incomplete';
   END IF;
 END $$;
 

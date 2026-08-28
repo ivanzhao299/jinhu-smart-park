@@ -12,7 +12,7 @@ test("Yuzhou basic profile fields have typed persistence and privacy controls",(
  const service=read("apps/api/src/modules/hr/hr.service.ts");
  assert.match(service,/identityProfile\(dto\.idNumber/);
  assert.match(service,/sensitiveData\.decrypt/);
- assert.match(service,/projectHrEmployeeProfile\(saved,true\)/);
+ assert.match(service,/projectHrEmployeeProfile\(saved,"full"\)/);
  assert.doesNotMatch(service,/return await repo\.save\(row\)/);
 });
 

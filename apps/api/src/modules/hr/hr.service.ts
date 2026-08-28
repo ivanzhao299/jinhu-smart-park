@@ -12,7 +12,7 @@ import { AuditService } from "../audit/audit.service";
 import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
-import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope,type HrLedgerAccessScope } from "./hr-access-policy";
+import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrLedgerAccessScope } from "./hr-access-policy";
 
 @Injectable()
 export class HrService {
@@ -63,7 +63,7 @@ export class HrService {
   return {items,total,page:q.page,page_size:q.page_size};
  }
  async detailEmployee(scope:TenantParkScope,id:string){const row=await this.employees.findOne({where:{id,...scope,isDeleted:false}});if(!row)throw new NotFoundException("Employee not found");return row;}
- async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){const accessScope=resolveHrEmployeeAccessScope(actor);if(accessScope==="park")return this.detailEmployee(scope,id);if(accessScope==="none")throw new NotFoundException("Employee not found");const employee=await this.myEmployee(scope,actor);const managedIds=accessScope==="managed_org_tree"?await this.managedEmployeeIds(scope,actor):[];if(!isHrEmployeeIdAccessible(accessScope,id,employee.id,managedIds))throw new NotFoundException("Employee not found");return employee.id===id?employee:this.detailEmployee(scope,id);}
+ async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.employeeForAccess(scope,actor,id,resolveHrEmployeeAccessScope(actor));}
  async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return row;}
  async employeeEvents(scope:TenantParkScope,id:string){await this.detailEmployee(scope,id);return this.events.find({where:[{...scope,employeeId:id,isHistoricalImport:false,isDeleted:false},{...scope,employeeId:id,isHistoricalImport:true,migrationDecision:"accepted",isDeleted:false}],order:{effectiveDate:"DESC",createTime:"DESC"}});}
  async employmentEventStatistics(scope:TenantParkScope,actor:JwtPrincipal,q:HrEmploymentEventStatisticsQueryDto){
@@ -95,7 +95,8 @@ export class HrService {
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employment_event.statistics",action:"读取人事异动统计",bizType:"hr_employment_event",bizId:null,path:"/hr/employment-events/statistics",fieldGroups:[],projection:"park",itemCount:result.total});
   return result;
  }
- async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){await this.detailEmployee(scope,id);const row=await this.profiles.findOne({where:{...scope,employeeId:id,isDeleted:false}});const canReadFull=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);const projected=projectHrEmployeeProfile(row,canReadFull);const result=projected&&canReadFull?{...projected,idNumber:this.sensitiveData.decrypt(row?.idNumberEncrypted??null)}:projected;await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path:"/hr/employees/:id/profile",fieldGroups:["identity","contact","demographic","education","qualification"],projection:canReadFull?"full":"masked",itemCount:result?1:0});return result;}
+ async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.readEmployeeProfile(scope,actor,id,"/hr/employees/:id/profile");}
+ async myEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal){const employee=await this.myEmployee(scope,actor);return this.readEmployeeProfile(scope,actor,employee.id,"/hr/employees/me/profile");}
 
  async updateEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeProfileDto){
   await this.detailEmployee(scope,id);
@@ -106,7 +107,7 @@ export class HrService {
    const identity=dto.idNumber===undefined?undefined:dto.idNumber?this.sensitiveData.identityProfile(dto.idNumber.replace(/\s+/g,"").toUpperCase()):null;
    Object.assign(row,{idType:dto.idType??null,englishName:dto.englishName??null,gender:dto.gender??null,dateOfBirth:dto.dateOfBirth??null,ethnicity:dto.ethnicity??null,nativePlace:dto.nativePlace??null,politicalStatus:dto.politicalStatus??null,partyJoinDate:dto.partyJoinDate??null,heightCm:dto.heightCm===undefined?null:String(dto.heightCm),weightKg:dto.weightKg===undefined?null:String(dto.weightKg),maritalStatus:dto.maritalStatus??null,healthStatus:dto.healthStatus??null,householdRegistration:dto.householdRegistration??null,highestEducation:dto.highestEducation??null,major:dto.major??null,degree:dto.degree??null,foreignLanguage:dto.foreignLanguage??null,languageLevel:dto.languageLevel??null,graduationDate:dto.graduationDate??null,graduationSchool:dto.graduationSchool??null,homePhone:dto.homePhone??null,jobTitle:dto.jobTitle??null,jobGrade:dto.jobGrade??null,employeeCategory:dto.employeeCategory??null,technicalTitle:dto.technicalTitle??null,technicalGrade:dto.technicalGrade??null,personalMobile:dto.personalMobile??null,personalEmail:dto.personalEmail??null,address:dto.address??null,emergencyContactName:dto.emergencyContactName??null,emergencyContactMobile:dto.emergencyContactMobile??null,remark:dto.remark??null,updateBy:actor.sub});
    if(identity!==undefined)Object.assign(row,{idNumberEncrypted:identity?.encrypted??null,idNumberMasked:identity?.masked??null,idNumberFingerprint:identity?.hash??null});
-   try{const saved=await repo.save(row);return projectHrEmployeeProfile(saved,true)!;}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Employee identity number already exists");throw error;}
+   try{const saved=await repo.save(row);return projectHrEmployeeProfile(saved,"full")!;}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Employee identity number already exists");throw error;}
   });
  }
 
@@ -459,6 +460,23 @@ export class HrService {
  async createApproval(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrApprovalDto){const employee=await this.myEmployee(scope,actor);return this.approvalRequests.save(this.approvalRequests.create({...scope,requestNo:`HR-${Date.now()}-${crypto.randomUUID().slice(0,8)}`,requestType:dto.requestType,applicantEmployeeId:employee.id,subjectEmployeeId:employee.id,title:dto.title,payload:dto.payload,status:"draft",currentApproverId:null,submittedAt:null,completedAt:null,createBy:actor.sub,updateBy:actor.sub}));}
  async actApproval(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:HrApprovalActionDto,reviewer:boolean){return this.dataSource.transaction(async manager=>{const requestRepo=manager.getRepository(HrApprovalRequestEntity),actionRepo=manager.getRepository(HrApprovalActionEntity);const request=await requestRepo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});if(!request)throw new NotFoundException("HR approval request not found");const employee=reviewer?null:await manager.getRepository(HrEmployeeEntity).findOne({where:{id:request.applicantEmployeeId,...scope,userId:actor.sub,isDeleted:false}});if(!reviewer&&!employee)throw new ForbiddenException("Only the applicant can change this request");const allowed=reviewer?{approve:["submitted"],return:["submitted"]}:{submit:["draft"],resubmit:["returned"],withdraw:["submitted"]};const expected=allowed[dto.action as keyof typeof allowed];if(!expected||!expected.includes(request.status))throw new BadRequestException("Approval action is not allowed from current status");const before=request.status;const next={submit:"submitted",resubmit:"submitted",withdraw:"withdrawn",approve:"approved",return:"returned"}[dto.action]!;request.status=next;if(next==="submitted")request.submittedAt=new Date();if(["approved","withdrawn"].includes(next))request.completedAt=new Date();else request.completedAt=null;request.currentApproverId=null;request.updateBy=actor.sub;await requestRepo.save(request);await actionRepo.save(actionRepo.create({...scope,requestId:id,action:dto.action,actorUserId:actor.sub,comment:dto.comment??null,beforeStatus:before,afterStatus:next,createBy:actor.sub,updateBy:actor.sub}));return request;});}
 
+ private async readEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string,path:string){
+  const access=resolveHrEmployeeProfileAccess(actor);
+  await this.employeeForAccess(scope,actor,id,access.scope);
+  const row=await this.profiles.findOne({where:{...scope,employeeId:id,isDeleted:false}}),projection=access.projection;
+  if(!projection)throw new NotFoundException("Employee not found");
+  const projected=projectHrEmployeeProfile(row,projection);
+  const result=projected&&projection==="full"?{...projected,idNumber:this.sensitiveData.decrypt(row?.idNumberEncrypted??null)}:projected;
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_profile",action:"读取员工敏感档案",bizType:"hr_employee",bizId:id,path,fieldGroups:projection==="full"?["identity","contact","demographic","education","qualification"]:["identity","contact"],projection,itemCount:result?1:0});
+  return result;
+ }
+ private async employeeForAccess(scope:TenantParkScope,actor:JwtPrincipal,id:string,accessScope:HrEmployeeAccessScope){
+  if(accessScope==="park")return this.detailEmployee(scope,id);
+  if(accessScope==="none")throw new NotFoundException("Employee not found");
+  const employee=await this.myEmployee(scope,actor),managedIds=accessScope==="managed_org_tree"?await this.managedEmployeeIds(scope,actor):[];
+  if(!isHrEmployeeIdAccessible(accessScope,id,employee.id,managedIds))throw new NotFoundException("Employee not found");
+  return employee.id===id?employee:this.detailEmployee(scope,id);
+ }
  private async validateEmployeeReferences(scope:TenantParkScope,dto:CreateHrEmployeeDto,selfId?:string){if(dto.userId&&!await this.users.exists({where:{id:dto.userId,...scope,isDeleted:false,isEnabled:true}}))throw new BadRequestException("User is unavailable in current scope");if(dto.primaryOrgId)await this.mustOrg(scope,dto.primaryOrgId);if(dto.positionId){const p=await this.positions.findOne({where:{id:dto.positionId,...scope,isDeleted:false,status:"enabled"}});if(!p)throw new BadRequestException("Position is unavailable in current scope");if(dto.primaryOrgId&&p.orgId!==dto.primaryOrgId)throw new BadRequestException("Position does not belong to primary organization");}if(dto.managerEmployeeId){if(dto.managerEmployeeId===selfId)throw new BadRequestException("Employee cannot manage themselves");if(!await this.employees.exists({where:{id:dto.managerEmployeeId,...scope,isDeleted:false}}))throw new BadRequestException("Manager employee is unavailable in current scope");}}
  private async mustOrg(scope:TenantParkScope,id:string){if(!await this.orgs.exists({where:{id,...scope,isDeleted:false,status:"enabled"}}))throw new BadRequestException("Organization is unavailable in current scope");}
  private async managedEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal):Promise<string[]>{const manager=await this.myEmployee(scope,actor);const rows=await this.dataSource.query(HR_MANAGED_EMPLOYEE_IDS_SQL,[scope.tenantId,scope.parkId,actor.sub,manager.id]) as Array<{id:string}>;return rows.map(row=>row.id);}

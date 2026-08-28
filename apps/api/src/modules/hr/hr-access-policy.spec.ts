@@ -2,12 +2,12 @@ import "reflect-metadata";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NotFoundException } from "@nestjs/common";
-import { HR_PERMISSIONS } from "@jinhu/shared";
+import { HR_ACCESS_MATRIX,HR_PERMISSIONS } from "@jinhu/shared";
 import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
 import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
-import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrInsuranceAccessScope } from "./hr-access-policy";
+import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope } from "./hr-access-policy";
 import { HrController } from "./hr.controller";
 import { HrGoalReportController } from "./hr-goal-report.controller";
 import { HrService } from "./hr.service";
@@ -18,12 +18,22 @@ const actor = (permissions: string[], isSuper = false): JwtPrincipal => ({
 
 test("employee access scope is fail-closed from park to managed tree to explicit self or none", () => {
   assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_READ])), "park");
-  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW])), "managed_org_tree");
-  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW])), "managed_org_tree");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ])), "managed_org_tree");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW])), "none");
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW])), "none");
   assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ])), "self");
   assert.equal(resolveHrEmployeeAccessScope(actor([])), "none");
   assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_PAYSLIP_SELF_READ])), "none");
   assert.equal(resolveHrEmployeeAccessScope(actor([], true)), "park");
+});
+
+test("runtime employee and profile access consume the shared role matrix through exact atoms",()=>{
+  assert.equal(resolveHrEmployeeAccessScope(actor([HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ])),HR_ACCESS_MATRIX.DEPARTMENT_MANAGER.employeeScope);
+  assert.deepEqual(resolveHrEmployeeProfileAccess(actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ])),{scope:"park",projection:"masked"});
+  assert.deepEqual(resolveHrEmployeeProfileAccess(actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE])),{scope:"park",projection:"full"});
+  assert.deepEqual(resolveHrEmployeeProfileAccess(actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ])),{scope:"managed_org_tree",projection:"masked"});
+  assert.deepEqual(resolveHrEmployeeProfileAccess(actor([HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ])),{scope:"self",projection:"self_masked"});
+  assert.deepEqual(resolveHrEmployeeProfileAccess(actor([HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ])),{scope:"none",projection:null});
 });
 
 test("employee scope rejects cross-organization targets and never promotes client input", () => {
@@ -95,12 +105,17 @@ test("labor contract projection excludes legacy source, salary, scope, and audit
 test("employee routes expose only the reviewed full, self, and manager permissions", () => {
   const expected = [
     HR_PERMISSIONS.HR_EMPLOYEE_READ,
-    HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ,
-    HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW,
-    HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW
+    HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ,
+    HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ
   ];
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY, HrController.prototype.employees), expected);
   assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY, HrController.prototype.employee), expected);
+  assert.deepEqual(Reflect.getMetadata(ANY_PERMISSIONS_KEY,HrController.prototype.profile),[
+    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ,
+    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_TEAM_READ,
+    HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ
+  ]);
+  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.myProfile),[HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_SELF_READ]);
 });
 
 test("service remains fail-closed when invoked without an employee read permission", async () => {
@@ -145,7 +160,7 @@ test("manager employee scope is derived from tenant and park bounded organizatio
     [employees, ...Array(28).fill({}), {}, dataSource]
   ) as HrService;
   const scope = { tenantId: "tenant-1", parkId: "park-1" };
-  const manager = actor([HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW]);
+  const manager = actor([HR_PERMISSIONS.HR_EMPLOYEE_TEAM_READ]);
 
   assert.deepEqual(
     await service.listEmployees(scope, manager, { page: 1, page_size: 20 }),
@@ -190,19 +205,21 @@ test("sensitive profile projection masks private contact data without full permi
     personalMobile: "13812345678", personalEmail: "person@example.com", address: "江苏省淮安市",
     emergencyContactName: "王小明", emergencyContactMobile: "13987654321", remark: "private note"
   } as HrEmployeeProfileEntity;
-  const masked=projectHrEmployeeProfile(profile, false);
-  assert.deepEqual({id:masked?.id,employeeId:masked?.employeeId,idType:masked?.idType,idNumberMasked:masked?.idNumberMasked,personalMobile:masked?.personalMobile,personalEmail:masked?.personalEmail,address:masked?.address,emergencyContactName:masked?.emergencyContactName,emergencyContactMobile:masked?.emergencyContactMobile,remark:masked?.remark,masked:masked?.masked},{id:"profile-1",employeeId:"employee-1",idType:"resident_id",idNumberMasked:"32**************34",personalMobile:"138****5678",personalEmail:"p***@example.com",address:"***",emergencyContactName:"王**",emergencyContactMobile:"139****4321",remark:null,masked:true});
-  assert.equal(masked?.dateOfBirth,null);
-  assert.equal(masked?.highestEducation,null);
-  assert.equal(projectHrEmployeeProfile(profile, true)?.personalMobile, "13812345678");
-  assert.equal(projectHrEmployeeProfile(profile, true)?.masked, false);
+  const masked=projectHrEmployeeProfile(profile,"masked");
+  assert.deepEqual(masked,{id:"profile-1",employeeId:"employee-1",idType:"resident_id",idNumberMasked:"32**************34",jobTitle:null,jobGrade:null,employeeCategory:null,technicalTitle:null,technicalGrade:null,personalMobile:"138****5678",personalEmail:"p***@example.com",address:"***",emergencyContactName:"王**",emergencyContactMobile:"139****4321",masked:true});
+  assert.equal("remark" in (masked??{}),false);
+  assert.equal("dateOfBirth" in (masked??{}),false);
+  assert.equal("highestEducation" in (masked??{}),false);
+  assert.equal(projectHrEmployeeProfile(profile,"full")?.personalMobile, "13812345678");
+  assert.equal(projectHrEmployeeProfile(profile,"full")?.masked, false);
+  assert.deepEqual(projectHrEmployeeProfile(profile,"self_masked"),masked);
 });
 
 test("already masked identity values are never expanded or rewritten", () => {
   const profile = { id: "p", employeeId: "e", idType: null, idNumberMasked: "3208********1234",
     personalMobile: null, personalEmail: null, address: null, emergencyContactName: null,
     emergencyContactMobile: null, remark: null } as HrEmployeeProfileEntity;
-  assert.equal(projectHrEmployeeProfile(profile, false)?.idNumberMasked, "3208********1234");
+  assert.equal(projectHrEmployeeProfile(profile,"masked")?.idNumberMasked, "3208********1234");
 });
 
 test("self and team read projections omit scope, audit, reviewer and unpublished score internals", () => {
