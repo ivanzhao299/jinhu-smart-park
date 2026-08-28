@@ -47,5 +47,6 @@ export const HR_PERMISSIONS = {
   HR_PAYROLL_RULE_READ: "hr:payroll_rule:read", HR_PAYROLL_FORMULA_REVIEW: "hr:payroll_formula:review",
   HR_PAYROLL_RECONCILIATION_CALCULATE: "hr:payroll_reconciliation:calculate", HR_PAYROLL_RECONCILIATION_REVIEW: "hr:payroll_reconciliation:review",
   HR_APPROVALS_PAGE: "hr:approvals", HR_APPROVAL_SELF_MANAGE: "hr:approval:self_manage", HR_APPROVAL_REVIEW: "hr:approval:review",
-  HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read"
+  HR_POSITION_READ: "hr:position:read", HR_POSITION_MANAGE: "hr:position:manage", HR_EMPLOYMENT_EVENT_READ: "hr:employment_event:read",
+  HR_LEGACY_DICTIONARY_READ: "hr:legacy_dictionary:read", HR_LEGACY_DICTIONARY_MANAGE: "hr:legacy_dictionary:manage", HR_LEGACY_DICTIONARY_APPROVE: "hr:legacy_dictionary:approve"
 } as const;

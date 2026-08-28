@@ -26,6 +26,7 @@ test("employment-event statistics use one scoped aggregate snapshot and stable p
  assert.equal(calls.length,1);
  assert.deepEqual(calls[0]!.params,[scope.tenantId,scope.parkId,"2026-01-01","2026-12-31"]);
  assert.match(calls[0]!.sql,/tenant_id=\$1 AND park_id=\$2 AND is_deleted=false/);
+ assert.match(calls[0]!.sql,/is_historical_import=false OR migration_decision='accepted'/);
  assert.match(calls[0]!.sql,/count\(DISTINCT employee_id\)/);
  assert.doesNotMatch(calls[0]!.sql,/full_name|employee_code|reason|before_snapshot|after_snapshot/);
 });

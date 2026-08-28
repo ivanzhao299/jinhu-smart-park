@@ -101,6 +101,36 @@ export class HrEmployeeDocumentEntity extends AuditableEntity {
  @Column({length:32,default:"active"}) status!:string;
 }
 
+@Entity("hr_legacy_dictionary_version")
+@Index(["tenantId","parkId","sourceSystem","dictionaryCode","sourceSnapshotSha256"],{unique:true})
+export class HrLegacyDictionaryVersionEntity extends AuditableEntity {
+ @Column({name:"source_system",type:"varchar",length:32,default:"yuzhou-v10"}) sourceSystem!:string;
+ @Column({name:"dictionary_code",type:"varchar",length:64}) dictionaryCode!:string;
+ @Column({name:"source_table",type:"varchar",length:128}) sourceTable!:string;
+ @Column({name:"source_snapshot_sha256",type:"char",length:64}) sourceSnapshotSha256!:string;
+ @Column({name:"source_row_count",type:"integer"}) sourceRowCount!:number;
+ @Column({type:"varchar",length:16,default:"draft"}) status!:string;
+ @Column({name:"approved_by",type:"uuid",nullable:true}) approvedBy!:string|null;
+ @Column({name:"approved_at",type:"timestamptz",nullable:true}) approvedAt!:Date|null;
+ @Column({name:"decision_note",type:"varchar",length:500,nullable:true}) decisionNote!:string|null;
+}
+
+@Entity("hr_legacy_dictionary_item")
+@Index(["versionId","sourceIdentitySha256"],{unique:true})
+export class HrLegacyDictionaryItemEntity extends AuditableEntity {
+ @Column({name:"version_id",type:"uuid"}) versionId!:string;
+ @Column({name:"source_code",type:"varchar",length:128,nullable:true}) sourceCode!:string|null;
+ @Column({name:"source_name",type:"varchar",length:255,nullable:true}) sourceName!:string|null;
+ @Column({name:"source_value",type:"varchar",length:255,nullable:true}) sourceValue!:string|null;
+ @Column({name:"source_identity_sha256",type:"char",length:64}) sourceIdentitySha256!:string;
+ @Column({name:"source_row_sha256",type:"char",length:64}) sourceRowSha256!:string;
+ @Column({type:"varchar",length:24}) decision!:string;
+ @Column({name:"target_domain",type:"varchar",length:64,nullable:true}) targetDomain!:string|null;
+ @Column({name:"target_value",type:"varchar",length:64,nullable:true}) targetValue!:string|null;
+ @Column({name:"reason_code",type:"varchar",length:64}) reasonCode!:string;
+ @Column({name:"review_note",type:"varchar",length:500,nullable:true}) reviewNote!:string|null;
+}
+
 @Entity("hr_goal_cycle") @Index(["tenantId","parkId","cycleCode"],{unique:true,where:"is_deleted = false"})
 export class HrGoalCycleEntity extends AuditableEntity {
  @Column({name:"cycle_code",length:64}) cycleCode!:string; @Column({name:"cycle_name",length:100}) cycleName!:string;
@@ -367,4 +397,4 @@ export class HrAttendancePayrollInputBatchEntity extends AuditableEntity { @Colu
 @Entity("hr_attendance_payroll_input_item")
 export class HrAttendancePayrollInputItemEntity extends AuditableEntity { @Column({name:"batch_id",type:"uuid"}) batchId!:string;@Column({name:"employee_id",type:"uuid"}) employeeId!:string;@Column({name:"source_summary_id",type:"uuid"}) sourceSummaryId!:string;@Column({name:"worked_minutes",type:"integer"}) workedMinutes!:number;@Column({name:"late_minutes",type:"integer"}) lateMinutes!:number;@Column({name:"early_minutes",type:"integer"}) earlyMinutes!:number;@Column({name:"absence_days",type:"integer"}) absenceDays!:number;@Column({name:"missing_punch_days",type:"integer"}) missingPunchDays!:number;@Column({name:"difference_trace",type:"jsonb"}) differenceTrace!:Record<string,unknown>; }
 
-export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];
+export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrLegacyDictionaryVersionEntity,HrLegacyDictionaryItemEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];

@@ -65,7 +65,7 @@ export class HrService {
  async detailEmployee(scope:TenantParkScope,id:string){const row=await this.employees.findOne({where:{id,...scope,isDeleted:false}});if(!row)throw new NotFoundException("Employee not found");return row;}
  async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){const accessScope=resolveHrEmployeeAccessScope(actor);if(accessScope==="park")return this.detailEmployee(scope,id);if(accessScope==="none")throw new NotFoundException("Employee not found");const employee=await this.myEmployee(scope,actor);const managedIds=accessScope==="managed_org_tree"?await this.managedEmployeeIds(scope,actor):[];if(!isHrEmployeeIdAccessible(accessScope,id,employee.id,managedIds))throw new NotFoundException("Employee not found");return employee.id===id?employee:this.detailEmployee(scope,id);}
  async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return row;}
- async employeeEvents(scope:TenantParkScope,id:string){await this.detailEmployee(scope,id);return this.events.find({where:{...scope,employeeId:id,isDeleted:false},order:{effectiveDate:"DESC",createTime:"DESC"}});}
+ async employeeEvents(scope:TenantParkScope,id:string){await this.detailEmployee(scope,id);return this.events.find({where:[{...scope,employeeId:id,isHistoricalImport:false,isDeleted:false},{...scope,employeeId:id,isHistoricalImport:true,migrationDecision:"accepted",isDeleted:false}],order:{effectiveDate:"DESC",createTime:"DESC"}});}
  async employmentEventStatistics(scope:TenantParkScope,actor:JwtPrincipal,q:HrEmploymentEventStatisticsQueryDto){
   const from=Date.parse(`${q.from}T00:00:00.000Z`),to=Date.parse(`${q.to}T00:00:00.000Z`),maxSpan=366*25*24*60*60*1000;
   if(!Number.isFinite(from)||!Number.isFinite(to)||from>to)throw new BadRequestException("Employment event statistics date range is invalid");
@@ -73,7 +73,9 @@ export class HrService {
   const rows=await this.dataSource.query(`WITH filtered AS (
     SELECT event_type,effective_date,employee_id,is_historical_import
     FROM hr_employment_event
-    WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false AND effective_date>=$3::date AND effective_date<=$4::date
+    WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+      AND (is_historical_import=false OR migration_decision='accepted')
+      AND effective_date>=$3::date AND effective_date<=$4::date
    ), totals AS (
     SELECT count(*)::int total,count(DISTINCT employee_id)::int employee_count,
       count(*) FILTER(WHERE is_historical_import)::int historical_count,
