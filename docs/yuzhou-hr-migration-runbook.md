@@ -84,9 +84,9 @@ pnpm hr:migration:t0:rollback
 
 ### T5 招聘、档案、培训和奖惩历史
 
-T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_hr_legacy_core_residue_domains.sql` 扩展核心残余字段归档，不调用在线 HR Service。当前恢复库的真实 profile 是 20,163 行：原 9,140 行招聘、档案、培训、奖惩和附件证据保持不变，另纳入 `person=2949`、`person_user=0`、`person_user_item=8`、`readjust=6887`、`readjustitem=8`、`jobstatecode=8`、`compact=802`、`compact_c=357`、`compacttypecode=4`。核心 260 个字段的处置为 38 个直接映射、220 个受控原始归档、2 个安全排除、0 个未覆盖；旧登录密码不迁移，照片二进制继续只保存文件证据。
+T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267` 保留核心残余归档；`000276` 在不删除 raw archive 的前提下，把已审阅的 `person/family/knowhow/ticket` 字段同步物化到员工档案、家庭、技能和证照业务表。物化必须命中 T0 员工映射并绑定稳定 source identity/row hash；未知字段只登记 locator、hash 和 reason code，不把 raw value 写入证据。技能 `grade` 在词典未签署前保持 `proficiency=NULL` 并登记 `UNKNOWN_SKILL_GRADE`。旧登录密码不迁移，照片及证照路径只保留 hash/文件证据。
 
-抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce`。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。核心残余使用 `*.core_residue` 投影身份，与 T0/T1/T2 已迁移的物理源行保持可追溯但不争用 active source identity。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。物化版 manifest 额外绑定 reviewed mapping hash；启用后旧业务哈希不再有效，必须对同一固定源重新执行 A/B 抽取并固定新的 hash，不能手工沿用旧值。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。
 
 加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
 
@@ -94,11 +94,13 @@ T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_
 export ALLOW_YUZHOU_MIGRATION=yes
 export YUZHOU_ETL_CREDENTIAL_FILE='<本机 0600 的只读 ETL 凭据文件>'
 export YUZHOU_MIGRATION_RUN_ID=t5extract_<run>
+export YUZHOU_PROFILE_MATERIALIZATION_KEY='<与目标 API PARTY_DATA_ENCRYPTION_KEY 相同的临时秘密输入>'
 pnpm hr:migration:t5:extract
 
 export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
 export YUZHOU_STAGING_DIR='<上述抽取 staging 目录>'
-export YUZHOU_T5_BUSINESS_SHA256=8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce
+export YUZHOU_T5_BUSINESS_SHA256='<两次新抽取一致的 businessSha256>'
+export YUZHOU_MATERIALIZATION_ACTOR_USER_ID='<隔离园区内启用的审计用户 UUID>'
 pnpm hr:migration:t5:load
 
 export ALLOW_YUZHOU_ROLLBACK=yes
@@ -107,7 +109,7 @@ pnpm hr:migration:t5:rollback
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
 
-生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
+物化密钥只从环境注入，不进入 manifest、日志或 Git；它必须与目标 API 的 `PARTY_DATA_ENCRYPTION_KEY` 一致，否则 full-sensitive API 无法解密。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 
 回滚仅接受 `staged + succeeded` 且已有已验证 rollback point 的批次。每个 active map 的目标 ID、来源表、来源 identity hash 和 row hash 都必须与历史目标一致；普通更新/删除、staged 后追加、修改已冻结计数和错误 run 均由数据库拒绝。
 

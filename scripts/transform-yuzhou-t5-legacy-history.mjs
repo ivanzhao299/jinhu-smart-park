@@ -1,11 +1,25 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
+import { createCipheriv,createHash,createHmac } from "node:crypto";
 import { chmodSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 const dir=resolve(process.argv[2]??"");
 if(!basename(dir).startsWith("staging-")) throw Error("controlled staging directory is required");
 const sha=value=>createHash("sha256").update(value).digest("hex");
+const materializationSeed=process.env.YUZHOU_PROFILE_MATERIALIZATION_KEY??"";
+const mappingContractPath=resolve(import.meta.dirname,"hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json"),mappingContractSha256=sha(readFileSync(mappingContractPath));
+if(mappingContractSha256!=="729f133d9e2d8eee5b7e5122d56bc4ec81d50a57bbd51cf7c7acfd9ac947eba4")throw Error("reviewed employee mapping contract drift");
+const materializationKey=materializationSeed?createHash("sha256").update(materializationSeed).digest():null;
+const text=value=>value===null||value===undefined?null:String(value).trim()||null;
+const protect=(value,context)=>{const normalized=text(value);if(!normalized)return {encrypted:null,masked:null,fingerprint:null};if(!materializationKey)throw Error("YUZHOU_PROFILE_MATERIALIZATION_KEY is required for protected employee materialization");const iv=createHmac("sha256",materializationKey).update(`yuzhou-materialization-v1\0${context}\0${normalized}`).digest().subarray(0,12),cipher=createCipheriv("aes-256-gcm",materializationKey,iv),encrypted=Buffer.concat([cipher.update(normalized,"utf8"),cipher.final()]);return {encrypted:`enc:v1:${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}`,masked:normalized.length<=4?"*".repeat(normalized.length):`${normalized.slice(0,2)}${"*".repeat(Math.min(12,normalized.length-4))}${normalized.slice(-2)}`,fingerprint:`hmac256:${createHmac("sha256",materializationKey).update(normalized).digest("hex")}`};};
+const profileKnown=new Set(["id","person","name","department","job","jobstate","injobdate","formaldate","awaydate","idcard","sex","birthday","race","nativeplace","political","marital","health","heathy","addr","tel","handtel","email","edu","secedu","speciality","degree","graduatescholl","graduatedate","language","jobtitle","jobgrade","password","photo"]);
+const materialize=(name,row)=>{
+  if(name==="person_core"){const id=protect(row.idcard,`person:${row.id}:idcard`);return {kind:"profile",idType:id.encrypted?"resident_id":null,idNumber:id,gender:text(row.sex),dateOfBirth:text(row.birthday),ethnicity:text(row.race),nativePlace:text(row.nativeplace),politicalStatus:text(row.political),maritalStatus:text(row.marital),healthStatus:text(row.health??row.heathy),address:text(row.addr),homePhone:text(row.tel),personalMobile:text(row.handtel),personalEmail:text(row.email),highestEducation:text(row.secedu??row.edu),major:text(row.speciality),degree:text(row.degree),graduationSchool:text(row.graduatescholl),graduationDate:text(row.graduatedate),foreignLanguage:text(row.language),jobTitle:text(row.jobtitle),jobGrade:text(row.jobgrade),gaps:Object.keys(row).filter(key=>!profileKnown.has(key)&&row[key]!==null).sort().map(key=>({fieldLocator:`person.${key}`,reasonCode:"UNKNOWN_FIELD_SEMANTICS"}))};}
+  if(name==="family"){const member=protect(row.member,`family:${row.id}:member`),contact=protect(row.tel,`family:${row.id}:tel`);return {kind:"family",relationship:text(row.rela),fullName:member,contact,birthDate:text(row.birthday),workUnit:text(row.jobunit),jobTitle:text(row.jobname),politicalStatus:text(row.political),gaps:[]};}
+  if(name==="knowhow")return {kind:"skill",skillName:text(row.knowhow),proficiency:null,legacyGrade:text(row.grade),note:text(row.memo),gaps:text(row.grade)?[{fieldLocator:"knowhow.grade",reasonCode:"UNKNOWN_SKILL_GRADE"}]:[]};
+  if(name==="ticket"){const number=protect(row.ticketno,`ticket:${row.id}:ticketno`);return {kind:"credential",credentialType:text(row.tickettype)??"legacy",credentialName:text(row.ticket),number,acquiredDate:text(row.getdate),validTo:text(row.validdate),issuingAuthority:text(row.org),note:text(row.memo),legacyFileReferenceSha256:text(row.ticketfilename)?sha(String(row.ticketfilename)):null,gaps:[]};}
+  return null;
+};
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==="object"?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);
 const read=name=>{const value=JSON.parse(readFileSync(resolve(dir,name),"utf8"));if(!Array.isArray(value))throw Error(`${name} must be an array`);return value;};
 const safePayload=value=>Array.isArray(value)?value.map(safePayload):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,safePayload(item)])):typeof value==="string"?value.replaceAll("\0","\\u0000"):value;
@@ -38,12 +52,12 @@ for(const [name,count] of Object.entries(expected)){
       const detected=/^25504446/i.test(row.magicPrefix??"")?"application/pdf":/^FFD8FF/i.test(row.magicPrefix??"")?"image/jpeg":/^89504E470D0A1A0A/i.test(row.magicPrefix??"")?"image/png":row.actualSize>0?"application/octet-stream":null;
       return identity(name,value,row,{fileRole:"employee_document",legacyPathSha256:(row.FPath||row.fName)?sha(`${row.FPath??""}\0${row.fName??""}`):null,contentSha256:row.contentSha256?.toLowerCase()??null,declaredSize:row.fSize??null,actualSize:row.actualSize??null,declaredMime:row.FType||null,detectedMime:detected,readabilityStatus:row.actualSize>0?"readable":(row.FPath?"path_reference_only":"empty")});
     }
-    return identity(archiveTableFor[name]??name,value,row,{domain:domainFor[name],employeeCode:employeeCodeFor[name]?String(row[employeeCodeFor[name]]??"").trim():null});
+    return identity(archiveTableFor[name]??name,value,row,{domain:domainFor[name],employeeCode:employeeCodeFor[name]?String(row[employeeCodeFor[name]]??"").trim():null,...(["person_core","family","knowhow","ticket"].includes(name)?{materialized:materialize(name,row)}:{})});
   });
   const file=`${name}.jsonl`; domains[name]={sourceObject:`dbo.${name==="photo"?"person.photo":archiveTableFor[name]??name}`,rows:rows.length,file,fileSha256:write(file,rows),objectStatus:name==="jch_1"?"absent":rows.length===0?"empty":"present"};
 }
 const catalogSha256=sha(canonical(catalog));
-const business={formatVersion:1,catalogSha256,domains};
+const business={formatVersion:1,catalogSha256,mappingContractSha256,domains};
 const businessSha256=sha(canonical(business));
 const manifest={...business,businessSha256,generatedAt:new Date().toISOString(),sensitive:true,payloadSanitization:"nul_to_literal_escape_v1",productionImport:"HOLD"};
 const manifestPath=resolve(dir,"manifest.json");writeFileSync(manifestPath,JSON.stringify(manifest,null,2)+"\n",{mode:0o600});chmodSync(manifestPath,0o600);

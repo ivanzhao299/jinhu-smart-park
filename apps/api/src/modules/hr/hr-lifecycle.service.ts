@@ -18,6 +18,7 @@ import {
   CreateHrLifecycleTemplateVersionDto,
   HrLifecycleItemActionDto,
   HrLifecycleListDto,
+  HrLegacyEmployeeMaterializationGapQueryDto,
 } from "./dto/hr-lifecycle.dto";
 
 type Access = "park" | "managed_org_tree" | "self" | "none";
@@ -32,6 +33,16 @@ export class HrLifecycleService {
     return Boolean(
       a.isSuper || a.permissions.includes("*") || a.permissions.includes(p),
     );
+  }
+  async materializationGaps(s:TenantParkScope,a:JwtPrincipal,q:HrLegacyEmployeeMaterializationGapQueryDto){
+    if(!this.has(a,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE))throw new NotFoundException("Materialization gaps not found");
+    const values:unknown[]=[s.tenantId,s.parkId],where=["tenant_id=$1","park_id=$2"];
+    if(q.source_table){values.push(q.source_table);where.push(`source_table=$${values.length}`);}
+    const count=Number((await this.db.query(`SELECT count(*)::int total FROM hr_legacy_employee_materialization_gap WHERE ${where.join(" AND ")}`,values))[0]?.total??0);
+    values.push(q.page_size,(q.page-1)*q.page_size);
+    const items=await this.db.query(`SELECT source_table "sourceTable",source_identity_sha256 "sourceIdentitySha256",source_row_sha256 "sourceRowSha256",field_locator "fieldLocator",reason_code "reasonCode" FROM hr_legacy_employee_materialization_gap WHERE ${where.join(" AND ")} ORDER BY source_table,source_identity_sha256,field_locator LIMIT $${values.length-1} OFFSET $${values.length}`,values);
+    await recordHrSensitiveRead(this.audit,s,a,{resource:"hr.legacy_employee_materialization_gap",action:"读取玉舟员工结构化缺口",bizType:"hr_legacy_employee_materialization_gap",bizId:null,path:"/hr/legacy-materialization/gaps",fieldGroups:[],projection:"admin",itemCount:items.length});
+    return {items,total:count,page:q.page,page_size:q.page_size};
   }
   private scope(a: JwtPrincipal): Access {
     if (this.has(a, HR_PERMISSIONS.HR_LIFECYCLE_READ)) return "park";
@@ -584,6 +595,8 @@ export class HrLifecycleService {
       this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ) || self;
     const credentialAllowed =
       this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ) || self;
+    const familyFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ);
+    const credentialFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ);
     const [experiences, skills, family, credentials] = await Promise.all([
       this.db.query(
         `SELECT id,experience_type "type",organization_name "organizationName",title,start_date "startDate",end_date "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
@@ -595,13 +608,13 @@ export class HrLifecycleService {
       ),
       familyAllowed
         ? this.db.query(
-            `SELECT id,relationship,full_name_masked "fullNameMasked",identity_masked "identityMasked",contact_masked "contactMasked",is_emergency_contact "isEmergencyContact" FROM hr_employee_family WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY create_time`,
+            `SELECT id,relationship,full_name_masked "fullNameMasked",identity_masked "identityMasked",contact_masked "contactMasked",is_emergency_contact "isEmergencyContact",birth_date "birthDate",work_unit "workUnit",job_title "jobTitle",political_status "politicalStatus"${familyFull?',full_name_encrypted "fullNameEncrypted",contact_encrypted "contactEncrypted"':''} FROM hr_employee_family WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY create_time`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),
       credentialAllowed
         ? this.db.query(
-            `SELECT id,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo" FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
+            `SELECT id,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note,legacy_file_reference_sha256 "legacyFileReferenceSha256"${credentialFull?',number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),
@@ -613,7 +626,7 @@ export class HrLifecycleService {
       bizId: employeeId,
       path: "/hr/employees/:id/records",
       fieldGroups: ["identity", "contact", "attachment"],
-      projection: self ? "self" : team ? "team" : "masked",
+      projection: familyFull || credentialFull ? "full" : self ? "self" : team ? "team" : "masked",
       itemCount:
         experiences.length + skills.length + family.length + credentials.length,
     });
@@ -621,8 +634,8 @@ export class HrLifecycleService {
       employeeId,
       experiences,
       skills,
-      family,
-      credentials,
+      family:family.map((row:Record<string,unknown>)=>{const {fullNameEncrypted,contactEncrypted,...safe}=row;return familyFull?{...safe,fullName:this.sensitive.decrypt(fullNameEncrypted as string|null),contact:this.sensitive.decrypt(contactEncrypted as string|null)}:safe;}),
+      credentials:credentials.map((row:Record<string,unknown>)=>{const {numberEncrypted,...safe}=row;return credentialFull?{...safe,credentialNumber:this.sensitive.decrypt(numberEncrypted as string|null)}:safe;}),
       fieldAccess: { family: familyAllowed, credential: credentialAllowed },
     };
   }
@@ -648,7 +661,7 @@ export class HrLifecycleService {
           : null,
         c = d.contact ? this.sensitive.identityProfile(d.contact) : null;
       const r = await this.db.query(
-        `INSERT INTO hr_employee_family(tenant_id,park_id,employee_id,relationship,full_name_encrypted,full_name_masked,full_name_fingerprint,identity_encrypted,identity_masked,identity_fingerprint,contact_encrypted,contact_masked,contact_fingerprint,is_emergency_contact,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$15) RETURNING id`,
+        `INSERT INTO hr_employee_family(tenant_id,park_id,employee_id,relationship,full_name_encrypted,full_name_masked,full_name_fingerprint,identity_encrypted,identity_masked,identity_fingerprint,contact_encrypted,contact_masked,contact_fingerprint,is_emergency_contact,birth_date,work_unit,job_title,political_status,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$19) RETURNING id`,
         [
           s.tenantId,
           s.parkId,
@@ -664,6 +677,10 @@ export class HrLifecycleService {
           c?.masked ?? null,
           c?.hash ?? null,
           d.isEmergencyContact ?? false,
+          d.birthDate ?? null,
+          d.workUnit ?? null,
+          d.familyJobTitle ?? null,
+          d.familyPoliticalStatus ?? null,
           a.sub,
         ],
       );
@@ -672,7 +689,7 @@ export class HrLifecycleService {
     if (d.recordType === "skill") {
       if (!d.skillName) throw new BadRequestException("Skill name is required");
       const r = await this.db.query(
-        `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$7) RETURNING id`,
+        `INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,acquired_date,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$8) RETURNING id`,
         [
           s.tenantId,
           s.parkId,
@@ -680,6 +697,7 @@ export class HrLifecycleService {
           d.skillName,
           d.proficiency ?? null,
           d.acquiredDate ?? null,
+          d.note ?? null,
           a.sub,
         ],
       );
@@ -692,7 +710,7 @@ export class HrLifecycleService {
         ? this.sensitive.identityProfile(d.credentialNumber)
         : null;
       const r = await this.db.query(
-        `INSERT INTO hr_employee_credential(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$12) RETURNING id`,
+        `INSERT INTO hr_employee_credential(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,create_by,update_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$13) RETURNING id`,
         [
           s.tenantId,
           s.parkId,
@@ -705,6 +723,7 @@ export class HrLifecycleService {
           d.issuingAuthority ?? null,
           d.acquiredDate ?? null,
           d.validTo ?? null,
+          d.note ?? null,
           a.sub,
         ],
       );

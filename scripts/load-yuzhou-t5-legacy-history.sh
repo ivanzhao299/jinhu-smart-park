@@ -33,7 +33,8 @@ const catalogPath=join(dir,'catalog.raw.json'),catalog=JSON.parse(readFileSync(c
 const calculatedCatalogHash=createHash('sha256').update(canonical(catalog)).digest('hex');
 if(calculatedCatalogHash!==manifest.catalogSha256)throw Error('catalog hash mismatch');
 if((require('fs').statSync(catalogPath).mode&0o777)!==0o600)throw Error('catalog staging mode must be 0600');
-const business={formatVersion:manifest.formatVersion,catalogSha256:manifest.catalogSha256,domains:manifest.domains};
+if(manifest.mappingContractSha256!=='729f133d9e2d8eee5b7e5122d56bc4ec81d50a57bbd51cf7c7acfd9ac947eba4')throw Error('reviewed employee mapping contract drift');
+const business={formatVersion:manifest.formatVersion,catalogSha256:manifest.catalogSha256,mappingContractSha256:manifest.mappingContractSha256,domains:manifest.domains};
 const calculatedBusinessHash=createHash('sha256').update(canonical(business)).digest('hex');
 if(manifest.businessSha256!==calculatedBusinessHash||calculatedBusinessHash!==pinned)throw Error('business hash mismatch');
 for(const [name,item] of Object.entries(manifest.domains)){
@@ -52,9 +53,11 @@ NODE
 REMOTE="/tmp/yuzhou-t5-$RUN_ID"; docker exec "$PG" mkdir -p "$REMOTE"; docker cp "$COMBINED" "$PG:$REMOTE/all.jsonl"; docker exec "$PG" chown -R postgres:postgres "$REMOTE"; docker exec "$PG" chmod -R go-rwx "$REMOTE"
 CATALOG_HASH="$(node -p "require(process.argv[1]).catalogSha256" "$STAGE/manifest.json")"
 MANIFEST_HASH="$PINNED_BUSINESS_HASH"
+MATERIALIZATION_ACTOR="${YUZHOU_MATERIALIZATION_ACTOR_USER_ID:-}"
+printf %s "$MATERIALIZATION_ACTOR" | grep -Eq '^[0-9a-fA-F-]{36}$' || fail "YUZHOU_MATERIALIZATION_ACTOR_USER_ID is required"
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" \
   -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" \
-  -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v path="$REMOTE/all.jsonl" <<'SQL'
+  -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$MATERIALIZATION_ACTOR" -v path="$REMOTE/all.jsonl" <<'SQL'
 BEGIN;
 SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='10min';
 LOCK TABLE hr_employee,sys_user,hr_employee_compensation,hr_payroll_run,hr_payslip,hr_performance_cycle,hr_performance_plan,hr_performance_item,biz_user_message IN SHARE MODE;
@@ -62,6 +65,7 @@ SELECT set_config('yuzhou.t5_run',:'run',true),set_config('yuzhou.t5_db',:'db',t
 DO $$BEGIN
  IF current_database()<>current_setting('yuzhou.t5_db') OR current_database()!~'^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION 'unsafe target'; END IF;
  IF EXISTS(SELECT 1 FROM migration_batch WHERE run_id=current_setting('yuzhou.t5_run')) THEN RAISE EXCEPTION 'duplicate migration run'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM sys_user WHERE tenant_id=:'tenant' AND park_id=:'park' AND id=:'actor' AND is_deleted=false AND status='enabled') THEN RAISE EXCEPTION 'materialization actor is unavailable'; END IF;
 END$$;
 CREATE TEMP TABLE source_rows(payload jsonb); COPY source_rows FROM :'path';
 DO $$BEGIN IF(SELECT count(*)FROM source_rows)<>20163 THEN RAISE EXCEPTION 'T5 source count drift';END IF;END$$;
@@ -122,6 +126,34 @@ FROM source_rows s LEFT JOIN LATERAL(
   WHERE x.tenant_id=:'tenant' AND x.park_id=:'park' AND NOT x.is_deleted
     AND x.employee_code=s.payload->>'employeeCode'
 )e ON NULLIF(s.payload->>'employeeCode','') IS NOT NULL;
+DO $$BEGIN
+ IF EXISTS(SELECT 1 FROM classified c JOIN hr_employee_profile p ON p.tenant_id=:'tenant' AND p.park_id=:'park' AND p.employee_id=c.employee_id AND p.is_deleted=false WHERE c.payload->'materialized'->>'kind'='profile') THEN RAISE EXCEPTION 'employee profile already exists; reviewed merge is required';END IF;
+END$$;
+INSERT INTO hr_employee_profile(tenant_id,park_id,employee_id,id_type,id_number_encrypted,id_number_masked,id_number_fingerprint,gender,date_of_birth,ethnicity,native_place,political_status,marital_status,health_status,address,home_phone,personal_mobile,personal_email,highest_education,major,degree,graduation_school,graduation_date,foreign_language,job_title,job_grade,source_snapshot,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by)
+SELECT :'tenant',:'park',c.employee_id,m->>'idType',m->'idNumber'->>'encrypted',m->'idNumber'->>'masked',m->'idNumber'->>'fingerprint',m->>'gender',NULLIF(m->>'dateOfBirth','')::date,m->>'ethnicity',m->>'nativePlace',m->>'politicalStatus',m->>'maritalStatus',m->>'healthStatus',m->>'address',m->>'homePhone',m->>'personalMobile',m->>'personalEmail',m->>'highestEducation',m->>'major',m->>'degree',m->>'graduationSchool',NULLIF(m->>'graduationDate','')::date,m->>'foreignLanguage',m->>'jobTitle',m->>'jobGrade',jsonb_build_object('source','yuzhou-v10','sourceIdentitySha256',c.payload->>'sourceIdentitySha256'),c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',:'actor',:'actor'
+FROM classified c CROSS JOIN LATERAL(SELECT c.payload->'materialized' m)materialized
+WHERE c.quarantine_code IS NULL AND m->>'kind'='profile'
+ON CONFLICT(tenant_id,park_id,legacy_source_identity_sha256) WHERE legacy_source_identity_sha256 IS NOT NULL AND is_deleted=false DO NOTHING;
+INSERT INTO hr_employee_family(tenant_id,park_id,employee_id,relationship,full_name_encrypted,full_name_masked,full_name_fingerprint,contact_encrypted,contact_masked,contact_fingerprint,birth_date,work_unit,job_title,political_status,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by)
+SELECT :'tenant',:'park',c.employee_id,m->>'relationship',m->'fullName'->>'encrypted',m->'fullName'->>'masked',m->'fullName'->>'fingerprint',m->'contact'->>'encrypted',m->'contact'->>'masked',m->'contact'->>'fingerprint',NULLIF(m->>'birthDate','')::date,m->>'workUnit',m->>'jobTitle',m->>'politicalStatus',c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',:'actor',:'actor'
+FROM classified c CROSS JOIN LATERAL(SELECT c.payload->'materialized' m)materialized
+WHERE c.quarantine_code IS NULL AND m->>'kind'='family' AND NULLIF(m->>'relationship','') IS NOT NULL AND NULLIF(m->'fullName'->>'encrypted','') IS NOT NULL
+ON CONFLICT(tenant_id,park_id,legacy_source_identity_sha256) WHERE legacy_source_identity_sha256 IS NOT NULL AND is_deleted=false DO NOTHING;
+INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,legacy_grade,note,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by)
+SELECT :'tenant',:'park',c.employee_id,m->>'skillName',NULL,m->>'legacyGrade',m->>'note',c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',:'actor',:'actor'
+FROM classified c CROSS JOIN LATERAL(SELECT c.payload->'materialized' m)materialized
+WHERE c.quarantine_code IS NULL AND m->>'kind'='skill' AND NULLIF(m->>'skillName','') IS NOT NULL
+ON CONFLICT(tenant_id,park_id,legacy_source_identity_sha256) WHERE legacy_source_identity_sha256 IS NOT NULL AND is_deleted=false DO NOTHING;
+INSERT INTO hr_employee_credential(tenant_id,park_id,employee_id,credential_type,credential_name,number_encrypted,number_masked,number_fingerprint,issuing_authority,acquired_date,valid_to,note,legacy_file_reference_sha256,legacy_source_identity_sha256,legacy_source_row_sha256,create_by,update_by)
+SELECT :'tenant',:'park',c.employee_id,m->>'credentialType',m->>'credentialName',m->'number'->>'encrypted',m->'number'->>'masked',m->'number'->>'fingerprint',m->>'issuingAuthority',NULLIF(m->>'acquiredDate','')::date,NULLIF(m->>'validTo','')::date,m->>'note',m->>'legacyFileReferenceSha256',c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',:'actor',:'actor'
+FROM classified c CROSS JOIN LATERAL(SELECT c.payload->'materialized' m)materialized
+WHERE c.quarantine_code IS NULL AND m->>'kind'='credential' AND NULLIF(m->>'credentialName','') IS NOT NULL
+ON CONFLICT(tenant_id,park_id,legacy_source_identity_sha256) WHERE legacy_source_identity_sha256 IS NOT NULL AND is_deleted=false DO NOTHING;
+INSERT INTO hr_legacy_employee_materialization_gap(tenant_id,park_id,source_table,source_identity_sha256,source_row_sha256,field_locator,reason_code)
+SELECT :'tenant',:'park',c.payload->>'sourceTable',c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',gap->>'fieldLocator',gap->>'reasonCode'
+FROM classified c CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.payload->'materialized'->'gaps','[]'::jsonb))gap
+WHERE c.quarantine_code IS NULL
+ON CONFLICT DO NOTHING;
 INSERT INTO hr_legacy_t5_record(tenant_id,park_id,import_batch_id,employee_id,domain,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,mapping_status,record_payload)
 SELECT :'tenant',:'park',b.id,c.employee_id,c.payload->>'domain',c.payload->>'sourceTable','id='||(c.payload->>'sourceKey'),c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256',CASE WHEN NULLIF(c.payload->>'employeeCode','') IS NOT NULL THEN'employee_mapped'ELSE'not_applicable'END,c.payload->'source'
 FROM classified c CROSS JOIN hr_legacy_t5_import_batch b
@@ -181,7 +213,7 @@ SELECT b.id,'T5_ONLINE_STATE_UNCHANGED',to_jsonb(p),to_jsonb(a),'{}'::jsonb,p=a,
  (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_performance_item x) performance_item_hash,
  (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM biz_user_message x) message_hash)a;
 WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run') INSERT INTO migration_rollback_point(batch_id,rollback_code,reversible_scope,cleanup_manifest,evidence_sha256,verified_at)
-SELECT b.id,'T5_LEGACY_HISTORY',jsonb_build_object('runId',:'run','published',false),jsonb_build_object('strategy','active_legacy_record_map','targetTables',jsonb_build_array('hr_legacy_t5_file_evidence','hr_legacy_t5_record')),encode(digest(:'run'||':T5_LEGACY_HISTORY','sha256'),'hex'),now() FROM b;
+SELECT b.id,'T5_LEGACY_HISTORY',jsonb_build_object('runId',:'run','published',false),jsonb_build_object('strategy','active_legacy_record_map_and_source_provenance','targetTables',jsonb_build_array('hr_legacy_employee_materialization_gap','hr_employee_credential','hr_employee_skill','hr_employee_family','hr_employee_profile','hr_legacy_t5_file_evidence','hr_legacy_t5_record')),encode(digest(:'run'||':T5_LEGACY_HISTORY','sha256'),'hex'),now() FROM b;
 UPDATE migration_batch SET phase='verify',status=CASE WHEN EXISTS(SELECT 1 FROM migration_check WHERE batch_id=migration_batch.id AND NOT passed)THEN'failed'ELSE'succeeded'END,counts=(SELECT jsonb_build_object('source',source_row_count,'loaded',loaded_row_count,'quarantined',quarantined_row_count)FROM hr_legacy_t5_import_batch WHERE migration_batch_id=migration_batch.id),finished_at=now() WHERE run_id=:'run';
 DO $$BEGIN IF EXISTS(SELECT 1 FROM migration_check c JOIN migration_batch b ON b.id=c.batch_id WHERE b.run_id=current_setting('yuzhou.t5_run')AND NOT c.passed)THEN RAISE EXCEPTION'T5 verification failed';END IF;END$$;
 COMMIT;
