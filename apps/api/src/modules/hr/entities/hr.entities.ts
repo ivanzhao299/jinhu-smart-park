@@ -148,6 +148,77 @@ export class HrLegacyEmployeeMaterializationGapEntity {
  @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
 }
 
+@Entity("hr_legacy_identity_registry")
+@Index(["tenantId","parkId","sourceSystem","sourceTable","sourceIdentitySha256"],{unique:true})
+export class HrLegacyIdentityRegistryEntity {
+ @PrimaryGeneratedColumn("uuid") id!:string;
+ @Column({name:"tenant_id",type:"varchar",length:64}) tenantId!:string;
+ @Column({name:"park_id",type:"varchar",length:64}) parkId!:string;
+ @Column({name:"source_system",type:"varchar",length:64}) sourceSystem!:string;
+ @Column({name:"source_table",type:"varchar",length:256}) sourceTable!:string;
+ @Column({name:"source_identity_sha256",type:"char",length:64}) sourceIdentitySha256!:string;
+ @Column({name:"source_row_sha256",type:"char",length:64}) sourceRowSha256!:string;
+ @Column({name:"identity_kind",type:"varchar",length:32}) identityKind!:string;
+ @Column({name:"mapping_status",type:"varchar",length:32}) mappingStatus!:string;
+ @Column({name:"owner_employee_id",type:"uuid",nullable:true}) ownerEmployeeId!:string|null;
+ @Column({name:"owner_record_map_id",type:"uuid",nullable:true}) ownerRecordMapId!:string|null;
+ @Column({name:"owner_source_system",type:"varchar",length:64,nullable:true}) ownerSourceSystem!:string|null;
+ @Column({name:"owner_source_table",type:"varchar",length:256,nullable:true}) ownerSourceTable!:string|null;
+ @Column({name:"owner_source_identity_sha256",type:"char",length:64,nullable:true}) ownerSourceIdentitySha256!:string|null;
+ @Column({name:"resolution_reason_code",type:"varchar",length:64,nullable:true}) resolutionReasonCode!:string|null;
+ @Column({name:"resolved_by",type:"uuid",nullable:true}) resolvedBy!:string|null;
+ @Column({name:"resolved_at",type:"timestamptz",nullable:true}) resolvedAt!:Date|null;
+ @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
+ @Column({name:"update_time",type:"timestamptz"}) updateTime!:Date;
+}
+
+@Entity("hr_legacy_archive_record")
+@Index(["tenantId","parkId","identityRegistryId"],{unique:true})
+export class HrLegacyArchiveRecordEntity {
+ @PrimaryGeneratedColumn("uuid") id!:string;
+ @Column({name:"tenant_id",type:"varchar",length:64}) tenantId!:string;
+ @Column({name:"park_id",type:"varchar",length:64}) parkId!:string;
+ @Column({name:"identity_registry_id",type:"uuid"}) identityRegistryId!:string;
+ @Column({name:"record_type",type:"varchar",length:64}) recordType!:string;
+ @Column({name:"occurred_on",type:"date",nullable:true}) occurredOn!:string|null;
+ @Column({name:"display_title",type:"varchar",length:200}) displayTitle!:string;
+ @Column({name:"display_safe_projection",type:"jsonb"}) displaySafeProjection!:Record<string,unknown>;
+ @Column({name:"restricted_safe_projection",type:"jsonb"}) restrictedSafeProjection!:Record<string,unknown>;
+ @Column({name:"encrypted_source_object_ref",type:"varchar",length:512,nullable:true}) encryptedSourceObjectRef!:string|null;
+ @Column({name:"encrypted_source_object_sha256",type:"char",length:64,nullable:true}) encryptedSourceObjectSha256!:string|null;
+ @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
+}
+
+@Entity("hr_legacy_file_blob_object")
+@Index(["tenantId","parkId","contentSha256"],{unique:true})
+export class HrLegacyFileBlobObjectEntity {
+ @PrimaryGeneratedColumn("uuid") id!:string;
+ @Column({name:"tenant_id",type:"varchar",length:64}) tenantId!:string;
+ @Column({name:"park_id",type:"varchar",length:64}) parkId!:string;
+ @Column({name:"content_sha256",type:"char",length:64}) contentSha256!:string;
+ @Column({name:"size_bytes",type:"bigint"}) sizeBytes!:string;
+ @Column({name:"media_type",type:"varchar",length:160}) mediaType!:string;
+ @Column({name:"encrypted_blob_ref",type:"varchar",length:512,nullable:true}) encryptedBlobRef!:string|null;
+ @Column({type:"varchar",length:32}) availability!:string;
+ @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
+}
+
+@Entity("hr_legacy_file_logical_record")
+@Index(["tenantId","parkId","identityRegistryId"],{unique:true})
+export class HrLegacyFileLogicalRecordEntity {
+ @PrimaryGeneratedColumn("uuid") id!:string;
+ @Column({name:"tenant_id",type:"varchar",length:64}) tenantId!:string;
+ @Column({name:"park_id",type:"varchar",length:64}) parkId!:string;
+ @Column({name:"identity_registry_id",type:"uuid"}) identityRegistryId!:string;
+ @Column({name:"archive_record_id",type:"uuid",nullable:true}) archiveRecordId!:string|null;
+ @Column({name:"blob_object_id",type:"uuid",nullable:true}) blobObjectId!:string|null;
+ @Column({name:"logical_kind",type:"varchar",length:32}) logicalKind!:string;
+ @Column({name:"logical_name",type:"varchar",length:255}) logicalName!:string;
+ @Column({name:"source_locator_sha256",type:"char",length:64}) sourceLocatorSha256!:string;
+ @Column({name:"display_order",type:"integer"}) displayOrder!:number;
+ @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
+}
+
 @Entity("hr_goal_cycle") @Index(["tenantId","parkId","cycleCode"],{unique:true,where:"is_deleted = false"})
 export class HrGoalCycleEntity extends AuditableEntity {
  @Column({name:"cycle_code",length:64}) cycleCode!:string; @Column({name:"cycle_name",length:100}) cycleName!:string;
@@ -414,4 +485,4 @@ export class HrAttendancePayrollInputBatchEntity extends AuditableEntity { @Colu
 @Entity("hr_attendance_payroll_input_item")
 export class HrAttendancePayrollInputItemEntity extends AuditableEntity { @Column({name:"batch_id",type:"uuid"}) batchId!:string;@Column({name:"employee_id",type:"uuid"}) employeeId!:string;@Column({name:"source_summary_id",type:"uuid"}) sourceSummaryId!:string;@Column({name:"worked_minutes",type:"integer"}) workedMinutes!:number;@Column({name:"late_minutes",type:"integer"}) lateMinutes!:number;@Column({name:"early_minutes",type:"integer"}) earlyMinutes!:number;@Column({name:"absence_days",type:"integer"}) absenceDays!:number;@Column({name:"missing_punch_days",type:"integer"}) missingPunchDays!:number;@Column({name:"difference_trace",type:"jsonb"}) differenceTrace!:Record<string,unknown>; }
 
-export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrLegacyDictionaryVersionEntity,HrLegacyDictionaryItemEntity,HrLegacyEmployeeMaterializationGapEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];
+export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrLegacyDictionaryVersionEntity,HrLegacyDictionaryItemEntity,HrLegacyEmployeeMaterializationGapEntity,HrLegacyIdentityRegistryEntity,HrLegacyArchiveRecordEntity,HrLegacyFileBlobObjectEntity,HrLegacyFileLogicalRecordEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];
