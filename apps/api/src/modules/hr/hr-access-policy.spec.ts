@@ -245,7 +245,7 @@ test("feedback, self payslip and approval projections expose only task-required 
   assert.equal("reviewerEmployeeId" in projectHrFeedbackAssignment(assignment),false);
   assert.equal("compensationSnapshot" in projectHrPayslip(payslip,true),false);
   assert.equal("employeeId" in projectHrPayslip(payslip,true),false);
-  assert.equal("compensationSnapshot" in projectHrPayslip(payslip,false),true);
+  assert.equal("compensationSnapshot" in projectHrPayslip(payslip,false),false);
   assert.equal("tenantId" in projectHrApproval(approval),false);
 });
 

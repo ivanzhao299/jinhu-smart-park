@@ -97,7 +97,7 @@ export function projectHrPayrollRun(row: HrPayrollRunEntity) {
 
 export function projectHrPayslip(row: HrPayslipEntity, selfOnly: boolean) {
   const base={id:row.id,runId:row.runId,grossAmount:row.grossAmount,deductionAmount:row.deductionAmount,personalTax:row.personalTax,netAmount:row.netAmount,status:row.status,createTime:row.createTime};
-  return selfOnly?base:{...base,employeeId:row.employeeId,compensationSnapshot:row.compensationSnapshot};
+  return selfOnly?base:{...base,employeeId:row.employeeId};
 }
 
 export function projectHrApproval(row: HrApprovalRequestEntity) {
