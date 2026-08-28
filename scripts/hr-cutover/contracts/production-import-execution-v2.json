@@ -1,0 +1,53 @@
+{
+  "formatVersion": 2,
+  "contractKind": "yuzhou_hr_production_import_execution",
+  "contractVersion": "2026-08-29.2",
+  "activation": {
+    "status": "HOLD",
+    "allowedTargets": [],
+    "reasonCodes": ["PRODUCTION_IMPORT_EXECUTION_CONTRACT_NOT_ACTIVATED"]
+  },
+  "transactionIsolation": "SERIALIZABLE",
+  "phaseOrder": ["T0", "T1", "T2", "T3"],
+  "rollbackOrder": ["T3", "T2", "T1", "T0"],
+  "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"],
+  "beforeImageAlgorithm": "aes-256-gcm-external-kek-v1",
+  "canonicalizationVersion": "yuzhou-production-import-canonical-json-v1",
+  "targetScope": {
+    "kind": "tenant_park",
+    "hashAlgorithm": "yuzhou-hr-production-target-scope-v1"
+  },
+  "identityResolution": {
+    "sourceIdentity": "stable_source_identity_sha256",
+    "dependencyResolution": "sealed_record_dependency_graph_exact",
+    "dependencyModes": ["scope", "employee", "record_graph"],
+    "nameMatching": false,
+    "autoCreateLogin": false,
+    "overwrite": false
+  },
+  "targetTables": {
+    "T0": ["sys_org", "hr_position", "hr_employee"],
+    "T1": ["hr_employment_event"],
+    "T2": ["hr_contract_type", "hr_contract", "hr_contract_change", "hr_contract_legacy_evidence"],
+    "T3": ["hr_attendance_import_batch", "hr_attendance_symbol_rule", "hr_attendance_calendar_source", "hr_attendance_day", "hr_insurance_policy", "hr_insurance_policy_item", "hr_employee_insurance_period", "hr_employee_insurance_item"]
+  },
+  "targetTableRules": {
+    "sys_org": { "phase": "T0", "allowedDependencyModes": ["scope", "record_graph"], "requiredDependencies": [], "optionalDependencies": [{ "role": "parent_org", "phases": ["T0"], "targetTables": ["sys_org"] }] },
+    "hr_position": { "phase": "T0", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "org", "phases": ["T0"], "targetTables": ["sys_org"] }], "optionalDependencies": [] },
+    "hr_employee": { "phase": "T0", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "primary_org", "phases": ["T0"], "targetTables": ["sys_org"] }], "optionalDependencies": [{ "role": "position", "phases": ["T0"], "targetTables": ["hr_position"] }] },
+    "hr_employment_event": { "phase": "T1", "allowedDependencyModes": ["employee"], "requiredDependencies": [{ "role": "employee", "phases": ["T0"], "targetTables": ["hr_employee"] }], "optionalDependencies": [] },
+    "hr_contract_type": { "phase": "T2", "allowedDependencyModes": ["scope"], "requiredDependencies": [], "optionalDependencies": [] },
+    "hr_contract": { "phase": "T2", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "employee", "phases": ["T0"], "targetTables": ["hr_employee"] }, { "role": "contract_type", "phases": ["T2"], "targetTables": ["hr_contract_type"] }], "optionalDependencies": [] },
+    "hr_contract_change": { "phase": "T2", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "contract", "phases": ["T2"], "targetTables": ["hr_contract"] }], "optionalDependencies": [] },
+    "hr_contract_legacy_evidence": { "phase": "T2", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "contract", "phases": ["T2"], "targetTables": ["hr_contract"] }], "optionalDependencies": [] },
+    "hr_attendance_import_batch": { "phase": "T3", "allowedDependencyModes": ["scope"], "requiredDependencies": [], "optionalDependencies": [] },
+    "hr_attendance_symbol_rule": { "phase": "T3", "allowedDependencyModes": ["scope"], "requiredDependencies": [], "optionalDependencies": [] },
+    "hr_attendance_calendar_source": { "phase": "T3", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "import_batch", "phases": ["T3"], "targetTables": ["hr_attendance_import_batch"] }], "optionalDependencies": [] },
+    "hr_attendance_day": { "phase": "T3", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "calendar_source", "phases": ["T3"], "targetTables": ["hr_attendance_calendar_source"] }], "optionalDependencies": [] },
+    "hr_insurance_policy": { "phase": "T3", "allowedDependencyModes": ["scope"], "requiredDependencies": [], "optionalDependencies": [] },
+    "hr_insurance_policy_item": { "phase": "T3", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "policy", "phases": ["T3"], "targetTables": ["hr_insurance_policy"] }], "optionalDependencies": [] },
+    "hr_employee_insurance_period": { "phase": "T3", "allowedDependencyModes": ["employee"], "requiredDependencies": [{ "role": "employee", "phases": ["T0"], "targetTables": ["hr_employee"] }], "optionalDependencies": [] },
+    "hr_employee_insurance_item": { "phase": "T3", "allowedDependencyModes": ["record_graph"], "requiredDependencies": [{ "role": "period", "phases": ["T3"], "targetTables": ["hr_employee_insurance_period"] }], "optionalDependencies": [] }
+  },
+  "productionImport": "HOLD"
+}

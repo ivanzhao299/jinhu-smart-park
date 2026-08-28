@@ -114,6 +114,11 @@ jobs:
       - name: Verify engineering project manager RBAC contract
         run: pnpm test:e2e:jh-engineering-project-manager-rbac
 
+      - name: Verify Yuzhou production import stays sealed and unreachable
+        run: |
+          pnpm test:e2e:yuzhou-production-import-preflight
+          pnpm test:e2e:yuzhou-production-import-v2
+
       - name: Lint
         run: pnpm lint
 
@@ -224,6 +229,21 @@ jobs:
 
       - name: Run migration
         run: pnpm db:migrate 2>&1 | tee /tmp/release-smoke-logs/db-migrate.log
+
+      - name: Verify Yuzhou production import v2 PostgreSQL controls
+        run: |
+          lab_db="jinhu_hr_migration_lab_ci_${GITHUB_RUN_ID}"
+          cleanup_lab_db() {
+            docker exec "$POSTGRES_CTN" dropdb -U "$POSTGRES_USER" --if-exists --force "$lab_db" >/dev/null 2>&1 || true
+          }
+          trap cleanup_lab_db EXIT
+          cleanup_lab_db
+          docker exec "$POSTGRES_CTN" createdb -U "$POSTGRES_USER" -T "$POSTGRES_DB" "$lab_db"
+          YUZHOU_POSTGRES_CONTAINER="$POSTGRES_CTN" \
+          YUZHOU_TARGET_DATABASE="$lab_db" \
+          YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT="$COMPOSE_PROJECT_NAME" \
+            pnpm test:e2e:yuzhou-production-import-v2:pg \
+            2>&1 | tee /tmp/release-smoke-logs/yuzhou-production-import-v2-pg.log
 
       - name: Verify housing task reconciliation PostgreSQL parameter types
         env:

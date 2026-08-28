@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
-export const DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-execution-v1.json"), "utf8"));
+export const DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/production-import-execution-v2.json"), "utf8"));
 
 const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
@@ -12,14 +12,19 @@ const OPERATION_ID = /^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/u;
 const ROLLBACK_OPERATION_ID = /^yzprod-rollback-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$/u;
 const SAFE_ALIAS = /^[a-z0-9][a-z0-9-]{5,63}$/u;
 const SAFE_TABLE = /^[a-z][a-z0-9_]{1,95}$/u;
+const SAFE_SCOPE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/u;
+const SAFE_DEPENDENCY_ROLE = /^[a-z][a-z0-9_]{1,31}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|credential|privatekey|bankaccount|idcard|insureaccount|employeename|fullname|mobile|phone|salaryamount|grosspay|netpay/iu;
+const FORBIDDEN_PAYLOAD_SECRET_KEY = /(?:^|_)(?:password|passwd|secret|connection_string|private_key|access_token|refresh_token)(?:$|_)/iu;
 const EXPECTED_TARGET_TABLES = {
   T0: ["sys_org", "hr_position", "hr_employee"],
   T1: ["hr_employment_event"],
   T2: ["hr_contract_type", "hr_contract", "hr_contract_change", "hr_contract_legacy_evidence"],
   T3: ["hr_attendance_import_batch", "hr_attendance_symbol_rule", "hr_attendance_calendar_source", "hr_attendance_day", "hr_insurance_policy", "hr_insurance_policy_item", "hr_employee_insurance_period", "hr_employee_insurance_item"],
 };
+const EXPECTED_TARGET_TABLE_RULES = structuredClone(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT.targetTableRules);
+const CANONICALIZATION_VERSION = "yuzhou-production-import-canonical-json-v1";
 const REQUIRED_APPROVAL_ROLES = ["hr_owner", "data_security_owner", "release_owner"];
 
 export class ProductionImportExecutionError extends Error {
@@ -47,6 +52,9 @@ const canonicalJson = value => {
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const same = (left, right) => canonicalJson(left) === canonicalJson(right);
 export const computeProductionImportApprovalSetHash = approvalSet => sha256(`${canonicalJson(approvalSet)}\n`);
+export const computeProductionImportTargetScopeHash = ({ tenantId, parkId }) => sha256(`yuzhou-hr-production-target-scope-v1\0${tenantId}\0${parkId}`);
+export const computeProductionImportPayloadHash = payload => sha256(`${canonicalJson(payload)}\n`);
+export const computeProductionImportPayloadBundleHash = bundle => sha256(`${canonicalJson(bundle)}\n`);
 
 function scan(value, at = "$") {
   if (Array.isArray(value)) return value.forEach((child, index) => scan(child, `${at}[${index}]`));
@@ -63,36 +71,88 @@ export function computeSealedProductionImportPlanHash(plan) {
 }
 
 function validateContract(contract) {
-  exactKeys(contract, ["formatVersion", "contractKind", "contractVersion", "activation", "transactionIsolation", "phaseOrder", "rollbackOrder", "allowedDispositions", "beforeImageAlgorithm", "identityResolution", "targetTables", "productionImport"], [], "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "contract");
-  if (contract.formatVersion !== 1 || contract.contractKind !== "yuzhou_hr_production_import_execution" || contract.transactionIsolation !== "SERIALIZABLE") fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "identity/isolation invalid");
+  exactKeys(contract, ["formatVersion", "contractKind", "contractVersion", "activation", "transactionIsolation", "phaseOrder", "rollbackOrder", "allowedDispositions", "beforeImageAlgorithm", "canonicalizationVersion", "targetScope", "identityResolution", "targetTables", "targetTableRules", "productionImport"], [], "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "contract");
+  if (contract.formatVersion !== 2 || contract.contractKind !== "yuzhou_hr_production_import_execution" || contract.contractVersion !== "2026-08-29.2" || contract.transactionIsolation !== "SERIALIZABLE") fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "identity/version/isolation invalid");
   if (!same(contract.phaseOrder, ["T0", "T1", "T2", "T3"]) || !same(contract.rollbackOrder, ["T3", "T2", "T1", "T0"])) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "phase order invalid");
   if (!same(contract.allowedDispositions, ["insert", "merge", "quarantine", "skip_approved"]) || contract.beforeImageAlgorithm !== "aes-256-gcm-external-kek-v1") fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "mutation contract invalid");
-  if (!same(contract.identityResolution, { sourceIdentity: "stable_source_identity_sha256", dependentOwnerResolution: "t0_production_record_map_exact", nameMatching: false, autoCreateLogin: false, overwrite: false })) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "identity resolution invalid");
+  if (contract.canonicalizationVersion !== CANONICALIZATION_VERSION) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "canonicalization version invalid");
+  if (!same(contract.targetScope, { kind: "tenant_park", hashAlgorithm: "yuzhou-hr-production-target-scope-v1" })) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "target scope contract invalid");
+  if (!same(contract.identityResolution, { sourceIdentity: "stable_source_identity_sha256", dependencyResolution: "sealed_record_dependency_graph_exact", dependencyModes: ["scope", "employee", "record_graph"], nameMatching: false, autoCreateLogin: false, overwrite: false })) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "identity resolution invalid");
   if (!same(contract.targetTables, EXPECTED_TARGET_TABLES)) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "target table allowlist invalid");
+  if (!same(contract.targetTableRules, EXPECTED_TARGET_TABLE_RULES)) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "target dependency rules invalid");
   exactKeys(contract.activation, ["status", "allowedTargets", "reasonCodes"], [], "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation");
   if (!Array.isArray(contract.activation.allowedTargets) || !Array.isArray(contract.activation.reasonCodes)) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation invalid");
   for (const target of contract.activation.allowedTargets) {
-    exactKeys(target, ["environment", "alias", "identitySha256"], [], "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation target");
+    exactKeys(target, ["environment", "alias", "identitySha256", "targetScopeSha256"], [], "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation target");
     if (target.environment !== "production" || !SAFE_ALIAS.test(target.alias ?? "")) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation target invalid");
     assertSha(target.identitySha256, "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation target identity");
+    assertSha(target.targetScopeSha256, "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation target scope");
   }
   const held = contract.activation.status === "HOLD" && contract.productionImport === "HOLD" && contract.activation.allowedTargets.length === 0 && contract.activation.reasonCodes.length > 0;
   const active = contract.activation.status === "PASS" && contract.productionImport === "READY" && contract.activation.allowedTargets.length === 1 && contract.activation.reasonCodes.length === 0;
   if (!held && !active) fail("PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID", "activation state invalid");
 }
 
+function validateTargetScope(scope, code = "PRODUCTION_IMPORT_TARGET_SCOPE_INVALID", label = "targetScope") {
+  exactKeys(scope, ["tenantId", "parkId", "scopeSha256"], [], code, label);
+  if (!SAFE_SCOPE_ID.test(scope.tenantId ?? "") || !SAFE_SCOPE_ID.test(scope.parkId ?? "")) fail(code, `${label} tenant/park invalid`);
+  assertSha(scope.scopeSha256, code, `${label}.scopeSha256`);
+  if (scope.scopeSha256 !== computeProductionImportTargetScopeHash(scope)) fail("PRODUCTION_IMPORT_TARGET_SCOPE_HASH_MISMATCH", `${label} hash differs`);
+}
+
+function validatePayloadValue(value, label) {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return;
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `${label} numeric values must be safe integers; decimal and money values must be strings`);
+    return;
+  }
+  if (Array.isArray(value)) return value.forEach((child, index) => validatePayloadValue(child, `${label}[${index}]`));
+  if (!value || typeof value !== "object" || Object.getPrototypeOf(value) !== Object.prototype) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `${label} contains a non-JSON value`);
+  for (const [key, child] of Object.entries(value)) {
+    const normalizedKey = key.replaceAll(/([A-Z])/gu, "_$1").toLowerCase();
+    if (FORBIDDEN_PAYLOAD_SECRET_KEY.test(normalizedKey)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `${label}.${key} is a forbidden secret field`);
+    validatePayloadValue(child, `${label}.${key}`);
+  }
+}
+
+export function validateProductionImportPayloadBundle(bundle, { phase, targetScope, sourceBatchManifestSha256, canonicalizationVersion = CANONICALIZATION_VERSION } = {}) {
+  exactKeys(bundle, ["formatVersion", "artifactKind", "phase", "targetScope", "canonicalizationVersion", "sourceBatchManifestSha256", "records"], [], "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "payloadBundle");
+  if (bundle.formatVersion !== 2 || bundle.artifactKind !== "yuzhou_hr_production_import_payload_bundle") fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "identity invalid");
+  if (!EXPECTED_TARGET_TABLES[bundle.phase] || (phase !== undefined && bundle.phase !== phase)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", "phase differs");
+  validateTargetScope(bundle.targetScope, "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "payloadBundle.targetScope");
+  if (targetScope !== undefined && !same(bundle.targetScope, targetScope)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", "target scope differs");
+  if (bundle.canonicalizationVersion !== canonicalizationVersion || bundle.canonicalizationVersion !== CANONICALIZATION_VERSION) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", "canonicalization version differs");
+  assertSha(bundle.sourceBatchManifestSha256, "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "sourceBatchManifestSha256");
+  if (sourceBatchManifestSha256 !== undefined && bundle.sourceBatchManifestSha256 !== sourceBatchManifestSha256) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", "source batch manifest differs");
+  if (!Array.isArray(bundle.records)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "records must be an array");
+  const seen = new Set();
+  for (const [index, row] of bundle.records.entries()) {
+    exactKeys(row, ["sourceIdentitySha256", "sourceRowSha256", "targetTable", "payloadSha256", "payload"], [], "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `records[${index}]`);
+    assertSha(row.sourceIdentitySha256, "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `records[${index}].sourceIdentitySha256`);
+    assertSha(row.sourceRowSha256, "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `records[${index}].sourceRowSha256`);
+    assertSha(row.payloadSha256, "PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `records[${index}].payloadSha256`);
+    if (seen.has(row.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", "duplicate source identity");
+    seen.add(row.sourceIdentitySha256);
+    if (!EXPECTED_TARGET_TABLES[bundle.phase].includes(row.targetTable)) fail("PRODUCTION_IMPORT_TARGET_TABLE_DENIED", `${bundle.phase}.${row.targetTable ?? "missing"}`);
+    if (!row.payload || typeof row.payload !== "object" || Array.isArray(row.payload)) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `records[${index}].payload must be an object`);
+    validatePayloadValue(row.payload, `records[${index}].payload`);
+    if (row.payloadSha256 !== computeProductionImportPayloadHash(row.payload)) fail("PRODUCTION_IMPORT_PAYLOAD_HASH_MISMATCH", row.sourceIdentitySha256);
+  }
+  return structuredClone(bundle);
+}
+
 function validateRecord(record, phase, contract, identities) {
-  exactKeys(record, ["sourceIdentitySha256", "sourceRowSha256", "disposition"], ["ownerSourceIdentitySha256", "targetTable", "targetId", "expectedTargetBeforeSha256", "expectedTargetAfterSha256", "decisionAttestationSha256", "beforeImage", "quarantine"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.record`);
+  exactKeys(record, ["sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"], ["targetTable", "targetId", "expectedTargetBeforeSha256", "expectedTargetAfterSha256", "decisionAttestationSha256", "beforeImage", "quarantine"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.record`);
   assertSha(record.sourceIdentitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "source identity");
   assertSha(record.sourceRowSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "source row");
+  assertSha(record.payloadSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "payload");
   if (identities.has(record.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase} duplicate source identity`);
   identities.add(record.sourceIdentitySha256);
   if (!contract.allowedDispositions.includes(record.disposition)) fail("PRODUCTION_IMPORT_DISPOSITION_INVALID", record.disposition);
-  if (phase !== "T0") {
-    assertSha(record.ownerSourceIdentitySha256, "PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED", `${phase}.ownerSourceIdentitySha256`);
-  } else if (record.ownerSourceIdentitySha256 !== undefined) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "T0 cannot declare a dependent owner");
+  if (!SAFE_TABLE.test(record.plannedTargetTable ?? "") || !contract.targetTables[phase]?.includes(record.plannedTargetTable)) fail("PRODUCTION_IMPORT_TARGET_TABLE_DENIED", `${phase}.${record.plannedTargetTable ?? "missing"}`);
+  if (!contract.identityResolution.dependencyModes.includes(record.dependencyMode) || !Array.isArray(record.dependencyRefs)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${phase}.${record.plannedTargetTable}`);
   if (record.disposition !== "quarantine") {
-    if (!SAFE_TABLE.test(record.targetTable ?? "") || !contract.targetTables[phase]?.includes(record.targetTable)) fail("PRODUCTION_IMPORT_TARGET_TABLE_DENIED", `${phase}.${record.targetTable ?? "missing"}`);
+    if (record.targetTable !== record.plannedTargetTable) fail("PRODUCTION_IMPORT_TARGET_TABLE_DENIED", `${phase} actual target differs from planned target`);
     if (!UUID.test(record.targetId ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.targetId invalid`);
   }
   if (["merge", "skip_approved"].includes(record.disposition)) assertSha(record.expectedTargetBeforeSha256, "PRODUCTION_IMPORT_CAS_PRECONDITION_REQUIRED", `${phase}.expectedTargetBeforeSha256`);
@@ -114,6 +174,58 @@ function validateRecord(record, phase, contract, identities) {
     assertSha(record.quarantine.keyReferenceSha256, "PRODUCTION_IMPORT_QUARANTINE_INVALID", "payload key reference");
     for (const key of ["targetTable", "targetId", "expectedTargetAfterSha256"]) if (record[key] !== undefined) fail("PRODUCTION_IMPORT_QUARANTINE_INVALID", `${key} forbidden`);
   } else if (record.quarantine !== undefined) fail("PRODUCTION_IMPORT_QUARANTINE_INVALID", `${phase}.quarantine is quarantine-only`);
+}
+
+function validateDependencyGraph(plan, contract) {
+  const phaseOrdinal = new Map(contract.phaseOrder.map((phase, index) => [phase, index]));
+  const records = new Map();
+  const activeTargets = new Set();
+  for (const phase of plan.phases) for (const [recordIndex, record] of phase.records.entries()) records.set(`${phase.phase}:${record.sourceIdentitySha256}`, { phase: phase.phase, recordIndex, record });
+  for (const phase of plan.phases) for (const [recordIndex, record] of phase.records.entries()) {
+    const label = `${phase.phase}.${record.plannedTargetTable}.${record.sourceIdentitySha256}`;
+    if (record.disposition !== "quarantine") {
+      const targetKey = `${record.plannedTargetTable}:${record.targetId}`;
+      if (activeTargets.has(targetKey)) fail("PRODUCTION_IMPORT_TARGET_MAP_DUPLICATE", targetKey);
+      activeTargets.add(targetKey);
+    }
+    const rule = contract.targetTableRules[record.plannedTargetTable];
+    if (!rule || rule.phase !== phase.phase || !rule.allowedDependencyModes.includes(record.dependencyMode)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} dependency mode denied`);
+    if (record.dependencyMode === "scope" && record.dependencyRefs.length !== 0) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} scope record cannot have dependencies`);
+    if (record.dependencyMode !== "scope" && record.dependencyRefs.length === 0) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label} dependencies missing`);
+    const roleCounts = new Map();
+    for (const [index, dependency] of record.dependencyRefs.entries()) {
+      exactKeys(dependency, ["role", "phase", "sourceIdentitySha256", "expectedTargetTable"], [], "PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.dependencyRefs[${index}]`);
+      if (!SAFE_DEPENDENCY_ROLE.test(dependency.role ?? "")) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} role invalid`);
+      assertSha(dependency.sourceIdentitySha256, "PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.${dependency.role}.sourceIdentitySha256`);
+      if (!phaseOrdinal.has(dependency.phase) || phaseOrdinal.get(dependency.phase) > phaseOrdinal.get(phase.phase)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} forward phase dependency denied`);
+      if (!SAFE_TABLE.test(dependency.expectedTargetTable ?? "")) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} expected target invalid`);
+      const specification = [...rule.requiredDependencies, ...rule.optionalDependencies].find(candidate => candidate.role === dependency.role);
+      if (!specification || !specification.phases.includes(dependency.phase) || !specification.targetTables.includes(dependency.expectedTargetTable)) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.${dependency.role} not permitted`);
+      roleCounts.set(dependency.role, (roleCounts.get(dependency.role) ?? 0) + 1);
+      if (roleCounts.get(dependency.role) !== 1) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.${dependency.role} duplicated`);
+      const dependencyRecord = records.get(`${dependency.phase}:${dependency.sourceIdentitySha256}`);
+      if (!dependencyRecord || dependencyRecord.record.plannedTargetTable !== dependency.expectedTargetTable) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", `${label}.${dependency.role} record missing or table differs`);
+      if (dependencyRecord.phase === phase.phase && dependencyRecord.record.sourceIdentitySha256 === record.sourceIdentitySha256) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} self dependency denied`);
+      if (dependencyRecord.phase === phase.phase && dependencyRecord.recordIndex >= recordIndex) fail("PRODUCTION_IMPORT_DEPENDENCY_SEQUENCE_INVALID", `${label}.${dependency.role} must precede its dependent record`);
+      if (record.disposition !== "quarantine" && (dependencyRecord.record.disposition === "quarantine" || dependencyRecord.record.targetTable !== dependency.expectedTargetTable || !UUID.test(dependencyRecord.record.targetId ?? ""))) fail("PRODUCTION_IMPORT_DEPENDENCY_RECORD_MAP_REQUIRED", `${label}.${dependency.role} is not an active target map`);
+    }
+    for (const required of rule.requiredDependencies) if (roleCounts.get(required.role) !== 1) fail("PRODUCTION_IMPORT_DEPENDENCY_REQUIRED", `${label}.${required.role} required`);
+    for (const optional of rule.optionalDependencies) if ((roleCounts.get(optional.role) ?? 0) > 1) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label}.${optional.role} duplicated`);
+    if (record.dependencyMode === "employee" && (record.dependencyRefs.length !== 1 || record.dependencyRefs[0].role !== "employee" || record.dependencyRefs[0].phase !== "T0" || record.dependencyRefs[0].expectedTargetTable !== "hr_employee")) fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee mode requires exact T0 employee`);
+    if (record.dependencyMode === "record_graph" && record.dependencyRefs.length === 1 && record.dependencyRefs[0].role === "employee") fail("PRODUCTION_IMPORT_DEPENDENCY_INVALID", `${label} employee-only dependency must use employee mode`);
+  }
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = key => {
+    if (visiting.has(key)) fail("PRODUCTION_IMPORT_DEPENDENCY_CYCLE", key);
+    if (visited.has(key)) return;
+    visiting.add(key);
+    const current = records.get(key);
+    for (const dependency of current?.record.dependencyRefs ?? []) visit(`${dependency.phase}:${dependency.sourceIdentitySha256}`);
+    visiting.delete(key);
+    visited.add(key);
+  };
+  for (const key of records.keys()) visit(key);
 }
 
 function validateTriple(triple, code, label) {
@@ -156,14 +268,15 @@ function validateApprovalSet(approvalSet) {
 
 export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT, now = new Date() } = {}) {
   validateContract(contract);
-  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
+  exactKeys(plan, ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "plan");
   scan(plan);
-  if (plan.formatVersion !== 1 || plan.planKind !== "yuzhou_hr_production_import_sealed_execution_plan" || plan.intent !== "production_import" || plan.status !== "SEALED" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "identity/status invalid");
+  if (plan.formatVersion !== 2 || plan.planKind !== "yuzhou_hr_production_import_sealed_execution_plan" || plan.intent !== "production_import" || plan.status !== "SEALED" || plan.productionImport !== "HOLD") fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "identity/status invalid");
   if (!OPERATION_ID.test(plan.operationId ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "operation id invalid");
   validateTriple(plan.triple, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "triple");
   exactKeys(plan.target, ["environment", "alias", "identitySha256"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target");
   if (plan.target.environment !== "production" || !SAFE_ALIAS.test(plan.target.alias ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target invalid");
   assertSha(plan.target.identitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "target identity");
+  validateTargetScope(plan.targetScope);
   exactKeys(plan.window, ["startsAt", "endsAt"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "window");
   const windowStartsAt = Date.parse(plan.window.startsAt);
   const windowEndsAt = Date.parse(plan.window.endsAt);
@@ -179,29 +292,21 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
   if (issuedAt < windowStartsAt || expiresAt > windowEndsAt) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization validity escapes pinned production window");
   assertSha(plan.manifestSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "manifest");
   validateFinalRehearsalPair(plan.finalRehearsalPair, plan.triple);
-  exactKeys(plan.authorization.binding, ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"], [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
-  const expectedBinding = { triple: plan.triple, targetIdentitySha256: plan.target.identitySha256, finalRehearsalPairSha256: plan.finalRehearsalPair.artifactSha256, manifestSha256: plan.manifestSha256, windowStartsAt: plan.window.startsAt, windowEndsAt: plan.window.endsAt };
+  exactKeys(plan.authorization.binding, ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"], [], "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization.binding");
+  const expectedBinding = { triple: plan.triple, targetIdentitySha256: plan.target.identitySha256, targetScopeSha256: plan.targetScope.scopeSha256, finalRehearsalPairSha256: plan.finalRehearsalPair.artifactSha256, manifestSha256: plan.manifestSha256, windowStartsAt: plan.window.startsAt, windowEndsAt: plan.window.endsAt };
   if (!same(plan.authorization.binding, expectedBinding)) fail("PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH", "authorization does not bind exact A/B, triple, target, manifest and window");
   validateApprovalSet(plan.authorization.approvalSet);
   if (!same(plan.phaseOrder, contract.phaseOrder) || !Array.isArray(plan.phases) || plan.phases.length !== contract.phaseOrder.length) fail("PRODUCTION_IMPORT_PHASE_SEQUENCE_INVALID", "T0-T3 exact phases required");
-  const t0EmployeeMaps = new Map();
   for (let index = 0; index < plan.phases.length; index += 1) {
     const phase = plan.phases[index];
-    exactKeys(phase, ["phase", "ordinal", "sourceBatchManifestSha256", "beforeCanonicalSha256", "expectedAfterCanonicalSha256", "records"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `phases[${index}]`);
+    exactKeys(phase, ["phase", "ordinal", "sourceBatchManifestSha256", "payloadBundleArtifactSha256", "payloadBundleSha256", "canonicalizationVersion", "beforeCanonicalSha256", "expectedAfterCanonicalSha256", "records"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `phases[${index}]`);
     if (phase.phase !== contract.phaseOrder[index] || phase.ordinal !== index || !Array.isArray(phase.records)) fail("PRODUCTION_IMPORT_PHASE_SEQUENCE_INVALID", `phase ${index}`);
-    for (const key of ["sourceBatchManifestSha256", "beforeCanonicalSha256", "expectedAfterCanonicalSha256"]) assertSha(phase[key], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase.phase}.${key}`);
+    for (const key of ["sourceBatchManifestSha256", "payloadBundleArtifactSha256", "payloadBundleSha256", "beforeCanonicalSha256", "expectedAfterCanonicalSha256"]) assertSha(phase[key], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase.phase}.${key}`);
+    if (phase.canonicalizationVersion !== contract.canonicalizationVersion) fail("PRODUCTION_IMPORT_CANONICALIZATION_VERSION_MISMATCH", phase.phase);
     const identities = new Set();
     phase.records.forEach(record => validateRecord(record, phase.phase, contract, identities));
-    if (phase.phase === "T0") {
-      for (const record of phase.records) t0EmployeeMaps.set(record.sourceIdentitySha256, record);
-    } else {
-      for (const record of phase.records) {
-        const owner = t0EmployeeMaps.get(record.ownerSourceIdentitySha256);
-        if (!owner) fail("PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED", `${phase.phase}.ownerSourceIdentitySha256 is absent from T0 record map`);
-        if (record.disposition !== "quarantine" && (owner.targetTable !== "hr_employee" || owner.disposition === "quarantine")) fail("PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED", `${phase.phase}.ownerSourceIdentitySha256 is not an active T0 employee target map`);
-      }
-    }
   }
+  validateDependencyGraph(plan, contract);
   exactKeys(plan.rollback, ["order", "insert", "merge", "quarantine", "skipApproved", "residualCount", "canonicalHash"], [], "PRODUCTION_IMPORT_ROLLBACK_CONTRACT_INVALID", "rollback");
   if (!same(plan.rollback, { order: contract.rollbackOrder, insert: "delete_operation_owned_target", merge: "encrypted_before_image_cas_restore", quarantine: "no_target_write", skipApproved: "no_target_write", residualCount: 0, canonicalHash: "EXACT" })) fail("PRODUCTION_IMPORT_ROLLBACK_CONTRACT_INVALID", "rollback contract invalid");
   exactKeys(plan.sealing, ["algorithm", "sealedPlanSha256"], [], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "sealing");
@@ -214,7 +319,7 @@ export function validateSealedProductionImportPlan(plan, { contract = DEFAULT_PR
 export function assertProductionImportExecutionActivated(plan, contract = DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT) {
   validateContract(contract);
   if (contract.activation.status !== "PASS" || contract.productionImport !== "READY" || contract.activation.reasonCodes.length !== 0) fail("PRODUCTION_IMPORT_EXECUTION_UNAVAILABLE", "execution contract remains HOLD");
-  const matches = contract.activation.allowedTargets.filter(target => target?.environment === "production" && target?.alias === plan.target.alias && target?.identitySha256 === plan.target.identitySha256);
+  const matches = contract.activation.allowedTargets.filter(target => target?.environment === "production" && target?.alias === plan.target.alias && target?.identitySha256 === plan.target.identitySha256 && target?.targetScopeSha256 === plan.targetScope.scopeSha256);
   if (matches.length !== 1 || contract.activation.allowedTargets.length !== 1) fail("PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED", "target must be the sole reviewed target");
 }
 
