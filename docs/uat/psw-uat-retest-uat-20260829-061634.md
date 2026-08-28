@@ -82,4 +82,4 @@ Targeted API set: `109/109` PASS；Web menu `12/12`、auth-routing `57/57`、per
 - PSW-001：Issue #463 / PR #466。
 - PSW-002：Issue #468 / PR #470。
 - PSW-003 + D5：Issue #472 / PR #473。#470 is not the PSW-003 Issue; it is the PSW-002 PR。
-- UAT is PASS. The UAT child and queue parent remain active through report PR review (≤3), PR CI, squash merge, main CI/Deploy and production cleanup evidence; only then will a separate archive change close them. UAT PASS alone is not Deploy status.
+- UAT is PASS. Report PR #476 completed three review rounds and merged as `main@624119680edfa7ade5ec4368c0c9560dd6866b30`; final pre-merge PR CI run `33220312900` and main CI run `33220741327` are SUCCESS. Deploy Production run `33220741393` is workflow SUCCESS, while its production deploy job is explicitly SKIPPED by docs/evidence-only scope: no production service deployment occurred for this merge, so no post-deploy Docker cleanup ran. This is an explicit non-deployment, not a cleanup PASS or failure. The separate archive change now closes the UAT child and queue parent.

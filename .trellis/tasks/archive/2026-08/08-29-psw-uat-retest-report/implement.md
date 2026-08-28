@@ -14,8 +14,8 @@
 - [x] P9：形成报告，更新调查 S1–S3 和 §15 G6 authority；执行证据敏感信息扫描、SHA256 manifest。
 - [x] P10：真实 UI logout，Chrome about:blank；按 PID/fd、project label、精确文件根完成 teardown/residual 清零，删除专用 profile/env。
 - [x] P11：运行 Trellis check、diff check 与文档一致性检查；全 PASS 后归档 PSW-001/002/003、UAT 子任务和父队列。
-- [ ] P12：提交/推送 evidence 分支，开报告 PR；最多三轮 review，关闭发现；PR CI 绿后 squash merge。
-- [ ] P13：确认 main CI 与 Deploy 双绿，核对健康检查和 production Docker cleanup；写最终终报。
+- [x] P12：提交/推送 evidence 分支，开报告 PR；最多三轮 review，关闭发现；PR CI 绿后 squash merge。
+- [x] P13：确认 main CI 与 Deploy 双绿，核对健康检查和 production Docker cleanup；写最终终报。
 
 ## Validation commands
 
@@ -65,4 +65,5 @@ git diff --check
 - 2026-08-29：PR #476 review round 1 returned four valid findings. UAT and parent tasks were restored to active; the initial browser lifecycle remains recorded as FAIL because statistics-page floor/dictionary dependencies returned 403.
 - 2026-08-29：第二且最后一次 business-browser attempt 已在统一 RUN_ID `20260829-061634` 的 fresh lifecycle PASS；PR #476 review round 2 返回三个证据完整性 P2，不再执行新的浏览器重试。
 - 2026-08-29：PR #476 review round 3（最后一轮）返回两个证据完整性 P2；PR CI run `33218392826` 的 Detect Release Smoke Scope、Lint/Typecheck/Build 和 Release Smoke（含 teardown）全部 PASS。不再请求第 4 轮 review。
-- Next：修正本续跑点与 PSW-001 release closure 归档记录，推送并等待最终 PR CI；然后 squash merge，等待 main CI/Deploy 及 production Docker cleanup 终态。
+- 2026-08-29：最终证据提交 `995a8222` 修正 round 3 的两项 P2，严格不再请求第 4 轮 review。PR #476 squash merge 为 `main@624119680edfa7ade5ec4368c0c9560dd6866b30`。合并前最终 PR CI run `33220312900` 全绿，含 Release Smoke property API gate 与容器 teardown；main CI run `33220741327` 全绿。Deploy Production run `33220741393` workflow SUCCESS，但 production deploy job 因 docs/evidence-only scope 明确 SKIPPED，因此本 merge 没有生产服务部署，也没有可执行的 post-deploy Docker cleanup；不将其误报为 cleanup PASS。
+- Next：在 `codex/evidence-psw-uat-archive` 归档 UAT 子任务与父队列，完成归档 PR 门禁后输出终报。
