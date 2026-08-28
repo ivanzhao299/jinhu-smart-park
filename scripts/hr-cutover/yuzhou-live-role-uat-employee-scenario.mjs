@@ -28,22 +28,22 @@ export async function runYuzhouEmployeeScenario({ runner, inspect, employeeId, o
     checkId: "manager_reads_masked_team_profile",
     substitutions: { teamEmployeeId: employeeId },
     bodies: [undefined],
-    assert: responses => ({ masked_projection: data(responses[0])?.id === employeeId, no_sensitive_fields: hasNoSensitive(data(responses[0])) })
+    assert: async responses => ({ masked_projection: data(responses[0])?.employeeId === employeeId && data(responses[0])?.masked === true, no_sensitive_fields: hasNoSensitive(data(responses[0])), required_audit_written: await inspect.auditCount(employeeId) >= 1 })
   }));
   observations.push(await runner.execute({
     legacyId: 35,
     kind: "positive",
     checkId: "employee_reads_masked_self_profile",
     bodies: [undefined],
-    assert: responses => ({ self_projection: data(responses[0])?.id === employeeId, no_sensitive_fields: hasNoSensitive(data(responses[0])) })
+    assert: async responses => ({ self_projection: data(responses[0])?.employeeId === employeeId && data(responses[0])?.masked === true, no_sensitive_fields: hasNoSensitive(data(responses[0])), required_audit_written: await inspect.auditCount(employeeId) >= 1 })
   }));
   observations.push(await runner.execute({
     legacyId: 35,
     kind: "negative",
-    checkId: "manager_cannot_read_sensitive_profile",
-    substitutions: { teamEmployeeId: employeeId },
+    checkId: "manager_cannot_read_cross_tree_profile",
+    substitutions: { outsideEmployeeId },
     bodies: [undefined],
-    assert: async responses => ({ no_sensitive_fields: !data(responses[0]) || hasNoSensitive(data(responses[0])), no_success_audit: await inspect.managerProfileSuccessAuditCount(employeeId) === 0 })
+    assert: async responses => ({ no_target_disclosure: [403,404].includes(responses[0]?.status) && !data(responses[0])?.id, no_sensitive_fields: !data(responses[0]) || hasNoSensitive(data(responses[0])), no_success_audit: await inspect.managerProfileSuccessAuditCount(outsideEmployeeId) === 0 })
   }));
   observations.push(await runner.execute({
     legacyId: 35,

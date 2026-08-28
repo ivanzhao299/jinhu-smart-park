@@ -47,8 +47,8 @@ test("department manager directory stays team-scoped without broad employee perm
   const employeePage=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
   const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
   const seed=readFileSync(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"),"utf8");
-  assert.match(employeePage,/HR_WORK_REPORT_TEAM_REVIEW/);
-  assert.match(employeePage,/HR_PERFORMANCE_MANAGER_REVIEW/);
+  assert.match(employeePage,/canReadTeam=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_TEAM_READ\)/);
+  assert.doesNotMatch(employeePage,/HR_WORK_REPORT_TEAM_REVIEW|HR_PERFORMANCE_MANAGER_REVIEW/);
   assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
   assert.match(employeePage,/isForbiddenError/);
   assert.match(employeePage,/ForbiddenState/);

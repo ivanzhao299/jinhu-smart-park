@@ -12,6 +12,7 @@ const root = resolve(import.meta.dirname, "../..");
 const load = relative => JSON.parse(readFileSync(resolve(root, relative), "utf8"));
 const taskCard = load("scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json");
 const matrix = load("scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json");
+const p0Matrix = load("scripts/hr-cutover/contracts/yuzhou-live-role-uat-p0-matrix-v1.json");
 
 test("the API matrix binds every task-card check to an isolated real HTTP operation", () => {
   const result = validateYuzhouLiveRoleUatApiMatrix(matrix, taskCard);
@@ -20,6 +21,21 @@ test("the API matrix binds every task-card check to an isolated real HTTP operat
   assert.deepEqual(result.legacyIds, [34, 35, 36, 37, 39, 42, 43, 44, 45, 46, 47, 313]);
   assert.match(result.sha256, /^[0-9a-f]{64}$/u);
   assert.equal(result.productionImport, "HOLD");
+});
+
+test("legacy and P0 matrices share the executable full, team, self and cross-tree profile contract",()=>{
+  const legacyById=Object.fromEntries(matrix.checks.filter(check=>check.legacyId===35).map(check=>[check.checkId,check]));
+  const p0ById=Object.fromEntries(p0Matrix.checks.map(check=>[check.id,check]));
+  const routeShape=route=>route.replace(/\{[^}]+\}/gu,"{employeeId}");
+  assert.equal(routeShape(legacyById.hr_reads_sensitive_profile.operations[0].route),routeShape(p0ById.profile_full_projection.route));
+  assert.equal(legacyById.manager_reads_masked_team_profile.operations[0].route,"/hr/employees/{teamEmployeeId}/profile");
+  assert.equal(p0ById.profile_team_projection.route,"/hr/employees/{employeeId}/profile");
+  assert.equal(legacyById.employee_reads_masked_self_profile.operations[0].route,p0ById.profile_self_projection.route);
+  assert.equal(legacyById.manager_cannot_read_cross_tree_profile.operations[0].route,p0ById.profile_cross_tree_hidden.route);
+  assert.equal(legacyById.manager_cannot_read_cross_tree_profile.operations[0].outcome,"not_found_or_forbidden");
+  for(const id of ["hr_reads_sensitive_profile","manager_reads_masked_team_profile","employee_reads_masked_self_profile"]){
+    assert.ok(legacyById[id].assertions.includes("required_audit_written"));
+  }
 });
 
 test("missing cells, unsafe routes, actor drift and proof-free negatives fail closed", () => {

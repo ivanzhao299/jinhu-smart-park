@@ -12,14 +12,14 @@ test("employee profile scenario closes five full, masked, self and denial cells"
     const response = input.checkId === "hr_reads_sensitive_profile"
       ? { status: 200, body: { data: { personalMobile: "synthetic", idNumber: null } } }
       : input.checkId === "manager_reads_masked_team_profile" || input.checkId === "employee_reads_masked_self_profile"
-        ? { status: 200, body: { data: { id: employeeId, employeeCode: "synthetic" } } }
-        : { status: input.checkId === "manager_cannot_read_sensitive_profile" ? 403 : 404, body: { code: "DENIED" } };
+        ? { status: 200, body: { data: { employeeId, masked: true, employeeCode: "synthetic" } } }
+        : { status: input.checkId === "manager_cannot_read_cross_tree_profile" ? 403 : 404, body: { code: "DENIED" } };
     const assertions = await input.assert([response]);
     assert.ok(Object.values(assertions).every(Boolean));
     return { checkId: input.checkId, assertions };
   } };
   const result = await runYuzhouEmployeeScenario({ runner, inspect: { auditCount: async () => 1, managerProfileSuccessAuditCount: async () => 0 }, employeeId, outsideEmployeeId });
   assert.equal(result.observations.length, 5);
-  assert.deepEqual(calls, ["hr_reads_sensitive_profile", "manager_reads_masked_team_profile", "employee_reads_masked_self_profile", "manager_cannot_read_sensitive_profile", "employee_cannot_read_other_employee"]);
+  assert.deepEqual(calls, ["hr_reads_sensitive_profile", "manager_reads_masked_team_profile", "employee_reads_masked_self_profile", "manager_cannot_read_cross_tree_profile", "employee_cannot_read_other_employee"]);
   await assert.rejects(() => runYuzhouEmployeeScenario({ runner, inspect: {}, employeeId, outsideEmployeeId }), /invalid dependencies/u);
 });
