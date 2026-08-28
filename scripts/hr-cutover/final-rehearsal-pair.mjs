@@ -17,8 +17,8 @@ const P0_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contr
 const UAT_TASK_CARD=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"),"utf8"));
 const UAT_API_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8"));
 const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"),"utf8"));
-const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
-const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
+const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","auditBundle"];
+const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const canonical=value=>`${JSON.stringify(value,null,2)}\n`;

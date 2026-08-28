@@ -43,9 +43,11 @@ function configFor(rehearsal, suffix, ports) {
   const etlEnv = join(credentialRoot, "etl.env");
   const t4File = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
+  const materializationKey = join(credentialRoot, "materialization.key");
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
+  writeFileSync(materializationKey, "fixture-materialization-key-32-bytes-minimum\n", { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
   return {
     formatVersion: 1,
@@ -70,6 +72,7 @@ function configFor(rehearsal, suffix, ports) {
       evidenceRoot: join(targetRoot, "evidence"),
       fileRoot: join(targetRoot, "files"),
       credentialArtifact: postgresEnv,
+      materializationKeyArtifact: materializationKey,
       auditBundle: join(credentialRoot, "cleanup-audit.json")
     },
     adapterEnv
@@ -172,6 +175,8 @@ try {
   assert.equal(currentState(configA), "verifying");
 
   const auditA = JSON.parse(readFileSync(configA.target.auditBundle, "utf8"));
+  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 2, "PostgreSQL and materialization credentials must both be registered");
+  assert(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").every((entry) => entry.removed && entry.residualCount === 0));
   const journal = auditA.journal;
   assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 5));
   assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "extract").map((row) => row.domain), DOMAIN_ORDER);

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTER_ENV_ALLOWLIST, LifecycleError, validateConfig } from "./full-domain-lifecycle.mjs";
@@ -48,6 +48,7 @@ function childEnvironment(config, domain, phase) {
     YUZHOU_STAGING_ROOT: config.target.stagingRoot,
     YUZHOU_STAGING_DIR: domain === "T4" ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`) : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`)
   });
+  if (domain === "T5" && phase === "extract") env.YUZHOU_PARTY_DATA_KEY_FILE = config.target.materializationKeyArtifact;
   if (phase === "rollback") env.ALLOW_YUZHOU_ROLLBACK = "yes";
   const allowed = new Set([...BASE_ENV, ...REQUIRED_FIXED, ...CONTRACT.domains[domain].requiredEnv, ...ADAPTER_ENV_ALLOWLIST[domain][phase], "YUZHOU_FIXTURE_DELAY_MS", "YUZHOU_FIXTURE_FAIL"]);
   for (const key of Object.keys(env)) {
@@ -56,10 +57,15 @@ function childEnvironment(config, domain, phase) {
   return env;
 }
 
-function validateCredentialBoundary(config, phase) {
+function validateCredentialBoundary(config, domain, phase) {
   if (phase !== "extract") return;
   const path = config.source.etlEnvFile;
-  if (!existsSync(path) || mode(path) !== "0600") fail("UNSAFE_FILE_PERMISSION", "ETL env file must be a non-symlink 0600 file");
+  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !statSync(path).isFile() || mode(path) !== "0600") fail("UNSAFE_FILE_PERMISSION", "ETL env file must be a non-symlink 0600 file");
+  if (domain === "T5") {
+    const keyPath = config.target.materializationKeyArtifact;
+    if (!existsSync(keyPath) || lstatSync(keyPath).isSymbolicLink() || !statSync(keyPath).isFile() || mode(keyPath) !== "0600") fail("UNSAFE_FILE_PERMISSION", "materialization key must be a non-symlink 0600 file");
+    if (Buffer.byteLength(readFileSync(keyPath, "utf8").trim(), "utf8") < 32) fail("UNSAFE_FILE_PERMISSION", "materialization key must contain at least 32 bytes");
+  }
 }
 
 function fixture(domain, phase, env) {
@@ -76,7 +82,7 @@ function fixture(domain, phase, env) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = validateConfig(JSON.parse(readFileSync(realpathSync(resolve(args.config)), "utf8")));
-  validateCredentialBoundary(config, args.phase);
+  validateCredentialBoundary(config, args.domain, args.phase);
   const env = childEnvironment(config, args.domain, args.phase);
   if (config.backend === "fixture") {
     process.stdout.write(`${JSON.stringify(fixture(args.domain, args.phase, env))}\n`);

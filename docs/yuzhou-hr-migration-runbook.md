@@ -102,7 +102,7 @@ T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267`
 export ALLOW_YUZHOU_MIGRATION=yes
 export YUZHOU_ETL_CREDENTIAL_FILE='<本机 0600 的只读 ETL 凭据文件>'
 export YUZHOU_MIGRATION_RUN_ID=t5extract_<run>
-export PARTY_DATA_ENCRYPTION_KEY='<目标 API 同一密钥的临时秘密输入>'
+export YUZHOU_PARTY_DATA_KEY_FILE='<本机 0600、非符号链接的目标 API 同源实验室密钥文件>'
 pnpm hr:migration:t5:extract
 
 export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
@@ -117,7 +117,7 @@ pnpm hr:migration:t5:rollback
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
 
-物化密钥只通过 `PARTY_DATA_ENCRYPTION_KEY` 从环境注入，不进入 manifest、日志或 Git；转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
+完整演练只传递 `YUZHOU_PARTY_DATA_KEY_FILE` 的受控路径，文件必须为 `0600` 普通非符号链接；转换器从文件读取密钥，密钥内容不进入 config、manifest、日志或 Git。A/B 各持有独立私有副本，但内容必须来自同一个实验室密钥源，才能证明确定性；该实验室密钥不得替代生产密钥。转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 
 回滚仅接受 `staged + succeeded` 且已有已验证 rollback point 的批次。每个 active map 的目标 ID、来源表、来源 identity hash 和 row hash 都必须与历史目标一致；普通更新/删除、staged 后追加、修改已冻结计数和错误 run 均由数据库拒绝。
 

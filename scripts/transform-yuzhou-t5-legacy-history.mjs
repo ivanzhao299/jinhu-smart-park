@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { createCipheriv,createHash,createHmac } from "node:crypto";
-import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 const dir=resolve(process.argv[2]??"");
 if(!basename(dir).startsWith("staging-")) throw Error("controlled staging directory is required");
 const sha=value=>createHash("sha256").update(value).digest("hex");
-const materializationSeed=process.env.PARTY_DATA_ENCRYPTION_KEY??"";
+const keyFile=process.env.YUZHOU_PARTY_DATA_KEY_FILE??"";
+const keyFileMode=path=>(statSync(path).mode&0o777).toString(8).padStart(4,"0");
+if(keyFile&&(!existsSync(keyFile)||lstatSync(keyFile).isSymbolicLink()||!statSync(keyFile).isFile()||keyFileMode(keyFile)!=="0600"))throw Error("YUZHOU_PARTY_DATA_KEY_FILE must be a non-symlink 0600 regular file");
+const materializationSeed=keyFile?readFileSync(realpathSync(keyFile),"utf8").trim():process.env.PARTY_DATA_ENCRYPTION_KEY??"";
 const mappingContractPath=resolve(import.meta.dirname,"hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json"),mappingContractSha256=sha(readFileSync(mappingContractPath));
 if(mappingContractSha256!=="0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3")throw Error("reviewed employee mapping contract drift");
 const materializationKey=materializationSeed?createHash("sha256").update(materializationSeed).digest():null;
-if(Buffer.byteLength(materializationSeed,"utf8")<32)throw Error("PARTY_DATA_ENCRYPTION_KEY must contain at least 32 bytes");
+if(Buffer.byteLength(materializationSeed,"utf8")<32)throw Error("party data materialization key must contain at least 32 bytes");
 const text=value=>value===null||value===undefined?null:String(value).trim()||null;
 const protect=(value,context)=>{const normalized=text(value);if(!normalized)return {encrypted:null,masked:null,fingerprint:null};if(!materializationKey)throw Error("PARTY_DATA_ENCRYPTION_KEY is required for protected employee materialization");const iv=createHmac("sha256",materializationKey).update(`yuzhou-materialization-v1\0${context}\0${normalized}`).digest().subarray(0,12),cipher=createCipheriv("aes-256-gcm",materializationKey,iv),encrypted=Buffer.concat([cipher.update(normalized,"utf8"),cipher.final()]);return {encrypted:`enc:v1:${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}`,masked:normalized.length<=4?"*".repeat(normalized.length):`${normalized.slice(0,2)}${"*".repeat(Math.min(12,normalized.length-4))}${normalized.slice(-2)}`,fingerprint:`hmac256:${createHmac("sha256",materializationKey).update(normalized).digest("hex")}`};};
 const structuredDate=(value,fieldLocator,gaps)=>{const normalized=text(value);if(!normalized)return null;const match=/^(\d{4})-(\d{2})-(\d{2})/.exec(normalized);if(!match){gaps.push({fieldLocator,reasonCode:"INVALID_STRUCTURED_VALUE"});return null;}const canonical=`${match[1]}-${match[2]}-${match[3]}`,date=new Date(`${canonical}T00:00:00.000Z`);if(Number.isNaN(date.valueOf())||date.toISOString().slice(0,10)!==canonical){gaps.push({fieldLocator,reasonCode:"INVALID_STRUCTURED_VALUE"});return null;}return canonical;};

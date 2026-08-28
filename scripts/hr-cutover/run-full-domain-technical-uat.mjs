@@ -2,7 +2,7 @@
 /* global fetch, process, setTimeout, structuredClone */
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { basename, resolve } from "node:path";
 import { buildEvidenceIndex, manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
@@ -37,6 +37,7 @@ const fixtureKeyFor=runId=>`uat${sha256(runId).slice(0,16)}`;
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
+function materializationKey(path){if(!existsSync(path)||lstatSync(path).isSymbolicLink()||!statSync(path).isFile()||(statSync(path).mode&0o777)!==0o600)fail("TECHNICAL_UAT_KEY_INVALID","materialization key must be a non-symlink 0600 file");const value=readFileSync(path,"utf8").trim();if(Buffer.byteLength(value,"utf8")<32)fail("TECHNICAL_UAT_KEY_INVALID","materialization key must contain at least 32 bytes");return value;}
 function psql(config,vars,sql){const args=["exec","-i",config.target.postgresContainer,"psql","-X","-qAt","-v","ON_ERROR_STOP=1","-U","jinhu","-d",config.target.database];for(const [key,value]of Object.entries(vars))args.push("-v",`${key}=${value}`);const result=spawnSync("docker",args,{input:sql,encoding:"utf8",stdio:["pipe","pipe","pipe"]});if(result.status!==0)fail("TECHNICAL_UAT_DATABASE_FAILED",result.stderr.trim().split("\n").at(-1)??"psql");return result.stdout.trim();}
 async function waitUrl(url){for(let n=0;n<120;n+=1){try{const response=await fetch(url);if(response.status<500)return;}catch{/* retry until the isolated service is ready */}await sleep(500);}fail("TECHNICAL_UAT_SERVER_NOT_READY",url);}
 async function request(url,options={},expected=200){const response=await fetch(url,options);if(response.status!==expected)fail("TECHNICAL_UAT_HTTP_FAILED",`${response.status} ${url}`);let body=null;try{body=await response.json();}catch{/* a successful empty response is valid */}return body;}
@@ -68,7 +69,7 @@ export async function runTechnicalUat(configInput){
  const apiMain=resolve(ROOT,"apps/api/dist/main.js");
  if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","build API before the rehearsal");
  buildWebForTarget(config);
- const pg=credential(config.target.credentialArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
+ const pg=credential(config.target.credentialArtifact),partyDataEncryptionKey=materializationKey(config.target.materializationKeyArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
  const users=[`${config.target.accountNamespace}_hr_maker`,`${config.target.accountNamespace}_hr_reviewer`,`${config.target.accountNamespace}_manager`,`${config.target.accountNamespace}_employee`];
  // Business-code columns are intentionally narrower than the globally unique rehearsal run id.
  // Use a deterministic short key for all isolated fixture codes while the manifest retains the full run id.
@@ -101,7 +102,7 @@ COMMIT;`;
  let api,web,result,failure;
  try{
   psql(config,vars,provisionSql);
-  const common={...process.env,POSTGRES_HOST:"127.0.0.1",POSTGRES_PORT:String(config.target.postgresPort),POSTGRES_USER:pg.POSTGRES_USER,POSTGRES_PASSWORD:pg.POSTGRES_PASSWORD,POSTGRES_DB:config.target.database,JWT_SECRET:randomBytes(48).toString("hex"),APP_PORT:String(config.target.apiPort),WEB_ORIGIN:`http://127.0.0.1:${config.target.webPort}`,FILE_STORAGE_LOCAL_ROOT:config.target.fileRoot,AUTH_SMS_FIXED_CODE:"",AUTH_SMS_CODE_VISIBLE:"false",AUTH_WECHAT_MOCK_ENABLED:"false",NODE_ENV:"test"};
+  const common={...process.env,POSTGRES_HOST:"127.0.0.1",POSTGRES_PORT:String(config.target.postgresPort),POSTGRES_USER:pg.POSTGRES_USER,POSTGRES_PASSWORD:pg.POSTGRES_PASSWORD,POSTGRES_DB:config.target.database,JWT_SECRET:randomBytes(48).toString("hex"),PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey,APP_PORT:String(config.target.apiPort),WEB_ORIGIN:`http://127.0.0.1:${config.target.webPort}`,FILE_STORAGE_LOCAL_ROOT:config.target.fileRoot,AUTH_SMS_FIXED_CODE:"",AUTH_SMS_CODE_VISIBLE:"false",AUTH_WECHAT_MOCK_ENABLED:"false",NODE_ENV:"test"};
   api=spawn(process.execPath,[apiMain],{cwd:ROOT,env:common,stdio:"ignore"});
   web=spawn("pnpm",["--filter","@jinhu/web","start"],{cwd:ROOT,env:{...process.env,WEB_PORT:String(config.target.webPort),NEXT_PUBLIC_API_TARGET:`http://127.0.0.1:${config.target.apiPort}`},stdio:"ignore"});
   registryProcesses(config,[api.pid,web.pid]);

@@ -176,7 +176,7 @@
     },
     "T5": {
       "dependsOn": ["T0", "T1", "T2", "T3", "T4"], "extract": "scripts/extract-yuzhou-t5-legacy-history.sh", "transform": "scripts/transform-yuzhou-t5-legacy-history.mjs", "load": "scripts/load-yuzhou-t5-legacy-history.sh", "rollback": "scripts/rollback-yuzhou-t5-legacy-history.sh",
-      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_T5_BUSINESS_SHA256"],
+      "requiredEnv": ["ALLOW_YUZHOU_MIGRATION", "YUZHOU_MIGRATION_RUN_ID", "YUZHOU_SQLSERVER_DATABASE", "YUZHOU_ETL_CREDENTIAL_FILE", "YUZHOU_TARGET_DATABASE", "YUZHOU_STAGING_DIR", "YUZHOU_PARTY_DATA_KEY_FILE", "YUZHOU_T5_BUSINESS_SHA256"],
       "inputs": ["manifest.json", "recruitment.jsonl", "employee-records.jsonl", "training.jsonl", "reward-discipline.jsonl", "file-evidence.jsonl"], "outputs": ["migration_batch", "legacy_record_map", "migration_check"],
       "hashes": ["sourceSnapshot", "catalog", "businessContent"], "mutationFlag": "ALLOW_YUZHOU_MIGRATION=yes", "rollbackFlag": "ALLOW_YUZHOU_ROLLBACK=yes", "targetPolicyRef": "#/isolation", "sideEffectAllowlistRef": "#/onlineSideEffectAllowlist"
     }

@@ -22,7 +22,7 @@ test("fact, order, final-state and import drift fail closed",()=>{
 });
 
 test("runtime vacancy rejects occupied ports, Docker identities and controlled paths before provision",()=>{
- const configs=["A","B"].map((rehearsal,index)=>{const project=`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,root=`/controlled/${project}/runtime`;return{target:{database:project,postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:project,postgresContainer:`${project}-postgres-1`,volume:`${project}_postgres_data`,role:`${project}_operator`,accountNamespace:`yzfull_${rehearsal.toLowerCase()}_${project.slice(-12)}`,root,stagingRoot:`${root}/staging`,evidenceRoot:`${root}/evidence`,fileRoot:`${root}/files`,credentialArtifact:`/controlled/${project}/credentials/postgres.env`,auditBundle:`/controlled/${project}/credentials/cleanup-audit.json`}};});
+ const configs=["A","B"].map((rehearsal,index)=>{const project=`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,root=`/controlled/${project}/runtime`;return{target:{database:project,postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:project,postgresContainer:`${project}-postgres-1`,volume:`${project}_postgres_data`,role:`${project}_operator`,accountNamespace:`yzfull_${rehearsal.toLowerCase()}_${project.slice(-12)}`,root,stagingRoot:`${root}/staging`,evidenceRoot:`${root}/evidence`,fileRoot:`${root}/files`,credentialArtifact:`/controlled/${project}/credentials/postgres.env`,materializationKeyArtifact:`/controlled/${project}/credentials/materialization.key`,auditBundle:`/controlled/${project}/credentials/cleanup-audit.json`}};});
  assert.equal(validatePairResourceIsolation(configs[0],configs[1]).status,"PASS");
  assert.equal(validateRuntimeVacancy(configs).status,"PASS");
  for(const observed of [{busyPorts:[15441]},{composeProjects:[configs[0].target.composeProject]},{containers:[configs[1].target.postgresContainer]},{volumes:[configs[0].target.volume]},{networks:[`${configs[1].target.composeProject}_default`]},{occupiedPaths:[configs[0].target.evidenceRoot]}])assert.throws(()=>validateRuntimeVacancy(configs,observed),error=>error.code==="FINAL_PAIR_RUNTIME_BUSY");
@@ -42,11 +42,12 @@ test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{
 });
 
 test("runner is a fixed fail-closed sequence and deployment workflows do not invoke historical loaders",()=>{
-  const runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs"),deploy=read(".github/workflows/deploy-production.yml");
+  const runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs"),technicalUat=read("scripts/hr-cutover/run-full-domain-technical-uat.mjs"),deploy=read(".github/workflows/deploy-production.yml");
   const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
   let cursor=-1;for(const stage of stages){const next=runner.indexOf(stage,cursor+1);assert(next>cursor,`missing/out-of-order ${stage}`);cursor=next;}
   assert.match(runner,/ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"/u);assert.match(runner,/FINAL_PAIR_P0_HOLD/u);assert.match(runner,/--recover/u);
   assert.match(runner,/assertTechnicalUatPairEvidence/u);assert.match(runner,/FINAL_PAIR_BROWSER_MANIFEST_UNBOUND/u);assert.match(runner,/FINAL_PAIR_BROWSER_SESSION_PROOF_INVALID/u);
+  assert.match(technicalUat,/materializationKeyArtifact/u);assert.match(technicalUat,/PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey/u);
   assert.doesNotMatch(deploy,/load-yuzhou|hr:migration:full|ALLOW_YUZHOU_MIGRATION/u);
 });
 

@@ -44,7 +44,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
   T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
-  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
+  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
 };
 
 export class LifecycleError extends Error {
@@ -161,7 +161,7 @@ export function validateConfig(config) {
     const worktree = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
     if (worktree.status !== 0 || worktree.stdout.trim() !== "") fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }
-  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"], [], "target");
+  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle"], [], "target");
   const target = config.target;
   if (!LAB_ID.test(target.database ?? "") || !LAB_ID.test(target.composeProject ?? "") || target.database !== target.composeProject || FORBIDDEN_TARGET.test(target.database)) fail("UNSAFE_TARGET_IDENTITY", "database and Compose project must be the same full-domain lab identity");
   if (target.volume !== `${target.composeProject}_postgres_data` || target.postgresContainer !== `${target.composeProject}-postgres-1`) fail("UNSAFE_TARGET_IDENTITY", "container and volume must be deterministically namespaced");
@@ -171,9 +171,10 @@ export function validateConfig(config) {
   }
   const ports = [target.postgresPort, target.apiPort, target.webPort];
   if (ports.some((port) => !Number.isInteger(port) || port < 1024 || port > 65535) || new Set(ports).size !== ports.length) fail("UNSAFE_TARGET_IDENTITY", "PostgreSQL/API/Web ports must be distinct unprivileged ports");
-  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
+  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
   for (const field of ["stagingRoot", "evidenceRoot", "fileRoot"]) if (!inside(target.root, target[field])) fail("CLEANUP_PATH_ESCAPE", `${field} must be below target.root`);
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
+  if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
   if (inside(target.root, target.auditBundle) || !target.auditBundle.endsWith(".json")) fail("CLEANUP_PATH_ESCAPE", "auditBundle must be a controlled JSON artifact outside the runtime root");
   exactKeys(config.adapterEnv, DOMAIN_ORDER, [], "adapterEnv");
   for (const domain of DOMAIN_ORDER) {
@@ -201,7 +202,7 @@ export function compareIsolation(configAInput, configBInput) {
   const b = validateConfig(structuredClone(configBInput));
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
-  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"];
+  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle"];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
 }
@@ -313,7 +314,8 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
-    { type: "credential_artifact", planned: t.credentialArtifact }
+    { type: "credential_artifact", planned: t.credentialArtifact },
+    { type: "credential_artifact", planned: t.materializationKeyArtifact }
   ];
   if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
   return resources.map((item) => ({ ...item, observed: item.observed ?? null, removed: false, residualCount: 0 }));
@@ -392,6 +394,8 @@ function provisionLab(config, registry) {
   const t = config.target;
   const p = paths(config);
   if (!existsSync(t.credentialArtifact) || mode(t.credentialArtifact) !== "0600" || lstatSync(t.credentialArtifact).isSymbolicLink()) fail("UNSAFE_FILE_PERMISSION", "credential artifact must be an existing 0600 regular file");
+  if (!existsSync(t.materializationKeyArtifact) || mode(t.materializationKeyArtifact) !== "0600" || lstatSync(t.materializationKeyArtifact).isSymbolicLink() || !statSync(t.materializationKeyArtifact).isFile()) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must be an existing non-symlink 0600 regular file");
+  if (Buffer.byteLength(readFileSync(t.materializationKeyArtifact, "utf8").trim(), "utf8") < 32) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must contain at least 32 bytes");
   const credentialLines = readFileSync(t.credentialArtifact, "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
   const credentialValues = Object.fromEntries(credentialLines.map((line) => {
     const separator = line.indexOf("=");

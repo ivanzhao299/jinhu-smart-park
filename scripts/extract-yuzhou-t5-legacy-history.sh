@@ -6,12 +6,21 @@ RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"
 DATABASE="${YUZHOU_SQLSERVER_DATABASE:-YuzhouHR_Lab_20260820_intake01}"
 CONTAINER="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}"
 CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$ROOT_DIR/database/import-reports/yuzhou-hr/20260820_intake01-etl.env}"
+MATERIALIZATION_KEY_FILE="${YUZHOU_PARTY_DATA_KEY_FILE:-}"
 OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
 [ "$(stat -f '%Lp' "$CREDENTIAL_FILE" 2>/dev/null || stat -c '%a' "$CREDENTIAL_FILE")" = 600 ] || fail "credential file must be mode 0600"
+if [ -n "$MATERIALIZATION_KEY_FILE" ]; then
+  [ "${MATERIALIZATION_KEY_FILE#/}" != "$MATERIALIZATION_KEY_FILE" ] || fail "materialization key file must be an absolute path"
+  [ -f "$MATERIALIZATION_KEY_FILE" ] && [ ! -L "$MATERIALIZATION_KEY_FILE" ] || fail "materialization key file must be a regular non-symlink file"
+  [ "$(stat -f '%Lp' "$MATERIALIZATION_KEY_FILE" 2>/dev/null || stat -c '%a' "$MATERIALIZATION_KEY_FILE")" = 600 ] || fail "materialization key file must be mode 0600"
+  awk 'END{exit NR==1?0:1}' "$MATERIALIZATION_KEY_FILE" || fail "materialization key file must contain one line"
+  grep -Eq '^[0-9a-fA-F]{64}$' "$MATERIALIZATION_KEY_FILE" || fail "materialization key file must contain a 32-byte hex key"
+fi
+[ -n "$MATERIALIZATION_KEY_FILE" ] || fail "protected materialization key file is required"
 . "$CREDENTIAL_FILE"
 [ "$(printf %s "$YUZHOU_SQLSERVER_ETL_LOGIN" | tr '[:upper:]' '[:lower:]')" != sa ] || fail "sa is forbidden for extraction"
 [ "$YUZHOU_SQLSERVER_DATABASE" = "$DATABASE" ] || fail "credential database mismatch"
@@ -24,10 +33,18 @@ OUT="$OUTPUT_ROOT/staging-$RUN_ID"
 [ ! -e "$OUT" ] || fail "staging run already exists"
 mkdir -p "$OUT"; chmod 700 "$OUT"
 query(){
-  name="$1"; sql="$2"
-  docker exec -e ETL_PASSWORD="$YUZHOU_SQLSERVER_ETL_PASSWORD" "$CONTAINER" bash -lc '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U "$1" -P "$ETL_PASSWORD" -d "$2" -y 0 -w 65535 -Q "$3"' q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE" "$sql" | tr -d '\r\n' >"$OUT/$name"
+  name="$1"; sql="$2"; raw="$OUT/.$name.sqlcmd"; err="$OUT/.$name.stderr"
+  if ! docker exec -e ETL_PASSWORD="$YUZHOU_SQLSERVER_ETL_PASSWORD" "$CONTAINER" bash -lc '/opt/mssql-tools18/bin/sqlcmd -b -V 16 -C -S localhost -U "$1" -P "$ETL_PASSWORD" -d "$2" -y 0 -w 65535 -Q "$3"' q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE" "$sql" >"$raw" 2>"$err"; then
+    rm -f "$raw" "$err"
+    fail "SQL query failed for $name"
+  fi
+  rm -f "$err"
+  tr -d '\r\n' <"$raw" >"$OUT/$name"; rm -f "$raw"
   [ -s "$OUT/$name" ] || printf '[]' >"$OUT/$name"
-  node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$OUT/$name"
+  if ! node -e 'try{const value=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));if(!Array.isArray(value))process.exit(1)}catch{process.exit(1)}' "$OUT/$name"; then
+    rm -f "$OUT/$name"
+    fail "invalid JSON array for $name"
+  fi
   chmod 600 "$OUT/$name"
 }
 query catalog.raw.json "SET NOCOUNT ON; SELECT s.name [schema],t.name [table],p.rows [rows],JSON_QUERY((SELECT c.column_id,c.name,ty.name [type],c.max_length,c.is_nullable FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR JSON PATH,INCLUDE_NULL_VALUES)) columns FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id JOIN sys.partitions p ON p.object_id=t.object_id AND p.index_id IN(0,1) WHERE t.name IN ('accept','family','his','knowhow','ticket','person','person_user','person_user_item','readjust','readjustitem','jobstatecode','compact','compact_c','compacttypecode','docs','course','train','trainhis','jobtrain','bonuscode','bonusrecord','jch_1') ORDER BY t.name FOR JSON PATH,INCLUDE_NULL_VALUES;"

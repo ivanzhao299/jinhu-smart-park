@@ -10,7 +10,7 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const T4_BUSINESS_SHA256 = "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800";
-const T5_BUSINESS_SHA256 = "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce";
+const T5_BUSINESS_SHA256 = "5939691dfdddd5912992328dba58505f92bcfb7bb7de07ada571959a52d37005";
 const DEFAULT_TENANT = "10000001";
 const DEFAULT_PARK = "20000001";
 
@@ -37,10 +37,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--materialization-key"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup"]) {
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "materializationKey"]) {
     if (!args[key]) fail(`missing --${key.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`);
   }
   if (!["A", "B"].includes(args.rehearsal)) fail("rehearsal must be A or B");
@@ -84,6 +84,7 @@ function configFor(args, codeSha, mappingContractHash) {
   const etlCopy = join(credentialRoot, "etl.env");
   const t4Copy = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
+  const materializationKey = join(credentialRoot, "materialization.key");
   const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
   const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   privateCopy(etlSource, etlCopy);
@@ -97,6 +98,9 @@ function configFor(args, codeSha, mappingContractHash) {
   if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
   const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
   if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
+  const materializationKeySource = assertRegularFile(args.materializationKey, "materialization key", { privateFile: true });
+  if (Buffer.byteLength(readFileSync(materializationKeySource, "utf8").trim(), "utf8") < 32) fail("materialization key must contain at least 32 bytes");
+  privateCopy(materializationKeySource, materializationKey);
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -148,6 +152,7 @@ function configFor(args, codeSha, mappingContractHash) {
       evidenceRoot: join(runtimeRoot, "evidence"),
       fileRoot: join(runtimeRoot, "files"),
       credentialArtifact: postgresEnv,
+      materializationKeyArtifact: materializationKey,
       auditBundle: join(credentialRoot, "cleanup-audit.json")
     },
     adapterEnv,
@@ -168,6 +173,7 @@ function main() {
   args.etlEnv = resolve(args.etlEnv);
   args.t4Evidence = resolve(args.t4Evidence);
   args.sourceBackup = resolve(args.sourceBackup);
+  args.materializationKey = resolve(args.materializationKey);
   const git = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
   if (git.status !== 0 || git.stdout.trim()) fail("rehearsal preparation requires a clean worktree");
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" });

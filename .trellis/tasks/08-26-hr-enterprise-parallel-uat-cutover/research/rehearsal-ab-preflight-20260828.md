@@ -26,6 +26,7 @@
 umask 077
 export HR_REHEARSAL_CONTROL_ROOT="/Users/mac/Documents/jinhu-smart-park-rehearsals/final-ab"
 export HR_REHEARSAL_SUMMARY_ROOT="/Users/mac/Documents/jinhu-smart-park-rehearsals/final-summary"
+: "${YUZHOU_T5_MATERIALIZATION_KEY_FILE:?set a private 0600 lab-only materialization key file}"
 mkdir -p "$HR_REHEARSAL_CONTROL_ROOT" "$HR_REHEARSAL_SUMMARY_ROOT"
 chmod 700 "$HR_REHEARSAL_CONTROL_ROOT" "$HR_REHEARSAL_SUMMARY_ROOT"
 
@@ -36,7 +37,8 @@ node scripts/hr-cutover/prepare-full-domain-rehearsal.mjs \
   --etl-env "$YUZHOU_ETL_ENV_FILE" \
   --t4-evidence .trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json \
   --source-container "$YUZHOU_SOURCE_CONTAINER" \
-  --source-backup "$YUZHOU_SOURCE_BACKUP_FILE"
+  --source-backup "$YUZHOU_SOURCE_BACKUP_FILE" \
+  --materialization-key "$YUZHOU_T5_MATERIALIZATION_KEY_FILE"
 
 node scripts/hr-cutover/prepare-full-domain-rehearsal.mjs \
   --rehearsal B --suffix final_b_20260828 \
@@ -45,7 +47,8 @@ node scripts/hr-cutover/prepare-full-domain-rehearsal.mjs \
   --etl-env "$YUZHOU_ETL_ENV_FILE" \
   --t4-evidence .trellis/tasks/08-24-yuzhou-hr-t4-payroll-history/research/source-evidence-manifest.json \
   --source-container "$YUZHOU_SOURCE_CONTAINER" \
-  --source-backup "$YUZHOU_SOURCE_BACKUP_FILE"
+  --source-backup "$YUZHOU_SOURCE_BACKUP_FILE" \
+  --materialization-key "$YUZHOU_T5_MATERIALIZATION_KEY_FILE"
 
 node scripts/hr-cutover/final-rehearsal-pair.mjs \
   --config-a "$HR_REHEARSAL_CONTROL_ROOT/jinhu_hr_migration_lab_full_final_a_20260828/credentials/rehearsal-config.json" \
