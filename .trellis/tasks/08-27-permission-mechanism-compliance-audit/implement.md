@@ -13,6 +13,13 @@
 11. 更新既有 #431，完成 review findings 修正，等待最新 PR CI、squash merge 与 main CI/Deploy 双绿。
 12. §15 父任务收口轮 `20260828-112051`：完成 Phase 0 三工件、隔离 migrate/seed/bootstrap/strict baseline、curl/Chrome 预检、产品 API fixture、8 个真实 Chrome 子 Case、专项 API/Web 契约测试、Network/DB/hash/teardown 证据链。结果见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。终局按权威组级口径为 G1 PASS、G4 浏览器+契约证据闭合；G2 完整普通/super/`*` 矩阵、G3 产品 API drift/orphan-parent、G5 module/relogin、G6 asset-local/page-state/API scope、G7 完整文件/审批安全链仍 BLOCKED，因此父任务不得归档。
 
+## s15-progress
+
+- 上轮 `20260828-112051`：G1/G4 PASS，8 个 Chrome 子 Case PASS，无产品 FAIL；G2/G3/G5/G6/G7 因覆盖不足 BLOCKED。权威证据：`docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。
+- 补完轮 `20260828-122122`：在一次性 API+PostgreSQL Compose、独立 PostgreSQL/文件卷和本地 Web/专用 Chrome profile 上完成剩余五项。G2 normal/super/wildcard、模块组合、future/expired 与负向 API PASS；G3 三种产品 API 漂移与 test-only orphan-parent PASS；G5 module toggle + logout/relogin PASS；G6 asset page-local switch/page-state/scoped API PASS；G7 未修改官方 property API safety gate 两 suite PASS，G7 四个浏览器页、Network、DB maker-checker/file/field evidence PASS。
+- 证据索引：`docs/uat/pam-audit-s15-regression-uat-20260828-122122.md`；临时根 `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`；最终 teardown 为 project containers/volumes/network 0 且端口释放。
+- 最终组级状态：G1–G7 全 PASS，无产品 FAIL，无新增 Issue。下一起点：运行 Trellis quality check，提交/推送证据分支，PR review ≤3、CI、squash merge、main CI/Deploy 双绿后归档父任务。
+
 ## 验证与停止条件
 
 - `git diff --check`
