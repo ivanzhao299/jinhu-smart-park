@@ -5,6 +5,8 @@
   "sourceTables": ["dbo.person.core_residue", "dbo.family", "dbo.knowhow", "dbo.ticket"],
   "targetTables": ["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"],
   "identityContract": "legacy_source_identity_sha256_and_employee_map_v1",
+  "employeeMapContract": "active_t0_legacy_record_map_dbo_person_v1",
+  "encryptionKeyContract": "party_data_encryption_key_v1",
   "mappings": {
     "person": {
       "idcard": "protected_id_number",
@@ -33,6 +35,7 @@
     "ticket": {"ticket":"credential_name","tickettype":"credential_type","ticketno":"protected_number","getdate":"acquired_date","validdate":"valid_to","org":"issuing_authority","memo":"note","ticketfilename":"hashed_file_reference_only"}
   },
   "unknownDisposition": "redacted_gap_without_raw_value",
+  "invalidStructuredValueDisposition": "redacted_gap_and_structured_quarantine",
   "skillGradeDisposition": "UNKNOWN_SKILL_GRADE",
   "productionImport": "HOLD"
 }

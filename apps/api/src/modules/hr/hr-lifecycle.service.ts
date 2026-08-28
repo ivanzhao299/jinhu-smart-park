@@ -597,13 +597,14 @@ export class HrLifecycleService {
       this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ) || self;
     const familyFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_FAMILY_READ);
     const credentialFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_READ);
+    const recordFull = this.has(a, HR_PERMISSIONS.HR_EMPLOYEE_RECORD_READ);
     const [experiences, skills, family, credentials] = await Promise.all([
       this.db.query(
         `SELECT id,experience_type "type",organization_name "organizationName",title,start_date "startDate",end_date "endDate",summary FROM hr_employee_experience WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY start_date DESC`,
         [s.tenantId, s.parkId, employeeId],
       ),
       this.db.query(
-        `SELECT id,skill_name "skillName",proficiency,acquired_date "acquiredDate" FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
+        `SELECT id,skill_name "skillName",proficiency,acquired_date "acquiredDate",note${recordFull?',legacy_grade "legacyGrade"':''} FROM hr_employee_skill WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY skill_name`,
         [s.tenantId, s.parkId, employeeId],
       ),
       familyAllowed
@@ -614,7 +615,7 @@ export class HrLifecycleService {
         : Promise.resolve([]),
       credentialAllowed
         ? this.db.query(
-            `SELECT id,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note,legacy_file_reference_sha256 "legacyFileReferenceSha256"${credentialFull?',number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
+            `SELECT id,credential_type "credentialType",credential_name "credentialName",number_masked "numberMasked",issuing_authority "issuingAuthority",acquired_date "acquiredDate",valid_to "validTo",note${credentialFull?',legacy_file_reference_sha256 "legacyFileReferenceSha256",number_encrypted "numberEncrypted"':''} FROM hr_employee_credential WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 AND is_deleted=false ORDER BY valid_to NULLS LAST`,
             [s.tenantId, s.parkId, employeeId],
           )
         : Promise.resolve([]),

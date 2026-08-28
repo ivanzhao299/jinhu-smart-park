@@ -15,7 +15,11 @@ test("000276 adds scoped replay-safe structured provenance without raw gap value
 
 test("T5 materializes only employee-mapped reviewed domains and preserves unknowns as redacted gaps",()=>{
   const transform=read("scripts/transform-yuzhou-t5-legacy-history.mjs"),load=read("scripts/load-yuzhou-t5-legacy-history.sh"),rollback=read("scripts/rollback-yuzhou-t5-legacy-history.sh");
-  assert.match(transform,/YUZHOU_PROFILE_MATERIALIZATION_KEY/);
+  assert.match(transform,/PARTY_DATA_ENCRYPTION_KEY/);
+  assert.match(load,/source_pk_canonical='person='/);
+  assert.match(load,/T5_EMPLOYEE_MATERIALIZATION_ACCOUNTING/);
+  assert.match(load,/source_batch\.status='succeeded'/);
+  for(const block of load.matchAll(/DO \$\$[\s\S]*?END\$\$;/g))assert.doesNotMatch(block[0],/:'(?:tenant|park|actor)'/);
   assert.match(transform,/UNKNOWN_FIELD_SEMANTICS/);
   assert.match(transform,/UNKNOWN_SKILL_GRADE/);
   assert.doesNotMatch(transform,/proficiency:\s*text\(row\.grade\)/);
@@ -24,6 +28,7 @@ test("T5 materializes only employee-mapped reviewed domains and preserves unknow
   for(const table of ["hr_employee_profile","hr_employee_family","hr_employee_skill","hr_employee_credential","hr_legacy_employee_materialization_gap"])assert.match(load,new RegExp(`INSERT INTO ${table}`));
   assert.doesNotMatch(load,/redacted_evidence[^\n]*payload->'source'/);
   for(const table of ["hr_employee_profile","hr_employee_family","hr_employee_skill","hr_employee_credential","hr_legacy_employee_materialization_gap"])assert.match(rollback,new RegExp(`DELETE FROM ${table}`));
+  assert.match(rollback,/T5 employee materialization rollback residual/);
 });
 
 test("API decrypts PII only behind exact full permissions and audits gap reads",()=>{
