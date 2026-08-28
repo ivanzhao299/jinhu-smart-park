@@ -5,16 +5,15 @@ import { useCallback, useEffect, useState } from "react";
 import { PermissionGuard } from "../../../components/auth/PermissionGuard";
 import { useAuthUser } from "../../../lib/auth-context";
 import { getAccessToken } from "../../../lib/authz";
-import { hrApi, type HrPosition } from "../../../lib/hr-api";
+import { hrApi, type HrDirectoryOrgOption, type HrPosition } from "../../../lib/hr-api";
 import { hasPermission } from "../../../lib/permissions";
-import { fetchReferenceFormOptions, type ReferenceOrgOption } from "../../../lib/reference-data";
 import styles from "../hr-workbench.module.css";
 
 export function HrOrganizationClient() {
   const user = useAuthUser();
   const canManage = hasPermission(user, HR_PERMISSIONS.HR_POSITION_MANAGE);
   const [rows, setRows] = useState<HrPosition[]>([]);
-  const [orgs, setOrgs] = useState<ReferenceOrgOption[]>([]);
+  const [orgs, setOrgs] = useState<HrDirectoryOrgOption[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +23,7 @@ export function HrOrganizationClient() {
       const token = getAccessToken();
       const [positions, references] = await Promise.all([
         hrApi.positions(token),
-        canManage ? fetchReferenceFormOptions() : Promise.resolve({ orgs: [] })
+        canManage ? hrApi.directoryOptions(token) : Promise.resolve({ orgs: [], users: [] })
       ]);
       setRows(positions);
       setOrgs(references.orgs);

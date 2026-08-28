@@ -158,6 +158,13 @@ export class HrService {
   });
  }
  async listPositions(scope:TenantParkScope){return this.positions.find({where:{...scope,isDeleted:false},order:{positionCode:"ASC"}});}
+ async directoryOptions(scope:TenantParkScope){
+  const [orgs,users]=await Promise.all([
+   this.orgs.find({where:{...scope,isDeleted:false,status:"enabled"},select:{id:true,orgCode:true,orgName:true,status:true},order:{sortOrder:"ASC",orgName:"ASC"}}),
+   this.users.find({where:{...scope,isDeleted:false,isEnabled:true,status:"enabled"},select:{id:true,username:true,displayName:true,status:true},order:{displayName:"ASC",username:"ASC"}})
+  ]);
+  return {orgs,users};
+ }
  async createPosition(scope:TenantParkScope,actor:JwtPrincipal,dto:CreateHrPositionDto){await this.mustOrg(scope,dto.orgId);if(await this.positions.exists({where:{...scope,positionCode:dto.positionCode,isDeleted:false}}))throw new ConflictException("Position code already exists");return this.positions.save(this.positions.create({...scope,...dto,jobFamily:dto.jobFamily??null,jobLevel:dto.jobLevel??null,headcountLimit:dto.headcountLimit??null,status:dto.status??"enabled",remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));}
 
  async listContracts(scope:TenantParkScope,actor:JwtPrincipal,q:HrContractListQueryDto){

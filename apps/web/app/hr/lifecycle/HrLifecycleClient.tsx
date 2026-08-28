@@ -8,6 +8,7 @@ import { getAccessToken } from "../../../lib/authz";
 import {
   hrApi,
   type HrEmployee,
+  type HrDirectoryUserOption,
   type HrEmploymentEvent,
   type HrEmploymentEventStatistics,
   type HrLifecycleChecklist,
@@ -15,10 +16,6 @@ import {
   type HrLifecycleTemplate,
 } from "../../../lib/hr-api";
 import { hasAnyPermission, hasPermission } from "../../../lib/permissions";
-import {
-  fetchReferenceFormOptions,
-  type ReferenceUserOption,
-} from "../../../lib/reference-data";
 import { hrLoadErrorMessage } from "../hr-errors";
 import styles from "../hr-workbench.module.css";
 import {ProbationApplicationsPanel} from "./ProbationApplicationsPanel";
@@ -71,7 +68,7 @@ export function HrLifecycleClient() {
     [total, setTotal] = useState(0),
     [templates, setTemplates] = useState<HrLifecycleTemplate[]>([]),
     [employees, setEmployees] = useState<HrEmployee[]>([]),
-    [users, setUsers] = useState<ReferenceUserOption[]>([]),
+    [users, setUsers] = useState<HrDirectoryUserOption[]>([]),
     [events, setEvents] = useState<HrEmploymentEvent[]>([]),
     [statistics, setStatistics] = useState<HrEmploymentEventStatistics | null>(null),
     [statisticsFrom, setStatisticsFrom] = useState(initialStatisticsFrom),
@@ -113,7 +110,7 @@ export function HrLifecycleClient() {
           ? hrApi.employees(token, 1, 100)
           : Promise.resolve({ items: [], total: 0, page: 1, page_size: 100 }),
         canAssign
-          ? fetchReferenceFormOptions()
+          ? hrApi.directoryOptions(token, c.signal)
           : Promise.resolve({ users: [], orgs: [] }),
       ]);
       if (g !== generation.current) return;

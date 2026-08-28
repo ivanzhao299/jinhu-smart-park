@@ -13,6 +13,7 @@ import { HrService } from "./hr.service";
 @Controller("hr") @RequireModule("hr")
 export class HrController {
  constructor(private readonly service:HrService){}
+ @Get("directory-options") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_MANAGE,HR_PERMISSIONS.HR_POSITION_MANAGE,HR_PERMISSIONS.HR_REQUISITION_MANAGE,HR_PERMISSIONS.HR_CANDIDATE_MANAGE,HR_PERMISSIONS.HR_LIFECYCLE_ASSIGN) directoryOptions(@CurrentScope()s:TenantParkScope){return this.service.directoryOptions(s);}
  @Get("employees") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ,HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW,HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW) employees(@CurrentScope()s:TenantParkScope,@CurrentUser()u:JwtPrincipal,@Query()q:HrListQueryDto){return this.service.listEmployees(s,u,q);}
  @Get("employees/me") @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ) me(@CurrentScope()s:TenantParkScope,@CurrentUser()u:JwtPrincipal){return this.service.myEmployee(s,u);}
  @Get("employees/:id") @RequireAnyPermissions(HR_PERMISSIONS.HR_EMPLOYEE_READ,HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ,HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW,HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW) employee(@CurrentScope()s:TenantParkScope,@CurrentUser()u:JwtPrincipal,@Param("id",new ParseUUIDPipe())id:string){return this.service.detailEmployeeForActor(s,u,id);}

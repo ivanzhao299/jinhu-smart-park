@@ -46,6 +46,7 @@ test("the full-domain technical runner binds separated actors to API and real br
   assert.match(source, /hrReviewer','HR Reviewer UAT/);
   assert.match(source, /runYuzhouWorkReportScenario/);
   assert.match(source, /runYuzhouLiveRoleUatBrowserMatrix/);
+  assert.match(source, /\/hr\/directory-options/);
   assert.match(source, /buildWebForTarget\(config\)/);
   assert.match(source, /NEXT_PUBLIC_API_TARGET:apiTarget/);
   assert.match(source, /TECHNICAL_UAT_WEB_TARGET_MISMATCH/);

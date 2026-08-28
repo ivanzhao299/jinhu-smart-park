@@ -152,8 +152,12 @@ export interface HrContractListFilters {keyword?:string;status?:string;expiryFro
 export interface HrAttendanceFilters {year?:number;month?:number;}
 export interface HrAttendanceRequestFilters {type?:string;status?:string;}
 export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
+export interface HrDirectoryOrgOption {id:string;orgCode:string;orgName:string;status:string;}
+export interface HrDirectoryUserOption {id:string;username:string;displayName:string;realName?:string;status:string;}
+export interface HrDirectoryOptions {orgs:HrDirectoryOrgOption[];users:HrDirectoryUserOption[];}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ directoryOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrDirectoryOptions>("/hr/directory-options",{token,signal})),
  recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},
  createRecruitmentRequisition:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-requisition-create"))=>unwrap(apiRequest<HrRequisition>("/hr/recruitment/requisitions",{method:"POST",body,token,idempotencyKey})),
  recruitmentCandidates:(token?:string,page=1,pageSize=50,filters:{keyword?:string;stage?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.stage)q.set("stage",filters.stage);return unwrap(apiRequest<PaginatedResult<HrCandidate>>(`/hr/recruitment/candidates?${q}`,{token,signal}));},
