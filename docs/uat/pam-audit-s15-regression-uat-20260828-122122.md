@@ -25,9 +25,9 @@
 | G2 module combinations/time windows | PASS | Review-fix Chrome evidence covers normal/super/wildcard `enabled_modules`, Sidebar, route and API in legal, disabled, asset-only, no-property-module, future and expired states. Business-without-asset is rejected by the product API with 409. |
 | G3 malformed metadata | PASS | A superuser used the product `PATCH /permissions/:id` path to drift `permType`, `action`, and `frontendRoute`; each fresh browser login omitted the canonical housing page and restoration returned it. A test-only malformed-tree contract injects an orphan parent and proves the orphan is skipped rather than promoted. |
 | G4 dual representation / first landing | PASS | Carried from `20260828-112051`: browser cases plus API/Web menu and first-href contracts passed. |
-| G5 authorization refresh | PASS | Prior permission two-tab result plus review-fix module disable/enable on two already-open tabs proves cached DOM, `/users/me`, refresh and explicit relogin convergence under the refresh-after-change contract. |
-| G6 park switch | PASS | Review-fix page-local A→B switch proves authoritative `/users/me`, page state and response-body scope: Park A statistics contain A fixtures, Park B statistics exclude them, and `/buildings` contains only the Park-B-specific `PAMS15BONLY` fixture. |
-| G7 original security regression | PASS | The unmodified property API gate passed both suites. Review-fix API evidence adds Homestay dependency 200→403→409→200, cross-tenant/park/data denials, applied hidden/masked projections, and upload/list/detail/download/delete/post-delete plus bound-file delete protection. Maker-checker and browser deep-link evidence remain PASS. |
+| G5 authorization refresh | PASS | Page, action and module mutations all cover two tabs, refresh and explicit relogin. The final action-only delta proves 403 → permissions projection → DTO-layer 400 → revoke → 403 on both tabs. |
+| G6 park switch | PASS | Final page-local A→B switch uses genuinely different park-scoped role links and assignments: A wildcard+housing versus B explicit asset-statistics with housing disabled. `/users/me`, Sidebar, route/page state and statistics API converge and exclude A data. |
+| G7 original security regression | PASS | The unmodified property API gate passed both suites. Final supplements cover 28 Homestay endpoints under asset-off, five protected biz types each through list/detail/upload/download/delete protection, booking identity/credential/housing finance projections, restricted-unit scope, and maker-checker CAS/idempotency/concurrency/retry/immutable contracts. |
 
 ## 4. G2 details
 
@@ -92,6 +92,7 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - The first orphan-parent contract assertion incorrectly expected the entire fallback menu to be empty; it was corrected to assert the orphan itself is absent. The final 13/13 test file passed.
 - The G7 Chrome login form did not dispatch a request under the small standalone Ant Form harness. The final accepted run called the real login API, kept the access token in memory only, injected it into the dedicated same-origin CDP profile, and executed every page/network assertion in Chrome.
 - Review round 1 produced five valid coverage/authority findings. Early review-fix runner attempts calibrated page-only API expectations (403 by design) and the sticky `/403` route; the accepted G5 run used two already-open module-free `/dashboard` tabs, matching the refresh-after-change contract. These were harness expectation failures, not product failures.
+- Review round 2 produced seven valid granularity findings. The first final-lifecycle attempt ran asset-off after approval runtime data existed and correctly hit `Asset runtime control state is partial or inconsistent`; the disposable project and both volumes were destroyed and rebuilt. Accepted order was asset-off/restore first, then the official gate and protected-file chains. The root-workspace bcrypt lookup also failed once before fixtures; rerun used `@jinhu/api`'s declared dependency. Neither harness failure entered an accepted business run.
 
 ## 9. Evidence index
 
@@ -103,8 +104,9 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - G7 browser: `g7-browser-results.json`, `network/g7-browser-network.json`, `logs/g7-browser-cdp-injection.log`.
 - G7 DB: `db/g7-before-counts.txt`, `db/g7-after-counts.txt`, `db/g7-actor-separation.txt`.
 - Review fixes: `review-fix-setup-results.json`, `browser-review-fix-results.json`, `g5-review-diagnostic.json`, `g7-security-review-fix-results.json`, `g7-asset-dependency-review-fix-results.json`, matching `network/*review-fix*.json`, `db/g7-review-fix-*.txt`, and accepted `logs/*review-fix*.log`.
-- Screenshots: 19 PNG files under `screenshots/`, including G2 legal/disabled/window states, G3 drift/restoration, G6 local switch, and four G7 pages.
-- Integrity: original `evidence-SHA256SUMS` / `screenshots/SHA256SUMS`, plus review-fix `evidence-SHA256SUMS-review-fix` / `screenshots/SHA256SUMS-review-fix` (116 evidence files and 24 screenshots). Temporary env and runner source files were excluded; no credentials or tokens are present in the manifests.
+- Review round 2: `review3-asset-off-matrix-results.json` (28 denied endpoints + 6 restored GETs), `property-api-e2e-report-review3-final.json`, `review3-file-sensitive-matrix-results.json` (five distinct biz types), `browser-review3-results.json` (G5/G6 2/2), `db/review3-actor-summary.txt`, and `logs/review3-targeted-security-tests.log` (72 PASS, 7 guarded SKIP, 0 FAIL).
+- Screenshots: 28 PNG files under `screenshots/`, including G2 legal/disabled/window states, G3 drift/restoration, G5 action two-tab, G6 different-role/module local switch, and four G7 pages.
+- Integrity: final `evidence-SHA256SUMS-review3` contains 186 entries. No credential or token value is indexed in the repository; `/tmp` evidence remains local and disposable.
 
 ## 10. Teardown and archive decision
 
@@ -128,4 +130,5 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 
 - PR #452 review round 1 returned five findings; all were accepted as valid and addressed with real reruns or authority synchronization.
 - Accepted review-fix outcomes: G2 Cartesian cells PASS, G5 module two-tab/refresh PASS, G6 Park-B-specific response assertions PASS, G7 supplemental security chain PASS, and both authoritative audit status records updated in the same PR.
+- Review round 2 outcomes: all seven findings closed by fresh runtime evidence or the repository's executable authority contracts. Targeted security set: 79 tests, 72 PASS, 7 existing explicit-PG guards SKIP, 0 FAIL. Final DB summary: 12 requests, 12 approved, 12 executed, 12 maker-checker separated.
 - No product failure was observed during the accepted runs. No Issue was opened.
