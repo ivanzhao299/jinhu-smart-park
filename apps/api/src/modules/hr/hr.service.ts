@@ -349,7 +349,7 @@ export class HrService {
   const contractStatusBefore=contract.status;
   if(dto.action==="apply"){
    if(contract.status!=="active")throw new ConflictException("Only an active online contract can apply a change");
-   if(change.changeType==="termination"){contract.endDate=change.newEndDate;contract.status="terminated";}else{contract.startDate=change.newStartDate;contract.endDate=change.newEndDate;if(change.changeType==="renewal"){contract.renewalCount+=1;contract.firstSignatureDate??=contract.signatureDate;contract.lastSignatureDate=new Date().toISOString().slice(0,10);}}
+   if(change.changeType==="termination"){contract.endDate=change.newEndDate;contract.status="terminated";}else{contract.startDate=change.newStartDate;contract.endDate=change.newEndDate;if(change.changeType==="renewal"){const count=await changeRepo.count({where:{...scope,contractId,status:"effective",changeType:"renewal",isDeleted:false}});contract.renewalCount=count+1;}}
    contract.updateBy=actor.sub;await contractRepo.save(contract);await this.cancelContractReminders(manager,scope,contractId,actor.sub,change.changeType==="termination"?"CONTRACT_TERMINATED":"CONTRACT_RENEWED");change.status="effective";change.signedAt=new Date();
   }else change.status="cancelled";
   change.updateBy=actor.sub;const saved=await changeRepo.save(change);await this.appendContractAction(manager,scope,contract,actor.sub,dto.action==="apply"?"change_applied":"change_cancelled",contractStatusBefore,saved.id);return this.projectContractChange(saved);

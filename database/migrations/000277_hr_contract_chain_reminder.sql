@@ -1,5 +1,7 @@
 BEGIN;
 
+CREATE UNIQUE INDEX uq_hr_contract_scope_all_id ON hr_contract(tenant_id,park_id,id);
+
 ALTER TABLE hr_contract
   ADD COLUMN cumulative_term_months integer,
   ADD COLUMN first_signature_date date,
@@ -23,57 +25,71 @@ CREATE UNIQUE INDEX uq_hr_contract_change_legacy_source ON hr_contract_change(te
 
 CREATE TABLE hr_contract_legacy_evidence(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-  contract_id uuid NOT NULL REFERENCES hr_contract(id),evidence_kind varchar(32) NOT NULL,
-  content_sha256 char(64) NOT NULL,mime_type varchar(160),size_bytes bigint,missing_reason varchar(64),
+  contract_id uuid NOT NULL,evidence_kind varchar(32) NOT NULL,
+  locator_sha256 char(64),content_sha256 char(64),mime_type varchar(160),size_bytes bigint,migration_status varchar(32) NOT NULL,protected_file_id uuid,missing_reason varchar(64),
   source_identity_sha256 char(64) NOT NULL,create_time timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_contract_evidence_kind CHECK(evidence_kind IN('controlled_text','file_manifest')),
-  CONSTRAINT ck_hr_contract_evidence_hash CHECK(content_sha256~'^[0-9a-f]{64}$' AND source_identity_sha256~'^[0-9a-f]{64}$'),
+  CONSTRAINT ck_hr_contract_evidence_hash CHECK((locator_sha256 IS NULL OR locator_sha256~'^[0-9a-f]{64}$') AND (content_sha256 IS NULL OR content_sha256~'^[0-9a-f]{64}$') AND source_identity_sha256~'^[0-9a-f]{64}$'),
+  CONSTRAINT ck_hr_contract_evidence_status CHECK(migration_status IN('hashed_only','not_extracted','migrated')),
+  CONSTRAINT ck_hr_contract_evidence_truth CHECK((evidence_kind='controlled_text' AND migration_status='hashed_only' AND content_sha256 IS NOT NULL AND protected_file_id IS NULL) OR (evidence_kind='file_manifest' AND ((migration_status='not_extracted' AND locator_sha256 IS NOT NULL AND content_sha256 IS NULL AND protected_file_id IS NULL AND missing_reason IS NOT NULL) OR (migration_status='migrated' AND content_sha256 IS NOT NULL AND protected_file_id IS NOT NULL AND missing_reason IS NULL)))),
   CONSTRAINT ck_hr_contract_evidence_size CHECK(size_bytes IS NULL OR size_bytes>=0),
   CONSTRAINT ck_hr_contract_evidence_missing CHECK(missing_reason IS NULL OR missing_reason IN('SOURCE_FILE_MISSING','SOURCE_FILE_UNREADABLE','SOURCE_FILE_NOT_EXTRACTED')),
+  CONSTRAINT fk_hr_contract_evidence_scope FOREIGN KEY(tenant_id,park_id,contract_id) REFERENCES hr_contract(tenant_id,park_id,id),
   CONSTRAINT uq_hr_contract_evidence UNIQUE(tenant_id,park_id,source_identity_sha256)
 );
 
 CREATE TABLE hr_contract_reminder_policy(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-  reminder_kind varchar(32) NOT NULL,window_days integer NOT NULL,recipient_scope varchar(32) NOT NULL,rule_version integer NOT NULL DEFAULT 1,
+  reminder_kind varchar(32) NOT NULL,window_days integer NOT NULL,recipient_scope varchar(32) NOT NULL,recipient_role_code varchar(64),rule_version integer NOT NULL DEFAULT 1,
   enabled boolean NOT NULL DEFAULT true,create_by uuid,update_by uuid,create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_contract_reminder_kind CHECK(reminder_kind IN('contract_expiry','probation_expiry')),
   CONSTRAINT ck_hr_contract_reminder_window CHECK(window_days BETWEEN 1 AND 365),
   CONSTRAINT ck_hr_contract_reminder_recipient CHECK(recipient_scope IN('hr','manager','employee')),
-  CONSTRAINT uq_hr_contract_reminder_policy UNIQUE(tenant_id,park_id,reminder_kind,window_days,recipient_scope)
+  CONSTRAINT ck_hr_contract_reminder_recipient_config CHECK((recipient_scope='hr' AND recipient_role_code='HR_MANAGER') OR (recipient_scope<>'hr' AND recipient_role_code IS NULL)),
+  CONSTRAINT uq_hr_contract_reminder_policy_version UNIQUE(tenant_id,park_id,reminder_kind,window_days,recipient_scope,rule_version)
 );
+CREATE UNIQUE INDEX uq_hr_contract_reminder_policy_scope_id ON hr_contract_reminder_policy(tenant_id,park_id,id);
+CREATE UNIQUE INDEX uq_hr_contract_reminder_policy_enabled ON hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope) WHERE enabled;
 
 CREATE TABLE hr_contract_reminder(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-  contract_id uuid NOT NULL REFERENCES hr_contract(id),employee_id uuid NOT NULL REFERENCES hr_employee(id),
-  policy_id uuid NOT NULL REFERENCES hr_contract_reminder_policy(id),rule_version integer NOT NULL,reminder_kind varchar(32) NOT NULL,
+  contract_id uuid NOT NULL,employee_id uuid NOT NULL,
+  policy_id uuid NOT NULL,rule_version integer NOT NULL,reminder_kind varchar(32) NOT NULL,
   window_days integer NOT NULL,window_date date NOT NULL,due_date date NOT NULL,recipient_scope varchar(32) NOT NULL,recipient_user_id uuid NOT NULL,
   source_date date NOT NULL,source_contract_version integer NOT NULL,dedupe_key char(64) NOT NULL,status varchar(32) NOT NULL DEFAULT 'open',
   read_at timestamptz,read_by uuid,acknowledged_at timestamptz,acknowledged_by uuid,resolved_at timestamptz,resolved_by uuid,cancelled_at timestamptz,cancelled_by uuid,cancel_reason varchar(64),
   create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_contract_reminder_status CHECK(status IN('open','read','acknowledged','resolved','cancelled')),
   CONSTRAINT ck_hr_contract_reminder_dedupe CHECK(dedupe_key~'^[0-9a-f]{64}$'),
+  CONSTRAINT fk_hr_contract_reminder_contract FOREIGN KEY(tenant_id,park_id,contract_id) REFERENCES hr_contract(tenant_id,park_id,id),
+  CONSTRAINT fk_hr_contract_reminder_employee FOREIGN KEY(tenant_id,park_id,employee_id) REFERENCES hr_employee(tenant_id,park_id,id),
+  CONSTRAINT fk_hr_contract_reminder_policy FOREIGN KEY(tenant_id,park_id,policy_id) REFERENCES hr_contract_reminder_policy(tenant_id,park_id,id),
+  CONSTRAINT fk_hr_contract_reminder_recipient FOREIGN KEY(tenant_id,park_id,recipient_user_id) REFERENCES sys_user(tenant_id,park_id,id),
   CONSTRAINT uq_hr_contract_reminder_window UNIQUE(tenant_id,park_id,dedupe_key),
   CONSTRAINT uq_hr_contract_reminder_recipient UNIQUE(tenant_id,park_id,contract_id,reminder_kind,window_date,rule_version,recipient_user_id)
 );
+CREATE UNIQUE INDEX uq_hr_contract_reminder_scope_id ON hr_contract_reminder(tenant_id,park_id,id);
 CREATE INDEX ix_hr_contract_reminder_due ON hr_contract_reminder(tenant_id,park_id,status,due_date);
 
 CREATE TABLE hr_contract_reminder_action(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-  reminder_id uuid NOT NULL REFERENCES hr_contract_reminder(id),sequence_no integer NOT NULL,action varchar(32) NOT NULL,
+  reminder_id uuid NOT NULL,sequence_no integer NOT NULL,action varchar(32) NOT NULL,
   actor_user_id uuid NOT NULL,occurred_at timestamptz NOT NULL DEFAULT now(),comment_digest char(64),
   CONSTRAINT ck_hr_contract_reminder_action CHECK(action IN('read','acknowledge','resolve','cancel')),
+  CONSTRAINT fk_hr_contract_reminder_action_scope FOREIGN KEY(tenant_id,park_id,reminder_id) REFERENCES hr_contract_reminder(tenant_id,park_id,id),
   CONSTRAINT uq_hr_contract_reminder_action UNIQUE(tenant_id,park_id,reminder_id,sequence_no)
 );
 
 CREATE TABLE hr_contract_reminder_outbox(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),tenant_id varchar(64) NOT NULL,park_id varchar(64) NOT NULL,
-  reminder_id uuid NOT NULL REFERENCES hr_contract_reminder(id),recipient_user_id uuid NOT NULL,
+  reminder_id uuid NOT NULL,recipient_user_id uuid NOT NULL,
   event_kind varchar(32) NOT NULL DEFAULT 'contract_reminder_created',dedupe_key char(64) NOT NULL,
   status varchar(32) NOT NULL DEFAULT 'pending',attempt_count integer NOT NULL DEFAULT 0,next_attempt_at timestamptz NOT NULL DEFAULT now(),
   delivered_at timestamptz,last_error_code varchar(64),create_time timestamptz NOT NULL DEFAULT now(),update_time timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_contract_reminder_outbox_status CHECK(status IN('pending','delivered','failed','cancelled')),
   CONSTRAINT ck_hr_contract_reminder_outbox_dedupe CHECK(dedupe_key~'^[0-9a-f]{64}$'),
+  CONSTRAINT fk_hr_contract_reminder_outbox_scope FOREIGN KEY(tenant_id,park_id,reminder_id) REFERENCES hr_contract_reminder(tenant_id,park_id,id),
+  CONSTRAINT fk_hr_contract_reminder_outbox_recipient FOREIGN KEY(tenant_id,park_id,recipient_user_id) REFERENCES sys_user(tenant_id,park_id,id),
   CONSTRAINT uq_hr_contract_reminder_outbox UNIQUE(tenant_id,park_id,dedupe_key)
 );
 

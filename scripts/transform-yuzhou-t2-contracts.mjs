@@ -16,7 +16,7 @@ const read=name=>{
 const defs=[
   {raw:"contract-types.raw.json",out:"contract-types.jsonl",table:"dbo.compacttypecode",key:row=>String(row.typeCode??"").trim()},
   {raw:"contracts.raw.json",out:"contracts.jsonl",table:"dbo.compact",key:row=>String(row.contractNo??"").trim()},
-  {raw:"contract-changes.raw.json",out:"contract-changes.jsonl",table:"dbo.compact_c",key:row=>`${String(row.contractNo??"").trim()}|${row.sequenceNo}`},
+  {raw:"contract-changes.raw.json",out:"contract-changes.jsonl",table:"dbo.compact_c",key:row=>[row.contractNo,row.employeeCode,row.startDate,row.endDate,row.signedAt].map(value=>String(value??"").trim()).join("|")},
 ];
 const summary={formatVersion:1,generatedAt:new Date().toISOString(),domains:{}};
 for(const definition of defs){
