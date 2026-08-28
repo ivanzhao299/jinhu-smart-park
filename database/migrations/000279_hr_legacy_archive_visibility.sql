@@ -48,7 +48,7 @@ CREATE INDEX ix_hr_legacy_identity_owner ON hr_legacy_identity_registry(tenant_i
 CREATE INDEX ix_hr_legacy_identity_unclaimed ON hr_legacy_identity_registry(tenant_id,park_id,mapping_status,source_table)
   WHERE owner_employee_id IS NULL;
 
-CREATE OR REPLACE FUNCTION hr_assert_legacy_identity_t0_owner() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION hr_assert_legacy_identity_t0_owner() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 DECLARE record_map legacy_record_map%ROWTYPE;
 BEGIN
   IF NEW.owner_record_map_id IS NULL THEN RETURN NEW; END IF;
@@ -56,6 +56,8 @@ BEGIN
   IF NOT FOUND
     OR NOT record_map.is_active
     OR record_map.mapping_status NOT IN ('loaded','verified')
+    OR record_map.source_system<>'yuzhou-v10'
+    OR record_map.source_table<>'dbo.person'
     OR record_map.source_system<>NEW.owner_source_system
     OR record_map.source_table<>NEW.owner_source_table
     OR record_map.source_identity_sha256<>NEW.owner_source_identity_sha256
@@ -69,6 +71,23 @@ END $$;
 CREATE TRIGGER trg_hr_legacy_identity_t0_owner
   BEFORE INSERT OR UPDATE OF owner_employee_id,owner_record_map_id,owner_source_system,owner_source_table,owner_source_identity_sha256,mapping_status
   ON hr_legacy_identity_registry FOR EACH ROW EXECUTE FUNCTION hr_assert_legacy_identity_t0_owner();
+
+CREATE OR REPLACE FUNCTION hr_guard_legacy_identity_registry() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+BEGIN
+  IF TG_OP='DELETE' THEN RAISE EXCEPTION 'HR_LEGACY_IDENTITY_IMMUTABLE'; END IF;
+  IF ROW(OLD.tenant_id,OLD.park_id,OLD.source_system,OLD.source_table,OLD.source_identity_sha256,OLD.source_row_sha256,OLD.identity_kind,OLD.create_time)
+    IS DISTINCT FROM ROW(NEW.tenant_id,NEW.park_id,NEW.source_system,NEW.source_table,NEW.source_identity_sha256,NEW.source_row_sha256,NEW.identity_kind,NEW.create_time)
+  THEN RAISE EXCEPTION 'HR_LEGACY_IDENTITY_IMMUTABLE'; END IF;
+  IF NEW.mapping_status<>OLD.mapping_status AND NOT (
+    NEW.mapping_status='resolved' AND OLD.mapping_status IN ('mapped','archive_only','quarantine')
+  ) THEN RAISE EXCEPTION 'HR_LEGACY_IDENTITY_TRANSITION_INVALID'; END IF;
+  IF OLD.mapping_status IN ('mapped','resolved') AND ROW(OLD.owner_employee_id,OLD.owner_record_map_id,OLD.owner_source_system,OLD.owner_source_table,OLD.owner_source_identity_sha256)
+    IS DISTINCT FROM ROW(NEW.owner_employee_id,NEW.owner_record_map_id,NEW.owner_source_system,NEW.owner_source_table,NEW.owner_source_identity_sha256)
+  THEN RAISE EXCEPTION 'HR_LEGACY_IDENTITY_OWNER_IMMUTABLE'; END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER trg_hr_legacy_identity_registry_guard BEFORE UPDATE OR DELETE ON hr_legacy_identity_registry
+  FOR EACH ROW EXECUTE FUNCTION hr_guard_legacy_identity_registry();
 
 CREATE TABLE hr_legacy_archive_record (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -149,9 +168,35 @@ CREATE TABLE hr_legacy_file_logical_record (
 );
 CREATE INDEX ix_hr_legacy_file_archive ON hr_legacy_file_logical_record(tenant_id,park_id,archive_record_id,display_order,id);
 
+CREATE OR REPLACE FUNCTION hr_assert_legacy_archive_identity_kinds() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
+DECLARE registry_kind varchar(32); file_owner uuid; archive_owner uuid;
+BEGIN
+  IF TG_TABLE_NAME='hr_legacy_archive_record' THEN
+    SELECT identity_kind INTO registry_kind FROM hr_legacy_identity_registry
+      WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.identity_registry_id;
+    IF registry_kind IS DISTINCT FROM 'archive_record' THEN RAISE EXCEPTION 'HR_LEGACY_ARCHIVE_IDENTITY_KIND_INVALID'; END IF;
+  ELSE
+    SELECT identity_kind,owner_employee_id INTO registry_kind,file_owner FROM hr_legacy_identity_registry
+      WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.identity_registry_id;
+    IF registry_kind IS DISTINCT FROM 'file_logical' THEN RAISE EXCEPTION 'HR_LEGACY_FILE_IDENTITY_KIND_INVALID'; END IF;
+    IF NEW.archive_record_id IS NOT NULL THEN
+      SELECT registry.owner_employee_id INTO archive_owner
+      FROM hr_legacy_archive_record archive
+      JOIN hr_legacy_identity_registry registry ON (registry.tenant_id,registry.park_id,registry.id)=(archive.tenant_id,archive.park_id,archive.identity_registry_id)
+      WHERE archive.tenant_id=NEW.tenant_id AND archive.park_id=NEW.park_id AND archive.id=NEW.archive_record_id;
+      IF NOT FOUND OR archive_owner IS DISTINCT FROM file_owner THEN RAISE EXCEPTION 'HR_LEGACY_FILE_OWNER_MISMATCH'; END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END $$;
+CREATE TRIGGER trg_hr_legacy_archive_identity_kind BEFORE INSERT OR UPDATE OF tenant_id,park_id,identity_registry_id ON hr_legacy_archive_record
+  FOR EACH ROW EXECUTE FUNCTION hr_assert_legacy_archive_identity_kinds();
+CREATE TRIGGER trg_hr_legacy_file_identity_kind BEFORE INSERT OR UPDATE OF tenant_id,park_id,identity_registry_id,archive_record_id ON hr_legacy_file_logical_record
+  FOR EACH ROW EXECUTE FUNCTION hr_assert_legacy_archive_identity_kinds();
+
 -- Archive rows are imported evidence. Online API users cannot mutate them;
 -- future controlled migration writers use a separate privileged connection.
-CREATE OR REPLACE FUNCTION hr_legacy_archive_immutable() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION hr_legacy_archive_immutable() RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN
   RAISE EXCEPTION 'HR_LEGACY_ARCHIVE_IMMUTABLE';
 END $$;

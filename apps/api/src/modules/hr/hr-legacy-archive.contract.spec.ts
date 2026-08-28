@@ -16,9 +16,13 @@ test("legacy archive schema binds ownership to an exact active T0 record map",()
  assert.match(sql,/owner_record_map_id uuid REFERENCES legacy_record_map\(id\)/);
  assert.match(sql,/owner_source_identity_sha256 char\(64\)/);
  assert.match(sql,/record_map\.source_identity_sha256<>NEW\.owner_source_identity_sha256/);
+ assert.match(sql,/record_map\.source_system<>'yuzhou-v10'/);
+ assert.match(sql,/record_map\.source_table<>'dbo\.person'/);
  assert.match(sql,/record_map\.target_table<>'hr_employee'/);
  assert.match(sql,/record_map\.target_id IS DISTINCT FROM NEW\.owner_employee_id/);
  assert.match(sql,/HR_LEGACY_OWNER_REQUIRES_EXACT_T0_RECORD_MAP/);
+ assert.match(sql,/HR_LEGACY_IDENTITY_IMMUTABLE/);
+ assert.match(sql,/HR_LEGACY_IDENTITY_OWNER_IMMUTABLE/);
  assert.doesNotMatch(sql,/full_name|employee_code|LIKE.*name/i);
 });
 
@@ -33,6 +37,9 @@ test("legacy archive keeps display projections apart from encrypted originals an
  assert.match(sql,/fk_hr_legacy_file_blob FOREIGN KEY\(tenant_id,park_id,blob_object_id\)/);
  assert.match(sql,/logical_kind IN \('photo','document','attachment'\)/);
  assert.match(sql,/HR_LEGACY_ARCHIVE_IMMUTABLE/);
+ assert.match(sql,/HR_LEGACY_ARCHIVE_IDENTITY_KIND_INVALID/);
+ assert.match(sql,/HR_LEGACY_FILE_IDENTITY_KIND_INVALID/);
+ assert.match(sql,/HR_LEGACY_FILE_OWNER_MISMATCH/);
  assert.doesNotMatch(sql,/bytea|raw_payload|plaintext/i);
 });
 
@@ -76,6 +83,22 @@ test("service hides restricted projection outside precise HR permission and audi
 test("unclaimed archive read is denied without its exact HR permission",async()=>{
  const service=new HrLegacyArchiveService({query:async()=>[]} as never,{recordOperationRequired:async()=>undefined} as never);
  await assert.rejects(()=>service.listUnclaimed({tenantId:"tenant",parkId:"park"},{sub:"employee",username:"employee",tenantId:"tenant",parkId:"park",roles:[],permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SELF_READ],isSuper:false},{page:1,page_size:20}),ForbiddenException);
+});
+
+test("detail does not leak source or blob fingerprints and required audit fails closed",async()=>{
+ const archive={id:"00000000-0000-4000-8000-000000000001",employeeId:"00000000-0000-4000-8000-000000000002",mappingStatus:"mapped",recordType:"profile",occurredOn:null,displayTitle:"安全标题",displaySafeProjection:{department:"A"},restrictedSafeProjection:{identityMasked:"***1"},hasSensitiveSource:true,sourceSystem:"yuzhou-v10",sourceTable:"dbo.person",resolutionReasonCode:null};
+ const file={id:"00000000-0000-4000-8000-000000000003",logicalKind:"photo",logicalName:"历史照片",mediaType:"image/jpeg",sizeBytes:"4",availability:"available",contentSha256:"f".repeat(64)};
+ const dataSource={query:async(sql:string)=>sql.includes("hr_legacy_file_logical_record")?[file]:[archive]};
+ const actor={sub:"employee",username:"employee",tenantId:"tenant",parkId:"park",roles:[],permissions:[HR_PERMISSIONS.HR_LEGACY_ARCHIVE_SELF_READ],isSuper:false};
+ const service=new HrLegacyArchiveService(dataSource as never,{recordOperationRequired:async()=>undefined} as never);
+ const detail=await service.detail({tenantId:"tenant",parkId:"park"},actor,archive.id);
+ assert.equal(detail.sourceSystem,undefined);
+ assert.equal(detail.sourceTable,undefined);
+ assert.equal("contentFingerprint" in detail.files[0]!,false);
+ assert.doesNotMatch(JSON.stringify(detail),/dbo\.person|f{64}|encrypted-object/u);
+ const auditFailure=new Error("required audit unavailable");
+ const blocked=new HrLegacyArchiveService(dataSource as never,{recordOperationRequired:async()=>{throw auditFailure;}} as never);
+ await assert.rejects(()=>blocked.detail({tenantId:"tenant",parkId:"park"},actor,archive.id),error=>error===auditFailure);
 });
 
 test("production seed grants unclaimed and sensitive visibility only to HR manager",()=>{

@@ -28,6 +28,9 @@ test("legacy archive page is design-system based and 390px safe",()=>{
  assert.match(css,/\.filters \{ grid-template-columns:1fr/);
  assert.match(css,/\.projection \{ grid-template-columns:1fr/);
  assert.match(css,/width:100%; min-height:44px/);
+ assert.match(client,/aria-label="旧系统资料分页"/);
+ assert.match(client,/Math\.ceil\(total\/PAGE_SIZE\)/);
+ assert.match(css,/\.pagination \{ align-items:stretch; flex-direction:column/);
  const rules=css.slice(0,css.indexOf("@media"));
  assert.doesNotMatch(rules,/min-width:\s*[4-9][0-9]{2}px|width:\s*[4-9][0-9]{2}px/);
 });
