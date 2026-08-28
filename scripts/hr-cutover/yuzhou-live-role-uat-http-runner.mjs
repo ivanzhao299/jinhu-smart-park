@@ -89,14 +89,15 @@ export class YuzhouLiveRoleUatHttpRunner {
     this.#idempotencyPrefix = idempotencyPrefix;
   }
 
-  async execute({ legacyId, kind, checkId, substitutions = {}, bodies = [], assert }) {
+  async execute({ legacyId, kind, checkId, substitutions = {}, bodies = [], afterOperation, assert }) {
     const key = `${legacyId}:${kind}:${checkId}`;
     const check = this.#matrixByKey.get(key);
     if (!check) fail("YUZHOU_UAT_HTTP_CHECK_UNKNOWN", key);
     if (typeof assert !== "function") fail("YUZHOU_UAT_HTTP_ASSERTION_INVALID", key);
     if (!Array.isArray(bodies) || bodies.length !== check.operations.length) fail("YUZHOU_UAT_HTTP_BODY_COUNT_INVALID", key);
+    if (afterOperation !== undefined && typeof afterOperation !== "function") fail("YUZHOU_UAT_HTTP_CHAIN_INVALID", key);
     const placeholders = new Set(check.operations.flatMap(operation => [...operation.route.matchAll(/\{([a-zA-Z][a-zA-Z0-9]*)\}/gu)].map(match => match[1])));
-    if (Object.keys(substitutions).some(name => !placeholders.has(name)) || [...placeholders].some(name => !(name in substitutions))) {
+    if (Object.keys(substitutions).some(name => !placeholders.has(name))) {
       fail("YUZHOU_UAT_HTTP_SUBSTITUTION_INVALID", key);
     }
     const token = this.#tokens[check.actor];
@@ -132,6 +133,16 @@ export class YuzhouLiveRoleUatHttpRunner {
         requestBodySha256: sha256(body === undefined ? null : body),
         responseShapeSha256: sha256(responseShape(payload))
       });
+      if (afterOperation) {
+        const additions = await afterOperation({ index, response: responses.at(-1), substitutions: { ...substitutions } });
+        if (additions !== undefined) {
+          if (!additions || typeof additions !== "object" || Array.isArray(additions)) fail("YUZHOU_UAT_HTTP_CHAIN_INVALID", `${key}.${index}`);
+          for (const [name, value] of Object.entries(additions)) {
+            if (!placeholders.has(name) || typeof value !== "string" || !/^[0-9a-f-]{36}$/iu.test(value)) fail("YUZHOU_UAT_HTTP_CHAIN_INVALID", name);
+            substitutions[name] = value;
+          }
+        }
+      }
     }
     const assertions = normalizedAssertions(check.assertions, await assert(responses));
     return {

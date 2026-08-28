@@ -1,4 +1,4 @@
-/* global structuredClone */
+/* global Response, structuredClone */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
@@ -59,6 +59,29 @@ test("the HTTP runner performs real loopback calls and emits value-free evidence
     assert.match(observation.observationSha256, /^[0-9a-f]{64}$/u);
     assert.doesNotMatch(JSON.stringify(observation), /must-not-enter-evidence|synthetic|Bearer/u);
   });
+});
+
+test("a created UUID may be bound into the next operation without weakening route safety", async () => {
+  const created = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const calls = [];
+  const request = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({ data: { id: created, status: calls.length === 1 ? "draft" : "submitted" } }), { status: 200, headers: { "content-type": "application/json" } });
+  };
+  const runner = new YuzhouLiveRoleUatHttpRunner({ apiBase: "http://127.0.0.1/api/v1", tokens, apiMatrix, taskCard, idempotencyPrefix: "uat-chain", request });
+  await runner.execute({
+    legacyId: 34,
+    kind: "positive",
+    checkId: "hr_maker_create_submit",
+    bodies: [{ employeeId: created }, { action: "submit" }],
+    afterOperation: ({ index, response }) => index === 0 ? { onboardingId: response.body.data.id } : undefined,
+    assert: () => ({ created_id: true, status_submitted: true, audit_written: true })
+  });
+  assert.equal(calls[1].url, `http://127.0.0.1/api/v1/hr/onboarding-applications/${created}/actions`);
+  await assert.rejects(
+    runner.execute({ legacyId: 34, kind: "positive", checkId: "hr_maker_create_submit", bodies: [{}, {}], afterOperation: () => ({ onboardingId: "not-a-uuid" }), assert: () => ({ created_id: true, status_submitted: true, audit_written: true }) }),
+    error => error.code === "YUZHOU_UAT_HTTP_CHAIN_INVALID"
+  );
 });
 
 test("wrong status, incomplete assertions, unsafe origins and matrix drift fail closed", async () => {
