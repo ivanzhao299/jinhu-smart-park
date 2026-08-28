@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "contractKind": "group_web_role_uat_live_capture_authority",
+  "surface": "legacy_group_web",
+  "authorizedAttestationRawSha256": null,
+  "requiredDirectoryMode": "0700",
+  "requiredFileMode": "0600",
+  "productionImport": "HOLD"
+}
