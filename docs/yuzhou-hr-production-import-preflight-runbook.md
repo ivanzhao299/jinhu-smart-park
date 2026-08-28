@@ -36,6 +36,25 @@ T5A（员工档案中已经明确 owner 和字段语义的低风险部分）只�
 
 预先冻结的回退次序为 `T3 → T2 → T1 → T5A → T0`。即便本次未执行 T5A，回退计划仍保留这个显式空步骤，避免后续增加 T5A 时改变已签署回退合同。
 
+### 2.1 T5A 隔离演练能力
+
+`000280_hr_legacy_archive_materialization_control.sql` 只提供实验室 T5A 档案可见性演练，不是生产
+writer，也不改变上述生产 `HOLD`。它只接受名称符合隔离实验库约束的目标，并要求：
+
+- tenant、park、不可变 T5 source batch UUID 三者精确绑定；
+- 来源 T5 批次已经 staged，且其 migration control 已在同一目标库成功；
+- 所有员工归属只能来自唯一、有效的 T0 `dbo.person → hr_employee` record map；
+- 在线 profile、family、skill、credential 投影同时匹配 source identity 和 source row hash；
+- apply 与 rollback 均在 `SERIALIZABLE` 事务内运行；
+- apply、rollback 分别创建随机、无成员关系的一次性最小角色，完成后先 `NOLOGIN` 再撤权并删除；
+- rollback 只能删除同一 materialization batch 拥有的 identity/archive 行，保留 rolled-back receipt，且残留必须为 0；
+- 照片和文档只统计为 deferred，不创建 logical/blob 占位，不猜测 owner，也不输出下载入口。
+
+静态合同入口是 `pnpm test:e2e:yuzhou-t5a-archive-materialization`。真实 PostgreSQL fixture 必须由
+演练 runner 先创建一个全新隔离库并执行到最新 migration，再通过显式
+`YUZHOU_TARGET_DATABASE` 运行 `pnpm test:e2e:yuzhou-t5a-archive-materialization:pg`；fixture 不接受默认
+数据库，不连接生产，也不能替代 A/B、三角色 UAT、生产 v2 sealed plan 或一次性生产授权。
+
 ## 3. 必须固定的输入
 
 计划文件必须位于 operator 所有、权限为 `0700` 的 evidence root 下，计划和全部证据均为非符号链接 `0600` 普通文件。计划必须绑定：
