@@ -1,0 +1,17 @@
+const fail = detail => { const error = new Error(`YUZHOU_UAT_JOB_CHANGE_FAILED: ${detail}`); error.code = "YUZHOU_UAT_JOB_CHANGE_FAILED"; throw error; };
+const uuid = value => typeof value === "string" && /^[0-9a-f-]{36}$/iu.test(value);
+const data = response => response?.body?.data;
+const items = response => Array.isArray(data(response)?.items) ? data(response).items : [];
+export async function runYuzhouJobChangeScenario({ runner, inspect, employeeId, afterOrgId, afterPositionId, businessDate }) {
+  if (!runner?.execute || !inspect?.applicationStatus || !inspect?.employeeAssignment || !inspect?.eventCount || !inspect?.snapshotFrozen || !inspect?.auditCount || !uuid(employeeId) || !uuid(afterOrgId) || !uuid(afterPositionId) || !/^\d{4}-\d{2}-\d{2}$/u.test(businessDate ?? "")) fail("invalid dependencies");
+  const observations = []; let jobChangeId;
+  observations.push(await runner.execute({ legacyId: 39, kind: "positive", checkId: "manager_creates_team_change", bodies: [{ applicationName: "隔离岗位变更", employeeId, applicationDate: businessDate, effectiveDate: businessDate, changeType: "transfer", afterOrgId, afterPositionId, reason: "隔离验证" }, { action: "submit" }], afterOperation: ({ index, response }) => { if (index !== 0) return undefined; jobChangeId = data(response)?.id; if (!uuid(jobChangeId)) fail("created id missing"); return { jobChangeId }; }, assert: async responses => ({ created_id: uuid(jobChangeId), status_submitted: data(responses[1])?.status === "submitted", before_snapshot: await inspect.snapshotFrozen(jobChangeId), audit_written: await inspect.auditCount(jobChangeId) >= 1 }) }));
+  const submitted = await inspect.applicationStatus(jobChangeId);
+  observations.push(await runner.execute({ legacyId: 39, kind: "negative", checkId: "manager_cannot_apply", substitutions: { jobChangeId }, bodies: [undefined], assert: async () => ({ no_state_change: (await inspect.applicationStatus(jobChangeId)) === submitted }) }));
+  observations.push(await runner.execute({ legacyId: 39, kind: "positive", checkId: "hr_reviewer_approves", substitutions: { jobChangeId }, bodies: [{ action: "approve" }], assert: async responses => ({ status_approved: data(responses[0])?.status === "approved", audit_written: await inspect.auditCount(jobChangeId) >= 2 }) }));
+  observations.push(await runner.execute({ legacyId: 39, kind: "positive", checkId: "hr_reviewer_applies", substitutions: { jobChangeId }, bodies: [undefined], assert: async responses => { const assignment = await inspect.employeeAssignment(employeeId); return { status_applied: data(responses[0])?.status === "applied", employee_assignment_changed: assignment.orgId === afterOrgId && assignment.positionId === afterPositionId, employment_event_written: await inspect.eventCount(employeeId, "transfer") >= 1, audit_written: await inspect.auditCount(jobChangeId) >= 3 }; } }));
+  const assertSelfOnly = responses => { const visible = items(responses[0]); return { self_row_present: visible.some(item => item?.id === jobChangeId), other_rows_absent: visible.every(item => item?.employeeId === employeeId) }; };
+  observations.push(await runner.execute({ legacyId: 39, kind: "positive", checkId: "employee_reads_self_change", bodies: [undefined], assert: responses => assertSelfOnly(responses) }));
+  observations.push(await runner.execute({ legacyId: 39, kind: "negative", checkId: "employee_cannot_read_other_change", bodies: [undefined], assert: responses => ({ other_row_absent: assertSelfOnly(responses).other_rows_absent }) }));
+  return { jobChangeId, observations };
+}
