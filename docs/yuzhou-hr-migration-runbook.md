@@ -82,6 +82,14 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t0:rollback
 ```
 
+### T2 合同续签链与提醒
+
+T2 结构化装载保存 `dbo.compact`、`dbo.compact_c` 的稳定源 identity 和源行 SHA-256。合同期限、签订日及续签前后日期只在已审阅字段合同明确时进入业务列；累计期限等旧字段单位尚未签署时不得推断，继续留在 raw archive/quarantine。合同正文只形成受控文本摘要证据，文件只登记 SHA-256、MIME、字节数和缺件原因；本阶段不复制照片或真实文件，也不保存或返回旧绝对路径。
+
+提醒由 policy、instance、动作流水和 outbox 分离承载。production seed 提供可配置的 30/60/90 日合同到期及试用期规则；scheduler 仅允许 `hr:contract_reminder:run` 原子权限触发。实例按 tenant、park、合同、提醒类型、窗口、规则版本和明确收件人生成稳定去重键，并发和重跑不得产生重复实例。续签、终止或取消合同会撤销旧 open/read 实例和待投递 outbox；acknowledged/resolved 历史保留审计，不物理删除。
+
+Focused 门禁为 `hr-contract-reminder.contract.spec.ts` 和 `hr-contract-reminder.pg.spec.ts`。真实 PostgreSQL 测试必须覆盖双 scheduler 并发、第三次重跑零新增、续签撤销和 required-audit。T2 rollback 按 outbox → action → reminder → evidence → change → contract → type 反序，只处理目标 run 的 active record map。普通部署、migration 和 production seed 均不会执行 T2 loader 或历史提醒 backfill；生产历史导入继续 `HOLD`。
+
 ### T5 招聘、档案、培训和奖惩历史
 
 T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267` 保留核心残余归档；`000276` 在不删除 raw archive 的前提下，把已审阅的 `person/family/knowhow/ticket` 字段同步物化到员工档案、家庭、技能和证照业务表。物化必须命中 T0 员工映射并绑定稳定 source identity/row hash；未知字段只登记 locator、hash 和 reason code，不把 raw value 写入证据。技能 `grade` 在词典未签署前保持 `proficiency=NULL` 并登记 `UNKNOWN_SKILL_GRADE`。旧登录密码不迁移，照片及证照路径只保留 hash/文件证据。

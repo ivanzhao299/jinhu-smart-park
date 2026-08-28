@@ -50,7 +50,7 @@ suite("HR contract read PostgreSQL gate",()=>{
   assert.deepEqual(Object.keys(page.items[0]!).sort(),["contractNo","contractTypeId","contractTypeName","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","probationEndDate","startDate","status"].sort());
   assert.equal(page.items[0]!.contractNo,"M5-LOCAL-001");
   const detail=await service.contractDetail(scope,actor,contract);
-  assert.deepEqual(Object.keys(detail).sort(),["actions","changes","contractNo","contractTypeId","contractTypeName","contractTermMonths","departmentNameSnapshot","effectiveDate","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","positionTitle","probationEndDate","probationMonths","remark","signatureDate","startDate","status","workType"].sort());
+  assert.deepEqual(Object.keys(detail).sort(),["actions","changes","contractNo","contractTypeId","contractTypeName","contractTermMonths","cumulativeTermMonths","firstSignatureDate","lastSignatureDate","renewalCount","departmentNameSnapshot","effectiveDate","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","positionTitle","probationEndDate","probationMonths","remark","signatureDate","startDate","status","workType"].sort());
   assert.deepEqual(Object.keys(detail.changes[0]!).sort(),["changeType","id","isHistoricalImport","newEndDate","newStartDate","previousEndDate","previousStartDate","sequenceNo","status"].sort());
   await assert.rejects(service.contractDetail(scope,actor,foreignContract),/Contract not found/u);
   assert.equal(audits.length,2);
