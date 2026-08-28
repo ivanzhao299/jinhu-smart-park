@@ -13,7 +13,7 @@
 - Compose project：`jinhu-psw-uat-20260829-061634`；database：`jinhu_property_api_e2e_psw_20260829_061634`；loopback Web/API/PostgreSQL/CDP：`33150/33151/55483/9632`。
 - PostgreSQL 与 API 使用 project-owned `postgres-data` / `api-files-data` named volumes；Web listener PID `2675519`，API container host PID `52376`。Windows Chrome `151.0.7922.138` 使用专用 profile `psw-uat-20260829-061634` 和 raw CDP；未使用 chrome-devtools MCP，因此 MCP version 为 N/A。
 - 主验收 phase 的同一数据库从开始即满足官方 G7 命名门禁，完成 migration `270/270`、prerequisites `8/8`、production-safe seed、bootstrap 与 strict baseline PASS；S1b/S2/S3/D5 与 G7 共用这一 RUN_ID/project/database。为把 S1a 日志也收敛到同一 RUN_ID，主 phase teardown 后以同名 project/database 和 fresh project-owned volume 单独执行 S1a regression phase，再次完成初始化与 teardown；两 phase 不并发、不混用 Park ID。
-- Accepted runtime logs：`logs/migrate.log`, `logs/baseline.log`, `logs/api-build.log`, `logs/api-container.log`, `logs/browser.log`, `logs/g7-property-api.log`。Accepted run 无 failure log；首轮 review 前的非权威浏览器失败保留在旧 preliminary evidence root，不参与当前 PASS authority。
+- Accepted runtime logs：`logs/migrate.log`, `logs/baseline.log`, `logs/api-build.log`, `logs/api-container.log`, `logs/browser.log`, `logs/g7-property-api.log`。Accepted run 无 failure log。首轮 review 前的非权威浏览器失败保留在 preliminary evidence root `/tmp/jinhu-psw-uat-20260829-D6PRP6/`；失败摘要为 `browser-failure.txt`，对应 runner log 为 `logs/browser-r2.log`。该 root 只用于审计两次 business-browser attempt 的失败历史，不参与当前 PASS authority。
 - 未连接生产、共享数据库或共享 API；未停止、删除或修改任何非本轮容器；fixture 业务状态只走产品 API，DB 仅用于初始化、官方 G7 fixture 与只读佐证。
 
 ## 3. Design → implementation closure

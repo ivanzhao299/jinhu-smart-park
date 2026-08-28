@@ -63,4 +63,5 @@ git diff --check
 - 2026-08-29：S1a/S1b/S2/S3、D5、G1–G7 全部完成；review-corrected final target Park B `25030409`；390×844 无横溢；browser console 0 errors；官方 G7 Homestay/Housing PASS；两个同 RUN_ID 隔离 phase teardown 资源全 0。
 - 2026-08-29：Trellis validate 与 diff/document consistency PASS；进入队列归档。
 - 2026-08-29：PR #476 review round 1 returned four valid findings. UAT and parent tasks were restored to active; the initial browser lifecycle remains recorded as FAIL because statistics-page floor/dictionary dependencies returned 403.
-- Next：run the second and final business-browser attempt in a fresh single-RUN_ID lifecycle with a complete target role, then update PR #476 and continue review/CI.
+- 2026-08-29：第二且最后一次 business-browser attempt 已在统一 RUN_ID `20260829-061634` 的 fresh lifecycle PASS；PR #476 review round 2 返回三个证据完整性 P2，不再执行新的浏览器重试。
+- Next：修正 round 2 的续跑点、preliminary failure 路径和 PSW-003 release closure 记录；推送后发起第三轮（最后一轮）review，然后等待 PR CI/merge/main CI/Deploy。
