@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -22,6 +22,15 @@ const fileSha256 = (path) => {
   if (result.status !== 0) fail("cannot hash source backup");
   return result.stdout.trim().split(/\s+/)[0];
 };
+
+function assertRegularFile(path, label, { privateFile = false } = {}) {
+  const candidate = resolve(path);
+  if (!existsSync(candidate) || lstatSync(candidate).isSymbolicLink() || !statSync(candidate).isFile()) {
+    fail(`${label} must be a non-symlink regular file`);
+  }
+  if (privateFile && mode(candidate) !== "0600") fail(`${label} must be mode 0600`);
+  return realpathSync(candidate);
+}
 
 function parseArgs(argv) {
   const args = {};
@@ -75,8 +84,10 @@ function configFor(args, codeSha, mappingContractHash) {
   const etlCopy = join(credentialRoot, "etl.env");
   const t4Copy = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
-  privateCopy(args.etlEnv, etlCopy);
-  privateCopy(args.t4Evidence, t4Copy);
+  const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
+  const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
+  privateCopy(etlSource, etlCopy);
+  privateCopy(t4Source, t4Copy);
   const source = parseEnv(etlCopy);
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(source.YUZHOU_SQLSERVER_DATABASE ?? "")) fail("ETL file does not bind a Yuzhou lab database");
   if ((source.YUZHOU_SQLSERVER_ETL_LOGIN ?? "").toLowerCase() === "sa") fail("ETL login must not be sa");
@@ -84,8 +95,8 @@ function configFor(args, codeSha, mappingContractHash) {
   const t4Record = JSON.parse(readFileSync(t4Copy, "utf8"));
   const sourceSnapshotHash = t4Record.sourceBackupSha256;
   if (!/^[0-9a-f]{64}$/.test(sourceSnapshotHash ?? "")) fail("T4 evidence does not bind the source snapshot");
-  const sourceBackup = realpathSync(resolve(args.sourceBackup));
-  if (!statSync(sourceBackup).isFile() || fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
+  const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
+  if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -154,9 +165,9 @@ function configFor(args, codeSha, mappingContractHash) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   args.controlRoot = resolve(args.controlRoot);
-  args.etlEnv = realpathSync(resolve(args.etlEnv));
-  args.t4Evidence = realpathSync(resolve(args.t4Evidence));
-  if (mode(args.etlEnv) !== "0600") fail("ETL source file must be 0600");
+  args.etlEnv = resolve(args.etlEnv);
+  args.t4Evidence = resolve(args.t4Evidence);
+  args.sourceBackup = resolve(args.sourceBackup);
   const git = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8" });
   if (git.status !== 0 || git.stdout.trim()) fail("rehearsal preparation requires a clean worktree");
   const head = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" });
@@ -174,4 +185,4 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { configFor, parseArgs };
+export { assertRegularFile, configFor, parseArgs };
