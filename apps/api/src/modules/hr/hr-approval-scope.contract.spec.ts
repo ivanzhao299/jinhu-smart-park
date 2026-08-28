@@ -21,12 +21,18 @@ test("pending and review routes bind actor and enforce scope in the service",()=
  const service=read("apps/api/src/modules/hr/hr.service.ts");
  assert.match(controller,/pendingApprovals\(@CurrentScope\(\)s:TenantParkScope,@CurrentUser\(\)u:JwtPrincipal\)/);
  assert.match(controller,/HR_APPROVAL_PARK_REVIEW,HR_PERMISSIONS\.HR_APPROVAL_TEAM_REVIEW/);
+ assert.match(controller,/await this\.service\.assertApprovalMakerChecker\(s,u,id\)/);
  assert.match(service,/resolveHrApprovalReviewAccessScope\(actor\)/);
  assert.match(service,/applicantEmployeeId:In\(managedIds\),subjectEmployeeId:In\(managedIds\)/);
  assert.match(service,/if\(access==="none"\)throw new NotFoundException\("HR approval request not found"\)/);
  assert.match(service,/Applicants cannot review their own request/);
  assert.match(service,/return projectHrApproval\(request\)/);
  assert.doesNotMatch(service,/reviewer:boolean/);
+});
+
+test("maker-checker uses immutable request creator even after employee soft deletion",async()=>{
+ const service={approvalRequests:{findOne:async()=>({createBy:"actor"})}};
+ await assert.rejects(()=>HrService.prototype.assertApprovalMakerChecker.call(service as never,{tenantId:"tenant",parkId:"park"},{sub:"actor",permissions:[HR_PERMISSIONS.HR_APPROVAL_PARK_REVIEW]} as never,"00000000-0000-4000-8000-000000000031"),ForbiddenException);
 });
 
 test("production seed grants exact review scopes without legacy broad review",()=>{
