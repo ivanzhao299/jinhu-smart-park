@@ -15,6 +15,13 @@ const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contr
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
+const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
+function observation(legacyId, kind, checkId) {
+  const check = apiMatrix.checks.find(candidate => candidate.legacyId === legacyId && candidate.kind === kind && candidate.checkId === checkId);
+  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
+  const assertions = Object.fromEntries(check.assertions.map(assertion => [assertion, true]));
+  return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
+}
 
 function complete(rehearsal) {
   const recorder = new YuzhouLiveRoleUatRecorder(taskCard, {
@@ -29,8 +36,8 @@ function complete(rehearsal) {
     }))
   });
   for (const item of taskCard.items) {
-    for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id);
-    for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id);
+    for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id));
+    for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id));
     for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, viewport.id, {
       route: item.route,
       width: viewport.width,
@@ -69,7 +76,11 @@ test("missing checks, audit or browser measurements cannot be finalized", () => 
     error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_CHECK_MISSING"
   );
   assert.throws(
-    () => recorder.passCheck(34, "positive", "invented"),
+    () => recorder.passCheck(34, "positive", "invented", {}),
     error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_CHECK_UNKNOWN"
+  );
+  assert.throws(
+    () => recorder.passCheck(34, "positive", "hr_maker_create_submit"),
+    error => error instanceof YuzhouLiveRoleUatRecorderError && error.code === "YUZHOU_UAT_RECORDER_OBSERVATION_MISSING"
   );
 });

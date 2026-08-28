@@ -16,6 +16,13 @@ const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contr
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
+const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
+function observation(legacyId, kind, checkId) {
+  const check = apiMatrix.checks.find(candidate => candidate.legacyId === legacyId && candidate.kind === kind && candidate.checkId === checkId);
+  const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
+  const assertions = Object.fromEntries(check.assertions.map(assertion => [assertion, true]));
+  return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
+}
 
 function passingEvidence(rehearsal) {
   return {
@@ -36,8 +43,8 @@ function passingEvidence(rehearsal) {
     items: taskCard.items.map(item => ({
       legacyId: item.legacyId,
       status: "PASS",
-      positive: item.positive.map(id => ({ id, status: "PASS" })),
-      negative: item.negative.map(id => ({ id, status: "PASS" })),
+      positive: item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) })),
+      negative: item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) })),
       browser: Object.fromEntries(taskCard.viewports.map(viewport => [viewport.id, {
         status: "PASS",
         width: viewport.width,
@@ -74,6 +81,7 @@ test("independent A/B evidence promotes only the exact twelve bound items", () =
 test("failed, incomplete, drifted, unsafe or resource-reused evidence fails closed", () => {
   const cases = [
     [pair => { pair.A.items[0].positive[0].status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_CHECK_FAILED"],
+    [pair => { pair.A.items[0].positive[0].observation.operations[0].statusCode = 403; }, "YUZHOU_UAT_EVIDENCE_HTTP_OPERATION_INVALID"],
     [pair => { pair.B.items.pop(); }, "YUZHOU_UAT_EVIDENCE_ITEM_DRIFT"],
     [pair => { pair.A.items[0].browser.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.A.items[0].browser.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],

@@ -15,6 +15,34 @@ const fail = (code, detail) => {
 const sha40 = value => typeof value === "string" && /^[0-9a-f]{40}$/u.test(value);
 const sha64 = value => typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
 const exactArray = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected);
+const sha256 = value => createHash("sha256").update(typeof value === "string" ? value : JSON.stringify(value)).digest("hex");
+const outcomeStatuses = Object.freeze({ success: [200, 201, 204], forbidden: [403], not_found_or_forbidden: [403, 404], conflict: [409] });
+
+function validateObservation(observation, matrixCheck, key) {
+  if (observation?.actor !== matrixCheck.actor
+    || observation?.checkKeySha256 !== sha256(key)
+    || !sha64(observation?.observationSha256)
+    || !Array.isArray(observation.operations)
+    || observation.operations.length !== matrixCheck.operations.length) {
+    fail("YUZHOU_UAT_EVIDENCE_HTTP_OBSERVATION_INVALID", key);
+  }
+  for (const [index, operation] of observation.operations.entries()) {
+    const expected = matrixCheck.operations[index];
+    if (operation?.method !== expected.method
+      || operation?.routeTemplate !== expected.route
+      || operation?.outcome !== expected.outcome
+      || !outcomeStatuses[expected.outcome].includes(operation?.statusCode)
+      || !sha64(operation?.requestBodySha256)
+      || !sha64(operation?.responseShapeSha256)) {
+      fail("YUZHOU_UAT_EVIDENCE_HTTP_OPERATION_INVALID", `${key}.${index}`);
+    }
+  }
+  if (JSON.stringify(Object.keys(observation.assertions ?? {})) !== JSON.stringify(matrixCheck.assertions)
+    || Object.values(observation.assertions ?? {}).some(value => value !== true)
+    || observation.observationSha256 !== sha256({ actor: observation.actor, operations: observation.operations, assertions: observation.assertions })) {
+    fail("YUZHOU_UAT_EVIDENCE_HTTP_ASSERTION_INVALID", key);
+  }
+}
 
 function validateTriple(triple) {
   if (!sha40(triple?.codeSha) || !sha64(triple?.sourceSnapshotHash) || !sha64(triple?.mappingContractHash)) {
@@ -57,6 +85,7 @@ function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
     fail("YUZHOU_UAT_EVIDENCE_ITEM_DRIFT", rehearsal);
   }
   const taskById = new Map(taskCard.items.map(item => [item.legacyId, item]));
+  const matrixByKey = new Map(apiMatrix.checks.map(check => [`${check.legacyId}:${check.kind}:${check.checkId}`, check]));
   for (const item of evidence.items) {
     const expected = taskById.get(item.legacyId);
     if (item.status !== "PASS" || item.auditStatus !== "PASS") fail("YUZHOU_UAT_EVIDENCE_ITEM_FAILED", String(item.legacyId));
@@ -64,6 +93,10 @@ function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
       const checks = item[kind];
       if (!Array.isArray(checks) || !exactArray(checks.map(check => check.id), expectedIds) || checks.some(check => check.status !== "PASS")) {
         fail("YUZHOU_UAT_EVIDENCE_CHECK_FAILED", `${item.legacyId}.${kind}`);
+      }
+      for (const check of checks) {
+        const key = `${item.legacyId}:${kind}:${check.id}`;
+        validateObservation(check.observation, matrixByKey.get(key), key);
       }
     }
     const browser = item.browser;
@@ -113,3 +146,4 @@ export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTr
     productionImport: "HOLD"
   };
 }
+import { createHash } from "node:crypto";

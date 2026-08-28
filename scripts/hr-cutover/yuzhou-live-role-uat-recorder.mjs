@@ -1,3 +1,4 @@
+/* global structuredClone */
 import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 import { taskCardHash, validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
 
@@ -28,12 +29,13 @@ export class YuzhouLiveRoleUatRecorder {
     this.#meta = { ...meta };
   }
 
-  passCheck(legacyId, kind, checkId) {
+  passCheck(legacyId, kind, checkId, observation) {
     const item = this.#item(legacyId);
     if (!["positive", "negative"].includes(kind) || !item[kind].includes(checkId)) {
       fail("YUZHOU_UAT_RECORDER_CHECK_UNKNOWN", `${legacyId}.${kind}.${checkId}`);
     }
-    this.#checks.set(`${legacyId}:${kind}:${checkId}`, "PASS");
+    if (!observation || typeof observation !== "object") fail("YUZHOU_UAT_RECORDER_OBSERVATION_MISSING", `${legacyId}.${kind}.${checkId}`);
+    this.#checks.set(`${legacyId}:${kind}:${checkId}`, structuredClone(observation));
   }
 
   passBrowser(legacyId, viewportId, measurement) {
@@ -60,8 +62,8 @@ export class YuzhouLiveRoleUatRecorder {
     const items = this.#taskCard.items.map(item => ({
       legacyId: item.legacyId,
       status: "PASS",
-      positive: item.positive.map(id => ({ id, status: this.#check(item.legacyId, "positive", id) })),
-      negative: item.negative.map(id => ({ id, status: this.#check(item.legacyId, "negative", id) })),
+      positive: item.positive.map(id => ({ id, status: "PASS", observation: this.#check(item.legacyId, "positive", id) })),
+      negative: item.negative.map(id => ({ id, status: "PASS", observation: this.#check(item.legacyId, "negative", id) })),
       browser: Object.fromEntries(this.#taskCard.viewports.map(viewport => {
         const result = this.#browser.get(`${item.legacyId}:${viewport.id}`);
         if (!result) fail("YUZHOU_UAT_RECORDER_BROWSER_MISSING", `${item.legacyId}.${viewport.id}`);
@@ -97,9 +99,9 @@ export class YuzhouLiveRoleUatRecorder {
   }
 
   #check(legacyId, kind, checkId) {
-    const status = this.#checks.get(`${legacyId}:${kind}:${checkId}`);
-    if (status !== "PASS") fail("YUZHOU_UAT_RECORDER_CHECK_MISSING", `${legacyId}.${kind}.${checkId}`);
-    return status;
+    const observation = this.#checks.get(`${legacyId}:${kind}:${checkId}`);
+    if (!observation) fail("YUZHOU_UAT_RECORDER_CHECK_MISSING", `${legacyId}.${kind}.${checkId}`);
+    return observation;
   }
 }
 
