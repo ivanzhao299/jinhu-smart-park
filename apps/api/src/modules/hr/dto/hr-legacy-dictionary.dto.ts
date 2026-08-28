@@ -61,4 +61,5 @@ export class UpdateHrLegacyDictionaryItemDto {
 
 export class ApproveHrLegacyDictionaryDto {
   @Matches(/^[0-9a-f]{64}$/) sourceSnapshotSha256!:string;
+  @Matches(/^[0-9a-f]{64}$/) decisionItemsSha256!:string;
 }

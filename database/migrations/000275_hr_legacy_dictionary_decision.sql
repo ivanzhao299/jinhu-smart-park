@@ -9,6 +9,7 @@ CREATE TABLE hr_legacy_dictionary_version (
   source_table varchar(128) NOT NULL,
   source_snapshot_sha256 char(64) NOT NULL,
   source_row_count integer NOT NULL,
+  decision_items_sha256 char(64),
   status varchar(16) NOT NULL DEFAULT 'draft',
   approved_by uuid,
   approved_at timestamptz,
@@ -34,6 +35,12 @@ CREATE TABLE hr_legacy_dictionary_version (
     CHECK (source_snapshot_sha256 ~ '^[0-9a-f]{64}$'),
   CONSTRAINT ck_hr_legacy_dictionary_source_rows
     CHECK (source_row_count >= 0),
+  CONSTRAINT ck_hr_legacy_dictionary_items_sha
+    CHECK (
+      (status = 'draft' AND decision_items_sha256 IS NULL)
+      OR
+      (status IN ('approved','superseded') AND decision_items_sha256 ~ '^[0-9a-f]{64}$')
+    ),
   CONSTRAINT ck_hr_legacy_dictionary_status
     CHECK (status IN ('draft','approved','superseded')),
   CONSTRAINT ck_hr_legacy_dictionary_approval
@@ -129,6 +136,23 @@ CREATE INDEX ix_hr_legacy_dictionary_item_version
   ON hr_legacy_dictionary_item(tenant_id,park_id,version_id,create_time,id)
   WHERE is_deleted = false;
 
+CREATE FUNCTION hr_legacy_dictionary_items_sha256(
+  p_tenant_id varchar,
+  p_park_id varchar,
+  p_version_id uuid
+)
+RETURNS char(64) LANGUAGE sql STABLE AS $$
+  SELECT encode(digest(convert_to(coalesce(jsonb_agg(
+    jsonb_build_object(
+      'source_code',source_code,'source_name',source_name,'source_value',source_value,
+      'source_identity_sha256',source_identity_sha256,'source_row_sha256',source_row_sha256,
+      'decision',decision,'target_domain',target_domain,'target_value',target_value,
+      'reason_code',reason_code,'review_note',review_note
+    ) ORDER BY source_identity_sha256,id)::text,'[]'),'UTF8'),'sha256'),'hex')
+  FROM hr_legacy_dictionary_item
+  WHERE tenant_id=p_tenant_id AND park_id=p_park_id AND version_id=p_version_id AND is_deleted=false
+$$;
+
 CREATE FUNCTION hr_legacy_dictionary_version_guard()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
@@ -142,12 +166,12 @@ BEGIN
   IF OLD.status = 'approved' THEN
     IF NEW.status <> 'superseded'
        OR (NEW.tenant_id,NEW.park_id,NEW.source_system,NEW.dictionary_code,
-           NEW.source_table,NEW.source_snapshot_sha256,NEW.source_row_count,
+           NEW.source_table,NEW.source_snapshot_sha256,NEW.source_row_count,NEW.decision_items_sha256,
            NEW.approved_by,NEW.approved_at,NEW.decision_note,NEW.create_by,
            NEW.create_time,NEW.is_deleted,NEW.remark)
           IS DISTINCT FROM
           (OLD.tenant_id,OLD.park_id,OLD.source_system,OLD.dictionary_code,
-           OLD.source_table,OLD.source_snapshot_sha256,OLD.source_row_count,
+           OLD.source_table,OLD.source_snapshot_sha256,OLD.source_row_count,OLD.decision_items_sha256,
            OLD.approved_by,OLD.approved_at,OLD.decision_note,OLD.create_by,
            OLD.create_time,OLD.is_deleted,OLD.remark) THEN
       RAISE EXCEPTION 'HR_LEGACY_DICTIONARY_APPROVED_IMMUTABLE';
@@ -156,6 +180,12 @@ BEGIN
     RAISE EXCEPTION 'HR_LEGACY_DICTIONARY_SUPERSEDED_IMMUTABLE';
   ELSIF NEW.status NOT IN ('draft','approved') THEN
     RAISE EXCEPTION 'HR_LEGACY_DICTIONARY_TRANSITION_INVALID';
+  END IF;
+  IF OLD.status = 'draft' AND NEW.status = 'approved' THEN
+    IF NEW.decision_items_sha256 IS DISTINCT FROM
+       hr_legacy_dictionary_items_sha256(NEW.tenant_id,NEW.park_id,NEW.id) THEN
+      RAISE EXCEPTION 'HR_LEGACY_DICTIONARY_ITEMS_SHA_MISMATCH';
+    END IF;
   END IF;
   RETURN NEW;
 END $$;
@@ -184,6 +214,23 @@ END $$;
 CREATE TRIGGER trg_hr_legacy_dictionary_item_guard
 BEFORE INSERT OR UPDATE OR DELETE ON hr_legacy_dictionary_item
 FOR EACH ROW EXECUTE FUNCTION hr_legacy_dictionary_item_guard();
+
+CREATE FUNCTION hr_legacy_dictionary_item_touch_version()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  UPDATE hr_legacy_dictionary_version
+  SET update_by=CASE WHEN TG_OP='DELETE' THEN OLD.update_by ELSE NEW.update_by END,
+      update_time=now(),version=version+1
+  WHERE id=CASE WHEN TG_OP='DELETE' THEN OLD.version_id ELSE NEW.version_id END
+    AND tenant_id=CASE WHEN TG_OP='DELETE' THEN OLD.tenant_id ELSE NEW.tenant_id END
+    AND park_id=CASE WHEN TG_OP='DELETE' THEN OLD.park_id ELSE NEW.park_id END
+    AND status='draft';
+  RETURN CASE WHEN TG_OP='DELETE' THEN OLD ELSE NEW END;
+END $$;
+
+CREATE TRIGGER trg_hr_legacy_dictionary_item_touch_version
+AFTER INSERT OR UPDATE OR DELETE ON hr_legacy_dictionary_item
+FOR EACH ROW EXECUTE FUNCTION hr_legacy_dictionary_item_touch_version();
 
 CREATE FUNCTION hr_resolve_legacy_dictionary(
   p_tenant_id varchar,

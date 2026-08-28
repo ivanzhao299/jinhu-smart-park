@@ -163,6 +163,11 @@ export class HrLegacyDictionaryService {
         [scope.tenantId,scope.parkId,id],
       ) as unknown as HrLegacyDictionaryItemInputDto[];
       validateLegacyDictionaryItems(String(version.dictionary_code),itemRows,Number(version.source_row_count));
+      const digestRows=await manager.query(
+        "SELECT hr_legacy_dictionary_items_sha256($1,$2,$3) AS sha256",
+        [scope.tenantId,scope.parkId,id],
+      ) as RawRow[];
+      if(digestRows[0]?.sha256!==dto.decisionItemsSha256)throw new ConflictException("Legacy dictionary decision items drifted");
       await manager.query(
         `UPDATE hr_legacy_dictionary_version SET status='superseded',update_time=now(),version=version+1
          WHERE tenant_id=$1 AND park_id=$2 AND source_system='yuzhou-v10' AND dictionary_code=$3
@@ -170,11 +175,11 @@ export class HrLegacyDictionaryService {
         [scope.tenantId,scope.parkId,version.dictionary_code],
       );
       const approved=await manager.query(
-        `UPDATE hr_legacy_dictionary_version SET status='approved',approved_by=$1,approved_at=now(),
+        `UPDATE hr_legacy_dictionary_version SET status='approved',approved_by=$1,approved_at=now(),decision_items_sha256=$2,
            update_time=now(),version=version+1
-         WHERE id=$2 AND tenant_id=$3 AND park_id=$4 AND status='draft'
-         RETURNING id,dictionary_code AS "dictionaryCode",source_snapshot_sha256 AS "sourceSnapshotSha256",status,approved_at AS "approvedAt"`,
-        [actor.sub,id,scope.tenantId,scope.parkId],
+         WHERE id=$3 AND tenant_id=$4 AND park_id=$5 AND status='draft'
+         RETURNING id,dictionary_code AS "dictionaryCode",source_snapshot_sha256 AS "sourceSnapshotSha256",decision_items_sha256 AS "decisionItemsSha256",status,approved_at AS "approvedAt"`,
+        [actor.sub,dto.decisionItemsSha256,id,scope.tenantId,scope.parkId],
       ) as RawRow[];
       if(approved.length!==1)throw new ConflictException("Legacy dictionary approval changed concurrently");
       return approved[0]!;

@@ -9,6 +9,9 @@ const t0=read("scripts/load-yuzhou-t0.sh"),t1=read("scripts/load-yuzhou-t1-emplo
 
 assert.match(migration,/status = 'approved'/);
 assert.match(migration,/source_snapshot_sha256/);
+assert.match(migration,/decision_items_sha256/);
+assert.match(migration,/HR_LEGACY_DICTIONARY_ITEMS_SHA_MISMATCH/);
+assert.match(migration,/trg_hr_legacy_dictionary_item_touch_version/);
 assert.match(migration,/matched_count <> 1/);
 assert.match(migration,/HR_LEGACY_DICTIONARY_UNRESOLVED/);
 assert.match(migration,/uq_hr_legacy_dictionary_item_source_(code|name|value)/);

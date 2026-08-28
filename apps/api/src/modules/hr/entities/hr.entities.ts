@@ -109,6 +109,7 @@ export class HrLegacyDictionaryVersionEntity extends AuditableEntity {
  @Column({name:"source_table",type:"varchar",length:128}) sourceTable!:string;
  @Column({name:"source_snapshot_sha256",type:"char",length:64}) sourceSnapshotSha256!:string;
  @Column({name:"source_row_count",type:"integer"}) sourceRowCount!:number;
+ @Column({name:"decision_items_sha256",type:"char",length:64,nullable:true}) decisionItemsSha256!:string|null;
  @Column({type:"varchar",length:16,default:"draft"}) status!:string;
  @Column({name:"approved_by",type:"uuid",nullable:true}) approvedBy!:string|null;
  @Column({name:"approved_at",type:"timestamptz",nullable:true}) approvedAt!:Date|null;

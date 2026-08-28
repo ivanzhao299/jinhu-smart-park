@@ -36,6 +36,9 @@ test("migration makes approved evidence append-only scoped and fail-closed",()=>
   ])assert.match(sql,new RegExp(signature));
   assert.match(sql,/FOREIGN KEY \(tenant_id,park_id,version_id\)/);
   assert.match(sql,/matched_count <> 1/);
+  assert.match(sql,/hr_legacy_dictionary_items_sha256/);
+  assert.match(sql,/HR_LEGACY_DICTIONARY_ITEMS_SHA_MISMATCH/);
+  assert.match(sql,/trg_hr_legacy_dictionary_item_touch_version/);
   assert.doesNotMatch(sql,/INSERT INTO hr_employee|INSERT INTO hr_contract|INSERT INTO hr_employment_event/);
 });
 
