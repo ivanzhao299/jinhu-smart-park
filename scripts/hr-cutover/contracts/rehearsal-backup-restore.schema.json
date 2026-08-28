@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/contracts/hr/rehearsal-backup-restore-v1.schema.json",
+  "title": "Yuzhou HR full-domain rehearsal backup and restore evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "evidenceKind",
+    "status",
+    "parentRunId",
+    "rehearsal",
+    "triple",
+    "target",
+    "backup",
+    "fault",
+    "before",
+    "restored",
+    "equality",
+    "timing",
+    "security",
+    "productionImport",
+    "productionRestore"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "evidenceKind": { "const": "yuzhou_hr_rehearsal_backup_restore" },
+    "status": { "const": "PASS" },
+    "parentRunId": { "$ref": "#/$defs/runId" },
+    "rehearsal": { "enum": ["A", "B"] },
+    "triple": { "$ref": "#/$defs/triple" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["composeProject", "postgresContainer", "sourceDatabase", "restoreDatabase", "restoreRole"],
+      "properties": {
+        "composeProject": { "$ref": "#/$defs/labDatabase" },
+        "postgresContainer": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{2,80}$" },
+        "sourceDatabase": { "$ref": "#/$defs/labDatabase" },
+        "restoreDatabase": { "$ref": "#/$defs/labDatabase" },
+        "restoreRole": { "type": "string", "pattern": "^[a-z][a-z0-9_]{5,62}$" }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "dump", "toc", "normalizedTocSha256", "fileSnapshot"],
+      "properties": {
+        "format": { "const": "pg_dump_custom" },
+        "dump": { "$ref": "#/$defs/artifact" },
+        "toc": { "$ref": "#/$defs/artifact" },
+        "normalizedTocSha256": { "$ref": "#/$defs/sha256" },
+        "fileSnapshot": { "$ref": "#/$defs/fileTree" }
+      }
+    },
+    "fault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["faultId", "status", "detectorCode", "reverted", "targetIdentitySha256"],
+      "properties": {
+        "faultId": { "enum": ["VERIFY_FIXTURE_ROW_CHANGED", "REGISTERED_FILE_UNREADABLE"] },
+        "status": { "const": "DETECTED" },
+        "detectorCode": { "enum": ["RESTORE_FIXTURE_MISMATCH", "FILE_TREE_UNREADABLE"] },
+        "reverted": { "const": true },
+        "targetIdentitySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "before": { "$ref": "#/$defs/canonicalFacts" },
+    "restored": { "$ref": "#/$defs/canonicalFacts" },
+    "equality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migrationHistory", "platformCatalog", "hrLedger", "hrCanonical", "quarantineLedger", "sideEffects", "files", "faultFixture"],
+      "properties": {
+        "migrationHistory": { "const": true },
+        "platformCatalog": { "const": true },
+        "hrLedger": { "const": true },
+        "hrCanonical": { "const": true },
+        "quarantineLedger": { "const": true },
+        "sideEffects": { "const": true },
+        "files": { "const": true },
+        "faultFixture": { "const": true }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clock", "dumpBoundaryEpochMs", "restoreStartedEpochMs", "verifiedReadyEpochMs", "rtoObservedMs", "rpoObservedObjects", "targetApproval"],
+      "properties": {
+        "clock": { "const": "monotonic_plus_utc_epoch_ms" },
+        "dumpBoundaryEpochMs": { "$ref": "#/$defs/nonnegativeInteger" },
+        "restoreStartedEpochMs": { "$ref": "#/$defs/nonnegativeInteger" },
+        "verifiedReadyEpochMs": { "$ref": "#/$defs/nonnegativeInteger" },
+        "rtoObservedMs": { "$ref": "#/$defs/nonnegativeInteger" },
+        "rpoObservedObjects": { "const": 0 },
+        "targetApproval": { "const": "UNAPPROVED" }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directoryMode", "fileMode", "containsSecrets", "containsPersonalValues"],
+      "properties": {
+        "directoryMode": { "const": "0700" },
+        "fileMode": { "const": "0600" },
+        "containsSecrets": { "const": false },
+        "containsPersonalValues": { "const": false }
+      }
+    },
+    "productionImport": { "const": "HOLD" },
+    "productionRestore": { "const": "HOLD" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "runId": { "type": "string", "pattern": "^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r[AB]$" },
+    "labDatabase": { "type": "string", "pattern": "^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$" },
+    "nonnegativeInteger": { "type": "integer", "minimum": 0 },
+    "triple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
+      "properties": {
+        "codeSha": { "$ref": "#/$defs/codeSha" },
+        "sourceSnapshotHash": { "$ref": "#/$defs/sha256" },
+        "mappingContractHash": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relativePath", "sha256", "bytes", "mode"],
+      "properties": {
+        "relativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "$ref": "#/$defs/nonnegativeInteger" },
+        "mode": { "const": "0600" }
+      }
+    },
+    "fileTree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "entryCount", "totalBytes", "canonicalSha256"],
+      "properties": {
+        "version": { "const": 1 },
+        "entryCount": { "$ref": "#/$defs/nonnegativeInteger" },
+        "totalBytes": { "$ref": "#/$defs/nonnegativeInteger" },
+        "canonicalSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "canonicalFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "hrDomainHashes", "quarantineLedgerSha256", "sideEffectSha256", "fileTree", "faultFixtureSha256"],
+      "properties": {
+        "migrationHistorySha256": { "$ref": "#/$defs/sha256" },
+        "platformCatalogSha256": { "$ref": "#/$defs/sha256" },
+        "hrLedgerSha256": { "$ref": "#/$defs/sha256" },
+        "hrGlobalSha256": { "$ref": "#/$defs/sha256" },
+        "hrDomainHashes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["T0", "T1", "T2", "T3", "T4", "T5"],
+          "properties": {
+            "T0": { "$ref": "#/$defs/sha256" },
+            "T1": { "$ref": "#/$defs/sha256" },
+            "T2": { "$ref": "#/$defs/sha256" },
+            "T3": { "$ref": "#/$defs/sha256" },
+            "T4": { "$ref": "#/$defs/sha256" },
+            "T5": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "quarantineLedgerSha256": { "$ref": "#/$defs/sha256" },
+        "sideEffectSha256": { "$ref": "#/$defs/sha256" },
+        "fileTree": { "$ref": "#/$defs/fileTree" },
+        "faultFixtureSha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
