@@ -74,6 +74,13 @@ try {
   assert.equal(existsSync(dockerMarker), false, "unsafe key file must fail before source access");
   chmodSync(keyFile, 0o600);
 
+  writeFileSync(keyFile, `${"ab".repeat(48)}\n`, { mode: 0o600 });
+  const overlong = run("fixture-t5-overlong-key", { YUZHOU_PARTY_DATA_KEY_FILE: keyFile });
+  assert.equal(overlong.status, 1);
+  assert.match(overlong.stderr, /ERROR: materialization key file must contain a 32-byte hex key/);
+  assert.equal(existsSync(dockerMarker), false, "overlong key must fail before source access");
+  writeFileSync(keyFile, `${"ab".repeat(32)}\n`, { mode: 0o600 });
+
   const queryFailure = run("fixture-t5-query-failure", { YUZHOU_PARTY_DATA_KEY_FILE: keyFile });
   assert.equal(queryFailure.status, 1);
   assert.match(queryFailure.stderr, /ERROR: SQL query failed for catalog\.raw\.json/);

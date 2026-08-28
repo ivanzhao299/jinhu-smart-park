@@ -47,7 +47,7 @@ function configFor(rehearsal, suffix, ports) {
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
-  writeFileSync(materializationKey, "fixture-materialization-key-32-bytes-minimum\n", { mode: 0o600 });
+  writeFileSync(materializationKey, `${"ab".repeat(32)}\n`, { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
   return {
     formatVersion: 1,

@@ -32,6 +32,14 @@ function assertRegularFile(path, label, { privateFile = false } = {}) {
   return realpathSync(candidate);
 }
 
+function assertMaterializationKey(path) {
+  const value = readFileSync(path, "utf8").trim();
+  if (!/^[0-9a-fA-F]{64}$/u.test(value)) {
+    fail("materialization key must contain exactly one 32-byte hexadecimal key");
+  }
+  return value;
+}
+
 function parseArgs(argv) {
   const args = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -102,7 +110,7 @@ function configFor(args, codeSha, mappingContractHash) {
   const sourceBackup = assertRegularFile(args.sourceBackup, "source backup", { privateFile: true });
   if (fileSha256(sourceBackup) !== sourceSnapshotHash) fail("source backup does not match the pinned snapshot");
   const materializationKeySource = assertRegularFile(args.materializationKey, "materialization key", { privateFile: true });
-  if (Buffer.byteLength(readFileSync(materializationKeySource, "utf8").trim(), "utf8") < 32) fail("materialization key must contain at least 32 bytes");
+  assertMaterializationKey(materializationKeySource);
   privateCopy(materializationKeySource, materializationKey);
   writePrivate(postgresEnv, `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
 
@@ -197,4 +205,4 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { assertRegularFile, configFor, parseArgs };
+export { assertMaterializationKey, assertRegularFile, configFor, parseArgs };

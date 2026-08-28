@@ -510,7 +510,9 @@ function provisionLab(config, registry) {
   const p = paths(config);
   if (!existsSync(t.credentialArtifact) || mode(t.credentialArtifact) !== "0600" || lstatSync(t.credentialArtifact).isSymbolicLink()) fail("UNSAFE_FILE_PERMISSION", "credential artifact must be an existing 0600 regular file");
   if (!existsSync(t.materializationKeyArtifact) || mode(t.materializationKeyArtifact) !== "0600" || lstatSync(t.materializationKeyArtifact).isSymbolicLink() || !statSync(t.materializationKeyArtifact).isFile()) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must be an existing non-symlink 0600 regular file");
-  if (Buffer.byteLength(readFileSync(t.materializationKeyArtifact, "utf8").trim(), "utf8") < 32) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must contain at least 32 bytes");
+  if (!/^[0-9a-fA-F]{64}$/u.test(readFileSync(t.materializationKeyArtifact, "utf8").trim())) {
+    fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must contain exactly one 32-byte hexadecimal key");
+  }
   const credentialLines = readFileSync(t.credentialArtifact, "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
   const credentialValues = Object.fromEntries(credentialLines.map((line) => {
     const separator = line.indexOf("=");
