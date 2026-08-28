@@ -40,6 +40,7 @@
       "scripts/hr-cutover/yuzhou-live-role-uat-p0-matrix-lib.mjs",
       "scripts/hr-cutover/yuzhou-live-role-uat-p0-runner.mjs",
       "scripts/hr-cutover/yuzhou-live-role-uat-p0-observations.mjs",
+      "scripts/hr-cutover/yuzhou-live-role-uat-p0-scenario.mjs",
       "scripts/hr-cutover/yuzhou-live-role-uat-onboarding-scenario.mjs",
       "scripts/hr-cutover/yuzhou-live-role-uat-probation-scenario.mjs",
       "scripts/hr-cutover/yuzhou-live-role-uat-employee-scenario.mjs",

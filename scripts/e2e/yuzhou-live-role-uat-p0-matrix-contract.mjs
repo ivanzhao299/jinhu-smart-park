@@ -43,21 +43,21 @@ test("the exact 25 runtime observations are hash-bound, private and remain HOLD 
   const dir=mkdtempSync(resolve(tmpdir(),"jinhu-p0-observations-")),evidencePath=resolve(dir,"p0.json");
   let requests=0;
   const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>{requests+=1;return new Response(JSON.stringify({statusCode:503,message:"isolated dependency unavailable"}),{status:503,headers:{"content-type":"application/json"}});}});
-  const plans=matrix.checks.map(check=>({id:check.id,substitutions:Object.fromEntries([...check.route.matchAll(/\{([^}]+)\}/gu)].map(match=>[match[1],"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"])),...(check.method==="POST"?{body:{action:"approve"}}:{}),assert:()=>Object.fromEntries(check.assertions.map(key=>[key,true]))}));
+  const plans=matrix.checks.map(check=>({id:check.id,owner:"rehearsal-A",evidenceSources:["response","db_before_after"],substitutions:Object.fromEntries([...check.route.matchAll(/\{([^}]+)\}/gu)].map(match=>[match[1],"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"])),...(check.method==="POST"?{body:{action:"approve"}}:{}),assert:observed=>Object.fromEntries(check.assertions.map(key=>[key,Number.isInteger(observed.status)]))}));
   const triple={codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)};
   const matrixSha256=validateYuzhouLiveRoleUatP0Matrix(matrix).sha256;
   const evidence=await runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath});
   assert.equal(requests,25);assert.equal(evidence.observedChecks,25);assert.equal(evidence.status,"HOLD");assert.equal(evidence.technicalUat,"HOLD");assert.equal(evidence.humanUat,"HOLD");assert.equal(evidence.productionImport,"HOLD");assert.match(evidence.responseEvidenceSha256,/^[0-9a-f]{64}$/u);assert.equal(lstatSync(evidencePath).mode&0o777,0o600);
   assert.doesNotMatch(readFileSync(evidencePath,"utf8"),/isolated dependency unavailable|Bearer|aaaaaaaa-aaaa/u);
   const target=resolve(dir,"target.json"),link=resolve(dir,"linked.json");writeFileSync(target,"{}\n");chmodSync(target,0o600);symlinkSync(target,link);
-  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-B",triple,matrixSha256},evidencePath}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");
+  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-B",triple,matrixSha256},evidencePath}),error=>error.code==="YUZHOU_UAT_P0_PLAN_INVALID");
   await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath:link}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");
 });
 
 test("constant callbacks cannot create PASS evidence without the exact primary and support requests",async()=>{
   const matrixSha256=validateYuzhouLiveRoleUatP0Matrix(matrix).sha256,triple={codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)};
   const fake={requestCount:0,execute:async plan=>({id:plan.id,actor:"hr_reviewer",statusCode:200,responseKind:"json",responseSha256:"a".repeat(64),responseByteLength:1,supportResponses:0,assertions:Object.fromEntries(matrix.checks.find(row=>row.id===plan.id).assertions.map(key=>[key,true]))})};
-  const plans=matrix.checks.map(check=>({id:check.id,assert:()=>Object.fromEntries(check.assertions.map(key=>[key,true]))}));
+  const plans=matrix.checks.map(check=>({id:check.id,owner:"rehearsal-A",evidenceSources:["response","db_before_after"],assert:()=>Object.fromEntries(check.assertions.map(key=>[key,true]))}));
   await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner:fake,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256}}),error=>error.code==="YUZHOU_UAT_P0_REQUEST_COUNT_MISMATCH");
 });
 
@@ -91,10 +91,22 @@ test("JSON negative probes cannot self-attest through target or sensitive-field 
 });
 
 test("hash-only evidence binds the actual response bytes, not only its JSON type",async()=>{
-  const run=async payload=>new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify(payload),{status:200,headers:{"content-type":"application/json"}})}).execute({id:"approval_park_pending",assert:()=>({park_rows_scoped:true,required_audit_written:true})});
+  const run=async payload=>new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify(payload),{status:200,headers:{"content-type":"application/json"}})}).execute({id:"approval_park_pending",assert:observed=>({park_rows_scoped:observed.status===200,required_audit_written:true})});
   const first=await run([{id:"one"}]),second=await run([{id:"two"}]);
   assert.notEqual(first.responseSha256,second.responseSha256);assert.equal(first.responseByteLength,14);
   assert.doesNotMatch(JSON.stringify(first),/\[\{|id.*one/u);
+});
+
+test("runtime plans reject constant assertions, missing fixture ownership and unrestored faults",async()=>{
+  const ok=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify([]),{status:200,headers:{"content-type":"application/json"}})});
+  await assert.rejects(ok.execute({id:"approval_park_pending",assert:()=>({park_rows_scoped:true,required_audit_written:true})}),error=>error.code==="YUZHOU_UAT_P0_ASSERTION_UNOBSERVED");
+  const triple={codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)},matrixSha256=validateYuzhouLiveRoleUatP0Matrix(matrix).sha256;
+  const plans=matrix.checks.map(check=>({id:check.id,owner:"wrong-run",evidenceSources:["response","db_before_after"],assert:observed=>Object.fromEntries(check.assertions.map(key=>[key,Number.isInteger(observed.status)]))}));
+  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner:ok,matrix,plans,binding:{runId:"right-run",triple,matrixSha256}}),error=>error.code==="YUZHOU_UAT_P0_PLAN_INVALID");
+  const owned=plans.map(plan=>({...plan,owner:"right-run",substitutions:Object.fromEntries([...(matrix.checks.find(check=>check.id===plan.id)?.route.matchAll(/\{([^}]+)\}/gu)??[])].map(match=>[match[1],"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"]))}));
+  owned[0]={...owned[0],cleanup:async()=>{const error=new Error("fault remained");error.code="P0_FAULT_NOT_RESTORED";throw error;}};
+  const result=await runYuzhouLiveRoleUatP0Observations({runner:ok,matrix,plans:owned,binding:{runId:"right-run",triple,matrixSha256}});
+  assert.equal(result.status,"HOLD");assert.equal(result.observations[0].status,"FAIL");assert.doesNotMatch(JSON.stringify(result),/fault remained/u);
 });
 
 test("P0 routes remain bound to exact runtime permission and required-audit implementations",()=>{

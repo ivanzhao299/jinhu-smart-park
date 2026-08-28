@@ -19,13 +19,15 @@ export async function runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,bi
   const identity=validateYuzhouLiveRoleUatP0Matrix(matrix);assertBinding(binding,identity.sha256);
   if(!runner?.execute||!Array.isArray(plans)||plans.length!==identity.checkCount)fail("YUZHOU_UAT_P0_PLAN_INVALID","exact executable plan required");
   const expected=matrix.checks.map(row=>row.id),actual=plans.map(row=>row?.id);
-  if(JSON.stringify(actual)!==JSON.stringify(expected)||plans.some(row=>typeof row.assert!=="function"))fail("YUZHOU_UAT_P0_PLAN_INVALID","stable ids/order/assertions");
+  if(JSON.stringify(actual)!==JSON.stringify(expected)||plans.some(row=>typeof row.assert!=="function"||row.owner!==binding.runId||!Array.isArray(row.evidenceSources)||!row.evidenceSources.includes("response")||!row.evidenceSources.some(source=>source!=="response")))fail("YUZHOU_UAT_P0_PLAN_INVALID","stable ids/order/owner/evidence sources");
   const expectedRequests=matrix.checks.reduce((sum,row)=>sum+1+(row.supportRoutes?.length??0),0),requestCountBefore=runner.requestCount;
   if(!Number.isInteger(requestCountBefore))fail("YUZHOU_UAT_P0_RUNNER_INVALID","request counter required");
   const observations=[];
   for(const plan of plans){
-    try{const observed=await runner.execute(plan);const row={...observed,status:"PASS"};observations.push({...row,evidenceSha256:hash(row)});}
+    let prepared=plan;
+    try{prepared=plan.prepare?{...plan,...await plan.prepare()}:plan;const observed=await runner.execute(prepared);const row={...observed,status:"PASS"};observations.push({...row,evidenceSha256:hash(row)});}
     catch(error){observations.push({id:plan.id,status:"FAIL",failureCodeHash:hash(String(error?.code??"YUZHOU_UAT_P0_FAILED"))});}
+    finally{if(plan.cleanup){try{await plan.cleanup();}catch(error){const row=observations.at(-1);row.status="FAIL";delete row.evidenceSha256;row.failureCodeHash=hash(String(error?.code??"YUZHOU_UAT_P0_CLEANUP_FAILED"));}}}
   }
   const requestCount=runner.requestCount-requestCountBefore;
   const responseEvidenceSha256=hash(observations),failedChecks=observations.filter(row=>row.status!=="PASS").length;

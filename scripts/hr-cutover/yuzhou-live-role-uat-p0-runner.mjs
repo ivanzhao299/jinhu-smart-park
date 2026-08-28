@@ -24,9 +24,10 @@ export class YuzhouLiveRoleUatP0Runner {
     if(Object.keys(tokens??{}).sort().join(",")!=="employee,hr_reviewer,manager"||Object.values(tokens).some(x=>typeof x!=="string"||x.length<16))fail("YUZHOU_UAT_P0_ACTORS_INVALID","three role tokens required");
     this.apiBase=url.toString().replace(/\/$/u,"");this.tokens={...tokens};this.matrix=matrix;this.request=request;this.requestCount=0;
   }
-  async execute({id,substitutions={},body,assert}){
+  async execute({id,substitutions={},body,assert,requestId=randomUUID()}){
     const check=this.matrix.checks.find(x=>x.id===id); if(!check)fail("YUZHOU_UAT_P0_CHECK_UNKNOWN",id); if(typeof assert!=="function")fail("YUZHOU_UAT_P0_ASSERTION_INVALID",id);
-    const route=routeFor(check.route,substitutions),headers={authorization:`Bearer ${this.tokens[check.actor]}`,"x-request-id":randomUUID()};
+    if(!uuidPattern.test(requestId))fail("YUZHOU_UAT_P0_REQUEST_ID_INVALID",id);
+    const route=routeFor(check.route,substitutions),headers={authorization:`Bearer ${this.tokens[check.actor]}`,"x-request-id":requestId};
     if(body!==undefined){headers["content-type"]="application/json";headers["x-idempotency-key"]=`p0-${sha256(id).slice(0,24)}`;}
     this.requestCount+=1;
     const response=await this.request(`${this.apiBase}${route}`,{method:check.method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})});
@@ -67,8 +68,9 @@ export class YuzhouLiveRoleUatP0Runner {
       if(item.outcome!=="success"&&(containsForbiddenKey(payload)||Object.values(substitutions).some(value=>new TextDecoder().decode(bytes).includes(value))))fail("YUZHOU_UAT_P0_SUPPORT_SENSITIVE_LEAK",id);
       support.push({status:supportResponse.status,payload,responseSha256:sha256(bytes),responseByteLength:bytes.byteLength});
     }
-    observed.support=support;
-    const assertions=await assert(observed);
+    observed.support=support;let observationRead=false;
+    const assertions=await assert(new Proxy(observed,{get(target,key,receiver){observationRead=true;return Reflect.get(target,key,receiver);}}));
+    if(!observationRead)fail("YUZHOU_UAT_P0_ASSERTION_UNOBSERVED",id);
     if(!assertions||JSON.stringify(Object.keys(assertions))!==JSON.stringify(check.assertions)||Object.values(assertions).some(value=>value!==true))fail("YUZHOU_UAT_P0_ASSERTION_FAILED",id);
     return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256:sha256(JSON.stringify([responseSha256,...support.map(row=>row.responseSha256)])),responseByteLength:responseBytes.byteLength+support.reduce((sum,row)=>sum+row.responseByteLength,0),supportResponses:support.length,assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
   }
