@@ -2,6 +2,7 @@ import {
   DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT,
   ProductionImportExecutionError,
   assertProductionImportExecutionActivated,
+  computeProductionImportApprovalSetHash,
   productionImportHash,
   validateProductionImportRollbackAuthorization,
   validateSealedProductionImportPlan,
@@ -75,13 +76,22 @@ export async function executeSealedProductionImport(planInput, options) {
   const contract = options?.contract ?? DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT;
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
   assertProductionImportExecutionActivated(plan, contract);
+  if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
+  if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
   if (!options?.database || typeof options.database.transaction !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "database transaction adapter missing");
   for (const phase of plan.phaseOrder) if (typeof options.phaseWriters?.[phase] !== "function") fail("PRODUCTION_IMPORT_PHASE_WRITER_REQUIRED", phase);
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query(
-      "SELECT hr_yuzhou_consume_import_authorization($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-      [plan.operationId, plan.triple.codeSha, plan.triple.sourceSnapshotHash, plan.triple.mappingContractHash, plan.sealing.sealedPlanSha256, plan.target.identitySha256, plan.authorization.artifactSha256, plan.authorization.nonceSha256, plan.manifestSha256, plan.finalRehearsalPairSha256],
+      "SELECT hr_yuzhou_consume_import_authorization($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)",
+      [
+        plan.operationId, plan.triple.codeSha, plan.triple.sourceSnapshotHash, plan.triple.mappingContractHash,
+        plan.sealing.sealedPlanSha256, plan.target.identitySha256, plan.authorization.artifactSha256,
+        plan.authorization.nonceSha256, plan.authorization.issuedAt, plan.authorization.expiresAt,
+        plan.window.startsAt, plan.window.endsAt, computeProductionImportApprovalSetHash(plan.authorization.approvalSet),
+        plan.manifestSha256, plan.finalRehearsalPair.artifactSha256,
+        plan.finalRehearsalPair.rehearsals[0].manifestSha256, plan.finalRehearsalPair.rehearsals[1].manifestSha256,
+      ],
     );
   });
   try {
@@ -123,11 +133,13 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
   const plan = validateSealedProductionImportPlan(planInput, { contract, now: options?.now ?? new Date() });
   assertProductionImportExecutionActivated(plan, contract);
   const rollbackAuthorization = validateProductionImportRollbackAuthorization(rollbackAuthorizationInput, plan, { now: options?.now ?? new Date() });
+  if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
+  if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
   if (!options?.database || typeof options.database.transaction !== "function" || typeof options.rollbackRecord !== "function") fail("PRODUCTION_IMPORT_ROLLBACK_ADAPTER_REQUIRED", "rollback adapter missing");
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_rollback_authorization" }, async tx => {
     await tx.query(
-      "SELECT hr_yuzhou_consume_rollback_authorization($1,$2,$3,$4,$5)",
-      [rollbackAuthorization.rollbackOperationId, plan.operationId, plan.sealing.sealedPlanSha256, rollbackAuthorization.authorizationArtifactSha256, rollbackAuthorization.authorizationNonceSha256],
+      "SELECT hr_yuzhou_consume_rollback_authorization($1,$2,$3,$4,$5,$6,$7,$8)",
+      [rollbackAuthorization.rollbackOperationId, plan.operationId, plan.sealing.sealedPlanSha256, plan.target.identitySha256, rollbackAuthorization.authorizationArtifactSha256, rollbackAuthorization.authorizationNonceSha256, rollbackAuthorization.issuedAt, rollbackAuthorization.expiresAt],
     );
   });
   try {

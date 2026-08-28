@@ -160,6 +160,12 @@ sealed plan 只允许 T0→T3，逐来源记录固定 `insert|merge|quarantine|s
 管理的 AES-256-GCM before-image、明文 canonical hash 和目标行 CAS hash；回退只能删除本 operation
 插入的记录，或在目标仍等于导入后 hash 时恢复加密 before-image。
 
+封存计划必须逐字节绑定代码/源/映射三元组、唯一生产目标、执行窗口、import manifest、A/B 各自不同的
+manifest 与 cleanup 审计（两边 `residualCount=0`），以及 HR、数据安全、发布三个不同主体的签署决定摘要。
+授权有效期必须完全包含在执行窗口内；writer 还要求当前代码、已合并代码和数据库 adapter 目标身份与
+封存值一致。T1～T3 的 owner source identity 必须在同一计划 T0 record map 中存在，发生目标写入时还
+必须精确映射到非隔离的 `hr_employee`，随机哈希或姓名推断均不能通过应用与数据库双层门禁。
+
 一次性授权消费与业务写入不是同一事务：
 
 1. 第一笔独立 `SERIALIZABLE` 控制事务写入不可复用的 import authorization receipt 并提交；

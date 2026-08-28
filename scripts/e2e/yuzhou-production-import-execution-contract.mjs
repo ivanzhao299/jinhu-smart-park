@@ -35,13 +35,21 @@ function planFixture({ disposition = "insert", phase = "T0" } = {}) {
       ...(disposition === "merge" ? { beforeImage: { algorithm: "aes-256-gcm-external-kek-v1", plaintextSha256: H("6"), ciphertextSha256: H("8"), keyReferenceSha256: H("9") } } : {}),
     }),
   };
+  const t0OwnerRecord = {
+    sourceIdentitySha256: H("3"),
+    sourceRowSha256: H("a"),
+    disposition: "insert",
+    targetTable: "hr_employee",
+    targetId: "33333333-3333-4333-8333-333333333333",
+    expectedTargetAfterSha256: H("b"),
+  };
   const phases = ["T0", "T1", "T2", "T3"].map((name, ordinal) => ({
     phase: name,
     ordinal,
     sourceBatchManifestSha256: H(String(ordinal + 2)),
     beforeCanonicalSha256: H(String(ordinal + 3)),
     expectedAfterCanonicalSha256: H(String(ordinal + 4)),
-    records: name === phase ? [record] : [],
+    records: name === "T0" && phase !== "T0" ? [t0OwnerRecord] : (name === phase ? [record] : []),
   }));
   const plan = {
     formatVersion: 1,
@@ -51,9 +59,33 @@ function planFixture({ disposition = "insert", phase = "T0" } = {}) {
     status: "SEALED",
     triple: { codeSha: "1".repeat(40), sourceSnapshotHash: H("a"), mappingContractHash: H("b") },
     target: TARGET,
-    authorization: { artifactSha256: H("c"), nonceSha256: H("d"), issuedAt: "2026-08-29T00:30:00.000Z", expiresAt: "2026-08-29T01:30:00.000Z" },
+    window: { startsAt: "2026-08-29T00:00:00.000Z", endsAt: "2026-08-29T02:00:00.000Z" },
+    authorization: {
+      intent: "production_import",
+      artifactSha256: H("c"), nonceSha256: H("d"), issuedAt: "2026-08-29T00:30:00.000Z", expiresAt: "2026-08-29T01:30:00.000Z",
+      binding: {
+        triple: { codeSha: "1".repeat(40), sourceSnapshotHash: H("a"), mappingContractHash: H("b") },
+        targetIdentitySha256: TARGET.identitySha256,
+        finalRehearsalPairSha256: H("f"),
+        manifestSha256: H("e"),
+        windowStartsAt: "2026-08-29T00:00:00.000Z",
+        windowEndsAt: "2026-08-29T02:00:00.000Z",
+      },
+      approvalSet: [
+        { role: "hr_owner", subjectRefSha256: H("4"), signedDecisionSha256: H("7") },
+        { role: "data_security_owner", subjectRefSha256: H("5"), signedDecisionSha256: H("8") },
+        { role: "release_owner", subjectRefSha256: H("6"), signedDecisionSha256: H("9") },
+      ],
+    },
     manifestSha256: H("e"),
-    finalRehearsalPairSha256: H("f"),
+    finalRehearsalPair: {
+      artifactSha256: H("f"),
+      triple: { codeSha: "1".repeat(40), sourceSnapshotHash: H("a"), mappingContractHash: H("b") },
+      rehearsals: [
+        { rehearsal: "A", manifestSha256: H("1"), cleanupAuditSha256: H("2"), residualCount: 0 },
+        { rehearsal: "B", manifestSha256: H("3"), cleanupAuditSha256: H("4"), residualCount: 0 },
+      ],
+    },
     phaseOrder: ["T0", "T1", "T2", "T3"],
     phases,
     rollback: { order: ["T3", "T2", "T1", "T0"], insert: "delete_operation_owned_target", merge: "encrypted_before_image_cas_restore", quarantine: "no_target_write", skipApproved: "no_target_write", residualCount: 0, canonicalHash: "EXACT" },
@@ -63,6 +95,14 @@ function planFixture({ disposition = "insert", phase = "T0" } = {}) {
   plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan);
   return plan;
 }
+
+const activatedOptions = plan => ({
+  contract: activatedContract(),
+  now: NOW,
+  currentCodeSha: plan.triple.codeSha,
+  mergedCodeSha: plan.triple.codeSha,
+  targetIdentitySha256: plan.target.identitySha256,
+});
 
 function activatedContract() {
   const contract = structuredClone(DEFAULT_PRODUCTION_IMPORT_EXECUTION_CONTRACT);
@@ -110,8 +150,23 @@ test("the repository execution contract keeps target activation empty and HOLD",
   assert.match(migration, /current_setting\('transaction_isolation'\) <> 'serializable'/u);
   assert.match(migration, /UNIQUE[\s\S]+authorization_artifact_sha256/u);
   assert.match(migration, /REVOKE ALL ON FUNCTION hr_yuzhou_consume_import_authorization/u);
-  assert.match(migration, /intent IN \('production_import','production_import_rollback'\)/u);
-  assert.doesNotMatch(readFileSync(resolve(ROOT, ".github/workflows/deploy-production.yml"), "utf8"), /production-import-writer|production-import-execution-v1/u);
+  assert.match(migration, /intent='production_import'[\s\S]+intent='production_import_rollback'/u);
+  assert.match(migration, /authorization_issued_at >= window_starts_at[\s\S]+authorization_expires_at <= window_ends_at/u);
+  assert.match(migration, /trg_hr_yuzhou_prod_record_owner_map/u);
+  assert.match(migration, /ck_hr_yuzhou_prod_record_target_allowlist/u);
+  assert.match(migration, /REVOKE ALL ON FUNCTION hr_yuzhou_consume_rollback_authorization/u);
+  assert.match(migration, /REVOKE ALL ON SEQUENCE hr_yuzhou_production_import_authorization_use_usage_id_seq FROM PUBLIC/u);
+  for (const path of [
+    ".github/workflows/deploy-production.yml",
+    "scripts/prod-deploy.sh",
+    "scripts/db-seed-prod.sh",
+    "scripts/hr-cutover/full-domain-lifecycle.sh",
+  ]) assert.doesNotMatch(readFileSync(resolve(ROOT, path), "utf8"), /production-import-writer|production-import-execution-v1/u, `${path} must not reach production import execution`);
+  const packageScripts = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8")).scripts;
+  for (const [name, command] of Object.entries(packageScripts)) {
+    if (name === "test:e2e:yuzhou-production-import-execution") continue;
+    assert.doesNotMatch(command, /production-import-writer|production-import-execution-v1/u, `${name} must not reach production import execution`);
+  }
 });
 
 test("a valid sealed T0-T3 plan is deterministic but default execution is unreachable", async () => {
@@ -123,11 +178,21 @@ test("a valid sealed T0-T3 plan is deterministic but default execution is unreac
   );
 });
 
+test("even an activated contract cannot execute without concrete database and T0-T3 adapters", async () => {
+  const plan = planFixture();
+  await assert.rejects(executeSealedProductionImport(plan, activatedOptions(plan)), error => error.code === "PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED");
+  await assert.rejects(executeSealedProductionImport(plan, { ...activatedOptions(plan), database: mockDatabase(), phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_PHASE_WRITER_REQUIRED");
+});
+
 test("dependent phases require exact T0 source identity and no name matching escape", () => {
   const plan = planFixture({ phase: "T1" });
   delete plan.phases[1].records[0].ownerSourceIdentitySha256;
   plan.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(plan);
   assert.throws(() => validateSealedProductionImportPlan(plan, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED");
+  const foreign = planFixture({ phase: "T1" });
+  foreign.phases[1].records[0].ownerSourceIdentitySha256 = H("0");
+  foreign.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(foreign);
+  assert.throws(() => validateSealedProductionImportPlan(foreign, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED");
   const contract = activatedContract();
   contract.identityResolution.nameMatching = true;
   assert.throws(() => validateSealedProductionImportPlan(planFixture(), { contract, now: NOW }), error => error.code === "PRODUCTION_IMPORT_EXECUTION_CONTRACT_INVALID");
@@ -148,7 +213,7 @@ test("activated-contract simulation executes all phases in one SERIALIZABLE tran
     afterCanonicalSha256: phase.expectedAfterCanonicalSha256,
     records: phase.records.map(record => ({ sourceIdentitySha256: record.sourceIdentitySha256, disposition: record.disposition, targetId: record.targetId, targetAfterSha256: record.expectedTargetAfterSha256 })),
   })]));
-  const result = await executeSealedProductionImport(plan, { contract: activatedContract(), now: NOW, database, phaseWriters });
+  const result = await executeSealedProductionImport(plan, { ...activatedOptions(plan), database, phaseWriters });
   assert.equal(result.status, "succeeded");
   assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options), [
     { isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" },
@@ -167,8 +232,7 @@ test("rollback enforces reverse phase order and merge CAS evidence", async () =>
     return { rows: [] };
   });
   const result = await rollbackSealedProductionImport(plan, rollbackAuthorization(plan), {
-    contract: activatedContract(),
-    now: NOW,
+    ...activatedOptions(plan),
     database,
     rollbackRecord: async ({ phase, record }) => {
       rollbackCalls.push(phase);
@@ -190,7 +254,7 @@ test("import authorization consumption commits before a failed T0-T3 transaction
     if (phase.phase === "T1") throw new Error("simulated business failure");
     return { afterCanonicalSha256: phase.expectedAfterCanonicalSha256, records: phase.records.map(record => ({ sourceIdentitySha256: record.sourceIdentitySha256, disposition: record.disposition, targetId: record.targetId, targetAfterSha256: record.expectedTargetAfterSha256 })) };
   }]));
-  await assert.rejects(executeSealedProductionImport(plan, { contract: activatedContract(), now: NOW, database, phaseWriters }), /simulated business failure/u);
+  await assert.rejects(executeSealedProductionImport(plan, { ...activatedOptions(plan), database, phaseWriters }), /simulated business failure/u);
   assert.deepEqual(database.calls.filter(call => call.kind === "transaction").map(call => call.options.purpose), ["consume_import_authorization", "apply_t0_t3", "record_import_failure"]);
   const consumeIndex = database.calls.findIndex(call => call.sql?.includes("hr_yuzhou_consume_import_authorization"));
   const failureIndex = database.calls.findIndex(call => call.sql?.includes("failure_code"));
@@ -202,7 +266,7 @@ test("rollback rejects the import authorization and consumes a distinct rollback
   const reused = rollbackAuthorization(plan);
   reused.authorizationArtifactSha256 = plan.authorization.artifactSha256;
   const database = mockDatabase();
-  await assert.rejects(rollbackSealedProductionImport(plan, reused, { contract: activatedContract(), now: NOW, database, rollbackRecord: async () => ({}) }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
+  await assert.rejects(rollbackSealedProductionImport(plan, reused, { ...activatedOptions(plan), database, rollbackRecord: async () => ({}) }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
   assert.equal(database.calls.length, 0);
 });
 
@@ -214,6 +278,29 @@ test("wrong target and stale authorization fail before opening a transaction", a
   await assert.rejects(executeSealedProductionImport(plan, { contract: wrongTarget, now: NOW, database, phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED");
   assert.equal(database.calls.length, 0);
   const stale = planFixture();
-  await assert.rejects(executeSealedProductionImport(stale, { contract: activatedContract(), now: new Date("2026-08-29T01:30:00.000Z"), database, phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_AUTH_STALE");
+  await assert.rejects(executeSealedProductionImport(stale, { ...activatedOptions(stale), now: new Date("2026-08-29T01:30:00.000Z"), database, phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_AUTH_STALE");
+  assert.equal(database.calls.length, 0);
+});
+
+test("sealed execution binds exact A/B, triple, target, manifest, window and independent approval receipts", async () => {
+  const plan = planFixture();
+  const wrongPair = structuredClone(plan);
+  wrongPair.finalRehearsalPair.rehearsals[1].manifestSha256 = wrongPair.finalRehearsalPair.rehearsals[0].manifestSha256;
+  wrongPair.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(wrongPair);
+  assert.throws(() => validateSealedProductionImportPlan(wrongPair, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AB_EVIDENCE_INVALID");
+
+  const escapedWindow = structuredClone(plan);
+  escapedWindow.authorization.expiresAt = "2026-08-29T02:30:00.000Z";
+  escapedWindow.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(escapedWindow);
+  assert.throws(() => validateSealedProductionImportPlan(escapedWindow, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+
+  const reusedReceipt = structuredClone(plan);
+  reusedReceipt.authorization.approvalSet[1].signedDecisionSha256 = reusedReceipt.authorization.approvalSet[0].signedDecisionSha256;
+  reusedReceipt.sealing.sealedPlanSha256 = computeSealedProductionImportPlanHash(reusedReceipt);
+  assert.throws(() => validateSealedProductionImportPlan(reusedReceipt, { now: NOW }), error => error.code === "PRODUCTION_IMPORT_AUTH_BINDING_MISMATCH");
+
+  const database = mockDatabase();
+  await assert.rejects(executeSealedProductionImport(plan, { ...activatedOptions(plan), currentCodeSha: "0".repeat(40), database, phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_CODE_SHA_MISMATCH");
+  await assert.rejects(executeSealedProductionImport(plan, { ...activatedOptions(plan), targetIdentitySha256: H("0"), database, phaseWriters: {} }), error => error.code === "PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH");
   assert.equal(database.calls.length, 0);
 });

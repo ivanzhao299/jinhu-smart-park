@@ -3,7 +3,7 @@
   "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-production-import-sealed-plan-v1.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "authorization", "manifestSha256", "finalRehearsalPairSha256", "phaseOrder", "phases", "rollback", "sealing", "productionImport"],
+  "required": ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"],
   "properties": {
     "formatVersion": { "const": 1 },
     "planKind": { "const": "yuzhou_hr_production_import_sealed_execution_plan" },
@@ -20,13 +20,51 @@
       "required": ["environment", "alias", "identitySha256"],
       "properties": { "environment": { "const": "production" }, "alias": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{5,63}$" }, "identitySha256": { "$ref": "#/$defs/sha256" } }
     },
+    "window": {
+      "type": "object", "additionalProperties": false,
+      "required": ["startsAt", "endsAt"],
+      "properties": { "startsAt": { "type": "string", "format": "date-time" }, "endsAt": { "type": "string", "format": "date-time" } }
+    },
     "authorization": {
       "type": "object", "additionalProperties": false,
-      "required": ["artifactSha256", "nonceSha256", "issuedAt", "expiresAt"],
-      "properties": { "artifactSha256": { "$ref": "#/$defs/sha256" }, "nonceSha256": { "$ref": "#/$defs/sha256" }, "issuedAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" } }
+      "required": ["intent", "artifactSha256", "nonceSha256", "issuedAt", "expiresAt", "binding", "approvalSet"],
+      "properties": {
+        "intent": { "const": "production_import" },
+        "artifactSha256": { "$ref": "#/$defs/sha256" }, "nonceSha256": { "$ref": "#/$defs/sha256" }, "issuedAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" },
+        "binding": {
+          "type": "object", "additionalProperties": false,
+          "required": ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"],
+          "properties": {
+            "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
+            "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" }
+          }
+        },
+        "approvalSet": {
+          "type": "array", "minItems": 3, "maxItems": 3,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["role", "subjectRefSha256", "signedDecisionSha256"],
+            "properties": { "role": { "enum": ["hr_owner", "data_security_owner", "release_owner"] }, "subjectRefSha256": { "$ref": "#/$defs/sha256" }, "signedDecisionSha256": { "$ref": "#/$defs/sha256" } }
+          }
+        }
+      }
     },
     "manifestSha256": { "$ref": "#/$defs/sha256" },
-    "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" },
+    "finalRehearsalPair": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifactSha256", "triple", "rehearsals"],
+      "properties": {
+        "artifactSha256": { "$ref": "#/$defs/sha256" }, "triple": { "$ref": "#/$defs/triple" },
+        "rehearsals": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "prefixItems": [
+            { "$ref": "#/$defs/rehearsalA" },
+            { "$ref": "#/$defs/rehearsalB" }
+          ],
+          "items": false
+        }
+      }
+    },
     "phaseOrder": { "const": ["T0", "T1", "T2", "T3"] },
     "phases": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "$ref": "#/$defs/phase" } },
     "rollback": {
@@ -43,6 +81,18 @@
   },
   "$defs": {
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "triple": {
+      "type": "object", "additionalProperties": false,
+      "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
+      "properties": { "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sourceSnapshotHash": { "$ref": "#/$defs/sha256" }, "mappingContractHash": { "$ref": "#/$defs/sha256" } }
+    },
+    "rehearsalBase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rehearsal", "manifestSha256", "cleanupAuditSha256", "residualCount"],
+      "properties": { "rehearsal": { "type": "string" }, "manifestSha256": { "$ref": "#/$defs/sha256" }, "cleanupAuditSha256": { "$ref": "#/$defs/sha256" }, "residualCount": { "const": 0 } }
+    },
+    "rehearsalA": { "allOf": [{ "$ref": "#/$defs/rehearsalBase" }, { "properties": { "rehearsal": { "const": "A" } } }] },
+    "rehearsalB": { "allOf": [{ "$ref": "#/$defs/rehearsalBase" }, { "properties": { "rehearsal": { "const": "B" } } }] },
     "phase": {
       "type": "object", "additionalProperties": false,
       "required": ["phase", "ordinal", "sourceBatchManifestSha256", "beforeCanonicalSha256", "expectedAfterCanonicalSha256", "records"],

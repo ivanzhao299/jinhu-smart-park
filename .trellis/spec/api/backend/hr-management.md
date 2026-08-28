@@ -885,3 +885,25 @@ await dataSource.transaction(async manager => {
   await insertPrivacySafeInboxMessage(manager, report, decision);
 });
 ```
+
+## Scenario: Yuzhou production import sealed control plane
+
+### 1. Scope / Trigger
+
+- Trigger: changing the production-history import schema, sealed plan, authorization consumption, T0–T3 writer contract, or its rollback contract.
+- This control plane is not execution approval. The repository default remains `HOLD`, has no production target allowlist, no concrete database/domain adapters, and no deploy/seed/lab reachability.
+
+### 2. Contracts
+
+- A sealed plan binds the exact code/source/mapping triple, reviewed production target identity, import manifest, execution window, independent A/B manifest and cleanup hashes with residual zero, and independent HR/data-security/release approval receipts. Authorization validity must fit wholly inside the window.
+- Execution separately proves current SHA, merged SHA, and database-adapter target identity equal the sealed values. T0→T3 business writes use one `SERIALIZABLE` transaction; authorization consumption commits in an earlier independent `SERIALIZABLE` control transaction so business rollback cannot make the token reusable.
+- T1–T3 owner source identities must exist in the same plan's T0 record map. A dependent target write requires a non-quarantined T0 `hr_employee` target map; random hashes, names, employee codes, or login creation never resolve an owner.
+- Import and rollback use different intents, operation IDs, artifact hashes, nonce hashes, validity intervals, and database receipts. Artifact or nonce reuse across either intent fails atomically. Rollback binds the succeeded sealed plan and exact target.
+- `insert|merge|quarantine|skip_approved` are the only dispositions. Merge stores externally keyed AES-256-GCM before-image evidence and uses target-row CAS; quarantine/approved skip do not become unreviewed overwrites.
+- Control tables, functions, and sequences expose no `PUBLIC` privilege. No credential, connection string, private path, personal field, salary value, or authorization secret enters plan/evidence/log output.
+
+### 3. Tests Required
+
+- Apply the forward migration from `template0`; separately clone a real predecessor state, run the official migration runner, then run checksum replay and verify both history tables contain one matching succeeded row.
+- PostgreSQL-test `SERIALIZABLE`, window/expiry checks, target-table allowlist, exact T0 owner-map trigger, PUBLIC revocation, cross-intent authorization reuse denial, and distinct rollback authorization acceptance.
+- Contract-test exact A/B/triple/target/manifest/window/approval binding, stale/wrong target/SHA failures before opening a transaction, absent concrete adapters, one T0–T3 transaction, independent failure receipt, reverse rollback order, and ordinary deploy/seed/lab unreachability.

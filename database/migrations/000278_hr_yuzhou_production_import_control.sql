@@ -11,8 +11,15 @@ CREATE TABLE hr_yuzhou_production_import_operation (
   target_identity_sha256 char(64) NOT NULL,
   authorization_artifact_sha256 char(64) NOT NULL UNIQUE,
   authorization_nonce_sha256 char(64) NOT NULL UNIQUE,
+  authorization_issued_at timestamptz NOT NULL,
+  authorization_expires_at timestamptz NOT NULL,
+  window_starts_at timestamptz NOT NULL,
+  window_ends_at timestamptz NOT NULL,
+  approval_set_sha256 char(64) NOT NULL,
   manifest_sha256 char(64) NOT NULL,
   final_rehearsal_pair_sha256 char(64) NOT NULL,
+  rehearsal_a_manifest_sha256 char(64) NOT NULL,
+  rehearsal_b_manifest_sha256 char(64) NOT NULL,
   phase_order jsonb NOT NULL,
   current_phase varchar(8),
   failure_code varchar(96),
@@ -29,8 +36,20 @@ CREATE TABLE hr_yuzhou_production_import_operation (
     AND target_identity_sha256 ~ '^[0-9a-f]{64}$'
     AND authorization_artifact_sha256 ~ '^[0-9a-f]{64}$'
     AND authorization_nonce_sha256 ~ '^[0-9a-f]{64}$'
+    AND approval_set_sha256 ~ '^[0-9a-f]{64}$'
     AND manifest_sha256 ~ '^[0-9a-f]{64}$'
     AND final_rehearsal_pair_sha256 ~ '^[0-9a-f]{64}$'
+    AND rehearsal_a_manifest_sha256 ~ '^[0-9a-f]{64}$'
+    AND rehearsal_b_manifest_sha256 ~ '^[0-9a-f]{64}$'
+    AND rehearsal_a_manifest_sha256 <> rehearsal_b_manifest_sha256
+  ),
+  CONSTRAINT ck_hr_yuzhou_prod_import_authority_window CHECK (
+    window_starts_at < window_ends_at
+    AND authorization_issued_at < authorization_expires_at
+    AND authorization_issued_at >= window_starts_at
+    AND authorization_expires_at <= window_ends_at
+    AND authorized_at >= authorization_issued_at
+    AND authorized_at < authorization_expires_at
   ),
   CONSTRAINT ck_hr_yuzhou_prod_import_status CHECK (status IN ('authorized','running','succeeded','failed')),
   CONSTRAINT ck_hr_yuzhou_prod_import_phase_order CHECK (phase_order = '["T0","T1","T2","T3"]'::jsonb),
@@ -47,7 +66,10 @@ CREATE TABLE hr_yuzhou_production_import_authorization_use (
   authorization_nonce_sha256 char(64) NOT NULL UNIQUE,
   consumed_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_yuzhou_prod_auth_use CHECK (
-    intent IN ('production_import','production_import_rollback')
+    (
+      (intent='production_import' AND operation_id=import_operation_id AND operation_id ~ '^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$')
+      OR (intent='production_import_rollback' AND operation_id ~ '^yzprod-rollback-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$')
+    )
     AND authorization_artifact_sha256 ~ '^[0-9a-f]{64}$'
     AND authorization_nonce_sha256 ~ '^[0-9a-f]{64}$'
   )
@@ -58,8 +80,11 @@ CREATE TABLE hr_yuzhou_production_import_rollback_operation (
   import_operation_id varchar(64) NOT NULL REFERENCES hr_yuzhou_production_import_operation(operation_id),
   status varchar(32) NOT NULL,
   sealed_plan_sha256 char(64) NOT NULL,
+  target_identity_sha256 char(64) NOT NULL,
   authorization_artifact_sha256 char(64) NOT NULL UNIQUE,
   authorization_nonce_sha256 char(64) NOT NULL UNIQUE,
+  authorization_issued_at timestamptz NOT NULL,
+  authorization_expires_at timestamptz NOT NULL,
   failure_code varchar(96),
   authorized_at timestamptz NOT NULL DEFAULT now(),
   started_at timestamptz,
@@ -67,8 +92,14 @@ CREATE TABLE hr_yuzhou_production_import_rollback_operation (
   CONSTRAINT ck_hr_yuzhou_prod_rollback_identity CHECK (
     rollback_operation_id ~ '^yzprod-rollback-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$'
     AND sealed_plan_sha256 ~ '^[0-9a-f]{64}$'
+    AND target_identity_sha256 ~ '^[0-9a-f]{64}$'
     AND authorization_artifact_sha256 ~ '^[0-9a-f]{64}$'
     AND authorization_nonce_sha256 ~ '^[0-9a-f]{64}$'
+  ),
+  CONSTRAINT ck_hr_yuzhou_prod_rollback_authority_window CHECK (
+    authorization_issued_at < authorization_expires_at
+    AND authorized_at >= authorization_issued_at
+    AND authorized_at < authorization_expires_at
   ),
   CONSTRAINT ck_hr_yuzhou_prod_rollback_status CHECK (status IN ('authorized','running','succeeded','failed')),
   CONSTRAINT ck_hr_yuzhou_prod_rollback_finish CHECK ((status IN ('succeeded','failed') AND finished_at IS NOT NULL) OR (status IN ('authorized','running') AND finished_at IS NULL)),
@@ -127,6 +158,13 @@ CREATE TABLE hr_yuzhou_production_import_record (
     AND (decision_attestation_sha256 IS NULL OR decision_attestation_sha256 ~ '^[0-9a-f]{64}$')
   ),
   CONSTRAINT ck_hr_yuzhou_prod_record_disposition CHECK (disposition IN ('insert','merge','quarantine','skip_approved')),
+  CONSTRAINT ck_hr_yuzhou_prod_record_target_allowlist CHECK (
+    target_table IS NULL
+    OR (phase='T0' AND target_table IN ('sys_org','hr_position','hr_employee'))
+    OR (phase='T1' AND target_table='hr_employment_event')
+    OR (phase='T2' AND target_table IN ('hr_contract_type','hr_contract','hr_contract_change','hr_contract_legacy_evidence'))
+    OR (phase='T3' AND target_table IN ('hr_attendance_import_batch','hr_attendance_symbol_rule','hr_attendance_calendar_source','hr_attendance_day','hr_insurance_policy','hr_insurance_policy_item','hr_employee_insurance_period','hr_employee_insurance_item'))
+  ),
   CONSTRAINT ck_hr_yuzhou_prod_record_shape CHECK (
     (disposition = 'insert' AND target_table IS NOT NULL AND target_id IS NOT NULL AND expected_target_before_sha256 IS NULL AND target_after_sha256 IS NOT NULL)
     OR (disposition = 'merge' AND target_table IS NOT NULL AND target_id IS NOT NULL AND expected_target_before_sha256 IS NOT NULL AND target_after_sha256 IS NOT NULL AND decision_attestation_sha256 IS NOT NULL)
@@ -185,6 +223,37 @@ CREATE TABLE hr_yuzhou_production_import_quarantine (
 CREATE INDEX idx_hr_yuzhou_prod_record_target ON hr_yuzhou_production_import_record(target_table,target_id) WHERE target_id IS NOT NULL;
 CREATE INDEX idx_hr_yuzhou_prod_record_owner ON hr_yuzhou_production_import_record(operation_id,owner_source_identity_sha256) WHERE owner_source_identity_sha256 IS NOT NULL;
 
+CREATE FUNCTION hr_yuzhou_validate_production_import_owner_map() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
+DECLARE
+  owner_record hr_yuzhou_production_import_record%ROWTYPE;
+BEGIN
+  IF NEW.phase = 'T0' THEN
+    IF NEW.owner_source_identity_sha256 IS NOT NULL THEN
+      RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_T0_OWNER_FORBIDDEN';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF NEW.owner_source_identity_sha256 IS NULL THEN
+    RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED';
+  END IF;
+  SELECT * INTO owner_record
+  FROM hr_yuzhou_production_import_record
+  WHERE operation_id=NEW.operation_id AND phase='T0' AND source_identity_sha256=NEW.owner_source_identity_sha256;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED';
+  END IF;
+  IF NEW.disposition <> 'quarantine'
+     AND (owner_record.disposition='quarantine' OR owner_record.target_table <> 'hr_employee' OR owner_record.target_id IS NULL) THEN
+    RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_OWNER_RECORD_MAP_REQUIRED';
+  END IF;
+  RETURN NEW;
+END$$;
+
+CREATE TRIGGER trg_hr_yuzhou_prod_record_owner_map
+BEFORE INSERT OR UPDATE OF operation_id,phase,owner_source_identity_sha256,disposition ON hr_yuzhou_production_import_record
+FOR EACH ROW EXECUTE FUNCTION hr_yuzhou_validate_production_import_owner_map();
+
 CREATE FUNCTION hr_yuzhou_consume_import_authorization(
   p_operation_id varchar,
   p_code_sha char(40),
@@ -194,22 +263,36 @@ CREATE FUNCTION hr_yuzhou_consume_import_authorization(
   p_target_identity_sha256 char(64),
   p_authorization_artifact_sha256 char(64),
   p_authorization_nonce_sha256 char(64),
+  p_authorization_issued_at timestamptz,
+  p_authorization_expires_at timestamptz,
+  p_window_starts_at timestamptz,
+  p_window_ends_at timestamptz,
+  p_approval_set_sha256 char(64),
   p_manifest_sha256 char(64),
-  p_final_rehearsal_pair_sha256 char(64)
+  p_final_rehearsal_pair_sha256 char(64),
+  p_rehearsal_a_manifest_sha256 char(64),
+  p_rehearsal_b_manifest_sha256 char(64)
 ) RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
 BEGIN
   IF current_setting('transaction_isolation') <> 'serializable' THEN
     RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_REQUIRES_SERIALIZABLE';
   END IF;
+  IF now() < p_window_starts_at OR now() >= p_window_ends_at
+     OR now() < p_authorization_issued_at OR now() >= p_authorization_expires_at
+     OR p_authorization_issued_at < p_window_starts_at OR p_authorization_expires_at > p_window_ends_at THEN
+    RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_AUTH_STALE';
+  END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('hr_yuzhou_production_import',0));
   INSERT INTO hr_yuzhou_production_import_operation(
     operation_id,intent,status,code_sha,source_snapshot_sha256,mapping_contract_sha256,sealed_plan_sha256,
-    target_identity_sha256,authorization_artifact_sha256,authorization_nonce_sha256,manifest_sha256,
-    final_rehearsal_pair_sha256,phase_order
+    target_identity_sha256,authorization_artifact_sha256,authorization_nonce_sha256,
+    authorization_issued_at,authorization_expires_at,window_starts_at,window_ends_at,approval_set_sha256,
+    manifest_sha256,final_rehearsal_pair_sha256,rehearsal_a_manifest_sha256,rehearsal_b_manifest_sha256,phase_order
   ) VALUES (
     p_operation_id,'production_import','authorized',p_code_sha,p_source_snapshot_sha256,p_mapping_contract_sha256,p_sealed_plan_sha256,
-    p_target_identity_sha256,p_authorization_artifact_sha256,p_authorization_nonce_sha256,p_manifest_sha256,
-    p_final_rehearsal_pair_sha256,'["T0","T1","T2","T3"]'::jsonb
+    p_target_identity_sha256,p_authorization_artifact_sha256,p_authorization_nonce_sha256,
+    p_authorization_issued_at,p_authorization_expires_at,p_window_starts_at,p_window_ends_at,p_approval_set_sha256,
+    p_manifest_sha256,p_final_rehearsal_pair_sha256,p_rehearsal_a_manifest_sha256,p_rehearsal_b_manifest_sha256,'["T0","T1","T2","T3"]'::jsonb
   );
   INSERT INTO hr_yuzhou_production_import_authorization_use(intent,operation_id,import_operation_id,authorization_artifact_sha256,authorization_nonce_sha256)
   VALUES('production_import',p_operation_id,p_operation_id,p_authorization_artifact_sha256,p_authorization_nonce_sha256);
@@ -229,26 +312,32 @@ CREATE FUNCTION hr_yuzhou_consume_rollback_authorization(
   p_rollback_operation_id varchar,
   p_import_operation_id varchar,
   p_sealed_plan_sha256 char(64),
+  p_target_identity_sha256 char(64),
   p_authorization_artifact_sha256 char(64),
-  p_authorization_nonce_sha256 char(64)
+  p_authorization_nonce_sha256 char(64),
+  p_authorization_issued_at timestamptz,
+  p_authorization_expires_at timestamptz
 ) RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $$
 BEGIN
   IF current_setting('transaction_isolation') <> 'serializable' THEN RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_REQUIRES_SERIALIZABLE'; END IF;
+  IF now() < p_authorization_issued_at OR now() >= p_authorization_expires_at THEN RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_AUTH_STALE'; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('hr_yuzhou_production_import_rollback',0));
-  IF NOT EXISTS(SELECT 1 FROM hr_yuzhou_production_import_operation WHERE operation_id=p_import_operation_id AND sealed_plan_sha256=p_sealed_plan_sha256 AND status='succeeded') THEN
+  IF NOT EXISTS(SELECT 1 FROM hr_yuzhou_production_import_operation WHERE operation_id=p_import_operation_id AND sealed_plan_sha256=p_sealed_plan_sha256 AND target_identity_sha256=p_target_identity_sha256 AND status='succeeded') THEN
     RAISE EXCEPTION 'HR_PRODUCTION_IMPORT_ROLLBACK_SOURCE_INVALID';
   END IF;
-  INSERT INTO hr_yuzhou_production_import_rollback_operation(rollback_operation_id,import_operation_id,status,sealed_plan_sha256,authorization_artifact_sha256,authorization_nonce_sha256)
-  VALUES(p_rollback_operation_id,p_import_operation_id,'authorized',p_sealed_plan_sha256,p_authorization_artifact_sha256,p_authorization_nonce_sha256);
+  INSERT INTO hr_yuzhou_production_import_rollback_operation(rollback_operation_id,import_operation_id,status,sealed_plan_sha256,target_identity_sha256,authorization_artifact_sha256,authorization_nonce_sha256,authorization_issued_at,authorization_expires_at)
+  VALUES(p_rollback_operation_id,p_import_operation_id,'authorized',p_sealed_plan_sha256,p_target_identity_sha256,p_authorization_artifact_sha256,p_authorization_nonce_sha256,p_authorization_issued_at,p_authorization_expires_at);
   INSERT INTO hr_yuzhou_production_import_authorization_use(intent,operation_id,import_operation_id,authorization_artifact_sha256,authorization_nonce_sha256)
   VALUES('production_import_rollback',p_rollback_operation_id,p_import_operation_id,p_authorization_artifact_sha256,p_authorization_nonce_sha256);
 END$$;
 
-REVOKE ALL ON FUNCTION hr_yuzhou_consume_import_authorization(varchar,char,char,char,char,char,char,char,char,char) FROM PUBLIC;
+REVOKE ALL ON FUNCTION hr_yuzhou_consume_import_authorization(varchar,char,char,char,char,char,char,char,timestamptz,timestamptz,timestamptz,timestamptz,char,char,char,char,char) FROM PUBLIC;
 REVOKE ALL ON FUNCTION hr_yuzhou_start_production_import(varchar,char) FROM PUBLIC;
-REVOKE ALL ON FUNCTION hr_yuzhou_consume_rollback_authorization(varchar,varchar,char,char,char) FROM PUBLIC;
+REVOKE ALL ON FUNCTION hr_yuzhou_consume_rollback_authorization(varchar,varchar,char,char,char,char,timestamptz,timestamptz) FROM PUBLIC;
+REVOKE ALL ON FUNCTION hr_yuzhou_validate_production_import_owner_map() FROM PUBLIC;
 REVOKE ALL ON hr_yuzhou_production_import_operation,hr_yuzhou_production_import_authorization_use,
   hr_yuzhou_production_import_rollback_operation,hr_yuzhou_production_import_phase,hr_yuzhou_production_import_record,
   hr_yuzhou_production_import_before_image,hr_yuzhou_production_import_quarantine FROM PUBLIC;
+REVOKE ALL ON SEQUENCE hr_yuzhou_production_import_authorization_use_usage_id_seq FROM PUBLIC;
 
 COMMIT;
