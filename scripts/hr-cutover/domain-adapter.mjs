@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ADAPTER_ENV_ALLOWLIST, LifecycleError, validateConfig } from "./full-domain-lifecycle.mjs";
+import { ADAPTER_ENV_ALLOWLIST, LifecycleError, resolveVerifiedExtractBindings, validateConfig } from "./full-domain-lifecycle.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -37,6 +37,15 @@ function childEnvironment(config, domain, phase) {
   const env = {};
   for (const key of BASE_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
   Object.assign(env, config.adapterEnv[domain][phase]);
+  if (config.backend === "lab" && phase === "load" && ["T0", "T1", "T2", "T3"].includes(domain)) {
+    const bindings = resolveVerifiedExtractBindings(config, domain);
+    for (const [key, value] of Object.entries(bindings)) {
+      if (Object.hasOwn(config.adapterEnv[domain][phase], key) && config.adapterEnv[domain][phase][key] !== value) {
+        fail("EXTRACT_MANIFEST_BINDING_MISMATCH", `${domain}.${key} configured hash differs from this run's verified extract manifest`);
+      }
+    }
+    Object.assign(env, bindings);
+  }
   Object.assign(env, {
     ALLOW_YUZHOU_MIGRATION: "yes",
     YUZHOU_MIGRATION_RUN_ID: `${config.runId}-t${childIndex}`,

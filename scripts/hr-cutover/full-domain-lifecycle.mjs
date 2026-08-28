@@ -37,6 +37,31 @@ const FORBIDDEN_TARGET = /prod(?:uction)?|jinhu_smart_park|shared|default/i;
 const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|privatekey|bankaccount|idcard|employeename|fullname|mobile|phone|salaryamount|grosspay|netpay/i;
 const FORBIDDEN_VALUE = /postgres(?:ql)?:\/\/|sqlserver:\/\/|Bearer\s+|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}/i;
 const LOAD_COMMON_ENV = ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_BACKUP_SHA256"];
+const EXTRACT_MANIFEST_BINDINGS = {
+  T0: {
+    departments: { file: "departments.jsonl", env: "YUZHOU_DEPARTMENTS_SHA256" },
+    positions: { file: "positions.jsonl", env: "YUZHOU_POSITIONS_SHA256" },
+    employees: { file: "employees.jsonl", env: "YUZHOU_EMPLOYEES_SHA256" },
+    employeeJobStates: { file: "employee-job-states.raw.json" },
+    jobStateCodeMetadata: { file: "job-state-code-metadata.raw.json" }
+  },
+  T1: {
+    employmentEvents: { file: "employment-events.jsonl", env: "YUZHOU_T1_EVENTS_SHA256" },
+    employmentEventTypes: { file: "employment-event-types.json", env: "YUZHOU_T1_TYPES_SHA256" },
+    employmentEventStates: { file: "employment-event-states.json" }
+  },
+  T2: {
+    "dbo.compacttypecode": { file: "contract-types.jsonl", env: "YUZHOU_T2_TYPES_SHA256" },
+    "dbo.compact": { file: "contracts.jsonl", env: "YUZHOU_T2_CONTRACTS_SHA256" },
+    "dbo.compact_c": { file: "contract-changes.jsonl", env: "YUZHOU_T2_CHANGES_SHA256" },
+    "dbo.compact.state": { file: "contract-states.raw.json" }
+  },
+  T3: {
+    attendance: { file: "attendance.jsonl", env: "YUZHOU_T3_ATTENDANCE_SHA256" },
+    policies: { file: "policies.jsonl", env: "YUZHOU_T3_POLICIES_SHA256" },
+    insurance: { file: "insurance.jsonl", env: "YUZHOU_T3_INSURANCE_SHA256" }
+  }
+};
 let ACTIVE_CHILD = null;
 export const ADAPTER_ENV_ALLOWLIST = {
   T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256"], rollback: [] },
@@ -231,6 +256,74 @@ function appendPrivate(path, value) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(resolve(path), "utf8"));
+}
+
+function stagingDir(config, domain) {
+  const childIndex = DOMAIN_ORDER.indexOf(domain);
+  return domain === "T4"
+    ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`)
+    : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`);
+}
+
+function extractManifestFacts(config, domain) {
+  const definition = EXTRACT_MANIFEST_BINDINGS[domain];
+  if (!definition) fail("EXTRACT_MANIFEST_DOMAIN_INVALID", domain);
+  const directory = stagingDir(config, domain);
+  if (!existsSync(directory) || lstatSync(directory).isSymbolicLink() || !statSync(directory).isDirectory() || mode(directory) !== "0700") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} staging directory must be a non-symlink 0700 directory for this run`);
+  }
+  const manifestPath = join(directory, "manifest.json");
+  if (!existsSync(manifestPath) || lstatSync(manifestPath).isSymbolicLink() || !statSync(manifestPath).isFile() || mode(manifestPath) !== "0600") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest must be a non-symlink 0600 file`);
+  }
+  const manifestBytes = readFileSync(manifestPath);
+  let manifest;
+  try { manifest = JSON.parse(manifestBytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest is not valid JSON`); }
+  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [], `${domain}.manifest`);
+  if (manifest.formatVersion !== 1 || typeof manifest.generatedAt !== "string") fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest header is invalid`);
+  exactKeys(manifest.domains, Object.keys(definition), [], `${domain}.manifest.domains`);
+  const env = {};
+  for (const [key, expected] of Object.entries(definition)) {
+    const entry = manifest.domains[key];
+    exactKeys(entry, ["rows", "file", "fileSha256"], [], `${domain}.manifest.domains.${key}`);
+    if (!Number.isInteger(entry.rows) || entry.rows < 0 || entry.file !== expected.file || !SHA256.test(entry.fileSha256 ?? "")) {
+      fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${key} manifest entry is invalid`);
+    }
+    const filePath = join(directory, expected.file);
+    if (!existsSync(filePath) || lstatSync(filePath).isSymbolicLink() || !statSync(filePath).isFile() || mode(filePath) !== "0600") {
+      fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${key} staging file must be a non-symlink 0600 file`);
+    }
+    const actualSha256 = createHash("sha256").update(readFileSync(filePath)).digest("hex");
+    if (actualSha256 !== entry.fileSha256) fail("EXTRACT_MANIFEST_HASH_DRIFT", `${domain}.${key} staging bytes differ from the manifest`);
+    if (expected.env) env[expected.env] = entry.fileSha256;
+  }
+  return {
+    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+    bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"),
+    env
+  };
+}
+
+export function resolveVerifiedExtractBindings(config, domain) {
+  const facts = extractManifestFacts(config, domain);
+  const journalPath = paths(config).journal;
+  if (!existsSync(journalPath) || lstatSync(journalPath).isSymbolicLink() || !statSync(journalPath).isFile() || mode(journalPath) !== "0600") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} lifecycle journal is unavailable`);
+  }
+  let rows;
+  try { rows = readFileSync(journalPath, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)); }
+  catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} lifecycle journal is invalid`); }
+  const records = rows.filter((row) => row.kind === "child" && row.domain === domain && row.phase === "extract");
+  if (records.length !== 1) fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} requires exactly one verified extract record`);
+  const record = records[0];
+  const expectedChildRunId = `${config.runId}-t${DOMAIN_ORDER.indexOf(domain)}`;
+  if (record.status !== "verified" || record.childRunId !== expectedChildRunId
+    || JSON.stringify(record.triple) !== JSON.stringify(config.triple)
+    || record.extractManifestSha256 !== facts.manifestSha256
+    || record.extractBindingSha256 !== facts.bindingSha256) {
+    fail("EXTRACT_MANIFEST_BINDING_MISMATCH", `${domain} extract record does not bind this run and C/S/M triple`);
+  }
+  return facts.env;
 }
 
 function paths(config) {
@@ -504,7 +597,12 @@ function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
   try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
   finally { registerControlledFilesystem(config); }
-  appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+    ? extractManifestFacts(config, domain) : null;
+  appendPrivate(paths(config).journal, {
+    kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,
+    ...(manifest ? { extractManifestSha256: manifest.manifestSha256, extractBindingSha256: manifest.bindingSha256 } : {})
+  });
 }
 
 async function runAdapterAsync(config, domain, phase) {
@@ -519,7 +617,12 @@ async function runAdapterAsync(config, domain, phase) {
       else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
     });
   }); } finally { registerControlledFilesystem(config); }
-  appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+    ? extractManifestFacts(config, domain) : null;
+  appendPrivate(paths(config).journal, {
+    kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,
+    ...(manifest ? { extractManifestSha256: manifest.manifestSha256, extractBindingSha256: manifest.bindingSha256 } : {})
+  });
 }
 
 function registerControlledFilesystem(config) {
