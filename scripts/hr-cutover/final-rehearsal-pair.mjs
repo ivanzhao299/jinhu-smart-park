@@ -2,8 +2,8 @@
 /* global process, structuredClone, URL */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateConfig } from "./full-domain-lifecycle.mjs";
 import { verifyManifestChain } from "./parent-manifest.mjs";
@@ -12,6 +12,7 @@ import { compareRehearsals, computeMappingContractHash } from "./verify-full-dom
 const ROOT=resolve(fileURLToPath(new URL("../../",import.meta.url)));
 const FULL_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/full-domain-contract-v1.json"),"utf8"));
 const DEFAULT_PAIR_CONTRACT=resolve(ROOT,"scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json");
+const P0_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-p0-matrix-v1.json"),"utf8"));
 const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
@@ -50,13 +51,18 @@ function readHead(config){
   const chain=JSON.parse(readFileSync(config.verification.manifestChainFile,"utf8")),verified=verifyManifestChain(chain,{evidenceRoot:config.target.evidenceRoot});
   return chain.find(row=>row.sha256===verified.headSha256)?.manifest??fail("FINAL_PAIR_MANIFEST_MISSING",config.rehearsal);
 }
-export function assertP0Summary(summary,rehearsal){
-  if(summary?.legacyTaskCard?.p0Execution!=="PASS"||summary.legacyTaskCard.p0MatrixChecks!==25)fail("FINAL_PAIR_P0_HOLD",`${rehearsal}:25 P0 observations required`);
+export function assertP0Summary(summary,rehearsal,evidence){
+  const matrixSha256=sha256(canonical(P0_CONTRACT)),expectedIds=P0_CONTRACT.checks.map(row=>row.id);
+  const observations=evidence?.observations;
+  if(summary?.formatVersion!==1||summary.status!=="PASS"||summary.productionImport!=="HOLD"||summary.humanUat!=="PASS"||summary.legacyTaskCard?.p0Execution!=="PASS"||summary.legacyTaskCard.p0MatrixChecks!==25||summary.legacyTaskCard.p0MatrixSha256!==matrixSha256||summary.legacyTaskCard.p0ObservedChecks!==25||summary.legacyTaskCard.p0FailedChecks!==0||!Array.isArray(observations)||evidence?.formatVersion!==1||evidence.status!=="PASS"||evidence.productionImport!=="HOLD"||evidence.p0MatrixSha256!==matrixSha256||JSON.stringify(observations.map(row=>row.id))!==JSON.stringify(expectedIds)||observations.some(row=>row.status!=="PASS"||!/^[0-9a-f]{64}$/u.test(row.evidenceSha256??""))||summary.legacyTaskCard.p0EvidenceSha256!==sha256(canonical(evidence)))fail("FINAL_PAIR_P0_HOLD",`${rehearsal}:25 immutable P0 observations required`);
   return {status:"PASS",checkCount:25};
 }
 function assertP0Executed(config){
-  const path=resolve(config.target.evidenceRoot,"technical-uat-summary.json"),summary=JSON.parse(readFileSync(path,"utf8"));
-  return assertP0Summary(summary,config.rehearsal);
+  const summaryPath=resolve(config.target.evidenceRoot,"technical-uat-summary.json"),evidencePath=resolve(config.target.evidenceRoot,"technical-uat-p0-observations.json");
+  for(const path of [summaryPath,evidencePath])if(!existsSync(path)||lstatSync(path).isSymbolicLink()||(statSync(path).mode&0o777)!==0o600)fail("FINAL_PAIR_P0_HOLD",`${config.rehearsal}:private P0 evidence missing`);
+  const summary=JSON.parse(readFileSync(summaryPath,"utf8")),evidence=JSON.parse(readFileSync(evidencePath,"utf8"));
+  if(summary.parentRunId!==config.runId||evidence.parentRunId!==config.runId)fail("FINAL_PAIR_P0_HOLD",`${config.rehearsal}:run identity mismatch`);
+  return assertP0Summary(summary,config.rehearsal,evidence);
 }
 export function assertCleanupEvidence(result,bundle,rehearsal){
   if(result?.state!=="cleaned"||result.residualCount!==0||result.productionImport!=="HOLD")fail("FINAL_PAIR_RESIDUAL_NONZERO",rehearsal);
@@ -77,20 +83,24 @@ function recover(config){
 }
 
 export function runFinalPair(configAInput,configBInput,contract,{execute=command,p0Gate=assertP0Executed,manifestHead=readHead,pairCompare=compareRehearsals,cleanupGate=assertCleanup,recovery=recover}={}){
-  const configs=[structuredClone(configAInput),structuredClone(configBInput)],completed=[];let manifestA;
+  const configs=[structuredClone(configAInput),structuredClone(configBInput)],completed=[],manifests=[];
   try{
+    for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);
     for(const config of configs){
-      execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);
       execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["run","--config",config.__configPath]);
       execute("scripts/hr-cutover/run-full-domain-technical-uat.mjs",["--config",config.__configPath]);
       p0Gate(config);
       execute("scripts/hr-cutover/rehearsal-backup-restore.mjs",["--config",config.__configPath,"--fault","REGISTERED_FILE_UNREADABLE"]);
-      const manifest=manifestHead(config);
-      if(config.rehearsal==="A")manifestA=manifest;else pairCompare(manifestA,manifest);
+      manifests.push(manifestHead(config));
+    }
+    pairCompare(manifests[0],manifests[1]);
+    for(const config of [...configs].reverse()){
+      const manifest=manifests.find(row=>row.rehearsal===config.rehearsal)??manifests[config.rehearsal==="A"?0:1];
       execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["rollback","--config",config.__configPath]);
       const cleanup=execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["cleanup","--config",config.__configPath]);
       completed.push({rehearsal:config.rehearsal,manifestSha256:sha256(canonical(manifest)),cleanupAuditSha256:cleanupGate(config,cleanup),residualCount:0});
     }
+    completed.sort((a,b)=>a.rehearsal.localeCompare(b.rehearsal));
     return {formatVersion:1,status:"PASS",contractSha256:sha256(canonical(contract)),triple:configs[0].triple,rehearsals:completed,sourceFacts:contract.sourceFacts,productionImport:"HOLD"};
   }catch(error){
     const recoveryFailures=[];for(const config of configs){try{recovery(config);}catch(recoveryError){recoveryFailures.push(`${config.rehearsal}:${recoveryError.code??"FAILED"}`);}}
@@ -101,6 +111,7 @@ export function runFinalPair(configAInput,configBInput,contract,{execute=command
 
 function parse(argv){const out={execute:false};for(let i=0;i<argv.length;i+=1){const arg=argv[i];if(arg==="--execute")out.execute=true;else if(["--config-a","--config-b","--contract","--summary"].includes(arg))out[arg.slice(2).replace(/-([a-z])/gu,(_m,x)=>x.toUpperCase())]=argv[++i];else fail("FINAL_PAIR_ARGUMENT_INVALID",arg);}if(!out.configA||!out.configB)fail("FINAL_PAIR_ARGUMENT_INVALID","--config-a and --config-b required");return out;}
 function privateJson(path,value){if(existsSync(path))fail("FINAL_PAIR_SUMMARY_EXISTS",path);writeFileSync(path,canonical(value),{mode:0o600,flag:"wx"});chmodSync(path,0o600);}
+function inside(parent,child){const rel=relative(parent,child);return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
 
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
   try{
@@ -110,8 +121,9 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const preflight=validatePairPreflight(configs[0],configs[1],contract,{currentSha:head,mappingContractHash:computeMappingContractHash(FULL_CONTRACT),worktreeClean:git.status===0&&!git.stdout.trim()});
     if(!args.execute){process.stdout.write(`${JSON.stringify(preflight)}\n`);process.exit(0);}
     if(process.env.ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"||!args.summary)fail("FINAL_PAIR_EXECUTION_AUTH_MISSING","explicit lab authorization and --summary required");
-    const summary=resolve(args.summary);for(const config of configs)if(summary.startsWith(`${resolve(config.target.root)}/`))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");
-    if(!existsSync(dirname(summary)))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
+    const summary=resolve(args.summary),summaryParentInput=dirname(summary);if(!existsSync(summaryParentInput))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
+    const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(summary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
+    if((statSync(summaryParent).mode&0o777)!==0o700)fail("FINAL_PAIR_SUMMARY_UNSAFE","private 0700 parent required");
     const result=runFinalPair(configs[0],configs[1],contract);privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
   }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
 }

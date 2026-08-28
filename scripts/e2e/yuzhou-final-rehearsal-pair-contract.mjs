@@ -1,5 +1,6 @@
 /* global structuredClone */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
@@ -21,8 +22,9 @@ test("fact, order, final-state and import drift fail closed",()=>{
 });
 
 test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{
-  assert.deepEqual(assertP0Summary({legacyTaskCard:{p0Execution:"PASS",p0MatrixChecks:25}},"A"),{status:"PASS",checkCount:25});
-  assert.throws(()=>assertP0Summary({legacyTaskCard:{p0Execution:"HOLD",p0MatrixChecks:25}},"A"),error=>error.code==="FINAL_PAIR_P0_HOLD");
+  const p0=JSON.parse(read("scripts/hr-cutover/contracts/yuzhou-live-role-uat-p0-matrix-v1.json")),stable=value=>`${JSON.stringify(value,null,2)}\n`,hash=value=>createHash("sha256").update(stable(value)).digest("hex"),evidence={formatVersion:1,parentRunId:"run-A",status:"PASS",p0MatrixSha256:hash(p0),observations:p0.checks.map(row=>({id:row.id,status:"PASS",evidenceSha256:"a".repeat(64)})),productionImport:"HOLD"},summary={formatVersion:1,parentRunId:"run-A",status:"PASS",humanUat:"PASS",productionImport:"HOLD",legacyTaskCard:{p0Execution:"PASS",p0MatrixChecks:25,p0MatrixSha256:hash(p0),p0ObservedChecks:25,p0FailedChecks:0,p0EvidenceSha256:hash(evidence)}};
+  assert.deepEqual(assertP0Summary(summary,"A",evidence),{status:"PASS",checkCount:25});
+  for(const mutate of [(s,e)=>{s.legacyTaskCard.p0Execution="HOLD";},(s,e)=>{e.observations.pop();},(s,e)=>{s.legacyTaskCard.p0EvidenceSha256="b".repeat(64);},(s,e)=>{s.humanUat="HOLD";}]){const s=structuredClone(summary),e=structuredClone(evidence);mutate(s,e);assert.throws(()=>assertP0Summary(s,"A",e),error=>error.code==="FINAL_PAIR_P0_HOLD");}
   const result={state:"cleaned",residualCount:0,productionImport:"HOLD"},bundle={finalState:"cleaned",productionImport:"HOLD",resourceLedger:[{removed:true,residualCount:0}]};
   assert.deepEqual(assertCleanupEvidence(result,bundle,"B"),{status:"PASS",residualCount:0});
   assert.throws(()=>assertCleanupEvidence(result,{...bundle,resourceLedger:[{removed:false,residualCount:1}]},"B"),error=>error.code==="FINAL_PAIR_CLEANUP_EVIDENCE_INVALID");
@@ -30,7 +32,7 @@ test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{
 
 test("runner is a fixed fail-closed sequence and deployment workflows do not invoke historical loaders",()=>{
   const runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs"),deploy=read(".github/workflows/deploy-production.yml");
-  const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifestA,manifest)","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
+  const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
   let cursor=-1;for(const stage of stages){const next=runner.indexOf(stage,cursor+1);assert(next>cursor,`missing/out-of-order ${stage}`);cursor=next;}
   assert.match(runner,/ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"/u);assert.match(runner,/FINAL_PAIR_P0_HOLD/u);assert.match(runner,/--recover/u);
   assert.doesNotMatch(deploy,/load-yuzhou|hr:migration:full|ALLOW_YUZHOU_MIGRATION/u);
@@ -42,7 +44,7 @@ test("pair execution is serial and any stage failure invokes scoped recovery wit
     execute:(script,args)=>{calls.push(`${configs.find(c=>args.includes(c.__configPath))?.rehearsal}:${script.split("/").at(-1)}:${args[0]??"uat"}`);return args[0]==="cleanup"?{state:"cleaned",residualCount:0,productionImport:"HOLD"}:{};},
     p0Gate:config=>calls.push(`${config.rehearsal}:p0`),manifestHead:config=>({rehearsal:config.rehearsal}),pairCompare:()=>calls.push("pair:compare"),cleanupGate:config=>`${config.rehearsal.toLowerCase()}`.repeat(64).slice(0,64),recovery:config=>calls.push(`${config.rehearsal}:recover`)
   };
-  const result=runFinalPair(configs[0],configs[1],contract,hooks);assert.equal(result.status,"PASS");assert.deepEqual(result.rehearsals.map(x=>x.rehearsal),["A","B"]);assert(calls.indexOf("pair:compare")>calls.indexOf("B:p0"));
+  const result=runFinalPair(configs[0],configs[1],contract,hooks);assert.equal(result.status,"PASS");assert.deepEqual(result.rehearsals.map(x=>x.rehearsal),["A","B"]);assert(calls.indexOf("pair:compare")>calls.indexOf("B:p0"));assert(calls.indexOf("pair:compare")<calls.findIndex(row=>row.includes(":rollback")));assert(calls.indexOf("B:full-domain-lifecycle.mjs:rollback")<calls.indexOf("A:full-domain-lifecycle.mjs:rollback"));
   const failureCalls=[];assert.throws(()=>runFinalPair(configs[0],configs[1],contract,{...hooks,execute:(script,args)=>{if(args.includes(configs[1].__configPath)&&args[0]==="run")throw Object.assign(new Error("fixture"),{code:"FIXTURE_FAIL"});return args[0]==="cleanup"?{state:"cleaned",residualCount:0,productionImport:"HOLD"}:{};},recovery:config=>failureCalls.push(config.rehearsal)}),/fixture/u);
   assert.deepEqual(failureCalls,["A","B"]);
   assert.throws(()=>runFinalPair(configs[0],configs[1],contract,{...hooks,execute:()=>{throw Object.assign(new Error("stage"),{code:"STAGE_FAIL"});},recovery:()=>{throw Object.assign(new Error("recovery"),{code:"RECOVERY_FAIL"});}}),error=>error.code==="FINAL_PAIR_RECOVERY_FAILED"&&/A:RECOVERY_FAIL,B:RECOVERY_FAIL/u.test(error.message));
