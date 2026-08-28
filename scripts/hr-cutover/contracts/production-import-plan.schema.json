@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-production-import-plan-v1.json",
+  "title": "Yuzhou HR production import preflight plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "planKind",
+    "operationId",
+    "mode",
+    "sourceSurface",
+    "triple",
+    "planningContractSha256",
+    "target",
+    "window",
+    "artifacts",
+    "authorityBoundary",
+    "productionImport"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "planKind": { "const": "yuzhou_hr_production_import_preflight_plan" },
+    "operationId": { "type": "string", "pattern": "^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$" },
+    "mode": { "const": "DRY_RUN" },
+    "sourceSurface": { "const": "yuzhou_v10_client_database" },
+    "triple": { "$ref": "#/$defs/triple" },
+    "planningContractSha256": { "$ref": "#/$defs/sha256" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "alias", "identitySha256"],
+      "properties": {
+        "environment": { "const": "production" },
+        "alias": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{5,63}$" },
+        "identitySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startsAt", "endsAt"],
+      "properties": {
+        "startsAt": { "type": "string", "format": "date-time" },
+        "endsAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 13,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "relativePath", "sha256"],
+        "properties": {
+          "role": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+          "relativePath": { "type": "string", "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+          "sha256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    },
+    "authorityBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["acceptedIntent", "restoreAuthorizationAccepted", "secretDelivery", "executionAvailable"],
+      "properties": {
+        "acceptedIntent": { "const": "production_import" },
+        "restoreAuthorizationAccepted": { "const": false },
+        "secretDelivery": { "const": "OUT_OF_BAND_REQUIRED" },
+        "executionAvailable": { "const": false }
+      }
+    },
+    "productionImport": { "const": "HOLD" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "triple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
+      "properties": {
+        "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "sourceSnapshotHash": { "$ref": "#/$defs/sha256" },
+        "mappingContractHash": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
