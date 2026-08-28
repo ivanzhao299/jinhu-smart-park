@@ -203,6 +203,59 @@ function privateJson(path,value){if(existsSync(path))fail("FINAL_PAIR_SUMMARY_EX
 function mode(path){return(statSync(path).mode&0o777).toString(8).padStart(4,"0");}
 function inside(parent,child){const rel=relative(parent,child);return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
 
+function canonicalPlannedPath(input){
+  let cursor=resolve(input);const missing=[];
+  while(!existsSync(cursor)){const parent=dirname(cursor);if(parent===cursor)return resolve(input);missing.unshift(basename(cursor));cursor=parent;}
+  return resolve(realpathSync(cursor),...missing);
+}
+function validateReviewRoot(records,rehearsal,uid){
+  const roots=new Set(records.map(record=>dirname(record.path)));
+  if(roots.size!==1)fail("FINAL_PAIR_REVIEW_ROOT_SCATTERED",rehearsal);
+  const root=[...roots][0];
+  let info;
+  try{info=lstatSync(root);}catch{fail("FINAL_PAIR_REVIEW_ROOT_UNSAFE",rehearsal);}
+  if(info.isSymbolicLink()||!info.isDirectory()||(info.mode&0o777)!==0o700||(uid!==undefined&&info.uid!==uid)||realpathSync(root)!==root)fail("FINAL_PAIR_REVIEW_ROOT_UNSAFE",rehearsal);
+  for(const record of records){
+    if(record.requested!==record.path)fail("FINAL_PAIR_REVIEW_ROOT_UNSAFE",record.label);
+    let cursor=dirname(record.path);
+    while(true){
+      const directory=lstatSync(cursor),permissions=directory.mode&0o777;
+      if(directory.isSymbolicLink()||!directory.isDirectory()||(uid!==undefined&&directory.uid!==uid)||(cursor===root?permissions!==0o700:(permissions&0o022)!==0)||realpathSync(cursor)!==cursor)fail("FINAL_PAIR_REVIEW_ROOT_UNSAFE",record.label);
+      if(cursor===root)break;
+      const parent=dirname(cursor);if(parent===cursor||!inside(root,parent))fail("FINAL_PAIR_REVIEW_ROOT_UNSAFE",record.label);cursor=parent;
+    }
+  }
+  return root;
+}
+
+export function validateReviewArtifactSources(reviewByRehearsal,configs,{summaryPath,uid=process.getuid?.()}={}){
+  const records=[],identities=new Set();
+  const summary=summaryPath?canonicalPlannedPath(summaryPath):null;
+  const installed=new Set(configs.flatMap(config=>[config.target.jobStateDecisionArtifact,config.target.jobStateSourcePayloadArtifact,config.target.jobStateApprovalArtifact]).filter(value=>typeof value==="string").map(canonicalPlannedPath));
+  const forbidden=[...configs.flatMap(config=>[config.target.root,config.target.stagingRoot,config.target.evidenceRoot]),summary?dirname(summary):null].filter(value=>typeof value==="string"&&value!=="").map(canonicalPlannedPath);
+  for(const config of configs){
+    const review=reviewByRehearsal?.[config.rehearsal];
+    for(const kind of ["decision","payload","approval"]){
+      const input=review?.[kind],label=`${config.rehearsal}:${kind}`;
+      if(typeof input!=="string"||input.trim()==="")fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED",label);
+      const requested=resolve(input);
+      let requestedStat,path,fileStat;
+      try{requestedStat=lstatSync(requested);path=realpathSync(requested);fileStat=statSync(path);}catch{fail("FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE",`${label}:missing`);}
+      if(requestedStat.isSymbolicLink()||!fileStat.isFile()||fileStat.nlink!==1||(fileStat.mode&0o777)!==0o600||(uid!==undefined&&fileStat.uid!==uid))fail("FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE",label);
+      if(installed.has(path))fail("FINAL_PAIR_REVIEW_ARTIFACT_INSTALL_TARGET",label);
+      if(forbidden.some(root=>inside(root,path)))fail("FINAL_PAIR_REVIEW_ARTIFACT_RUNTIME_PATH",label);
+      const identity=`${fileStat.dev}:${fileStat.ino}`;
+      if(identities.has(identity))fail("FINAL_PAIR_REVIEW_ARTIFACT_REUSE",label);
+      identities.add(identity);records.push({rehearsal:config.rehearsal,kind,label,requested,path,identity});
+    }
+  }
+  if(records.length!==6)fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED","six A/B review artifacts required");
+  if(new Set(records.map(row=>row.path)).size!==6)fail("FINAL_PAIR_REVIEW_ARTIFACT_REUSE","realpath");
+  const roots=Object.fromEntries(configs.map(config=>[config.rehearsal,validateReviewRoot(records.filter(row=>row.rehearsal===config.rehearsal),config.rehearsal,uid)]));
+  if(inside(roots.A,roots.B)||inside(roots.B,roots.A))fail("FINAL_PAIR_REVIEW_ROOT_OVERLAP","A:B");
+  return{status:"PASS",artifactCount:6,reviewRoots:2,productionImport:"HOLD"};
+}
+
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
   try{
     const args=parse(process.argv.slice(2)),contractPath=realpathSync(resolve(args.contract??DEFAULT_PAIR_CONTRACT)),contract=JSON.parse(readFileSync(contractPath,"utf8"));
@@ -220,6 +273,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const checkpointPath=realpathSync(resolve(args.checkpoint??""));if(mode(checkpointPath)!=="0600")fail("FINAL_PAIR_CHECKPOINT_INVALID","0600 checkpoint required");const checkpoint=JSON.parse(readFileSync(checkpointPath,"utf8"));if(checkpoint.status!=="REVIEW_HOLD"||checkpoint.productionImport!=="HOLD"||JSON.stringify(checkpoint.triple)!==JSON.stringify(configs[0].triple)||checkpoint.runs?.length!==2||configs.some(config=>{const row=checkpoint.runs.find(item=>item.rehearsal===config.rehearsal);if(!row||row.runId!==config.runId||row.configSha256!==sha256(canonical({runId:config.runId,triple:config.triple,target:config.target}))||row.state!=="review_hold")return true;const actual=reviewHoldEvidence(config);return row.t0ExtractManifestSha256!==actual.t0ExtractManifestSha256||row.t0ExtractBindingSha256!==actual.t0ExtractBindingSha256||row.journalSha256!==actual.journalSha256;}))fail("FINAL_PAIR_CHECKPOINT_INVALID","checkpoint drift");
     const reviewByRehearsal={A:{decision:args.decisionA,payload:args.payloadA,approval:args.approvalA},B:{decision:args.decisionB,payload:args.payloadB,approval:args.approvalB}};
     if(Object.values(reviewByRehearsal).some(review=>!review.decision||!review.payload||!review.approval))fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED","six A/B review artifacts required before provision");
+    validateReviewArtifactSources(reviewByRehearsal,configs,{summaryPath:summaryResolved});
     const result=runFinalPair(configs[0],configs[1],contract,{resumeOnly:true,reviewArtifacts:config=>reviewByRehearsal[config.rehearsal]});privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
   }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
 }

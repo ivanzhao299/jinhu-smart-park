@@ -1,10 +1,11 @@
 /* global structuredClone */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validatePairContract, validatePairResourceIsolation, validateReviewArtifactSources, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -32,6 +33,35 @@ test("runtime vacancy rejects occupied ports, Docker identities and controlled p
  assert.throws(()=>validatePairResourceIsolation(configs[0],sharedReview),error=>error.code==="FINAL_PAIR_RESOURCE_REUSE");
  const crossedReview=structuredClone(configs[1]);crossedReview.target.jobStateSourcePayloadArtifact=`${configs[0].target.jobStateApprovalArtifact}/nested`;
  assert.throws(()=>validatePairResourceIsolation(configs[0],crossedReview),error=>error.code==="FINAL_PAIR_RESOURCE_OVERLAP");
+});
+
+test("resume review artifacts are six private independent external files with isolated A/B roots",()=>{
+  const sandbox=mkdtempSync(join(realpathSync(tmpdir()),"yuzhou-pair-artifacts-"));
+  const makeFixture=()=>{
+    const nonce=Math.random().toString(16).slice(2),control=join(sandbox,nonce),summaryRoot=join(control,"summary"),reviewRoots={A:join(control,"review-a"),B:join(control,"review-b")};
+    mkdirSync(summaryRoot,{recursive:true,mode:0o700});
+    const reviews={};
+    for(const rehearsal of ["A","B"]){mkdirSync(reviewRoots[rehearsal],{recursive:true,mode:0o700});reviews[rehearsal]={};for(const kind of ["decision","payload","approval"]){const path=join(reviewRoots[rehearsal],`${kind}.json`);writeFileSync(path,"{}\n",{mode:0o600});chmodSync(path,0o600);reviews[rehearsal][kind]=path;}}
+    const configs=["A","B"].map(rehearsal=>{const runtime=join(control,`runtime-${rehearsal.toLowerCase()}`),credentials=join(control,`install-${rehearsal.toLowerCase()}`);return{rehearsal,target:{root:runtime,stagingRoot:join(runtime,"staging"),evidenceRoot:join(runtime,"evidence"),jobStateDecisionArtifact:join(credentials,"decision.json"),jobStateSourcePayloadArtifact:join(credentials,"payload.json"),jobStateApprovalArtifact:join(credentials,"approval.json")}};});
+    return{reviews,configs,summaryPath:join(summaryRoot,"result.json"),reviewRoots};
+  };
+  try{
+    const valid=makeFixture();assert.deepEqual(validateReviewArtifactSources(valid.reviews,valid.configs,{summaryPath:valid.summaryPath}),{status:"PASS",artifactCount:6,reviewRoots:2,productionImport:"HOLD"});
+    const missing=makeFixture();missing.reviews.A.decision="";assert.throws(()=>validateReviewArtifactSources(missing.reviews,missing.configs,{summaryPath:missing.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED");
+    const reused=makeFixture();reused.reviews.B.decision=reused.reviews.A.decision;assert.throws(()=>validateReviewArtifactSources(reused.reviews,reused.configs,{summaryPath:reused.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_REUSE");
+    const hardlinked=makeFixture(),hardlink=join(hardlinked.reviewRoots.B,"decision-hardlink.json");rmSync(hardlinked.reviews.B.decision);linkSync(hardlinked.reviews.A.decision,hardlink);hardlinked.reviews.B.decision=hardlink;assert.throws(()=>validateReviewArtifactSources(hardlinked.reviews,hardlinked.configs,{summaryPath:hardlinked.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE");
+    const linked=makeFixture(),symlink=join(linked.reviewRoots.A,"decision-link.json");symlinkSync(linked.reviews.A.decision,symlink);linked.reviews.A.decision=symlink;assert.throws(()=>validateReviewArtifactSources(linked.reviews,linked.configs,{summaryPath:linked.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE");
+    const permissive=makeFixture();chmodSync(permissive.reviews.A.payload,0o640);assert.throws(()=>validateReviewArtifactSources(permissive.reviews,permissive.configs,{summaryPath:permissive.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE");
+    const owner=makeFixture();assert.throws(()=>validateReviewArtifactSources(owner.reviews,owner.configs,{summaryPath:owner.summaryPath,uid:process.getuid()+1}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_UNSAFE");
+    const publicRoot=makeFixture();chmodSync(publicRoot.reviewRoots.A,0o755);assert.throws(()=>validateReviewArtifactSources(publicRoot.reviews,publicRoot.configs,{summaryPath:publicRoot.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ROOT_UNSAFE");
+    const writableRoot=makeFixture();chmodSync(writableRoot.reviewRoots.B,0o770);assert.throws(()=>validateReviewArtifactSources(writableRoot.reviews,writableRoot.configs,{summaryPath:writableRoot.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ROOT_UNSAFE");
+    const linkedParent=makeFixture(),parentAlias=join(linkedParent.reviewRoots.A,"..","review-a-alias");symlinkSync(linkedParent.reviewRoots.A,parentAlias);for(const kind of ["decision","payload","approval"])linkedParent.reviews.A[kind]=join(parentAlias,`${kind}.json`);assert.throws(()=>validateReviewArtifactSources(linkedParent.reviews,linkedParent.configs,{summaryPath:linkedParent.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ROOT_UNSAFE");
+    const scattered=makeFixture(),scatteredRoot=join(scattered.reviewRoots.A,"fragment");mkdirSync(scatteredRoot,{mode:0o700});const scatteredApproval=join(scatteredRoot,"approval.json");writeFileSync(scatteredApproval,"{}\n",{mode:0o600});scattered.reviews.A.approval=scatteredApproval;assert.throws(()=>validateReviewArtifactSources(scattered.reviews,scattered.configs,{summaryPath:scattered.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ROOT_SCATTERED");
+    const nested=makeFixture();const nestedRoot=join(nested.reviewRoots.A,"nested-b");mkdirSync(nestedRoot,{mode:0o700});for(const kind of ["decision","payload","approval"]){const path=join(nestedRoot,`${kind}.json`);writeFileSync(path,"{}\n",{mode:0o600});nested.reviews.B[kind]=path;}assert.throws(()=>validateReviewArtifactSources(nested.reviews,nested.configs,{summaryPath:nested.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ROOT_OVERLAP");
+    const install=makeFixture();install.configs[1].target.jobStateDecisionArtifact=install.reviews.A.decision;assert.throws(()=>validateReviewArtifactSources(install.reviews,install.configs,{summaryPath:install.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_INSTALL_TARGET");
+    const runtime=makeFixture();runtime.configs[1].target.root=runtime.reviewRoots.A;assert.throws(()=>validateReviewArtifactSources(runtime.reviews,runtime.configs,{summaryPath:runtime.summaryPath}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_RUNTIME_PATH");
+    const summary=makeFixture();assert.throws(()=>validateReviewArtifactSources(summary.reviews,summary.configs,{summaryPath:join(summary.reviewRoots.A,"result.json")}),error=>error.code==="FINAL_PAIR_REVIEW_ARTIFACT_RUNTIME_PATH");
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });
 
 test("technical UAT target identity must be derived from the exact rehearsal config",()=>{const config={rehearsal:"A",target:{database:"lab",root:"/isolated/A"}},hash=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex"),evidence={targetIdentityHash:hash(config.target)};assert.equal(assertTechnicalUatTargetIdentity(evidence,config).status,"PASS");assert.throws(()=>assertTechnicalUatTargetIdentity({...evidence,targetIdentityHash:"0".repeat(64)},config),error=>error.code==="FINAL_PAIR_TARGET_IDENTITY_UNBOUND");});
