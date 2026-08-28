@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -22,12 +22,16 @@ test("fact, order, final-state and import drift fail closed",()=>{
 });
 
 test("runtime vacancy rejects occupied ports, Docker identities and controlled paths before provision",()=>{
- const configs=["A","B"].map((rehearsal,index)=>{const project=`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,root=`/controlled/${project}/runtime`;return{target:{database:project,postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:project,postgresContainer:`${project}-postgres-1`,volume:`${project}_postgres_data`,role:`${project}_operator`,accountNamespace:`yzfull_${rehearsal.toLowerCase()}_${project.slice(-12)}`,root,stagingRoot:`${root}/staging`,evidenceRoot:`${root}/evidence`,fileRoot:`${root}/files`,credentialArtifact:`/controlled/${project}/credentials/postgres.env`,materializationKeyArtifact:`/controlled/${project}/credentials/materialization.key`,auditBundle:`/controlled/${project}/credentials/cleanup-audit.json`}};});
+ const configs=["A","B"].map((rehearsal,index)=>{const project=`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,root=`/controlled/${project}/runtime`,credentials=`/controlled/${project}/credentials`;return{target:{database:project,postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:project,postgresContainer:`${project}-postgres-1`,volume:`${project}_postgres_data`,role:`${project}_operator`,accountNamespace:`yzfull_${rehearsal.toLowerCase()}_${project.slice(-12)}`,root,stagingRoot:`${root}/staging`,evidenceRoot:`${root}/evidence`,fileRoot:`${root}/files`,credentialArtifact:`${credentials}/postgres.env`,materializationKeyArtifact:`${credentials}/materialization.key`,jobStateDecisionArtifact:`${credentials}/job-state-decision.json`,jobStateSourcePayloadArtifact:`${credentials}/job-state-source-payload.json`,jobStateApprovalArtifact:`${credentials}/job-state-approval.json`,auditBundle:`${credentials}/cleanup-audit.json`}};});
  assert.equal(validatePairResourceIsolation(configs[0],configs[1]).status,"PASS");
  assert.equal(validateRuntimeVacancy(configs).status,"PASS");
  for(const observed of [{busyPorts:[15441]},{composeProjects:[configs[0].target.composeProject]},{containers:[configs[1].target.postgresContainer]},{volumes:[configs[0].target.volume]},{networks:[`${configs[1].target.composeProject}_default`]},{occupiedPaths:[configs[0].target.evidenceRoot]}])assert.throws(()=>validateRuntimeVacancy(configs,observed),error=>error.code==="FINAL_PAIR_RUNTIME_BUSY");
  const nested=structuredClone(configs[1]);nested.target.root=`${configs[0].target.root}/${nested.target.composeProject}`;nested.target.stagingRoot=`${nested.target.root}/staging`;nested.target.evidenceRoot=`${nested.target.root}/evidence`;nested.target.fileRoot=`${nested.target.root}/files`;
  assert.throws(()=>validatePairResourceIsolation(configs[0],nested),error=>error.code==="FINAL_PAIR_RESOURCE_OVERLAP");
+ const sharedReview=structuredClone(configs[1]);sharedReview.target.jobStateDecisionArtifact=configs[0].target.jobStateDecisionArtifact;
+ assert.throws(()=>validatePairResourceIsolation(configs[0],sharedReview),error=>error.code==="FINAL_PAIR_RESOURCE_REUSE");
+ const crossedReview=structuredClone(configs[1]);crossedReview.target.jobStateSourcePayloadArtifact=`${configs[0].target.jobStateApprovalArtifact}/nested`;
+ assert.throws(()=>validatePairResourceIsolation(configs[0],crossedReview),error=>error.code==="FINAL_PAIR_RESOURCE_OVERLAP");
 });
 
 test("technical UAT target identity must be derived from the exact rehearsal config",()=>{const config={rehearsal:"A",target:{database:"lab",root:"/isolated/A"}},hash=value=>createHash("sha256").update(JSON.stringify(value)).digest("hex"),evidence={targetIdentityHash:hash(config.target)};assert.equal(assertTechnicalUatTargetIdentity(evidence,config).status,"PASS");assert.throws(()=>assertTechnicalUatTargetIdentity({...evidence,targetIdentityHash:"0".repeat(64)},config),error=>error.code==="FINAL_PAIR_TARGET_IDENTITY_UNBOUND");});
@@ -43,7 +47,7 @@ test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{
 
 test("runner is a fixed fail-closed sequence and deployment workflows do not invoke historical loaders",()=>{
   const runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs"),technicalUat=read("scripts/hr-cutover/run-full-domain-technical-uat.mjs"),deploy=read(".github/workflows/deploy-production.yml");
-  const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
+  const stages=["full-domain-lifecycle.mjs\",[\"provision","full-domain-lifecycle.mjs\",[\"run","full-domain-lifecycle.mjs\",[\"resume","run-full-domain-technical-uat.mjs","rehearsal-backup-restore.mjs","pairCompare(manifests[0],manifests[1])","full-domain-lifecycle.mjs\",[\"rollback","full-domain-lifecycle.mjs\",[\"cleanup"];
   let cursor=-1;for(const stage of stages){const next=runner.indexOf(stage,cursor+1);assert(next>cursor,`missing/out-of-order ${stage}`);cursor=next;}
   assert.match(runner,/ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"/u);assert.match(runner,/FINAL_PAIR_P0_HOLD/u);assert.match(runner,/--recover/u);
   assert.match(runner,/assertTechnicalUatPairEvidence/u);assert.match(runner,/FINAL_PAIR_BROWSER_MANIFEST_UNBOUND/u);assert.match(runner,/FINAL_PAIR_BROWSER_SESSION_PROOF_INVALID/u);
@@ -54,6 +58,7 @@ test("runner is a fixed fail-closed sequence and deployment workflows do not inv
 test("pair execution is serial and any stage failure invokes scoped recovery without a PASS result",()=>{
   const configs=["A","B"].map(rehearsal=>({rehearsal,__configPath:`/controlled/${rehearsal}.json`,triple:{codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)},target:{root:`/controlled/runtime-${rehearsal}`,auditBundle:`/controlled/audit-${rehearsal}.json`}}));
   const calls=[],hooks={
+    reviewArtifacts:config=>({decision:`/${config.rehearsal}/decision`,payload:`/${config.rehearsal}/payload`,approval:`/${config.rehearsal}/approval`}),
     execute:(script,args)=>{calls.push(`${configs.find(c=>args.includes(c.__configPath))?.rehearsal}:${script.split("/").at(-1)}:${args[0]??"uat"}`);return args[0]==="cleanup"?{state:"cleaned",residualCount:0,productionImport:"HOLD"}:{};},
     p0Gate:config=>calls.push(`${config.rehearsal}:p0`),manifestHead:config=>({rehearsal:config.rehearsal}),pairCompare:()=>calls.push("pair:compare"),uatPairGate:()=>calls.push("pair:browser-evidence"),cleanupGate:config=>`${config.rehearsal.toLowerCase()}`.repeat(64).slice(0,64),recovery:config=>calls.push(`${config.rehearsal}:recover`)
   };
@@ -62,4 +67,10 @@ test("pair execution is serial and any stage failure invokes scoped recovery wit
   const failureCalls=[];assert.throws(()=>runFinalPair(configs[0],configs[1],contract,{...hooks,execute:(script,args)=>{if(args.includes(configs[1].__configPath)&&args[0]==="run")throw Object.assign(new Error("fixture"),{code:"FIXTURE_FAIL"});return args[0]==="cleanup"?{state:"cleaned",residualCount:0,productionImport:"HOLD"}:{};},recovery:config=>failureCalls.push(config.rehearsal)}),/fixture/u);
   assert.deepEqual(failureCalls,["A","B"]);
   assert.throws(()=>runFinalPair(configs[0],configs[1],contract,{...hooks,execute:()=>{throw Object.assign(new Error("stage"),{code:"STAGE_FAIL"});},recovery:()=>{throw Object.assign(new Error("recovery"),{code:"RECOVERY_FAIL"});}}),error=>error.code==="FINAL_PAIR_RECOVERY_FAILED"&&/A:RECOVERY_FAIL,B:RECOVERY_FAIL/u.test(error.message));
+});
+
+test("lab pair exposes a durable A/B review-hold checkpoint before any resume",()=>{
+  const configs=["A","B"].map(rehearsal=>({rehearsal,runId:`run-${rehearsal}`,__configPath:`/controlled/${rehearsal}.json`,triple:{codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)},target:{database:`lab-${rehearsal}`}})),calls=[];
+  const checkpoint=runFinalPairExtract(configs[0],configs[1],{execute:(script,args)=>{calls.push(`${args[0]}:${args.at(-1)}`);return{state:args[0]==="run"?"review_hold":"provisioned"};},checkpointEvidence:config=>({state:"review_hold",t0ExtractManifestSha256:"d".repeat(64),t0ExtractBindingSha256:"e".repeat(64),journalSha256:"f".repeat(64)})});
+  assert.equal(checkpoint.status,"REVIEW_HOLD");assert.equal(checkpoint.productionImport,"HOLD");assert.deepEqual(calls,["provision:/controlled/A.json","provision:/controlled/B.json","run:/controlled/A.json","run:/controlled/B.json"]);assert(!calls.some(row=>row.startsWith("resume:")));
 });

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-detached-approval.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "kind", "status", "runId", "rehearsal", "canonicalDecisionSha256", "privatePayloadSha256", "t0BindingSha256", "approvalSubjectSha256", "approvedAt"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "kind": { "const": "yuzhou-job-state-detached-hr-approval" },
+    "status": { "const": "APPROVED" },
+    "runId": { "type": "string", "pattern": "^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r[AB]$" },
+    "rehearsal": { "enum": ["A", "B"] },
+    "canonicalDecisionSha256": { "$ref": "#/$defs/sha" },
+    "privatePayloadSha256": { "$ref": "#/$defs/sha" },
+    "t0BindingSha256": { "$ref": "#/$defs/sha" },
+    "approvalSubjectSha256": { "$ref": "#/$defs/sha" },
+    "approvedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": { "sha": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+}

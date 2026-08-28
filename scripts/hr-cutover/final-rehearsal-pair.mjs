@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateConfig } from "./full-domain-lifecycle.mjs";
+import { currentState, validateConfig } from "./full-domain-lifecycle.mjs";
 import { verifyManifestChain } from "./parent-manifest.mjs";
 import { compareRehearsals, computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
@@ -17,8 +17,8 @@ const P0_CONTRACT=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contr
 const UAT_TASK_CARD=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"),"utf8"));
 const UAT_API_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8"));
 const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"),"utf8"));
-const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","auditBundle"];
-const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","auditBundle"];
+const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateApprovalArtifact","auditBundle"];
+const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","materializationKeyArtifact","jobStateDecisionArtifact","jobStateSourcePayloadArtifact","jobStateApprovalArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const canonical=value=>`${JSON.stringify(value,null,2)}\n`;
@@ -166,12 +166,13 @@ function recover(config){
   if(row.residualCount!==0||row.productionImport!=="HOLD")fail("FINAL_PAIR_RECOVERY_FAILED",`${config.rehearsal}:residual`);
 }
 
-export function runFinalPair(configAInput,configBInput,contract,{execute=command,p0Gate=assertP0Executed,manifestHead=readHead,pairCompare=compareRehearsals,uatPairGate=assertTechnicalUatPairEvidence,cleanupGate=assertCleanup,recovery=recover}={}){
+export function runFinalPair(configAInput,configBInput,contract,{execute=command,resumeOnly=false,reviewArtifacts=()=>fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED","two-phase review artifacts required"),p0Gate=assertP0Executed,manifestHead=readHead,pairCompare=compareRehearsals,uatPairGate=assertTechnicalUatPairEvidence,cleanupGate=assertCleanup,recovery=recover}={}){
   const configs=[structuredClone(configAInput),structuredClone(configBInput)],completed=[],manifests=[];
   try{
-    for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);
+    if(!resumeOnly){for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["run","--config",config.__configPath]);}
     for(const config of configs){
-      execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["run","--config",config.__configPath]);
+      const review=reviewArtifacts(config);if(!review?.decision||!review?.payload||!review?.approval)fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED",config.rehearsal);
+      execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["resume","--config",config.__configPath,"--job-state-decision",review.decision,"--job-state-source-payload",review.payload,"--job-state-approval",review.approval]);
       execute("scripts/hr-cutover/run-full-domain-technical-uat.mjs",["--config",config.__configPath]);
       p0Gate(config);
       execute("scripts/hr-cutover/rehearsal-backup-restore.mjs",["--config",config.__configPath,"--fault","REGISTERED_FILE_UNREADABLE"]);
@@ -194,8 +195,12 @@ export function runFinalPair(configAInput,configBInput,contract,{execute=command
   }
 }
 
-function parse(argv){const out={execute:false};for(let i=0;i<argv.length;i+=1){const arg=argv[i];if(arg==="--execute")out.execute=true;else if(["--config-a","--config-b","--contract","--summary"].includes(arg))out[arg.slice(2).replace(/-([a-z])/gu,(_m,x)=>x.toUpperCase())]=argv[++i];else fail("FINAL_PAIR_ARGUMENT_INVALID",arg);}if(!out.configA||!out.configB)fail("FINAL_PAIR_ARGUMENT_INVALID","--config-a and --config-b required");return out;}
+function reviewHoldEvidence(config){if(currentState(config)!=="review_hold")fail("FINAL_PAIR_REVIEW_HOLD_REQUIRED",config.rehearsal);const path=resolve(config.target.evidenceRoot,"lifecycle-journal.jsonl"),bytes=readFileSync(path),rows=bytes.toString("utf8").trim().split("\n").filter(Boolean).map(line=>JSON.parse(line)),extracts=rows.filter(row=>row.kind==="child"&&row.domain==="T0"&&row.phase==="extract"&&row.status==="verified");if(extracts.length!==1||!extracts[0].extractManifestSha256||!extracts[0].extractBindingSha256)fail("FINAL_PAIR_T0_CHECKPOINT_INVALID",config.rehearsal);return{state:"review_hold",t0ExtractManifestSha256:extracts[0].extractManifestSha256,t0ExtractBindingSha256:extracts[0].extractBindingSha256,journalSha256:sha256(bytes)};}
+export function runFinalPairExtract(configAInput,configBInput,{execute=command,checkpointEvidence=reviewHoldEvidence}={}){const configs=[structuredClone(configAInput),structuredClone(configBInput)];try{for(const config of configs)execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["provision","--config",config.__configPath]);for(const config of configs){const result=execute("scripts/hr-cutover/full-domain-lifecycle.mjs",["run","--config",config.__configPath]);if(result?.state!=="review_hold")fail("FINAL_PAIR_REVIEW_HOLD_REQUIRED",config.rehearsal);}return{formatVersion:1,status:"REVIEW_HOLD",triple:configs[0].triple,runs:configs.map(config=>({rehearsal:config.rehearsal,runId:config.runId,configSha256:sha256(canonical({runId:config.runId,triple:config.triple,target:config.target})),...checkpointEvidence(config)})),productionImport:"HOLD"};}catch(error){for(const config of configs)recover(config);throw error;}}
+
+function parse(argv){const out={execute:false};for(let i=0;i<argv.length;i+=1){const arg=argv[i];if(arg==="--execute")out.execute=true;else if(["--config-a","--config-b","--contract","--summary","--phase","--checkpoint","--decision-a","--payload-a","--approval-a","--decision-b","--payload-b","--approval-b"].includes(arg))out[arg.slice(2).replace(/-([a-z])/gu,(_m,x)=>x.toUpperCase())]=argv[++i];else fail("FINAL_PAIR_ARGUMENT_INVALID",arg);}if(!out.configA||!out.configB)fail("FINAL_PAIR_ARGUMENT_INVALID","--config-a and --config-b required");return out;}
 function privateJson(path,value){if(existsSync(path))fail("FINAL_PAIR_SUMMARY_EXISTS",path);writeFileSync(path,canonical(value),{mode:0o600,flag:"wx"});chmodSync(path,0o600);}
+function mode(path){return(statSync(path).mode&0o777).toString(8).padStart(4,"0");}
 function inside(parent,child){const rel=relative(parent,child);return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
 
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
@@ -204,12 +209,17 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const configPaths=[realpathSync(resolve(args.configA)),realpathSync(resolve(args.configB))],configs=configPaths.map((path,index)=>({...JSON.parse(readFileSync(path,"utf8")),__configPath:path,__ordinal:index}));
     const git=spawnSync("git",["status","--porcelain=v1","--untracked-files=all"],{cwd:ROOT,encoding:"utf8"}),head=spawnSync("git",["rev-parse","HEAD"],{cwd:ROOT,encoding:"utf8"}).stdout.trim();
     const preflight=validatePairPreflight(configs[0],configs[1],contract,{currentSha:head,mappingContractHash:computeMappingContractHash(FULL_CONTRACT),worktreeClean:git.status===0&&!git.stdout.trim()});
-    validateRuntimeVacancy(configs,runtimeSnapshot(configs));
+    if(args.phase!=="resume")validateRuntimeVacancy(configs,runtimeSnapshot(configs));
     if(!args.execute){process.stdout.write(`${JSON.stringify(preflight)}\n`);process.exit(0);}
     if(process.env.ALLOW_YUZHOU_FINAL_REHEARSAL!=="yes"||!args.summary)fail("FINAL_PAIR_EXECUTION_AUTH_MISSING","explicit lab authorization and --summary required");
     const summary=resolve(args.summary),summaryParentInput=dirname(summary);if(!existsSync(summaryParentInput))fail("FINAL_PAIR_SUMMARY_UNSAFE","parent missing");
     const summaryParent=realpathSync(summaryParentInput),summaryResolved=resolve(summaryParent,basename(summary));for(const config of configs){const runtimeResolved=resolve(realpathSync(dirname(config.target.root)),basename(config.target.root));if(inside(runtimeResolved,summaryResolved))fail("FINAL_PAIR_SUMMARY_UNSAFE","summary must survive isolated cleanup");}
     if((statSync(summaryParent).mode&0o777)!==0o700)fail("FINAL_PAIR_SUMMARY_UNSAFE","private 0700 parent required");
-    const result=runFinalPair(configs[0],configs[1],contract);privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
+    if(!["extract","resume"].includes(args.phase))fail("FINAL_PAIR_PHASE_REQUIRED","--phase extract|resume required");
+    if(args.phase==="extract"){const checkpoint=runFinalPairExtract(configs[0],configs[1]);privateJson(summary,checkpoint);process.stdout.write(`${JSON.stringify({status:"REVIEW_HOLD",checkpoint:summary,productionImport:"HOLD"})}\n`);process.exit(0);}
+    const checkpointPath=realpathSync(resolve(args.checkpoint??""));if(mode(checkpointPath)!=="0600")fail("FINAL_PAIR_CHECKPOINT_INVALID","0600 checkpoint required");const checkpoint=JSON.parse(readFileSync(checkpointPath,"utf8"));if(checkpoint.status!=="REVIEW_HOLD"||checkpoint.productionImport!=="HOLD"||JSON.stringify(checkpoint.triple)!==JSON.stringify(configs[0].triple)||checkpoint.runs?.length!==2||configs.some(config=>{const row=checkpoint.runs.find(item=>item.rehearsal===config.rehearsal);if(!row||row.runId!==config.runId||row.configSha256!==sha256(canonical({runId:config.runId,triple:config.triple,target:config.target}))||row.state!=="review_hold")return true;const actual=reviewHoldEvidence(config);return row.t0ExtractManifestSha256!==actual.t0ExtractManifestSha256||row.t0ExtractBindingSha256!==actual.t0ExtractBindingSha256||row.journalSha256!==actual.journalSha256;}))fail("FINAL_PAIR_CHECKPOINT_INVALID","checkpoint drift");
+    const reviewByRehearsal={A:{decision:args.decisionA,payload:args.payloadA,approval:args.approvalA},B:{decision:args.decisionB,payload:args.payloadB,approval:args.approvalB}};
+    if(Object.values(reviewByRehearsal).some(review=>!review.decision||!review.payload||!review.approval))fail("FINAL_PAIR_REVIEW_ARTIFACTS_REQUIRED","six A/B review artifacts required before provision");
+    const result=runFinalPair(configs[0],configs[1],contract,{resumeOnly:true,reviewArtifacts:config=>reviewByRehearsal[config.rehearsal]});privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
   }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
 }

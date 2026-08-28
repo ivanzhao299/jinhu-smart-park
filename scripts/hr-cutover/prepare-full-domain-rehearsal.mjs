@@ -85,6 +85,9 @@ function configFor(args, codeSha, mappingContractHash) {
   const t4Copy = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
   const materializationKey = join(credentialRoot, "materialization.key");
+  const jobStateDecision = join(credentialRoot, "employee-job-state.reviewed.json");
+  const jobStateSourcePayload = join(credentialRoot, "employee-job-state.private.json");
+  const jobStateApproval = join(credentialRoot, "employee-job-state.approval.json");
   const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
   const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   privateCopy(etlSource, etlCopy);
@@ -153,6 +156,9 @@ function configFor(args, codeSha, mappingContractHash) {
       fileRoot: join(runtimeRoot, "files"),
       credentialArtifact: postgresEnv,
       materializationKeyArtifact: materializationKey,
+      jobStateDecisionArtifact: jobStateDecision,
+      jobStateSourcePayloadArtifact: jobStateSourcePayload,
+      jobStateApprovalArtifact: jobStateApproval,
       auditBundle: join(credentialRoot, "cleanup-audit.json")
     },
     adapterEnv,

@@ -45,6 +45,15 @@ function childEnvironment(config, domain, phase) {
       }
     }
     Object.assign(env, bindings);
+    if (domain === "T0") {
+      const journal = readFileSync(resolve(config.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+      const records = journal.filter((row) => row.kind === "dictionary_materialization" && row.domain === "T0" && row.status === "verified");
+      const extracts = journal.filter((row) => row.kind === "child" && row.domain === "T0" && row.phase === "extract" && row.status === "verified");
+      if (records.length !== 1 || extracts.length !== 1 || records[0].triple.codeSha !== config.triple.codeSha
+        || !/^[0-9a-f]{64}$/.test(records[0].dictionarySnapshotSha256 ?? "")
+        || records[0].t0ManifestSha256 !== extracts[0].extractManifestSha256) fail("DICTIONARY_MATERIALIZATION_UNVERIFIED", "T0 reviewed dictionary materialization is not bound to this run");
+      env.YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256 = records[0].dictionarySnapshotSha256;
+    }
   }
   Object.assign(env, {
     ALLOW_YUZHOU_MIGRATION: "yes",
