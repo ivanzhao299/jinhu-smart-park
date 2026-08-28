@@ -41,12 +41,24 @@ function registryFile(config,path){const registryPath=resolve(config.target.evid
 function registryProcesses(config,pids){const registryPath=resolve(config.target.evidenceRoot,"resource-registry.json"),rows=JSON.parse(readFileSync(registryPath,"utf8")),entry=rows.find((row)=>row.type==="process"&&row.planned===`${config.runId}:managed_children`);if(!entry)fail("RESOURCE_TYPE_MISSING","managed process registry");entry.observed=pids.filter(Number.isInteger);entry.removed=entry.observed.length===0;entry.residualCount=entry.observed.length;writePrivate(registryPath,rows);}
 async function stopChild(child){if(!child||child.exitCode!==null)return;if(!child.killed)child.kill("SIGTERM");for(let n=0;n<20&&child.exitCode===null;n+=1)await sleep(100);if(child.exitCode===null)child.kill("SIGKILL");}
 async function preserveFailure(previous,action){try{await action();return previous;}catch(error){return previous??error;}}
+function buildWebForTarget(config){
+ const apiTarget=`http://127.0.0.1:${config.target.apiPort}`;
+ const build=spawnSync("pnpm",["--filter","@jinhu/web","build"],{cwd:ROOT,env:{...process.env,NEXT_PUBLIC_API_TARGET:apiTarget},stdio:"ignore"});
+ if(build.status!==0)fail("TECHNICAL_UAT_WEB_BUILD_FAILED",`exit ${build.status??"signal"}`);
+ const routesPath=resolve(ROOT,"apps/web/.next/routes-manifest.json");
+ if(!existsSync(routesPath))fail("TECHNICAL_UAT_WEB_BUILD_INVALID","routes manifest missing");
+ const routes=JSON.parse(readFileSync(routesPath,"utf8"));
+ const expected=`${apiTarget}/api/:path*`;
+ const rewrites=[...(routes.rewrites?.beforeFiles??[]),...(routes.rewrites?.afterFiles??[]),...(routes.rewrites?.fallback??[])];
+ if(!rewrites.some((rewrite)=>rewrite.source==="/api/:path*"&&rewrite.destination===expected))fail("TECHNICAL_UAT_WEB_TARGET_MISMATCH",expected);
+}
 
 export async function runTechnicalUat(configInput){
  const config=validateConfig(structuredClone(configInput));
  if(config.backend!=="lab"||currentState(config)!=="uat_ready")fail("STATE_TRANSITION_INVALID","technical UAT requires lab uat_ready state");
- const apiMain=resolve(ROOT,"apps/api/dist/main.js"),webBuild=resolve(ROOT,"apps/web/.next/BUILD_ID");
- if(!existsSync(apiMain)||!existsSync(webBuild))fail("TECHNICAL_UAT_BUILD_MISSING","build API and Web before the rehearsal");
+ const apiMain=resolve(ROOT,"apps/api/dist/main.js");
+ if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","build API before the rehearsal");
+ buildWebForTarget(config);
  const pg=credential(config.target.credentialArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
  const users=[`${config.target.accountNamespace}_hr_maker`,`${config.target.accountNamespace}_hr_reviewer`,`${config.target.accountNamespace}_manager`,`${config.target.accountNamespace}_employee`];
  // Business-code columns are intentionally narrower than the globally unique rehearsal run id.
