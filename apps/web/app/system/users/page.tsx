@@ -90,6 +90,7 @@ export default function UsersPage() {
   const canViewRoleDiagnostics = canAssignRoles || hasPermission(authUser, SYSTEM_PERMISSIONS.USER_DETAIL);
   const canUpdateUsers = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_UPDATE);
   const canReadRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.ROLE_READ);
+  const canManageRolesAcrossParks = Boolean(authUser?.is_super || authUser?.permissions.includes("*"));
   const [data, setData] = useState(emptyUsers);
   const [tenants, setTenants] = useState(emptyTenants);
   const [keyword, setKeyword] = useState("");
@@ -360,7 +361,15 @@ export default function UsersPage() {
     }
   }
 
-  async function openRoleEdit(row: UserRow, targetParkId = row.parkId) {
+  async function openRoleEdit(row: UserRow, requestedParkId?: string) {
+    const currentParkId = authUser?.park_id ?? "";
+    const manageableParks = canManageRolesAcrossParks
+      ? row.accessibleParks
+      : row.accessibleParks.filter((park) => park.park_id === currentParkId);
+    const targetParkId = requestedParkId
+      ?? manageableParks.find((park) => park.park_id === currentParkId)?.park_id
+      ?? manageableParks[0]?.park_id;
+    if (!targetParkId) throw new Error("当前园区不在该用户的可管理访问范围内");
     clearOrgCatalog();
     setDrawerError("");
     setEditingUser(row);
@@ -715,7 +724,7 @@ export default function UsersPage() {
                           .catch((error: Error) => setDrawerError(error.message));
                       }}
                     >
-                      {editingUser?.accessibleParks.filter((park) => park.status === "enabled").map((park) => (
+                      {editingUser?.accessibleParks.filter((park) => park.status === "enabled" && (canManageRolesAcrossParks || park.park_id === authUser?.park_id)).map((park) => (
                         <option key={park.park_id} value={park.park_id}>{park.park_name}</option>
                       ))}
                     </select>

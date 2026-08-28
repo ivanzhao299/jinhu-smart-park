@@ -170,16 +170,6 @@ export class UsersService {
     const statusWhere =
       query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
     const superUser = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
-    const ordinaryUserIds = superUser ? [] : [...new Set([
-      ...(await this.usersRepository.find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
-        select: { id: true }
-      })).map((user) => user.id),
-      ...(await this.userParkRepository.find({
-        where: { tenantId: scope.tenantId, parkId: scope.parkId, status: "enabled", isDeleted: false },
-        select: { userId: true }
-      })).map((link) => link.userId)
-    ])];
     const rawBaseWhere = superUser
       ? {
           ...(queryTenantId ? { tenantId: queryTenantId } : {}),
@@ -189,13 +179,42 @@ export class UsersService {
         }
       : {
           tenantId: scope.tenantId,
-          id: In(ordinaryUserIds),
           isDeleted: false,
           ...statusWhere
         };
-    const baseWhere = superUser
-      ? rawBaseWhere
-      : await this.dataScopeService.buildFindWhere<UserEntity>(scope, actor, "tenant", rawBaseWhere, { tenant: "tenantId" });
+    if (!superUser) {
+      const builder = this.usersRepository.createQueryBuilder("usr")
+        .where("usr.tenant_id = :tenantId", { tenantId: scope.tenantId })
+        .andWhere("usr.is_deleted = false")
+        .andWhere(new Brackets((access) => {
+          access.where("usr.park_id = :parkId", { parkId: scope.parkId })
+            .orWhere(`EXISTS (
+              SELECT 1 FROM rel_user_park access
+               WHERE access.user_id = usr.id
+                 AND access.tenant_id = :tenantId
+                 AND access.park_id = :parkId
+                 AND access.status = 'enabled'
+                 AND access.is_deleted = false
+            )`);
+        }));
+      if (query.status === "enabled") builder.andWhere("usr.is_enabled = true");
+      if (query.status === "disabled") builder.andWhere("usr.is_enabled = false");
+      if (query.keyword) {
+        builder.andWhere(new Brackets((keyword) => {
+          keyword.where("usr.username ILIKE :keyword", { keyword: `%${query.keyword}%` })
+            .orWhere("usr.display_name ILIKE :keyword", { keyword: `%${query.keyword}%` });
+        }));
+      }
+      await this.dataScopeService.applyToQueryBuilder(builder, scope, actor, "tenant", "usr", { tenant: "tenant_id" });
+      const [items, total] = await builder.orderBy("usr.create_time", "DESC")
+        .skip((query.page - 1) * query.page_size)
+        .take(query.page_size)
+        .getManyAndCount();
+      const views = await this.toViews(items, this.canViewRoleDiagnostics(actor), scope.parkId);
+      const securedItems = await this.fieldPolicyService.applyFieldPoliciesToList(scope, actor, "system", "user", views);
+      return { items: securedItems, total, page: query.page, page_size: query.page_size };
+    }
+    const baseWhere = rawBaseWhere;
     const where = query.keyword
       ? [
           { ...baseWhere, username: ILike(`%${query.keyword}%`) },
@@ -1349,7 +1368,7 @@ export class UsersService {
     const userRepository = manager?.getRepository(UserEntity) ?? this.usersRepository;
     const parkRepository = manager?.getRepository(ParkEntity) ?? this.parksRepository;
     const userParkRepository = manager?.getRepository(UserParkEntity) ?? this.userParkRepository;
-    const globalRoleManager = Boolean(actor.isSuper || actor.permissions.includes("*"));
+    const globalRoleManager = Boolean(!actor.isTenantSuper && (actor.isSuper || actor.permissions.includes("*")));
     const user = await userRepository.findOne({
       where: { id, ...(globalRoleManager ? {} : { tenantId: scope.tenantId }), isDeleted: false },
       relations: { roleLinks: { role: true } }
@@ -1508,7 +1527,7 @@ export class UsersService {
     }
   }
 
-  private async toViews(users: UserEntity[], includeRoleDiagnostics = true): Promise<UserView[]> {
+  private async toViews(users: UserEntity[], includeRoleDiagnostics = true, diagnosticParkId?: string): Promise<UserView[]> {
     if (users.length === 0) {
       return [];
     }
@@ -1532,13 +1551,18 @@ export class UsersService {
         const isTenantSuper = roleLinks.some(
           (link) => link.userId === user.id && isProtectedTenantSuperBinding(link, user.tenantId)
         );
-        const userRoleLinks = roleLinks.filter((link) => link.userId === user.id && link.tenantId === user.tenantId);
-        accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, {
+        const userRoleLinks = roleLinks.filter((link) => link.userId === user.id
+          && link.tenantId === user.tenantId
+          && (!diagnosticParkId || link.role?.roleScope === "tenant" || link.parkId === diagnosticParkId));
+        const accessibleParks = await this.resolveAccessibleParks(user.id, user.tenantId, {
           activeOnly: false,
           homeParkId: user.parkId,
           isTenantSuper,
           roleLinks: includeRoleDiagnostics ? userRoleLinks : undefined
-        }));
+        });
+        accessibleByUser.set(user.id, diagnosticParkId
+          ? accessibleParks.map((park) => park.park_id === diagnosticParkId ? park : { ...park, role_summary: undefined })
+          : accessibleParks);
       })
     );
 
@@ -1565,10 +1589,10 @@ export class UsersService {
         parkName: park?.parkName ?? null,
         accessibleParks,
         roles: includeRoleDiagnostics ? roleLinks
-          .filter((link) => link.userId === user.id && link.tenantId === user.tenantId && link.parkId === user.parkId)
+          .filter((link) => link.userId === user.id && link.tenantId === user.tenantId && link.parkId === (diagnosticParkId ?? user.parkId))
           .filter((link) => link.role?.tenantId === user.tenantId
-            && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === user.parkId)))
-          .map((link) => this.toUserRoleView({ tenantId: user.tenantId, parkId: user.parkId }, link.role)) : [],
+            && (link.role.roleScope === "tenant" || (link.role.roleScope === "park" && link.role.parkId === (diagnosticParkId ?? user.parkId))))
+          .map((link) => this.toUserRoleView({ tenantId: user.tenantId, parkId: diagnosticParkId ?? user.parkId }, link.role)) : [],
         loginContextStatus: this.resolveLoginContextStatus(user, tenant, park, explicitLinks),
         createTime: user.createTime,
         updateTime: user.updateTime,

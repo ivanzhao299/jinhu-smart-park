@@ -125,6 +125,25 @@ test("global super role reads preserve cross-tenant target management", async ()
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
 });
 
+test("protected tenant super cannot cross its tenant boundary", async () => {
+  const service = createService({
+    usersRepository: {
+      findOne: async ({ where }: { where: { tenantId?: string } }) => where.tenantId === target.tenantId ? target : null
+    }
+  });
+  const tenantSuperActor = { ...actor, isTenantSuper: true };
+
+  await assert.rejects(
+    service.getUserRoleContext(
+      scope,
+      tenantSuperActor,
+      target.id,
+      Object.assign(new UserRoleCandidatesQueryDto(), { parkId: target.parkId })
+    ),
+    NotFoundException
+  );
+});
+
 test("target-park role reads reject ordinary cross-park actors before disclosing target state", async () => {
   const sameTenantTarget = { ...target, tenantId: scope.tenantId, roleLinks: [] } as UserEntity;
   const service = createService({ usersRepository: { findOne: async () => sameTenantTarget } });

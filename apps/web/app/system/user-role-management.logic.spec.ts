@@ -33,7 +33,9 @@ test("user list has paired desktop and mobile role projections", () => {
 
 test("target-park role assignment remains reachable without profile update permission", () => {
   assert.match(source, /const canUpdateUsers = hasPermission\(authUser, SYSTEM_PERMISSIONS\.USER_UPDATE\)/);
-  assert.match(source, /async function openRoleEdit\(row: UserRow, targetParkId = row\.parkId\)/);
+  assert.match(source, /async function openRoleEdit\(row: UserRow, requestedParkId\?: string\)/);
+  assert.match(source, /manageableParks\.find\(\(park\) => park\.park_id === currentParkId\)/);
+  assert.match(source, /canManageRolesAcrossParks \|\| park\.park_id === authUser\?\.park_id/);
   assert.match(source, /选择目标园区并直接替换该园区的可管理角色/);
   assert.match(source, /canAssignRoles \? <button[^>]+title="配置角色"/);
   assert.match(source, /if \(roleOnlyEditing && editingUser\)/);
