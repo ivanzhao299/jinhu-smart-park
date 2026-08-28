@@ -97,6 +97,7 @@ INSERT INTO hr_permission_defs VALUES
  ('hr:compensation:read','读取薪酬方案','api',NULL,752),
  ('hr:compensation:manage','管理薪酬方案','api',NULL,753),
  ('hr:payroll:read','读取工资批次','api',NULL,754),
+ ('hr:payroll_detail:read','读取工资批次明细','api',NULL,754),
  ('hr:payroll:manage','管理工资批次','api',NULL,755),
  ('hr:payroll:review','复核工资批次','api',NULL,756),
  ('hr:payroll:confirm','确认工资批次','api',NULL,757),
@@ -113,12 +114,24 @@ INSERT INTO hr_permission_defs VALUES
  ('hr:contract:self_read','读取本人劳动合同','api',NULL,763),
  ('hr:contract:manage','管理劳动合同','api',NULL,764);
 INSERT INTO hr_permission_defs VALUES
+ ('hr:contract_salary:read','读取劳动合同薪资','api',NULL,778),
+ ('hr:contract_document:read','读取园区劳动合同附件','api',NULL,779),
+ ('hr:contract_document:team_read','读取团队劳动合同附件','api',NULL,780),
+ ('hr:contract_document:self_read','读取本人劳动合同附件','api',NULL,781),
+ ('hr:contract_document:manage','管理劳动合同附件','api',NULL,782),
+ ('hr:employee_document:read','读取园区员工档案附件','api',NULL,783),
+ ('hr:employee_document:team_read','读取团队员工档案附件','api',NULL,784),
+ ('hr:employee_document:self_read','读取本人员工档案附件','api',NULL,785),
+ ('hr:employee_document:manage','管理员工档案附件','api',NULL,786);
+INSERT INTO hr_permission_defs VALUES
  ('hr:attendance:read','读取园区历史考勤月历','api',NULL,765),
  ('hr:attendance:team_read','读取团队考勤','api',NULL,766),
  ('hr:attendance:self_read','读取本人考勤','api',NULL,767),
  ('hr:insurance:read','读取园区社保台账','api',NULL,768),
  ('hr:insurance:team_read','读取团队社保台账','api',NULL,769),
  ('hr:insurance:self_read','读取本人社保台账','api',NULL,770);
+INSERT INTO hr_permission_defs VALUES
+ ('hr:insurance_amount:read','读取园区社保金额','api',NULL,787);
 INSERT INTO hr_permission_defs VALUES
  ('hr:attendance:request','提交本人考勤申请','api',NULL,771),
  ('hr:attendance:approve','审批考勤申请','api',NULL,772),
@@ -179,6 +192,7 @@ INSERT INTO hr_foundation_roles VALUES
   ('HR_MANAGER','人力资源负责人','hr:compensation:read'),
   ('HR_MANAGER','人力资源负责人','hr:compensation:manage'),
   ('HR_MANAGER','人力资源负责人','hr:payroll:read'),
+  ('HR_MANAGER','人力资源负责人','hr:payroll_detail:read'),
   ('HR_MANAGER','人力资源负责人','hr:payroll:manage'),
   ('HR_MANAGER','人力资源负责人','hr:payroll:review'),
   ('HR_MANAGER','人力资源负责人','hr:payroll:confirm'),
@@ -193,6 +207,11 @@ INSERT INTO hr_foundation_roles VALUES
   ('HR_MANAGER','人力资源负责人','hr:contract:read'),
   ('HR_MANAGER','人力资源负责人','hr:contract:self_read'),
   ('HR_MANAGER','人力资源负责人','hr:contract:manage'),
+  ('HR_MANAGER','人力资源负责人','hr:contract_salary:read'),
+  ('HR_MANAGER','人力资源负责人','hr:contract_document:read'),
+  ('HR_MANAGER','人力资源负责人','hr:contract_document:manage'),
+  ('HR_MANAGER','人力资源负责人','hr:employee_document:read'),
+  ('HR_MANAGER','人力资源负责人','hr:employee_document:manage'),
   ('HR_MANAGER','人力资源负责人','hr:attendance'),
   ('HR_MANAGER','人力资源负责人','hr:attendance:read'),
   ('HR_MANAGER','人力资源负责人','hr:attendance:request'),
@@ -203,6 +222,7 @@ INSERT INTO hr_foundation_roles VALUES
   ('HR_MANAGER','人力资源负责人','hr:attendance:payroll_input_read'),
   ('HR_MANAGER','人力资源负责人','hr:insurance'),
   ('HR_MANAGER','人力资源负责人','hr:insurance:read'),
+  ('HR_MANAGER','人力资源负责人','hr:insurance_amount:read'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','system:user:me'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:dashboard');
@@ -229,6 +249,9 @@ INSERT INTO hr_foundation_roles VALUES
 INSERT INTO hr_foundation_roles VALUES
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:contracts'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:contract:self_read');
+INSERT INTO hr_foundation_roles VALUES
+  ('EMPLOYEE_SELF_SERVICE','员工自助','hr:contract_document:self_read'),
+  ('EMPLOYEE_SELF_SERVICE','员工自助','hr:employee_document:self_read');
 INSERT INTO hr_foundation_roles VALUES
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:attendance'),
   ('EMPLOYEE_SELF_SERVICE','员工自助','hr:attendance:self_read'),
@@ -262,6 +285,11 @@ INSERT INTO hr_foundation_roles VALUES
   ('DEPARTMENT_MANAGER','部门负责人','hr:contracts'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:contract:team_read'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:contract:self_read');
+INSERT INTO hr_foundation_roles VALUES
+  ('DEPARTMENT_MANAGER','部门负责人','hr:contract_document:team_read'),
+  ('DEPARTMENT_MANAGER','部门负责人','hr:contract_document:self_read'),
+  ('DEPARTMENT_MANAGER','部门负责人','hr:employee_document:team_read'),
+  ('DEPARTMENT_MANAGER','部门负责人','hr:employee_document:self_read');
 INSERT INTO hr_foundation_roles VALUES
   ('DEPARTMENT_MANAGER','部门负责人','hr:attendance'),
   ('DEPARTMENT_MANAGER','部门负责人','hr:attendance:team_read'),
@@ -318,7 +346,7 @@ DO $$ BEGIN
   IF NOT EXISTS(SELECT 1 FROM sys_module WHERE module_code='hr' AND status=1 AND is_deleted=false) THEN
     RAISE EXCEPTION 'HR module foundation missing';
   END IF;
-  IF (SELECT count(*) FROM sys_permission WHERE tenant_id='10000001' AND code IN('hr','hr:dashboard','hr:organization','hr:employees','hr:goals','hr:work_reports','hr:performance','hr:feedback_360','hr:compensation','hr:payroll','hr:approvals','hr:contracts','hr:attendance','hr:insurance','hr:employee:read','hr:employee:team_read','hr:employee:manage','hr:employee:self_read','hr:employee_profile:read','hr:employee_profile:team_read','hr:employee_profile:self_read','hr:employee_profile:manage','hr:employment:transition','hr:contract:read','hr:contract:team_read','hr:contract:self_read','hr:contract:manage','hr:attendance:read','hr:attendance:team_read','hr:attendance:self_read','hr:attendance:request','hr:attendance:approve','hr:attendance:correct','hr:attendance:operate','hr:attendance:close','hr:attendance:payroll_input_read','hr:insurance:read','hr:insurance:team_read','hr:insurance:self_read','hr:goal:read','hr:goal:manage','hr:goal:self_read','hr:work_report:self_manage','hr:work_report:team_review','hr:performance:read','hr:performance:manage','hr:performance:self_review','hr:performance:manager_review','hr:performance:calibrate','hr:feedback:manage','hr:feedback:respond','hr:feedback:result_read','hr:compensation:read','hr:compensation:manage','hr:payroll:read','hr:payroll:manage','hr:payroll:review','hr:payroll:confirm','hr:payslip:self_read','hr:approval:self_manage','hr:approval:park_review','hr:approval:team_review','hr:position:read','hr:position:manage','hr:employment_event:read') AND is_deleted=false AND is_enabled=true) <> 65 THEN
+  IF (SELECT count(*) FROM sys_permission WHERE tenant_id='10000001' AND code IN('hr','hr:dashboard','hr:organization','hr:employees','hr:goals','hr:work_reports','hr:performance','hr:feedback_360','hr:compensation','hr:payroll','hr:approvals','hr:contracts','hr:attendance','hr:insurance','hr:employee:read','hr:employee:team_read','hr:employee:manage','hr:employee:self_read','hr:employee_profile:read','hr:employee_profile:team_read','hr:employee_profile:self_read','hr:employee_profile:manage','hr:employee_document:read','hr:employee_document:team_read','hr:employee_document:self_read','hr:employee_document:manage','hr:employment:transition','hr:contract:read','hr:contract:team_read','hr:contract:self_read','hr:contract:manage','hr:contract_salary:read','hr:contract_document:read','hr:contract_document:team_read','hr:contract_document:self_read','hr:contract_document:manage','hr:attendance:read','hr:attendance:team_read','hr:attendance:self_read','hr:attendance:request','hr:attendance:approve','hr:attendance:correct','hr:attendance:operate','hr:attendance:close','hr:attendance:payroll_input_read','hr:insurance:read','hr:insurance:team_read','hr:insurance:self_read','hr:insurance_amount:read','hr:goal:read','hr:goal:manage','hr:goal:self_read','hr:work_report:self_manage','hr:work_report:team_review','hr:performance:read','hr:performance:manage','hr:performance:self_review','hr:performance:manager_review','hr:performance:calibrate','hr:feedback:manage','hr:feedback:respond','hr:feedback:result_read','hr:compensation:read','hr:compensation:manage','hr:payroll:read','hr:payroll_detail:read','hr:payroll:manage','hr:payroll:review','hr:payroll:confirm','hr:payslip:self_read','hr:approval:self_manage','hr:approval:park_review','hr:approval:team_review','hr:position:read','hr:position:manage','hr:employment_event:read') AND is_deleted=false AND is_enabled=true) <> 76 THEN
     RAISE EXCEPTION 'HR permission foundation incomplete';
   END IF;
   IF (SELECT count(*) FROM sys_role WHERE tenant_id='10000001' AND code IN('HR_MANAGER','EMPLOYEE_SELF_SERVICE','DEPARTMENT_MANAGER') AND is_deleted=false AND is_enabled=true) <> 3 THEN

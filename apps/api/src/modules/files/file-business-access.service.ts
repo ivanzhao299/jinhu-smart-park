@@ -108,6 +108,12 @@ export class FileBusinessAccessService {
     return (PROPERTY_BUSINESS_FILE_TYPES as readonly string[]).includes(value);
   }
 
+  assertRoutePermission(actor:JwtPrincipal,bizType:string|undefined,action:AccessAction):void{
+    if(bizType&&this.isProtectedBizType(bizType))return;
+    const permission=action==="upload"?SYSTEM_PERMISSIONS.FILE_UPLOAD:action==="delete"?SYSTEM_PERMISSIONS.FILE_DELETE:action==="download"?SYSTEM_PERMISSIONS.FILE_DOWNLOAD:SYSTEM_PERMISSIONS.FILE_READ;
+    if(!this.hasPermission(actor,permission))throw new ForbiddenException(`${permission} permission is required`);
+  }
+
   async assertReferenceAccess(
     scope: TenantParkScope,
     actor: JwtPrincipal,
@@ -206,14 +212,24 @@ export class FileBusinessAccessService {
   private async assertHrEmployeeDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
     if(!bizId)throw new ForbiddenException("HR employee documents require an employee reference");
     const write=action==="upload"||action==="delete";
-    const canManage=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);
-    const canReadAll=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_READ);
-    const canReadSelf=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ);
-    if(write&&!canManage)throw new ForbiddenException(`${HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE} permission is required`);
-    if(!write&&!canManage&&!canReadAll&&!canReadSelf)throw new ForbiddenException("HR employee document read permission is required");
-    const rows=await this.dataSource.query(`SELECT user_id FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId]) as Array<{user_id:string|null}>;
+    const canManage=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_MANAGE);
+    const canReadAll=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_READ);
+    const canReadTeam=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_TEAM_READ);
+    const canReadSelf=this.hasPermission(actor,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_SELF_READ);
+    if(write&&!canManage)throw new ForbiddenException(`${HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_MANAGE} permission is required`);
+    if(!write&&!canManage&&!canReadAll&&!canReadTeam&&!canReadSelf)throw new ForbiddenException("HR employee document read permission is required");
+    const rows=await this.dataSource.query(`WITH RECURSIVE managed_org AS (
+      SELECT id FROM sys_org WHERE tenant_id=$2 AND park_id=$3 AND leader_user_id=$4 AND is_deleted=false AND status='enabled'
+      UNION ALL SELECT child.id FROM sys_org child JOIN managed_org parent ON child.parent_id=parent.id
+      WHERE child.tenant_id=$2 AND child.park_id=$3 AND child.is_deleted=false AND child.status='enabled'
+    ), actor_employee AS (SELECT id FROM hr_employee WHERE tenant_id=$2 AND park_id=$3 AND user_id=$4 AND is_deleted=false)
+    SELECT user_id,(user_id=$4) AS is_self,(primary_org_id IN(SELECT id FROM managed_org) OR manager_employee_id IN(SELECT id FROM actor_employee)) AS is_team
+    FROM hr_employee WHERE id=$1 AND tenant_id=$2 AND park_id=$3 AND is_deleted=false LIMIT 1`,[bizId,scope.tenantId,scope.parkId,actor.sub]) as Array<{user_id:string|null;is_self:boolean;is_team:boolean}>;
     if(!rows[0])throw new ForbiddenException("HR employee reference is outside the current tenant or park");
-    if(!write&&!canManage&&!canReadAll&&rows[0].user_id!==actor.sub)throw new ForbiddenException("Employees can only read their own HR documents");
+    if(write||canManage||canReadAll)return;
+    if(canReadSelf&&rows[0].is_self)return;
+    if(canReadTeam&&rows[0].is_team)return;
+    throw new ForbiddenException("HR employee document is outside the actor's employee scope");
   }
 
   private async assertHrCandidateDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
@@ -262,9 +278,9 @@ export class FileBusinessAccessService {
   private async assertHrContractDocumentAccess(scope:TenantParkScope,actor:JwtPrincipal,bizId:string|null|undefined,action:AccessAction):Promise<void>{
     if(!bizId)throw new ForbiddenException("HR contract documents require a contract reference");
     const write=action==="upload"||action==="delete";
-    if(write&&!this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_MANAGE))throw new ForbiddenException(`${HR_PERMISSIONS.HR_CONTRACT_MANAGE} permission is required`);
-    const parkRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_READ)||this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_MANAGE);
-    const teamRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_TEAM_READ),selfRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SELF_READ);
+    if(write&&!this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE))throw new ForbiddenException(`${HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE} permission is required`);
+    const parkRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_READ)||this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE);
+    const teamRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_TEAM_READ),selfRead=this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_SELF_READ);
     if(!write&&!parkRead&&!teamRead&&!selfRead)throw new ForbiddenException("HR contract read permission is required");
     const rows=await this.dataSource.query(`WITH RECURSIVE managed_org AS (
       SELECT id FROM sys_org WHERE tenant_id=$2 AND park_id=$3 AND leader_user_id=$4 AND is_deleted=false AND status='enabled'

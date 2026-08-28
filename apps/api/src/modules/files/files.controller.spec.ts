@@ -20,13 +20,10 @@ test("denied identity download returns no blob and writes no success audit", asy
   let streamCalls = 0;
   const controller = new FilesController(
     {
-      prepareDownload: async () => {
+      prepareAuditedDownload: async () => {
         throw new ForbiddenException("Identity evidence access is forbidden");
       },
-      recordDownload: async () => {
-        auditCalls += 1;
-      },
-      createReadStream: () => {
+      openReadStream: async () => {
         streamCalls += 1;
         return null;
       }

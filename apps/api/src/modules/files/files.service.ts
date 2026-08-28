@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException, UnsupportedMediaTypeException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { createHash, randomUUID } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { open } from "node:fs/promises";
 import { extname } from "node:path";
 import type { Repository } from "typeorm";
 import { ILike, In, IsNull, Not } from "typeorm";
@@ -82,6 +82,7 @@ export class FilesService {
     dto: UploadFileDto,
     file: UploadedFilePayload | undefined
   ): Promise<FileEntity> {
+    this.businessAccessService.assertRoutePermission(actor,dto.biz_type,"upload");
     await this.businessAccessService.assertReferenceAccess(
       scope,
       actor,
@@ -148,6 +149,7 @@ export class FilesService {
     actor: JwtPrincipal,
     query: FileQueryDto
   ): Promise<PaginatedResult<FileEntity | HrEmployeeDocumentFileProjection>> {
+    this.businessAccessService.assertRoutePermission(actor,query.biz_type,"read");
     const isPendingPurchaseList = query.biz_type === "housing_purchase" && !query.biz_id;
     const isPendingRepairList = query.pending === "true"
       && query.biz_type === "housing_repair"
@@ -235,6 +237,7 @@ export class FilesService {
     action: "read" | "write" = "read"
   ): Promise<FileEntity | HrEmployeeDocumentFileProjection> {
     const file = await this.detail(scope, id);
+    this.businessAccessService.assertRoutePermission(actor,file.bizType,action==="write"?"delete":"read");
     this.businessAccessService.assertPendingFileOwner(actor, file);
     await this.businessAccessService.assertReferenceAccess(
       scope,
@@ -283,6 +286,7 @@ export class FilesService {
     id: string
   ): Promise<DownloadFileResult> {
     const file = await this.detail(scope, id);
+    this.businessAccessService.assertRoutePermission(actor,file.bizType,"download");
     this.businessAccessService.assertPendingFileOwner(actor, file);
     await this.businessAccessService.assertReferenceAccess(
       scope,
@@ -297,6 +301,22 @@ export class FilesService {
       file,
       absolutePath: this.storageService.resolve(file.storagePath, this.toStorageType(file.storageType))
     };
+  }
+
+  async prepareAuditedDownload(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    requestId: string | null
+  ): Promise<DownloadFileResult> {
+    const result = await this.prepareDownload(scope, actor, id);
+    await this.recordDownload(
+      scope,
+      { id: actor.sub, username: actor.username, realName: actor.realName, roles: actor.roles },
+      result.file,
+      requestId
+    );
+    return result;
   }
 
   async assertBrandLogoReference(scope: TenantParkScope, id: string): Promise<FileEntity> {
@@ -389,6 +409,7 @@ export class FilesService {
         lock: { mode: "pessimistic_write" }
       });
       if (!file) throw new NotFoundException("File not found");
+      this.businessAccessService.assertRoutePermission(actor,file.bizType,"delete");
       this.businessAccessService.assertPendingFileOwner(actor, file);
       await this.businessAccessService.assertReferenceAccess(
         scope,
@@ -408,8 +429,9 @@ export class FilesService {
     });
   }
 
-  createReadStream(absolutePath: string) {
-    return createReadStream(absolutePath);
+  async openReadStream(absolutePath: string) {
+    const handle=await open(absolutePath,"r");
+    return handle.createReadStream({autoClose:true});
   }
 
   private validateFile(bizType: string, file: UploadedFilePayload): void {

@@ -196,14 +196,15 @@ export class HrService {
   const canReadSelf=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ);
   const access:HrLedgerAccessScope=forceSelf?(canReadSelf?"self":"none"):resolveHrInsuranceAccessScope(actor);
   if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
+  const canReadAmounts=access==="self"||this.hasPermission(actor,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ);
   const employeeIds=await this.ledgerEmployeeIds(scope,actor,access);
-  if(employeeIds!==null&&!employeeIds.length){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:["financial","insurance"],projection:access==="managed_org_tree"?"team":"self",itemCount:0});return {items:[],total:0,page:q.page,page_size:q.page_size};}
+  if(employeeIds!==null&&!employeeIds.length){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:canReadAmounts?["financial","insurance"]:["insurance"],projection:access==="managed_org_tree"?"team":"self",itemCount:0});return {items:[],total:0,page:q.page,page_size:q.page_size};}
   const qb=this.insurancePeriods.createQueryBuilder("period").innerJoin(HrEmployeeEntity,"employee","employee.id=period.employee_id AND employee.tenant_id=period.tenant_id AND employee.park_id=period.park_id AND employee.is_deleted=false").where("period.tenant_id=:tenantId AND period.park_id=:parkId AND period.is_deleted=false",scope);
   if(employeeIds!==null)qb.andWhere("period.employee_id IN (:...employeeIds)",{employeeIds});if(q.year)qb.andWhere("period.period_year=:year",{year:q.year});if(q.month)qb.andWhere("period.period_month=:month",{month:q.month});if(q.needs_review!==undefined)qb.andWhere("period.needs_review=:needsReview",{needsReview:q.needs_review});if(q.keyword)qb.andWhere("(employee.full_name ILIKE :keyword OR employee.employee_code ILIKE :keyword)",{keyword:`%${q.keyword}%`});
   const total=await qb.getCount();
   const rows=await qb.clone().select(["period.id AS id","period.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","period.period_year AS period_year","period.period_month AS period_month","period.needs_review AS needs_review"]).orderBy("period.period_year","DESC").addOrderBy("period.period_month","DESC").addOrderBy("employee.employee_code","ASC").addOrderBy("period.id","ASC").offset((q.page-1)*q.page_size).limit(q.page_size).getRawMany<Record<string,unknown>>();
-  const items=await Promise.all(rows.map(row=>this.projectInsurancePeriod(scope,row,access)));
-  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:["financial","insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:items.length});
+  const items=await Promise.all(rows.map(row=>this.projectInsurancePeriod(scope,row,access,false,canReadAmounts)));
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保台账",bizType:"hr_employee_insurance_period",bizId:null,path:forceSelf?"/hr/insurance/periods/me":"/hr/insurance/periods",fieldGroups:canReadAmounts?["financial","insurance"]:["insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:items.length});
   return {items,total,page:q.page,page_size:q.page_size};
  }
  async insurancePeriodDetail(scope:TenantParkScope,actor:JwtPrincipal,id:string){
@@ -212,13 +213,14 @@ export class HrService {
   const qb=this.insurancePeriods.createQueryBuilder("period").innerJoin(HrEmployeeEntity,"employee","employee.id=period.employee_id AND employee.tenant_id=period.tenant_id AND employee.park_id=period.park_id AND employee.is_deleted=false").where("period.id=:id AND period.tenant_id=:tenantId AND period.park_id=:parkId AND period.is_deleted=false",{id,...scope});
   if(employeeIds!==null){if(!employeeIds.length)throw new NotFoundException("Insurance period not found");qb.andWhere("period.employee_id IN (:...employeeIds)",{employeeIds});}
   const row=await qb.select(["period.id AS id","period.employee_id AS employee_id","employee.employee_code AS employee_code","employee.full_name AS employee_name","period.period_year AS period_year","period.period_month AS period_month","period.needs_review AS needs_review"]).getRawOne<Record<string,unknown>>();if(!row)throw new NotFoundException("Insurance period not found");
-  const projected=await this.projectInsurancePeriod(scope,row,access,true);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保明细",bizType:"hr_employee_insurance_period",bizId:id,path:"/hr/insurance/periods/:id",fieldGroups:["financial","insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:1});return projected;
+  const canReadAmounts=access==="self"||this.hasPermission(actor,HR_PERMISSIONS.HR_INSURANCE_AMOUNT_READ);
+  const projected=await this.projectInsurancePeriod(scope,row,access,true,canReadAmounts);await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employee_insurance",action:"读取员工社保明细",bizType:"hr_employee_insurance_period",bizId:id,path:"/hr/insurance/periods/:id",fieldGroups:canReadAmounts?["financial","insurance"]:["insurance"],projection:access==="park"?"park":access==="managed_org_tree"?"team":"self",itemCount:1});return projected;
  }
  private async ledgerEmployeeIds(scope:TenantParkScope,actor:JwtPrincipal,access:HrLedgerAccessScope){if(access==="park")return null;if(access==="self")return [(await this.myEmployee(scope,actor)).id];const ids=await this.managedEmployeeIds(scope,actor);if(actor.permissions.includes(HR_PERMISSIONS.HR_INSURANCE_SELF_READ))ids.push((await this.myEmployee(scope,actor)).id);return [...new Set(ids)];}
- private async projectInsurancePeriod(scope:TenantParkScope,row:Record<string,unknown>,access:HrLedgerAccessScope,includeItems=false){
+ private async projectInsurancePeriod(scope:TenantParkScope,row:Record<string,unknown>,access:HrLedgerAccessScope,includeItems=false,canReadAmounts=access==="self"){
   const id=String(row.id);const entities=await this.insuranceItems.find({where:{...scope,periodId:id,isDeleted:false},order:{insuranceKind:"ASC"}});const sum=(field:"totalAmount"|"employerAmount"|"employeeAmount"|"supplementAmount")=>entities.reduce((value,item)=>value+hrMoneyToCents(item[field]??"0"),0n);const full=access==="park";
-  const base={id,periodYear:Number(row.period_year),periodMonth:Number(row.period_month),needsReview:Boolean(row.needs_review),employeeAmount:hrCentsToMoney(sum("employeeAmount")),supplementAmount:hrCentsToMoney(sum("supplementAmount")),itemCount:entities.length,...(access==="self"?{}:{employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name)}),...(full?{employerAmount:hrCentsToMoney(sum("employerAmount")),totalAmount:hrCentsToMoney(sum("totalAmount"))}:{})};
-  if(!includeItems||access==="managed_org_tree")return base;return {...base,items:entities.map(item=>({insuranceKind:item.insuranceKind,contributionBase:item.contributionBase,employeeAmount:item.employeeAmount,supplementAmount:item.supplementAmount,legacyBaseNegative:item.legacyBaseNegative,...(full?{employerAmount:item.employerAmount,totalAmount:item.totalAmount}:{})}))};
+  const base={id,periodYear:Number(row.period_year),periodMonth:Number(row.period_month),needsReview:Boolean(row.needs_review),itemCount:entities.length,...(access==="self"?{}:{employeeId:String(row.employee_id),employeeCode:String(row.employee_code),employeeName:String(row.employee_name)}),...(canReadAmounts?{employeeAmount:hrCentsToMoney(sum("employeeAmount")),supplementAmount:hrCentsToMoney(sum("supplementAmount")),...(full?{employerAmount:hrCentsToMoney(sum("employerAmount")),totalAmount:hrCentsToMoney(sum("totalAmount"))}:{})}:{})};
+  if(!includeItems||access==="managed_org_tree"||!canReadAmounts)return base;return {...base,items:entities.map(item=>({insuranceKind:item.insuranceKind,contributionBase:item.contributionBase,employeeAmount:item.employeeAmount,supplementAmount:item.supplementAmount,legacyBaseNegative:item.legacyBaseNegative,...(full?{employerAmount:item.employerAmount,totalAmount:item.totalAmount}:{})}))};
  }
  async listAttendanceRequests(scope:TenantParkScope,actor:JwtPrincipal,q:HrAttendanceRequestListQueryDto){
   const access=resolveHrAttendanceAccessScope(actor);if(access==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};const employeeIds=await this.attendanceRequestEmployeeIds(scope,actor,access);if(employeeIds!==null&&!employeeIds.length){await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.attendance_request",action:"读取考勤申请",bizType:"hr_attendance_request",bizId:null,path:"/hr/attendance/requests",fieldGroups:["attendance"],projection:access==="managed_org_tree"?"team":"self",itemCount:0});return {items:[],total:0,page:q.page,page_size:q.page_size};}
@@ -282,7 +284,7 @@ export class HrService {
    if(await contractRepo.exists({where:{...scope,contractNo:dto.contractNo,isDeleted:false}}))throw new ConflictException("Contract number already exists");
    const row=await contractRepo.save(contractRepo.create({...scope,...this.contractValues(dto),status:"draft",isHistoricalImport:false,sourceSnapshot:{},createBy:actor.sub,updateBy:actor.sub}));
    await this.appendContractAction(manager,scope,row,actor.sub,"created",null);
-   return this.projectContract(row,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
+   return this.projectContract(row,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ));
   });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract draft conflicts with an existing record");throw error;}
  }
  async updateContract(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:CreateHrContractDto){
@@ -302,7 +304,7 @@ export class HrService {
    const values=this.contractValues(dto);if(dto.probationSalary===undefined)values.probationSalary=contract.probationSalary;if(dto.baseSalary===undefined)values.baseSalary=contract.baseSalary;
    Object.assign(contract,values,{updateBy:actor.sub});
    const saved=await contractRepo.save(contract);await this.appendContractAction(manager,scope,saved,actor.sub,"updated","draft");
-   return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
+   return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ));
   });}catch(error){if((error as {code?:string}).code==="23505")throw new ConflictException("Contract draft conflicts with an existing record");throw error;}
  }
  async actContract(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:HrContractActionDto){return this.dataSource.transaction(async manager=>{
@@ -316,7 +318,7 @@ export class HrService {
   if(dto.action==="activate"&&await contractRepo.exists({where:{...scope,employeeId:contract.employeeId,status:"active",isDeleted:false}}))throw new ConflictException("Employee already has an active contract");
   const fromStatus=contract.status;contract.status=dto.action==="activate"?"active":"cancelled";contract.updateBy=actor.sub;
   const saved=await contractRepo.save(contract);await this.appendContractAction(manager,scope,saved,actor.sub,dto.action==="activate"?"activated":"cancelled",fromStatus);
-  return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ));
+  return this.projectContract(saved,employee,type,this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ));
  });}
  async createContractChange(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:CreateHrContractChangeDto){
   if(dto.newEndDate&&dto.newEndDate<dto.newStartDate)throw new BadRequestException("Contract change end date cannot precede start date");
@@ -369,9 +371,9 @@ export class HrService {
    this.dataSource.getRepository(HrContractActionEntity).find({where:{contractId:id,...scope,isDeleted:false},order:{sequenceNo:"ASC"}})
   ]);
   if(!employee||!type)throw new NotFoundException("Contract not found");
-  const access=resolveHrContractAccessScope(actor),canReadSalary=access.park&&this.hasPermission(actor,HR_PERMISSIONS.HR_COMPENSATION_READ),main=this.projectContract(row,employee,type,canReadSalary);
+  const access=resolveHrContractAccessScope(actor),canReadSalary=access.park&&this.hasPermission(actor,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ),main=this.projectContract(row,employee,type,canReadSalary);
   const result={...(access.self&&!access.park&&!access.managedOrgTree?this.projectSelfContract(main):main),changes:changes.map(change=>this.projectContractChange(change)),actions:actions.map(action=>({id:action.id,sequenceNo:action.sequenceNo,action:action.action,fromStatus:action.fromStatus,toStatus:action.toStatus,occurredAt:action.occurredAt.toISOString()}))};
-  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.contract",action:"读取劳动合同详情",bizType:"hr_contract",bizId:id,path:"/hr/contracts/:id",fieldGroups:["employment_contract"],projection:access.park?"park":access.managedOrgTree?"team":"self",itemCount:1});
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.contract",action:"读取劳动合同详情",bizType:"hr_contract",bizId:id,path:"/hr/contracts/:id",fieldGroups:canReadSalary?["employment_contract","financial","compensation"]:["employment_contract"],projection:access.park?"park":access.managedOrgTree?"team":"self",itemCount:1});
   return result;
  }
 

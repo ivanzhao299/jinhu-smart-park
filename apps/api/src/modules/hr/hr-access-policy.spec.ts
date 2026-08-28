@@ -268,7 +268,7 @@ test("legacy HR reads retain exact permissions and T6 goal/report reads use atom
     ["myFeedback",HR_PERMISSIONS.HR_FEEDBACK_RESPOND],
     ["feedbackResult",HR_PERMISSIONS.HR_FEEDBACK_RESULT_READ],
     ["payrollRuns",HR_PERMISSIONS.HR_PAYROLL_READ],
-    ["payrollRunPayslips",HR_PERMISSIONS.HR_PAYROLL_READ],
+    ["payrollRunPayslips",HR_PERMISSIONS.HR_PAYROLL_DETAIL_READ],
     ["myPayslips",HR_PERMISSIONS.HR_PAYSLIP_SELF_READ],
     ["myApprovals",HR_PERMISSIONS.HR_APPROVAL_SELF_MANAGE]
   ];

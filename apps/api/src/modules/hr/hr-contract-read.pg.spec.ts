@@ -65,7 +65,7 @@ suite("HR contract read PostgreSQL gate",()=>{
  it("creates online drafts transactionally and keeps imported history immutable",async()=>{
   const manager={...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE,HR_PERMISSIONS.HR_CONTRACT_READ]};
   await assert.rejects(service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-SALARY-DENIED",startDate:"2027-01-01",baseSalary:"9000.00"}),/Compensation management permission/u);
-  const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_COMPENSATION_READ]};
+  const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ]};
   const created=await service.createContract(scope,salaryManager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-001",startDate:"2027-01-01",endDate:"2028-12-31",contractTermMonths:24,signatureDate:"2026-12-20",effectiveDate:"2027-01-01",positionTitle:"测试岗位",workType:"全日制",departmentNameSnapshot:"测试部门",probationMonths:3,probationSalary:"8000.00",baseSalary:"9000.00"});
   assert.equal(created.status,"draft");
   assert.equal(created.isHistoricalImport,false);
