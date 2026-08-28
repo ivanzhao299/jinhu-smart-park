@@ -26,7 +26,8 @@ export const manifestHash = (manifest) => sha256(Buffer.from(`${canonicalJson(ma
 function scan(value, at = "$", trustedDigest = false) {
   if (Array.isArray(value)) return value.forEach((item, index) => scan(item, `${at}[${index}]`));
   if (value && typeof value === "object") return Object.entries(value).forEach(([key, child]) => {
-    if (FORBIDDEN.test(key) && !SAFE_KEYS.has(key)) fail("SECRET_PATTERN_DETECTED", `${at}.${key}`);
+    const safeDeviceFlag = key === "mobile" && typeof child === "boolean";
+    if (FORBIDDEN.test(key) && !SAFE_KEYS.has(key) && !safeDeviceFlag) fail("SECRET_PATTERN_DETECTED", `${at}.${key}`);
     scan(child, `${at}.${key}`, /sha256$/i.test(key) && typeof child === "string" && SHA.test(child));
   });
   if (typeof value === "string" && FORBIDDEN_VALUE.test(value)) fail("SECRET_PATTERN_DETECTED", at);
