@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, runFinalPair, validatePairContract, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, runFinalPair, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -21,10 +21,13 @@ test("fact, order, final-state and import drift fail closed",()=>{
   }
 });
 
-test("runtime vacancy rejects occupied ports and residual Docker identities before provision",()=>{
- const configs=["A","B"].map((rehearsal,index)=>({target:{postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,postgresContainer:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready-postgres-1`,volume:`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready_postgres_data`}}));
+test("runtime vacancy rejects occupied ports, Docker identities and controlled paths before provision",()=>{
+ const configs=["A","B"].map((rehearsal,index)=>{const project=`jinhu_hr_migration_lab_full_${rehearsal.toLowerCase()}ready`,root=`/controlled/${project}/runtime`;return{target:{database:project,postgresPort:15441+index,apiPort:3141+index,webPort:4141+index,composeProject:project,postgresContainer:`${project}-postgres-1`,volume:`${project}_postgres_data`,role:`${project}_operator`,accountNamespace:`yzfull_${rehearsal.toLowerCase()}_${project.slice(-12)}`,root,stagingRoot:`${root}/staging`,evidenceRoot:`${root}/evidence`,fileRoot:`${root}/files`,credentialArtifact:`/controlled/${project}/credentials/postgres.env`,auditBundle:`/controlled/${project}/credentials/cleanup-audit.json`}};});
+ assert.equal(validatePairResourceIsolation(configs[0],configs[1]).status,"PASS");
  assert.equal(validateRuntimeVacancy(configs).status,"PASS");
- for(const observed of [{busyPorts:[15441]},{composeProjects:[configs[0].target.composeProject]},{containers:[configs[1].target.postgresContainer]},{volumes:[configs[0].target.volume]},{networks:[`${configs[1].target.composeProject}_default`]}])assert.throws(()=>validateRuntimeVacancy(configs,observed),error=>error.code==="FINAL_PAIR_RUNTIME_BUSY");
+ for(const observed of [{busyPorts:[15441]},{composeProjects:[configs[0].target.composeProject]},{containers:[configs[1].target.postgresContainer]},{volumes:[configs[0].target.volume]},{networks:[`${configs[1].target.composeProject}_default`]},{occupiedPaths:[configs[0].target.evidenceRoot]}])assert.throws(()=>validateRuntimeVacancy(configs,observed),error=>error.code==="FINAL_PAIR_RUNTIME_BUSY");
+ const nested=structuredClone(configs[1]);nested.target.root=`${configs[0].target.root}/${nested.target.composeProject}`;nested.target.stagingRoot=`${nested.target.root}/staging`;nested.target.evidenceRoot=`${nested.target.root}/evidence`;nested.target.fileRoot=`${nested.target.root}/files`;
+ assert.throws(()=>validatePairResourceIsolation(configs[0],nested),error=>error.code==="FINAL_PAIR_RESOURCE_OVERLAP");
 });
 
 test("P0 HOLD and incomplete cleanup cannot be promoted to final A/B PASS",()=>{

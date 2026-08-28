@@ -18,6 +18,7 @@ const UAT_TASK_CARD=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/con
 const UAT_API_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"),"utf8"));
 const UAT_BROWSER_MATRIX=JSON.parse(readFileSync(resolve(ROOT,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"),"utf8"));
 const TARGET_FIELDS=["database","composeProject","volume","postgresContainer","postgresPort","apiPort","webPort","role","accountNamespace","root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
+const TARGET_PATH_FIELDS=["root","stagingRoot","evidenceRoot","fileRoot","credentialArtifact","auditBundle"];
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const canonical=value=>`${JSON.stringify(value,null,2)}\n`;
@@ -41,21 +42,32 @@ export function validatePairPreflight(configAInput,configBInput,contract,{curren
   if(a.triple.codeSha!==currentSha||a.triple.mappingContractHash!==mappingContractHash)fail("FINAL_PAIR_TRIPLE_MISMATCH","checkout or mapping bundle differs");
   if(!worktreeClean)fail("FINAL_PAIR_WORKTREE_DIRTY","clean byte-exact checkout required");
   if(a.source.readOnly!==true||b.source.readOnly!==true||a.backend!=="lab"||b.backend!=="lab")fail("FINAL_PAIR_SOURCE_UNSAFE","read-only lab configs required");
-  for(const field of TARGET_FIELDS)if(a.target[field]===b.target[field])fail("FINAL_PAIR_RESOURCE_REUSE",field);
-  if(new Set([a.target.postgresPort,a.target.apiPort,a.target.webPort,b.target.postgresPort,b.target.apiPort,b.target.webPort]).size!==6)fail("FINAL_PAIR_RESOURCE_REUSE","ports");
+  validatePairResourceIsolation(a,b);
   return {status:"PASS",triple:a.triple,contractSha256:sha256(canonical(contract)),productionImport:"HOLD"};
 }
 
-export function validateRuntimeVacancy(configs,{busyPorts=[],composeProjects=[],containers=[],volumes=[],networks=[]}={}){
-  const busy=new Set(busyPorts.map(Number)),projects=new Set(composeProjects),containerNames=new Set(containers),volumeNames=new Set(volumes),networkNames=new Set(networks);
+function overlaps(left,right){const rel=relative(resolve(left),resolve(right));return rel===""||(!rel.startsWith(`..${sep}`)&&rel!==".."&&!rel.startsWith(sep));}
+export function validatePairResourceIsolation(a,b){
+  for(const field of TARGET_FIELDS)if(a.target[field]===b.target[field])fail("FINAL_PAIR_RESOURCE_REUSE",field);
+  if(new Set([a.target.postgresPort,a.target.apiPort,a.target.webPort,b.target.postgresPort,b.target.apiPort,b.target.webPort]).size!==6)fail("FINAL_PAIR_RESOURCE_REUSE","ports");
+  for(const leftField of TARGET_PATH_FIELDS)for(const rightField of TARGET_PATH_FIELDS){
+    const left=a.target[leftField],right=b.target[rightField];
+    if(overlaps(left,right)||overlaps(right,left))fail("FINAL_PAIR_RESOURCE_OVERLAP",`${leftField}:${rightField}`);
+  }
+  return {status:"PASS",databases:2,ports:6,pathIdentities:TARGET_PATH_FIELDS.length*2,productionImport:"HOLD"};
+}
+
+export function validateRuntimeVacancy(configs,{busyPorts=[],composeProjects=[],containers=[],volumes=[],networks=[],occupiedPaths=[]}={}){
+  const busy=new Set(busyPorts.map(Number)),projects=new Set(composeProjects),containerNames=new Set(containers),volumeNames=new Set(volumes),networkNames=new Set(networks),paths=new Set(occupiedPaths.map(value=>resolve(value)));
   for(const config of configs){
     for(const port of [config.target.postgresPort,config.target.apiPort,config.target.webPort])if(busy.has(port))fail("FINAL_PAIR_RUNTIME_BUSY",`port:${port}`);
     if(projects.has(config.target.composeProject))fail("FINAL_PAIR_RUNTIME_BUSY",`compose:${config.target.composeProject}`);
     if(containerNames.has(config.target.postgresContainer))fail("FINAL_PAIR_RUNTIME_BUSY",`container:${config.target.postgresContainer}`);
     if(volumeNames.has(config.target.volume))fail("FINAL_PAIR_RUNTIME_BUSY",`volume:${config.target.volume}`);
     if(networkNames.has(`${config.target.composeProject}_default`))fail("FINAL_PAIR_RUNTIME_BUSY",`network:${config.target.composeProject}_default`);
+    for(const field of ["root","stagingRoot","evidenceRoot","fileRoot","auditBundle"]){const value=config.target[field];if(typeof value==="string"&&paths.has(resolve(value)))fail("FINAL_PAIR_RUNTIME_BUSY",`${field}:${value}`);}
   }
-  return {status:"PASS",checkedPorts:6,checkedProjects:2,productionImport:"HOLD"};
+  return {status:"PASS",checkedPorts:6,checkedProjects:2,checkedRuntimePaths:10,productionImport:"HOLD"};
 }
 
 function lines(commandName,args){const result=spawnSync(commandName,args,{encoding:"utf8",stdio:["ignore","pipe","pipe"]});if(result.status!==0)fail("FINAL_PAIR_RUNTIME_CHECK_FAILED",commandName);return result.stdout.split("\n").map(row=>row.trim()).filter(Boolean);}
@@ -63,7 +75,8 @@ function runtimeSnapshot(configs){
   const busyPorts=[];for(const config of configs)for(const port of [config.target.postgresPort,config.target.apiPort,config.target.webPort])if(spawnSync("nc",["-z","127.0.0.1",String(port)],{stdio:"ignore"}).status===0)busyPorts.push(port);
   const containers=lines("docker",["ps","-a","--format","{{.Names}}"]),volumes=lines("docker",["volume","ls","--format","{{.Name}}"]),networks=lines("docker",["network","ls","--format","{{.Name}}"]),composeProjects=[];
   for(const config of configs)if(lines("docker",["ps","-a","--filter",`label=com.docker.compose.project=${config.target.composeProject}`,"--format","{{.ID}}"]).length)composeProjects.push(config.target.composeProject);
-  return {busyPorts,composeProjects,containers,volumes,networks};
+  const occupiedPaths=[];for(const config of configs)for(const field of ["root","stagingRoot","evidenceRoot","fileRoot","auditBundle"]){const value=config.target[field];if(existsSync(value))occupiedPaths.push(value);}
+  return {busyPorts,composeProjects,containers,volumes,networks,occupiedPaths};
 }
 
 function command(script,args){
