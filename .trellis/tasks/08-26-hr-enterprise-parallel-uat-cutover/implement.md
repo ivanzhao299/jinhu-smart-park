@@ -48,6 +48,7 @@
     - [ ] 由人工审阅候选 inventory 后，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；未审阅候选不得提高兼容评分。
 - [ ] 在 Rehearsal A 前完成高优先级兼容缺口门禁：档案扩展域、异动快照、合同续签链、培训/奖惩/招聘历史查询、自助投影；工资继续最近三年热窗口，复杂公式/银行报盘保留为后置硬门禁。
 - [ ] A 使用全新资源完成 source→extract→migrate/seed→T0…T5→ledger/hash→三角色 API + desktop/390 browser 技术矩阵→反序 rollback/cleanup；六域与 UAT 完成前不得 rollback，修复后必须从头重跑。
+  - [x] 已实现并冻结真实技术执行器：46 个 API 正负向检查与 28 个旧功能×角色检查在 desktop/390 两视口形成 56 个浏览器单元；使用隔离账号、真实 loopback HTTP、真实 headless Chrome、受控 0600 截图、敏感 DOM/存储清理与 C/S/M hash 绑定。当前只证明执行器契约和 Chrome 集成，尚未替代 A 的真实六域连续演练。
 - [ ] 固定逐字节相同的 `codeSha/sourceSnapshotHash/mappingContractHash` 后，B 使用另一套全新 DB/Compose/volume/container/ports/file/staging/evidence/accounts/run 重复同一连续序列。
 - [ ] 比较 source/staging hashes、逐对象守恒式、global ledgers、canonical hashes、quarantine reasons 和 versioned UAT task-card 结果；独立 checker 审查且两轮逐资源 residual=0。
 

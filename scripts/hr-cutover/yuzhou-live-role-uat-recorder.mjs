@@ -25,6 +25,7 @@ export class YuzhouLiveRoleUatRecorder {
     validateYuzhouLiveRoleUatTaskCard(taskCard);
     if (!["A", "B"].includes(meta?.rehearsal)) fail("YUZHOU_UAT_RECORDER_META_INVALID", "rehearsal");
     if (!/^[0-9a-f]{64}$/u.test(meta?.apiMatrixSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_META_INVALID", "api matrix hash");
+    if (!/^[0-9a-f]{64}$/u.test(meta?.browserMatrixSha256 ?? "")) fail("YUZHOU_UAT_RECORDER_META_INVALID", "browser matrix hash");
     this.#taskCard = taskCard;
     this.#meta = { ...meta };
   }
@@ -38,17 +39,19 @@ export class YuzhouLiveRoleUatRecorder {
     this.#checks.set(`${legacyId}:${kind}:${checkId}`, structuredClone(observation));
   }
 
-  passBrowser(legacyId, viewportId, measurement) {
+  passBrowser(legacyId, roleType, viewportId, measurement) {
     const item = this.#item(legacyId);
     const viewport = this.#taskCard.viewports.find(candidate => candidate.id === viewportId);
-    if (!viewport || item.route !== measurement?.route) fail("YUZHOU_UAT_RECORDER_BROWSER_UNKNOWN", `${legacyId}.${viewportId}`);
-    this.#browser.set(`${legacyId}:${viewportId}`, {
+    if (!item.roleTypes.includes(roleType) || !viewport || item.route !== measurement?.route || measurement?.roleType !== roleType) fail("YUZHOU_UAT_RECORDER_BROWSER_UNKNOWN", `${legacyId}.${roleType}.${viewportId}`);
+    this.#browser.set(`${legacyId}:${roleType}:${viewportId}`, {
       status: "PASS",
+      actor: measurement.actor,
       width: measurement.width,
       height: measurement.height,
       mobile: measurement.mobile,
       clientWidth: measurement.clientWidth,
       scrollWidth: measurement.scrollWidth,
+      screenshotSha256: measurement.screenshotSha256,
       assertions: [...this.#taskCard.browserAssertions]
     });
   }
@@ -64,11 +67,11 @@ export class YuzhouLiveRoleUatRecorder {
       status: "PASS",
       positive: item.positive.map(id => ({ id, status: "PASS", observation: this.#check(item.legacyId, "positive", id) })),
       negative: item.negative.map(id => ({ id, status: "PASS", observation: this.#check(item.legacyId, "negative", id) })),
-      browser: Object.fromEntries(this.#taskCard.viewports.map(viewport => {
-        const result = this.#browser.get(`${item.legacyId}:${viewport.id}`);
-        if (!result) fail("YUZHOU_UAT_RECORDER_BROWSER_MISSING", `${item.legacyId}.${viewport.id}`);
+      browser: Object.fromEntries(item.roleTypes.map(roleType => [roleType, Object.fromEntries(this.#taskCard.viewports.map(viewport => {
+        const result = this.#browser.get(`${item.legacyId}:${roleType}:${viewport.id}`);
+        if (!result) fail("YUZHOU_UAT_RECORDER_BROWSER_MISSING", `${item.legacyId}.${roleType}.${viewport.id}`);
         return [viewport.id, result];
-      })),
+      }))])),
       auditStatus: this.#audit.has(item.legacyId) ? "PASS" : fail("YUZHOU_UAT_RECORDER_AUDIT_MISSING", String(item.legacyId))
     }));
     return {
@@ -81,6 +84,7 @@ export class YuzhouLiveRoleUatRecorder {
       targetIdentityHash: this.#meta.targetIdentityHash,
       taskCardSha256: taskCardHash(this.#taskCard),
       apiMatrixSha256: this.#meta.apiMatrixSha256,
+      browserMatrixSha256: this.#meta.browserMatrixSha256,
       triple: { ...this.#meta.triple },
       actors: this.#meta.actors.map(actor => ({ ...actor })),
       items,
@@ -105,6 +109,6 @@ export class YuzhouLiveRoleUatRecorder {
   }
 }
 
-export function validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, expectedTriple, apiMatrix) {
-  return validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple, apiMatrix);
+export function validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, expectedTriple, apiMatrix, browserMatrix) {
+  return validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple, apiMatrix, browserMatrix);
 }

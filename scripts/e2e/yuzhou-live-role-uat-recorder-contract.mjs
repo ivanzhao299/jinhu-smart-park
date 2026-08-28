@@ -9,10 +9,12 @@ import {
   validateRecordedYuzhouLiveRoleUatPair
 } from "../hr-cutover/yuzhou-live-role-uat-recorder.mjs";
 import { apiMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-api-matrix-lib.mjs";
+import { browserMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-browser-matrix-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8"));
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
+const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
@@ -29,6 +31,7 @@ function complete(rehearsal) {
     runId: `yzfull-recorder-r${rehearsal}`,
     targetIdentityHash: hash(`target-${rehearsal}`),
     apiMatrixSha256: apiMatrixHash(apiMatrix),
+    browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple,
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
@@ -38,13 +41,16 @@ function complete(rehearsal) {
   for (const item of taskCard.items) {
     for (const id of item.positive) recorder.passCheck(item.legacyId, "positive", id, observation(item.legacyId, "positive", id));
     for (const id of item.negative) recorder.passCheck(item.legacyId, "negative", id, observation(item.legacyId, "negative", id));
-    for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, viewport.id, {
+    for (const roleType of item.roleTypes) for (const viewport of taskCard.viewports) recorder.passBrowser(item.legacyId, roleType, viewport.id, {
       route: item.route,
+      roleType,
+      actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
       width: viewport.width,
       height: viewport.height,
       mobile: viewport.mobile,
       clientWidth: viewport.width,
-      scrollWidth: viewport.width
+      scrollWidth: viewport.width,
+      screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`)
     });
     recorder.passAudit(item.legacyId);
   }
@@ -53,7 +59,7 @@ function complete(rehearsal) {
 
 test("the recorder emits a pair only after every task-card cell is observed", () => {
   const pair = { A: complete("A"), B: complete("B") };
-  const result = validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, triple, apiMatrix);
+  const result = validateRecordedYuzhouLiveRoleUatPair(pair, taskCard, triple, apiMatrix, browserMatrix);
   assert.equal(result.status, "PASS");
   assert.equal(result.eligibleLegacyIds.length, 12);
 });
@@ -64,6 +70,7 @@ test("missing checks, audit or browser measurements cannot be finalized", () => 
     runId: "yzfull-recorder-negative-rA",
     targetIdentityHash: hash("negative-target"),
     apiMatrixSha256: apiMatrixHash(apiMatrix),
+    browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple,
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",

@@ -9,11 +9,13 @@ import {
 } from "../hr-cutover/yuzhou-live-role-uat-evidence-lib.mjs";
 import { taskCardHash } from "../hr-cutover/yuzhou-live-role-uat-task-card-lib.mjs";
 import { apiMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-api-matrix-lib.mjs";
+import { browserMatrixHash } from "../hr-cutover/yuzhou-live-role-uat-browser-matrix-lib.mjs";
 import { assessLegacyGroupWebImplementationCoverage } from "../hr-cutover/legacy-group-web-implementation-coverage-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8"));
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
+const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
@@ -22,6 +24,23 @@ function observation(legacyId, kind, checkId) {
   const operations = check.operations.map(operation => ({ method: operation.method, routeTemplate: operation.route, outcome: operation.outcome, statusCode: statusFor(operation.outcome), requestBodySha256: hash("request"), responseShapeSha256: hash("response") }));
   const assertions = Object.fromEntries(check.assertions.map(assertion => [assertion, true]));
   return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
+}
+
+function browserEvidence(item, rehearsal) {
+  return Object.fromEntries(item.roleTypes.map(roleType => [
+    roleType,
+    Object.fromEntries(taskCard.viewports.map(viewport => [viewport.id, {
+      status: "PASS",
+      actor: browserMatrix.checks.find(check => check.legacyId === item.legacyId && check.roleType === roleType).actor,
+      width: viewport.width,
+      height: viewport.height,
+      mobile: viewport.mobile,
+      clientWidth: viewport.width,
+      scrollWidth: viewport.width,
+      screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
+      assertions: taskCard.browserAssertions
+    }]))
+  ]));
 }
 
 function passingEvidence(rehearsal) {
@@ -35,6 +54,7 @@ function passingEvidence(rehearsal) {
     targetIdentityHash: hash(`target-${rehearsal}`),
     taskCardSha256: taskCardHash(taskCard),
     apiMatrixSha256: apiMatrixHash(apiMatrix),
+    browserMatrixSha256: browserMatrixHash(browserMatrix),
     triple: { ...triple },
     actors: ["maker", "reviewer", "manager", "employee"].map((actor, index) => ({
       roleType: index < 2 ? "hr_manager" : index === 2 ? "department_manager" : "employee_self_service",
@@ -45,15 +65,7 @@ function passingEvidence(rehearsal) {
       status: "PASS",
       positive: item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id) })),
       negative: item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id) })),
-      browser: Object.fromEntries(taskCard.viewports.map(viewport => [viewport.id, {
-        status: "PASS",
-        width: viewport.width,
-        height: viewport.height,
-        mobile: viewport.mobile,
-        clientWidth: viewport.width,
-        scrollWidth: viewport.width,
-        assertions: taskCard.browserAssertions
-      }])),
+      browser: browserEvidence(item, rehearsal),
       auditStatus: "PASS"
     })),
     p0P1Count: 0,
@@ -66,7 +78,7 @@ function passingEvidence(rehearsal) {
 
 test("independent A/B evidence promotes only the exact twelve bound items", () => {
   const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
-  const result = validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix);
+  const result = validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix, browserMatrix);
   assert.equal(result.status, "PASS");
   assert.deepEqual(result.eligibleLegacyIds, [34, 35, 36, 37, 39, 42, 43, 44, 45, 46, 47, 313]);
   assert.equal(result.productionImport, "HOLD");
@@ -83,8 +95,8 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.A.items[0].positive[0].status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_CHECK_FAILED"],
     [pair => { pair.A.items[0].positive[0].observation.operations[0].statusCode = 403; }, "YUZHOU_UAT_EVIDENCE_HTTP_OPERATION_INVALID"],
     [pair => { pair.B.items.pop(); }, "YUZHOU_UAT_EVIDENCE_ITEM_DRIFT"],
-    [pair => { pair.A.items[0].browser.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
-    [pair => { pair.A.items[0].browser.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
+    [pair => { pair.A.items[0].browser.hr_manager.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
+    [pair => { pair.A.items[0].browser.hr_manager.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.B.triple.mappingContractHash = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_TRIPLE_MISMATCH"],
     [pair => { pair.B.apiMatrixSha256 = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_BINDING_INVALID"],
     [pair => { pair.B.targetIdentityHash = pair.A.targetIdentityHash; }, "YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE"],
@@ -95,7 +107,7 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
     mutate(pair);
     assert.throws(
-      () => validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix),
+      () => validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix, browserMatrix),
       error => error instanceof YuzhouLiveRoleUatEvidenceError && error.code === code
     );
   }

@@ -1,5 +1,6 @@
 import { YUZHOU_LIVE_ROLE_UAT_EXPECTED_IDS, taskCardHash, validateYuzhouLiveRoleUatTaskCard } from "./yuzhou-live-role-uat-task-card-lib.mjs";
 import { apiMatrixHash, validateYuzhouLiveRoleUatApiMatrix } from "./yuzhou-live-role-uat-api-matrix-lib.mjs";
+import { browserMatrixHash, validateYuzhouLiveRoleUatBrowserMatrix } from "./yuzhou-live-role-uat-browser-matrix-lib.mjs";
 
 export class YuzhouLiveRoleUatEvidenceError extends Error {
   constructor(code, detail) {
@@ -51,7 +52,7 @@ function validateTriple(triple) {
   return triple;
 }
 
-function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
+function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
   if (evidence?.formatVersion !== 1 || evidence?.contractKind !== "yuzhou_hr_live_role_uat_evidence" || evidence?.status !== "PASS") {
     fail("YUZHOU_UAT_EVIDENCE_INVALID", rehearsal);
   }
@@ -65,7 +66,9 @@ function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
     || !sha64(evidence.taskCardSha256)
     || evidence.taskCardSha256 !== taskCardHash(taskCard)
     || !sha64(evidence.apiMatrixSha256)
-    || evidence.apiMatrixSha256 !== apiMatrixHash(apiMatrix)) {
+    || evidence.apiMatrixSha256 !== apiMatrixHash(apiMatrix)
+    || !sha64(evidence.browserMatrixSha256)
+    || evidence.browserMatrixSha256 !== browserMatrixHash(browserMatrix)) {
     fail("YUZHOU_UAT_EVIDENCE_BINDING_INVALID", rehearsal);
   }
   validateTriple(evidence.triple);
@@ -86,6 +89,7 @@ function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
   }
   const taskById = new Map(taskCard.items.map(item => [item.legacyId, item]));
   const matrixByKey = new Map(apiMatrix.checks.map(check => [`${check.legacyId}:${check.kind}:${check.checkId}`, check]));
+  const browserByKey = new Map(browserMatrix.checks.map(check => [`${check.legacyId}:${check.roleType}`, check]));
   for (const item of evidence.items) {
     const expected = taskById.get(item.legacyId);
     if (item.status !== "PASS" || item.auditStatus !== "PASS") fail("YUZHOU_UAT_EVIDENCE_ITEM_FAILED", String(item.legacyId));
@@ -99,37 +103,44 @@ function validateOne(evidence, taskCard, apiMatrix, rehearsal) {
         validateObservation(check.observation, matrixByKey.get(key), key);
       }
     }
-    const browser = item.browser;
-    for (const viewport of taskCard.viewports) {
-      const result = browser?.[viewport.id];
-      if (result?.status !== "PASS"
-        || result.width !== viewport.width
-        || result.height !== viewport.height
-        || result.mobile !== viewport.mobile
-        || !Number.isInteger(result.clientWidth)
-        || !Number.isInteger(result.scrollWidth)
-        || result.clientWidth > viewport.width
-        || result.scrollWidth > result.clientWidth
-        || !exactArray(result.assertions, taskCard.browserAssertions)) {
-        fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${viewport.id}`);
+    for (const roleType of expected.roleTypes) {
+      const browserCheck = browserByKey.get(`${item.legacyId}:${roleType}`);
+      for (const viewport of taskCard.viewports) {
+        const result = item.browser?.[roleType]?.[viewport.id];
+        if (result?.status !== "PASS"
+          || result.actor !== browserCheck?.actor
+          || result.width !== viewport.width
+          || result.height !== viewport.height
+          || result.mobile !== viewport.mobile
+          || !Number.isInteger(result.clientWidth)
+          || !Number.isInteger(result.scrollWidth)
+          || result.clientWidth > viewport.width
+          || result.scrollWidth > result.clientWidth
+          || !sha64(result.screenshotSha256)
+          || !exactArray(result.assertions, taskCard.browserAssertions)) {
+          fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${roleType}.${viewport.id}`);
+        }
       }
     }
   }
   return evidence;
 }
 
-export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple = null, apiMatrix = null) {
+export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTriple = null, apiMatrix = null, browserMatrix = null) {
   validateYuzhouLiveRoleUatTaskCard(taskCard);
   if (!apiMatrix) fail("YUZHOU_UAT_EVIDENCE_API_MATRIX_MISSING", "canonical matrix required");
   validateYuzhouLiveRoleUatApiMatrix(apiMatrix, taskCard);
-  const rehearsalA = validateOne(pair?.A, taskCard, apiMatrix, "A");
-  const rehearsalB = validateOne(pair?.B, taskCard, apiMatrix, "B");
+  if (!browserMatrix) fail("YUZHOU_UAT_EVIDENCE_BROWSER_MATRIX_MISSING", "canonical matrix required");
+  validateYuzhouLiveRoleUatBrowserMatrix(browserMatrix, taskCard);
+  const rehearsalA = validateOne(pair?.A, taskCard, apiMatrix, browserMatrix, "A");
+  const rehearsalB = validateOne(pair?.B, taskCard, apiMatrix, browserMatrix, "B");
   if (JSON.stringify(rehearsalA.triple) !== JSON.stringify(rehearsalB.triple)) {
     fail("YUZHOU_UAT_EVIDENCE_TRIPLE_MISMATCH", "A/B");
   }
   if (rehearsalA.apiMatrixSha256 !== rehearsalB.apiMatrixSha256) {
     fail("YUZHOU_UAT_EVIDENCE_API_MATRIX_MISMATCH", "A/B");
   }
+  if (rehearsalA.browserMatrixSha256 !== rehearsalB.browserMatrixSha256) fail("YUZHOU_UAT_EVIDENCE_BROWSER_MATRIX_MISMATCH", "A/B");
   if (expectedTriple && JSON.stringify(rehearsalA.triple) !== JSON.stringify(validateTriple(expectedTriple))) {
     fail("YUZHOU_UAT_EVIDENCE_CANDIDATE_DRIFT", "expected C/S/M");
   }
@@ -141,6 +152,7 @@ export function validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, expectedTr
     triple: { ...rehearsalA.triple },
     taskCardSha256: rehearsalA.taskCardSha256,
     apiMatrixSha256: rehearsalA.apiMatrixSha256,
+    browserMatrixSha256: rehearsalA.browserMatrixSha256,
     eligibleLegacyIds: [...YUZHOU_LIVE_ROLE_UAT_EXPECTED_IDS],
     rehearsalRunIds: [rehearsalA.runId, rehearsalB.runId],
     productionImport: "HOLD"
