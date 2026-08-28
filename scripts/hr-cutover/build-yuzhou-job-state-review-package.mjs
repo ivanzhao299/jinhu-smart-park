@@ -239,8 +239,8 @@ function loadT0Context(config, checkpoint, dependencies) {
   const statesBytes = safeRegularBytes(statesPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
   const metadataBytes = safeRegularBytes(metadataPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
   const codesBytes = safeRegularBytes(codesPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
-  let manifest, states, codes;
-  try { manifest = JSON.parse(manifestBytes); states = JSON.parse(statesBytes); JSON.parse(metadataBytes); codes = JSON.parse(codesBytes); }
+  let manifest, states, metadata, codes;
+  try { manifest = JSON.parse(manifestBytes); states = JSON.parse(statesBytes); metadata = JSON.parse(metadataBytes); codes = JSON.parse(codesBytes); }
   catch { fail("YUZHOU_JOB_STATE_T0_INVALID"); }
   const employeeSha = sha256(statesBytes), metadataSha = sha256(metadataBytes), codesSha = sha256(codesBytes), manifestSha = sha256(manifestBytes);
   if (manifest?.domains?.employeeJobStates?.file !== "employee-job-states.raw.json"
@@ -251,7 +251,11 @@ function loadT0Context(config, checkpoint, dependencies) {
     || manifest.domains.jobStateCodes.fileSha256 !== codesSha) fail("YUZHOU_JOB_STATE_T0_DRIFT");
   const journalBytes = safeRegularBytes(join(config.target.evidenceRoot, "lifecycle-journal.jsonl"), "YUZHOU_JOB_STATE_JOURNAL_UNSAFE");
   validateCheckpoint(checkpoint, config, manifestSha, extractBindingSha256, sha256(journalBytes));
-  if (!Array.isArray(states) || states.length !== 7 || !Array.isArray(codes) || codes.length !== 8) fail("YUZHOU_JOB_STATE_T0_INVALID");
+  if (!Array.isArray(states) || states.length !== 7 || !Array.isArray(metadata)
+    || !Array.isArray(codes) || codes.length !== 8
+    || manifest.domains.employeeJobStates.rows !== states.length
+    || manifest.domains.jobStateCodeMetadata.rows !== metadata.length
+    || manifest.domains.jobStateCodes.rows !== codes.length) fail("YUZHOU_JOB_STATE_T0_INVALID");
   const dictionaryByCode = new Map();
   for (const row of codes) {
     exactKeys(row, ["sourceCode", "sourceName", "sortOrder", "isEnabled", "defaultCount"], "YUZHOU_JOB_STATE_T0_INVALID");

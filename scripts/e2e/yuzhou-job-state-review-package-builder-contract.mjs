@@ -217,6 +217,12 @@ test("checkpoint and source-byte drift fail before output is created", () => {
     value.checkpoint.runs[0].t0ExtractManifestSha256 = sha256(readFileSync(manifestPath)); writePrivate(value.checkpointPath, value.checkpoint);
     rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_INVALID");
   }
+  {
+    const value = fixture(), manifestPath = join(value.sandbox, "runtime/staging", `staging-${value.config.runId}-t0/manifest.json`);
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")); manifest.domains.jobStateCodes.rows = 7; writePrivate(manifestPath, manifest);
+    value.checkpoint.runs[0].t0ExtractManifestSha256 = sha256(readFileSync(manifestPath)); writePrivate(value.checkpointPath, value.checkpoint);
+    rejects(() => buildDraft(options(value), dependencies), "YUZHOU_JOB_STATE_T0_INVALID");
+  }
 });
 
 test("every governed input boundary rejects unsafe identity, links, modes and parents", () => {
