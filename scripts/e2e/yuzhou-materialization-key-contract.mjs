@@ -73,6 +73,23 @@ try {
   const symlinkPath = join(keyRoot, "linked.key");
   symlinkSync(validPath, symlinkPath);
   assert.throws(() => readMaterializationKeyFile(symlinkPath), error => error instanceof MaterializationKeyContractError && error.kind === "file");
+  const fifoPath = join(keyRoot, "named-pipe.key");
+  const mkfifo = spawnSync("mkfifo", [fifoPath], { encoding: "utf8" });
+  assert.equal(mkfifo.status, 0, mkfifo.stderr);
+  chmodSync(fifoPath, 0o600);
+  assert.throws(
+    () => readMaterializationKeyFile(fifoPath),
+    error => error instanceof MaterializationKeyContractError && error.kind === "file",
+    "a 0600 FIFO must fail closed without waiting for a writer",
+  );
+  const fifoCli = spawnSync(process.execPath, [verifier, "verify", fifoPath], {
+    encoding: "utf8",
+    timeout: 1_000,
+  });
+  assert.equal(fifoCli.error, undefined, fifoCli.error?.message);
+  assert.equal(fifoCli.status, 1, fifoCli.stderr);
+  assert.equal(fifoCli.stdout, "", "FIFO verification must not output key material");
+  assert.match(fifoCli.stderr, /^MATERIALIZATION_KEY_CONTRACT_FAILED:/u);
 
   const staging = join(sandbox, "staging-contract-probe");
   mkdirSync(staging, { mode: 0o700 });

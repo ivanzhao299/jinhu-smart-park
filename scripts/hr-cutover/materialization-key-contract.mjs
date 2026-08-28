@@ -25,7 +25,7 @@ export function validateMaterializationKeyBytes(bytes) {
 export function readMaterializationKeyFile(path) {
   let descriptor;
   try {
-    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+    descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const metadata = fstatSync(descriptor);
     if (!metadata.isFile() || (metadata.mode & 0o777) !== 0o600) {
       throw new MaterializationKeyContractError(
