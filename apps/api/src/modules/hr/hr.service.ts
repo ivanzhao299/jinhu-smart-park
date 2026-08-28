@@ -132,7 +132,7 @@ export class HrService {
    row.updateBy=actor.sub;
    const saved=await repo.save(row);
    await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:dto.action,effectiveDate:dto.effectiveDate,beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:dto.reason,status:"effective",createBy:actor.sub,updateBy:actor.sub}));
-   return saved;
+   return projectHrEmployee(saved);
   });
  }
 
@@ -144,7 +144,7 @@ export class HrService {
    if(dto.userId&&await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false}}))throw new ConflictException("User is already linked to another employee");
    const row=await repo.save(repo.create({...scope,...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,employmentType:dto.employmentType??"full_time",employmentStatus:"preboarding",hireDate:dto.hireDate??null,probationEndDate:null,departureDate:null,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
    await eventRepo.save(eventRepo.create({...scope,employeeId:row.id,eventType:"created",effectiveDate:dto.hireDate??new Date().toISOString().slice(0,10),beforeSnapshot:{},afterSnapshot:this.eventSnapshot(row),reason:"创建员工档案",createBy:actor.sub,updateBy:actor.sub}));
-   return row;
+   return projectHrEmployee(row);
   });
  }
  async updateEmployee(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeDto){
@@ -157,7 +157,7 @@ export class HrService {
    if(dto.departureDate!==undefined&&dto.departureDate!==row.departureDate)throw new BadRequestException("Departure date must be changed through the approved departure workflow");
    if(dto.employeeCode!==row.employeeCode)throw new ConflictException("Employee code cannot be changed after allocation");
    const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:row.departureDate,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
-   const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return saved;
+   const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return projectHrEmployee(saved);
   });
  }
  async listPositions(scope:TenantParkScope){return this.positions.find({where:{...scope,isDeleted:false},order:{positionCode:"ASC"}});}

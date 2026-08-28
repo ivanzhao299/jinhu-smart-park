@@ -17,7 +17,8 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
   const scope={tenantId:"10000001",parkId:"20000001"};
   const ids={
     managerUser:randomUUID(),selfUser:randomUUID(),rootOrg:randomUUID(),childOrg:randomUUID(),siblingOrg:randomUUID(),disabledOrg:randomUUID(),
-    manager:randomUUID(),managed:randomUUID(),outsideDirect:randomUUID(),disabledOrgEmployee:randomUUID(),foreignTenant:randomUUID(),foreignPark:randomUUID()
+    manager:randomUUID(),managed:randomUUID(),outsideDirect:randomUUID(),disabledOrgEmployee:randomUUID(),foreignTenant:randomUUID(),foreignPark:randomUUID(),
+    deletedOrg:randomUUID(),deletedOrgEmployee:randomUUID()
   };
   const suffix=randomUUID().replaceAll("-","").slice(0,10);
   const actor=(sub:string,permissions:string[]):JwtPrincipal=>({sub,username:`p0-${suffix}`,tenantId:scope.tenantId,parkId:scope.parkId,roles:[],permissions});
@@ -56,6 +57,16 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
       [ids.manager,ids.managed,ids.outsideDirect,ids.disabledOrgEmployee,ids.foreignTenant,ids.foreignPark,scope.tenantId,scope.parkId,ids.managerUser,ids.selfUser,ids.rootOrg,ids.childOrg,ids.siblingOrg,ids.disabledOrg,`P0-M-${suffix}`,`P0-D-${suffix}`,`P0-X-${suffix}`,`P0-Z-${suffix}`,`P0-T-${suffix}`,`P0-P-${suffix}`,...Array.from({length:6},(_,index)=>`P0-${suffix}-${index}-card`)]
     );
     await db.query(
+      `INSERT INTO sys_org(id,tenant_id,park_id,parent_id,org_code,org_name,org_type,status,is_deleted)
+       VALUES($1,$2,$3,$4,$5,$5,'department','enabled',true)`,
+      [ids.deletedOrg,scope.tenantId,scope.parkId,ids.rootOrg,`P0-DELETED-${suffix}`]
+    );
+    await db.query(
+      `INSERT INTO hr_employee(id,tenant_id,park_id,employee_code,full_name,primary_org_id,manager_employee_id,employment_status,attendance_card_no,remark)
+       VALUES($1,$2,$3,$4,'Deleted org',$5,$6,'active',$7,'internal')`,
+      [ids.deletedOrgEmployee,scope.tenantId,scope.parkId,`P0-Y-${suffix}`,ids.deletedOrg,ids.manager,`P0-${suffix}-D`]
+    );
+    await db.query(
       `INSERT INTO hr_employee_profile(tenant_id,park_id,employee_id,id_type,id_number_masked,personal_mobile,personal_email,address,emergency_contact_name,emergency_contact_mobile,remark)
        VALUES($1,$2,$3,'resident_id','320812198901011234','13812345678','managed@example.test','private','王小明','13987654321','internal'),
              ($1,$2,$4,'resident_id','320812198901019999','13912345678','self@example.test','private','李小明','13787654321','internal')`,
@@ -71,8 +82,8 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
   after(async()=>{
     if(!db?.isInitialized)return;
     await db.query("DELETE FROM hr_employee_profile WHERE employee_id=ANY($1::uuid[])",[[ids.managed,ids.outsideDirect]]);
-    await db.query("DELETE FROM hr_employee WHERE id=ANY($1::uuid[])",[Object.values(ids).filter((_,index)=>index>=6)]);
-    await db.query("DELETE FROM sys_org WHERE id=ANY($1::uuid[])",[[ids.childOrg,ids.disabledOrg,ids.rootOrg,ids.siblingOrg]]);
+    await db.query("DELETE FROM hr_employee WHERE id=ANY($1::uuid[])",[[ids.manager,ids.managed,ids.outsideDirect,ids.disabledOrgEmployee,ids.foreignTenant,ids.foreignPark,ids.deletedOrgEmployee]]);
+    await db.query("DELETE FROM sys_org WHERE id=ANY($1::uuid[])",[[ids.childOrg,ids.disabledOrg,ids.deletedOrg,ids.rootOrg,ids.siblingOrg]]);
     await db.query("DELETE FROM sys_user WHERE id=ANY($1::uuid[])",[[ids.managerUser,ids.selfUser]]);
     await db.destroy();
   });
@@ -84,11 +95,11 @@ suite("HR employee three-role real PostgreSQL scope gate",()=>{
       "departureDate","employeeCode","employmentStatus","employmentType","fullName","hireDate","id","managerEmployeeId",
       "positionId","primaryOrgId","userId","workEmail","workLocation","workMobile"
     ].sort());
-    for(const hidden of [ids.outsideDirect,ids.disabledOrgEmployee,ids.foreignTenant,ids.foreignPark]){
+    for(const hidden of [ids.outsideDirect,ids.disabledOrgEmployee,ids.deletedOrgEmployee,ids.foreignTenant,ids.foreignPark]){
       await assert.rejects(service.detailEmployeeForActor(scope,managerActor,hidden),NotFoundException);
     }
     const parkResult=await service.listEmployees(scope,hrActor,{page:1,page_size:50});
-    assert.deepEqual(new Set(parkResult.items.map(row=>row.id)),new Set([ids.manager,ids.managed,ids.outsideDirect,ids.disabledOrgEmployee]));
+    assert.deepEqual(new Set(parkResult.items.map(row=>row.id)),new Set([ids.manager,ids.managed,ids.outsideDirect,ids.disabledOrgEmployee,ids.deletedOrgEmployee]));
     for(const crossScope of [ids.foreignTenant,ids.foreignPark]){
       await assert.rejects(service.detailEmployeeForActor(scope,hrActor,crossScope),NotFoundException);
     }

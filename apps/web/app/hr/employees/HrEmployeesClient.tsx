@@ -63,7 +63,7 @@ export function HrEmployeesClient(){
   setProfile(profileResult.status==="fulfilled"?profileResult.value:null);
   setRecords(recordsResult.status==="fulfilled"?recordsResult.value:null);
   const contracts=contractsResult.status==="fulfilled"?contractsResult.value.items:[];
-  setEmployeeContracts(contracts.filter(contract=>contract.employeeId===row.id));
+  setEmployeeContracts(contractsSelfOnly?contracts:contracts.filter(contract=>contract.employeeId===row.id));
   const failures=[historyResult,profileResult,contractsResult,recordsResult].filter(result=>result.status==="rejected"&&!isForbiddenError(result.reason)&&result.reason?.name!=="AbortError");
   if(failures.length)setMessage(`员工基本档案已加载，另有 ${failures.length} 个详情分区暂时不可用。`);
  }catch(e){if((e as Error).name==="AbortError"||detailAbort.current!==controller)return;if(isForbiddenError(e)){setSelected(null);setRecords(null);setMessage("当前员工详情不在您的数据权限范围内。")}else setMessage(e instanceof Error?e.message:"加载员工详情失败")}};
