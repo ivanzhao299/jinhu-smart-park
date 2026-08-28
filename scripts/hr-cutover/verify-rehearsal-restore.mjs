@@ -44,6 +44,19 @@ export const canonicalJson = (value) => {
 };
 export const hashCanonical = (value) => sha256(Buffer.from(`${canonicalJson(value)}\n`));
 
+export function validateDualMigrationHistory(value) {
+  if (typeof value !== "string" || !value.trim()) fail("MIGRATION_HISTORY_INVALID", "migration history is empty");
+  const sources = { primary: new Map(), standard: new Map() };
+  for (const line of value.trim().split("\n")) {
+    const fields = line.split(",");
+    if (fields.length !== 4 || !Object.hasOwn(sources, fields[0]) || !fields[1] || !SHA256.test(fields[2]) || fields[3] !== "succeeded") fail("MIGRATION_HISTORY_INVALID", "dual migration history row is invalid");
+    if (sources[fields[0]].has(fields[1])) fail("MIGRATION_HISTORY_INVALID", "duplicate migration history row");
+    sources[fields[0]].set(fields[1], `${fields[2]}:${fields[3]}`);
+  }
+  if (canonicalJson([...sources.primary]) !== canonicalJson([...sources.standard])) fail("MIGRATION_HISTORY_DIVERGED", "migration history tables differ");
+  return { ok: true, rowCount: sources.primary.size };
+}
+
 function exactKeys(value, required, optional, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) fail("BACKUP_RESTORE_EVIDENCE_INVALID", `${label} must be an object`);
   const allowed = new Set([...required, ...optional]);
@@ -93,6 +106,7 @@ export function inventoryFileTree(root) {
         visit(path);
       }
       else if (info.isFile()) {
+        if ((info.mode & 0o444) === 0) fail("FILE_TREE_UNREADABLE", safeRelative(normalizedRoot, path));
         let bytes;
         try { bytes = readFileSync(path); } catch { fail("FILE_TREE_UNREADABLE", safeRelative(normalizedRoot, path)); }
         files.push({ relativePath: safeRelative(normalizedRoot, path), bytes: bytes.length, sha256: sha256(bytes) });
@@ -159,8 +173,8 @@ function assertFileTree(value, label) {
 }
 
 function assertFacts(value, label) {
-  exactKeys(value, ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "hrDomainHashes", "quarantineLedgerSha256", "sideEffectSha256", "fileTree", "faultFixtureSha256"], [], label);
-  for (const field of ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "quarantineLedgerSha256", "sideEffectSha256", "faultFixtureSha256"]) assertSha(value[field], `${label}.${field}`);
+  exactKeys(value, ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "hrDomainHashes", "quarantineLedgerSha256", "sideEffectSha256", "fileTree"], [], label);
+  for (const field of ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "quarantineLedgerSha256", "sideEffectSha256"]) assertSha(value[field], `${label}.${field}`);
   exactKeys(value.hrDomainHashes, ["T0", "T1", "T2", "T3", "T4", "T5"], [], `${label}.hrDomainHashes`);
   for (const domain of ["T0", "T1", "T2", "T3", "T4", "T5"]) assertSha(value.hrDomainHashes[domain], `${label}.hrDomainHashes.${domain}`);
   assertFileTree(value.fileTree, `${label}.fileTree`);
@@ -180,8 +194,7 @@ export function verifyRestoreEquality(before, restored) {
     hrCanonical: compare({ global: before.hrGlobalSha256, domains: before.hrDomainHashes }, { global: restored.hrGlobalSha256, domains: restored.hrDomainHashes }, "RESTORE_HR_CANONICAL_MISMATCH", "HR canonical facts differ"),
     quarantineLedger: compare(before.quarantineLedgerSha256, restored.quarantineLedgerSha256, "RESTORE_QUARANTINE_LEDGER_MISMATCH", "quarantine ledger differs"),
     sideEffects: compare(before.sideEffectSha256, restored.sideEffectSha256, "RESTORE_SIDE_EFFECT_MISMATCH", "side-effect facts differ"),
-    files: compare(before.fileTree, restored.fileTree, "RESTORE_FILE_TREE_MISMATCH", "file tree differs"),
-    faultFixture: compare(before.faultFixtureSha256, restored.faultFixtureSha256, "RESTORE_FIXTURE_MISMATCH", "verification fixture differs")
+    files: compare(before.fileTree, restored.fileTree, "RESTORE_FILE_TREE_MISMATCH", "file tree differs")
   };
 }
 
@@ -213,13 +226,13 @@ export function validateBackupRestoreEvidence(evidence) {
   assertSha(evidence.backup.normalizedTocSha256, "backup.normalizedTocSha256");
   assertFileTree(evidence.backup.fileSnapshot, "backup.fileSnapshot");
   exactKeys(evidence.fault, ["faultId", "status", "detectorCode", "reverted", "targetIdentitySha256"], [], "fault");
-  const expectedDetector = { VERIFY_FIXTURE_ROW_CHANGED: "RESTORE_FIXTURE_MISMATCH", REGISTERED_FILE_UNREADABLE: "FILE_TREE_UNREADABLE" }[evidence.fault.faultId];
+  const expectedDetector = { REGISTERED_FILE_UNREADABLE: "FILE_TREE_UNREADABLE" }[evidence.fault.faultId];
   if (!expectedDetector || evidence.fault.status !== "DETECTED" || evidence.fault.detectorCode !== expectedDetector || evidence.fault.reverted !== true) fail("BACKUP_RESTORE_EVIDENCE_INVALID", "fault proof");
   assertSha(evidence.fault.targetIdentitySha256, "fault.targetIdentitySha256");
   assertFacts(evidence.before, "before");
   assertFacts(evidence.restored, "restored");
   const equality = verifyRestoreEquality(evidence.before, evidence.restored);
-  exactKeys(evidence.equality, ["migrationHistory", "platformCatalog", "hrLedger", "hrCanonical", "quarantineLedger", "sideEffects", "files", "faultFixture"], [], "equality");
+  exactKeys(evidence.equality, ["migrationHistory", "platformCatalog", "hrLedger", "hrCanonical", "quarantineLedger", "sideEffects", "files"], [], "equality");
   if (Object.entries(equality).some(([key, value]) => value !== true || evidence.equality[key] !== true)) fail("BACKUP_RESTORE_EVIDENCE_INVALID", "equality flags");
   exactKeys(evidence.timing, ["clock", "dumpBoundaryEpochMs", "restoreStartedEpochMs", "verifiedReadyEpochMs", "rtoObservedMs", "rpoObservedObjects", "targetApproval"], [], "timing");
   for (const field of ["dumpBoundaryEpochMs", "restoreStartedEpochMs", "verifiedReadyEpochMs", "rtoObservedMs", "rpoObservedObjects"]) assertNonnegativeInteger(evidence.timing[field], `timing.${field}`);

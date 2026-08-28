@@ -32,6 +32,7 @@ import {
   inventoryFileTree,
   normalizeToc,
   sha256,
+  validateDualMigrationHistory,
   validateBackupRestoreEvidence,
   verifyRestoreEquality,
   writePrivateJson
@@ -42,6 +43,7 @@ const ROLE_ID = /^[a-z][a-z0-9_]{5,62}$/;
 const FACT_SCHEMA = /^hr_cutover_facts_[a-z0-9_]{4,32}$/;
 const FORBIDDEN_TARGET = /prod(?:uction)?|jinhu_smart_park|shared|default/i;
 const RESOURCE_TYPES = new Set(["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"]);
+let ACTIVE_RECOVERY = null;
 
 export class BackupRestoreError extends Error {
   constructor(code, detail) {
@@ -267,14 +269,13 @@ function queryFactRows(config, database, schema, table, columns) {
   return psql(config, database, `SELECT COALESCE(jsonb_agg(to_jsonb(row_value) ORDER BY to_jsonb(row_value)::text),'[]'::jsonb)::text FROM (SELECT ${columns.join(",")} FROM ${quoteIdentifier(schema)}.${quoteIdentifier(table)} WHERE run_id='${config.runId}') row_value;`);
 }
 
-function captureCanonicalFacts(config, database, fixtureSchema, fixtureValue, fileRoot) {
+function captureCanonicalFacts(config, database, fileRoot) {
   const global = verifyGlobalFacts({ container: config.target.postgresContainer, database, fixtureSchema: config.verification.factSchema, runId: config.runId });
   const migrationHistory = psql(config, database, MIGRATION_HISTORY_SQL);
+  validateDualMigrationHistory(migrationHistory);
   const platformCatalog = psql(config, database, PLATFORM_CATALOG_SQL);
   const quarantine = global.ledger.map((row) => ({ domain: row.domain, sourceObject: row.source_object, approvedIgnored: row.approvedIgnored, approvedIgnoredReasonCode: row.approvedIgnoredReasonCode ?? null, approvalAttestationSha256: row.approvalAttestationSha256 ?? null }));
   const sideEffects = queryFactRows(config, database, config.verification.factSchema, "hr_cutover_side_effect_snapshot", ["table_name", "phase", "locked", "row_hash"]);
-  const observedFixture = scalar(config, database, `SELECT value_sha256 FROM ${quoteIdentifier(fixtureSchema)}.verification_fixture WHERE fixture_id='restore-proof';`);
-  if (observedFixture !== fixtureValue) throw new BackupRestoreVerificationError("RESTORE_FIXTURE_MISMATCH", "verification fixture differs");
   return {
     migrationHistorySha256: digest(migrationHistory),
     platformCatalogSha256: digest(platformCatalog),
@@ -283,29 +284,32 @@ function captureCanonicalFacts(config, database, fixtureSchema, fixtureValue, fi
     hrDomainHashes: global.domainHashes,
     quarantineLedgerSha256: hashCanonical(quarantine),
     sideEffectSha256: digest(sideEffects),
-    fileTree: buildFileTreeManifest(fileRoot),
-    faultFixtureSha256: digest(observedFixture)
+    fileTree: buildFileTreeManifest(fileRoot)
   };
 }
 
-function createFaultFixture(config, fixtureSchema, fixtureValue) {
-  psql(config, config.target.database, `BEGIN;
-CREATE SCHEMA ${quoteIdentifier(fixtureSchema)};
-CREATE TABLE ${quoteIdentifier(fixtureSchema)}.verification_fixture(fixture_id text PRIMARY KEY,value_sha256 text NOT NULL CHECK(value_sha256 ~ '^[0-9a-f]{64}$'));
-INSERT INTO ${quoteIdentifier(fixtureSchema)}.verification_fixture VALUES('restore-proof','${fixtureValue}');
-COMMIT;`);
-}
-
 function createRestoreTarget(config, identities, registryPath) {
-  psql(config, "postgres", `CREATE ROLE ${quoteIdentifier(identities.role)} NOLOGIN;`);
+  psql(config, "postgres", `CREATE ROLE ${quoteIdentifier(identities.role)} NOLOGIN NOINHERIT;`);
   updateResource(registryPath, "role", identities.role, { observed: identities.role });
-  psql(config, "postgres", `CREATE DATABASE ${quoteIdentifier(identities.database)} TEMPLATE template0 OWNER jinhu;`);
+  psql(config, "postgres", `CREATE DATABASE ${quoteIdentifier(identities.database)} TEMPLATE template0 OWNER ${quoteIdentifier(identities.role)};`);
   updateResource(registryPath, "database", identities.database, { observed: identities.database });
 }
 
 function dropRestoreTarget(config, identities) {
   try { psql(config, "postgres", `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${identities.database}' AND pid<>pg_backend_pid(); DROP DATABASE IF EXISTS ${quoteIdentifier(identities.database)};`); } catch { /* recovery continues to the exact role */ }
   try { psql(config, "postgres", `DROP ROLE IF EXISTS ${quoteIdentifier(identities.role)};`); } catch { /* lifecycle recovery will re-enumerate */ }
+}
+
+function recoverRestoreResources(config, identities, registryPath) {
+  dropRestoreTarget(config, identities);
+  if (existsSync(registryPath)) {
+    const databaseResidual = Number(scalar(config, "postgres", `SELECT count(*) FROM pg_database WHERE datname='${identities.database}';`));
+    const roleResidual = Number(scalar(config, "postgres", `SELECT count(*) FROM pg_roles WHERE rolname='${identities.role}';`));
+    updateResource(registryPath, "database", identities.database, { removed: databaseResidual === 0, residualCount: databaseResidual });
+    updateResource(registryPath, "role", identities.role, { removed: roleResidual === 0, residualCount: roleResidual });
+    removeExactFilesystem(registryPath, identities);
+    assertRestoreResourcesRemoved(registryPath, identities);
+  }
 }
 
 export function removeExactFilesystem(registryPath, identities) {
@@ -362,7 +366,7 @@ function appendRestoreManifest(config, summaryFile) {
 }
 
 function parseArgs(argv) {
-  const args = { fault: "VERIFY_FIXTURE_ROW_CHANGED" };
+  const args = { fault: "REGISTERED_FILE_UNREADABLE" };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--") continue;
     if (argv[index] === "--config") args.config = argv[++index];
@@ -374,7 +378,7 @@ function parseArgs(argv) {
   return args;
 }
 
-export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXTURE_ROW_CHANGED") {
+export function runBackupRestore(configInput, configPath, faultId = "REGISTERED_FILE_UNREADABLE") {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   validateFaultId(faultId);
@@ -391,6 +395,7 @@ export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXT
   if (existsSync(resolve(config.target.root, ".operation.lock"))) fail("RUN_CONCURRENT", config.runId);
   assertResourceAbsent(config, identities);
   registerPlannedResources(registryPath, planRestoreResources(config, identities));
+  ACTIVE_RECOVERY = () => recoverRestoreResources(config, identities, registryPath);
   let success = false;
   try {
     privateText(identities.lockFile, `${config.runId}\n`);
@@ -399,10 +404,8 @@ export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXT
     chmodSync(identities.artifactRoot, 0o700);
     updateResource(registryPath, "directory", identities.artifactRoot, { observed: identities.artifactRoot });
 
-    if (faultId === "REGISTERED_FILE_UNREADABLE") {
-      privateText(identities.faultProbeFile, `${digest(config.runId)}\n`);
-      updateResource(registryPath, "file", identities.faultProbeFile, { observed: identities.faultProbeFile });
-    }
+    privateText(identities.faultProbeFile, `${digest(config.runId)}\n`);
+    updateResource(registryPath, "file", identities.faultProbeFile, { observed: identities.faultProbeFile });
     const sourceInventory = inventoryFileTree(config.target.fileRoot);
     const copyResources = planRestoreResources(config, identities, sourceInventory).filter((entry) => !JSON.parse(readFileSync(registryPath, "utf8")).some((row) => row.type === entry.type && row.planned === entry.planned));
     if (copyResources.length) registerPlannedResources(registryPath, copyResources);
@@ -411,10 +414,7 @@ export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXT
     for (const relativePath of sourceInventory.directories) updateResource(registryPath, "directory", resolve(identities.backupFilesRoot, relativePath), { observed: resolve(identities.backupFilesRoot, relativePath) });
     for (const entry of sourceInventory.files) updateResource(registryPath, "file", resolve(identities.backupFilesRoot, entry.relativePath), { observed: resolve(identities.backupFilesRoot, entry.relativePath) });
 
-    const fixtureSchema = `hr_restore_fixture_${identities.operation}`;
-    const fixtureValue = digest(`${config.runId}:restore-proof`);
-    createFaultFixture(config, fixtureSchema, fixtureValue);
-    const before = captureCanonicalFacts(config, config.target.database, fixtureSchema, fixtureValue, config.target.fileRoot);
+    const before = captureCanonicalFacts(config, config.target.database, config.target.fileRoot);
     if (canonicalJson(before.fileTree) !== canonicalJson(backupTree)) fail("BACKUP_FILE_SNAPSHOT_MISMATCH", "copied file snapshot differs before fault");
 
     runToFile("docker", ["exec", config.target.postgresContainer, "pg_dump", "-Fc", "--no-owner", "--no-privileges", "-U", "jinhu", "-d", config.target.database], identities.dumpFile);
@@ -426,33 +426,25 @@ export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXT
     privateText(identities.normalizedTocFile, normalizedToc);
     updateResource(registryPath, "file", identities.normalizedTocFile, { observed: identities.normalizedTocFile });
 
-    const fault = faultId === "VERIFY_FIXTURE_ROW_CHANGED"
-      ? injectAllowlistedFault({
-        faultId,
-        targetIdentity: config.target.database,
-        mutateFixture: () => psql(config, config.target.database, `UPDATE ${quoteIdentifier(fixtureSchema)}.verification_fixture SET value_sha256='${digest(`${fixtureValue}:fault`)}' WHERE fixture_id='restore-proof';`),
-        restoreFixture: () => psql(config, config.target.database, `UPDATE ${quoteIdentifier(fixtureSchema)}.verification_fixture SET value_sha256='${fixtureValue}' WHERE fixture_id='restore-proof';`),
-        detectFixture: () => captureCanonicalFacts(config, config.target.database, fixtureSchema, fixtureValue, config.target.fileRoot)
-      })
-      : injectAllowlistedFault({
-        faultId,
-        targetIdentity: config.target.database,
-        registeredFile: identities.faultProbeFile,
-        registered: JSON.parse(readFileSync(registryPath, "utf8")).some((entry) => entry.type === "file" && entry.planned === identities.faultProbeFile && entry.observed === identities.faultProbeFile),
-        detectFile: () => buildFileTreeManifest(config.target.fileRoot)
-      });
-    const afterRevert = captureCanonicalFacts(config, config.target.database, fixtureSchema, fixtureValue, config.target.fileRoot);
+    const fault = injectAllowlistedFault({
+      faultId,
+      targetIdentity: config.target.database,
+      registeredFile: identities.faultProbeFile,
+      registered: JSON.parse(readFileSync(registryPath, "utf8")).some((entry) => entry.type === "file" && entry.planned === identities.faultProbeFile && entry.observed === identities.faultProbeFile),
+      detectFile: () => buildFileTreeManifest(config.target.fileRoot)
+    });
+    const afterRevert = captureCanonicalFacts(config, config.target.database, config.target.fileRoot);
     verifyRestoreEquality(before, afterRevert);
 
     const restoreStartedEpochMs = Date.now();
     const restoreStartMono = process.hrtime.bigint();
     createRestoreTarget(config, identities, registryPath);
-    runWithInput("docker", ["exec", "-i", config.target.postgresContainer, "pg_restore", "--exit-on-error", "--no-owner", "--no-privileges", "-U", "jinhu", "-d", identities.database], identities.dumpFile);
+    runWithInput("docker", ["exec", "-i", config.target.postgresContainer, "pg_restore", "--exit-on-error", "--no-owner", "--no-privileges", "-U", "jinhu", `--role=${identities.role}`, "-d", identities.database], identities.dumpFile);
     const restoredTree = copyFileTree(identities.backupFilesRoot, identities.restoredFilesRoot);
     updateResource(registryPath, "directory", identities.restoredFilesRoot, { observed: identities.restoredFilesRoot });
     for (const relativePath of sourceInventory.directories) updateResource(registryPath, "directory", resolve(identities.restoredFilesRoot, relativePath), { observed: resolve(identities.restoredFilesRoot, relativePath) });
     for (const entry of sourceInventory.files) updateResource(registryPath, "file", resolve(identities.restoredFilesRoot, entry.relativePath), { observed: resolve(identities.restoredFilesRoot, entry.relativePath) });
-    const restored = captureCanonicalFacts(config, identities.database, fixtureSchema, fixtureValue, identities.restoredFilesRoot);
+    const restored = captureCanonicalFacts(config, identities.database, identities.restoredFilesRoot);
     if (canonicalJson(restored.fileTree) !== canonicalJson(restoredTree)) fail("RESTORE_FILE_TREE_MISMATCH", "restored file snapshot differs");
     const equality = verifyRestoreEquality(before, restored);
     const rtoObservedMs = Number((process.hrtime.bigint() - restoreStartMono) / 1_000_000n);
@@ -491,20 +483,18 @@ export function runBackupRestore(configInput, configPath, faultId = "VERIFY_FIXT
     if (existsSync(identities.lockFile)) unlinkSync(identities.lockFile);
     if (existsSync(registryPath)) updateResource(registryPath, "file", identities.lockFile, { removed: true, residualCount: 0 });
     if (!success) {
-      dropRestoreTarget(config, identities);
-      if (existsSync(registryPath)) {
-        const databaseResidual = Number(scalar(config, "postgres", `SELECT count(*) FROM pg_database WHERE datname='${identities.database}';`));
-        const roleResidual = Number(scalar(config, "postgres", `SELECT count(*) FROM pg_roles WHERE rolname='${identities.role}';`));
-        updateResource(registryPath, "database", identities.database, { removed: databaseResidual === 0, residualCount: databaseResidual });
-        updateResource(registryPath, "role", identities.role, { removed: roleResidual === 0, residualCount: roleResidual });
-      }
-      removeExactFilesystem(registryPath, identities);
-      assertRestoreResourcesRemoved(registryPath, identities);
+      recoverRestoreResources(config, identities, registryPath);
     }
+    ACTIVE_RECOVERY = null;
   }
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.once(signal, () => {
+    try { ACTIVE_RECOVERY?.(); }
+    catch (error) { process.stderr.write(`SIGNAL_CLEANUP_FAILED: ${error.code ?? "BACKUP_RESTORE_FAILED"}\n`); }
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  });
   try {
     const args = parseArgs(process.argv.slice(2));
     const configPath = realpathSync(resolve(args.config));

@@ -38,6 +38,7 @@ import {
   copyFileTree,
   hashCanonical,
   normalizeToc,
+  validateDualMigrationHistory,
   validateBackupRestoreEvidence,
   verifyRestoreEquality
 } from "../hr-cutover/verify-rehearsal-restore.mjs";
@@ -96,8 +97,7 @@ function sampleFacts(fileTree) {
     hrDomainHashes: Object.fromEntries([0, 1, 2, 3, 4, 5].map((index) => [`T${index}`, String(index + 1).repeat(64)])),
     quarantineLedgerSha256: "7".repeat(64),
     sideEffectSha256: "8".repeat(64),
-    fileTree,
-    faultFixtureSha256: "9".repeat(64)
+    fileTree
   };
 }
 
@@ -106,7 +106,7 @@ try {
   assert.equal(schema.additionalProperties, false);
   assert.equal(schema.properties.productionImport.const, "HOLD");
   assert.equal(schema.properties.productionRestore.const, "HOLD");
-  assert.deepEqual(schema.properties.fault.properties.faultId.enum, [...ALLOWED_REHEARSAL_FAULTS]);
+  assert.equal(schema.properties.fault.properties.faultId.const, ALLOWED_REHEARSAL_FAULTS[0]);
 
   const config = sampleConfig();
   const identities = deriveRestoreIdentities(config);
@@ -170,6 +170,10 @@ try {
 
   const toc = "; Archive created at 2026-08-28 07:00:00 UTC\n;     dbname: ignored\n1; 0 0 TABLE public hr_employee jinhu\n  2; 0 0   TABLE DATA public hr_employee jinhu  \n";
   assert.equal(normalizeToc(toc), "1; 0 0 TABLE public hr_employee jinhu\n2; 0 0 TABLE DATA public hr_employee jinhu\n");
+  const migrationChecksum = "d".repeat(64);
+  assert.equal(validateDualMigrationHistory(`primary,000001_example.sql,${migrationChecksum},succeeded\nstandard,000001_example.sql,${migrationChecksum},succeeded\n`).ok, true);
+  expectCode(BackupRestoreVerificationError, "MIGRATION_HISTORY_DIVERGED", () => validateDualMigrationHistory(`primary,000001_example.sql,${migrationChecksum},succeeded\nstandard,000002_other.sql,${migrationChecksum},succeeded\n`));
+  expectCode(BackupRestoreVerificationError, "MIGRATION_HISTORY_INVALID", () => validateDualMigrationHistory(`primary,000001_example.sql,${migrationChecksum},failed\nstandard,000001_example.sql,${migrationChecksum},failed\n`));
 
   const before = sampleFacts(sourceTree);
   const equality = verifyRestoreEquality(before, structuredClone(before));
@@ -179,29 +183,35 @@ try {
   const fileChanged = structuredClone(before); fileChanged.fileTree.canonicalSha256 = "b".repeat(64);
   expectCode(BackupRestoreVerificationError, "RESTORE_FILE_TREE_MISMATCH", () => verifyRestoreEquality(before, fileChanged));
 
-  assert.deepEqual([...ALLOWED_REHEARSAL_FAULTS], ["VERIFY_FIXTURE_ROW_CHANGED", "REGISTERED_FILE_UNREADABLE"]);
-  assert.equal(validateFaultId("VERIFY_FIXTURE_ROW_CHANGED"), "VERIFY_FIXTURE_ROW_CHANGED");
+  assert.deepEqual([...ALLOWED_REHEARSAL_FAULTS], ["REGISTERED_FILE_UNREADABLE"]);
+  assert.equal(validateFaultId("REGISTERED_FILE_UNREADABLE"), "REGISTERED_FILE_UNREADABLE");
   expectCode(FaultInjectionError, "FAULT_NOT_ALLOWLISTED", () => validateFaultId("DROP_MIGRATION_HISTORY"));
-  let fixture = "baseline";
-  const fixtureFault = injectAllowlistedFault({
-    faultId: "VERIFY_FIXTURE_ROW_CHANGED",
+  writeFileSync(identities.faultProbeFile, "registered-probe\n", { mode: 0o600 });
+  const fileFault = injectAllowlistedFault({
+    faultId: "REGISTERED_FILE_UNREADABLE",
     targetIdentity: identities.database,
-    mutateFixture: () => { fixture = "changed"; },
-    restoreFixture: () => { fixture = "baseline"; },
-    detectFixture: () => { if (fixture !== "baseline") throw Object.assign(new Error("mismatch"), { code: "RESTORE_FIXTURE_MISMATCH" }); }
+    registeredFile: identities.faultProbeFile,
+    registered: true,
+    detectFile: () => buildFileTreeManifest(config.target.fileRoot)
   });
-  assert.equal(fixtureFault.status, "DETECTED");
-  assert.equal(fixtureFault.reverted, true);
-  assert.equal(fixture, "baseline");
-  let undetected = "baseline";
+  assert.equal(fileFault.status, "DETECTED");
+  assert.equal(fileFault.reverted, true);
+  assert.equal(mode(identities.faultProbeFile), "0600");
   expectCode(FaultInjectionError, "FAULT_NOT_DETECTED", () => injectAllowlistedFault({
-    faultId: "VERIFY_FIXTURE_ROW_CHANGED",
+    faultId: "REGISTERED_FILE_UNREADABLE",
     targetIdentity: identities.database,
-    mutateFixture: () => { undetected = "changed"; },
-    restoreFixture: () => { undetected = "baseline"; },
-    detectFixture: () => undefined
+    registeredFile: identities.faultProbeFile,
+    registered: true,
+    detectFile: () => undefined
   }));
-  assert.equal(undetected, "baseline", "fault must be reverted even when the detector is defective");
+  assert.equal(mode(identities.faultProbeFile), "0600", "fault must be reverted even when the detector is defective");
+  expectCode(FaultInjectionError, "FAULT_DETECTOR_FAILED", () => injectAllowlistedFault({
+    faultId: "REGISTERED_FILE_UNREADABLE",
+    targetIdentity: identities.database,
+    registeredFile: identities.faultProbeFile,
+    registered: true,
+    detectFile: () => { throw new Error("unreadable"); }
+  }));
 
   const evidence = {
     formatVersion: 1,
@@ -218,7 +228,7 @@ try {
       normalizedTocSha256: "c".repeat(64),
       fileSnapshot: sourceTree
     },
-    fault: { faultId: "VERIFY_FIXTURE_ROW_CHANGED", status: "DETECTED", detectorCode: "RESTORE_FIXTURE_MISMATCH", reverted: true, targetIdentitySha256: sha(identities.database) },
+    fault: { faultId: "REGISTERED_FILE_UNREADABLE", status: "DETECTED", detectorCode: "FILE_TREE_UNREADABLE", reverted: true, targetIdentitySha256: sha(identities.database) },
     before,
     restored: structuredClone(before),
     equality,
@@ -245,9 +255,15 @@ try {
   assert.match(runnerSource, /--exit-on-error/u);
   assert.match(runnerSource, /--no-owner/u);
   assert.match(runnerSource, /--no-privileges/u);
+  assert.match(runnerSource, /NOLOGIN NOINHERIT/u, "restore verifier role must not be independently login-capable");
+  assert.match(runnerSource, /`--role=\$\{identities\.role\}`/u, "pg_restore must actually assume the registered verifier role");
+  assert.doesNotMatch(runnerSource, /CREATE SCHEMA\s+\$\{quoteIdentifier\(fixtureSchema\)\}/u, "fault injection must not leave an unregistered source schema");
   assert.doesNotMatch(runnerSource, /production-backup-restore-gate19/u);
   assert.doesNotMatch(runnerSource, /WITH REPLACE|--clean|--create/u);
   assert.doesNotMatch(runnerSource, /productionImport\s*[:=]\s*["'](?:GO|PASS|READY)/u);
+  assert.match(runnerSource, /process\.once\(signal/u, "backup/restore CLI must own signal cleanup");
+  const lifecycleSource = readFileSync(resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs"), "utf8");
+  assert.match(lifecycleSource, /head\.hardGates\?\.technicalUat\?\.status !== "PASS" \|\| head\.hardGates\?\.restore\?\.status !== "PASS"/u, "lab rollback must require technical UAT and restore PASS");
   assert.equal(existsSync(join(config.target.root, ".backup-restore.lock")), false, "contract tests must not create runtime locks");
   assert.equal(lstatSync(registryPath).isSymbolicLink(), false);
 

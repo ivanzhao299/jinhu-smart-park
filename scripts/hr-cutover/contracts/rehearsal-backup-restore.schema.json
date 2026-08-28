@@ -58,9 +58,9 @@
       "additionalProperties": false,
       "required": ["faultId", "status", "detectorCode", "reverted", "targetIdentitySha256"],
       "properties": {
-        "faultId": { "enum": ["VERIFY_FIXTURE_ROW_CHANGED", "REGISTERED_FILE_UNREADABLE"] },
+        "faultId": { "const": "REGISTERED_FILE_UNREADABLE" },
         "status": { "const": "DETECTED" },
-        "detectorCode": { "enum": ["RESTORE_FIXTURE_MISMATCH", "FILE_TREE_UNREADABLE"] },
+        "detectorCode": { "const": "FILE_TREE_UNREADABLE" },
         "reverted": { "const": true },
         "targetIdentitySha256": { "$ref": "#/$defs/sha256" }
       }
@@ -70,7 +70,7 @@
     "equality": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["migrationHistory", "platformCatalog", "hrLedger", "hrCanonical", "quarantineLedger", "sideEffects", "files", "faultFixture"],
+      "required": ["migrationHistory", "platformCatalog", "hrLedger", "hrCanonical", "quarantineLedger", "sideEffects", "files"],
       "properties": {
         "migrationHistory": { "const": true },
         "platformCatalog": { "const": true },
@@ -78,8 +78,7 @@
         "hrCanonical": { "const": true },
         "quarantineLedger": { "const": true },
         "sideEffects": { "const": true },
-        "files": { "const": true },
-        "faultFixture": { "const": true }
+        "files": { "const": true }
       }
     },
     "timing": {
@@ -151,7 +150,7 @@
     "canonicalFacts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "hrDomainHashes", "quarantineLedgerSha256", "sideEffectSha256", "fileTree", "faultFixtureSha256"],
+      "required": ["migrationHistorySha256", "platformCatalogSha256", "hrLedgerSha256", "hrGlobalSha256", "hrDomainHashes", "quarantineLedgerSha256", "sideEffectSha256", "fileTree"],
       "properties": {
         "migrationHistorySha256": { "$ref": "#/$defs/sha256" },
         "platformCatalogSha256": { "$ref": "#/$defs/sha256" },
@@ -172,8 +171,7 @@
         },
         "quarantineLedgerSha256": { "$ref": "#/$defs/sha256" },
         "sideEffectSha256": { "$ref": "#/$defs/sha256" },
-        "fileTree": { "$ref": "#/$defs/fileTree" },
-        "faultFixtureSha256": { "$ref": "#/$defs/sha256" }
+        "fileTree": { "$ref": "#/$defs/fileTree" }
       }
     }
   }

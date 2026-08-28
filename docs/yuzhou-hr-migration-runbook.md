@@ -191,20 +191,19 @@ pnpm hr:migration:full:status -- --config '<受控配置.json>'
 真实 `lab` 演练只有在同一轮连续 T0→T5、PostgreSQL global facts 和三角色技术 UAT 均已通过、最新 manifest head 为 `uat_ready` 时，才能执行恢复证明：
 
 ```sh
-pnpm hr:migration:full:backup-restore -- --config '<受控配置.json>' --fault VERIFY_FIXTURE_ROW_CHANGED
+pnpm hr:migration:full:backup-restore -- --config '<受控配置.json>' --fault REGISTERED_FILE_UNREADABLE
 pnpm test:e2e:yuzhou-full-domain-backup-restore
 ```
 
-该入口只接受 loopback Docker Unix socket、与配置逐字相同的 `jinhu_hr_migration_lab_full_*` database/Compose project 和其受管 PostgreSQL 容器。它在任何创建前把 restore database、NOLOGIN verifier role、备份/恢复目录、dump、TOC、文件快照、报告和 operation lock 写入本轮 resource registry；已存在、未登记、生产/共享标记、非 loopback 发布、Compose label 漂移或并发 operation 均失败关闭。
+该入口只接受 loopback Docker Unix socket、与配置逐字相同的 `jinhu_hr_migration_lab_full_*` database/Compose project 和其受管 PostgreSQL 容器。它在任何创建前把 restore database、实际执行 restore 的最小隔离 role、备份/恢复目录、dump、TOC、文件快照、报告和 operation lock 写入本轮 resource registry；已存在、未登记、生产/共享标记、非 loopback 发布、Compose label 漂移或并发 operation 均失败关闭。
 
 数据库备份固定使用 `pg_dump -Fc --no-owner --no-privileges`，保存实际 dump SHA-256、字节、原始 TOC SHA-256 和去除非确定性注释后的 TOC SHA-256。文件根按相对路径、字节和内容 SHA-256 形成稳定清单并复制到 0700 受控目录，复制文件强制 0600；空文件根也有明确的零条目 canonical hash。符号链接、特殊文件、路径逃逸或不可读对象全部拒绝。
 
-v1 故障只允许以下可逆、run-scoped fixture，不接受任意 SQL、路径或进程参数：
+v1 故障只允许以下可逆、run-scoped 已登记探针，不接受任意 SQL、路径或进程参数：
 
-- `VERIFY_FIXTURE_ROW_CHANGED`：修改专用验证 schema 中一条哈希 fixture；只有 restore verifier 实际返回 `RESTORE_FIXTURE_MISMATCH` 后才算检测成功，并在 `finally` 恢复原值。
 - `REGISTERED_FILE_UNREADABLE`：仅把本轮已登记的专用文件探针临时设为不可读；只有文件树 verifier 实际返回 `FILE_TREE_UNREADABLE` 后才继续，并在 `finally` 恢复权限。
 
-恢复永远先创建不同名称的新 `jinhu_hr_migration_lab_full_restore_*` 数据库，使用 `pg_restore --exit-on-error --no-owner --no-privileges`，不允许 `--clean`、`--create` 或覆盖事故/source 数据库。恢复后逐字节比较双 migration-history 文件名/状态/checksum、平台 catalog、HR global/domain canonical、source-object ledger、quarantine reason ledger、side-effect facts、验证 fixture 与文件树；只有全部相等时才记录 `rpoObservedObjects=0`。`rtoObservedMs` 只是 monotonic 实测值，业务目标仍固定为 `UNAPPROVED/RTO_RPO_UNAPPROVED`，不得由工具自动签署。
+恢复永远先创建不同名称的新 `jinhu_hr_migration_lab_full_restore_*` 数据库，使用 `pg_restore --exit-on-error --no-owner --no-privileges`，不允许 `--clean`、`--create` 或覆盖事故/source 数据库。恢复后逐字节比较双 migration-history 文件名/状态/checksum、平台 catalog、HR global/domain canonical、source-object ledger、quarantine reason ledger、side-effect facts 与文件树；只有全部相等时才记录 `rpoObservedObjects=0`。`rtoObservedMs` 只是 monotonic 实测值，业务目标仍固定为 `UNAPPROVED/RTO_RPO_UNAPPROVED`，不得由工具自动签署。
 
 成功报告和 superseding parent manifest 只含 hash、数量、相对工件路径和 measured timing，权限为目录 0700、文件 0600；`hardGates.restore=PASS` 不改变 `humanUat=HOLD`、`productionImport=HOLD` 或独立的 `productionRestore=HOLD`。失败路径只删除本 runner 已登记的精确 restore database/role/files/directories，并重新枚举要求 `residualCount=0`；不得递归清理宽泛路径。随后仍须按既有命令执行 T5→T0 rollback 和完整 lifecycle cleanup，且只有最终资源总账为零才算本轮闭环。
 

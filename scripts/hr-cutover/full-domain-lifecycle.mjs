@@ -589,10 +589,22 @@ async function runForwardAsync(configInput, configPath) {
   return { state: "uat_ready", productionImport: "HOLD" };
 }
 
+function assertLabRollbackEvidence(config) {
+  if (config.backend !== "lab") return;
+  const chainPath = config.verification?.manifestChainFile;
+  if (!chainPath || !existsSync(chainPath)) fail("RESTORE_EVIDENCE_REQUIRED", "lab rollback requires the verified manifest chain");
+  const chain = readJson(chainPath);
+  const result = verifyManifestChain(chain, { evidenceRoot: config.target.evidenceRoot });
+  const head = chain.find((entry) => entry.sha256 === result.headSha256)?.manifest;
+  if (!head || head.state !== "uat_ready" || head.parentRunId !== config.runId || JSON.stringify(head.triple) !== JSON.stringify(config.triple)) fail("RESTORE_EVIDENCE_REQUIRED", "rollback manifest is not bound to this uat_ready C/S/M run");
+  if (head.hardGates?.technicalUat?.status !== "PASS" || head.hardGates?.restore?.status !== "PASS") fail("RESTORE_EVIDENCE_REQUIRED", "technical UAT and restore proof must pass before rollback");
+}
+
 export function runRollback(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "uat_ready") fail("STATE_TRANSITION_INVALID", "rollback requires uat_ready state");
+  assertLabRollbackEvidence(config);
   for (const domain of ROLLBACK_ORDER) runAdapter(config, domain, "rollback");
   validateChildJournal(config, "rollback");
   transition(config, "rollback_ready");
@@ -603,6 +615,7 @@ async function runRollbackAsync(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "uat_ready") fail("STATE_TRANSITION_INVALID", "rollback requires uat_ready state");
+  assertLabRollbackEvidence(config);
   for (const domain of ROLLBACK_ORDER) await runAdapterAsync(config, domain, "rollback");
   validateChildJournal(config, "rollback");
   transition(config, "rollback_ready");
