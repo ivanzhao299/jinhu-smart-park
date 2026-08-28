@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 
 export class LegacyGroupWebImplementationCoverageError extends Error {
   constructor(code, detail) {
@@ -184,7 +185,7 @@ function scoreRoute(root, route) {
 
 const statusFor = score => score === 100 ? "implemented" : score >= 60 ? "partial" : "mapped_only";
 
-export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
+export function assessLegacyGroupWebImplementationCoverage(mapping, root, options = {}) {
   if (mapping?.contractKind !== "yuzhou_hr_legacy_group_web_module_mapping" || mapping?.status !== "mapped_not_implementation_complete" || !Array.isArray(mapping.items) || mapping.items.length !== 231) {
     fail("GROUP_WEB_IMPLEMENTATION_SOURCE_INVALID", "module mapping");
   }
@@ -192,6 +193,14 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
 
   const sourceAudit = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json"), "utf8"));
   const sourceAuditById = new Map(sourceAudit.items.map(item => [item.legacyId, item]));
+  const liveRoleUat = options.liveRoleUatEvidencePair
+    ? validateYuzhouLiveRoleUatEvidencePair(
+      options.liveRoleUatEvidencePair,
+      JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8")),
+      options.expectedTriple ?? null
+    )
+    : null;
+  const liveRoleUatIds = new Set(liveRoleUat?.eligibleLegacyIds ?? []);
   const routeAssessments = new Map();
   const items = mapping.items.map(item => {
     const candidates = item.targetRoutes.map(route => {
@@ -203,8 +212,8 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
     const parityVerified = Boolean(parity
       && sourceAuditById.get(item.legacyId)?.fieldEvidenceHash === parity.legacyFieldEvidenceHash
       && fileEvidence(root, parity.evidenceFiles));
-    const dimensions = { ...best.dimensions, legacyRuleParity: parityVerified };
-    const score = best.score + (parityVerified ? 10 : 0);
+    const dimensions = { ...best.dimensions, legacyRuleParity: parityVerified, liveRoleUat: liveRoleUatIds.has(item.legacyId) };
+    const score = best.score + (parityVerified ? 10 : 0) + (dimensions.liveRoleUat ? 10 : 0);
     return {
       legacyId: item.legacyId,
       parentId: item.parentId,
@@ -253,6 +262,12 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
       implementedRequiresScore: 100,
       legacyRuleParityRequiresItemEvidence: true,
       liveRoleUatRequiresItemEvidence: true,
+      liveRoleUatEvidence: liveRoleUat ? {
+        status: liveRoleUat.status,
+        taskCardSha256: liveRoleUat.taskCardSha256,
+        rehearsalRunIds: liveRoleUat.rehearsalRunIds,
+        triple: liveRoleUat.triple
+      } : null,
       mappedDoesNotMeanImplemented: true,
       productionImport: "HOLD"
     }
