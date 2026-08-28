@@ -28,6 +28,7 @@ const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.cod
 const writePrivate=(path,value)=>{writeFileSync(path,`${JSON.stringify(value,null,2)}\n`,{mode:0o600});chmodSync(path,0o600);};
 const sleep=(ms)=>new Promise((done)=>setTimeout(done,ms));
 const sha256=value=>createHash("sha256").update(typeof value==="string"?value:JSON.stringify(value)).digest("hex");
+const fixtureKeyFor=runId=>`uat${sha256(runId).slice(0,16)}`;
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
@@ -48,7 +49,9 @@ export async function runTechnicalUat(configInput){
  if(!existsSync(apiMain)||!existsSync(webBuild))fail("TECHNICAL_UAT_BUILD_MISSING","build API and Web before the rehearsal");
  const pg=credential(config.target.credentialArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
  const users=[`${config.target.accountNamespace}_hr_maker`,`${config.target.accountNamespace}_hr_reviewer`,`${config.target.accountNamespace}_manager`,`${config.target.accountNamespace}_employee`];
- const vars={run:config.runId,tenant:config.adapterEnv.T0.load.YUZHOU_TARGET_TENANT_ID,park:config.adapterEnv.T0.load.YUZHOU_TARGET_PARK_ID,hash,hrMaker:users[0],hrReviewer:users[1],manager:users[2],employee:users[3]};
+ // Business-code columns are intentionally narrower than the globally unique rehearsal run id.
+ // Use a deterministic short key for all isolated fixture codes while the manifest retains the full run id.
+ const vars={run:fixtureKeyFor(config.runId),tenant:config.adapterEnv.T0.load.YUZHOU_TARGET_TENANT_ID,park:config.adapterEnv.T0.load.YUZHOU_TARGET_PARK_ID,hash,hrMaker:users[0],hrReviewer:users[1],manager:users[2],employee:users[3]};
  const provisionSql=`BEGIN;
 WITH input(username,display_name,role_code) AS(VALUES(:'hrMaker','HR Maker UAT','HR_MANAGER'),(:'hrReviewer','HR Reviewer UAT','HR_MANAGER'),(:'manager','Manager UAT','DEPARTMENT_MANAGER'),(:'employee','Employee UAT','EMPLOYEE_SELF_SERVICE'))
 INSERT INTO sys_user(tenant_id,park_id,username,display_name,password_hash,is_enabled,status,remark) SELECT :'tenant',:'park',username,display_name,:'hash',true,'enabled','Yuzhou technical UAT '||:'run' FROM input;
