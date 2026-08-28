@@ -21,6 +21,7 @@
 - 最终组级状态：G1–G7 全 PASS，无产品 FAIL，无新增 Issue。下一起点：运行 Trellis quality check，提交/推送证据分支，PR review ≤3、CI、squash merge、main CI/Deploy 双绿后归档父任务。
 - PR #452 review round 1 的五项 finding 全部点验为有效。以两个额外 fresh-volume lifecycle 补跑 G2 Cartesian、G5 module two-tab/refresh、G6 Park-B-specific body、G7 Homestay dependency/cross-scope/field/file；均 PASS。审计报告与 `decision-record.md` 的旧 BLOCKED 权威状态在同一 PR 同步。review-fix 证据继续归入 `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`，最终 project containers/volumes/network 与五端口均归零。
 - PR #452 review round 2 的七项 finding 全部点验为有效并在最终 fresh-volume lifecycle 关闭：28 个 Homestay endpoint asset-off=403/恢复；五种受保护 biz type 各自 list/detail/upload/download/delete protection；booking identity 与 credential 响应安全、housing finance/credential hidden/masked 合约；restricted-unit 403；maker-checker CAS/idempotency/concurrency/retry/trusted-proof/immutable；G5 action add/remove 双 tab+刷新+重登；G6 A/B 不同 role links/module assignments/Sidebar 与 page-local switch。官方 gate 两 suite PASS；专项测试 79 项中 72 PASS、7 项按显式 PG 环境 guard SKIP、0 FAIL；DB 12/12 separated+approved+executed；186 个最终证据校验和条目、28 张截图；teardown containers/volumes/networks/listeners 全 0。
+- PR #452 review round 3 的一项 finding 有效：原 test-only orphan 使用 fallback 未知 synthetic code，属于 tautological green。替换为 fallback-known `park:read` 后先红，证明真实静态 fallback 重建缺口；`UsersService.buildPermissionMenuTree` 已最小改为“只要存在 seeded menu 定义，就以 seeded tree（包括权威空树）为准，仅在完全没有 seeded 定义时兼容 fallback”。专项 menu test 13/13 PASS。三轮上限已用尽，不再触发第四轮 review。
 
 ## 验证与停止条件
 

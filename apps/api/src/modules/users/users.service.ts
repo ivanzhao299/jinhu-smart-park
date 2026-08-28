@@ -1718,7 +1718,7 @@ export class UsersService {
       .sort((left, right) => (left.level - right.level) || (left.sortNo - right.sortNo) || left.createTime.getTime() - right.createTime.getTime());
 
     const seededMenu = this.buildSeededMenuTree(menuPermissions, granted);
-    const baseMenu = seededMenu.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
+    const baseMenu = menuPermissions.length > 0 ? seededMenu : this.buildMenuTree(permissionCodes);
     return this.projectPropertyBusinessMenus(baseMenu, permissions, granted, enabledModules);
   }
 

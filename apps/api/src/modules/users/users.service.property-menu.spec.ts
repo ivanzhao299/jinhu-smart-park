@@ -219,7 +219,7 @@ test("seeded property metadata is preferred and any route, type, module, or dupl
 });
 
 test("test-only malformed tree injection skips an orphan parent instead of promoting it to a root", () => {
-  const orphan = permission("test_only:orphan:page", "/test-only/orphan", {
+  const orphan = permission(SYSTEM_PERMISSIONS.PARK_READ, "/assets/parks", {
     id: "test-only-orphan",
     parentId: "missing-test-only-parent",
     isSystem: false,
@@ -230,7 +230,7 @@ test("test-only malformed tree injection skips an orphan parent instead of promo
   const tree = internals().buildPermissionMenuTree(
     [orphan],
     [orphan.code],
-    [enabledModule("system")]
+    [enabledModule("asset")]
   );
 
   const flattened = tree.flatMap(function visit(node): UserMenuTreeNode[] {

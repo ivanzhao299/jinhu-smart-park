@@ -24,6 +24,6 @@
   ],
   "parent": null,
   "relatedFiles": [],
-  "notes": "产品决策已记录于 decision-record.md；PAM-004/#434 与 PAM-005/#435 已合并并归档。§15 首轮 20260828-112051、补完轮 20260828-122122 与 PR #452 两轮 findings 的 fresh-volume reruns 已完成 G1–G7；12 项 review finding 均以真实补跑、权威合约测试或 authority sync 关闭，浏览器/Network/DB/property API gate 全部 PASS，无产品 FAIL。父任务等待 #452 第三轮 review、merge 与 main 双绿后归档。",
+  "notes": "产品决策已记录于 decision-record.md；PAM-004/#434 与 PAM-005/#435 已合并并归档。§15 首轮 20260828-112051、补完轮 20260828-122122 与 PR #452 三轮 findings 已完成 G1–G7；前两轮 12 项以真实补跑、权威合约测试或 authority sync 关闭，第三轮 fallback-known orphan finding 以最小产品修复和 13/13 回归关闭。浏览器/Network/DB/property API gate 全部 PASS，无未修复产品 FAIL。三轮 review 上限已用尽，父任务等待 #452 新 CI、merge 与 main 双绿后归档。",
   "meta": {}
 }

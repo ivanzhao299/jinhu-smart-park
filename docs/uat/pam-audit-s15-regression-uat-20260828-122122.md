@@ -4,7 +4,7 @@
 
 - Baseline: `origin/main@74104221` on evidence branch `codex/pam-audit-s15-closure-20260828`.
 - Disposable topology: Compose project `jinhu-pam-s15-closure-uat-20260828-122122`, containing PostgreSQL 16 and the API image built from this checkout. PostgreSQL data and API file storage used the project-owned named volumes required by the official safety gate. Web ran on loopback and proxied to the container API.
-- Final result after review-fix reruns: **G1–G7 PASS; no product FAIL; no new Issue**.
+- Final result after three review rounds: **G1–G7 PASS; no unresolved product FAIL; no new Issue**.
 - The first §15 round `20260828-112051` remains the authority for G1/G4 and the G5 two-tab/G6 global-selector subset. This closure round executed every item that §8 left open.
 - Evidence root: `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`.
 
@@ -49,7 +49,7 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
   - `action: read`
   - `frontendRoute: /housing/not-canonical`
 - Each mutation was followed by a fresh Chrome login; the canonical `/housing/dashboard` node was absent. The original triple was restored after every case, and the final fresh login showed the page again.
-- `apps/api/src/modules/users/users.service.property-menu.spec.ts` now includes a test explicitly marked `test-only` that injects a page whose `parentId` is missing. The complete tree is flattened and asserts that neither the orphan href nor permission is projected.
+- `apps/api/src/modules/users/users.service.property-menu.spec.ts` injects fallback-known `park:read` / `/assets/parks` with a missing `parentId`. It first exposed that an empty malformed seeded tree fell back to the static menu. The accepted fix treats the presence of any seeded menu definition as authoritative, including an empty projected tree; static fallback remains only when seeded menu definitions are entirely absent. The complete tree asserts neither orphan href nor permission is projected.
 
 ## 6. G5 and G6 details
 
@@ -93,6 +93,7 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - The G7 Chrome login form did not dispatch a request under the small standalone Ant Form harness. The final accepted run called the real login API, kept the access token in memory only, injected it into the dedicated same-origin CDP profile, and executed every page/network assertion in Chrome.
 - Review round 1 produced five valid coverage/authority findings. Early review-fix runner attempts calibrated page-only API expectations (403 by design) and the sticky `/403` route; the accepted G5 run used two already-open module-free `/dashboard` tabs, matching the refresh-after-change contract. These were harness expectation failures, not product failures.
 - Review round 2 produced seven valid granularity findings. The first final-lifecycle attempt ran asset-off after approval runtime data existed and correctly hit `Asset runtime control state is partial or inconsistent`; the disposable project and both volumes were destroyed and rebuilt. Accepted order was asset-off/restore first, then the official gate and protected-file chains. The root-workspace bcrypt lookup also failed once before fixtures; rerun used `@jinhu/api`'s declared dependency. Neither harness failure entered an accepted business run.
+- Review round 3 produced one valid finding: the synthetic orphan code was unknown to static fallback and therefore tautological. Replacing it with fallback-known `park:read` made the regression fail, then the minimal seeded-definition authority fix restored 13/13 PASS. The three-review limit is exhausted; no fourth review was requested.
 
 ## 9. Evidence index
 
@@ -131,4 +132,5 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - PR #452 review round 1 returned five findings; all were accepted as valid and addressed with real reruns or authority synchronization.
 - Accepted review-fix outcomes: G2 Cartesian cells PASS, G5 module two-tab/refresh PASS, G6 Park-B-specific response assertions PASS, G7 supplemental security chain PASS, and both authoritative audit status records updated in the same PR.
 - Review round 2 outcomes: all seven findings closed by fresh runtime evidence or the repository's executable authority contracts. Targeted security set: 79 tests, 72 PASS, 7 existing explicit-PG guards SKIP, 0 FAIL. Final DB summary: 12 requests, 12 approved, 12 executed, 12 maker-checker separated.
+- Review round 3 outcome: fallback-known orphan first reproduced the defect, then passed after the minimal `UsersService` authority fix; targeted property-menu contract 13/13 PASS.
 - No product failure was observed during the accepted runs. No Issue was opened.
