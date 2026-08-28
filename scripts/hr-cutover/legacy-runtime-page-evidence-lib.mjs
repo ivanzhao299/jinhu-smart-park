@@ -18,7 +18,7 @@ const CLIENT_PAGE_ID = /^client:([a-z0-9][a-z0-9_-]*):([a-z0-9][a-z0-9_-]*):page
 const GROUP_WEB_PAGE_ID = /^group-web:([1-9][0-9]*):([a-z0-9][a-z0-9_-]*):([a-z0-9][a-z0-9_-]*):page$/u;
 const PRECONDITION = /^[A-Z][A-Z0-9_]{1,63}$/u;
 export const LEGACY_RUNTIME_PAGE_SOURCE_CONTRACT_SHA256 = Object.freeze({
-  client: "a63c4d0460c7e208e5525572f9fbcb06a277cb4a3d0df2e507b73aa356d1ba0d",
+  client: "cac2dd57ff0c3891b7dc8288888cb70a569010264853975859816aebd8ebd705",
   group_web: "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af"
 });
 

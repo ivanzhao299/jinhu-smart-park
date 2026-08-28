@@ -1,0 +1,2506 @@
+{
+  "formatVersion": 1,
+  "inventoryKind": "yuzhou_hr_legacy_client_atomic_entry_inventory",
+  "status": "scaffold_with_partial_observation",
+  "evidenceLevel": "L3_RUNTIME_PARTIAL",
+  "surfaceIsolation": {
+    "desktopClientEvidenceCannotComeFrom": [
+      "group_web"
+    ],
+    "groupWebEvidenceCannotComeFrom": [
+      "desktop_client"
+    ]
+  },
+  "entries": [
+    {
+      "atomicId": "client.organization_job.001",
+      "familyId": "organization_job",
+      "entryPoint": "单位设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.organization_job.002",
+      "familyId": "organization_job",
+      "entryPoint": "部门管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.organization_job.003",
+      "familyId": "organization_job",
+      "entryPoint": "职位管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.001",
+      "familyId": "employee_profile",
+      "entryPoint": "员工浏览",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.002",
+      "familyId": "employee_profile",
+      "entryPoint": "档案维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.003",
+      "familyId": "employee_profile",
+      "entryPoint": "档案查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.004",
+      "familyId": "employee_profile",
+      "entryPoint": "统计分析",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.005",
+      "familyId": "employee_profile",
+      "entryPoint": "人事报表",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.006",
+      "familyId": "employee_profile",
+      "entryPoint": "生日查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.007",
+      "familyId": "employee_profile",
+      "entryPoint": "编号维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.008",
+      "familyId": "employee_profile",
+      "entryPoint": "快速维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employee_profile.009",
+      "familyId": "employee_profile",
+      "entryPoint": "人事导入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.001",
+      "familyId": "employment_change",
+      "entryPoint": "人员录入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.002",
+      "familyId": "employment_change",
+      "entryPoint": "人员转入转出",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.003",
+      "familyId": "employment_change",
+      "entryPoint": "人员调动",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.004",
+      "familyId": "employment_change",
+      "entryPoint": "人员复职",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.005",
+      "familyId": "employment_change",
+      "entryPoint": "人事异动维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.employment_change.006",
+      "familyId": "employment_change",
+      "entryPoint": "人事异动查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.001",
+      "familyId": "contract",
+      "entryPoint": "劳动合同维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.002",
+      "familyId": "contract",
+      "entryPoint": "劳动合同查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.003",
+      "familyId": "contract",
+      "entryPoint": "员工转正处理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.004",
+      "familyId": "contract",
+      "entryPoint": "劳动合同导入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.005",
+      "familyId": "contract",
+      "entryPoint": "试用期到期提醒",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.contract.006",
+      "familyId": "contract",
+      "entryPoint": "合同到期提醒",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.training.001",
+      "familyId": "training",
+      "entryPoint": "培训课程设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.training.002",
+      "familyId": "training",
+      "entryPoint": "培训计划维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.training.003",
+      "familyId": "training",
+      "entryPoint": "培训记录管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.training.004",
+      "familyId": "training",
+      "entryPoint": "培训记录查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.training.005",
+      "familyId": "training",
+      "entryPoint": "培训统计分析",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.001",
+      "familyId": "performance",
+      "entryPoint": "建立考核方案",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.002",
+      "familyId": "performance",
+      "entryPoint": "建立考核项目",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.003",
+      "familyId": "performance",
+      "entryPoint": "员工考核表",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.004",
+      "familyId": "performance",
+      "entryPoint": "考核期间管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.005",
+      "familyId": "performance",
+      "entryPoint": "考评记录管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.performance.006",
+      "familyId": "performance",
+      "entryPoint": "考评结果查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.001",
+      "familyId": "reward_discipline",
+      "entryPoint": "奖惩设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.002",
+      "familyId": "reward_discipline",
+      "entryPoint": "奖惩记录管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.003",
+      "familyId": "reward_discipline",
+      "entryPoint": "奖惩记录查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.004",
+      "familyId": "reward_discipline",
+      "entryPoint": "奖惩记录导入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.005",
+      "familyId": "reward_discipline",
+      "entryPoint": "部门奖惩统计",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.reward_discipline.006",
+      "familyId": "reward_discipline",
+      "entryPoint": "员工奖惩统计",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.001",
+      "familyId": "payroll",
+      "entryPoint": "工资核算设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.002",
+      "familyId": "payroll",
+      "entryPoint": "工资数据输入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.003",
+      "familyId": "payroll",
+      "entryPoint": "工资账表打印",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.004",
+      "familyId": "payroll",
+      "entryPoint": "员工工资查询",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.005",
+      "familyId": "payroll",
+      "entryPoint": "银行代发工资",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.006",
+      "familyId": "payroll",
+      "entryPoint": "月末工资结账",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.payroll.007",
+      "familyId": "payroll",
+      "entryPoint": "工资账套管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.attendance.001",
+      "familyId": "attendance",
+      "entryPoint": "考勤系统设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.attendance.002",
+      "familyId": "attendance",
+      "entryPoint": "考勤记录导入",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.attendance.003",
+      "familyId": "attendance",
+      "entryPoint": "考勤结果管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.attendance.004",
+      "familyId": "attendance",
+      "entryPoint": "考勤查询汇总",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.insurance_welfare.001",
+      "familyId": "insurance_welfare",
+      "entryPoint": "保险事务",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.insurance_welfare.002",
+      "familyId": "insurance_welfare",
+      "entryPoint": "人员缴费方案",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.insurance_welfare.003",
+      "familyId": "insurance_welfare",
+      "entryPoint": "社会保险维护",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.insurance_welfare.004",
+      "familyId": "insurance_welfare",
+      "entryPoint": "保险明细统计",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.recruitment.001",
+      "familyId": "recruitment",
+      "entryPoint": "招聘申请",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.recruitment.002",
+      "familyId": "recruitment",
+      "entryPoint": "招聘审批",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.recruitment.003",
+      "familyId": "recruitment",
+      "entryPoint": "招聘发布",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.recruitment.004",
+      "familyId": "recruitment",
+      "entryPoint": "招聘录用",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.recruitment.005",
+      "familyId": "recruitment",
+      "entryPoint": "应聘人员",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.001",
+      "familyId": "group_web_self_service",
+      "entryPoint": "人员浏览",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.002",
+      "familyId": "group_web_self_service",
+      "entryPoint": "人员照片",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.003",
+      "familyId": "group_web_self_service",
+      "entryPoint": "信息查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.004",
+      "familyId": "group_web_self_service",
+      "entryPoint": "人事异动查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.005",
+      "familyId": "group_web_self_service",
+      "entryPoint": "人事异动统计",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.006",
+      "familyId": "group_web_self_service",
+      "entryPoint": "用户列表",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.007",
+      "familyId": "group_web_self_service",
+      "entryPoint": "修改密码",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.008",
+      "familyId": "group_web_self_service",
+      "entryPoint": "合同到期查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.009",
+      "familyId": "group_web_self_service",
+      "entryPoint": "培训记录查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.010",
+      "familyId": "group_web_self_service",
+      "entryPoint": "考核记录查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.011",
+      "familyId": "group_web_self_service",
+      "entryPoint": "奖惩记录查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.012",
+      "familyId": "group_web_self_service",
+      "entryPoint": "保险福利",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.013",
+      "familyId": "group_web_self_service",
+      "entryPoint": "工资数据查询",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.014",
+      "familyId": "group_web_self_service",
+      "entryPoint": "考勤管理",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "web.group_web_self_service.015",
+      "familyId": "group_web_self_service",
+      "entryPoint": "招聘管理",
+      "surface": "group_web",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.001",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "用户管理",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.002",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "自定义档案",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.003",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "数据字典",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.004",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "提醒设置",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.005",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "数据备份",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.006",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "数据恢复",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    },
+    {
+      "atomicId": "client.permission_log_reminder.007",
+      "familyId": "permission_log_reminder",
+      "entryPoint": "操作日志",
+      "surface": "desktop_client",
+      "observationStatus": "pending",
+      "coverage": {
+        "page": false,
+        "tabs": false,
+        "dialogs": false,
+        "thirdLevelMenus": false,
+        "fields": false,
+        "actions": false,
+        "states": false,
+        "rules": false
+      },
+      "pageIds": [],
+      "tabIds": [],
+      "dialogIds": [],
+      "thirdLevelMenuIds": [],
+      "fieldIds": [],
+      "actionIds": [],
+      "stateIds": [],
+      "ruleIds": [],
+      "evidence": {
+        "mode": "hash_only",
+        "sha256": []
+      },
+      "gapReasonCode": "ATOMIC_RUNTIME_OBSERVATION_PENDING"
+    }
+  ]
+}

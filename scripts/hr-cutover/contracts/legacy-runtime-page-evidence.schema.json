@@ -26,7 +26,7 @@
       "if": { "properties": { "surface": { "const": "client" } }, "required": ["surface"] },
       "then": {
         "properties": {
-          "sourceContractSha256": { "const": "a63c4d0460c7e208e5525572f9fbcb06a277cb4a3d0df2e507b73aa356d1ba0d" },
+          "sourceContractSha256": { "const": "cac2dd57ff0c3891b7dc8288888cb70a569010264853975859816aebd8ebd705" },
           "observations": {
             "items": {
               "allOf": [
