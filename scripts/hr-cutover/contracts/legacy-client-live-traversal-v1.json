@@ -16,10 +16,9 @@
   },
   "atomicInventoryContract": {
     "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
-    "canonicalSha256": "37b03935c1efb9f3bac64e4557b305ac05f483d574133e68bc9752a7bfd9e25b",
-    "entries": 83,
-    "desktopClientEntries": 68,
-    "groupWebEntries": 15
+    "canonicalSha256": "5b86060606acb8ee3116764718c360022e0d2a0ae8aa0c18b8330400a84604dc",
+    "entries": 68,
+    "desktopClientEntries": 68
   },
   "security": {
     "credentialsRecorded": false,
@@ -40,7 +39,6 @@
     "attendance",
     "insurance_welfare",
     "recruitment",
-    "group_web_self_service",
     "permission_log_reminder"
   ],
   "menuFamilies": [
@@ -131,14 +129,6 @@
       "pageChecks": ["recruitment-request-fields-and-status"],
       "decision": "modernize",
       "reasonCode": "RECRUITMENT_APPROVAL_PUBLISH_HIRE_PAGES_PENDING"
-    },
-    {
-      "id": "group_web_self_service",
-      "runtimeStatus": "partial",
-      "entryPoints": ["人员浏览", "人员照片", "信息查询", "人事异动查询", "人事异动统计", "用户列表", "修改密码", "合同到期查询", "培训记录查询", "考核记录查询", "奖惩记录查询", "保险福利", "工资数据查询", "考勤管理", "招聘管理"],
-      "pageChecks": ["group-web-independent-iis-site-and-login"],
-      "decision": "modernize",
-      "reasonCode": "WEB_ROLE_MENUS_AND_FIELD_PROJECTIONS_PENDING"
     },
     {
       "id": "permission_log_reminder",
