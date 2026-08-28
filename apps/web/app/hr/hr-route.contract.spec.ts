@@ -130,6 +130,21 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/进入合同台账/);
 });
 
+test("HR employee attachments use exact document atoms without generic file permissions",()=>{
+ const employees=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_READ/);
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_TEAM_READ/);
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_SELF_READ/);
+ assert.match(employees,/canManageEmployeeDocuments=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\)/);
+ assert.match(employees,/FileUploader compact bizType="hr_employee_photo"/);
+ assert.match(employees,/FileUploader compact bizType="hr_employee_document"/);
+ assert.match(employees,/label="员工照片" emptyLabel="暂无员工照片"/);
+ assert.match(employees,/label="档案附件" emptyLabel="暂无档案附件"/);
+ assert.match(employees,/mutationPermission=\{HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\}/);
+ assert.doesNotMatch(employees,/SYSTEM_PERMISSIONS\.FILE_(READ|UPLOAD|DOWNLOAD|DELETE)/);
+ assert.doesNotMatch(employees,/已上传平面图|暂无平面图文件/);
+});
+
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
   const reports=readFileSync(resolve(__dirname,"work-reports/HrWorkReportsClient.tsx"),"utf8");
   assert.match(reports,/写汇报/);
