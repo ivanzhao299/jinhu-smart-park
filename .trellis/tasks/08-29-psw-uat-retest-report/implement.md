@@ -60,6 +60,7 @@ git diff --check
 
 - 2026-08-29：PSW-001/002/003+D5 已全部合入且 main 双绿；创建并关联本 UAT 子任务与 `codex/evidence-psw-uat-retest`。
 - 2026-08-29：完成历史报告、Windows Chrome SOP、调查报告与 API/harness 探索；确认旧 G6 双 ID 必须由本轮 A→B 单一目标 ID 动态证据替代。
-- 2026-08-29：S1a/S1b/S2/S3、D5、G1–G7 全部完成；target Park B `23587739`；390×844 无横溢；官方 G7 Homestay/Housing PASS；project teardown 资源全 0。
+- 2026-08-29：S1a/S1b/S2/S3、D5、G1–G7 全部完成；review-corrected final target Park B `25030409`；390×844 无横溢；browser console 0 errors；官方 G7 Homestay/Housing PASS；两个同 RUN_ID 隔离 phase teardown 资源全 0。
 - 2026-08-29：Trellis validate 与 diff/document consistency PASS；进入队列归档。
-- Next：提交报告 PR，然后完成 review/CI/merge/main 双绿。
+- 2026-08-29：PR #476 review round 1 returned four valid findings. UAT and parent tasks were restored to active; the initial browser lifecycle remains recorded as FAIL because statistics-page floor/dictionary dependencies returned 403.
+- Next：run the second and final business-browser attempt in a fresh single-RUN_ID lifecycle with a complete target role, then update PR #476 and continue review/CI.

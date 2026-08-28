@@ -26,7 +26,7 @@
 | G3 malformed metadata | PASS | A superuser used the product `PATCH /permissions/:id` path to drift `permType`, `action`, and `frontendRoute`; each fresh browser login omitted the canonical housing page and restoration returned it. A test-only malformed-tree contract injects an orphan parent and proves the orphan is skipped rather than promoted. |
 | G4 dual representation / first landing | PASS | Carried from `20260828-112051`: browser cases plus API/Web menu and first-href contracts passed. |
 | G5 authorization refresh | PASS | Page, action and module mutations all cover two tabs, refresh and explicit relogin. The final action-only delta proves 403 → permissions projection → DTO-layer 400 → revoke → 403 on both tabs. |
-| G6 park switch | PASS (superseded authority) | Historical evidence below contained target-ID drift. Current authority is `psw-uat-retest-uat-20260829-061634.md`: a fresh A→B run with different park roles and one target Park B `23587739` across manifest, building, browser `/users/me` and scoped APIs. |
+| G6 park switch | PASS (superseded authority) | Historical evidence below contained target-ID drift. Current authority is `psw-uat-retest-uat-20260829-061634.md`: a fresh A→B run with different park roles and one target Park B `25030409` across manifest, building, browser `/users/me` and scoped APIs. |
 | G7 original security regression | PASS | The unmodified property API gate passed both suites. Final supplements cover 28 Homestay endpoints under asset-off, five protected biz types each through list/detail/upload/download/delete protection, booking identity/credential/housing finance projections, restricted-unit scope, and maker-checker CAS/idempotency/concurrency/retry/immutable contracts. |
 
 ## 4. G2 details
@@ -139,4 +139,4 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 
 The historical G6 narrative in §6 records switch target `25892265` and a B-only building at `28379088`; those artifacts came from different fixture lifecycles and cannot jointly prove one A→B convergence. They remain unchanged as historical evidence, but are no longer the authority for G6.
 
-The fresh PSW queue retest in [`psw-uat-retest-uat-20260829-061634.md`](./psw-uat-retest-uat-20260829-061634.md) is authoritative: source Park A `20000001`, target Park B `23587739`, different A/B ordinary roles, and the same `23587739` in fixture manifest, B-only building, browser `/users/me`, statistics and buildings assertions. Current G6 status remains **PASS**, now without a dual-ID ambiguity.
+The fresh PSW queue retest in [`psw-uat-retest-uat-20260829-061634.md`](./psw-uat-retest-uat-20260829-061634.md) is authoritative: source Park A `20000001`, target Park B `25030409`, different A/B ordinary roles, and the same `25030409` in fixture manifest, B-only building, browser `/users/me`, statistics and buildings assertions. Current G6 status remains **PASS**, now without a dual-ID ambiguity.
