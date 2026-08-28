@@ -46,6 +46,6 @@ test("the full-domain technical runner provisions separated HR maker/reviewer ac
   assert.match(source, /hrReviewer','HR Reviewer UAT/);
   assert.match(source, /runYuzhouWorkReportScenario/);
   assert.match(source, /HOLD_PENDING_REMAINING_MATRIX/);
-  assert.match(source, /observedChecks:workReportMatrix\.observations\.length/);
+  assert.match(source, /observedChecks:matrixObservations\.length/);
   assert.doesNotMatch(source, /legacyScorePromotion:"PASS"/);
 });

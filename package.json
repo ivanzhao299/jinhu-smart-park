@@ -68,6 +68,7 @@
     "test:e2e:yuzhou-live-role-uat-api-matrix": "node --test scripts/e2e/yuzhou-live-role-uat-api-matrix-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-http-runner": "node --test scripts/e2e/yuzhou-live-role-uat-http-runner-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-work-report": "node --test scripts/e2e/yuzhou-live-role-uat-work-report-scenario-contract.mjs",
+    "test:e2e:yuzhou-live-role-uat-employee": "node --test scripts/e2e/yuzhou-live-role-uat-employee-scenario-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-evidence": "node --test scripts/e2e/yuzhou-live-role-uat-evidence-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-recorder": "node --test scripts/e2e/yuzhou-live-role-uat-recorder-contract.mjs",
     "hr:migration:group-web:implementation-coverage": "node scripts/hr-cutover/report-legacy-group-web-implementation-coverage.mjs",
