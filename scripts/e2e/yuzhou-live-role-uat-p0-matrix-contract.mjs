@@ -1,10 +1,12 @@
 /* global Response, structuredClone */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { YuzhouLiveRoleUatP0MatrixError, validateYuzhouLiveRoleUatP0Matrix } from "../hr-cutover/yuzhou-live-role-uat-p0-matrix-lib.mjs";
 import { YuzhouLiveRoleUatP0Runner } from "../hr-cutover/yuzhou-live-role-uat-p0-runner.mjs";
+import { runYuzhouLiveRoleUatP0Observations } from "../hr-cutover/yuzhou-live-role-uat-p0-observations.mjs";
 
 const root=resolve(import.meta.dirname,"../..");
 const matrix=JSON.parse(readFileSync(resolve(root,"scripts/hr-cutover/contracts/yuzhou-live-role-uat-p0-matrix-v1.json"),"utf8"));
@@ -27,7 +29,7 @@ test("P0 matrix order, boundary, binary routes and negative proof fail closed",(
 });
 
 test("binary failure probes prove zero sensitive headers and zero bytes before producing hash-only evidence",async()=>{
-  const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(null,{status:503})});
+  const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify({statusCode:503,message:"audit failed"}),{status:503,headers:{"content-type":"application/json"}})});
   const result=await runner.execute({id:"contract_document_audit_failure",substitutions:{auditFailureFileId:"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"},assert:observed=>({
     no_sensitive_headers:Object.keys(observed.sensitiveHeaders).length===0,
     zero_bytes:observed.byteLength===0,
@@ -35,6 +37,20 @@ test("binary failure probes prove zero sensitive headers and zero bytes before p
   })});
   assert.equal(result.statusCode,503);assert.deepEqual(result.assertions,{no_sensitive_headers:true,zero_bytes:true,storage_not_opened:true});assert.match(result.responseSha256,/^[0-9a-f]{64}$/u);
   assert.doesNotMatch(JSON.stringify(result),/Bearer|aaaaaaaa/u);
+});
+
+test("the exact 25 runtime observations are hash-bound, private and remain HOLD on any real probe failure",async()=>{
+  const dir=mkdtempSync(resolve(tmpdir(),"jinhu-p0-observations-")),evidencePath=resolve(dir,"p0.json");
+  let requests=0;
+  const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>{requests+=1;return new Response(JSON.stringify({statusCode:503,message:"isolated dependency unavailable"}),{status:503,headers:{"content-type":"application/json"}});}});
+  const plans=matrix.checks.map(check=>({id:check.id,substitutions:Object.fromEntries([...check.route.matchAll(/\{([^}]+)\}/gu)].map(match=>[match[1],"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"])),...(check.method==="POST"?{body:{action:"approve"}}:{}),assert:()=>Object.fromEntries(check.assertions.map(key=>[key,true]))}));
+  const triple={codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)};
+  const matrixSha256=validateYuzhouLiveRoleUatP0Matrix(matrix).sha256;
+  const evidence=await runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath});
+  assert.equal(requests,25);assert.equal(evidence.observedChecks,25);assert.equal(evidence.status,"HOLD");assert.equal(evidence.technicalUat,"HOLD");assert.equal(evidence.humanUat,"HOLD");assert.equal(evidence.productionImport,"HOLD");assert.match(evidence.responseEvidenceSha256,/^[0-9a-f]{64}$/u);assert.equal(lstatSync(evidencePath).mode&0o777,0o600);
+  assert.doesNotMatch(readFileSync(evidencePath,"utf8"),/isolated dependency unavailable|Bearer|aaaaaaaa-aaaa/u);
+  const target=resolve(dir,"target.json"),link=resolve(dir,"linked.json");writeFileSync(target,"{}\n");chmodSync(target,0o600);symlinkSync(target,link);
+  await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath:link}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");
 });
 
 test("binary failure probes reject a leaked header or byte and unsafe non-loopback execution",async()=>{

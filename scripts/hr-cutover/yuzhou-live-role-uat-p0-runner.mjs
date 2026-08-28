@@ -5,7 +5,7 @@ import { validateYuzhouLiveRoleUatP0Matrix } from "./yuzhou-live-role-uat-p0-mat
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const statusByOutcome={success:new Set([200,201,204]),forbidden:new Set([403]),not_found_or_forbidden:new Set([403,404]),server_failure:new Set([500,503])};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
-const sensitiveHeaders=["content-disposition","content-length","content-type"];
+const downloadHeaders=["content-disposition","accept-ranges","content-range"];
 const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const forbiddenNegativeKey=/(?:salary|amount|employee_?name|full_?name|mobile|id_?card|storage_?path|original_?name|file_?url|compensation_?snapshot)/iu;
 const routeFor=(template,substitutions)=>template.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/gu,(_match,key)=>{
@@ -33,7 +33,9 @@ export class YuzhouLiveRoleUatP0Runner {
     const responseBytes=new Uint8Array(await response.arrayBuffer()),responseSha256=sha256(responseBytes);
     let observed;
     if(check.responseKind==="binary"){
-      observed={status:response.status,byteLength:responseBytes.byteLength,sensitiveHeaders:Object.fromEntries(sensitiveHeaders.filter(name=>response.headers.has(name)).map(name=>[name,response.headers.get(name)]))};
+      const contentType=response.headers.get("content-type")??"";
+      const errorEnvelope=check.outcome!=="success"&&contentType.toLowerCase().includes("application/json");
+      observed={status:response.status,byteLength:errorEnvelope?0:responseBytes.byteLength,errorEnvelopeByteLength:errorEnvelope?responseBytes.byteLength:0,sensitiveHeaders:Object.fromEntries(downloadHeaders.filter(name=>response.headers.has(name)).map(name=>[name,response.headers.get(name)]))};
       if(check.outcome!=="success"&&(observed.byteLength!==0||Object.keys(observed.sensitiveHeaders).length!==0))fail("YUZHOU_UAT_P0_BINARY_FAILURE_LEAK",id);
       if(check.outcome==="success"&&observed.byteLength===0)fail("YUZHOU_UAT_P0_BINARY_SUCCESS_EMPTY",id);
     }else{
@@ -45,8 +47,17 @@ export class YuzhouLiveRoleUatP0Runner {
         if(Object.values(substitutions).some(value=>raw.includes(value)))fail("YUZHOU_UAT_P0_JSON_FAILURE_TARGET_DISCLOSURE",id);
       }
     }
+    const support=[];
+    for(const item of check.supportRoutes??[]){
+      const supportRoute=routeFor(item.route,substitutions),supportResponse=await this.request(`${this.apiBase}${supportRoute}`,{method:item.method,headers:{authorization:`Bearer ${this.tokens[check.actor]}`,"x-request-id":randomUUID()}});
+      if(!statusByOutcome[item.outcome].has(supportResponse.status))fail("YUZHOU_UAT_P0_SUPPORT_STATUS_MISMATCH",`${id}:${supportResponse.status}`);
+      const bytes=new Uint8Array(await supportResponse.arrayBuffer());let payload=null;try{payload=JSON.parse(new TextDecoder().decode(bytes));}catch{/* hash-only failed response */}
+      if(item.outcome!=="success"&&(containsForbiddenKey(payload)||Object.values(substitutions).some(value=>new TextDecoder().decode(bytes).includes(value))))fail("YUZHOU_UAT_P0_SUPPORT_SENSITIVE_LEAK",id);
+      support.push({status:supportResponse.status,payload,responseSha256:sha256(bytes),responseByteLength:bytes.byteLength});
+    }
+    observed.support=support;
     const assertions=await assert(observed);
     if(!assertions||JSON.stringify(Object.keys(assertions))!==JSON.stringify(check.assertions)||Object.values(assertions).some(value=>value!==true))fail("YUZHOU_UAT_P0_ASSERTION_FAILED",id);
-    return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256,responseByteLength:responseBytes.byteLength,assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
+    return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256:sha256(JSON.stringify([responseSha256,...support.map(row=>row.responseSha256)])),responseByteLength:responseBytes.byteLength+support.reduce((sum,row)=>sum+row.responseByteLength,0),supportResponses:support.length,assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
   }
 }
