@@ -234,26 +234,41 @@ function loadT0Context(config, checkpoint, dependencies) {
   const manifestPath = join(staging, "manifest.json");
   const statesPath = join(staging, "employee-job-states.raw.json");
   const metadataPath = join(staging, "job-state-code-metadata.raw.json");
+  const codesPath = join(staging, "job-state-codes.raw.json");
   const manifestBytes = safeRegularBytes(manifestPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
   const statesBytes = safeRegularBytes(statesPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
   const metadataBytes = safeRegularBytes(metadataPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
-  let manifest, states;
-  try { manifest = JSON.parse(manifestBytes); states = JSON.parse(statesBytes); JSON.parse(metadataBytes); }
+  const codesBytes = safeRegularBytes(codesPath, "YUZHOU_JOB_STATE_T0_UNSAFE");
+  let manifest, states, codes;
+  try { manifest = JSON.parse(manifestBytes); states = JSON.parse(statesBytes); JSON.parse(metadataBytes); codes = JSON.parse(codesBytes); }
   catch { fail("YUZHOU_JOB_STATE_T0_INVALID"); }
-  const employeeSha = sha256(statesBytes), metadataSha = sha256(metadataBytes), manifestSha = sha256(manifestBytes);
+  const employeeSha = sha256(statesBytes), metadataSha = sha256(metadataBytes), codesSha = sha256(codesBytes), manifestSha = sha256(manifestBytes);
   if (manifest?.domains?.employeeJobStates?.file !== "employee-job-states.raw.json"
     || manifest.domains.employeeJobStates.fileSha256 !== employeeSha
     || manifest?.domains?.jobStateCodeMetadata?.file !== "job-state-code-metadata.raw.json"
-    || manifest.domains.jobStateCodeMetadata.fileSha256 !== metadataSha) fail("YUZHOU_JOB_STATE_T0_DRIFT");
+    || manifest.domains.jobStateCodeMetadata.fileSha256 !== metadataSha
+    || manifest?.domains?.jobStateCodes?.file !== "job-state-codes.raw.json"
+    || manifest.domains.jobStateCodes.fileSha256 !== codesSha) fail("YUZHOU_JOB_STATE_T0_DRIFT");
   const journalBytes = safeRegularBytes(join(config.target.evidenceRoot, "lifecycle-journal.jsonl"), "YUZHOU_JOB_STATE_JOURNAL_UNSAFE");
   validateCheckpoint(checkpoint, config, manifestSha, extractBindingSha256, sha256(journalBytes));
-  if (!Array.isArray(states) || states.length !== 7) fail("YUZHOU_JOB_STATE_T0_INVALID");
+  if (!Array.isArray(states) || states.length !== 7 || !Array.isArray(codes) || codes.length !== 8) fail("YUZHOU_JOB_STATE_T0_INVALID");
+  const dictionaryByCode = new Map();
+  for (const row of codes) {
+    exactKeys(row, ["sourceCode", "sourceName", "sortOrder", "isEnabled", "defaultCount"], "YUZHOU_JOB_STATE_T0_INVALID");
+    const sourceCode = String(row.sourceCode ?? "").trim(), sourceName = String(row.sourceName ?? "").trim(), normalized = sourceCode.toLowerCase();
+    if (!sourceCode || !sourceName || dictionaryByCode.has(normalized)
+      || !Number.isSafeInteger(row.sortOrder) || !Number.isSafeInteger(row.isEnabled) || !Number.isSafeInteger(row.defaultCount)) {
+      fail("YUZHOU_JOB_STATE_T0_INVALID");
+    }
+    dictionaryByCode.set(normalized, { ...row, sourceCode, sourceName });
+  }
   const rows = [], identities = new Set(), normalizedCodes = new Set();
   let sourceRecordCount = 0;
   for (const row of states) {
     exactKeys(row, ["sourceCode", "usageCount"], "YUZHOU_JOB_STATE_T0_INVALID");
     const sourceCode = String(row.sourceCode ?? "").trim(), normalized = sourceCode.toLowerCase();
-    if (!sourceCode || normalizedCodes.has(normalized) || !Number.isSafeInteger(row.usageCount) || row.usageCount < 1) {
+    const dictionaryRow = dictionaryByCode.get(normalized);
+    if (!sourceCode || normalizedCodes.has(normalized) || !Number.isSafeInteger(row.usageCount) || row.usageCount < 1 || !dictionaryRow) {
       fail("YUZHOU_JOB_STATE_T0_INVALID");
     }
     normalizedCodes.add(normalized);
@@ -262,7 +277,7 @@ function loadT0Context(config, checkpoint, dependencies) {
     identities.add(sourceIdentitySha256);
     rows.push({
       sourceIdentitySha256,
-      sourceRowSha256: canonicalHash({ sourceCode, usageCount: row.usageCount }),
+      sourceRowSha256: canonicalHash({ sourceCode, usageCount: row.usageCount, dictionaryRowSha256: canonicalHash(dictionaryRow) }),
       observedRecordCount: row.usageCount
     });
     sourceRecordCount += row.usageCount;
@@ -272,6 +287,8 @@ function loadT0Context(config, checkpoint, dependencies) {
   const sourceSnapshotSha256 = canonicalHash({
     employeeJobStatesSha256: employeeSha,
     jobStateCodeMetadataSha256: metadataSha,
+    jobStateCodesSha256: codesSha,
+    sourceDictionaryRowCount: codes.length,
     sourceDistinctStateCount: 7,
     sourceRecordCount
   });

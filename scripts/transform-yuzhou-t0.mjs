@@ -48,6 +48,7 @@ for (const domain of domains) {
 for (const dictionary of [
   { name: "employeeJobStates", file: "employee-job-states.raw.json" },
   { name: "jobStateCodeMetadata", file: "job-state-code-metadata.raw.json" },
+  { name: "jobStateCodes", file: "job-state-codes.raw.json" },
 ]) {
   const path=resolve(outputDir,dictionary.file),rows=JSON.parse(readFileSync(path,"utf8"));
   if(!Array.isArray(rows))throw new Error(`${dictionary.name} extraction must be an array`);

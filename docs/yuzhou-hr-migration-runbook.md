@@ -192,7 +192,7 @@ pnpm hr:migration:full:status -- --config '<受控配置.json>'
 
 `prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
-两阶段执行命令如下。三份 review 文件必须是外部 `0600` 非符号链接普通文件；公开 decision/approval 只包含 hash，真实源状态和值与审批主体 UUID 只允许存在于私有 payload。审批必须绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、两份 T0 字典文件 hash 和预期 PostgreSQL items digest：
+两阶段执行命令如下。三份 review 文件必须是外部 `0600` 非符号链接普通文件；公开 decision/approval 只包含 hash，真实源状态和值与审批主体 UUID 只允许存在于私有 payload。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。审批必须绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
 
 ```bash
 pnpm hr:migration:full:provision -- --config '<本轮配置>'
