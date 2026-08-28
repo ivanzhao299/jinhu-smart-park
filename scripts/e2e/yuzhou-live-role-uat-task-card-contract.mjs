@@ -47,5 +47,7 @@ test("the full-domain technical runner provisions separated HR maker/reviewer ac
   assert.match(source, /runYuzhouWorkReportScenario/);
   assert.match(source, /HOLD_PENDING_BROWSER_MATRIX/);
   assert.match(source, /observedChecks:matrixObservations\.length/);
+  assert.doesNotMatch(source, /DELETE FROM sys_user/);
+  assert.match(source, /full lifecycle removes the registered database\/container/);
   assert.doesNotMatch(source, /legacyScorePromotion:"PASS"/);
 });
