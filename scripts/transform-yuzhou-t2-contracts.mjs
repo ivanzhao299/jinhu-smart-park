@@ -1,6 +1,35 @@
 #!/usr/bin/env node
-import{createHash}from"node:crypto";import{readFileSync,writeFileSync}from"node:fs";import{basename,resolve}from"node:path";
-const dir=resolve(process.argv[2]??"");if(!basename(dir).startsWith("staging-"))throw Error("controlled staging directory is required");const sha=v=>createHash("sha256").update(v).digest("hex"),canon=v=>JSON.stringify(v,Object.keys(v).sort()),safe=v=>JSON.stringify(v).replaceAll("\\","\\\\"),read=n=>{const v=JSON.parse(readFileSync(resolve(dir,n),"utf8"));if(!Array.isArray(v))throw Error("extraction must be an array");return v};
-const defs=[{raw:"contract-types.raw.json",out:"contract-types.jsonl",table:"dbo.compacttypecode",key:r=>String(r.typeCode??"").trim()},{raw:"contracts.raw.json",out:"contracts.jsonl",table:"dbo.compact",key:r=>String(r.contractNo??"").trim()},{raw:"contract-changes.raw.json",out:"contract-changes.jsonl",table:"dbo.compact_c",key:r=>`${String(r.contractNo??"").trim()}|${r.sequenceNo}`}],summary={formatVersion:1,generatedAt:new Date().toISOString(),domains:{}};
-for(const d of defs){const seen=new Set(),rows=read(d.raw).map(source=>{const key=d.key(source);if(!key||seen.has(key))throw Error(`${d.table} blank or duplicate key`);seen.add(key);const row={sourceTable:d.table,sourceKey:key,sourceIdentitySha256:sha(`${d.table}\0${key}`),sourceRowSha256:sha(canon(source)),source};if(d.table==="dbo.compact")row.normalizedStatus=source.legacyState==="生效"?"active":source.legacyState==="解除"?"terminated":"needs_review";return row});const p=resolve(dir,d.out);writeFileSync(p,rows.map(safe).join("\n")+"\n",{mode:0o600});summary.domains[d.table]={rows:rows.length,file:d.out,fileSha256:sha(readFileSync(p))}}
-writeFileSync(resolve(dir,"manifest.json"),JSON.stringify(summary,null,2)+"\n",{mode:0o600});
+import {createHash} from "node:crypto";
+import {readFileSync,writeFileSync} from "node:fs";
+import {basename,resolve} from "node:path";
+
+const dir=resolve(process.argv[2]??"");
+if(!basename(dir).startsWith("staging-"))throw Error("controlled staging directory is required");
+const sha=value=>createHash("sha256").update(value).digest("hex");
+const canon=value=>JSON.stringify(value,Object.keys(value).sort());
+const safe=value=>JSON.stringify(value).replaceAll("\\","\\\\");
+const read=name=>{
+  const value=JSON.parse(readFileSync(resolve(dir,name),"utf8"));
+  if(!Array.isArray(value))throw Error("extraction must be an array");
+  return value;
+};
+const defs=[
+  {raw:"contract-types.raw.json",out:"contract-types.jsonl",table:"dbo.compacttypecode",key:row=>String(row.typeCode??"").trim()},
+  {raw:"contracts.raw.json",out:"contracts.jsonl",table:"dbo.compact",key:row=>String(row.contractNo??"").trim()},
+  {raw:"contract-changes.raw.json",out:"contract-changes.jsonl",table:"dbo.compact_c",key:row=>[row.contractNo,row.employeeCode,row.startDate,row.endDate,row.signedAt].map(value=>String(value??"").trim()).join("|")},
+];
+const summary={formatVersion:1,generatedAt:new Date().toISOString(),domains:{}};
+for(const definition of defs){
+  const seen=new Set(),rows=read(definition.raw).map(source=>{
+    const key=definition.key(source);
+    if(!key||seen.has(key))throw Error(`${definition.table} blank or duplicate key`);
+    seen.add(key);
+    return {sourceTable:definition.table,sourceKey:key,sourceIdentitySha256:sha(`${definition.table}\0${key}`),sourceRowSha256:sha(canon(source)),source};
+  });
+  const path=resolve(dir,definition.out);
+  writeFileSync(path,`${rows.map(safe).join("\n")}\n`,{mode:0o600});
+  summary.domains[definition.table]={rows:rows.length,file:definition.out,fileSha256:sha(readFileSync(path))};
+}
+const statePath=resolve(dir,"contract-states.raw.json"),states=read("contract-states.raw.json");
+summary.domains["dbo.compact.state"]={rows:states.length,file:"contract-states.raw.json",fileSha256:sha(readFileSync(statePath))};
+writeFileSync(resolve(dir,"manifest.json"),`${JSON.stringify(summary,null,2)}\n`,{mode:0o600});

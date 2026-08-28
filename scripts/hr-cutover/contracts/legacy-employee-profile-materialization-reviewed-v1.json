@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "mappingKind": "yuzhou_hr_employee_profile_materialization_reviewed",
+  "sourceSystem": "yuzhou-v10",
+  "sourceTables": ["dbo.person.core_residue", "dbo.family", "dbo.knowhow", "dbo.ticket"],
+  "targetTables": ["hr_employee_profile", "hr_employee_family", "hr_employee_skill", "hr_employee_credential"],
+  "identityContract": "legacy_source_identity_sha256_and_employee_map_v1",
+  "employeeMapContract": "active_t0_legacy_record_map_dbo_person_v1",
+  "encryptionKeyContract": "party_data_encryption_key_v1",
+  "mappings": {
+    "person": {
+      "idcard": "protected_id_number",
+      "sex": "gender",
+      "birthday": "date_of_birth",
+      "race": "ethnicity",
+      "nativeplace": "native_place",
+      "political": "political_status",
+      "marital": "marital_status",
+      "health_or_heathy": "health_status",
+      "addr": "address",
+      "tel": "home_phone",
+      "handtel": "personal_mobile",
+      "email": "personal_email",
+      "secedu_or_edu": "highest_education",
+      "speciality": "major",
+      "degree": "degree",
+      "graduatescholl": "graduation_school",
+      "graduatedate": "graduation_date",
+      "language": "foreign_language",
+      "jobtitle": "job_title",
+      "jobgrade": "job_grade"
+    },
+    "family": {"member":"protected_full_name","rela":"relationship","birthday":"birth_date","jobunit":"work_unit","jobname":"job_title","political":"political_status","tel":"protected_contact"},
+    "knowhow": {"knowhow":"skill_name","grade":"legacy_grade_gap","memo":"note"},
+    "ticket": {"ticket":"credential_name","tickettype":"credential_type","ticketno":"protected_number","getdate":"acquired_date","validdate":"valid_to","org":"issuing_authority","memo":"note","ticketfilename":"hashed_file_reference_only"}
+  },
+  "unknownDisposition": "redacted_gap_without_raw_value",
+  "invalidStructuredValueDisposition": "redacted_gap_and_structured_quarantine",
+  "skillGradeDisposition": "UNKNOWN_SKILL_GRADE",
+  "productionImport": "HOLD"
+}

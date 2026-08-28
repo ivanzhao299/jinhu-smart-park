@@ -3,6 +3,7 @@ import type {TenantParkScope} from "@jinhu/shared";
 import {DataSource,EntityManager} from "typeorm";
 import type {JwtPrincipal} from "../../shared/types/jwt-principal";
 import {HrProbationActionDto,HrProbationListDto,HrProbationReviewDto,SaveHrProbationApplicationDto} from "./dto/hr-probation.dto";
+import {firstHrMutationRow} from "./hr-query-result";
 
 type ApplicationRow=Record<string,unknown>&{id:string;application_name:string;applicant_user_id:string;application_date:string;reason:string;status:string};
 type ParticipantRow={id:string;employee_id:string;planned_confirmation_date:string;employee_code?:string;employee_name?:string;status:string};
@@ -66,7 +67,8 @@ export class HrProbationService {
   const employees=await this.assertCurrentProbation(m,s,participants,true),byId=new Map(employees.map(e=>[String(e.id),e]));
   for(const p of participants){
    const employee=byId.get(p.employee_id)!;
-   const updated=(await m.query(`UPDATE hr_employee SET employment_status='active',probation_end_date=$1,update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING id,employee_code,full_name,employment_status,primary_org_id,position_id,hire_date::text hire_date,probation_end_date::text probation_end_date`,[p.planned_confirmation_date,a.sub,p.employee_id]))[0] as Record<string,unknown>;
+   const updated=firstHrMutationRow<Record<string,unknown>>(await m.query(`UPDATE hr_employee SET employment_status='active',probation_end_date=$1,update_by=$2,update_time=now(),version=version+1 WHERE id=$3 RETURNING id,employee_code,full_name,employment_status,primary_org_id,position_id,hire_date::text hire_date,probation_end_date::text probation_end_date`,[p.planned_confirmation_date,a.sub,p.employee_id]));
+   if(!updated)throw new ConflictException("Employee changed concurrently");
    await m.query(`INSERT INTO hr_employment_event(tenant_id,park_id,employee_id,event_type,effective_date,before_snapshot,after_snapshot,reason,status,create_by,update_by) VALUES($1,$2,$3,'confirm_employment',$4,$5,$6,$7,'effective',$8,$8)`,[s.tenantId,s.parkId,p.employee_id,p.planned_confirmation_date,JSON.stringify(employee),JSON.stringify(updated),`转正申请 ${row.application_name} 审批确认`,a.sub]);
    await m.query(`UPDATE hr_probation_application_employee SET status='confirmed',confirmed_date=$1,update_by=$2,update_time=now(),version=version+1 WHERE id=$3`,[p.planned_confirmation_date,a.sub,p.id]);
   }

@@ -19,8 +19,8 @@ const readArray = (name) => {
 };
 
 const typeRows = readArray("employment-event-types.raw.json").sort((a, b) => String(a.legacyType).localeCompare(String(b.legacyType), "zh-CN"));
+const stateRows = readArray("employment-event-states.raw.json").sort((a, b) => String(a.sourceValue ?? "").localeCompare(String(b.sourceValue ?? ""), "zh-CN"));
 const eventRows = readArray("employment-events.raw.json").sort((a, b) => Number(a.legacyId) - Number(b.legacyId));
-const typeMap = new Map([["就职", "hire"], ["调职", "transfer"], ["离职", "departure"], ["复职", "resume"]]);
 const seenIds = new Set();
 const seenNos = new Set();
 const events = eventRows.map((source) => {
@@ -30,33 +30,32 @@ const events = eventRows.map((source) => {
   if (!eventNo || seenNos.has(eventNo)) throw new Error("employment events have blank or duplicate event number");
   seenIds.add(sourceKey);
   seenNos.add(eventNo);
-  const normalizedEventType = typeMap.get(String(source.legacyEventType ?? "").trim()) ?? "legacy_unknown";
   const sourceTable = "dbo.readjust";
   return {
     sourceTable,
     sourceKey,
     sourceIdentitySha256: sha256(`${sourceTable}\u0000${sourceKey}`),
     sourceRowSha256: sha256(canonical(source)),
-    normalizedEventType,
-    migrationDecision: normalizedEventType === "legacy_unknown" ? "needs_review" : "accepted",
     source,
   };
 });
 const types = typeRows.map((source) => ({
   legacyType: String(source.legacyType ?? "").trim(),
   legacyCode: source.legacyCode == null ? null : String(source.legacyCode),
-  normalizedEventType: typeMap.get(String(source.legacyType ?? "").trim()) ?? null,
 }));
 const eventPath = resolve(outputDir, "employment-events.jsonl");
 const typePath = resolve(outputDir, "employment-event-types.json");
+const statePath = resolve(outputDir, "employment-event-states.json");
 writeFileSync(eventPath, `${events.map(copySafeJson).join("\n")}\n`, { mode: 0o600 });
 writeFileSync(typePath, `${JSON.stringify(types, null, 2)}\n`, { mode: 0o600 });
+writeFileSync(statePath, `${JSON.stringify(stateRows, null, 2)}\n`, { mode: 0o600 });
 const summary = {
   formatVersion: 1,
   generatedAt: new Date().toISOString(),
   domains: {
     employmentEvents: { rows: events.length, file: "employment-events.jsonl", fileSha256: sha256(readFileSync(eventPath)) },
     employmentEventTypes: { rows: types.length, file: "employment-event-types.json", fileSha256: sha256(readFileSync(typePath)) },
+    employmentEventStates: { rows: stateRows.length, file: "employment-event-states.json", fileSha256: sha256(readFileSync(statePath)) },
   },
 };
 writeFileSync(resolve(outputDir, "manifest.json"), `${JSON.stringify(summary, null, 2)}\n`, { mode: 0o600 });

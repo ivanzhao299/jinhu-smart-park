@@ -53,6 +53,8 @@ test("talent sources and judgments are frozen or append-only", () => {
   assert.match(migration, /hr_talent_decision_insert_guard/);
   assert.match(migration, /hr_succession_insert_guard/);
   assert.match(migration, /hr_development_action_insert_guard/);
+  assert.equal((service.match(/SELECT \$1::varchar,\$2::varchar,\$3::uuid/g) ?? []).length, 4);
+  assert.match(service, /p\.tenant_id=\$1::varchar AND p\.park_id=\$2::varchar/);
 });
 test("development actions enter the shared privacy-safe Workflow Inbox", () => {
   assert.match(notification, /publishDevelopmentAction/);

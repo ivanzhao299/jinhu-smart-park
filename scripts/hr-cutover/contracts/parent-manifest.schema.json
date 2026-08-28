@@ -146,7 +146,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["type", "planned", "observed", "removed", "residualCount"],
       "properties": {
-        "type": { "enum": ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"] },
+        "type": { "enum": ["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"] },
         "planned": { "type": "string", "minLength": 1 }, "observed": { "type": ["string", "null"] },
         "removed": { "type": "boolean" }, "residualCount": { "type": "integer", "minimum": 0 }
       }

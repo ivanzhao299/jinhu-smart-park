@@ -11,7 +11,7 @@ test("onboarding API separates manage, review and confirmation permissions",()=>
  assert.match(controller,/@Controller\("hr\/onboarding-applications"\)/);
  assert.match(controller,/HR_ONBOARDING_READ/);
  assert.match(controller,/HR_ONBOARDING_MANAGE/);
- assert.match(controller,/HR_APPROVAL_REVIEW/);
+ assert.match(controller,/HR_APPROVAL_PARK_REVIEW/);
  assert.match(controller,/HR_EMPLOYMENT_TRANSITION/);
  assert.equal((controller.match(/@UseInterceptors\(new IdempotencyInterceptor\(\)\)/g)??[]).length,5);
  assert.equal((controller.match(/captureBody:false/g)??[]).length,5);
@@ -26,6 +26,8 @@ test("onboarding confirmation is locked, atomic and cannot precede approval",()=
  assert.match(service,/INSERT INTO hr_employment_event/);
  assert.match(service,/UPDATE hr_onboarding_application SET status='confirmed'/);
  assert.match(service,/Applicants cannot review their own onboarding application/);
+ assert.match(service,/SELECT \$1::varchar,\$2::varchar,\$3::uuid,COALESCE\(MAX\(sequence_no\),0\)\+1/);
+ assert.match(service,/WHERE tenant_id=\$1::varchar AND park_id=\$2::varchar AND application_id=\$3::uuid/);
 });
 
 test("database owns Yuzhou compatibility uniqueness and append-only evidence",()=>{

@@ -43,9 +43,11 @@ function configFor(rehearsal, suffix, ports) {
   const etlEnv = join(credentialRoot, "etl.env");
   const t4File = join(credentialRoot, "t4-evidence.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
+  const materializationKey = join(credentialRoot, "materialization.key");
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
+  writeFileSync(materializationKey, "fixture-materialization-key-32-bytes-minimum\n", { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
   return {
     formatVersion: 1,
@@ -70,6 +72,7 @@ function configFor(rehearsal, suffix, ports) {
       evidenceRoot: join(targetRoot, "evidence"),
       fileRoot: join(targetRoot, "files"),
       credentialArtifact: postgresEnv,
+      materializationKeyArtifact: materializationKey,
       auditBundle: join(credentialRoot, "cleanup-audit.json")
     },
     adapterEnv
@@ -89,6 +92,9 @@ try {
   assert.match(lifecycleSource, /consecutiveReady >= 3/u, "lab provisioning must require stable PostgreSQL readiness");
   assert.match(lifecycleSource, /failures\.length === 1 && failures\[0\] === "\[FAIL\] no bootstrap admin found"/u, "only the pre-UAT missing-admin baseline gap may be staged");
   assert.match(lifecycleSource, /ports\.some\(portBusy\)/u, "cleanup must wait for exact loopback port release before residual verification");
+  assert.match(lifecycleSource, /type: "network", planned: `\$\{t\.composeProject\}_default`/u, "Compose network must be a first-class planned resource");
+  assert.match(lifecycleSource, /\["network", "inspect", entry\.planned\]/u, "network residual verification must inspect the exact planned identity");
+  assert.match(lifecycleSource, /\["network", "rm", entry\.planned\]/u, "cleanup must remove the exact registered Compose network");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
@@ -100,7 +106,7 @@ try {
   assert.equal(packageStyleStatus.status, 0, packageStyleStatus.stderr);
   assert.equal(JSON.parse(packageStyleStatus.stdout).state, null);
 
-  assert.deepEqual(STATES, ["planned", "provisioned", "extracting", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"]);
+  assert.deepEqual(STATES, ["planned", "provisioned", "extracting", "review_hold", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"]);
   assert.deepEqual(DOMAIN_ORDER, ["T0", "T1", "T2", "T3", "T4", "T5"]);
   assert.deepEqual(ROLLBACK_ORDER, [...DOMAIN_ORDER].reverse());
   assert.equal(compareIsolation(configA, configB).ok, true);
@@ -169,8 +175,10 @@ try {
   assert.equal(currentState(configA), "verifying");
 
   const auditA = JSON.parse(readFileSync(configA.target.auditBundle, "utf8"));
+  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 2, "PostgreSQL and materialization credentials must both be registered");
+  assert(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").every((entry) => entry.removed && entry.residualCount === 0));
   const journal = auditA.journal;
-  assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 5));
+  assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 6));
   assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "extract").map((row) => row.domain), DOMAIN_ORDER);
   assert.deepEqual(journal.filter((row) => row.kind === "child" && row.phase === "load").map((row) => row.domain), DOMAIN_ORDER);
   assert.equal(journal.find((row) => row.kind === "verification")?.qualifiesForUatReady, false);
@@ -246,6 +254,10 @@ try {
 
   const source = readFileSync(lifecyclePath, "utf8");
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) assert(source.includes(`process.once(\"${signal}\"`), `${signal} trap missing`);
+  assert(
+    source.indexOf('if (args.command === "resume") installSignalCleanup(config);') < source.lastIndexOf("acquireOperationLock(config, configPath, args.command"),
+    "resume signal recovery must be installed before the operation lock can be created"
+  );
   for (const gate of ['["context", "inspect"', '["inspect", t.postgresContainer]', '["volume", "inspect", t.volume]']) assert(source.includes(gate), `lab pre-write resource gate missing: ${gate}`);
   assert(!source.includes("production import"));
   console.log("Yuzhou full-domain Slice 2 lifecycle contract passed (fixture provision/verification-stop/recovery/residual and negative gates).");

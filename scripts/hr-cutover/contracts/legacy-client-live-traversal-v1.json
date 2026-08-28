@@ -14,6 +14,13 @@
     "rules": 212,
     "helpTopics": 46
   },
+  "atomicInventoryContract": {
+    "path": "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json",
+    "canonicalSha256": "37b03935c1efb9f3bac64e4557b305ac05f483d574133e68bc9752a7bfd9e25b",
+    "entries": 83,
+    "desktopClientEntries": 68,
+    "groupWebEntries": 15
+  },
   "security": {
     "credentialsRecorded": false,
     "personalValuesRecorded": false,

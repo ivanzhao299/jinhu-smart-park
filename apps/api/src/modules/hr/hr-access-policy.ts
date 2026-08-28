@@ -1,10 +1,13 @@
-import { HR_PERMISSIONS } from "@jinhu/shared";
+import { HR_ACCESS_MATRIX,HR_PERMISSIONS,resolveHrAccessScope,type HrAccessScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import type { HrEmployeeProfileEntity } from "./entities/hr.entities";
 import type { HrApprovalRequestEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 
-export type HrEmployeeAccessScope = "park" | "managed_org_tree" | "self" | "none";
+export type HrEmployeeAccessScope = HrAccessScope;
+export type HrApprovalReviewAccessScope = Exclude<HrAccessScope,"self">;
 export interface HrContractAccessScope { park:boolean;managedOrgTree:boolean;self:boolean; }
+export type HrEmployeeProfileProjectionMode="full"|"masked"|"self_masked";
+export interface HrEmployeeProfileAccess {scope:HrEmployeeAccessScope;projection:HrEmployeeProfileProjectionMode|null;}
 
 export const HR_MANAGED_EMPLOYEE_IDS_SQL=`WITH RECURSIVE managed_org AS (
  SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$3 AND is_deleted=false AND status='enabled'
@@ -22,26 +25,26 @@ export interface HrEmployeeProfileProjection {
   idType: string | null;
   idNumber?: string | null;
   idNumberMasked: string | null;
-  englishName: string | null;
-  gender: string | null;
-  dateOfBirth: string | null;
-  ethnicity: string | null;
-  nativePlace: string | null;
-  politicalStatus: string | null;
-  partyJoinDate: string | null;
-  heightCm: string | null;
-  weightKg: string | null;
-  maritalStatus: string | null;
-  healthStatus: string | null;
-  householdRegistration: string | null;
-  highestEducation: string | null;
-  major: string | null;
-  degree: string | null;
-  foreignLanguage: string | null;
-  languageLevel: string | null;
-  graduationDate: string | null;
-  graduationSchool: string | null;
-  homePhone: string | null;
+  englishName?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  ethnicity?: string | null;
+  nativePlace?: string | null;
+  politicalStatus?: string | null;
+  partyJoinDate?: string | null;
+  heightCm?: string | null;
+  weightKg?: string | null;
+  maritalStatus?: string | null;
+  healthStatus?: string | null;
+  householdRegistration?: string | null;
+  highestEducation?: string | null;
+  major?: string | null;
+  degree?: string | null;
+  foreignLanguage?: string | null;
+  languageLevel?: string | null;
+  graduationDate?: string | null;
+  graduationSchool?: string | null;
+  homePhone?: string | null;
   jobTitle: string | null;
   jobGrade: string | null;
   employeeCategory: string | null;
@@ -52,7 +55,7 @@ export interface HrEmployeeProfileProjection {
   address: string | null;
   emergencyContactName: string | null;
   emergencyContactMobile: string | null;
-  remark: string | null;
+  remark?: string | null;
   masked: boolean;
 }
 
@@ -94,7 +97,7 @@ export function projectHrPayrollRun(row: HrPayrollRunEntity) {
 
 export function projectHrPayslip(row: HrPayslipEntity, selfOnly: boolean) {
   const base={id:row.id,runId:row.runId,grossAmount:row.grossAmount,deductionAmount:row.deductionAmount,personalTax:row.personalTax,netAmount:row.netAmount,status:row.status,createTime:row.createTime};
-  return selfOnly?base:{...base,employeeId:row.employeeId,compensationSnapshot:row.compensationSnapshot};
+  return selfOnly?base:{...base,employeeId:row.employeeId};
 }
 
 export function projectHrApproval(row: HrApprovalRequestEntity) {
@@ -103,19 +106,22 @@ export function projectHrApproval(row: HrApprovalRequestEntity) {
 }
 
 export function resolveHrEmployeeAccessScope(actor: JwtPrincipal): HrEmployeeAccessScope {
-  if (actor.isSuper || actor.permissions.includes("*") || actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_READ)) {
-    return "park";
+  return resolveHrAccessScope("employee",actor);
+}
+
+export function resolveHrApprovalReviewAccessScope(actor:JwtPrincipal):HrApprovalReviewAccessScope {
+  return resolveHrAccessScope("approval_review",actor) as HrApprovalReviewAccessScope;
+}
+
+export function resolveHrEmployeeProfileAccess(actor:JwtPrincipal):HrEmployeeProfileAccess {
+  const scope=resolveHrAccessScope("employee_profile",actor);
+  if(scope==="none")return {scope,projection:null};
+  if(scope==="park"){
+    const canReadFull=actor.isSuper||actor.permissions.includes("*")||actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE);
+    return {scope,projection:canReadFull?"full":"masked"};
   }
-  if (
-    actor.permissions.includes(HR_PERMISSIONS.HR_WORK_REPORT_TEAM_REVIEW) ||
-    actor.permissions.includes(HR_PERMISSIONS.HR_PERFORMANCE_MANAGER_REVIEW)
-  ) {
-    return "managed_org_tree";
-  }
-  if (actor.permissions.includes(HR_PERMISSIONS.HR_EMPLOYEE_SELF_READ)) {
-    return "self";
-  }
-  return "none";
+  if(scope===HR_ACCESS_MATRIX.DEPARTMENT_MANAGER.employeeScope)return {scope,projection:HR_ACCESS_MATRIX.DEPARTMENT_MANAGER.sensitiveProfile};
+  return {scope,projection:HR_ACCESS_MATRIX.EMPLOYEE_SELF_SERVICE.sensitiveProfile};
 }
 
 export function resolveHrContractAccessScope(actor:JwtPrincipal):HrContractAccessScope {
@@ -161,46 +167,37 @@ export function isHrEmployeeIdAccessible(
 
 export function projectHrEmployeeProfile(
   profile: HrEmployeeProfileEntity | null,
-  canReadFull: boolean
+  projection: HrEmployeeProfileProjectionMode
 ): HrEmployeeProfileProjection | null {
   if (!profile) return null;
-  return {
+  const full=projection==="full";
+  const base={
     id: profile.id,
     employeeId: profile.employeeId,
     idType: profile.idType,
     idNumberMasked: maskIdentity(profile.idNumberMasked),
-    englishName: canReadFull ? profile.englishName??null : null,
-    gender: canReadFull ? profile.gender??null : null,
-    dateOfBirth: canReadFull ? profile.dateOfBirth??null : null,
-    ethnicity: canReadFull ? profile.ethnicity??null : null,
-    nativePlace: canReadFull ? profile.nativePlace??null : null,
-    politicalStatus: canReadFull ? profile.politicalStatus??null : null,
-    partyJoinDate: canReadFull ? profile.partyJoinDate??null : null,
-    heightCm: canReadFull ? profile.heightCm??null : null,
-    weightKg: canReadFull ? profile.weightKg??null : null,
-    maritalStatus: canReadFull ? profile.maritalStatus??null : null,
-    healthStatus: canReadFull ? profile.healthStatus??null : null,
-    householdRegistration: canReadFull ? profile.householdRegistration??null : null,
-    highestEducation: canReadFull ? profile.highestEducation??null : null,
-    major: canReadFull ? profile.major??null : null,
-    degree: canReadFull ? profile.degree??null : null,
-    foreignLanguage: canReadFull ? profile.foreignLanguage??null : null,
-    languageLevel: canReadFull ? profile.languageLevel??null : null,
-    graduationDate: canReadFull ? profile.graduationDate??null : null,
-    graduationSchool: canReadFull ? profile.graduationSchool??null : null,
-    homePhone: canReadFull ? profile.homePhone??null : maskPhone(profile.homePhone??null),
     jobTitle: profile.jobTitle??null,
     jobGrade: profile.jobGrade??null,
     employeeCategory: profile.employeeCategory??null,
     technicalTitle: profile.technicalTitle??null,
     technicalGrade: profile.technicalGrade??null,
-    personalMobile: canReadFull ? profile.personalMobile : maskPhone(profile.personalMobile),
-    personalEmail: canReadFull ? profile.personalEmail : maskEmail(profile.personalEmail),
-    address: canReadFull ? profile.address : profile.address ? "***" : null,
-    emergencyContactName: canReadFull ? profile.emergencyContactName : maskName(profile.emergencyContactName),
-    emergencyContactMobile: canReadFull ? profile.emergencyContactMobile : maskPhone(profile.emergencyContactMobile),
-    remark: canReadFull ? profile.remark : null,
-    masked: !canReadFull
+    personalMobile: full ? profile.personalMobile : maskPhone(profile.personalMobile),
+    personalEmail: full ? profile.personalEmail : maskEmail(profile.personalEmail),
+    address: full ? profile.address : profile.address ? "***" : null,
+    emergencyContactName: full ? profile.emergencyContactName : maskName(profile.emergencyContactName),
+    emergencyContactMobile: full ? profile.emergencyContactMobile : maskPhone(profile.emergencyContactMobile),
+    masked: !full,
+  };
+  if(!full)return base;
+  return {...base,
+    englishName:profile.englishName??null,gender:profile.gender??null,dateOfBirth:profile.dateOfBirth??null,
+    ethnicity:profile.ethnicity??null,nativePlace:profile.nativePlace??null,politicalStatus:profile.politicalStatus??null,
+    partyJoinDate:profile.partyJoinDate??null,heightCm:profile.heightCm??null,weightKg:profile.weightKg??null,
+    maritalStatus:profile.maritalStatus??null,healthStatus:profile.healthStatus??null,
+    householdRegistration:profile.householdRegistration??null,highestEducation:profile.highestEducation??null,
+    major:profile.major??null,degree:profile.degree??null,foreignLanguage:profile.foreignLanguage??null,
+    languageLevel:profile.languageLevel??null,graduationDate:profile.graduationDate??null,
+    graduationSchool:profile.graduationSchool??null,homePhone:profile.homePhone??null,remark:profile.remark??null,
   };
 }
 

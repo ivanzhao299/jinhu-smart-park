@@ -4,6 +4,7 @@ import { DataSource,EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { AuditService } from "../audit/audit.service";
 import { HrJobChangeActionDto,HrJobChangeListDto,HrJobChangeReviewDto,SaveHrJobChangeDto } from "./dto/hr-job-change.dto";
+import { firstHrMutationRow } from "./hr-query-result";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 
 type Access="park"|"managed_org_tree"|"self"|"none";
@@ -64,7 +65,7 @@ export class HrJobChangeService {
  async apply(s:TenantParkScope,a:JwtPrincipal,id:string){try{return await this.db.transaction(async m=>{
   const row=await this.lock(m,s,id);if(row.status!=="approved")throw new ConflictException("Only approved job-change applications can be applied");if(row.effective_date>new Date().toISOString().slice(0,10))throw new ConflictException("A future-dated job change cannot be applied yet");
   const employee=(await m.query(`SELECT id,employee_code,full_name,primary_org_id,position_id,employment_status FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND id=$3 AND is_deleted=false FOR UPDATE`,[s.tenantId,s.parkId,row.subject_employee_id]))[0] as Record<string,unknown>|undefined;if(!employee)throw new NotFoundException("Employee not found");if(employee.primary_org_id!==row.before_org_id||employee.position_id!==row.before_position_id)throw new ConflictException("Employee organization or position changed after approval; return and refresh the application");
-  await this.assertTarget(m,s,row.after_org_id,row.after_position_id);const updateResult=await m.query(`UPDATE hr_employee SET primary_org_id=$1,position_id=$2,update_by=$3,update_time=now(),version=version+1 WHERE id=$4 RETURNING id,employee_code,full_name,primary_org_id,position_id,employment_status`,[row.after_org_id,row.after_position_id,a.sub,row.subject_employee_id]),updated=Array.isArray(updateResult[0])?updateResult[0][0]:updateResult[0];
+  await this.assertTarget(m,s,row.after_org_id,row.after_position_id);const updated=firstHrMutationRow<Record<string,unknown>>(await m.query(`UPDATE hr_employee SET primary_org_id=$1,position_id=$2,update_by=$3,update_time=now(),version=version+1 WHERE id=$4 RETURNING id,employee_code,full_name,primary_org_id,position_id,employment_status`,[row.after_org_id,row.after_position_id,a.sub,row.subject_employee_id]));if(!updated)throw new ConflictException("Employee changed concurrently");
   const event=(await m.query(`INSERT INTO hr_employment_event(tenant_id,park_id,employee_id,event_no,event_type,effective_date,before_snapshot,after_snapshot,reason,status,is_historical_import,create_by,update_by) VALUES($1,$2,$3,$4,'transfer',$5,$6,$7,$8,'effective',false,$9,$9) RETURNING id`,[s.tenantId,s.parkId,row.subject_employee_id,row.application_no,row.effective_date,JSON.stringify(employee),JSON.stringify(updated),String(row.reason??"").slice(0,500),a.sub]))[0];
   await m.query(`UPDATE hr_job_change_application SET status='applied',applied_by=$1,applied_at=now(),employment_event_id=$2,update_by=$1,update_time=now(),version=version+1 WHERE id=$3`,[a.sub,event.id,id]);await this.append(m,s,id,"applied","approved","applied",a.sub,null);return this.detail(m,s,id);
  });}catch(e){this.translate(e);}}

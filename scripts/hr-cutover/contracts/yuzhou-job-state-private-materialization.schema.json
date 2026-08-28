@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-private-materialization.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "kind", "canonicalDecisionSha256", "payloadSha256", "dictionaryVersionId", "expectedDatabaseItemsSha256", "csm", "t0Binding", "scope", "dictionaryEvidenceSha256", "decisionSubject", "approvalSubject", "items"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "kind": { "const": "yuzhou-job-state-private-materialization" },
+    "canonicalDecisionSha256": { "$ref": "#/$defs/sha" },
+    "payloadSha256": { "$ref": "#/$defs/sha" },
+    "dictionaryVersionId": { "type": "string", "format": "uuid" },
+    "expectedDatabaseItemsSha256": { "$ref": "#/$defs/sha" },
+    "csm": { "type": "object", "additionalProperties": false, "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "properties": { "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sourceSnapshotHash": { "$ref": "#/$defs/sha" }, "mappingContractHash": { "$ref": "#/$defs/sha" } } },
+    "t0Binding": { "type": "object", "additionalProperties": false, "required": ["manifestSha256", "employeeJobStatesSha256", "jobStateCodeMetadataSha256"], "properties": { "manifestSha256": { "$ref": "#/$defs/sha" }, "employeeJobStatesSha256": { "$ref": "#/$defs/sha" }, "jobStateCodeMetadataSha256": { "$ref": "#/$defs/sha" } } },
+    "scope": { "type": "object", "additionalProperties": false, "required": ["tenantId", "parkId", "tenantIdentitySha256", "parkIdentitySha256"], "properties": { "tenantId": { "const": "10000001" }, "parkId": { "const": "20000001" }, "tenantIdentitySha256": { "$ref": "#/$defs/sha" }, "parkIdentitySha256": { "$ref": "#/$defs/sha" } } },
+    "dictionaryEvidenceSha256": { "$ref": "#/$defs/sha" },
+    "decisionSubject": { "type": "string", "format": "uuid" },
+    "approvalSubject": { "type": "string", "format": "uuid" },
+    "items": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/item" } }
+  },
+  "$defs": {
+    "sha": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "item": { "type": "object", "additionalProperties": false, "required": ["id", "sourceCode", "sourceName", "sourceValue", "sourceIdentitySha256", "sourceRowSha256"], "properties": { "id": { "type": "string", "format": "uuid" }, "sourceCode": { "type": "string", "minLength": 1, "pattern": ".*\\S.*" }, "sourceName": { "type": "null" }, "sourceValue": { "type": "null" }, "sourceIdentitySha256": { "$ref": "#/$defs/sha" }, "sourceRowSha256": { "$ref": "#/$defs/sha" } } }
+  }
+}

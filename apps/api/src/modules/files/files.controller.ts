@@ -15,11 +15,11 @@ import {
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ClsService } from "nestjs-cls";
 import type { Response } from "express";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { HR_PERMISSIONS,SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
 import { AuditLog } from "../audit/decorators/audit-log.decorator";
 import { CurrentScope } from "../../shared/decorators/current-scope.decorator";
 import { CurrentUser } from "../../shared/decorators/current-user.decorator";
-import { RequirePermissions } from "../../shared/decorators/permissions.decorator";
+import { RequireAnyPermissions } from "../../shared/decorators/permissions.decorator";
 import { Public } from "../../shared/decorators/public.decorator";
 import { SkipResponseWrap } from "../../shared/decorators/skip-response-wrap.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -29,6 +29,24 @@ import { FilesService } from "./files.service";
 import { type UploadedFilePayload } from "./files.service";
 import { IdempotencyInterceptor } from "../../shared/interceptors/idempotency.interceptor";
 
+export function buildDownloadResponseHeaders(file: { mimeType: string; fileSize: string; originalName: string }) {
+  const mimeType=/^[\w.+-]+\/[\w.+-]+$/u.test(file.mimeType)?file.mimeType:"application/octet-stream";
+  const fileSize=/^\d+$/u.test(file.fileSize)?file.fileSize:"0";
+  return {
+    "Content-Type":mimeType,
+    "Content-Length":fileSize,
+    "Content-Disposition":`attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
+  } as const;
+}
+
+const HR_FILE_READ_PERMISSIONS=[
+  HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_READ,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_TEAM_READ,HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_SELF_READ,
+  HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_DOCUMENT_READ,HR_PERMISSIONS.HR_LIFECYCLE_DOCUMENT_READ,
+  HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_READ,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_TEAM_READ,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_SELF_READ,
+  HR_PERMISSIONS.HR_RECRUITMENT_DOCUMENT_READ,HR_PERMISSIONS.HR_TRAINING_DOCUMENT_READ,HR_PERMISSIONS.HR_REWARD_DOCUMENT_READ,
+] as const;
+const HR_FILE_MANAGE_PERMISSIONS=[HR_PERMISSIONS.HR_EMPLOYEE_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_EMPLOYEE_CREDENTIAL_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_LIFECYCLE_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_CONTRACT_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_RECRUITMENT_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_TRAINING_DOCUMENT_MANAGE,HR_PERMISSIONS.HR_REWARD_DOCUMENT_MANAGE] as const;
+
 @Controller("files")
 export class FilesController {
   constructor(
@@ -37,7 +55,7 @@ export class FilesController {
   ) {}
 
   @Post()
-  @RequirePermissions(SYSTEM_PERMISSIONS.FILE_UPLOAD)
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.FILE_UPLOAD,...HR_FILE_MANAGE_PERMISSIONS)
   @AuditLog({ module: "附件中心", resource: "system.file", action: "附件上传", captureBody: false })
   @UseInterceptors(
     FileInterceptor("file", { limits: { fileSize: 100 * 1024 * 1024 } }),
@@ -53,7 +71,7 @@ export class FilesController {
   }
 
   @Get()
-  @RequirePermissions(SYSTEM_PERMISSIONS.FILE_READ)
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.FILE_READ,...HR_FILE_READ_PERMISSIONS)
   list(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -68,15 +86,16 @@ export class FilesController {
   @Header("Cache-Control", "public, max-age=3600, stale-while-revalidate=86400")
   async publicBrandLogo(@Param("id") id: string, @Res({ passthrough: true }) response: Response) {
     const result = await this.filesService.preparePublicBrandLogo(id);
+    const stream=await this.filesService.openReadStream(result.absolutePath);
     response.setHeader("Content-Type", result.file.mimeType);
     response.setHeader("Content-Length", result.file.fileSize);
     response.setHeader("Content-Disposition", "inline");
     response.setHeader("X-Content-Type-Options", "nosniff");
-    return new StreamableFile(this.filesService.createReadStream(result.absolutePath));
+    return new StreamableFile(stream);
   }
 
   @Get(":id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.FILE_READ)
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.FILE_READ,...HR_FILE_READ_PERMISSIONS)
   detail(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() user: JwtPrincipal,
@@ -86,7 +105,7 @@ export class FilesController {
   }
 
   @Get(":id/download")
-  @RequirePermissions(SYSTEM_PERMISSIONS.FILE_DOWNLOAD)
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.FILE_DOWNLOAD,...HR_FILE_READ_PERMISSIONS)
   @SkipResponseWrap()
   @Header("Cache-Control", "private, max-age=60")
   async download(
@@ -95,21 +114,17 @@ export class FilesController {
     @Param("id") id: string,
     @Res({ passthrough: true }) response: Response
   ) {
-    const result = await this.filesService.prepareDownload(scope, user, id);
-    await this.filesService.recordDownload(
-      scope,
-      { id: user.sub, username: user.username, realName: user.realName, roles: user.roles },
-      result.file,
-      this.cls.getId() ?? null
-    );
-    response.setHeader("Content-Type", result.file.mimeType);
-    response.setHeader("Content-Length", result.file.fileSize);
-    response.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(result.file.originalName)}"`);
-    return new StreamableFile(this.filesService.createReadStream(result.absolutePath));
+    const result = await this.filesService.prepareAuditedDownload(scope,user,id,this.cls.getId()??null);
+    const stream=await this.filesService.openReadStream(result.absolutePath);
+    const headers=buildDownloadResponseHeaders(result.file);
+    response.setHeader("Content-Type",headers["Content-Type"]);
+    response.setHeader("Content-Length",headers["Content-Length"]);
+    response.setHeader("Content-Disposition",headers["Content-Disposition"]);
+    return new StreamableFile(stream);
   }
 
   @Delete(":id")
-  @RequirePermissions(SYSTEM_PERMISSIONS.FILE_DELETE)
+  @RequireAnyPermissions(SYSTEM_PERMISSIONS.FILE_DELETE,...HR_FILE_MANAGE_PERMISSIONS)
   @AuditLog({ module: "附件中心", resource: "system.file", action: "附件删除", bizType: "file", bizIdParam: "id" })
   remove(@CurrentScope() scope: TenantParkScope, @CurrentUser() user: JwtPrincipal, @Param("id") id: string) {
     return this.filesService.softDeleteForActor(scope, user, id);

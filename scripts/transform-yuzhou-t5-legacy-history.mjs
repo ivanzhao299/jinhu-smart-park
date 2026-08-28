@@ -1,11 +1,30 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
-import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { createCipheriv,createHash,createHmac } from "node:crypto";
+import { chmodSync, existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
 const dir=resolve(process.argv[2]??"");
 if(!basename(dir).startsWith("staging-")) throw Error("controlled staging directory is required");
 const sha=value=>createHash("sha256").update(value).digest("hex");
+const keyFile=process.env.YUZHOU_PARTY_DATA_KEY_FILE??"";
+const keyFileMode=path=>(statSync(path).mode&0o777).toString(8).padStart(4,"0");
+if(keyFile&&(!existsSync(keyFile)||lstatSync(keyFile).isSymbolicLink()||!statSync(keyFile).isFile()||keyFileMode(keyFile)!=="0600"))throw Error("YUZHOU_PARTY_DATA_KEY_FILE must be a non-symlink 0600 regular file");
+const materializationSeed=keyFile?readFileSync(realpathSync(keyFile),"utf8").trim():process.env.PARTY_DATA_ENCRYPTION_KEY??"";
+const mappingContractPath=resolve(import.meta.dirname,"hr-cutover/contracts/legacy-employee-profile-materialization-reviewed-v1.json"),mappingContractSha256=sha(readFileSync(mappingContractPath));
+if(mappingContractSha256!=="0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3")throw Error("reviewed employee mapping contract drift");
+const materializationKey=materializationSeed?createHash("sha256").update(materializationSeed).digest():null;
+if(Buffer.byteLength(materializationSeed,"utf8")<32)throw Error("party data materialization key must contain at least 32 bytes");
+const text=value=>value===null||value===undefined?null:String(value).trim()||null;
+const protect=(value,context)=>{const normalized=text(value);if(!normalized)return {encrypted:null,masked:null,fingerprint:null};if(!materializationKey)throw Error("PARTY_DATA_ENCRYPTION_KEY is required for protected employee materialization");const iv=createHmac("sha256",materializationKey).update(`yuzhou-materialization-v1\0${context}\0${normalized}`).digest().subarray(0,12),cipher=createCipheriv("aes-256-gcm",materializationKey,iv),encrypted=Buffer.concat([cipher.update(normalized,"utf8"),cipher.final()]);return {encrypted:`enc:v1:${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}`,masked:normalized.length<=4?"*".repeat(normalized.length):`${normalized.slice(0,2)}${"*".repeat(Math.min(12,normalized.length-4))}${normalized.slice(-2)}`,fingerprint:`hmac256:${createHmac("sha256",materializationKey).update(normalized).digest("hex")}`};};
+const structuredDate=(value,fieldLocator,gaps)=>{const normalized=text(value);if(!normalized)return null;const match=/^(\d{4})-(\d{2})-(\d{2})/.exec(normalized);if(!match){gaps.push({fieldLocator,reasonCode:"INVALID_STRUCTURED_VALUE"});return null;}const canonical=`${match[1]}-${match[2]}-${match[3]}`,date=new Date(`${canonical}T00:00:00.000Z`);if(Number.isNaN(date.valueOf())||date.toISOString().slice(0,10)!==canonical){gaps.push({fieldLocator,reasonCode:"INVALID_STRUCTURED_VALUE"});return null;}return canonical;};
+const profileKnown=new Set(["id","person","name","department","job","jobstate","injobdate","formaldate","awaydate","idcard","sex","birthday","race","nativeplace","political","marital","health","heathy","addr","tel","handtel","email","edu","secedu","speciality","degree","graduatescholl","graduatedate","language","jobtitle","jobgrade","password","photo"]);
+const materialize=(name,row)=>{
+  if(name==="person_core"){const gaps=Object.keys(row).filter(key=>!profileKnown.has(key)&&row[key]!==null).sort().map(key=>({fieldLocator:`person.${key}`,reasonCode:"UNKNOWN_FIELD_SEMANTICS"})),id=protect(row.idcard,`person:${row.id}:idcard`);return {kind:"profile",disposition:"loaded",idType:id.encrypted?"resident_id":null,idNumber:id,gender:text(row.sex),dateOfBirth:structuredDate(row.birthday,"person.birthday",gaps),ethnicity:text(row.race),nativePlace:text(row.nativeplace),politicalStatus:text(row.political),maritalStatus:text(row.marital),healthStatus:text(row.health)||text(row.heathy),address:text(row.addr),homePhone:text(row.tel),personalMobile:text(row.handtel),personalEmail:text(row.email),highestEducation:text(row.secedu)||text(row.edu),major:text(row.speciality),degree:text(row.degree),graduationSchool:text(row.graduatescholl),graduationDate:structuredDate(row.graduatedate,"person.graduatedate",gaps),foreignLanguage:text(row.language),jobTitle:text(row.jobtitle),jobGrade:text(row.jobgrade),gaps};}
+  if(name==="family"){const gaps=[],member=protect(row.member,`family:${row.id}:member`),contact=protect(row.tel,`family:${row.id}:tel`),relationship=text(row.rela);if(!relationship)gaps.push({fieldLocator:"family.rela",reasonCode:"INVALID_STRUCTURED_VALUE"});if(!member.encrypted)gaps.push({fieldLocator:"family.member",reasonCode:"INVALID_STRUCTURED_VALUE"});return {kind:"family",disposition:relationship&&member.encrypted?"loaded":"quarantined",relationship,fullName:member,contact,birthDate:structuredDate(row.birthday,"family.birthday",gaps),workUnit:text(row.jobunit),jobTitle:text(row.jobname),politicalStatus:text(row.political),gaps};}
+  if(name==="knowhow"){const gaps=text(row.grade)?[{fieldLocator:"knowhow.grade",reasonCode:"UNKNOWN_SKILL_GRADE"}]:[],skillName=text(row.knowhow);if(!skillName)gaps.push({fieldLocator:"knowhow.knowhow",reasonCode:"INVALID_STRUCTURED_VALUE"});return {kind:"skill",disposition:skillName?"loaded":"quarantined",skillName,proficiency:null,legacyGrade:text(row.grade),note:text(row.memo),gaps};}
+  if(name==="ticket"){const gaps=[],number=protect(row.ticketno,`ticket:${row.id}:ticketno`),credentialName=text(row.ticket),acquiredDate=structuredDate(row.getdate,"ticket.getdate",gaps);let validTo=structuredDate(row.validdate,"ticket.validdate",gaps);if(acquiredDate&&validTo&&validTo<acquiredDate){gaps.push({fieldLocator:"ticket.validdate",reasonCode:"INVALID_STRUCTURED_VALUE"});validTo=null;}if(!credentialName)gaps.push({fieldLocator:"ticket.ticket",reasonCode:"INVALID_STRUCTURED_VALUE"});return {kind:"credential",disposition:credentialName?"loaded":"quarantined",credentialType:text(row.tickettype)??"legacy",credentialName,number,acquiredDate,validTo,issuingAuthority:text(row.org),note:text(row.memo),legacyFileReferenceSha256:text(row.ticketfilename)?sha(String(row.ticketfilename)):null,gaps};}
+  return null;
+};
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==="object"?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);
 const read=name=>{const value=JSON.parse(readFileSync(resolve(dir,name),"utf8"));if(!Array.isArray(value))throw Error(`${name} must be an array`);return value;};
 const safePayload=value=>Array.isArray(value)?value.map(safePayload):value&&typeof value==="object"?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,safePayload(item)])):typeof value==="string"?value.replaceAll("\0","\\u0000"):value;
@@ -38,12 +57,12 @@ for(const [name,count] of Object.entries(expected)){
       const detected=/^25504446/i.test(row.magicPrefix??"")?"application/pdf":/^FFD8FF/i.test(row.magicPrefix??"")?"image/jpeg":/^89504E470D0A1A0A/i.test(row.magicPrefix??"")?"image/png":row.actualSize>0?"application/octet-stream":null;
       return identity(name,value,row,{fileRole:"employee_document",legacyPathSha256:(row.FPath||row.fName)?sha(`${row.FPath??""}\0${row.fName??""}`):null,contentSha256:row.contentSha256?.toLowerCase()??null,declaredSize:row.fSize??null,actualSize:row.actualSize??null,declaredMime:row.FType||null,detectedMime:detected,readabilityStatus:row.actualSize>0?"readable":(row.FPath?"path_reference_only":"empty")});
     }
-    return identity(archiveTableFor[name]??name,value,row,{domain:domainFor[name],employeeCode:employeeCodeFor[name]?String(row[employeeCodeFor[name]]??"").trim():null});
+    return identity(archiveTableFor[name]??name,value,row,{domain:domainFor[name],employeeCode:employeeCodeFor[name]?String(row[employeeCodeFor[name]]??"").trim():null,...(["person_core","family","knowhow","ticket"].includes(name)?{materialized:materialize(name,row)}:{})});
   });
   const file=`${name}.jsonl`; domains[name]={sourceObject:`dbo.${name==="photo"?"person.photo":archiveTableFor[name]??name}`,rows:rows.length,file,fileSha256:write(file,rows),objectStatus:name==="jch_1"?"absent":rows.length===0?"empty":"present"};
 }
 const catalogSha256=sha(canonical(catalog));
-const business={formatVersion:1,catalogSha256,domains};
+const business={formatVersion:1,catalogSha256,mappingContractSha256,domains};
 const businessSha256=sha(canonical(business));
 const manifest={...business,businessSha256,generatedAt:new Date().toISOString(),sensitive:true,payloadSanitization:"nul_to_literal_escape_v1",productionImport:"HOLD"};
 const manifestPath=resolve(dir,"manifest.json");writeFileSync(manifestPath,JSON.stringify(manifest,null,2)+"\n",{mode:0o600});chmodSync(manifestPath,0o600);

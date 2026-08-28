@@ -251,6 +251,12 @@
   margin-bottom: 16px;
 }
 
+.employeeRecordList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
 .heroSummary {
   display: grid;
   gap: 6px;

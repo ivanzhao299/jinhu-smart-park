@@ -36,13 +36,14 @@ test("nullable HR columns declare database types instead of relying on union ref
 test("HR employee documents reuse protected file surfaces without generic exposure",()=>{
  assert.match(fileAccess,/"hr_employee_document"/);
  assert.match(fileAccess,/"hr_employee_photo"/);
- assert.match(fileAccess,/HR_EMPLOYEE_PROFILE_MANAGE/);
- assert.match(fileAccess,/Employees can only read their own HR documents/);
+ assert.match(fileAccess,/HR_EMPLOYEE_DOCUMENT_MANAGE/);
+ assert.match(fileAccess,/HR employee document is outside the actor's employee scope/);
  assert.match(fileAccess,/FROM hr_employee WHERE id=\$1 AND tenant_id=\$2 AND park_id=\$3/);
- assert.match(employeeUi,/FileUploader bizType="hr_employee_document"/);
- assert.match(employeeUi,/AttachmentList bizType="hr_employee_document"/);
- assert.match(employeeUi,/FileUploader bizType="hr_employee_photo"/);
- assert.match(employeeUi,/AttachmentList bizType="hr_employee_photo"/);
+ assert.match(employeeUi,/<FileUploader[^>]*bizType="hr_employee_document"[^>]*safeErrorMessage="员工档案附件上传失败"/);
+ assert.match(employeeUi,/<AttachmentList[^>]*bizType="hr_employee_document"[^>]*readPermissions=\{employeeDocumentReadPermissions\}/);
+ assert.match(employeeUi,/<FileUploader[^>]*bizType="hr_employee_photo"[^>]*safeErrorMessage="员工照片上传失败"/);
+ assert.match(employeeUi,/<AttachmentList[^>]*bizType="hr_employee_photo"[^>]*readPermissions=\{employeeDocumentReadPermissions\}/);
+ assert.match(employeeUi,/mutationPermission=\{HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\}/);
  assert.deepEqual(resolveFileUploadPolicy("hr_employee_photo").mimeTypes,["image/jpeg","image/png","image/webp"]);
 });
 test("HR approvals support submit, return, resubmit, approve and withdraw with action history",()=>{
@@ -121,7 +122,7 @@ test("Yuzhou contract parity preserves legacy fields behind salary and append-on
  assert.match(contractLegacyParityMigration,/CREATE TABLE IF NOT EXISTS hr_contract_action/);
  assert.match(contractLegacyParityMigration,/BEFORE UPDATE OR DELETE ON hr_contract_action/);
  assert.match(service,/Compensation management permission is required to write contract salary/);
- assert.match(service,/HR_COMPENSATION_READ/);
+ assert.match(service,/HR_CONTRACT_SALARY_READ/);
  assert.match(service,/async updateContract/);
  assert.match(controller,/@Put\("contracts\/:id"\)[\s\S]*IdempotencyInterceptor[\s\S]*captureBody:false/);
  assert.match(fileAccess,/"hr_contract_document"/);

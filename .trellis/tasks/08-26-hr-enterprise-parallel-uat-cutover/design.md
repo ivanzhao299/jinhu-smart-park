@@ -8,7 +8,7 @@
 
 失败和信号作为 append-only journal 事件记录，不伪造成成功状态；只能从最后一个已验证状态执行受控恢复清理，不能跳过中间状态。父 run id 使用 `yzfull-<utc>-<git8>-rA|rB`，六个 child id 固定为 `<parent>-t0` 至 `<parent>-t5`。父 manifest 只引用各领域 migration batch，不伪装为领域 batch。
 
-每轮拥有独立 Compose project、数据库、volume/container/port、API/Web port、file root、staging/evidence root 和 UAT 账号。资源 registry 在创建前记录计划身份，创建后记录 observed identity，清理后对 DB/container/volume/role/directory/account/file/port/process/credential artifact 逐项记录 removed 事实并查询 `residualCount=0`。退出码不能替代实际枚举。
+每轮拥有独立 Compose project、数据库、network/volume/container/port、API/Web port、file root、staging/evidence root 和 UAT 账号。资源 registry 在创建前记录计划身份，创建后记录 observed identity，清理后对 DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact 逐项记录 removed 事实并查询 `residualCount=0`。退出码不能替代实际枚举。
 
 ## 2. Manifest 与证据完整性
 

@@ -82,11 +82,19 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t0:rollback
 ```
 
+### T2 合同续签链与提醒
+
+T2 结构化装载保存 `dbo.compact`、`dbo.compact_c` 的稳定源 identity 和源行 SHA-256。合同期限、签订日及续签前后日期只在已审阅字段合同明确时进入业务列；累计期限等旧字段单位尚未签署时不得推断，继续留在 raw archive/quarantine。合同正文只形成受控文本摘要证据，文件只登记 SHA-256、MIME、字节数和缺件原因；本阶段不复制照片或真实文件，也不保存或返回旧绝对路径。
+
+提醒由 policy、instance、动作流水和 outbox 分离承载。production seed 提供可配置的 30/60/90 日合同到期及试用期规则；scheduler 仅允许 `hr:contract_reminder:run` 原子权限触发。实例按 tenant、park、合同、提醒类型、窗口、规则版本和明确收件人生成稳定去重键，并发和重跑不得产生重复实例。续签、终止或取消合同会撤销旧 open/read 实例和待投递 outbox；acknowledged/resolved 历史保留审计，不物理删除。
+
+Focused 门禁为 `hr-contract-reminder.contract.spec.ts` 和 `hr-contract-reminder.pg.spec.ts`。真实 PostgreSQL 测试必须覆盖双 scheduler 并发、第三次重跑零新增、续签撤销和 required-audit。T2 rollback 按 outbox → action → reminder → evidence → change → contract → type 反序，只处理目标 run 的 active record map。普通部署、migration 和 production seed 均不会执行 T2 loader 或历史提醒 backfill；生产历史导入继续 `HOLD`。
+
 ### T5 招聘、档案、培训和奖惩历史
 
-T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_hr_legacy_core_residue_domains.sql` 扩展核心残余字段归档，不调用在线 HR Service。当前恢复库的真实 profile 是 20,163 行：原 9,140 行招聘、档案、培训、奖惩和附件证据保持不变，另纳入 `person=2949`、`person_user=0`、`person_user_item=8`、`readjust=6887`、`readjustitem=8`、`jobstatecode=8`、`compact=802`、`compact_c=357`、`compacttypecode=4`。核心 260 个字段的处置为 38 个直接映射、220 个受控原始归档、2 个安全排除、0 个未覆盖；旧登录密码不迁移，照片二进制继续只保存文件证据。
+T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267` 保留核心残余归档；`000276` 在不删除 raw archive 的前提下，把已审阅的 `person/family/knowhow/ticket` 字段同步物化到员工档案、家庭、技能和证照业务表。物化必须命中 T0 员工映射并绑定稳定 source identity/row hash；未知字段只登记 locator、hash 和 reason code，不把 raw value 写入证据。技能 `grade` 在词典未签署前保持 `proficiency=NULL` 并登记 `UNKNOWN_SKILL_GRADE`。旧登录密码不迁移，照片及证照路径只保留 hash/文件证据。
 
-抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。当前受控快照的业务哈希为 `8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce`。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。核心残余使用 `*.core_residue` 投影身份，与 T0/T1/T2 已迁移的物理源行保持可追溯但不争用 active source identity。若 `jch_1` 后续真实出现，抽取器会失败，必须先冻结其显式列合同，不能把它当成空表。
+抽取必须连续运行两次并比较 manifest 的 `businessSha256` 和每个领域文件哈希。物化版 manifest 额外绑定 reviewed mapping hash；启用后旧业务哈希不再有效，必须对同一固定源重新执行 A/B 抽取并固定新的 hash，不能手工沿用旧值。旧字符串中的 NUL 控制字符保留原始行哈希，并在载荷中规范为可识别的字面转义。
 
 加载器会重新规范化计算 catalog+domains 业务哈希，不能仅信任 manifest 自报值；staging 目录和 manifest 必须分别为 `0700/0600`。加载事务对在线员工、账号、薪酬、工资、工资条、绩效和统一消息表持有共享锁并比较前后哈希，同时独立核对总量、逐来源、隔离错误和 record-map 守恒。任何一项不一致都会整批回滚。
 
@@ -94,11 +102,13 @@ T5 使用 `000256_hr_legacy_t5_history.sql` 的独立历史表，并由 `000267_
 export ALLOW_YUZHOU_MIGRATION=yes
 export YUZHOU_ETL_CREDENTIAL_FILE='<本机 0600 的只读 ETL 凭据文件>'
 export YUZHOU_MIGRATION_RUN_ID=t5extract_<run>
+export YUZHOU_PARTY_DATA_KEY_FILE='<本机 0600、非符号链接的目标 API 同源实验室密钥文件>'
 pnpm hr:migration:t5:extract
 
 export YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<run>
 export YUZHOU_STAGING_DIR='<上述抽取 staging 目录>'
-export YUZHOU_T5_BUSINESS_SHA256=8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce
+export YUZHOU_T5_BUSINESS_SHA256='<两次新抽取一致的 businessSha256>'
+export YUZHOU_MATERIALIZATION_ACTOR_USER_ID='<隔离园区内启用的审计用户 UUID>'
 pnpm hr:migration:t5:load
 
 export ALLOW_YUZHOU_ROLLBACK=yes
@@ -107,7 +117,7 @@ pnpm hr:migration:t5:rollback
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
 
-生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
+完整演练只传递 `YUZHOU_PARTY_DATA_KEY_FILE` 的受控路径，文件必须为 `0600` 普通非符号链接；转换器从文件读取密钥，密钥内容不进入 config、manifest、日志或 Git。A/B 各持有独立私有副本，但内容必须来自同一个实验室密钥源，才能证明确定性；该实验室密钥不得替代生产密钥。转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 
 回滚仅接受 `staged + succeeded` 且已有已验证 rollback point 的批次。每个 active map 的目标 ID、来源表、来源 identity hash 和 row hash 都必须与历史目标一致；普通更新/删除、staged 后追加、修改已冻结计数和错误 run 均由数据库拒绝。
 
@@ -159,19 +169,19 @@ pnpm hr:migration:manifest -- \
 生命周期只能依次推进：
 
 ```text
-planned → provisioned → extracting → loading → verifying → uat_ready → rollback_ready → cleaned
+planned → provisioned → extracting → review_hold → loading → verifying → uat_ready → rollback_ready → cleaned
 ```
 
-六域正序固定为 T0→T5，回滚固定为 T5→T0。每个 child 使用 `<parent>-t0`…`<parent>-t5`，adapter 只向旧脚本传递白名单环境变量，并把目标数据库、PostgreSQL 容器和 Compose project 重新绑定到当前 parent。T1～T4 已补齐与 T0/T5 相同的 pnpm 命令面；所有 rollback 都必须同时具备迁移开关与 rollback 开关。旧转换 SQL 和业务映射语义没有复制或放宽。
+六域正序固定为 T0→T5，回滚固定为 T5→T0。真实 lab 执行采用两阶段合同：`run` 只完成六域只读提取，随后进入 `review_hold`（也称 `REVIEW_HOLD`），不会开始任何 loader；只有同一 run 的岗位状态 hash-only 决策、私有源值载荷和不同 HR 主体的 detached approval 全部验签后，`resume` 才能受控物化字典并继续 T0→T5 load。每个 child 使用 `<parent>-t0`…`<parent>-t5`，adapter 只向旧脚本传递白名单环境变量，并把目标数据库、PostgreSQL 容器和 Compose project 重新绑定到当前 parent。T1～T4 已补齐与 T0/T5 相同的 pnpm 命令面；所有 rollback 都必须同时具备迁移开关与 rollback 开关。旧转换 SQL 和业务映射语义没有复制或放宽。
 
-配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
+配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、Compose default network、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
 
 `lab provision` 使用运行目录内受控的 `0600` Compose 文件创建 PostgreSQL，而不是直接执行未登记的 `docker run`。容器就绪后，它按正式顺序调用官方 `db-migrate.sh`、production-safe seed 和初始化基线检查；进入 UAT 账号 provisioner 前，初始化检查只允许唯一的 `no bootstrap admin found` 阶段性缺口，出现第二个 FAIL 或其他 FAIL 仍立即停止。任一步失败都会阻断六域抽取/装载并触发本轮精确资源恢复。演练数据库因此必须从空 volume 和当前候选代码的完整迁移历史开始，不能以手工导入 schema、污染的 `template1` 或跳过迁移历史来代替。
 
 命令入口为：
 
 ```sh
-pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>'
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --materialization-key '<0600实验室物化密钥文件>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
@@ -182,9 +192,56 @@ pnpm hr:migration:full:status -- --config '<受控配置.json>'
 
 `prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
-目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
+两阶段执行命令如下。三份 review 文件必须是外部 `0600` 非符号链接普通文件；公开 decision/approval 只包含 hash，真实源状态和值与审批主体 UUID 只允许存在于私有 payload。审批必须绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、两份 T0 字典文件 hash 和预期 PostgreSQL items digest：
+
+```bash
+pnpm hr:migration:full:provision -- --config '<本轮配置>'
+pnpm hr:migration:full:run -- --config '<本轮配置>'
+pnpm hr:migration:full:status -- --config '<本轮配置>' # 必须为 review_hold
+pnpm hr:migration:full:resume -- --config '<本轮配置>' --job-state-decision '<REVIEWED hash-only decision>' --job-state-source-payload '<0600 private payload>' --job-state-approval '<detached HR approval>'
+```
+
+缺少任一工件、工件漂移、同一主体自审、跨 run/A-B、T0 字节变化、数据库 digest 不一致时都保持或回到 `HOLD`，不得猜测映射。进入 load 写阶段后的失败执行本轮 registry-scoped recovery；普通部署和生产历史导入始终不会调用该 resume 入口。
+
+`resume` 操作锁绑定 PID、本机主机指纹、runId、当前 `review_hold` 状态以及 config/registry/journal 指纹。只有同一主机上的 PID 已明确死亡且所有绑定字节未漂移时才能原子接管；活 PID、其他主机或任一指纹漂移都继续 fail closed。测试环境有受 runId 绑定的 commit/journal 故障注入点，仅当 `NODE_ENV=test` 时可用，普通运行与生产无法触发。数据库已提交而 journal 尚未追加时，下一次同内容 resume 必须通过数据库全字段幂等核验后收敛为恰好一条 materialization journal。
+
+最终 A/B 使用总控入口先做只读 preflight，再按 A→B 串行执行全部阶段：
+
+```sh
+node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>'
+ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>' --phase extract --execute --summary '<runtime之外的新checkpoint路径>'
+# HR 完成两套独立审阅后，使用新的摘要路径继续：
+ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>' --phase resume --checkpoint '<0600 checkpoint>' --decision-a '<A decision>' --payload-a '<A private payload>' --approval-a '<A approval>' --decision-b '<B decision>' --payload-b '<B private payload>' --approval-b '<B approval>' --execute --summary '<runtime之外的新最终摘要路径>'
+```
+
+preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M 一致、A/B 使用相同 C/S/M、只读 lab 源和六个互不重复的 loopback 端口，并逐项拒绝 DB、Compose、volume、container、role、账号命名空间、目录、凭据或审计路径复用。执行顺序固定为 provision A/B→run A/B 并分别停在 `review_hold`→resume A/B→技术 UAT→25 项 P0 矩阵→备份恢复/故障检测→A/B manifest 比较→T5…T0 rollback→cleanup。`--phase extract` 不需要任何审批工件，它在 A/B 都达到 `review_hold` 后写出受控 checkpoint 并停止；`--phase resume` 才必须提供 checkpoint 与 A/B 各自的 decision/private payload/detached approval 六件套，缺少或路径复用时在任何 resume 写入前失败。任一步失败都会对仍存在的本轮 runtime 执行 registry-scoped `cleanup --recover`；不会继续下一轮或生成 PASS 摘要。
+
+当前总控还要求技术 UAT 摘要明确给出 `p0Execution=PASS` 和 `p0MatrixChecks=25`。仅绑定 P0 matrix hash、`p0Execution=HOLD` 或旧 46 项 UAT 通过均会返回 `FINAL_PAIR_P0_HOLD`，所以在 25 项真实观察执行器接入并用两套新资源重跑前，最终 A/B 和生产历史导入都保持 HOLD。
+
+目录必须为 `0700`，配置、journal、registry、清理账本和审计 bundle 必须为 `0600`。Shell 使用 `exec` 把 HUP/INT/TERM 直接交给 Node runner；Node 是唯一信号 journal/cleanup owner，并先终止活动 child 再按 registry 恢复。失败或中断不会推进成功状态。清理逐项记录 `planned/observed/removed/residualCount`，其中 Compose default network 必须在 container 停止后按精确 project identity 删除并重新枚举；拒绝符号链接和任何未登记 runtime 路径，只对 registry 中的精确文件执行 `unlink`、对已空的精确目录执行 `rmdir`，禁止递归删除运行根；删除后再次实际枚举，任何残留都返回 `RESOURCE_RESIDUAL_NONZERO`。运行时 evidence root 清理后，仅保留配置指定、位于 runtime root 外的 hash-addressable `0600` 审计 bundle。
 
 本入口没有 production import 或 production restore 子命令，也不接受布尔开关作为生产授权。所有结果固定输出 `productionImport=HOLD`。Slice 2 的 fixture 通过只证明编排、失败关闭、信号恢复和零残留合同，不代表真实 A/B 演练、三角色 UAT 或生产导入已经完成。
+
+### 8.1 隔离演练备份、故障检测与新库恢复
+
+真实 `lab` 演练只有在同一轮连续 T0→T5、PostgreSQL global facts 和三角色技术 UAT 均已通过、最新 manifest head 为 `uat_ready` 时，才能执行恢复证明：
+
+```sh
+pnpm hr:migration:full:backup-restore -- --config '<受控配置.json>' --fault REGISTERED_FILE_UNREADABLE
+pnpm test:e2e:yuzhou-full-domain-backup-restore
+```
+
+该入口只接受 loopback Docker Unix socket、与配置逐字相同的 `jinhu_hr_migration_lab_full_*` database/Compose project 和其受管 PostgreSQL 容器。它在任何创建前把 restore database、实际执行 restore 的最小隔离 role、备份/恢复目录、dump、TOC、文件快照、报告和 operation lock 写入本轮 resource registry；已存在、未登记、生产/共享标记、非 loopback 发布、Compose label 漂移或并发 operation 均失败关闭。
+
+数据库备份固定使用 `pg_dump -Fc --no-owner --no-privileges`，保存实际 dump SHA-256、字节、原始 TOC SHA-256 和去除非确定性注释后的 TOC SHA-256。文件根按相对路径、字节和内容 SHA-256 形成稳定清单并复制到 0700 受控目录，复制文件强制 0600；空文件根也有明确的零条目 canonical hash。符号链接、特殊文件、路径逃逸或不可读对象全部拒绝。
+
+v1 故障只允许以下可逆、run-scoped 已登记探针，不接受任意 SQL、路径或进程参数：
+
+- `REGISTERED_FILE_UNREADABLE`：仅把本轮已登记的专用文件探针临时设为不可读；只有文件树 verifier 实际返回 `FILE_TREE_UNREADABLE` 后才继续，并在 `finally` 恢复权限。
+
+恢复永远先创建不同名称的新 `jinhu_hr_migration_lab_full_restore_*` 数据库，使用 `pg_restore --exit-on-error --no-owner --no-privileges`，不允许 `--clean`、`--create` 或覆盖事故/source 数据库。恢复后逐字节比较双 migration-history 文件名/状态/checksum、平台 catalog、HR global/domain canonical、source-object ledger、quarantine reason ledger、side-effect facts 与文件树；只有全部相等时才记录 `rpoObservedObjects=0`。`rtoObservedMs` 只是 monotonic 实测值，业务目标仍固定为 `UNAPPROVED/RTO_RPO_UNAPPROVED`，不得由工具自动签署。
+
+成功报告和 superseding parent manifest 只含 hash、数量、相对工件路径和 measured timing，权限为目录 0700、文件 0600；`hardGates.restore=PASS` 不改变 `humanUat=HOLD`、`productionImport=HOLD` 或独立的 `productionRestore=HOLD`。失败路径只删除本 runner 已登记的精确 restore database/role/files/directories，并重新枚举要求 `residualCount=0`；不得递归清理宽泛路径。随后仍须按既有命令执行 T5→T0 rollback 和完整 lifecycle cleanup，且只有最终资源总账为零才算本轮闭环。
 
 ## 9. Parent manifest 与数据库事实验证（Slice 3）
 

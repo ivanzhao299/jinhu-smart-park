@@ -1,6 +1,6 @@
 -- Production-safe least-privilege convergence for the reviewed DEPARTMENT_MANAGER role.
--- Grants the employee directory page only. Team data remains enforced by the existing
--- work-report/performance manager permissions and the API managed-org-tree scope.
+-- Grants the employee directory page, its exact team-read atom, and the masked profile
+-- team-read atom. The API managed-org-tree scope remains the authoritative boundary.
 BEGIN;
 
 LOCK TABLE sys_role, sys_permission, rel_role_perm IN SHARE ROW EXCLUSIVE MODE;
@@ -20,24 +20,42 @@ BEGIN
 
   SELECT count(*) INTO permission_count
   FROM sys_permission
-  WHERE tenant_id='10000001' AND park_id='20000001' AND code='hr:employees'
+  WHERE tenant_id='10000001' AND park_id='20000001'
+    AND code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
     AND is_deleted=false AND is_enabled=true AND status='enabled';
-  IF permission_count <> 1 THEN
-    RAISE EXCEPTION 'Expected exactly one active hr:employees permission, found %', permission_count;
+  IF permission_count <> 3 THEN
+    RAISE EXCEPTION 'Expected exactly three active department employee permissions, found %', permission_count;
   END IF;
 END $$;
+
+-- Converge existing installations as well as fresh seeds. Historical broad employee
+-- grants must not survive merely because this seed now adds narrower atoms.
+UPDATE rel_role_perm relation
+SET is_deleted=true,update_time=now(),version=relation.version+1,
+    remark='Revoked by HR department employee exact-set convergence'
+FROM sys_role role,sys_permission permission
+WHERE relation.tenant_id='10000001'
+  AND relation.park_id='20000001'
+  AND relation.is_deleted=false
+  AND role.id=relation.role_id AND role.tenant_id=relation.tenant_id AND role.park_id=relation.park_id
+  AND role.code='DEPARTMENT_MANAGER' AND role.is_deleted=false AND role.is_enabled=true AND role.status='enabled'
+  AND permission.id=relation.permission_id AND permission.tenant_id=relation.tenant_id AND permission.park_id=relation.park_id
+  AND permission.code IN(
+    'hr:employee:read','hr:employee:self_read',
+    'hr:employee_profile:read','hr:employee_profile:self_read','hr:employee_profile:manage'
+  );
 
 INSERT INTO rel_role_perm(
   tenant_id,park_id,role_id,permission_id,create_time,update_time,is_deleted,version,remark
 )
 SELECT
   '10000001','20000001',role.id,permission.id,now(),now(),false,1,
-  'HR M3 department manager directory page least-privilege convergence'
+  'HR department manager directory and masked profile least-privilege convergence'
 FROM sys_role role
 JOIN sys_permission permission
   ON permission.tenant_id=role.tenant_id
  AND permission.park_id=role.park_id
- AND permission.code='hr:employees'
+ AND permission.code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
  AND permission.is_deleted=false
  AND permission.is_enabled=true
  AND permission.status='enabled'
@@ -68,12 +86,22 @@ BEGIN
       AND role.status='enabled'
       AND permission.tenant_id='10000001'
       AND permission.park_id='20000001'
-      AND permission.code='hr:employees'
+      AND permission.code IN('hr:employees','hr:employee:team_read','hr:employee_profile:team_read')
       AND permission.is_deleted=false
       AND permission.is_enabled=true
       AND permission.status='enabled'
-  ) <> 1 THEN
-    RAISE EXCEPTION 'DEPARTMENT_MANAGER employee directory permission convergence incomplete';
+  ) <> 3 THEN
+    RAISE EXCEPTION 'DEPARTMENT_MANAGER employee directory and masked profile permission convergence incomplete';
+  END IF;
+  IF EXISTS(
+    SELECT 1 FROM rel_role_perm relation
+    JOIN sys_role role ON role.id=relation.role_id AND role.tenant_id=relation.tenant_id AND role.park_id=relation.park_id
+    JOIN sys_permission permission ON permission.id=relation.permission_id AND permission.tenant_id=relation.tenant_id AND permission.park_id=relation.park_id
+    WHERE relation.tenant_id='10000001' AND relation.park_id='20000001' AND relation.is_deleted=false
+      AND role.code='DEPARTMENT_MANAGER' AND role.is_deleted=false AND role.is_enabled=true AND role.status='enabled'
+      AND permission.code IN('hr:employee:read','hr:employee:self_read','hr:employee_profile:read','hr:employee_profile:self_read','hr:employee_profile:manage')
+  ) THEN
+    RAISE EXCEPTION 'DEPARTMENT_MANAGER broad employee permission survived exact-set convergence';
   END IF;
 END $$;
 

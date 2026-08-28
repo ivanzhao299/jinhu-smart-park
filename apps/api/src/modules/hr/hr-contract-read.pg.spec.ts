@@ -50,7 +50,7 @@ suite("HR contract read PostgreSQL gate",()=>{
   assert.deepEqual(Object.keys(page.items[0]!).sort(),["contractNo","contractTypeId","contractTypeName","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","probationEndDate","startDate","status"].sort());
   assert.equal(page.items[0]!.contractNo,"M5-LOCAL-001");
   const detail=await service.contractDetail(scope,actor,contract);
-  assert.deepEqual(Object.keys(detail).sort(),["actions","changes","contractNo","contractTypeId","contractTypeName","contractTermMonths","departmentNameSnapshot","effectiveDate","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","positionTitle","probationEndDate","probationMonths","remark","signatureDate","startDate","status","workType"].sort());
+  assert.deepEqual(Object.keys(detail).sort(),["actions","changes","contractNo","contractTypeId","contractTypeName","contractTermMonths","cumulativeTermMonths","firstSignatureDate","lastSignatureDate","renewalCount","departmentNameSnapshot","effectiveDate","employeeCode","employeeId","employeeName","endDate","id","isHistoricalImport","positionTitle","probationEndDate","probationMonths","remark","signatureDate","startDate","status","workType"].sort());
   assert.deepEqual(Object.keys(detail.changes[0]!).sort(),["changeType","id","isHistoricalImport","newEndDate","newStartDate","previousEndDate","previousStartDate","sequenceNo","status"].sort());
   await assert.rejects(service.contractDetail(scope,actor,foreignContract),/Contract not found/u);
   assert.equal(audits.length,2);
@@ -65,7 +65,7 @@ suite("HR contract read PostgreSQL gate",()=>{
  it("creates online drafts transactionally and keeps imported history immutable",async()=>{
   const manager={...actor,permissions:[HR_PERMISSIONS.HR_CONTRACT_MANAGE,HR_PERMISSIONS.HR_CONTRACT_READ]};
   await assert.rejects(service.createContract(scope,manager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-SALARY-DENIED",startDate:"2027-01-01",baseSalary:"9000.00"}),/Compensation management permission/u);
-  const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_COMPENSATION_READ]};
+  const salaryManager={...manager,permissions:[...manager.permissions,HR_PERMISSIONS.HR_COMPENSATION_MANAGE,HR_PERMISSIONS.HR_CONTRACT_SALARY_READ]};
   const created=await service.createContract(scope,salaryManager,{employeeId:onlineEmployee,contractTypeId:type,contractNo:"M5-ONLINE-001",startDate:"2027-01-01",endDate:"2028-12-31",contractTermMonths:24,signatureDate:"2026-12-20",effectiveDate:"2027-01-01",positionTitle:"测试岗位",workType:"全日制",departmentNameSnapshot:"测试部门",probationMonths:3,probationSalary:"8000.00",baseSalary:"9000.00"});
   assert.equal(created.status,"draft");
   assert.equal(created.isHistoricalImport,false);

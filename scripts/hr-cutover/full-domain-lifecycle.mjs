@@ -1,34 +1,40 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   chmodSync,
   closeSync,
+  constants,
   existsSync,
+  fstatSync,
   lstatSync,
+  linkSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmdirSync,
   statSync,
   unlinkSync,
   writeFileSync
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { hostname } from "node:os";
 import { fileURLToPath } from "node:url";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
+import { materializeReviewedJobState, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
 const DOMAIN_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5"];
 const ROLLBACK_ORDER = [...DOMAIN_ORDER].reverse();
-const STATES = ["planned", "provisioned", "extracting", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"];
-const RESOURCE_TYPES = ["database", "container", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"];
+const STATES = ["planned", "provisioned", "extracting", "review_hold", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"];
+const RESOURCE_TYPES = ["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "process", "credential_artifact"];
 const RUN_ID = /^yzfull-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}-r([AB])$/;
 const LAB_ID = /^jinhu_hr_migration_lab_full_[a-z0-9_]{6,48}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -37,14 +43,39 @@ const FORBIDDEN_TARGET = /prod(?:uction)?|jinhu_smart_park|shared|default/i;
 const FORBIDDEN_KEY = /password|passwd|token|secret|connectionstring|privatekey|bankaccount|idcard|employeename|fullname|mobile|phone|salaryamount|grosspay|netpay/i;
 const FORBIDDEN_VALUE = /postgres(?:ql)?:\/\/|sqlserver:\/\/|Bearer\s+|BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY|AKIA[0-9A-Z]{16}/i;
 const LOAD_COMMON_ENV = ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_BACKUP_SHA256"];
+const EXTRACT_MANIFEST_BINDINGS = {
+  T0: {
+    departments: { file: "departments.jsonl", env: "YUZHOU_DEPARTMENTS_SHA256" },
+    positions: { file: "positions.jsonl", env: "YUZHOU_POSITIONS_SHA256" },
+    employees: { file: "employees.jsonl", env: "YUZHOU_EMPLOYEES_SHA256" },
+    employeeJobStates: { file: "employee-job-states.raw.json" },
+    jobStateCodeMetadata: { file: "job-state-code-metadata.raw.json" }
+  },
+  T1: {
+    employmentEvents: { file: "employment-events.jsonl", env: "YUZHOU_T1_EVENTS_SHA256" },
+    employmentEventTypes: { file: "employment-event-types.json", env: "YUZHOU_T1_TYPES_SHA256" },
+    employmentEventStates: { file: "employment-event-states.json" }
+  },
+  T2: {
+    "dbo.compacttypecode": { file: "contract-types.jsonl", env: "YUZHOU_T2_TYPES_SHA256" },
+    "dbo.compact": { file: "contracts.jsonl", env: "YUZHOU_T2_CONTRACTS_SHA256" },
+    "dbo.compact_c": { file: "contract-changes.jsonl", env: "YUZHOU_T2_CHANGES_SHA256" },
+    "dbo.compact.state": { file: "contract-states.raw.json" }
+  },
+  T3: {
+    attendance: { file: "attendance.jsonl", env: "YUZHOU_T3_ATTENDANCE_SHA256" },
+    policies: { file: "policies.jsonl", env: "YUZHOU_T3_POLICIES_SHA256" },
+    insurance: { file: "insurance.jsonl", env: "YUZHOU_T3_INSURANCE_SHA256" }
+  }
+};
 let ACTIVE_CHILD = null;
 export const ADAPTER_ENV_ALLOWLIST = {
-  T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256"], rollback: [] },
+  T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256", "YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256"], rollback: [] },
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
   T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256"], rollback: [] },
-  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
+  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
 };
 
 export class LifecycleError extends Error {
@@ -159,9 +190,11 @@ export function validateConfig(config) {
       fail("T4_EVIDENCE_INVALID", "T4 evidence does not prove the minimum read-only source authority");
     }
     const worktree = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
-    if (worktree.status !== 0 || worktree.stdout.trim() !== "") fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
+    const controlledTestRun = process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_RUN_ID === config.runId;
+    if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }
-  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"], [], "target");
+  const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", "jobStateApprovalArtifact"] : [];
+  exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...reviewedArtifacts], [], "target");
   const target = config.target;
   if (!LAB_ID.test(target.database ?? "") || !LAB_ID.test(target.composeProject ?? "") || target.database !== target.composeProject || FORBIDDEN_TARGET.test(target.database)) fail("UNSAFE_TARGET_IDENTITY", "database and Compose project must be the same full-domain lab identity");
   if (target.volume !== `${target.composeProject}_postgres_data` || target.postgresContainer !== `${target.composeProject}-postgres-1`) fail("UNSAFE_TARGET_IDENTITY", "container and volume must be deterministically namespaced");
@@ -171,9 +204,13 @@ export function validateConfig(config) {
   }
   const ports = [target.postgresPort, target.apiPort, target.webPort];
   if (ports.some((port) => !Number.isInteger(port) || port < 1024 || port > 65535) || new Set(ports).size !== ports.length) fail("UNSAFE_TARGET_IDENTITY", "PostgreSQL/API/Web ports must be distinct unprivileged ports");
-  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
+  for (const field of ["root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", ...reviewedArtifacts, "auditBundle"]) assertControlledPath(target[field], target.composeProject, field);
   for (const field of ["stagingRoot", "evidenceRoot", "fileRoot"]) if (!inside(target.root, target[field])) fail("CLEANUP_PATH_ESCAPE", `${field} must be below target.root`);
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
+  if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
+  if (config.backend === "lab") {
+    if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json" || basename(target.jobStateApprovalArtifact) !== "employee-job-state.approval.json") fail("CONFIG_INVALID", "job-state review artifact filenames are invalid");
+  }
   if (inside(target.root, target.auditBundle) || !target.auditBundle.endsWith(".json")) fail("CLEANUP_PATH_ESCAPE", "auditBundle must be a controlled JSON artifact outside the runtime root");
   exactKeys(config.adapterEnv, DOMAIN_ORDER, [], "adapterEnv");
   for (const domain of DOMAIN_ORDER) {
@@ -201,7 +238,7 @@ export function compareIsolation(configAInput, configBInput) {
   const b = validateConfig(structuredClone(configBInput));
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
-  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "auditBundle"];
+  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", "jobStateApprovalArtifact"] : [])];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
 }
@@ -232,6 +269,74 @@ function readJson(path) {
   return JSON.parse(readFileSync(resolve(path), "utf8"));
 }
 
+function stagingDir(config, domain) {
+  const childIndex = DOMAIN_ORDER.indexOf(domain);
+  return domain === "T4"
+    ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`)
+    : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`);
+}
+
+function extractManifestFacts(config, domain) {
+  const definition = EXTRACT_MANIFEST_BINDINGS[domain];
+  if (!definition) fail("EXTRACT_MANIFEST_DOMAIN_INVALID", domain);
+  const directory = stagingDir(config, domain);
+  if (!existsSync(directory) || lstatSync(directory).isSymbolicLink() || !statSync(directory).isDirectory() || mode(directory) !== "0700") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} staging directory must be a non-symlink 0700 directory for this run`);
+  }
+  const manifestPath = join(directory, "manifest.json");
+  if (!existsSync(manifestPath) || lstatSync(manifestPath).isSymbolicLink() || !statSync(manifestPath).isFile() || mode(manifestPath) !== "0600") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest must be a non-symlink 0600 file`);
+  }
+  const manifestBytes = readFileSync(manifestPath);
+  let manifest;
+  try { manifest = JSON.parse(manifestBytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest is not valid JSON`); }
+  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [], `${domain}.manifest`);
+  if (manifest.formatVersion !== 1 || typeof manifest.generatedAt !== "string") fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest header is invalid`);
+  exactKeys(manifest.domains, Object.keys(definition), [], `${domain}.manifest.domains`);
+  const env = {};
+  for (const [key, expected] of Object.entries(definition)) {
+    const entry = manifest.domains[key];
+    exactKeys(entry, ["rows", "file", "fileSha256"], [], `${domain}.manifest.domains.${key}`);
+    if (!Number.isInteger(entry.rows) || entry.rows < 0 || entry.file !== expected.file || !SHA256.test(entry.fileSha256 ?? "")) {
+      fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${key} manifest entry is invalid`);
+    }
+    const filePath = join(directory, expected.file);
+    if (!existsSync(filePath) || lstatSync(filePath).isSymbolicLink() || !statSync(filePath).isFile() || mode(filePath) !== "0600") {
+      fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${key} staging file must be a non-symlink 0600 file`);
+    }
+    const actualSha256 = createHash("sha256").update(readFileSync(filePath)).digest("hex");
+    if (actualSha256 !== entry.fileSha256) fail("EXTRACT_MANIFEST_HASH_DRIFT", `${domain}.${key} staging bytes differ from the manifest`);
+    if (expected.env) env[expected.env] = entry.fileSha256;
+  }
+  return {
+    manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
+    bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"),
+    env
+  };
+}
+
+export function resolveVerifiedExtractBindings(config, domain) {
+  const facts = extractManifestFacts(config, domain);
+  const journalPath = paths(config).journal;
+  if (!existsSync(journalPath) || lstatSync(journalPath).isSymbolicLink() || !statSync(journalPath).isFile() || mode(journalPath) !== "0600") {
+    fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} lifecycle journal is unavailable`);
+  }
+  let rows;
+  try { rows = readFileSync(journalPath, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)); }
+  catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} lifecycle journal is invalid`); }
+  const records = rows.filter((row) => row.kind === "child" && row.domain === domain && row.phase === "extract");
+  if (records.length !== 1) fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} requires exactly one verified extract record`);
+  const record = records[0];
+  const expectedChildRunId = `${config.runId}-t${DOMAIN_ORDER.indexOf(domain)}`;
+  if (record.status !== "verified" || record.childRunId !== expectedChildRunId
+    || JSON.stringify(record.triple) !== JSON.stringify(config.triple)
+    || record.extractManifestSha256 !== facts.manifestSha256
+    || record.extractBindingSha256 !== facts.bindingSha256) {
+    fail("EXTRACT_MANIFEST_BINDING_MISMATCH", `${domain} extract record does not bind this run and C/S/M triple`);
+  }
+  return facts.env;
+}
+
 function paths(config) {
   return {
     compose: join(config.target.root, "compose.yml"),
@@ -241,6 +346,11 @@ function paths(config) {
     cleanup: join(config.target.evidenceRoot, "cleanup-journal.jsonl"),
     lock: join(config.target.root, ".lifecycle.lock"),
     operationLock: join(config.target.root, ".operation.lock"),
+    operationLockTakeover: join(config.target.root, ".operation.lock.takeover"),
+    operationLockTakeoverClaim: join(config.target.root, ".operation.lock.takeover.claim"),
+    operationLockTakeoverStale: join(config.target.root, ".operation.lock.takeover.stale"),
+    operationLockNext: join(config.target.root, ".operation.lock.next"),
+    reviewTemps: [join(config.target.root, ".job-state-decision.installing"), join(config.target.root, ".job-state-payload.installing"), join(config.target.root, ".job-state-approval.installing")],
     fixtureRoot: join(config.target.root, "fixture-resources")
   };
 }
@@ -291,6 +401,7 @@ function resourcePlan(config) {
   const resources = [
     { type: "database", planned: t.database },
     { type: "container", planned: t.postgresContainer },
+    { type: "network", planned: `${t.composeProject}_default` },
     { type: "volume", planned: t.volume },
     { type: "role", planned: t.role },
     { type: "directory", planned: t.root },
@@ -307,13 +418,20 @@ function resourcePlan(config) {
     { type: "file", planned: paths(config).cleanup },
     { type: "file", planned: paths(config).lock },
     { type: "file", planned: paths(config).operationLock },
+    { type: "file", planned: paths(config).operationLockTakeover },
+    { type: "file", planned: paths(config).operationLockTakeoverClaim },
+    { type: "file", planned: paths(config).operationLockTakeoverStale },
+    { type: "file", planned: paths(config).operationLockNext },
+    ...paths(config).reviewTemps.map(planned => ({ type: "file", planned })),
     { type: "file", planned: paths(config).compose },
     { type: "port", planned: `127.0.0.1:${t.postgresPort}` },
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
-    { type: "credential_artifact", planned: t.credentialArtifact }
+    { type: "credential_artifact", planned: t.credentialArtifact },
+    { type: "credential_artifact", planned: t.materializationKeyArtifact }
   ];
+  if (config.backend === "lab") resources.push({ type: "credential_artifact", planned: t.jobStateDecisionArtifact }, { type: "credential_artifact", planned: t.jobStateSourcePayloadArtifact }, { type: "credential_artifact", planned: t.jobStateApprovalArtifact });
   if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
   return resources.map((item) => ({ ...item, observed: item.observed ?? null, removed: false, residualCount: 0 }));
 }
@@ -360,8 +478,20 @@ function verifyLabInitializationBaseline(env) {
 }
 
 function portBusy(port) {
-  const result = spawnSync("lsof", ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-t"], { encoding: "utf8", stdio: "pipe" });
-  return result.status === 0 && result.stdout.trim().length > 0;
+  const probe = [
+    "const net = require('node:net');",
+    "const socket = net.createConnection({ host: '127.0.0.1', port: Number(process.argv[1]) });",
+    "socket.setTimeout(1000);",
+    "socket.once('connect', () => { socket.destroy(); process.exit(0); });",
+    "socket.once('error', () => process.exit(1));",
+    "socket.once('timeout', () => { socket.destroy(); process.exit(1); });"
+  ].join("");
+  const result = spawnSync(process.execPath, ["-e", probe, String(port)], {
+    encoding: "utf8",
+    stdio: "pipe",
+    timeout: 2000
+  });
+  return result.status === 0;
 }
 
 function provisionFixture(config, registry) {
@@ -379,6 +509,8 @@ function provisionLab(config, registry) {
   const t = config.target;
   const p = paths(config);
   if (!existsSync(t.credentialArtifact) || mode(t.credentialArtifact) !== "0600" || lstatSync(t.credentialArtifact).isSymbolicLink()) fail("UNSAFE_FILE_PERMISSION", "credential artifact must be an existing 0600 regular file");
+  if (!existsSync(t.materializationKeyArtifact) || mode(t.materializationKeyArtifact) !== "0600" || lstatSync(t.materializationKeyArtifact).isSymbolicLink() || !statSync(t.materializationKeyArtifact).isFile()) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must be an existing non-symlink 0600 regular file");
+  if (Buffer.byteLength(readFileSync(t.materializationKeyArtifact, "utf8").trim(), "utf8") < 32) fail("UNSAFE_FILE_PERMISSION", "materialization key artifact must contain at least 32 bytes");
   const credentialLines = readFileSync(t.credentialArtifact, "utf8").split("\n").filter((line) => line && !line.startsWith("#"));
   const credentialValues = Object.fromEntries(credentialLines.map((line) => {
     const separator = line.indexOf("=");
@@ -390,6 +522,7 @@ function provisionLab(config, registry) {
   if (dockerEndpoint.status !== 0 || !dockerEndpoint.stdout.trim().startsWith("unix://")) fail("UNSAFE_DOCKER_ENDPOINT", "lab Docker must use a local Unix socket");
   for (const port of [t.postgresPort, t.apiPort, t.webPort]) if (portBusy(port)) fail("PORT_IN_USE", `127.0.0.1:${port}`);
   if (spawnSync("docker", ["inspect", t.postgresContainer], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target container already exists");
+  if (spawnSync("docker", ["network", "inspect", `${t.composeProject}_default`], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target network already exists");
   if (spawnSync("docker", ["volume", "inspect", t.volume], { stdio: "ignore" }).status === 0) fail("RESOURCE_ALREADY_EXISTS", "target volume already exists");
   const compose = [
     "services:",
@@ -446,7 +579,7 @@ function provisionLab(config, registry) {
   const roleSql = roles.map((role) => `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;`).join(" ");
   command("docker", ["exec", t.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", t.database, "-c", roleSql], { capture: true });
   for (const entry of registry) {
-    if (["database", "container", "volume", "role", "directory", "account", "file", "port", "credential_artifact"].includes(entry.type)) entry.observed = entry.planned;
+    if (["database", "container", "network", "volume", "role", "directory", "account", "file", "port", "credential_artifact"].includes(entry.type)) entry.observed = entry.planned;
     else if (entry.type === "process") entry.observed = [];
   }
 }
@@ -486,7 +619,12 @@ function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
   try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
   finally { registerControlledFilesystem(config); }
-  appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+    ? extractManifestFacts(config, domain) : null;
+  appendPrivate(paths(config).journal, {
+    kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,
+    ...(manifest ? { extractManifestSha256: manifest.manifestSha256, extractBindingSha256: manifest.bindingSha256 } : {})
+  });
 }
 
 async function runAdapterAsync(config, domain, phase) {
@@ -501,7 +639,12 @@ async function runAdapterAsync(config, domain, phase) {
       else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
     });
   }); } finally { registerControlledFilesystem(config); }
-  appendPrivate(paths(config).journal, { kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple });
+  const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
+    ? extractManifestFacts(config, domain) : null;
+  appendPrivate(paths(config).journal, {
+    kind: "child", domain, phase, childRunId: `${config.runId}-t${domain.slice(1)}`, status: "verified", triple: config.triple,
+    ...(manifest ? { extractManifestSha256: manifest.manifestSha256, extractBindingSha256: manifest.bindingSha256 } : {})
+  });
 }
 
 function registerControlledFilesystem(config) {
@@ -544,8 +687,11 @@ export function runForward(configInput, configPath) {
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "extract");
   validateChildJournal(config, "extract");
+  transition(config, "review_hold", { gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" });
+  if (config.backend === "lab") return { state: "review_hold", gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" };
   transition(config, "loading");
   if (config.backend === "lab") materializeFullDomainFacts(config, "before");
+  if (config.backend === "lab") appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materializeReviewedJobState(config), triple: config.triple, productionImport: "HOLD" });
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
@@ -563,8 +709,11 @@ async function runForwardAsync(configInput, configPath) {
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "extract");
   validateChildJournal(config, "extract");
+  transition(config, "review_hold", { gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" });
+  if (config.backend === "lab") return { state: "review_hold", gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" };
   transition(config, "loading");
   if (config.backend === "lab") materializeFullDomainFacts(config, "before");
+  if (config.backend === "lab") appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materializeReviewedJobState(config), triple: config.triple, productionImport: "HOLD" });
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
@@ -575,10 +724,78 @@ async function runForwardAsync(configInput, configPath) {
   return { state: "uat_ready", productionImport: "HOLD" };
 }
 
+function installReviewArtifacts(config, artifacts) {
+  const pairs = [[artifacts.decision, config.target.jobStateDecisionArtifact], [artifacts.payload, config.target.jobStateSourcePayloadArtifact], [artifacts.approval, config.target.jobStateApprovalArtifact]];
+  const sourceBytes = pairs.map(([source]) => { const candidate = resolve(source); let fd; try { fd = openSync(candidate, constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail("REVIEW_ARTIFACT_UNSAFE", "review artifacts must be non-symlink 0600 regular files"); return readFileSync(fd); } catch (error) { if (error.code === "REVIEW_ARTIFACT_UNSAFE") throw error; fail("REVIEW_ARTIFACT_UNSAFE", "review artifact cannot be opened safely"); } finally { if (fd !== undefined) closeSync(fd); } });
+  let decision, payload, approval;
+  try { [decision, payload, approval] = sourceBytes.map(bytes => JSON.parse(bytes)); verifyMaterializationPackage(decision, payload, approval, config); }
+  catch (error) { fail("REVIEW_ARTIFACT_INVALID", error.message); }
+  const sourceHashes = sourceBytes.map(bytes => createHash("sha256").update(bytes).digest("hex"));
+  const existing = pairs.map(([, destination], index) => existsSync(destination) && !lstatSync(destination).isSymbolicLink() && mode(destination) === "0600" && createHash("sha256").update(readFileSync(destination)).digest("hex") === sourceHashes[index]);
+  if (existing.every(Boolean)) return;
+  if (pairs.some(([, destination], index) => existsSync(destination) && !existing[index])) fail("REVIEW_ARTIFACT_DRIFT", "installed review artifacts differ");
+  for (const [, destination] of pairs) if (existsSync(destination)) unlinkSync(destination);
+  const temps = paths(config).reviewTemps;
+  try {
+    for (let index = 0; index < pairs.length; index += 1) { writeFileSync(temps[index], sourceBytes[index], { flag: "wx", mode: 0o600 }); chmodSync(temps[index], 0o600); }
+    registerControlledFilesystem(config);
+    for (let index = 0; index < pairs.length; index += 1) renameSync(temps[index], pairs[index][1]);
+    for (let index = 0; index < pairs.length; index += 1) if (createHash("sha256").update(readFileSync(pairs[index][1])).digest("hex") !== sourceHashes[index]) fail("REVIEW_ARTIFACT_INSTALL_DRIFT", "installed artifact bytes differ");
+    verifyCurrentT0Binding(config, payload);
+  } catch (error) {
+    for (const path of [...temps, ...pairs.map(([, destination]) => destination)]) if (existsSync(path)) unlinkSync(path);
+    fail("REVIEW_ARTIFACT_INSTALL_FAILED", error.message);
+  }
+}
+
+async function resumeAfterReviewAsync(configInput, configPath, artifacts) {
+  const config = validateConfig(structuredClone(configInput)); config.__configPath = resolve(configPath);
+  if (config.backend !== "lab" || currentState(config) !== "review_hold") fail("STATE_TRANSITION_INVALID", "resume requires a lab run at review_hold");
+  installReviewArtifacts(config, artifacts);
+  registerControlledFilesystem(config);
+  refreshOwnedResumeLock(config, config.__configPath, artifacts);
+  const installedDecision = readJson(config.target.jobStateDecisionArtifact), installedPayload = readJson(config.target.jobStateSourcePayloadArtifact);
+  const expectedMaterialization = { kind: "dictionary_materialization", domain: "T0", status: "verified", canonicalDecisionSha256: installedDecision.canonicalDecisionSha256, privatePayloadSha256: installedPayload.payloadSha256, t0BindingSha256: createHash("sha256").update(`${JSON.stringify(Object.fromEntries(Object.entries(installedPayload.t0Binding).sort(([left], [right]) => left.localeCompare(right))))}\n`).digest("hex"), t0ManifestSha256: installedPayload.t0Binding.manifestSha256, dictionarySnapshotSha256: installedPayload.dictionaryEvidenceSha256, databaseItemsSha256: installedPayload.expectedDatabaseItemsSha256, triple: config.triple, productionImport: "HOLD" };
+  const prewriteMaterializations = readFileSync(paths(config).journal, "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line)).filter(row => row.kind === "dictionary_materialization" && row.domain === "T0");
+  const journalMatches = row => Object.entries(expectedMaterialization).every(([key, value]) => typeof value === "object" ? JSON.stringify(row[key]) === JSON.stringify(value) : row[key] === value);
+  if (prewriteMaterializations.length > 1 || (prewriteMaterializations.length === 1 && !journalMatches(prewriteMaterializations[0]))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
+  let materialized;
+  try { materialized = materializeReviewedJobState(config); }
+  catch (error) { for (const path of [config.target.jobStateDecisionArtifact, config.target.jobStateSourcePayloadArtifact, config.target.jobStateApprovalArtifact]) if (existsSync(path)) unlinkSync(path); throw error; }
+  if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-db-commit-pre-journal") process.exit(86);
+  const existingMaterializations = prewriteMaterializations;
+  if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
+  if (existingMaterializations.length === 0) appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materialized, triple: config.triple, productionImport: "HOLD" });
+  if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-materialization-journal") return { state: "review_hold", testBreakpoint: "post-materialization-journal", productionImport: "HOLD" };
+  transition(config, "loading");
+  materializeFullDomainFacts(config, "before");
+  for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
+  validateChildJournal(config, "load"); transition(config, "verifying"); materializeFullDomainFacts(config, "after"); verifySlice3AtLifecycleState(config);
+  transition(config, "uat_ready", { technicalUat: "pending_external_runner" });
+  return { state: "uat_ready", productionImport: "HOLD" };
+}
+
+function preflightStaleResumeTakeover(config, artifacts) {
+  installReviewArtifacts(config, artifacts);
+  materializeReviewedJobState(config);
+}
+
+function assertLabRollbackEvidence(config) {
+  if (config.backend !== "lab") return;
+  const chainPath = config.verification?.manifestChainFile;
+  if (!chainPath || !existsSync(chainPath)) fail("RESTORE_EVIDENCE_REQUIRED", "lab rollback requires the verified manifest chain");
+  const chain = readJson(chainPath);
+  const result = verifyManifestChain(chain, { evidenceRoot: config.target.evidenceRoot });
+  const head = chain.find((entry) => entry.sha256 === result.headSha256)?.manifest;
+  if (!head || head.state !== "uat_ready" || head.parentRunId !== config.runId || JSON.stringify(head.triple) !== JSON.stringify(config.triple)) fail("RESTORE_EVIDENCE_REQUIRED", "rollback manifest is not bound to this uat_ready C/S/M run");
+  if (head.hardGates?.technicalUat?.status !== "PASS" || head.hardGates?.restore?.status !== "PASS") fail("RESTORE_EVIDENCE_REQUIRED", "technical UAT and restore proof must pass before rollback");
+}
+
 export function runRollback(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "uat_ready") fail("STATE_TRANSITION_INVALID", "rollback requires uat_ready state");
+  assertLabRollbackEvidence(config);
   for (const domain of ROLLBACK_ORDER) runAdapter(config, domain, "rollback");
   validateChildJournal(config, "rollback");
   transition(config, "rollback_ready");
@@ -589,6 +806,7 @@ async function runRollbackAsync(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "uat_ready") fail("STATE_TRANSITION_INVALID", "rollback requires uat_ready state");
+  assertLabRollbackEvidence(config);
   for (const domain of ROLLBACK_ORDER) await runAdapterAsync(config, domain, "rollback");
   validateChildJournal(config, "rollback");
   transition(config, "rollback_ready");
@@ -602,6 +820,7 @@ function actualResidual(config, entry) {
     return existsSync(marker) ? 1 : 0;
   }
   if (entry.type === "container") return spawnSync("docker", ["inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
+  if (entry.type === "network") return spawnSync("docker", ["network", "inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
   if (entry.type === "volume") return spawnSync("docker", ["volume", "inspect", entry.planned], { stdio: "ignore" }).status === 0 ? 1 : 0;
   if (entry.type === "port") return portBusy(Number(entry.planned.split(":").at(-1))) ? 1 : 0;
   if (["directory", "file", "credential_artifact"].includes(entry.type)) return existsSync(entry.planned) ? 1 : 0;
@@ -627,6 +846,7 @@ function removeFixture(config, entry) {
 
 function removeLab(config, entry) {
   if (entry.type === "container") spawnSync("docker", ["rm", "-f", entry.planned], { stdio: "ignore" });
+  else if (entry.type === "network") spawnSync("docker", ["network", "rm", entry.planned], { stdio: "ignore" });
   else if (entry.type === "volume") spawnSync("docker", ["volume", "rm", entry.planned], { stdio: "ignore" });
   else if (["role", "account"].includes(entry.type)) spawnSync("docker", ["exec", config.target.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database, "-c", `DROP ROLE IF EXISTS "${entry.planned}";`], { stdio: "ignore" });
   else if (["file", "credential_artifact"].includes(entry.type) && existsSync(entry.planned)) unlinkSync(entry.planned);
@@ -669,7 +889,7 @@ export function cleanup(configInput, options = {}) {
   const cleanupJournal = p.cleanup;
   if (!existsSync(cleanupJournal)) writePrivate(cleanupJournal, "");
   const filesystemTypes = new Set(["directory", "file", "credential_artifact"]);
-  const cleanupPriority = { account: 10, role: 20, process: 30, container: 40, volume: 50, database: 60, port: 70, file: 80, credential_artifact: 90, directory: 100 };
+  const cleanupPriority = { account: 10, role: 20, process: 30, container: 40, network: 45, volume: 50, database: 60, port: 70, file: 80, credential_artifact: 90, directory: 100 };
   for (const entry of [...registry].sort((a, b) => cleanupPriority[a.type] - cleanupPriority[b.type])) {
     appendPrivate(cleanupJournal, { type: entry.type, planned: entry.planned, observed: entry.observed, action: "remove_planned" });
     if (config.backend === "fixture") removeFixture(config, entry);
@@ -738,11 +958,132 @@ function parseArgs(argv) {
   const args = { command: argv[0] };
   for (let index = 1; index < argv.length; index += 1) {
     if (argv[index] === "--config") args.config = argv[++index];
+    else if (argv[index] === "--job-state-decision") args.decision = argv[++index];
+    else if (argv[index] === "--job-state-source-payload") args.payload = argv[++index];
+    else if (argv[index] === "--job-state-approval") args.approval = argv[++index];
     else if (argv[index] === "--recover") args.recovery = true;
     else fail("CLI_ARGUMENT_INVALID", argv[index]);
   }
-  if (!["provision", "run", "rollback", "cleanup", "status"].includes(args.command) || !args.config) fail("CLI_ARGUMENT_INVALID", "usage: full-domain-lifecycle.mjs <provision|run|rollback|cleanup|status> --config <file> [--recover]");
+  if (!["provision", "run", "resume", "rollback", "cleanup", "status"].includes(args.command) || !args.config || (args.command === "resume" && ![args.decision,args.payload,args.approval].every(Boolean))) fail("CLI_ARGUMENT_INVALID", "usage: full-domain-lifecycle.mjs <provision|run|resume|rollback|cleanup|status> --config <file>");
   return args;
+}
+
+const operationSha = value => createHash("sha256").update(value).digest("hex");
+function reviewPackageSha256(artifacts) {
+  if (!artifacts || ![artifacts.decision, artifacts.payload, artifacts.approval].every(value => typeof value === "string")) fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are required");
+  const hashes = [artifacts.decision, artifacts.payload, artifacts.approval].map(path => { let fd; try { fd = openSync(resolve(path), constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are unsafe"); return operationSha(readFileSync(fd)); } catch (error) { if (error instanceof LifecycleError) throw error; fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are unavailable"); } finally { if (fd !== undefined) closeSync(fd); } });
+  return operationSha(JSON.stringify(hashes));
+}
+function operationBinding(config, configPath, command, artifacts) {
+  const p = paths(config);
+  if (![configPath, p.registry, p.journal].every(path => existsSync(path) && !lstatSync(path).isSymbolicLink() && statSync(path).isFile() && mode(path) === "0600")) fail("OPERATION_LOCK_BINDING_INVALID", "operation binding files are unavailable");
+  return {
+    runId: config.runId,
+    state: currentState(config),
+    configSha256: operationSha(readFileSync(configPath)),
+    registrySha256: operationSha(readFileSync(p.registry)),
+    journalSha256: operationSha(readFileSync(p.journal)),
+    reviewPackageSha256: command === "resume" ? reviewPackageSha256(artifacts) : null
+  };
+}
+
+function pidIsAlive(pid) {
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return error?.code !== "ESRCH"; }
+}
+
+function readOperationFile(path, code) {
+  let fd;
+  try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail(code, "operation lock is unsafe"); const bytes = readFileSync(fd); return { bytes, value: JSON.parse(bytes.toString("utf8")) }; }
+  catch (error) { if (error instanceof LifecycleError) throw error; fail(code, "operation lock is invalid"); }
+  finally { if (fd !== undefined) closeSync(fd); }
+}
+
+function makeOperationLock(config, configPath, command, artifacts, pid = process.pid) {
+  const binding = operationBinding(config, configPath, command, artifacts);
+  const lock = { formatVersion: 1, lockNonce: randomBytes(16).toString("hex"), pid, hostSha256: operationSha(hostname()), command, ...binding, bindingSha256: operationSha(JSON.stringify(binding)), createdAt: new Date().toISOString() };
+  return lock;
+}
+
+function validateStaleOperationLock(lock, config, configPath, artifacts, isAlive = pidIsAlive) {
+  const keys = ["formatVersion", "lockNonce", "pid", "hostSha256", "command", "runId", "state", "configSha256", "registrySha256", "journalSha256", "reviewPackageSha256", "bindingSha256", "createdAt"];
+  if (config.backend !== "lab" || !lock || typeof lock !== "object" || Array.isArray(lock) || JSON.stringify(Object.keys(lock).sort()) !== JSON.stringify(keys.sort()) || lock.formatVersion !== 1 || !/^[0-9a-f]{32}$/u.test(lock.lockNonce) || !Number.isSafeInteger(lock.pid) || lock.pid < 1 || lock.hostSha256 !== operationSha(hostname()) || lock.command !== "resume" || lock.runId !== config.runId || lock.state !== "review_hold" || !SHA256.test(lock.reviewPackageSha256) || !SHA256.test(lock.bindingSha256) || typeof lock.createdAt !== "string" || Number.isNaN(Date.parse(lock.createdAt)) || new Date(lock.createdAt).toISOString() !== lock.createdAt) fail("STALE_OPERATION_LOCK_UNSAFE", "stale operation lock is not locally recoverable");
+  if (isAlive(lock.pid)) fail("RUN_CONCURRENT", `${config.runId} already has an active operation`);
+  const binding = operationBinding(config, configPath, "resume", artifacts);
+  if (binding.state !== "review_hold" || lock.bindingSha256 !== operationSha(JSON.stringify(binding)) || ["runId", "state", "configSha256", "registrySha256", "journalSha256", "reviewPackageSha256"].some(key => lock[key] !== binding[key])) fail("STALE_OPERATION_LOCK_DRIFT", "stale operation lock binding differs");
+  return binding;
+}
+
+function refreshOwnedResumeLock(config, configPath, artifacts) {
+  const p = paths(config), observed = readOperationFile(p.operationLock, "RUN_CONCURRENT"), lock = observed.value;
+  if (lock.command !== "resume" || lock.runId !== config.runId || lock.pid !== process.pid || lock.hostSha256 !== operationSha(hostname())) fail("RUN_CONCURRENT", `${config.runId} resume lock ownership changed`);
+  const binding = operationBinding(config, configPath, "resume", artifacts), refreshed = { ...lock, ...binding, bindingSha256: operationSha(JSON.stringify(binding)) }, nextBytes = Buffer.from(`${JSON.stringify(refreshed)}\n`);
+  if (existsSync(p.operationLockNext)) fail("RUN_CONCURRENT", `${config.runId} next lock is already occupied`);
+  writePrivate(p.operationLockNext, refreshed);
+  const confirmed = readOperationFile(p.operationLock, "RUN_CONCURRENT");
+  if (!confirmed.bytes.equals(observed.bytes)) { unlinkOwnedOperationFile(p.operationLockNext, nextBytes); fail("RUN_CONCURRENT", `${config.runId} resume lock changed during refresh`); }
+  renameSync(p.operationLockNext, p.operationLock);
+}
+
+function unlinkOwnedOperationFile(path, expectedBytes, code = "RUN_CONCURRENT") {
+  if (!existsSync(path)) return;
+  const observed = readOperationFile(path, code);
+  if (!observed.bytes.equals(expectedBytes)) fail(code, "operation ownership changed");
+  unlinkSync(path);
+}
+
+function recoverDeadTakeoverGuard(config, operationLockBytes, isAlive) {
+  const p = paths(config), observed = readOperationFile(p.operationLockTakeover, "RUN_CONCURRENT"), guard = observed.value;
+  const keys = ["formatVersion", "nonce", "pid", "hostSha256", "runId", "operationLockSha256", "nextLockSha256"];
+  if (!guard || JSON.stringify(Object.keys(guard).sort()) !== JSON.stringify(keys.sort()) || guard.formatVersion !== 1 || !/^[0-9a-f]{32}$/u.test(guard.nonce) || guard.hostSha256 !== operationSha(hostname()) || guard.runId !== config.runId || guard.operationLockSha256 !== operationSha(operationLockBytes) || !SHA256.test(guard.nextLockSha256) || !Number.isSafeInteger(guard.pid) || guard.pid < 1 || isAlive(guard.pid)) fail("RUN_CONCURRENT", `${config.runId} takeover is already active`);
+  const claim = { formatVersion: 1, nonce: randomBytes(16).toString("hex"), pid: process.pid, hostSha256: operationSha(hostname()), runId: config.runId, guardSha256: operationSha(observed.bytes) }, claimBytes = Buffer.from(`${JSON.stringify(claim)}\n`);
+  let fd, ownsClaim = false;
+  try {
+    try { fd = openSync(p.operationLockTakeoverClaim, "wx", 0o600); ownsClaim = true; } catch (error) { if (error?.code === "EEXIST") fail("RUN_CONCURRENT", `${config.runId} takeover recovery is already active`); throw error; }
+    writeFileSync(fd, claimBytes); closeSync(fd); fd = undefined; chmodSync(p.operationLockTakeoverClaim, 0o600);
+    const confirmedGuard = readOperationFile(p.operationLockTakeover, "RUN_CONCURRENT"), confirmedLock = readOperationFile(p.operationLock, "RUN_CONCURRENT");
+    if (!confirmedGuard.bytes.equals(observed.bytes) || operationSha(confirmedLock.bytes) !== guard.operationLockSha256) fail("RUN_CONCURRENT", `${config.runId} takeover ownership changed`);
+    try { linkSync(p.operationLockTakeover, p.operationLockTakeoverStale); } catch (error) { if (error?.code === "EEXIST") fail("RUN_CONCURRENT", `${config.runId} stale takeover quarantine is occupied`); throw error; }
+    unlinkOwnedOperationFile(p.operationLockTakeover, observed.bytes);
+    unlinkOwnedOperationFile(p.operationLockTakeoverStale, observed.bytes);
+    if (existsSync(p.operationLockNext)) { const next = readOperationFile(p.operationLockNext, "RUN_CONCURRENT"); if (operationSha(next.bytes) !== guard.nextLockSha256) fail("RUN_CONCURRENT", `${config.runId} next lock ownership changed`); unlinkOwnedOperationFile(p.operationLockNext, next.bytes); }
+  } finally {
+    if (fd !== undefined) try { closeSync(fd); } catch {}
+    if (ownsClaim) unlinkOwnedOperationFile(p.operationLockTakeoverClaim, claimBytes);
+  }
+}
+
+export function acquireOperationLock(configInput, configPathInput, command, { isAlive = pidIsAlive, artifacts, staleResumePreflight, validate = validateConfig, beforeTakeoverGuard } = {}) {
+  if (process.env.NODE_ENV !== "test" && (validate !== validateConfig || isAlive !== pidIsAlive || beforeTakeoverGuard !== undefined || (command === "resume" && staleResumePreflight !== preflightStaleResumeTakeover))) fail("TEST_HOOK_DENIED", "operation lock override is test-only");
+  const config = validate(structuredClone(configInput)), configPath = realpathSync(resolve(configPathInput)), p = paths(config), lock = makeOperationLock(config, configPath, command, artifacts);
+  let fd;
+  try { fd = openSync(p.operationLock, "wx", 0o600); writeFileSync(fd, `${JSON.stringify(lock)}\n`); closeSync(fd); chmodSync(p.operationLock, 0o600); return { status: "ACQUIRED", takeover: false, bindingSha256: lock.bindingSha256 }; }
+  catch (error) { if (fd !== undefined) try { closeSync(fd); } catch {} if (error?.code !== "EEXIST") throw error; }
+  if (command !== "resume") fail("RUN_CONCURRENT", `${config.runId} already has an active operation`);
+  const observed = readOperationFile(p.operationLock, "STALE_OPERATION_LOCK_UNSAFE");
+  validateStaleOperationLock(observed.value, config, configPath, artifacts, isAlive);
+  if (existsSync(p.operationLockTakeover)) recoverDeadTakeoverGuard(config, observed.bytes, isAlive);
+  let guardFd, ownsTakeoverGuard = false;
+  const nextBytes = Buffer.from(`${JSON.stringify(lock)}\n`), guard = { formatVersion: 1, nonce: randomBytes(16).toString("hex"), pid: process.pid, hostSha256: operationSha(hostname()), runId: config.runId, operationLockSha256: operationSha(observed.bytes), nextLockSha256: operationSha(nextBytes) }, guardBytes = Buffer.from(`${JSON.stringify(guard)}\n`);
+  try {
+    if (beforeTakeoverGuard !== undefined) beforeTakeoverGuard(p.operationLockTakeover);
+    try { guardFd = openSync(p.operationLockTakeover, "wx", 0o600); ownsTakeoverGuard = true; }
+    catch (error) { if (error?.code === "EEXIST") fail("RUN_CONCURRENT", `${config.runId} takeover is already active`); throw error; }
+    writeFileSync(guardFd, guardBytes); closeSync(guardFd); guardFd = undefined; chmodSync(p.operationLockTakeover, 0o600);
+    const confirmed = readOperationFile(p.operationLock, "STALE_OPERATION_LOCK_UNSAFE");
+    if (!confirmed.bytes.equals(observed.bytes)) fail("RUN_CONCURRENT", `${config.runId} operation lock changed during takeover`);
+    validateStaleOperationLock(confirmed.value, config, configPath, artifacts, isAlive);
+    if (typeof staleResumePreflight !== "function") fail("STALE_OPERATION_LOCK_UNSAFE", "stale resume preflight is required");
+    staleResumePreflight(config, artifacts);
+    if (existsSync(p.operationLockNext)) fail("RUN_CONCURRENT", `${config.runId} next lock is already occupied`);
+    writePrivate(p.operationLockNext, lock);
+    renameSync(p.operationLockNext, p.operationLock);
+    return { status: "ACQUIRED", takeover: true, bindingSha256: lock.bindingSha256 };
+  } finally {
+    if (guardFd !== undefined) try { closeSync(guardFd); } catch {}
+    if (ownsTakeoverGuard) unlinkOwnedOperationFile(p.operationLockTakeover, guardBytes);
+    if (ownsTakeoverGuard && existsSync(p.operationLockNext)) unlinkOwnedOperationFile(p.operationLockNext, nextBytes);
+  }
 }
 
 async function main() {
@@ -752,19 +1093,19 @@ async function main() {
   validateConfig(config);
   const p = paths(config);
   let ownsRecovery = args.command === "provision";
-  if (["run", "rollback"].includes(args.command)) {
+  if (["run", "resume", "rollback"].includes(args.command)) {
     if (!existsSync(config.target.root)) fail("STATE_TRANSITION_INVALID", `${args.command} requires a provisioned run`);
-    let fd;
-    try { fd = openSync(p.operationLock, "wx", 0o600); } catch { fail("RUN_CONCURRENT", `${config.runId} already has an active operation`); }
-    writeFileSync(fd, `${process.pid}\n`);
-    closeSync(fd);
-    ownsRecovery = true;
+    if (args.command === "resume") installSignalCleanup(config);
+    const reviewArtifacts = args.command === "resume" ? { decision: args.decision, payload: args.payload, approval: args.approval } : undefined;
+    acquireOperationLock(config, configPath, args.command, { artifacts: reviewArtifacts, staleResumePreflight: args.command === "resume" ? preflightStaleResumeTakeover : undefined });
+    ownsRecovery = args.command !== "resume";
   }
   if (ownsRecovery) installSignalCleanup(config);
   let result;
   try {
     if (args.command === "provision") result = provision(config);
     else if (args.command === "run") result = await runForwardAsync(config, configPath);
+    else if (args.command === "resume") result = await resumeAfterReviewAsync(config, configPath, { decision: args.decision, payload: args.payload, approval: args.approval });
     else if (args.command === "rollback") result = await runRollbackAsync(config, configPath);
     else if (args.command === "cleanup") result = cleanup(config, { recovery: args.recovery });
     else result = { state: currentState(validateConfig(config)), productionImport: "HOLD" };
@@ -775,9 +1116,14 @@ async function main() {
         process.stderr.write(`FAILURE_CLEANUP_FAILED: ${cleanupError.code ?? "UNEXPECTED_FAILURE"}\n`);
       }
     }
+    if (args.command === "resume" && existsSync(p.registry) && currentState(config) !== "review_hold") {
+      if (existsSync(p.journal)) appendPrivate(p.journal, { kind: "failure", code: error.code ?? "UNEXPECTED_FAILURE", state: currentState(config) });
+      try { cleanup(config, { recovery: true }); } catch { process.stderr.write("FAILURE_CLEANUP_FAILED: RECOVERY_REQUIRED\n"); }
+    }
+    if (args.command === "resume" && existsSync(p.operationLock)) unlinkSync(p.operationLock);
     throw error;
   }
-  if (["run", "rollback"].includes(args.command) && existsSync(p.operationLock)) unlinkSync(p.operationLock);
+  if (["run", "resume", "rollback"].includes(args.command) && existsSync(p.operationLock)) unlinkSync(p.operationLock);
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

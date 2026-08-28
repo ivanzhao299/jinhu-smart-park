@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ADAPTER_ENV_ALLOWLIST, LifecycleError, validateConfig } from "./full-domain-lifecycle.mjs";
+import { ADAPTER_ENV_ALLOWLIST, LifecycleError, resolveVerifiedExtractBindings, validateConfig } from "./full-domain-lifecycle.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -37,6 +37,24 @@ function childEnvironment(config, domain, phase) {
   const env = {};
   for (const key of BASE_ENV) if (process.env[key] !== undefined) env[key] = process.env[key];
   Object.assign(env, config.adapterEnv[domain][phase]);
+  if (config.backend === "lab" && phase === "load" && ["T0", "T1", "T2", "T3"].includes(domain)) {
+    const bindings = resolveVerifiedExtractBindings(config, domain);
+    for (const [key, value] of Object.entries(bindings)) {
+      if (Object.hasOwn(config.adapterEnv[domain][phase], key) && config.adapterEnv[domain][phase][key] !== value) {
+        fail("EXTRACT_MANIFEST_BINDING_MISMATCH", `${domain}.${key} configured hash differs from this run's verified extract manifest`);
+      }
+    }
+    Object.assign(env, bindings);
+    if (domain === "T0") {
+      const journal = readFileSync(resolve(config.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+      const records = journal.filter((row) => row.kind === "dictionary_materialization" && row.domain === "T0" && row.status === "verified");
+      const extracts = journal.filter((row) => row.kind === "child" && row.domain === "T0" && row.phase === "extract" && row.status === "verified");
+      if (records.length !== 1 || extracts.length !== 1 || records[0].triple.codeSha !== config.triple.codeSha
+        || !/^[0-9a-f]{64}$/.test(records[0].dictionarySnapshotSha256 ?? "")
+        || records[0].t0ManifestSha256 !== extracts[0].extractManifestSha256) fail("DICTIONARY_MATERIALIZATION_UNVERIFIED", "T0 reviewed dictionary materialization is not bound to this run");
+      env.YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256 = records[0].dictionarySnapshotSha256;
+    }
+  }
   Object.assign(env, {
     ALLOW_YUZHOU_MIGRATION: "yes",
     YUZHOU_MIGRATION_RUN_ID: `${config.runId}-t${childIndex}`,
@@ -48,6 +66,7 @@ function childEnvironment(config, domain, phase) {
     YUZHOU_STAGING_ROOT: config.target.stagingRoot,
     YUZHOU_STAGING_DIR: domain === "T4" ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`) : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`)
   });
+  if (domain === "T5" && phase === "extract") env.YUZHOU_PARTY_DATA_KEY_FILE = config.target.materializationKeyArtifact;
   if (phase === "rollback") env.ALLOW_YUZHOU_ROLLBACK = "yes";
   const allowed = new Set([...BASE_ENV, ...REQUIRED_FIXED, ...CONTRACT.domains[domain].requiredEnv, ...ADAPTER_ENV_ALLOWLIST[domain][phase], "YUZHOU_FIXTURE_DELAY_MS", "YUZHOU_FIXTURE_FAIL"]);
   for (const key of Object.keys(env)) {
@@ -56,10 +75,15 @@ function childEnvironment(config, domain, phase) {
   return env;
 }
 
-function validateCredentialBoundary(config, phase) {
+function validateCredentialBoundary(config, domain, phase) {
   if (phase !== "extract") return;
   const path = config.source.etlEnvFile;
-  if (!existsSync(path) || mode(path) !== "0600") fail("UNSAFE_FILE_PERMISSION", "ETL env file must be a non-symlink 0600 file");
+  if (!existsSync(path) || lstatSync(path).isSymbolicLink() || !statSync(path).isFile() || mode(path) !== "0600") fail("UNSAFE_FILE_PERMISSION", "ETL env file must be a non-symlink 0600 file");
+  if (domain === "T5") {
+    const keyPath = config.target.materializationKeyArtifact;
+    if (!existsSync(keyPath) || lstatSync(keyPath).isSymbolicLink() || !statSync(keyPath).isFile() || mode(keyPath) !== "0600") fail("UNSAFE_FILE_PERMISSION", "materialization key must be a non-symlink 0600 file");
+    if (Buffer.byteLength(readFileSync(keyPath, "utf8").trim(), "utf8") < 32) fail("UNSAFE_FILE_PERMISSION", "materialization key must contain at least 32 bytes");
+  }
 }
 
 function fixture(domain, phase, env) {
@@ -76,7 +100,7 @@ function fixture(domain, phase, env) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const config = validateConfig(JSON.parse(readFileSync(realpathSync(resolve(args.config)), "utf8")));
-  validateCredentialBoundary(config, args.phase);
+  validateCredentialBoundary(config, args.domain, args.phase);
   const env = childEnvironment(config, args.domain, args.phase);
   if (config.backend === "fixture") {
     process.stdout.write(`${JSON.stringify(fixture(args.domain, args.phase, env))}\n`);

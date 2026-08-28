@@ -45,4 +45,12 @@ for (const domain of domains) {
     fileSha256: sha256(readFileSync(resolve(outputDir, `${domain.name}.jsonl`))),
   };
 }
+for (const dictionary of [
+  { name: "employeeJobStates", file: "employee-job-states.raw.json" },
+  { name: "jobStateCodeMetadata", file: "job-state-code-metadata.raw.json" },
+]) {
+  const path=resolve(outputDir,dictionary.file),rows=JSON.parse(readFileSync(path,"utf8"));
+  if(!Array.isArray(rows))throw new Error(`${dictionary.name} extraction must be an array`);
+  summary.domains[dictionary.name]={rows:rows.length,file:dictionary.file,fileSha256:sha256(readFileSync(path))};
+}
 writeFileSync(resolve(outputDir, "manifest.json"), `${JSON.stringify(summary, null, 2)}\n`, { mode: 0o600 });

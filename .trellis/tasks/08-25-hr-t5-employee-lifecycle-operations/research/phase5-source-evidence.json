@@ -69,6 +69,14 @@
     "extractA": { "runId": "yz-t5-core-residue-20260827c", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" },
     "extractB": { "runId": "yz-t5-core-residue-20260827d", "businessSha256": "8f8526014901d90756e98adc4ccb26f56a970689963fd0b809df77c49f037dce" }
   },
+  "keyedFullDomainDeterminism": {
+    "runs": ["keyed-t5-20260828-a", "keyed-t5-20260828-b"],
+    "keyMaterial": "external_0600_lab_only",
+    "domainCount": 23,
+    "rowsPerRun": 20163,
+    "allDomainHashesEqual": true,
+    "businessSha256": "5939691dfdddd5912992328dba58505f92bcfb7bb7de07ada571959a52d37005"
+  },
   "isolatedDatabaseProof": {
     "sourceRows": 20163,
     "loadedRows": 19700,

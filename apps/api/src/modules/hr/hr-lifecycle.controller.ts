@@ -26,12 +26,16 @@ import {
   CreateHrLifecycleTemplateVersionDto,
   HrLifecycleItemActionDto,
   HrLifecycleListDto,
+  HrLegacyEmployeeMaterializationGapQueryDto,
 } from "./dto/hr-lifecycle.dto";
 import { HrLifecycleService } from "./hr-lifecycle.service";
 @Controller("hr")
 @RequireModule("hr")
 export class HrLifecycleController {
   constructor(private readonly service: HrLifecycleService) {}
+  @Get("legacy-materialization/gaps")
+  @RequirePermissions(HR_PERMISSIONS.HR_EMPLOYEE_PROFILE_MANAGE)
+  gaps(@CurrentScope()s:TenantParkScope,@CurrentUser()a:JwtPrincipal,@Query()q:HrLegacyEmployeeMaterializationGapQueryDto){return this.service.materializationGaps(s,a,q);}
   @Get("lifecycle/checklists")
   @RequireAnyPermissions(
     HR_PERMISSIONS.HR_LIFECYCLE_READ,

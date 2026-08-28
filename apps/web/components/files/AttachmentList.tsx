@@ -6,7 +6,7 @@ import { formatFileSize, SYSTEM_PERMISSIONS, type FileRecord, type PaginatedResu
 import { API_PREFIX, apiRequest, createIdempotencyKey } from "../../lib/api-client";
 import { useAuthUser } from "../../lib/auth-context";
 import { getAccessToken } from "../../lib/authz";
-import { hasPermission } from "../../lib/permissions";
+import { hasAnyPermission, hasPermission } from "../../lib/permissions";
 import { handleUnauthorizedSessionReset } from "../../lib/session-reset";
 import { PermissionButton } from "../permission-button";
 import { FilePreview } from "./FilePreview";
@@ -19,6 +19,10 @@ interface AttachmentListProps {
   refreshKey?: number;
   mutationDisabled?: boolean;
   mutationPermission?: string;
+  readPermissions?: string[];
+  downloadPermissions?: string[];
+  label?: string;
+  emptyLabel?: string;
   onDeleted?: (file: FileRecord) => void;
 }
 
@@ -31,12 +35,20 @@ export function AttachmentList({
   refreshKey = 0,
   mutationDisabled = false,
   mutationPermission,
+  readPermissions,
+  downloadPermissions,
+  label = "已上传附件",
+  emptyLabel = "暂无附件",
   onDeleted
 }: AttachmentListProps) {
   const user = useAuthUser();
-  const canDownload = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
-  const canDelete = hasPermission(user, SYSTEM_PERMISSIONS.FILE_DELETE)
-    && (!mutationPermission || hasPermission(user, mutationPermission));
+  const canRead = !readPermissions?.length || hasAnyPermission(user, readPermissions);
+  const canDownload = downloadPermissions?.length
+    ? hasAnyPermission(user, downloadPermissions)
+    : hasPermission(user, SYSTEM_PERMISSIONS.FILE_DOWNLOAD);
+  const canDelete = mutationPermission
+    ? hasPermission(user, mutationPermission)
+    : hasPermission(user, SYSTEM_PERMISSIONS.FILE_DELETE);
   const [data, setData] = useState(emptyPage);
   const [keyword, setKeyword] = useState("");
   const [message, setMessage] = useState("");
@@ -44,6 +56,7 @@ export function AttachmentList({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   async function load(page = 1) {
+    if (!canRead) return;
     const params = new URLSearchParams({ page: String(page), page_size: "20", biz_type: bizType });
     if (bizId) params.set("biz_id", bizId);
     if (keyword) params.set("keyword", keyword);
@@ -54,8 +67,8 @@ export function AttachmentList({
   }
 
   useEffect(() => {
-    void load().catch((error: Error) => setMessage(error.message));
-  }, [bizType, bizId, refreshKey]);
+    void load().catch(() => setMessage("附件列表加载失败"));
+  }, [bizType, bizId, refreshKey, canRead]);
 
   async function fetchFileBlob(file: FileRecord): Promise<Blob> {
     const token = getAccessToken();
@@ -132,10 +145,10 @@ export function AttachmentList({
 
   return (
     <section className={compact ? "attachment-list attachment-list-compact" : "work-panel"}>
-      {compact ? (
+      {!canRead ? <p className="attachment-empty">无附件查看权限</p> : compact ? (
         <>
           <div className="attachment-list-summary">
-            <strong>已上传平面图</strong>
+            <strong>{label}</strong>
             <span>{data.total} 个文件</span>
           </div>
           {data.items.length > 0 ? (
@@ -146,22 +159,22 @@ export function AttachmentList({
                     file={item}
                     canDownload={canDownload}
                     fetchFileBlob={fetchFileBlob}
-                    onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))}
+                    onPreview={() => void preview(item).catch(() => setMessage("文件预览失败"))}
                   />
                   <div className="attachment-compact-main">
                     <strong>{item.originalName}</strong>
                     <span>{item.mimeType} · {formatFileSize(Number(item.fileSize))}</span>
                   </div>
                   <span className="attachment-compact-actions">
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void preview(item).catch((error: Error) => setMessage(error.message))}>预览</PermissionButton>
-                    <PermissionButton permission={SYSTEM_PERMISSIONS.FILE_DOWNLOAD} type="button" onClick={() => void download(item).catch((error: Error) => setMessage(error.message))}>下载</PermissionButton>
-                    <PermissionButton disabled={mutationDisabled || !canDelete} permission={SYSTEM_PERMISSIONS.FILE_DELETE} type="button" onClick={() => void remove(item).catch((error: Error) => setMessage(error.message))}>删除</PermissionButton>
+                    {canDownload ? <button className="ds-button" type="button" onClick={() => void preview(item).catch(() => setMessage("文件预览失败"))}>预览</button> : null}
+                    {canDownload ? <button className="ds-button" type="button" onClick={() => void download(item).catch(() => setMessage("文件下载失败"))}>下载</button> : null}
+                    {canDelete ? <button className="ds-button" disabled={mutationDisabled} type="button" onClick={() => void remove(item).catch(() => setMessage("附件删除失败"))}>删除</button> : null}
                   </span>
                 </article>
               ))}
             </div>
           ) : (
-            <p className="attachment-empty">暂无平面图文件</p>
+            <p className="attachment-empty">{emptyLabel}</p>
           )}
           {message ? <p className="status-pill">{message}</p> : null}
           <FilePreview file={previewFile} objectUrl={previewUrl} onClose={closePreview} />

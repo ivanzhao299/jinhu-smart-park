@@ -1,13 +1,28 @@
 #!/usr/bin/env sh
 set -eu
+umask 077
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"; RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"; DATABASE="${YUZHOU_SQLSERVER_DATABASE:-YuzhouHR_Lab_20260820_intake01}"; CONTAINER="${YUZHOU_SQLSERVER_CONTAINER:-jinhu_yuzhou_migration_lab-sqlserver-1}"; CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$ROOT_DIR/database/import-reports/yuzhou-hr/20260820_intake01-etl.env}"; OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ]||fail "set ALLOW_YUZHOU_MIGRATION=yes"; printf %s "$RUN_ID"|grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$'||fail "invalid run id"; [ -f "$CREDENTIAL_FILE" ]||fail "read-only ETL credential file is missing"; . "$CREDENTIAL_FILE"; [ "$YUZHOU_SQLSERVER_ETL_LOGIN" != sa ]||fail "sa is forbidden for extraction"; [ "$YUZHOU_SQLSERVER_DATABASE" = "$DATABASE" ]||fail "credential database mismatch"
 [ "$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$CONTAINER" 2>/dev/null||true)" = jinhu_yuzhou_migration_lab ]||fail "container is not the migration lab"
 ro="$(docker exec -e ETL_PASSWORD="$YUZHOU_SQLSERVER_ETL_PASSWORD" "$CONTAINER" bash -lc '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U "$1" -P "$ETL_PASSWORD" -d "$2" -h -1 -W -Q "SET NOCOUNT ON; SELECT CONVERT(int,is_read_only) FROM sys.databases WHERE name=DB_NAME();"' q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE"|tr -d '[:space:]')"; [ "$ro" = 1 ]||fail "source database is not read-only"
 OUT="$OUTPUT_ROOT/staging-$RUN_ID"; [ ! -e "$OUT" ]||fail "staging run already exists"; mkdir -p "$OUT"; chmod 700 "$OUT"
-query(){ name="$1"; sql="$2"; docker exec -e ETL_PASSWORD="$YUZHOU_SQLSERVER_ETL_PASSWORD" "$CONTAINER" bash -lc '/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U "$1" -P "$ETL_PASSWORD" -d "$2" -y 0 -w 65535 -Q "$3"' q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE" "$sql"|tr -d '\r\n' >"$OUT/$name"; node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$OUT/$name"; chmod 600 "$OUT/$name"; }
+query(){
+  name="$1"; sql="$2"; raw="$OUT/.$name.sqlcmd"; err="$OUT/.$name.stderr"
+  if ! docker exec -e ETL_PASSWORD="$YUZHOU_SQLSERVER_ETL_PASSWORD" "$CONTAINER" bash -lc '/opt/mssql-tools18/bin/sqlcmd -b -V 16 -C -S localhost -U "$1" -P "$ETL_PASSWORD" -d "$2" -y 0 -w 65535 -Q "$3"' q "$YUZHOU_SQLSERVER_ETL_LOGIN" "$DATABASE" "$sql" >"$raw" 2>"$err"; then
+    rm -f "$raw" "$err"
+    fail "SQL query failed for $name"
+  fi
+  rm -f "$err"
+  tr -d '\r\n' <"$raw" >"$OUT/$name"; rm -f "$raw"
+  if ! node -e 'try{JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))}catch{process.exit(1)}' "$OUT/$name"; then
+    rm -f "$OUT/$name"
+    fail "invalid JSON for $name"
+  fi
+  chmod 600 "$OUT/$name"
+}
 query contract-types.raw.json "SET NOCOUNT ON; SELECT compacttype AS typeName,myorder AS typeCode FROM dbo.compacttypecode ORDER BY myorder,compacttype FOR JSON PATH,INCLUDE_NULL_VALUES;"
-query contracts.raw.json "SET NOCOUNT ON; SELECT compact AS contractNo,compacttype AS typeName,person AS employeeCode,CONVERT(varchar(10),startdate,23) AS startDate,CONVERT(varchar(10),enddate,23) AS endDate,CONVERT(varchar(10),testenddate,23) AS probationEndDate,compacttime AS contractMonths,totalcompacttime AS totalContractMonths,testtime AS probationMonths,CONVERT(varchar(40),testpay) AS probationSalary,CONVERT(varchar(40),basepay) AS baseSalary,state AS legacyState,continuetimes,continueyears,CONVERT(varchar(10),jddate,23) AS signedDate,jyxzxy AS nonCompeteFlag,bmxy AS confidentialityFlag,pxfwxy AS trainingServiceFlag,CASE WHEN compactfile IS NULL OR LTRIM(RTRIM(compactfile))='' THEN 0 ELSE 1 END AS legacyFilePresent,CASE WHEN compacttext IS NULL OR DATALENGTH(compacttext)=0 THEN 0 ELSE 1 END AS legacyTextPresent FROM dbo.compact ORDER BY compact FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query contract-states.raw.json "SET NOCOUNT ON; SELECT CONVERT(varchar(255),state) AS sourceValue,COUNT_BIG(*) AS usageCount FROM dbo.compact GROUP BY state ORDER BY CONVERT(varchar(255),state) FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query contracts.raw.json "SET NOCOUNT ON; SELECT compact AS contractNo,compacttype AS typeName,person AS employeeCode,CONVERT(varchar(10),startdate,23) AS startDate,CONVERT(varchar(10),enddate,23) AS endDate,CONVERT(varchar(10),testenddate,23) AS probationEndDate,compacttime AS contractMonths,totalcompacttime AS totalContractMonths,testtime AS probationMonths,CONVERT(varchar(40),testpay) AS probationSalary,CONVERT(varchar(40),basepay) AS baseSalary,state AS legacyState,continuetimes,continueyears,CONVERT(varchar(10),jddate,23) AS signedDate,jyxzxy AS nonCompeteFlag,bmxy AS confidentialityFlag,pxfwxy AS trainingServiceFlag,CASE WHEN compactfile IS NULL OR LTRIM(RTRIM(compactfile))='' THEN 0 ELSE 1 END AS legacyFilePresent,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONVERT(nvarchar(max),compactfile))),2)) AS legacyFileLocatorSha256,CASE WHEN compacttext IS NULL OR DATALENGTH(compacttext)=0 THEN 0 ELSE 1 END AS legacyTextPresent,LOWER(CONVERT(varchar(64),HASHBYTES('SHA2_256',CONVERT(varbinary(max),CONVERT(nvarchar(max),compacttext))),2)) AS legacyTextSha256,DATALENGTH(compacttext) AS legacyTextBytes FROM dbo.compact ORDER BY compact FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query contract-changes.raw.json "SET NOCOUNT ON; SELECT compact AS contractNo,person AS employeeCode,compacttime AS contractMonths,CONVERT(varchar(19),startdate,120) AS startDate,CONVERT(varchar(19),enddate,120) AS endDate,CONVERT(varchar(19),cjddate,120) AS signedAt,ROW_NUMBER() OVER(PARTITION BY compact ORDER BY startdate,enddate,cjddate,person) AS sequenceNo FROM dbo.compact_c ORDER BY compact,startdate,enddate,cjddate,person FOR JSON PATH,INCLUDE_NULL_VALUES;"
 node "$ROOT_DIR/scripts/transform-yuzhou-t2-contracts.mjs" "$OUT"; printf 'YUZHOU_T2_EXTRACT_OK run_id=%s output=%s\n' "$RUN_ID" "$OUT"

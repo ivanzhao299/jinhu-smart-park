@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_runtime_page_evidence",
+  "surface": "client",
+  "batchId": "redacted-client-001",
+  "operationMode": "read_only",
+  "sourceContractSha256": "cac2dd57ff0c3891b7dc8288888cb70a569010264853975859816aebd8ebd705",
+  "observations": [
+    {
+      "stableId": "client:employee_profile:employee-list:page",
+      "familyOrDomain": "employee_profile",
+      "legacyId": null,
+      "roleClass": "client_hr_operator",
+      "viewport": "desktop",
+      "locatorSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "pageStructureSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "fieldEvidence": [
+        {
+          "stableId": "client:employee_profile:employee-list:page:field:employee-code",
+          "labelSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "controlType": "text",
+          "required": "unproven",
+          "defaultKind": "unproven",
+          "masked": false
+        }
+      ],
+      "actionEvidence": [
+        {
+          "stableId": "client:employee_profile:employee-list:page:action:query",
+          "visible": true,
+          "enabled": true,
+          "executed": false,
+          "preconditionCode": "NONE"
+        }
+      ],
+      "stateEvidence": [],
+      "permissionEvidence": {
+        "expected": "allow",
+        "observed": "allow",
+        "dataScope": "admin",
+        "directRouteChecked": true
+      },
+      "artifact": {
+        "descriptorSha256": "215ebb2c644c2f1de839e5fd4b07362eb51e6e9212b6a8bd816f974683fb6d86",
+        "screenshotSha256": null,
+        "bytes": 0,
+        "externalMode": "0600"
+      },
+      "observationSha256": "8abc34ab97f5fad53d649b4bbdc4e0a252f425572b5f24bb7ab332b639d16f5a"
+    }
+  ],
+  "sensitiveScan": "PASS",
+  "humanSignoff": "HOLD",
+  "productionImport": "HOLD"
+}

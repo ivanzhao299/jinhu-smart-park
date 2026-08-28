@@ -1,5 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { validateYuzhouLiveRoleUatEvidencePair } from "./yuzhou-live-role-uat-evidence-lib.mjs";
 
 export class LegacyGroupWebImplementationCoverageError extends Error {
   constructor(code, detail) {
@@ -12,6 +14,88 @@ export class LegacyGroupWebImplementationCoverageError extends Error {
 const fail = (code, detail) => {
   throw new LegacyGroupWebImplementationCoverageError(code, detail);
 };
+
+const sha64 = value => typeof value === "string" && /^[0-9a-f]{64}$/u.test(value);
+const exactKeys = (value, keys, label) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...keys].sort())) {
+    fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_SHAPE_INVALID", label);
+  }
+};
+const LEGACY_RUNTIME_ROLES = Object.freeze(["hr_manager", "department_manager", "employee_self_service"]);
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const runtimeEvidenceArtifactHash = evidence => createHash("sha256").update(JSON.stringify({
+  contractKind: evidence.contractKind,
+  evidenceSource: evidence.evidenceSource,
+  surface: evidence.surface,
+  observedAt: evidence.observedAt,
+  items: evidence.items
+})).digest("hex");
+
+const canonicalRoute = route => {
+  if (typeof route !== "string" || !/^\/[A-Za-z0-9._~!$'()*+,;:@%/-]+$/u.test(route)) return false;
+  try {
+    const decoded = decodeURIComponent(route);
+    return !/[?#\\\u0000-\u001f\u007f]/u.test(decoded)
+      && !/(?:^|[/;])(?:password|passwd|pwd|token|secret|credential|authorization)(?:[/;:=]|$)/iu.test(decoded);
+  } catch {
+    return false;
+  }
+};
+
+export function validateLegacyGroupWebRuntimeUatEvidence(evidence, knownLegacyIds) {
+  exactKeys(evidence, ["formatVersion", "contractKind", "status", "evidenceSource", "surface", "observedAt", "artifactSha256", "items", "productionImport"], "root");
+  if (evidence.formatVersion !== 1
+    || evidence.contractKind !== "yuzhou_hr_legacy_runtime_uat_evidence"
+    || evidence.status !== "PASS"
+    || evidence.evidenceSource !== "legacy_group_web_live_read_only_traversal"
+    || evidence.surface !== "group_web"
+    || evidence.productionImport !== "HOLD") {
+    fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_IDENTITY_INVALID", "root");
+  }
+  if (!sha64(evidence.artifactSha256)
+    || typeof evidence.observedAt !== "string"
+    || !Number.isFinite(Date.parse(evidence.observedAt))
+    || new Date(evidence.observedAt).toISOString() !== evidence.observedAt
+    || Date.parse(evidence.observedAt) > Date.now() + MAX_CLOCK_SKEW_MS
+    || !Array.isArray(evidence.items)
+    || evidence.items.length === 0
+    || evidence.artifactSha256 !== runtimeEvidenceArtifactHash(evidence)) {
+    fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_BINDING_INVALID", "root");
+  }
+  const known = new Set(knownLegacyIds);
+  const eligibleLegacyIds = [];
+  const seen = new Set();
+  const seenObservationArtifacts = new Set();
+  for (const item of evidence.items) {
+    exactKeys(item, ["legacyId", "status", "observations"], `item.${item?.legacyId}`);
+    if (!known.has(item.legacyId) || seen.has(item.legacyId) || item.status !== "PASS" || !Array.isArray(item.observations)) {
+      fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_ITEM_INVALID", String(item.legacyId));
+    }
+    seen.add(item.legacyId);
+    const roles = [];
+    for (const observation of item.observations) {
+      exactKeys(observation, ["role", "pageId", "route", "observedAt", "artifactSha256"], `observation.${item.legacyId}`);
+      if (!LEGACY_RUNTIME_ROLES.includes(observation.role)
+        || typeof observation.pageId !== "string"
+        || !/^[a-z0-9][a-z0-9._:-]{2,127}$/u.test(observation.pageId)
+        || !canonicalRoute(observation.route)
+        || observation.observedAt !== evidence.observedAt
+        || !sha64(observation.artifactSha256)
+        || observation.artifactSha256 === evidence.artifactSha256
+        || seenObservationArtifacts.has(observation.artifactSha256)) {
+        fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_OBSERVATION_INVALID", `${item.legacyId}.${observation?.role}`);
+      }
+      seenObservationArtifacts.add(observation.artifactSha256);
+      roles.push(observation.role);
+    }
+    if (JSON.stringify(roles) !== JSON.stringify(LEGACY_RUNTIME_ROLES)) {
+      fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_ROLE_MATRIX_INCOMPLETE", String(item.legacyId));
+    }
+    eligibleLegacyIds.push(item.legacyId);
+  }
+  return { status: "PASS", surface: evidence.surface, observedAt: evidence.observedAt, artifactSha256: evidence.artifactSha256, eligibleLegacyIds };
+}
 
 const ROUTE_EVIDENCE = Object.freeze({
   "/hr": { page: "apps/web/app/hr/page.tsx", api: [], migrations: [] },
@@ -171,20 +255,21 @@ function scoreRoute(root, route) {
     apiBusinessFlow: fileEvidence(root, evidence.api),
     persistentDataModel: fileEvidence(root, evidence.migrations),
     legacyRuleParity: false,
-    liveRoleUat: false
+    targetTechnicalUat: false,
+    legacyRuntimeUat: false
   };
   const score = (dimensions.ownershipMapped ? 20 : 0)
     + (dimensions.productionRoute ? 20 : 0)
     + (dimensions.apiBusinessFlow ? 20 : 0)
     + (dimensions.persistentDataModel ? 20 : 0)
     + (dimensions.legacyRuleParity ? 10 : 0)
-    + (dimensions.liveRoleUat ? 10 : 0);
+    + (dimensions.legacyRuntimeUat ? 10 : 0);
   return { route, dimensions, score, evidence };
 }
 
 const statusFor = score => score === 100 ? "implemented" : score >= 60 ? "partial" : "mapped_only";
 
-export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
+export function assessLegacyGroupWebImplementationCoverage(mapping, root, options = {}) {
   if (mapping?.contractKind !== "yuzhou_hr_legacy_group_web_module_mapping" || mapping?.status !== "mapped_not_implementation_complete" || !Array.isArray(mapping.items) || mapping.items.length !== 231) {
     fail("GROUP_WEB_IMPLEMENTATION_SOURCE_INVALID", "module mapping");
   }
@@ -192,6 +277,23 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
 
   const sourceAudit = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json"), "utf8"));
   const sourceAuditById = new Map(sourceAudit.items.map(item => [item.legacyId, item]));
+  if (options.liveRoleUatEvidencePair) {
+    fail("GROUP_WEB_IMPLEMENTATION_MIXED_UAT_EVIDENCE", "liveRoleUatEvidencePair is ambiguous; use targetTechnicalUatEvidencePair or legacyRuntimeUatEvidence");
+  }
+  const targetTechnicalUat = options.targetTechnicalUatEvidencePair
+    ? validateYuzhouLiveRoleUatEvidencePair(
+      options.targetTechnicalUatEvidencePair,
+      JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json"), "utf8")),
+      options.expectedTriple ?? null,
+      JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8")),
+      JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"))
+    )
+    : null;
+  const targetTechnicalUatIds = new Set(targetTechnicalUat?.eligibleLegacyIds ?? []);
+  const legacyRuntimeUat = options.legacyRuntimeUatEvidence
+    ? validateLegacyGroupWebRuntimeUatEvidence(options.legacyRuntimeUatEvidence, mapping.items.map(item => item.legacyId))
+    : null;
+  const legacyRuntimeUatIds = new Set(legacyRuntimeUat?.eligibleLegacyIds ?? []);
   const routeAssessments = new Map();
   const items = mapping.items.map(item => {
     const candidates = item.targetRoutes.map(route => {
@@ -203,8 +305,14 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
     const parityVerified = Boolean(parity
       && sourceAuditById.get(item.legacyId)?.fieldEvidenceHash === parity.legacyFieldEvidenceHash
       && fileEvidence(root, parity.evidenceFiles));
-    const dimensions = { ...best.dimensions, legacyRuleParity: parityVerified };
-    const score = best.score + (parityVerified ? 10 : 0);
+    const dimensions = {
+      ...best.dimensions,
+      legacyRuleParity: parityVerified,
+      targetTechnicalUat: targetTechnicalUatIds.has(item.legacyId),
+      legacyRuntimeUat: legacyRuntimeUatIds.has(item.legacyId)
+    };
+    const score = best.score + (parityVerified ? 10 : 0) + (dimensions.legacyRuntimeUat ? 10 : 0);
+    const targetImplementationScore = best.score + (parityVerified ? 10 : 0) + (dimensions.targetTechnicalUat ? 10 : 0);
     return {
       legacyId: item.legacyId,
       parentId: item.parentId,
@@ -216,6 +324,8 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
       selectedRoute: best.route,
       score,
       implementationStatus: statusFor(score),
+      targetImplementationScore,
+      targetImplementationStatus: statusFor(targetImplementationScore),
       dimensions,
       ruleParityOutcome: parityVerified ? parity.outcome : null,
       blockers: [
@@ -223,16 +333,18 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
         ...(!dimensions.apiBusinessFlow ? ["api_business_flow"] : []),
         ...(!dimensions.persistentDataModel ? ["persistent_data_model"] : []),
         ...(!dimensions.legacyRuleParity ? ["legacy_rule_parity"] : []),
-        ...(!dimensions.liveRoleUat ? ["live_role_uat"] : [])
+        ...(!dimensions.legacyRuntimeUat ? ["legacy_runtime_uat"] : [])
       ]
     };
   });
 
   const statuses = { implemented: 0, partial: 0, mapped_only: 0 };
+  const targetStatuses = { implemented: 0, partial: 0, mapped_only: 0 };
   const scoreBands = { score100: 0, score90: 0, score80: 0, score60: 0, score40: 0, score20: 0 };
   const domains = {};
   for (const item of items) {
     statuses[item.implementationStatus] += 1;
+    targetStatuses[item.targetImplementationStatus] += 1;
     scoreBands[`score${item.score}`] += 1;
     domains[item.domain] ??= { total: 0, implemented: 0, partial: 0, mapped_only: 0, averageScore: 0 };
     const domain = domains[item.domain];
@@ -243,16 +355,37 @@ export function assessLegacyGroupWebImplementationCoverage(mapping, root) {
   for (const domain of Object.values(domains)) domain.averageScore = Number((domain.averageScore / domain.total).toFixed(2));
 
   const averageScore = Number((items.reduce((sum, item) => sum + item.score, 0) / items.length).toFixed(2));
+  const targetAverageScore = Number((items.reduce((sum, item) => sum + item.targetImplementationScore, 0) / items.length).toFixed(2));
   return {
     formatVersion: 1,
     contractKind: "yuzhou_hr_legacy_group_web_implementation_coverage",
     assessmentKind: "source_evidence_baseline_not_business_acceptance",
     items,
-    summary: { total: items.length, statuses, scoreBands, averageScore, domains },
+    summary: {
+      total: items.length,
+      statuses,
+      scoreBands,
+      averageScore,
+      scoreMeaning: "legacy_group_web_runtime_compatibility",
+      targetImplementation: {
+        statuses: targetStatuses,
+        averageScore: targetAverageScore,
+        scoreMeaning: "smart_park_target_technical_implementation"
+      },
+      domains
+    },
     gates: {
       implementedRequiresScore: 100,
       legacyRuleParityRequiresItemEvidence: true,
-      liveRoleUatRequiresItemEvidence: true,
+      targetTechnicalUatDoesNotSatisfyLegacyRuntime: true,
+      targetTechnicalUatEvidence: targetTechnicalUat ? {
+        status: targetTechnicalUat.status,
+        taskCardSha256: targetTechnicalUat.taskCardSha256,
+        rehearsalRunIds: targetTechnicalUat.rehearsalRunIds,
+        triple: targetTechnicalUat.triple
+      } : null,
+      legacyRuntimeUatRequiresFrozenSurfaceRolePageRouteTimeAndHash: true,
+      legacyRuntimeUatEvidence: legacyRuntimeUat,
       mappedDoesNotMeanImplemented: true,
       productionImport: "HOLD"
     }

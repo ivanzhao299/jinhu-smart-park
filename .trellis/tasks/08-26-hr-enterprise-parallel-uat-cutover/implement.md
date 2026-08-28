@@ -42,12 +42,23 @@
     - [x] 第三阶段第一批：为员工档案、异动、合同 3 个核心域建立 reviewed mapping contract/verifier；固定原子 inventory hash 并展开 person 及档案关联表、readjust/readjustitem/jobstatecode、compact/compact_c/compacttypecode 的 12 表/260 字段，只有仓库内 route/API/entity/permission/test 文件与符号真实存在才标 mapped/tested，未绑定字段和工号不复用、jobstate、JZ/DZ/LZ/FZ 编号语义、合同续签链/提醒等规则以稳定 gap reason 保留。
     - [x] 第三阶段第二批：逐项绑定玉舟集团 Web 版 15 个入口；初始 12 个具备新 route/API/permission/test 的源码闭环，随后补齐受原子权限和 required audit 保护的人事异动统计、受敏感档案权限与图片策略保护的人员照片，以及验证旧密码、限流、递增会话版本并原子撤销全部 refresh session 的本人密码修改，当前为 15 mapped / 0 gaps。该证据不替代三角色运行时矩阵，兼容分仍为 0，生产历史 import 继续 `HOLD`。
     - [ ] 第三阶段现场补证：对仍可运行的玉舟 V10 客户端执行只读全菜单遍历，逐页记录菜单层级、查询条件、列表列、空白新增/编辑字段、状态动作、编号、校验、审批、打印/导出和角色可见性；禁止保存、审核、结账、发薪或导出个人数据，截图/证据必须脱敏且不得记录连接地址或凭据。当前 v1 仅为 L3 进度证据，兼容分贡献固定为 0，不得以 `candidate` 或人工布尔值冒充 L4。
+      - [x] 覆盖评分已拆分目标系统 `targetTechnicalUat` 与旧集团 Web `legacyRuntimeUat`：Smart Park A/B 只能提升目标实现维度；旧端缺少固定 surface/role/page/route/observedAt/artifact hash 的三角色实遍历证据时保持 partial/missing，旧歧义输入和源码/数据库替代证据均 fail closed。
+      - [x] 建立不可互换的 `client:*` 与 `group-web:*` 原子清单骨架：守恒 client 83 入口及 162 表/2,364 字段/212 规则/915 权限、group Web 231 菜单/186 源码路径；现有等级仅为 231 DB、186 SOURCE、83 INFERRED、3,653 MISSING，禁止跨 surface 复用或自动晋级。
       - [ ] 首轮覆盖员工档案、人事异动、劳动合同、考勤、工资、培训、奖惩、招聘、绩效、自助和系统字典；页面证据逐项绑定 atomic inventory stable ID 与 reviewed mapping，修正帮助文档或数据库结构无法证明的交互语义。
       - [ ] 对员工已习惯的流程区分 `preserve`、`modernize`、`archive`、`reject` 四类决策；保留业务语义与编号/状态链，不复制旧 UI、弱权限或不合规做法，每项决策要求新 route/API/entity/atomic permission/test evidence。
       - [ ] 现场遍历完成前，旧客户端 L4 兼容分保持 0，生产历史 import 继续 `HOLD`；任何包含 PII、工资明细或真实凭据的证据不得进入仓库。
     - [ ] 由人工审阅候选 inventory 后，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；未审阅候选不得提高兼容评分。
 - [ ] 在 Rehearsal A 前完成高优先级兼容缺口门禁：档案扩展域、异动快照、合同续签链、培训/奖惩/招聘历史查询、自助投影；工资继续最近三年热窗口，复杂公式/银行报盘保留为后置硬门禁。
+  - [ ] P0-1 旧字典治理：禁止未知 `jobstatecode` 默认归为离职，禁止未签署异动/合同字典静默映射；版本化、append-only、批准 hash 绑定，未知值 fail-closed/quarantine。
+  - [ ] P0-2 三角色 scope/RBAC：让 `HR_ACCESS_MATRIX` 成为运行时合同，补齐经理 team-masked 与员工 self-masked 档案权限；经理跨树、员工跨人必须拒绝。
+  - [ ] P0-3 员工完整档案物化：`person` 扩展字段及 `family/knowhow/ticket` 家庭、技能、证照从 raw archive 进入受权限保护的结构化业务模型。
+  - [ ] P0-4 合同链与提醒：期限、累计续签、签订日、正文/文件证据及到期提醒工作流完整结构化，不能以 60 日前端计数代替流程。
+  - [ ] P0-5 审批与敏感读取：区分 park/team 审批，required-audit 失败前工资、合同薪资、保险金额和附件均为零数据/零 metadata/header/stream。
 - [ ] A 使用全新资源完成 source→extract→migrate/seed→T0…T5→ledger/hash→三角色 API + desktop/390 browser 技术矩阵→反序 rollback/cleanup；六域与 UAT 完成前不得 rollback，修复后必须从头重跑。
+  - [x] 新增最终 A/B pair contract、只读 preflight 与 fail-closed 总控：冻结 T2/T4/T5 口径，强制 A/B 相同 C/S/M 和完全不同资源，固定 provision→T0…T5→技术 UAT→25 项 P0→备份恢复故障→pair compare→T5…T0 rollback→cleanup 顺序；失败只做 registry-scoped recovery。当前 P0 仍为 `HOLD`，总控会以 `FINAL_PAIR_P0_HOLD` 停止，不能生成最终 PASS。
+  - [x] P0 最终门禁矩阵已版本化并绑定 mapping-contract hash：按稳定顺序覆盖 park/team 审批及自审/跨树拒绝、档案 full/team/self 与 gap、合同 salary/document/reminder、保险金额、工资明细原子权限，以及附件审计/存储失败零敏感 header/零 byte；独立 loopback 执行器只生成 hash/布尔证据。该完成项只表示执行契约就绪，最终 A/B 仍须以全新隔离资源实际执行全部 25 项并产出观察证据。
+  - [x] 已实现并冻结真实技术执行器：46 个 API 正负向检查与 28 个旧功能×角色检查在 desktop/390 两视口形成 56 个浏览器单元；使用隔离账号、真实 loopback HTTP、真实 headless Chrome、受控 0600 截图、敏感 DOM/存储清理与 C/S/M hash 绑定。当前只证明执行器契约和 Chrome 集成，尚未替代 A 的真实六域连续演练。
+  - [x] 预演 A18 在 `f228fb98` 上从空库连续完成 T0→T5，并通过 59 个 API、22 个反向授权、46 个旧任务语义、28 个浏览器与 56 个 desktop/390 视口检查；随后按 T5→T0 反序回滚并实际 cleanup `residualCount=0`。因目标 PostgreSQL backup/restore/fault runner 尚未实现且后续 P0 修复会改变 C，此轮不计入最终 A/B，最终证据必须在新 SHA 上从头重跑。
 - [ ] 固定逐字节相同的 `codeSha/sourceSnapshotHash/mappingContractHash` 后，B 使用另一套全新 DB/Compose/volume/container/ports/file/staging/evidence/accounts/run 重复同一连续序列。
 - [ ] 比较 source/staging hashes、逐对象守恒式、global ledgers、canonical hashes、quarantine reasons 和 versioned UAT task-card 结果；独立 checker 审查且两轮逐资源 residual=0。
 
@@ -61,7 +72,7 @@
 
 - [ ] 在指定最终签署环境创建 HR/manager/employee 账号，重放 Slice 5 同一 versioned 迁移数据任务卡并由真人执行 API + desktop/390 正负向矩阵；自动技术结果与真人 detached attestation 分离。
 - [ ] 完成 backup→fault injection→restore-to-new-db→平台/HR/file hash 与 RTO/RPO 事实。
-- [ ] 执行 T5→T0 反序 rollback 和全资源 cleanup；P0/P1=0，DB/container/volume/role/directory/account/file/port/process/credential artifact 全部实际 `residualCount=0`，真人签署另行记录。
+- [ ] 执行 T5→T0 反序 rollback 和全资源 cleanup；P0/P1=0，DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact 全部实际 `residualCount=0`，真人签署另行记录。
 
 ## Slice 8 — Go/No-Go 与生产入口（默认 HOLD）
 

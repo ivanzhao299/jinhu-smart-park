@@ -13,19 +13,20 @@ type TestAccess="park"|"managed_org_tree"|"self";
 const raw={id:"period-1",employee_id:"employee-1",employee_code:"JH-001",employee_name:"张三",period_year:2025,period_month:7,needs_review:false};
 const items=[{insuranceKind:"pension",contributionBase:"5000.00",employeeAmount:"400.00",employerAmount:"800.00",totalAmount:"1200.00",supplementAmount:"0.00",legacyBaseNegative:false}];
 
-async function project(access:TestAccess,includeItems=true){
+async function project(access:TestAccess,includeItems=true,canReadAmounts=access==="self"){
  const target={insuranceItems:{find:async()=>items}};
- const projector=(HrService.prototype as unknown as {projectInsurancePeriod:(scope:TestScope,row:Record<string,unknown>,access:TestAccess,includeItems:boolean)=>Promise<Record<string,unknown>>}).projectInsurancePeriod;
- return projector.call(target,scope,raw,access,includeItems);
+ const projector=(HrService.prototype as unknown as {projectInsurancePeriod:(scope:TestScope,row:Record<string,unknown>,access:TestAccess,includeItems:boolean,canReadAmounts:boolean)=>Promise<Record<string,unknown>>}).projectInsurancePeriod;
+ return projector.call(target,scope,raw,access,includeItems,canReadAmounts);
 }
 
 test("insurance projections expose employer cost only to park HR",async()=>{
- const park=await project("park"),team=await project("managed_org_tree"),self=await project("self");
- assert.deepEqual(Object.keys(park),["id","periodYear","periodMonth","needsReview","employeeAmount","supplementAmount","itemCount","employeeId","employeeCode","employeeName","employerAmount","totalAmount","items"]);
+ const park=await project("park",true,true),team=await project("managed_org_tree"),self=await project("self");
+ assert.deepEqual(Object.keys(park),["id","periodYear","periodMonth","needsReview","itemCount","employeeId","employeeCode","employeeName","employeeAmount","supplementAmount","employerAmount","totalAmount","items"]);
  assert.equal((park.items as Array<Record<string,unknown>>)[0]?.employerAmount,"800.00");
- assert.deepEqual(Object.keys(team),["id","periodYear","periodMonth","needsReview","employeeAmount","supplementAmount","itemCount","employeeId","employeeCode","employeeName"]);
+ assert.deepEqual(Object.keys(team),["id","periodYear","periodMonth","needsReview","itemCount","employeeId","employeeCode","employeeName"]);
  assert.equal("items" in team,false);
- assert.deepEqual(Object.keys(self),["id","periodYear","periodMonth","needsReview","employeeAmount","supplementAmount","itemCount","items"]);
+ assert.equal("employeeAmount" in team,false);assert.equal("supplementAmount" in team,false);
+ assert.deepEqual(Object.keys(self),["id","periodYear","periodMonth","needsReview","itemCount","employeeAmount","supplementAmount","items"]);
  assert.equal("employeeId" in self,false);assert.equal("employerAmount" in self,false);assert.equal("totalAmount" in self,false);
  assert.equal("employerAmount" in (self.items as Array<Record<string,unknown>>)[0]!,false);
  for(const output of [park,team,self])for(const forbidden of ["sourceSnapshot","legacyId","tenantId","parkId","createBy","updateBy","remark","version"])assert.equal(forbidden in output,false);

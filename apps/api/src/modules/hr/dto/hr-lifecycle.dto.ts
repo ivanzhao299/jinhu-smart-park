@@ -79,6 +79,10 @@ export class CreateHrEmployeeRecordDto {
   @MaxLength(64)
   identityNumber?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(64) contact?: string;
+  @IsOptional() @IsDateString() birthDate?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(200) workUnit?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(160) familyJobTitle?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(64) familyPoliticalStatus?: string;
   @IsOptional() @IsBoolean() isEmergencyContact?: boolean;
   @IsOptional()
   @Transform(trim)
@@ -93,6 +97,7 @@ export class CreateHrEmployeeRecordDto {
   @IsOptional()
   @IsIn(["basic", "intermediate", "advanced", "expert"])
   proficiency?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
   @IsOptional() @IsDateString() acquiredDate?: string;
   @IsOptional()
   @Transform(trim)
@@ -115,4 +120,9 @@ export class CreateHrEmployeeRecordDto {
   @MaxLength(200)
   issuingAuthority?: string;
   @IsOptional() @IsDateString() validTo?: string;
+}
+export class HrLegacyEmployeeMaterializationGapQueryDto {
+  @Transform(({value})=>Number(value??1)) @IsInt() @Min(1) page=1;
+  @Transform(({value})=>Number(value??50)) @IsInt() @Min(1) @Max(100) page_size=50;
+  @IsOptional() @IsIn(["dbo.person.core_residue","dbo.family","dbo.knowhow","dbo.ticket"]) source_table?:string;
 }

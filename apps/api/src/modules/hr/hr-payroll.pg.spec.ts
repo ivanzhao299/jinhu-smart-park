@@ -45,7 +45,13 @@ suite("HR payroll PostgreSQL concurrency gate",()=>{
    HrGoalCheckinEntity,HrWorkReportEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,
    HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,
    HrApprovalRequestEntity].map(entity=>dataSource.getRepository(entity));
-  service=new (HrService as unknown as new(...args:unknown[])=>HrService)(...repositories,{}, {}, {publishWorkReportSubmitted:async()=>undefined,publishWorkReportReviewed:async()=>undefined},dataSource);
+  const args=Array(33).fill(undefined);
+  repositories.forEach((repository,index)=>{args[index]=repository;});
+  args[29]={publishWorkReportSubmitted:async()=>undefined,publishWorkReportReviewed:async()=>undefined};
+  args[30]=dataSource;
+  args[31]={recordOperationRequired:async()=>undefined};
+  args[32]={decrypt:()=>null,encrypt:()=>({encrypted:null,masked:null,fingerprint:null})};
+  service=Reflect.construct(HrService,args) as HrService;
  });
  beforeEach(reset);
  after(async()=>{if(dataSource?.isInitialized){await reset();await dataSource.destroy();}});

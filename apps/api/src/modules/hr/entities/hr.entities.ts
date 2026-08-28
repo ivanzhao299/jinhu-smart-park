@@ -1,4 +1,4 @@
-import { Column, Entity, Index } from "typeorm";
+import { Column, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
 import { AuditableEntity } from "../../../shared/entities/auditable.entity";
 
 @Entity("hr_position") @Index(["tenantId","parkId","positionCode"],{unique:true,where:"is_deleted = false"})
@@ -70,6 +70,8 @@ export class HrEmployeeProfileEntity extends AuditableEntity {
  @Column({type:"varchar",length:500,nullable:true}) address!:string|null;
  @Column({name:"emergency_contact_name",type:"varchar",length:100,nullable:true}) emergencyContactName!:string|null;
  @Column({name:"emergency_contact_mobile",type:"varchar",length:32,nullable:true}) emergencyContactMobile!:string|null;
+ @Column({name:"legacy_source_identity_sha256",type:"char",length:64,nullable:true}) legacySourceIdentitySha256!:string|null;
+ @Column({name:"legacy_source_row_sha256",type:"char",length:64,nullable:true}) legacySourceRowSha256!:string|null;
 }
 
 @Entity("hr_employment_event")
@@ -99,6 +101,51 @@ export class HrEmployeeDocumentEntity extends AuditableEntity {
  @Column({name:"valid_from",type:"date",nullable:true}) validFrom!:string|null;
  @Column({name:"valid_to",type:"date",nullable:true}) validTo!:string|null;
  @Column({length:32,default:"active"}) status!:string;
+}
+
+@Entity("hr_legacy_dictionary_version")
+@Index(["tenantId","parkId","sourceSystem","dictionaryCode","sourceSnapshotSha256"],{unique:true})
+export class HrLegacyDictionaryVersionEntity extends AuditableEntity {
+ @Column({name:"source_system",type:"varchar",length:32,default:"yuzhou-v10"}) sourceSystem!:string;
+ @Column({name:"dictionary_code",type:"varchar",length:64}) dictionaryCode!:string;
+ @Column({name:"source_table",type:"varchar",length:128}) sourceTable!:string;
+ @Column({name:"source_snapshot_sha256",type:"char",length:64}) sourceSnapshotSha256!:string;
+ @Column({name:"source_row_count",type:"integer"}) sourceRowCount!:number;
+ @Column({name:"decision_items_sha256",type:"char",length:64,nullable:true}) decisionItemsSha256!:string|null;
+ @Column({type:"varchar",length:16,default:"draft"}) status!:string;
+ @Column({name:"approved_by",type:"uuid",nullable:true}) approvedBy!:string|null;
+ @Column({name:"approved_at",type:"timestamptz",nullable:true}) approvedAt!:Date|null;
+ @Column({name:"decision_note",type:"varchar",length:500,nullable:true}) decisionNote!:string|null;
+}
+
+@Entity("hr_legacy_dictionary_item")
+@Index(["versionId","sourceIdentitySha256"],{unique:true})
+export class HrLegacyDictionaryItemEntity extends AuditableEntity {
+ @Column({name:"version_id",type:"uuid"}) versionId!:string;
+ @Column({name:"source_code",type:"varchar",length:128,nullable:true}) sourceCode!:string|null;
+ @Column({name:"source_name",type:"varchar",length:255,nullable:true}) sourceName!:string|null;
+ @Column({name:"source_value",type:"varchar",length:255,nullable:true}) sourceValue!:string|null;
+ @Column({name:"source_identity_sha256",type:"char",length:64}) sourceIdentitySha256!:string;
+ @Column({name:"source_row_sha256",type:"char",length:64}) sourceRowSha256!:string;
+ @Column({type:"varchar",length:24}) decision!:string;
+ @Column({name:"target_domain",type:"varchar",length:64,nullable:true}) targetDomain!:string|null;
+ @Column({name:"target_value",type:"varchar",length:64,nullable:true}) targetValue!:string|null;
+ @Column({name:"reason_code",type:"varchar",length:64}) reasonCode!:string;
+ @Column({name:"review_note",type:"varchar",length:500,nullable:true}) reviewNote!:string|null;
+}
+
+@Entity("hr_legacy_employee_materialization_gap")
+@Index(["tenantId","parkId","sourceIdentitySha256","fieldLocator"],{unique:true})
+export class HrLegacyEmployeeMaterializationGapEntity {
+ @PrimaryGeneratedColumn("uuid") id!:string;
+ @Column({name:"tenant_id",type:"varchar",length:64}) tenantId!:string;
+ @Column({name:"park_id",type:"varchar",length:64}) parkId!:string;
+ @Column({name:"source_table",type:"varchar",length:128}) sourceTable!:string;
+ @Column({name:"source_identity_sha256",type:"char",length:64}) sourceIdentitySha256!:string;
+ @Column({name:"source_row_sha256",type:"char",length:64}) sourceRowSha256!:string;
+ @Column({name:"field_locator",type:"varchar",length:160}) fieldLocator!:string;
+ @Column({name:"reason_code",type:"varchar",length:64}) reasonCode!:string;
+ @Column({name:"create_time",type:"timestamptz"}) createTime!:Date;
 }
 
 @Entity("hr_goal_cycle") @Index(["tenantId","parkId","cycleCode"],{unique:true,where:"is_deleted = false"})
@@ -332,7 +379,7 @@ export class HrApprovalActionEntity extends AuditableEntity { @Column({name:"req
 @Entity("hr_contract_type") @Index(["tenantId","parkId","typeCode"],{unique:true,where:"is_deleted = false"})
 export class HrContractTypeEntity extends AuditableEntity { @Column({name:"type_code",length:32}) typeCode!:string;@Column({name:"type_name",length:100}) typeName!:string;@Column({length:32,default:"enabled"}) status!:string;@Column({name:"is_historical_import",type:"boolean",default:false}) isHistoricalImport!:boolean; }
 @Entity("hr_contract") @Index(["tenantId","parkId","contractNo"],{unique:true,where:"is_deleted = false"})
-export class HrContractEntity extends AuditableEntity { @Column({name:"employee_id",type:"uuid"}) employeeId!:string;@Column({name:"contract_type_id",type:"uuid"}) contractTypeId!:string;@Column({name:"contract_no",length:64}) contractNo!:string;@Column({name:"start_date",type:"date",nullable:true}) startDate!:string|null;@Column({name:"end_date",type:"date",nullable:true}) endDate!:string|null;@Column({name:"probation_end_date",type:"date",nullable:true}) probationEndDate!:string|null;@Column({name:"contract_term_months",type:"integer",nullable:true}) contractTermMonths!:number|null;@Column({name:"signature_date",type:"date",nullable:true}) signatureDate!:string|null;@Column({name:"effective_date",type:"date",nullable:true}) effectiveDate!:string|null;@Column({name:"position_title",type:"varchar",length:100,nullable:true}) positionTitle!:string|null;@Column({name:"work_type",type:"varchar",length:100,nullable:true}) workType!:string|null;@Column({name:"department_name_snapshot",type:"varchar",length:200,nullable:true}) departmentNameSnapshot!:string|null;@Column({name:"probation_months",type:"integer",nullable:true}) probationMonths!:number|null;@Column({name:"probation_salary",type:"numeric",precision:18,scale:2,nullable:true}) probationSalary!:string|null;@Column({name:"base_salary",type:"numeric",precision:18,scale:2,nullable:true}) baseSalary!:string|null;@Column({length:32}) status!:string;@Column({name:"is_historical_import",type:"boolean",default:false}) isHistoricalImport!:boolean;@Column({name:"source_snapshot",type:"jsonb",default:()=>"'{}'::jsonb"}) sourceSnapshot!:Record<string,unknown>; }
+export class HrContractEntity extends AuditableEntity { @Column({name:"employee_id",type:"uuid"}) employeeId!:string;@Column({name:"contract_type_id",type:"uuid"}) contractTypeId!:string;@Column({name:"contract_no",length:64}) contractNo!:string;@Column({name:"start_date",type:"date",nullable:true}) startDate!:string|null;@Column({name:"end_date",type:"date",nullable:true}) endDate!:string|null;@Column({name:"probation_end_date",type:"date",nullable:true}) probationEndDate!:string|null;@Column({name:"contract_term_months",type:"integer",nullable:true}) contractTermMonths!:number|null;@Column({name:"cumulative_term_months",type:"integer",nullable:true}) cumulativeTermMonths!:number|null;@Column({name:"first_signature_date",type:"date",nullable:true}) firstSignatureDate!:string|null;@Column({name:"last_signature_date",type:"date",nullable:true}) lastSignatureDate!:string|null;@Column({name:"renewal_count",type:"integer",default:0}) renewalCount!:number;@Column({name:"signature_date",type:"date",nullable:true}) signatureDate!:string|null;@Column({name:"effective_date",type:"date",nullable:true}) effectiveDate!:string|null;@Column({name:"position_title",type:"varchar",length:100,nullable:true}) positionTitle!:string|null;@Column({name:"work_type",type:"varchar",length:100,nullable:true}) workType!:string|null;@Column({name:"department_name_snapshot",type:"varchar",length:200,nullable:true}) departmentNameSnapshot!:string|null;@Column({name:"probation_months",type:"integer",nullable:true}) probationMonths!:number|null;@Column({name:"probation_salary",type:"numeric",precision:18,scale:2,nullable:true}) probationSalary!:string|null;@Column({name:"base_salary",type:"numeric",precision:18,scale:2,nullable:true}) baseSalary!:string|null;@Column({length:32}) status!:string;@Column({name:"is_historical_import",type:"boolean",default:false}) isHistoricalImport!:boolean;@Column({name:"source_snapshot",type:"jsonb",default:()=>"'{}'::jsonb"}) sourceSnapshot!:Record<string,unknown>; }
 @Entity("hr_contract_change") @Index(["tenantId","parkId","contractId","sequenceNo"],{unique:true,where:"is_deleted = false"})
 export class HrContractChangeEntity extends AuditableEntity { @Column({name:"contract_id",type:"uuid"}) contractId!:string;@Column({name:"sequence_no",type:"integer"}) sequenceNo!:number;@Column({name:"change_type",length:32}) changeType!:string;@Column({name:"previous_start_date",type:"date",nullable:true}) previousStartDate!:string|null;@Column({name:"previous_end_date",type:"date",nullable:true}) previousEndDate!:string|null;@Column({name:"new_start_date",type:"date"}) newStartDate!:string;@Column({name:"new_end_date",type:"date",nullable:true}) newEndDate!:string|null;@Column({name:"signed_at",type:"timestamp",nullable:true}) signedAt!:Date|null;@Column({length:32,default:"effective"}) status!:string;@Column({name:"is_historical_import",type:"boolean",default:false}) isHistoricalImport!:boolean;@Column({name:"source_snapshot",type:"jsonb",default:()=>"'{}'::jsonb"}) sourceSnapshot!:Record<string,unknown>; }
 @Entity("hr_contract_action") @Index(["tenantId","parkId","contractId","sequenceNo"],{unique:true})
@@ -367,4 +414,4 @@ export class HrAttendancePayrollInputBatchEntity extends AuditableEntity { @Colu
 @Entity("hr_attendance_payroll_input_item")
 export class HrAttendancePayrollInputItemEntity extends AuditableEntity { @Column({name:"batch_id",type:"uuid"}) batchId!:string;@Column({name:"employee_id",type:"uuid"}) employeeId!:string;@Column({name:"source_summary_id",type:"uuid"}) sourceSummaryId!:string;@Column({name:"worked_minutes",type:"integer"}) workedMinutes!:number;@Column({name:"late_minutes",type:"integer"}) lateMinutes!:number;@Column({name:"early_minutes",type:"integer"}) earlyMinutes!:number;@Column({name:"absence_days",type:"integer"}) absenceDays!:number;@Column({name:"missing_punch_days",type:"integer"}) missingPunchDays!:number;@Column({name:"difference_trace",type:"jsonb"}) differenceTrace!:Record<string,unknown>; }
 
-export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];
+export const HR_ENTITIES=[HrPositionEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrEmploymentEventEntity,HrEmployeeDocumentEntity,HrLegacyDictionaryVersionEntity,HrLegacyDictionaryItemEntity,HrLegacyEmployeeMaterializationGapEntity,HrGoalCycleEntity,HrGoalEntity,HrGoalCheckinEntity,HrWorkReportEntity,HrWorkReportGoalEntity,HrPerformanceCycleEntity,HrPerformancePlanEntity,HrPerformanceItemEntity,HrFeedbackCycleEntity,HrFeedbackAssignmentEntity,HrFeedbackResponseEntity,HrCompensationPlanEntity,HrEmployeeCompensationEntity,HrPayrollPeriodEntity,HrPayrollRunEntity,HrPayslipEntity,HrPayrollBookEntity,HrPayrollItemDefinitionEntity,HrPayrollItemVersionEntity,HrPayrollFormulaVersionEntity,HrPayrollBookPeriodEntity,HrPayrollBookMembershipEntity,HrPayrollTaxRuleVersionEntity,HrPayrollLegacyBatchEntity,HrPayrollLegacySnapshotEntity,HrPayrollLegacySnapshotItemEntity,HrPayrollReviewCaseEntity,HrPayrollReviewActionEntity,HrPayrollReconciliationPolicyVersionEntity,HrPayrollReconciliationRunEntity,HrPayrollReconciliationResultEntity,HrPayrollReconciliationItemDifferenceEntity,HrPayrollReconciliationReviewActionEntity,HrApprovalRequestEntity,HrApprovalActionEntity,HrContractTypeEntity,HrContractEntity,HrContractChangeEntity,HrContractActionEntity,HrAttendanceImportBatchEntity,HrAttendanceCalendarSourceEntity,HrAttendanceDayEntity,HrAttendanceSymbolRuleEntity,HrInsurancePolicyEntity,HrInsurancePolicyItemEntity,HrEmployeeInsurancePeriodEntity,HrEmployeeInsuranceItemEntity,HrAttendanceRequestEntity,HrAttendanceShiftEntity,HrEmployeeScheduleEntity,HrAttendancePunchEventEntity,HrAttendanceCalculationVersionEntity,HrEmployeeAttendanceDailyResultEntity,HrAttendancePeriodEntity,HrAttendanceMonthSummaryEntity,HrAttendancePayrollInputBatchEntity,HrAttendancePayrollInputItemEntity];

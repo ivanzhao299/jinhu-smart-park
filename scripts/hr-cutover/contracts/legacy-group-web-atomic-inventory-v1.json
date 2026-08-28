@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_atomic_inventory",
+  "surface": "group_web",
+  "status": "skeleton_with_existing_evidence",
+  "inventoryVersion": 1,
+  "previousInventoryHash": null,
+  "sourceContracts": [
+    {"path":"scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json","sha256":"596c56c85cc7cb84451d0a15d314dbc681ab3254add7c93545ec88a9a52cb5b6"},
+    {"path":"scripts/hr-cutover/contracts/legacy-group-web-source-audit-v1.json","sha256":"b11e280d088f23db8a5dece8294a572da85dfb0d309356d348abacd39e833621"}
+  ],
+  "expectedCounts": {"menuEntries":231,"sourcePaths":186,"total":417},
+  "productionImport": "HOLD"
+}

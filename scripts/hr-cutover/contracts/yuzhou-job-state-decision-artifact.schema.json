@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-decision-artifact.schema.json",
+  "title": "Yuzhou employee job-state reviewed decision artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "artifactKind",
+    "artifactVersion",
+    "artifactStatus",
+    "scopeBinding",
+    "sourceContract",
+    "decisions",
+    "canonicalDecisionSha256",
+    "review",
+    "detachedHrApproval",
+    "productionImport"
+  ],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "artifactKind": { "const": "yuzhou_employee_job_state_reviewed_decision" },
+    "artifactVersion": { "const": "v1" },
+    "artifactStatus": { "enum": ["DRAFT", "REVIEWED"] },
+    "scopeBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenantIdentitySha256", "parkIdentitySha256"],
+      "properties": {
+        "tenantIdentitySha256": { "$ref": "#/$defs/sha256" },
+        "parkIdentitySha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceSystem",
+        "dictionaryCode",
+        "sourceSnapshotSha256",
+        "sourceDistinctStateCount",
+        "sourceRecordCount"
+      ],
+      "properties": {
+        "sourceSystem": { "const": "yuzhou-v10" },
+        "dictionaryCode": { "const": "employee_job_state" },
+        "sourceSnapshotSha256": { "$ref": "#/$defs/sha256" },
+        "sourceDistinctStateCount": { "const": 7 },
+        "sourceRecordCount": { "type": "integer", "minimum": 7 }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "items": { "$ref": "#/$defs/decision" }
+    },
+    "canonicalDecisionSha256": { "$ref": "#/$defs/sha256" },
+    "review": {
+      "oneOf": [
+        { "$ref": "#/$defs/draftReview" },
+        { "$ref": "#/$defs/reviewedReview" }
+      ]
+    },
+    "detachedHrApproval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "status", "attestationSha256"],
+      "properties": {
+        "required": { "const": true },
+        "status": { "const": "HOLD" },
+        "attestationSha256": { "type": "null" }
+      }
+    },
+    "productionImport": { "const": "HOLD" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "artifactStatus": { "const": "DRAFT" } } },
+      "then": { "properties": { "review": { "$ref": "#/$defs/draftReview" } } },
+      "else": { "properties": { "review": { "$ref": "#/$defs/reviewedReview" } } }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceIdentitySha256",
+        "sourceRowSha256",
+        "observedRecordCount",
+        "decision",
+        "targetEmploymentStatus",
+        "reasonCode"
+      ],
+      "properties": {
+        "sourceIdentitySha256": { "$ref": "#/$defs/sha256" },
+        "sourceRowSha256": { "$ref": "#/$defs/sha256" },
+        "observedRecordCount": { "type": "integer", "minimum": 1 },
+        "decision": { "enum": ["map", "quarantine"] },
+        "targetEmploymentStatus": {
+          "type": ["string", "null"],
+          "enum": ["active", "probation", "suspended", "departed", null]
+        },
+        "reasonCode": {
+          "enum": [
+            "APPROVED_MAPPING",
+            "AMBIGUOUS_SEMANTICS",
+            "UNKNOWN_SOURCE_VALUE",
+            "CONFLICTING_SOURCE_EVIDENCE"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "decision": { "const": "map" } } },
+          "then": {
+            "properties": {
+              "targetEmploymentStatus": { "enum": ["active", "probation", "suspended", "departed"] },
+              "reasonCode": { "const": "APPROVED_MAPPING" }
+            }
+          },
+          "else": {
+            "properties": {
+              "targetEmploymentStatus": { "type": "null" },
+              "reasonCode": {
+                "enum": ["AMBIGUOUS_SEMANTICS", "UNKNOWN_SOURCE_VALUE", "CONFLICTING_SOURCE_EVIDENCE"]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "draftReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewerSubjectSha256", "reviewedDecisionSha256", "reviewedAt"],
+      "properties": {
+        "status": { "const": "DRAFT" },
+        "reviewerSubjectSha256": { "type": "null" },
+        "reviewedDecisionSha256": { "type": "null" },
+        "reviewedAt": { "type": "null" }
+      }
+    },
+    "reviewedReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reviewerSubjectSha256", "reviewedDecisionSha256", "reviewedAt"],
+      "properties": {
+        "status": { "const": "REVIEWED" },
+        "reviewerSubjectSha256": { "$ref": "#/$defs/sha256" },
+        "reviewedDecisionSha256": { "$ref": "#/$defs/sha256" },
+        "reviewedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

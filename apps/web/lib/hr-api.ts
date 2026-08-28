@@ -114,6 +114,9 @@ export interface HrContractChange {id:string;sequenceNo:number;changeType:string
 export interface HrContractAction {id:string;sequenceNo:number;action:string;fromStatus:string|null;toStatus:string;occurredAt:string;}
 export interface HrContractDetail extends HrContract {changes:HrContractChange[];actions:HrContractAction[];}
 export interface HrContractType {id:string;typeCode:string;typeName:string;isHistoricalImport:boolean;}
+export type HrContractReminderStatus="open"|"read"|"acknowledged"|"resolved"|"cancelled";
+export type HrContractReminderAction="read"|"acknowledge"|"resolve"|"cancel";
+export interface HrContractReminder {id:string;contractId:string;employeeId:string;kind:"contract_expiry"|"probation_expiry"|string;windowDays:number;dueDate:string;status:HrContractReminderStatus;}
 export interface HrAttendanceDay {date:string;legacySymbol:string|null;symbolStatus:string;normalizedKind:string|null;}
 export interface HrAttendanceCalendar {id:string;calendarName:string|null;year:number;month:number;dayCount:number;days:HrAttendanceDay[];}
 export interface HrAttendanceRequest {id:string;requestNo:string;requestType:string;startAt:string|null;endAt:string|null;attendanceDate:string|null;durationMinutes:number;reason:string;status:string;submittedAt:string|null;reviewedAt:string|null;reviewComment:string|null;isSelf:boolean;employeeId?:string;employeeCode?:string;employeeName?:string;}
@@ -124,7 +127,7 @@ export interface HrAttendanceMonthSummary {id:string;summaryVersion:number;sched
 export interface HrAttendancePayrollInput {periodId:string;periodMonth:string;batchId:string;batchNo:number;batchType:string;summaryVersion:number;items:Array<{id:string;employeeId:string;employeeCode:string;employeeName:string;workedMinutes:number;lateMinutes:number;earlyMinutes:number;absenceDays:number;missingPunchDays:number}>;}
 export interface HrAttendancePayrollVersion {id:string;batchNo:number;batchType:string;status:string;summaryVersion:number;employeeCount:number;changedEmployeeCount:number;createdAt:string;}
 export interface HrInsuranceItem {insuranceKind:string;contributionBase:string|null;employeeAmount:string|null;supplementAmount:string|null;legacyBaseNegative:boolean;employerAmount?:string|null;totalAmount?:string|null;}
-export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount:string;supplementAmount:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
+export interface HrInsurancePeriod {id:string;employeeId?:string;employeeCode?:string;employeeName?:string;periodYear:number;periodMonth:number;needsReview:boolean;employeeAmount?:string;supplementAmount?:string;itemCount:number;employerAmount?:string;totalAmount?:string;items?:HrInsuranceItem[];}
 export interface HrEmployeeListFilters {keyword?:string;status?:string;}
 export interface HrRequisition {id:string;requisitionCode:string;title:string;orgId:string;orgName:string;positionId:string|null;positionName:string|null;headcount:number;hiredCount:number;ownerUserId:string;ownerName:string|null;plannedOnboardDate:string|null;status:string;}
 export interface HrCandidate {id:string;candidateNo:string;fullName:string;requisitionId:string;requisitionTitle:string;stage:string;source:string|null;expectedOnboardDate:string|null;latestEvaluation:string|null;mobileMasked:string|null;emailMasked:string|null;identityMasked:string|null;convertedEmployeeId:string|null;}
@@ -152,8 +155,12 @@ export interface HrContractListFilters {keyword?:string;status?:string;expiryFro
 export interface HrAttendanceFilters {year?:number;month?:number;}
 export interface HrAttendanceRequestFilters {type?:string;status?:string;}
 export interface HrInsuranceFilters {keyword?:string;year?:number;month?:number;needsReview?:boolean;}
+export interface HrDirectoryOrgOption {id:string;orgCode:string;orgName:string;status:string;}
+export interface HrDirectoryUserOption {id:string;username:string;displayName:string;realName?:string;status:string;}
+export interface HrDirectoryOptions {orgs:HrDirectoryOrgOption[];users:HrDirectoryUserOption[];}
 async function unwrap<T>(p:Promise<{data:T}>){return (await p).data;}
 export const hrApi={
+ directoryOptions:(token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrDirectoryOptions>("/hr/directory-options",{token,signal})),
  recruitmentRequisitions:(token?:string,page=1,pageSize=50,filters:{keyword?:string;status?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.status)q.set("status",filters.status);return unwrap(apiRequest<PaginatedResult<HrRequisition>>(`/hr/recruitment/requisitions?${q}`,{token,signal}));},
  createRecruitmentRequisition:(body:object,token?:string,idempotencyKey=createIdempotencyKey("hr-requisition-create"))=>unwrap(apiRequest<HrRequisition>("/hr/recruitment/requisitions",{method:"POST",body,token,idempotencyKey})),
  recruitmentCandidates:(token?:string,page=1,pageSize=50,filters:{keyword?:string;stage?:string}={},signal?:AbortSignal)=>{const q=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)q.set("keyword",filters.keyword);if(filters.stage)q.set("stage",filters.stage);return unwrap(apiRequest<PaginatedResult<HrCandidate>>(`/hr/recruitment/candidates?${q}`,{token,signal}));},
@@ -234,6 +241,9 @@ export const hrApi={
  ,contracts:(token?:string,page=1,pageSize=20,filters:HrContractListFilters={},selfOnly=false,signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(filters.keyword)query.set("keyword",filters.keyword);if(filters.status)query.set("status",filters.status);if(filters.expiryFrom)query.set("expiry_from",filters.expiryFrom);if(filters.expiryTo)query.set("expiry_to",filters.expiryTo);return unwrap(apiRequest<PaginatedResult<HrContract>>(`/hr/contracts${selfOnly?"/me":""}?${query.toString()}`,{token,signal}));}
  ,contract:(id:string,token?:string)=>unwrap(apiRequest<HrContractDetail>(`/hr/contracts/${id}`,{token}))
  ,contractTypes:(token?:string)=>unwrap(apiRequest<HrContractType[]>("/hr/contract-types",{token}))
+ ,contractReminders:(token?:string,page=1,pageSize=100,status?:HrContractReminderStatus,signal?:AbortSignal)=>{const query=new URLSearchParams({page:String(page),page_size:String(pageSize)});if(status)query.set("status",status);return unwrap(apiRequest<PaginatedResult<HrContractReminder>>(`/hr/contract-reminders?${query.toString()}`,{token,signal}));}
+ ,runContractReminders:(token?:string)=>unwrap(apiRequest<{created:number}>("/hr/contract-reminders/run",{method:"POST",token,idempotencyKey:createIdempotencyKey("hr-contract-reminder-run")}))
+ ,actContractReminder:(id:string,action:HrContractReminderAction,token?:string)=>unwrap(apiRequest<{id:string;status:HrContractReminderStatus}>(`/hr/contract-reminders/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:createIdempotencyKey(`hr-contract-reminder-${action}`)}))
  ,createContract:(body:object,token?:string)=>unwrap(apiRequest<HrContract>("/hr/contracts",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,updateContract:(id:string,body:object,token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
  ,contractAction:(id:string,action:"activate"|"cancel",token?:string)=>unwrap(apiRequest<HrContract>(`/hr/contracts/${id}/actions`,{method:"POST",body:{action},token,idempotencyKey:crypto.randomUUID()}))
@@ -348,7 +358,7 @@ export const hrApi={
  ,payrollPeriods:(token?:string)=>unwrap(apiRequest<HrPayrollPeriod[]>("/hr/payroll/periods",{token}))
  ,createPayrollPeriod:(body:object,token?:string)=>unwrap(apiRequest<HrPayrollPeriod>("/hr/payroll/periods",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,payrollRuns:(token?:string)=>unwrap(apiRequest<HrPayrollRun[]>("/hr/payroll/runs",{token}))
- ,payrollRunPayslips:(id:string,token?:string)=>unwrap(apiRequest<HrPayslip[]>(`/hr/payroll/runs/${id}/payslips`,{token}))
+ ,payrollRunPayslips:(id:string,token?:string,signal?:AbortSignal)=>unwrap(apiRequest<HrPayslip[]>(`/hr/payroll/runs/${id}/payslips`,{token,signal}))
  ,adjustPayslip:(runId:string,payslipId:string,body:object,token?:string)=>unwrap(apiRequest<HrPayslip>(`/hr/payroll/runs/${runId}/payslips/${payslipId}`,{method:"PUT",body,token,idempotencyKey:crypto.randomUUID()}))
  ,createPayrollRun:(body:object,token?:string)=>unwrap(apiRequest<HrPayrollRun>("/hr/payroll/runs",{method:"POST",body,token,idempotencyKey:crypto.randomUUID()}))
  ,reviewPayrollRun:(id:string,token?:string)=>unwrap(apiRequest<HrPayrollRun>(`/hr/payroll/runs/${id}/review`,{method:"POST",token,idempotencyKey:crypto.randomUUID()}))

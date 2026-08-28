@@ -45,15 +45,19 @@ test("HR M3 key pages keep shared mobile record and overflow contracts",()=>{
 
 test("department manager directory stays team-scoped without broad employee permission",()=>{
   const employeePage=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
+  const styles=readFileSync(resolve(__dirname,"hr-workbench.module.css"),"utf8");
   const seed=readFileSync(resolve(__dirname,"../../../../database/seeds/production/000017_hr_department_manager_directory.sql"),"utf8");
   assert.match(employeePage,/HR_WORK_REPORT_TEAM_REVIEW/);
   assert.match(employeePage,/HR_PERFORMANCE_MANAGER_REVIEW/);
   assert.match(employeePage,/if\(canReadAll\|\|canReadTeam\)\{const result=await hrApi\.employees/);
   assert.match(employeePage,/isForbiddenError/);
   assert.match(employeePage,/ForbiddenState/);
+  assert.match(employeePage,/ds-mobile-record-list \$\{styles\.employeeRecordList\}/);
+  assert.match(styles,/\.employeeRecordList\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(260px, 1fr\)\)/);
   assert.match(seed,/code='DEPARTMENT_MANAGER'/);
-  assert.match(seed,/code='hr:employees'/);
-  assert.doesNotMatch(seed,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
+  assert.match(seed,/code(?:=| IN\()'hr:employees'/);
+  const activeGrant=seed.match(/INSERT INTO rel_role_perm[\s\S]*?ON CONFLICT/)?.[0]??"";
+  assert.doesNotMatch(activeGrant,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
 });
 
 test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
@@ -126,6 +130,23 @@ test("HR M4 employee directory is list-first with explicit create and filters",(
   assert.match(employees,/进入合同台账/);
 });
 
+test("HR employee attachments use exact document atoms without generic file permissions",()=>{
+ const employees=readFileSync(resolve(__dirname,"employees/HrEmployeesClient.tsx"),"utf8");
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_READ/);
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_TEAM_READ/);
+ assert.match(employees,/HR_EMPLOYEE_DOCUMENT_SELF_READ/);
+ assert.match(employees,/canManageEmployeeDocuments=hasPermission\(user,HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\)/);
+ assert.match(employees,/FileUploader compact bizType="hr_employee_photo"/);
+ assert.match(employees,/FileUploader compact bizType="hr_employee_document"/);
+ assert.match(employees,/safeErrorMessage="员工照片上传失败"/);
+ assert.match(employees,/safeErrorMessage="员工档案附件上传失败"/);
+ assert.match(employees,/label="员工照片" emptyLabel="暂无员工照片"/);
+ assert.match(employees,/label="档案附件" emptyLabel="暂无档案附件"/);
+ assert.match(employees,/mutationPermission=\{HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\}/);
+ assert.doesNotMatch(employees,/SYSTEM_PERMISSIONS\.FILE_(READ|UPLOAD|DOWNLOAD|DELETE)/);
+ assert.doesNotMatch(employees,/已上传平面图|暂无平面图文件/);
+});
+
 test("HR M4 work reports are record-first and keep write forms behind explicit actions",()=>{
   const reports=readFileSync(resolve(__dirname,"work-reports/HrWorkReportsClient.tsx"),"utf8");
   assert.match(reports,/写汇报/);
@@ -196,6 +217,11 @@ test("HR M4 payroll keeps review, freeze and correction controls explicit",()=>{
   assert.match(payroll,/确认并冻结/);
   assert.match(payroll,/校正工资条/);
   assert.match(payroll,/仅限本人数据/);
+  assert.match(payroll,/canReadOnlineDetail = hasPermission\(user, HR_PERMISSIONS\.HR_PAYROLL_DETAIL_READ\)/);
+  assert.match(payroll,/canReadDetail\?<button className="ds-button" type="button" onClick=\{\(\)=>void inspect\(r\)\}>查看工资条/);
+  assert.match(payroll,/detailAbort\.current\?\.abort\(\)/);
+  assert.match(payroll,/current!==detailGeneration\.current/);
+  assert.match(payroll,/canManage&&selectedRun\.status!=="confirmed"/);
 });
 
 test("HR M4 compensation keeps plan ledger separate from sensitive assignment",()=>{
@@ -228,9 +254,32 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/合同期限（月）/);
   assert.match(contracts,/签订日期/);
   assert.match(contracts,/合同岗位/);
-  assert.match(contracts,/canManageSalary/);
-  assert.match(contracts,/FileUploader bizType="hr_contract_document"/);
-  assert.match(contracts,/AttachmentList bizType="hr_contract_document"/);
+  assert.match(contracts,/HR_CONTRACT_SALARY_READ/);
+  assert.match(contracts,/canManageSalary=canManage&&hasPermission\(user,HR_PERMISSIONS\.HR_COMPENSATION_MANAGE\)/);
+  assert.match(contracts,/canReadSalary&&\(selected\.probationSalary/);
+  assert.match(contracts,/FileUploader compact bizType="hr_contract_document"/);
+  assert.match(contracts,/AttachmentList compact label="合同附件"/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_READ/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_TEAM_READ/);
+  assert.match(contracts,/HR_CONTRACT_DOCUMENT_SELF_READ/);
+  assert.match(contracts,/mutationPermission=\{HR_PERMISSIONS\.HR_CONTRACT_DOCUMENT_MANAGE\}/);
+  assert.match(contracts,/合同提醒工作区/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_PARK_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_TEAM_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_SELF_READ/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_ACK/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_MANAGE/);
+  assert.match(contracts,/HR_CONTRACT_REMINDER_RUN/);
+  assert.match(contracts,/\[30,60,90\]/);
+  assert.match(contracts,/contract_expiry/);
+  assert.match(contracts,/probation_expiry/);
+  assert.match(contracts,/标记已读/);
+  assert.match(contracts,/确认收到/);
+  assert.match(contracts,/完成提醒/);
+  assert.match(contracts,/取消提醒/);
+  assert.match(contracts,/reminderAbort\.current\?\.abort\(\)/);
+  assert.match(contracts,/current!==reminderGeneration\.current/);
+  assert.doesNotMatch(contracts,/expiryFrom:today\(\)/);
   assert.match(contracts,/办理轨迹/);
   assert.match(contracts,/确认生效/);
   assert.match(contracts,/确认变更/);
@@ -241,6 +290,10 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(api,/createContractChange:/);
   assert.match(api,/contractAction:/);
   assert.match(api,/contractChangeAction:/);
+  assert.match(api,/contractReminders:/);
+  assert.match(api,/runContractReminders:/);
+  assert.match(api,/actContractReminder:/);
+  assert.match(api,/\/hr\/contract-reminders/);
   assert.match(api,/expiry_from/);
   assert.match(api,/expiry_to/);
   assert.match(api,/\/hr\/contracts/);
@@ -257,7 +310,12 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(attendance,/未知符号保留待复核/);
  assert.match(insurance,/单位成本仅向 HR 授权岗位开放/);
  assert.match(insurance,/selfOnly/);
- assert.match(insurance,/full\?<span>单位缴费/);
+ assert.match(insurance,/canReadAmount=selfOnly\|\|hasPermission\(user,HR_PERMISSIONS\.HR_INSURANCE_AMOUNT_READ\)/);
+ assert.match(insurance,/canReadAmount&&full\?<span>单位缴费/);
+ assert.match(insurance,/canReadAmount\?<><span>缴费基数/);
+ assert.match(insurance,/loadedEmployeeAmount\(rows\)/);
+ assert.match(insurance,/safeAmount\(row\.employeeAmount\)/);
+ assert.ok(insurance.includes("rows.every(row=>row.employeeAmount!==undefined"));
  assert.match(api,/attendanceCalendars:/);
  assert.match(api,/insurancePeriods:/);
  assert.match(api,/insurancePeriod:/);

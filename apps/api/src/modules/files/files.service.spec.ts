@@ -38,6 +38,7 @@ test("pending purchase receipt listing is restricted to the uploader", async () 
     {} as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       isProtectedBizType: () => true,
       assertReferenceAccess: async (...args: unknown[]) => {
         accessCalls.push(args);
@@ -72,6 +73,7 @@ test("pending repair listing excludes files already bound to work orders", async
     {} as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       isProtectedBizType: () => true,
       assertReferenceAccess: async () => undefined
     } as never
@@ -89,7 +91,7 @@ test("pending repair listing excludes files already bound to work orders", async
 });
 
 test("pending file mode rejects unsupported business scopes", async () => {
-  const service = new FilesService({} as never, {} as never, {} as never, {} as never);
+  const service = new FilesService({} as never, {} as never, {} as never, {assertRoutePermission:()=>undefined} as never);
   await assert.rejects(
     service.list(scope, actor, {
       biz_type: "housing_handover",
@@ -220,6 +222,7 @@ test("identity downloads use the download-specific authorization path before ret
     } as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       assertPendingFileOwner: () => undefined,
       assertReferenceAccess: async (...args: unknown[]) => {
         accessCalls.push(args);
@@ -285,6 +288,7 @@ test("identity deletion authorizes before revealing whether evidence is referenc
     {} as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       assertPendingFileOwner: () => calls.push("pending-owner"),
       assertReferenceAccess: async () => { calls.push("authorize"); },
       assertDeletionAllowed: async () => { calls.push("reference-check"); },
@@ -324,6 +328,7 @@ test("pending housing repair deletion completes after scoped authorization and r
     {} as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       assertPendingFileOwner: () => calls.push("pending-owner"),
       assertReferenceAccess: async (
         receivedScope: TenantParkScope,
@@ -373,6 +378,7 @@ test("identity deletion never checks references after authorization is rejected"
     {} as never,
     {} as never,
     {
+      assertRoutePermission: () => undefined,
       assertPendingFileOwner: () => calls.push("pending-owner"),
       assertReferenceAccess: async () => {
         calls.push("authorize");

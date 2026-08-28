@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/contracts/hr-cutover/legacy-runtime-page-evidence.schema.json",
+  "title": "Yuzhou HR legacy runtime page evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "contractKind", "surface", "batchId", "operationMode", "sourceContractSha256", "observations", "sensitiveScan", "humanSignoff", "productionImport"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "contractKind": { "const": "yuzhou_hr_legacy_runtime_page_evidence" },
+    "surface": { "enum": ["client", "group_web"] },
+    "batchId": { "$ref": "#/$defs/safeId" },
+    "operationMode": { "const": "read_only" },
+    "sourceContractSha256": { "$ref": "#/$defs/sha256" },
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/observation" }
+    },
+    "sensitiveScan": { "const": "PASS" },
+    "humanSignoff": { "const": "HOLD" },
+    "productionImport": { "const": "HOLD" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "surface": { "const": "client" } }, "required": ["surface"] },
+      "then": {
+        "properties": {
+          "sourceContractSha256": { "const": "cac2dd57ff0c3891b7dc8288888cb70a569010264853975859816aebd8ebd705" },
+          "observations": {
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/observation" },
+                {
+                  "properties": {
+                    "stableId": { "pattern": "^client:[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*:page$" },
+                    "legacyId": { "type": "null" },
+                    "roleClass": { "pattern": "^client_[a-z0-9][a-z0-9_-]*$" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "sourceContractSha256": { "const": "6dd615b2d8915db6aa56e7a87fbae8cba6a82cc0b3847d5183fbe367336d68af" },
+          "observations": {
+            "items": {
+              "allOf": [
+                { "$ref": "#/$defs/observation" },
+                {
+                  "properties": {
+                    "stableId": { "pattern": "^group-web:[1-9][0-9]*:[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*:page$" },
+                    "legacyId": { "type": "integer", "minimum": 1 },
+                    "roleClass": { "pattern": "^group_web_[a-z0-9][a-z0-9_-]*$" }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "safeId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,79}$" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,79}$" },
+    "pageStableId": {
+      "type": "string",
+      "oneOf": [
+        { "pattern": "^client:[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*:page$" },
+        { "pattern": "^group-web:[1-9][0-9]*:[a-z0-9][a-z0-9_-]*:[a-z0-9][a-z0-9_-]*:page$" }
+      ]
+    },
+    "fieldEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stableId", "labelSha256", "controlType", "required", "defaultKind", "masked"],
+      "properties": {
+        "stableId": { "type": "string" },
+        "labelSha256": { "$ref": "#/$defs/sha256" },
+        "controlType": { "enum": ["text", "select", "date", "grid", "tree", "file", "other"] },
+        "required": { "enum": ["yes", "no", "unproven"] },
+        "defaultKind": { "enum": ["empty", "generated", "inherited", "unproven"] },
+        "masked": { "type": "boolean" }
+      }
+    },
+    "actionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stableId", "visible", "enabled", "executed", "preconditionCode"],
+      "properties": {
+        "stableId": { "type": "string" },
+        "visible": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "executed": { "const": false },
+        "preconditionCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,63}$" }
+      }
+    },
+    "stateEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stableId", "fromCodeSha256", "toCodeSha256", "source", "executed"],
+      "properties": {
+        "stableId": { "type": "string" },
+        "fromCodeSha256": { "$ref": "#/$defs/sha256" },
+        "toCodeSha256": { "$ref": "#/$defs/sha256" },
+        "source": { "enum": ["page_declared", "source_corroborated", "unproven"] },
+        "executed": { "const": false }
+      }
+    },
+    "permissionEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "observed", "dataScope", "directRouteChecked"],
+      "properties": {
+        "expected": { "enum": ["allow", "deny"] },
+        "observed": { "enum": ["allow", "deny"] },
+        "dataScope": { "enum": ["self", "team", "park", "admin", "none"] },
+        "directRouteChecked": { "const": true }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["descriptorSha256", "screenshotSha256", "bytes", "externalMode"],
+      "properties": {
+        "descriptorSha256": { "$ref": "#/$defs/sha256" },
+        "screenshotSha256": { "oneOf": [{ "$ref": "#/$defs/sha256" }, { "type": "null" }] },
+        "bytes": { "type": "integer", "minimum": 0 },
+        "externalMode": { "const": "0600" }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stableId", "familyOrDomain", "legacyId", "roleClass", "viewport", "locatorSha256", "pageStructureSha256", "fieldEvidence", "actionEvidence", "stateEvidence", "permissionEvidence", "artifact", "observationSha256"],
+      "properties": {
+        "stableId": { "$ref": "#/$defs/pageStableId" },
+        "familyOrDomain": { "$ref": "#/$defs/slug" },
+        "legacyId": { "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+        "roleClass": { "$ref": "#/$defs/slug" },
+        "viewport": { "enum": ["desktop", "phone_390"] },
+        "locatorSha256": { "$ref": "#/$defs/sha256" },
+        "pageStructureSha256": { "$ref": "#/$defs/sha256" },
+        "fieldEvidence": { "type": "array", "items": { "$ref": "#/$defs/fieldEvidence" } },
+        "actionEvidence": { "type": "array", "items": { "$ref": "#/$defs/actionEvidence" } },
+        "stateEvidence": { "type": "array", "items": { "$ref": "#/$defs/stateEvidence" } },
+        "permissionEvidence": { "$ref": "#/$defs/permissionEvidence" },
+        "artifact": { "$ref": "#/$defs/artifact" },
+        "observationSha256": { "$ref": "#/$defs/sha256" }
+      },
+      "anyOf": [
+        { "properties": { "fieldEvidence": { "minItems": 1 } } },
+        { "properties": { "actionEvidence": { "minItems": 1 } } }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+const fail = detail => { const error = new Error(`YUZHOU_UAT_PROBATION_FAILED: ${detail}`); error.code = "YUZHOU_UAT_PROBATION_FAILED"; throw error; };
+const uuid = value => typeof value === "string" && /^[0-9a-f-]{36}$/iu.test(value);
+const data = response => response?.body?.data;
+export async function runYuzhouProbationScenario({ runner, inspect, employeeId, businessDate }) {
+  if (!runner?.execute || !inspect?.applicationStatus || !inspect?.employeeStatus || !inspect?.auditCount || !inspect?.makerReviewSuccessCount || !uuid(employeeId) || !/^\d{4}-\d{2}-\d{2}$/u.test(businessDate ?? "")) fail("invalid dependencies");
+  const observations = []; let probationId;
+  observations.push(await runner.execute({ legacyId: 36, kind: "positive", checkId: "hr_maker_create_submit", bodies: [{ applicationName: "隔离转正演练", applicationDate: businessDate, reason: "隔离验证", participants: [{ employeeId, plannedConfirmationDate: businessDate }] }, { action: "submit" }], afterOperation: ({ index, response }) => { if (index !== 0) return undefined; probationId = data(response)?.id; if (!uuid(probationId)) fail("created id missing"); return { probationId }; }, assert: async responses => ({ created_id: uuid(probationId), status_submitted: data(responses[1])?.status === "submitted", participant_snapshot: data(responses[1])?.participants?.some(item => item?.employeeId === employeeId), audit_written: await inspect.auditCount(probationId) >= 1 }) }));
+  const submitted = await inspect.applicationStatus(probationId);
+  observations.push(await runner.execute({ legacyId: 36, kind: "negative", checkId: "maker_cannot_review_own", substitutions: { makerOwnedProbationId: probationId }, bodies: [{ action: "approve" }], assert: async () => ({ no_state_change: (await inspect.applicationStatus(probationId)) === submitted, no_success_audit: await inspect.makerReviewSuccessCount(probationId) === 0 }) }));
+  observations.push(await runner.execute({ legacyId: 36, kind: "negative", checkId: "employee_cannot_confirm", substitutions: { probationId }, bodies: [undefined], assert: async () => ({ no_state_change: (await inspect.applicationStatus(probationId)) === submitted }) }));
+  observations.push(await runner.execute({ legacyId: 36, kind: "positive", checkId: "hr_reviewer_approve_confirm", substitutions: { probationId }, bodies: [{ action: "approve" }, undefined], assert: async responses => ({ status_confirmed: data(responses[1])?.status === "confirmed", employee_state_changed: await inspect.employeeStatus(employeeId) === "active", audit_written: await inspect.auditCount(probationId) >= 3 }) }));
+  return { probationId, observations };
+}
