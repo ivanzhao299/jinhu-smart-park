@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_live_role_uat_p0_matrix",
+  "matrixVersion": "2026-08-28.1",
+  "executionBoundary": "isolated_lab_only",
+  "productionImport": "HOLD",
+  "viewports": [
+    { "id": "desktop", "width": 1440, "height": 1000 },
+    { "id": "phone_390", "width": 390, "height": 844 }
+  ],
+  "checks": [
+    { "id": "approval_park_pending", "actor": "hr_reviewer", "method": "GET", "route": "/hr/approvals/pending", "outcome": "success", "responseKind": "json", "assertions": ["park_rows_scoped", "required_audit_written"] },
+    { "id": "approval_team_pending", "actor": "manager", "method": "GET", "route": "/hr/approvals/pending", "outcome": "success", "responseKind": "json", "assertions": ["team_rows_scoped", "outside_rows_absent", "required_audit_written"] },
+    { "id": "approval_self_review_denied", "actor": "employee", "method": "POST", "route": "/hr/approvals/{selfApprovalId}/review", "outcome": "forbidden", "responseKind": "json", "assertions": ["no_state_change", "no_success_audit"] },
+    { "id": "approval_cross_tree_review_hidden", "actor": "manager", "method": "POST", "route": "/hr/approvals/{outsideApprovalId}/review", "outcome": "not_found_or_forbidden", "responseKind": "json", "assertions": ["no_target_disclosure", "no_state_change"] },
+    { "id": "profile_full_projection", "actor": "hr_reviewer", "method": "GET", "route": "/hr/employees/{employeeId}/profile", "outcome": "success", "responseKind": "json", "assertions": ["full_projection", "structured_relations_present", "gap_codes_preserved", "required_audit_written"] },
+    { "id": "profile_team_projection", "actor": "manager", "method": "GET", "route": "/hr/employees/{employeeId}/profile", "outcome": "success", "responseKind": "json", "assertions": ["team_projection", "sensitive_fields_absent", "gap_raw_absent", "required_audit_written"] },
+    { "id": "profile_self_projection", "actor": "employee", "method": "GET", "route": "/hr/employees/me/profile", "outcome": "success", "responseKind": "json", "assertions": ["self_projection", "other_rows_absent", "gap_raw_absent", "required_audit_written"] },
+    { "id": "profile_cross_tree_hidden", "actor": "manager", "method": "GET", "route": "/hr/employees/{outsideEmployeeId}/profile", "outcome": "not_found_or_forbidden", "responseKind": "json", "assertions": ["no_target_disclosure", "sensitive_fields_absent"] },
+    { "id": "contract_salary_full", "actor": "hr_reviewer", "method": "GET", "route": "/hr/contracts/{contractId}", "outcome": "success", "responseKind": "json", "assertions": ["salary_fields_present", "required_audit_written"] },
+    { "id": "contract_salary_team_masked", "actor": "manager", "method": "GET", "route": "/hr/contracts/{contractId}", "outcome": "success", "responseKind": "json", "assertions": ["team_projection", "salary_fields_absent", "required_audit_written"] },
+    { "id": "contract_reminder_park_run", "actor": "hr_reviewer", "method": "POST", "route": "/hr/contract-reminders/run", "outcome": "success", "responseKind": "json", "assertions": ["unique_windows", "explicit_recipients", "required_audit_written"] },
+    { "id": "contract_reminder_team_read", "actor": "manager", "method": "GET", "route": "/hr/contract-reminders", "outcome": "success", "responseKind": "json", "assertions": ["team_rows_scoped", "outside_rows_absent", "required_audit_written"] },
+    { "id": "contract_reminder_self_read", "actor": "employee", "method": "GET", "route": "/hr/contract-reminders", "outcome": "success", "responseKind": "json", "assertions": ["self_rows_scoped", "other_rows_absent", "required_audit_written"] },
+    { "id": "contract_reminder_ack", "actor": "manager", "method": "POST", "route": "/hr/contract-reminders/{teamReminderId}/actions", "outcome": "success", "responseKind": "json", "assertions": ["status_acknowledged", "append_only_action", "required_audit_written"] },
+    { "id": "contract_reminder_resolve", "actor": "hr_reviewer", "method": "POST", "route": "/hr/contract-reminders/{reminderId}/actions", "outcome": "success", "responseKind": "json", "assertions": ["status_resolved", "append_only_action", "required_audit_written"] },
+    { "id": "contract_reminder_cancel", "actor": "hr_reviewer", "method": "POST", "route": "/hr/contract-reminders/{cancelReminderId}/actions", "outcome": "success", "responseKind": "json", "assertions": ["status_cancelled", "append_only_action", "required_audit_written"] },
+    { "id": "contract_reminder_cross_tree_hidden", "actor": "manager", "method": "GET", "route": "/hr/contract-reminders/{outsideReminderId}", "outcome": "not_found_or_forbidden", "responseKind": "json", "assertions": ["no_target_disclosure", "no_sensitive_metadata"] },
+    { "id": "insurance_amount_park", "actor": "hr_reviewer", "method": "GET", "route": "/hr/insurance/periods/{insurancePeriodId}", "outcome": "success", "responseKind": "json", "assertions": ["amount_fields_present", "required_audit_written"] },
+    { "id": "insurance_amount_team_masked", "actor": "manager", "method": "GET", "route": "/hr/insurance/periods/{insurancePeriodId}", "outcome": "success", "responseKind": "json", "assertions": ["team_projection", "amount_fields_absent", "required_audit_written"] },
+    { "id": "payroll_detail_atom", "actor": "hr_reviewer", "method": "GET", "route": "/hr/payroll/runs/{payrollRunId}/payslips", "outcome": "success", "responseKind": "json", "assertions": ["detail_fields_present", "required_audit_written"] },
+    { "id": "payroll_detail_manager_denied", "actor": "manager", "method": "GET", "route": "/hr/payroll/runs/{payrollRunId}/payslips", "outcome": "forbidden", "responseKind": "json", "assertions": ["no_detail_disclosed", "no_success_audit"] },
+    { "id": "contract_document_download", "actor": "hr_reviewer", "method": "GET", "route": "/files/{contractFileId}/download", "outcome": "success", "responseKind": "binary", "assertions": ["download_headers_safe", "stream_nonempty", "required_audit_written"] },
+    { "id": "contract_document_cross_tree_hidden", "actor": "manager", "method": "GET", "route": "/files/{outsideContractFileId}/download", "outcome": "not_found_or_forbidden", "responseKind": "binary", "assertions": ["no_sensitive_headers", "zero_bytes", "no_target_disclosure"] },
+    { "id": "contract_document_audit_failure", "actor": "hr_reviewer", "method": "GET", "route": "/files/{auditFailureFileId}/download", "outcome": "server_failure", "responseKind": "binary", "assertions": ["no_sensitive_headers", "zero_bytes", "storage_not_opened"] },
+    { "id": "contract_document_storage_failure", "actor": "hr_reviewer", "method": "GET", "route": "/files/{storageFailureFileId}/download", "outcome": "server_failure", "responseKind": "binary", "assertions": ["no_sensitive_headers", "zero_bytes", "audit_precedes_storage"] }
+  ]
+}
