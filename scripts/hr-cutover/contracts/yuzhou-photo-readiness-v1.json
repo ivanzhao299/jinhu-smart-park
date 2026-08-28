@@ -1,0 +1,144 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_t5_photo_attachment_readiness",
+  "contractVersion": "v1",
+  "sourceBinding": {
+    "sourceSystem": "yuzhou-v10",
+    "sourceSnapshotSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+    "t5Domain": "T5",
+    "binaryAccess": "FORBIDDEN_IN_READINESS",
+    "productionAccess": "FORBIDDEN",
+    "inventoryAuthority": {
+      "artifact": ".trellis/tasks/08-25-hr-t5-employee-lifecycle-operations/research/phase5-source-evidence.json",
+      "rawSha256": "99669113cabd3319c8131de23b3a319847b3803c92bc867ac4e12068e566309c",
+      "businessManifestSha256": "5939691dfdddd5912992328dba58505f92bcfb7bb7de07ada571959a52d37005"
+    }
+  },
+  "inventory": {
+    "photos": {
+      "sourceRows": 2949,
+      "contentBearingRows": 2155,
+      "distinctContentHashes": 2150,
+      "duplicateContentRows": 5,
+      "emptyRows": 794,
+      "sourceBytes": 273936570,
+      "detectedBmpRows": 2155,
+      "legacyDeclaredSizeMismatchRows": 2155,
+      "payloadEstimate": { "value": 274, "unit": "MB", "exact": false }
+    },
+    "documents": {
+      "sourceRows": 1003,
+      "contentProvenRows": 0,
+      "ownershipProvenRows": 0,
+      "quarantinedRows": 1003,
+      "reasonCode": "DOCUMENT_CONTENT_AND_OWNER_UNPROVEN"
+    }
+  },
+  "ownerResolution": {
+    "method": "exact_t0_legacy_record_map",
+    "sourceMap": "legacy_record_map",
+    "sourceSystem": "yuzhou-v10",
+    "sourceTable": "dbo.person",
+    "targetTable": "hr_employee",
+    "targetJoin": "legacy_record_map.target_id=hr_employee.id",
+    "targetScopeTable": "hr_employee",
+    "targetScopeColumns": ["tenant_id", "park_id"],
+    "acceptedMappingStatuses": ["loaded", "verified"],
+    "requiresTargetId": true,
+    "requiresActive": true,
+    "guessingForbidden": true,
+    "lookupKeyAlgorithm": {
+      "version": "t0-person-identity-v1",
+      "photoPersonField": "person",
+      "normalization": "String(value).trim()",
+      "sourcePkCanonical": "person=<normalizedPerson>",
+      "sourceIdentitySha256": "sha256('dbo.person\\0'+normalizedPerson)"
+    },
+    "rehearsalBinding": {
+      "status": "NOT_EXECUTED",
+      "requiredEqualityFields": ["rehearsal", "parentRunId", "t0BatchId", "tenantId", "parkId", "codeSha", "sourceSnapshotHash", "mappingContractHash"],
+      "observed": null
+    },
+    "contentBearingRows": 2155,
+    "resolvedRows": 0,
+    "pendingRows": 2155,
+    "unmatchedRows": 0,
+    "status": "NOT_EXECUTED"
+  },
+  "normalizationPlan": {
+    "executionStatus": "NOT_EXECUTED",
+    "acceptedSourceMagic": ["JPEG", "PNG", "GIF", "BMP"],
+    "acceptedTargetMime": ["image/jpeg", "image/png"],
+    "bmpPipeline": ["magic_check", "safe_decode", "dimension_limit", "malware_scan", "encode_jpeg_or_png", "rehash"],
+    "hashSeparation": "sourceContentSha256_and_normalizedContentSha256",
+    "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
+    "writesBinary": false
+  },
+  "targetPlan": {
+    "fileTable": "sys_file",
+    "photoBizType": "hr_employee_photo",
+    "documentBizType": "hr_employee_document",
+    "documentLinkTable": "hr_employee_document",
+    "downloadUrlGenerated": false,
+    "metadataCreated": 0,
+    "binaryCreated": 0
+  },
+  "accessControl": {
+    "permissionAtoms": ["hr:employee_document:read", "hr:employee_document:team_read", "hr:employee_document:self_read", "hr:employee_document:manage"],
+    "scopeMatrix": ["park", "team", "self", "none"],
+    "auditBeforeDisclosure": true,
+    "failureProjection": "zero_metadata_zero_headers_zero_bytes"
+  },
+  "idempotency": {
+    "keyParts": ["sourceSnapshotSha256", "sourceIdentitySha256", "sourceContentSha256", "normalizationPolicySha256", "targetEmployeeId"],
+    "duplicatePolicy": "same_key_same_hash_replay_else_conflict",
+    "replayResult": "no_new_file_no_new_link",
+    "status": "NOT_EXECUTED"
+  },
+  "auditAndRollback": {
+    "operationJournal": "append_only_hash_addressed",
+    "auditFields": ["runId", "sourceIdentitySha256", "sourceContentSha256", "normalizedContentSha256", "targetFileId", "targetEmployeeId", "actorSubjectSha256", "result", "reasonCode"],
+    "rollbackOrder": ["delete_hr_employee_document", "locate_binary_from_existing_sys_file_metadata", "delete_isolated_binary", "verify_binary_object_absent", "delete_sys_file", "mark_slice_legacy_record_map_rolled_back_inactive", "retain_append_only_journal"],
+    "residualTables": ["hr_employee_document", "sys_file", "legacy_record_map"],
+    "mapRollbackScope": "same_photo_import_batch_target_rows_only",
+    "mapRollbackMutation": { "mappingStatus": "rolled_back", "isActive": false },
+    "requiredResidualZero": { "activeDatabaseRows": 0, "binaryObjects": 0, "temporaryArtifacts": 0 },
+    "observedResiduals": null,
+    "status": "NOT_EXECUTED"
+  },
+  "rehearsalGates": {
+    "rehearsalA": "NOT_EXECUTED",
+    "rehearsalB": "NOT_EXECUTED",
+    "canonicalEquality": "NOT_EXECUTED",
+    "rbacMatrix": "NOT_EXECUTED",
+    "auditFailure": "NOT_EXECUTED",
+    "rollbackResidualZero": "NOT_EXECUTED",
+    "humanReview": "NOT_EXECUTED"
+  },
+  "rehearsalEvidenceContract": {
+    "artifact": "scripts/hr-cutover/contracts/yuzhou-photo-readiness-rehearsal-evidence.schema.json",
+    "schemaVersion": "v1",
+    "schemaSha256": "0ceb6f8f2abc855c2bc862210d04078f4465ead7beb66b898207f814ceeede49",
+    "verifierVersion": "v1",
+    "verifierArtifacts": [
+      {
+        "artifact": "scripts/hr-cutover/yuzhou-photo-readiness-rehearsal-evidence-lib.mjs",
+        "rawSha256": "08bb875f967cef677268b95cc04c80ba3cd57a1fa9a6943773ea6340defd17d4"
+      },
+      {
+        "artifact": "scripts/hr-cutover/verify-yuzhou-photo-readiness-rehearsal-evidence.mjs",
+        "rawSha256": "3441319e51d7e4c6f579d0ec43fa2099d3a61e601ba861c1df65e7aec4b455d2"
+      }
+    ],
+    "status": "NOT_EXECUTED",
+    "evidenceSha256": null
+  },
+  "verdict": {
+    "engineeringReadiness": "NO_GO",
+    "reasonCodes": ["PHOTO_OWNER_MAP_PENDING", "PHOTO_BINARY_VALIDATION_NOT_EXECUTED", "PHOTO_AB_REHEARSAL_NOT_EXECUTED", "PHOTO_HUMAN_REVIEW_UNSIGNED", "DOCUMENT_CONTENT_AND_OWNER_UNPROVEN"],
+    "photoImport": "HOLD",
+    "documentImport": "HOLD",
+    "productionImport": "HOLD"
+  },
+  "contractSha256": "ddf36656b8fef7d8ab32c56d55ff6e291e5425c9a1f739f66a80c3d078c45e0c"
+}

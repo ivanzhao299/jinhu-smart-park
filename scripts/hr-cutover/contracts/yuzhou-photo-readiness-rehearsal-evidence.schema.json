@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "yuzhou-photo-readiness-rehearsal-evidence-v1",
+  "title": "Yuzhou photo readiness controlled external rehearsal index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "kind", "schemaVersion", "triple", "runs", "combinedTechnicalSha256", "detachedReview", "productionImport", "evidenceSha256"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "kind": { "const": "yuzhou_photo_readiness_rehearsal_evidence_index" },
+    "schemaVersion": { "const": "v1" },
+    "triple": { "$ref": "#/$defs/triple" },
+    "runs": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [
+        { "$ref": "#/$defs/runAIndex" },
+        { "$ref": "#/$defs/runBIndex" }
+      ],
+      "items": false
+    },
+    "combinedTechnicalSha256": { "$ref": "#/$defs/sha256" },
+    "detachedReview": { "$ref": "#/$defs/artifactBinding" },
+    "productionImport": { "const": "HOLD" },
+    "evidenceSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "triple": { "type": "object", "additionalProperties": false, "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "properties": { "codeSha": { "$ref": "#/$defs/codeSha" }, "sourceSnapshotHash": { "$ref": "#/$defs/sha256" }, "mappingContractHash": { "$ref": "#/$defs/sha256" } } },
+    "artifactBinding": { "type": "object", "additionalProperties": false, "required": ["artifact", "rawSha256"], "properties": { "artifact": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{1,127}\\.json$" }, "rawSha256": { "$ref": "#/$defs/sha256" } }, "$comment": "Verifier additionally requires current uid, mode 0600, regular file, nlink=1, no symlink/hardlink and distinct inode." },
+    "runAIndex": { "type": "object", "additionalProperties": false, "required": ["rehearsal", "technicalArtifact"], "properties": { "rehearsal": { "const": "A" }, "technicalArtifact": { "$ref": "#/$defs/artifactBinding" } } },
+    "runBIndex": { "type": "object", "additionalProperties": false, "required": ["rehearsal", "technicalArtifact"], "properties": { "rehearsal": { "const": "B" }, "technicalArtifact": { "$ref": "#/$defs/artifactBinding" } } },
+    "resourceHashes": { "type": "object", "additionalProperties": false, "required": ["database", "fileRoot", "temporaryRoot", "accountNamespace"], "properties": { "database": { "$ref": "#/$defs/sha256" }, "fileRoot": { "$ref": "#/$defs/sha256" }, "temporaryRoot": { "$ref": "#/$defs/sha256" }, "accountNamespace": { "$ref": "#/$defs/sha256" } } },
+    "ownerLedger": { "type": "object", "additionalProperties": false, "required": ["sourceRows", "resolvedRows", "quarantinedRows", "mappingStatusCounts", "lookupAlgorithmVersion", "canonicalSha256"], "properties": { "sourceRows": { "const": 2155 }, "resolvedRows": { "type": "integer", "minimum": 0 }, "quarantinedRows": { "type": "integer", "minimum": 0 }, "mappingStatusCounts": { "type": "object", "additionalProperties": false, "required": ["loaded", "verified"], "properties": { "loaded": { "type": "integer", "minimum": 0 }, "verified": { "type": "integer", "minimum": 0 } } }, "lookupAlgorithmVersion": { "const": "t0-person-identity-v1" }, "canonicalSha256": { "$ref": "#/$defs/sha256" } } },
+    "rbac": { "type": "object", "additionalProperties": false, "required": ["scopes", "positivePassed", "negativePassed", "auditFailureZeroDisclosure", "observationSha256"], "properties": { "scopes": { "const": ["park", "team", "self", "none"] }, "positivePassed": { "const": true }, "negativePassed": { "const": true }, "auditFailureZeroDisclosure": { "const": true }, "observationSha256": { "$ref": "#/$defs/sha256" } } },
+    "idempotency": { "type": "object", "additionalProperties": false, "required": ["replayNoNewFile", "replayNoNewLink", "hashConflictRejected", "observationSha256"], "properties": { "replayNoNewFile": { "const": true }, "replayNoNewLink": { "const": true }, "hashConflictRejected": { "const": true }, "observationSha256": { "$ref": "#/$defs/sha256" } } },
+    "residuals": { "type": "object", "additionalProperties": false, "required": ["activeDatabaseRows", "binaryObjects", "temporaryArtifacts", "observationSha256"], "properties": { "activeDatabaseRows": { "const": 0 }, "binaryObjects": { "const": 0 }, "temporaryArtifacts": { "const": 0 }, "observationSha256": { "$ref": "#/$defs/sha256" } } },
+    "technicalArtifact": { "type": "object", "additionalProperties": false, "required": ["formatVersion", "kind", "schemaVersion", "rehearsal", "triple", "runIdSha256", "t0BatchIdSha256", "tenantIdentitySha256", "parkIdentitySha256", "resourceHashes", "ownerLedger", "canonicalProjectionSha256", "rbac", "idempotency", "residuals", "status"], "properties": { "formatVersion": { "const": 1 }, "kind": { "const": "yuzhou_photo_run_technical_evidence" }, "schemaVersion": { "const": "v1" }, "rehearsal": { "enum": ["A", "B"] }, "triple": { "$ref": "#/$defs/triple" }, "runIdSha256": { "$ref": "#/$defs/sha256" }, "t0BatchIdSha256": { "$ref": "#/$defs/sha256" }, "tenantIdentitySha256": { "$ref": "#/$defs/sha256" }, "parkIdentitySha256": { "$ref": "#/$defs/sha256" }, "resourceHashes": { "$ref": "#/$defs/resourceHashes" }, "ownerLedger": { "$ref": "#/$defs/ownerLedger" }, "canonicalProjectionSha256": { "$ref": "#/$defs/sha256" }, "rbac": { "$ref": "#/$defs/rbac" }, "idempotency": { "$ref": "#/$defs/idempotency" }, "residuals": { "$ref": "#/$defs/residuals" }, "status": { "const": "PASS" } }, "$comment": "A and B each supply this structure in separate external 0600 artifacts; root booleans are forbidden." },
+    "detachedAttestation": { "type": "object", "additionalProperties": false, "required": ["formatVersion", "kind", "schemaVersion", "status", "reviewerSubjectSha256", "reviewedTechnicalEvidenceSha256", "attestationContextSha256"], "properties": { "formatVersion": { "const": 1 }, "kind": { "const": "yuzhou_photo_detached_review_attestation" }, "schemaVersion": { "const": "v1" }, "status": { "const": "APPROVED" }, "reviewerSubjectSha256": { "$ref": "#/$defs/sha256" }, "reviewedTechnicalEvidenceSha256": { "$ref": "#/$defs/sha256" }, "attestationContextSha256": { "$ref": "#/$defs/sha256" } }, "$comment": "Must be a third external 0600 artifact and bind the combined technical hash plus reviewer identity." }
+  }
+}
