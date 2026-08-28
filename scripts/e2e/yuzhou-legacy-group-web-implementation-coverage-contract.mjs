@@ -157,6 +157,7 @@ test("source DB evidence client evidence and incomplete roles cannot impersonate
     evidence => { evidence.items[0].observations.pop(); },
     evidence => { evidence.items[0].observations[0].artifactSha256 = "not-a-hash"; },
     evidence => { evidence.items[0].observations[0].route = "https://example.invalid/page"; },
+    evidence => { evidence.items[0].observations[0].route = "/legacy/page?password=value"; },
     evidence => { evidence.items[0].observations[0].observedAt = "2026-08-27T08:00:00.000Z"; }
   ];
   for (const mutate of cases) {

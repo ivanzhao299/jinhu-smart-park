@@ -33,7 +33,11 @@ export function validateLegacyGroupWebRuntimeUatEvidence(evidence, knownLegacyId
     || evidence.productionImport !== "HOLD") {
     fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_IDENTITY_INVALID", "root");
   }
-  if (!sha64(evidence.artifactSha256) || !Number.isFinite(Date.parse(evidence.observedAt)) || !Array.isArray(evidence.items)) {
+  if (!sha64(evidence.artifactSha256)
+    || typeof evidence.observedAt !== "string"
+    || !Number.isFinite(Date.parse(evidence.observedAt))
+    || new Date(evidence.observedAt).toISOString() !== evidence.observedAt
+    || !Array.isArray(evidence.items)) {
     fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_BINDING_INVALID", "root");
   }
   const known = new Set(knownLegacyIds);
@@ -52,8 +56,7 @@ export function validateLegacyGroupWebRuntimeUatEvidence(evidence, knownLegacyId
         || typeof observation.pageId !== "string"
         || !/^[a-z0-9][a-z0-9._:-]{2,127}$/u.test(observation.pageId)
         || typeof observation.route !== "string"
-        || !/^\/[A-Za-z0-9._~!$&'()*+,;=:@%/?-]+$/u.test(observation.route)
-        || observation.route.includes("://")
+        || !/^\/[A-Za-z0-9._~!$'()*+,;:@%/-]+$/u.test(observation.route)
         || observation.observedAt !== evidence.observedAt
         || !sha64(observation.artifactSha256)) {
         fail("GROUP_WEB_LEGACY_RUNTIME_EVIDENCE_OBSERVATION_INVALID", `${item.legacyId}.${observation?.role}`);
