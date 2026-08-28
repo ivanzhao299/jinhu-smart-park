@@ -125,6 +125,32 @@ test("global super role reads preserve cross-tenant target management", async ()
   assert.deepEqual(result.roles.map((item) => item.id), [assignedRole.id]);
 });
 
+test("target park reads retain an effective tenant-scoped protected role stored at the home park", async () => {
+  const protectedRole = role({
+    code: "SUPER_ADMIN",
+    roleScope: "tenant",
+    parkId: "home-park",
+    isSystem: true,
+    isBuiltin: true,
+    isSuper: true
+  });
+  const service = createService({
+    usersRepository: { findOne: async () => ({ ...target, roleLinks: [{ role: protectedRole }] }) },
+    parksRepository: { findOne: async () => ({ tenantId: target.tenantId, parkId: target.parkId, status: 1 }) },
+    userParkRepository: { findOne: async () => null },
+    rolesRepository: createRoleCandidateRepository([]),
+    userRoleRepository: { find: async () => [{ role: protectedRole }] }
+  });
+
+  const result = await service.getUserRoleContext(
+    scope,
+    actor,
+    target.id,
+    Object.assign(new UserRoleCandidatesQueryDto(), { parkId: target.parkId })
+  );
+  assert.deepEqual(result.roles.map((item) => item.code), ["SUPER_ADMIN"]);
+});
+
 test("protected tenant super cannot cross its tenant boundary", async () => {
   const service = createService({
     usersRepository: {
@@ -190,7 +216,6 @@ test("user role context uses the target user's tenant and park", async () => {
   assert.deepEqual(assignedWhere, {
     userId: target.id,
     tenantId: target.tenantId,
-    parkId: target.parkId,
     isDeleted: false
   });
   assert(candidateClauses.some((clause) => String(clause).includes("role.tenant_id=:tenantId")));

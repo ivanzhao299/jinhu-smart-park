@@ -40,6 +40,9 @@ test("explicit park-role endpoint carries target park through DTO, service autho
   assert.match(source, /getManyAndCount\(\)/);
   assert.match(source, /toViews\(items, this\.canViewRoleDiagnostics\(actor\), scope\.parkId\)/);
   assert.match(source, /globalRoleManager = Boolean\(!actor\.isTenantSuper && \(actor\.isSuper \|\| actor\.permissions\.includes\("\*"\)\)\)/);
+  assert.match(source, /platformGlobalManager = Boolean\(actor && !actor\.isTenantSuper/);
+  assert.match(source, /!platformGlobalManager && actor \? \{ tenantId: actor\.tenantId \}/);
+  assert.match(source, /broadRoleDiagnostics \? undefined : scope\.parkId/);
 });
 
 test("role candidate catalog is paginated and keeps the legacy array contract opt-out", () => {

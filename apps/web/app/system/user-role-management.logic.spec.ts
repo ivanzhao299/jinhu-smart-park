@@ -36,6 +36,8 @@ test("target-park role assignment remains reachable without profile update permi
   assert.match(source, /async function openRoleEdit\(row: UserRow, requestedParkId\?: string\)/);
   assert.match(source, /manageableParks\.find\(\(park\) => park\.park_id === currentParkId\)/);
   assert.match(source, /canManageRolesAcrossParks \|\| park\.park_id === authUser\?\.park_id/);
+  assert.match(source, /const canEditProfileFor = \(row: UserRow\)/);
+  assert.match(source, /row\.tenantId === authUser\?\.tenant_id && row\.parkId === authUser\?\.park_id/);
   assert.match(source, /选择目标园区并直接替换该园区的可管理角色/);
   assert.match(source, /canAssignRoles \? <button[^>]+title="配置角色"/);
   assert.match(source, /if \(roleOnlyEditing && editingUser\)/);

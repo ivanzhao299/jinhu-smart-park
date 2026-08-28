@@ -91,6 +91,8 @@ export default function UsersPage() {
   const canUpdateUsers = hasPermission(authUser, SYSTEM_PERMISSIONS.USER_UPDATE);
   const canReadRoles = hasPermission(authUser, SYSTEM_PERMISSIONS.ROLE_READ);
   const canManageRolesAcrossParks = Boolean(authUser?.is_super || authUser?.permissions.includes("*"));
+  const canEditProfileFor = (row: UserRow) => canUpdateUsers && (canManageRolesAcrossParks
+    || (row.tenantId === authUser?.tenant_id && row.parkId === authUser?.park_id));
   const [data, setData] = useState(emptyUsers);
   const [tenants, setTenants] = useState(emptyTenants);
   const [keyword, setKeyword] = useState("");
@@ -594,7 +596,7 @@ export default function UsersPage() {
               <div className="task-item">
                 <LoginContextBadge status={item.loginContextStatus} />
                 <span className="pagination-actions">
-                  {canUpdateUsers ? <button className="secondary-button" type="button" title="编辑用户" onClick={() => void openEdit(item).catch((error: Error) => setMessage(error.message))}><Edit3 size={16} />编辑</button> : null}
+                  {canEditProfileFor(item) ? <button className="secondary-button" type="button" title="编辑用户" onClick={() => void openEdit(item).catch((error: Error) => setMessage(error.message))}><Edit3 size={16} />编辑</button> : null}
                   {canAssignRoles ? <button className="secondary-button" type="button" title="配置角色" onClick={() => void openRoleEdit(item).catch((error: Error) => setMessage(error.message))}>配置角色</button> : null}
                 </span>
               </div>
@@ -629,7 +631,7 @@ export default function UsersPage() {
                   <td><LoginContextBadge status={item.loginContextStatus} /></td>
                   <td>
                     <span className="pagination-actions">
-                      {canUpdateUsers ? <button className="secondary-button" type="button" title="编辑登录上下文" onClick={() => void openEdit(item).catch((error: Error) => setMessage(error.message))}><Edit3 size={16} />编辑</button> : null}
+                      {canEditProfileFor(item) ? <button className="secondary-button" type="button" title="编辑登录上下文" onClick={() => void openEdit(item).catch((error: Error) => setMessage(error.message))}><Edit3 size={16} />编辑</button> : null}
                       {canAssignRoles ? <button className="secondary-button" type="button" title="配置角色" onClick={() => void openRoleEdit(item).catch((error: Error) => setMessage(error.message))}>配置角色</button> : null}
                     </span>
                   </td>

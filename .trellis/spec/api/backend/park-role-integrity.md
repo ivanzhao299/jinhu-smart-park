@@ -21,6 +21,8 @@
 - An authenticated user may receive only their own minimal accessible-park role names/count for switcher display; never include permissions, data scopes, candidates, protected flags, assignability reasons, or another user's roles.
 - The service—not only the controller—authorizes the explicit target. Protected tenant super may target any live park in the same tenant but never another tenant. Existing platform-global super/wildcard user-management semantics remain available across target scopes. An ordinary role administrator may target only the actor's current park, and the target user must have effective access to it.
 - Ordinary user-directory discovery includes both home-park users and enabled access-linked users through a database-side `EXISTS` predicate before pagination; it must not materialize the whole park population as an application-side ID list.
+- Protected tenant-super directory reads stay inside the actor tenant. Access-linked rows remain role-configurable at the actor's park, but ordinary actors must not receive a broken profile-edit action for a user whose home park differs.
+- Target role reads include effective tenant-scoped protected bindings even when their stored link park is the user's home park; the binding remains retained and unassignable at other live tenant parks.
 - The write transaction locks the user scope, validates every role against the target tenant/park, preserves protected links, replaces only manageable links at the target park, and overrides audit scope to the target park. Audit body capture stays disabled.
 - Role summaries are display-only; `/auth/switch-context` still resolves a fresh target principal and remains the authorization authority.
 

@@ -169,10 +169,12 @@ export class UsersService {
     const queryParkId = typeof (query as PaginationQueryDto & { parkId?: string }).parkId === "string" ? (query as PaginationQueryDto & { parkId?: string }).parkId : "";
     const statusWhere =
       query.status === "enabled" ? { isEnabled: true } : query.status === "disabled" ? { isEnabled: false } : {};
-    const superUser = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
-    const rawBaseWhere = superUser
+    const broadUserManager = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
+    const platformGlobalManager = Boolean(actor && !actor.isTenantSuper && (actor.isSuper || actor.permissions.includes("*")));
+    const rawBaseWhere = broadUserManager
       ? {
-          ...(queryTenantId ? { tenantId: queryTenantId } : {}),
+          ...(platformGlobalManager && queryTenantId ? { tenantId: queryTenantId } : {}),
+          ...(!platformGlobalManager && actor ? { tenantId: actor.tenantId } : {}),
           ...(queryParkId ? { parkId: queryParkId } : {}),
           isDeleted: false,
           ...statusWhere
@@ -182,7 +184,7 @@ export class UsersService {
           isDeleted: false,
           ...statusWhere
         };
-    if (!superUser) {
+    if (!broadUserManager) {
       const builder = this.usersRepository.createQueryBuilder("usr")
         .where("usr.tenant_id = :tenantId", { tenantId: scope.tenantId })
         .andWhere("usr.is_deleted = false")
@@ -418,7 +420,8 @@ export class UsersService {
 
   async detail(scope: TenantParkScope, id: string, actor?: JwtPrincipal): Promise<UserView> {
     const user = await this.getEntityForActor(scope, id, actor);
-    const [view] = await this.toViews([user], this.canViewRoleDiagnostics(actor));
+    const broadRoleDiagnostics = Boolean(actor?.isSuper || actor?.permissions.includes("*"));
+    const [view] = await this.toViews([user], this.canViewRoleDiagnostics(actor), broadRoleDiagnostics ? undefined : scope.parkId);
     if (!view) {
       throw new NotFoundException("User not found");
     }
@@ -1306,7 +1309,7 @@ export class UsersService {
 
   private async listAssignedRoles(scope: TenantParkScope, userId: string): Promise<UserRoleView[]> {
     const links = await this.userRoleRepository.find({
-      where: { userId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
+      where: { userId, tenantId: scope.tenantId, isDeleted: false },
       relations: { role: true },
       order: { createTime: "ASC" }
     });
