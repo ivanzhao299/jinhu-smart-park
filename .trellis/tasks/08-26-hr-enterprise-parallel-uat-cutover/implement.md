@@ -43,6 +43,7 @@
     - [x] 第三阶段第二批：逐项绑定玉舟集团 Web 版 15 个入口；初始 12 个具备新 route/API/permission/test 的源码闭环，随后补齐受原子权限和 required audit 保护的人事异动统计、受敏感档案权限与图片策略保护的人员照片，以及验证旧密码、限流、递增会话版本并原子撤销全部 refresh session 的本人密码修改，当前为 15 mapped / 0 gaps。该证据不替代三角色运行时矩阵，兼容分仍为 0，生产历史 import 继续 `HOLD`。
     - [ ] 第三阶段现场补证：对仍可运行的玉舟 V10 客户端执行只读全菜单遍历，逐页记录菜单层级、查询条件、列表列、空白新增/编辑字段、状态动作、编号、校验、审批、打印/导出和角色可见性；禁止保存、审核、结账、发薪或导出个人数据，截图/证据必须脱敏且不得记录连接地址或凭据。当前 v1 仅为 L3 进度证据，兼容分贡献固定为 0，不得以 `candidate` 或人工布尔值冒充 L4。
       - [x] 覆盖评分已拆分目标系统 `targetTechnicalUat` 与旧集团 Web `legacyRuntimeUat`：Smart Park A/B 只能提升目标实现维度；旧端缺少固定 surface/role/page/route/observedAt/artifact hash 的三角色实遍历证据时保持 partial/missing，旧歧义输入和源码/数据库替代证据均 fail closed。
+      - [x] 建立不可互换的 `client:*` 与 `group-web:*` 原子清单骨架：守恒 client 83 入口及 162 表/2,364 字段/212 规则/915 权限、group Web 231 菜单/186 源码路径；现有等级仅为 231 DB、186 SOURCE、83 INFERRED、3,653 MISSING，禁止跨 surface 复用或自动晋级。
       - [ ] 首轮覆盖员工档案、人事异动、劳动合同、考勤、工资、培训、奖惩、招聘、绩效、自助和系统字典；页面证据逐项绑定 atomic inventory stable ID 与 reviewed mapping，修正帮助文档或数据库结构无法证明的交互语义。
       - [ ] 对员工已习惯的流程区分 `preserve`、`modernize`、`archive`、`reject` 四类决策；保留业务语义与编号/状态链，不复制旧 UI、弱权限或不合规做法，每项决策要求新 route/API/entity/atomic permission/test evidence。
       - [ ] 现场遍历完成前，旧客户端 L4 兼容分保持 0，生产历史 import 继续 `HOLD`；任何包含 PII、工资明细或真实凭据的证据不得进入仓库。
