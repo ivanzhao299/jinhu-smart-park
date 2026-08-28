@@ -6,8 +6,8 @@ import { HR_ACCESS_MATRIX,HR_PERMISSIONS } from "@jinhu/shared";
 import { ANY_PERMISSIONS_KEY,PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
 import { AUDIT_LOG_KEY } from "../audit/decorators/audit-log.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import type { HrApprovalRequestEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
-import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope } from "./hr-access-policy";
+import type { HrApprovalRequestEntity,HrEmployeeEntity,HrEmployeeProfileEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
+import { isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployee,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope } from "./hr-access-policy";
 import { HrController } from "./hr.controller";
 import { HrGoalReportController } from "./hr-goal-report.controller";
 import { HrService } from "./hr.service";
@@ -170,11 +170,31 @@ test("manager employee scope is derived from tenant and park bounded organizatio
   assert.match(queries[0]!.sql, /sys_org WHERE tenant_id=\$1 AND park_id=\$2/u);
   assert.match(queries[0]!.sql, /child\.tenant_id=\$1 AND child\.park_id=\$2/u);
   assert.match(queries[0]!.sql, /employee\.tenant_id=\$1 AND employee\.park_id=\$2/u);
+  assert.match(queries[0]!.sql, /employee\.primary_org_id IN \(SELECT id FROM managed_org\)/u);
+  assert.doesNotMatch(queries[0]!.sql, /employee\.manager_employee_id/u);
   assert.deepEqual(queries[0]!.parameters, ["tenant-1", "park-1", "user-1", "manager-employee"]);
   assert.equal(findOptions?.where?.tenantId, "tenant-1");
   assert.equal(findOptions?.where?.parkId, "park-1");
   assert.equal(findOptions?.where?.isDeleted, false);
   assert.ok(findOptions?.where?.id, "manager list must retain the server-derived employee ID filter");
+});
+
+test("employee list detail and self projection is an exact allowlist",()=>{
+  const row={
+    id:"employee-1",employeeCode:"JH-001",fullName:"测试员工",userId:"user-1",primaryOrgId:"org-1",
+    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",
+    hireDate:"2026-01-01",departureDate:null,workLocation:"园区",workMobile:"13800000000",workEmail:"employee@example.test",
+    probationEndDate:"2026-03-31",attendanceCardNo:"secret-card",tenantId:"tenant-1",parkId:"park-1",
+    createBy:"creator",createTime:new Date(),updateBy:"updater",updateTime:new Date(),isDeleted:false,version:7,remark:"internal"
+  } as HrEmployeeEntity;
+  assert.deepEqual(projectHrEmployee(row),{
+    id:"employee-1",employeeCode:"JH-001",fullName:"测试员工",userId:"user-1",primaryOrgId:"org-1",
+    positionId:"position-1",managerEmployeeId:"manager-1",employmentType:"full_time",employmentStatus:"active",
+    hireDate:"2026-01-01",departureDate:null,workLocation:"园区",workMobile:"13800000000",workEmail:"employee@example.test"
+  });
+  for(const forbidden of ["tenantId","parkId","attendanceCardNo","probationEndDate","createBy","createTime","updateBy","updateTime","isDeleted","version","remark"]){
+    assert.equal(forbidden in projectHrEmployee(row),false,`${forbidden} must not be exposed`);
+  }
 });
 
 test("employee directory keyword searches name and code without dropping scope filters", async () => {

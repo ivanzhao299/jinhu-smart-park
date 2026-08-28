@@ -12,7 +12,7 @@ import { AuditService } from "../audit/audit.service";
 import { PartySensitiveDataService } from "../property-operations/party-sensitive-data.service";
 import { recordHrSensitiveRead } from "./hr-sensitive-read-audit";
 import { hrCentsToMoney, hrMoneyToCents, normalizeHrMoney } from "./hr-money";
-import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrApprovalReviewAccessScope,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrLedgerAccessScope } from "./hr-access-policy";
+import { HR_MANAGED_EMPLOYEE_IDS_SQL,isHrEmployeeIdAccessible,projectHrApproval,projectHrEmployee,projectHrEmployeeProfile,projectHrFeedbackAssignment,projectHrGoal,projectHrPayrollRun,projectHrPayslip,projectHrPerformancePlan,projectHrWorkReport,resolveHrApprovalReviewAccessScope,resolveHrAttendanceAccessScope,resolveHrContractAccessScope,resolveHrEmployeeAccessScope,resolveHrEmployeeProfileAccess,resolveHrInsuranceAccessScope,type HrEmployeeAccessScope,type HrEmployeeProjection,type HrLedgerAccessScope } from "./hr-access-policy";
 
 @Injectable()
 export class HrService {
@@ -52,7 +52,7 @@ export class HrService {
   private readonly sensitiveData:PartySensitiveDataService
  ){}
 
- async listEmployees(scope:TenantParkScope,actor:JwtPrincipal,q:HrListQueryDto):Promise<PaginatedResult<HrEmployeeEntity>>{
+ async listEmployees(scope:TenantParkScope,actor:JwtPrincipal,q:HrListQueryDto):Promise<PaginatedResult<HrEmployeeProjection>>{
   const accessScope=resolveHrEmployeeAccessScope(actor);
   if(accessScope==="none")return {items:[],total:0,page:q.page,page_size:q.page_size};
   const employee=accessScope==="self"?await this.myEmployee(scope,actor):null;
@@ -60,11 +60,11 @@ export class HrService {
   const baseWhere={tenantId:scope.tenantId,parkId:scope.parkId,isDeleted:false,...(employee?{id:employee.id}:{}),...(managedIds?{id:In(managedIds.length?managedIds:["00000000-0000-0000-0000-000000000000"])}:{}),...(q.status?{employmentStatus:q.status}:{}),...(q.org_id?{primaryOrgId:q.org_id}:{})};
   const where=q.keyword?[{...baseWhere,fullName:ILike(`%${q.keyword}%`)},{...baseWhere,employeeCode:ILike(`%${q.keyword}%`)}]:baseWhere;
   const [items,total]=await this.employees.findAndCount({where,order:{employeeCode:"ASC"},skip:(q.page-1)*q.page_size,take:q.page_size});
-  return {items,total,page:q.page,page_size:q.page_size};
+  return {items:items.map(projectHrEmployee),total,page:q.page,page_size:q.page_size};
  }
- async detailEmployee(scope:TenantParkScope,id:string){const row=await this.employees.findOne({where:{id,...scope,isDeleted:false}});if(!row)throw new NotFoundException("Employee not found");return row;}
+ async detailEmployee(scope:TenantParkScope,id:string){const row=await this.employees.findOne({where:{id,...scope,isDeleted:false}});if(!row)throw new NotFoundException("Employee not found");return projectHrEmployee(row);}
  async detailEmployeeForActor(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.employeeForAccess(scope,actor,id,resolveHrEmployeeAccessScope(actor));}
- async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return row;}
+ async myEmployee(scope:TenantParkScope,actor:JwtPrincipal){const row=await this.employees.findOne({where:{...scope,userId:actor.sub,isDeleted:false}});if(!row)throw new NotFoundException("No employee profile is linked to current user");return projectHrEmployee(row);}
  async employeeEvents(scope:TenantParkScope,id:string){await this.detailEmployee(scope,id);return this.events.find({where:[{...scope,employeeId:id,isHistoricalImport:false,isDeleted:false},{...scope,employeeId:id,isHistoricalImport:true,migrationDecision:"accepted",isDeleted:false}],order:{effectiveDate:"DESC",createTime:"DESC"}});}
  async employmentEventStatistics(scope:TenantParkScope,actor:JwtPrincipal,q:HrEmploymentEventStatisticsQueryDto){
   const from=Date.parse(`${q.from}T00:00:00.000Z`),to=Date.parse(`${q.to}T00:00:00.000Z`),maxSpan=366*25*24*60*60*1000;
@@ -132,7 +132,7 @@ export class HrService {
    row.updateBy=actor.sub;
    const saved=await repo.save(row);
    await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:dto.action,effectiveDate:dto.effectiveDate,beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:dto.reason,status:"effective",createBy:actor.sub,updateBy:actor.sub}));
-   return saved;
+   return projectHrEmployee(saved);
   });
  }
 
@@ -144,7 +144,7 @@ export class HrService {
    if(dto.userId&&await repo.exists({where:{...scope,userId:dto.userId,isDeleted:false}}))throw new ConflictException("User is already linked to another employee");
    const row=await repo.save(repo.create({...scope,...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,employmentType:dto.employmentType??"full_time",employmentStatus:"preboarding",hireDate:dto.hireDate??null,probationEndDate:null,departureDate:null,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,createBy:actor.sub,updateBy:actor.sub}));
    await eventRepo.save(eventRepo.create({...scope,employeeId:row.id,eventType:"created",effectiveDate:dto.hireDate??new Date().toISOString().slice(0,10),beforeSnapshot:{},afterSnapshot:this.eventSnapshot(row),reason:"创建员工档案",createBy:actor.sub,updateBy:actor.sub}));
-   return row;
+   return projectHrEmployee(row);
   });
  }
  async updateEmployee(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:UpdateHrEmployeeDto){
@@ -157,7 +157,7 @@ export class HrService {
    if(dto.departureDate!==undefined&&dto.departureDate!==row.departureDate)throw new BadRequestException("Departure date must be changed through the approved departure workflow");
    if(dto.employeeCode!==row.employeeCode)throw new ConflictException("Employee code cannot be changed after allocation");
    const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:row.departureDate,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
-   const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return saved;
+   const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return projectHrEmployee(saved);
   });
  }
  async listPositions(scope:TenantParkScope){return this.positions.find({where:{...scope,isDeleted:false},order:{positionCode:"ASC"}});}

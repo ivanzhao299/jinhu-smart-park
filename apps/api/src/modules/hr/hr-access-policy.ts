@@ -1,6 +1,6 @@
 import { HR_ACCESS_MATRIX,HR_PERMISSIONS,resolveHrAccessScope,type HrAccessScope } from "@jinhu/shared";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import type { HrEmployeeProfileEntity } from "./entities/hr.entities";
+import type { HrEmployeeEntity,HrEmployeeProfileEntity } from "./entities/hr.entities";
 import type { HrApprovalRequestEntity,HrFeedbackAssignmentEntity,HrGoalEntity,HrPayrollRunEntity,HrPayslipEntity,HrPerformancePlanEntity,HrWorkReportEntity } from "./entities/hr.entities";
 
 export type HrEmployeeAccessScope = HrAccessScope;
@@ -11,13 +11,30 @@ export interface HrEmployeeProfileAccess {scope:HrEmployeeAccessScope;projection
 
 export const HR_MANAGED_EMPLOYEE_IDS_SQL=`WITH RECURSIVE managed_org AS (
  SELECT id FROM sys_org WHERE tenant_id=$1 AND park_id=$2 AND leader_user_id=$3 AND is_deleted=false AND status='enabled'
- UNION ALL
+ UNION
  SELECT child.id FROM sys_org child JOIN managed_org parent ON child.parent_id=parent.id
  WHERE child.tenant_id=$1 AND child.park_id=$2 AND child.is_deleted=false AND child.status='enabled'
 )
 SELECT DISTINCT employee.id FROM hr_employee employee
 WHERE employee.tenant_id=$1 AND employee.park_id=$2 AND employee.is_deleted=false AND employee.id<>$4
- AND (employee.manager_employee_id=$4 OR employee.primary_org_id IN (SELECT id FROM managed_org))`;
+ AND employee.primary_org_id IN (SELECT id FROM managed_org)`;
+
+export interface HrEmployeeProjection {
+  id:string;
+  employeeCode:string;
+  fullName:string;
+  userId:string|null;
+  primaryOrgId:string|null;
+  positionId:string|null;
+  managerEmployeeId:string|null;
+  employmentType:string;
+  employmentStatus:string;
+  hireDate:string|null;
+  departureDate:string|null;
+  workLocation:string|null;
+  workMobile:string|null;
+  workEmail:string|null;
+}
 
 export interface HrEmployeeProfileProjection {
   id: string;
@@ -103,6 +120,17 @@ export function projectHrPayslip(row: HrPayslipEntity, selfOnly: boolean) {
 export function projectHrApproval(row: HrApprovalRequestEntity) {
   const {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt}=row;
   return {id,requestNo,requestType,applicantEmployeeId,subjectEmployeeId,title,payload,status,currentApproverId,submittedAt,completedAt};
+}
+
+export function projectHrEmployee(row:HrEmployeeEntity):HrEmployeeProjection {
+  const {
+    id,employeeCode,fullName,userId,primaryOrgId,positionId,managerEmployeeId,
+    employmentType,employmentStatus,hireDate,departureDate,workLocation,workMobile,workEmail
+  }=row;
+  return {
+    id,employeeCode,fullName,userId,primaryOrgId,positionId,managerEmployeeId,
+    employmentType,employmentStatus,hireDate,departureDate,workLocation,workMobile,workEmail
+  };
 }
 
 export function resolveHrEmployeeAccessScope(actor: JwtPrincipal): HrEmployeeAccessScope {
