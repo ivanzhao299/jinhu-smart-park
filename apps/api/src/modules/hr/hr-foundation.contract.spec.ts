@@ -39,10 +39,11 @@ test("HR employee documents reuse protected file surfaces without generic exposu
  assert.match(fileAccess,/HR_EMPLOYEE_DOCUMENT_MANAGE/);
  assert.match(fileAccess,/HR employee document is outside the actor's employee scope/);
  assert.match(fileAccess,/FROM hr_employee WHERE id=\$1 AND tenant_id=\$2 AND park_id=\$3/);
- assert.match(employeeUi,/FileUploader bizType="hr_employee_document"/);
- assert.match(employeeUi,/AttachmentList bizType="hr_employee_document"/);
- assert.match(employeeUi,/FileUploader bizType="hr_employee_photo"/);
- assert.match(employeeUi,/AttachmentList bizType="hr_employee_photo"/);
+ assert.match(employeeUi,/<FileUploader[^>]*bizType="hr_employee_document"[^>]*safeErrorMessage="员工档案附件上传失败"/);
+ assert.match(employeeUi,/<AttachmentList[^>]*bizType="hr_employee_document"[^>]*readPermissions=\{employeeDocumentReadPermissions\}/);
+ assert.match(employeeUi,/<FileUploader[^>]*bizType="hr_employee_photo"[^>]*safeErrorMessage="员工照片上传失败"/);
+ assert.match(employeeUi,/<AttachmentList[^>]*bizType="hr_employee_photo"[^>]*readPermissions=\{employeeDocumentReadPermissions\}/);
+ assert.match(employeeUi,/mutationPermission=\{HR_PERMISSIONS\.HR_EMPLOYEE_DOCUMENT_MANAGE\}/);
  assert.deepEqual(resolveFileUploadPolicy("hr_employee_photo").mimeTypes,["image/jpeg","image/png","image/webp"]);
 });
 test("HR approvals support submit, return, resubmit, approve and withdraw with action history",()=>{
