@@ -47,8 +47,14 @@
       - [ ] 现场遍历完成前，旧客户端 L4 兼容分保持 0，生产历史 import 继续 `HOLD`；任何包含 PII、工资明细或真实凭据的证据不得进入仓库。
     - [ ] 由人工审阅候选 inventory 后，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；未审阅候选不得提高兼容评分。
 - [ ] 在 Rehearsal A 前完成高优先级兼容缺口门禁：档案扩展域、异动快照、合同续签链、培训/奖惩/招聘历史查询、自助投影；工资继续最近三年热窗口，复杂公式/银行报盘保留为后置硬门禁。
+  - [ ] P0-1 旧字典治理：禁止未知 `jobstatecode` 默认归为离职，禁止未签署异动/合同字典静默映射；版本化、append-only、批准 hash 绑定，未知值 fail-closed/quarantine。
+  - [ ] P0-2 三角色 scope/RBAC：让 `HR_ACCESS_MATRIX` 成为运行时合同，补齐经理 team-masked 与员工 self-masked 档案权限；经理跨树、员工跨人必须拒绝。
+  - [ ] P0-3 员工完整档案物化：`person` 扩展字段及 `family/knowhow/ticket` 家庭、技能、证照从 raw archive 进入受权限保护的结构化业务模型。
+  - [ ] P0-4 合同链与提醒：期限、累计续签、签订日、正文/文件证据及到期提醒工作流完整结构化，不能以 60 日前端计数代替流程。
+  - [ ] P0-5 审批与敏感读取：区分 park/team 审批，required-audit 失败前工资、合同薪资、保险金额和附件均为零数据/零 metadata/header/stream。
 - [ ] A 使用全新资源完成 source→extract→migrate/seed→T0…T5→ledger/hash→三角色 API + desktop/390 browser 技术矩阵→反序 rollback/cleanup；六域与 UAT 完成前不得 rollback，修复后必须从头重跑。
   - [x] 已实现并冻结真实技术执行器：46 个 API 正负向检查与 28 个旧功能×角色检查在 desktop/390 两视口形成 56 个浏览器单元；使用隔离账号、真实 loopback HTTP、真实 headless Chrome、受控 0600 截图、敏感 DOM/存储清理与 C/S/M hash 绑定。当前只证明执行器契约和 Chrome 集成，尚未替代 A 的真实六域连续演练。
+  - [x] 预演 A18 在 `f228fb98` 上从空库连续完成 T0→T5，并通过 59 个 API、22 个反向授权、46 个旧任务语义、28 个浏览器与 56 个 desktop/390 视口检查；随后按 T5→T0 反序回滚并实际 cleanup `residualCount=0`。因目标 PostgreSQL backup/restore/fault runner 尚未实现且后续 P0 修复会改变 C，此轮不计入最终 A/B，最终证据必须在新 SHA 上从头重跑。
 - [ ] 固定逐字节相同的 `codeSha/sourceSnapshotHash/mappingContractHash` 后，B 使用另一套全新 DB/Compose/volume/container/ports/file/staging/evidence/accounts/run 重复同一连续序列。
 - [ ] 比较 source/staging hashes、逐对象守恒式、global ledgers、canonical hashes、quarantine reasons 和 versioned UAT task-card 结果；独立 checker 审查且两轮逐资源 residual=0。
 
