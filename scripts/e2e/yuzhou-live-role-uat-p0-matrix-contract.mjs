@@ -23,7 +23,7 @@ test("P0 matrix order, boundary, binary routes and negative proof fail closed",(
   const cases=[
     draft=>{draft.checks.reverse();},draft=>{draft.productionImport="GO";},draft=>{draft.viewports[1].width=391;},
     draft=>{draft.checks.at(-1).route="/hr/contracts";},draft=>{draft.checks[2].assertions=["state_unchanged","audit_checked"];},
-    draft=>{draft.checks[8].assertions[0]="salary_fields_missing";}
+    draft=>{draft.checks[8].assertions[0]="salary_fields_missing";},draft=>{draft.checks[0].actor="employee";}
   ];
   for(const mutate of cases){const draft=structuredClone(matrix);mutate(draft);assert.throws(()=>validateYuzhouLiveRoleUatP0Matrix(draft),error=>error instanceof YuzhouLiveRoleUatP0MatrixError);}
 });

@@ -1,16 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const data=observed=>observed?.payload?.data??observed?.payload;
 const absent=(value,keys)=>value&&typeof value==="object"&&keys.every(key=>!(key in value));
 const sha=value=>createHash("sha256").update(value).digest("hex");
-const uuid=value=>typeof value==="string"&&/^[0-9a-f-]{36}$/iu.test(value);
+const uuid=value=>typeof value==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value);
 
 export async function provisionYuzhouP0Fixture({db,vars,fileRoot,contractId}){
  if(typeof db!=="function"||!uuid(contractId)||typeof fileRoot!=="string")fail("YUZHOU_UAT_P0_FIXTURE_INVALID","dependencies");
- const relative="p0/contract-proof.txt",absolute=resolve(fileRoot,relative),content=Buffer.from("isolated P0 contract proof\n","utf8");mkdirSync(resolve(fileRoot,"p0"),{recursive:true});writeFileSync(absolute,content,{mode:0o600});
+ const relative="p0/contract-proof.txt",absolute=resolve(fileRoot,relative),content=Buffer.from("isolated P0 contract proof\n","utf8");mkdirSync(resolve(fileRoot,"p0"),{recursive:true});if(existsSync(absolute))fail("YUZHOU_UAT_P0_FIXTURE_ALREADY_EXISTS","run-owned file");writeFileSync(absolute,content,{mode:0o600,flag:"wx"});
  const sql=`BEGIN;
 WITH u AS(SELECT id,username FROM sys_user WHERE tenant_id=:'tenant' AND park_id=:'park' AND username IN(:'hrReviewer',:'manager',:'employee')),
  e AS(SELECT id,employee_code FROM hr_employee WHERE tenant_id=:'tenant' AND park_id=:'park' AND employee_code IN(:'run'||'-employee',:'run'||'-outside'))
@@ -19,7 +19,7 @@ SELECT :'tenant',:'park',:'run'||'-p0-self','profile_change',e.id,e.id,'P0 self 
 UNION ALL SELECT :'tenant',:'park',:'run'||'-p0-outside','profile_change',e.id,e.id,'P0 outside approval','{}','submitted',now(),u.id,u.id,'P0 '||:'run' FROM e,u WHERE e.employee_code=:'run'||'-outside' AND u.username=:'hrReviewer';
 WITH e AS(SELECT id FROM hr_employee WHERE tenant_id=:'tenant' AND park_id=:'park' AND employee_code=:'run'||'-employee'),u AS(SELECT id FROM sys_user WHERE tenant_id=:'tenant' AND park_id=:'park' AND username=:'hrReviewer')
 INSERT INTO hr_employee_skill(tenant_id,park_id,employee_id,skill_name,proficiency,legacy_grade,note,create_by,update_by)SELECT :'tenant',:'park',e.id,'P0 skill','advanced','reviewed','isolated',u.id,u.id FROM e,u;
-INSERT INTO hr_legacy_employee_materialization_gap(tenant_id,park_id,source_table,source_identity_sha256,source_row_sha256,field_locator,reason_code)VALUES(:'tenant',:'park','dbo.knowhow',repeat('a',64),repeat('b',64),'p0.reviewed.unknown','UNKNOWN_SKILL_GRADE');
+INSERT INTO hr_legacy_employee_materialization_gap(tenant_id,park_id,source_table,source_identity_sha256,source_row_sha256,field_locator,reason_code)VALUES(:'tenant',:'park','dbo.knowhow',encode(digest(:'run'||':gap','sha256'),'hex'),encode(digest(:'run'||':gap-row','sha256'),'hex'),'p0.'||:'run'||'.unknown','UNKNOWN_SKILL_GRADE');
 WITH e AS(SELECT id FROM hr_employee WHERE tenant_id=:'tenant' AND park_id=:'park' AND employee_code=:'run'||'-employee')
 INSERT INTO hr_employee_insurance_period(tenant_id,park_id,employee_id,period_year,period_month,legacy_id,status,needs_review,is_historical_import,source_snapshot,remark)SELECT :'tenant',:'park',id,2026,8,900000001,'historical',false,false,'{}','P0 '||:'run' FROM e;
 WITH p AS(SELECT id FROM hr_employee_insurance_period WHERE tenant_id=:'tenant' AND park_id=:'park' AND legacy_id=900000001)
@@ -29,11 +29,12 @@ WITH p AS(SELECT id FROM hr_payroll_period WHERE tenant_id=:'tenant' AND park_id
 WITH r AS(SELECT id FROM hr_payroll_run WHERE tenant_id=:'tenant' AND park_id=:'park' AND remark='P0 '||:'run'),e AS(SELECT id FROM hr_employee WHERE tenant_id=:'tenant' AND park_id=:'park' AND employee_code=:'run'||'-employee')INSERT INTO hr_payslip(tenant_id,park_id,run_id,employee_id,compensation_snapshot,gross_amount,deduction_amount,personal_tax,net_amount,status,remark)SELECT :'tenant',:'park',r.id,e.id,'{"baseSalary":"2000.00"}',2000,100,100,1800,'draft','P0 '||:'run' FROM r,e;
 INSERT INTO hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope,rule_version,enabled)VALUES(:'tenant',:'park','contract_expiry',31,'manager',1,true);
 INSERT INTO hr_contract_reminder_policy(tenant_id,park_id,reminder_kind,window_days,recipient_scope,rule_version,enabled)VALUES(:'tenant',:'park','contract_expiry',32,'employee',1,true);
+UPDATE hr_contract SET end_date=current_date+31 WHERE tenant_id=:'tenant' AND park_id=:'park' AND id=:'contractId'::uuid;
 WITH p AS(SELECT id FROM hr_contract_reminder_policy WHERE tenant_id=:'tenant' AND park_id=:'park' AND reminder_kind='contract_expiry' AND window_days=31 AND recipient_scope='manager'),
  ids AS(SELECT e.id employee_id,e.employee_code,e.user_id employee_user_id,me.user_id manager_user_id FROM hr_employee e LEFT JOIN hr_employee me ON me.id=e.manager_employee_id WHERE e.tenant_id=:'tenant' AND e.park_id=:'park' AND e.employee_code IN(:'run'||'-employee',:'run'||'-outside')),
  c AS(SELECT id,employee_id,version FROM hr_contract WHERE tenant_id=:'tenant' AND park_id=:'park' AND id IN(:'contractId'::uuid,(SELECT id FROM hr_contract WHERE contract_no=:'run'||'-outside-contract'))),hr AS(SELECT id FROM sys_user WHERE tenant_id=:'tenant' AND park_id=:'park' AND username=:'hrReviewer')
 INSERT INTO hr_contract_reminder(tenant_id,park_id,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,window_date,due_date,recipient_scope,recipient_user_id,source_date,source_contract_version,dedupe_key,status)
-SELECT :'tenant',:'park',c.id,c.employee_id,p.id,1,'contract_expiry',31,current_date,current_date+31,'manager',CASE WHEN ids.employee_code=:'run'||'-employee' THEN ids.manager_user_id ELSE hr.id END,current_date+31,c.version,encode(digest(:'run'||c.id::text||ids.employee_code,'sha256'),'hex'),'open' FROM c JOIN ids ON ids.employee_id=c.employee_id CROSS JOIN p CROSS JOIN hr;
+SELECT :'tenant',:'park',c.id,c.employee_id,p.id,1,'contract_expiry',31,current_date-10,current_date+21,'manager',CASE WHEN ids.employee_code=:'run'||'-employee' THEN ids.manager_user_id ELSE hr.id END,current_date+21,c.version,encode(digest(:'run'||c.id::text||ids.employee_code,'sha256'),'hex'),'open' FROM c JOIN ids ON ids.employee_id=c.employee_id CROSS JOIN p CROSS JOIN hr;
 WITH c AS(SELECT id,employee_id,version FROM hr_contract WHERE id=:'contractId'::uuid),p AS(SELECT id FROM hr_contract_reminder_policy WHERE tenant_id=:'tenant' AND park_id=:'park' AND window_days=31),hr AS(SELECT id FROM sys_user WHERE tenant_id=:'tenant' AND park_id=:'park' AND username=:'hrReviewer')
 INSERT INTO hr_contract_reminder(tenant_id,park_id,contract_id,employee_id,policy_id,rule_version,reminder_kind,window_days,window_date,due_date,recipient_scope,recipient_user_id,source_date,source_contract_version,dedupe_key,status)
 SELECT :'tenant',:'park',c.id,c.employee_id,p.id,1,'contract_expiry',31,current_date-offset_days,current_date+30,'manager',hr.id,current_date+30,c.version,encode(digest(:'run'||c.id::text||suffix,'sha256'),'hex'),'open' FROM c CROSS JOIN p CROSS JOIN hr CROSS JOIN(VALUES('resolve',1),('cancel',2))x(suffix,offset_days);
@@ -62,9 +63,18 @@ SELECT json_build_object(
 
 export function createYuzhouP0Plans({runId,matrix,fixture,inspect,fault}){
  if(!runId||!Array.isArray(matrix?.checks)||!inspect||!fault)fail("YUZHOU_UAT_P0_PLAN_INVALID","dependencies");
- for(const key of ["employeeId","outsideEmployeeId","contractId","selfApprovalId","outsideApprovalId","insurancePeriodId","payrollRunId","teamReminderId","selfReminderId","reminderId","cancelReminderId","outsideReminderId","contractFileId","outsideContractFileId","auditFailureFileId","storageFailureFileId"])if(!uuid(fixture?.[key]))fail("YUZHOU_UAT_P0_FIXTURE_INCOMPLETE",key);
- const mk=(id,options)=>({id,owner:runId,evidenceSources:["response",options.source??"db_before_after"],...options});
+ const identityKeys=["employeeId","outsideEmployeeId","contractId","selfApprovalId","outsideApprovalId","insurancePeriodId","payrollRunId","teamReminderId","selfReminderId","reminderId","cancelReminderId","outsideReminderId","contractFileId","outsideContractFileId","auditFailureFileId","storageFailureFileId"];
+ for(const key of identityKeys)if(!uuid(fixture?.[key]))fail("YUZHOU_UAT_P0_FIXTURE_INCOMPLETE",key);
+ if(new Set(identityKeys.map(key=>fixture[key].toLowerCase())).size!==identityKeys.length)fail("YUZHOU_UAT_P0_FIXTURE_IDENTITY_COLLISION","fixture UUIDs must be distinct");
  const rows={};for(const check of matrix.checks)rows[check.id]=check;
+ const mk=(id,options)=>{
+  const check=rows[id];if(!check)fail("YUZHOU_UAT_P0_PLAN_INVALID",id);
+  const requiresAudit=check.assertions.includes("required_audit_written");let auditBefore=null;
+  const prepare=requiresAudit||options.prepare?async()=>{if(requiresAudit){if(typeof inspect.requiredAuditTotal!=="function")fail("YUZHOU_UAT_P0_PLAN_INVALID","required audit inspector");auditBefore=await inspect.requiredAuditTotal();}return options.prepare?await options.prepare():{};}:undefined;
+  const assertion=options.assert;
+  const assert=async observed=>{const result=await assertion(observed);if(requiresAudit)result.required_audit_written=result.required_audit_written===true&&await inspect.requiredAuditTotal()>auditBefore;return result;};
+  return{id,owner:runId,evidenceSources:["response",options.source??"db_before_after"],...options,...(prepare?{prepare}:{}),assert};
+ };
  return [
   mk("approval_park_pending",{assert:async o=>{const value=data(o),items=value?.items??value;return {park_rows_scoped:Array.isArray(items)&&items.some(x=>x.id===fixture.selfApprovalId)&&items.some(x=>x.id===fixture.outsideApprovalId),required_audit_written:await inspect.auditTotal()>0};}}),
   mk("approval_team_pending",{assert:async o=>{const value=data(o),items=value?.items??value;return {team_rows_scoped:Array.isArray(items)&&items.some(x=>x.id===fixture.selfApprovalId),outside_rows_absent:!items.some(x=>x.id===fixture.outsideApprovalId),required_audit_written:await inspect.auditTotal()>0};}}),
@@ -76,7 +86,7 @@ export function createYuzhouP0Plans({runId,matrix,fixture,inspect,fault}){
   mk("profile_cross_tree_hidden",{substitutions:{outsideEmployeeId:fixture.outsideEmployeeId},assert:o=>({no_target_disclosure:[403,404].includes(o.status),sensitive_fields_absent:o.payload==null||absent(data(o),["idNumber","personalMobile","address"])})}),
   mk("contract_salary_full",{substitutions:{contractId:fixture.contractId},assert:async o=>{const p=data(o);return {salary_fields_present:"baseSalary" in p,required_audit_written:await inspect.auditForBiz(fixture.contractId)>0};}}),
   mk("contract_salary_team_masked",{substitutions:{contractId:fixture.contractId},assert:async o=>{const p=data(o);return {team_projection:p?.id===fixture.contractId,salary_fields_absent:absent(p,["baseSalary","probationSalary"]),required_audit_written:await inspect.auditForBiz(fixture.contractId)>0};}}),
-  mk("contract_reminder_park_run",{body:{},assert:async o=>{const p=data(o),stats=await inspect.reminderStats();return {unique_windows:stats.duplicates===0,explicit_recipients:stats.missingRecipients===0,required_audit_written:Number(p?.created??-1)>=0&&await inspect.auditTotal()>0};}}),
+  (()=>{let before=-1;return mk("contract_reminder_park_run",{body:{},prepare:async()=>{before=await inspect.reminderTotal();return{};},assert:async o=>{const p=data(o),created=Number(p?.created??0),after=await inspect.reminderTotal(),stats=await inspect.reminderStats();return {unique_windows:created>0&&after-before===created&&stats.duplicates===0,explicit_recipients:stats.missingRecipients===0,required_audit_written:true};}});})(),
   mk("contract_reminder_team_read",{assert:async o=>{const p=data(o),items=p?.items??[];return {team_rows_scoped:items.some(x=>x.id===fixture.teamReminderId),outside_rows_absent:!items.some(x=>x.id===fixture.outsideReminderId),required_audit_written:await inspect.auditTotal()>0};}}),
   mk("contract_reminder_self_read",{assert:async o=>{const items=data(o)?.items??[];return {self_rows_scoped:items.some(x=>x.id===fixture.selfReminderId),other_rows_absent:!items.some(x=>x.id===fixture.outsideReminderId),required_audit_written:await inspect.auditTotal()>0};}}),
   mk("contract_reminder_ack",{substitutions:{teamReminderId:fixture.teamReminderId},body:{action:"acknowledge"},assert:async o=>({status_acknowledged:data(o)?.status==="acknowledged",append_only_action:await inspect.reminderActionCount(fixture.teamReminderId)===1,required_audit_written:await inspect.auditForBiz(fixture.teamReminderId)>0})}),
