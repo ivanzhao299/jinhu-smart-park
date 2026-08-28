@@ -87,6 +87,9 @@ test("independent Smart Park A/B evidence promotes only target implementation an
   assert.deepEqual(coverage.summary.scoreBands, { score100: 0, score90: 12, score80: 150, score60: 0, score40: 27, score20: 42 });
   assert.deepEqual(coverage.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
   assert.equal(coverage.summary.averageScore, 64.94);
+  assert.equal(coverage.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
+  assert.deepEqual(coverage.summary.targetImplementation.statuses, { implemented: 12, partial: 150, mapped_only: 69 });
+  assert.equal(coverage.summary.targetImplementation.averageScore, 65.45);
   for (const legacyId of result.eligibleLegacyIds) {
     const item = coverage.items.find(candidate => candidate.legacyId === legacyId);
     assert.equal(item.dimensions.targetTechnicalUat, true);
