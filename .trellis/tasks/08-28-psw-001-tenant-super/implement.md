@@ -39,3 +39,5 @@ node scripts/e2e/first-release-context-switch.mjs
 - 2026-08-29：实现与 API gates 完成；全量单测 1575 pass / 40 skip / 0 fail。首次隔离 E2E 已证明 tenant-super 未来园区选择、切换、目标 principal 与审计均 PASS，随后在既有 building fixture 因随机 code 含小写被 DTO 400 阻断；环境完整 teardown。已将 fixture code 规范化为大写，下一步执行同题第二次且最后一次隔离复测。
 - 2026-08-29：第二次隔离 E2E 全 PASS，包含目标资产写读、回切隔离与精确 fixture cleanup；compose containers/network/volumes 全部 teardown。剩余：提交确认、push、PR/review/CI/merge/main 双绿。
 - 2026-08-29：用户已按既定两提交方案确认 `ok`；提交前复核 `git diff --check` 通过，准备依次提交 API 修复/spec 与 Trellis 队列工件，然后仅 push `codex/fix-psw-001-tenant-super`。
+- 2026-08-29：PR #466 第 1 轮 Codex review 返回 2 个 P2：ORM tenant binding 完整性与 JWT 热路径重复 tenant-super lookup。已用共享 binding predicate 强制 link/role/user tenant 对齐，并用 materialized principal CTE 单次求值复用；定向测试第 2 次实际执行 20 项，19 pass，唯一失败为 SQL 入口别名契约已随 CTE 从 `usr` 改为 `candidate`，现已同步断言，后续以标准 API 全量门禁验证。
+- 2026-08-29：第 1 轮 findings 修复后标准 API 全量单测 1616 tests / 1576 pass / 40 skip / 0 fail；API typecheck、build、受影响 ESLint、`git diff --check` 均通过。下一步提交并 push review fix，触发第 2 轮 Codex review。

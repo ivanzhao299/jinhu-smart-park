@@ -1,6 +1,7 @@
 export const PROTECTED_TENANT_SUPER_ROLE_CODE = "SUPER_ADMIN";
 
 export interface ProtectedTenantSuperRole {
+  tenantId: string;
   code: string;
   roleScope: string;
   isSuper: boolean;
@@ -9,6 +10,12 @@ export interface ProtectedTenantSuperRole {
   isEnabled: boolean;
   status: string;
   isDeleted: boolean;
+}
+
+export interface ProtectedTenantSuperBinding {
+  tenantId: string;
+  isDeleted: boolean;
+  role: ProtectedTenantSuperRole;
 }
 
 export function isProtectedTenantSuperRole(role: ProtectedTenantSuperRole): boolean {
@@ -20,4 +27,14 @@ export function isProtectedTenantSuperRole(role: ProtectedTenantSuperRole): bool
     && role.isEnabled === true
     && role.status === "enabled"
     && role.isDeleted === false;
+}
+
+export function isProtectedTenantSuperBinding(
+  link: ProtectedTenantSuperBinding,
+  tenantId: string
+): boolean {
+  return link.tenantId === tenantId
+    && link.role.tenantId === tenantId
+    && link.isDeleted === false
+    && isProtectedTenantSuperRole(link.role);
 }

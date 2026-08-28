@@ -31,7 +31,11 @@ import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { evaluateRoleAssignability, isRoleAssignmentProtected, type RoleUnassignableReason } from "../roles/role-assignability";
-import { isProtectedTenantSuperRole, PROTECTED_TENANT_SUPER_ROLE_CODE } from "../roles/protected-super-role";
+import {
+  isProtectedTenantSuperBinding,
+  isProtectedTenantSuperRole,
+  PROTECTED_TENANT_SUPER_ROLE_CODE
+} from "../roles/protected-super-role";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
@@ -606,9 +610,7 @@ export class UsersService {
       relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
     });
     if (!user) throw new NotFoundException("User not found");
-    const isTenantSuper = user.roleLinks.some(
-      (link) => link.tenantId === user.tenantId && !link.isDeleted && isProtectedTenantSuperRole(link.role)
-    );
+    const isTenantSuper = user.roleLinks.some((link) => isProtectedTenantSuperBinding(link, user.tenantId));
     const [accessibleParks, tenant] = await Promise.all([
       this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId, isTenantSuper }),
       this.tenantRepository.findOne({
@@ -688,7 +690,33 @@ export class UsersService {
 
   async resolveJwtPrincipal(scope: TenantParkScope, id: string): Promise<JwtPrincipal> {
     const rows = await this.usersRepository.query<JwtPrincipalRow[]>(
-      `SELECT
+      `WITH principal_user AS MATERIALIZED (
+         SELECT
+           candidate.*,
+           EXISTS (
+             SELECT 1
+             FROM rel_user_role tenant_super_link
+             INNER JOIN sys_role tenant_super_role
+               ON tenant_super_role.id = tenant_super_link.role_id
+              AND tenant_super_role.tenant_id = candidate.tenant_id
+              AND tenant_super_role.code = '${PROTECTED_TENANT_SUPER_ROLE_CODE}'
+              AND tenant_super_role.role_scope = 'platform'
+              AND tenant_super_role.is_super = true
+              AND tenant_super_role.is_system = true
+              AND tenant_super_role.is_builtin = true
+              AND tenant_super_role.is_enabled = true
+              AND tenant_super_role.status = 'enabled'
+              AND tenant_super_role.is_deleted = false
+             WHERE tenant_super_link.user_id = candidate.id
+               AND tenant_super_link.tenant_id = candidate.tenant_id
+               AND tenant_super_link.is_deleted = false
+           ) AS is_tenant_super
+         FROM sys_user candidate
+         WHERE candidate.id = $1::uuid
+           AND candidate.tenant_id = $2
+           AND candidate.is_deleted = false
+       )
+       SELECT
          usr.id AS user_id,
          usr.username AS user_username,
          usr.display_name AS user_display_name,
@@ -697,30 +725,13 @@ export class UsersService {
          usr.is_enabled AS user_is_enabled,
          usr.status AS user_status,
          usr.auth_version AS user_auth_version,
-         EXISTS (
-           SELECT 1
-           FROM rel_user_role tenant_super_link
-           INNER JOIN sys_role tenant_super_role
-             ON tenant_super_role.id = tenant_super_link.role_id
-            AND tenant_super_role.tenant_id = usr.tenant_id
-            AND tenant_super_role.code = '${PROTECTED_TENANT_SUPER_ROLE_CODE}'
-            AND tenant_super_role.role_scope = 'platform'
-            AND tenant_super_role.is_super = true
-            AND tenant_super_role.is_system = true
-            AND tenant_super_role.is_builtin = true
-            AND tenant_super_role.is_enabled = true
-            AND tenant_super_role.status = 'enabled'
-            AND tenant_super_role.is_deleted = false
-           WHERE tenant_super_link.user_id = usr.id
-             AND tenant_super_link.tenant_id = usr.tenant_id
-             AND tenant_super_link.is_deleted = false
-         ) AS is_tenant_super,
+         usr.is_tenant_super,
          user_role.id AS role_link_id,
          role.code AS role_code,
          role.is_super AS role_is_super,
          role.data_scope AS role_data_scope,
          permission.code AS permission_code
-       FROM sys_user usr
+       FROM principal_user usr
        LEFT JOIN rel_user_role user_role
          ON user_role.user_id = usr.id
         AND user_role.is_deleted = false
@@ -763,27 +774,8 @@ export class UsersService {
         AND permission.is_enabled = true
         AND permission.status = 'enabled'
         AND permission.tenant_id = usr.tenant_id
-       WHERE usr.id = $1::uuid
-         AND usr.tenant_id = $2
-         AND (
-           EXISTS (
-             SELECT 1
-             FROM rel_user_role tenant_super_access_link
-             INNER JOIN sys_role tenant_super_access_role
-               ON tenant_super_access_role.id = tenant_super_access_link.role_id
-              AND tenant_super_access_role.tenant_id = usr.tenant_id
-              AND tenant_super_access_role.code = '${PROTECTED_TENANT_SUPER_ROLE_CODE}'
-              AND tenant_super_access_role.role_scope = 'platform'
-              AND tenant_super_access_role.is_super = true
-              AND tenant_super_access_role.is_system = true
-              AND tenant_super_access_role.is_builtin = true
-              AND tenant_super_access_role.is_enabled = true
-              AND tenant_super_access_role.status = 'enabled'
-              AND tenant_super_access_role.is_deleted = false
-             WHERE tenant_super_access_link.user_id = usr.id
-               AND tenant_super_access_link.tenant_id = usr.tenant_id
-               AND tenant_super_access_link.is_deleted = false
-           )
+       WHERE (
+           usr.is_tenant_super
            OR
            (
              usr.park_id = $3
@@ -799,7 +791,6 @@ export class UsersService {
                 AND access.status='enabled' AND access.is_deleted=false
            )
          )
-         AND usr.is_deleted = false
          AND EXISTS (
            SELECT 1 FROM biz_park live_park
            WHERE live_park.tenant_id=usr.tenant_id AND live_park.park_id=$3
@@ -1425,10 +1416,7 @@ export class UsersService {
     await Promise.all(
       users.map(async (user) => {
         const isTenantSuper = roleLinks.some(
-          (link) => link.userId === user.id
-            && link.tenantId === user.tenantId
-            && !link.isDeleted
-            && isProtectedTenantSuperRole(link.role)
+          (link) => link.userId === user.id && isProtectedTenantSuperBinding(link, user.tenantId)
         );
         accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, {
           activeOnly: false,
