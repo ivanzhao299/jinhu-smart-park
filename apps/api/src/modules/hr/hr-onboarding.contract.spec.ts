@@ -26,6 +26,8 @@ test("onboarding confirmation is locked, atomic and cannot precede approval",()=
  assert.match(service,/INSERT INTO hr_employment_event/);
  assert.match(service,/UPDATE hr_onboarding_application SET status='confirmed'/);
  assert.match(service,/Applicants cannot review their own onboarding application/);
+ assert.match(service,/SELECT \$1::varchar,\$2::varchar,\$3::uuid,COALESCE\(MAX\(sequence_no\),0\)\+1/);
+ assert.match(service,/WHERE tenant_id=\$1::varchar AND park_id=\$2::varchar AND application_id=\$3::uuid/);
 });
 
 test("database owns Yuzhou compatibility uniqueness and append-only evidence",()=>{

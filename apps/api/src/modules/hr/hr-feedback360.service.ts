@@ -1048,7 +1048,7 @@ export class HrFeedback360Service {
              FROM scored GROUP BY dimension_code,relation_group
          )
          INSERT INTO hr_feedback360_dimension_result(tenant_id,park_id,subject_id,dimension_code,relation_group,response_count,minimum_required,average_score,published_at)
-         SELECT $1,$2,$3,dimension_code,relation_group,response_count,
+         SELECT $1::varchar,$2::varchar,$3::uuid,dimension_code,relation_group,response_count,
                 CASE WHEN relation_group='others' THEN $7 ELSE 1 END,
                 average_score,now()
            FROM grouped

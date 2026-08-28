@@ -20,6 +20,8 @@ test("phase2-B owns append-only review, calibration, acknowledgement and appeal 
  assert.match(migration,/result cannot be finalized before calibration/);
  assert.doesNotMatch(migration,/UPDATE hr_(payroll|payslip|attendance|employee)\b/);
  for(const name of ["submission_actor_user","calibration_batch_creator","calibration_batch_completer","calibration_participant_user","calibration_entry_actor","appeal_submitter","appeal_resolver","review_action_actor_user"]){assert.match(migration,new RegExp(`fk_hr_perf_${name} FOREIGN KEY\\(tenant_id,park_id,`));assert.match(migration,new RegExp(`idx_hr_perf_${name} ON .*\\(tenant_id,park_id,`));}
+ assert.equal((service.match(/SELECT \$1::varchar,\$2::varchar,\$3::uuid/g) ?? []).length, 3);
+ assert.match(service,/WHERE tenant_id=\$1::varchar AND park_id=\$2::varchar AND cycle_employee_id=\$3::uuid/);
 });
 
 test("all performance POST routes are replay-aware, exactly authorized and body-free audited",()=>{

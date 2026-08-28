@@ -197,7 +197,7 @@ export class HrTalentService {
       const sourceDigest = digest(sources);
       const row = (
         await m.query(
-          `INSERT INTO hr_talent_profile_snapshot(tenant_id,park_id,employee_id,snapshot_no,as_of_date,employee_snapshot,performance_source,feedback_source,source_digest,created_by)SELECT $1,$2,$3,COALESCE(max(snapshot_no),0)+1,$4,$5,$6,$7,$8,$9 FROM hr_talent_profile_snapshot WHERE tenant_id=$1 AND park_id=$2 AND employee_id=$3 RETURNING id,snapshot_no "snapshotNo",as_of_date "asOfDate"`,
+          `INSERT INTO hr_talent_profile_snapshot(tenant_id,park_id,employee_id,snapshot_no,as_of_date,employee_snapshot,performance_source,feedback_source,source_digest,created_by)SELECT $1::varchar,$2::varchar,$3::uuid,COALESCE(max(snapshot_no),0)+1,$4::date,$5::jsonb,$6::jsonb,$7::jsonb,$8::varchar,$9::uuid FROM hr_talent_profile_snapshot WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND employee_id=$3::uuid RETURNING id,snapshot_no "snapshotNo",as_of_date "asOfDate"`,
           [
             s.tenantId,
             s.parkId,
@@ -459,7 +459,7 @@ export class HrTalentService {
     return this.db.transaction(async (m) => {
       const row = (
         await m.query(
-          `INSERT INTO hr_critical_position(tenant_id,park_id,position_id,criticality,risk_level,risk_reason,evidence,created_by)SELECT $1,$2,p.id,$4,$5,$6,$7,$8 FROM hr_position p WHERE p.id=$3 AND p.tenant_id=$1 AND p.park_id=$2 AND p.is_deleted=false RETURNING id`,
+          `INSERT INTO hr_critical_position(tenant_id,park_id,position_id,criticality,risk_level,risk_reason,evidence,created_by)SELECT $1::varchar,$2::varchar,p.id,$4::varchar,$5::varchar,$6::varchar,$7::jsonb,$8::uuid FROM hr_position p WHERE p.id=$3::uuid AND p.tenant_id=$1::varchar AND p.park_id=$2::varchar AND p.is_deleted=false RETURNING id`,
           [
             s.tenantId,
             s.parkId,
@@ -650,7 +650,7 @@ export class HrTalentService {
         )
       )[0];
       await m.query(
-        `INSERT INTO hr_development_plan_history(tenant_id,park_id,plan_id,event_no,event_type,from_status,to_status,reason,actor_user_id)SELECT $1,$2,$3,COALESCE(max(event_no),0)+1,$4,$5,$6,$7,$8 FROM hr_development_plan_history WHERE tenant_id=$1 AND park_id=$2 AND plan_id=$3`,
+        `INSERT INTO hr_development_plan_history(tenant_id,park_id,plan_id,event_no,event_type,from_status,to_status,reason,actor_user_id)SELECT $1::varchar,$2::varchar,$3::uuid,COALESCE(max(event_no),0)+1,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::uuid FROM hr_development_plan_history WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND plan_id=$3::uuid`,
         [
           s.tenantId,
           s.parkId,
@@ -693,7 +693,7 @@ export class HrTalentService {
       await this.requireEmployee(m, s, a, d.ownerEmployeeId);
       const action = (
         await m.query(
-          `INSERT INTO hr_development_action(tenant_id,park_id,plan_id,action_no,action_name,owner_employee_id,due_date,created_by)SELECT $1,$2,$3,COALESCE(max(action_no),0)+1,$4,$5,$6,$7 FROM hr_development_action WHERE tenant_id=$1 AND park_id=$2 AND plan_id=$3 RETURNING id,status`,
+          `INSERT INTO hr_development_action(tenant_id,park_id,plan_id,action_no,action_name,owner_employee_id,due_date,created_by)SELECT $1::varchar,$2::varchar,$3::uuid,COALESCE(max(action_no),0)+1,$4::varchar,$5::uuid,$6::date,$7::uuid FROM hr_development_action WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND plan_id=$3::uuid RETURNING id,status`,
           [
             s.tenantId,
             s.parkId,
@@ -809,7 +809,7 @@ export class HrTalentService {
         ],
       );
       await m.query(
-        `INSERT INTO hr_development_action_history(tenant_id,park_id,action_id,event_no,event_type,from_status,to_status,note,evidence,actor_user_id)SELECT $1,$2,$3,COALESCE(max(event_no),0)+1,$4,$5,$6,$7,$8,$9 FROM hr_development_action_history WHERE tenant_id=$1 AND park_id=$2 AND action_id=$3`,
+        `INSERT INTO hr_development_action_history(tenant_id,park_id,action_id,event_no,event_type,from_status,to_status,note,evidence,actor_user_id)SELECT $1::varchar,$2::varchar,$3::uuid,COALESCE(max(event_no),0)+1,$4::varchar,$5::varchar,$6::varchar,$7::varchar,$8::jsonb,$9::uuid FROM hr_development_action_history WHERE tenant_id=$1::varchar AND park_id=$2::varchar AND action_id=$3::uuid`,
         [
           s.tenantId,
           s.parkId,

@@ -87,6 +87,8 @@ test("every feedback360 POST owns one exact atom, idempotency and body-free audi
   assert.doesNotMatch(c, /@Post\([^\n]+@RequireAnyPermissions/);
 });
 test("migration freezes evidence and enforces database anonymous threshold", () => {
+  const service = read("apps/api/src/modules/hr/hr-feedback360.service.ts");
+  assert.match(service, /SELECT \$1::varchar,\$2::varchar,\$3::uuid,dimension_code/);
   const sql = read("database/migrations/000260_hr_competency_feedback360.sql");
   for (
     const table of [
