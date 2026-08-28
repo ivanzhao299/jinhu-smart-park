@@ -57,6 +57,15 @@ for (const output of [firstOutput, secondOutput]) {
 assert.equal(readFileSync(firstOutput, "utf8"), readFileSync(secondOutput, "utf8"), "generation must be byte-for-byte deterministic");
 const verifyResult = spawnSync(process.execPath, [verifier, "--inventory", firstOutput], { encoding: "utf8" });
 assert.equal(verifyResult.status, 0, verifyResult.stderr);
+const packageManifest = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+assert.equal(packageManifest.scripts["hr:migration:legacy-inventory:verify"], "node scripts/hr-cutover/verify-legacy-atomic-inventory.mjs --inventory");
+const packageVerify = spawnSync("pnpm", ["run", "hr:migration:legacy-inventory:verify", firstOutput], { cwd: root, encoding: "utf8" });
+assert.equal(packageVerify.status, 0, packageVerify.stderr);
+for (const args of [[], ["relative/inventory.json"], ["--unknown"], [firstOutput, "--unknown"]]) {
+  const result = spawnSync("pnpm", ["run", "hr:migration:legacy-inventory:verify", ...args], { cwd: root, encoding: "utf8" });
+  assert.notEqual(result.status, 0, `package verifier must reject ${JSON.stringify(args)}`);
+  assert.match(`${result.stdout}${result.stderr}`, /CLI_ARGUMENT_INVALID/u);
+}
 
 function expectCode(code, mutate) {
   const candidate = structuredClone(inventory);

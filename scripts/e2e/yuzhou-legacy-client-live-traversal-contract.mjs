@@ -23,18 +23,18 @@ const canonicalHash = value => createHash("sha256").update(canonicalize(value)).
 
 test("live traversal reports exact progress without claiming L4 completion", () => {
   const report = verify();
-  assert.equal(report.families, 13);
+  assert.equal(report.families, 12);
   assert.equal(report.observedFamilies, 0);
-  assert.equal(report.partialFamilies, 13);
+  assert.equal(report.partialFamilies, 12);
   assert.equal(report.missingFamilies, 0);
-  assert.equal(report.entryPoints, 83);
-  assert.equal(report.pageChecks, 18);
-  assert.equal(report.atomicEntries, 83);
+  assert.equal(report.entryPoints, 68);
+  assert.equal(report.pageChecks, 17);
+  assert.equal(report.atomicEntries, 68);
   assert.equal(report.atomicObserved, 0);
   assert.equal(report.atomicPartial, 0);
-  assert.equal(report.atomicPending, 83);
+  assert.equal(report.atomicPending, 68);
   assert.equal(report.desktopClientEntries, 68);
-  assert.equal(report.groupWebEntries, 15);
+  assert.equal(Object.hasOwn(report, "groupWebEntries"), false);
   assert.equal(report.status, "in_progress");
   assert.equal(report.evidenceLevel, "L3_RUNTIME_PARTIAL");
   assert.equal(report.productionImport, "HOLD");
@@ -152,7 +152,7 @@ test("atomic inventory is complete, unique and hash bound", () => {
   expectCode("TRAVERSAL_ATOMIC_IDENTITY_DRIFT", () => verify(selfConsistentRemovalManifest, selfConsistentRemoval));
 });
 
-test("Group Web evidence cannot substitute for a desktop client entry", () => {
+test("Group Web entries and evidence cannot substitute for a desktop client entry", () => {
   const substituted = clone(atomicInventory);
   substituted.entries[0].surface = "group_web";
   substituted.entries[0].atomicId = substituted.entries[0].atomicId.replace("client.", "web.");
@@ -160,19 +160,17 @@ test("Group Web evidence cannot substitute for a desktop client entry", () => {
   substitutedManifest.atomicInventoryContract.canonicalSha256 = canonicalHash(substituted);
   expectCode("TRAVERSAL_CROSS_SURFACE_SUBSTITUTION", () => verify(substitutedManifest, substituted));
 
-  const evidenceReuse = clone(atomicInventory);
-  const desktopEntry = evidenceReuse.entries.find(entry => entry.surface === "desktop_client");
-  const webEntry = evidenceReuse.entries.find(entry => entry.surface === "group_web");
-  for (const entry of [desktopEntry, webEntry]) {
-    entry.observationStatus = "partial";
-    entry.coverage.page = true;
-    entry.pageIds = ["page.runtime-observation"];
-    entry.evidence.sha256 = ["a".repeat(64)];
-    entry.gapReasonCode = "ATOMIC_RUNTIME_OBSERVATION_PARTIAL";
-  }
-  const evidenceReuseManifest = clone(manifest);
-  evidenceReuseManifest.atomicInventoryContract.canonicalSha256 = canonicalHash(evidenceReuse);
-  expectCode("TRAVERSAL_CROSS_SURFACE_EVIDENCE_REUSE", () => verify(evidenceReuseManifest, evidenceReuse));
+  const injected = clone(atomicInventory);
+  const injectedEntry = clone(injected.entries[0]);
+  injectedEntry.atomicId = "web.organization_job.004";
+  injectedEntry.entryPoint = "group-web-substitute";
+  injectedEntry.surface = "group_web";
+  injected.entries.push(injectedEntry);
+  const injectedManifest = clone(manifest);
+  injectedManifest.menuFamilies[0].entryPoints.push(injectedEntry.entryPoint);
+  injectedManifest.atomicInventoryContract.entries += 1;
+  injectedManifest.atomicInventoryContract.canonicalSha256 = canonicalHash(injected);
+  expectCode("TRAVERSAL_CROSS_SURFACE_SUBSTITUTION", () => verify(injectedManifest, injected));
 });
 
 test("atomic observations require category coverage and hash-only evidence", () => {

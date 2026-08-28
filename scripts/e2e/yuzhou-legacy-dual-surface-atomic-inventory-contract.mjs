@@ -8,11 +8,13 @@ import { buildDualSurfaceAtomicInventories, LegacyDualSurfaceAtomicInventoryErro
 const root=resolve(import.meta.dirname,"../.."),read=path=>JSON.parse(readFileSync(resolve(root,path),"utf8"));
 const clientManifest=read("scripts/hr-cutover/contracts/legacy-client-atomic-inventory-v1.json"),groupManifest=read("scripts/hr-cutover/contracts/legacy-group-web-atomic-inventory-v1.json");
 const hash=value=>createHash("sha256").update(`${JSON.stringify(value,null,2)}\n`).digest("hex");
+const shortcutIdentityHash=rows=>hash(rows.map(({locator,entryPoint,legacyPath,targetRoute,canonicalMenuLocators,referenceStatus})=>({locator,entryPoint,legacyPath,targetRoute,canonicalMenuLocators,referenceStatus})));
 
 test("client and Group Web atomic skeletons conserve every frozen source boundary",()=>{
   const result=buildDualSurfaceAtomicInventories(root,clientManifest,groupManifest);
-  assert.deepEqual(result.report.summary,{client:{total:3736,menuEntries:83,tables:162,fields:2364,rules:212,permissions:915},groupWeb:{total:417,menuEntries:231,sourcePaths:186}});
-  assert.deepEqual(result.report.evidenceLevels,{TRAVERSED:0,DB:231,SOURCE:186,TARGET:0,INFERRED:83,MISSING:3653});
+  assert.deepEqual(result.report.summary,{client:{total:3721,menuEntries:68,tables:162,fields:2364,rules:212,permissions:915},groupWeb:{total:417,menuEntries:231,sourcePaths:186,shortcutCrossReferences:15}});
+  assert.deepEqual(result.report.evidenceLevels,{TRAVERSED:0,DB:231,SOURCE:186,TARGET:0,INFERRED:68,MISSING:3653});
+  assert.equal(result.groupWeb.crossReferences.every(row=>row.observationStatus==="pending"&&Object.values(row.coverage).every(value=>value===false)&&row.evidence.sha256.length===0),true);
   assert.equal(result.report.productionImport,"HOLD");
 });
 
@@ -32,6 +34,34 @@ test("cross-surface reuse duplicate locators count shrink and evidence promotion
     ({groupWeb})=>{groupWeb.records[0].evidenceHash=null;}
   ];
   for(const mutate of cases){const candidate=structuredClone(built);mutate(candidate);assert.throws(()=>verifyMaterializedDualSurfaceAtomicInventories(candidate.client,candidate.groupWeb),error=>error instanceof LegacyDualSurfaceAtomicInventoryError);}
+});
+
+test("Group Web shortcut references cannot enter the client denominator or self-promote",()=>{
+  const built=buildDualSurfaceAtomicInventories(root,clientManifest,groupManifest),cases=[
+    ({client,groupWeb})=>{client.crossReferences=groupWeb.crossReferences;},
+    ({groupWeb})=>{groupWeb.crossReferences.pop();},
+    ({groupWeb})=>{groupWeb.crossReferences.push(structuredClone(groupWeb.crossReferences[0]));},
+    ({groupWeb})=>{groupWeb.crossReferences[1].locator=groupWeb.crossReferences[0].locator;},
+    ({groupWeb})=>{groupWeb.crossReferences[0].surface="client";},
+    ({groupWeb})=>{groupWeb.crossReferences[0].observationStatus="observed";},
+    ({groupWeb})=>{groupWeb.crossReferences[0].coverage.page=true;},
+    ({groupWeb})=>{groupWeb.crossReferences[0].canonicalMenuLocators=["client:menu-entry:employee_profile:01"];}
+  ];
+  for(const mutate of cases){const candidate=structuredClone(built);mutate(candidate);assert.throws(()=>verifyMaterializedDualSurfaceAtomicInventories(candidate.client,candidate.groupWeb),error=>error instanceof LegacyDualSurfaceAtomicInventoryError);}
+});
+
+test("Group Web shortcut source omissions extras and cross-surface substitution fail closed",()=>{
+  const missing=structuredClone(groupManifest);missing.sourceContracts=missing.sourceContracts.filter(source=>!source.path.endsWith("legacy-group-web-shortcut-cross-reference-v1.json"));assert.throws(()=>buildDualSurfaceAtomicInventories(root,clientManifest,missing),/DUAL_SURFACE_SOURCE_AUTHORITY_MISSING/u);
+  const extra=structuredClone(groupManifest);extra.expectedCounts.shortcutCrossReferences+=1;assert.throws(()=>buildDualSurfaceAtomicInventories(root,clientManifest,extra),/DUAL_SURFACE_EXPECTED_COUNT_DRIFT/u);
+  const client=structuredClone(clientManifest);client.sourceContracts[0]=groupManifest.sourceContracts[0];assert.throws(()=>buildDualSurfaceAtomicInventories(root,client,groupManifest),/DUAL_SURFACE_SOURCE_AUTHORITY_MISSING/u);
+});
+
+test("self-consistent shortcut identity rewrites cannot replace the frozen source authority",()=>{
+  const built=buildDualSurfaceAtomicInventories(root,clientManifest,groupManifest),drift=structuredClone(built);
+  drift.groupWeb.crossReferences[0].entryPoint="rewritten-shortcut";
+  drift.groupWeb.evidenceAuthority.shortcutIdentityHash=shortcutIdentityHash(drift.groupWeb.crossReferences);
+  drift.groupWeb.evidenceAuthoritySha256=hash(drift.groupWeb.evidenceAuthority);
+  assert.throws(()=>verifyMaterializedDualSurfaceAtomicInventories(drift.client,drift.groupWeb),/DUAL_SURFACE_SHORTCUT_AUTHORITY_DRIFT/u);
 });
 
 test("source hash drift and sensitive content fail closed",()=>{

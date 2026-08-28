@@ -5,14 +5,14 @@ export class LegacyClientTraversalError extends Error {
   constructor(code, detail) { super(`${code}: ${detail}`); this.name = "LegacyClientTraversalError"; this.code = code; }
 }
 
-const REQUIRED_FAMILIES = ["organization_job", "employee_profile", "employment_change", "contract", "training", "performance", "reward_discipline", "payroll", "attendance", "insurance_welfare", "recruitment", "group_web_self_service", "permission_log_reminder"];
+const REQUIRED_FAMILIES = ["organization_job", "employee_profile", "employment_change", "contract", "training", "performance", "reward_discipline", "payroll", "attendance", "insurance_welfare", "recruitment", "permission_log_reminder"];
 const COVERAGE_KEYS = ["page", "tabs", "dialogs", "thirdLevelMenus", "fields", "actions", "states", "rules"];
 const LIST_KEYS = ["pageIds", "tabIds", "dialogIds", "thirdLevelMenuIds", "fieldIds", "actionIds", "stateIds", "ruleIds"];
 const COVERAGE_TO_LIST = Object.freeze(Object.fromEntries(COVERAGE_KEYS.map((key, index) => [key, LIST_KEYS[index]])));
 const LIST_ID_PREFIX = Object.freeze(Object.fromEntries(LIST_KEYS.map((key, index) => [key, `${COVERAGE_KEYS[index].replace(/[A-Z]/g, match => `-${match.toLowerCase()}`)}.`])));
-const SURFACE = Object.freeze(Object.fromEntries(REQUIRED_FAMILIES.map(id => [id, id === "group_web_self_service" ? "group_web" : "desktop_client"])));
-const EXPECTED_ATOMIC_COUNTS = Object.freeze({ entries: 83, desktopClientEntries: 68, groupWebEntries: 15 });
-const EXPECTED_ATOMIC_IDENTITY_SHA256 = "e11ec5041d46a13668f12381a3f72dc12513b8df5963831cd08da3f1dc7a9a4d";
+const SURFACE = "desktop_client";
+const EXPECTED_ATOMIC_COUNTS = Object.freeze({ entries: 68, desktopClientEntries: 68 });
+const EXPECTED_ATOMIC_IDENTITY_SHA256 = "f01e66fb5469b18122cdf7169d6ee369c39d82661086d669285f235aa7d08fde";
 const ATOMIC_GAP_REASONS = new Set(["ATOMIC_RUNTIME_OBSERVATION_PENDING", "ATOMIC_RUNTIME_OBSERVATION_PARTIAL"]);
 const FAMILY_GAP_REASONS = Object.freeze({
   organization_job: "ORGANIZATION_JOB_ACTIONS_AND_ROLE_MATRIX_PENDING",
@@ -26,7 +26,6 @@ const FAMILY_GAP_REASONS = Object.freeze({
   attendance: "ATTENDANCE_DATA_CALCULATION_PAGES_PENDING",
   insurance_welfare: "INSURANCE_POLICY_CALCULATION_PAGES_PENDING",
   recruitment: "RECRUITMENT_APPROVAL_PUBLISH_HIRE_PAGES_PENDING",
-  group_web_self_service: "WEB_ROLE_MENUS_AND_FIELD_PROJECTIONS_PENDING",
   permission_log_reminder: "ADMIN_BUILTIN_CHECK_AND_PERMISSION_MATRIX_PENDING"
 });
 const FAIL = (code, detail) => { throw new LegacyClientTraversalError(code, detail); };
@@ -82,22 +81,22 @@ const assertNoSensitiveContent = value => {
 const verifyAtomicInventory = (manifest, atomicInventory, families) => {
   if (!isObject(atomicInventory)) FAIL("TRAVERSAL_ATOMIC_INVENTORY_REQUIRED", "load the referenced hash-bound atomic inventory");
   exactKeys(atomicInventory, ["formatVersion", "inventoryKind", "status", "evidenceLevel", "surfaceIsolation", "entries"], "atomicInventory");
-  if (atomicInventory.formatVersion !== 1 || atomicInventory.inventoryKind !== "yuzhou_hr_legacy_client_atomic_entry_inventory") FAIL("TRAVERSAL_ATOMIC_IDENTITY_INVALID", "formatVersion or inventoryKind");
+  if (atomicInventory.formatVersion !== 1 || atomicInventory.inventoryKind !== "yuzhou_hr_legacy_desktop_client_atomic_entry_inventory") FAIL("TRAVERSAL_ATOMIC_IDENTITY_INVALID", "formatVersion or inventoryKind");
   if (atomicInventory.status !== "scaffold_with_partial_observation" || atomicInventory.evidenceLevel !== "L3_RUNTIME_PARTIAL") FAIL("TRAVERSAL_ATOMIC_EVIDENCE_OVERRATED", "inventory is not L4 evidence");
-  exactKeys(atomicInventory.surfaceIsolation, ["desktopClientEvidenceCannotComeFrom", "groupWebEvidenceCannotComeFrom"], "atomicInventory.surfaceIsolation");
-  if (JSON.stringify(atomicInventory.surfaceIsolation) !== JSON.stringify({ desktopClientEvidenceCannotComeFrom: ["group_web"], groupWebEvidenceCannotComeFrom: ["desktop_client"] })) FAIL("TRAVERSAL_SURFACE_ISOLATION_INVALID", "client and Group Web evidence are independent");
+  exactKeys(atomicInventory.surfaceIsolation, ["evidenceCannotComeFrom"], "atomicInventory.surfaceIsolation");
+  if (JSON.stringify(atomicInventory.surfaceIsolation) !== JSON.stringify({ evidenceCannotComeFrom: ["group_web"] })) FAIL("TRAVERSAL_SURFACE_ISOLATION_INVALID", "desktop client evidence cannot come from Group Web");
   assertNoSensitiveContent(atomicInventory);
   const contract = manifest.atomicInventoryContract;
-  exactKeys(contract, ["path", "canonicalSha256", "entries", "desktopClientEntries", "groupWebEntries"], "atomicInventoryContract");
+  exactKeys(contract, ["path", "canonicalSha256", "entries", "desktopClientEntries"], "atomicInventoryContract");
   if (contract.path !== "scripts/hr-cutover/contracts/legacy-client-live-traversal-atomic-v1.json" || !/^[a-f0-9]{64}$/.test(contract.canonicalSha256 ?? "")) FAIL("TRAVERSAL_ATOMIC_CONTRACT_INVALID", "path or hash");
   if (sha256(atomicInventory) !== contract.canonicalSha256) FAIL("TRAVERSAL_ATOMIC_HASH_MISMATCH", contract.path);
   if (!Array.isArray(atomicInventory.entries)) FAIL("TRAVERSAL_ATOMIC_ENTRIES_INVALID", "entries");
   const expected = new Map();
-  for (const family of families.values()) for (const entryPoint of family.entryPoints) expected.set(`${family.id}\u0000${entryPoint}`, SURFACE[family.id]);
+  for (const family of families.values()) for (const entryPoint of family.entryPoints) expected.set(`${family.id}\u0000${entryPoint}`, SURFACE);
   const seenKeys = new Set(); const seenIds = new Set();
   const atomicIdentities = [];
   const evidenceSurface = new Map(); const familyObservation = new Map();
-  let observed = 0; let partial = 0; let pending = 0; let desktopClientEntries = 0; let groupWebEntries = 0;
+  let observed = 0; let partial = 0; let pending = 0; let desktopClientEntries = 0;
   for (const entry of atomicInventory.entries) {
     const label = `atomicInventory.entries.${String(entry?.atomicId)}`;
     exactKeys(entry, ["atomicId", "familyId", "entryPoint", "surface", "observationStatus", "coverage", ...LIST_KEYS, "evidence", "gapReasonCode"], label);
@@ -108,7 +107,7 @@ const verifyAtomicInventory = (manifest, atomicInventory, families) => {
     seenKeys.add(key);
     atomicIdentities.push({ atomicId: entry.atomicId, familyId: entry.familyId, entryPoint: entry.entryPoint, surface: entry.surface });
     const expectedSurface = expected.get(key);
-    if (entry.surface !== expectedSurface || !entry.atomicId.startsWith(expectedSurface === "desktop_client" ? "client." : "web.")) FAIL("TRAVERSAL_CROSS_SURFACE_SUBSTITUTION", entry.atomicId);
+    if (entry.surface !== expectedSurface || !entry.atomicId.startsWith("client.")) FAIL("TRAVERSAL_CROSS_SURFACE_SUBSTITUTION", entry.atomicId);
     if (!isObject(entry.coverage) || JSON.stringify(Object.keys(entry.coverage).sort()) !== JSON.stringify([...COVERAGE_KEYS].sort()) || COVERAGE_KEYS.some(keyName => typeof entry.coverage[keyName] !== "boolean")) FAIL("TRAVERSAL_ATOMIC_COVERAGE_INVALID", entry.atomicId);
     for (const listKey of LIST_KEYS) {
       uniqueStrings(entry[listKey], `${entry.atomicId}.${listKey}`);
@@ -141,13 +140,13 @@ const verifyAtomicInventory = (manifest, atomicInventory, families) => {
     familyStats.total += 1;
     if (entry.observationStatus === "observed") familyStats.observed += 1;
     familyObservation.set(entry.familyId, familyStats);
-    if (entry.surface === "desktop_client") desktopClientEntries += 1; else groupWebEntries += 1;
+    desktopClientEntries += 1;
   }
   if (seenKeys.size !== expected.size || [...expected.keys()].some(key => !seenKeys.has(key))) FAIL("TRAVERSAL_ATOMIC_INVENTORY_INCOMPLETE", `${seenKeys.size}/${expected.size}`);
   const identitySha256 = sha256(atomicIdentities.sort((left, right) => left.atomicId.localeCompare(right.atomicId)));
   if (identitySha256 !== EXPECTED_ATOMIC_IDENTITY_SHA256) FAIL("TRAVERSAL_ATOMIC_IDENTITY_DRIFT", identitySha256);
-  if (expected.size !== EXPECTED_ATOMIC_COUNTS.entries || desktopClientEntries !== EXPECTED_ATOMIC_COUNTS.desktopClientEntries || groupWebEntries !== EXPECTED_ATOMIC_COUNTS.groupWebEntries || contract.entries !== EXPECTED_ATOMIC_COUNTS.entries || contract.desktopClientEntries !== EXPECTED_ATOMIC_COUNTS.desktopClientEntries || contract.groupWebEntries !== EXPECTED_ATOMIC_COUNTS.groupWebEntries) FAIL("TRAVERSAL_ATOMIC_COUNT_DRIFT", `${expected.size}/${desktopClientEntries}/${groupWebEntries}`);
-  return { total: expected.size, observed, partial, pending, desktopClientEntries, groupWebEntries, familyObservation };
+  if (expected.size !== EXPECTED_ATOMIC_COUNTS.entries || desktopClientEntries !== EXPECTED_ATOMIC_COUNTS.desktopClientEntries || contract.entries !== EXPECTED_ATOMIC_COUNTS.entries || contract.desktopClientEntries !== EXPECTED_ATOMIC_COUNTS.desktopClientEntries) FAIL("TRAVERSAL_ATOMIC_COUNT_DRIFT", `${expected.size}/${desktopClientEntries}`);
+  return { total: expected.size, observed, partial, pending, desktopClientEntries, familyObservation };
 };
 
 export function verifyLegacyClientLiveTraversal(manifest, atomicInventory) {
@@ -201,7 +200,7 @@ export function verifyLegacyClientLiveTraversal(manifest, atomicInventory) {
     entryPoints: [...families.values()].reduce((sum, family) => sum + family.entryPoints.length, 0),
     pageChecks: [...families.values()].reduce((sum, family) => sum + family.pageChecks.length, 0),
     atomicEntries: atomic.total, atomicObserved: atomic.observed, atomicPartial: atomic.partial, atomicPending: atomic.pending,
-    desktopClientEntries: atomic.desktopClientEntries, groupWebEntries: atomic.groupWebEntries,
+    desktopClientEntries: atomic.desktopClientEntries,
     incompleteRequirements: requirementKeys.filter(key => !requirements[key]), productionImport: manifest.productionImport
   };
 }

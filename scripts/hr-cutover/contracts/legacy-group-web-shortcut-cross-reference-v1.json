@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_group_web_shortcut_cross_reference",
+  "surface": "group_web",
+  "status": "pending_live_observation",
+  "sourceBindingContract": {
+    "path": "scripts/hr-cutover/contracts/legacy-web-entry-target-binding-v1.json",
+    "sha256": "ac1164055853cef37ba00ad68759ea0411ca4b7b8407619155ddfa5f819ca433"
+  },
+  "expectedShortcutCount": 15,
+  "locatorPrefix": "group-web:shortcut:",
+  "locatorOrdering": "binding_contract_order",
+  "stableIdentityFields": ["name", "legacyPath"],
+  "atomicChain": ["page", "tabs", "dialogs", "thirdLevelMenus", "fields", "actions", "states", "rules"],
+  "observationStatus": "pending",
+  "gapReasonCode": "GROUP_WEB_SHORTCUT_LIVE_OBSERVATION_PENDING",
+  "compatibilityScoreContribution": 0,
+  "productionImport": "HOLD"
+}
