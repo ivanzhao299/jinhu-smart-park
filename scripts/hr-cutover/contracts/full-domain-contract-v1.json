@@ -21,9 +21,11 @@
     "mappingContractHashAlgorithm": "sha256_path_nul_bytes_nul_sorted",
     "mappingContractComponents": [
       "scripts/hr-cutover/contracts/full-domain-contract-v1.json",
+      "scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json",
       "scripts/hr-cutover/contracts/parent-manifest.schema.json",
       "scripts/hr-cutover/domain-adapter.mjs",
       "scripts/hr-cutover/full-domain-lifecycle.mjs",
+      "scripts/hr-cutover/final-rehearsal-pair.mjs",
       "scripts/hr-cutover/materialize-full-domain-facts.mjs",
       "scripts/hr-cutover/run-full-domain-technical-uat.mjs",
       "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json",

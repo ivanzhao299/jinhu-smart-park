@@ -53,6 +53,7 @@
   - [ ] P0-4 合同链与提醒：期限、累计续签、签订日、正文/文件证据及到期提醒工作流完整结构化，不能以 60 日前端计数代替流程。
   - [ ] P0-5 审批与敏感读取：区分 park/team 审批，required-audit 失败前工资、合同薪资、保险金额和附件均为零数据/零 metadata/header/stream。
 - [ ] A 使用全新资源完成 source→extract→migrate/seed→T0…T5→ledger/hash→三角色 API + desktop/390 browser 技术矩阵→反序 rollback/cleanup；六域与 UAT 完成前不得 rollback，修复后必须从头重跑。
+  - [x] 新增最终 A/B pair contract、只读 preflight 与 fail-closed 总控：冻结 T2/T4/T5 口径，强制 A/B 相同 C/S/M 和完全不同资源，固定 provision→T0…T5→技术 UAT→25 项 P0→备份恢复故障→pair compare→T5…T0 rollback→cleanup 顺序；失败只做 registry-scoped recovery。当前 P0 仍为 `HOLD`，总控会以 `FINAL_PAIR_P0_HOLD` 停止，不能生成最终 PASS。
   - [x] P0 最终门禁矩阵已版本化并绑定 mapping-contract hash：按稳定顺序覆盖 park/team 审批及自审/跨树拒绝、档案 full/team/self 与 gap、合同 salary/document/reminder、保险金额、工资明细原子权限，以及附件审计/存储失败零敏感 header/零 byte；独立 loopback 执行器只生成 hash/布尔证据。该完成项只表示执行契约就绪，最终 A/B 仍须以全新隔离资源实际执行全部 25 项并产出观察证据。
   - [x] 已实现并冻结真实技术执行器：46 个 API 正负向检查与 28 个旧功能×角色检查在 desktop/390 两视口形成 56 个浏览器单元；使用隔离账号、真实 loopback HTTP、真实 headless Chrome、受控 0600 截图、敏感 DOM/存储清理与 C/S/M hash 绑定。当前只证明执行器契约和 Chrome 集成，尚未替代 A 的真实六域连续演练。
   - [x] 预演 A18 在 `f228fb98` 上从空库连续完成 T0→T5，并通过 59 个 API、22 个反向授权、46 个旧任务语义、28 个浏览器与 56 个 desktop/390 视口检查；随后按 T5→T0 反序回滚并实际 cleanup `residualCount=0`。因目标 PostgreSQL backup/restore/fault runner 尚未实现且后续 P0 修复会改变 C，此轮不计入最终 A/B，最终证据必须在新 SHA 上从头重跑。
