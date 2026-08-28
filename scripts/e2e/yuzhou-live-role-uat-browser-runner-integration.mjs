@@ -48,6 +48,8 @@ test("real headless Chrome waits for hydration and executes all 56 item-role-vie
       evidenceRoot, profileRoot, sensitiveNeedles: ["sensitive-fixture-marker"]
     });
     assert.equal(result.status, "PASS");
+    assert.equal(result.humanAttestation, "HOLD");
+    assert.equal(result.productionImport, "HOLD");
     assert.equal(result.observedCells, 56);
     assert.equal(result.observations.filter(row => row.viewportId === "phone_390").length, 28);
     assert.ok(result.observations.every(row => row.runId === binding.runId && row.cellEvidenceSha256 && row.domAssertionSha256));

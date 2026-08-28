@@ -21,6 +21,7 @@ const SHA40 = /^[0-9a-f]{40}$/u;
 const SHA64 = /^[0-9a-f]{64}$/u;
 const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{4,5}$/u;
 const CHROME_DEFAULT = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const BOUND_ACTORS = ["hr_reviewer", "manager", "employee"];
 const LOGIN_FORM_READY = `(() => {
   if (document.readyState !== 'complete') return false;
   const username = document.querySelector('input[autocomplete=username]');
@@ -154,6 +155,43 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   return observation;
 }
 
+export function buildTechnicalUatBrowserBinding(config, usernames) {
+  const actorUsernames = {
+    hr_reviewer: usernames?.hrReviewer,
+    manager: usernames?.manager,
+    employee: usernames?.employee
+  };
+  if (BOUND_ACTORS.some(actor => typeof actorUsernames[actor] !== "string" || actorUsernames[actor].length === 0)
+    || new Set(Object.values(actorUsernames)).size !== BOUND_ACTORS.length) {
+    fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "three distinct isolated usernames required");
+  }
+  return {
+    rehearsal: config.rehearsal,
+    runId: config.runId,
+    triple: { ...config.triple },
+    actorSubjectHashes: Object.fromEntries(BOUND_ACTORS.map(actor => [actor, sha256(`${config.runId}:${actorUsernames[actor]}`)]))
+  };
+}
+
+export function assertTechnicalUatBrowserResultBinding(result, binding) {
+  if (result?.status !== "PASS" || result.humanAttestation !== "HOLD" || result.productionImport !== "HOLD") {
+    fail("TECHNICAL_UAT_BROWSER_RESULT_UNSAFE", "technical PASS requires detached human and production HOLD");
+  }
+  if (result.runId !== binding.runId || result.rehearsal !== binding.rehearsal
+    || JSON.stringify(result.triple) !== JSON.stringify(binding.triple)) {
+    fail("TECHNICAL_UAT_BROWSER_RESULT_BINDING_INVALID", "runId/rehearsal/C-S-M mismatch");
+  }
+  if (!Array.isArray(result.observations) || result.observations.length === 0
+    || result.observations.some(observation => observation.runId !== binding.runId
+      || observation.rehearsal !== binding.rehearsal
+      || JSON.stringify(observation.triple) !== JSON.stringify(binding.triple)
+      || !BOUND_ACTORS.includes(observation.actor)
+      || observation.actorSubjectHash !== binding.actorSubjectHashes[observation.actor])) {
+    fail("TECHNICAL_UAT_BROWSER_RESULT_CELL_UNBOUND", "every browser cell must retain its immutable actor binding");
+  }
+  return result;
+}
+
 function validateBinding(binding) {
   if (!binding || !["A", "B"].includes(binding.rehearsal)
     || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
@@ -161,7 +199,7 @@ function validateBinding(binding) {
     || !SHA40.test(binding.triple?.codeSha ?? "")
     || !SHA64.test(binding.triple?.sourceSnapshotHash ?? "")
     || !SHA64.test(binding.triple?.mappingContractHash ?? "")) fail("YUZHOU_UAT_BROWSER_BINDING_REQUIRED", "runId/rehearsal/C/S/M");
-  const actors = ["hr_reviewer", "manager", "employee"];
+  const actors = BOUND_ACTORS;
   if (JSON.stringify(Object.keys(binding.actorSubjectHashes ?? {}).sort()) !== JSON.stringify([...actors].sort())
     || actors.some(actor => !SHA64.test(binding.actorSubjectHashes[actor]))
     || new Set(Object.values(binding.actorSubjectHashes)).size !== actors.length) fail("YUZHOU_UAT_BROWSER_ACTOR_BINDING_INVALID", "isolated actor hashes required");
