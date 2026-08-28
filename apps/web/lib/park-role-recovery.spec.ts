@@ -83,6 +83,16 @@ test("clears stale recovery state after role configuration or identity mismatch"
   assert.equal(readParkRoleRecoverySource(anotherUser), null);
 });
 
+test("clears a restored source after its business role is removed", () => {
+  const previous = user("park-a", { "park-a": true, "park-b": false });
+  const accessOnly = user("park-b", { "park-a": true, "park-b": false });
+  updateParkRoleRecoverySource(previous, accessOnly);
+
+  assert.equal(readParkRoleRecoverySource(
+    user("park-b", { "park-a": false, "park-b": false })
+  ), null);
+});
+
 test("explicit clear removes the tab-scoped recovery source", () => {
   updateParkRoleRecoverySource(
     user("park-a", { "park-a": true, "park-b": false }),

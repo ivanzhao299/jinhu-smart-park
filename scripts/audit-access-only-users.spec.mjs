@@ -31,4 +31,10 @@ test("matches runtime access and effective-role boundaries", () => {
   assert.match(sql, /role\.is_system = true/);
   assert.match(sql, /role\.is_builtin = true/);
   assert.match(sql, /legacy_home_without_access_row/);
+  assert.match(sql, /app_user\.status = 'enabled'/);
+  assert.match(sql, /INNER JOIN sys_tenant tenant/);
+  assert.match(sql, /tenant\.status = 1/);
+  assert.match(sql, /tenant\.expire_time IS NULL OR tenant\.expire_time > now\(\)/);
+  const legacyHomeBlock = sql.slice(sql.indexOf("legacy_home AS"), sql.indexOf("accessible_scope AS"));
+  assert.doesNotMatch(legacyHomeBlock, /access_link\.is_deleted = false/);
 });

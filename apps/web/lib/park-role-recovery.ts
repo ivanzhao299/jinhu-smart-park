@@ -57,9 +57,7 @@ export function readParkRoleRecoverySource(user: UserContext | null): ParkRoleRe
   if (!raw) return null;
   try {
     const source = JSON.parse(raw) as Partial<ParkRoleRecoverySource>;
-    const accessible = user.accessible_parks?.some((park) => (
-      park.park_id === source.parkId && park.status === "enabled"
-    ));
+    const recoveryPark = user.accessible_parks?.find((park) => park.park_id === source.parkId);
     if (
       source.userId !== user.id
       || source.tenantId !== user.tenant_id
@@ -67,7 +65,8 @@ export function readParkRoleRecoverySource(user: UserContext | null): ParkRoleRe
       || !source.parkId
       || source.parkId === user.park_id
       || typeof source.parkName !== "string"
-      || !accessible
+      || recoveryPark?.status !== "enabled"
+      || recoveryPark.role_summary?.has_business_role !== true
     ) {
       clearParkRoleRecoverySource();
       return null;

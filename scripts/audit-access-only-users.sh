@@ -58,7 +58,6 @@ legacy_home AS (
       WHERE access_link.tenant_id = app_user.tenant_id::text
         AND access_link.user_id = app_user.id
         AND access_link.park_id = app_user.park_id::text
-        AND access_link.is_deleted = false
     )
 ),
 accessible_scope AS (
@@ -78,7 +77,13 @@ INNER JOIN sys_user app_user
   ON app_user.id = scope.user_id
  AND app_user.tenant_id::text = scope.tenant_id
  AND app_user.is_enabled = true
+ AND app_user.status = 'enabled'
  AND app_user.is_deleted = false
+INNER JOIN sys_tenant tenant
+  ON tenant.tenant_id::text = scope.tenant_id
+ AND tenant.status = 1
+ AND (tenant.expire_time IS NULL OR tenant.expire_time > now())
+ AND tenant.is_deleted = false
 INNER JOIN biz_park park
   ON park.tenant_id::text = scope.tenant_id
  AND park.park_id::text = scope.park_id
