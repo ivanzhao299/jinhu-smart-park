@@ -37,3 +37,13 @@ test("unsafe execution, viewport, actor, matrix and evidence drift fail closed",
     );
   }
 });
+
+test("the full-domain technical runner provisions separated HR maker/reviewer actors without claiming score promotion", () => {
+  const source = readFileSync(resolve(root, "scripts/hr-cutover/run-full-domain-technical-uat.mjs"), "utf8");
+  assert.match(source, /_hr_maker/);
+  assert.match(source, /_hr_reviewer/);
+  assert.match(source, /hrMaker','HR Manager UAT|hrMaker','HR Maker UAT/);
+  assert.match(source, /hrReviewer','HR Reviewer UAT/);
+  assert.match(source, /HOLD_PENDING_FULL_MATRIX/);
+  assert.doesNotMatch(source, /legacyScorePromotion:"PASS"/);
+});
