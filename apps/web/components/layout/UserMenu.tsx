@@ -1,6 +1,7 @@
 "use client";
 
 import { KeyRound, LogOut, MapPin, UserRound } from "lucide-react";
+import type { UserParkContext } from "@jinhu/shared";
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,6 +9,7 @@ import { useMemo, useState } from "react";
 import { useAuthSessionActions, useAuthUser } from "../../lib/auth-context";
 import { getToken, logoutSession, switchParkContext } from "../../lib/auth";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
+import { formatParkRoleSummary } from "../../lib/park-role-summary";
 
 interface UserMenuProps {
   compact?: boolean;
@@ -71,7 +73,7 @@ export function UserMenu({ compact = false }: UserMenuProps) {
           {accessibleParks.length === 0 ? <option value={user?.park_id ?? ""}>{currentParkName}</option> : null}
           {accessibleParks.map((park) => (
             <option key={park.park_id} value={park.park_id}>
-              {park.park_code ? `${park.park_code} · ` : ""}{park.park_name}
+              {formatParkOptionLabel(park)}
             </option>
           ))}
         </select>
@@ -84,4 +86,10 @@ export function UserMenu({ compact = false }: UserMenuProps) {
       </button>
     </div>
   );
+}
+
+function formatParkOptionLabel(park: UserParkContext): string {
+  const prefix = park.park_code ? `${park.park_code} · ` : "";
+  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
+  return `${prefix}${park.park_name}｜${roles}`;
 }

@@ -258,6 +258,11 @@ export interface UserParkContext {
   park_name: string;
   is_default: boolean;
   status: string;
+  role_summary?: {
+    role_names: string[];
+    role_count: number;
+    has_business_role: boolean;
+  };
 }
 
 export interface UserDataScopeContext {

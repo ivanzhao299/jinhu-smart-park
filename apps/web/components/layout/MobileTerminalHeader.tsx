@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, Home, KeyRound, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
+import type { UserParkContext } from "@jinhu/shared";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -11,6 +12,7 @@ import { useAppBranding } from "../branding/useAppBranding";
 import { resolveBrandLogo } from "../../lib/app-branding";
 import { useTheme } from "../theme/ThemeProvider";
 import { resolvePostParkSwitchPath } from "../../lib/post-login-route";
+import { formatParkRoleSummary } from "../../lib/park-role-summary";
 
 export function MobileTerminalHeader() {
   const branding = useAppBranding();
@@ -80,7 +82,7 @@ export function MobileTerminalHeader() {
             {accessibleParks.length === 0 ? <option value={user?.park_id ?? ""}>{currentParkName}</option> : null}
             {accessibleParks.map((park) => (
               <option key={park.park_id} value={park.park_id}>
-                {park.park_code ? `${park.park_code} · ` : ""}{park.park_name}
+                {formatParkOptionLabel(park)}
               </option>
             ))}
           </select>
@@ -110,4 +112,10 @@ export function MobileTerminalHeader() {
       {parkMessage ? <span className="mobile-terminal-park-message" role="alert">{parkMessage}</span> : null}
     </header>
   );
+}
+
+function formatParkOptionLabel(park: UserParkContext): string {
+  const prefix = park.park_code ? `${park.park_code} · ` : "";
+  const roles = formatParkRoleSummary(park.role_summary, "未配置园区角色") ?? "角色摘要不可见";
+  return `${prefix}${park.park_name}｜${roles}`;
 }

@@ -18,6 +18,33 @@ test("role assignment resolves the target user scope and replaces links transact
   assert.match(assignRoles, /!this\.isRoleAssignmentProtected\(link\.role\)/);
 });
 
+test("explicit park-role endpoint carries target park through DTO, service authorization, and audit scope", () => {
+  const source = readFileSync(resolve(__dirname, "users.service.ts"), "utf8");
+  const controllerSource = readFileSync(resolve(__dirname, "users.controller.ts"), "utf8");
+  const dtoSource = readFileSync(resolve(__dirname, "dto/assign-roles.dto.ts"), "utf8");
+
+  assert.match(controllerSource, /@Post\(":id\/park-roles"\)/);
+  assert.match(controllerSource, /AssignParkRolesDto/);
+  assert.match(controllerSource, /captureBody: false/);
+  assert.match(controllerSource, /assignParkRoles\(scope, user, id, dto/);
+  assert.match(dtoSource, /parkId!: string/);
+  assert.match(source, /getTargetParkRoleUser\(scope, actor, id, parkId, manager\)/);
+  assert.match(source, /!actor\.isTenantSuper && targetParkId !== actor\.parkId/);
+  assert.match(source, /onTargetScope\?\.\(targetScope\)/);
+  assert.match(source, /parkId: targetScope\.parkId/);
+  assert.match(source, /actor\.permissions\.includes\(SYSTEM_PERMISSIONS\.USER_DETAIL\)/);
+  assert.match(source, /actor\.permissions\.includes\(SYSTEM_PERMISSIONS\.USER_ASSIGN_ROLES\)/);
+  assert.match(source, /roleLinks: includeRoleDiagnostics \? userRoleLinks : undefined/);
+  assert.match(source, /userParkRepository\.find\(/);
+  assert.match(source, /EXISTS \([\s\S]*FROM rel_user_park access/);
+  assert.match(source, /getManyAndCount\(\)/);
+  assert.match(source, /toViews\(items, this\.canViewRoleDiagnostics\(actor\), scope\.parkId\)/);
+  assert.match(source, /globalRoleManager = Boolean\(!actor\.isTenantSuper && \(actor\.isSuper \|\| actor\.permissions\.includes\("\*"\)\)\)/);
+  assert.match(source, /platformGlobalManager = Boolean\(actor && !actor\.isTenantSuper/);
+  assert.match(source, /!platformGlobalManager && actor \? \{ tenantId: actor\.tenantId \}/);
+  assert.match(source, /broadRoleDiagnostics \? undefined : scope\.parkId/);
+});
+
 test("role candidate catalog is paginated and keeps the legacy array contract opt-out", () => {
   const source = readFileSync(resolve(__dirname, "users.service.ts"), "utf8");
   const controllerSource = readFileSync(resolve(__dirname, "users.controller.ts"), "utf8");

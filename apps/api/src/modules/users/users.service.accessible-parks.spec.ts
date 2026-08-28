@@ -1,16 +1,53 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { UsersService } from "./users.service";
+import type { RoleEntity } from "../roles/entities/role.entity";
+import type { UserRoleEntity } from "../roles/entities/user-role.entity";
 
 type ResolveAccessibleParks = (
   userId: string,
   tenantId: string,
-  options?: { activeOnly?: boolean; homeParkId?: string; isTenantSuper?: boolean }
+  options?: { activeOnly?: boolean; homeParkId?: string; isTenantSuper?: boolean; roleLinks?: UserRoleEntity[] }
 ) => Promise<Array<{ park_id: string; park_name: string; status: string }>>;
 
 const resolveAccessibleParks = (UsersService.prototype as unknown as {
   resolveAccessibleParks: ResolveAccessibleParks;
 }).resolveAccessibleParks;
+const attachParkRoleSummaries = (UsersService.prototype as unknown as {
+  attachParkRoleSummaries: (
+    parks: Array<{ park_id: string; park_name: string; is_default: boolean; status: string }>,
+    tenantId: string,
+    roleLinks: UserRoleEntity[]
+  ) => Array<{ park_id: string; role_summary?: { role_names: string[]; role_count: number; has_business_role: boolean } }>;
+}).attachParkRoleSummaries;
+
+test("accessible park summaries distinguish role-bearing and access-only parks", () => {
+  const role = {
+    code: "PARK_OPERATOR",
+    name: "园区运营",
+    tenantId: "tenant-a",
+    parkId: "park-a",
+    roleScope: "park",
+    status: "enabled",
+    isEnabled: true,
+    isDeleted: false
+  } as RoleEntity;
+  const parks = attachParkRoleSummaries.call({}, [
+    { park_id: "park-a", park_name: "园区 A", is_default: true, status: "enabled" },
+    { park_id: "park-b", park_name: "园区 B", is_default: false, status: "enabled" }
+  ], "tenant-a", [{ tenantId: "tenant-a", parkId: "park-a", isDeleted: false, role } as UserRoleEntity]);
+
+  assert.deepEqual(parks[0]?.role_summary, {
+    role_names: ["园区运营"],
+    role_count: 1,
+    has_business_role: true
+  });
+  assert.deepEqual(parks[1]?.role_summary, {
+    role_names: [],
+    role_count: 0,
+    has_business_role: false
+  });
+});
 
 test("protected tenant super sees every live tenant park without per-park access links", async () => {
   let accessReads = 0;

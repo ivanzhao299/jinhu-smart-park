@@ -1,0 +1,6 @@
+{"file":".trellis/spec/guides/index.md","reason":"Shared quality gates and review conventions."}
+{"file":".trellis/spec/api/backend/index.md","reason":"Verify API authorization, transactions, validation and tests."}
+{"file":".trellis/spec/web/frontend/index.md","reason":"Verify design-system, mobile behavior and frontend contracts."}
+{"file":".trellis/spec/shared/backend/index.md","reason":"Verify shared contract compatibility."}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"Verify shared contract frontend compatibility."}
+{"file":"docs/reviews/park-switch-permission-investigation-2026-08-28.md","reason":"Check implementation against D2 evidence and leakage constraints."}
