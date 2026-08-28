@@ -6,9 +6,16 @@ const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.cod
 const statusByOutcome={success:new Set([200,201,204]),forbidden:new Set([403]),not_found_or_forbidden:new Set([403,404]),server_failure:new Set([500,503])};
 const sha256=value=>createHash("sha256").update(value).digest("hex");
 const sensitiveHeaders=["content-disposition","content-length","content-type"];
+const uuidPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const forbiddenNegativeKey=/(?:salary|amount|employee_?name|full_?name|mobile|id_?card|storage_?path|original_?name|file_?url|compensation_?snapshot)/iu;
 const routeFor=(template,substitutions)=>template.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/gu,(_match,key)=>{
-  const value=substitutions?.[key]; if(typeof value!=="string"||!/^[0-9a-f-]{36}$/iu.test(value))fail("YUZHOU_UAT_P0_SUBSTITUTION_INVALID",key); return value;
+  const value=substitutions?.[key]; if(typeof value!=="string"||!uuidPattern.test(value))fail("YUZHOU_UAT_P0_SUBSTITUTION_INVALID",key); return value;
 });
+const containsForbiddenKey=value=>{
+  if(!value||typeof value!=="object")return false;
+  if(Array.isArray(value))return value.some(containsForbiddenKey);
+  return Object.entries(value).some(([key,nested])=>forbiddenNegativeKey.test(key)||containsForbiddenKey(nested));
+};
 
 export class YuzhouLiveRoleUatP0Runner {
   constructor({apiBase,tokens,matrix,request=fetch}){
@@ -23,16 +30,23 @@ export class YuzhouLiveRoleUatP0Runner {
     if(body!==undefined){headers["content-type"]="application/json";headers["x-idempotency-key"]=`p0-${sha256(id).slice(0,24)}`;}
     const response=await this.request(`${this.apiBase}${route}`,{method:check.method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})});
     if(!statusByOutcome[check.outcome].has(response.status))fail("YUZHOU_UAT_P0_STATUS_MISMATCH",`${id}:${response.status}`);
+    const responseBytes=new Uint8Array(await response.arrayBuffer()),responseSha256=sha256(responseBytes);
     let observed;
     if(check.responseKind==="binary"){
-      const bytes=new Uint8Array(await response.arrayBuffer());
-      observed={status:response.status,byteLength:bytes.byteLength,sensitiveHeaders:Object.fromEntries(sensitiveHeaders.filter(name=>response.headers.has(name)).map(name=>[name,response.headers.get(name)]))};
+      observed={status:response.status,byteLength:responseBytes.byteLength,sensitiveHeaders:Object.fromEntries(sensitiveHeaders.filter(name=>response.headers.has(name)).map(name=>[name,response.headers.get(name)]))};
+      if(check.outcome!=="success"&&(observed.byteLength!==0||Object.keys(observed.sensitiveHeaders).length!==0))fail("YUZHOU_UAT_P0_BINARY_FAILURE_LEAK",id);
+      if(check.outcome==="success"&&observed.byteLength===0)fail("YUZHOU_UAT_P0_BINARY_SUCCESS_EMPTY",id);
     }else{
-      let payload=null;try{payload=await response.json();}catch{/* failed/empty JSON response remains value-free */}
+      let payload=null;try{payload=JSON.parse(new TextDecoder().decode(responseBytes));}catch{/* failed/empty JSON response remains value-free */}
       observed={status:response.status,payload};
+      if(check.outcome!=="success"){
+        if(containsForbiddenKey(payload))fail("YUZHOU_UAT_P0_JSON_FAILURE_SENSITIVE_LEAK",id);
+        const raw=new TextDecoder().decode(responseBytes);
+        if(Object.values(substitutions).some(value=>raw.includes(value)))fail("YUZHOU_UAT_P0_JSON_FAILURE_TARGET_DISCLOSURE",id);
+      }
     }
     const assertions=await assert(observed);
     if(!assertions||JSON.stringify(Object.keys(assertions))!==JSON.stringify(check.assertions)||Object.values(assertions).some(value=>value!==true))fail("YUZHOU_UAT_P0_ASSERTION_FAILED",id);
-    return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256:sha256(JSON.stringify(check.responseKind==="binary"?{byteLength:observed.byteLength,headerNames:Object.keys(observed.sensitiveHeaders)}:{payloadType:Array.isArray(observed.payload)?"array":typeof observed.payload})),assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
+    return {id,actor:check.actor,statusCode:response.status,responseKind:check.responseKind,responseSha256,responseByteLength:responseBytes.byteLength,assertions:Object.fromEntries(check.assertions.map(key=>[key,true]))};
   }
 }

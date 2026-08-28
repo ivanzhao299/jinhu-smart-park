@@ -14,6 +14,7 @@ const expectedIds=Object.freeze([
   "insurance_amount_park","insurance_amount_team_masked","payroll_detail_atom","payroll_detail_manager_denied",
   "contract_document_download","contract_document_cross_tree_hidden","contract_document_audit_failure","contract_document_storage_failure"
 ]);
+const expectedMatrixSha256="0fb90d76ae0131446d2eca04b37a16641f8eed15120a899bf7853dc6af5d3e6c";
 const stable=value=>`${JSON.stringify(value,null,2)}\n`;
 export const p0MatrixHash=matrix=>createHash("sha256").update(stable(matrix)).digest("hex");
 
@@ -29,7 +30,9 @@ export function validateYuzhouLiveRoleUatP0Matrix(matrix){
     if(!Array.isArray(check.assertions)||check.assertions.length<2||new Set(check.assertions).size!==check.assertions.length||check.assertions.some(x=>!assertionPattern.test(x)))fail("YUZHOU_UAT_P0_MATRIX_ASSERTION_INVALID",check.id);
     if(check.outcome!=="success"&&!check.assertions.some(x=>/^(?:no_|zero_)/u.test(x)))fail("YUZHOU_UAT_P0_MATRIX_NEGATIVE_PROOF_MISSING",check.id);
   }
-  return {status:"PASS",checkCount:matrix.checks.length,sha256:p0MatrixHash(matrix),productionImport:"HOLD"};
+  const sha256=p0MatrixHash(matrix);
+  if(sha256!==expectedMatrixSha256)fail("YUZHOU_UAT_P0_MATRIX_HASH_DRIFT",sha256);
+  return {status:"PASS",checkCount:matrix.checks.length,sha256,productionImport:"HOLD"};
 }
 
 export const YUZHOU_LIVE_ROLE_UAT_P0_EXPECTED_IDS=expectedIds;

@@ -20,7 +20,8 @@ test("P0 final matrix freezes approval, profile, contract, insurance, payroll an
 test("P0 matrix order, boundary, binary routes and negative proof fail closed",()=>{
   const cases=[
     draft=>{draft.checks.reverse();},draft=>{draft.productionImport="GO";},draft=>{draft.viewports[1].width=391;},
-    draft=>{draft.checks.at(-1).route="/hr/contracts";},draft=>{draft.checks[2].assertions=["state_unchanged","audit_checked"];}
+    draft=>{draft.checks.at(-1).route="/hr/contracts";},draft=>{draft.checks[2].assertions=["state_unchanged","audit_checked"];},
+    draft=>{draft.checks[8].assertions[0]="salary_fields_missing";}
   ];
   for(const mutate of cases){const draft=structuredClone(matrix);mutate(draft);assert.throws(()=>validateYuzhouLiveRoleUatP0Matrix(draft),error=>error instanceof YuzhouLiveRoleUatP0MatrixError);}
 });
@@ -38,8 +39,23 @@ test("binary failure probes prove zero sensitive headers and zero bytes before p
 
 test("binary failure probes reject a leaked header or byte and unsafe non-loopback execution",async()=>{
   const runner=new YuzhouLiveRoleUatP0Runner({apiBase:"http://localhost/api/v1",tokens,matrix,request:async()=>new Response(new Uint8Array([1]),{status:500,headers:{"content-disposition":"attachment; filename=secret.pdf"}})});
-  await assert.rejects(runner.execute({id:"contract_document_storage_failure",substitutions:{storageFailureFileId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"},assert:observed=>({no_sensitive_headers:Object.keys(observed.sensitiveHeaders).length===0,zero_bytes:observed.byteLength===0,audit_precedes_storage:true})}),error=>error.code==="YUZHOU_UAT_P0_ASSERTION_FAILED");
+  await assert.rejects(runner.execute({id:"contract_document_storage_failure",substitutions:{storageFailureFileId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"},assert:()=>({no_sensitive_headers:true,zero_bytes:true,audit_precedes_storage:true})}),error=>error.code==="YUZHOU_UAT_P0_BINARY_FAILURE_LEAK");
   assert.throws(()=>new YuzhouLiveRoleUatP0Runner({apiBase:"https://park.cnjinhu.com/api/v1",tokens,matrix}),/YUZHOU_UAT_P0_BASE_UNSAFE/u);
+});
+
+test("JSON negative probes cannot self-attest through target or sensitive-field leakage",async()=>{
+  const target="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const targetLeak=new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify({statusCode:404,target}),{status:404,headers:{"content-type":"application/json"}})});
+  await assert.rejects(targetLeak.execute({id:"approval_cross_tree_review_hidden",substitutions:{outsideApprovalId:target},body:{action:"approve"},assert:()=>({no_target_disclosure:true,no_state_change:true})}),error=>error.code==="YUZHOU_UAT_P0_JSON_FAILURE_TARGET_DISCLOSURE");
+  const sensitiveLeak=new YuzhouLiveRoleUatP0Runner({apiBase:"http://localhost/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify({statusCode:403,baseSalary:"9000.00"}),{status:403,headers:{"content-type":"application/json"}})});
+  await assert.rejects(sensitiveLeak.execute({id:"payroll_detail_manager_denied",substitutions:{payrollRunId:"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"},assert:()=>({no_detail_disclosed:true,no_success_audit:true})}),error=>error.code==="YUZHOU_UAT_P0_JSON_FAILURE_SENSITIVE_LEAK");
+});
+
+test("hash-only evidence binds the actual response bytes, not only its JSON type",async()=>{
+  const run=async payload=>new YuzhouLiveRoleUatP0Runner({apiBase:"http://127.0.0.1/api/v1",tokens,matrix,request:async()=>new Response(JSON.stringify(payload),{status:200,headers:{"content-type":"application/json"}})}).execute({id:"approval_park_pending",assert:()=>({park_rows_scoped:true,required_audit_written:true})});
+  const first=await run([{id:"one"}]),second=await run([{id:"two"}]);
+  assert.notEqual(first.responseSha256,second.responseSha256);assert.equal(first.responseByteLength,14);
+  assert.doesNotMatch(JSON.stringify(first),/\[\{|id.*one/u);
 });
 
 test("P0 routes remain bound to exact runtime permission and required-audit implementations",()=>{
