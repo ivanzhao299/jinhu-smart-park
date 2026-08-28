@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
+- **Total Sessions**: 16
 - **Last Active**: 2026-08-28
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~540 | Active |
+| `journal-1.md` | ~575 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-08-28 | 园区切换权限机制核查 | `a101a163`, `36cd89a8` | `codex/park-switch-permission-investigation-20260828` |
 | 15 | 2026-08-28 | 权限审计 §15 收口与父任务归档 | `89e5484a9db69251b648ac763681ae6b27c7119f` | `codex/archive-permission-audit-20260828` |
 | 14 | 2026-08-26 | 民宿权限迁移上线与全量自动复测闭环 | `7df23ad5`, `cfc8975c` | `codex/homestay-fix-retest-uat-20260826-1015` |
 | 13 | 2026-08-25 | 路由治理真实 Chrome 验收闭环 | `60a3421e` | `codex/main-post-route-governance-acceptance` |

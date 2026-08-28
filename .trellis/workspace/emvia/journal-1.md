@@ -538,3 +538,38 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: 园区切换权限机制核查
+
+**Date**: 2026-08-28
+**Task**: 园区切换权限机制核查
+**Package**: api
+**Branch**: `codex/park-switch-permission-investigation-20260828`
+
+### Summary
+
+完成园区切换权限静态链路、隔离 S1a 取证、S1b/S2 受限披露、S3 证据 ID 漂移复核、根因与决策门报告；PR #454 review/CI/merge/main 双绿，零产品代码改动。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a101a163` | (see git log) |
+| `36cd89a8` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
