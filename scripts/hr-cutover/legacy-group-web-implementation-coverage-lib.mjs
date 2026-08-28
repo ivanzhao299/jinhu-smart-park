@@ -34,7 +34,50 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/workflow": { page: null, api: [], migrations: [] }
 });
 
+const DEPARTURE_EVIDENCE_FILES = Object.freeze([
+  "scripts/hr-cutover/contracts/yuzhou-departure-dual-source-evidence-v1.json",
+  "database/migrations/000274_hr_departure_clearance_parity.sql",
+  "database/seeds/production/000029_hr_departure_rbac.sql",
+  "apps/api/src/modules/hr/dto/hr-departure.dto.ts",
+  "apps/api/src/modules/hr/hr-departure.controller.ts",
+  "apps/api/src/modules/hr/hr-departure.service.ts",
+  "apps/api/src/modules/hr/hr-departure.contract.spec.ts",
+  "apps/api/src/modules/hr/hr-departure.pg.spec.ts",
+  "apps/web/app/hr/lifecycle/DepartureApplicationsPanel.tsx",
+  "apps/web/app/hr/hr-departure.contract.spec.ts"
+]);
+
 const ITEM_RULE_PARITY = Object.freeze({
+  42: {
+    legacyFieldEvidenceHash: "ed79e32572bba6abe7775e0b116865c5cf4eac5f484e50aa0aae09d327b5401a",
+    outcome: "departure_application_approval_clearance_and_atomic_effect",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
+  43: {
+    legacyFieldEvidenceHash: "dd1f376e0b80c4bbf6cd6e7f4859daeb9d1e4a15dc88442727b8523e851942d2",
+    outcome: "departure_interview_scoped_evidence",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
+  44: {
+    legacyFieldEvidenceHash: "d3bb7e47ea11c6fd601f95974797e3335501721147670936503dd496fac55d0b",
+    outcome: "departure_survey_reason_and_advice_evidence",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
+  45: {
+    legacyFieldEvidenceHash: "10760f5cd0c22867ffd00230fdcc89a388ec7253defc2545d46ab9e1ec013a0a",
+    outcome: "departure_handover_recipient_and_summary_evidence",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
+  46: {
+    legacyFieldEvidenceHash: "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee",
+    outcome: "departure_wage_settlement_atomic_clearance",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
+  47: {
+    legacyFieldEvidenceHash: "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee",
+    outcome: "departure_archive_close_after_all_clearances",
+    evidenceFiles: DEPARTURE_EVIDENCE_FILES
+  },
   37: {
     legacyFieldEvidenceHash: "71721d33d52f7fe9bd09db05c35668890825f0956d6f0927165ad2a103ef3964",
     outcome: "contract_legacy_fields_protected_documents_salary_boundary_and_append_only_actions",

@@ -109,12 +109,13 @@ export class HrService {
  }
 
  async transitionEmployment(scope:TenantParkScope,actor:JwtPrincipal,id:string,dto:HrEmploymentTransitionDto){
+  if(dto.action==="depart")throw new ConflictException("Employee departure must be completed through an approved departure application and clearance workflow");
   return this.dataSource.transaction(async manager=>{
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});
    if(!row)throw new NotFoundException("Employee not found");
-   const targetByAction:Record<string,string>={start_probation:"probation",confirm_employment:"active",suspend:"suspended",resume:"active",depart:"departed"};
-   const allowed:Record<string,string[]>={preboarding:["start_probation","confirm_employment","depart"],probation:["confirm_employment","depart"],active:["transfer","suspend","depart"],suspended:["resume","depart"],departed:[]};
+   const targetByAction:Record<string,string>={start_probation:"probation",confirm_employment:"active",suspend:"suspended",resume:"active"};
+   const allowed:Record<string,string[]>={preboarding:["start_probation","confirm_employment"],probation:["confirm_employment"],active:["transfer","suspend"],suspended:["resume"],departed:[]};
    if(!allowed[row.employmentStatus]?.includes(dto.action))throw new BadRequestException(`Action ${dto.action} is not allowed from ${row.employmentStatus}`);
    if(dto.action==="transfer"){
     if(!dto.primaryOrgId)throw new BadRequestException("Transfer requires primary organization");
@@ -124,7 +125,6 @@ export class HrService {
    if(dto.action==="transfer")Object.assign(row,{primaryOrgId:dto.primaryOrgId,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null});
    else row.employmentStatus=targetByAction[dto.action]!;
    if(dto.action==="confirm_employment")row.probationEndDate=dto.effectiveDate;
-   if(dto.action==="depart")row.departureDate=dto.effectiveDate;
    if(dto.action==="resume")row.departureDate=null;
    row.updateBy=actor.sub;
    const saved=await repo.save(row);
@@ -151,8 +151,9 @@ export class HrService {
    const repo=manager.getRepository(HrEmployeeEntity),eventRepo=manager.getRepository(HrEmploymentEventEntity);
    const row=await repo.findOne({where:{id,...scope,isDeleted:false},lock:{mode:"pessimistic_write"}});if(!row)throw new NotFoundException("Employee not found");
    if(dto.employmentStatus!==row.employmentStatus)throw new BadRequestException("Employment status must be changed through a lifecycle action");
+   if(dto.departureDate!==undefined&&dto.departureDate!==row.departureDate)throw new BadRequestException("Departure date must be changed through the approved departure workflow");
    if(dto.employeeCode!==row.employeeCode)throw new ConflictException("Employee code cannot be changed after allocation");
-   const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:dto.departureDate??null,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
+   const before=this.eventSnapshot(row);Object.assign(row,{...dto,userId:dto.userId??null,primaryOrgId:dto.primaryOrgId??null,positionId:dto.positionId??null,managerEmployeeId:dto.managerEmployeeId??null,hireDate:dto.hireDate??null,probationEndDate:dto.probationEndDate??null,departureDate:row.departureDate,workLocation:dto.workLocation??null,workMobile:dto.workMobile??null,workEmail:dto.workEmail??null,remark:dto.remark??null,updateBy:actor.sub});
    const saved=await repo.save(row);await eventRepo.save(eventRepo.create({...scope,employeeId:id,eventType:"profile_updated",effectiveDate:new Date().toISOString().slice(0,10),beforeSnapshot:before,afterSnapshot:this.eventSnapshot(saved),reason:"更新员工档案",createBy:actor.sub,updateBy:actor.sub}));return saved;
   });
  }

@@ -1,0 +1,62 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_departure_dual_source_evidence",
+  "legacyIds": [42, 43, 44, 45, 46, 47],
+  "legacyFieldEvidenceHashes": {
+    "42": "ed79e32572bba6abe7775e0b116865c5cf4eac5f484e50aa0aae09d327b5401a",
+    "43": "dd1f376e0b80c4bbf6cd6e7f4859daeb9d1e4a15dc88442727b8523e851942d2",
+    "44": "d3bb7e47ea11c6fd601f95974797e3335501721147670936503dd496fac55d0b",
+    "45": "10760f5cd0c22867ffd00230fdcc89a388ec7253defc2545d46ab9e1ec013a0a",
+    "46": "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee",
+    "47": "9e45f584f8c71857cd0b6de7245e733f2e45185aafc1a4af2594489b328f70ee"
+  },
+  "operationMode": "read_only",
+  "groupWeb": {
+    "sourceAreas": ["EMPLOYEE/DIMISSION", "EMPLOYEE/INTERVIEW", "EMPLOYEE/INDAGATE", "EMPLOYEE/CONNECT", "EMPLOYEE/WAGE", "EMPLOYEE/CLOSEDOC"],
+    "database": {
+      "departureApplication": {"table": "Emp_tDimission", "columnCount": 16, "rowCount": 28},
+      "interview": {"table": "Emp_tInterview", "columnCount": 8, "rowCount": 0},
+      "handover": {"table": "Emp_tConnect", "columnCount": 6, "rowCount": 0},
+      "surveyAdvice": {"table": "Emp_tAdvice", "columnCount": 6, "rowCount": 125},
+      "surveyReason": {"table": "Emp_tReason", "columnCount": 6, "rowCount": 330}
+    },
+    "applicationFields": ["applicationName", "applicant", "applicationDate", "employee", "departureType", "departureReason", "plannedDepartureDate", "remark"],
+    "approvalResults": ["disagree", "agree", "return"],
+    "applyGate": ["approved", "workflowEnded", "notPreviouslyApplied"],
+    "clearances": {
+      "interview": ["employee", "interviewer", "date", "place", "content", "remark"],
+      "survey": ["reasonSelection", "advice", "appraisal", "completionFlag"],
+      "handover": ["employee", "handoverRecipient", "date", "content", "remark"],
+      "wage": ["settlementFlag"],
+      "archive": ["closeOrReopenPersonnelFile"]
+    },
+    "legacyApplyEffects": ["markDepartureApplied", "recordActualDepartureDate", "setEmployeeLeftStatus", "lockLegacyUser"],
+    "legacyProcedures": ["sp_CloseDoc", "sp_SetWageFlag"]
+  },
+  "desktopClient": {
+    "eventTable": "readjust",
+    "tableArtifactSha256": "11a52007536298bb59c655f1d70317a03f9394a63dbf9a286eaa0165d65553fe",
+    "departureEventType": "depart",
+    "numberRule": "LZyyyymmxxxx",
+    "roleInDualSource": "effective personnel movement ledger; Group Web owns application approval and clearance operations"
+  },
+  "targetControls": {
+    "workflow": ["draft", "submitted", "returned", "approved", "cancelled", "applied"],
+    "makerChecker": true,
+    "manualApplyAfterApprovalAndClearance": true,
+    "clearances": ["interview", "survey", "handover", "wage", "archive"],
+    "atomicEmployeeAndEventWrite": true,
+    "sharedMonthlyNumberSequence": true,
+    "staleEmployeeConflict": true,
+    "immutableSubmissionAndActionEvidence": true,
+    "idempotentWrites": true,
+    "departmentTreeScope": true,
+    "legacyUserLockReplacedBySeparateIdentityAccessControl": true,
+    "legacyPhysicalReopenReplacedByAuditedCorrectionWorkflow": true,
+    "postEffectiveChecklistKeptSeparate": true,
+    "productionImport": "HOLD"
+  },
+  "databaseEvidenceContainsPersonalRows": false,
+  "personalValuesRecorded": false,
+  "credentialsRecorded": false
+}

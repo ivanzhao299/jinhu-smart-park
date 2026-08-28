@@ -14,8 +14,8 @@ test("all 231 Group Web modules receive a conservative implementation score", ()
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
   assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 6, score80: 156, score60: 0, score40: 27, score20: 42 });
-  assert.equal(result.summary.averageScore, 64.68);
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 150, score60: 0, score40: 27, score20: 42 });
+  assert.equal(result.summary.averageScore, 64.94);
   assert.equal(result.gates.productionImport, "HOLD");
 });
 
@@ -72,6 +72,17 @@ test("Yuzhou job change combines Group Web approval with the client movement led
   assert.equal(jobChange.dimensions.legacyRuleParity, true);
   assert.equal(jobChange.ruleParityOutcome, "dual_source_job_change_approval_manual_apply_and_atomic_event_ledger");
   assert.deepEqual(jobChange.blockers, ["live_role_uat"]);
+});
+
+test("Yuzhou departure closes all six legacy operations without duplicating the client ledger", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  for (const legacyId of [42, 43, 44, 45, 46, 47]) {
+    const item = result.items.find(candidate => candidate.legacyId === legacyId);
+    assert.equal(item.score, 90);
+    assert.equal(item.dimensions.legacyRuleParity, true);
+    assert.deepEqual(item.blockers, ["live_role_uat"]);
+  }
+  assert.equal(result.summary.domains.employee.averageScore, 85);
 });
 
 test("production import release and source shrinkage fail closed", () => {
