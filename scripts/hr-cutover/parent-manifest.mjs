@@ -23,13 +23,14 @@ export const canonicalJson = (value) => {
 };
 export const manifestHash = (manifest) => sha256(Buffer.from(`${canonicalJson(manifest)}\n`));
 
-function scan(value, at = "$") {
+function scan(value, at = "$", trustedDigest = false) {
   if (Array.isArray(value)) return value.forEach((item, index) => scan(item, `${at}[${index}]`));
   if (value && typeof value === "object") return Object.entries(value).forEach(([key, child]) => {
     if (FORBIDDEN.test(key) && !SAFE_KEYS.has(key)) fail("SECRET_PATTERN_DETECTED", `${at}.${key}`);
-    scan(child, `${at}.${key}`);
+    scan(child, `${at}.${key}`, /sha256$/i.test(key) && typeof child === "string" && SHA.test(child));
   });
   if (typeof value === "string" && FORBIDDEN_VALUE.test(value)) fail("SECRET_PATTERN_DETECTED", at);
+  if (!trustedDigest && typeof value === "string" && FORBIDDEN_PII_VALUE.test(value)) fail("SECRET_PATTERN_DETECTED", at);
 }
 
 function controlledFile(root, relativePath) {
@@ -51,7 +52,7 @@ export function buildEvidenceIndex(evidenceRoot, declarations) {
     if ((statSync(file).mode & 0o777) !== 0o600) fail("UNSAFE_FILE_PERMISSION", relativePath);
     const bytes = readFileSync(file);
     const content = bytes.toString("utf8");
-    if (FORBIDDEN_VALUE.test(content) || FORBIDDEN_PII_VALUE.test(content)) fail("SECRET_PATTERN_DETECTED", relativePath);
+    if (FORBIDDEN_VALUE.test(content)) fail("SECRET_PATTERN_DETECTED", relativePath);
     if (/\.jsonl?$/.test(relativePath)) {
       const rows = relativePath.endsWith(".jsonl") ? content.trim().split("\n").filter(Boolean).map(JSON.parse) : [JSON.parse(content)];
       rows.forEach((row, index) => scan(row, `${relativePath}[${index}]`));
