@@ -504,3 +504,37 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 权限审计 §15 收口与父任务归档
+
+**Date**: 2026-08-28
+**Task**: 权限审计 §15 收口与父任务归档
+**Package**: api
+**Branch**: `codex/archive-permission-audit-20260828`
+
+### Summary
+
+完成 PAM 权限审计三轮 review 收口、G1-G7 证据矩阵、fallback-known orphan fail-closed 修复；PR #452 合并且 main CI/Deploy 双绿，归档父任务。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `89e5484a9db69251b648ac763681ae6b27c7119f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
