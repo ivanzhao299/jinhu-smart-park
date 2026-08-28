@@ -2,7 +2,7 @@
 
 ## 1. 本切片的边界
 
-本入口只编译生产导入计划并返回确定性 `HOLD` 原因，不连接 PostgreSQL/SQL Server，不调用 T0～T5 loader，不创建账号、角色、数据库、容器或文件，也不接受任何能够触发写入的参数。
+本入口只编译生产导入计划并返回确定性 `HOLD` 原因，不连接 PostgreSQL/SQL Server，不调用 T0～T5 loader，不启动任何子进程，不创建账号、角色、数据库、容器或文件，也不接受任何能够触发写入的参数。当前代码 SHA 与本地 `origin/main` 只通过 Git 元数据文件进行只读解析。
 
 当前固定边界：
 
@@ -44,6 +44,7 @@ T5A（员工档案中已经明确 owner 和字段语义的低风险部分）只�
 - 已合并且与当前 HEAD、`origin/main` 一致的 40 位代码 SHA；
 - 固定源备份/目录/业务事实形成的 `sourceSnapshotHash`；
 - Rehearsal A/B 共同使用的 `mappingContractHash`；
+- 仓库内最终 A/B 演练合同的真实 canonical SHA-256 与冻结 `sourceFacts`；
 - 本预检实现、schema 和 allowlist 字节形成的 `planningContractSha256`；
 - A/B 最终摘要的实际文件 SHA-256；
 - 本次 import manifest 的实际文件 SHA-256；
@@ -74,7 +75,7 @@ T5A（员工档案中已经明确 owner 和字段语义的低风险部分）只�
 
 授权秘密、密码、数据库连接串和账号不得写入 plan、authorization artifact、usage ledger、证据或日志。本切片没有接收授权秘密的参数，因此即使构造了签署齐全的授权工件，也不能执行生产写入。
 
-usage ledger 中出现相同 operation id 时返回 `PRODUCTION_IMPORT_OPERATION_REUSED`；出现相同 authorization artifact hash 时返回 `PRODUCTION_IMPORT_AUTH_REUSED`。过期授权返回 `PRODUCTION_IMPORT_AUTH_STALE`。`intent=production_restore` 返回 `PRODUCTION_IMPORT_AUTH_WRONG_INTENT`。
+usage ledger 中出现相同 operation id 时返回 `PRODUCTION_IMPORT_OPERATION_REUSED`；出现相同 authorization artifact hash 或相同 nonce hash 时返回 `PRODUCTION_IMPORT_AUTH_REUSED`。授权有效期必须完全包含在已固定生产窗口内，且到期时刻按闭区间外处理；过期授权返回 `PRODUCTION_IMPORT_AUTH_STALE`。`intent=production_restore` 返回 `PRODUCTION_IMPORT_AUTH_WRONG_INTENT`。
 
 ## 5. 已有记录冲突规则
 
