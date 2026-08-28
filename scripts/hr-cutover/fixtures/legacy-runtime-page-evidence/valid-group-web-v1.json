@@ -1,0 +1,55 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_legacy_runtime_page_evidence",
+  "surface": "group_web",
+  "batchId": "redacted-group-web-001",
+  "operationMode": "read_only",
+  "sourceContractSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+  "observations": [
+    {
+      "stableId": "group-web:101:group_web_hr:employee-list:page",
+      "familyOrDomain": "employee-list",
+      "legacyId": 101,
+      "roleClass": "group_web_hr",
+      "viewport": "desktop",
+      "locatorSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "pageStructureSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+      "fieldEvidence": [
+        {
+          "stableId": "group-web:101:group_web_hr:employee-list:page:field:employee-code",
+          "labelSha256": "3333333333333333333333333333333333333333333333333333333333333333",
+          "controlType": "text",
+          "required": "unproven",
+          "defaultKind": "unproven",
+          "masked": false
+        }
+      ],
+      "actionEvidence": [
+        {
+          "stableId": "group-web:101:group_web_hr:employee-list:page:action:query",
+          "visible": true,
+          "enabled": true,
+          "executed": false,
+          "preconditionCode": "NONE"
+        }
+      ],
+      "stateEvidence": [],
+      "permissionEvidence": {
+        "expected": "allow",
+        "observed": "unproven",
+        "dataScope": "park",
+        "directRouteChecked": false
+      },
+      "artifact": {
+        "descriptorSha256": "215ebb2c644c2f1de839e5fd4b07362eb51e6e9212b6a8bd816f974683fb6d86",
+        "screenshotSha256": null,
+        "bytes": 0,
+        "externalMode": "0600"
+      },
+      "observationSha256": "019426fdc754615d1e0ba94eec1a578efeca5182395386d260e2ad2cc3e2cc35"
+    }
+  ],
+  "sensitiveScan": "PASS",
+  "humanSignoff": "HOLD",
+  "productionImport": "HOLD"
+}
