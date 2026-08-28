@@ -16,4 +16,4 @@
 - PAM-004：Issue #432、PR #434、squash `087582378e7d603d5ee5f388b312258c29784abf`；review、PR CI、main CI、Deploy 均通过。
 - PAM-005：Issue #433、PR #435、squash `d41407b5fe066adf70ca3f4ae5e613999ed44db6`；review、PR CI、main CI、Deploy 均通过。
 - PAM-004/PAM-005 已由 R5 `20260828-095912` 以 6/6 PASS 完成复测并归档，详见 `docs/uat/pam-fix5-retest-uat-20260828-095912.md`。
-- 最新父任务 §15 隔离轮为 `20260828-112051`：G1 完整 PASS，G4 由浏览器与契约证据闭合；G2/G3/G5/G6/G7 仍有权威子路径 BLOCKED。父任务保持 `in_progress`，详见 `docs/uat/pam-audit-s15-regression-uat-20260828-112051.md`。
+- 父任务 §15 最终证据由首轮 `20260828-112051`、补完轮 `20260828-122122` 与 PR #452 review-fix 新鲜卷重跑共同组成：G1–G7 全 PASS，无产品 FAIL、无新增 Issue。review-fix 补齐 G2 Cartesian、G5 模块双 tab/刷新、G6 Park-B 特异响应、G7 dependency/scope/field/file 安全链，并同步报告权威状态。父任务在 #452 merge 与 main CI/Deploy 双绿后归档，详见 `docs/uat/pam-audit-s15-regression-uat-20260828-122122.md`。

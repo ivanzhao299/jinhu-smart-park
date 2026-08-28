@@ -4,7 +4,7 @@
 
 - Baseline: `origin/main@74104221` on evidence branch `codex/pam-audit-s15-closure-20260828`.
 - Disposable topology: Compose project `jinhu-pam-s15-closure-uat-20260828-122122`, containing PostgreSQL 16 and the API image built from this checkout. PostgreSQL data and API file storage used the project-owned named volumes required by the official safety gate. Web ran on loopback and proxied to the container API.
-- Final result: **G1–G7 PASS; no product FAIL; no new Issue**.
+- Final result after review-fix reruns: **G1–G7 PASS; no product FAIL; no new Issue**.
 - The first §15 round `20260828-112051` remains the authority for G1/G4 and the G5 two-tab/G6 global-selector subset. This closure round executed every item that §8 left open.
 - Evidence root: `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`.
 
@@ -22,21 +22,22 @@
 | Group | Final | Closure evidence |
 | --- | --- | --- |
 | G1 permission → menu quadrants | PASS | Carried from `20260828-112051`: both/page-only/action-only/neither/finance/Track-B browser cases all passed. |
-| G2 module combinations/time windows | PASS | Real Chrome covered legal normal/super/wildcard projections, module disable and restore, future and expired windows. Forbidden business-without-asset states produced explicit product API 409 responses; future/expired business API calls produced explicit 403 responses. |
+| G2 module combinations/time windows | PASS | Review-fix Chrome evidence covers normal/super/wildcard `enabled_modules`, Sidebar, route and API in legal, disabled, asset-only, no-property-module, future and expired states. Business-without-asset is rejected by the product API with 409. |
 | G3 malformed metadata | PASS | A superuser used the product `PATCH /permissions/:id` path to drift `permType`, `action`, and `frontendRoute`; each fresh browser login omitted the canonical housing page and restoration returned it. A test-only malformed-tree contract injects an orphan parent and proves the orphan is skipped rather than promoted. |
 | G4 dual representation / first landing | PASS | Carried from `20260828-112051`: browser cases plus API/Web menu and first-href contracts passed. |
-| G5 authorization refresh | PASS | Prior two-tab add/remove/refresh result is supplemented by module disable/enable with explicit logout → login convergence for normal, wildcard, and super principals. |
-| G6 park switch | PASS | Prior global selector result is supplemented by `/assets/statistics` page-local selector A→B, authoritative `/users/me` park convergence, page-state reload, and 200 responses for scoped statistics/building APIs. |
-| G7 original security regression | PASS | Unmodified official `pnpm test:e2e:property-api` passed both Homestay and Housing suites in the accepted Docker topology. Four real Chrome pages then passed: property operations, field-policy unit board, attachment center, and housing approval deep link. DB evidence confirms 12/12 maker-checker separation and execution, six bound files, and the immutable runtime-control baseline. |
+| G5 authorization refresh | PASS | Prior permission two-tab result plus review-fix module disable/enable on two already-open tabs proves cached DOM, `/users/me`, refresh and explicit relogin convergence under the refresh-after-change contract. |
+| G6 park switch | PASS | Review-fix page-local A→B switch proves authoritative `/users/me`, page state and response-body scope: Park A statistics contain A fixtures, Park B statistics exclude them, and `/buildings` contains only the Park-B-specific `PAMS15BONLY` fixture. |
+| G7 original security regression | PASS | The unmodified property API gate passed both suites. Review-fix API evidence adds Homestay dependency 200→403→409→200, cross-tenant/park/data denials, applied hidden/masked projections, and upload/list/detail/download/delete/post-delete plus bound-file delete protection. Maker-checker and browser deep-link evidence remain PASS. |
 
 ## 4. G2 details
 
 `browser-closure-results.json` records these passing cases:
 
-1. `G2-LEGAL-NORMAL-SUPER-WILDCARD`: normal received its single granted page; wildcard and super received all nine housing pages under the currently valid module set.
+1. `G2-LEGAL-NORMAL-SUPER-WILDCARD`: normal received its single granted page and retained the expected page-only API 403; wildcard and super received all nine housing pages and a 200 business API response.
 2. `G2-G5-MODULE-DISABLE-RELOGIN`: after product API disable, all three principals explicitly logged out and back in with no housing menu; after enable, normal login converged back to the granted page.
 3. `G2-FORBIDDEN-BUSINESS-WITHOUT-ASSET`: disabling asset while dependants were active returned 409. After legally disabling both property dependants and asset, enabling housing without asset also returned 409. The original state was restored through product APIs.
-4. `G2-FUTURE-WINDOW` and `G2-EXPIRED-WINDOW`: normal, wildcard, and super browser menus all failed closed. The normal principal's direct housing business request returned 403 with the API error envelope.
+4. `G2-FUTURE-WINDOW` and `G2-EXPIRED-WINDOW`: normal, wildcard, and super all excluded housing from `enabled_modules` and Sidebar, used the safe route, and received an explicit 403 from the housing business API.
+5. Review-fix `G2-FORBIDDEN-BUSINESS-WITHOUT-ASSET` additionally records all three principals in asset-only and no-property-module states. Each state excluded housing from `enabled_modules`/Sidebar and returned 403; illegal business-without-asset enable returned 409.
 
 Full request URLs/statuses are in `network/browser-closure-network.json`; product-control-plane setup is in `network/phase-fixture-network.json`.
 
@@ -52,18 +53,19 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 
 ## 6. G5 and G6 details
 
-- G5 final coverage combines the prior `G5-TWO-TAB-ADD-REMOVE-REFRESH` case with this round's module toggle and explicit relogin case. It therefore covers cached tabs, refresh, logout, relogin, permission changes, and module changes.
+- G5 final coverage combines the prior `G5-TWO-TAB-ADD-REMOVE-REFRESH` permission case, the explicit relogin case, and review-fix `G5-MODULE-TWO-TAB-REFRESH`. Two already-open `/dashboard` tabs retained cached Sidebar state immediately after the admin toggle, then both removed/restored housing after refresh; fresh `/users/me` and API responses failed closed throughout the transition.
 - G6 entered `/assets/statistics`, used `.asset-park-context-selector select`, converged from Park A `20000001` to the isolated product-created Park B `25892265`, and asserted:
   - authoritative `/users/me` returned the target park;
   - `POST /auth/switch-context` returned 200;
   - `GET /assets/statistics` returned 200 after switching;
   - `GET /buildings` returned 200 after switching;
   - the selector left its busy state and the page remained rendered.
+- Review-fix response assertions remove the 200-only ambiguity: Park A statistics contained five units and A fixtures; Park B statistics contained zero units and no A building; the Park B `/buildings` response contained `PAMS15BONLY` with `parkId=28379088` and excluded Park A codes.
 
 ## 7. G7 details
 
 - Official gate report: `property-api-e2e-report-final.json` with `status=passed`, suites `homestay=passed` and `housing=passed`.
-- The gate covered real asset operating-state changes, cross-scope denials, distinct approval actors, hidden/masked field policies, and the five-part file chain including upload/list/detail-download/delete protection and `biz_id` association. Housing approval/effect flows passed through checkout.
+- The gate covered real property workflows and distinct approval actors. Review-fix supplemental evidence separately proves the security cells that the two gate scripts do not claim by themselves.
 - Real Chrome follow-up passed:
   - `/assets/property-operations` with `GET /property/operations` 200;
   - `/assets/unit-status-board` with `GET /assets/unit-status-board` 200;
@@ -75,6 +77,12 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
   - all 12 decisions had `requester_id <> actor_id`, `decision_status=approved`, and `execution_status=executed`;
   - six files existed and all six had a non-null business association;
   - 180 active hidden/masked field policies existed in the isolated tenant.
+- Review-fix security cases:
+  - Homestay dependency: dashboard 200 before disable, 403 with property modules disabled, illegal homestay-before-asset restore 409, then 200 after asset→homestay restoration.
+  - Scope: Park B received 404 for Park A lease/file detail/download/delete; a same-park `dataScope=self` principal received 403 for another actor's lease; a second product-created tenant received 404 for the Park A lease/file/detail download.
+  - Field projection: a non-super normal role with explicit `housing:tenant:read` received two tenant records with `displayName` removed and `verificationStatus` masked.
+  - File chain: pending upload/list/detail/download byte equality/delete/post-delete 404 all passed; deleting the signed bound file returned 409.
+  - Maker-checker DB evidence remained 12/12 separated, approved and executed.
 
 ## 8. Harness findings and reruns
 
@@ -83,6 +91,7 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - Running G2 asset disable after the G7 fixture produced `Asset runtime control state is partial or inconsistent`: the G7 fixture had intentionally enabled two version-4 runtime controls. The disposable project was destroyed with both volumes, recreated, and the deterministic order was changed to G2/G3/G5/G6 → G7 fixture/gate. The final run passed. This was an environment-order conflict, not a product failure.
 - The first orphan-parent contract assertion incorrectly expected the entire fallback menu to be empty; it was corrected to assert the orphan itself is absent. The final 13/13 test file passed.
 - The G7 Chrome login form did not dispatch a request under the small standalone Ant Form harness. The final accepted run called the real login API, kept the access token in memory only, injected it into the dedicated same-origin CDP profile, and executed every page/network assertion in Chrome.
+- Review round 1 produced five valid coverage/authority findings. Early review-fix runner attempts calibrated page-only API expectations (403 by design) and the sticky `/403` route; the accepted G5 run used two already-open module-free `/dashboard` tabs, matching the refresh-after-change contract. These were harness expectation failures, not product failures.
 
 ## 9. Evidence index
 
@@ -93,14 +102,16 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - G7 API: `logs/property-api-e2e-fixtures-final.log`, `logs/property-api-e2e-final.log`, `property-api-e2e-report-final.json`.
 - G7 browser: `g7-browser-results.json`, `network/g7-browser-network.json`, `logs/g7-browser-cdp-injection.log`.
 - G7 DB: `db/g7-before-counts.txt`, `db/g7-after-counts.txt`, `db/g7-actor-separation.txt`.
+- Review fixes: `review-fix-setup-results.json`, `browser-review-fix-results.json`, `g5-review-diagnostic.json`, `g7-security-review-fix-results.json`, `g7-asset-dependency-review-fix-results.json`, matching `network/*review-fix*.json`, `db/g7-review-fix-*.txt`, and accepted `logs/*review-fix*.log`.
 - Screenshots: 19 PNG files under `screenshots/`, including G2 legal/disabled/window states, G3 drift/restoration, G6 local switch, and four G7 pages.
-- Integrity: `evidence-SHA256SUMS` and `screenshots/SHA256SUMS` (62 evidence files and 19 screenshots at manifest creation time). Temporary env and runner source files were excluded; no credentials or tokens are present in the report/manifests.
+- Integrity: original `evidence-SHA256SUMS` / `screenshots/SHA256SUMS`, plus review-fix `evidence-SHA256SUMS-review-fix` / `screenshots/SHA256SUMS-review-fix` (116 evidence files and 24 screenshots). Temporary env and runner source files were excluded; no credentials or tokens are present in the manifests.
 
 ## 10. Teardown and archive decision
 
 - Dedicated Chrome profiles were closed and removed; Web dev was stopped.
 - `docker compose down -v --remove-orphans` removed the API and PostgreSQL containers, project network, PostgreSQL volume, and API file volume.
-- Final independent checks: project containers `0`, project volumes `0`, project network `0`, ports `33000/33001/55432` free.
+- Review fixes used two additional fresh project-owned volume lifecycles: one for the complete matrix/security rerun and one minimal Homestay dependency restore rerun. Each ended with `docker compose down -v --remove-orphans`.
+- Final independent checks after the last rerun: project containers `0`, project volumes `0`, project network `0`, ports `33000/33001/55432/9615/9616` free.
 - **Archive decision: §15 is fully closed. The parent task may be archived after PR review, PR CI, squash merge, and main CI/Deploy are green.**
 
 ## 11. Repository quality checks
@@ -112,3 +123,9 @@ Full request URLs/statuses are in `network/browser-closure-network.json`; produc
 - `git diff --check`: PASS.
 - Trellis task validation: PASS, with only pre-existing context-size warnings.
 - `pnpm test`: not accepted as a repository-quality result in this post-teardown phase because this command starts the S1 API/database smoke and the disposable API had already been intentionally removed; it stopped at `API did not become reachable`. The authoritative isolated API safety gate had already passed before teardown.
+
+## 12. Review closure
+
+- PR #452 review round 1 returned five findings; all were accepted as valid and addressed with real reruns or authority synchronization.
+- Accepted review-fix outcomes: G2 Cartesian cells PASS, G5 module two-tab/refresh PASS, G6 Park-B-specific response assertions PASS, G7 supplemental security chain PASS, and both authoritative audit status records updated in the same PR.
+- No product failure was observed during the accepted runs. No Issue was opened.

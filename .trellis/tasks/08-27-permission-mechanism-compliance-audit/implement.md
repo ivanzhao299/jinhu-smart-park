@@ -19,6 +19,7 @@
 - 补完轮 `20260828-122122`：在一次性 API+PostgreSQL Compose、独立 PostgreSQL/文件卷和本地 Web/专用 Chrome profile 上完成剩余五项。G2 normal/super/wildcard、模块组合、future/expired 与负向 API PASS；G3 三种产品 API 漂移与 test-only orphan-parent PASS；G5 module toggle + logout/relogin PASS；G6 asset page-local switch/page-state/scoped API PASS；G7 未修改官方 property API safety gate 两 suite PASS，G7 四个浏览器页、Network、DB maker-checker/file/field evidence PASS。
 - 证据索引：`docs/uat/pam-audit-s15-regression-uat-20260828-122122.md`；临时根 `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`；最终 teardown 为 project containers/volumes/network 0 且端口释放。
 - 最终组级状态：G1–G7 全 PASS，无产品 FAIL，无新增 Issue。下一起点：运行 Trellis quality check，提交/推送证据分支，PR review ≤3、CI、squash merge、main CI/Deploy 双绿后归档父任务。
+- PR #452 review round 1 的五项 finding 全部点验为有效。以两个额外 fresh-volume lifecycle 补跑 G2 Cartesian、G5 module two-tab/refresh、G6 Park-B-specific body、G7 Homestay dependency/cross-scope/field/file；均 PASS。审计报告与 `decision-record.md` 的旧 BLOCKED 权威状态在同一 PR 同步。review-fix 证据继续归入 `/tmp/jinhu-pam-s15-closure-uat-20260828-122122/`，最终 project containers/volumes/network 与五端口均归零。
 
 ## 验证与停止条件
 
