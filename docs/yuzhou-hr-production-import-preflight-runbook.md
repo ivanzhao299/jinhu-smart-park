@@ -165,7 +165,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 ## 8. 已实现但默认不可达的生产控制面
 
-`000278_hr_yuzhou_production_import_control.sql`、`production-import-sealed-plan-lib.mjs` 和
+`000278_hr_yuzhou_production_import_control.sql`、`000281_hr_yuzhou_production_import_control_v2.sql`、`production-import-sealed-plan-lib.mjs` 和
 `production-import-writer.mjs` 已建立生产写入所需的最小控制面，但仓库内执行合同继续保持：
 
 - `activation.status=HOLD`；
@@ -174,16 +174,24 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 - 无 CLI、workflow、普通 deploy、seed 或 lab runner 引用写入口；
 - 数据库函数和控制表均撤销 `PUBLIC` 权限，未来只能向一次性最小角色临时授权。
 
-sealed plan 只允许 T0→T3，逐来源记录固定 `insert|merge|quarantine|skip_approved`。T1～T3
-必须引用 T0 的稳定 source identity，禁止姓名匹配和自动创建登录账号。`merge` 必须绑定外部 KEK
+v2 sealed plan 只允许 T0→T3，逐来源记录固定 `insert|merge|quarantine|skip_approved`。计划、授权、
+数据库 operation receipt 和每个 payload bundle 同时绑定固定 tenant/park scope hash；每阶段还绑定原始
+artifact hash、canonical bundle hash、canonicalization version 和逐记录 payload hash。执行时不得从
+环境变量或未封存 staging 路径补充业务 scope 或 payload。
+
+v2 不再把所有 T1～T3 记录伪绑到某一员工。每条记录即使进入 quarantine 也保留
+`plannedTargetTable`，并按版本化依赖矩阵区分园区级记录、T0 员工归属和父记录依赖图。例如合同类型、
+考勤批次、符号规则和社保政策属于园区 scope；合同同时依赖员工与合同类型；合同变更依赖主合同；
+保险明细依赖保险期间。数据库使用可延迟外键和约束触发器复核完整依赖图，非隔离记录的依赖必须指向
+同一 operation 中实际存在、未隔离且目标表/ID匹配的记录。仍禁止姓名匹配和自动创建登录账号。`merge` 必须绑定外部 KEK
 管理的 AES-256-GCM before-image、明文 canonical hash 和目标行 CAS hash；回退只能删除本 operation
 插入的记录，或在目标仍等于导入后 hash 时恢复加密 before-image。
 
 封存计划必须逐字节绑定代码/源/映射三元组、唯一生产目标、执行窗口、import manifest、A/B 各自不同的
 manifest 与 cleanup 审计（两边 `residualCount=0`），以及 HR、数据安全、发布三个不同主体的签署决定摘要。
-授权有效期必须完全包含在执行窗口内；writer 还要求当前代码、已合并代码和数据库 adapter 目标身份与
-封存值一致。T1～T3 的 owner source identity 必须在同一计划 T0 record map 中存在，发生目标写入时还
-必须精确映射到非隔离的 `hr_employee`，随机哈希或姓名推断均不能通过应用与数据库双层门禁。
+授权有效期必须完全包含在执行窗口内；writer 还要求当前代码、已合并代码、数据库 adapter 目标身份、
+tenant/park scope 和 payload bundle 字节与封存值一致。员工依赖必须精确指向同一计划中的 T0
+`hr_employee` record map；父记录依赖必须指向矩阵规定的表，随机哈希或姓名推断均不能通过应用与数据库双层门禁。
 
 一次性授权消费与业务写入不是同一事务：
 
@@ -211,6 +219,14 @@ authorization receipt。
 6. RTO/RPO、值班、暂停和回退职责签署；
 7. 新的一次性 import 授权与独立的灾备 restore 授权分别建立；
 8. 写入口使用新的最小临时角色、独立提交的一次性授权消费、完成即撤权和实际 residual/hash 检查；
-9. 再次证明普通 deploy、seed、migration 和 lab runner 无法调用写入口。
+9. 具体 phase writer 与控制回执使用可审计的 COPY/分批写入，并在真实 T3 规模下完成性能、事务时长、
+   失败回滚和连接中断演练；当前通用控制 writer 不得被描述为已通过大数据生产吞吐验收；
+10. 再次证明普通 deploy、seed、migration 和 lab runner 无法调用写入口。
+
+`000281` 仍然只是 `HOLD` 状态下的执行绑定和数据库控制合同，不提供生产 CLI、workflow、具体 T0～T3
+phase writer、临时角色 provisioner 或灾备 restore 入口。通过 v2 合同测试、空库迁移、checksum replay
+和隔离 PostgreSQL 依赖图测试，只证明受控输入和关系模型可以继续实现下一切片，不代表已获得生产写入授权。
+主 CI 固定执行 preflight 与 v2 合同测试；数据库敏感 Release Smoke 还会从已迁移的临时数据库克隆一份
+精确命名的 lab 数据库，执行 scope、依赖图、v1兼容、普通角色拒绝和 residual=0 PostgreSQL 合同后删除该 lab 数据库。
 
 在上述事项完成前，生产历史导入继续 `HOLD`。

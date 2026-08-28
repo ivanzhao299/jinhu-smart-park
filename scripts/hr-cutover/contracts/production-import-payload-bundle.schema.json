@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-production-import-payload-bundle-v2.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "artifactKind", "phase", "targetScope", "canonicalizationVersion", "sourceBatchManifestSha256", "records"],
+  "properties": {
+    "formatVersion": { "const": 2 },
+    "artifactKind": { "const": "yuzhou_hr_production_import_payload_bundle" },
+    "phase": { "enum": ["T0", "T1", "T2", "T3"] },
+    "targetScope": { "$ref": "#/$defs/targetScope" },
+    "canonicalizationVersion": { "const": "yuzhou-production-import-canonical-json-v1" },
+    "sourceBatchManifestSha256": { "$ref": "#/$defs/sha256" },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceIdentitySha256", "sourceRowSha256", "targetTable", "payloadSha256", "payload"],
+        "properties": {
+          "sourceIdentitySha256": { "$ref": "#/$defs/sha256" },
+          "sourceRowSha256": { "$ref": "#/$defs/sha256" },
+          "targetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" },
+          "payloadSha256": { "$ref": "#/$defs/sha256" },
+          "payload": { "$ref": "#/$defs/jsonObject" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "scopeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$" },
+    "targetScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenantId", "parkId", "scopeSha256"],
+      "properties": {
+        "tenantId": { "$ref": "#/$defs/scopeId" },
+        "parkId": { "$ref": "#/$defs/scopeId" },
+        "scopeSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "jsonObject": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+    },
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "string" },
+        { "type": "boolean" },
+        { "type": "integer", "minimum": -9007199254740991, "maximum": 9007199254740991 },
+        { "type": "array", "items": { "$ref": "#/$defs/jsonValue" } },
+        { "$ref": "#/$defs/jsonObject" }
+      ]
+    }
+  }
+}

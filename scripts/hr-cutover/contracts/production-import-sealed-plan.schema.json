@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-production-import-sealed-plan-v1.json",
+  "$id": "https://park.cnjinhu.com/schemas/hr-yuzhou-production-import-sealed-plan-v2.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"],
+  "required": ["formatVersion", "planKind", "operationId", "intent", "status", "triple", "target", "targetScope", "window", "authorization", "manifestSha256", "finalRehearsalPair", "phaseOrder", "phases", "rollback", "sealing", "productionImport"],
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2 },
     "planKind": { "const": "yuzhou_hr_production_import_sealed_execution_plan" },
     "operationId": { "type": "string", "pattern": "^yzprod-import-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}$" },
     "intent": { "const": "production_import" },
@@ -20,6 +20,7 @@
       "required": ["environment", "alias", "identitySha256"],
       "properties": { "environment": { "const": "production" }, "alias": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{5,63}$" }, "identitySha256": { "$ref": "#/$defs/sha256" } }
     },
+    "targetScope": { "$ref": "#/$defs/targetScope" },
     "window": {
       "type": "object", "additionalProperties": false,
       "required": ["startsAt", "endsAt"],
@@ -33,9 +34,9 @@
         "artifactSha256": { "$ref": "#/$defs/sha256" }, "nonceSha256": { "$ref": "#/$defs/sha256" }, "issuedAt": { "type": "string", "format": "date-time" }, "expiresAt": { "type": "string", "format": "date-time" },
         "binding": {
           "type": "object", "additionalProperties": false,
-          "required": ["triple", "targetIdentitySha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"],
+          "required": ["triple", "targetIdentitySha256", "targetScopeSha256", "finalRehearsalPairSha256", "manifestSha256", "windowStartsAt", "windowEndsAt"],
           "properties": {
-            "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
+            "triple": { "$ref": "#/$defs/triple" }, "targetIdentitySha256": { "$ref": "#/$defs/sha256" }, "targetScopeSha256": { "$ref": "#/$defs/sha256" }, "finalRehearsalPairSha256": { "$ref": "#/$defs/sha256" }, "manifestSha256": { "$ref": "#/$defs/sha256" },
             "windowStartsAt": { "type": "string", "format": "date-time" }, "windowEndsAt": { "type": "string", "format": "date-time" }
           }
         },
@@ -86,6 +87,12 @@
       "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
       "properties": { "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sourceSnapshotHash": { "$ref": "#/$defs/sha256" }, "mappingContractHash": { "$ref": "#/$defs/sha256" } }
     },
+    "scopeId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$" },
+    "targetScope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tenantId", "parkId", "scopeSha256"],
+      "properties": { "tenantId": { "$ref": "#/$defs/scopeId" }, "parkId": { "$ref": "#/$defs/scopeId" }, "scopeSha256": { "$ref": "#/$defs/sha256" } }
+    },
     "rehearsalBase": {
       "type": "object", "additionalProperties": false,
       "required": ["rehearsal", "manifestSha256", "cleanupAuditSha256", "residualCount"],
@@ -95,18 +102,20 @@
     "rehearsalB": { "allOf": [{ "$ref": "#/$defs/rehearsalBase" }, { "properties": { "rehearsal": { "const": "B" } } }] },
     "phase": {
       "type": "object", "additionalProperties": false,
-      "required": ["phase", "ordinal", "sourceBatchManifestSha256", "beforeCanonicalSha256", "expectedAfterCanonicalSha256", "records"],
+      "required": ["phase", "ordinal", "sourceBatchManifestSha256", "payloadBundleArtifactSha256", "payloadBundleSha256", "canonicalizationVersion", "beforeCanonicalSha256", "expectedAfterCanonicalSha256", "records"],
       "properties": {
         "phase": { "enum": ["T0", "T1", "T2", "T3"] }, "ordinal": { "type": "integer", "minimum": 0, "maximum": 3 },
-        "sourceBatchManifestSha256": { "$ref": "#/$defs/sha256" }, "beforeCanonicalSha256": { "$ref": "#/$defs/sha256" }, "expectedAfterCanonicalSha256": { "$ref": "#/$defs/sha256" },
+        "sourceBatchManifestSha256": { "$ref": "#/$defs/sha256" }, "payloadBundleArtifactSha256": { "$ref": "#/$defs/sha256" }, "payloadBundleSha256": { "$ref": "#/$defs/sha256" }, "canonicalizationVersion": { "const": "yuzhou-production-import-canonical-json-v1" }, "beforeCanonicalSha256": { "$ref": "#/$defs/sha256" }, "expectedAfterCanonicalSha256": { "$ref": "#/$defs/sha256" },
         "records": { "type": "array", "items": { "$ref": "#/$defs/record" } }
       }
     },
     "record": {
       "type": "object", "additionalProperties": false,
-      "required": ["sourceIdentitySha256", "sourceRowSha256", "disposition"],
+      "required": ["sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"],
       "properties": {
-        "sourceIdentitySha256": { "$ref": "#/$defs/sha256" }, "sourceRowSha256": { "$ref": "#/$defs/sha256" }, "ownerSourceIdentitySha256": { "$ref": "#/$defs/sha256" },
+        "sourceIdentitySha256": { "$ref": "#/$defs/sha256" }, "sourceRowSha256": { "$ref": "#/$defs/sha256" }, "payloadSha256": { "$ref": "#/$defs/sha256" }, "plannedTargetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" },
+        "dependencyMode": { "enum": ["scope", "employee", "record_graph"] },
+        "dependencyRefs": { "type": "array", "items": { "$ref": "#/$defs/dependencyRef" } },
         "disposition": { "enum": ["insert", "merge", "quarantine", "skip_approved"] }, "targetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" }, "targetId": { "type": "string", "format": "uuid" },
         "expectedTargetBeforeSha256": { "$ref": "#/$defs/sha256" }, "expectedTargetAfterSha256": { "$ref": "#/$defs/sha256" }, "decisionAttestationSha256": { "$ref": "#/$defs/sha256" },
         "beforeImage": {
@@ -119,6 +128,16 @@
           "required": ["reasonCode", "algorithm", "payloadCiphertextSha256", "keyReferenceSha256"],
           "properties": { "reasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$" }, "algorithm": { "const": "aes-256-gcm-external-kek-v1" }, "payloadCiphertextSha256": { "$ref": "#/$defs/sha256" }, "keyReferenceSha256": { "$ref": "#/$defs/sha256" } }
         }
+      }
+    },
+    "dependencyRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "phase", "sourceIdentitySha256", "expectedTargetTable"],
+      "properties": {
+        "role": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+        "phase": { "enum": ["T0", "T1", "T2", "T3"] },
+        "sourceIdentitySha256": { "$ref": "#/$defs/sha256" },
+        "expectedTargetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" }
       }
     }
   }

@@ -3,7 +3,9 @@ import {
   ProductionImportExecutionError,
   assertProductionImportExecutionActivated,
   computeProductionImportApprovalSetHash,
+  computeProductionImportPayloadBundleHash,
   productionImportHash,
+  validateProductionImportPayloadBundle,
   validateProductionImportRollbackAuthorization,
   validateSealedProductionImportPlan,
 } from "./production-import-sealed-plan-lib.mjs";
@@ -15,8 +17,36 @@ const asBuffer = (value, label) => {
 };
 const assertSha = (value, label) => { if (!/^[0-9a-f]{64}$/u.test(value ?? "")) fail("PRODUCTION_IMPORT_WRITER_RESULT_INVALID", `${label} invalid`); };
 
-function validatePhaseResults(phase, result) {
+function validatePhasePayloadBundle(phase, targetScope, artifact) {
+  const bytes = asBuffer(artifact, `${phase.phase}.payloadBundleArtifact`);
+  if (productionImportHash(bytes) !== phase.payloadBundleArtifactSha256) fail("PRODUCTION_IMPORT_PAYLOAD_ARTIFACT_HASH_MISMATCH", phase.phase);
+  let parsed;
+  try {
+    parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_INVALID", `${phase.phase} artifact is not JSON`);
+  }
+  const bundle = validateProductionImportPayloadBundle(parsed, {
+    phase: phase.phase,
+    targetScope,
+    sourceBatchManifestSha256: phase.sourceBatchManifestSha256,
+    canonicalizationVersion: phase.canonicalizationVersion,
+  });
+  if (computeProductionImportPayloadBundleHash(bundle) !== phase.payloadBundleSha256) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_HASH_MISMATCH", phase.phase);
+  if (bundle.records.length !== phase.records.length) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", `${phase.phase} record count differs`);
+  const planned = new Map(phase.records.map(record => [record.sourceIdentitySha256, record]));
+  for (const row of bundle.records) {
+    const record = planned.get(row.sourceIdentitySha256);
+    if (!record || row.sourceRowSha256 !== record.sourceRowSha256 || row.payloadSha256 !== record.payloadSha256 || row.targetTable !== record.plannedTargetTable) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", `${phase.phase}.${row.sourceIdentitySha256}`);
+    planned.delete(row.sourceIdentitySha256);
+  }
+  if (planned.size !== 0) fail("PRODUCTION_IMPORT_PAYLOAD_BUNDLE_BINDING_MISMATCH", `${phase.phase} planned record absent from bundle`);
+  return bundle;
+}
+
+function validatePhaseResults(phase, targetScope, result) {
   if (!result || typeof result !== "object" || !Array.isArray(result.records) || result.records.length !== phase.records.length) fail("PRODUCTION_IMPORT_WRITER_RESULT_INVALID", `${phase.phase} result count differs`);
+  if (result.payloadBundleArtifactSha256 !== phase.payloadBundleArtifactSha256 || result.payloadBundleSha256 !== phase.payloadBundleSha256 || result.canonicalizationVersion !== phase.canonicalizationVersion || result.targetScopeSha256 !== targetScope.scopeSha256) fail("PRODUCTION_IMPORT_WRITER_RESULT_INVALID", `${phase.phase} payload/scope receipt differs`);
   assertSha(result.afterCanonicalSha256, `${phase.phase}.afterCanonicalSha256`);
   if (result.afterCanonicalSha256 !== phase.expectedAfterCanonicalSha256) fail("PRODUCTION_IMPORT_CANONICAL_HASH_MISMATCH", phase.phase);
   const expected = new Map(phase.records.map(record => [record.sourceIdentitySha256, record]));
@@ -48,13 +78,21 @@ function validatePhaseResults(phase, result) {
 }
 
 async function recordControlRows(tx, operationId, phase, result) {
+  const resultBySourceIdentity = new Map(result.records.map(row => [row.sourceIdentitySha256, row]));
   for (const planned of phase.records) {
-    const row = result.records.find(candidate => candidate.sourceIdentitySha256 === planned.sourceIdentitySha256);
+    const row = resultBySourceIdentity.get(planned.sourceIdentitySha256);
     await tx.query(
-      `INSERT INTO hr_yuzhou_production_import_record(operation_id,phase,source_identity_sha256,source_row_sha256,owner_source_identity_sha256,disposition,target_table,target_id,expected_target_before_sha256,target_after_sha256,decision_attestation_sha256)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [operationId, phase.phase, planned.sourceIdentitySha256, planned.sourceRowSha256, planned.ownerSourceIdentitySha256 ?? null, planned.disposition, planned.targetTable ?? null, row.targetId ?? null, planned.expectedTargetBeforeSha256 ?? null, row.targetAfterSha256 ?? null, planned.decisionAttestationSha256 ?? null],
+      `INSERT INTO hr_yuzhou_production_import_record(operation_id,phase,source_identity_sha256,source_row_sha256,owner_source_identity_sha256,disposition,planned_target_table,target_table,target_id,expected_target_before_sha256,target_after_sha256,decision_attestation_sha256)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [operationId, phase.phase, planned.sourceIdentitySha256, planned.sourceRowSha256, null, planned.disposition, planned.plannedTargetTable, planned.targetTable ?? null, row.targetId ?? null, planned.expectedTargetBeforeSha256 ?? null, row.targetAfterSha256 ?? null, planned.decisionAttestationSha256 ?? null],
     );
+    for (const dependency of planned.dependencyRefs) {
+      await tx.query(
+        `INSERT INTO hr_yuzhou_production_import_record_dependency(operation_id,phase,source_identity_sha256,dependency_role,depends_on_phase,depends_on_source_identity_sha256,expected_target_table)
+         VALUES($1,$2,$3,$4,$5,$6,$7)`,
+        [operationId, phase.phase, planned.sourceIdentitySha256, dependency.role, dependency.phase, dependency.sourceIdentitySha256, dependency.expectedTargetTable],
+      );
+    }
     if (planned.disposition === "merge") {
       await tx.query(
         `INSERT INTO hr_yuzhou_production_import_before_image(operation_id,phase,source_identity_sha256,plaintext_sha256,ciphertext_sha256,key_reference_sha256,nonce,authentication_tag,ciphertext,algorithm)
@@ -78,15 +116,18 @@ export async function executeSealedProductionImport(planInput, options) {
   assertProductionImportExecutionActivated(plan, contract);
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
   if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
+  if (!options?.targetScope || options.targetScope.tenantId !== plan.targetScope.tenantId || options.targetScope.parkId !== plan.targetScope.parkId || options.targetScope.scopeSha256 !== plan.targetScope.scopeSha256) fail("PRODUCTION_IMPORT_TARGET_SCOPE_MISMATCH", "database adapter scope differs from sealed target scope");
   if (!options?.database || typeof options.database.transaction !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "database transaction adapter missing");
   for (const phase of plan.phaseOrder) if (typeof options.phaseWriters?.[phase] !== "function") fail("PRODUCTION_IMPORT_PHASE_WRITER_REQUIRED", phase);
+  const payloadBundles = new Map();
+  for (const phase of plan.phases) payloadBundles.set(phase.phase, validatePhasePayloadBundle(phase, plan.targetScope, options.payloadBundles?.[phase.phase]));
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_import_authorization" }, async tx => {
     if (!tx || typeof tx.query !== "function") fail("PRODUCTION_IMPORT_DATABASE_ADAPTER_REQUIRED", "transaction query adapter missing");
     await tx.query(
-      "SELECT hr_yuzhou_consume_import_authorization($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)",
+      "SELECT hr_yuzhou_consume_import_authorization_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)",
       [
         plan.operationId, plan.triple.codeSha, plan.triple.sourceSnapshotHash, plan.triple.mappingContractHash,
-        plan.sealing.sealedPlanSha256, plan.target.identitySha256, plan.authorization.artifactSha256,
+        plan.sealing.sealedPlanSha256, plan.target.identitySha256, plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256, plan.authorization.artifactSha256,
         plan.authorization.nonceSha256, plan.authorization.issuedAt, plan.authorization.expiresAt,
         plan.window.startsAt, plan.window.endsAt, computeProductionImportApprovalSetHash(plan.authorization.approvalSet),
         plan.manifestSha256, plan.finalRehearsalPair.artifactSha256,
@@ -100,11 +141,11 @@ export async function executeSealedProductionImport(planInput, options) {
     await tx.query("SELECT hr_yuzhou_start_production_import($1,$2)", [plan.operationId, plan.sealing.sealedPlanSha256]);
     for (const phase of plan.phases) {
       await tx.query(
-        `INSERT INTO hr_yuzhou_production_import_phase(operation_id,phase,phase_ordinal,status,source_batch_manifest_sha256,planned_record_count,before_canonical_sha256,started_at)
-         VALUES($1,$2,$3,'running',$4,$5,$6,now())`,
-        [plan.operationId, phase.phase, phase.ordinal, phase.sourceBatchManifestSha256, phase.records.length, phase.beforeCanonicalSha256],
+        `INSERT INTO hr_yuzhou_production_import_phase(operation_id,phase,phase_ordinal,status,source_batch_manifest_sha256,payload_bundle_artifact_sha256,payload_bundle_sha256,canonicalization_version,planned_record_count,before_canonical_sha256,started_at)
+         VALUES($1,$2,$3,'running',$4,$5,$6,$7,$8,$9,$10,now())`,
+        [plan.operationId, phase.phase, phase.ordinal, phase.sourceBatchManifestSha256, phase.payloadBundleArtifactSha256, phase.payloadBundleSha256, phase.canonicalizationVersion, phase.records.length, phase.beforeCanonicalSha256],
       );
-      const result = validatePhaseResults(phase, await options.phaseWriters[phase.phase]({ tx, operationId: plan.operationId, phase: structuredClone(phase) }));
+      const result = validatePhaseResults(phase, plan.targetScope, await options.phaseWriters[phase.phase]({ tx, operationId: plan.operationId, targetScope: structuredClone(plan.targetScope), phase: structuredClone(phase), payloadBundle: structuredClone(payloadBundles.get(phase.phase)) }));
       await recordControlRows(tx, plan.operationId, phase, result);
       await tx.query(
         `UPDATE hr_yuzhou_production_import_phase SET status='succeeded',applied_record_count=$3,after_canonical_sha256=$4,finished_at=now()
@@ -135,6 +176,7 @@ export async function rollbackSealedProductionImport(planInput, rollbackAuthoriz
   const rollbackAuthorization = validateProductionImportRollbackAuthorization(rollbackAuthorizationInput, plan, { now: options?.now ?? new Date() });
   if (options?.currentCodeSha !== plan.triple.codeSha || options?.mergedCodeSha !== plan.triple.codeSha) fail("PRODUCTION_IMPORT_CODE_SHA_MISMATCH", "current and merged code must equal the sealed SHA");
   if (options?.targetIdentitySha256 !== plan.target.identitySha256) fail("PRODUCTION_IMPORT_TARGET_IDENTITY_MISMATCH", "database adapter target differs from sealed target");
+  if (!options?.targetScope || options.targetScope.tenantId !== plan.targetScope.tenantId || options.targetScope.parkId !== plan.targetScope.parkId || options.targetScope.scopeSha256 !== plan.targetScope.scopeSha256) fail("PRODUCTION_IMPORT_TARGET_SCOPE_MISMATCH", "database adapter scope differs from sealed target scope");
   if (!options?.database || typeof options.database.transaction !== "function" || typeof options.rollbackRecord !== "function") fail("PRODUCTION_IMPORT_ROLLBACK_ADAPTER_REQUIRED", "rollback adapter missing");
   await options.database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "consume_rollback_authorization" }, async tx => {
     await tx.query(
