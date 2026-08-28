@@ -66,6 +66,7 @@
     "test:e2e:yuzhou-legacy-group-web-live-runtime": "node scripts/e2e/yuzhou-legacy-group-web-live-runtime-contract.mjs && node scripts/e2e/yuzhou-legacy-group-web-module-mapping-contract.mjs && node scripts/e2e/yuzhou-legacy-group-web-source-audit-contract.mjs && node scripts/e2e/yuzhou-legacy-web-runtime-topology-contract.mjs && node scripts/e2e/yuzhou-legacy-group-web-implementation-coverage-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-task-card": "node --test scripts/e2e/yuzhou-live-role-uat-task-card-contract.mjs",
     "test:e2e:yuzhou-live-role-uat-evidence": "node --test scripts/e2e/yuzhou-live-role-uat-evidence-contract.mjs",
+    "test:e2e:yuzhou-live-role-uat-recorder": "node --test scripts/e2e/yuzhou-live-role-uat-recorder-contract.mjs",
     "hr:migration:group-web:implementation-coverage": "node scripts/hr-cutover/report-legacy-group-web-implementation-coverage.mjs",
     "test:e2e:yuzhou-legacy-dual-source-reconciliation": "node scripts/e2e/yuzhou-legacy-dual-source-reconciliation-contract.mjs",
     "hr:migration:group-web:profile": "sh scripts/extract-yuzhou-group-web-profile.sh",

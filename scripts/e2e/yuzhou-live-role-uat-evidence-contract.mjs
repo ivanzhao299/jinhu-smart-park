@@ -37,6 +37,11 @@ function passingEvidence(rehearsal) {
       negative: item.negative.map(id => ({ id, status: "PASS" })),
       browser: Object.fromEntries(taskCard.viewports.map(viewport => [viewport.id, {
         status: "PASS",
+        width: viewport.width,
+        height: viewport.height,
+        mobile: viewport.mobile,
+        clientWidth: viewport.width,
+        scrollWidth: viewport.width,
         assertions: taskCard.browserAssertions
       }])),
       auditStatus: "PASS"
@@ -68,6 +73,7 @@ test("failed, incomplete, drifted, unsafe or resource-reused evidence fails clos
     [pair => { pair.A.items[0].positive[0].status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_CHECK_FAILED"],
     [pair => { pair.B.items.pop(); }, "YUZHOU_UAT_EVIDENCE_ITEM_DRIFT"],
     [pair => { pair.A.items[0].browser.phone_390.status = "FAIL"; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
+    [pair => { pair.A.items[0].browser.phone_390.scrollWidth = 391; }, "YUZHOU_UAT_EVIDENCE_BROWSER_FAILED"],
     [pair => { pair.B.triple.mappingContractHash = "4".repeat(64); }, "YUZHOU_UAT_EVIDENCE_TRIPLE_MISMATCH"],
     [pair => { pair.B.targetIdentityHash = pair.A.targetIdentityHash; }, "YUZHOU_UAT_EVIDENCE_RESOURCE_REUSE"],
     [pair => { pair.A.productionImport = "GO"; }, "YUZHOU_UAT_EVIDENCE_BOUNDARY_UNSAFE"],

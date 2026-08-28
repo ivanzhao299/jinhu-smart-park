@@ -64,7 +64,15 @@ function validateOne(evidence, taskCard, rehearsal) {
     const browser = item.browser;
     for (const viewport of taskCard.viewports) {
       const result = browser?.[viewport.id];
-      if (result?.status !== "PASS" || !exactArray(result.assertions, taskCard.browserAssertions)) {
+      if (result?.status !== "PASS"
+        || result.width !== viewport.width
+        || result.height !== viewport.height
+        || result.mobile !== viewport.mobile
+        || !Number.isInteger(result.clientWidth)
+        || !Number.isInteger(result.scrollWidth)
+        || result.clientWidth > viewport.width
+        || result.scrollWidth > result.clientWidth
+        || !exactArray(result.assertions, taskCard.browserAssertions)) {
         fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${viewport.id}`);
       }
     }
