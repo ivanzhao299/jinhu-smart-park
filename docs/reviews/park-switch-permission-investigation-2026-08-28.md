@@ -10,8 +10,8 @@
 
 用户反馈包含两个相关但不同的问题：
 
-1. **普通用户目标园区只有 access、没有角色**：机制按现有设计运行。园区选择器与 `switch-context` 只要求 `rel_user_park` access 和有效园区；切换成功后，角色、权限和菜单重新按目标 `(tenant_id, park_id)` 解析。由于用户管理“配置园区”只同步 `sys_user.park_id` 与 `rel_user_park`，不创建 `rel_user_role`，所以目标园区会得到仅含 `system:user:me` 的最低上下文，菜单为空、业务 API 403。根因是 **access 与 authorization 两步配置在产品上被呈现成一个“配置园区”动作，但没有角色缺失检查、引导或空态解释**。
-2. **超级管理员切到非初始园区**：`SUPER_ADMIN`/`is_super`/`*` 并非天然租户级用户能力。角色实体可以是 tenant scope，但 `rel_user_role` 和 `rel_role_perm` 仍必须存在于当前 park；没有目标园区角色链接时，super/wildcard 不会被解析。bootstrap 脚本也只绑定指定初始 park。额外园区的创建事务只给创建者绑定该园区的 `TENANT_ADMIN`，不会复制 `SUPER_ADMIN`。因此“超级管理员应跨租户内所有园区保持 super”是当前产品预期与实现模型不一致，定性为 **产品缺陷/产品语义缺口，需要产品决策**，不是单纯菜单刷新问题。
+1. **普通用户目标园区只有 access、没有角色**：机制按现有设计运行。园区选择器与 `switch-context` 只要求目标 access（或 legacy home-park 例外）和有效园区；切换成功后，角色、权限和菜单重新按目标 `(tenant_id, park_id)` 解析。由于用户管理“配置园区”只同步 `sys_user.park_id` 与 `rel_user_park`，不创建 `rel_user_role`，所以目标园区会得到仅含 `system:user:me` 的最低权限上下文；静态 fallback 仍保留 permissionless `/dashboard`，但业务菜单消失、业务 API 403。根因是 **access 与 authorization 两步配置在产品上被呈现成一个“配置园区”动作，但没有角色缺失检查、引导或业务空态解释**。
+2. **超级管理员切到非初始园区**：`SUPER_ADMIN`/`is_super`/`*` 并非天然租户级用户能力。角色实体可以是 tenant scope，但 `is_super=true` 的角色仍需目标 park 的 `rel_user_role`；literal `*` 路径还需目标 park 的 `rel_role_perm`。没有目标园区 user-role link 时，两条 super 路径都不会成立。bootstrap 脚本也只绑定指定初始 park。额外园区的创建事务只给创建者绑定该园区的 `TENANT_ADMIN`，不会复制 `SUPER_ADMIN` user-role link。因此“超级管理员应跨租户内所有园区保持 super”是当前产品预期与实现模型不一致，定性为 **产品缺陷/产品语义缺口，需要产品决策**，不是单纯菜单刷新问题。
 
 本轮动态结果：
 
@@ -20,9 +20,9 @@
 | S1a bootstrap admin → 自己创建的 Park B | **PASS，但身份降级** | `switch-context=200`、新 `/users/me=200`；A `SUPER_ADMIN/is_super=true`，B `TENANT_ADMIN/is_super=false`；菜单未消失 |
 | S1b bootstrap admin → 他人创建、仅 access 的 Park C | **本轮未证** | 第二管理员 fixture 在受保护系统角色绑定处被产品 API 404 阻断；遵守同题最多两次和不直改 DB，未继续造数 |
 | S2 A 有角色、B 仅 access | **静态确认；本轮动态未证** | 模型与用户实测完全吻合；本轮产品 API fixture 在角色可分配边界提前阻断，未伪造运行时 PASS |
-| S3 A/B 都有角色 | **既有 G6 快速复核 PASS** | 2026-08-28 §15 G6 已以不同 park role/module links 验证菜单、route、API、数据 scope 全部按 B 收敛 |
+| S3 A/B 都有角色 | **既有 G6 记录待 reconciliation；本轮未重跑** | §15 汇总判为 PASS，但详情把目标 Park B 同时记为 `25892265` 与 `28379088`，不能作为同一 A→B 数据收敛的无歧义证据 |
 
-因此，不能把本轮结论写成“S1/S2/S3 全部重新动态 PASS”。可确认的是：静态链路已经闭合根因；S1a 新证据证明创建者切园区不会失去全部菜单，但会从 super 降为 tenant admin；S1b/S2 的精确 UI 症状由用户实测支持、由代码必然推出，本轮隔离复现因 fixture 门禁未完成。
+因此，不能把本轮结论写成“S1/S2/S3 全部重新动态 PASS”。可确认的是：静态链路已经闭合根因；S1a 新证据证明创建者切园区不会失去全部菜单，但会从 super 降为 tenant admin；S1b/S2 的“无目标园区业务授权”由代码必然推出并与用户实测核心一致，但“菜单全部消失”还是“仅保留首页”本轮未获得隔离浏览器证据；S3 原证据也需先对齐 Park ID。
 
 ## 二、权限是如何调整的
 
@@ -43,7 +43,7 @@ Service 链为：
 
 ### 2.2 目标 park 的 access 校验与角色/权限解析是两层条件
 
-`resolveJwtPrincipal` 允许目标上下文成立的前提是：用户仍启用、目标园区 active，并且目标是没有显式关系的 home park，或存在 enabled、未删除的 `rel_user_park`，见 `apps/api/src/modules/users/users.service.ts:743-767`。
+`resolveJwtPrincipal` 允许目标上下文成立的前提是：用户仍启用、目标园区 active，并且目标是没有任何显式 home relation 的 `sys_user.park_id`（legacy fallback），或存在 enabled、未删除的 `rel_user_park`，见 `apps/api/src/modules/users/users.service.ts:743-767`。
 
 但同一查询对授权关系另行限定：
 
@@ -57,14 +57,15 @@ Service 链为：
 因此：
 
 ```text
-rel_user_park(target)=enabled
+target access = enabled rel_user_park
+             OR legacy sys_user.park_id with no explicit home relation
         │
         ├─ 否 → 目标 principal 不成立，switch-context 失败
         │
         └─ 是 → switch-context 可成功
                  │
-                 ├─ target rel_user_role/rel_role_perm 存在 → 得到目标园区角色、权限、菜单
-                 └─ 不存在 → 仅最低 USER_ME，上下文成立但业务菜单/权限为空
+                 ├─ target rel_user_role 存在 → 得到目标园区角色；普通权限/literal * 再取 target rel_role_perm
+                 └─ 不存在 → 仅最低 USER_ME，上下文成立；保留 /dashboard，但业务菜单/权限为空
 ```
 
 ### 2.3 `/users/me` 与菜单在切换后重建
@@ -80,7 +81,7 @@ Web 切换链：
 5. 校验 `nextUser.park_id`，发布新 token/user；
 6. `UserMenu` 按 `nextUser` 预测当前 route，必要时跳到新园区首个可达路径。
 
-见 `apps/web/lib/auth.ts:184-226`、`apps/web/components/layout/UserMenu.tsx:24-46`。显式空 `menu_tree` 是权威结果，Web 不再用静态菜单重建，见 `apps/web/lib/menu.ts:496-504`。所以目标园区无角色时，菜单全部消失是后端空授权的忠实投影，不是 PAM-004 式前端 fallback。
+见 `apps/web/lib/auth.ts:184-226`、`apps/web/components/layout/UserMenu.tsx:24-46`。显式空 `menu_tree` 是 Web 权威结果，不会在 Web 层重建全量静态菜单，见 `apps/web/lib/menu.ts:496-504`。但后端在没有 menu permission entities 时会使用 `USER_MENU_TREE`，其中 `/dashboard` 不要求 permission，见 `apps/api/src/modules/users/users.service.ts:1709-1722,1975-1981`。所以目标园区无角色时准确表现应为：**保留首页/总览兜底，业务菜单消失**；用户所说“菜单全部消失”需要 S2 浏览器证据确认其是否把首页兜底计作菜单。
 
 ### 2.4 路由与 API 守卫使用新 park principal
 
@@ -94,20 +95,20 @@ Web 切换链：
 
 ### 3.1 当前实现语义
 
-当前实现是“**role 定义可为 tenant scope，但 user-role link 与 role-permission link 是 park scope**”。tenant-scope role 只意味着同一 role 实体可在多个 park 被链接，不意味着链接自动跨 park 生效。
+当前实现是“**role 定义可为 tenant scope，但 user-role link 与 role-permission link 是 park scope**”。tenant-scope role 只意味着同一 role 实体可在多个 park 被链接，不意味着链接自动跨 park 生效。两条 super 路径需要分开：`is_super=true` 只要求目标 park 的 active user-role link；非 super role 通过 literal `*` 提升时，还要求目标 park 的 role-permission link。
 
 这直接导致：
 
 - bootstrap `SUPER_ADMIN` 只在 bootstrap 指定 park 有 `rel_user_role`；
 - 目标 park 没有该 link 时，`is_super` 不成立；
 - 目标 park 即使存在 tenant-scope role 定义，也不能仅靠 role 定义获得权限；
-- `*` 同样必须从目标 park 的 active role/permission links 解析出来。
+- literal `*` 必须从目标 park 的 active role/permission links 解析出来；linked `is_super=true` role 不依赖目标 park permission link。
 
 `scripts/bootstrap-admin.sh:11-14,185-193,274-292` 只围绕指定 `TENANT_ID/PARK_ID/ROLE_CODE` 检查/绑定，没有为租户所有园区补齐链接。
 
 ### 3.2 创建园区的特殊授权
 
-新增园区事务会克隆模块、权限并创建目标园区 `TENANT_ADMIN` role，然后只对创建者执行 `bindAdditionalTenantAdmin`，见 `apps/api/src/modules/tenants/tenants.service.ts:375-460`。该 helper 新建三条关系：
+新增园区事务会克隆目标 park 的 module assignments。对于已有租户，permission entities 与 tenant-scoped `TENANT_ADMIN` role 实体通常按 tenant 复用；事务为目标 park 创建/更新 role-permission links，并只对创建者执行 `bindAdditionalTenantAdmin`，见 `apps/api/src/modules/tenants/tenants.service.ts:375-460,1418-1455,1581-1594`。该 helper 新建三条关系：
 
 - 目标 park 的 `rel_user_role`（tenant admin）；
 - 目标 park 的 `rel_user_park`；
@@ -129,7 +130,7 @@ Web 切换链：
 
 见 `apps/api/src/modules/users/users.service.ts:807-887`。`syncUserParks` 校验园区后软删旧 access links，再重建 `rel_user_park`，见 `apps/api/src/modules/users/users.service.ts:1264-1293`。
 
-角色绑定是独立事务。`assignRoles` 只接受当前目标 scope 中非 system/builtin/template 的可管理角色，并只替换当前 park 的可管理 `rel_user_role`，见 `apps/api/src/modules/users/users.service.ts:1077-1135`。本轮 fixture 尝试把受保护的 `SUPER_ADMIN`/`TENANT_ADMIN` 当普通角色分配，均得到 `404 Role not found in current scope`，与这条保护完全一致。
+角色绑定是独立事务。`assignRoles` 不接收 park id，而是从被编辑用户当前 `sys_user.park_id` 派生唯一 target scope；它只接受该 scope 中非 system/builtin/template 的可管理角色，并只替换该 park 的可管理 `rel_user_role`，见 `apps/api/src/modules/users/users.service.ts:1077-1135`。Web 已提示：切换默认园区后必须先保存，再重新编辑，才能维护目标园区角色，见 `apps/web/app/system/users/page.tsx:688-690`。本轮 fixture 尝试把受保护的 `SUPER_ADMIN`/`TENANT_ADMIN` 当普通角色分配，均得到 `404 Role not found in current scope`，与这条保护完全一致。
 
 结论：用户说“已经配置园区”只证明 access 已配置，不证明目标园区 authorization 已配置。当前 UI 没有把这一区别解释清楚。
 
@@ -176,29 +177,29 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 
 计划用第二管理员交叉创建 C，再只给 bootstrap admin 配 C access。产品 API fixture 在给第二管理员绑定受保护系统角色时按设计 404；两次同题尝试后停止，未直改 DB、未清表重造。因此本轮没有 S1b 浏览器证据。
 
-静态预期仍明确：若 bootstrap admin 仅有 C `rel_user_park`、没有 C `rel_user_role`，switch-context 会成功，但新 principal 不再是 super，菜单为空。这一预期与用户实测一致，但本报告不把它标为本轮动态 PASS。
+静态预期仍明确：若 bootstrap admin 仅有 C `rel_user_park`、没有 C `rel_user_role`，switch-context 会成功，但新 principal 不再是 super；permissionless `/dashboard` 仍可保留，业务菜单为空。这一预期与用户实测的核心（业务菜单/权限消失）一致，但本报告不把它标为本轮动态 PASS。
 
 ### 5.3 S2：普通用户 A 有角色，B 只有 access
 
 本轮 fixture 在创建 S2 前即被上述系统角色门禁阻断；遵守最多两次后未继续。因此状态为 **静态确认 + 用户实测复现，本轮隔离动态未证**。
 
-机制必然结果：B access 使目标 principal 成立；缺 B `rel_user_role` 使 active roles 为空；permissions 仅保留服务端追加的 `system:user:me`；menu tree 为空；业务 route/API fail-closed。这个行为与上一轮审计的设计语义一致。
+机制必然结果：B access 使目标 principal 成立；缺 B `rel_user_role` 使 active roles 为空；permissions 仅保留服务端追加的 `system:user:me`；permissionless `/dashboard` 可保留，但业务菜单为空，业务 route/API fail-closed。这个行为与上一轮审计的“无目标园区角色则无业务授权”语义一致。
 
 裁定：**设计语义，但存在严重可用性与配置完整性缺口**。若产品把“配置园区”表达成可在该园区工作，则也是产品缺陷；若 access 只表示可进入上下文，则必须在 UI 明示“未配置任何园区角色”。不是缓存/刷新或用户误操作可以单独解释的问题。
 
 ### 5.4 S3：普通用户两园区均有角色
 
-本轮不重复造数，复用同日刚归档 §15 G6 的快速对照结论：A/B 具有不同 park-scoped role links/module assignments；切换后 `/users/me`、Sidebar、route/page state、statistics API 与数据均按 B 收敛，排除 A 数据。权威记录：`docs/uat/pam-audit-s15-regression-uat-20260828-122122.md:54-63,98-110`。
+本轮不重复造数。同日 §15 汇总把 G6 判为 PASS，但详情存在未解释的目标 Park ID 漂移：切换目标写为 `25892265`，review-fix 的 B-only building 却写为 `parkId=28379088`，见 `docs/uat/pam-audit-s15-regression-uat-20260828-122122.md:54-63`。在把 lifecycle artifacts 对齐前，不能用这组记录无歧义地证明同一次 A→B 的 role、module、route 与 data convergence。
 
-裁定：**正常对照 PASS**。它证明切换机制本身能工作，问题集中在目标 park 授权关系缺失或 super 产品语义。
+裁定：**既有结论为 PASS，但本报告降为待 reconciliation；本轮未重新验证**。静态机制支持“双园区均有角色则按目标 park 解析”，但动态对照必须在后续获批的复测中用单一 Park B ID 重跑或对齐原始 artifact。
 
 ## 六、根因树与定性
 
 | 编号 | 现象 | 直接根因 | 深层根因 | 定性 |
 | --- | --- | --- | --- | --- |
-| PSW-001 | bootstrap/super 切非初始园区失去 super，可能无菜单 | super/`*` 仍依赖目标 park 的 role/perm links | 产品把 super 命名/预期成全局能力，数据模型却是 park-link capability；bootstrap 不覆盖后续 park | **产品缺陷或需明确改变产品语义**；推荐按租户控制面缺陷处理 |
+| PSW-001 | bootstrap/super 切非初始园区失去 super，可能无业务菜单 | super role 依赖目标 park user-role link；literal `*` 还依赖 role-perm link | 产品把 super 命名/预期成全局能力，数据模型却是 park-link capability；bootstrap 不覆盖后续 park | **产品缺陷或需明确改变产品语义**；推荐按租户控制面缺陷处理 |
 | PSW-002 | 普通用户已配置 B，切 B 后菜单全空/API 403 | B 只有 `rel_user_park`，没有 `rel_user_role` | “园区 access”与“园区岗位/角色”分离，但 UI 无完整性检查和引导 | **设计语义但有严重可用性缺口**；若 UI 承诺“可用园区”，则是产品缺陷 |
-| PSW-003 | 切换后用户只看到“无权限/空菜单” | 空树为权威；route/API 正确 fail-closed | 缺少目标园区角色诊断、管理入口链接和可恢复动作 | **体验兜底缺陷** |
+| PSW-003 | 切换后用户只剩首页、业务导航消失并看到“无权限” | permissionless `/dashboard` 兜底保留；业务 route/API 正确 fail-closed | 缺少目标园区角色诊断、管理入口链接和可恢复动作 | **体验兜底缺陷** |
 
 不是根因：
 
@@ -223,7 +224,7 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 
 - 改动面：park create transaction、bootstrap/reconcile、历史数据迁移。
 - 优点：沿用现有 principal SQL。
-- 风险：每次新增/删除 super 或 park 都要双向 reconcile；复制 `rel_role_perm` 易漂移，历史 cardinality 大。
+- 风险：每次新增/删除 super 或 park 都要双向 reconcile；对 `is_super=true` role 只需 user-role link，literal wildcard 才涉及 role-permission link，混用两条路径会导致越权或漂移。
 - 验证：并发建园区、重试幂等、撤销 super、历史园区回填、失败事务全回滚。
 
 #### 方案 C：明确 super 只在所属园区成立
@@ -238,13 +239,13 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 - 用户管理保存后，对每个 enabled accessible park 显示角色状态；access-only 标红“可切换但无业务角色”。
 - 切换器在选择前显示目标园区角色摘要；无角色时可阻止切换或二次确认。
 - 空态直接说明“已获得园区访问权，但尚未配置园区角色”，并提供有权限管理员可用的角色配置入口。
-- 改动面：用户管理投影/API、园区切换 UI、403/空菜单体验；无数据迁移。
+- 改动面：用户管理投影/API、园区切换 UI、403/无业务角色空态体验；无数据迁移。
 - 风险：需要定义谁能看到角色诊断；不能泄露角色/权限详情给普通用户。
 - 验证：access-only、角色禁用/删除、模块为空、管理员/普通用户文案与恢复路径。
 
 #### 方案 B：授予园区时要求同时选择目标园区角色
 
-- 把 access 与 role 作为同一事务/向导，但仍分别持久化；未选角色不能完成“可工作园区”授权。
+- 把 access 与 role 作为同一事务/向导，但仍分别持久化；未选角色不能完成“可工作园区”授权。后端需新增显式 target park 的角色 mutation contract，不能继续依赖先改 `sys_user.park_id`、保存、重开编辑的两阶段操作。
 - 风险：某些合法 access-only 用户（仅查看空控制面、待后续分岗）需要显式例外状态。
 - 迁移：历史 access-only 行需要审计清单，不应自动猜角色。
 
@@ -280,7 +281,7 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 - 隔离 migration 265/265、prerequisite 8/8、production seed、bootstrap、strict baseline；
 - S1a 真实 Windows Chrome/raw CDP、Network、截图、DB 关系计数；
 - 16 表 before/after、SHA256 manifest、完整 teardown；
-- S3 对照复核既有同日 G6 证据。
+- S3 检查既有同日 G6 证据并识别 Park ID 不一致，降为待 reconciliation。
 
 ### 未完成
 
@@ -291,7 +292,7 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 ### 剩余风险
 
 - 用户实测实例可能还叠加模块 assignment、角色禁用或 permission metadata 漂移；本报告确认 access-only/super scope 是充分根因，但不声称是其生产实例的唯一数据异常。
-- S1a B 的 tenant admin 菜单较多，不等价于 S1b access-only 的空菜单；两者必须分开解释。
+- S1a B 的 tenant admin 菜单较多，不等价于 S1b access-only 的“仅首页、无业务菜单”；两者必须分开解释。
 - 若未来选择 tenant-global super，必须防止跨租户提升，并明确 super 是否绕过 permission 但仍受目标 park module/status 约束。
 
 ## 十、零改动声明
