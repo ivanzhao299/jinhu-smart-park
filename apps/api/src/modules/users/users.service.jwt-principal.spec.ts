@@ -33,6 +33,7 @@ function row(overrides: Record<string, unknown> = {}) {
     user_park_id: PARK_ID,
     user_is_enabled: true,
     user_status: "enabled",
+    is_tenant_super: false,
     role_link_id: "00000000-0000-0000-0000-000000000011",
     role_code: "PROPERTY_OPERATOR",
     role_is_super: false,
@@ -76,6 +77,11 @@ test("JWT principal query binds the current user scope and selects only active l
   assert.match(capturedSql, /FROM rel_user_park access/);
   assert.match(capturedSql, /NOT EXISTS \([\s\S]*FROM rel_user_park explicit_home/);
   assert.match(capturedSql, /active_permission\.tenant_id = usr\.tenant_id/);
+  assert.match(capturedSql, /tenant_super_role\.code = 'SUPER_ADMIN'/);
+  assert.match(capturedSql, /tenant_super_role\.role_scope = 'platform'/);
+  assert.match(capturedSql, /tenant_super_role\.is_super = true/);
+  assert.match(capturedSql, /tenant_super_role\.is_system = true/);
+  assert.match(capturedSql, /tenant_super_role\.is_builtin = true/);
   assert.deepEqual(principal.roles, ["PROPERTY_OPERATOR", "TENANT_AUDITOR"]);
   assert.deepEqual(principal.permissions, [
     "homestay:booking:read",
@@ -84,6 +90,32 @@ test("JWT principal query binds the current user scope and selects only active l
   ]);
   assert.equal(principal.dataScope, "tenant");
   assert.equal(principal.isSuper, false);
+  assert.equal(principal.isTenantSuper, false);
+});
+
+test("JWT principal applies a protected tenant super binding without target-park role or access links", async () => {
+  const service = createService(async () => [
+    row({
+      user_park_id: "source-park",
+      is_tenant_super: true,
+      role_link_id: null,
+      role_code: null,
+      role_is_super: null,
+      role_data_scope: null,
+      permission_code: null
+    })
+  ]);
+
+  const principal = await service.resolveJwtPrincipal(
+    { tenantId: TENANT_ID, parkId: "future-park" },
+    USER_ID
+  );
+
+  assert.deepEqual(principal.roles, ["SUPER_ADMIN"]);
+  assert.deepEqual(principal.permissions, ["*"]);
+  assert.equal(principal.dataScope, "all");
+  assert.equal(principal.isSuper, true);
+  assert.equal(principal.isTenantSuper, true);
 });
 
 test("JWT principal adopts an enabled secondary park access scope", async () => {
@@ -128,6 +160,7 @@ test("JWT principal query preserves wildcard super semantics", async () => {
   assert.deepEqual(principal.permissions, ["*"]);
   assert.equal(principal.dataScope, "all");
   assert.equal(principal.isSuper, true);
+  assert.equal(principal.isTenantSuper, false);
 });
 
 test("JWT principal query rejects missing and disabled live users", async () => {

@@ -31,6 +31,7 @@ import { PermissionEntity } from "../permissions/entities/permission.entity";
 import { ParkEntity } from "../parks/entities/park.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { evaluateRoleAssignability, isRoleAssignmentProtected, type RoleUnassignableReason } from "../roles/role-assignability";
+import { isProtectedTenantSuperRole, PROTECTED_TENANT_SUPER_ROLE_CODE } from "../roles/protected-super-role";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { SaaSModulesService } from "../saas-modules/saas-modules.service";
 import { TenantEntity } from "../tenants/entities/tenant.entity";
@@ -128,6 +129,7 @@ interface JwtPrincipalRow {
   user_is_enabled: boolean;
   user_status: string;
   user_auth_version: number;
+  is_tenant_super: boolean;
   role_link_id: string | null;
   role_code: string | null;
   role_is_super: boolean | null;
@@ -604,8 +606,11 @@ export class UsersService {
       relations: { roleLinks: { role: { permissionLinks: { permission: true } } } }
     });
     if (!user) throw new NotFoundException("User not found");
+    const isTenantSuper = user.roleLinks.some(
+      (link) => link.tenantId === user.tenantId && !link.isDeleted && isProtectedTenantSuperRole(link.role)
+    );
     const [accessibleParks, tenant] = await Promise.all([
-      this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId }),
+      this.resolveAccessibleParks(user.id, user.tenantId, { homeParkId: user.parkId, isTenantSuper }),
       this.tenantRepository.findOne({
         where: { tenantId: user.tenantId, isDeleted: false },
         select: { contactUserId: true }
@@ -692,6 +697,24 @@ export class UsersService {
          usr.is_enabled AS user_is_enabled,
          usr.status AS user_status,
          usr.auth_version AS user_auth_version,
+         EXISTS (
+           SELECT 1
+           FROM rel_user_role tenant_super_link
+           INNER JOIN sys_role tenant_super_role
+             ON tenant_super_role.id = tenant_super_link.role_id
+            AND tenant_super_role.tenant_id = usr.tenant_id
+            AND tenant_super_role.code = '${PROTECTED_TENANT_SUPER_ROLE_CODE}'
+            AND tenant_super_role.role_scope = 'platform'
+            AND tenant_super_role.is_super = true
+            AND tenant_super_role.is_system = true
+            AND tenant_super_role.is_builtin = true
+            AND tenant_super_role.is_enabled = true
+            AND tenant_super_role.status = 'enabled'
+            AND tenant_super_role.is_deleted = false
+           WHERE tenant_super_link.user_id = usr.id
+             AND tenant_super_link.tenant_id = usr.tenant_id
+             AND tenant_super_link.is_deleted = false
+         ) AS is_tenant_super,
          user_role.id AS role_link_id,
          role.code AS role_code,
          role.is_super AS role_is_super,
@@ -743,6 +766,25 @@ export class UsersService {
        WHERE usr.id = $1::uuid
          AND usr.tenant_id = $2
          AND (
+           EXISTS (
+             SELECT 1
+             FROM rel_user_role tenant_super_access_link
+             INNER JOIN sys_role tenant_super_access_role
+               ON tenant_super_access_role.id = tenant_super_access_link.role_id
+              AND tenant_super_access_role.tenant_id = usr.tenant_id
+              AND tenant_super_access_role.code = '${PROTECTED_TENANT_SUPER_ROLE_CODE}'
+              AND tenant_super_access_role.role_scope = 'platform'
+              AND tenant_super_access_role.is_super = true
+              AND tenant_super_access_role.is_system = true
+              AND tenant_super_access_role.is_builtin = true
+              AND tenant_super_access_role.is_enabled = true
+              AND tenant_super_access_role.status = 'enabled'
+              AND tenant_super_access_role.is_deleted = false
+             WHERE tenant_super_access_link.user_id = usr.id
+               AND tenant_super_access_link.tenant_id = usr.tenant_id
+               AND tenant_super_access_link.is_deleted = false
+           )
+           OR
            (
              usr.park_id = $3
              AND NOT EXISTS (
@@ -786,7 +828,11 @@ export class UsersService {
       }
     }
     const activeRoles = [...roles.values()];
-    const isSuper = activeRoles.some((role) => role.isSuper) || basePermissions.includes("*");
+    const isTenantSuper = first.is_tenant_super === true;
+    if (isTenantSuper && !activeRoles.some((role) => role.code === PROTECTED_TENANT_SUPER_ROLE_CODE)) {
+      activeRoles.push({ code: PROTECTED_TENANT_SUPER_ROLE_CODE, isSuper: true, dataScope: "all" });
+    }
+    const isSuper = isTenantSuper || activeRoles.some((role) => role.isSuper) || basePermissions.includes("*");
 
     return {
       sub: first.user_id,
@@ -800,6 +846,7 @@ export class UsersService {
         : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]),
       dataScope: isSuper ? "all" : this.resolveDataScope(activeRoles.map((role) => role.dataScope)),
       isSuper,
+      isTenantSuper,
       authVersion: Number(first.user_auth_version)
     };
   }
@@ -1377,9 +1424,16 @@ export class UsersService {
     const accessibleByUser = new Map<string, UserParkContext[]>();
     await Promise.all(
       users.map(async (user) => {
+        const isTenantSuper = roleLinks.some(
+          (link) => link.userId === user.id
+            && link.tenantId === user.tenantId
+            && !link.isDeleted
+            && isProtectedTenantSuperRole(link.role)
+        );
         accessibleByUser.set(user.id, await this.resolveAccessibleParks(user.id, user.tenantId, {
           activeOnly: false,
-          homeParkId: user.parkId
+          homeParkId: user.parkId,
+          isTenantSuper
         }));
       })
     );
@@ -1561,8 +1615,26 @@ export class UsersService {
   private async resolveAccessibleParks(
     userId: string,
     tenantId: string,
-    options: { activeOnly?: boolean; homeParkId?: string } = {}
+    options: { activeOnly?: boolean; homeParkId?: string; isTenantSuper?: boolean } = {}
   ): Promise<UserParkContext[]> {
+    if (options.isTenantSuper === true) {
+      const tenantParks = await this.parksRepository.find({
+        where: {
+          tenantId,
+          ...(options.activeOnly === false ? {} : { status: 1 }),
+          isDeleted: false
+        },
+        order: { createTime: "ASC" }
+      });
+      return tenantParks.map((park) => ({
+        tenant_id: park.tenantId,
+        park_id: park.parkId,
+        park_code: park.parkCode,
+        park_name: park.parkName,
+        is_default: park.parkId === options.homeParkId,
+        status: park.status === 1 ? "enabled" : "disabled"
+      }));
+    }
     const links = await this.userParkRepository.find({
       where: {
         tenantId,
@@ -1647,7 +1719,8 @@ export class UsersService {
       this.getActivePermissionLinks(link.role, user.tenantId, user.parkId)
         .map((permissionLink) => permissionLink.permission.code)
     );
-    const isSuper = activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
+    const isTenantSuper = activeRoleLinks.some((link) => isProtectedTenantSuperRole(link.role));
+    const isSuper = isTenantSuper || activeRoleLinks.some((link) => link.role.isSuper) || basePermissions.includes("*");
     const permissions = isSuper
       ? ["*"]
       : this.expandPermissionAliases([...new Set([...basePermissions, SYSTEM_PERMISSIONS.USER_ME])]);
@@ -1661,7 +1734,8 @@ export class UsersService {
       roles: activeRoleLinks.map((link) => link.role.code),
       permissions,
       dataScope: isSuper ? "all" : this.resolveDataScope(activeRoleLinks.map((link) => link.role.dataScope)),
-      isSuper
+      isSuper,
+      isTenantSuper
     };
   }
 
@@ -1684,12 +1758,17 @@ export class UsersService {
       (link) =>
         !link.isDeleted &&
         link.tenantId === user.tenantId &&
-        link.parkId === user.parkId &&
         !link.role.isDeleted &&
         link.role.isEnabled &&
         link.role.status === "enabled" &&
         link.role.tenantId === user.tenantId &&
-        (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
+        (
+          isProtectedTenantSuperRole(link.role)
+          || (
+            link.parkId === user.parkId
+            && (link.role.roleScope === "tenant" || link.role.parkId === user.parkId)
+          )
+        )
     );
   }
 

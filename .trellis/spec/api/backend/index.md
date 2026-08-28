@@ -2,6 +2,8 @@
 
 Cross-layer scoped asset writes: [Asset Park Context Writes](./asset-park-context-writes.md).
 
+Protected tenant SUPER_ADMIN context evaluation: [Tenant Super Control Plane](./tenant-super-control-plane.md).
+
 Physical-to-operating space conversion: [Asset To Operating Space Mapping](./asset-operating-space-mapping.md).
 
 Apartment operating-space inclusion: [Apartment Inclusion And Availability](./apartment-inclusion-availability.md).

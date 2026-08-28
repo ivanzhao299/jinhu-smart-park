@@ -17,6 +17,7 @@ const contextBuildingCode = process.env.CONTEXT_SWITCH_BUILDING_CODE ?? fixtureC
 const contextFloorCode = process.env.CONTEXT_SWITCH_FLOOR_CODE ?? fixtureCode("CTXSWITCH-F1", `${fixtureTenantSuffix}-${fixtureRunSuffix}`);
 const contextUnitCode = process.env.CONTEXT_SWITCH_UNIT_CODE ?? fixtureCode("CTXSWITCH-U1", `${fixtureTenantSuffix}-${fixtureRunSuffix}`);
 const deniedParkId = process.env.CONTEXT_SWITCH_DENIED_PARK_ID ?? "";
+const expectTenantSuper = process.env.EXPECT_TENANT_SUPER === "yes";
 
 function normalizeFixtureSuffix(value) {
   const normalized = String(value ?? "")
@@ -27,7 +28,7 @@ function normalizeFixtureSuffix(value) {
 }
 
 function fixtureCode(prefix, suffix) {
-  return `${prefix}-${suffix}`.slice(0, 64);
+  return `${prefix}-${suffix}`.toUpperCase().slice(0, 64);
 }
 
 function info(message) {
@@ -142,6 +143,41 @@ async function getMe(accessToken, label) {
   });
   if (!expectStatus(`GET /auth/me ${label}`, result.response.status, 200, result.body)) return null;
   return unwrapData(result.body);
+}
+
+function expectProtectedTenantSuper(me, label) {
+  if (!expectTenantSuper) return true;
+  const roleCodes = Array.isArray(me?.roles)
+    ? me.roles.map((role) => role?.role_code ?? role?.code ?? role).filter(Boolean)
+    : [];
+  if (me?.is_super !== true || !roleCodes.includes("SUPER_ADMIN") || !Array.isArray(me?.permissions) || !me.permissions.includes("*")) {
+    fail(`${label} did not retain protected SUPER_ADMIN identity; body=${summarizeBody(me)}`);
+    return false;
+  }
+  pass(`${label} retains protected SUPER_ADMIN identity`);
+  return true;
+}
+
+async function verifyTenantSuperActivationAudit(accessToken, sourceParkId, targetParkId) {
+  if (!expectTenantSuper) return true;
+  const result = await request("/audit/op-logs?page=1&page_size=20&action=tenant_super_context_activated", {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  if (!expectStatus("GET /audit/op-logs tenant-super activation", result.response.status, 200, result.body)) return false;
+  const items = unwrapData(result.body)?.items ?? [];
+  const event = items.find((item) =>
+    item?.action === "tenant_super_context_activated"
+      && item?.parkId === targetParkId
+      && item?.beforeJson?.parkId === sourceParkId
+      && item?.afterJson?.parkId === targetParkId
+      && item?.afterJson?.identity === "SUPER_ADMIN"
+  );
+  if (!event) {
+    fail(`Tenant-super activation audit is missing or has the wrong scope; body=${summarizeBody(result.body)}`);
+    return false;
+  }
+  pass("Tenant-super activation audit records source and target park scopes");
+  return true;
 }
 
 async function resolveTargetPark(accessToken) {
@@ -390,6 +426,7 @@ async function run() {
       return;
     }
     pass("Initial /auth/me reports the default park context");
+    if (!expectProtectedTenantSuper(initialMe, "Initial context")) return;
 
     const targetPark = await resolveTargetPark(session.accessToken);
     if (!targetPark) return;
@@ -439,6 +476,8 @@ async function run() {
       return;
     }
     pass("Switched /auth/me reports the target park context");
+    if (!expectProtectedTenantSuper(switchedMe, "Switched context")) return;
+    if (!await verifyTenantSuperActivationAudit(session.accessToken, parkId, targetParkId)) return;
 
     building = await resolveBuilding(session.accessToken, targetParkId);
     if (!building) return;
