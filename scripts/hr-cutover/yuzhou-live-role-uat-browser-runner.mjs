@@ -104,6 +104,22 @@ async function poll(cdp, sessionId, expression, code, detail, attempts = 200) {
   fail(code, detail);
 }
 
+export function missingVisibleTexts(pageText, visibleTexts) {
+  return visibleTexts.filter(value => !pageText.includes(value));
+}
+
+async function pollVisibleTexts(cdp, sessionId, check, viewport, attempts = 200) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const state = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; return { ready:document.readyState==='complete', path:location.pathname, text }; })()`);
+    const missing = missingVisibleTexts(state.text, check.visibleTexts);
+    if (state.ready && missing.length === 0) return;
+    if (attempt === attempts - 1) {
+      fail("YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${state.path}:missing=${JSON.stringify(missing)}`);
+    }
+    await sleep(100);
+  }
+}
+
 function writePrivateBinary(path, bytes) {
   writeFileSync(path, bytes, { mode: 0o600, flag: "wx" });
   chmodSync(path, 0o600);
@@ -172,8 +188,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
           for (const check of actorChecks) {
             runtimeErrors.length = 0;
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
-            const visibleJson = JSON.stringify(check.visibleTexts);
-            await poll(cdp, sessionId, `(() => { const t=document.body?.innerText??''; return document.readyState==='complete' && ${visibleJson}.every(value=>t.includes(value)); })()`, "YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}`);
+            await pollVisibleTexts(cdp, sessionId, check, viewport);
             const result = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; const clientWidth=document.documentElement.clientWidth; const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0); return { path:location.pathname,text,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].map(node=>node.textContent??'').filter(Boolean) }; })()`);
             if (result.path !== check.route || runtimeErrors.length || result.alerts.length) fail("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${result.path}:runtimeErrors=${runtimeErrors.length}:alerts=${result.alerts.length}`);
             if (check.forbiddenTexts.some(text => result.text.includes(text))) fail("YUZHOU_UAT_BROWSER_FORBIDDEN_ACTION_VISIBLE", `${check.legacyId}:${check.roleType}:${viewport.id}`);

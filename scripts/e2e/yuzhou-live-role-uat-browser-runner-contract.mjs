@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { YuzhouLiveRoleUatBrowserRunnerError, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
+import { YuzhouLiveRoleUatBrowserRunnerError, missingVisibleTexts, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
 
 const check = { legacyId: 35, roleType: "department_manager", actor: "manager", route: "/hr/employees" };
 const viewport = { id: "phone_390", width: 390, height: 844, mobile: true };
@@ -21,4 +21,9 @@ test("browser observation drift and horizontal overflow fail closed", () => {
     const value = passing(); mutate(value);
     assert.throws(() => validateYuzhouBrowserObservation(value, check, viewport, assertions), error => error instanceof YuzhouLiveRoleUatBrowserRunnerError);
   }
+});
+
+test("visible-text diagnostics report only missing contract labels", () => {
+  assert.deepEqual(missingVisibleTexts("团队员工档案", ["团队员工档案", "查看与办理"]), ["查看与办理"]);
+  assert.deepEqual(missingVisibleTexts("", ["团队员工档案", "查看与办理"]), ["团队员工档案", "查看与办理"]);
 });
