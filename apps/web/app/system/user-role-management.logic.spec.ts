@@ -7,9 +7,10 @@ const source = readFileSync(resolve(__dirname, "users/page.tsx"), "utf8");
 
 test("user management loads and saves roles through the dedicated contracts", () => {
   assert.match(source, /\/users\/\$\{userId\}\/roles/);
+  assert.match(source, /\/users\/\$\{editingUser\.id\}\/park-roles/);
   assert.match(source, /\/users\/role-candidates\?/);
   assert.match(source, /createIdempotencyKey\("user-roles"\)/);
-  assert.match(source, /body: \{ roleIds: selectedRoleIds \}/);
+  assert.match(source, /body: \{ parkId: formParkId, roleIds: selectedRoleIds \}/);
   assert.match(source, /hasPermission\(authUser, SYSTEM_PERMISSIONS\.USER_ASSIGN_ROLES\)/);
   assert.match(source, /paged: "true"/);
   assert.match(source, /ROLE_CANDIDATE_PAGE_SIZE = 50/);
@@ -30,12 +31,21 @@ test("user list has paired desktop and mobile role projections", () => {
   assert.match(source, /Array\.isArray\(roles\)/);
 });
 
-test("role assignment remains reachable without profile update permission", () => {
+test("target-park role assignment remains reachable without profile update permission", () => {
   assert.match(source, /const canUpdateUsers = hasPermission\(authUser, SYSTEM_PERMISSIONS\.USER_UPDATE\)/);
-  assert.match(source, /async function openRoleEdit\(row: UserRow\)/);
-  assert.match(source, /用户资料保持只读，仅替换当前账号的角色绑定/);
+  assert.match(source, /async function openRoleEdit\(row: UserRow, targetParkId = row\.parkId\)/);
+  assert.match(source, /选择目标园区并直接替换该园区的可管理角色/);
   assert.match(source, /canAssignRoles \? <button[^>]+title="配置角色"/);
   assert.match(source, /if \(roleOnlyEditing && editingUser\)/);
+});
+
+test("each accessible park exposes its role integrity without hiding access-only state", () => {
+  assert.match(source, /function ParkRoleSummaries/);
+  assert.match(source, /park\.role_summary/);
+  assert.match(source, /可切换但无业务角色/);
+  assert.match(source, /summary && !hasRole \? " status-danger" : ""/);
+  assert.match(source, /角色状态不可见/);
+  assert.match(source, /aria-label="角色配置目标园区"/);
 });
 
 test("role selection enforces the API maximum before submission", () => {

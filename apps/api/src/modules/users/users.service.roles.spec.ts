@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { RoleEntity } from "../roles/entities/role.entity";
 import { UserRoleEntity } from "../roles/entities/user-role.entity";
 import { UsersService } from "./users.service";
 import { UserEntity } from "./entities/user.entity";
+import { UserParkEntity } from "./entities/user-park.entity";
+import { ParkEntity } from "../parks/entities/park.entity";
 import { UserRoleCandidatesQueryDto } from "./dto/user-role-candidates-query.dto";
+import { AssignParkRolesDto } from "./dto/assign-roles.dto";
 
 const scope = { tenantId: "tenant-current", parkId: "park-current" };
 const actor = {
@@ -79,16 +82,53 @@ function createService(overrides: {
   usersRepository?: unknown;
   rolesRepository?: unknown;
   userRoleRepository?: unknown;
+  userParkRepository?: unknown;
   parksRepository?: unknown;
 } = {}) {
   return new UsersService(
     (overrides.usersRepository ?? { findOne: async () => target }) as never,
     (overrides.rolesRepository ?? { find: async () => [] }) as never,
     (overrides.userRoleRepository ?? { find: async () => [] }) as never,
-    {} as never, {} as never, (overrides.parksRepository ?? {}) as never, {} as never, {} as never, {} as never, {} as never,
+    {} as never, (overrides.userParkRepository ?? {}) as never, (overrides.parksRepository ?? {}) as never, {} as never, {} as never, {} as never, {} as never,
     { get: (_key: string, fallback?: string) => fallback } as never
   );
 }
+
+test("explicit target-park role DTO requires a bounded park id", async () => {
+  const valid = plainToInstance(AssignParkRolesDto, {
+    parkId: "park-target",
+    roleIds: ["d25fa967-5090-4fd0-bb76-30a89e595f8c"]
+  });
+  assert.equal((await validate(valid)).length, 0);
+  const missing = plainToInstance(AssignParkRolesDto, { roleIds: [] });
+  assert.notEqual((await validate(missing)).length, 0);
+});
+
+test("target-park role reads reject ordinary cross-park actors before disclosing target state", async () => {
+  const sameTenantTarget = { ...target, tenantId: scope.tenantId, roleLinks: [] } as UserEntity;
+  const service = createService({ usersRepository: { findOne: async () => sameTenantTarget } });
+  const ordinaryActor = { ...actor, permissions: ["system:user:assign-roles"], isSuper: false, isTenantSuper: false };
+
+  await assert.rejects(
+    service.getUserRoleContext(scope, ordinaryActor, sameTenantTarget.id, Object.assign(new UserRoleCandidatesQueryDto(), { parkId: "park-other" })),
+    ForbiddenException
+  );
+});
+
+test("target-park role reads require an effective target access relation", async () => {
+  const sameTenantTarget = { ...target, tenantId: scope.tenantId, roleLinks: [] } as UserEntity;
+  const service = createService({
+    usersRepository: { findOne: async () => sameTenantTarget },
+    parksRepository: { findOne: async () => ({ tenantId: scope.tenantId, parkId: scope.parkId, status: 1 }) },
+    userParkRepository: { findOne: async () => null }
+  });
+  const ordinaryActor = { ...actor, permissions: ["system:user:assign-roles"], isSuper: false, isTenantSuper: false };
+
+  await assert.rejects(
+    service.getUserRoleContext(scope, ordinaryActor, sameTenantTarget.id, Object.assign(new UserRoleCandidatesQueryDto(), { parkId: scope.parkId })),
+    NotFoundException
+  );
+});
 
 test("user role context uses the target user's tenant and park", async () => {
   const assignedRole = role({});
@@ -281,4 +321,65 @@ test("role replacement reads and writes through one transaction manager", async 
   assert.equal((linkWhere as { isDeleted: boolean }).isDeleted, false);
   assert.match((roleWhere as string[]).join(" "), /role\.status='enabled' AND role\.is_enabled=true/);
   assert.match((roleWhere as string[]).join(" "), /role\.is_template=false AND role\.is_system=false AND role\.is_builtin=false/);
+});
+
+test("explicit target-park replacement writes only the requested accessible park and reports its audit scope", async () => {
+  const targetUser = { ...target, tenantId: scope.tenantId, parkId: "park-home", roleLinks: [] } as UserEntity;
+  const targetParkId = "park-secondary";
+  const selectedRole = role({
+    id: "d25fa967-5090-4fd0-bb76-30a89e595f8c",
+    tenantId: scope.tenantId,
+    parkId: targetParkId
+  });
+  const linkWrites: unknown[] = [];
+  const userRepository = { findOne: async () => targetUser };
+  const parkRepository = { findOne: async () => ({ tenantId: scope.tenantId, parkId: targetParkId, status: 1 }) };
+  const userParkRepository = { findOne: async () => ({ userId: targetUser.id, tenantId: scope.tenantId, parkId: targetParkId }) };
+  const roleRepository = {
+    createQueryBuilder: () => {
+      const builder = {
+        setLock: () => builder,
+        where: () => builder,
+        andWhere: () => builder,
+        getMany: async () => [selectedRole]
+      };
+      return builder;
+    }
+  };
+  const userRoleRepository = {
+    find: async (options: unknown) => { linkWrites.push({ find: options }); return []; },
+    update: async () => undefined,
+    create: (value: unknown) => value,
+    save: async (values: unknown) => { linkWrites.push({ save: values }); }
+  };
+  interface TargetManager {
+    query(): Promise<void>;
+    getRepository(entity: unknown): unknown;
+    transaction(callback: (transactionManager: TargetManager) => Promise<unknown>): Promise<unknown>;
+  }
+  const manager: TargetManager = {
+    query: async () => undefined,
+    getRepository: (entity: unknown) => entity === UserEntity
+      ? userRepository
+      : entity === ParkEntity
+        ? parkRepository
+        : entity === UserParkEntity
+          ? userParkRepository
+          : entity === RoleEntity
+            ? roleRepository
+            : userRoleRepository,
+    transaction: async (callback) => callback(manager)
+  };
+  const service = createService({ userRoleRepository: { manager } });
+  const ordinaryActor = { ...actor, tenantId: scope.tenantId, parkId: targetParkId, permissions: ["system:user:assign-roles"], isSuper: false, isTenantSuper: false };
+  let auditScope: unknown;
+
+  await service.assignParkRoles(scope, ordinaryActor, targetUser.id, {
+    parkId: targetParkId,
+    roleIds: [selectedRole.id]
+  }, (value) => { auditScope = value; });
+
+  assert.deepEqual(auditScope, { tenantId: scope.tenantId, parkId: targetParkId });
+  assert.deepEqual((linkWrites[0] as { find: { where: { parkId: string } } }).find.where.parkId, targetParkId);
+  assert.deepEqual((linkWrites[1] as { save: Array<{ parkId: string }> }).save[0]?.parkId, targetParkId);
 });

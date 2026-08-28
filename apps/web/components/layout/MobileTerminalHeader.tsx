@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, Home, KeyRound, LogOut, MapPin, Moon, RefreshCw, Sun } from "lucide-react";
+import type { UserParkContext } from "@jinhu/shared";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -80,7 +81,7 @@ export function MobileTerminalHeader() {
             {accessibleParks.length === 0 ? <option value={user?.park_id ?? ""}>{currentParkName}</option> : null}
             {accessibleParks.map((park) => (
               <option key={park.park_id} value={park.park_id}>
-                {park.park_code ? `${park.park_code} · ` : ""}{park.park_name}
+                {formatParkOptionLabel(park)}
               </option>
             ))}
           </select>
@@ -110,4 +111,12 @@ export function MobileTerminalHeader() {
       {parkMessage ? <span className="mobile-terminal-park-message" role="alert">{parkMessage}</span> : null}
     </header>
   );
+}
+
+function formatParkOptionLabel(park: UserParkContext): string {
+  const prefix = park.park_code ? `${park.park_code} · ` : "";
+  const roles = park.role_summary?.has_business_role
+    ? park.role_summary.role_names.join("、") || `${park.role_summary.role_count} 个角色`
+    : "未配置园区角色";
+  return `${prefix}${park.park_name}｜${roles}`;
 }

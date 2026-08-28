@@ -6,7 +6,7 @@ import { CurrentUser } from "../../shared/decorators/current-user.decorator";
 import { RequireAnyPermissions, RequirePermissions } from "../../shared/decorators/permissions.decorator";
 import { PaginationQueryDto } from "../../shared/dto/pagination-query.dto";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { AssignRolesDto } from "./dto/assign-roles.dto";
+import { AssignParkRolesDto, AssignRolesDto } from "./dto/assign-roles.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
@@ -154,6 +154,22 @@ export class UsersController {
     @Req() request: AuditScopeRequest
   ) {
     return this.usersService.assignRoles(scope, user, id, dto, (targetScope) => {
+      request.auditScopeOverride = targetScope;
+    });
+  }
+
+  @Post(":id/park-roles")
+  @UseInterceptors(new IdempotencyInterceptor())
+  @RequirePermissions(SYSTEM_PERMISSIONS.USER_ASSIGN_ROLES)
+  @AuditLog({ module: "用户管理", resource: "system.user", action: "目标园区角色变更", bizType: "user", bizIdParam: "id", captureBody: false })
+  assignParkRoles(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() user: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: AssignParkRolesDto,
+    @Req() request: AuditScopeRequest
+  ) {
+    return this.usersService.assignParkRoles(scope, user, id, dto, (targetScope) => {
       request.auditScopeOverride = targetScope;
     });
   }
