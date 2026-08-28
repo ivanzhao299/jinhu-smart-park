@@ -67,7 +67,7 @@ export function AttachmentList({
   }
 
   useEffect(() => {
-    void load().catch((error: Error) => setMessage(error.message));
+    void load().catch(() => setMessage("附件列表加载失败"));
   }, [bizType, bizId, refreshKey, canRead]);
 
   async function fetchFileBlob(file: FileRecord): Promise<Blob> {
@@ -159,7 +159,7 @@ export function AttachmentList({
                     file={item}
                     canDownload={canDownload}
                     fetchFileBlob={fetchFileBlob}
-                    onPreview={() => void preview(item).catch((error: Error) => setMessage(error.message))}
+                    onPreview={() => void preview(item).catch(() => setMessage("文件预览失败"))}
                   />
                   <div className="attachment-compact-main">
                     <strong>{item.originalName}</strong>

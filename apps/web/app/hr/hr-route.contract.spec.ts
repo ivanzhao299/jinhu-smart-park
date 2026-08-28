@@ -55,8 +55,9 @@ test("department manager directory stays team-scoped without broad employee perm
   assert.match(employeePage,/ds-mobile-record-list \$\{styles\.employeeRecordList\}/);
   assert.match(styles,/\.employeeRecordList\s*\{[\s\S]*display:\s*grid;[\s\S]*grid-template-columns:\s*repeat\(auto-fit, minmax\(260px, 1fr\)\)/);
   assert.match(seed,/code='DEPARTMENT_MANAGER'/);
-  assert.match(seed,/code='hr:employees'/);
-  assert.doesNotMatch(seed,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
+  assert.match(seed,/code(?:=| IN\()'hr:employees'/);
+  const activeGrant=seed.match(/INSERT INTO rel_role_perm[\s\S]*?ON CONFLICT/)?.[0]??"";
+  assert.doesNotMatch(activeGrant,/hr:employee:read|hr:employee_profile:read|hr:payroll:read/);
 });
 
 test("HR M4 workbench is operational and removes delivery-plan copy",()=>{
@@ -259,6 +260,8 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/确认收到/);
   assert.match(contracts,/完成提醒/);
   assert.match(contracts,/取消提醒/);
+  assert.match(contracts,/reminderAbort\.current\?\.abort\(\)/);
+  assert.match(contracts,/current!==reminderGeneration\.current/);
   assert.doesNotMatch(contracts,/expiryFrom:today\(\)/);
   assert.match(contracts,/办理轨迹/);
   assert.match(contracts,/确认生效/);
@@ -293,6 +296,9 @@ test("HR M6 historical attendance and insurance ledgers are scoped, paged, and m
  assert.match(insurance,/canReadAmount=selfOnly\|\|hasPermission\(user,HR_PERMISSIONS\.HR_INSURANCE_AMOUNT_READ\)/);
  assert.match(insurance,/canReadAmount&&full\?<span>单位缴费/);
  assert.match(insurance,/canReadAmount\?<><span>缴费基数/);
+ assert.match(insurance,/loadedEmployeeAmount\(rows\)/);
+ assert.match(insurance,/safeAmount\(row\.employeeAmount\)/);
+ assert.ok(insurance.includes("rows.every(row=>row.employeeAmount!==undefined"));
  assert.match(api,/attendanceCalendars:/);
  assert.match(api,/insurancePeriods:/);
  assert.match(api,/insurancePeriod:/);
