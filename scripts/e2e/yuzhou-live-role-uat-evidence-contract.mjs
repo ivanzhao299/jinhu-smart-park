@@ -76,18 +76,36 @@ function passingEvidence(rehearsal) {
   };
 }
 
-test("independent A/B evidence promotes only the exact twelve bound items", () => {
+test("independent Smart Park A/B evidence promotes only target implementation and never legacy runtime", () => {
   const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
   const result = validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix, browserMatrix);
   assert.equal(result.status, "PASS");
   assert.deepEqual(result.eligibleLegacyIds, [34, 35, 36, 37, 39, 42, 43, 44, 45, 46, 47, 313]);
   assert.equal(result.productionImport, "HOLD");
   const mapping = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json"), "utf8"));
-  const coverage = assessLegacyGroupWebImplementationCoverage(mapping, root, { liveRoleUatEvidencePair: pair, expectedTriple: triple });
-  assert.deepEqual(coverage.summary.scoreBands, { score100: 12, score90: 0, score80: 150, score60: 0, score40: 27, score20: 42 });
-  assert.deepEqual(coverage.summary.statuses, { implemented: 12, partial: 150, mapped_only: 69 });
-  assert.equal(coverage.summary.averageScore, 65.45);
+  const coverage = assessLegacyGroupWebImplementationCoverage(mapping, root, { targetTechnicalUatEvidencePair: pair, expectedTriple: triple });
+  assert.deepEqual(coverage.summary.scoreBands, { score100: 0, score90: 12, score80: 150, score60: 0, score40: 27, score20: 42 });
+  assert.deepEqual(coverage.summary.statuses, { implemented: 0, partial: 162, mapped_only: 69 });
+  assert.equal(coverage.summary.averageScore, 64.94);
+  for (const legacyId of result.eligibleLegacyIds) {
+    const item = coverage.items.find(candidate => candidate.legacyId === legacyId);
+    assert.equal(item.dimensions.targetTechnicalUat, true);
+    assert.equal(item.dimensions.legacyRuntimeUat, false);
+    assert.equal(item.targetImplementationScore, 100);
+    assert.equal(item.targetImplementationStatus, "implemented");
+    assert.equal(item.score, 90);
+    assert.equal(item.implementationStatus, "partial");
+  }
   assert.equal(coverage.gates.productionImport, "HOLD");
+});
+
+test("the former ambiguous live role option fails closed", () => {
+  const pair = { A: passingEvidence("A"), B: passingEvidence("B") };
+  const mapping = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/legacy-group-web-module-mapping-v1.json"), "utf8"));
+  assert.throws(
+    () => assessLegacyGroupWebImplementationCoverage(mapping, root, { liveRoleUatEvidencePair: pair, expectedTriple: triple }),
+    error => error?.code === "GROUP_WEB_IMPLEMENTATION_MIXED_UAT_EVIDENCE"
+  );
 });
 
 test("failed, incomplete, drifted, unsafe or resource-reused evidence fails closed", () => {

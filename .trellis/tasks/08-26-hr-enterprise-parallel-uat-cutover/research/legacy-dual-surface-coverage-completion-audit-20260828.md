@@ -54,6 +54,8 @@
 
 在旧 Web 真实 HR/经理/员工会话下完成字段、按钮、状态、直链越权和错误恢复遍历前，这 12 项只能称 `TARGET_TECHNICAL_UAT_PASS / LEGACY_RUNTIME_UNVERIFIED`，不得称 `implemented`。
 
+后续契约修复（提交基于本报告继续实施）：评分器已拆分 `targetTechnicalUat` 与 `legacyRuntimeUat`。Smart Park A/B 证据只计算 `targetImplementationScore`；旧端 `score/implementationStatus` 只有在固定 `surface=group_web`、三角色、页面、路由、观察时间和证据 hash 的旧运行时合同通过后才可升至 100/implemented。旧的歧义参数会直接 fail closed。
+
 ### P0-B：15 项 Web 入口映射不等于 231 项全菜单
 
 15 项简化入口合同原本存在人员照片的过期权限/测试锚点：它仍指向旧 `HR_EMPLOYEE_PROFILE_READ` 和“sensitive-profile permission”测试名，而当前实现已收紧为 `HR_EMPLOYEE_DOCUMENT_*`。本审计已更正该合同锚点。即使 15/15 重新通过，也仅证明 15 个入口的目标源码绑定，不能替代 231 个菜单节点的行为兼容。
@@ -111,3 +113,9 @@
 - 总兼容覆盖：13.75/100，`ATOMIC_INVENTORY_INCOMPLETE`、`LEGACY_CLIENT_L4_TRAVERSAL_MISSING`、`LEGACY_BUSINESS_L5_SIGNOFF_MISSING`。
 
 本审计不包含生产资源操作，不改变 `productionImport=HOLD`。
+
+## 8. P0-A 修复后的评分变化
+
+- 无 UAT 证据：仍为 `0 implemented / 162 partial / 69 mapped_only`，旧端均分 `64.94`。
+- 注入通过验证的 Smart Park A/B 技术 UAT：旧端仍为 `0 implemented / 162 partial / 69 mapped_only`，旧端均分仍为 `64.94`；12 项仅在独立的目标实现维度达到 `targetImplementationScore=100`。
+- 注入固定旧集团 Web 三角色运行时证据：只允许证据逐项绑定的 legacy ID 增加旧端运行时 10 分；源码、数据库、客户端或不完整角色证据均 fail closed。
