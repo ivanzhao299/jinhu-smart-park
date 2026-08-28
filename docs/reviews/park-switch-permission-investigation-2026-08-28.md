@@ -298,3 +298,15 @@ B|user_park=1|user_role=1|role_codes=TENANT_ADMIN|role_perm=760
 ## 十、零改动声明
 
 本任务未修改 `apps/`、`packages/`、`database/`、`scripts/`、CI workflow 或任何 HR 文件；仓库改动仅为本报告与 Trellis investigation 工件。未创建修复 Issue，未操作生产，未使用 force push。
+
+## 十一、2026-08-29 修复后权威复测
+
+PSW-001/002/003 与 D5 合入后，隔离复测报告 [`docs/uat/psw-uat-retest-uat-20260829-061634.md`](../uat/psw-uat-retest-uat-20260829-061634.md) 关闭了本调查留下的动态缺口：
+
+- S1a：受保护 super 切自建园区保持 `SUPER_ADMIN/is_super/*`，且激活审计 PASS；
+- S1b：由另一名具源园区 wildcard 能力的主体通过产品 API 创建目标园区，bootstrap super 切入后仍保持受保护身份与审计，PASS；
+- S2：A 有角色/B 仅 access 的真实 Chrome 专用空态、返回 A、390px、显式 target-park 配角后恢复，PASS；
+- S3/G6：A/B 不同普通角色，唯一目标 Park B `23587739` 贯穿 manifest、B-only building、浏览器与 API，PASS；
+- D5：只读审计在配角前命中、配角后消失，未自动授权，PASS。
+
+因此本报告 §5 的 S1b/S2“本轮未证”和 S3“待 reconciliation”保留为 2026-08-28 调查事实，但当前权威状态均由上述 2026-08-29 复测更新为 **PASS**。
