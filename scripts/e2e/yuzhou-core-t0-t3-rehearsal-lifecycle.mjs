@@ -153,7 +153,7 @@ test("core config and pair accept only isolated A/B resources with byte-identica
 });
 
 test("pair failure receipt retains only a tokenized safe diagnostic", () => {
-  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:networkFailures=0:alerts=0" }), "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:networkFailures=0:alerts=0");
+  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0" }), "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0");
   assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: unsafe value name" }), null);
 });
 
