@@ -251,25 +251,22 @@ async function run() {
   const operation = await request(`/property/units/${unit.id}/operation`, { token });
   assert(operation.configuredMode === "long_rent", "selected unit retains its explicit long-rent fixture mode");
 
-  if (Number(unit.usageType) === 70) {
-    await expectRequestStatus("/property/occupancies", 403, {
-      method: "POST",
-      token,
-      idempotent: true,
-      body: {
-        unit_id: unit.id,
-        source_domain: "housing_rental",
-        source_type: "housing_lease",
-        source_id: crypto.randomUUID(),
-        start_at: `${startDate}T00:00:00+08:00`,
-        end_at: `${endDate}T00:00:00+08:00`,
-        status: "active",
-        remark: "generic route must not forge a housing occupancy"
-      }
-    });
-  } else {
-    assert(Number(unit.usageType) === 10, "office long-rent fixture skips the housing-only generic occupancy boundary");
-  }
+  assert([10, 70].includes(Number(unit.usageType)), "long-rent fixture uses a supported office or residential usage");
+  await expectRequestStatus("/property/occupancies", Number(unit.usageType) === 70 ? 403 : 404, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      unit_id: unit.id,
+      source_domain: "housing_rental",
+      source_type: "housing_lease",
+      source_id: crypto.randomUUID(),
+      start_at: `${startDate}T00:00:00+08:00`,
+      end_at: `${endDate}T00:00:00+08:00`,
+      status: "active",
+      remark: "generic route must not forge a housing occupancy"
+    }
+  });
 
   await expectRequestStatus("/housing/tenants", 400, {
     method: "POST",

@@ -55,6 +55,14 @@ async function main() {
       ? [{ username: singleUsername, displayName: singleUsername, role: "single-user UAT" }]
       : loadAllEnabledUsers())
       .filter((user) => usernameFilter.size === 0 || usernameFilter.has(user.username));
+    if (users.length === 0) fail("browser UAT selected no users");
+    if (failures.length > 0) {
+      const report = buildReport(usesSingleUser);
+      writeLocalReport(reportFile, report);
+      console.log(JSON.stringify(report, null, 2));
+      process.exitCode = 1;
+      return;
+    }
     const chrome = await launchChrome();
     try {
       for (const user of users) {
@@ -72,12 +80,20 @@ async function main() {
     }
   }
 
+  const report = buildReport(usesSingleUser);
+
+  writeLocalReport(reportFile, report);
+  console.log(JSON.stringify(report, null, 2));
+  if (failures.length > 0) process.exitCode = 1;
+}
+
+function buildReport(usesSingleUser) {
   const pagesChecked = results.reduce((sum, result) => sum + result.pages_checked, 0);
-  const report = {
+  return {
     checked_at: new Date().toISOString(),
     go_live_date: "2026-07-06",
     status: failures.length === 0 ? "PASS" : "FAIL",
-    scope: "all_enabled_users_browser_page_uat",
+    scope: usesSingleUser ? "single_user_browser_page_uat" : "all_enabled_users_browser_page_uat",
     api_base: apiBase,
     web_base: webBase,
     credentials_file: singleUsername && singlePassword ? null : credentialsFile,
@@ -89,10 +105,6 @@ async function main() {
     warnings,
     failures
   };
-
-  writeLocalReport(reportFile, report);
-  console.log(JSON.stringify(report, null, 2));
-  if (failures.length > 0) process.exitCode = 1;
 }
 
 async function checkUser(user, password, chrome) {
@@ -375,6 +387,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
   const runtimeErrors = [];
   const pageWarnings = [];
   const network = [];
+  const pendingApiRequests = new Map();
 
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
@@ -397,6 +410,23 @@ async function visitPage(browser, { path, username, token, userContext, viewport
           status: response.status
         });
       }
+    }
+    if (message.method === "Network.requestWillBeSent") {
+      const url = message.params?.request?.url;
+      if (url?.startsWith(`${webBase}/api/v1/`)) pendingApiRequests.set(message.params.requestId, url);
+    }
+    if (message.method === "Network.loadingFinished") pendingApiRequests.delete(message.params?.requestId);
+    if (message.method === "Network.loadingFailed") {
+      const url = pendingApiRequests.get(message.params?.requestId);
+      if (url) {
+        network.push({
+          resource_type: message.params?.type ?? "Other",
+          path: new URL(url).pathname,
+          status: "transport_failed",
+          error: message.params?.errorText ?? "unknown"
+        });
+      }
+      pendingApiRequests.delete(message.params?.requestId);
     }
   });
 
@@ -428,7 +458,25 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     await browser.send("Page.navigate", { url: `${webBase}${path}` }, sessionId);
     await loadPromise;
     await waitForReady(browser, sessionId);
-    await sleep(expectForbidden ? 2500 : 500);
+    const settleDeadline = Date.now() + 5000;
+    let settledAt = null;
+    while (Date.now() < settleDeadline) {
+      if (pendingApiRequests.size === 0) {
+        settledAt ??= Date.now();
+        if (Date.now() - settledAt >= 300) break;
+      } else {
+        settledAt = null;
+      }
+      await sleep(100);
+    }
+    if (pendingApiRequests.size > 0) {
+      network.push({
+        resource_type: "Pending",
+        path: new URL(pendingApiRequests.values().next().value).pathname,
+        status: "settle_timeout"
+      });
+    }
+    if (expectForbidden) await sleep(2000);
 
     const evaluation = await browser.send("Runtime.evaluate", {
       expression: `(() => {
@@ -460,7 +508,10 @@ async function visitPage(browser, { path, username, token, userContext, viewport
       screenshotManifest.push({ path, viewport, filename, captured_at: new Date().toISOString() });
     }
     const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden: expectForbidden });
-    const failedNetwork = network.find((entry) => Number(entry.status) >= 400 && !(expectForbidden && Number(entry.status) === 403));
+    const failedNetwork = network.find((entry) =>
+      (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
+      && !(expectForbidden && Number(entry.status) === 403)
+    );
     const hardFailure = renderFailure
       || (expectForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")

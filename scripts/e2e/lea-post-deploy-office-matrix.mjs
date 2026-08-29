@@ -14,6 +14,7 @@ for (const name of ["BROWSER_UAT_USERNAME", "BROWSER_UAT_PASSWORD", "APPROVER_US
 const login = async (username, password) => {
   const response = await fetch(`${apiBase}/auth/login`, {
     method: "POST",
+    signal: AbortSignal.timeout(15000),
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ ...scope, username, password })
   });
@@ -25,6 +26,7 @@ const login = async (username, password) => {
 const request = async (token, path, options = {}) => {
   const response = await fetch(`${apiBase}${path}`, {
     ...options,
+    signal: options.signal ?? AbortSignal.timeout(15000),
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
@@ -106,7 +108,10 @@ if (detail.data?.request?.executionStatus !== "executed") {
   throw new Error(`Long-rent approval execution ended as ${detail.data?.request?.executionStatus}`);
 }
 
-const candidates = await request(adminToken, "/housing/unit-candidates?usage_type=10&page=1&page_size=100");
+const candidates = await request(
+  adminToken,
+  `/housing/unit-candidates?usage_type=10&keyword=${encodeURIComponent(unitCode)}&page=1&page_size=100`
+);
 const officeCandidate = candidates.data?.items?.find((candidate) => candidate.id === unitId);
 if (!officeCandidate?.eligible || officeCandidate.rental_segment !== "office") {
   throw new Error(`Office candidate assertion failed: ${JSON.stringify(officeCandidate)}`);

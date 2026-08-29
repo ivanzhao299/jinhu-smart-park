@@ -24,9 +24,9 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   assert.match(browserRunner, /safeUsername/u);
 });
 
-test("housing real API keeps the residential boundary and admits only office as the alternate long-rent usage", () => {
-  assert.match(housingRunner, /Number\(unit\.usageType\) === 70[\s\S]*expectRequestStatus\("\/property\/occupancies", 403/u);
-  assert.match(housingRunner, /Number\(unit\.usageType\) === 10[\s\S]*office long-rent fixture skips/u);
+test("housing real API preserves the forged occupancy boundary for residential and office long-rent units", () => {
+  assert.match(housingRunner, /\[10, 70\]\.includes\(Number\(unit\.usageType\)\)/u);
+  assert.match(housingRunner, /expectRequestStatus\("\/property\/occupancies", Number\(unit\.usageType\) === 70 \? 403 : 404/u);
 });
 
 test("office matrix uses real API writes, approval execution, candidate facets and a short-stay rejection", () => {
@@ -38,4 +38,6 @@ test("office matrix uses real API writes, approval execution, candidate facets a
   assert.match(officeRunner, /rejected\.status !== 409/u);
   assert.match(officeRunner, /requirePropertyApiE2eIsolation\(\)/u);
   assert.match(officeRunner, /Unit usage is not allowed for target operating mode/u);
+  assert.match(officeRunner, /AbortSignal\.timeout\(15000\)/u);
+  assert.match(officeRunner, /keyword=\$\{encodeURIComponent\(unitCode\)\}/u);
 });
