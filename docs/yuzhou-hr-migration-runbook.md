@@ -263,6 +263,13 @@ POSTGRES_HOST=127.0.0.1 POSTGRES_PORT='<core postgres port>' \
 pnpm test:hr:attendance-request:pg
 ```
 
+如需连续完成同一切片，不要手工在检查点之间切换。先用 `core-t0-t3:prepare` 建立新的、已提交且 `0600` 的 config，然后将该 config 交给 `hr:migration:t3-attendance-request:lab`。编排器强制不少于 300 分钟的容量窗口，顺序执行 `rollback_ready` 检查点、真实 PostgreSQL 申请闭环、T3→T0 回滚和 cleanup；成功时只接受 `residualCount=0`，失败也只对同一 lab 做恢复，不会接触 production、T4 或 T5：
+
+```sh
+pnpm hr:migration:t3-attendance-request:lab -- \
+  --config '<0600 core config>' --duration-minutes 300 --poll-seconds 1
+```
+
 当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
 
 ```sh
