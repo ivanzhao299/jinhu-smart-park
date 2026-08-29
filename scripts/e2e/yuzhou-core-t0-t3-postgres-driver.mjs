@@ -205,6 +205,7 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.match(source, /materializeCoreNonT0Dictionaries/u);
   assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
   assert.match(source, /coreDomainFacts/u);
+  assert.match(source, /'remark'/u);
   assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
   assert.doesNotMatch(source, /production-import|production_import|hr_payroll_legacy/u);
 });
