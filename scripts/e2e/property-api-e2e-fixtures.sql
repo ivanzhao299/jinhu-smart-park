@@ -307,13 +307,14 @@ WITH candidates AS (
 )
 UPDATE biz_unit unit
    SET usage_type = 70,
+       rental_status = 10,
        update_time = transaction_timestamp()
   FROM desired
  WHERE unit.tenant_id = :'tenant_id'
    AND unit.park_id = :'park_id'
    AND unit.id = desired.unit_id
    AND unit.is_deleted = false
-   AND unit.usage_type <> 70;
+   AND (unit.usage_type <> 70 OR unit.rental_status <> 10);
 
 WITH candidates AS (
   SELECT id, row_number() OVER (ORDER BY unit_code, id) AS ordinal

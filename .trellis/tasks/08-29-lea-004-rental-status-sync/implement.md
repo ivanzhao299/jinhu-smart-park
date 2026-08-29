@@ -23,4 +23,5 @@
 - 2026-08-29：第 3（最终）轮 Codex review 提出 2 个边界：status-75 future-effective 合同已在 effective() 当下投影 30、且无日期调度器，故 release 按 75 权威保留；draft hold 取消也须重算。均已修复；不再触发第 4 轮。
 - 2026-08-29：最终 PR CI `33247421951` build 绿但 Release Smoke 在住房 activate 真实失败：E2E 选中了 `rental_status=20` 锁定单元，新的强状态冲突按设计返回 409。修复测试基建，使住房链只选择并断言 10 可出租长租单元；不放宽业务冲突规则。
 - 2026-08-29：重跑 `33248835488` build 绿，Smoke 暴露候选扫描先遇到无 operation eligibility 的 10 状态单元而 404；候选扫描现在仅跳过该预期 404，其他错误继续 fail-fast。
+- 2026-08-29：再跑 `33250183645` build 绿，Smoke 明确断言无任何可用长租单元；根因是 disposable property fixture 只固化 usage/mode，未固化 rental status。夹具现将两套隔离单元同时初始化为 `rental_status=10`，保证新生命周期测试的前置契约。
 - 续跑点：提交并 push 最终修复；等待 PR CI+Release Smoke，合并后等待 main CI/Deploy 双绿并归档。
