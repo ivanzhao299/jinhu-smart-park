@@ -105,4 +105,5 @@ test("missing visible-text diagnostics retain only the safe missing-count metada
   assert.match(runner, /missingCount=\$\{missing\.length\}/u);
   assert.doesNotMatch(runner, /missing=\$\{JSON\.stringify\(missing\)\}/u);
   assert.match(runner, /const visibleText=textNodes\.join\(''\)/u);
+  assert.match(runner, /sessionStorageEntries:cleanupState\.sessionStorageEntries,cookieEntries:cookieState\.cookies\?\.length\?\?0,sensitiveDomMatches:cleanupState\.sensitiveDomMatches/u);
 });
