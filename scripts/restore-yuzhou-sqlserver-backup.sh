@@ -68,6 +68,9 @@ trap cleanup EXIT HUP INT TERM
 
 docker exec "$CONTAINER_NAME" mkdir -p /var/opt/mssql/backup
 docker cp "$backup_file_real" "$CONTAINER_NAME:$CONTAINER_BACKUP"
+# docker cp preserves the host's private mode. The SQL Server process is not
+# root, so grant read-only access to this run-scoped container copy only.
+docker exec -u 0 "$CONTAINER_NAME" chmod 644 "$CONTAINER_BACKUP"
 
 cat > "$SQL_FILE" <<SQL
 SET NOCOUNT ON;
