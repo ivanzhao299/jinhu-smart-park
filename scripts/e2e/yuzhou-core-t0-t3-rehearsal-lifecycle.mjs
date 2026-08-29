@@ -181,6 +181,20 @@ test("crash replay resumes without repeating verified phases or machine material
   assert.equal(calls.filter(value => value === "load:T2").length, 2);
 });
 
+test("extract crash replay resumes at the next unverified core domain", () => {
+  const journalPath = join(configB.target.credentialRoot, "core-extract-lifecycle.jsonl");
+  const journal = new CoreT0T3FileJournal(journalPath, configB);
+  const first = harness(configB, { failOnce: "extract:T1", journal });
+  first.lifecycle.provision();
+  assert.throws(() => first.lifecycle.extract(), /injected crash/u);
+  assert.equal(first.lifecycle.state, "extracting");
+  const second = harness(configB, { journal });
+  assert.equal(second.lifecycle.state, "extracting");
+  assert.equal(second.lifecycle.extract().state, "review_hold");
+  assert.equal(second.calls.includes("extract:T0"), false);
+  assert.deepEqual(second.calls.filter(value => value.startsWith("extract:")), ["extract:T1", "extract:T2", "extract:T3"]);
+});
+
 test("0600 append-only journal reconstructs a new lifecycle after process-style interruption", () => {
   chmodSync(configA.target.credentialRoot, 0o700);
   const journalPath = join(configA.target.credentialRoot, "core-lifecycle.jsonl");

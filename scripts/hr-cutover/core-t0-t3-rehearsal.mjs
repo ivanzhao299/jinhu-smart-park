@@ -337,7 +337,8 @@ export class CoreT0T3Lifecycle {
     return { state: this.state, productionImport: "HOLD" };
   }
   extract() {
-    this.#transition("provisioned", "extracting");
+    if (this.state === "provisioned") this.#transition("provisioned", "extracting");
+    else if (this.state !== "extracting") fail("CORE_STATE_TRANSITION_INVALID", `${this.state}->extracting`);
     for (const domain of CORE_DOMAIN_ORDER) this.#phase(domain, "extract");
     this.#transition("extracting", "review_hold");
     return { state: this.state, gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: this.config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
