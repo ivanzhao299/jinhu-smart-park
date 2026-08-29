@@ -13,7 +13,12 @@ const canonicalHash = value => hash(`${canonical(value)}\n`);
 const mode = path => (statSync(path).mode & 0o777).toString(8).padStart(4, "0");
 const fail = code => { throw new Error(code); };
 
-const eventTypeTargets = new Map([["调职", "transfer"], ["复职", "resume"], ["就职", "start_probation"], ["离职", "depart"]]);
+const eventTypeRules = new Map([
+  ["调职", { decision: "map", target: "transfer", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }],
+  ["复职", { decision: "map", target: "resume", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }],
+  ["就职", { decision: "raw_only", target: null, reason: "EMPLOYMENT_START_SEMANTICS_UNRESOLVED" }],
+  ["离职", { decision: "map", target: "depart", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }]
+]);
 const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", reason: "EFFECTIVE_SOURCE_STATE" }], ["0", { decision: "reject", target: null, reason: "SOURCE_NON_EFFECTIVE_STATE" }]]);
 const contractTypeTargets = new Map([["01", "YUZHOU_01"], ["02", "YUZHOU_02"], ["03", "YUZHOU_03"], ["04", "YUZHOU_04"]]);
 const contractStateTargets = new Map([["生效", "active"], ["解除", "terminated"]]);
@@ -50,7 +55,7 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
   if (!config?.triple || !SHA256.test(config?.machineAttestation?.trustedRootSha256 ?? "") || !/^jinhu_hr_migration_lab_core_[a-z0-9_]{6,40}$/u.test(config?.target?.database ?? "")) fail("CORE_DICTIONARY_CONFIG_INVALID");
   const t1Types = privateJson(paths.t1Types), t1States = privateJson(paths.t1States), t2Types = jsonLines(paths.t2Types), t2States = privateJson(paths.t2States);
   if (!Array.isArray(t1Types.value) || !Array.isArray(t1States.value) || !Array.isArray(t2States.value)) fail("CORE_DICTIONARY_SOURCE_INVALID");
-  requiredMap(t1Types.value, row => String(row.legacyType ?? "").trim(), eventTypeTargets, "CORE_T1_EVENT_TYPE_SET_DRIFT");
+  requiredMap(t1Types.value, row => String(row.legacyType ?? "").trim(), eventTypeRules, "CORE_T1_EVENT_TYPE_SET_DRIFT");
   requiredMap(t1States.value, row => String(row.sourceValue ?? "").trim(), eventStateTargets, "CORE_T1_EVENT_STATE_SET_DRIFT");
   requiredMap(t2Types.value, row => String(row.source?.typeCode ?? "").trim(), contractTypeTargets, "CORE_T2_CONTRACT_TYPE_SET_DRIFT");
   requiredMap(t2States.value, row => String(row.sourceValue ?? "").trim(), contractStateTargets, "CORE_T2_CONTRACT_STATE_SET_DRIFT");
@@ -60,7 +65,7 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
   const actorId = randomUUID(), verifiedAt = new Date().toISOString().replace(/\.\d{3}Z$/u, "Z");
   const dictionaries = [
     { dictionaryCode: "employment_event_type", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_type", source: evidence.t1Types }),
-      items: t1Types.value.map(row => { const name = String(row.legacyType).trim(); return item({ sourceName: name, sourceTable: "dbo.readjust.readjusttype", sourceKey: name, targetDomain: "employment_event_type", targetValue: eventTypeTargets.get(name), reasonCode: "DETERMINISTIC_COMPATIBILITY_MAPPING" }); }) },
+      items: t1Types.value.map(row => { const name = String(row.legacyType).trim(), rule = eventTypeRules.get(name); return item({ sourceName: name, sourceTable: "dbo.readjust.readjusttype", sourceKey: name, targetDomain: "employment_event_type", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "employment_event_state", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_state", source: evidence.t1States }),
       items: t1States.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventStateTargets.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.state", sourceKey: value, targetDomain: "migration_decision", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "contract_type", sourceTable: "dbo.compacttypecode", sourceSnapshotSha256: canonicalHash({ kind: "contract_type", source: evidence.t2Types }),
