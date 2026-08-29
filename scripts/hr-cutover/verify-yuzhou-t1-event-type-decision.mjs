@@ -13,4 +13,11 @@ export function verifyT1EventTypeDecision(value){
  if(usage!==value.sourceRecordCount)fail("T1_EVENT_TYPE_DECISION_CONSERVATION_FAILED");
  return {dictionaryCode:value.dictionaryCode,sourceSnapshotSha256:value.sourceSnapshotSha256,sourceRecordCount:value.sourceRecordCount,decisionSha256:createHash("sha256").update(`${JSON.stringify(value)}\n`).digest("hex"),productionImport:"HOLD"};
 }
-if(process.argv[1]===new URL(import.meta.url).pathname){try{const input=JSON.parse(readFileSync(resolve(process.argv[2]),"utf8"));process.stdout.write(`${JSON.stringify(verifyT1EventTypeDecision(input))}\n`);}catch(error){process.stderr.write(`${error.message}\n`);process.exitCode=1;}}
+export function verifyT1EventTypeStaging(decision,types){
+ const verified=verifyT1EventTypeDecision(decision);
+ if(!Array.isArray(types)||types.length!==decision.decisions.length)fail("T1_EVENT_TYPE_STAGING_INVALID");
+ const expected=new Map(decision.decisions.map(row=>[row.sourceValue,row.usageCount]));
+ for(const row of types){if(!row||typeof row!=="object"||Object.keys(row).length!==2||typeof row.sourceValue!=="string"||!Number.isSafeInteger(row.usageCount)||expected.get(row.sourceValue)!==row.usageCount)fail("T1_EVENT_TYPE_STAGING_DRIFT");expected.delete(row.sourceValue);}
+ if(expected.size)fail("T1_EVENT_TYPE_STAGING_DRIFT");return verified;
+}
+if(process.argv[1]===new URL(import.meta.url).pathname){try{const input=JSON.parse(readFileSync(resolve(process.argv[2]),"utf8")),types=process.argv[3]?JSON.parse(readFileSync(resolve(process.argv[3]),"utf8")):null;process.stdout.write(`${JSON.stringify(types?verifyT1EventTypeStaging(input,types):verifyT1EventTypeDecision(input))}\n`);}catch(error){process.stderr.write(`${error.message}\n`);process.exitCode=1;}}

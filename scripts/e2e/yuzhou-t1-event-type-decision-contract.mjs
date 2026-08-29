@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { verifyT1EventTypeDecision } from "../hr-cutover/verify-yuzhou-t1-event-type-decision.mjs";
+import { verifyT1EventTypeDecision,verifyT1EventTypeStaging } from "../hr-cutover/verify-yuzhou-t1-event-type-decision.mjs";
 const path=resolve(import.meta.dirname,"../hr-cutover/contracts/yuzhou-t1-employment-event-type-decision-v1.json"),decision=JSON.parse(readFileSync(path,"utf8"));
 const verified=verifyT1EventTypeDecision(decision);assert.equal(verified.sourceRecordCount,6887);assert.equal(verified.productionImport,"HOLD");
+const staging=decision.decisions.map(({sourceValue,usageCount})=>({sourceValue,usageCount}));assert.equal(verifyT1EventTypeStaging(decision,staging).productionImport,"HOLD");
+staging[0].usageCount--;assert.throws(()=>verifyT1EventTypeStaging(decision,staging),/STAGING_DRIFT/);
 const drift=structuredClone(decision);drift.decisions[0].usageCount--;assert.throws(()=>verifyT1EventTypeDecision(drift),/CONSERVATION/);
 const unsafe=structuredClone(decision);unsafe.productionImport="ALLOW";assert.throws(()=>verifyT1EventTypeDecision(unsafe),/INVALID/);
 console.log("Yuzhou T1 event type machine decision contract passed.");
