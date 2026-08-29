@@ -45,7 +45,7 @@ export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
   },
   "property-bundle:property-housing-operator": {
     code: TRACK_B_PERMISSION_BUNDLES.HOUSING_OPERATOR.code,
-    signingName: "长租经营运营人员",
+    signingName: "住房出租运营人员",
     definitionVersion: 1,
     definitionHash: "25ff2287f99d3c8c3f1db67a6f6ec28bbbed7bbc85cbc014617ffe287df30f33"
   },
@@ -63,7 +63,7 @@ export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
   },
   "property-bundle:property-housing-finance-operator": {
     code: TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code,
-    signingName: "长租经营财务操作员",
+    signingName: "住房出租财务操作员",
     definitionVersion: 1,
     definitionHash: "08ad4214fe579d92203a2bae75e55c0257c40d391947ce11c9db9ba313d552ef"
   },
@@ -75,7 +75,7 @@ export const TRACK_B_PERMISSION_BUNDLE_REVISIONS = {
   },
   "property-bundle:property-housing-approver": {
     code: TRACK_B_PERMISSION_BUNDLES.HOUSING_APPROVER.code,
-    signingName: "长租经营审批人",
+    signingName: "住房出租审批人",
     definitionVersion: 2,
     definitionHash: "7e08f8fe91b9889d1769f72d92d4cd5de395d0ba5dacd20acf00d1d810783d3e"
   },
@@ -191,8 +191,8 @@ export const PROPERTY_ROLE_TEMPLATE_DEFINITIONS = [
   },
   {
     code: "HOUSING_FINANCE",
-    name: "长租财务",
-    description: "长租财务读取、登记与受审批约束的减免能力",
+    name: "住房财务",
+    description: "住房财务读取、登记与受审批约束的减免能力",
     definitionVersion: 1,
     definitionHash: "de2cc04dedcb6416ae1ffba66f6e81d15774344dcf7b20538f9047e8d80e2f1d",
     bundleCodes: [TRACK_B_PERMISSION_BUNDLES.HOUSING_FINANCE_OPERATOR.code],
