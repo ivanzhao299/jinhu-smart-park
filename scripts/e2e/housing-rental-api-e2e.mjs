@@ -203,7 +203,13 @@ async function run() {
   if (!unit) {
     for (const candidate of unitList.items) {
       if (Number(candidate.rentalStatus) !== 10) continue;
-      const candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+      let candidateOperation;
+      try {
+        candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+      } catch (error) {
+        if (String(error?.message ?? error).includes(" -> 404:")) continue;
+        throw error;
+      }
       if (candidateOperation.configuredMode !== "long_rent") continue;
       for (let yearOffset = 0; yearOffset < 5; yearOffset += 1) {
         const candidateStart = new Date(start);
