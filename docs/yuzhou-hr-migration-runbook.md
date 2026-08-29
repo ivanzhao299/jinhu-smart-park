@@ -230,6 +230,8 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 仓库已具备 core 生命周期、哈希链 journal、恢复回滚、事实比较、prepare 和仓库内固定 PostgreSQL lab driver 边界。该 driver 使用独立命名的 Compose/network/volume/container、官方 migration 与 production seed、既有 T0～T3 extract/load/rollback 脚本、T0 v2 机器物化和 13 类 residual 探针；它不引用 T4、T5 或 production historical loader。原 full-domain T0 物化目标守卫保持不变，core 入口只能把该守卫精确收紧到 `jinhu_hr_migration_lab_core_*`。
 
+如需无人值守地完成一个已 prepare 的 core 演练，可使用 `node scripts/hr-cutover/run-core-t0-t3-continuous-lab.mjs --config '<0600 config>' --duration-minutes 300`。该 runner 仅推进当前 journal 的下一可恢复阶段（provision、extract、机器包、resume、rollback、cleanup），并把状态事件和最终摘要写入同一 0700 audit 根；最短窗口为五小时，但在 `cleaned + residual=0` 后会立即结束。任一失败先做该 run 的受控恢复并报告失败码，不会开启生产历史导入，也不会扩大到 T4/T5。
+
 当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
 
 ```sh
