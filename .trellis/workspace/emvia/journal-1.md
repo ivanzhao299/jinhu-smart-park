@@ -608,3 +608,38 @@ Completed PSW-001/002/003 and D5, ran authoritative S1/S2/S3 plus G1-G7 UAT, mer
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: 资产单元字段语义与房源接入调查
+
+**Date**: 2026-08-29
+**Task**: 资产单元字段语义与房源接入调查
+**Package**: api
+**Branch**: `codex/asset-unit-field-semantics-review`
+
+### Summary
+
+完成字段语义、资格链与演进史核查，交付 A/B/C 方案和推荐；PR #480 合并且 main CI/Deploy Production 双绿，零产品代码改动。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1cdc1e29` | (see git log) |
+| `4879ecf3` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
