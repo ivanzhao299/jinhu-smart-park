@@ -28,13 +28,20 @@ function writeReceipt(path, sourceSnapshotSha256, bytes) {
   writeFileSync(path, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(path, 0o600);
 }
 
+function sourceRows(dictionaryCode) {
+  if (dictionaryCode === "employment_event_state") return [{ sourceValue: "fixture-a", usageCount: 6000 }, { sourceValue: "fixture-b", usageCount: 887 }];
+  if (dictionaryCode === "contract_state") return [{ sourceValue: "fixture-a", usageCount: 800 }, { sourceValue: "fixture-b", usageCount: 2 }];
+  return ["a", "b", "c", "d"].map(value => ({ typeCode: value, typeName: `fixture-${value}` }));
+}
+
 function dictionaryCaptureReceipt(sourceSnapshotSha256) {
+  const eventStates = sourceRows("employment_event_state"), contractTypes = sourceRows("contract_type"), contractStates = sourceRows("contract_state");
   return sealCoreDictionaryCapture({
     formatVersion: 1, artifactKind: "yuzhou_core_dictionary_capture_receipt", sourceSnapshotSha256,
     dictionaries: {
-      employment_event_state: { sourceObject: "dbo.readjust.state", sourceRecordCount: 6887, sourceDistinctValueCount: 2, sourceItemsSha256: "a".repeat(64) },
-      contract_type: { sourceObject: "dbo.compacttypecode", sourceRecordCount: 4, sourceDistinctValueCount: 4, sourceItemsSha256: "b".repeat(64) },
-      contract_state: { sourceObject: "dbo.compact.state", sourceRecordCount: 802, sourceDistinctValueCount: 2, sourceItemsSha256: "c".repeat(64) }
+      employment_event_state: { sourceObject: "dbo.readjust.state", sourceRecordCount: 6887, sourceDistinctValueCount: 2, sourceItemsSha256: sha(`${JSON.stringify(eventStates)}\n`) },
+      contract_type: { sourceObject: "dbo.compacttypecode", sourceRecordCount: 4, sourceDistinctValueCount: 4, sourceItemsSha256: sha(`${JSON.stringify(contractTypes)}\n`) },
+      contract_state: { sourceObject: "dbo.compact.state", sourceRecordCount: 802, sourceDistinctValueCount: 2, sourceItemsSha256: sha(`${JSON.stringify(contractStates)}\n`) }
     },
     productionImport: "HOLD"
   });
@@ -42,10 +49,19 @@ function dictionaryCaptureReceipt(sourceSnapshotSha256) {
 
 function genericPackage(dictionaryCode, sourceSnapshotSha256, captureReceipt) {
   const capture = captureReceipt.dictionaries[dictionaryCode];
+  const decisions = sourceRows(dictionaryCode).map(row => ({
+    sourceValue: row.sourceValue ?? row.typeCode,
+    sourceName: row.typeName ?? null,
+    usageCount: row.usageCount ?? 1,
+    decision: "map",
+    targetDomain: dictionaryCode,
+    targetValue: "fixture_target",
+    reasonCode: "FIXTURE_MACHINE_REVIEWED"
+  }));
   return {
     formatVersion: 1, artifactKind: "yuzhou_hr_dictionary_machine_decision", sourceSystem: "yuzhou-v10",
     sourceSnapshotSha256, sourceCaptureSha256: captureReceipt.captureSha256, dictionaryCode, sourceObject: capture.sourceObject, sourceRecordCount: capture.sourceRecordCount,
-    decisions: [{ sourceValue: "fixture", usageCount: capture.sourceRecordCount, decision: "map", targetDomain: dictionaryCode, targetValue: "fixture_target", reasonCode: "FIXTURE_MACHINE_REVIEWED" }],
+    decisions,
     productionImport: "HOLD"
   };
 }
@@ -123,12 +139,21 @@ test("prepare emits an exact core driver config with a deterministic named netwo
     controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
     machineAttestationRoot: "b".repeat(64), ...packages
   }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() }), /CORE_DICTIONARY_CAPTURE_BINDING_INVALID/u);
+  const sourceValueDrift = genericPackage("contract_state", prepared.config.triple.sourceSnapshotHash, dictionaryCaptureReceipt(prepared.config.triple.sourceSnapshotHash));
+  sourceValueDrift.decisions[0].sourceValue = "other-source-value";
+  writeFileSync(packages.contractStatePackage, `${JSON.stringify(sourceValueDrift)}\n`, { mode: 0o600 });
+  chmodSync(packages.contractStatePackage, 0o600);
+  assert.throws(() => prepareCoreConfig({
+    rehearsal: "B", suffix: "driver03", postgresPort: 33106, apiPort: 33107, webPort: 33108,
+    controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "b".repeat(64), ...packages
+  }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() }), /CORE_DICTIONARY_CAPTURE_BINDING_INVALID/u);
   writeFileSync(packages.contractStatePackage, `${JSON.stringify({
     ...genericPackage("contract_state", prepared.config.triple.sourceSnapshotHash, dictionaryCaptureReceipt(prepared.config.triple.sourceSnapshotHash)), productionImport: "GO"
   })}\n`, { mode: 0o600 });
   chmodSync(packages.contractStatePackage, 0o600);
   assert.throws(() => prepareCoreConfig({
-    rehearsal: "B", suffix: "driver03", postgresPort: 33106, apiPort: 33107, webPort: 33108,
+    rehearsal: "B", suffix: "driver04", postgresPort: 33109, apiPort: 33110, webPort: 33111,
     controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
     machineAttestationRoot: "b".repeat(64), ...packages
   }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() }), /CORE_DICTIONARY_PACKAGE_INVALID/u);
