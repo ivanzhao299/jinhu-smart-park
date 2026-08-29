@@ -19,7 +19,9 @@
 
 ### Main Changes
 
-(Add details)
+- 提交并合并脱敏 UAT 报告、浏览器证据门禁和办公用途矩阵回归。
+- 完成主链 DB 状态/审计对比、390px、Network、403 与精确 teardown。
+- 归档 LEA 上线后 UAT 与 intake queue。
 
 ### Git Commits
 
@@ -739,19 +741,20 @@ Implemented transactional housing and homestay rental-status projection with con
 
 | Hash | Message |
 |------|---------|
-| `e3c1162d` | (see git log) |
-| `546efbf2` | (see git log) |
-| `cd5d3565` | (see git log) |
-| `8375ba48` | (see git log) |
+| `d6f67966` | test: LEA post-deploy UAT evidence (#504) |
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] PR #504 CI `33258693052` SUCCESS（含 Release Smoke）
+- [OK] main CI `33260301557` 与 Deploy `33260301563` SUCCESS
+- [OK] UAT 报告记录 API、浏览器、DB 审计和 teardown 结果
 
 ### Status
 
 [OK] **Completed**
 
 ### Next Steps
+
+- 无；LEA 队列已闭环。
 
 - None - task complete

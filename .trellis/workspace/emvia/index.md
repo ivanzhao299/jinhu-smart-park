@@ -29,7 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
-| 21 | 2026-08-30 | LEA 上线后 UAT 复测与队列闭环 | `e3c1162d`, `546efbf2`, `cd5d3565`, `8375ba48` | `evidence/lea-post-deploy-uat-archive` |
+| 21 | 2026-08-30 | LEA 上线后 UAT 复测与队列闭环 | `d6f67966` | `evidence/lea-post-deploy-uat-archive` |
 | 20 | 2026-08-29 | LEA-004 rental status lifecycle sync | `7b3e2552`, `1d100a12`, `9d1dc1ec`, `43a45e41`, `b555025c`, `a7d23a72`, `2ba92730` | `codex/fix-lea-004-rental-status-sync` |
 | 19 | 2026-08-29 | LEA-003 长租经营改名与租户子集热修闭环 | `1a0c6ba1`, `33679b0b` | `codex/fix-lea-004-rental-status-sync` |
 | 18 | 2026-08-29 | 资产单元字段语义与房源接入调查 | `1cdc1e29`, `4879ecf3` | `codex/asset-unit-field-semantics-review` |
