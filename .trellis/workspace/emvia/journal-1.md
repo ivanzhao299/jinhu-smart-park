@@ -19,9 +19,7 @@
 
 ### Main Changes
 
-- 提交并合并脱敏 UAT 报告、浏览器证据门禁和办公用途矩阵回归。
-- 完成主链 DB 状态/审计对比、390px、Network、403 与精确 teardown。
-- 归档 LEA 上线后 UAT 与 intake queue。
+(Add details)
 
 ### Git Commits
 
@@ -735,7 +733,9 @@ Implemented transactional housing and homestay rental-status projection with con
 
 ### Main Changes
 
-(Add details)
+- 提交并合并脱敏 UAT 报告、浏览器证据门禁和办公用途矩阵回归。
+- 完成主链 DB 状态/审计对比、390px、Network、403 与精确 teardown。
+- 归档 LEA 上线后 UAT 与 intake queue。
 
 ### Git Commits
 
@@ -756,5 +756,3 @@ Implemented transactional housing and homestay rental-status projection with con
 ### Next Steps
 
 - 无；LEA 队列已闭环。
-
-- None - task complete
