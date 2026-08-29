@@ -9,13 +9,19 @@ import { buildJobStateV2Fixture } from "./yuzhou-job-state-v2-fixture.mjs";
 import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, buildMaterializationSql } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
-import { prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
+import { parseCorePrepareArgs, prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const fixture = buildJobStateV2Fixture();
 const sha = value => createHash("sha256").update(value).digest("hex");
 const readOnlyAuthority = { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false };
+
+test("core prepare accepts the pnpm argument delimiter once and rejects a duplicate delimiter", () => {
+  const args = ["--rehearsal", "A", "--suffix", "driver01", "--postgres-port", "33100", "--api-port", "33101", "--web-port", "33102", "--control-root", "/tmp/control", "--etl-env", "/tmp/etl.env", "--source-container", "jinhu_yuzhou_migration_lab-sqlserver-1", "--source-backup", "/tmp/source.bak", "--source-restore-receipt", "/tmp/receipt.json", "--machine-attestation-root", "a".repeat(64)];
+  assert.equal(parseCorePrepareArgs(["--", ...args]).suffix, "driver01");
+  assert.throws(() => parseCorePrepareArgs(["--", "--", ...args]), /CORE_PREPARE_ARGUMENT_INVALID/u);
+});
 
 function writeReceipt(path, sourceSnapshotSha256, bytes) {
   const receipt = sealSourceRestoreReceipt({

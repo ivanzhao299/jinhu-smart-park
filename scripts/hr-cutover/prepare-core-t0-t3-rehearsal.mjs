@@ -49,12 +49,13 @@ function parseEnv(path) {
 
 export function parseCorePrepareArgs(argv) {
   const args = {}, allowed = new Set(["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--source-container", "--source-backup", "--source-restore-receipt", "--machine-attestation-root"]);
-  for (let index = 0; index < argv.length; index += 1) {
-    const key = argv[index];
-    if (!allowed.has(key) || index + 1 >= argv.length || allowed.has(argv[index + 1])) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
+  const input = argv[0] === "--" ? argv.slice(1) : argv;
+  for (let index = 0; index < input.length; index += 1) {
+    const key = input[index];
+    if (!allowed.has(key) || index + 1 >= input.length || allowed.has(input[index + 1])) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
     const name = key.slice(2).replace(/-([a-z])/gu, (_match, value) => value.toUpperCase());
     if (Object.hasOwn(args, name)) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
-    args[name] = argv[++index];
+    args[name] = input[++index];
   }
   for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "machineAttestationRoot"]) if (!args[key]) fail("CORE_PREPARE_ARGUMENT_MISSING", key);
   if (!["A", "B"].includes(args.rehearsal)) fail("CORE_PREPARE_ARGUMENT_INVALID", "rehearsal");
