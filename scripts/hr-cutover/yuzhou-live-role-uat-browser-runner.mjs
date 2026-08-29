@@ -235,7 +235,7 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
   validateYuzhouLiveRoleUatBrowserMatrix(browserMatrix, taskCard);
   validateBinding(binding);
   if (!LOOPBACK.test(webBase)) fail("YUZHOU_UAT_BROWSER_ORIGIN_UNSAFE", webBase);
-  if (!resolve(evidenceRoot).includes("jinhu_hr_migration_lab_full_") || !resolve(profileRoot).includes("jinhu_hr_migration_lab_full_")) fail("YUZHOU_UAT_BROWSER_PATH_UNSAFE", "lab namespace required");
+  if (!isYuzhouLiveRoleUatLabPath(evidenceRoot) || !isYuzhouLiveRoleUatLabPath(profileRoot)) fail("YUZHOU_UAT_BROWSER_PATH_UNSAFE", "lab namespace required");
   const requiredActors = ["hr_reviewer", "manager", "employee"];
   if (JSON.stringify(Object.keys(credentials).sort()) !== JSON.stringify([...requiredActors].sort())) fail("YUZHOU_UAT_BROWSER_CREDENTIALS_INVALID", "exact actors required");
   for (const actor of requiredActors) if (!credentials[actor]?.username || !credentials[actor]?.password) fail("YUZHOU_UAT_BROWSER_CREDENTIALS_INVALID", actor);
@@ -368,4 +368,8 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
     onProcess(null);
     rmSync(profileRoot, { recursive: true, force: true });
   }
+}
+
+export function isYuzhouLiveRoleUatLabPath(path) {
+  return /jinhu_hr_migration_lab_(?:full|core)_[a-z0-9_]+/u.test(resolve(path));
 }
