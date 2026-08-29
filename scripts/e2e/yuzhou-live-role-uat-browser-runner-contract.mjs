@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { YuzhouLiveRoleUatBrowserRunnerError, isYuzhouLiveRoleUatLabPath, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
+import { YuzhouLiveRoleUatBrowserRunnerError, buildTechnicalUatBrowserBinding, isYuzhouLiveRoleUatLabPath, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
 
 const check = { legacyId: 35, roleType: "department_manager", actor: "manager", route: "/hr/employees" };
 const viewport = { id: "phone_390", width: 390, height: 844, mobile: true };
@@ -65,6 +65,21 @@ test("browser execution without immutable run and C/S/M binding fails before lau
   await assert.rejects(
     () => runYuzhouLiveRoleUatBrowserMatrix({ taskCard, browserMatrix }),
     error => error instanceof YuzhouLiveRoleUatBrowserRunnerError && error.code === "YUZHOU_UAT_BROWSER_BINDING_REQUIRED"
+  );
+});
+
+test("core T0-T3 browser binding reaches the loopback guard instead of being rejected as full-only", async () => {
+  const binding = buildTechnicalUatBrowserBinding(
+    { rehearsal: "A", runId: "yzcore-browser-contract-rA", triple },
+    {
+      hr_reviewer: { id: "11111111-1111-4111-8111-111111111111", username: "isolated-hr-reviewer", tenantId: "10000001", parkId: "20000001", roleCode: "HR_MANAGER" },
+      manager: { id: "22222222-2222-4222-8222-222222222222", username: "isolated-manager", tenantId: "10000001", parkId: "20000001", roleCode: "DEPARTMENT_MANAGER" },
+      employee: { id: "33333333-3333-4333-8333-333333333333", username: "isolated-employee", tenantId: "10000001", parkId: "20000001", roleCode: "EMPLOYEE_SELF_SERVICE" }
+    }
+  );
+  await assert.rejects(
+    () => runYuzhouLiveRoleUatBrowserMatrix({ taskCard, browserMatrix, binding, webBase: "https://not-loopback.invalid", credentials: {} }),
+    error => error instanceof YuzhouLiveRoleUatBrowserRunnerError && error.code === "YUZHOU_UAT_BROWSER_ORIGIN_UNSAFE"
   );
 });
 
