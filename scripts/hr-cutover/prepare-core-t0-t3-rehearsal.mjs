@@ -94,7 +94,7 @@ export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = co
   const config = {
     formatVersion: 1, profile: "core_t0_t3", runId: `yzcore-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`, rehearsal: args.rehearsal,
     triple: { codeSha, sourceSnapshotHash, mappingContractHash },
-    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256, databaseAlias: etl.YUZHOU_SQLSERVER_DATABASE, etlEnvFile: etlCopy, sourceContainer: args.sourceContainer },
+    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256, databaseAlias: etl.YUZHOU_SQLSERVER_DATABASE, etlEnvFile: etlCopy, sourceContainer: args.sourceContainer, dictionaryPackages: null },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: args.machineAttestationRoot },
     target: {
       database: project, composeProject: project, container: `${project}-postgres-1`, network: `${project}_default`, volume: `${project}_postgres_data`,
