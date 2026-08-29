@@ -69,4 +69,11 @@ query bonuscode.raw.json "SET NOCOUNT ON; SELECT bonus,bonusname,CONVERT(varchar
 query bonusrecord.raw.json "SET NOCOUNT ON; SELECT id,person,CONVERT(varchar(33),bonusdate,126) bonusdate,bonus,bonusunit,times,postperson,CONVERT(varchar(33),eventdate,126) eventdate,cause,CONVERT(varchar(40),addsub) addsub,CONVERT(varchar(40),bonuspay) bonuspay FROM dbo.bonusrecord ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query jch_1.raw.json "SET NOCOUNT ON; SELECT CAST(NULL AS int) id WHERE 1=0 ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 node "$ROOT_DIR/scripts/transform-yuzhou-t5-legacy-history.mjs" "$OUT"
+for raw_file in "$OUT"/*.raw.json; do
+  [ -e "$raw_file" ] || continue
+  rm -f "$raw_file"
+done
+if find "$OUT" -maxdepth 1 -type f -name '*.raw.json' | grep -q .; then
+  fail "raw T5 source artifacts were not removed"
+fi
 printf 'YUZHOU_T5_EXTRACT_OK run_id=%s output=%s\n' "$RUN_ID" "$OUT"

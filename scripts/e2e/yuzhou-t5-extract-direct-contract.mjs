@@ -13,6 +13,7 @@ assert.match(source, /YUZHOU_PARTY_DATA_KEY_FILE/);
 assert.match(source, /materialization-key-contract\.mjs" verify/);
 assert.match(source, /sqlcmd -b -V 16/);
 assert.match(source, /sqlcmd -b -V 16[\s\S]*\[ -s "\$OUT\/\$name" \] \|\| printf '\[\]'/);
+assert.match(source, /raw T5 source artifacts were not removed/);
 
 const sandbox = mkdtempSync(resolve(tmpdir(), "jinhu-yuzhou-t5-extract-"));
 const binDirectory = resolve(sandbox, "bin");
