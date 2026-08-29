@@ -171,9 +171,9 @@ The shared service validates the mode and period; database exclusion plus cross-
 - A real change writes `biz_unit` and `biz_unit_status_log(source_type='system')` in the same transaction.
 - Occupy accepts only 10 or idempotent 30. Status 20/50/60/70 is an operator/asset strong state and rejects the owning lifecycle transaction.
 - Release preserves 20/50/60/70. While another commercial-leasing, housing-rental, or homestay occupancy/live aggregate remains, 30 stays 30 and 40 converges to 30; without a blocker, 30/40 converges to 10.
-- A legacy commercial contract blocks release only while status is effective (`75`), its effective date has arrived, and its unit relation has not ended at the Shanghai business-date boundary.
+- A legacy commercial contract blocks release while status is effective (`75`) and its unit relation has not ended at the Shanghai business-date boundary. Status 75 is authoritative because commercial `effective()` projects 30 immediately, including when its declared effective date is future; there is no date-boundary scheduler that can safely restore 30 later.
 - Homestay turnover `operations` occupancy controls readiness/availability but is not a rental business blocker; successful guest checkout still projects to 10.
-- Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs. Confirmed homestay cancellation and no-show also release-project after their occupancy and aggregate become terminal, so a previously blocked release cannot leave stale 30.
+- Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs. Draft/confirmed homestay cancellation and no-show also release-project after their occupancy and aggregate become terminal, so a previously blocked release cannot leave stale 30.
 
 ### 4. Validation & Error Matrix
 

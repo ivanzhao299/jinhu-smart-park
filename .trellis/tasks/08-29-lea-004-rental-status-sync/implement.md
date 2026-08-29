@@ -20,4 +20,5 @@
 - 2026-08-29：targeted 53 tests（51 PASS/2 DB conditional SKIP）后增量 10/10 PASS；workspace lint/typecheck/build（190 pages）PASS；API full unit 1652 tests：1611 PASS、0 FAIL、41 DB conditional SKIP；`git diff --check` PASS。
 - 2026-08-29：PR #490 首轮 Codex review 提出 3 个有效 P2：40+剩余业务须归一 30、商业 blocker 须限实际生效合同、住房 effect audit 须保存 projection disposition。均已修复；新增 forward-only `000285_housing_rental_status_projection_audit.sql`，定向 22 tests 为 21 PASS/1 DB conditional SKIP，workspace lint/typecheck PASS。
 - 2026-08-29：第 2 轮 Codex review 提出 2 个有效问题：void audit 必须传 SQL NULL、confirmed cancellation/no-show 必须在 terminal 后重算以避免滞留 30。已修复并把处置结果写入各自 action audit；定向 46 tests 为 45 PASS/1 DB conditional SKIP，API typecheck/lint PASS。
-- 续跑点：提交并 push 第 2 轮修复，触发第 3（最终）轮核验；等待 PR CI+Release Smoke，合并后等待 main CI/Deploy 双绿并归档。
+- 2026-08-29：第 3（最终）轮 Codex review 提出 2 个边界：status-75 future-effective 合同已在 effective() 当下投影 30、且无日期调度器，故 release 按 75 权威保留；draft hold 取消也须重算。均已修复；不再触发第 4 轮。
+- 续跑点：提交并 push 最终修复；等待 PR CI+Release Smoke，合并后等待 main CI/Deploy 双绿并归档。

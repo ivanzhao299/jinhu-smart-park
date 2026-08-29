@@ -98,7 +98,7 @@ test("release normalizes expiring status to rented while another business remain
   assert.equal(state.logSaves.length, 1);
 });
 
-test("commercial blocker is limited to a currently effective contract", async () => {
+test("commercial blocker is limited to status-75 contracts", async () => {
   const state = fixture(30, true);
   await new RentalStatusProjectionService().project(input(state.manager, "release") as never);
   const manager = state.manager as { query: (sql: string, parameters: unknown[]) => Promise<unknown> };
@@ -110,8 +110,7 @@ test("commercial blocker is limited to a currently effective contract", async ()
   };
   await new RentalStatusProjectionService().project(input(manager, "release") as never);
   assert.match(blockerSql, /contract\.status='75'/);
-  assert.match(blockerSql, /contract\.effective_date IS NOT NULL/);
-  assert.match(blockerSql, /contract\.effective_date[\s\S]*<=/);
+  assert.doesNotMatch(blockerSql, /contract\.status NOT IN/);
 });
 
 test("release preserves a later manual strong status", async () => {

@@ -23,11 +23,11 @@ test("homestay check-in and check-out project and retain the disposition in acti
   assert.match(stay, /async checkOut[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*action: "release"[\s\S]*rental_status_projection: rentalStatus/);
 });
 
-test("homestay no-show and confirmed cancellation release and audit the projection", () => {
+test("homestay no-show and all cancellable states release and audit the projection", () => {
   const booking = read("../homestay/homestay-booking-command.service.ts");
   const cancellation = read("../homestay/homestay-cancellation-executor.service.ts");
   assert.match(booking, /async markNoShow[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*action: "release"[\s\S]*rental_status_projection: rentalStatus/);
-  assert.match(cancellation, /booking\.status === "confirmed"[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*action: "release"[\s\S]*rental_status_projection: state\.rentalStatusProjection/);
+  assert.match(cancellation, /applyBookingEffect[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*action: "release"[\s\S]*rental_status_projection: state\.rentalStatusProjection/);
 });
 
 test("property operations exports the required shared projection provider", () => {

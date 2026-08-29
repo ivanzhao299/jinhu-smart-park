@@ -60,13 +60,12 @@ export class HomestayCancellationExecutorService {
     await this.applyCredentialEffects(input, scope, state.currentCredentials);
     await this.applyOccupancyEffect(input, scope, state.occupancy, state.frozenOccupancy);
     await this.applyBookingEffect(input, scope, bookingId, booking.status);
-    const rentalStatusProjection = booking.status === "confirmed"
-      ? await this.rentalStatusProjection.project({
-        manager: input.manager, scope, unitId: booking.unitId,
-        actorId: input.request.requesterId,
-        actorName: String(input.canonicalPayload.actorName ?? "审批申请人"),
-        sourceType: "homestay_booking", sourceId: bookingId, action: "release"
-      }) : null;
+    const rentalStatusProjection = await this.rentalStatusProjection.project({
+      manager: input.manager, scope, unitId: booking.unitId,
+      actorId: input.request.requesterId,
+      actorName: String(input.canonicalPayload.actorName ?? "审批申请人"),
+      sourceType: "homestay_booking", sourceId: bookingId, action: "release"
+    });
     await this.applyLedgerEffects(
       input, scope, bookingId, byKind, state.roomWaiverAmount,
       state.cancellationFeeAmount, state.currency
