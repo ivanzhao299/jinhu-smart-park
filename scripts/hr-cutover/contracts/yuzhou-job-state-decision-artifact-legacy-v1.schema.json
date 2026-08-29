@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-decision-artifact-legacy-v1.schema.json",
+  "$comment": "READ-ONLY AUDIT COMPATIBILITY ONLY. This human-review-era v1 artifact must never be newly issued or used to authorize production import.",
+  "title": "Legacy Yuzhou employee job-state reviewed decision artifact v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "artifactKind", "artifactVersion", "artifactStatus", "scopeBinding", "sourceContract", "decisions", "canonicalDecisionSha256", "review", "detachedHrApproval", "productionImport"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "artifactKind": { "const": "yuzhou_employee_job_state_reviewed_decision" },
+    "artifactVersion": { "const": "v1" },
+    "artifactStatus": { "enum": ["DRAFT", "REVIEWED"] },
+    "scopeBinding": { "$ref": "yuzhou-job-state-decision-artifact.schema.json#/$defs/scopeBinding" },
+    "sourceContract": { "$ref": "yuzhou-job-state-decision-artifact.schema.json#/$defs/sourceContract" },
+    "decisions": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "yuzhou-job-state-decision-artifact.schema.json#/$defs/legacyDecision" } },
+    "canonicalDecisionSha256": { "$ref": "yuzhou-job-state-decision-artifact.schema.json#/$defs/sha256" },
+    "review": { "type": "object" },
+    "detachedHrApproval": { "type": "object" },
+    "productionImport": { "const": "HOLD" }
+  }
+}
