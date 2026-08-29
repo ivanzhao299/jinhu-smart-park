@@ -1,0 +1,5 @@
+{"file":".trellis/spec/api/backend/asset-operating-space-mapping.md","reason":"复核 mode 与用途职责、审批和运行时资格结论"}
+{"file":".trellis/spec/api/backend/apartment-inclusion-availability.md","reason":"复核长租候选与可用性结论"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"复核 picker、字段展示与文案影响范围"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"复核 shared 双端契约影响分析"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"复核字段矩阵与跨层消费链完整性"}
