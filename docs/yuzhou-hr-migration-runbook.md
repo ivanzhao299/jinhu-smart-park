@@ -255,6 +255,14 @@ pnpm hr:migration:t3-attendance-events:profile
 
 脚本只接受 migration lab 内的只读 SQL Server 与非 `sa` ETL 登录，输出目录为 `0700`、原始聚合与回执为 `0600`。它不导入、更新或删除源/目标数据；不论是否有历史行，`productionImport` 均固定为 `HOLD`。只有在该回执、字段映射、隔离装载、守恒、回滚和重装都通过后，才可为这些事件另开历史导入切片。
 
+现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：
+
+```sh
+set -a; . '<0600 core credential root>/postgres.env'; set +a
+POSTGRES_HOST=127.0.0.1 POSTGRES_PORT='<core postgres port>' \
+pnpm test:hr:attendance-request:pg
+```
+
 当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
 
 ```sh
