@@ -77,7 +77,8 @@ const config = (rehearsal, suffix, basePort) => {
       sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1",
       // Lifecycle-only fixtures do not provision resources; the live driver
       // separately rejects this null placeholder before resource creation.
-      dictionaryPackages: null
+      dictionaryPackages: null,
+      dictionaryCaptureReceipt: null
     },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: rehearsal === "A" ? fixture.trustedRootSha256 : fixtureB.trustedRootSha256 },
     target: {

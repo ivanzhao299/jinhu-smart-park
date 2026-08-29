@@ -77,6 +77,14 @@ export function sealCoreDictionaryCapture(input) {
   return { ...input, captureSha256: sha256(canonical(input)) };
 }
 
+export function verifyCoreDictionaryCapture(receipt) {
+  exactKeys(receipt, ["formatVersion", "artifactKind", "sourceSnapshotSha256", "dictionaries", "productionImport", "captureSha256"], "CORE_DICTIONARY_CAPTURE_INVALID");
+  const { captureSha256, ...body } = receipt;
+  const sealed = sealCoreDictionaryCapture(body);
+  if (captureSha256 !== sealed.captureSha256) fail("CORE_DICTIONARY_CAPTURE_TAMPERED", "capture hash");
+  return receipt;
+}
+
 export function captureCoreDictionaryReceipt({ sourceSnapshotSha256, eventStatePath, contractTypePath, contractStatePath }) {
   if (!SHA256.test(sourceSnapshotSha256 ?? "")) fail("CORE_DICTIONARY_CAPTURE_INVALID", "source snapshot");
   return sealCoreDictionaryCapture({
