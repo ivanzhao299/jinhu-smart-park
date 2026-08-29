@@ -1,75 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-machine-attestation.schema.json",
-  "title": "Yuzhou job-state preload machine attestation",
+  "title": "Yuzhou job-state trusted-root machine attestation v2",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "formatVersion",
-    "artifactKind",
-    "attestationVersion",
-    "status",
-    "reasonCodes",
-    "triple",
-    "expectedCheckpointRootSha256",
-    "checkpointRootSha256",
-    "decisionArtifactSha256",
-    "canonicalDecisionSha256",
-    "privatePayloadArtifactSha256",
-    "privatePayloadSha256",
-    "t0EvidenceArtifactSha256",
-    "t0BindingSha256",
-    "semanticLedger",
-    "assertionMode",
-    "humanSignature",
-    "humanIdentityAsserted",
-    "productionImport",
-    "integrityDigest"
-  ],
+  "required": ["formatVersion", "artifactKind", "attestationVersion", "status", "reasonCodes", "triple", "trustedCheckpointRootSha256", "jobStatePackageRootSha256", "decisionArtifactSha256", "canonicalDecisionSha256", "privatePayloadArtifactSha256", "privatePayloadSha256", "t0EvidenceArtifactSha256", "t0BindingSha256", "semanticLedger", "assertionMode", "humanSignature", "humanIdentityAsserted", "productionImport", "integrityDigest"],
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2 },
     "artifactKind": { "const": "yuzhou_job_state_machine_attestation" },
-    "attestationVersion": { "const": "v1" },
+    "attestationVersion": { "const": "v2" },
     "status": { "const": "PASS" },
     "reasonCodes": { "type": "array", "maxItems": 0 },
-    "triple": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"],
-      "properties": {
-        "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-        "sourceSnapshotHash": { "$ref": "#/$defs/sha256" },
-        "mappingContractHash": { "$ref": "#/$defs/sha256" }
-      }
-    },
-    "expectedCheckpointRootSha256": { "$ref": "#/$defs/sha256" },
-    "checkpointRootSha256": { "$ref": "#/$defs/sha256" },
+    "triple": { "type": "object", "additionalProperties": false, "required": ["codeSha", "sourceSnapshotHash", "mappingContractHash"], "properties": { "codeSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }, "sourceSnapshotHash": { "$ref": "#/$defs/sha256" }, "mappingContractHash": { "$ref": "#/$defs/sha256" } } },
+    "trustedCheckpointRootSha256": { "$ref": "#/$defs/sha256" },
+    "jobStatePackageRootSha256": { "$ref": "#/$defs/sha256" },
     "decisionArtifactSha256": { "$ref": "#/$defs/sha256" },
     "canonicalDecisionSha256": { "$ref": "#/$defs/sha256" },
     "privatePayloadArtifactSha256": { "$ref": "#/$defs/sha256" },
     "privatePayloadSha256": { "$ref": "#/$defs/sha256" },
     "t0EvidenceArtifactSha256": { "$ref": "#/$defs/sha256" },
     "t0BindingSha256": { "$ref": "#/$defs/sha256" },
-    "semanticLedger": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sourceDistinctStateCount", "sourceRecordCount", "mappedStateCount", "quarantinedStateCount", "mappedRecordCount", "quarantinedRecordCount"],
-      "properties": {
-        "sourceDistinctStateCount": { "const": 7 },
-        "sourceRecordCount": { "const": 2949 },
-        "mappedStateCount": { "const": 4 },
-        "quarantinedStateCount": { "const": 3 },
-        "mappedRecordCount": { "type": "integer", "minimum": 4, "maximum": 2946 },
-        "quarantinedRecordCount": { "type": "integer", "minimum": 3, "maximum": 2945 }
-      }
-    },
-    "assertionMode": { "const": "trusted_checkpoint_deterministic_machine_semantics" },
+    "semanticLedger": { "type": "object", "additionalProperties": false, "required": ["sourceDistinctStateCount", "sourceRecordCount", "mappedStateCount", "quarantinedStateCount", "mappedRecordCount", "quarantinedRecordCount"], "properties": { "sourceDistinctStateCount": { "const": 7 }, "sourceRecordCount": { "const": 2949 }, "mappedStateCount": { "const": 4 }, "quarantinedStateCount": { "const": 3 }, "mappedRecordCount": { "type": "integer", "minimum": 4, "maximum": 2946 }, "quarantinedRecordCount": { "type": "integer", "minimum": 3, "maximum": 2945 } } },
+    "assertionMode": { "const": "trusted_root_job_state_machine_semantics" },
     "humanSignature": { "const": false },
     "humanIdentityAsserted": { "const": false },
     "productionImport": { "const": "HOLD" },
     "integrityDigest": { "$ref": "#/$defs/sha256" }
   },
-  "$defs": {
-    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
-  }
+  "$defs": { "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
 }

@@ -27,13 +27,14 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
-import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding } from "./materialize-reviewed-job-state.mjs";
+import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
   compileYuzhouJobStateMachineAttestation,
   computeYuzhouJobStateCheckpointArtifactHash,
   computeYuzhouJobStateCheckpointRoot,
+  computeYuzhouJobStateMachineAttestationSha256,
   verifyYuzhouJobStateMachineAttestation
 } from "./yuzhou-job-state-machine-attestation.mjs";
 
@@ -783,8 +784,9 @@ function buildMachineCheckpoint(config, decision, payload) {
     sourceRecordCount: 2949
   };
   const checkpoint = {
-    formatVersion: 1,
-    kind: "yuzhou-job-state-preload-checkpoint",
+    formatVersion: 2,
+    kind: "yuzhou-job-state-preload-package",
+    trustedCheckpointRootSha256: config.machineAttestation.trustedRootSha256,
     triple: config.triple,
     decisionArtifact: decision,
     privatePayload: payload,
@@ -794,9 +796,9 @@ function buildMachineCheckpoint(config, decision, payload) {
       privatePayloadArtifactSha256: computeYuzhouJobStateCheckpointArtifactHash("private_payload", payload),
       t0EvidenceArtifactSha256: computeYuzhouJobStateCheckpointArtifactHash("t0_evidence", t0Evidence)
     },
-    checkpointRootSha256: ""
+    packageRootSha256: ""
   };
-  checkpoint.checkpointRootSha256 = computeYuzhouJobStateCheckpointRoot(checkpoint);
+  checkpoint.packageRootSha256 = computeYuzhouJobStateCheckpointRoot(checkpoint);
   return checkpoint;
 }
 
@@ -805,35 +807,17 @@ function verifyMachineArtifactPackage(config, decision, payload, machineAttestat
   const compiled = compileYuzhouJobStateMachineAttestation(checkpoint, { expectedCheckpointRootSha256: config.machineAttestation.trustedRootSha256 });
   verifyYuzhouJobStateMachineAttestation(machineAttestation, { expectedCheckpointRootSha256: config.machineAttestation.trustedRootSha256 });
   if (canonicalYuzhouJobStateMachineJson(compiled) !== canonicalYuzhouJobStateMachineJson(machineAttestation)) fail("MACHINE_ATTESTATION_INVALID", "machine attestation differs from deterministic compilation");
-  return { checkpointRootSha256: checkpoint.checkpointRootSha256, machineAttestationSha256: operationSha(canonicalYuzhouJobStateMachineJson(machineAttestation)) };
-}
-
-function machineVerifiedAt(runId) {
-  const value = /^yzfull-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z-/u.exec(runId);
-  if (!value) fail("RUN_ID_INVALID", "cannot derive deterministic machine verification time");
-  return `${value[1]}-${value[2]}-${value[3]}T${value[4]}:${value[5]}:${value[6]}Z`;
+  return { checkpointRootSha256: config.machineAttestation.trustedRootSha256, packageRootSha256: checkpoint.packageRootSha256, machineAttestationSha256: computeYuzhouJobStateMachineAttestationSha256(machineAttestation) };
 }
 
 function materializeMachineAttestedJobState(config) {
   const decision = readJson(config.target.jobStateDecisionArtifact), payload = readJson(config.target.jobStateSourcePayloadArtifact), machineAttestation = readJson(config.target.jobStateMachineAttestationArtifact);
-  const verified = verifyMachineArtifactPackage(config, decision, payload, machineAttestation);
+  verifyMachineArtifactPackage(config, decision, payload, machineAttestation);
   verifyCurrentT0Binding(config, payload);
-  const { payloadSha256: _payloadSha256, approvalSubject: _approvalSubject, ...payloadBody } = payload;
-  const machinePayload = {
-    ...payloadBody,
-    formatVersion: 2,
-    verification: {
-      mode: "machine_attested",
-      machineAttestationSha256: verified.machineAttestationSha256,
-      evidenceRootSha256: verified.checkpointRootSha256,
-      verifiedAt: machineVerifiedAt(config.runId),
-      actorKind: "machine_policy_engine"
-    }
-  };
-  machinePayload.payloadSha256 = canonicalHash(machinePayload);
-  const result = spawnSync("docker", ["exec", "-i", config.target.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database], { input: buildMaterializationSql(decision, machinePayload, machineAttestation), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+  const packageVerification = verifyMaterializationPackage(decision, payload, machineAttestation, config);
+  const result = spawnSync("docker", ["exec", "-i", config.target.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database], { input: buildMaterializationSql(decision, payload, machineAttestation), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
   if (result.error || result.status !== 0) fail("DICTIONARY_MATERIALIZATION_FAILED", "machine-attested dictionary write failed");
-  return { canonicalDecisionSha256: decision.canonicalDecisionSha256, privatePayloadSha256: payload.payloadSha256, verificationMode: "machine_attested", machineAttestationSha256: verified.machineAttestationSha256, t0BindingSha256: canonicalHash(payload.t0Binding), t0ManifestSha256: payload.t0Binding.manifestSha256, dictionarySnapshotSha256: payload.dictionaryEvidenceSha256, databaseItemsSha256: payload.expectedDatabaseItemsSha256, productionImport: "HOLD" };
+  return { canonicalDecisionSha256: decision.canonicalDecisionSha256, privatePayloadSha256: payload.payloadSha256, verificationMode: "machine_attested", machineAttestationSha256: packageVerification.machineAttestationSha256, t0BindingSha256: canonicalHash(payload.t0Binding), t0ManifestSha256: payload.t0Binding.manifestSha256, dictionarySnapshotSha256: payload.dictionaryEvidenceSha256, databaseItemsSha256: payload.expectedDatabaseItemsSha256, productionImport: "HOLD" };
 }
 
 async function resumeAfterMachineAttestationAsync(configInput, configPath, artifacts) {
@@ -842,9 +826,9 @@ async function resumeAfterMachineAttestationAsync(configInput, configPath, artif
   installMachineArtifacts(config, artifacts);
   registerControlledFilesystem(config);
   refreshOwnedResumeLock(config, config.__configPath, artifacts);
-  const installedDecision = readJson(config.target.jobStateDecisionArtifact), installedPayload = readJson(config.target.jobStateSourcePayloadArtifact), installedMachineAttestation = readJson(config.target.jobStateMachineAttestationArtifact), machineAttestationSha256 = operationSha(canonicalYuzhouJobStateMachineJson(installedMachineAttestation));
+  const installedDecision = readJson(config.target.jobStateDecisionArtifact), installedPayload = readJson(config.target.jobStateSourcePayloadArtifact), installedMachineAttestation = readJson(config.target.jobStateMachineAttestationArtifact), machineAttestationSha256 = computeYuzhouJobStateMachineAttestationSha256(installedMachineAttestation);
   const machineCheckpointBindingSha256 = createHash("sha256").update(`yuzhou-job-state-lifecycle-checkpoint-v2\0${canonicalYuzhouJobStateMachineJson({ triple: config.triple, trustedRootSha256: config.machineAttestation.trustedRootSha256, machineAttestationSha256 })}`).digest("hex");
-  const expectedMaterialization = { kind: "dictionary_materialization", domain: "T0", status: "verified", verificationMode: "machine_attested", canonicalDecisionSha256: installedDecision.canonicalDecisionSha256, privatePayloadSha256: installedPayload.payloadSha256, machineAttestationSha256, machineTrustedRootSha256: installedMachineAttestation.expectedCheckpointRootSha256, machineCheckpointBindingSha256, t0BindingSha256: createHash("sha256").update(`${JSON.stringify(Object.fromEntries(Object.entries(installedPayload.t0Binding).sort(([left], [right]) => left.localeCompare(right))))}\n`).digest("hex"), t0ManifestSha256: installedPayload.t0Binding.manifestSha256, dictionarySnapshotSha256: installedPayload.dictionaryEvidenceSha256, databaseItemsSha256: installedPayload.expectedDatabaseItemsSha256, triple: config.triple, productionImport: "HOLD" };
+  const expectedMaterialization = { kind: "dictionary_materialization", domain: "T0", status: "verified", verificationMode: "machine_attested", canonicalDecisionSha256: installedDecision.canonicalDecisionSha256, privatePayloadSha256: installedPayload.payloadSha256, machineAttestationSha256, machineTrustedRootSha256: installedMachineAttestation.trustedCheckpointRootSha256, machineCheckpointBindingSha256, t0BindingSha256: createHash("sha256").update(`${JSON.stringify(Object.fromEntries(Object.entries(installedPayload.t0Binding).sort(([left], [right]) => left.localeCompare(right))))}\n`).digest("hex"), t0ManifestSha256: installedPayload.t0Binding.manifestSha256, dictionarySnapshotSha256: installedPayload.dictionaryEvidenceSha256, databaseItemsSha256: installedPayload.expectedDatabaseItemsSha256, triple: config.triple, productionImport: "HOLD" };
   const prewriteMaterializations = readFileSync(paths(config).journal, "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line)).filter(row => row.kind === "dictionary_materialization" && row.domain === "T0");
   const journalMatches = row => Object.entries(expectedMaterialization).every(([key, value]) => typeof value === "object" ? JSON.stringify(row[key]) === JSON.stringify(value) : row[key] === value);
   if (prewriteMaterializations.length > 1 || (prewriteMaterializations.length === 1 && !journalMatches(prewriteMaterializations[0]))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
