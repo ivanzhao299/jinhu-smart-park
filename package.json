@@ -135,6 +135,7 @@
     "hr:migration:full:status": "sh scripts/hr-cutover/full-domain-lifecycle.sh status",
     "hr:migration:core-t0-t3:prepare": "node scripts/hr-cutover/prepare-core-t0-t3-rehearsal.mjs",
     "hr:migration:core-t0-t3:pair": "node scripts/hr-cutover/core-t0-t3-pair-runner.mjs",
+    "hr:migration:core-t0-t3:pair-continuous": "node scripts/hr-cutover/run-core-t0-t3-pair-continuous-lab.mjs",
     "hr:migration:core-t0-t3:technical-uat": "node scripts/hr-cutover/run-core-t0-t3-technical-uat.mjs",
     "test:e2e:yuzhou-core-t0-t3-technical-uat": "node --test scripts/e2e/yuzhou-core-t0-t3-technical-uat-contract.mjs",
     "test:e2e:yuzhou-full-domain-lifecycle": "node scripts/e2e/yuzhou-full-domain-lifecycle.mjs",
