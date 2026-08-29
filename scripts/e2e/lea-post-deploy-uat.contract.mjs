@@ -20,7 +20,10 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
   ]) assert.match(browserRunner, new RegExp(contract.replaceAll("-", "\\-")));
   assert.match(browserRunner, /BROWSER_UAT_USERNAME and BROWSER_UAT_PASSWORD must be supplied together/u);
   assert.match(browserRunner, /horizontal_overflow:/u);
+  assert.match(browserRunner, /mobile_viewport_mismatch:/u);
   assert.match(browserRunner, /api_response_failed:/u);
+  assert.match(browserRunner, /trackedWebApiPrefix/u);
+  assert.doesNotMatch(browserRunner, /Browser\.close"\)\.catch/u);
   assert.match(browserRunner, /safeUsername/u);
 });
 

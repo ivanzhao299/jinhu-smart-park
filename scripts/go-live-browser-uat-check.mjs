@@ -14,6 +14,8 @@ const tenantId = "10000001";
 const parkId = "20000001";
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
+const apiPathPrefix = new URL(apiBase).pathname.replace(/\/$/u, "");
+const trackedWebApiPrefix = `${webBase.replace(/\/$/u, "")}${apiPathPrefix}/`;
 const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCredentialsFile);
 const reportFile = resolve(repoRoot, readArg("--report") ?? defaultReportFile);
 const maxPagesPerUser = Number(readArg("--max-pages-per-user") ?? 0);
@@ -240,8 +242,11 @@ async function launchChrome() {
         return visitPage(browser, input);
       },
       async close() {
-        if (closeExternalBrowser) await browser.send("Browser.close").catch(() => undefined);
-        await browser.close();
+        try {
+          if (closeExternalBrowser) await browser.send("Browser.close");
+        } finally {
+          await browser.close();
+        }
       }
     };
   }
@@ -403,7 +408,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     }
     if (message.method === "Network.responseReceived") {
       const response = message.params?.response;
-      if (response?.url?.startsWith(`${webBase}/api/v1/`)) {
+      if (response?.url?.startsWith(trackedWebApiPrefix)) {
         network.push({
           resource_type: message.params?.type ?? "Other",
           path: new URL(response.url).pathname,
@@ -413,7 +418,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     }
     if (message.method === "Network.requestWillBeSent") {
       const url = message.params?.request?.url;
-      if (url?.startsWith(`${webBase}/api/v1/`)) pendingApiRequests.set(message.params.requestId, url);
+      if (url?.startsWith(trackedWebApiPrefix)) pendingApiRequests.set(message.params.requestId, url);
     }
     if (message.method === "Network.loadingFinished") pendingApiRequests.delete(message.params?.requestId);
     if (message.method === "Network.loadingFailed") {
@@ -458,6 +463,7 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     await browser.send("Page.navigate", { url: `${webBase}${path}` }, sessionId);
     await loadPromise;
     await waitForReady(browser, sessionId);
+    if (expectForbidden) await sleep(2000);
     const settleDeadline = Date.now() + 5000;
     let settledAt = null;
     while (Date.now() < settleDeadline) {
@@ -476,8 +482,6 @@ async function visitPage(browser, { path, username, token, userContext, viewport
         status: "settle_timeout"
       });
     }
-    if (expectForbidden) await sleep(2000);
-
     const evaluation = await browser.send("Runtime.evaluate", {
       expression: `(() => {
         const text = document.body?.innerText ?? "";
@@ -514,6 +518,9 @@ async function visitPage(browser, { path, username, token, userContext, viewport
     );
     const hardFailure = renderFailure
       || (expectForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
+      || (viewport.mobile && Math.abs(Number(value.viewportWidth) - viewport.width) > 1
+        ? `mobile_viewport_mismatch:${value.viewportWidth}!=${viewport.width}`
+        : "")
       || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
       || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
