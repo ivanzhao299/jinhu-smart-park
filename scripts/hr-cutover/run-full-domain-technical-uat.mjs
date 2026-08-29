@@ -36,6 +36,7 @@ const sleep=(ms)=>new Promise((done)=>setTimeout(done,ms));
 const sha256=value=>createHash("sha256").update(typeof value==="string"?value:JSON.stringify(value)).digest("hex");
 const fixtureKeyFor=runId=>`uat${sha256(runId).slice(0,16)}`;
 let databaseOperation=0;
+const safeDatabaseDiagnostic=error=>String(error?.message??"").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?/u)?.[0]??"";
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
@@ -202,4 +203,4 @@ COMMIT;`;
  return result;
 }
 
-if(process.argv[1]&&resolve(process.argv[1])===resolve(import.meta.filename)){try{const args=parse(process.argv.slice(2)),config=JSON.parse(readFileSync(args.config,"utf8"));const result=await runTechnicalUat(config);process.stdout.write(`${JSON.stringify(result)}\n`);}catch(error){process.stderr.write(`${error.code??"TECHNICAL_UAT_FAILED"}: ${error.message}\n`);process.exitCode=1;}}
+if(process.argv[1]&&resolve(process.argv[1])===resolve(import.meta.filename)){try{const args=parse(process.argv.slice(2)),config=JSON.parse(readFileSync(args.config,"utf8"));const result=await runTechnicalUat(config);process.stdout.write(`${JSON.stringify(result)}\n`);}catch(error){const diagnostic=safeDatabaseDiagnostic(error);process.stderr.write(`${error.code??"TECHNICAL_UAT_FAILED"}${diagnostic?` ${diagnostic}`:""}\n`);process.exitCode=1;}}
