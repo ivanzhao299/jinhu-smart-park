@@ -26,6 +26,28 @@ function writeReceipt(path, sourceSnapshotSha256, bytes) {
   });
   writeFileSync(path, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(path, 0o600);
 }
+function writeDictionaryPackages(root, sourceSnapshotSha256) {
+  const event = {
+    formatVersion: 1, artifactKind: "yuzhou_t1_employment_event_type_machine_decision", sourceSystem: "yuzhou-v10",
+    sourceSnapshotSha256, dictionaryCode: "employment_event_type", sourceTable: "dbo.readjust.readjusttype", sourceRecordCount: 6887,
+    decisions: [["就职", 2890, "start_probation"], ["调职", 1746, "transfer"], ["离职", 1962, "depart"], ["复职", 289, "resume"]]
+      .map(([sourceValue, usageCount, targetValue]) => ({ sourceValue, usageCount, decision: "map", targetDomain: "employment_event_type", targetValue, reasonCode: "ONLINE_LIFECYCLE_EQUIVALENT" })),
+    productionImport: "HOLD"
+  };
+  const packages = {
+    eventTypePackage: event,
+    eventStatePackage: { dictionaryCode: "employment_event_state", sourceSnapshotSha256, productionImport: "HOLD" },
+    contractTypePackage: { dictionaryCode: "contract_type", sourceSnapshotSha256, productionImport: "HOLD" },
+    contractStatePackage: { dictionaryCode: "contract_state", sourceSnapshotSha256, productionImport: "HOLD" }
+  };
+  const paths = {};
+  for (const [key, value] of Object.entries(packages)) {
+    paths[key] = join(root, `${key}.json`);
+    writeFileSync(paths[key], `${JSON.stringify(value)}\n`, { mode: 0o600 });
+    chmodSync(paths[key], 0o600);
+  }
+  return paths;
+}
 
 test("core SQL helper changes exactly one full-lab guard and leaves the full builder byte-stable", () => {
   const fullBefore = buildMaterializationSql(fixture.decision, fixture.payload, fixture.attestation);
@@ -45,16 +67,18 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   const sourceBackup = join(sandbox, "source.bak"), sourceRestoreReceipt = join(sandbox, "source-receipt.json"), etlEnv = join(sandbox, "etl.env");
   writeFileSync(sourceBackup, "fixed-read-only-source", { mode: 0o600 }); chmodSync(sourceBackup, 0o600);
   writeReceipt(sourceRestoreReceipt, sha(readFileSync(sourceBackup)), readFileSync(sourceBackup).length);
+  const packages = writeDictionaryPackages(sandbox, sha(readFileSync(sourceBackup)));
   writeFileSync(etlEnv, "YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_driver01\nYUZHOU_SQLSERVER_ETL_LOGIN=etl_reader\nYUZHOU_SQLSERVER_ETL_PASSWORD=synthetic-fixture-only\n", { mode: 0o600 }); chmodSync(etlEnv, 0o600);
   const prepared = prepareCoreConfig({
     rehearsal: "A", suffix: "driver01", postgresPort: 33100, apiPort: 33101, webPort: 33102,
     controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
-    machineAttestationRoot: "a".repeat(64)
+    machineAttestationRoot: "a".repeat(64), ...packages
   }, { codeSha: "1".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
   assert.equal(prepared.config.target.network, `${prepared.project}_default`);
   assert.equal(prepared.config.target.container, `${prepared.project}-postgres-1`);
   assert.equal(prepared.config.source.databaseAlias, "YuzhouHR_Lab_driver01");
   assert.equal(prepared.config.source.sourceBackupPath, realpathSync(sourceBackup));
+  assert.deepEqual(Object.keys(prepared.config.source.dictionaryPackages).sort(), ["contract_state", "contract_type", "employment_event_state", "employment_event_type"]);
   assert.equal(prepared.config.productionImport, "HOLD");
   assert.equal(validateCoreT0T3Config(prepared.config).profile, "core_t0_t3");
   const legacyShape = structuredClone(prepared.config);
@@ -62,6 +86,15 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   assert.throws(() => validateCoreT0T3Config(legacyShape), /CORE_SOURCE_INVALID/u);
   const driftedNetwork = structuredClone(prepared.config); driftedNetwork.target.network = `${prepared.project}_other`;
   assert.throws(() => validateCoreT0T3Config(driftedNetwork), /CORE_TARGET_INVALID/u);
+  writeFileSync(packages.contractStatePackage, `${JSON.stringify({
+    dictionaryCode: "contract_state", sourceSnapshotSha256: prepared.config.triple.sourceSnapshotHash, productionImport: "GO"
+  })}\n`, { mode: 0o600 });
+  chmodSync(packages.contractStatePackage, 0o600);
+  assert.throws(() => prepareCoreConfig({
+    rehearsal: "B", suffix: "driver02", postgresPort: 33103, apiPort: 33104, webPort: 33105,
+    controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "b".repeat(64), ...packages
+  }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() }), /CORE_DICTIONARY_PACKAGE_INVALID/u);
 });
 
 test("committed PostgreSQL driver rejects T4/T5 and stops T1/T2 before unproved dictionary writes", async () => {
