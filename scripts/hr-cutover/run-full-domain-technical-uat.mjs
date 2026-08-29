@@ -163,7 +163,8 @@ COMMIT;`;
    fileExists:async path=>existsSync(path)
   };
   const auditRequestId=randomUUID(),fault={auditRequestId,
-   enableAuditFailure:async()=>psql(config,{...vars,auditRequestId},`CREATE OR REPLACE FUNCTION p0_fail_required_audit() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN IF NEW.request_id=:'auditRequestId' THEN RAISE EXCEPTION 'P0_REQUIRED_AUDIT_FAILURE'; END IF; RETURN NEW; END$$;DROP TRIGGER IF EXISTS trg_p0_fail_required_audit ON sys_op_log;CREATE TRIGGER trg_p0_fail_required_audit BEFORE INSERT ON sys_op_log FOR EACH ROW EXECUTE FUNCTION p0_fail_required_audit();`),
+  enableAuditFailure:async()=>psql(config,{...vars,auditRequestId},`SELECT format($sql$CREATE OR REPLACE FUNCTION p0_fail_required_audit() RETURNS trigger LANGUAGE plpgsql AS %L$sql$,format($body$BEGIN IF NEW.request_id::text=%L THEN RAISE EXCEPTION 'P0_REQUIRED_AUDIT_FAILURE'; END IF; RETURN NEW; END$body$,:'auditRequestId')) \\gexec
+DROP TRIGGER IF EXISTS trg_p0_fail_required_audit ON sys_op_log;CREATE TRIGGER trg_p0_fail_required_audit BEFORE INSERT ON sys_op_log FOR EACH ROW EXECUTE FUNCTION p0_fail_required_audit();`),
    disableAuditFailure:async()=>{psql(config,vars,`DROP TRIGGER IF EXISTS trg_p0_fail_required_audit ON sys_op_log;DROP FUNCTION IF EXISTS p0_fail_required_audit();`);if(Number(psql(config,vars,`SELECT (SELECT count(*) FROM pg_trigger WHERE tgname='trg_p0_fail_required_audit' AND NOT tgisinternal)+(SELECT count(*) FROM pg_proc WHERE proname='p0_fail_required_audit');`)||0)!==0)fail("YUZHOU_UAT_P0_FAULT_NOT_RESTORED","audit trigger/function");}
   };
   const p0Runner=new YuzhouLiveRoleUatP0Runner({apiBase,tokens:{hr_reviewer:accessTokens[1],manager:accessTokens[2],employee:accessTokens[3]},matrix:p0Matrix});
