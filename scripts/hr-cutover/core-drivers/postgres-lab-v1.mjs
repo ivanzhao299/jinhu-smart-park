@@ -165,13 +165,13 @@ function phaseEnvironment(config, domain, phase, state) {
     if (!/^[0-9a-f]{64}$/u.test(state.t0DictionarySha256 ?? "")) fail("CORE_T0_MACHINE_MATERIALIZATION_REQUIRED", "T0 dictionary binding");
     env.YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256 = state.t0DictionarySha256;
   }
-  if (domain === "T1") {
+  if (domain === "T1" && phase === "load") {
     const dictionaries = state.nonT0DictionarySha256;
     if (!dictionaries) fail("CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED", "T1 dictionary bindings");
     env.YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256 = dictionaries.employment_event_type;
     env.YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256 = dictionaries.employment_event_state;
   }
-  if (domain === "T2") {
+  if (domain === "T2" && phase === "load") {
     const dictionaries = state.nonT0DictionarySha256;
     if (!dictionaries) fail("CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED", "T2 dictionary bindings");
     env.YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256 = dictionaries.contract_type;
