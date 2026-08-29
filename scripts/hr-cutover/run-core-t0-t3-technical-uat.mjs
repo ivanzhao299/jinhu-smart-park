@@ -10,7 +10,7 @@ import { runTechnicalUat } from "./run-full-domain-technical-uat.mjs";
 
 const DEFAULT_TENANT = "10000001", DEFAULT_PARK = "20000001";
 const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
-const safeDatabaseDiagnostic = error => String(error?.message ?? "").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?/u)?.[0] ?? "";
+const safeDatabaseDiagnostic = error => String(error?.message ?? "").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?(?:_callsite_[A-Za-z0-9_-]+)?/u)?.[0] ?? "";
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 
