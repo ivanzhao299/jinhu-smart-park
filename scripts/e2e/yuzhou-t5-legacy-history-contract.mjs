@@ -88,6 +88,8 @@ assert.match(load,/biz_user_message x\) message_hash/);
 assert.doesNotMatch(load,/INSERT INTO (?:hr_employee|sys_user|hr_payroll_run|hr_payslip|hr_performance_|biz_user_message)\b/);
 assert.match(load,/HISTORY_OWNER_UNRESOLVED/);
 assert.match(load,/EMPLOYEE_NOT_MAPPED/);
+assert.match(load,/EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS/);
+assert.match(load,/EMPLOYEE_PROFILE_IDENTITY_CONFLICT/);
 
 assert.match(rollback,/ALLOW_YUZHOU_ROLLBACK/);
 assert.match(rollback,/unexpected active rollback target table/);
