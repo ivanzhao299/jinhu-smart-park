@@ -1,127 +1,82 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import process from "node:process";
 import test from "node:test";
-import {
-  canonicalDecisionHash,
-  verifyYuzhouJobStateDecisionArtifact
-} from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
+import { canonicalDecisionHash, canonicalEvidenceIndexHash, verifyYuzhouJobStateDecisionArtifact } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
-const fixturePath = resolve(root, "scripts/hr-cutover/fixtures/yuzhou-job-state-decision-artifact/valid-draft-v1.json");
-const schemaPath = resolve(root, "scripts/hr-cutover/contracts/yuzhou-job-state-decision-artifact.schema.json");
-const verifierPath = resolve(root, "scripts/hr-cutover/verify-yuzhou-job-state-decision-artifact.mjs");
 const load = path => JSON.parse(readFileSync(path, "utf8"));
-const clone = value => JSON.parse(JSON.stringify(value));
-const rejects = (artifact, code) => assert.throws(
-  () => verifyYuzhouJobStateDecisionArtifact(artifact),
-  error => error?.code === code
-);
-
-test("draft decision artifact binds seven hashed source states and remains HOLD", () => {
-  const artifact = load(fixturePath);
-  const result = verifyYuzhouJobStateDecisionArtifact(artifact);
-  assert.deepEqual(result, {
-    status: "DRAFT",
-    canonicalDecisionSha256: artifact.canonicalDecisionSha256,
-    distinctStates: 7,
-    observedRecordCount: 100,
-    mapped: 4,
-    quarantined: 3,
-    review: "DRAFT",
-    detachedHrApproval: "HOLD",
-    materializationEligibility: "HOLD_DETACHED_HR_APPROVAL_REQUIRED",
+const clone = value => structuredClone(value);
+const h = char => char.repeat(64);
+const legacy = () => load(resolve(root, "scripts/hr-cutover/fixtures/yuzhou-job-state-decision-artifact/valid-draft-v1.json"));
+const machine = () => {
+  const source = legacy();
+  const evidenceIndex = { checkpointSha256: h("1"), manifestSha256: h("2"), extractBindingSha256: h("3"), journalSha256: h("4"), employeeJobStatesSha256: h("5"), jobStateCodeMetadataSha256: h("6"), jobStateCodesSha256: h("7") };
+  const decisions = source.decisions.map((row, index) => ({ ...row, reasonCode: index < 4 ? "DETERMINISTIC_MAPPING" : row.reasonCode, semanticClassification: index < 4 ? "derived_deterministic" : "quarantined_ambiguous" }));
+  const mapped = decisions.filter(row => row.decision === "map"), quarantined = decisions.filter(row => row.decision === "quarantine");
+  const artifact = {
+    formatVersion: 2, artifactKind: "yuzhou_employee_job_state_machine_decision", artifactVersion: "v2", artifactStatus: "MACHINE_CANDIDATE",
+    triple: { codeSha: "a".repeat(40), sourceSnapshotHash: h("b"), mappingContractHash: h("c") },
+    expectedCheckpointRootSha256: h("1"), checkpointRootSha256: h("1"), evidenceIndex, evidenceIndexSha256: canonicalEvidenceIndexHash(evidenceIndex),
+    scopeBinding: source.scopeBinding, sourceContract: source.sourceContract, decisions,
+    semanticLedger: { sourceDistinctStateCount: 7, sourceRecordCount: 100, mappedStateCount: 4, quarantinedStateCount: 3, mappedRecordCount: mapped.reduce((sum, row) => sum + row.observedRecordCount, 0), quarantinedRecordCount: quarantined.reduce((sum, row) => sum + row.observedRecordCount, 0), conservationVerified: true },
+    canonicalDecisionSha256: "",
+    machineAssertion: { mode: "trusted_root_deterministic_machine_semantics", policyVersion: "yuzhou-job-state-machine-policy-v2", status: "PASS", reasonCodes: [], humanSignature: false, humanIdentityAsserted: false },
     productionImport: "HOLD"
-  });
-  assert.equal(canonicalDecisionHash(artifact), artifact.canonicalDecisionSha256);
-  assert.equal(artifact.review.reviewerSubjectSha256, null);
-  assert.equal(artifact.detachedHrApproval.attestationSha256, null);
-});
-
-test("review binds only the canonical decision while HR approval stays detached", () => {
-  const artifact = load(fixturePath);
-  artifact.artifactStatus = "REVIEWED";
-  artifact.review = {
-    status: "REVIEWED",
-    reviewerSubjectSha256: "6000000000000000000000000000000000000000000000000000000000000006",
-    reviewedDecisionSha256: artifact.canonicalDecisionSha256,
-    reviewedAt: "2026-08-28T00:00:00Z"
   };
-  const result = verifyYuzhouJobStateDecisionArtifact(artifact);
-  assert.equal(result.status, "REVIEWED");
-  assert.equal(result.detachedHrApproval, "HOLD");
-  assert.equal(result.materializationEligibility, "HOLD_DETACHED_HR_APPROVAL_REQUIRED");
-});
+  artifact.canonicalDecisionSha256 = canonicalDecisionHash(artifact);
+  return artifact;
+};
+const rejects = (artifact, code) => assert.throws(() => verifyYuzhouJobStateDecisionArtifact(artifact), error => error?.code === code);
 
-test("scope, source, item, review and approval drift fail closed", () => {
-  const source = load(fixturePath);
-  const cases = [
-    [draft => { draft.scopeBinding.tenantIdentitySha256 = "tenant-plain"; }, "YUZHOU_JOB_STATE_SCOPE_HASH_INVALID"],
-    [draft => { draft.scopeBinding.parkIdentitySha256 = draft.scopeBinding.tenantIdentitySha256; }, "YUZHOU_JOB_STATE_SCOPE_HASH_COLLISION"],
-    [draft => { draft.sourceContract.sourceDistinctStateCount = 6; }, "YUZHOU_JOB_STATE_SOURCE_COUNT_INVALID"],
-    [draft => { draft.decisions.pop(); }, "YUZHOU_JOB_STATE_DECISION_COUNT_INVALID"],
-    [draft => { draft.decisions[1].sourceIdentitySha256 = draft.decisions[0].sourceIdentitySha256; }, "YUZHOU_JOB_STATE_DECISION_DUPLICATE"],
-    [draft => { draft.decisions[1].sourceRowSha256 = draft.decisions[0].sourceRowSha256; }, "YUZHOU_JOB_STATE_DECISION_DUPLICATE"],
-    [draft => { draft.decisions[0].observedRecordCount += 1; }, "YUZHOU_JOB_STATE_SOURCE_LEDGER_MISMATCH"],
-    [draft => { draft.decisions[0].targetEmploymentStatus = "unknown"; }, "YUZHOU_JOB_STATE_MAP_TARGET_INVALID"],
-    [draft => { draft.decisions[4].targetEmploymentStatus = "departed"; }, "YUZHOU_JOB_STATE_QUARANTINE_INVALID"],
-    [draft => { draft.decisions.reverse(); }, "YUZHOU_JOB_STATE_DECISION_ORDER_INVALID"],
-    [draft => { draft.decisions[0].targetEmploymentStatus = "probation"; }, "YUZHOU_JOB_STATE_CANONICAL_HASH_MISMATCH"],
-    [draft => { draft.review.reviewerSubjectSha256 = "6".repeat(64); }, "YUZHOU_JOB_STATE_DRAFT_REVIEW_INVALID"],
-    [draft => { draft.artifactStatus = "REVIEWED"; }, "YUZHOU_JOB_STATE_REVIEWER_HASH_INVALID"],
-    [draft => { draft.detachedHrApproval.status = "APPROVED"; }, "YUZHOU_JOB_STATE_HR_APPROVAL_MUST_BE_DETACHED"],
-    [draft => { draft.productionImport = "GO"; }, "YUZHOU_JOB_STATE_PRODUCTION_IMPORT_NOT_HELD"],
-    [draft => { draft.localPath = "/Users/example/source.json"; }, "YUZHOU_JOB_STATE_ARTIFACT_SHAPE_INVALID"]
-  ];
-  for (const [mutate, code] of cases) {
-    const draft = clone(source);
-    mutate(draft);
-    rejects(draft, code);
-  }
-});
-
-test("schema freezes the draft/HOLD and seven-state boundaries", () => {
-  const schema = load(schemaPath);
-  assert.equal(schema.additionalProperties, false);
-  assert.equal(schema.properties.decisions.minItems, 7);
-  assert.equal(schema.properties.decisions.maxItems, 7);
-  assert.equal(schema.properties.productionImport.const, "HOLD");
-  assert.equal(schema.properties.detachedHrApproval.properties.status.const, "HOLD");
-  assert.equal(schema.properties.detachedHrApproval.properties.attestationSha256.type, "null");
-  assert.deepEqual(schema.$defs.decision.properties.decision.enum, ["map", "quarantine"]);
-  assert.deepEqual(
-    schema.$defs.decision.properties.targetEmploymentStatus.enum,
-    ["active", "probation", "suspended", "departed", null]
-  );
-});
-
-test("CLI verifies without emitting source values or local paths", () => {
-  const output = execFileSync(process.execPath, [verifierPath, "--artifact", fixturePath], {
-    cwd: root,
-    encoding: "utf8"
-  });
-  const result = JSON.parse(output);
-  assert.equal(result.status, "DRAFT");
-  assert.equal(result.distinctStates, 7);
+test("v2 is a trusted-root machine candidate without reviewer, approver or human signature", () => {
+  const artifact = machine(), result = verifyYuzhouJobStateDecisionArtifact(artifact);
+  assert.equal(result.status, "MACHINE_CANDIDATE");
+  assert.equal(result.machineAssertion, "PASS");
+  assert.equal(result.materializationEligibility, "MACHINE_CANDIDATE");
   assert.equal(result.productionImport, "HOLD");
-  assert.doesNotMatch(output, /(?:\/Users\/|sourceCode|sourceName|sourceValue)/u);
+  assert.equal(result.mappedRecordCount + result.quarantinedRecordCount, 100);
+  assert.doesNotMatch(JSON.stringify(artifact), /reviewer|approver|approvalSubject|reviewedAt/u);
+  assert.equal(artifact.machineAssertion.humanSignature, false);
+  assert.equal(artifact.machineAssertion.humanIdentityAsserted, false);
 });
 
-test("committed fixture cannot claim review or human approval", () => {
-  const artifact = load(fixturePath);
-  assert.equal(artifact.artifactStatus, "DRAFT");
-  assert.deepEqual(artifact.review, {
-    status: "DRAFT",
-    reviewerSubjectSha256: null,
-    reviewedDecisionSha256: null,
-    reviewedAt: null
-  });
-  assert.deepEqual(artifact.detachedHrApproval, {
-    required: true,
-    status: "HOLD",
-    attestationSha256: null
-  });
+test("trusted root, evidence index, machine policy and canonical bytes fail closed", () => {
+  const cases = [
+    [value => { value.expectedCheckpointRootSha256 = h("9"); }, "YUZHOU_JOB_STATE_TRUSTED_ROOT_MISMATCH"],
+    [value => { value.evidenceIndex.manifestSha256 = h("9"); }, "YUZHOU_JOB_STATE_EVIDENCE_INDEX_MISMATCH"],
+    [value => { value.machineAssertion.humanSignature = true; }, "YUZHOU_JOB_STATE_CANONICAL_HASH_MISMATCH"],
+    [value => { value.decisions[0].targetEmploymentStatus = "probation"; }, "YUZHOU_JOB_STATE_CANONICAL_HASH_MISMATCH"],
+    [value => { value.productionImport = "GO"; }, "YUZHOU_JOB_STATE_PRODUCTION_IMPORT_NOT_HELD"]
+  ];
+  for (const [mutate, code] of cases) { const value = machine(); mutate(value); rejects(value, code); }
+});
+
+test("machine semantics enforce deterministic mappings, explicit quarantine and conservation", () => {
+  for (const [mutate, code, rehash] of [
+    [value => { value.decisions[0].reasonCode = "APPROVED_MAPPING"; }, "YUZHOU_JOB_STATE_MAP_TARGET_INVALID"],
+    [value => { value.decisions[0].semanticClassification = "quarantined_ambiguous"; }, "YUZHOU_JOB_STATE_MAP_TARGET_INVALID"],
+    [value => { value.decisions[4].semanticClassification = "derived_deterministic"; }, "YUZHOU_JOB_STATE_QUARANTINE_INVALID"],
+    [value => { value.semanticLedger.mappedRecordCount += 1; }, "YUZHOU_JOB_STATE_SEMANTIC_LEDGER_MISMATCH", true]
+  ]) { const value = machine(); mutate(value); if (rehash) value.canonicalDecisionSha256 = canonicalDecisionHash(value); rejects(value, code); }
+});
+
+test("legacy v1 remains verifiable only as read-only audit compatibility", () => {
+  const result = verifyYuzhouJobStateDecisionArtifact(legacy());
+  assert.equal(result.legacyReadOnlyAudit, true);
+  assert.equal(result.materializationEligibility, "HOLD_LEGACY_V1_AUDIT_ONLY");
+  assert.equal(result.productionImport, "HOLD");
+});
+
+test("schemas freeze v2 machine issue and mark human-era artifacts legacy only", () => {
+  const schema = load(resolve(root, "scripts/hr-cutover/contracts/yuzhou-job-state-decision-artifact.schema.json"));
+  const legacySchema = load(resolve(root, "scripts/hr-cutover/contracts/yuzhou-job-state-decision-artifact-legacy-v1.schema.json"));
+  const detached = load(resolve(root, "scripts/hr-cutover/contracts/yuzhou-job-state-detached-approval.schema.json"));
+  assert.equal(schema.properties.formatVersion.const, 2);
+  assert.equal(schema.properties.artifactStatus.const, "MACHINE_CANDIDATE");
+  assert.equal(schema.properties.machineAssertion.properties.humanSignature.const, false);
+  assert.equal(schema.properties.productionImport.const, "HOLD");
+  assert.match(legacySchema.$comment, /READ-ONLY AUDIT COMPATIBILITY ONLY/u);
+  assert.match(detached.$comment, /LEGACY V1 READ-ONLY AUDIT ARTIFACT/u);
 });

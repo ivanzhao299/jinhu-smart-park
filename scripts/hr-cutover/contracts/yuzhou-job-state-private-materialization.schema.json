@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-private-materialization.schema.json",
+  "title": "Yuzhou job-state private machine materialization payload v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "kind", "canonicalDecisionSha256", "payloadSha256", "dictionaryVersionId", "expectedDatabaseItemsSha256", "csm", "t0Binding", "scope", "dictionaryEvidenceSha256", "decisionSubject", "approvalSubject", "items"],
+  "required": ["formatVersion", "kind", "canonicalDecisionSha256", "payloadSha256", "dictionaryVersionId", "expectedDatabaseItemsSha256", "csm", "t0Binding", "scope", "dictionaryEvidenceSha256", "machineActor", "items", "productionImport"],
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2 },
     "kind": { "const": "yuzhou-job-state-private-materialization" },
     "canonicalDecisionSha256": { "$ref": "#/$defs/sha" },
     "payloadSha256": { "$ref": "#/$defs/sha" },
@@ -15,9 +16,9 @@
     "t0Binding": { "type": "object", "additionalProperties": false, "required": ["manifestSha256", "employeeJobStatesSha256", "jobStateCodeMetadataSha256", "jobStateCodesSha256"], "properties": { "manifestSha256": { "$ref": "#/$defs/sha" }, "employeeJobStatesSha256": { "$ref": "#/$defs/sha" }, "jobStateCodeMetadataSha256": { "$ref": "#/$defs/sha" }, "jobStateCodesSha256": { "$ref": "#/$defs/sha" } } },
     "scope": { "type": "object", "additionalProperties": false, "required": ["tenantId", "parkId", "tenantIdentitySha256", "parkIdentitySha256"], "properties": { "tenantId": { "const": "10000001" }, "parkId": { "const": "20000001" }, "tenantIdentitySha256": { "$ref": "#/$defs/sha" }, "parkIdentitySha256": { "$ref": "#/$defs/sha" } } },
     "dictionaryEvidenceSha256": { "$ref": "#/$defs/sha" },
-    "decisionSubject": { "type": "string", "format": "uuid" },
-    "approvalSubject": { "type": "string", "format": "uuid" },
-    "items": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/item" } }
+    "machineActor": { "type": "object", "additionalProperties": false, "required": ["id", "kind", "verifiedAt"], "properties": { "id": { "type": "string", "format": "uuid" }, "kind": { "const": "machine_policy_engine" }, "verifiedAt": { "type": "string", "format": "date-time", "pattern": "Z$" } } },
+    "items": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/item" } },
+    "productionImport": { "const": "HOLD" }
   },
   "$defs": {
     "sha": { "type": "string", "pattern": "^[0-9a-f]{64}$" },

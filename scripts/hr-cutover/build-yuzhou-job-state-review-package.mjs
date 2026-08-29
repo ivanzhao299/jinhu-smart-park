@@ -24,6 +24,7 @@ import {
 } from "./full-domain-lifecycle.mjs";
 import { canonicalHash } from "./materialize-reviewed-job-state.mjs";
 import {
+  canonicalEvidenceIndexHash,
   canonicalDecisionHash,
   verifyYuzhouJobStateDecisionArtifact
 } from "./yuzhou-job-state-decision-artifact-lib.mjs";
@@ -36,10 +37,13 @@ const TARGET_STATUSES = new Set(["active", "probation", "suspended", "departed"]
 const QUARANTINE_REASONS = new Set([
   "AMBIGUOUS_SEMANTICS",
   "UNKNOWN_SOURCE_VALUE",
-  "CONFLICTING_SOURCE_EVIDENCE"
+  "CONFLICTING_SOURCE_EVIDENCE",
+  "UNSUPPORTED_SEMANTICS"
 ]);
+const MAP_CLASSES = new Set(["source_exact", "target_exact", "derived_deterministic"]);
+const QUARANTINE_CLASSES = new Set(["quarantined_ambiguous", "unsupported"]);
 const PLAN_KEYS = ["formatVersion", "kind", "runId", "rehearsal", "decisions"];
-const PLAN_DECISION_KEYS = ["sourceIdentitySha256", "decision", "targetEmploymentStatus", "reasonCode"];
+const PLAN_DECISION_KEYS = ["sourceIdentitySha256", "decision", "targetEmploymentStatus", "semanticClassification", "reasonCode"];
 const CURRENT_UID = typeof process.getuid === "function" ? process.getuid() : null;
 
 export class YuzhouJobStateReviewPackageError extends Error {
@@ -165,7 +169,7 @@ function configBindingSha256(config) {
 
 function validatePlan(plan, config) {
   exactKeys(plan, PLAN_KEYS, "YUZHOU_JOB_STATE_DECISION_PLAN_INVALID");
-  if (plan.formatVersion !== 1 || plan.kind !== "yuzhou-job-state-decision-plan"
+  if (plan.formatVersion !== 2 || plan.kind !== "yuzhou-job-state-machine-decision-plan"
     || plan.runId !== config.runId || plan.rehearsal !== config.rehearsal
     || !Array.isArray(plan.decisions) || plan.decisions.length !== 7) {
     fail("YUZHOU_JOB_STATE_DECISION_PLAN_INVALID");
@@ -178,11 +182,13 @@ function validatePlan(plan, config) {
     }
     identities.add(item.sourceIdentitySha256);
     if (item.decision === "map") {
-      if (!TARGET_STATUSES.has(item.targetEmploymentStatus) || item.reasonCode !== "APPROVED_MAPPING") {
+      if (!TARGET_STATUSES.has(item.targetEmploymentStatus) || item.reasonCode !== "DETERMINISTIC_MAPPING"
+        || !MAP_CLASSES.has(item.semanticClassification)) {
         fail("YUZHOU_JOB_STATE_DECISION_PLAN_INVALID");
       }
     } else if (item.decision === "quarantine") {
-      if (item.targetEmploymentStatus !== null || !QUARANTINE_REASONS.has(item.reasonCode)) {
+      if (item.targetEmploymentStatus !== null || !QUARANTINE_REASONS.has(item.reasonCode)
+        || !QUARANTINE_CLASSES.has(item.semanticClassification)) {
         fail("YUZHOU_JOB_STATE_DECISION_PLAN_INVALID");
       }
     } else fail("YUZHOU_JOB_STATE_DECISION_PLAN_INVALID");
@@ -224,7 +230,7 @@ function validateCheckpoint(checkpoint, config, manifestSha256, bindingSha256, j
     || row.journalSha256 !== journalSha256) fail("YUZHOU_JOB_STATE_CHECKPOINT_DRIFT");
 }
 
-function loadT0Context(config, checkpoint, dependencies) {
+function loadT0Context(config, checkpoint, checkpointSha256, dependencies) {
   if (config.backend !== "lab" || dependencies.currentStateFn(config) !== "review_hold") {
     fail("YUZHOU_JOB_STATE_REVIEW_HOLD_REQUIRED");
   }
@@ -296,7 +302,18 @@ function loadT0Context(config, checkpoint, dependencies) {
     sourceDistinctStateCount: 7,
     sourceRecordCount
   });
-  return { rows, sourceRecordCount, sourceSnapshotSha256 };
+  return {
+    rows, sourceRecordCount, sourceSnapshotSha256,
+    evidenceIndex: {
+      checkpointSha256,
+      manifestSha256: manifestSha,
+      extractBindingSha256,
+      journalSha256: sha256(journalBytes),
+      employeeJobStatesSha256: employeeSha,
+      jobStateCodeMetadataSha256: metadataSha,
+      jobStateCodesSha256: codesSha
+    }
+  };
 }
 
 const defaultDependencies = {
@@ -323,48 +340,60 @@ function loadGovernedContext({ configPath, checkpointPath }, dependencies) {
     fail("YUZHOU_JOB_STATE_TRIPLE_CURRENT_DRIFT");
   }
   if (dependencies.worktreeCleanFn() !== true) fail("YUZHOU_JOB_STATE_WORKTREE_DIRTY");
-  const checkpoint = safeJson(checkpointPath, "YUZHOU_JOB_STATE_CHECKPOINT_UNSAFE");
-  const t0 = loadT0Context(config, checkpoint, dependencies);
-  return { config, t0 };
+  const checkpointBytes = safeRegularBytes(checkpointPath, "YUZHOU_JOB_STATE_CHECKPOINT_UNSAFE");
+  let checkpoint;
+  try { checkpoint = JSON.parse(checkpointBytes); } catch { fail("YUZHOU_JOB_STATE_CHECKPOINT_INVALID"); }
+  const checkpointRootSha256 = sha256(checkpointBytes);
+  const t0 = loadT0Context(config, checkpoint, checkpointRootSha256, dependencies);
+  return { config, t0, checkpointRootSha256 };
 }
 
-function assertDraftMatchesContext(artifact, config, t0) {
+function assertMachineCandidateMatchesContext(artifact, config, t0, checkpointRootSha256) {
   const result = verifyYuzhouJobStateDecisionArtifact(artifact);
-  if (result.status !== "DRAFT" || result.productionImport !== "HOLD"
+  if (result.status !== "MACHINE_CANDIDATE" || result.productionImport !== "HOLD"
+    || artifact.checkpointRootSha256 !== checkpointRootSha256
+    || artifact.evidenceIndexSha256 !== canonicalEvidenceIndexHash(t0.evidenceIndex)
     || artifact.sourceContract.sourceSnapshotSha256 !== t0.sourceSnapshotSha256
     || artifact.sourceContract.sourceRecordCount !== 2949
     || artifact.scopeBinding.tenantIdentitySha256 !== sha256("tenant\u000010000001")
     || artifact.scopeBinding.parkIdentitySha256 !== sha256("park\u000020000001")) {
-    fail("YUZHOU_JOB_STATE_DRAFT_CONTEXT_DRIFT");
+    fail("YUZHOU_JOB_STATE_MACHINE_PACKAGE_CONTEXT_DRIFT");
   }
   const expected = new Map(t0.rows.map(row => [row.sourceIdentitySha256, row]));
   for (const decision of artifact.decisions) {
     const row = expected.get(decision.sourceIdentitySha256);
     if (!row || row.sourceRowSha256 !== decision.sourceRowSha256
-      || row.observedRecordCount !== decision.observedRecordCount) fail("YUZHOU_JOB_STATE_DRAFT_CONTEXT_DRIFT");
+      || row.observedRecordCount !== decision.observedRecordCount) fail("YUZHOU_JOB_STATE_MACHINE_PACKAGE_CONTEXT_DRIFT");
     expected.delete(decision.sourceIdentitySha256);
   }
-  if (expected.size !== 0 || config.backend !== "lab") fail("YUZHOU_JOB_STATE_DRAFT_CONTEXT_DRIFT");
+  if (expected.size !== 0 || config.backend !== "lab") fail("YUZHOU_JOB_STATE_MACHINE_PACKAGE_CONTEXT_DRIFT");
   return result;
 }
 
-export function buildDraft(options, injected = {}) {
+export function buildMachineCandidate(options, injected = {}) {
   const dependencies = { ...defaultDependencies, ...injected };
-  const { config, t0 } = loadGovernedContext(options, dependencies);
+  const { config, t0, checkpointRootSha256 } = loadGovernedContext(options, dependencies);
+  if (!SHA256.test(options.expectedCheckpointRootSha256 ?? "")
+    || options.expectedCheckpointRootSha256 !== checkpointRootSha256) fail("YUZHOU_JOB_STATE_TRUSTED_ROOT_MISMATCH");
   const plan = safeJson(options.decisionPlanPath, "YUZHOU_JOB_STATE_DECISION_PLAN_UNSAFE");
   const decisionsByIdentity = validatePlan(plan, config);
   const decisions = t0.rows.map(row => {
     const choice = decisionsByIdentity.get(row.sourceIdentitySha256);
     if (!choice) fail("YUZHOU_JOB_STATE_DECISION_PLAN_COVERAGE_MISMATCH");
     decisionsByIdentity.delete(row.sourceIdentitySha256);
-    return { ...row, decision: choice.decision, targetEmploymentStatus: choice.targetEmploymentStatus, reasonCode: choice.reasonCode };
+    return { ...row, decision: choice.decision, targetEmploymentStatus: choice.targetEmploymentStatus, semanticClassification: choice.semanticClassification, reasonCode: choice.reasonCode };
   });
   if (decisionsByIdentity.size !== 0) fail("YUZHOU_JOB_STATE_DECISION_PLAN_COVERAGE_MISMATCH");
   const artifact = {
-    formatVersion: 1,
-    artifactKind: "yuzhou_employee_job_state_reviewed_decision",
-    artifactVersion: "v1",
-    artifactStatus: "DRAFT",
+    formatVersion: 2,
+    artifactKind: "yuzhou_employee_job_state_machine_decision",
+    artifactVersion: "v2",
+    artifactStatus: "MACHINE_CANDIDATE",
+    triple: config.triple,
+    expectedCheckpointRootSha256: options.expectedCheckpointRootSha256,
+    checkpointRootSha256,
+    evidenceIndex: t0.evidenceIndex,
+    evidenceIndexSha256: canonicalEvidenceIndexHash(t0.evidenceIndex),
     scopeBinding: {
       tenantIdentitySha256: sha256("tenant\u000010000001"),
       parkIdentitySha256: sha256("park\u000020000001")
@@ -377,42 +406,58 @@ export function buildDraft(options, injected = {}) {
       sourceRecordCount: t0.sourceRecordCount
     },
     decisions,
+    semanticLedger: {
+      sourceDistinctStateCount: 7,
+      sourceRecordCount: t0.sourceRecordCount,
+      mappedStateCount: decisions.filter(item => item.decision === "map").length,
+      quarantinedStateCount: decisions.filter(item => item.decision === "quarantine").length,
+      mappedRecordCount: decisions.filter(item => item.decision === "map").reduce((sum, item) => sum + item.observedRecordCount, 0),
+      quarantinedRecordCount: decisions.filter(item => item.decision === "quarantine").reduce((sum, item) => sum + item.observedRecordCount, 0),
+      conservationVerified: true
+    },
     canonicalDecisionSha256: "",
-    review: { status: "DRAFT", reviewerSubjectSha256: null, reviewedDecisionSha256: null, reviewedAt: null },
-    detachedHrApproval: { required: true, status: "HOLD", attestationSha256: null },
+    machineAssertion: {
+      mode: "trusted_root_deterministic_machine_semantics",
+      policyVersion: "yuzhou-job-state-machine-policy-v2",
+      status: "PASS",
+      reasonCodes: [],
+      humanSignature: false,
+      humanIdentityAsserted: false
+    },
     productionImport: "HOLD"
   };
   artifact.canonicalDecisionSha256 = canonicalDecisionHash(artifact);
-  const result = assertDraftMatchesContext(artifact, config, t0);
+  const result = assertMachineCandidateMatchesContext(artifact, config, t0, checkpointRootSha256);
   const output = exclusivePrivateWrite(options.outputPath, artifact, dependencies.outputFaultHook);
   return {
     status: result.status,
     canonicalDecisionSha256: result.canonicalDecisionSha256,
     artifactSha256: output.sha256,
-    detachedHrApproval: result.detachedHrApproval,
+    machineAssertion: result.machineAssertion,
     productionImport: result.productionImport
   };
 }
 
-export function verifyDraft(options, injected = {}) {
+export function verifyMachineCandidate(options, injected = {}) {
   const dependencies = { ...defaultDependencies, ...injected };
-  const { config, t0 } = loadGovernedContext(options, dependencies);
+  const { config, t0, checkpointRootSha256 } = loadGovernedContext(options, dependencies);
   const artifactBytes = safeRegularBytes(options.artifactPath, "YUZHOU_JOB_STATE_DRAFT_UNSAFE");
   let artifact;
   try { artifact = JSON.parse(artifactBytes); } catch { fail("YUZHOU_JOB_STATE_DRAFT_INVALID"); }
-  const result = assertDraftMatchesContext(artifact, config, t0);
+  if (options.expectedCheckpointRootSha256 !== checkpointRootSha256) fail("YUZHOU_JOB_STATE_TRUSTED_ROOT_MISMATCH");
+  const result = assertMachineCandidateMatchesContext(artifact, config, t0, checkpointRootSha256);
   return {
     status: result.status,
     canonicalDecisionSha256: result.canonicalDecisionSha256,
     artifactSha256: sha256(artifactBytes),
-    detachedHrApproval: result.detachedHrApproval,
+    machineAssertion: result.machineAssertion,
     productionImport: result.productionImport
   };
 }
 
 function parseArgs(argv) {
   const command = argv[0], values = {};
-  if (!new Set(["draft", "verify-draft"]).has(command)) fail("YUZHOU_JOB_STATE_BUILDER_ARGUMENT_INVALID");
+  if (!new Set(["build-machine-package", "verify-machine-package"]).has(command)) fail("YUZHOU_JOB_STATE_BUILDER_ARGUMENT_INVALID");
   for (let index = 1; index < argv.length; index += 2) {
     const key = argv[index], value = argv[index + 1];
     if (!key?.startsWith("--") || value === undefined || value.startsWith("--") || Object.hasOwn(values, key)) {
@@ -420,12 +465,13 @@ function parseArgs(argv) {
     }
     values[key] = value;
   }
-  const common = { configPath: values["--config"], checkpointPath: values["--checkpoint"] };
+  const common = { configPath: values["--config"], checkpointPath: values["--checkpoint"], expectedCheckpointRootSha256: values["--expected-checkpoint-root-sha256"] };
   if (!common.configPath || !common.checkpointPath) fail("YUZHOU_JOB_STATE_BUILDER_ARGUMENT_INVALID");
-  if (command === "draft" && Object.keys(values).length === 4 && values["--decision-plan"] && values["--output"]) {
+  if (!common.expectedCheckpointRootSha256) fail("YUZHOU_JOB_STATE_BUILDER_ARGUMENT_INVALID");
+  if (command === "build-machine-package" && Object.keys(values).length === 5 && values["--decision-plan"] && values["--output"]) {
     return { command, options: { ...common, decisionPlanPath: values["--decision-plan"], outputPath: values["--output"] } };
   }
-  if (command === "verify-draft" && Object.keys(values).length === 3 && values["--artifact"]) {
+  if (command === "verify-machine-package" && Object.keys(values).length === 4 && values["--artifact"]) {
     return { command, options: { ...common, artifactPath: values["--artifact"] } };
   }
   fail("YUZHOU_JOB_STATE_BUILDER_ARGUMENT_INVALID");
@@ -433,7 +479,7 @@ function parseArgs(argv) {
 
 function main() {
   const { command, options } = parseArgs(process.argv.slice(2));
-  const result = command === "draft" ? buildDraft(options) : verifyDraft(options);
+  const result = command === "build-machine-package" ? buildMachineCandidate(options) : verifyMachineCandidate(options);
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

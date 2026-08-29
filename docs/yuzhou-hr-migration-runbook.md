@@ -172,7 +172,7 @@ pnpm hr:migration:manifest -- \
 planned → provisioned → extracting → review_hold → loading → verifying → uat_ready → rollback_ready → cleaned
 ```
 
-六域正序固定为 T0→T5，回滚固定为 T5→T0。真实 lab 执行采用两阶段合同：`run` 只完成六域只读提取，随后进入 `review_hold`（也称 `REVIEW_HOLD`），不会开始任何 loader；只有同一 run 的岗位状态 hash-only 决策、私有源值载荷和不同 HR 主体的 detached approval 全部验签后，`resume` 才能受控物化字典并继续 T0→T5 load。每个 child 使用 `<parent>-t0`…`<parent>-t5`，adapter 只向旧脚本传递白名单环境变量，并把目标数据库、PostgreSQL 容器和 Compose project 重新绑定到当前 parent。T1～T4 已补齐与 T0/T5 相同的 pnpm 命令面；所有 rollback 都必须同时具备迁移开关与 rollback 开关。旧转换 SQL 和业务映射语义没有复制或放宽。
+六域正序固定为 T0→T5，回滚固定为 T5→T0。真实 lab 执行采用两阶段合同：`run` 只完成六域只读提取，随后进入 `review_hold`（也称 `REVIEW_HOLD`），不会开始任何 loader；只有同一 run 的 v2 `MACHINE_CANDIDATE` 决策、私有源值载荷和受信任根 machine attestation 全部通过确定性校验后，`resume` 才能受控物化字典并继续 T0→T5 load。旧 v1 真人审批包仅保留审计可读性，不能跨越当前 SQL 写入边界。每个 child 使用 `<parent>-t0`…`<parent>-t5`，adapter 只向旧脚本传递白名单环境变量，并把目标数据库、PostgreSQL 容器和 Compose project 重新绑定到当前 parent。T1～T4 已补齐与 T0/T5 相同的 pnpm 命令面；所有 rollback 都必须同时具备迁移开关与 rollback 开关。旧转换 SQL 和业务映射语义没有复制或放宽。
 
 配置的 `backend` 只能是 `fixture` 或 `lab`。`lab` 目标数据库及 Compose project 必须逐字相同并匹配 `jinhu_hr_migration_lab_full_*`，只发布 `127.0.0.1` 端口，数据库、Compose default network、volume、container、role、目录、三角色账号命名空间、文件、端口、进程和凭据工件均属于该 run。A/B 配置必须使用相同 C/S/M，同时这些资源逐项不同。生产、共享、默认目标会在任何写入前被拒绝。
 
@@ -192,16 +192,16 @@ pnpm hr:migration:full:status -- --config '<受控配置.json>'
 
 `prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
-两阶段执行命令如下。三份 review 文件必须是外部 `0600` 非符号链接普通文件；公开 decision/approval 只包含 hash，真实源状态和值与审批主体 UUID 只允许存在于私有 payload。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。审批必须绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
+两阶段执行命令如下。三份机器复核文件必须是外部 `0600` 非符号链接普通文件：v2 `MACHINE_CANDIDATE` decision 只保存哈希与机器规则结论，真实源状态和值只允许存在于私有 payload，machine attestation 绑定受信任根且不得由运行时使用输入文件自算根。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。三件套必须共同绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
 
 ```bash
 pnpm hr:migration:full:provision -- --config '<本轮配置>'
 pnpm hr:migration:full:run -- --config '<本轮配置>'
 pnpm hr:migration:full:status -- --config '<本轮配置>' # 必须为 review_hold
-pnpm hr:migration:full:resume -- --config '<本轮配置>' --job-state-decision '<REVIEWED hash-only decision>' --job-state-source-payload '<0600 private payload>' --job-state-approval '<detached HR approval>'
+pnpm hr:migration:full:resume -- --config '<本轮配置>' --job-state-decision '<v2 MACHINE_CANDIDATE decision>' --job-state-source-payload '<0600 v2 private payload>' --job-state-machine-attestation '<v2 trusted-root machine attestation>'
 ```
 
-缺少任一工件、工件漂移、同一主体自审、跨 run/A-B、T0 字节变化、数据库 digest 不一致时都保持或回到 `HOLD`，不得猜测映射。进入 load 写阶段后的失败执行本轮 registry-scoped recovery；普通部署和生产历史导入始终不会调用该 resume 入口。
+缺少任一工件、工件漂移、自算或错误受信任根、跨 run/A-B、T0 字节变化、数据库 digest 不一致时都保持或回到 `HOLD`，不得猜测映射。进入 load 写阶段后的失败执行本轮 registry-scoped recovery；普通部署和生产历史导入始终不会调用该 resume 入口。
 
 `resume` 操作锁绑定 PID、本机主机指纹、runId、当前 `review_hold` 状态以及 config/registry/journal 指纹。只有同一主机上的 PID 已明确死亡且所有绑定字节未漂移时才能原子接管；活 PID、其他主机或任一指纹漂移都继续 fail closed。测试环境有受 runId 绑定的 commit/journal 故障注入点，仅当 `NODE_ENV=test` 时可用，普通运行与生产无法触发。数据库已提交而 journal 尚未追加时，下一次同内容 resume 必须通过数据库全字段幂等核验后收敛为恰好一条 materialization journal。
 
@@ -210,11 +210,11 @@ pnpm hr:migration:full:resume -- --config '<本轮配置>' --job-state-decision 
 ```sh
 node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>'
 ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>' --phase extract --execute --summary '<runtime之外的新checkpoint路径>'
-# HR 完成两套独立审阅后，使用新的摘要路径继续：
-ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>' --phase resume --checkpoint '<0600 checkpoint>' --decision-a '<A decision>' --payload-a '<A private payload>' --approval-a '<A approval>' --decision-b '<B decision>' --payload-b '<B private payload>' --approval-b '<B approval>' --execute --summary '<runtime之外的新最终摘要路径>'
+# 两套独立机器复核包生成并校验后，使用新的摘要路径继续：
+ALLOW_YUZHOU_FINAL_REHEARSAL=yes node scripts/hr-cutover/final-rehearsal-pair.mjs --config-a '<A配置>' --config-b '<B配置>' --phase resume --checkpoint '<0600 checkpoint>' --decision-a '<A decision>' --payload-a '<A private payload>' --machine-attestation-a '<A machine attestation>' --decision-b '<B decision>' --payload-b '<B private payload>' --machine-attestation-b '<B machine attestation>' --execute --summary '<runtime之外的新最终摘要路径>'
 ```
 
-preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M 一致、A/B 使用相同 C/S/M、只读 lab 源和六个互不重复的 loopback 端口，并逐项拒绝 DB、Compose、volume、container、role、账号命名空间、目录、凭据或审计路径复用。执行顺序固定为 provision A/B→run A/B 并分别停在 `review_hold`→resume A/B→技术 UAT→25 项 P0 矩阵→备份恢复/故障检测→A/B manifest 比较→T5…T0 rollback→cleanup。`--phase extract` 不需要任何审批工件，它在 A/B 都达到 `review_hold` 后写出受控 checkpoint 并停止；`--phase resume` 才必须提供 checkpoint 与 A/B 各自的 decision/private payload/detached approval 六件套，缺少或路径复用时在任何 resume 写入前失败。任一步失败都会对仍存在的本轮 runtime 执行 registry-scoped `cleanup --recover`；不会继续下一轮或生成 PASS 摘要。
+preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M 一致、A/B 使用相同 C/S/M、只读 lab 源和六个互不重复的 loopback 端口，并逐项拒绝 DB、Compose、volume、container、role、账号命名空间、目录、凭据或审计路径复用。执行顺序固定为 provision A/B→run A/B 并分别停在 `review_hold`→resume A/B→技术 UAT→25 项 P0 矩阵→备份恢复/故障检测→A/B manifest 比较→T5…T0 rollback→cleanup。`--phase extract` 不需要机器复核工件，它在 A/B 都达到 `review_hold` 后写出受控 checkpoint 并停止；`--phase resume` 才必须提供 checkpoint 与 A/B 各自的 decision/private payload/machine attestation 六件套，缺少、路径复用、受信任根不匹配或任何字节漂移时在 resume 写入前失败。机器凭证只代表可重放技术规则复核，不冒充真人签署；普通部署和生产历史导入仍保持 `HOLD`。任一步失败都会对仍存在的本轮 runtime 执行 registry-scoped `cleanup --recover`；不会继续下一轮或生成 PASS 摘要。
 
 当前总控还要求技术 UAT 摘要明确给出 `p0Execution=PASS` 和 `p0MatrixChecks=25`。仅绑定 P0 matrix hash、`p0Execution=HOLD` 或旧 46 项 UAT 通过均会返回 `FINAL_PAIR_P0_HOLD`，所以在 25 项真实观察执行器接入并用两套新资源重跑前，最终 A/B 和生产历史导入都保持 HOLD。
 

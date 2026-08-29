@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-detached-approval.schema.json",
+  "$comment": "LEGACY V1 READ-ONLY AUDIT ARTIFACT. New machine-reviewed v2 packages do not accept, generate, or require this human approval shape.",
   "type": "object",
   "additionalProperties": false,
   "required": ["formatVersion", "kind", "status", "runId", "rehearsal", "canonicalDecisionSha256", "privatePayloadSha256", "t0BindingSha256", "approvalSubjectSha256", "approvedAt"],
