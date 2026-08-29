@@ -11,6 +11,10 @@ import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
 const ROOT=resolve(fileURLToPath(new URL("../../",import.meta.url)));
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const safeCode=error=>/^[A-Z][A-Z0-9_]+$/u.test(error?.code??"")?error.code:"CORE_PAIR_CONTINUOUS_FAILED";
+export const safeDiagnosticDetail=error=>{
+ const prefix=`${safeCode(error)}: `,detail=typeof error?.message==="string"&&error.message.startsWith(prefix)?error.message.slice(prefix.length):"";
+ return /^[A-Za-z0-9:._=/-]{1,256}$/u.test(detail)?detail:null;
+};
 const privateMode=path=>(statSync(path).mode&0o777)===0o600;
 const directoryMode=path=>(statSync(path).mode&0o777)===0o700;
 
@@ -56,7 +60,7 @@ async function main(){
  if(configA.triple.codeSha!==head||configB.triple.codeSha!==head)fail("CORE_PAIR_CONTINUOUS_TRIPLE_INVALID","checkout code SHA differs from config");
  const summary=ensureSummary(args.summary);
  try{const result=await runCoreT0T3PairContinuous({configAPath:args.configA,configBPath:args.configB,summaryPath:summary});writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);}
- catch(error){const result={formatVersion:1,profile:"core_t0_t3",status:"HOLD",errorCode:safeCode(error),productionImport:"HOLD"};writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);throw error;}
+ catch(error){const errorDetail=safeDiagnosticDetail(error),result={formatVersion:1,profile:"core_t0_t3",status:"HOLD",errorCode:safeCode(error),...(errorDetail?{errorDetail}:{}),productionImport:"HOLD"};writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);throw error;}
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{process.stderr.write(`${safeCode(error)}\n`);process.exitCode=1;});

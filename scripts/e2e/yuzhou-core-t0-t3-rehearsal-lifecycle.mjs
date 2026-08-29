@@ -17,6 +17,7 @@ import {
 } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildJobStateV2Fixture, digest } from "./yuzhou-job-state-v2-fixture.mjs";
 import { executeCoreT0T3PairFromFiles } from "../hr-cutover/core-t0-t3-pair-runner.mjs";
+import { safeDiagnosticDetail } from "../hr-cutover/run-core-t0-t3-pair-continuous-lab.mjs";
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 import { canonicalHash } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { compileYuzhouJobStateMachineAttestation, computeYuzhouJobStateCheckpointArtifactHash, computeYuzhouJobStateCheckpointRoot } from "../hr-cutover/yuzhou-job-state-machine-attestation.mjs";
@@ -153,6 +154,11 @@ test("core config and pair accept only isolated A/B resources with byte-identica
   assert.throws(() => validateCoreT0T3Config(pathReuse), /CORE_TARGET_INVALID/u);
   const credentialOverlap = structuredClone(configA); credentialOverlap.target.credentialRoot = join(credentialOverlap.target.runtimeRoot, "credentials");
   assert.throws(() => validateCoreT0T3Config(credentialOverlap), /CORE_TARGET_INVALID/u);
+});
+
+test("pair failure receipt retains only a tokenized safe diagnostic", () => {
+  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:networkFailures=0:alerts=0" }), "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:networkFailures=0:alerts=0");
+  assert.equal(safeDiagnosticDetail({ code: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE", message: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: unsafe value name" }), null);
 });
 
 test("lifecycle is a fixed T0-T3 prefix, v2 machine gate, T3-T0 rollback and 13-class cleanup", () => {
