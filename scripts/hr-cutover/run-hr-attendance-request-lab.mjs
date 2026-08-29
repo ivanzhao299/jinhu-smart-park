@@ -13,7 +13,8 @@ const privateFile=path=>existsSync(path)&&!lstatSync(path).isSymbolicLink()&&sta
 
 function parse(argv){
  const output={durationMinutes:MIN_DURATION_MINUTES,pollSeconds:1},seen=new Set();
- for(let index=0;index<argv.length;index+=1){const key=argv[index];if(!["--config","--duration-minutes","--poll-seconds"].includes(key)||!argv[index+1])fail("HR_ATTENDANCE_LAB_ARGUMENT_INVALID",key);const name=key.slice(2).replace(/-([a-z])/gu,(_match,letter)=>letter.toUpperCase());if(seen.has(name))fail("HR_ATTENDANCE_LAB_ARGUMENT_INVALID",key);seen.add(name);output[name]=argv[++index];}
+ const input=argv[0]==="--"?argv.slice(1):argv;
+ for(let index=0;index<input.length;index+=1){const key=input[index];if(!["--config","--duration-minutes","--poll-seconds"].includes(key)||!input[index+1])fail("HR_ATTENDANCE_LAB_ARGUMENT_INVALID",key);const name=key.slice(2).replace(/-([a-z])/gu,(_match,letter)=>letter.toUpperCase());if(seen.has(name))fail("HR_ATTENDANCE_LAB_ARGUMENT_INVALID",key);seen.add(name);output[name]=input[++index];}
  if(!output.config)fail("HR_ATTENDANCE_LAB_ARGUMENT_MISSING","--config");
  output.config=resolve(output.config);output.durationMinutes=Number(output.durationMinutes);output.pollSeconds=Number(output.pollSeconds);
  if(!Number.isInteger(output.durationMinutes)||output.durationMinutes<MIN_DURATION_MINUTES)fail("HR_ATTENDANCE_LAB_DURATION_INVALID",String(output.durationMinutes));
