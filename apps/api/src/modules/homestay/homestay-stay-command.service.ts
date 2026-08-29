@@ -9,6 +9,7 @@ import {
   type PropertyOccupancyPort
 } from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import { PropertyIdentityVerificationService } from "../property-identity/property-identity-verification.service";
 import type { AddHomestayGuestDto, IssueHomestayCredentialDto } from "./dto/homestay.dto";
 import {
@@ -35,6 +36,7 @@ export class HomestayStayCommandService {
     private readonly unitAccessService: PropertyUnitAccessService,
     private readonly dataSource: DataSource,
     private readonly transactionSupport: HomestayTransactionSupportService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService,
     @Optional()
     private readonly identityVerifier?: PropertyIdentityVerificationService
   ) {}
@@ -209,8 +211,14 @@ export class HomestayStayCommandService {
       booking.actualCheckInTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
+      const rentalStatus = await this.rentalStatusProjection.project({
+        manager, scope, unitId: booking.unitId, actorId: actor.sub,
+        actorName: actor.realName ?? actor.username, sourceType: "homestay_booking",
+        sourceId: booking.id, action: "occupy"
+      });
       await this.transactionSupport.log(manager, scope, actor, saved, "check_in", before,
-        saved.status, "办理入住", { identity_evidence: identityEvidence });
+        saved.status, "办理入住", { identity_evidence: identityEvidence,
+          rental_status_projection: rentalStatus });
       return saved;
     });
   }
@@ -261,8 +269,14 @@ export class HomestayStayCommandService {
       booking.actualCheckOutTime = now;
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
+      const rentalStatus = await this.rentalStatusProjection.project({
+        manager, scope, unitId: booking.unitId, actorId: actor.sub,
+        actorName: actor.realName ?? actor.username, sourceType: "homestay_booking",
+        sourceId: booking.id, action: "release"
+      });
       await this.transactionSupport.log(manager, scope, actor, saved, "check_out", before,
-        saved.status, "退房并生成保洁任务", { turnover_task_id: task.id });
+        saved.status, "退房并生成保洁任务", { turnover_task_id: task.id,
+          rental_status_projection: rentalStatus });
       return { booking: saved, turnover: task };
     });
   }

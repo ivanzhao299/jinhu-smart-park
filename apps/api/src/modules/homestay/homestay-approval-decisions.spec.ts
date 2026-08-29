@@ -70,7 +70,7 @@ test("DEC-01 freezes cancellation fee, occupancy CAS, and credential CAS in one 
     request = input; return input;
   } };
   const commands = new HomestayBookingCommandService(
-    access as never, {} as never, dataSource as never, support, approval as never
+    access as never, {} as never, dataSource as never, support, {} as never, approval as never
   );
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
@@ -132,7 +132,7 @@ test("DEC-02 blocks homestay approval when a legacy refund or waiver is not link
   const support = new HomestayTransactionSupportService();
   const approval = { createPendingRequest: async () => { requestCalls += 1; } };
   const commands = new HomestayBookingCommandService(
-    access as never, {} as never, dataSource as never, support, approval as never
+    access as never, {} as never, dataSource as never, support, {} as never, approval as never
   );
   const service = new HomestayService(
     {} as never, {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,

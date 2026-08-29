@@ -2,6 +2,7 @@ import { ConflictException, Injectable } from "@nestjs/common";
 import type { PropertyApprovalJsonValue } from "@jinhu/shared";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import { formatMoneyCents, toMoneyCents } from "./homestay-booking.policy";
 import { calculateCancellableRoomCharge } from "./homestay-finance.policy";
 import type { HomestayApprovedCancellationInput } from "./homestay-booking-command.service";
@@ -16,7 +17,10 @@ type CancellationBooking = {
 
 @Injectable()
 export class HomestayCancellationExecutorService {
-  constructor(private readonly transactionSupport: HomestayTransactionSupportService) {}
+  constructor(
+    private readonly transactionSupport: HomestayTransactionSupportService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService
+  ) {}
 
   async execute(input: HomestayApprovedCancellationInput): Promise<void> {
     const payload = input.canonicalPayload;
@@ -56,6 +60,12 @@ export class HomestayCancellationExecutorService {
     await this.applyCredentialEffects(input, scope, state.currentCredentials);
     await this.applyOccupancyEffect(input, scope, state.occupancy, state.frozenOccupancy);
     await this.applyBookingEffect(input, scope, bookingId, booking.status);
+    const rentalStatusProjection = await this.rentalStatusProjection.project({
+      manager: input.manager, scope, unitId: booking.unitId,
+      actorId: input.request.requesterId,
+      actorName: String(input.canonicalPayload.actorName ?? "审批申请人"),
+      sourceType: "homestay_booking", sourceId: bookingId, action: "release"
+    });
     await this.applyLedgerEffects(
       input, scope, bookingId, byKind, state.roomWaiverAmount,
       state.cancellationFeeAmount, state.currency
@@ -69,7 +79,8 @@ export class HomestayCancellationExecutorService {
       roomWaiverAmount: state.roomWaiverAmount,
       currentOccupancy: state.currentOccupancy,
       credentialSnapshot: state.credentialSnapshot,
-      ledgerSnapshot: state.ledgerSnapshot
+      ledgerSnapshot: state.ledgerSnapshot,
+      rentalStatusProjection
     });
   }
 
@@ -238,6 +249,7 @@ export class HomestayCancellationExecutorService {
       currentOccupancy: unknown;
       credentialSnapshot: unknown;
       ledgerSnapshot: unknown;
+      rentalStatusProjection: unknown;
     }
   ): Promise<void> {
     const contributorHash = propertyApprovalCanonicalHash({
@@ -262,7 +274,8 @@ export class HomestayCancellationExecutorService {
             credentials: state.credentialSnapshot,
             ledger: state.ledgerSnapshot
           },
-          compound_contributor_hash: contributorHash
+          compound_contributor_hash: contributorHash,
+          rental_status_projection: state.rentalStatusProjection
         }), input.request.requesterId, String(input.canonicalPayload.actorName ?? "审批申请人"),
         input.executionIdempotencyKey, state.bookingEffect.effectKind,
         state.bookingEffect.effectLineKey, state.bookingEffect.effectHash]

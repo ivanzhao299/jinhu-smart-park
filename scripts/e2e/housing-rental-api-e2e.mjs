@@ -202,7 +202,14 @@ async function run() {
     : null;
   if (!unit) {
     for (const candidate of unitList.items) {
-      const candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+      if (Number(candidate.rentalStatus) !== 10) continue;
+      let candidateOperation;
+      try {
+        candidateOperation = await request(`/property/units/${candidate.id}/operation`, { token });
+      } catch (error) {
+        if (String(error?.message ?? error).includes(" -> 404:")) continue;
+        throw error;
+      }
       if (candidateOperation.configuredMode !== "long_rent") continue;
       for (let yearOffset = 0; yearOffset < 5; yearOffset += 1) {
         const candidateStart = new Date(start);
@@ -232,6 +239,7 @@ async function run() {
     }
   }
   assert(Boolean(unit?.id), "selected an actual operating unit");
+  assert(Number(unit.rentalStatus) === 10, "selected an available long-rent unit");
 
   const currentOperation = await request(`/property/units/${unit.id}/operation`, { token });
   await request(`/property/units/${unit.id}/operation`, {

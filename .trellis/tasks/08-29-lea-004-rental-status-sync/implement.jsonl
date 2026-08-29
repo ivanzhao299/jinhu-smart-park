@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/api/backend/shared-property-occupancy.md","reason":"跨住房/民宿占用权威、锁与冲突契约"}
+{"file":".trellis/spec/api/backend/property-business-controls.md","reason":"住房/民宿生命周期与审计控制"}
+{"file":".trellis/spec/api/backend/property-approval-domain-effects.md","reason":"住房退租审批同事务 effect contract"}

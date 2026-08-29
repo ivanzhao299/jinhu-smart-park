@@ -152,3 +152,60 @@ await propertyOccupanciesService.create(scope, actor, {
 ```
 
 The shared service validates the mode and period; database exclusion plus cross-table advisory-lock triggers provide the final concurrency barrier.
+
+## Scenario: Lifecycle Rental-Status Projection
+
+### 1. Scope / Trigger
+
+- Trigger: housing lease activation/terminal checkout or homestay check-in/check-out changes the current rental occupancy of a `biz_unit`.
+
+### 2. Signatures
+
+- Transaction primitive: `project({ manager, scope, unitId, actorId, sourceType, sourceId, action })`.
+- Targets: `occupy -> rental_status=30`; `release -> rental_status=10` when no rental business remains.
+
+### 3. Contracts
+
+- `rental_status` is a lifecycle projection, not the authority for mode or availability.
+- Use the owning workflow's `EntityManager`; acquire `lock_property_unit_scope` before the scoped `biz_unit` write lock and blocker reads.
+- A real change writes `biz_unit` and `biz_unit_status_log(source_type='system')` in the same transaction.
+- Occupy accepts only 10 or idempotent 30. Status 20/50/60/70 is an operator/asset strong state and rejects the owning lifecycle transaction.
+- Release preserves 20/50/60/70. While another commercial-leasing, housing-rental, or homestay occupancy/live aggregate remains, 30 stays 30 and 40 converges to 30; without a blocker, 30/40 converges to 10.
+- A legacy commercial contract blocks release while status is effective (`75`) and its unit relation has not ended at the Shanghai business-date boundary. Status 75 is authoritative because commercial `effective()` projects 30 immediately, including when its declared effective date is future; there is no date-boundary scheduler that can safely restore 30 later.
+- Homestay turnover `operations` occupancy controls readiness/availability but is not a rental business blocker; successful guest checkout still projects to 10.
+- Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs. Draft/confirmed homestay cancellation and no-show also release-project after their occupancy and aggregate become terminal, so a previously blocked release cannot leave stale 30.
+
+### 4. Validation & Error Matrix
+
+- wrong tenant/park, deleted or missing unit -> not found; no writes.
+- inactive unit or occupy from 20/50/60/70 -> conflict; entire lifecycle transaction rolls back.
+- another effective rental business on release -> keep 30; no unit-status change log.
+- no blocker on release from 30/40 -> 10 plus one system log.
+
+### 5. Good / Base / Bad Cases
+
+- Good: check-in changes 10 to 30 and the booking action snapshot records the projection result.
+- Good: housing checkout stores the projection result in the immutable lease effect audit, including no-change dispositions.
+- Base: replaying an already checked-in booking returns before projection and writes no duplicate log.
+- Bad: checkout updates the unit after committing the booking, or checks blockers without the shared advisory lock.
+
+### 6. Tests Required
+
+- Unit: 10→30, 30/40→10, 30 no-op, strong-state conflict/preservation, other-business preservation, scoped advisory lock order.
+- Workflow: housing activate/checkout and homestay check-in/check-out/no-show/confirmed-cancel pass their existing manager; terminal replay returns before projection.
+- PostgreSQL/CI: successful lifecycle commits both rows; projection conflict rolls back the owning aggregate and audit together.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```ts
+await units.update(unitId, { rentalStatus: 30 });
+```
+
+#### Correct
+
+```ts
+await rentalStatusProjection.project({ manager, scope, unitId, actorId,
+  sourceType: "homestay_booking", sourceId: booking.id, action: "occupy" });
+```

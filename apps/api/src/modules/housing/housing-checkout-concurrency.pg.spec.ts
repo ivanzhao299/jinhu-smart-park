@@ -76,6 +76,7 @@ test("PostgreSQL checkout rejects an occupancy pointer TOCTOU after its non-lock
       transactionalDataSource as never,
       unitAccess as never,
       new HousingTransactionSupportService(),
+      { project: async () => ({ disposition: "changed", beforeStatus: 30, afterStatus: 10 }) } as never,
       approvalCommands as never
     );
     const service = new HousingService(
