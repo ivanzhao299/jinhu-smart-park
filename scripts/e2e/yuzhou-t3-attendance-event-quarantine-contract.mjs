@@ -14,4 +14,7 @@ test("T3 attendance punch staging exposes hashes only and quarantines every row 
   assert.match(script,/chmod 700 "\$stage"/);
   assert.match(script,/chmod 600 "\$raw"/);
   assert.match(script,/mode:0o600/);
+  assert.match(script,/require YUZHOU_BACKUP_SHA256/);
+  assert.match(script,/invalid YUZHOU_BACKUP_SHA256/);
+  assert.match(script,/sourceSnapshotSha256/);
 });
