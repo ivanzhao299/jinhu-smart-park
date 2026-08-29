@@ -116,6 +116,7 @@
     "hr:migration:t4:load": "sh scripts/load-yuzhou-t4-payroll-history.sh",
     "hr:migration:t4:rollback": "sh scripts/rollback-yuzhou-t4-payroll-history.sh",
     "hr:migration:t5:extract": "sh scripts/extract-yuzhou-t5-legacy-history.sh",
+    "hr:migration:t5:prepare-nonfile-stage": "node scripts/prepare-yuzhou-t5-nonfile-materialization-stage.mjs",
     "hr:migration:t5:load": "sh scripts/load-yuzhou-t5-legacy-history.sh",
     "hr:migration:t5:rollback": "sh scripts/rollback-yuzhou-t5-legacy-history.sh",
     "hr:migration:t5a:materialize": "sh scripts/materialize-yuzhou-t5-archive-visibility.sh",
