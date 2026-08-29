@@ -49,6 +49,7 @@ test("the exact 25 runtime observations are hash-bound, private and remain HOLD 
   const evidence=await runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath});
   assert.equal(requests,25);assert.equal(evidence.observedChecks,25);assert.equal(evidence.status,"HOLD");assert.equal(evidence.technicalUat,"HOLD");assert.equal(evidence.humanUat,"HOLD");assert.equal(evidence.productionImport,"HOLD");assert.match(evidence.responseEvidenceSha256,/^[0-9a-f]{64}$/u);assert.equal(lstatSync(evidencePath).mode&0o777,0o600);
   assert.doesNotMatch(readFileSync(evidencePath,"utf8"),/isolated dependency unavailable|Bearer|aaaaaaaa-aaaa/u);
+  assert.ok(evidence.observations.every(row=>row.status==="PASS"||typeof row.failureCode==="string"));
   const target=resolve(dir,"target.json"),link=resolve(dir,"linked.json");writeFileSync(target,"{}\n");chmodSync(target,0o600);symlinkSync(target,link);
   await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-B",triple,matrixSha256},evidencePath}),error=>error.code==="YUZHOU_UAT_P0_PLAN_INVALID");
   await assert.rejects(runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,binding:{runId:"rehearsal-A",triple,matrixSha256},evidencePath:link}),error=>error.code==="YUZHOU_UAT_P0_EVIDENCE_UNSAFE");

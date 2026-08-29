@@ -7,6 +7,7 @@ const SHA=/^[0-9a-f]{64}$/u,CODE_SHA=/^[0-9a-f]{40}$/u;
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const stable=value=>`${JSON.stringify(value,null,2)}\n`;
 const hash=value=>createHash("sha256").update(typeof value==="string"?value:stable(value)).digest("hex");
+const safeFailure=error=>{const code=String(error?.code??"YUZHOU_UAT_P0_FAILED");const detail={failureCode:code};if(Number.isInteger(error?.safeDiagnostic?.httpStatus)&&error.safeDiagnostic.httpStatus>=100&&error.safeDiagnostic.httpStatus<=599)detail.httpStatus=error.safeDiagnostic.httpStatus;if(Array.isArray(error?.safeDiagnostic?.failedAssertions))detail.failedAssertions=error.safeDiagnostic.failedAssertions.filter(value=>typeof value==="string"&&/^[a-z][a-z0-9_]{1,80}$/u.test(value));return detail;};
 
 function assertBinding(binding,matrixSha256){
   if(!binding||typeof binding.runId!=="string"||binding.runId.length<8)fail("YUZHOU_UAT_P0_BINDING_INVALID","runId");
@@ -26,7 +27,7 @@ export async function runYuzhouLiveRoleUatP0Observations({runner,matrix,plans,bi
   for(const plan of plans){
     let prepared=plan;
     try{prepared=plan.prepare?{...plan,...await plan.prepare()}:plan;const observed=await runner.execute(prepared);const row={...observed,status:"PASS"};observations.push({...row,evidenceSha256:hash(row)});}
-    catch(error){observations.push({id:plan.id,status:"FAIL",failureCodeHash:hash(String(error?.code??"YUZHOU_UAT_P0_FAILED"))});}
+    catch(error){const failure=safeFailure(error);observations.push({id:plan.id,status:"FAIL",...failure,failureCodeHash:hash(failure.failureCode)});}
     finally{if(plan.cleanup){try{await plan.cleanup();}catch(error){const row=observations.at(-1);row.status="FAIL";delete row.evidenceSha256;row.failureCodeHash=hash(String(error?.code??"YUZHOU_UAT_P0_CLEANUP_FAILED"));}}}
   }
   const requestCount=runner.requestCount-requestCountBefore;
