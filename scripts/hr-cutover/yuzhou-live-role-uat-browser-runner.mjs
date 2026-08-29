@@ -219,7 +219,7 @@ export function assertTechnicalUatBrowserResultBinding(result, binding) {
 
 function validateBinding(binding) {
   if (!binding || !["A", "B"].includes(binding.rehearsal)
-    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
+    || !/^yz(?:full|core)-[a-zA-Z0-9._-]+-r[AB]$/u.test(binding.runId ?? "")
     || !binding.runId.endsWith(`-r${binding.rehearsal}`)
     || !SHA40.test(binding.triple?.codeSha ?? "")
     || !SHA64.test(binding.triple?.sourceSnapshotHash ?? "")
