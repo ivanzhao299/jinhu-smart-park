@@ -14,8 +14,8 @@ const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const hash = value => createHash("sha256").update(value).digest("hex");
 const passing = (runId = "yzfull-browser-contract-rA") => {
-  const value = { runId, rehearsal: "A", triple, legacyId: 35, roleType: "department_manager", actor: "manager", actorSubjectHash: "4".repeat(64), route: "/hr/employees", renderedPath: "/hr/employees", viewportId: "phone_390", status: "PASS", width: 390, height: 844, mobile: true, clientWidth: 390, scrollWidth: 390, networkFailureCount: 0, assertions: [...assertions], screenshotSha256: "a".repeat(64), domAssertionSha256: "b".repeat(64) };
-  value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount }));
+  const value = { runId, rehearsal: "A", triple, legacyId: 35, roleType: "department_manager", actor: "manager", actorSubjectHash: "4".repeat(64), route: "/hr/employees", renderedPath: "/hr/employees", viewportId: "phone_390", status: "PASS", width: 390, height: 844, mobile: true, clientWidth: 390, scrollWidth: 390, networkFailureCount: 0, pendingRequestCount: 0, assertions: [...assertions], screenshotSha256: "a".repeat(64), domAssertionSha256: "b".repeat(64) };
+  value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount, pendingRequestCount: value.pendingRequestCount }));
   return value;
 };
 
@@ -34,7 +34,7 @@ test("browser observation drift and horizontal overflow fail closed", () => {
     value => { value.assertions.pop(); }, value => { value.screenshotSha256 = "not-a-hash"; },
     value => { value.runId = "other"; }, value => { value.triple.codeSha = "f".repeat(40); },
     value => { value.runId = "yzfull-browser-contract-rB"; },
-    value => { value.actorSubjectHash = "5".repeat(64); }, value => { value.domAssertionSha256 = "c".repeat(64); }
+    value => { value.actorSubjectHash = "5".repeat(64); }, value => { value.domAssertionSha256 = "c".repeat(64); }, value => { value.pendingRequestCount = -1; }
   ];
   for (const mutate of cases) {
     const value = passing(); mutate(value);

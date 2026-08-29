@@ -183,7 +183,9 @@ function validateOne(evidence, taskCard, apiMatrix, browserMatrix, rehearsal) {
           || !sha64(result.screenshotSha256)
           || !sha64(result.domAssertionSha256)
           || result.networkFailureCount !== 0
-          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256, networkFailureCount: result.networkFailureCount })
+          || !Number.isInteger(result.pendingRequestCount)
+          || result.pendingRequestCount < 0
+          || result.cellEvidenceSha256 !== sha256({ runId: result.runId, rehearsal: result.rehearsal, triple: result.triple, legacyId: result.legacyId, roleType: result.roleType, actor: result.actor, actorSubjectHash: result.actorSubjectHash, route: result.route, renderedPath: result.renderedPath, viewportId: result.viewportId, width: result.width, height: result.height, mobile: result.mobile, screenshotSha256: result.screenshotSha256, domAssertionSha256: result.domAssertionSha256, networkFailureCount: result.networkFailureCount, pendingRequestCount: result.pendingRequestCount })
           || !exactArray(result.assertions, taskCard.browserAssertions)) {
           fail("YUZHOU_UAT_EVIDENCE_BROWSER_FAILED", `${item.legacyId}.${roleType}.${viewport.id}`);
         }
