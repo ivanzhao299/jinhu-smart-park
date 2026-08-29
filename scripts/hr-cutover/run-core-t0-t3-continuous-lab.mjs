@@ -81,7 +81,11 @@ export async function runCoreT0T3ContinuousLab({ configPath, durationMinutes = M
   const paths = coreAuditPaths(config);
   ensurePrivateDirectory(paths.auditRoot); ensurePrivateDirectory(paths.machineRoot); acquireLock(paths.lock);
   const startedAt = now(), deadline = startedAt + durationMinutes * 60 * 1000;
-  const event = body => writePrivate(paths.events, { at: new Date().toISOString(), ...body, productionImport: "HOLD" }, { append: true });
+  const event = body => {
+    const record = { at: new Date().toISOString(), ...body, productionImport: "HOLD" };
+    writePrivate(paths.events, record, { append: true });
+    process.stdout.write(`${JSON.stringify(record)}\n`);
+  };
   const finish = body => {
     const result = { ...body, elapsedMilliseconds: now() - startedAt, productionImport: "HOLD" };
     writePrivate(paths.summary, result);
