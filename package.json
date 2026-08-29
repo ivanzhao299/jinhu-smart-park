@@ -138,6 +138,7 @@
     "hr:migration:core-t0-t3:pair-continuous": "node scripts/hr-cutover/run-core-t0-t3-pair-continuous-lab.mjs",
     "hr:migration:core-t0-t3:technical-uat": "node scripts/hr-cutover/run-core-t0-t3-technical-uat.mjs",
     "hr:migration:t3-attendance-events:profile": "sh scripts/profile-yuzhou-t3-attendance-events.sh",
+    "hr:migration:t3-attendance-request:lab": "node scripts/hr-cutover/run-hr-attendance-request-lab.mjs",
     "test:hr:attendance-request:pg": "sh scripts/run-hr-attendance-request-pg-gate.sh",
     "test:e2e:yuzhou-core-t0-t3-technical-uat": "node --test scripts/e2e/yuzhou-core-t0-t3-technical-uat-contract.mjs",
     "test:e2e:yuzhou-full-domain-lifecycle": "node scripts/e2e/yuzhou-full-domain-lifecycle.mjs",
