@@ -72,7 +72,7 @@ test("missing or ineligible operation configuration returns stable reason codes"
       (error: unknown) => {
         assert.ok(error instanceof ConflictException);
         assert.deepEqual(error.getResponse(), {
-          message: "住房租约房源当前不符合长租资格",
+          message: "长租租约房源当前不符合长租资格",
           errorCode: HOUSING_LEASE_UNIT_INELIGIBLE,
           reasonCodes: expected
         });
@@ -98,7 +98,7 @@ test("occupied lease period is rejected after structural eligibility", async () 
     (error: unknown) => {
       assert.ok(error instanceof ConflictException);
       assert.deepEqual(error.getResponse(), {
-        message: "住房租约房源当前不符合长租资格",
+        message: "长租租约房源当前不符合长租资格",
         errorCode: HOUSING_LEASE_UNIT_INELIGIBLE,
         reasonCodes: [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.LEASE_PERIOD_OCCUPIED]
       });

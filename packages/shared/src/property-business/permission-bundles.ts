@@ -80,7 +80,7 @@ export const TRACK_B_PERMISSION_BUNDLES = {
   },
   HOUSING_FINANCE_OPERATOR: {
     code: "property-bundle:property-housing-finance-operator",
-    description: "住房财务经办",
+    description: "长租财务经办",
     permissions: [
       "housing:finance:page", "housing:finance:read", "housing:finance:register",
       "housing:finance:waive", "property:notifications:page", "property_approval:create",
@@ -228,7 +228,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_OVERVIEW: {
     code: "property-bundle:housing-overview",
-    description: "住房出租看板与任务能力",
+    description: "长租经营看板与任务能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_DASHBOARD_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASKS_PAGE,
@@ -238,7 +238,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_TENANTS: {
     code: "property-bundle:housing-tenants",
-    description: "住房租客查看与维护能力",
+    description: "长租租客查看与维护能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANT_READ,
@@ -247,7 +247,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_LEASES: {
     code: "property-bundle:housing-leases",
-    description: "住房租约查看与生命周期处理能力",
+    description: "长租租约查看与生命周期处理能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASES_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ,
@@ -260,7 +260,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_HANDOVERS: {
     code: "property-bundle:housing-handovers",
-    description: "住房交割查看与处理能力",
+    description: "长租交割查看与处理能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVERS_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVER_READ,
@@ -269,7 +269,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_BILLING: {
     code: "property-bundle:housing-billing",
-    description: "住房费用计划和账单生成能力",
+    description: "长租费用计划和账单生成能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASE_READ,
@@ -279,7 +279,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_FINANCE: {
     code: "property-bundle:housing-finance",
-    description: "住房财务查看与登记能力",
+    description: "长租财务查看与登记能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_READ,
@@ -289,7 +289,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_REPAIRS: {
     code: "property-bundle:housing-repairs",
-    description: "住房报修查看与代录能力",
+    description: "长租报修查看与代录能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIRS_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIR_READ,
@@ -298,7 +298,7 @@ export const PROPERTY_PERMISSION_BUNDLES = {
   },
   HOUSING_PURCHASES: {
     code: "property-bundle:housing-purchases",
-    description: "住房采购查看、维护与转收费能力",
+    description: "长租采购查看、维护与转收费能力",
     permissions: [
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASES_PAGE,
       PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASE_READ,

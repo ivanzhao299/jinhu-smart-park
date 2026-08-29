@@ -862,7 +862,7 @@ export class PropertyOccupanciesService {
     const labels: Record<string, string> = {
       commercial_leasing: "商业租赁",
       homestay: "民宿",
-      housing_rental: "住房出租",
+      housing_rental: "长租经营",
       apartment: "公寓",
       maintenance: "维修",
       operations: "运营"

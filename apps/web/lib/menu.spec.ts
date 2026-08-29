@@ -26,7 +26,7 @@ test("explicit API empty trees remain authoritative while missing fields use leg
 
 test("API trees pruned to empty cannot restore display menus but retain route metadata", () => {
   const legacyOnlyTree = [{
-    label: "住房出租",
+    label: "长租经营",
     module: "housing_rental",
     children: [{
       label: "旧运营入口",
@@ -67,6 +67,7 @@ test("user menu consumers share menu_tree priority and normalized display output
 
 test("property menus expose the shared 8/9 canonical surfaces with exact page permissions", () => {
   const menus = getDashboardMenus();
+  assert.equal(menus.find((menu) => menu.module === "housing_rental")?.label, "长租经营");
   for (const moduleCode of ["homestay", "housing_rental"] as const) {
     const expected = PROPERTY_BUSINESS_SURFACES
       .filter((surface) => surface.moduleCode === moduleCode)
@@ -130,7 +131,7 @@ test("backend HR metadata merges into the canonical HR sidebar without duplicate
 
 test("backend projection cannot restore legacy operations entries or duplicate canonical surfaces", () => {
   const backendGroups = (["homestay", "housing_rental"] as const).map((moduleCode) => ({
-    label: moduleCode === "homestay" ? "民宿管理" : "住房出租",
+    label: moduleCode === "homestay" ? "民宿管理" : "长租经营",
     module: moduleCode,
     children: [
       {

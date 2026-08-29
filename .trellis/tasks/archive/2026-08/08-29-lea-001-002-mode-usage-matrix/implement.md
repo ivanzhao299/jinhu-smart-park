@@ -24,8 +24,8 @@
 - [x] Run focused matrix, candidate/write consistency, version/concurrency, occupancy/contract and usage-change tests.
 - [x] Run shared/API/Web lint, typecheck and build proportional to touched layers.
 - [x] Use `trellis-check`; resolve review findings (maximum three review rounds).
-- [ ] Commit, push only `codex/fix-lea-mode-usage-matrix`, open PR, wait for CI, merge through `gh pr merge`, verify main double-green.
-- [ ] Record final commit/PR/CI and archive this child before starting LEA-003.
+- [x] Commit, push only `codex/fix-lea-mode-usage-matrix`, open PR, wait for CI, merge through `gh pr merge`, verify main double-green.
+- [x] Record final commit/PR/CI and archive this child before starting LEA-003.
 
 ## Validation commands
 
@@ -48,4 +48,4 @@
 
 ## Continuation point
 
-PR #483 first CI is green, including the 21m22s Release Smoke. GitHub review round 1 found four P2 gaps: office long-rent occupancy activation/reschedule, picker facet/reason semantics, restoring an invalid disabled configuration, and disabled/suspended inventory omission from D9. All four are fixed. The review-fix focused suite is 42/42; API lint, API/Web typecheck, shared build and `git diff --check` pass. A clean-context independent review found no blocking issue. An ad-hoc all-spec `tsx` invocation is not a valid repository gate under the current Node/decorator setup (HR entity metadata bootstrap and dependent HTTP tests fail before assertions); the established focused runner remains green and CI will rerun the supported full gates. Next: commit/push review fixes, request review round 2, wait for CI, merge, then verify main double-green. No production database was touched.
+Completed. PR #483 passed round-2 CI (run 33233502926: Detect Release Smoke Scope, Lint/Typecheck/Build, and Release Smoke all success) and Codex review round 2 returned no findings on `6f814854`. It was squash-merged at 2026-08-29T04:53:20Z as `8dce11375ebe48e97bd8d46dd92bd5693316ac61`. Main CI run 33234878414 and Deploy Production run 33234878415 both completed successfully for that exact merge commit. Issue #482 auto-closed, the remote branch was deleted, and origin refs were pruned. The local branch remains checked out only until the strictly serial LEA-003 branch is created; the existing separate `main` worktree was not touched. No production database was directly accessed.

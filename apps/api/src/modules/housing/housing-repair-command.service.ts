@@ -45,7 +45,7 @@ export class HousingRepairCommandService {
         reporter_mobile: tenant.mobile ?? undefined,
         description: dto.description,
         image_file_ids: dto.image_file_ids,
-        remark: dto.remark ?? `住房租约 ${lease.leaseCode} 代录报修`
+        remark: dto.remark ?? `长租租约 ${lease.leaseCode} 代录报修`
       }, manager);
     });
   }

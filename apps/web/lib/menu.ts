@@ -100,26 +100,6 @@ const DISABLED_PLACEHOLDER_HREFS = new Set([
 
 const LEGACY_PROPERTY_MENU_HREFS = new Set(["/homestay", "/housing"]);
 
-const PROPERTY_SURFACE_LABELS: Readonly<Record<string, string>> = {
-  "homestay.dashboard": "运营看板",
-  "homestay.tasks": "待办任务",
-  "homestay.availability": "房态管理",
-  "homestay.rates": "价格管理",
-  "homestay.bookings": "订单管理",
-  "homestay.stays": "入住管理",
-  "homestay.turnovers": "房务周转",
-  "homestay.finance": "财务管理",
-  "housing.dashboard": "运营看板",
-  "housing.tasks": "待办任务",
-  "housing.tenants": "租客档案",
-  "housing.leases": "租约管理",
-  "housing.handovers": "交割管理",
-  "housing.billing": "账单管理",
-  "housing.finance": "财务管理",
-  "housing.repairs": "报修管理",
-  "housing.purchases": "采购管理"
-};
-
 const ASSET_PROPERTY_CONTROL_SURFACE_IDS = new Set([
   "asset.property-operations",
   "asset.property-occupancies",
@@ -163,7 +143,7 @@ function propertySurfaceMenus(moduleCode: "homestay" | "housing_rental"): MenuNo
   return PROPERTY_BUSINESS_SURFACES
     .filter((surface) => surface.moduleCode === moduleCode)
     .map((surface) => ({
-      label: PROPERTY_SURFACE_LABELS[surface.featureId] ?? surface.featureId,
+      label: surface.label,
       href: surface.route,
       permission: surface.pageCode,
       module: surface.moduleCode
@@ -309,7 +289,7 @@ export const dashboardMenus: MenuNode[] = [
     children: propertySurfaceMenus("homestay")
   },
   {
-    label: "住房出租",
+    label: "长租经营",
     icon: House,
     module: "housing_rental",
     children: propertySurfaceMenus("housing_rental")

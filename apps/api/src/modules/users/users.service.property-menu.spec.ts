@@ -144,6 +144,7 @@ test("property menu projection accepts only explicit page permissions and remove
     ]
   );
   assert.equal(propertyChildren(tree).some((node) => node.href === "/homestay" || node.href === "/housing"), false);
+  assert.equal(tree.find((node) => node.module === "housing_rental")?.label, "长租经营");
 
   const legacyAndActionOnly = service.buildPermissionMenuTree(
     [],
@@ -200,7 +201,7 @@ test("seeded property metadata is preferred and any route, type, module, or dupl
   ]);
   assert.deepEqual(
     valid.map(({ label, href, icon }) => ({ label, href, icon })),
-    [{ label: "数据库运营总览", href: surface.route, icon: "seeded-dashboard" }]
+    [{ label: surface.label, href: surface.route, icon: "seeded-dashboard" }]
   );
 
   assert.deepEqual(project([permission(surface.pageCode, "/homestay/not-canonical")]), []);

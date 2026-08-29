@@ -60,8 +60,8 @@ function DashboardView(props: {
   load(): Promise<void>; state: PropertyPageState;
 }) {
   return <PropertyPageSurface>
-    <header className={`ds-hero ${styles.hero}`}><div><p>住房出租工作台</p><h1>运营看板</h1>
-      <p>按当前园区和授权范围汇总租约、交割与住房子账。</p></div></header>
+    <header className={`ds-hero ${styles.hero}`}><div><p>长租经营工作台</p><h1>运营看板</h1>
+      <p>按当前园区和授权范围汇总住宅长租、办公长租的租约、交割与经营子账。</p></div></header>
     <PageState state={props.state} retryAction={<button className="ds-button" onClick={() => void props.load()} type="button">重试</button>}>
       <div className={`ds-kpi-grid ${styles.kpiGrid}`}>{props.kpis.map(([label, value]) =>
         <article className="ds-kpi-card" key={label}><span>{label}</span><strong>{value}</strong></article>)}</div>

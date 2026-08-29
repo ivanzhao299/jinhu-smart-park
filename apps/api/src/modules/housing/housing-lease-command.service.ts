@@ -299,7 +299,7 @@ export class HousingLeaseCommandService {
       start_at: this.support.businessDateStart(lease.startDate).toISOString(),
       end_at: this.support.businessDateStart(this.support.addDays(lease.endDate, 1)).toISOString(),
       status: "active",
-      remark: `住房租约 ${lease.leaseCode}`
+      remark: `长租租约 ${lease.leaseCode}`
     }, idempotencyKey);
   }
 

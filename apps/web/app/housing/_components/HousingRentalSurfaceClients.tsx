@@ -77,7 +77,7 @@ export function HousingTenantsClient() {
         { label: "核验状态", value: "verificationStatus" }
       ]), housingOrderFilter]}
     getKey={(item) => item.id} getTitle={(item) => item.displayName}
-    readActionId="housing.tenants.list" refreshKey={refreshKey} title="住房租客"
+    readActionId="housing.tenants.list" refreshKey={refreshKey} title="长租租客"
     toolbar={capabilities.actionAllowed("housing.tenants.create")
       ? <TenantCreatePanel onCreated={() => setRefreshKey((value) => value + 1)} /> : null}
   />;
@@ -88,7 +88,7 @@ export function HousingLeasesClient() {
   const capabilities = useMemo(() => projectPropertyCapabilities(user, "housing.leases"), [user]);
   const [refreshKey, setRefreshKey] = useState(0);
   return <HousingCollectionPage<HousingLeaseListItem>
-    description="租约列表与详情独立授权；金额字段由住房财务权限决定是否返回。"
+    description="租约列表与详情独立授权；金额字段由长租财务权限决定是否返回。"
     detailHref={(item) => detailUrlObject(`/housing/leases/${encodeURIComponent(item.id)}`)}
     endpoint="/housing/leases" featureId="housing.leases" route="/housing/leases"
     fields={housingFields<HousingLeaseListItem>(

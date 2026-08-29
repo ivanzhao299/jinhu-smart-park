@@ -289,7 +289,7 @@ test("post-login landing ignores legacy and disabled placeholder nodes pruned fr
   const user = createUser({
     permissions: ["housing_rental:operations", "user:read"],
     enabled_modules: [
-      { module_code: "housing_rental", module_name: "住房出租", module_group: "property", enabled: true },
+      { module_code: "housing_rental", module_name: "长租经营", module_group: "property", enabled: true },
       { module_code: "system", module_name: "系统管理", module_group: "system", enabled: true }
     ],
     menu_tree: [
@@ -306,7 +306,7 @@ test("post-login landing falls back to dashboard when the raw tree normalizes to
   const user = createUser({
     permissions: ["housing_rental:operations"],
     enabled_modules: [
-      { module_code: "housing_rental", module_name: "住房出租", module_group: "property", enabled: true }
+      { module_code: "housing_rental", module_name: "长租经营", module_group: "property", enabled: true }
     ],
     menu_tree: [
       { label: "旧住房入口", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
@@ -450,7 +450,7 @@ test("park switches classify a previous legacy route without selecting it as the
   const previousUser = createUser({
     permissions: ["housing_rental:operations"],
     enabled_modules: [
-      { module_code: "housing_rental", module_name: "住房出租", module_group: "property", enabled: true }
+      { module_code: "housing_rental", module_name: "长租经营", module_group: "property", enabled: true }
     ],
     menu_tree: [
       { label: "旧住房入口", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }

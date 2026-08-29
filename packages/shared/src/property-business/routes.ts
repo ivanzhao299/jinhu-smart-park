@@ -6,6 +6,7 @@ export const HOUSING_REPAIR_WORK_ORDER_DETAIL_ROUTE = "/workorders/[id]";
 
 export interface PropertyBusinessSurfaceRoute {
   featureId: string;
+  label: string;
   moduleCode: PropertyBusinessModuleCode;
   menuCode: string;
   pageCode: string;
@@ -16,6 +17,7 @@ export interface PropertyBusinessSurfaceRoute {
 export const PROPERTY_BUSINESS_SURFACES = [
   {
     featureId: "homestay.dashboard",
+    label: "运营看板",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_DASHBOARD_PAGE,
@@ -24,6 +26,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.tasks",
+    label: "待办任务",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TASKS_PAGE,
@@ -32,6 +35,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.availability",
+    label: "房态管理",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_AVAILABILITY_PAGE,
@@ -40,6 +44,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.rates",
+    label: "价格管理",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_RATES_PAGE,
@@ -48,6 +53,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.bookings",
+    label: "订单管理",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_BOOKINGS_PAGE,
@@ -56,6 +62,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.stays",
+    label: "入住管理",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_STAYS_PAGE,
@@ -64,6 +71,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.turnovers",
+    label: "房务周转",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_TURNOVERS_PAGE,
@@ -72,6 +80,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "homestay.finance",
+    label: "财务管理",
     moduleCode: "homestay",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOMESTAY_FINANCE_PAGE,
@@ -80,6 +89,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.dashboard",
+    label: "运营看板",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_DASHBOARD_PAGE,
@@ -88,6 +98,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.tasks",
+    label: "待办任务",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TASKS_PAGE,
@@ -96,6 +107,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.tenants",
+    label: "租客档案",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_TENANTS_PAGE,
@@ -104,6 +116,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.leases",
+    label: "租约管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_LEASES_PAGE,
@@ -112,6 +125,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.handovers",
+    label: "交割管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_HANDOVERS_PAGE,
@@ -120,6 +134,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.billing",
+    label: "账单管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_BILLING_PAGE,
@@ -128,6 +143,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.finance",
+    label: "财务管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_FINANCE_PAGE,
@@ -136,6 +152,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.repairs",
+    label: "报修管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_REPAIRS_PAGE,
@@ -144,6 +161,7 @@ export const PROPERTY_BUSINESS_SURFACES = [
   },
   {
     featureId: "housing.purchases",
+    label: "采购管理",
     moduleCode: "housing_rental",
     menuCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_RENTAL_MENU,
     pageCode: PROPERTY_BUSINESS_PERMISSIONS.HOUSING_PURCHASES_PAGE,

@@ -863,8 +863,8 @@ export class TypeOrmPropertyEventRuntimeStore implements PropertyEventRuntimeSto
 const APPROVAL_INCIDENT_TITLES: Record<string, string> = {
   "homestay.bookings.cancel.request": "民宿订单取消审批执行异常",
   "homestay.finance.refund-or-waive.request": "民宿退款或减免审批执行异常",
-  "housing.leases.approve.request": "住房租约审批执行异常",
-  "housing.leases.void.request": "住房租约作废审批执行异常",
+  "housing.leases.approve.request": "长租租约审批执行异常",
+  "housing.leases.void.request": "长租租约作废审批执行异常",
   "housing.leases.checkout.request": "住房退租审批执行异常",
   "housing.finance.refund-waive-or-deposit-refund.request": "住房退款减免审批执行异常",
   "housing.handovers.complete-move-out-financial.request": "住房交割结算审批执行异常",
