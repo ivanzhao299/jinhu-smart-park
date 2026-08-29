@@ -14,6 +14,10 @@ const migrationPath = resolve(
   "../../../../../database/migrations/000283_long_rent_display_name_reconcile.sql"
 );
 const sql = readFileSync(migrationPath, "utf8");
+const approvalRuntimeSource = readFileSync(
+  resolve(__dirname, "../property-approvals/outbox/property-event-runtime.repository.ts"),
+  "utf8"
+);
 const runtimeRequire = createRequire(__filename);
 
 function expectedPermissionNames(): Map<string, string> {
@@ -96,6 +100,15 @@ test("the same name-only mapping converges two tenants independently and leaves 
     [["tenant-a", "长租租约读取"], ["tenant-b", "长租租约读取"]]
   );
   assert.deepEqual(reconciled.at(-1), rows.at(-1));
+});
+
+test("every housing approval incident title uses the long-rent display terminology", () => {
+  const housingTitleLines = approvalRuntimeSource
+    .split("\n")
+    .filter((line) => line.includes('"housing.') && line.includes("审批执行异常"));
+  assert.equal(housingTitleLines.length, 7);
+  assert.ok(housingTitleLines.every((line) => line.includes('"长租')));
+  assert.ok(housingTitleLines.every((line) => !line.includes("住房")));
 });
 
 test("PostgreSQL executes the reconcile twice for two tenants and fails closed on a missing permission", {

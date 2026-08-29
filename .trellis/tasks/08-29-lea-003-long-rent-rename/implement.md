@@ -43,4 +43,6 @@
 - 2026-08-29：`pnpm lint`、`pnpm typecheck`、`pnpm build`（190 pages）均 PASS；shared build、API/Web targeted tests 均 PASS；迁移编号仅保留仓库已知重复 `000136`，`000283` 唯一，`git diff --check` PASS。
 - 2026-08-29：API 全量首轮 1641 tests：1597 PASS、3 个本次旧显示名断言 FAIL、41 条数据库条件 SKIP；同步断言后定向 8/8 PASS。按上限执行的第 2 轮全量中本次失败均已消失，唯一失败为无关 `code-rule-scope-migration.spec.ts` 文件级偶发启动；该既存测试随后独立 3/3 PASS，未发现稳定回归。本机 PostgreSQL integration 仍因无 `DATABASE_URL` 跳过，交 CI 数据库门禁。
 - 2026-08-29：PR #486 / commit `de9df9f9` 已创建并触发 review。CI 首轮在 shared frozen role template hash 门禁失败：复核阶段曾越界修改签名角色/权限包名称但未变更版本与生产 seed。已撤回这些非 LEA-003 目标改动，保留 `sys_permission.name`/菜单/页面/审计展示改名；shared build/test 33/33/lint PASS，待推修复提交。
-- 续跑点：提交并 push CI 修复，等待 PR #486 第 1 轮 review 与新 CI；随后按 findings（最多 3 轮）闭环、merge 并等待 main CI+Deploy 双绿。
+- 2026-08-29：修复提交 `7b363250` CI 全绿：verify 13m04s，PostgreSQL Release Smoke 19m05s，migration/failure-retry/seed/bootstrap/login/property E2E/teardown 全部 PASS。
+- 2026-08-29：review round 1 共 3 条：签名漂移已由 `7b363250` 解决；补齐 authoritative product/UAT 文档；补齐全部 7 个 housing approval incident title 并新增精确回归。相关 API 14 PASS/1 PostgreSQL 条件 SKIP，repository 既有 10 PASS，lint/diff-check PASS。
+- 续跑点：提交并 push review round-1 后续修复，对最新提交触发 round 2；新 CI/review 全绿后 merge，并等待 main CI+Deploy 双绿。
