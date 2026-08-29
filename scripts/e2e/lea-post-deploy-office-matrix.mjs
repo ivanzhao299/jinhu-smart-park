@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import { requirePropertyApiE2eIsolation } from "./property-api-e2e-safety.mjs";
+
+requirePropertyApiE2eIsolation();
+
 const apiBase = process.env.API_BASE_URL ?? "http://127.0.0.1:13001/api/v1";
 const scope = { tenantId: process.env.TENANT_ID ?? "10000001", parkId: process.env.PARK_ID ?? "20000001" };
 
@@ -111,7 +115,10 @@ const rejected = await request(adminToken, `/property/units/${unitId}/mode-trans
   method: "POST",
   body: { target_mode: "short_stay", reason: "LEA UAT office short-stay rejection" }
 });
-if (rejected.status !== 409) throw new Error(`Office short-stay rejection returned ${rejected.status}`);
+const expectedRejectionMessage = "Unit usage is not allowed for target operating mode";
+if (rejected.status !== 409 || rejected.raw?.message !== expectedRejectionMessage) {
+  throw new Error(`Office short-stay rejection mismatch: ${rejected.status} ${String(rejected.raw?.message)}`);
+}
 
 console.log(JSON.stringify({
   status: "PASS",

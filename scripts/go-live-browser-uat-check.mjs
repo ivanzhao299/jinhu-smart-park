@@ -19,6 +19,7 @@ const reportFile = resolve(repoRoot, readArg("--report") ?? defaultReportFile);
 const maxPagesPerUser = Number(readArg("--max-pages-per-user") ?? 0);
 const chromePath = readArg("--chrome-path") ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const browserUrl = readArg("--browser-url");
+const closeExternalBrowser = process.argv.includes("--close-browser");
 const usernameFilter = new Set(parseListArg("--usernames"));
 const singleUsername = process.env.BROWSER_UAT_USERNAME;
 const singlePassword = process.env.BROWSER_UAT_PASSWORD;
@@ -37,6 +38,9 @@ const results = [];
 const screenshotManifest = [];
 
 async function main() {
+  if (Boolean(singleUsername) !== Boolean(singlePassword)) {
+    fail("BROWSER_UAT_USERNAME and BROWSER_UAT_PASSWORD must be supplied together");
+  }
   const usesSingleUser = Boolean(singleUsername && singlePassword);
   if (!usesSingleUser && !existsSync(envFile)) fail(`missing production env file: ${envFile}`);
   if (!usesSingleUser && !existsSync(credentialsFile)) fail(`missing credentials file: ${credentialsFile}; run pnpm go-live:uat-all -- --reset-passwords first`);
@@ -178,8 +182,9 @@ async function checkUser(user, password, chrome) {
 
     let pageResult;
     try {
-      pageResult = await chrome.visit({
-        path: pagePath,
+        pageResult = await chrome.visit({
+          path: pagePath,
+          username: user.username,
         token,
         userContext: me.body.data,
         viewport: isMobileTerminalPath(pagePath)
@@ -223,6 +228,7 @@ async function launchChrome() {
         return visitPage(browser, input);
       },
       async close() {
+        if (closeExternalBrowser) await browser.send("Browser.close").catch(() => undefined);
         await browser.close();
       }
     };
@@ -362,7 +368,7 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
   }
 }
 
-async function visitPage(browser, { path, token, userContext, viewport }) {
+async function visitPage(browser, { path, username, token, userContext, viewport }) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}/login` });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
@@ -447,14 +453,18 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
 
     const value = evaluation.result?.value ?? {};
     if (evidenceDir) {
-      const filename = `${String(viewport.width)}-${path.replace(/^\/+/, "").replaceAll("/", "-") || "root"}.png`;
+      const safeUsername = String(username).replaceAll(/[^A-Za-z0-9_.-]/g, "_");
+      const filename = `${safeUsername}-${String(viewport.width)}-${path.replace(/^\/+/, "").replaceAll("/", "-") || "root"}.png`;
       const screenshot = await browser.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
       writeFileSync(resolve(evidenceDir, filename), Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
       screenshotManifest.push({ path, viewport, filename, captured_at: new Date().toISOString() });
     }
-    const hardFailure = expectForbidden
-      ? (value.hasForbidden ? "" : "expected_forbidden_not_rendered")
-      : getRenderFailure(value, runtimeErrors);
+    const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden: expectForbidden });
+    const failedNetwork = network.find((entry) => Number(entry.status) >= 400 && !(expectForbidden && Number(entry.status) === 403));
+    const hardFailure = renderFailure
+      || (expectForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
+      || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
+      || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
       status: hardFailure ? "FAIL" : "PASS",
       reason: hardFailure,
@@ -468,10 +478,10 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
   }
 }
 
-function getRenderFailure(value, runtimeErrors) {
+function getRenderFailure(value, runtimeErrors, options = {}) {
   if (runtimeErrors.length > 0) return `runtime exception: ${runtimeErrors.slice(0, 2).join(" | ")}`;
   if (value.hasLogin) return "redirected_to_login";
-  if (value.hasForbidden) return "forbidden_or_permission_error";
+  if (value.hasForbidden && !options.allowForbidden) return "forbidden_or_permission_error";
   if (value.hasNextError) return "next_runtime_error";
   if (Number(value.textLength ?? 0) < 30) return "blank_or_too_little_content";
   return "";

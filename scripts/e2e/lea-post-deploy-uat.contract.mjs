@@ -9,6 +9,7 @@ const officeRunner = readFileSync(new URL("./lea-post-deploy-office-matrix.mjs",
 test("browser UAT persists screenshot, Network, mobile and expected-403 evidence", () => {
   for (const contract of [
     "--browser-url",
+    "--close-browser",
     "--direct-paths",
     "--expect-forbidden",
     "--mobile-path-prefixes",
@@ -17,6 +18,10 @@ test("browser UAT persists screenshot, Network, mobile and expected-403 evidence
     "page_evidence",
     "horizontalOverflow"
   ]) assert.match(browserRunner, new RegExp(contract.replaceAll("-", "\\-")));
+  assert.match(browserRunner, /BROWSER_UAT_USERNAME and BROWSER_UAT_PASSWORD must be supplied together/u);
+  assert.match(browserRunner, /horizontal_overflow:/u);
+  assert.match(browserRunner, /api_response_failed:/u);
+  assert.match(browserRunner, /safeUsername/u);
 });
 
 test("housing real API keeps the residential boundary and admits only office as the alternate long-rent usage", () => {
@@ -31,4 +36,6 @@ test("office matrix uses real API writes, approval execution, candidate facets a
   assert.match(officeRunner, /unit-candidates\?usage_type=10/u);
   assert.match(officeRunner, /target_mode: "short_stay"/u);
   assert.match(officeRunner, /rejected\.status !== 409/u);
+  assert.match(officeRunner, /requirePropertyApiE2eIsolation\(\)/u);
+  assert.match(officeRunner, /Unit usage is not allowed for target operating mode/u);
 });
