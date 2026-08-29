@@ -49,6 +49,7 @@ test("core contract retains independent A/B resources and 13-class zero residual
 });
 
 test("ordinary deploy remains unable to invoke any Yuzhou rehearsal or historical loader", () => {
-  const deploy = read(".github/workflows/deploy-production.yml");
-  assert.doesNotMatch(deploy, /core-t0-t3|full-domain-lifecycle|load-yuzhou|ALLOW_YUZHOU_MIGRATION|production-import-writer/u);
+  for (const path of [".github/workflows/deploy-production.yml", "scripts/prod-deploy.sh"]) {
+    assert.doesNotMatch(read(path), /core-t0-t3|full-domain-lifecycle|load-yuzhou|ALLOW_YUZHOU_MIGRATION|production-import-writer/u, path);
+  }
 });

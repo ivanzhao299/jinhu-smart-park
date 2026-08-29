@@ -110,6 +110,9 @@
 ### 9.3 Rehearsal A/B 与快速切换
 
 - [ ] 在两套全新独立资源上使用完全相同 C/S/M 连续运行 T0→T3，比较业务表、ledger、canonical、quarantine、API/RBAC/browser desktop+390、备份恢复和反序回滚，逐资源 residual=0。
+  - [x] 冻结 `core_t0_t3` 固定前缀和 contract-only pair 执行框架：只允许 T0→T3/T3→T0，A/B 使用不同 trusted root 与六份独立 v2 工件，哈希链 journal 可重放，恢复先回滚已加载域，13 类 residual 必须为零；当前仅输出 `CONTRACT_PASS/SPEC_FROZEN`。
+  - [x] 接通 core PostgreSQL lab driver 与 prepare 边界：独立 Compose/network/volume/container、官方 migrate/prod seed、现有 T0～T3 adapters、T0 v2 machine materialization、反序 rollback 和 13 类 residual；固定 backup path/hash 已进入配置，但缺少 backup→当前 source container/database 的 restore receipt 与 live read-only 绑定时在 extract 前稳定输出 `CORE_SOURCE_RESTORE_BINDING_REQUIRED`。T1/T2 四组 reviewed dictionary machine artifacts 尚无安全物化入口，driver 在写入前稳定输出 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED`；目标业务 canonical 与 protected side-effect facts 未实现时稳定输出 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED`，均不得自动猜测或硬编码。
+  - [ ] 完成 source restore/read-only 机器绑定、T1/T2 四份字典机器包与目标业务 canonical/side-effect facts，随后在两套新资源执行真实 A/B；完成前不得把 driver 接线、contract-only CLI 或合同测试表述为真实 A/B PASS。
 - [ ] T0→T3 A/B PASS 后生成第一批 sealed production candidate；普通部署永不调用 loader，分类部署、迁移和 production seed 仍与历史导入入口隔离。
 - [ ] 以固定 run、source snapshot、manifest、main/runtime SHA、目标 identity 和短时窗口生成一次性 system execution credential；执行前再做只读 preflight，执行后立即撤权、复核、备份和受保护账号验收。
 - [ ] 最近三年 T4 作为第二批：固定 8,342=8,320+22、190,374 明细、266 关账、净额 15,723,009.9100；2010–2023 冷归档登记 37,750，不阻断首批切换。
