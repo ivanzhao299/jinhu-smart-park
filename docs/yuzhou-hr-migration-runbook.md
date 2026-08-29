@@ -232,6 +232,8 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 如需无人值守地完成一个已 prepare 的 core 演练，可使用 `node scripts/hr-cutover/run-core-t0-t3-continuous-lab.mjs --config '<0600 config>' --duration-minutes 300`。该 runner 仅推进当前 journal 的下一可恢复阶段（provision、extract、机器包、resume、rollback、cleanup），并把状态事件和最终摘要写入同一 0700 audit 根；最短窗口为五小时，但在 `cleaned + residual=0` 后会立即结束。任一失败先做该 run 的受控恢复并报告失败码，不会开启生产历史导入，也不会扩大到 T4/T5。
 
+需要把已验证的 core 映射交给后续隔离切片时，runner 可使用 `--stop-after rollback_ready` 写出 `CHECKPOINT_READY` 并保留本 run 的资源；只允许 `review_hold`、`rollback_ready` 或 `cleaned` 三个检查点。后续切片完成后必须从同一 config 恢复反序 rollback 与 cleanup，不能把 checkpoint 当作生产导入授权。
+
 当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
 
 ```sh

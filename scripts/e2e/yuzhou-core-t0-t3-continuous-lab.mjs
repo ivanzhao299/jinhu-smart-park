@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import test from "node:test";
-import { advanceCoreT0T3Lifecycle } from "../hr-cutover/run-core-t0-t3-continuous-lab.mjs";
+import { advanceCoreT0T3Lifecycle, normalizeCoreContinuousStopAfter } from "../hr-cutover/run-core-t0-t3-continuous-lab.mjs";
 
 function lifecycle(state) {
   const calls = [];
@@ -24,4 +24,10 @@ test("continuous core runner advances only the next recoverable lifecycle action
     const result = await advanceCoreT0T3Lifecycle(current, { machineRoot: "unused", packageFactory: () => ({ marker: "package" }) });
     assert.equal(result.action, action); assert.deepEqual(current.calls, expected);
   }
+});
+
+test("continuous core runner permits only controlled lifecycle checkpoints", () => {
+  assert.equal(normalizeCoreContinuousStopAfter(undefined), null);
+  assert.equal(normalizeCoreContinuousStopAfter("rollback_ready"), "rollback_ready");
+  assert.throws(() => normalizeCoreContinuousStopAfter("loading"), /CORE_CONTINUOUS_STOP_AFTER_INVALID/);
 });
