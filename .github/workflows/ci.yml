@@ -126,6 +126,10 @@ jobs:
           pnpm test:e2e:yuzhou-production-import-real-artifact-bridge
           pnpm test:e2e:yuzhou-production-import-machine-attestation
           pnpm test:e2e:yuzhou-production-import-writer-receipts
+          pnpm test:e2e:yuzhou-job-state-decision-artifact
+          pnpm test:e2e:yuzhou-job-state-review-package-builder
+          pnpm test:e2e:yuzhou-job-state-machine-attestation
+          pnpm test:e2e:yuzhou-job-state-materialization
 
       - name: Lint
         run: pnpm lint
