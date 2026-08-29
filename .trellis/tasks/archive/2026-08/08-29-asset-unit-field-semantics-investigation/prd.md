@@ -29,7 +29,7 @@
 - [x] A/B/C 方案均覆盖用户要求的七类影响，并提供横向对比、推荐方案及决策清单。
 - [x] Git diff 只含该 investigation 任务材料、报告及必要的 Trellis 收尾记录；无产品代码改动。
 - [x] Markdown/链接/引用与相关只读验证通过，独立 review 结论已处理或记录。
-- [ ] 报告 PR 合并，main 分支所需 CI checks 双绿；未创建实施 Issue。
+- [x] 报告 PR 合并，main 分支所需 CI checks 双绿；未创建实施 Issue。
 
 ## Notes
 
