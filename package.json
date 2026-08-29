@@ -167,7 +167,7 @@
     "test:e2e:yuzhou-job-state-review-package-builder": "node --test scripts/e2e/yuzhou-job-state-review-package-builder-contract.mjs",
     "test:e2e:yuzhou-job-state-machine-attestation": "node --test scripts/e2e/yuzhou-job-state-machine-attestation-contract.mjs",
     "test:e2e:yuzhou-job-state-materialization": "node scripts/e2e/yuzhou-job-state-rehearsal-materialization-contract.mjs",
-    "test:e2e:yuzhou-core-t0-t3-rehearsal": "node --test scripts/e2e/yuzhou-core-t0-t3-rehearsal-contract.mjs scripts/e2e/yuzhou-core-t0-t3-rehearsal-lifecycle.mjs scripts/e2e/yuzhou-core-t0-t3-postgres-driver.mjs",
+    "test:e2e:yuzhou-core-t0-t3-rehearsal": "node --test scripts/e2e/yuzhou-source-restore-receipt.mjs scripts/e2e/yuzhou-core-t0-t3-rehearsal-contract.mjs scripts/e2e/yuzhou-core-t0-t3-rehearsal-lifecycle.mjs scripts/e2e/yuzhou-core-t0-t3-postgres-driver.mjs",
     "test:e2e:yuzhou-materialization-key-contract": "node scripts/e2e/yuzhou-materialization-key-contract.mjs",
     "prod:deploy": "sh scripts/prod-deploy.sh",
     "android:verify-release": "node scripts/verify-android-release.mjs",

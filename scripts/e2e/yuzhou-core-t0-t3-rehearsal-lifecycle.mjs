@@ -20,6 +20,7 @@ import { executeCoreT0T3PairFromFiles } from "../hr-cutover/core-t0-t3-pair-runn
 import { canonicalDecisionHash, canonicalEvidenceIndexHash } from "../hr-cutover/yuzhou-job-state-decision-artifact-lib.mjs";
 import { canonicalHash } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { compileYuzhouJobStateMachineAttestation, computeYuzhouJobStateCheckpointArtifactHash, computeYuzhouJobStateCheckpointRoot } from "../hr-cutover/yuzhou-job-state-machine-attestation.mjs";
+import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 
 const fixture = buildJobStateV2Fixture();
 const triple = fixture.config.triple;
@@ -42,6 +43,17 @@ const fixtureB = reanchorFixture(fixture, "e".repeat(64));
 const root = mkdtempSync(join(tmpdir(), "yzcore-contract-"));
 const sourceBackupPath = join(root, "source.bak");
 writeFileSync(sourceBackupPath, "fixed-source", { mode: 0o600 }); chmodSync(sourceBackupPath, 0o600);
+const sourceRestoreReceiptPath = join(root, "source-restore-receipt.json");
+const sourceRestoreReceipt = sealSourceRestoreReceipt({
+  formatVersion: 1, artifactKind: "yuzhou_hr_source_restore_receipt", sourceSnapshotSha256: triple.sourceSnapshotHash,
+  backup: { sha256: triple.sourceSnapshotHash, bytes: readFileSync(sourceBackupPath).length, containerCopySha256: triple.sourceSnapshotHash, containerCopyBytes: readFileSync(sourceBackupPath).length },
+  identities: { containerSha256: digest("container"), imageSha256: digest("image"), databaseSha256: digest("database"), restoreSha256: digest("restore"), catalogSha256: digest("catalog") },
+  state: { online: true, readOnly: true },
+  etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false },
+  productionImport: "HOLD"
+});
+writeFileSync(sourceRestoreReceiptPath, `${JSON.stringify(sourceRestoreReceipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(sourceRestoreReceiptPath, 0o600);
+const sourceRestoreReceiptSha256 = digest(readFileSync(sourceRestoreReceiptPath));
 const project = suffix => `jinhu_hr_migration_lab_core_${suffix}`;
 const config = (rehearsal, suffix, basePort) => {
   const database = project(suffix), runtimeRoot = join(root, database, "runtime"), credentialRoot = join(root, database, "credentials");
@@ -58,6 +70,8 @@ const config = (rehearsal, suffix, basePort) => {
       readOnly: true,
       sourceBackupSha256: triple.sourceSnapshotHash,
       sourceBackupPath,
+      sourceRestoreReceiptPath,
+      sourceRestoreReceiptSha256,
       databaseAlias: "YuzhouHR_Lab_fixture01",
       etlEnvFile,
       sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1"

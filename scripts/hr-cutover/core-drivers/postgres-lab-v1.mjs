@@ -11,6 +11,7 @@ import {
   validateCoreT0T3Config
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
+import { createDefaultSourceRestoreProbe, verifySourceRestoreReceiptFile } from "../source-restore-receipt.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const FULL_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -19,6 +20,8 @@ const DRIVER_CONTRACT_PATHS = Object.freeze([
   "scripts/hr-cutover/core-t0-t3-rehearsal.mjs",
   "scripts/hr-cutover/prepare-core-t0-t3-rehearsal.mjs",
   "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs",
+  "scripts/hr-cutover/source-restore-receipt.mjs",
+  "scripts/hr-cutover/contracts/source-restore-receipt.schema.json",
   "scripts/hr-cutover/materialize-reviewed-job-state.mjs",
   "scripts/extract-yuzhou-t0.sh", "scripts/transform-yuzhou-t0.mjs", "scripts/load-yuzhou-t0.sh", "scripts/rollback-yuzhou-t0.sh",
   "scripts/extract-yuzhou-t1-employment-events.sh", "scripts/transform-yuzhou-t1-employment-events.mjs", "scripts/load-yuzhou-t1-employment-events.sh", "scripts/rollback-yuzhou-t1-employment-events.sh",
@@ -103,10 +106,15 @@ function assertRuntimeBoundary(config, run) {
   if (label !== config.target.composeProject) fail("CORE_TARGET_CONTAINER_INVALID", "Compose label drift");
 }
 
-function assertSourceBackupBinding(config) {
+function assertSourceRestoreBinding(config, probe) {
   const actual = sha256File(config.source.sourceBackupPath);
   if (actual !== config.source.sourceBackupSha256 || actual !== config.triple.sourceSnapshotHash) fail("CORE_SOURCE_BACKUP_DRIFT", "fixed source backup hash mismatch");
-  fail("CORE_SOURCE_RESTORE_BINDING_REQUIRED", "backup-to-container restore receipt and live read-only binding are not implemented");
+  verifySourceRestoreReceiptFile({
+    receiptPath: config.source.sourceRestoreReceiptPath, receiptSha256: config.source.sourceRestoreReceiptSha256,
+    sourceSnapshotSha256: config.triple.sourceSnapshotHash, sourceBackupPath: config.source.sourceBackupPath,
+    sourceContainer: config.source.sourceContainer, databaseAlias: config.source.databaseAlias
+  }, { probe, recheckLive: true });
+  return { status: "verified", productionImport: "HOLD" };
 }
 
 function stagingDirectory(config, domain) {
@@ -157,7 +165,8 @@ function queryJson(config, run, sql, code = "CORE_POSTGRES_QUERY_FAILED") {
   try { return JSON.parse(output.split("\n").filter(Boolean).at(-1)); } catch { fail(code, "invalid JSON result"); }
 }
 
-function provision(config, run, p) {
+function provision(config, run, p, sourceReceiptProbe) {
+  assertSourceRestoreBinding(config, sourceReceiptProbe);
   if (existsSync(config.target.runtimeRoot)) fail("CORE_RUN_ALREADY_EXISTS", config.runId);
   assertPrivateFile(p.postgresEnv, "postgres.env");
   mkdirSync(config.target.runtimeRoot, { mode: 0o700 });
@@ -263,17 +272,18 @@ function residualRows(config, p) {
   return CORE_RESIDUAL_CLASSES.map(kind => ({ class: kind, removed: values[kind] === 0, residualCount: values[kind] }));
 }
 
-export async function createCoreT0T3Adapters(configInput, { commandRunner = defaultRun, enforceContractHash = true } = {}) {
+export async function createCoreT0T3Adapters(configInput, { commandRunner = defaultRun, enforceContractHash = true, sourceReceiptProbe } = {}) {
   const config = validateCoreT0T3Config(configInput), p = paths(config), state = {};
   if (!existsSync(p.auditRoot) || lstatSync(p.auditRoot).isSymbolicLink() || !statSync(p.auditRoot).isDirectory() || mode(p.auditRoot) !== "0700") fail("CORE_AUDIT_ROOT_UNSAFE", "prepared 0700 audit root required");
   if (enforceContractHash && computeCoreT0T3MappingContractHash() !== config.triple.mappingContractHash) fail("CORE_MAPPING_CONTRACT_DRIFT", config.rehearsal);
+  const receiptProbe = sourceReceiptProbe ?? createDefaultSourceRestoreProbe({ etlEnvFile: config.source.etlEnvFile });
   const journal = new CoreT0T3FileJournal(p.journal, config, { trustedRoot: p.auditRoot });
   return {
     journal,
-    provisionResources: () => provision(config, commandRunner, p),
+    provisionResources: () => provision(config, commandRunner, p, receiptProbe),
     executePhase: ({ domain, phase }) => {
       if (!CORE_DOMAIN_ORDER.includes(domain) || !["extract", "load", "rollback"].includes(phase)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", `${domain}.${phase}`);
-      if (phase === "extract") assertSourceBackupBinding(config);
+      if (phase === "extract") assertSourceRestoreBinding(config, receiptProbe);
       if (phase === "load" && ["T1", "T2"].includes(domain)) fail("CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED", `${domain} reviewed dictionary machine package is not implemented`);
       if (["load", "rollback"].includes(phase)) assertRuntimeBoundary(config, commandRunner);
       if (domain === "T0" && phase === "load" && !state.t0DictionarySha256) state.t0DictionarySha256 = resolveT0DictionarySha(config, commandRunner);

@@ -10,6 +10,7 @@ TARGET_DATABASE="${YUZHOU_SQLSERVER_DATABASE:-}"
 BACKUP_SET="${YUZHOU_BACKUP_SET:-1}"
 RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"
 REPORT_DIR="${YUZHOU_REPORT_DIR:-$ROOT_DIR/database/import-reports/yuzhou-hr}"
+ETL_CREDENTIAL_FILE="${YUZHOU_ETL_CREDENTIAL_FILE:-$REPORT_DIR/20260820_intake01-etl.env}"
 ALLOW_YUZHOU_MIGRATION="${ALLOW_YUZHOU_MIGRATION:-no}"
 
 fail() {
@@ -57,6 +58,7 @@ SQL_FILE="$TMP_DIR/restore.sql"
 CONTAINER_BACKUP="/var/opt/mssql/backup/${RUN_ID}.bak"
 CONTAINER_SQL="/tmp/yuzhou-restore-${RUN_ID}.sql"
 REPORT_FILE="$REPORT_DIR/${RUN_ID}.txt"
+RESTORE_RECEIPT="$REPORT_DIR/${RUN_ID}-source-restore-receipt.json"
 
 cleanup() {
   docker exec "$CONTAINER_NAME" rm -f "$CONTAINER_SQL" "$CONTAINER_BACKUP" >/dev/null 2>&1 || true
@@ -132,5 +134,13 @@ if ! docker exec "$CONTAINER_NAME" bash -lc \
 fi
 cat "$REPORT_FILE"
 
-printf 'RESTORE_OK database=%s run_id=%s backup_sha256=%s report=%s\n' \
-  "$TARGET_DATABASE" "$RUN_ID" "$actual_sha256" "$REPORT_FILE"
+node "$ROOT_DIR/scripts/hr-cutover/source-restore-receipt.mjs" \
+  --source-snapshot "$actual_sha256" \
+  --source-backup "$backup_file_real" \
+  --source-container "$CONTAINER_NAME" \
+  --container-copy "$CONTAINER_BACKUP" \
+  --database "$TARGET_DATABASE" \
+  --etl-env "$ETL_CREDENTIAL_FILE" \
+  --receipt "$RESTORE_RECEIPT"
+
+printf 'RESTORE_OK run_id=%s backup_sha256=%s\n' "$RUN_ID" "$actual_sha256"
