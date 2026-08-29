@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_t1_employment_event_type_machine_decision",
+  "sourceSystem": "yuzhou-v10",
+  "sourceSnapshotSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+  "dictionaryCode": "employment_event_type",
+  "sourceTable": "dbo.readjust.readjusttype",
+  "sourceRecordCount": 6887,
+  "decisions": [
+    { "sourceValue": "就职", "usageCount": 2890, "decision": "map", "targetDomain": "employment_event_type", "targetValue": "start_probation", "reasonCode": "ONLINE_LIFECYCLE_EQUIVALENT" },
+    { "sourceValue": "调职", "usageCount": 1746, "decision": "map", "targetDomain": "employment_event_type", "targetValue": "transfer", "reasonCode": "ONLINE_LIFECYCLE_EQUIVALENT" },
+    { "sourceValue": "离职", "usageCount": 1962, "decision": "map", "targetDomain": "employment_event_type", "targetValue": "depart", "reasonCode": "ONLINE_LIFECYCLE_EQUIVALENT" },
+    { "sourceValue": "复职", "usageCount": 289, "decision": "map", "targetDomain": "employment_event_type", "targetValue": "resume", "reasonCode": "ONLINE_LIFECYCLE_EQUIVALENT" }
+  ],
+  "productionImport": "HOLD"
+}
