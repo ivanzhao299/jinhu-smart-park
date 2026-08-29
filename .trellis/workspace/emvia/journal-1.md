@@ -678,3 +678,43 @@ Completed PSW-001/002/003 and D5, ran authoritative S1/S2/S3 plus G1-G7 UAT, mer
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: LEA-004 rental status lifecycle sync
+
+**Date**: 2026-08-29
+**Task**: LEA-004 rental status lifecycle sync
+**Package**: api
+**Branch**: `codex/fix-lea-004-rental-status-sync`
+
+### Summary
+
+Implemented transactional housing and homestay rental-status projection with conflict priority and immutable audit evidence; closed three Codex review rounds, fixed disposable property E2E fixture contracts, merged PR #490, and verified PR smoke plus latest-main CI/production deploy.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7b3e2552` | (see git log) |
+| `1d100a12` | (see git log) |
+| `9d1dc1ec` | (see git log) |
+| `43a45e41` | (see git log) |
+| `b555025c` | (see git log) |
+| `a7d23a72` | (see git log) |
+| `2ba92730` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
