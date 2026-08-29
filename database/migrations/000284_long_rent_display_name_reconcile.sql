@@ -62,27 +62,18 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  WITH affected_tenants AS (
-    SELECT DISTINCT permission.tenant_id
-    FROM sys_permission permission
-    JOIN long_rent_permission_name definition ON definition.code = permission.code
-    WHERE permission.is_deleted = false
-  ), permission_counts AS (
-    SELECT tenant.tenant_id, definition.code, count(permission.id)::integer AS row_count
-    FROM affected_tenants tenant
-    CROSS JOIN long_rent_permission_name definition
-    LEFT JOIN sys_permission permission
-      ON permission.tenant_id = tenant.tenant_id
-     AND permission.code = definition.code
-     AND permission.is_deleted = false
-    GROUP BY tenant.tenant_id, definition.code
-  )
   SELECT string_agg(
     tenant_id || ':' || code || ':count=' || row_count::text,
     ', ' ORDER BY tenant_id, code
   ) INTO permission_cardinality_drift
-  FROM permission_counts
-  WHERE row_count <> 1;
+  FROM (
+    SELECT permission.tenant_id, permission.code, count(*)::integer AS row_count
+    FROM sys_permission permission
+    JOIN long_rent_permission_name definition ON definition.code = permission.code
+    WHERE permission.is_deleted = false
+    GROUP BY permission.tenant_id, permission.code
+    HAVING count(*) <> 1
+  ) permission_counts;
 
   IF permission_cardinality_drift IS NOT NULL THEN
     RAISE EXCEPTION 'long-rent-permission-cardinality-drift targets=%', permission_cardinality_drift
