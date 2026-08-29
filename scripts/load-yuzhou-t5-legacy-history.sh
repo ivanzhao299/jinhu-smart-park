@@ -97,10 +97,16 @@ WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),v AS(
 )
 INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extracted_count,valid_count,loaded_count,rejected_count,checksum_sha256,started_at)
 SELECT b.id,v.domain,v.source_object,'load',v.status,v.n,v.n,0,0,v.h,now() FROM b CROSS JOIN v;
+CREATE TEMP TABLE profile_identity_counts AS
+SELECT payload->'materialized'->'idNumber'->>'fingerprint' fingerprint,count(*)::bigint source_matches
+FROM source_rows
+WHERE payload->'materialized'->>'kind'='profile'
+  AND NULLIF(payload->'materialized'->'idNumber'->>'fingerprint','') IS NOT NULL
+GROUP BY payload->'materialized'->'idNumber'->>'fingerprint';
 CREATE TEMP TABLE classified AS
-SELECT s.payload,e.id employee_id,e.matches,
+SELECT s.payload,e.id employee_id,e.matches,COALESCE(profile_identity.source_matches,0) source_matches,
  CASE WHEN profile_identity.source_matches>1 THEN 'EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS'
-      WHEN profile_identity.target_exists THEN 'EMPLOYEE_PROFILE_IDENTITY_CONFLICT'
+      WHEN EXISTS(SELECT 1 FROM hr_employee_profile p WHERE p.tenant_id=:'tenant' AND p.park_id=:'park' AND p.id_number_fingerprint=profile_identity.fingerprint AND NOT p.is_deleted) THEN 'EMPLOYEE_PROFILE_IDENTITY_CONFLICT'
       WHEN s.payload->>'sourceTable'='dbo.his' THEN 'HISTORY_OWNER_UNRESOLVED'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND COALESCE(e.matches,0)=0 THEN 'EMPLOYEE_NOT_MAPPED'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND e.matches>1 THEN 'EMPLOYEE_MAPPING_AMBIGUOUS'
@@ -114,15 +120,7 @@ FROM source_rows s LEFT JOIN LATERAL(
    AND m.mapping_status='loaded' AND m.is_active
    AND m.source_pk_canonical='person='||(s.payload->>'employeeCode')
 )e ON NULLIF(s.payload->>'employeeCode','') IS NOT NULL
-LEFT JOIN LATERAL(
- SELECT count(*)::bigint source_matches,
-   EXISTS(SELECT 1 FROM hr_employee_profile p WHERE p.tenant_id=:'tenant' AND p.park_id=:'park' AND p.id_number_fingerprint=NULLIF(s.payload->'materialized'->'idNumber'->>'fingerprint','') AND NOT p.is_deleted) target_exists
- FROM source_rows peer
- WHERE s.payload->'materialized'->>'kind'='profile'
-   AND NULLIF(s.payload->'materialized'->'idNumber'->>'fingerprint','') IS NOT NULL
-   AND peer.payload->'materialized'->>'kind'='profile'
-   AND peer.payload->'materialized'->'idNumber'->>'fingerprint'=s.payload->'materialized'->'idNumber'->>'fingerprint'
-)profile_identity ON true;
+LEFT JOIN profile_identity_counts profile_identity ON profile_identity.fingerprint=s.payload->'materialized'->'idNumber'->>'fingerprint';
 DO $$BEGIN
  IF EXISTS(SELECT 1 FROM classified c JOIN hr_employee_profile x ON x.tenant_id=current_setting('yuzhou.t5_tenant') AND x.park_id=current_setting('yuzhou.t5_park') AND x.legacy_source_identity_sha256=c.payload->>'sourceIdentitySha256' AND x.is_deleted=false WHERE c.payload->'materialized'->>'kind'='profile')
  OR EXISTS(SELECT 1 FROM classified c JOIN hr_employee_family x ON x.tenant_id=current_setting('yuzhou.t5_tenant') AND x.park_id=current_setting('yuzhou.t5_park') AND x.legacy_source_identity_sha256=c.payload->>'sourceIdentitySha256' AND x.is_deleted=false WHERE c.payload->'materialized'->>'kind'='family')
