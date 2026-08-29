@@ -17,16 +17,15 @@
 
 ## Acceptance Criteria
 
-- [ ] PSW-001/002/003 各自通过 review（最多 3 轮）、CI、合入 main，且 main 双绿。
-- [ ] D5 历史 access-only 审计清单可由管理员复核，不自动授予权限。
-- [ ] S3 使用单一 Park ID 重跑或对齐原始 artifact，权威报告无双 ID 歧义。
-- [ ] 最终 UAT 重验 S1a/S1b/S2/S3，并抽查 G1–G7 与成熟基建全套；FAIL 如实保留。
-- [ ] 全 PASS 后归档三个修复任务与调查遗留项。
+- [x] PSW-001/002/003 各自通过 review（最多 3 轮）、CI、合入 main，且 main 双绿。
+- [x] D5 历史 access-only 审计清单可由管理员复核，不自动授予权限。
+- [x] S3 使用单一 Park ID 重跑或对齐原始 artifact，权威报告无双 ID 歧义。
+- [x] 最终 UAT 重验 S1a/S1b/S2/S3，并抽查 G1–G7 与成熟基建全套；FAIL 如实保留。
+- [x] 全 PASS 后归档三个修复任务与调查遗留项。
 
 ## Child map
 
-- `08-28-psw-001-tenant-super`：当前唯一激活目标，GitHub #463。
-- PSW-002/003 在前序 PR 合入且 main 双绿后分别创建，避免并行改变授权语义。
+- PSW-001/002/003 修复子任务已归档；UAT 子任务在 PR #476 与 main 门禁收敛后归档。
 
 ## Source baseline
 
