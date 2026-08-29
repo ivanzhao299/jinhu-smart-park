@@ -9,12 +9,12 @@ CREATE TABLE hr_legacy_training_reward_projection (
   source_identity_sha256 char(64) NOT NULL,
   source_row_sha256 char(64) NOT NULL,
   projection_kind varchar(32) NOT NULL,
-  training_course_id uuid REFERENCES hr_training_course(id) ON DELETE CASCADE,
-  training_course_version_id uuid REFERENCES hr_training_course_version(id) ON DELETE CASCADE,
-  training_plan_id uuid REFERENCES hr_training_plan(id) ON DELETE CASCADE,
-  training_participant_id uuid REFERENCES hr_training_participant(id) ON DELETE CASCADE,
-  reward_category_id uuid REFERENCES hr_reward_discipline_category(id) ON DELETE CASCADE,
-  reward_category_version_id uuid REFERENCES hr_reward_discipline_category_version(id) ON DELETE CASCADE,
+  training_course_id uuid,
+  training_course_version_id uuid,
+  training_plan_id uuid,
+  training_participant_id uuid,
+  reward_category_id uuid,
+  reward_category_version_id uuid,
   status varchar(16) NOT NULL DEFAULT 'staged',
   create_time timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_hr_legacy_training_reward_projection_source CHECK(source_table IN('dbo.trainhis','dbo.bonuscode') AND source_identity_sha256~'^[0-9a-f]{64}$' AND source_row_sha256~'^[0-9a-f]{64}$'),
@@ -24,12 +24,12 @@ CREATE TABLE hr_legacy_training_reward_projection (
   CONSTRAINT uq_hr_legacy_training_reward_projection_source UNIQUE(migration_batch_id,source_table,source_identity_sha256)
 );
 ALTER TABLE hr_legacy_training_reward_projection
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_course_scope FOREIGN KEY(tenant_id,park_id,training_course_id) REFERENCES hr_training_course(tenant_id,park_id,id) ON DELETE CASCADE,
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_course_version_scope FOREIGN KEY(tenant_id,park_id,training_course_version_id) REFERENCES hr_training_course_version(tenant_id,park_id,id) ON DELETE CASCADE,
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_plan_scope FOREIGN KEY(tenant_id,park_id,training_plan_id) REFERENCES hr_training_plan(tenant_id,park_id,id) ON DELETE CASCADE,
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_participant_scope FOREIGN KEY(tenant_id,park_id,training_participant_id) REFERENCES hr_training_participant(tenant_id,park_id,id) ON DELETE CASCADE,
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_category_scope FOREIGN KEY(tenant_id,park_id,reward_category_id) REFERENCES hr_reward_discipline_category(tenant_id,park_id,id) ON DELETE CASCADE,
-  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_category_version_scope FOREIGN KEY(tenant_id,park_id,reward_category_version_id) REFERENCES hr_reward_discipline_category_version(tenant_id,park_id,id) ON DELETE CASCADE;
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_course_scope FOREIGN KEY(tenant_id,park_id,training_course_id) REFERENCES hr_training_course(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE,
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_course_version_scope FOREIGN KEY(tenant_id,park_id,training_course_version_id) REFERENCES hr_training_course_version(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE,
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_plan_scope FOREIGN KEY(tenant_id,park_id,training_plan_id) REFERENCES hr_training_plan(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE,
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_participant_scope FOREIGN KEY(tenant_id,park_id,training_participant_id) REFERENCES hr_training_participant(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE,
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_category_scope FOREIGN KEY(tenant_id,park_id,reward_category_id) REFERENCES hr_reward_discipline_category(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE,
+  ADD CONSTRAINT fk_hr_legacy_training_reward_projection_category_version_scope FOREIGN KEY(tenant_id,park_id,reward_category_version_id) REFERENCES hr_reward_discipline_category_version(tenant_id,park_id,id) DEFERRABLE INITIALLY IMMEDIATE;
 CREATE INDEX ix_hr_legacy_training_reward_projection_batch ON hr_legacy_training_reward_projection(migration_batch_id,status);
 CREATE INDEX ix_hr_legacy_training_reward_projection_training_plan ON hr_legacy_training_reward_projection(tenant_id,park_id,training_plan_id) WHERE training_plan_id IS NOT NULL;
 CREATE INDEX ix_hr_legacy_training_reward_projection_reward_category ON hr_legacy_training_reward_projection(tenant_id,park_id,reward_category_id) WHERE reward_category_id IS NOT NULL;
