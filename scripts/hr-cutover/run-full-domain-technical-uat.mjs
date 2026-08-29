@@ -55,6 +55,7 @@ function allAuditRows(config,vars){return JSON.parse(psql(config,vars,`SELECT CO
 const escapeRegex=value=>value.replace(/[.*+?^${}()|[\]\\]/gu,"\\$&");
 function routeMatches(template,path){const parts=template.split(/\{[a-zA-Z][a-zA-Z0-9]*\}/gu).map(escapeRegex),pattern=`^${parts.join("[0-9a-fA-F-]{36}")}$`,normalized=String(path??"").replace(/^\/api\/v1(?=\/)/u,"").split("?")[0];return new RegExp(pattern,"u").test(normalized);}
 async function stopChild(child){if(!child||child.exitCode!==null)return;if(!child.killed)child.kill("SIGTERM");for(let n=0;n<20&&child.exitCode===null;n+=1)await sleep(100);if(child.exitCode===null)child.kill("SIGKILL");}
+async function waitLoopbackPortClear(port){for(let attempt=0;attempt<50;attempt+=1){if(spawnSync("lsof",["-nP",`-iTCP:${port}`,"-sTCP:LISTEN"],{stdio:"ignore"}).status!==0)return;await sleep(100);}fail("TECHNICAL_UAT_PROCESS_RESIDUAL",String(port));}
 async function preserveFailure(previous,action){try{await action();return previous;}catch(error){return previous??error;}}
 function buildWebForTarget(config){
  const apiTarget=`http://127.0.0.1:${config.target.apiPort}`;
@@ -198,6 +199,7 @@ COMMIT;`;
   }else result={state:requiredState,technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",productionImport:"HOLD"};
  }catch(error){failure=error;const categories=safeRuntimeCategories(apiRuntimeOutput.join(""));if(categories.length&&existsSync(resolve(config.target.evidenceRoot,"resource-registry.json"))){const runtimePath=resolve(config.target.evidenceRoot,"technical-uat-runtime-failure-summary.json");writePrivate(runtimePath,{formatVersion:1,parentRunId:config.runId,failureCode:String(error?.code??"TECHNICAL_UAT_FAILED"),apiRuntimeCategories:categories,productionImport:"HOLD"});registryFile(config,runtimePath);}}finally{
   failure=await preserveFailure(failure,()=>Promise.all([stopChild(web),stopChild(api)]));
+  failure=await preserveFailure(failure,()=>Promise.all([waitLoopbackPortClear(config.target.apiPort),waitLoopbackPortClear(config.target.webPort)]));
   if(existsSync(resolve(config.target.evidenceRoot,"resource-registry.json")))failure=await preserveFailure(failure,()=>registryProcesses(config,[]));
   failure=await preserveFailure(failure,()=>{try{psql(config,vars,cleanupSql);}catch(error){if(!String(error.message).includes("does not exist"))throw error;}});
  }
