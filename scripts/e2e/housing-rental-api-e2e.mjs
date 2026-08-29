@@ -380,8 +380,19 @@ async function run() {
     idempotent: true,
     body: { charge_type: "property", billing_source: "fixed", cycle_months: 1, amount: "100.00", enabled: true }
   });
-  const billEnd = new Date(`${startDate}T00:00:00Z`);
-  billEnd.setUTCMonth(billEnd.getUTCMonth() + 1);
+  const billStart = new Date(`${startDate}T00:00:00Z`);
+  const targetMonthStart = new Date(Date.UTC(
+    billStart.getUTCFullYear(),
+    billStart.getUTCMonth() + 1,
+    1
+  ));
+  const targetMonthLastDay = new Date(Date.UTC(
+    targetMonthStart.getUTCFullYear(),
+    targetMonthStart.getUTCMonth() + 1,
+    0
+  )).getUTCDate();
+  const billEnd = new Date(targetMonthStart);
+  billEnd.setUTCDate(Math.min(billStart.getUTCDate(), targetMonthLastDay));
   await request(`/housing/leases/${lease.id}/generate-bills`, {
     method: "POST",
     token,
