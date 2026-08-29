@@ -64,9 +64,9 @@ function buildWebForTarget(config){
  if(!rewrites.some((rewrite)=>rewrite.source==="/api/:path*"&&rewrite.destination===expected))fail("TECHNICAL_UAT_WEB_TARGET_MISMATCH",expected);
 }
 
-export async function runTechnicalUat(configInput){
- const config=validateConfig(structuredClone(configInput));
- if(config.backend!=="lab"||currentState(config)!=="uat_ready")fail("STATE_TRANSITION_INVALID","technical UAT requires lab uat_ready state");
+export async function runTechnicalUat(configInput,{configValidator=validateConfig,stateResolver=currentState,requiredState="uat_ready",finalizeManifest=true}={}){
+ const config=configValidator(structuredClone(configInput));
+ if(config.backend!=="lab"||stateResolver(config)!==requiredState)fail("STATE_TRANSITION_INVALID",`technical UAT requires lab ${requiredState} state`);
  const partyDataEncryptionKey=materializationKey(config.target.materializationKeyArtifact);
  const apiMain=resolve(ROOT,"apps/api/dist/main.js");
  if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","build API before the rehearsal");
@@ -183,13 +183,15 @@ COMMIT;`;
   writePrivate(legacyEvidencePath,recorder.finalize());registryFile(config,legacyEvidencePath);
   const summaryPath=resolve(config.target.evidenceRoot,"technical-uat-summary.json");
   writePrivate(summaryPath,{formatVersion:1,parentRunId:config.runId,status:"PASS",roleTypes:["hr_manager","department_manager","employee_self_service"],actors:["hr_maker","hr_reviewer","department_manager","employee_self_service"],apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyTaskCard:{sha256:taskCardIdentity.sha256,apiMatrixSha256:apiMatrixIdentity.sha256,browserMatrixSha256:browserMatrixIdentity.sha256,p0MatrixSha256:p0MatrixIdentity.sha256,p0MatrixChecks:p0MatrixIdentity.checkCount,p0Execution:"PASS",p0ObservedChecks:p0Evidence.observedChecks,p0FailedChecks:p0Evidence.failedChecks,p0EvidenceSha256:sha256(`${JSON.stringify(JSON.parse(readFileSync(p0Path,"utf8")),null,2)}\n`),apiMatrixChecks:apiMatrixIdentity.checkCount,observedChecks:matrixObservations.length,browserChecks:browserMatrixIdentity.checkCount,browserViewportCells:browserResult.observedCells,status:"PASS_TECHNICAL"},humanUat:"HOLD",productionImport:"HOLD"});registryFile(config,summaryPath);
-  const chainPath=config.verification.manifestChainFile,chain=JSON.parse(readFileSync(chainPath,"utf8")),head=chain.find((row)=>!chain.some((candidate)=>candidate.manifest.supersedesManifestSha256===row.sha256));
-  if(!head)fail("MANIFEST_CHAIN_INVALID","head missing");
-  const evidence=buildEvidenceIndex(config.target.evidenceRoot,[{kind:"approved_ignored_attestation",relativePath:"cold-archive-scope-attestation.json"},{kind:"global_facts_summary",relativePath:"global-facts-summary.json"},{kind:"technical_uat_p0_observations",relativePath:basename(p0Path)},{kind:"technical_uat_api_matrix_observations",relativePath:basename(observationsPath)},{kind:"technical_uat_browser_matrix_observations",relativePath:basename(browserPath)},{kind:"technical_uat_legacy_evidence",relativePath:basename(legacyEvidencePath)},{kind:"technical_uat_summary",relativePath:basename(summaryPath)},...browserResult.screenshots.map(screenshot=>({kind:"technical_uat_browser_screenshot",relativePath:screenshot.relativePath}))]);
-  const manifest=structuredClone(head.manifest);manifest.supersedesManifestSha256=head.sha256;manifest.state="uat_ready";manifest.evidence=evidence;manifest.hardGates.technicalUat={status:"PASS",reasonCodes:[]};
-  manifest.resourceRegistry=JSON.parse(readFileSync(resolve(config.target.evidenceRoot,"resource-registry.json"),"utf8")).map((entry)=>({...entry,observed:typeof entry.observed==="string"?entry.observed:null}));
-  const record={sha256:manifestHash(manifest),manifest};chain.push(record);writePrivate(chainPath,chain);verifyManifestChain(chain,{evidenceRoot:config.target.evidenceRoot});
-  result={state:"uat_ready",technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",manifestSha256:record.sha256,productionImport:"HOLD"};
+  if(finalizeManifest){
+   const chainPath=config.verification.manifestChainFile,chain=JSON.parse(readFileSync(chainPath,"utf8")),head=chain.find((row)=>!chain.some((candidate)=>candidate.manifest.supersedesManifestSha256===row.sha256));
+   if(!head)fail("MANIFEST_CHAIN_INVALID","head missing");
+   const evidence=buildEvidenceIndex(config.target.evidenceRoot,[{kind:"approved_ignored_attestation",relativePath:"cold-archive-scope-attestation.json"},{kind:"global_facts_summary",relativePath:"global-facts-summary.json"},{kind:"technical_uat_p0_observations",relativePath:basename(p0Path)},{kind:"technical_uat_api_matrix_observations",relativePath:basename(observationsPath)},{kind:"technical_uat_browser_matrix_observations",relativePath:basename(browserPath)},{kind:"technical_uat_legacy_evidence",relativePath:basename(legacyEvidencePath)},{kind:"technical_uat_summary",relativePath:basename(summaryPath)},...browserResult.screenshots.map(screenshot=>({kind:"technical_uat_browser_screenshot",relativePath:screenshot.relativePath}))]);
+   const manifest=structuredClone(head.manifest);manifest.supersedesManifestSha256=head.sha256;manifest.state="uat_ready";manifest.evidence=evidence;manifest.hardGates.technicalUat={status:"PASS",reasonCodes:[]};
+   manifest.resourceRegistry=JSON.parse(readFileSync(resolve(config.target.evidenceRoot,"resource-registry.json"),"utf8")).map((entry)=>({...entry,observed:typeof entry.observed==="string"?entry.observed:null}));
+   const record={sha256:manifestHash(manifest),manifest};chain.push(record);writePrivate(chainPath,chain);verifyManifestChain(chain,{evidenceRoot:config.target.evidenceRoot});
+   result={state:"uat_ready",technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",manifestSha256:record.sha256,productionImport:"HOLD"};
+  }else result={state:requiredState,technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",productionImport:"HOLD"};
  }catch(error){failure=error;}finally{
   failure=await preserveFailure(failure,()=>Promise.all([stopChild(web),stopChild(api)]));
   if(existsSync(resolve(config.target.evidenceRoot,"resource-registry.json")))failure=await preserveFailure(failure,()=>registryProcesses(config,[]));

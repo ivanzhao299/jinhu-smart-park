@@ -234,6 +234,14 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 需要把已验证的 core 映射交给后续隔离切片时，runner 可使用 `--stop-after rollback_ready` 写出 `CHECKPOINT_READY` 并保留本 run 的资源；只允许 `review_hold`、`rollback_ready` 或 `cleaned` 三个检查点。后续切片完成后必须从同一 config 恢复反序 rollback 与 cleanup，不能把 checkpoint 当作生产导入授权。
 
+在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
+
+```sh
+pnpm hr:migration:core-t0-t3:technical-uat -- --config '<同一轮、0600 core 配置>'
+```
+
+此入口只复用受控 lab 中已迁移的 T0～T3 数据库、以临时隔离账号执行 59 项 API、22 项负向授权、3 条前端路由和 56 个角色-页面-视口浏览器单元，并将证据写入该 run 的私有 audit 根。它不读取既有用户账号，不升级 full-domain manifest，不把 `rollback_ready` 伪装成 `uat_ready`，结果固定为技术通过或失败、`humanUat=HOLD`、`productionImport=HOLD`。技术验收结束后必须立即从同一 core 配置恢复 continuous runner，完成 T3→T0 回滚与 cleanup；整个 lab 容器销毁前，临时 UAT 记录不得离开该隔离范围。
+
 当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
 
 ```sh

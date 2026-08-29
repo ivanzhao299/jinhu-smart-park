@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { YuzhouLiveRoleUatBrowserRunnerError, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
+import { YuzhouLiveRoleUatBrowserRunnerError, isYuzhouLiveRoleUatLabPath, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
 
 const check = { legacyId: 35, roleType: "department_manager", actor: "manager", route: "/hr/employees" };
 const viewport = { id: "phone_390", width: 390, height: 844, mobile: true };
@@ -66,4 +66,11 @@ test("browser execution without immutable run and C/S/M binding fails before lau
     () => runYuzhouLiveRoleUatBrowserMatrix({ taskCard, browserMatrix }),
     error => error instanceof YuzhouLiveRoleUatBrowserRunnerError && error.code === "YUZHOU_UAT_BROWSER_BINDING_REQUIRED"
   );
+});
+
+test("browser runner allows only exact full or core isolated lab namespaces", () => {
+  assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_full_uata1/evidence"), true);
+  assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_core_uata1/audit/technical-uat/evidence"), true);
+  assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_core_/evidence"), false);
+  assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_other_uata1/evidence"), false);
 });
