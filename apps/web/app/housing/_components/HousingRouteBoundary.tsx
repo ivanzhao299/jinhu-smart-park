@@ -42,8 +42,8 @@ export function HousingRouteBoundary({ children }: { children: ReactNode }) {
 function HousingForbidden() {
   return <PropertyPageSurface>
     <header className="ds-hero">
-      <p className="ds-eyebrow">住房出租</p>
-      <h1>无法访问住房工作台</h1>
+      <p className="ds-eyebrow">长租经营</p>
+      <h1>无法访问长租经营工作台</h1>
     </header>
     <PageState state={{ kind: "forbidden-full" }} />
   </PropertyPageSurface>;

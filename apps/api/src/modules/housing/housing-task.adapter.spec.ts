@@ -130,7 +130,7 @@ describe("housing derived property-task resolvers", () => {
     assert.equal(resolver.access.sourceDetailPermission, "housing:repair:read");
     assert.equal(resolver.taskKind, "repair");
     assert.equal(snapshot?.sourceDeepLink, `/housing/repairs/${sourceId}`);
-    assert.equal(snapshot?.kindLabel, "住房报修");
+    assert.equal(snapshot?.kindLabel, "长租报修");
     assert.match(statements[0] ?? "", /biz_work_order source/);
     assert.match(statements[0] ?? "", /source\.source_type='tenant_request'/);
     assert.match(statements[0] ?? "", /source\.create_time \+ \(\(COALESCE\(source\.sla_dispatch_min,30\)\)/);

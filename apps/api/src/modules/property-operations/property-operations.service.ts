@@ -804,7 +804,7 @@ export class PropertyOperationsService {
   private snapshotBlockers(snapshot: ModeTransitionCheckSnapshot) {
     const rows = [
       ["commercial-active", "存在未结束的商业租赁合同", snapshot.commercial_contract_count, "commercial_leasing", "leasing_contract"],
-      ["housing-active", "存在仍有效的住房租约", snapshot.housing_lease_count, "housing_rental", "housing_lease"],
+      ["housing-active", "存在仍有效的长租租约", snapshot.housing_lease_count, "housing_rental", "housing_lease"],
       ["homestay-active", "存在仍有效的民宿订单", snapshot.homestay_booking_count, "homestay", "homestay_booking"],
       ["occupancy-incompatible", "存在与经营模式冲突的占用", snapshot.incompatible_occupancy_count, "property", "property_occupancy"],
       ["operations-blocker", "存在维修、保洁或运营锁房", snapshot.maintenance_or_operations_count, "operations", "operations_task"],
@@ -1201,7 +1201,7 @@ export class PropertyOperationsService {
     };
     const reasons: string[] = [];
     if (Number(counts.housing_lease_count) > 0 && targetMode !== "long_rent") {
-      reasons.push("存在仍有效的住房租约");
+      reasons.push("存在仍有效的长租租约");
     }
     if (Number(counts.homestay_booking_count) > 0 && targetMode !== "short_stay") {
       reasons.push("存在仍有效的民宿订单");

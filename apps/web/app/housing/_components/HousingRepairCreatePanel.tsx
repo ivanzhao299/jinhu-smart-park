@@ -204,7 +204,7 @@ function RepairCreateView(props: {
   removing: boolean; submitting: boolean; uploading: boolean;
 }) {
   const locked = props.uploading || props.queueBusy || props.submitting || props.removing;
-  return <PropertyPanelSurface title="代录住房报修">
+  return <PropertyPanelSurface title="代录长租报修">
     <form className={styles.stack} onSubmit={props.onSubmit}>
       <fieldset className={styles.fieldset} disabled={props.submitting || props.removing}>
         <RemoteEntityPicker authorized={props.capabilities.actionAllowed("housing.repairs.create")}

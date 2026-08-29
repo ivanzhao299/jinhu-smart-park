@@ -217,17 +217,17 @@ export function createHousingTaskResolvers() {
     }),
     billing: new HousingDerivedTaskResolver({
       sourceType: "housing_billing", taskKind: "billing", queueCode: "housing_billing",
-      kindLabel: "住房账单", detailPermission: "housing:billing:read",
+      kindLabel: "长租账单", detailPermission: "housing:billing:read",
       deepLink: (id) => `/housing/billing?receivable_id=${id}`, selectSql: BILLING_SQL
     }),
     purchase: new HousingDerivedTaskResolver({
       sourceType: "housing_purchase", taskKind: "purchase", queueCode: "housing_purchase",
-      kindLabel: "住房采购", detailPermission: "housing:purchase:read",
+      kindLabel: "长租采购", detailPermission: "housing:purchase:read",
       deepLink: (id) => `/housing/purchases/${id}`, selectSql: PURCHASE_SQL
     }),
     repair: new HousingDerivedTaskResolver({
       sourceType: "housing_repair", taskKind: "repair", queueCode: "housing_repair",
-      kindLabel: "住房报修", detailPermission: "housing:repair:read",
+      kindLabel: "长租报修", detailPermission: "housing:repair:read",
       deepLink: (id) => `/housing/repairs/${id}`, selectSql: REPAIR_SQL
     })
   };

@@ -192,7 +192,7 @@ export async function assertHousingLeaseUnitEligible(
 
   if (reasonCodes.length > 0) {
     throw new ConflictException({
-      message: "住房租约房源当前不符合长租资格",
+      message: "长租租约房源当前不符合长租资格",
       errorCode: HOUSING_LEASE_UNIT_INELIGIBLE,
       reasonCodes
     });

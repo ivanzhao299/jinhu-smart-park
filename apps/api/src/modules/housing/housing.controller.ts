@@ -142,7 +142,7 @@ export class HousingController {
   @Post("tenants")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE)
-  @AuditLog({ module: "住房出租", resource: "biz.party", action: "建立住房租客档案", bizType: "biz_party", captureBody: false })
+  @AuditLog({ module: "长租经营", resource: "biz.party", action: "建立长租租客档案", bizType: "biz_party", captureBody: false })
   createTenant(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -240,7 +240,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE,
     SYSTEM_PERMISSIONS.UNIT_READ
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "创建住房租约", bizType: "biz_housing_lease" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "创建长租租约", bizType: "biz_housing_lease" })
   createLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -252,7 +252,7 @@ export class HousingController {
   @Post("leases/:id/submit")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "提交租约审批", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "提交长租租约审批", bizType: "biz_housing_lease", bizIdParam: "id" })
   submitLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -268,7 +268,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_LEASE_APPROVE,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "审批住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "审批长租租约", bizType: "biz_housing_lease", bizIdParam: "id" })
   approveLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -282,7 +282,7 @@ export class HousingController {
   @Post("leases/:id/sign")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_SIGN)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "登记线下签署", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "登记长租租约线下签署", bizType: "biz_housing_lease", bizIdParam: "id" })
   signLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -295,7 +295,7 @@ export class HousingController {
   @Post("leases/:id/activate")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_ACTIVATE)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "生效住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "生效长租租约", bizType: "biz_housing_lease", bizIdParam: "id" })
   activateLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -312,7 +312,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "作废住房租约", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "作废长租租约", bizType: "biz_housing_lease", bizIdParam: "id" })
   voidLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -326,7 +326,7 @@ export class HousingController {
   @Post("leases/:id/occupants")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_TENANT_MANAGE)
-  @AuditLog({ module: "住房出租", resource: "rel.housing_lease_occupant", action: "登记同住人", bizType: "rel_housing_lease_occupant", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "rel.housing_lease_occupant", action: "登记长租同住人", bizType: "rel_housing_lease_occupant", bizIdParam: "id" })
   addOccupant(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -339,7 +339,7 @@ export class HousingController {
   @Put("leases/:id/charge-plans")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_LEASE_CREATE)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_charge_plan", action: "配置周期费用", bizType: "biz_housing_charge_plan", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_charge_plan", action: "配置长租周期费用", bizType: "biz_housing_charge_plan", bizIdParam: "id" })
   saveChargePlan(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -352,7 +352,7 @@ export class HousingController {
   @Post("leases/:id/generate-bills")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_BILLING_GENERATE)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_receivable", action: "生成周期账单", bizType: "biz_housing_receivable", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_receivable", action: "生成长租周期账单", bizType: "biz_housing_receivable", bizIdParam: "id" })
   generateBills(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -369,7 +369,7 @@ export class HousingController {
   })
   @UseInterceptors(new IdempotencyInterceptor())
   @RequireAnyPermissions(SYSTEM_PERMISSIONS.HOUSING_FINANCE_REGISTER, SYSTEM_PERMISSIONS.HOUSING_FINANCE_WAIVE)
-  @AuditLog({ module: "住房出租", resource: "biz.housing_ledger", action: "登记住房财务流水", bizType: "biz_housing_ledger_entry", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_ledger", action: "登记长租财务流水", bizType: "biz_housing_ledger_entry", bizIdParam: "id" })
   registerLedger(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -391,7 +391,7 @@ export class HousingController {
   @RequirePermissions(
     SYSTEM_PERMISSIONS.HOUSING_HANDOVER_MANAGE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_handover", action: "完成住房交割", bizType: "biz_housing_handover", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_handover", action: "完成长租交割", bizType: "biz_housing_handover", bizIdParam: "id" })
   completeHandover(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -405,7 +405,7 @@ export class HousingController {
   @Post("leases/:id/repairs")
   @UseInterceptors(new IdempotencyInterceptor())
   @RequirePermissions(SYSTEM_PERMISSIONS.HOUSING_REPAIR_MANAGE)
-  @AuditLog({ module: "住房出租", resource: "biz.work_order", action: "代录住房报修", bizType: "biz_work_order", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.work_order", action: "代录长租报修", bizType: "biz_work_order", bizIdParam: "id" })
   createRepair(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -422,7 +422,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_LEASE_CHECKOUT,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_lease", action: "完成退租结算", bizType: "biz_housing_lease", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_lease", action: "完成长租退租结算", bizType: "biz_housing_lease", bizIdParam: "id" })
   checkoutLease(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -467,7 +467,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
     SYSTEM_PERMISSIONS.UNIT_READ
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "创建采购单", bizType: "biz_housing_purchase" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_purchase", action: "创建长租采购单", bizType: "biz_housing_purchase" })
   createPurchase(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -483,7 +483,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_PURCHASE_MANAGE,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "更新采购状态", bizType: "biz_housing_purchase", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_purchase", action: "更新长租采购状态", bizType: "biz_housing_purchase", bizIdParam: "id" })
   purchaseAction(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,
@@ -501,7 +501,7 @@ export class HousingController {
     SYSTEM_PERMISSIONS.HOUSING_PURCHASE_TRANSFER,
     SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE
   )
-  @AuditLog({ module: "住房出租", resource: "biz.housing_purchase", action: "采购成本转租客收费", bizType: "biz_housing_purchase", bizIdParam: "id" })
+  @AuditLog({ module: "长租经营", resource: "biz.housing_purchase", action: "长租采购成本转租客收费", bizType: "biz_housing_purchase", bizIdParam: "id" })
   transferPurchase(
     @CurrentScope() scope: TenantParkScope,
     @CurrentUser() actor: JwtPrincipal,

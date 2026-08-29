@@ -157,7 +157,7 @@ function PurchaseHighRiskActions({ capabilities, data, reload }: {
           <label key={item.id}><input checked={selectedItemIds.includes(item.id)} onChange={(event) => setSelectedItemIds((current) =>
             event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} type="checkbox" /> {item.itemName} · {money(item.amount)}</label>)}</fieldset>
         <RemoteEntityPicker authorized contextValid={capabilities.moduleAvailable}
-          helperText="可检索住房租约；提交时服务端会再次校验租约状态、房源和币种。"
+          helperText="可检索长租租约；提交时服务端会再次校验租约状态、房源和币种。"
           invalidationKey={capabilities.invalidationKey} label="目标租约"
           loadOptions={loadHousingLeases} onChange={setLease} required value={lease} />
         <label>应收日期<input required type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>

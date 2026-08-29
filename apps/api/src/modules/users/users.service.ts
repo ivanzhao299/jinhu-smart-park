@@ -5,7 +5,6 @@ import * as bcrypt from "bcrypt";
 import type { EntityManager, Repository } from "typeorm";
 import { Brackets, ILike, In } from "typeorm";
 import {
-  PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS,
   PROPERTY_BUSINESS_SURFACES,
   PROPERTY_ACCESS_MANIFEST,
   SYSTEM_PERMISSIONS,
@@ -2013,11 +2012,8 @@ export class UsersService {
             if (seededMetadata === null) {
               return [];
             }
-            const fallbackName = PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS
-              .find((seed) => seed.code === surface.pageCode)
-              ?.name.replace(/页面$/u, "");
             return [{
-              label: seededMetadata?.name ?? fallbackName ?? surface.featureId,
+              label: surface.label,
               href: surface.route,
               permission: surface.pageCode,
               module: surface.moduleCode,
@@ -2028,7 +2024,7 @@ export class UsersService {
           return [];
         }
         return [{
-          label: moduleCode === "homestay" ? "民宿管理" : "住房出租",
+          label: moduleCode === "homestay" ? "民宿管理" : "长租经营",
           module: moduleCode,
           icon: moduleCode === "homestay" ? "hotel" : "house",
           children
@@ -2278,11 +2274,11 @@ const USER_MENU_TREE: UserMenuTreeNode[] = [
     ]
   },
   {
-    label: "住房出租",
+    label: "长租经营",
     icon: "house",
     module: "housing_rental",
     children: [
-      { label: "住房运营", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
+      { label: "长租运营", href: "/housing", permission: "housing_rental:operations", module: "housing_rental" }
     ]
   },
   {

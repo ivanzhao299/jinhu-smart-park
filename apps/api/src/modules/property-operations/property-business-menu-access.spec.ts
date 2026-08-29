@@ -74,7 +74,7 @@ test("user menu projection recognizes property business modules and real routes"
     'label: "民宿管理"',
     'href: "/homestay"',
     'permission: "homestay:operations"',
-    'label: "住房出租"',
+    'label: "长租经营"',
     'href: "/housing"',
     'permission: "housing_rental:operations"'
   ]) {

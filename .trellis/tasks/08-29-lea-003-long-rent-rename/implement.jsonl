@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/api/backend/module-access-control.md","reason":"租户模块、菜单投影、tenant-wide permission 与 park-scoped binding 契约"}
+{"file":".trellis/spec/api/backend/property-business-controls.md","reason":"housing 业务与移动端页面行为契约"}
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"forward-only、scope source 与 fail-closed migration 要求"}
+{"file":".trellis/spec/api/backend/index.md","reason":"API tenant scope、权限目录与 migration 总规范"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"API 菜单权威、canonical label 与 390px 前端基线"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"跨 shared/API/Web/DB 的显示名与验证清单"}

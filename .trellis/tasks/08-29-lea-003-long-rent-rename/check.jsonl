@@ -1,1 +1,4 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/api/backend/module-access-control.md","reason":"复核 code、tenant/park 与菜单授权身份未漂移"}
+{"file":".trellis/spec/api/backend/migration-prerequisites.md","reason":"复核新 migration 为 forward-only、逐租户且 fail closed"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"复核 canonical menu label 与 390px 证据"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"执行跨层完整性与测试覆盖检查"}

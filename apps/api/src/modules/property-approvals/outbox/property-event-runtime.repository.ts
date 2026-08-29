@@ -863,13 +863,13 @@ export class TypeOrmPropertyEventRuntimeStore implements PropertyEventRuntimeSto
 const APPROVAL_INCIDENT_TITLES: Record<string, string> = {
   "homestay.bookings.cancel.request": "民宿订单取消审批执行异常",
   "homestay.finance.refund-or-waive.request": "民宿退款或减免审批执行异常",
-  "housing.leases.approve.request": "住房租约审批执行异常",
-  "housing.leases.void.request": "住房租约作废审批执行异常",
-  "housing.leases.checkout.request": "住房退租审批执行异常",
-  "housing.finance.refund-waive-or-deposit-refund.request": "住房退款减免审批执行异常",
-  "housing.handovers.complete-move-out-financial.request": "住房交割结算审批执行异常",
-  "housing.purchases.lifecycle.request": "住房购买流程审批执行异常",
-  "housing.purchases.transfer.request": "住房产权转移审批执行异常",
+  "housing.leases.approve.request": "长租租约审批执行异常",
+  "housing.leases.void.request": "长租租约作废审批执行异常",
+  "housing.leases.checkout.request": "长租退租审批执行异常",
+  "housing.finance.refund-waive-or-deposit-refund.request": "长租退款减免审批执行异常",
+  "housing.handovers.complete-move-out-financial.request": "长租交割结算审批执行异常",
+  "housing.purchases.lifecycle.request": "长租采购流程审批执行异常",
+  "housing.purchases.transfer.request": "长租采购转收费审批执行异常",
   "property.mode-transition.request": "房产经营模式切换审批执行异常",
   "property.occupancy.force-release.request": "房产占用强制释放审批执行异常"
 };

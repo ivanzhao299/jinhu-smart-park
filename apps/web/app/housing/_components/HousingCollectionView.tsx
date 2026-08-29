@@ -29,7 +29,7 @@ export function HousingCollectionView<T>(props: HousingCollectionViewProps<T>) {
   return (
     <PropertyPageSurface>
       <header className={`ds-hero ${styles.hero}`}>
-        <div><p>住房出租工作台</p><h1>{props.title}</h1><p>{props.description}</p></div>
+        <div><p>长租经营工作台</p><h1>{props.title}</h1><p>{props.description}</p></div>
         {props.toolbar ? <div className={styles.heroActions}>{props.toolbar}</div> : null}
       </header>
       {props.filters.length ? <HousingFilters {...props} /> : null}

@@ -137,7 +137,7 @@ const SURFACE_CONFIG = {
 const OPERATING_MODE_LABELS: Record<string, string> = {
   none: "不经营",
   short_stay: "民宿短租",
-  long_rent: "住房长租"
+  long_rent: "长租经营"
 };
 
 const OPERATING_STATUS_LABELS: Record<string, string> = {
@@ -175,7 +175,7 @@ const EXECUTION_STATUS_LABELS: Record<string, string> = {
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   leasing_contract: "租赁合同",
   homestay_booking: "民宿订单",
-  housing_lease: "住房租约",
+  housing_lease: "长租租约",
   apartment_room: "公寓房间",
   manual_maintenance_lock: "人工维修锁房",
   manual_operations_lock: "人工运营锁房",
@@ -342,7 +342,7 @@ export function PropertyFoundationListClient({ surface }: { surface: FoundationS
           placeholder="输入房源 UUID" type="search" value={unitId} /></label> : null}
         {surface === "occupancies" ? <>
           <label className="form-field"><span>来源域</span><select name="source_domain" value={sourceDomain} onChange={(event) => { setSourceDomain(event.target.value); setPage(1); }}>
-            <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">住房出租</option><option value="apartment">公寓</option><option value="maintenance">维修</option><option value="operations">运营</option>
+            <option value="">全部</option><option value="commercial_leasing">商业租赁</option><option value="homestay">民宿</option><option value="housing_rental">长租经营</option><option value="apartment">公寓</option><option value="maintenance">维修</option><option value="operations">运营</option>
           </select></label>
           <label className="form-field"><span>来源类型</span><input name="source_type" type="search" value={sourceType} onChange={(event) => { setSourceType(event.target.value); setPage(1); }} /></label>
           <label className="form-field"><span>占用状态</span><select name="occupancy_status" value={occupancyStatus} onChange={(event) => { setOccupancyStatus(event.target.value); setPage(1); }}>
