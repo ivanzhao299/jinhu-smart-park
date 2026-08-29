@@ -7,7 +7,7 @@ const SHA=/^[0-9a-f]{64}$/u,CODE_SHA=/^[0-9a-f]{40}$/u;
 const fail=(code,detail)=>{const error=new Error(`${code}: ${detail}`);error.code=code;throw error;};
 const stable=value=>`${JSON.stringify(value,null,2)}\n`;
 const hash=value=>createHash("sha256").update(typeof value==="string"?value:stable(value)).digest("hex");
-const safeFailure=error=>{const code=String(error?.code??"YUZHOU_UAT_P0_FAILED");const detail={failureCode:code};if(Number.isInteger(error?.safeDiagnostic?.httpStatus)&&error.safeDiagnostic.httpStatus>=100&&error.safeDiagnostic.httpStatus<=599)detail.httpStatus=error.safeDiagnostic.httpStatus;if(Array.isArray(error?.safeDiagnostic?.failedAssertions))detail.failedAssertions=error.safeDiagnostic.failedAssertions.filter(value=>typeof value==="string"&&/^[a-z][a-z0-9_]{1,80}$/u.test(value));return detail;};
+const safeFailure=error=>{const code=String(error?.code??"YUZHOU_UAT_P0_FAILED"),databaseDiagnostic=String(error?.message??"").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?(?:_callsite_[A-Za-z0-9_-]+)?/u)?.[0],detail={failureCode:code};if(databaseDiagnostic)detail.databaseDiagnostic=databaseDiagnostic;if(Number.isInteger(error?.safeDiagnostic?.httpStatus)&&error.safeDiagnostic.httpStatus>=100&&error.safeDiagnostic.httpStatus<=599)detail.httpStatus=error.safeDiagnostic.httpStatus;if(Array.isArray(error?.safeDiagnostic?.failedAssertions))detail.failedAssertions=error.safeDiagnostic.failedAssertions.filter(value=>typeof value==="string"&&/^[a-z][a-z0-9_]{1,80}$/u.test(value));return detail;};
 
 function assertBinding(binding,matrixSha256){
   if(!binding||typeof binding.runId!=="string"||binding.runId.length<8)fail("YUZHOU_UAT_P0_BINDING_INVALID","runId");
