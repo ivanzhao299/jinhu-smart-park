@@ -173,7 +173,7 @@ The shared service validates the mode and period; database exclusion plus cross-
 - Release preserves 20/50/60/70. While another commercial-leasing, housing-rental, or homestay occupancy/live aggregate remains, 30 stays 30 and 40 converges to 30; without a blocker, 30/40 converges to 10.
 - A legacy commercial contract blocks release only while status is effective (`75`), its effective date has arrived, and its unit relation has not ended at the Shanghai business-date boundary.
 - Homestay turnover `operations` occupancy controls readiness/availability but is not a rental business blocker; successful guest checkout still projects to 10.
-- Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs.
+- Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs. Confirmed homestay cancellation and no-show also release-project after their occupancy and aggregate become terminal, so a previously blocked release cannot leave stale 30.
 
 ### 4. Validation & Error Matrix
 
@@ -192,7 +192,7 @@ The shared service validates the mode and period; database exclusion plus cross-
 ### 6. Tests Required
 
 - Unit: 10→30, 30/40→10, 30 no-op, strong-state conflict/preservation, other-business preservation, scoped advisory lock order.
-- Workflow: all four lifecycle writers pass their existing manager and terminal replay returns before projection.
+- Workflow: housing activate/checkout and homestay check-in/check-out/no-show/confirmed-cancel pass their existing manager; terminal replay returns before projection.
 - PostgreSQL/CI: successful lifecycle commits both rows; projection conflict rolls back the owning aggregate and audit together.
 
 ### 7. Wrong vs Correct

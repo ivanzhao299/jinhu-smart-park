@@ -43,7 +43,7 @@ test("direct homestay cancellation stops before a transaction for every principa
       transaction: async () => {
         transactionCalls += 1;
       }
-    } as never, new HomestayTransactionSupportService()
+    } as never, new HomestayTransactionSupportService(), {} as never
   );
   const principals = [
     actor,

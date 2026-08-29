@@ -266,7 +266,7 @@ export class HousingLeaseApprovalExecutorService {
         source.leaseId, source.lease.occupancyId, source.lease.status, toStatus,
         String(payload.reason ?? ""), input.sourceExpectedVersion, updated[0]!.version,
         updated[0]!.checkoutAt, occupancy.sourceVersion, occupancy.resultingVersion,
-        JSON.stringify(rentalStatusProjection)]
+        rentalStatusProjection === null ? null : JSON.stringify(rentalStatusProjection)]
     ));
     if (audit.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }
