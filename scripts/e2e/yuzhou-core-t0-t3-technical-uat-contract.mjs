@@ -18,6 +18,7 @@ test("core technical UAT is bound to rollback_ready and cannot promote a full ma
   assert.match(runner, /lifecycle\.state !== "rollback_ready"/u);
   assert.match(runner, /requiredState: "rollback_ready", finalizeManifest: false/u);
   assert.match(runner, /productionImport: "HOLD"/u);
+  assert.match(runner, /safeDatabaseDiagnostic/u);
   const sharedRunner = readFileSync(resolve(root, "scripts/hr-cutover/run-full-domain-technical-uat.mjs"), "utf8");
   assert.match(sharedRunner, /requiredState="uat_ready",finalizeManifest=true/u);
   assert.match(sharedRunner, /if\(finalizeManifest\)/u);

@@ -10,6 +10,7 @@ import { runTechnicalUat } from "./run-full-domain-technical-uat.mjs";
 
 const DEFAULT_TENANT = "10000001", DEFAULT_PARK = "20000001";
 const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
+const safeDatabaseDiagnostic = error => String(error?.message ?? "").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?/u)?.[0] ?? "";
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 
@@ -72,5 +73,5 @@ export async function runCoreTechnicalUat(configPath) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   runCoreTechnicalUat(parseCoreTechnicalUatArgs(process.argv.slice(2)).configPath)
     .then(result => process.stdout.write(`${JSON.stringify(result)}\n`))
-    .catch(error => { process.stderr.write(`${error.code ?? "CORE_TECHNICAL_UAT_FAILED"}\n`); process.exitCode = 1; });
+    .catch(error => { const diagnostic = safeDatabaseDiagnostic(error); process.stderr.write(`${error.code ?? "CORE_TECHNICAL_UAT_FAILED"}${diagnostic ? ` ${diagnostic}` : ""}\n`); process.exitCode = 1; });
 }
