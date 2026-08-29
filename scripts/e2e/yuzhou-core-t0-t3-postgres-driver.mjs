@@ -26,6 +26,16 @@ function writeReceipt(path, sourceSnapshotSha256, bytes) {
   });
   writeFileSync(path, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(path, 0o600);
 }
+
+function genericPackage(dictionaryCode, sourceSnapshotSha256) {
+  return {
+    formatVersion: 1, artifactKind: "yuzhou_hr_dictionary_machine_decision", sourceSystem: "yuzhou-v10",
+    sourceSnapshotSha256, dictionaryCode, sourceObject: `fixture.${dictionaryCode}`, sourceRecordCount: 1,
+    decisions: [{ sourceValue: "fixture", usageCount: 1, decision: "map", targetDomain: dictionaryCode, targetValue: "fixture_target", reasonCode: "FIXTURE_MACHINE_REVIEWED" }],
+    productionImport: "HOLD"
+  };
+}
+
 function writeDictionaryPackages(root, sourceSnapshotSha256) {
   const event = {
     formatVersion: 1, artifactKind: "yuzhou_t1_employment_event_type_machine_decision", sourceSystem: "yuzhou-v10",
@@ -36,9 +46,9 @@ function writeDictionaryPackages(root, sourceSnapshotSha256) {
   };
   const packages = {
     eventTypePackage: event,
-    eventStatePackage: { dictionaryCode: "employment_event_state", sourceSnapshotSha256, productionImport: "HOLD" },
-    contractTypePackage: { dictionaryCode: "contract_type", sourceSnapshotSha256, productionImport: "HOLD" },
-    contractStatePackage: { dictionaryCode: "contract_state", sourceSnapshotSha256, productionImport: "HOLD" }
+    eventStatePackage: genericPackage("employment_event_state", sourceSnapshotSha256),
+    contractTypePackage: genericPackage("contract_type", sourceSnapshotSha256),
+    contractStatePackage: genericPackage("contract_state", sourceSnapshotSha256)
   };
   const paths = {};
   for (const [key, value] of Object.entries(packages)) {
@@ -87,7 +97,7 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   const driftedNetwork = structuredClone(prepared.config); driftedNetwork.target.network = `${prepared.project}_other`;
   assert.throws(() => validateCoreT0T3Config(driftedNetwork), /CORE_TARGET_INVALID/u);
   writeFileSync(packages.contractStatePackage, `${JSON.stringify({
-    dictionaryCode: "contract_state", sourceSnapshotSha256: prepared.config.triple.sourceSnapshotHash, productionImport: "GO"
+    ...genericPackage("contract_state", prepared.config.triple.sourceSnapshotHash), productionImport: "GO"
   })}\n`, { mode: 0o600 });
   chmodSync(packages.contractStatePackage, 0o600);
   assert.throws(() => prepareCoreConfig({
