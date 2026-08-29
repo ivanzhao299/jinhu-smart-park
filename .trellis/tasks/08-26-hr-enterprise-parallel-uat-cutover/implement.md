@@ -8,7 +8,7 @@
 - [x] 固化 parent manifest schema、child adapter、状态机、resource registry、global ledger/canonical normalization、reason catalog 和脱敏合同。
 - [x] 建立六域 contract matrix：env、输入/输出/hash、依赖、写入/回滚开关、target regex、Compose label 和 side-effect allowlist。
 - [x] 负向证明旧领域证据不能冒充 full rehearsal；T4 `not_started` 会阻断。
-- [x] 交付并测试 `C/S/M` 三元组字段、逐 source object 守恒式、hard-gate reason catalog；未决业务输入仅产生 `NO_GO` reason，不阻断 Slice 1～3。
+- [x] 交付并测试 `C/S/M` 三元组字段、逐 source object 守恒式、hard-gate reason catalog；无法唯一确定的业务记录进入 quarantine，不阻断其他确定性切片。
 
 ## Slice 2 — Runner 与隔离生命周期
 
@@ -27,16 +27,16 @@
 
 - [x] 固定源两次 extract hash 相同；全量审计46,092行，生产候选固定2024～2026的8,342行，2010～2023的37,750行登记为deferred cold archive。
 - [x] 三年候选完成真实 load→verify→rollback→reload，守恒8,342=8,320+22、190,374明细、266关账及金额分层。
-- [x] 仅用批准公式运行双轨，输出逐项差异、review 流程和 detached HR/payroll/finance attestation schema。
+- [x] 仅用源结构、值域和版本证据唯一确定的公式运行双轨，输出逐项差异、quarantine 流程和机器凭证 schema。
 - [x] 未批准/不可解析公式 fail closed；正式 payroll/payslip/payment/tax/message 零写且无发薪入口。
-- [x] 在公式范围/容差/签署人未确定时，schema、fixture、负向测试和 dry-run 可完成，但真实双轨执行必须输出 `T4_*_MISSING` 并停止；不得用默认容差或自动签署继续。
+- [x] 公式或容差无法由只读源与目标规则唯一确定时，对应记录输出稳定 `T4_*_AMBIGUOUS` 并 quarantine；不得用默认值继续，但不阻断其他已确定记录。
 
 ## Slice 5 — Rehearsal A/B
 
 - [x] 建立玉舟页面、字段、规则兼容基线：帮助文档识别 46 个主题，交叉绑定 13 类菜单、162 表、194 存储过程、16 函数、2 触发器；明确当前只有 L2/L3 证据，旧客户端 L4 遍历为 0，禁止以数据可迁移冒充全功能兼容。
 - [ ] 生成机器可读的 legacy field/rule ledger，将旧页面→字段→动作→状态→报表逐项绑定当前 route/API/entity/RBAC/test；无证据项计 0，mapped/archived/rejected 均需明确理由。
   - [x] 第一阶段：固化 13 类菜单种子台账、六维 100 分合同、证据等级、原子 locator 扩展结构和 fail-closed 自动评分；字段/过程逐原子展开仍未完成。
-  - [ ] 第二阶段：从只读旧源结构生成逐表/字段/过程候选，人工审阅后绑定目标与测试；不得把 Downloads 源文件、字段值或 PII 写入仓库。
+  - [ ] 第二阶段：从只读旧源结构生成逐表/字段/过程候选，经确定性规则、重复运行和目标约束自动复核后绑定目标与测试；不得把 Downloads 源文件、字段值或 PII 写入仓库。
     - [x] 完成离线只读候选生成器、schema、独立 verifier 和正负向 contract：显式传入 legacy root 与输出路径，真实资料稳定生成 162 表/2,364 字段、194 procedure/16 function/2 trigger（212 rules）及 46 页面主题；两次生成 byte-for-byte/hash 一致，输出只含结构名、类型、nullable/default、脱敏说明、artifact SHA 和稳定 ID/hash。
     - [x] 权限 915 条仅固化 redacted importer contract 与 `pending_review` 门禁，不生成占位授权、不自动批准；候选输出不覆盖正式 reviewed ledger，生产历史 import 继续 `HOLD`。
     - [x] 第三阶段第一批：为员工档案、异动、合同 3 个核心域建立 reviewed mapping contract/verifier；固定原子 inventory hash 并展开 person 及档案关联表、readjust/readjustitem/jobstatecode、compact/compact_c/compacttypecode 的 12 表/260 字段，只有仓库内 route/API/entity/permission/test 文件与符号真实存在才标 mapped/tested，未绑定字段和工号不复用、jobstate、JZ/DZ/LZ/FZ 编号语义、合同续签链/提醒等规则以稳定 gap reason 保留。
@@ -47,9 +47,9 @@
       - [ ] 首轮覆盖员工档案、人事异动、劳动合同、考勤、工资、培训、奖惩、招聘、绩效、自助和系统字典；页面证据逐项绑定 atomic inventory stable ID 与 reviewed mapping，修正帮助文档或数据库结构无法证明的交互语义。
       - [ ] 对员工已习惯的流程区分 `preserve`、`modernize`、`archive`、`reject` 四类决策；保留业务语义与编号/状态链，不复制旧 UI、弱权限或不合规做法，每项决策要求新 route/API/entity/atomic permission/test evidence。
       - [ ] 现场遍历完成前，旧客户端 L4 兼容分保持 0，生产历史 import 继续 `HOLD`；任何包含 PII、工资明细或真实凭据的证据不得进入仓库。
-    - [ ] 由人工审阅候选 inventory 后，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；未审阅候选不得提高兼容评分。
+    - [ ] 由机器证据复核候选 inventory，将逐表/字段/规则/页面绑定目标 route/API/entity/RBAC/test，再以受控 hash evidence 合并进入正式 reviewed ledger；无法唯一复核的候选进入 quarantine，不得提高兼容评分。
 - [ ] 在 Rehearsal A 前完成高优先级兼容缺口门禁：档案扩展域、异动快照、合同续签链、培训/奖惩/招聘历史查询、自助投影；工资继续最近三年热窗口，复杂公式/银行报盘保留为后置硬门禁。
-  - [ ] P0-1 旧字典治理：禁止未知 `jobstatecode` 默认归为离职，禁止未签署异动/合同字典静默映射；版本化、append-only、批准 hash 绑定，未知值 fail-closed/quarantine。
+  - [ ] P0-1 旧字典治理：禁止未知 `jobstatecode` 默认归为离职，禁止未经机器证据复核的异动/合同字典静默映射；版本化、append-only、证据 hash 绑定，未知值 fail-closed/quarantine。
   - [ ] P0-2 三角色 scope/RBAC：让 `HR_ACCESS_MATRIX` 成为运行时合同，补齐经理 team-masked 与员工 self-masked 档案权限；经理跨树、员工跨人必须拒绝。
   - [ ] P0-3 员工完整档案物化：`person` 扩展字段及 `family/knowhow/ticket` 家庭、技能、证照从 raw archive 进入受权限保护的结构化业务模型。
   - [ ] P0-4 合同链与提醒：期限、累计续签、签订日、正文/文件证据及到期提醒工作流完整结构化，不能以 60 日前端计数代替流程。
@@ -70,13 +70,13 @@
 
 ## Slice 7 — 三角色 UAT、备份恢复与受控回滚
 
-- [ ] 在指定最终签署环境创建 HR/manager/employee 账号，重放 Slice 5 同一 versioned 迁移数据任务卡并由真人执行 API + desktop/390 正负向矩阵；自动技术结果与真人 detached attestation 分离。
+- [ ] 在最终隔离验收环境创建 HR/manager/employee 账号，重放 Slice 5 同一 versioned 迁移数据任务卡，自动执行 API + desktop/390 正负向矩阵并绑定机器凭证。
 - [ ] 完成 backup→fault injection→restore-to-new-db→平台/HR/file hash 与 RTO/RPO 事实。
-- [ ] 执行 T5→T0 反序 rollback 和全资源 cleanup；P0/P1=0，DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact 全部实际 `residualCount=0`，真人签署另行记录。
+- [ ] 执行 T5→T0 反序 rollback 和全资源 cleanup；P0/P1=0，DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact 全部实际 `residualCount=0`，结果进入机器凭证。
 
 ## Slice 8 — Go/No-Go 与生产入口（默认 HOLD）
 
-- [ ] 编译 evidence bundle 和 reason codes；缺机器证据/签署即 `NO_GO`。
+- [ ] 编译 evidence bundle 和 reason codes；缺机器证据、数据安全、发布或一次性执行授权即 `NO_GO`。
 - [ ] 实现 production import 与 production restore 两个相互独立的 wrapper/workflow：各自 dry-run、pinned SHA、operation/run id、target/source backup/manifest/window/expiry 显示、不可复用的一次性 secret token、独立最小角色、撤权和监控 runbook；秘密不得进入日志/manifest/evidence。
 - [ ] 证明普通 deploy 永不触发 loader，lab 演练不授权生产；无新一次性授权时 `productionImport=HOLD`。
 - [ ] 真正生产导入另开执行任务；生产 restore 需要第二个明确灾备授权。
@@ -90,9 +90,40 @@
 - 每轮提交/部署前 fetch 和三 SHA；所有临时资源实际 residual=0。
 - 规划输入依赖测试：未决 T4/UAT/RTO-RPO/on-call 输入生成稳定 reason code；delta/stop-write 不再是输入或硬门禁。
 
+## Slice 9 — 自动复核、真实全链与分批导入（2026-08-29 新基线）
+
+本 Slice 覆盖此前 Slice 4/5/7/8 中 HR/payroll/finance/三角色真人签署前置；不伪造真人签名，改用确定性 `machine_attestation`。生产执行仍在所有技术门禁通过前保持 `HOLD`。
+
+### 9.1 当前 writer 候选闭环
+
+- [ ] 修正 16 表物理类型和 timestamp-without-time-zone 的跨环境 canonical 规则；员工历史导入只允许 insert/skip/quarantine，不 merge 当前态。
+- [ ] 完成 operation-owned 批量 writer 与 T3→T0 反序 rollback，所有状态 CAS/affected rows、projection map、migration batch、phase、业务表和 canonical residual 均逐项核验。
+- [ ] 真实 PostgreSQL 最小全链连续执行 16 表 load→verify→rollback，覆盖 uuid/bigint/local timestamp、insert/merge/skip/quarantine、密文 before-image；随机 fixture 可重复两次并失败必清理。
+- [ ] 绑定真实 server/cluster/database/user/tenant/park identity，错误主机、同名库或错误集群 fail closed。
+
+### 9.2 数据语义自动补全与机器凭证
+
+- [ ] 从只读玉舟 schema、状态/字典值域、过程/函数/触发器、现有 reviewed mapping 和目标约束生成字段/状态语义 ledger；分类为 source_exact、target_exact、derived_deterministic、quarantined_ambiguous、unsupported。
+- [ ] 生成 hash-addressed machine attestation，绑定 C/S/M、16 表逐对象守恒、T3/T4 金额数量、A/B、CAS、restore、rollback 和 residual；任何篡改、猜值或不平输出 REVIEW_HOLD/FAIL。
+- [ ] 不确定记录进入隔离台账并计入守恒，不阻断其他确定数据；先完成 T0 组织/岗位/员工、T1 异动、T2 合同、T3 考勤/保险，再做 T4 最近三年工资，照片和复杂尾项最后执行。
+
+### 9.3 Rehearsal A/B 与快速切换
+
+- [ ] 在两套全新独立资源上使用完全相同 C/S/M 连续运行 T0→T3，比较业务表、ledger、canonical、quarantine、API/RBAC/browser desktop+390、备份恢复和反序回滚，逐资源 residual=0。
+- [ ] T0→T3 A/B PASS 后生成第一批 sealed production candidate；普通部署永不调用 loader，分类部署、迁移和 production seed 仍与历史导入入口隔离。
+- [ ] 以固定 run、source snapshot、manifest、main/runtime SHA、目标 identity 和短时窗口生成一次性 system execution credential；执行前再做只读 preflight，执行后立即撤权、复核、备份和受保护账号验收。
+- [ ] 最近三年 T4 作为第二批：固定 8,342=8,320+22、190,374 明细、266 关账、净额 15,723,009.9100；2010–2023 冷归档登记 37,750，不阻断首批切换。
+- [ ] 照片/附件作为第三批，只允许唯一员工映射、hash/MIME/大小/重复/隐私检查通过的文件进入统一附件存储，其余隔离。
+
+### 9.4 交付门禁
+
+- [ ] 独立 Trellis check、fresh/upgrade/replay、lint/typecheck/build、CI/Release Smoke、分类 Deploy Production 全绿。
+- [ ] 合并/部署前重新 fetch，保护 dirty 与同事提交，证明候选 SHA=合并 main SHA；实际部署后证明 runtime SHA、health、ready、受保护账号、Docker cleanup。
+- [ ] 只有机器凭证 PASS 且真实 A/B/restore/rollback/residual 全部通过才解除对应批次 HOLD；不存在等待 HR 人工签字的阻塞项。
+
 ## Risk and rollback points
 
 - 不修改已成功迁移，不放宽 lab target 正则，不复用生产 volume/账号。
-- 不以旧领域片段替代 A/B，不以 CI/health 替代业务 UAT/签署。
+- 不以旧领域片段替代 A/B，不以 CI/health 替代三角色技术 UAT、机器语义凭证或生产执行门禁。
 - 所有 destructive cleanup 只接受 resource registry 中解析完成的显式目标。
 - 正式生产 import 和 restore 不属于本任务授权。

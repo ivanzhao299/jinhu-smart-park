@@ -151,6 +151,16 @@
     "test:e2e:yuzhou-production-import-execution": "node --test scripts/e2e/yuzhou-production-import-execution-contract.mjs",
     "test:e2e:yuzhou-production-import-v2": "node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs",
     "test:e2e:yuzhou-production-import-v2:pg": "node scripts/e2e/yuzhou-production-import-control-v2-direct-pg.mjs",
+    "test:e2e:yuzhou-production-import-target-model": "node scripts/e2e/yuzhou-production-import-target-model-contract.mjs",
+    "test:e2e:yuzhou-production-import-payload-generator": "node scripts/e2e/yuzhou-production-import-payload-generator-contract.mjs",
+    "test:e2e:yuzhou-production-import-postgres-adapter": "node --test scripts/e2e/yuzhou-production-import-postgres-adapter-contract.mjs",
+    "test:e2e:yuzhou-production-import-phase-writers": "node --test scripts/e2e/yuzhou-production-import-phase-writers-contract.mjs",
+    "test:e2e:yuzhou-production-import-phase-rollback": "node --test scripts/e2e/yuzhou-production-import-phase-rollback-contract.mjs",
+    "test:e2e:yuzhou-production-import-real-artifact-bridge": "node scripts/e2e/yuzhou-production-import-real-artifact-bridge-contract.mjs",
+    "test:e2e:yuzhou-production-import-machine-attestation": "node scripts/e2e/yuzhou-production-import-machine-attestation-contract.mjs",
+    "test:e2e:yuzhou-production-import-writer-receipts": "node scripts/e2e/yuzhou-production-import-writer-receipts-contract.mjs",
+    "test:e2e:yuzhou-production-import-writer-receipts:pg": "node scripts/e2e/yuzhou-production-import-writer-receipts-direct-pg.mjs",
+    "test:e2e:yuzhou-production-import-full-chain:pg": "node scripts/e2e/yuzhou-production-import-full-chain-direct-pg.mjs",
     "test:e2e:yuzhou-materialization-key-contract": "node scripts/e2e/yuzhou-materialization-key-contract.mjs",
     "prod:deploy": "sh scripts/prod-deploy.sh",
     "android:verify-release": "node scripts/verify-android-release.mjs",
@@ -182,5 +192,8 @@
     "eslint-config-next": "^15.0.3",
     "eslint-config-prettier": "^9.1.0",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
   }
 }

@@ -34,6 +34,9 @@ function record(label, phase, plannedTargetTable, dependencyMode, dependencyRefs
   return {
     phase,
     payload,
+    sourceSystem: "yuzhou-v10",
+    sourceTable: `dbo.fixture_${plannedTargetTable}`,
+    sourcePkCanonical: `sha256:${H(`${label}:identity`)}`,
     sourceIdentitySha256: H(`${label}:identity`),
     sourceRowSha256: H(`${label}:row`),
     payloadSha256: computeProductionImportPayloadHash(payload),
@@ -43,7 +46,9 @@ function record(label, phase, plannedTargetTable, dependencyMode, dependencyRefs
     disposition: "insert",
     targetTable: plannedTargetTable,
     targetId: uuid(record.nextId++),
+    businessIdentitySha256: H(`${label}:business-identity`),
     expectedTargetAfterSha256: H(`${label}:after`),
+    targetVersionAfter: 1,
   };
 }
 record.nextId = 1;
@@ -148,7 +153,14 @@ function activatedContract(plan) {
   return contract;
 }
 
-function mockDatabase(queryHandler = async () => ({ rows: [] })) {
+function defaultDatabaseResult(sql, parameters = []) {
+  if (sql.includes("UPDATE hr_yuzhou_production_import_record AS record") && sql.includes("RETURNING record.source_identity_sha256")) return { rows: JSON.parse(parameters[2]).map(row => ({ source_identity_sha256: row.source_identity_sha256 })) };
+  if (/\bUPDATE\b[\s\S]+\bRETURNING\b/u.test(sql)) return { rows: [{}] };
+  if (sql.includes("AS not_started_count")) return { rows: [{ not_started_count: 0, rolled_back_phase_count: 4, phase_count: 4, active_map_count: 0, succeeded_batch_count: 4, batch_count: 4 }] };
+  return { rows: [] };
+}
+
+function mockDatabase(queryHandler = async (sql, parameters) => defaultDatabaseResult(sql, parameters)) {
   const calls = [];
   return {
     calls,
@@ -174,7 +186,7 @@ function executionOptions(plan, payloadBundles, database = mockDatabase()) {
       afterCanonicalSha256: phase.expectedAfterCanonicalSha256,
       records: payloadBundle.records.map(row => {
         const planned = phase.records.find(record => record.sourceIdentitySha256 === row.sourceIdentitySha256);
-        return { sourceIdentitySha256: row.sourceIdentitySha256, disposition: planned.disposition, targetId: planned.targetId, targetAfterSha256: planned.expectedTargetAfterSha256 };
+        return { sourceIdentitySha256: row.sourceIdentitySha256, disposition: planned.disposition, targetId: planned.targetId, targetAfterSha256: planned.expectedTargetAfterSha256, targetVersionAfter: planned.targetVersionAfter };
       }),
     })])),
   };
@@ -257,7 +269,7 @@ test("parent table, phase, missing required role, cycle and active dependency st
     plan => { findRecord(plan, "hr_contract").dependencyRefs = findRecord(plan, "hr_contract").dependencyRefs.filter(row => row.role !== "contract_type"); },
     plan => { findRecord(plan, "hr_position").dependencyRefs[0] = ref("org", findRecord(plan, "hr_position")); },
     plan => { const org = findRecord(plan, "sys_org"); org.dependencyMode = "record_graph"; org.dependencyRefs = [ref("parent_org", findRecord(plan, "hr_position"))]; },
-    plan => { const employee = findRecord(plan, "hr_employee"); employee.disposition = "quarantine"; delete employee.targetTable; delete employee.targetId; delete employee.expectedTargetAfterSha256; employee.decisionAttestationSha256 = H("quarantine-decision"); employee.quarantine = { reasonCode: "OWNER_MAPPING_UNRESOLVED", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: H("ciphertext"), keyReferenceSha256: H("key") }; },
+    plan => { const employee = findRecord(plan, "hr_employee"); employee.disposition = "quarantine"; for (const key of ["targetTable", "targetId", "businessIdentitySha256", "expectedTargetAfterSha256", "targetVersionAfter"]) delete employee[key]; employee.decisionAttestationSha256 = H("quarantine-decision"); employee.quarantine = { reasonCode: "OWNER_MAPPING_UNRESOLVED", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: H("ciphertext"), keyReferenceSha256: H("key") }; },
   ];
   for (const mutate of cases) {
     const { plan } = v2Fixture();
@@ -268,6 +280,7 @@ test("parent table, phase, missing required role, cycle and active dependency st
   const { plan: duplicateTargetPlan } = v2Fixture();
   const duplicateTarget = structuredClone(findRecord(duplicateTargetPlan, "hr_contract_type"));
   duplicateTarget.sourceIdentitySha256 = H("duplicate-target:identity");
+  duplicateTarget.sourcePkCanonical = `sha256:${duplicateTarget.sourceIdentitySha256}`;
   duplicateTarget.sourceRowSha256 = H("duplicate-target:row");
   duplicateTarget.payloadSha256 = H("duplicate-target:payload");
   duplicateTargetPlan.phases[2].records.push(duplicateTarget);
@@ -285,6 +298,8 @@ test("merge keeps encrypted before-image tied to the exact CAS precondition", ()
   const row = findRecord(plan, "hr_contract");
   row.disposition = "merge";
   row.expectedTargetBeforeSha256 = H("contract:before");
+  row.expectedTargetVersionBefore = 1;
+  row.targetVersionAfter = 2;
   row.decisionAttestationSha256 = H("contract:merge-decision");
   row.beforeImage = { algorithm: "aes-256-gcm-external-kek-v1", plaintextSha256: row.expectedTargetBeforeSha256, ciphertextSha256: H("contract:ciphertext"), keyReferenceSha256: H("contract:key") };
   reseal(plan);
@@ -298,9 +313,7 @@ test("quarantine retains planned target table without claiming an actual target"
   const { plan } = v2Fixture();
   const row = findRecord(plan, "hr_contract_legacy_evidence");
   row.disposition = "quarantine";
-  delete row.targetTable;
-  delete row.targetId;
-  delete row.expectedTargetAfterSha256;
+  for (const key of ["targetTable", "targetId", "businessIdentitySha256", "expectedTargetAfterSha256", "targetVersionAfter"]) delete row[key];
   row.decisionAttestationSha256 = H("quarantine-decision");
   row.quarantine = { reasonCode: "SOURCE_FILE_MISSING", algorithm: "aes-256-gcm-external-kek-v1", payloadCiphertextSha256: H("ciphertext"), keyReferenceSha256: H("key") };
   reseal(plan);
@@ -350,9 +363,40 @@ test("activated simulation consumes v2 scope and writes payload/dependency recei
   assert.deepEqual(consume.parameters.slice(6, 9), [plan.targetScope.tenantId, plan.targetScope.parkId, plan.targetScope.scopeSha256]);
   assert.equal(database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_phase")).length, 4);
   const recordInserts = database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_record("));
-  assert.equal(recordInserts.length, plan.phases.flatMap(phase => phase.records).length);
-  assert(recordInserts.every(call => call.sql.includes("planned_target_table") && typeof call.parameters[6] === "string"));
-  assert.equal(database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_record_dependency")).length, plan.phases.flatMap(phase => phase.records).reduce((count, row) => count + row.dependencyRefs.length, 0));
+  const recordRows = recordInserts.flatMap(call => JSON.parse(call.parameters[0]));
+  assert.equal(recordInserts.length, 4, "small fixture emits one bulk control insert per phase");
+  assert.equal(recordRows.length, plan.phases.flatMap(phase => phase.records).length);
+  assert(recordInserts.every(call => call.sql.includes("jsonb_to_recordset") && call.sql.includes("business_identity_sha256")));
+  assert(recordRows.every(row => row.source_system === "yuzhou-v10" && /^dbo\./u.test(row.source_table) && row.source_pk_canonical === `sha256:${row.source_identity_sha256}` && typeof row.planned_target_table === "string" && /^[0-9a-f]{64}$/u.test(row.business_identity_sha256) && row.target_version_after === 1));
+  const dependencyInserts = database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_record_dependency"));
+  assert(dependencyInserts.every(call => call.sql.includes("jsonb_to_recordset")));
+  assert.equal(dependencyInserts.flatMap(call => JSON.parse(call.parameters[0])).length, plan.phases.flatMap(phase => phase.records).reduce((count, row) => count + row.dependencyRefs.length, 0));
+});
+
+test("control receipts are bulk inserted in bounded 1000-row batches", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const phase = plan.phases[0];
+  const bundle = JSON.parse(payloadBundles.T0);
+  for (let index = 0; index < 1000; index += 1) {
+    const generated = record(`bulk-org-${index}`, "T0", "sys_org", "scope");
+    const payload = generated.payload;
+    const planned = structuredClone(generated);
+    delete planned.phase;
+    delete planned.payload;
+    phase.records.push(planned);
+    bundle.records.push({ sourceIdentitySha256: planned.sourceIdentitySha256, sourceRowSha256: planned.sourceRowSha256, targetTable: planned.plannedTargetTable, payloadSha256: planned.payloadSha256, payload });
+  }
+  payloadBundles.T0 = Buffer.from(JSON.stringify(bundle));
+  phase.payloadBundleArtifactSha256 = productionImportHash(payloadBundles.T0);
+  phase.payloadBundleSha256 = computeProductionImportPayloadBundleHash(bundle);
+  reseal(plan);
+  const database = mockDatabase();
+  await executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database));
+  const inserts = database.calls.filter(call => call.sql?.includes("INSERT INTO hr_yuzhou_production_import_record("));
+  const sizes = inserts.map(call => JSON.parse(call.parameters[0]).length);
+  assert.equal(sizes.reduce((sum, size) => sum + size, 0), 1016);
+  assert.ok(sizes.every(size => size >= 1 && size <= 1000));
+  assert.equal(sizes.filter(size => size === 1000).length, 1);
 });
 
 test("consumed import authorization survives an independently recorded business failure", async () => {
@@ -365,6 +409,16 @@ test("consumed import authorization survives an independently recorded business 
   const consumeIndex = database.calls.findIndex(call => call.sql?.includes("consume_import_authorization_v2"));
   const failureIndex = database.calls.findIndex(call => call.sql?.includes("failure_code"));
   assert(consumeIndex >= 0 && failureIndex > consumeIndex);
+});
+
+test("every critical writer state transition fails closed when its UPDATE affects no row", async () => {
+  const { plan, payloadBundles } = v2Fixture();
+  const database = mockDatabase(async (sql, parameters) => {
+    if (sql.includes("UPDATE hr_yuzhou_production_import_phase SET status='succeeded'")) return { rows: [] };
+    return defaultDatabaseResult(sql, parameters);
+  });
+  await assert.rejects(executeSealedProductionImport(plan, executionOptions(plan, payloadBundles, database)), error => error.code === "PRODUCTION_IMPORT_STATE_TRANSITION_FAILED");
+  assert(database.calls.some(call => call.sql?.includes("RETURNING operation_id,status")), "failure state UPDATE must also be checked with RETURNING");
 });
 
 test("wrong runtime scope and missing payloads are rejected before opening a transaction", async () => {
@@ -387,10 +441,9 @@ test("wrong runtime scope and missing payloads are rejected before opening a tra
 
 test("rollback remains independently authorized and scope bound", async () => {
   const { plan } = v2Fixture();
-  const database = mockDatabase(async sql => {
+  const database = mockDatabase(async (sql, parameters) => {
     if (sql.startsWith("SELECT status")) return { rows: [{ status: "succeeded", sealed_plan_sha256: plan.sealing.sealedPlanSha256 }] };
-    if (sql.startsWith("SELECT count")) return { rows: [{ count: 0 }] };
-    return { rows: [] };
+    return defaultDatabaseResult(sql, parameters);
   });
   const authorization = {
     formatVersion: 1, artifactKind: "yuzhou_hr_production_import_rollback_authorization", intent: "production_import_rollback",
@@ -402,16 +455,21 @@ test("rollback remains independently authorized and scope bound", async () => {
   const result = await rollbackSealedProductionImport(plan, authorization, {
     contract: activatedContract(plan), now: NOW, currentCodeSha: plan.triple.codeSha, mergedCodeSha: plan.triple.codeSha,
     targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database,
-    rollbackRecord: async ({ record: planned }) => ({ sourceIdentitySha256: planned.sourceIdentitySha256, rollbackStatus: "deleted_insert" }),
+    rollbackPhase: async ({ records }) => records.map(planned => ({ sourceIdentitySha256: planned.sourceIdentitySha256, rollbackStatus: "deleted_insert" })),
+    verifyBusinessResiduals: async ({ operationId, targetScope }) => ({ operationId, targetScopeSha256: targetScope.scopeSha256, residualCount: 0, evidenceSha256: H("business-residual") }),
   });
   assert.equal(result.residualCount, 0);
+  assert.equal(result.businessResidualEvidenceSha256, H("business-residual"));
   assert.deepEqual(database.calls.filter(call => call.sql?.includes("SET status='rolling_back'")).map(call => call.parameters[1]), ["T3", "T2", "T1", "T0"]);
+  const finalResidualQuery = database.calls.find(call => call.sql?.includes("AS not_started_count"));
+  assert(finalResidualQuery?.sql.includes("status='succeeded') AS succeeded_batch_count"), "apply migration batches remain immutable succeeded history and must be explicitly verified");
+  assert.equal(database.calls.some(call => /^UPDATE migration_batch/u.test(call.sql ?? "")), false, "rollback must not rewrite immutable apply-batch history");
 
   const reused = { ...authorization, authorizationArtifactSha256: plan.authorization.artifactSha256 };
   const untouchedDatabase = mockDatabase();
   await assert.rejects(rollbackSealedProductionImport(plan, reused, {
     contract: activatedContract(plan), now: NOW, currentCodeSha: plan.triple.codeSha, mergedCodeSha: plan.triple.codeSha,
-    targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database: untouchedDatabase, rollbackRecord: async () => ({}),
+    targetIdentitySha256: plan.target.identitySha256, targetScope: plan.targetScope, database: untouchedDatabase, rollbackPhase: async () => [], verifyBusinessResiduals: async () => ({}),
   }), error => error.code === "PRODUCTION_IMPORT_ROLLBACK_AUTH_REUSED");
   assert.equal(untouchedDatabase.calls.length, 0);
 });

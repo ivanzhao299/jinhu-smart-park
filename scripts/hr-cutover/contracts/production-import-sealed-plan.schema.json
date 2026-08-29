@@ -111,13 +111,14 @@
     },
     "record": {
       "type": "object", "additionalProperties": false,
-      "required": ["sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"],
+      "required": ["sourceSystem", "sourceTable", "sourcePkCanonical", "sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"],
       "properties": {
+        "sourceSystem": { "const": "yuzhou-v10" }, "sourceTable": { "type": "string", "pattern": "^dbo\\.[A-Za-z0-9_]{1,128}$" }, "sourcePkCanonical": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
         "sourceIdentitySha256": { "$ref": "#/$defs/sha256" }, "sourceRowSha256": { "$ref": "#/$defs/sha256" }, "payloadSha256": { "$ref": "#/$defs/sha256" }, "plannedTargetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" },
         "dependencyMode": { "enum": ["scope", "employee", "record_graph"] },
         "dependencyRefs": { "type": "array", "items": { "$ref": "#/$defs/dependencyRef" } },
         "disposition": { "enum": ["insert", "merge", "quarantine", "skip_approved"] }, "targetTable": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,95}$" }, "targetId": { "type": "string", "format": "uuid" },
-        "expectedTargetBeforeSha256": { "$ref": "#/$defs/sha256" }, "expectedTargetAfterSha256": { "$ref": "#/$defs/sha256" }, "decisionAttestationSha256": { "$ref": "#/$defs/sha256" },
+        "businessIdentitySha256": { "$ref": "#/$defs/sha256" }, "expectedTargetBeforeSha256": { "$ref": "#/$defs/sha256" }, "expectedTargetAfterSha256": { "$ref": "#/$defs/sha256" }, "expectedTargetVersionBefore": { "type": "integer", "minimum": 0 }, "targetVersionAfter": { "type": "integer", "minimum": 0 }, "decisionAttestationSha256": { "$ref": "#/$defs/sha256" },
         "beforeImage": {
           "type": "object", "additionalProperties": false,
           "required": ["algorithm", "plaintextSha256", "ciphertextSha256", "keyReferenceSha256"],

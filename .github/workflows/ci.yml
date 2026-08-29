@@ -118,6 +118,14 @@ jobs:
         run: |
           pnpm test:e2e:yuzhou-production-import-preflight
           pnpm test:e2e:yuzhou-production-import-v2
+          pnpm test:e2e:yuzhou-production-import-target-model
+          pnpm test:e2e:yuzhou-production-import-payload-generator
+          pnpm test:e2e:yuzhou-production-import-postgres-adapter
+          pnpm test:e2e:yuzhou-production-import-phase-writers
+          pnpm test:e2e:yuzhou-production-import-phase-rollback
+          pnpm test:e2e:yuzhou-production-import-real-artifact-bridge
+          pnpm test:e2e:yuzhou-production-import-machine-attestation
+          pnpm test:e2e:yuzhou-production-import-writer-receipts
 
       - name: Lint
         run: pnpm lint
@@ -244,6 +252,20 @@ jobs:
           YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT="$COMPOSE_PROJECT_NAME" \
             pnpm test:e2e:yuzhou-production-import-v2:pg \
             2>&1 | tee /tmp/release-smoke-logs/yuzhou-production-import-v2-pg.log
+          YUZHOU_POSTGRES_CONTAINER="$POSTGRES_CTN" \
+          YUZHOU_TARGET_DATABASE="$lab_db" \
+          YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT="$COMPOSE_PROJECT_NAME" \
+            pnpm test:e2e:yuzhou-production-import-writer-receipts:pg \
+            2>&1 | tee /tmp/release-smoke-logs/yuzhou-production-import-writer-receipts-pg.log
+          YUZHOU_POSTGRES_CONTAINER="$POSTGRES_CTN" \
+          YUZHOU_TARGET_DATABASE="$lab_db" \
+          YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT="$COMPOSE_PROJECT_NAME" \
+          YUZHOU_LAB_PG_HOST="127.0.0.1" \
+          YUZHOU_LAB_PG_PORT="$POSTGRES_PUBLISHED_PORT" \
+          YUZHOU_LAB_PG_USER="$POSTGRES_USER" \
+          YUZHOU_LAB_PG_PASSWORD="$POSTGRES_PASSWORD" \
+            pnpm test:e2e:yuzhou-production-import-full-chain:pg \
+            2>&1 | tee /tmp/release-smoke-logs/yuzhou-production-import-full-chain-pg.log
 
       - name: Verify housing task reconciliation PostgreSQL parameter types
         env:
