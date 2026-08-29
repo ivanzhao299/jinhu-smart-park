@@ -94,15 +94,21 @@ function assertPrivateFile(path, label) {
 }
 
 function defaultRun(command, args, options = {}) {
-  const result = spawnSync(command, args, {
-    cwd: ROOT,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: options.input === undefined ? "pipe" : ["pipe", "pipe", "pipe"],
-    ...options
-  });
-  if (result.error || result.status !== 0) fail(options.code ?? "CORE_DRIVER_COMMAND_FAILED", `${command}:${args[0] ?? ""}`);
-  return String(result.stdout ?? "").trim();
+  const retryableMigrationConnection = output => /connection to server|could not connect|server closed the connection|database system is starting up/iu.test(output);
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const result = spawnSync(command, args, {
+      cwd: ROOT,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: options.input === undefined ? "pipe" : ["pipe", "pipe", "pipe"],
+      ...options
+    });
+    if (!result.error && result.status === 0) return String(result.stdout ?? "").trim();
+    const transient = options.code === "CORE_MIGRATION_FAILED" && retryableMigrationConnection(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+    if (!transient || attempt === 11) fail(options.code ?? "CORE_DRIVER_COMMAND_FAILED", `${command}:${args[0] ?? ""}`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5000);
+  }
+  fail(options.code ?? "CORE_DRIVER_COMMAND_FAILED", `${command}:${args[0] ?? ""}`);
 }
 
 export function computeCoreT0T3MappingContractHash() {

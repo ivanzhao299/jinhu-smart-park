@@ -198,6 +198,8 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.throws(() => adapters.materializeFacts(), /CORE_DRIVER_PRIVATE_FILE_INVALID/u);
   const source = readFileSync(resolve(ROOT, "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs"), "utf8");
   assert.match(source, /maxBuffer: 64 \* 1024 \* 1024/u);
+  assert.match(source, /retryableMigrationConnection/u);
+  assert.match(source, /options\.code === "CORE_MIGRATION_FAILED"/u);
   assert.match(source, /networks:\\n {6}- migration/u);
   assert.match(source, /name: \$\{config\.target\.network\}/u);
   assert.match(source, /materializeCoreNonT0Dictionaries/u);
