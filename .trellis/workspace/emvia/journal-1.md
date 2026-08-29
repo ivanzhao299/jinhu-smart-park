@@ -643,3 +643,38 @@ Completed PSW-001/002/003 and D5, ran authoritative S1/S2/S3 plus G1-G7 UAT, mer
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: LEA-003 长租经营改名与租户子集热修闭环
+
+**Date**: 2026-08-29
+**Task**: LEA-003 长租经营改名与租户子集热修闭环
+**Package**: api
+**Branch**: `codex/fix-lea-004-rental-status-sync`
+
+### Summary
+
+完成长租经营显示改名、逐租户 name-only 迁移、390px 浏览器验证；修复合法租户权限子集部署阻断，PR #486/#487 合并，main CI 与 Deploy 双绿，000284 生产应用、健康检查和 Docker cleanup 均有证据。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1a0c6ba1` | (see git log) |
+| `33679b0b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
