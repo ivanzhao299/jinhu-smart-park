@@ -148,7 +148,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
   if (observation.viewportId !== viewport.id || observation.width !== viewport.width || observation.height !== viewport.height || observation.mobile !== viewport.mobile) fail("YUZHOU_UAT_BROWSER_OBSERVATION_VIEWPORT_INVALID", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (observation.status !== "PASS" || !Number.isInteger(observation.clientWidth) || !Number.isInteger(observation.scrollWidth) || observation.clientWidth > viewport.width || observation.scrollWidth > observation.clientWidth || observation.networkFailureCount !== 0) fail("YUZHOU_UAT_BROWSER_OBSERVATION_LAYOUT_FAILED", `${check.legacyId}:${check.roleType}:${viewport.id}`);
   if (JSON.stringify(observation.assertions) !== JSON.stringify(browserAssertions)
-    || !/^yzfull-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
+    || !/^yz(?:full|core)-[a-zA-Z0-9._-]+-r[AB]$/u.test(observation.runId ?? "")
     || !["A", "B"].includes(observation.rehearsal)
     || !observation.runId.endsWith(`-r${observation.rehearsal}`)
     || !SHA40.test(observation.triple?.codeSha ?? "")

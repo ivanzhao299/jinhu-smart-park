@@ -27,14 +27,14 @@ function observation(legacyId, kind, checkId, auditBizIdSha256) {
   return { actor: check.actor, checkKeySha256: hash(`${legacyId}:${kind}:${checkId}`), operations, assertions, observationSha256: hash(JSON.stringify({ actor: check.actor, operations, assertions })) };
 }
 
-function browserEvidence(item, rehearsal) {
+function browserEvidence(item, rehearsal, runKind = "yzfull") {
   return Object.fromEntries(item.roleTypes.map(roleType => [
     roleType,
     Object.fromEntries(taskCard.viewports.map(viewport => {
       const check = browserMatrix.checks.find(candidate => candidate.legacyId === item.legacyId && candidate.roleType === roleType);
       const value = {
       status: "PASS",
-      runId: `yzfull-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
+      runId: `${runKind}-contract-r${rehearsal}`, rehearsal, triple: { ...triple }, legacyId: item.legacyId, roleType,
       actor: check.actor, actorSubjectHash: hash(`${rehearsal}-${check.actor}`), route: check.route,
       renderedPath: check.expectedPath ?? check.route, viewportId: viewport.id,
       width: viewport.width,
@@ -53,7 +53,7 @@ function browserEvidence(item, rehearsal) {
   ]));
 }
 
-function passingEvidence(rehearsal) {
+function passingEvidence(rehearsal, runKind = "yzfull") {
   const actors=["hr_maker", "hr_reviewer", "manager", "employee"].map((actor, index) => ({actor,roleType:index<2?"hr_manager":index===2?"department_manager":"employee_self_service",subjectHash:hash(`${rehearsal}-${actor}`)}));
   return {
     formatVersion: 1,
@@ -61,7 +61,7 @@ function passingEvidence(rehearsal) {
     status: "PASS",
     executionBoundary: "isolated_lab_only",
     rehearsal,
-    runId: `yzfull-contract-r${rehearsal}`,
+    runId: `${runKind}-contract-r${rehearsal}`,
     targetIdentityHash: hash(`target-${rehearsal}`),
     taskCardSha256: taskCardHash(taskCard),
     apiMatrixSha256: apiMatrixHash(apiMatrix),
@@ -72,7 +72,7 @@ function passingEvidence(rehearsal) {
       const auditBizIdSha256=hash(`${rehearsal}:${item.legacyId}:biz`),positive = item.positive.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "positive", id, auditBizIdSha256) }));
       const negative = item.negative.map(id => ({ id, status: "PASS", observation: observation(item.legacyId, "negative", id, auditBizIdSha256) }));
       const auditCheck=apiMatrix.checks.find(check=>check.legacyId===item.legacyId&&check.assertions.some(assertion=>["audit_written","required_audit_written"].includes(assertion))),operation=auditCheck.operations.find(candidate=>technicalUatAuditSemantic(candidate.method,candidate.route)),semantic=technicalUatAuditSemantic(operation.method,operation.route),actor=actors.find(row=>row.actor===auditCheck.actor),row={actor:auditCheck.actor,actorSubjectHash:actor.subjectHash,operationKeySha256:hash(JSON.stringify({actor:auditCheck.actor,method:operation.method,routeTemplate:operation.route})),bizIdSha256:auditBizIdSha256,bizTypeSha256:hash(semantic.bizType),actionSha256:hash(semantic.action)},auditEvidence={status:"PASS",beforeCount:0,afterCount:1,delta:1,rows:[row],rowsSha256:hash(JSON.stringify([row]))};
-      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
+      return { legacyId: item.legacyId, status: "PASS", positive, negative, browser: browserEvidence(item, rehearsal, runKind), auditStatus: "PASS", auditEvidence, auditEvidenceSha256: hash(JSON.stringify(auditEvidence)) };
     }),
     p0P1Count: 0,
     sensitiveScan: "PASS",
@@ -121,6 +121,11 @@ test("independent Smart Park A/B evidence promotes only target implementation an
     assert.equal(item.implementationStatus, "partial");
   }
   assert.equal(coverage.gates.productionImport, "HOLD");
+});
+
+test("core T0-T3 evidence preserves the same isolated A/B contract", () => {
+  const pair = { A: passingEvidence("A", "yzcore"), B: passingEvidence("B", "yzcore") };
+  assert.equal(validateYuzhouLiveRoleUatEvidencePair(pair, taskCard, triple, apiMatrix, browserMatrix).status, "PASS");
 });
 
 test("the former ambiguous live role option fails closed", () => {
