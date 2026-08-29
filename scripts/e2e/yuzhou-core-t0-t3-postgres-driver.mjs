@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { buildJobStateV2Fixture } from "./yuzhou-job-state-v2-fixture.mjs";
-import { validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
+import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "../hr-cutover/core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, buildMaterializationSql } from "../hr-cutover/materialize-reviewed-job-state.mjs";
 import { computeCoreT0T3MappingContractHash, createCoreT0T3Adapters } from "../hr-cutover/core-drivers/postgres-lab-v1.mjs";
 import { prepareCoreConfig } from "../hr-cutover/prepare-core-t0-t3-rehearsal.mjs";
@@ -124,6 +124,9 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   assert.equal(prepared.config.source.sourceBackupPath, realpathSync(sourceBackup));
   assert.deepEqual(Object.keys(prepared.config.source.dictionaryPackages).sort(), ["contract_state", "contract_type", "employment_event_state", "employment_event_type"]);
   assert.equal(prepared.config.productionImport, "HOLD");
+  const retained = JSON.parse(readFileSync(prepared.retainedBindingPath, "utf8"));
+  assert.deepEqual(retained, retainedCoreT0T3Binding(prepared.config));
+  assert.equal(JSON.stringify(retained).match(/password|etlEnvFile/iu), null);
   assert.equal(validateCoreT0T3Config(prepared.config).profile, "core_t0_t3");
   const legacyShape = structuredClone(prepared.config);
   legacyShape.source = { readOnly: true, sourceBackupSha256: legacyShape.triple.sourceSnapshotHash };
