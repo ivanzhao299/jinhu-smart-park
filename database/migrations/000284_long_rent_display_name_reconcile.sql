@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout = '5s';
 SET LOCAL statement_timeout = '60s';
 
--- LEA-003 is a display-name reconcile only. Stable module, menu, page and API
+-- LEA-003 / 000284 is a display-name reconcile only. Stable module, menu, page and API
 -- permission codes remain the authorization identity; role bindings are untouched.
 LOCK TABLE sys_module, sys_module_registry, sys_permission IN SHARE ROW EXCLUSIVE MODE;
 

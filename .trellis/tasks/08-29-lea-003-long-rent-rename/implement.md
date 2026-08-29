@@ -5,7 +5,7 @@
 - [x] 激活 Trellis 子任务并加载 API/Web/shared/migration 开发规范。
 - [x] 亲自读取即将修改的源码和测试，冻结精确 rename map。
 - [x] 更新 shared、API 菜单、Web 菜单与 housing 公共页面显示文案；code/route 不变。
-- [x] 新增 `000283` forward-only、逐租户、name-only reconcile migration。
+- [x] 新增 `000284` forward-only、逐租户、name-only reconcile migration。
 - [x] 更新迁移逐租户断言、API/Web 菜单契约、shared 权限显示名回归。
 - [x] 运行 targeted tests、shared build、API/Web lint/typecheck/build 及必要的 migration validation。
 - [x] 启动隔离测试环境，按成熟基建完成桌面/390px 浏览器检查、截图 manifest 与 Network 核验，并精确 teardown。
@@ -36,13 +36,14 @@
 ## Progress / resume point
 
 - 2026-08-29：Issue #485 已存在；分支已在 `8dce1137` 基线上创建；rename 触点与逐租户 name-only 方案已调查确认。
-- 2026-08-29：已补齐任务制品并激活任务；完成 shared/API/Web canonical label、长租中性文案、审计显示名和 `000283` name-only reconcile，稳定 code/route/role binding 均未改。
+- 2026-08-29：已补齐任务制品并激活任务；完成 shared/API/Web canonical label、长租中性文案、审计显示名和 `000284` name-only reconcile，稳定 code/route/role binding 均未改。
 - 2026-08-29：独立 quality review 指出的 permission 缺行 fail-open、registry cardinality/post-check、运行时旧文案、API surface label 重复源和仅静态 SQL 测试均已修正。
 - 2026-08-29：targeted API 23 PASS/1 条 PostgreSQL fixture 因本机无 `DATABASE_URL` 条件跳过；Web menu 12/12、housing 28/28、workspace typecheck PASS。PostgreSQL fixture 将由带数据库的 CI 执行。
 - 2026-08-29：隔离 mock API 浏览器检查 3/3 PASS：1440×960、390×844 展开菜单、390×844 无 read 权限边界；均无水平溢出、console error 或 network failure。证据 manifest 暂存于 `/tmp/lea003-20260829-browser-uat/evidence/manifest.json`，服务/浏览器/缓存已精确 teardown。
-- 2026-08-29：`pnpm lint`、`pnpm typecheck`、`pnpm build`（190 pages）均 PASS；shared build、API/Web targeted tests 均 PASS；迁移编号仅保留仓库已知重复 `000136`，`000283` 唯一，`git diff --check` PASS。
+- 2026-08-29：`pnpm lint`、`pnpm typecheck`、`pnpm build`（190 pages）均 PASS；shared build、API/Web targeted tests 均 PASS；当时本地基线仅保留仓库已知重复 `000136`。
 - 2026-08-29：API 全量首轮 1641 tests：1597 PASS、3 个本次旧显示名断言 FAIL、41 条数据库条件 SKIP；同步断言后定向 8/8 PASS。按上限执行的第 2 轮全量中本次失败均已消失，唯一失败为无关 `code-rule-scope-migration.spec.ts` 文件级偶发启动；该既存测试随后独立 3/3 PASS，未发现稳定回归。本机 PostgreSQL integration 仍因无 `DATABASE_URL` 跳过，交 CI 数据库门禁。
 - 2026-08-29：PR #486 / commit `de9df9f9` 已创建并触发 review。CI 首轮在 shared frozen role template hash 门禁失败：复核阶段曾越界修改签名角色/权限包名称但未变更版本与生产 seed。已撤回这些非 LEA-003 目标改动，保留 `sys_permission.name`/菜单/页面/审计展示改名；shared build/test 33/33/lint PASS，待推修复提交。
 - 2026-08-29：修复提交 `7b363250` CI 全绿：verify 13m04s，PostgreSQL Release Smoke 19m05s，migration/failure-retry/seed/bootstrap/login/property E2E/teardown 全部 PASS。
 - 2026-08-29：review round 1 共 3 条：签名漂移已由 `7b363250` 解决；补齐 authoritative product/UAT 文档；补齐全部 7 个 housing approval incident title 并新增精确回归。相关 API 14 PASS/1 PostgreSQL 条件 SKIP，repository 既有 10 PASS，lint/diff-check PASS。
-- 续跑点：提交并 push review round-1 后续修复，对最新提交触发 round 2；新 CI/review 全绿后 merge，并等待 main CI+Deploy 双绿。
+- 2026-08-29：round-2 CI Unit tests 揭示远端 main 并发加入 HR `000283`；按 forward-only 唯一编号纪律将本任务迁移改为 `000284`，不触碰 HR migration。待 targeted 编号/迁移测试后推送。
+- 续跑点：验证并 push `000284` 编号修复，等待 round-2 CI/review；全绿后 merge，并等待 main CI+Deploy 双绿。

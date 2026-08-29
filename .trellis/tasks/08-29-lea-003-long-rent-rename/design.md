@@ -13,7 +13,7 @@
 
 ## Migration contract
 
-- 新建 `000283_*`，不编辑 000178/000182/000183 等已存在 migration。
+- 新建 `000284_*`，不编辑 000178/000182/000183/000283 等已存在 migration。
 - 目标租户来自实际存在的目标 module/permission 定义，而不是 registry 作为授权 authority。
 - 更新键包含 `tenant_id` 与稳定 code；按表的真实唯一身份更新 `name`/`module_name`/菜单 label 字段。
 - 迁移前后记录每个 tenant、每个目标 code 的 cardinality；目标定义缺失、重复或更新后名称不一致时 `RAISE EXCEPTION`。
@@ -23,7 +23,7 @@
 ## Compatibility
 
 - API/Web 路由、权限判断、菜单过滤和已有书签不受影响。
-- 新环境仍先重放历史 migration，再由 000283 收敛名称；运行时源码 canonical 定义同步更新，避免后续投影回写旧名。
+- 新环境仍先重放历史 migration，再由 000284 收敛名称；运行时源码 canonical 定义同步更新，避免后续投影回写旧名。
 - 审计动作名若属于用户可见业务模块名称，改为“长租经营”；具体领域对象如“住房租约”仅在不会误导办公长租时调整为中性“长租租约”。
 
 ## Test design

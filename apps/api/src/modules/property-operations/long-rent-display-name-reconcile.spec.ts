@@ -11,7 +11,7 @@ import {
 
 const migrationPath = resolve(
   __dirname,
-  "../../../../../database/migrations/000283_long_rent_display_name_reconcile.sql"
+  "../../../../../database/migrations/000284_long_rent_display_name_reconcile.sql"
 );
 const sql = readFileSync(migrationPath, "utf8");
 const approvalRuntimeSource = readFileSync(
