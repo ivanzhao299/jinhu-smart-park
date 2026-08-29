@@ -37,7 +37,7 @@ docker cp "$rows" "$YUZHOU_POSTGRES_CONTAINER:$remote/input.jsonl"
 docker exec "$YUZHOU_POSTGRES_CONTAINER" chown -R postgres:postgres "$remote"
 docker exec "$YUZHOU_POSTGRES_CONTAINER" chmod -R go-rwx "$remote"
 
-docker exec -i "$YUZHOU_POSTGRES_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$YUZHOU_TARGET_DATABASE" \
+docker exec -i "$YUZHOU_POSTGRES_CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U jinhu -d "$YUZHOU_TARGET_DATABASE" \
   -v run="$YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID" -v db="$YUZHOU_TARGET_DATABASE" -v snapshot="$YUZHOU_BACKUP_SHA256" -v source_rows="$source_rows" -v stage_sha="$stage_sha" -v path="$remote/input.jsonl" <<'SQL'
 BEGIN;
 SET LOCAL lock_timeout='10s';
@@ -74,4 +74,4 @@ DO $$ BEGIN IF EXISTS(SELECT 1 FROM migration_check c JOIN migration_batch b ON 
 COMMIT;
 SQL
 
-docker exec "$YUZHOU_POSTGRES_CONTAINER" psql -X -A -t -U jinhu -d "$YUZHOU_TARGET_DATABASE" -v run="$YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID" -c "SELECT json_build_object('status','PASS','sourceRows',(counts->>'sourceRows')::bigint,'loadedRows',(counts->>'loadedRows')::bigint,'quarantinedRows',(counts->>'quarantinedRows')::bigint,'businessWriteTarget','none','productionImport','HOLD') FROM migration_batch WHERE run_id=:'run';"
+docker exec "$YUZHOU_POSTGRES_CONTAINER" psql -X -q -A -t -U jinhu -d "$YUZHOU_TARGET_DATABASE" -c "SELECT json_build_object('status','PASS','sourceRows',(counts->>'sourceRows')::bigint,'loadedRows',(counts->>'loadedRows')::bigint,'quarantinedRows',(counts->>'quarantinedRows')::bigint,'businessWriteTarget','none','productionImport','HOLD') FROM migration_batch WHERE run_id='$YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID';"
