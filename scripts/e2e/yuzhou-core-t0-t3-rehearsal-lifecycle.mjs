@@ -139,6 +139,8 @@ function harness(current, { failOnce, journal, cleanupFails = false, residualCla
 test("core config and pair accept only isolated A/B resources with byte-identical C/S/M", () => {
   assert.equal(validateCoreT0T3Config(configA).productionImport, "HOLD");
   assert.equal(validateCorePairIsolation(configA, configB).resourceClasses, 12);
+  const pathOnly = structuredClone(configA), incidentalProject = join(root, "t4-incidental", pathOnly.target.database); pathOnly.target.runtimeRoot = join(incidentalProject, "runtime"); pathOnly.target.stagingRoot = join(pathOnly.target.runtimeRoot, "staging"); pathOnly.target.evidenceRoot = join(pathOnly.target.runtimeRoot, "evidence"); pathOnly.target.credentialRoot = join(incidentalProject, "credentials");
+  assert.doesNotThrow(() => validateCoreT0T3Config(pathOnly));
   const reused = structuredClone(configB); reused.target.ports.postgres = configA.target.ports.postgres;
   assert.throws(() => validateCorePairIsolation(configA, reused), /CORE_PAIR_RESOURCE_REUSE/u);
   const drift = structuredClone(configB); drift.triple.mappingContractHash = digest("drift");
