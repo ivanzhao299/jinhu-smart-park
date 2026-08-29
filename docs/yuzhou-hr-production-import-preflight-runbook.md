@@ -205,7 +205,7 @@ nonce。import 授权与 nonce 在机器契约中不能作为 rollback 授权，
 authorization receipt。
 
 此控制面不等于批准执行。只有独立审阅把固定生产目标加入版本化执行合同并把状态改为 `PASS/READY`，
-且再次完成 C/S/M、窗口、真人签署和临时角色门禁后，注入式数据库 adapter 才能到达 writer。
+且再次完成 C/S/M、窗口、hash-addressed 机器复核凭证和临时角色门禁后，注入式数据库 adapter 才能到达 writer。机器凭证不冒用自然人身份；固定 run 的一次性生产执行授权、数据安全和发布职责仍是独立门禁。
 
 ## 9. 生产写入激活前仍必须完成的门禁
 

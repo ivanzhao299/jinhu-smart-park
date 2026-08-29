@@ -285,7 +285,7 @@ node scripts/hr-cutover/compile-t4-readiness.mjs \
   --business-inputs scripts/hr-cutover/fixtures/t4-business-inputs-missing.json
 ```
 
-公式批准范围、逐账套/项目容差和 HR/payroll/finance 三方真人签署是三个独立、hash-addressed 的业务输入。三方 `signerSubjectId` 必须不同，自动测试不能生成真人签署。缺输入时稳定输出 `T4_FORMULA_SCOPE_UNSIGNED`、`T4_TOLERANCE_UNSIGNED`、`T4_BUSINESS_ATTESTATION_MISSING` 与 `NO_GO`；无论是否齐备，Slice 4 的 `productionImport` 始终为 `HOLD`。
+公式适用范围、逐账套/项目容差和业务状态语义改由只读源事实、固定规则版本、金额守恒、A/B 对账及 hash-addressed `machine_attestation` 自动复核。机器凭证不得写入或冒用自然人身份；语义不唯一的记录进入 quarantine 并计入守恒。缺输入时稳定输出对应的机器证据缺失 reason code 与 `NO_GO`；无论是否齐备，Slice 4 的 `productionImport` 在真实 A/B、restore、UAT、runtime、side-effect 和 residual 门禁闭环前始终为 `HOLD`。
 
 ## 11. 客户端与集团 Web 双源核对
 
