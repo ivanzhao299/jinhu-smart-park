@@ -10,7 +10,7 @@
 - [x] 增加原子/冲突回归与 targeted contracts；本机 PostgreSQL 条件测试无 `DATABASE_URL` 跳过，交 CI/后续 UAT DB 前后对比。
 - [x] lint/typecheck/build、Trellis check、提交并创建 Closes #488 PR #490。
 - [x] review ≤3、PR CI/Smoke、merge、main CI/Deploy 双绿。
-- [ ] Trellis 归档与 journal。
+- [x] Trellis 归档与 journal。
 
 ## Resume point
 
@@ -26,5 +26,5 @@
 - 2026-08-29：重跑 `33248835488` build 绿，Smoke 暴露候选扫描先遇到无 operation eligibility 的 10 状态单元而 404；候选扫描现在仅跳过该预期 404，其他错误继续 fail-fast。
 - 2026-08-29：再跑 `33250183645` build 绿，Smoke 明确断言无任何可用长租单元；根因是 disposable property fixture 只固化 usage/mode，未固化 rental status。夹具现将两套隔离单元同时初始化为 `rental_status=10`，保证新生命周期测试的前置契约。
 - 2026-08-29：最终 PR CI `33251443377` 全绿（Release Smoke 22m5s、真实 Property API E2E PASS）；PR #490 squash merged 为 main `48204327`，Issue #488 CLOSED；该 SHA Deploy `33252944272` SUCCESS。随后 main 并发取消该 SHA CI，最新包含提交 `c806ce38` 的 CI `33253628779` 与 Deploy `33253628787` 均 SUCCESS。
-- 续跑点：归档本任务并写 journal，然后进入全上线 UAT 报告任务。
-- 续跑点：提交并 push 最终修复；等待 PR CI+Release Smoke，合并后等待 main CI/Deploy 双绿并归档。
+- 2026-08-29：Trellis 任务与 journal 已归档；随后进入并完成全上线 UAT 报告任务。
+- 续跑点：LEA-004 已完成，无待续跑项。

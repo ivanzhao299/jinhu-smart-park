@@ -20,12 +20,12 @@
 
 ## Acceptance Criteria
 
-- [ ] 矩阵正例：住房/办公 long_rent、住房 short_stay；反例：办公 short_stay、厂房 long_rent。
-- [ ] 候选、预检、最终写入、mode executor 不存在策略差异，拒绝返回稳定中性 reason。
-- [ ] picker 返回用途 facet、派生 segment 及 eligible/ineligible reasons，不增加持久化列。
-- [ ] 并发/version CAS、occupancy/商业合同冲突、用途变更保护有回归测试。
-- [ ] D9 SQL 全程只读、租户/园区范围明确、输出可人工处置的冲突明细。
-- [ ] shared/API/Web 相关 lint、typecheck、build 与定向测试通过，review/CI/main 双绿闭环。
+- [x] 矩阵正例：住房/办公 long_rent、住房 short_stay；反例：办公 short_stay、厂房 long_rent。
+- [x] 候选、预检、最终写入、mode executor 不存在策略差异，拒绝返回稳定中性 reason。
+- [x] picker 返回用途 facet、派生 segment 及 eligible/ineligible reasons，不增加持久化列。
+- [x] 并发/version CAS、occupancy/商业合同冲突、用途变更保护有回归测试。
+- [x] D9 SQL 全程只读、租户/园区范围明确、输出可人工处置的冲突明细。
+- [x] shared/API/Web 相关 lint、typecheck、build 与定向测试通过，review/CI/main 双绿闭环。
 
 ## Out of Scope
 

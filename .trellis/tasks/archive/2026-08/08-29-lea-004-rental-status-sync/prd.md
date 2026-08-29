@@ -23,12 +23,12 @@
 
 ## Acceptance Criteria
 
-- [ ] 住房 activate 与民宿 check-in 证明 10→30 + system status log，同事务失败回滚。
-- [ ] 住房 terminated 与民宿 check-out 证明无其他占用时 30→10。
-- [ ] 释放时存在其他有效占用保持 30；强状态不被释放覆盖。
-- [ ] 进入占用遇到强状态返回 conflict，业务状态、房态和日志全部不变。
-- [ ] 多租户/园区边界、pessimistic lock、幂等行为有回归测试。
-- [ ] targeted tests、lint、typecheck、build、PR/main CI 与 Deploy 全绿。
+- [x] 住房 activate 与民宿 check-in 证明 10→30 + system status log，同事务失败回滚。
+- [x] 住房 terminated 与民宿 check-out 证明无其他占用时 30→10。
+- [x] 释放时存在其他有效占用保持 30；强状态不被释放覆盖。
+- [x] 进入占用遇到强状态返回 conflict，业务状态、房态和日志全部不变。
+- [x] 多租户/园区边界、pessimistic lock、幂等行为有回归测试。
+- [x] targeted tests、lint、typecheck、build、PR/main CI 与 Deploy 全绿。
 
 ## Out of scope
 

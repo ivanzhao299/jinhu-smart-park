@@ -729,7 +729,7 @@ Implemented transactional housing and homestay rental-status projection with con
 
 ### Summary
 
-完成 LEA-003/004 上线后 mode×用途矩阵、改名权限/403、390px、Network、rental_status 双写审计与双业务回归；PR #504 经三轮 review、CI、Release Smoke、main CI/Deploy 双绿后合并，并归档 UAT 与 intake queue。
+完成 Issue #496 的 LEA-003/004 上线后 mode×用途矩阵、改名权限/403、390px、Network、rental_status 双写审计与双业务回归；PR #504 经三轮 review、CI、Release Smoke、main CI/Deploy 双绿后合并，并归档 UAT 与 intake queue。
 
 ### Main Changes
 
@@ -756,3 +756,4 @@ Implemented transactional housing and homestay rental-status projection with con
 ### Next Steps
 
 - 无；LEA 队列已闭环。
+- 剩余风险：无已知阻断风险；本地 `pnpm test` 的默认 S1 smoke 因 teardown 后默认 API 端口未启动而在环境预检失败，业务断言由独立完整 API/UAT 与 CI Release Smoke 覆盖。
