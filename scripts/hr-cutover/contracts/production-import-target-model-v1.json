@@ -1,0 +1,170 @@
+{
+  "formatVersion": 1,
+  "modelKind": "yuzhou_hr_production_import_target_model",
+  "modelVersion": "2026-08-29.1",
+  "canonicalizationVersion": "yuzhou-production-import-canonical-json-v1",
+  "targetIdDerivation": "yuzhou-hr-production-target-id-sha256-v1",
+  "businessIdentityDerivation": "yuzhou-hr-production-business-identity-sha256-v1",
+  "targetCanonicalDerivation": "yuzhou-hr-production-target-canonical-sha256-v1",
+  "sourceSystem": "yuzhou-v10",
+  "phaseOrder": ["T0", "T1", "T2", "T3"],
+  "targetTables": {
+    "sys_org": {
+      "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.departmentcode"],
+      "fieldWhitelist": ["org_code", "org_name", "org_type", "sort_order", "status", "remark"],
+      "requiredFields": ["org_code", "org_name", "org_type", "sort_order", "status"], "nullableFields": ["remark"],
+      "integerFields": ["sort_order"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["parent_id"], "foreignKeys": [{"column":"parent_id","dependencyRole":"parent_org","targetTable":"sys_org","required":false}],
+      "uniqueKey": ["tenant_id", "park_id", "org_code"], "canonicalFields": ["org_code", "org_name", "org_type", "sort_order", "status", "remark", "parent_id"],
+      "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
+    },
+    "hr_position": {
+      "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.job"],
+      "fieldWhitelist": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark"],
+      "requiredFields": ["position_code", "position_name", "status"], "nullableFields": ["job_family", "job_level", "headcount_limit", "remark"],
+      "integerFields": ["headcount_limit"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["org_id"], "foreignKeys": [{"column":"org_id","dependencyRole":"org","targetTable":"sys_org","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "position_code"], "canonicalFields": ["position_code", "position_name", "job_family", "job_level", "headcount_limit", "status", "remark", "org_id"],
+      "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
+    },
+    "hr_employee": {
+      "phase": "T0", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.person"],
+      "fieldWhitelist": ["employee_code", "full_name", "employment_type", "employment_status", "hire_date", "probation_end_date", "departure_date", "work_location", "work_mobile", "work_email", "remark"],
+      "requiredFields": ["employee_code", "full_name", "employment_type", "employment_status"], "nullableFields": ["hire_date", "probation_end_date", "departure_date", "work_location", "work_mobile", "work_email", "remark"],
+      "integerFields": [], "booleanFields": [], "decimalStringFields": [], "dateFields": ["hire_date", "probation_end_date", "departure_date"], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["primary_org_id", "position_id"], "foreignKeys": [{"column":"primary_org_id","dependencyRole":"primary_org","targetTable":"sys_org","required":true},{"column":"position_id","dependencyRole":"position","targetTable":"hr_position","required":false}],
+      "uniqueKey": ["tenant_id", "park_id", "employee_code"], "canonicalFields": ["employee_code", "full_name", "employment_type", "employment_status", "hire_date", "probation_end_date", "departure_date", "work_location", "work_mobile", "work_email", "remark", "primary_org_id", "position_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_employment_event": {
+      "phase": "T1", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.readjust"],
+      "fieldWhitelist": ["event_no", "event_type", "effective_date", "before_snapshot", "after_snapshot", "reason", "status", "legacy_event_no", "legacy_event_type", "legacy_state", "source_effective_at", "migration_decision", "is_historical_import", "remark"],
+      "requiredFields": ["event_no", "event_type", "effective_date", "before_snapshot", "after_snapshot", "status", "legacy_event_no", "legacy_event_type", "source_effective_at", "migration_decision", "is_historical_import"], "nullableFields": ["reason", "legacy_state", "remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": ["effective_date"], "timestampFields": ["source_effective_at"], "jsonObjectFields": ["before_snapshot", "after_snapshot"],
+      "derivedFields": ["employee_id"], "foreignKeys": [{"column":"employee_id","dependencyRole":"employee","targetTable":"hr_employee","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "event_no"], "canonicalFields": ["event_no", "event_type", "effective_date", "before_snapshot", "after_snapshot", "reason", "status", "legacy_event_no", "legacy_event_type", "legacy_state", "source_effective_at", "migration_decision", "is_historical_import", "remark", "employee_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_contract_type": {
+      "phase": "T2", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.compacttypecode"],
+      "fieldWhitelist": ["type_code", "type_name", "status", "is_historical_import", "remark"],
+      "requiredFields": ["type_code", "type_name", "status", "is_historical_import"], "nullableFields": ["remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": [], "foreignKeys": [], "uniqueKey": ["tenant_id", "park_id", "type_code"], "canonicalFields": ["type_code", "type_name", "status", "is_historical_import", "remark"],
+      "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
+    },
+    "hr_contract": {
+      "phase": "T2", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.compact"],
+      "fieldWhitelist": ["contract_no", "start_date", "end_date", "probation_end_date", "status", "contract_term_months", "signature_date", "effective_date", "position_title", "work_type", "department_name_snapshot", "first_signature_date", "last_signature_date", "cumulative_term_months", "renewal_count", "probation_months", "probation_salary", "base_salary", "confidentiality_agreement", "non_compete_agreement", "training_service_agreement", "legacy_file_reference", "legacy_text_present", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot", "remark"],
+      "requiredFields": ["contract_no", "status", "renewal_count", "confidentiality_agreement", "non_compete_agreement", "training_service_agreement", "legacy_text_present", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot"],
+      "nullableFields": ["start_date", "end_date", "probation_end_date", "contract_term_months", "signature_date", "effective_date", "position_title", "work_type", "department_name_snapshot", "first_signature_date", "last_signature_date", "cumulative_term_months", "probation_months", "probation_salary", "base_salary", "legacy_file_reference", "remark"],
+      "integerFields": ["contract_term_months", "cumulative_term_months", "renewal_count", "probation_months"], "booleanFields": ["confidentiality_agreement", "non_compete_agreement", "training_service_agreement", "legacy_text_present", "is_historical_import"], "decimalStringFields": ["probation_salary", "base_salary"], "dateFields": ["start_date", "end_date", "probation_end_date", "signature_date", "effective_date", "first_signature_date", "last_signature_date"], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
+      "derivedFields": ["employee_id", "contract_type_id"], "foreignKeys": [{"column":"employee_id","dependencyRole":"employee","targetTable":"hr_employee","required":true},{"column":"contract_type_id","dependencyRole":"contract_type","targetTable":"hr_contract_type","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "contract_no"], "canonicalFields": ["contract_no", "start_date", "end_date", "probation_end_date", "status", "contract_term_months", "signature_date", "effective_date", "position_title", "work_type", "department_name_snapshot", "first_signature_date", "last_signature_date", "cumulative_term_months", "renewal_count", "probation_months", "probation_salary", "base_salary", "confidentiality_agreement", "non_compete_agreement", "training_service_agreement", "legacy_file_reference", "legacy_text_present", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot", "remark", "employee_id", "contract_type_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_contract_change": {
+      "phase": "T2", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.compact_c"],
+      "fieldWhitelist": ["sequence_no", "change_type", "previous_start_date", "previous_end_date", "new_start_date", "new_end_date", "signed_at", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot", "remark"],
+      "requiredFields": ["sequence_no", "change_type", "new_start_date", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot"], "nullableFields": ["previous_start_date", "previous_end_date", "new_end_date", "signed_at", "remark"],
+      "integerFields": ["sequence_no"], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": ["previous_start_date", "previous_end_date", "new_start_date", "new_end_date"], "timestampFields": ["signed_at"], "jsonObjectFields": ["source_snapshot"],
+      "derivedFields": ["contract_id"], "foreignKeys": [{"column":"contract_id","dependencyRole":"contract","targetTable":"hr_contract","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "contract_id", "sequence_no"], "canonicalFields": ["sequence_no", "change_type", "previous_start_date", "previous_end_date", "new_start_date", "new_end_date", "signed_at", "is_historical_import", "legacy_source_identity_sha256", "legacy_source_row_sha256", "source_snapshot", "remark", "contract_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_contract_legacy_evidence": {
+      "phase": "T2", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.compact"],
+      "fieldWhitelist": ["evidence_kind", "locator_sha256", "content_sha256", "mime_type", "size_bytes", "migration_status", "protected_file_id", "missing_reason", "source_identity_sha256"],
+      "requiredFields": ["evidence_kind", "migration_status", "source_identity_sha256"], "nullableFields": ["locator_sha256", "content_sha256", "mime_type", "size_bytes", "protected_file_id", "missing_reason"],
+      "integerFields": ["size_bytes"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["contract_id"], "foreignKeys": [{"column":"contract_id","dependencyRole":"contract","targetTable":"hr_contract","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "source_identity_sha256"], "canonicalFields": ["evidence_kind", "locator_sha256", "content_sha256", "mime_type", "size_bytes", "migration_status", "protected_file_id", "missing_reason", "source_identity_sha256", "contract_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_attendance_import_batch": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.timekeeptable"],
+      "fieldWhitelist": ["batch_code", "source_system", "source_checksum", "status", "is_historical_import", "remark"],
+      "requiredFields": ["batch_code", "source_system", "source_checksum", "status", "is_historical_import"], "nullableFields": ["remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": [], "foreignKeys": [], "uniqueKey": ["tenant_id", "park_id", "batch_code"], "canonicalFields": ["batch_code", "source_system", "source_checksum", "status", "is_historical_import", "remark"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_attendance_symbol_rule": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.timekeeptable"],
+      "fieldWhitelist": ["rule_version", "legacy_symbol", "normalized_kind", "effective_from", "effective_to", "status", "is_historical_import", "remark"],
+      "requiredFields": ["rule_version", "legacy_symbol", "normalized_kind", "status", "is_historical_import"], "nullableFields": ["effective_from", "effective_to", "remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": ["effective_from", "effective_to"], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": [], "foreignKeys": [], "uniqueKey": ["tenant_id", "park_id", "rule_version", "legacy_symbol"], "canonicalFields": ["rule_version", "legacy_symbol", "normalized_kind", "effective_from", "effective_to", "status", "is_historical_import", "remark"],
+      "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
+    },
+    "hr_attendance_calendar_source": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.timekeeptable"],
+      "fieldWhitelist": ["legacy_id", "calendar_name", "calendar_year", "calendar_month", "source_snapshot", "remark"],
+      "requiredFields": ["legacy_id", "calendar_year", "calendar_month", "source_snapshot"], "nullableFields": ["calendar_name", "remark"],
+      "integerFields": ["legacy_id", "calendar_year", "calendar_month"], "booleanFields": [], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
+      "derivedFields": ["import_batch_id"], "foreignKeys": [{"column":"import_batch_id","dependencyRole":"import_batch","targetTable":"hr_attendance_import_batch","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "legacy_id"], "canonicalFields": ["legacy_id", "calendar_name", "calendar_year", "calendar_month", "source_snapshot", "remark", "import_batch_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_attendance_day": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.timekeeptable"],
+      "fieldWhitelist": ["attendance_date", "legacy_symbol", "symbol_status", "normalized_kind", "is_historical_import", "remark"],
+      "requiredFields": ["attendance_date", "symbol_status", "is_historical_import"], "nullableFields": ["legacy_symbol", "normalized_kind", "remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": ["attendance_date"], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["calendar_source_id"], "foreignKeys": [{"column":"calendar_source_id","dependencyRole":"calendar_source","targetTable":"hr_attendance_calendar_source","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "calendar_source_id", "attendance_date"], "canonicalFields": ["attendance_date", "legacy_symbol", "symbol_status", "normalized_kind", "is_historical_import", "remark", "calendar_source_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_insurance_policy": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.insure_method"],
+      "fieldWhitelist": ["policy_code", "policy_name", "scope_description", "status", "is_historical_import", "remark"],
+      "requiredFields": ["policy_code", "status", "is_historical_import"], "nullableFields": ["policy_name", "scope_description", "remark"],
+      "integerFields": [], "booleanFields": ["is_historical_import"], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": [], "foreignKeys": [], "uniqueKey": ["tenant_id", "park_id", "policy_code"], "canonicalFields": ["policy_code", "policy_name", "scope_description", "status", "is_historical_import", "remark"],
+      "allowedDispositions": ["insert", "merge", "quarantine", "skip_approved"]
+    },
+    "hr_insurance_policy_item": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.insure_method"],
+      "fieldWhitelist": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "source_snapshot", "remark"],
+      "requiredFields": ["insurance_kind", "variant_no", "source_snapshot"], "nullableFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate", "remark"],
+      "integerFields": ["variant_no"], "booleanFields": [], "decimalStringFields": ["base_rate", "employer_rate", "employee_rate", "supplement_rate"], "dateFields": [], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
+      "derivedFields": ["policy_id"], "foreignKeys": [{"column":"policy_id","dependencyRole":"policy","targetTable":"hr_insurance_policy","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "policy_id", "insurance_kind", "variant_no"], "canonicalFields": ["insurance_kind", "variant_no", "base_rate", "employer_rate", "employee_rate", "supplement_rate", "source_snapshot", "remark", "policy_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_employee_insurance_period": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.person_insure"],
+      "fieldWhitelist": ["period_year", "period_month", "legacy_id", "status", "needs_review", "is_historical_import", "source_snapshot", "remark"],
+      "requiredFields": ["period_year", "period_month", "legacy_id", "status", "needs_review", "is_historical_import", "source_snapshot"], "nullableFields": ["remark"],
+      "integerFields": ["period_year", "period_month", "legacy_id"], "booleanFields": ["needs_review", "is_historical_import"], "decimalStringFields": [], "dateFields": [], "timestampFields": [], "jsonObjectFields": ["source_snapshot"],
+      "derivedFields": ["employee_id"], "foreignKeys": [{"column":"employee_id","dependencyRole":"employee","targetTable":"hr_employee","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "employee_id", "period_year", "period_month"], "canonicalFields": ["period_year", "period_month", "legacy_id", "status", "needs_review", "is_historical_import", "source_snapshot", "remark", "employee_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    },
+    "hr_employee_insurance_item": {
+      "phase": "T3", "scopeColumns": ["tenant_id", "park_id"],
+      "allowedSourceTables": ["dbo.person_insure"],
+      "fieldWhitelist": ["insurance_kind", "contribution_base", "total_amount", "employer_amount", "employee_amount", "supplement_amount", "legacy_base_negative", "remark"],
+      "requiredFields": ["insurance_kind", "legacy_base_negative"], "nullableFields": ["contribution_base", "total_amount", "employer_amount", "employee_amount", "supplement_amount", "remark"],
+      "integerFields": [], "booleanFields": ["legacy_base_negative"], "decimalStringFields": ["contribution_base", "total_amount", "employer_amount", "employee_amount", "supplement_amount"], "dateFields": [], "timestampFields": [], "jsonObjectFields": [],
+      "derivedFields": ["period_id"], "foreignKeys": [{"column":"period_id","dependencyRole":"period","targetTable":"hr_employee_insurance_period","required":true}],
+      "uniqueKey": ["tenant_id", "park_id", "period_id", "insurance_kind"], "canonicalFields": ["insurance_kind", "contribution_base", "total_amount", "employer_amount", "employee_amount", "supplement_amount", "legacy_base_negative", "remark", "period_id"],
+      "allowedDispositions": ["insert", "quarantine", "skip_approved"]
+    }
+  }
+}

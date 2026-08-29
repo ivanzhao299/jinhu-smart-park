@@ -142,10 +142,12 @@ export function validateProductionImportPayloadBundle(bundle, { phase, targetSco
 }
 
 function validateRecord(record, phase, contract, identities) {
-  exactKeys(record, ["sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"], ["targetTable", "targetId", "expectedTargetBeforeSha256", "expectedTargetAfterSha256", "decisionAttestationSha256", "beforeImage", "quarantine"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.record`);
+  exactKeys(record, ["sourceSystem", "sourceTable", "sourcePkCanonical", "sourceIdentitySha256", "sourceRowSha256", "payloadSha256", "plannedTargetTable", "dependencyMode", "dependencyRefs", "disposition"], ["targetTable", "targetId", "businessIdentitySha256", "expectedTargetBeforeSha256", "expectedTargetAfterSha256", "expectedTargetVersionBefore", "targetVersionAfter", "decisionAttestationSha256", "beforeImage", "quarantine"], "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.record`);
+  if (record.sourceSystem !== "yuzhou-v10" || !/^dbo\.[A-Za-z0-9_]{1,128}$/u.test(record.sourceTable ?? "")) fail("PRODUCTION_IMPORT_SOURCE_PROVENANCE_INVALID", `${phase}.source table invalid`);
   assertSha(record.sourceIdentitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "source identity");
   assertSha(record.sourceRowSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "source row");
   assertSha(record.payloadSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", "payload");
+  if (record.sourcePkCanonical !== `sha256:${record.sourceIdentitySha256}`) fail("PRODUCTION_IMPORT_SOURCE_PROVENANCE_INVALID", `${phase}.sourcePkCanonical differs`);
   if (identities.has(record.sourceIdentitySha256)) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase} duplicate source identity`);
   identities.add(record.sourceIdentitySha256);
   if (!contract.allowedDispositions.includes(record.disposition)) fail("PRODUCTION_IMPORT_DISPOSITION_INVALID", record.disposition);
@@ -154,9 +156,19 @@ function validateRecord(record, phase, contract, identities) {
   if (record.disposition !== "quarantine") {
     if (record.targetTable !== record.plannedTargetTable) fail("PRODUCTION_IMPORT_TARGET_TABLE_DENIED", `${phase} actual target differs from planned target`);
     if (!UUID.test(record.targetId ?? "")) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.targetId invalid`);
+    assertSha(record.businessIdentitySha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.businessIdentitySha256`);
+    if (!Number.isSafeInteger(record.targetVersionAfter) || record.targetVersionAfter < 0) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.targetVersionAfter`);
+  } else {
+    for (const key of ["businessIdentitySha256", "expectedTargetVersionBefore", "targetVersionAfter"]) if (record[key] !== undefined) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.${key} forbidden for quarantine`);
   }
   if (["merge", "skip_approved"].includes(record.disposition)) assertSha(record.expectedTargetBeforeSha256, "PRODUCTION_IMPORT_CAS_PRECONDITION_REQUIRED", `${phase}.expectedTargetBeforeSha256`);
   else if (record.expectedTargetBeforeSha256 !== undefined) fail("PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.unexpected CAS precondition`);
+  if (["merge", "skip_approved"].includes(record.disposition)) {
+    if (!Number.isSafeInteger(record.expectedTargetVersionBefore) || record.expectedTargetVersionBefore < 0) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.expectedTargetVersionBefore`);
+    const expectedAfter = record.disposition === "merge" ? record.expectedTargetVersionBefore + 1 : record.expectedTargetVersionBefore;
+    if (!Number.isSafeInteger(expectedAfter) || record.targetVersionAfter !== expectedAfter) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.target version transition invalid`);
+  } else if (record.expectedTargetVersionBefore !== undefined) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.unexpected target version precondition`);
+  if (record.disposition === "insert" && record.targetVersionAfter !== 1) fail("PRODUCTION_IMPORT_TARGET_VERSION_INVALID", `${phase}.insert must create version 1`);
   if (["insert", "merge", "skip_approved"].includes(record.disposition)) assertSha(record.expectedTargetAfterSha256, "PRODUCTION_IMPORT_SEALED_PLAN_INVALID", `${phase}.expectedTargetAfterSha256`);
   if (record.disposition === "skip_approved" && record.expectedTargetAfterSha256 !== record.expectedTargetBeforeSha256) fail("PRODUCTION_IMPORT_CAS_PRECONDITION_REQUIRED", `${phase}.skip_approved must preserve target`);
   if (["merge", "quarantine", "skip_approved"].includes(record.disposition)) assertSha(record.decisionAttestationSha256, "PRODUCTION_IMPORT_DECISION_REQUIRED", `${phase}.decisionAttestationSha256`);

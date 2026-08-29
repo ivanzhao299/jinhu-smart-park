@@ -14,7 +14,7 @@
 
 Parent manifest 记录 format version、逐字节可比的 `codeSha/sourceSnapshotHash/mappingContractHash` 三元组、backup/catalog/只读证明、migration/seed aggregate hash、source contracts、staging 相对路径/bytes/hash/mode、target identities、child batches、ledger、side-effect hashes、canonical hashes、UAT/restore/cleanup 索引和 hard gates。A/B verifier 必须显式比较三元组，任一变化使两轮证据同时失效。
 
-状态事实 append-only；修正只能通过 superseding manifest，不能改写历史。真人签署为 hash-addressed detached attestation。证据目录仅保存脱敏 JSON/JSONL/hash/命令元数据；原始 staging 和凭据不入 Git。所有命令输出先做敏感模式扫描。
+状态事实 append-only；修正只能通过 superseding manifest，不能改写历史。历史业务语义结论为 hash-addressed `machine_attestation`，不得包含或冒用自然人签名；数据安全、发布和一次性执行授权仍是独立门禁。证据目录仅保存脱敏 JSON/JSONL/hash/命令元数据；原始 staging 和凭据不入 Git。所有命令输出先做敏感模式扫描。
 
 ## 3. 领域依赖和 Adapter
 
@@ -38,7 +38,7 @@ Canonical row 为：`domain | source_table | source_identity_sha256 | normalized
 
 ## 7. 三角色 UAT
 
-账号 provisioner 只在隔离库创建新凭据，不迁移旧密码。A/B 各自执行同一 versioned task-card 的三角色 API 与 browser 技术矩阵：API runner 验证精确投影、状态、审计和负向范围；browser runner 在 desktop/390 完成列表→详情→历史→动作/待办，测试直接 URL、跨树、跨员工、会话过期、错误恢复、无横向溢出和敏感内容清理。指定最终环境上的真人 UAT 使用同一任务卡，签署以 detached attestation 引用，不能由自动化生成。证据截图只存 `0700` 受控目录中的 `0600` 脱敏文件。
+账号 provisioner 只在隔离库创建新凭据，不迁移旧密码。A/B 各自执行同一 versioned task-card 的三角色 API 与 browser 技术矩阵：API runner 验证精确投影、状态、审计和负向范围；browser runner 在 desktop/390 完成列表→详情→历史→动作/待办，测试直接 URL、跨树、跨员工、会话过期、错误恢复、无横向溢出和敏感内容清理。两轮技术结果绑定到机器凭证；不生成自然人签名。证据截图只存 `0700` 受控目录中的 `0600` 脱敏文件。
 
 ## 8. 恢复、回滚与 Go/No-Go
 
@@ -48,8 +48,16 @@ Canonical row 为：`domain | source_table | source_identity_sha256 | normalized
 
 ## 10. Gate dependency model
 
-规划输入分为 `engineering` 与 `business-execution` 两类。停用源固定 hash 与三年窗口属于已决工程输入，不再产生 delta/停写 reason。真实 T4 差异接受、真人 UAT、正式 RTO/RPO 判定和生产执行分别读取明确 gate；缺失时生成 `T4_TOLERANCE_UNSIGNED`、`HUMAN_UAT_UNSIGNED`、`RTO_RPO_UNAPPROVED`、`PRODUCTION_IMPORT_AUTH_MISSING` 并保持 `NO_GO/HOLD`。
+规划输入分为 `engineering` 与 `production-execution` 两类。停用源固定 hash、三年窗口、T4 语义和三角色技术 UAT 由确定性机器证据闭环；无法唯一确定的业务记录进入 quarantine，不生成签署缺失 reason。正式 RTO/RPO、数据安全、发布职责和生产执行读取独立 gate；缺失时生成 `RTO_RPO_UNAPPROVED`、`DATA_SECURITY_GATE_MISSING`、`RELEASE_GATE_MISSING`、`PRODUCTION_IMPORT_AUTH_MISSING` 并保持 `NO_GO/HOLD`。
 
 ## 9. Rollback boundary
 
 本任务所有变更为新 wrapper/verifier/schema/docs/tests，不修改已成功迁移或旧源数据。实现失败时删除本轮显式资源；不得递归删除宽泛目录。数据库前向 schema 不通过源码反向迁移，生产 import/restore 均不在本任务授权范围。
+
+## 11. Machine attestation and semantic completion
+
+`machine_attestation` replaces only the former HR/payroll/finance/three-role business-semantics attestation dependency for historical import. It does not replace data-security/release accountability or the one-time exact-run production execution authorization. It is a deterministic, hash-addressed system assertion, never a human signature. Its input set is limited to sealed C/S/M artifacts, a trusted evidence-index root, read-only source/catalog hashes, field/type/value-domain ledgers, state-transition evidence, per-source conservation, PostgreSQL numeric reconciliation, A/B manifests and independent resource registries, per-record CAS receipts, restore/fault evidence, technical UAT, side-effect proofs, rollback evidence, and explicit business/control/resource residual inventories.
+
+The semantic compiler classifies each field/rule as `source_exact`, `target_exact`, `derived_deterministic`, `quarantined_ambiguous`, or `unsupported`. Only the first three may write business rows. Ambiguous or unsupported facts stay encrypted/redacted in quarantine with stable reason codes; no employee, organization, status, formula, date, attachment owner, or monetary value is guessed. A quarantined row counts in reconciliation and does not block unrelated deterministic rows.
+
+The automated decision state is `PASS | REVIEW_HOLD | FAIL`. `PASS` requires authoritative artifact bytes to match a pre-fixed evidence-index root, byte-identical A/B outputs, exact ledgers, required T3/T4 PostgreSQL-numeric reconciliation, verified target identity/types, successful restore/fault injection, technical API/RBAC/desktop/390 UAT, protected side-effect zero-write, reverse rollback, and zero business/control/resource residual. `REVIEW_HOLD` permits continued engineering and later isolated batches but cannot activate production writes. `FAIL` invalidates the sealed run. Production execution still consumes a one-time, exact run credential after the machine gate passes; this credential authorizes execution and does not represent a person signing business meaning.

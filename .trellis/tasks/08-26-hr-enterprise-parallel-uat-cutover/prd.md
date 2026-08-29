@@ -9,8 +9,7 @@
 ## Users and decision owners
 
 - migration operator：执行受控编排，不代签业务结论。
-- HR owner：签署员工、组织、异动、合同、档案和人才口径。
-- payroll/finance owner：签署工资公式、项目、总额和差异风险。
+- machine semantic compiler：依据只读源结构、值域、过程、目标约束和重复演练，自动复核员工、组织、异动、合同、档案、工资公式、项目、总额和差异语义；无法唯一确定的事实进入 quarantine。
 - department manager/employee：完成团队及本人范围 UAT。
 - data/security/release owner：分别签署源冻结、敏感数据、资源清理、三端一致和 Go/No-Go。
 
@@ -22,9 +21,9 @@
 4. canonical hash 只包含稳定 source identity、规范业务值和关系 source identity；排除 UUID、sequence、run id 和创建时间。A/B ledger、canonical hash 和 quarantine reason ledger 必须一致。
 5. 固定备份仍全量审计 2010～2026 的 46,092 工资行；生产热候选只装载 2024-01-01～2026-12-31 的 8,342 行，2010～2023 的 37,750 行登记为 `deferred_cold_archive`，不阻断其他领域或全局功能演练。
 6. T4 同时核对全量审计事实和三年候选 `8,342 = 8,320 loaded + 22 quarantined`、190,374 个候选明细，并保留711项目、244公式、266条候选关账、647账套成员和9税率；只算不发，正式 payroll/payslip/payment/bank/tax/message 零写。
-7. A/B 各自在本轮独立隔离环境和相同迁移事实集上完成 HR、部门负责人、员工三角色自动化 API 正负向矩阵和真实浏览器 desktop/390px 技术任务；指定的最终签署环境再由真人完成同一任务卡并生成 detached attestation。覆盖 park/team/self/none、原子动作、字段投影、required audit、直接 URL/UUID 猜测、403/not-found、错误恢复和敏感详情清理；自动化通过不得代替真人签署。
+7. A/B 各自在本轮独立隔离环境和相同迁移事实集上完成 HR、部门负责人、员工三角色自动化 API 正负向矩阵和真实浏览器 desktop/390px 技术任务，并将结果绑定到 `machine_attestation`。覆盖 park/team/self/none、原子动作、字段投影、required audit、直接 URL/UUID 猜测、403/not-found、错误恢复和敏感详情清理。
 8. 完成 `pg_dump -Fc`、TOC/hash、故障注入、restore-to-new-db、平台+HR canonical hash、RTO/RPO 事实记录、T5→T0 反序领域回滚和实际 residual=0。
-9. Go/No-Go compiler 只读取 hash 固定的机器证据，缺任一硬门禁或真人签署必须输出带 reason code 的 `NO_GO`；机器结论不得代签业务结论。
+9. Go/No-Go compiler 只读取 hash 固定的机器证据，缺任一机器语义、数据安全、发布或执行授权硬门禁必须输出带 reason code 的 `NO_GO`；机器凭证不得冒用自然人身份。
 10. 普通 deploy、schema migration、production seed 和 lab rehearsal 永不触发生产历史导入。生产 import 与生产 restore 必须是两个独立入口和两次独立的 run 级授权；各自默认 dry-run，分别固定 operation/run id、SHA、target、source backup、manifest、window、审批主体和授权到期时间，使用最小临时权限并完成即撤权。授权值属于秘密，不得进入 manifest、证据或日志，也不得跨 run/操作复用。
 
 ## Safety and non-goals
@@ -41,12 +40,25 @@
 - [ ] hash tamper、source drift、wrong host/database/project、partial run、领域失败、在线副作用或非零 residual 均失败即停，不能继续 seed/load/UAT/import。
 - [ ] ledger 覆盖 T0 138/18/2,949，T1 6,887，T2 802/357/4，T3 144/4,383/12/144/35,008，T4 35表/46,092/711/244/1,431/647/9，T5 9,140；若源变化，预期值只能来自签名 hash manifest。
 - [ ] 停用源只接受固定 backup/catalog/business hash；不存在 delta、S1 或停写责任人硬门禁，任何源 hash 漂移仍使候选失效。
-- [ ] T4 双轨金额全为 database numeric；未解释差异为零或有逐项风险接受与 HR/payroll/finance 签署；正式发薪域零写。
-- [ ] 三角色 API 与 desktop/390 浏览器 UAT 覆盖正负向、范围、字段、审计、空态、错误/重试和切换清理，P0/P1=0；技术证据与真人签署分离。
+- [ ] T4 双轨金额全为 database numeric；未解释差异为零，无法唯一解释的记录进入逐项 quarantine 风险台账并由机器凭证平账；正式发薪域零写。
+- [ ] 三角色 API 与 desktop/390 浏览器 UAT 覆盖正负向、范围、字段、审计、空态、错误/重试和切换清理，P0/P1=0；技术证据绑定机器凭证。
 - [ ] 备份恢复、故障注入、反序 rollback、RTO/RPO 事实和 residual verifier 全通过；检查实际 DB/container/Compose network/volume/role/directory/account/file/port/process/credential artifact，而非只看退出码，并输出逐资源 `planned/observed/removed/residualCount=0` 总账。
 - [ ] fresh/upgrade/replay/seed×2、契约/负向/PG/API/Web/build、三端 SHA 和证据 bundle hash 全部通过。
-- [ ] 任一硬门禁或签署缺失时为 `NO_GO`；在独立生产授权前始终为 `productionImport=HOLD`。
+- [ ] 任一机器证据、数据安全、发布或一次性执行授权硬门禁缺失时为 `NO_GO`；在独立生产授权前始终为 `productionImport=HOLD`。
 
 ## Open business gates
 
-以下事项不阻止工程实施，但对应的真实业务差异接受、真人 UAT、正式 RTO/RPO 判定和最终 `GO_CANDIDATE` 必须等待输入：T4 公式批准范围/容差/签署人、三角色真人 UAT 人员、正式 RTO/RPO 目标、生产值班与回退职责。玉舟停用事实已取消 delta、S1、停写责任人和停写窗口门禁。未确定业务输入时 compiler 必须给出稳定 reason code 并保持 `NO_GO/productionImport=HOLD`。
+历史语义与三角色业务口径不再等待 HR/payroll/finance 或真人 UAT 输入；只读源和目标约束不能唯一确定的记录自动 quarantine。正式 RTO/RPO 目标、生产值班与回退职责、数据安全和固定 run 的一次性执行授权仍是生产执行门禁。玉舟停用事实已取消 delta、S1、停写责任人和停写窗口门禁；执行门禁缺失时 compiler 必须给出稳定 reason code 并保持 `NO_GO/productionImport=HOLD`。
+
+## 2026-08-29 自动复核决策（覆盖旧人工签署前置）
+
+用户已明确取消 HR、payroll、finance 和三角色真人业务签署作为历史数据语义确认的前置条件。系统以只读玉舟源、固定 C/S/M、逐字段类型与状态字典、守恒式、金额勾稽、A/B 双演练、CAS、回滚和 residual=0 生成 hash-addressed `machine_attestation`。该凭证不是人员电子签名，不写入或冒用任何自然人身份，也不替代数据安全、发布职责、生产值班或固定 run 的一次性执行授权。
+
+自动复核规则如下：
+
+- 可由源结构、源值域、存储过程/状态机、现有 Smart Park 目标约束和重复演练唯一确定的语义，自动归一化并签发 `PASS`。
+- 旧值存在多义、缺失、越界、孤儿、金额不平或无法唯一映射时，只能进入带稳定 reason code 的 quarantine/review ledger，不得猜值；已被隔离且守恒平账的记录不阻断其他可确定数据先导入。
+- 生产导入不再等待部门业务口径人工确认，但仍必须通过真实 PostgreSQL 全链、A/B 一致、备份恢复、反序回滚、业务表与映射 residual=0、三端 SHA、数据安全/发布责任门禁和一次性固定 run 执行凭证。任何技术或执行授权门禁失败继续 `NO_GO/HOLD`。
+- 人工抽查变为上线后的可选治理动作，不作为批次执行依赖；系统必须保留来源、转换、状态推导、异常和回滚的完整审计链。
+
+因此，本任务后续 `GO_CANDIDATE` 的历史业务语义输入改为机器凭证集合；旧文档中仅限 HR/payroll/finance/三角色业务口径的“必须真人签署”“自动化不得替代真人签署”要求由本节取代。生产执行授权、数据安全与发布责任不在替代范围内；“不得伪造真人签名”和“缺证据 fail closed”继续有效。

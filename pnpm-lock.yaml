@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      pg:
+        specifier: ^8.13.1
+        version: 8.20.0
     devDependencies:
       '@eslint/js':
         specifier: ^9.16.0
