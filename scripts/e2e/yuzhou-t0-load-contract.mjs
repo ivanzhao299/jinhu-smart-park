@@ -17,6 +17,8 @@ assert.match(script, /legacyStatus/);
 assert.match(script, /YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256/);
 assert.match(script, /EMPLOYEE_JOB_STATE_UNRESOLVED/);
 assert.match(script, /decision='map' AND target_domain='employment_status'/);
+assert.match(script, /dictionary_item\.source_value IS NULL/);
+assert.doesNotMatch(script, /dictionary_item\.source_name IS NULL/);
 assert.doesNotMatch(script, /WHEN '1' THEN 'active'|ELSE 'departed'/);
 assert.match(script, /chown -R postgres:postgres/);
 assert.match(script, /chmod 600/);
