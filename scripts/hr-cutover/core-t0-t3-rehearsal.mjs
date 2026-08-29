@@ -126,6 +126,19 @@ export function validateCorePairIsolation(configAInput, configBInput) {
   return { status: "PASS", triple: a.triple, resourceClasses: CORE_RESOURCE_FIELDS.length, productionImport: "HOLD" };
 }
 
+// This retained receipt deliberately excludes ETL paths and all credential
+// material.  It remains verifiable after cleanup removes the private runtime.
+export function retainedCoreT0T3Binding(configInput) {
+  const config = validateCoreT0T3Config(configInput);
+  return {
+    formatVersion: 1, profile: config.profile, runId: config.runId, rehearsal: config.rehearsal, triple: config.triple,
+    source: { readOnly: true, sourceBackupSha256: config.source.sourceBackupSha256, sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256, databaseAlias: config.source.databaseAlias, sourceContainer: config.source.sourceContainer },
+    machineAttestation: config.machineAttestation,
+    target: { database: config.target.database, composeProject: config.target.composeProject, container: config.target.container, network: config.target.network, volume: config.target.volume, role: config.target.role, accountNamespace: config.target.accountNamespace, ports: config.target.ports },
+    productionImport: "HOLD"
+  };
+}
+
 function privateArtifact(path, label) {
   let requested, link, actual, info;
   try { requested = resolve(path); link = lstatSync(requested); actual = realpathSync(requested); info = statSync(actual); }

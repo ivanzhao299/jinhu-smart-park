@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, closeSync, copyFileSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
+import { retainedCoreT0T3Binding, validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { computeCoreT0T3MappingContractHash } from "./core-drivers/postgres-lab-v1.mjs";
 import { verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
 
@@ -104,8 +104,9 @@ export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = co
     productionImport: "HOLD"
   };
   validateCoreT0T3Config(config);
-  const configPath = join(configRoot, "rehearsal-config.json"); privateWrite(configPath, config);
-  return { config, configPath, auditRoot, project, productionImport: "HOLD" };
+  const configPath = join(configRoot, "rehearsal-config.json"), retainedBindingPath = join(auditRoot, "retained-run-binding.json");
+  privateWrite(configPath, config); privateWrite(retainedBindingPath, retainedCoreT0T3Binding(config));
+  return { config, configPath, retainedBindingPath, auditRoot, project, productionImport: "HOLD" };
 }
 
 async function main() {
