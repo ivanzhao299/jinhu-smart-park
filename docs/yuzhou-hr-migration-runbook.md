@@ -262,10 +262,11 @@ set -a; . database/import-reports/yuzhou-hr/canonical-source-receipt-etl.env; se
 ALLOW_YUZHOU_MIGRATION=yes \
 YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID='<new-run-id>' \
 YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT='database/import-reports/yuzhou-hr/t3-attendance-events-stage' \
+YUZHOU_BACKUP_SHA256="$(shasum -a 256 database/backups/yuzhou-hr/hr2026081914.dbk | awk '{print $1}')" \
 pnpm hr:migration:t3-attendance-events:stage
 ```
 
-该阶段仅形成 `0600` 的隔离审计证据，`businessWriteTarget=none`、`productionImport=HOLD`。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
+该阶段仅形成 `0600` 的隔离审计证据，并将受控备份哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
 
 现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：
 
