@@ -3,9 +3,13 @@
   "$id": "https://park.cnjinhu.com/schemas/hr/yuzhou-job-state-private-materialization.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "kind", "canonicalDecisionSha256", "payloadSha256", "dictionaryVersionId", "expectedDatabaseItemsSha256", "csm", "t0Binding", "scope", "dictionaryEvidenceSha256", "decisionSubject", "approvalSubject", "items"],
+  "required": ["formatVersion", "kind", "canonicalDecisionSha256", "payloadSha256", "dictionaryVersionId", "expectedDatabaseItemsSha256", "csm", "t0Binding", "scope", "dictionaryEvidenceSha256", "decisionSubject", "items"],
+  "oneOf": [
+    { "required": ["approvalSubject"], "not": { "required": ["verification"] }, "properties": { "formatVersion": { "const": 1 } } },
+    { "required": ["verification"], "not": { "required": ["approvalSubject"] }, "properties": { "formatVersion": { "const": 2 } } }
+  ],
   "properties": {
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "enum": [1, 2] },
     "kind": { "const": "yuzhou-job-state-private-materialization" },
     "canonicalDecisionSha256": { "$ref": "#/$defs/sha" },
     "payloadSha256": { "$ref": "#/$defs/sha" },
@@ -17,6 +21,18 @@
     "dictionaryEvidenceSha256": { "$ref": "#/$defs/sha" },
     "decisionSubject": { "type": "string", "format": "uuid" },
     "approvalSubject": { "type": "string", "format": "uuid" },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "machineAttestationSha256", "evidenceRootSha256", "verifiedAt", "actorKind"],
+      "properties": {
+        "mode": { "const": "machine_attested" },
+        "machineAttestationSha256": { "$ref": "#/$defs/sha" },
+        "evidenceRootSha256": { "$ref": "#/$defs/sha" },
+        "verifiedAt": { "type": "string", "format": "date-time", "pattern": "Z$" },
+        "actorKind": { "const": "machine_policy_engine" }
+      }
+    },
     "items": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "$ref": "#/$defs/item" } }
   },
   "$defs": {
