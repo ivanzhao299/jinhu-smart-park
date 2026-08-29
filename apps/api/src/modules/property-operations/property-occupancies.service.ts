@@ -4,7 +4,9 @@ import {
   APARTMENT_PERMISSIONS,
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
+  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
   UNIT_USAGE_HOUSING,
+  isUnitUsageAllowedForPropertyMode,
   isPropertyManagedOccupancyDomain,
   SYSTEM_PERMISSIONS,
   type PropertyApprovalCommandPort,
@@ -78,13 +80,13 @@ export class PropertyOccupanciesService {
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
           AND unit.is_deleted = false`,
-        { housingUsageType: UNIT_USAGE_HOUSING }
+        { eligibleUsageTypes: PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent }
       )
       .where("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("occupancy.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("occupancy.is_deleted = false")
       .andWhere(`(
-        unit.usage_type = :housingUsageType
+        unit.usage_type IN (:...eligibleUsageTypes)
         OR occupancy.status IN ('released', 'completed', 'cancelled')
         OR (
           occupancy.source_domain IN ('maintenance', 'operations')
@@ -211,7 +213,7 @@ export class PropertyOccupanciesService {
       where: { id: dto.unit_id, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!unit) throw new NotFoundException("Property unit not found");
     if (
       isPropertyManagedOccupancyDomain(dto.source_domain)
       && unit.status !== 1
@@ -223,6 +225,9 @@ export class PropertyOccupanciesService {
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: dto.unit_id, isDeleted: false }
     });
     const mode = config?.operatingMode ?? "none";
+    if (!isUnitUsageAllowedForPropertyMode(mode, unit.usageType)) {
+      throw new ConflictException(`Unit usage is incompatible with operating mode ${mode}`);
+    }
     if (!occupancyDomainMatchesMode(dto.source_domain, mode)) {
       throw new ConflictException(`Occupancy source domain ${dto.source_domain} is incompatible with operating mode ${mode}`);
     }
@@ -325,7 +330,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!unit) throw new NotFoundException("Property unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -337,6 +342,9 @@ export class PropertyOccupanciesService {
       lock: { mode: "pessimistic_read" }
     });
     const mode = config?.operatingMode ?? "none";
+    if (!isUnitUsageAllowedForPropertyMode(mode, unit.usageType)) {
+      throw new ConflictException(`Unit usage is incompatible with operating mode ${mode}`);
+    }
     if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }
@@ -383,7 +391,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!unit) throw new NotFoundException("Property unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -395,6 +403,9 @@ export class PropertyOccupanciesService {
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false }
     });
     const mode = config?.operatingMode ?? "none";
+    if (!isUnitUsageAllowedForPropertyMode(mode, unit.usageType)) {
+      throw new ConflictException(`Unit usage is incompatible with operating mode ${mode}`);
+    }
     if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }
@@ -556,7 +567,7 @@ export class PropertyOccupanciesService {
             EXISTS (
               SELECT 1 FROM biz_unit unit
               WHERE unit.tenant_id=occupancy.tenant_id AND unit.park_id=occupancy.park_id
-                AND unit.id=occupancy.unit_id AND unit.usage_type=$4 AND unit.is_deleted=false
+                AND unit.id=occupancy.unit_id AND unit.usage_type=ANY($4::smallint[]) AND unit.is_deleted=false
             )
             OR (
               occupancy.source_domain IN ('maintenance', 'operations')
@@ -571,7 +582,7 @@ export class PropertyOccupanciesService {
             )
           )
         FOR UPDATE`,
-      [scope.tenantId, scope.parkId, occupancyId, UNIT_USAGE_HOUSING]
+      [scope.tenantId, scope.parkId, occupancyId, [...PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent]]
     ) as Array<{
       id: string; unitId: string; sourceDomain: string; sourceType: string;
       sourceId: string; status: string; version: number;
@@ -719,7 +730,7 @@ export class PropertyOccupanciesService {
           AND unit.tenant_id = occupancy.tenant_id
           AND unit.park_id = occupancy.park_id
           AND unit.is_deleted = false`,
-        { housingUsageType: UNIT_USAGE_HOUSING }
+        { eligibleUsageTypes: PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent }
       )
       .where("occupancy.id = :id", { id })
       .andWhere("occupancy.tenant_id = :tenantId", { tenantId: scope.tenantId })
@@ -729,7 +740,7 @@ export class PropertyOccupanciesService {
     if (
       !entity
       || (
-        entity.unit?.usageType !== UNIT_USAGE_HOUSING
+        !isUnitUsageAllowedForPropertyMode("long_rent", Number(entity.unit?.usageType))
         && !this.isTerminalOrActiveManualOccupancy(entity)
       )
     ) {

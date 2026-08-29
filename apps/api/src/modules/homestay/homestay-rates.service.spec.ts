@@ -93,8 +93,8 @@ test("rate calendar preserves scoped reads, persisted policy fields, and date pr
       }
     } as never,
     { createQueryBuilder: () => builder } as never,
-    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
-    {} as never
+    { assertAccess: async () => ({ id: "unit-1", status: 1, usageType: 70 }) } as never,
+    { query: async () => [{ eligible: 1 }] } as never
   );
 
   const result = await service.getRateCalendar(
@@ -150,7 +150,7 @@ test("rate calendar returns an explicit unconfigured state for an authorized uni
   const service = new HomestayRatesService(
     { findOne: async () => null } as never,
     { createQueryBuilder: () => { overrideReads += 1; return {}; } } as never,
-    { assertAccess: async () => ({ id: "unit-1", status: 1 }) } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1, usageType: 70 }) } as never,
     { query: async () => [{ eligible: 1 }] } as never
   );
 
@@ -181,7 +181,8 @@ test("unconfigured rate state rejects units outside the active short-stay invent
     {
       assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => ({
         id: unitId,
-        status: unitId === "disabled-unit" ? 0 : 1
+        status: unitId === "disabled-unit" ? 0 : 1,
+        usageType: 70
       })
     } as never,
     { query: async () => operationRows.shift() ?? [] } as never
@@ -207,7 +208,7 @@ test("rate calendar validates dates and unit scope before repository reads", asy
     {
       assertAccess: async (_scope: unknown, _actor: unknown, unitId: string) => {
         if (unitId !== "unit-allowed") throw new NotFoundException("Unit not found");
-        return { id: unitId, status: 1 };
+        return { id: unitId, status: 1, usageType: 70 };
       }
     } as never,
     {} as never
@@ -235,7 +236,12 @@ test("percentage rate validation keeps access first and prevents writes above 10
   const service = new HomestayRatesService(
     {} as never,
     {} as never,
-    { assertAccess: async () => { events.push("access"); } } as never,
+    {
+      assertAccess: async () => {
+        events.push("access");
+        return { id: "unit-1", status: 1, usageType: 70 };
+      }
+    } as never,
     { query: async () => { events.push("write"); } } as never
   );
 

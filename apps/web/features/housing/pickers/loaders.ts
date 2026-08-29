@@ -50,7 +50,8 @@ export async function loadHousingUnits(input: RemoteEntityLoadInput): Promise<Re
   );
   return pickerPage(response.data, (unit) => ({
     id: unit.id,
-    label: `${unit.unitCode} · ${unit.unitName}`
+    label: `${unit.unitCode} · ${unit.unitName}`,
+    secondaryLabel: unit.rental_segment === "office" ? "办公长租" : "住宅长租"
   }));
 }
 

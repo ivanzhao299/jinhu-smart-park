@@ -11,8 +11,9 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
+  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
   SYSTEM_PERMISSIONS,
-  UNIT_USAGE_HOUSING,
+  isUnitUsageAllowedForPropertyMode,
   type PropertyApprovalCommandPort,
   type PropertyOperatingMode,
   type TenantParkScope
@@ -107,7 +108,9 @@ export class PropertyOperationsService {
       .where("unit.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("unit.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("unit.is_deleted = false")
-      .andWhere("unit.usage_type = :housingUsageType", { housingUsageType: UNIT_USAGE_HOUSING });
+      .andWhere("unit.usage_type IN (:...eligibleUsageTypes)", {
+        eligibleUsageTypes: PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent
+      });
     if (allowedUnitIds !== null) {
       builder.andWhere("unit.id IN (:...allowedUnitIds)", { allowedUnitIds });
     }
@@ -236,19 +239,23 @@ export class PropertyOperationsService {
 
   async configure(scope: TenantParkScope, actor: JwtPrincipal, unitId: string, dto: ConfigurePropertyUnitDto, clientKey?: string) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_UPDATE);
-    await this.assertHousingUnitAccess(scope, actor, unitId);
+    await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
       const unit = await manager.getRepository(UnitEntity).findOne({
         where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
-      if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+      if (!unit) throw new NotFoundException("Property unit not found");
 
       const configRepository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await configRepository.findOne({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
+      const configuredMode = config?.operatingMode ?? "none";
+      if (!isUnitUsageAllowedForPropertyMode(configuredMode, unit.usageType)) {
+        throw new ConflictException(`Unit usage is incompatible with operating mode ${configuredMode}`);
+      }
       if ((config?.version ?? 0) !== dto.version) {
         throw new ConflictException({
           message: "Property operation configuration version has changed",
@@ -305,15 +312,18 @@ export class PropertyOperationsService {
   ) {
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_APPROVAL_CREATE);
     this.assertActionPermission(actor, SYSTEM_PERMISSIONS.PROPERTY_OPERATION_TRANSITION_MODE);
-    await this.assertHousingUnitAccess(scope, actor, unitId);
+    await this.unitAccessService.assertAccess(scope, actor, unitId);
     return this.dataSource.transaction(async (manager) => {
       await manager.query("SELECT lock_property_unit_scope($1, $2, $3)", [scope.tenantId, scope.parkId, unitId]);
       const lockedUnit = await manager.getRepository(UnitEntity).findOne({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, id: unitId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
-      if (!lockedUnit || lockedUnit.usageType !== UNIT_USAGE_HOUSING) {
-        throw new NotFoundException("Housing unit not found");
+      if (!lockedUnit) {
+        throw new NotFoundException("Property unit not found");
+      }
+      if (!isUnitUsageAllowedForPropertyMode(dto.target_mode, lockedUnit.usageType)) {
+        throw new ConflictException("Unit usage is not allowed for target operating mode");
       }
       const repository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await repository.findOne({
@@ -412,25 +422,31 @@ export class PropertyOperationsService {
       scope.tenantId, scope.parkId, unitId
     ]);
     const rows = await input.manager.query(
-      `SELECT id::text AS id, operating_mode AS "operatingMode",
-              operating_status AS "operatingStatus", version
+      `SELECT config.id::text AS id, config.operating_mode AS "operatingMode",
+              config.operating_status AS "operatingStatus", config.version,
+              unit.usage_type AS "usageType"
          FROM biz_property_operation_config config
+         JOIN biz_unit unit
+           ON unit.tenant_id=config.tenant_id AND unit.park_id=config.park_id
+          AND unit.id=config.unit_id AND unit.is_deleted=false
         WHERE config.tenant_id=$1 AND config.park_id=$2 AND config.id=$3 AND config.unit_id=$4
           AND config.is_deleted=false
-          AND EXISTS (
-            SELECT 1 FROM biz_unit unit
-            WHERE unit.tenant_id=config.tenant_id AND unit.park_id=config.park_id
-              AND unit.id=config.unit_id AND unit.is_deleted=false
-          )
-        FOR UPDATE`,
+        FOR UPDATE OF config, unit`,
       [scope.tenantId, scope.parkId, configId, unitId]
-    ) as Array<{ id: string; operatingMode: PropertyOperatingMode; operatingStatus: string; version: number }>;
+    ) as Array<{
+      id: string;
+      operatingMode: PropertyOperatingMode;
+      operatingStatus: string;
+      usageType: number;
+      version: number;
+    }>;
     const config = rows[0];
     if (
       !config
       || config.version !== input.sourceExpectedVersion
       || config.operatingMode !== fromMode
       || config.operatingStatus !== payload.operatingStatus
+      || !isUnitUsageAllowedForPropertyMode(targetMode, Number(config.usageType))
     ) throw new ConflictException("Approval source changed");
     const currentSnapshot = await this.buildTransitionSnapshot(
       input.manager, scope, unitId, targetMode
@@ -779,7 +795,9 @@ export class PropertyOperationsService {
     unitId: string
   ): Promise<UnitEntity> {
     const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
-    if (unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!isUnitUsageAllowedForPropertyMode("long_rent", unit.usageType)) {
+      throw new NotFoundException("Eligible property unit not found");
+    }
     return unit;
   }
 

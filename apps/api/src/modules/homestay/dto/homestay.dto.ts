@@ -21,6 +21,7 @@ import {
 import type { ValidatorConstraintInterface } from "class-validator";
 import { ValidatorConstraint } from "class-validator";
 import { isBusinessDate } from "../homestay-booking.policy";
+import { UNIT_USAGE_TYPES, type UnitUsageType } from "@jinhu/shared";
 
 const trimOptional = (value: unknown): string | undefined => {
   if (value === undefined || value === null) return undefined;
@@ -81,6 +82,11 @@ export class HomestayBookingQueryDto {
 }
 
 export class HomestayUnitCandidateQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsIn(UNIT_USAGE_TYPES)
+  usage_type?: UnitUsageType;
+
   @IsOptional()
   @Type(() => Number)
   @IsInt()

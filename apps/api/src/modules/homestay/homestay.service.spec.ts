@@ -210,9 +210,13 @@ test("initial homestay rate configuration uses one atomic database upsert", asyn
       }
     } as never,
     {} as never,
-    { assertAccess: async () => undefined } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1, usageType: 70 }) } as never,
     {
       query: async (sql: string, values: unknown[]) => {
+        if (sql.includes("FROM biz_property_operation_config")) {
+          events.push("eligibility");
+          return [{ eligible: 1 }];
+        }
         events.push("upsert");
         statement = sql;
         parameters = values;
@@ -228,7 +232,7 @@ test("initial homestay rate configuration uses one atomic database upsert", asyn
     checkout_requires_inspection: true
   });
 
-  assert.deepEqual(events, ["upsert", "read"]);
+  assert.deepEqual(events, ["eligibility", "upsert", "read"]);
   assert.match(statement, /ON CONFLICT \(tenant_id, park_id, unit_id\) WHERE is_deleted = false/);
   assert.match(statement, /version = biz_homestay_rate_config\.version \+ 1/);
   assert.deepEqual(parameters.slice(0, 8), [
@@ -257,9 +261,13 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
         return expected;
       }
     } as never,
-    { assertAccess: async () => undefined } as never,
+    { assertAccess: async () => ({ id: "unit-1", status: 1, usageType: 70 }) } as never,
     {
       query: async (sql: string, values: unknown[]) => {
+        if (sql.includes("FROM biz_property_operation_config")) {
+          events.push("eligibility");
+          return [{ eligible: 1 }];
+        }
         events.push("upsert");
         statement = sql;
         parameters = values;
@@ -273,7 +281,7 @@ test("dated homestay rate overrides use one atomic database upsert", async () =>
     reason: "周末价"
   });
 
-  assert.deepEqual(events, ["upsert", "read"]);
+  assert.deepEqual(events, ["eligibility", "upsert", "read"]);
   assert.match(
     statement,
     /ON CONFLICT \(tenant_id, park_id, unit_id, business_date\) WHERE is_deleted = false/

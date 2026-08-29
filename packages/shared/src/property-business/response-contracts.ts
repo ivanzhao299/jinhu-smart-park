@@ -1,4 +1,9 @@
-import type { HomestayBookingStatus, PaginatedResult } from "../index";
+import type {
+  HomestayBookingStatus,
+  PaginatedResult,
+  RentalSegment,
+  UnitUsageType
+} from "../index";
 
 /**
  * Stable property-workbench HTTP projections.
@@ -45,6 +50,23 @@ export interface PropertyWorkbenchUnitRef {
   unitName: string;
 }
 
+export interface PropertyWorkbenchEligibleUnitRef extends PropertyWorkbenchUnitRef {
+  usage_type: UnitUsageType;
+  rental_segment: RentalSegment | null;
+  eligible: boolean;
+  ineligible_reasons: string[];
+}
+
+export interface PropertyWorkbenchUnitFacets {
+  usage_type: Array<{ value: UnitUsageType; rental_segment: RentalSegment | null }>;
+  rental_segment: RentalSegment[];
+}
+
+export interface PropertyWorkbenchEligibleUnitListResponse
+extends PaginatedResult<PropertyWorkbenchEligibleUnitRef> {
+  facets: PropertyWorkbenchUnitFacets;
+}
+
 export interface PropertyWorkbenchPartyRef {
   id: string;
   displayName: string;
@@ -88,9 +110,9 @@ export type HomestayAvailabilityListResponse =
   PaginatedResult<HomestayAvailabilityItem>;
 export type HomestayAvailabilityDetailResponse = HomestayAvailabilityItem;
 
-export type HomestayUnitCandidate = PropertyWorkbenchUnitRef;
+export type HomestayUnitCandidate = PropertyWorkbenchEligibleUnitRef;
 export type HomestayUnitCandidateListResponse =
-  PaginatedResult<HomestayUnitCandidate>;
+  PropertyWorkbenchEligibleUnitListResponse;
 export type HomestayUnitListResponse = HomestayUnitCandidateListResponse;
 
 export interface HomestayUnitDetailResponse extends PropertyWorkbenchUnitRef {
@@ -332,7 +354,7 @@ export type HousingTenantResponse = HousingTenantListItem;
 
 export const HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS = {
   UNIT_INACTIVE: "UNIT_INACTIVE",
-  UNIT_USAGE_NOT_HOUSING: "UNIT_USAGE_NOT_HOUSING",
+  UNIT_USAGE_NOT_ALLOWED_FOR_MODE: "UNIT_USAGE_NOT_ALLOWED_FOR_MODE",
   OPERATION_CONFIG_MISSING: "OPERATION_CONFIG_MISSING",
   OPERATION_MODE_NOT_LONG_RENT: "OPERATION_MODE_NOT_LONG_RENT",
   OPERATION_STATUS_NOT_ENABLED: "OPERATION_STATUS_NOT_ENABLED",
@@ -449,16 +471,17 @@ export interface HousingPurchaseListQuery {
 
 export interface HousingUnitCandidateQuery {
   keyword?: string;
+  usage_type?: UnitUsageType;
   sort?: HousingUnitCandidateSort;
   order?: HousingSortOrder;
   page: number;
   page_size: number;
 }
 
-export type HousingUnitCandidateResponse = PropertyWorkbenchUnitRef;
+export type HousingUnitCandidateResponse = PropertyWorkbenchEligibleUnitRef;
 
 export type HousingUnitCandidateListResponse =
-  PaginatedResult<HousingUnitCandidateResponse>;
+  PropertyWorkbenchEligibleUnitListResponse;
 
 export interface HousingLeaseListItem extends HousingLeaseResponse {
   unitCode: string | null;

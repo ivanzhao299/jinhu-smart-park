@@ -1,5 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import type { PropertyApprovalJsonValue, TenantParkScope } from "@jinhu/shared";
+import {
+  isUnitUsageAllowedForPropertyMode,
+  type PropertyApprovalJsonValue,
+  type TenantParkScope
+} from "@jinhu/shared";
 import type { EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PropertyOperationConfigEntity } from "../property-operations/entities/property-operation-config.entity";
@@ -111,6 +115,9 @@ export class HomestayTransactionSupportService {
     });
     if (!unit) throw new NotFoundException("Unit not found");
     if (unit.status !== 1) throw new ConflictException("Unit must be active before booking");
+    if (!isUnitUsageAllowedForPropertyMode("short_stay", unit.usageType)) {
+      throw new ConflictException("Unit usage is not allowed for short-stay operation");
+    }
     const config = await manager.getRepository(PropertyOperationConfigEntity).findOne({
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false }
     });
