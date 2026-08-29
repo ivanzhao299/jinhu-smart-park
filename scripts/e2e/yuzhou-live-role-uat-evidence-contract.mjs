@@ -43,11 +43,12 @@ function browserEvidence(item, rehearsal, runKind = "yzfull") {
       clientWidth: viewport.width,
       scrollWidth: viewport.width,
       networkFailureCount: 0,
+      pendingRequestCount: 0,
       screenshotSha256: hash(`${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       domAssertionSha256: hash(`dom:${rehearsal}:${item.legacyId}:${roleType}:${viewport.id}`),
       assertions: taskCard.browserAssertions
       };
-      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount }));
+      value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount, pendingRequestCount: value.pendingRequestCount }));
       return [viewport.id, value];
     }))
   ]));
@@ -87,7 +88,7 @@ function reuseReviewerAcrossPair(pair) {
   pair.B.actors[1].subjectHash = subjectHash;
   for (const item of pair.B.items) for (const cell of Object.values(item.browser.hr_manager ?? {})) {
     cell.actorSubjectHash = subjectHash;
-    cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount }));
+    cell.cellEvidenceSha256 = hash(JSON.stringify({ runId: cell.runId, rehearsal: cell.rehearsal, triple: cell.triple, legacyId: cell.legacyId, roleType: cell.roleType, actor: cell.actor, actorSubjectHash: cell.actorSubjectHash, route: cell.route, renderedPath: cell.renderedPath, viewportId: cell.viewportId, width: cell.width, height: cell.height, mobile: cell.mobile, screenshotSha256: cell.screenshotSha256, domAssertionSha256: cell.domAssertionSha256, networkFailureCount: cell.networkFailureCount, pendingRequestCount: cell.pendingRequestCount }));
   }
   for(const item of pair.B.items){for(const row of item.auditEvidence.rows)if(row.actor==="hr_reviewer")row.actorSubjectHash=subjectHash;item.auditEvidence.rowsSha256=hash(JSON.stringify(item.auditEvidence.rows));item.auditEvidenceSha256=hash(JSON.stringify(item.auditEvidence));}
 }
