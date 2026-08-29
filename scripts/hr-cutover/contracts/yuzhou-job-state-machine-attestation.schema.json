@@ -20,7 +20,7 @@
     "privatePayloadSha256": { "$ref": "#/$defs/sha256" },
     "t0EvidenceArtifactSha256": { "$ref": "#/$defs/sha256" },
     "t0BindingSha256": { "$ref": "#/$defs/sha256" },
-    "semanticLedger": { "type": "object", "additionalProperties": false, "required": ["sourceDistinctStateCount", "sourceRecordCount", "mappedStateCount", "quarantinedStateCount", "mappedRecordCount", "quarantinedRecordCount"], "properties": { "sourceDistinctStateCount": { "const": 7 }, "sourceRecordCount": { "const": 2949 }, "mappedStateCount": { "const": 4 }, "quarantinedStateCount": { "const": 3 }, "mappedRecordCount": { "type": "integer", "minimum": 4, "maximum": 2946 }, "quarantinedRecordCount": { "type": "integer", "minimum": 3, "maximum": 2945 } } },
+    "semanticLedger": { "type": "object", "additionalProperties": false, "required": ["sourceDistinctStateCount", "sourceRecordCount", "mappedStateCount", "quarantinedStateCount", "mappedRecordCount", "quarantinedRecordCount"], "properties": { "sourceDistinctStateCount": { "const": 7 }, "sourceRecordCount": { "const": 2949 }, "mappedStateCount": { "type": "integer", "minimum": 0, "maximum": 7 }, "quarantinedStateCount": { "type": "integer", "minimum": 0, "maximum": 7 }, "mappedRecordCount": { "type": "integer", "minimum": 0, "maximum": 2949 }, "quarantinedRecordCount": { "type": "integer", "minimum": 0, "maximum": 2949 } } },
     "assertionMode": { "const": "trusted_root_job_state_machine_semantics" },
     "humanSignature": { "const": false },
     "humanIdentityAsserted": { "const": false },

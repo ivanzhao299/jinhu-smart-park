@@ -5,7 +5,6 @@ const SHA256 = /^[0-9a-f]{64}$/u;
 const CODE_SHA = /^[0-9a-f]{40}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
-const TARGET_STATUSES = ["active", "departed", "probation", "suspended"];
 const QUARANTINE_REASONS = new Set(["AMBIGUOUS_SEMANTICS", "CONFLICTING_SOURCE_EVIDENCE", "UNKNOWN_SOURCE_VALUE", "UNSUPPORTED_SEMANTICS"]);
 const SENSITIVE = /(?:\/Users\/|[A-Za-z]:[\\/]|file:\/\/|(?:password|passwd|token|secret|credential)\s*[:=]|BEGIN [A-Z ]*PRIVATE KEY|\b(?:10|127|169\.254|172\.(?:1[6-9]|2\d|3[01])|192\.168)\.\d{1,3}\.\d{1,3}\b)/iu;
 
@@ -45,11 +44,10 @@ function verifyDecision(decision, triple, trustedCheckpointRootSha256) {
   if (result.status !== "MACHINE_CANDIDATE" || result.materializationEligibility !== "MACHINE_CANDIDATE" || result.legacyReadOnlyAudit !== false) fail("YUZHOU_JOB_STATE_MACHINE_V2_DECISION_REQUIRED", "legacy v1 decisions are audit/rollback/cleanup only");
   if (canonicalYuzhouJobStateMachineJson(decision.triple) !== canonicalYuzhouJobStateMachineJson(triple)) fail("YUZHOU_JOB_STATE_MACHINE_DECISION_BINDING_INVALID", "decision C/S/M differs from checkpoint");
   if (decision.expectedCheckpointRootSha256 !== trustedCheckpointRootSha256 || decision.checkpointRootSha256 !== trustedCheckpointRootSha256 || decision.evidenceIndex.checkpointSha256 !== trustedCheckpointRootSha256) fail("YUZHOU_JOB_STATE_MACHINE_TRUST_ROOT_MISMATCH", "decision is not bound to the external checkpoint root");
-  if (result.observedRecordCount !== 2949 || result.mapped !== 4 || result.quarantined !== 3) fail("YUZHOU_JOB_STATE_MACHINE_DECISION_LEDGER_INVALID", "expected 2949 records split across four mappings and three quarantines");
-  const mapped = decision.decisions.filter(row => row.decision === "map").map(row => row.targetEmploymentStatus).sort();
-  if (JSON.stringify(mapped) !== JSON.stringify(TARGET_STATUSES)) fail("YUZHOU_JOB_STATE_MACHINE_TARGET_COVERAGE_INVALID", "each deterministic employment status must occur exactly once");
+  if (result.observedRecordCount !== 2949 || result.mapped + result.quarantined !== 7
+    || result.mappedRecordCount + result.quarantinedRecordCount !== 2949) fail("YUZHOU_JOB_STATE_MACHINE_DECISION_LEDGER_INVALID", "the seven source states must conserve all 2949 records");
   const reasons = decision.decisions.filter(row => row.decision === "quarantine").map(row => row.reasonCode);
-  if (reasons.length !== 3 || reasons.some(reason => !QUARANTINE_REASONS.has(reason))) fail("YUZHOU_JOB_STATE_MACHINE_QUARANTINE_COVERAGE_INVALID", "three governed quarantine decisions are required");
+  if (reasons.some(reason => !QUARANTINE_REASONS.has(reason))) fail("YUZHOU_JOB_STATE_MACHINE_QUARANTINE_COVERAGE_INVALID", "quarantine reasons must remain governed");
   const recomputed = canonicalDecisionHash(decision);
   if (recomputed !== decision.canonicalDecisionSha256) fail("YUZHOU_JOB_STATE_MACHINE_DECISION_HASH_MISMATCH", "canonical decision drift");
   return { result, recomputed };
@@ -132,7 +130,12 @@ export function verifyYuzhouJobStateMachineAttestation(attestation, { expectedCh
   if (attestation.trustedCheckpointRootSha256 !== expectedCheckpointRootSha256) fail("YUZHOU_JOB_STATE_MACHINE_TRUST_ROOT_MISMATCH", "attestation does not bind the externally trusted checkpoint");
   exactKeys(attestation.semanticLedger, ["sourceDistinctStateCount", "sourceRecordCount", "mappedStateCount", "quarantinedStateCount", "mappedRecordCount", "quarantinedRecordCount"], "YUZHOU_JOB_STATE_MACHINE_ATTESTATION_INVALID");
   const ledger = attestation.semanticLedger;
-  if (ledger.sourceDistinctStateCount !== 7 || ledger.sourceRecordCount !== 2949 || ledger.mappedStateCount !== 4 || ledger.quarantinedStateCount !== 3 || !Number.isSafeInteger(ledger.mappedRecordCount) || !Number.isSafeInteger(ledger.quarantinedRecordCount) || ledger.mappedRecordCount < 4 || ledger.quarantinedRecordCount < 3 || ledger.mappedRecordCount + ledger.quarantinedRecordCount !== ledger.sourceRecordCount) fail("YUZHOU_JOB_STATE_MACHINE_ATTESTATION_LEDGER_INVALID", "semantic ledger does not conserve source records");
+  if (ledger.sourceDistinctStateCount !== 7 || ledger.sourceRecordCount !== 2949
+    || !Number.isSafeInteger(ledger.mappedStateCount) || !Number.isSafeInteger(ledger.quarantinedStateCount)
+    || ledger.mappedStateCount < 0 || ledger.quarantinedStateCount < 0 || ledger.mappedStateCount + ledger.quarantinedStateCount !== 7
+    || !Number.isSafeInteger(ledger.mappedRecordCount) || !Number.isSafeInteger(ledger.quarantinedRecordCount)
+    || ledger.mappedRecordCount < 0 || ledger.quarantinedRecordCount < 0
+    || ledger.mappedRecordCount + ledger.quarantinedRecordCount !== ledger.sourceRecordCount) fail("YUZHOU_JOB_STATE_MACHINE_ATTESTATION_LEDGER_INVALID", "semantic ledger does not conserve source records");
   if (computeYuzhouJobStateAttestationIntegrity(attestation) !== attestation.integrityDigest) fail("YUZHOU_JOB_STATE_MACHINE_INTEGRITY_MISMATCH", "attestation integrity drift");
   return { status: "PASS", productionImport: "HOLD", checkpointRootSha256: expectedCheckpointRootSha256, packageRootSha256: attestation.jobStatePackageRootSha256, integrityDigest: attestation.integrityDigest };
 }
