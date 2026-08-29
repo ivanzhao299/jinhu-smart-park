@@ -718,3 +718,40 @@ Implemented transactional housing and homestay rental-status projection with con
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: LEA 上线后 UAT 复测与队列闭环
+
+**Date**: 2026-08-30
+**Task**: LEA 上线后 UAT 复测与队列闭环
+**Package**: api
+**Branch**: `evidence/lea-post-deploy-uat-archive`
+
+### Summary
+
+完成 LEA-003/004 上线后 mode×用途矩阵、改名权限/403、390px、Network、rental_status 双写审计与双业务回归；PR #504 经三轮 review、CI、Release Smoke、main CI/Deploy 双绿后合并，并归档 UAT 与 intake queue。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3c1162d` | (see git log) |
+| `546efbf2` | (see git log) |
+| `cd5d3565` | (see git log) |
+| `8375ba48` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
