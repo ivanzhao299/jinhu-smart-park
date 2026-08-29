@@ -13,14 +13,18 @@ const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contr
 const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"));
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const hash = value => createHash("sha256").update(value).digest("hex");
-const passing = () => {
-  const value = { runId: "yzfull-browser-contract-rA", rehearsal: "A", triple, legacyId: 35, roleType: "department_manager", actor: "manager", actorSubjectHash: "4".repeat(64), route: "/hr/employees", renderedPath: "/hr/employees", viewportId: "phone_390", status: "PASS", width: 390, height: 844, mobile: true, clientWidth: 390, scrollWidth: 390, networkFailureCount: 0, assertions: [...assertions], screenshotSha256: "a".repeat(64), domAssertionSha256: "b".repeat(64) };
+const passing = (runId = "yzfull-browser-contract-rA") => {
+  const value = { runId, rehearsal: "A", triple, legacyId: 35, roleType: "department_manager", actor: "manager", actorSubjectHash: "4".repeat(64), route: "/hr/employees", renderedPath: "/hr/employees", viewportId: "phone_390", status: "PASS", width: 390, height: 844, mobile: true, clientWidth: 390, scrollWidth: 390, networkFailureCount: 0, assertions: [...assertions], screenshotSha256: "a".repeat(64), domAssertionSha256: "b".repeat(64) };
   value.cellEvidenceSha256 = hash(JSON.stringify({ runId: value.runId, rehearsal: value.rehearsal, triple: value.triple, legacyId: value.legacyId, roleType: value.roleType, actor: value.actor, actorSubjectHash: value.actorSubjectHash, route: value.route, renderedPath: value.renderedPath, viewportId: value.viewportId, width: value.width, height: value.height, mobile: value.mobile, screenshotSha256: value.screenshotSha256, domAssertionSha256: value.domAssertionSha256, networkFailureCount: value.networkFailureCount }));
   return value;
 };
 
 test("browser runner observation is role, route, viewport, layout and screenshot bound", () => {
   assert.equal(validateYuzhouBrowserObservation(passing(), check, viewport, assertions).status, "PASS");
+});
+
+test("core T0-T3 browser observations retain the same evidence binding contract", () => {
+  assert.equal(validateYuzhouBrowserObservation(passing("yzcore-browser-contract-rA"), check, viewport, assertions).status, "PASS");
 });
 
 test("browser observation drift and horizontal overflow fail closed", () => {
