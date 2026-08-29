@@ -24,6 +24,8 @@ assert.match(load, /YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256/);
 assert.match(load, /EMPLOYMENT_EVENT_TYPE_UNRESOLVED/);
 assert.match(load, /EMPLOYMENT_EVENT_STATE_UNRESOLVED/);
 assert.doesNotMatch(load, /legacyState'<>|normalizedEventType/);
+assert.match(extract, /GROUP BY CONVERT\(varchar\(255\),readjusttype\)/);
+assert.doesNotMatch(extract, /SELECT readjustitem AS legacyType/);
 assert.match(load, /BEGIN;[\s\S]*COMMIT;/);
 assert.doesNotMatch(load, /password|bank_account|idcard/i);
 assert.match(rollback, /target_table='hr_employment_event'/);

@@ -40,7 +40,7 @@ query_json() {
   chmod 600 "$OUTPUT_DIR/$output"
 }
 
-query_json employment-event-types.raw.json "SET NOCOUNT ON; SELECT readjustitem AS legacyType,id AS legacyCode FROM dbo.readjustitem ORDER BY readjustitem FOR JSON PATH,INCLUDE_NULL_VALUES;"
+query_json employment-event-types.raw.json "SET NOCOUNT ON; SELECT CONVERT(varchar(255),readjusttype) AS legacyType,COUNT_BIG(*) AS usageCount FROM dbo.readjust GROUP BY CONVERT(varchar(255),readjusttype) ORDER BY CONVERT(varchar(255),readjusttype) FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query_json employment-event-states.raw.json "SET NOCOUNT ON; SELECT CONVERT(varchar(255),state) AS sourceValue,COUNT_BIG(*) AS usageCount FROM dbo.readjust GROUP BY state ORDER BY CONVERT(varchar(255),state) FOR JSON PATH,INCLUDE_NULL_VALUES;"
 query_json employment-events.raw.json "SET NOCOUNT ON; SELECT id AS legacyId,no AS legacyEventNo,readjusttype AS legacyEventType,CONVERT(varchar(19),readjustdate,120) AS sourceEffectiveAt,person AS employeeCode,olddepartment AS beforeOrgCode,department AS afterOrgCode,oldjob AS beforePositionCode,job AS afterPositionCode,jobstate AS legacyEmployeeState,CONVERT(varchar(20),state) AS legacyState,departmentflag,jobflag,payflag,otherflag,cause AS reason FROM dbo.readjust ORDER BY id FOR JSON PATH,INCLUDE_NULL_VALUES;"
 node "$ROOT_DIR/scripts/transform-yuzhou-t1-employment-events.mjs" "$OUTPUT_DIR"
