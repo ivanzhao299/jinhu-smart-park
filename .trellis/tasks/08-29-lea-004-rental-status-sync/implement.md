@@ -21,4 +21,5 @@
 - 2026-08-29：PR #490 首轮 Codex review 提出 3 个有效 P2：40+剩余业务须归一 30、商业 blocker 须限实际生效合同、住房 effect audit 须保存 projection disposition。均已修复；新增 forward-only `000285_housing_rental_status_projection_audit.sql`，定向 22 tests 为 21 PASS/1 DB conditional SKIP，workspace lint/typecheck PASS。
 - 2026-08-29：第 2 轮 Codex review 提出 2 个有效问题：void audit 必须传 SQL NULL、confirmed cancellation/no-show 必须在 terminal 后重算以避免滞留 30。已修复并把处置结果写入各自 action audit；定向 46 tests 为 45 PASS/1 DB conditional SKIP，API typecheck/lint PASS。
 - 2026-08-29：第 3（最终）轮 Codex review 提出 2 个边界：status-75 future-effective 合同已在 effective() 当下投影 30、且无日期调度器，故 release 按 75 权威保留；draft hold 取消也须重算。均已修复；不再触发第 4 轮。
+- 2026-08-29：最终 PR CI `33247421951` build 绿但 Release Smoke 在住房 activate 真实失败：E2E 选中了 `rental_status=20` 锁定单元，新的强状态冲突按设计返回 409。修复测试基建，使住房链只选择并断言 10 可出租长租单元；不放宽业务冲突规则。
 - 续跑点：提交并 push 最终修复；等待 PR CI+Release Smoke，合并后等待 main CI/Deploy 双绿并归档。
