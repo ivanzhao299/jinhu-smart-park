@@ -99,3 +99,9 @@ test("browser route checks isolate their request set and retain a bounded async 
   assert.match(runner, /networkFailures\.length = 0;\s*sameOriginRequests\.clear\(\);\s*await cdp\.send\("Page\.navigate"/u);
   assert.match(runner, /attempt<250&&sameOriginRequests\.size>0/u);
 });
+
+test("missing visible-text diagnostics retain only the safe missing-count metadata", () => {
+  const runner = readFileSync(resolve(root, "scripts/hr-cutover/yuzhou-live-role-uat-browser-runner.mjs"), "utf8");
+  assert.match(runner, /missingCount=\$\{missing\.length\}/u);
+  assert.doesNotMatch(runner, /missing=\$\{JSON\.stringify\(missing\)\}/u);
+});

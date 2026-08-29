@@ -131,7 +131,7 @@ async function pollVisibleTexts(cdp, sessionId, check, viewport, attempts = 200)
     const missing = missingVisibleTexts(state.text, check.visibleTexts);
     if (state.ready && missing.length === 0) return;
     if (attempt === attempts - 1) {
-      fail("YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${state.path}:missing=${JSON.stringify(missing)}`);
+      fail("YUZHOU_UAT_BROWSER_VISIBLE_TEXT_MISSING", `${check.legacyId}:${check.roleType}:${viewport.id}:path=${state.path}:missingCount=${missing.length}`);
     }
     await sleep(100);
   }
