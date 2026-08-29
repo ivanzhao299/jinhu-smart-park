@@ -90,6 +90,30 @@ test("release preserves rented while another business occupancy remains", async 
   assert.equal(state.logSaves.length, 0);
 });
 
+test("release normalizes expiring status to rented while another business remains", async () => {
+  const state = fixture(40, true);
+  const result = await new RentalStatusProjectionService().project(input(state.manager, "release") as never);
+  assert.deepEqual(result, { disposition: "kept_occupied", beforeStatus: 40, afterStatus: 30 });
+  assert.equal(state.unitSaves.length, 1);
+  assert.equal(state.logSaves.length, 1);
+});
+
+test("commercial blocker is limited to a currently effective contract", async () => {
+  const state = fixture(30, true);
+  await new RentalStatusProjectionService().project(input(state.manager, "release") as never);
+  const manager = state.manager as { query: (sql: string, parameters: unknown[]) => Promise<unknown> };
+  const original = manager.query;
+  let blockerSql = "";
+  manager.query = async (sql, parameters) => {
+    if (!sql.includes("lock_property_unit_scope")) blockerSql = sql;
+    return original(sql, parameters);
+  };
+  await new RentalStatusProjectionService().project(input(manager, "release") as never);
+  assert.match(blockerSql, /contract\.status='75'/);
+  assert.match(blockerSql, /contract\.effective_date IS NOT NULL/);
+  assert.match(blockerSql, /contract\.effective_date[\s\S]*<=/);
+});
+
 test("release preserves a later manual strong status", async () => {
   const state = fixture(60);
   const result = await new RentalStatusProjectionService().project(input(state.manager, "release") as never);

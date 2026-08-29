@@ -89,7 +89,7 @@ test("DEC-04/05/06 housing approval executors are atomic on PostgreSQL", {
         occurred_at timestamptz, effect_hash text, lease_id uuid, handover_id uuid, occupancy_id uuid,
         from_status text, to_status text, reason text, source_expected_version integer,
         resulting_version integer, checkout_at timestamptz, occupancy_source_expected_version integer,
-        occupancy_resulting_version integer
+        occupancy_resulting_version integer, rental_status_projection jsonb
       );
       CREATE TABLE biz_housing_purchase (
         id uuid PRIMARY KEY, tenant_id uuid NOT NULL, park_id uuid NOT NULL, approval_status text NOT NULL,

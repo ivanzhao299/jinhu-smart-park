@@ -243,8 +243,8 @@ export class HousingLeaseApprovalExecutorService {
         toStatus, String(payload.reason ?? ""), evidence.decisionActor]
     ));
     if (updated.length !== 1) throw new ConflictException("Approval source changed");
-    if (toStatus === "terminated") {
-      await this.rentalStatusProjection.project({
+    const rentalStatusProjection = toStatus === "terminated"
+      ? await this.rentalStatusProjection.project({
         manager: input.manager,
         scope: source.scope,
         unitId: source.lease.unitId,
@@ -252,21 +252,21 @@ export class HousingLeaseApprovalExecutorService {
         sourceType: "housing_lease",
         sourceId: source.leaseId,
         action: "release"
-      });
-    }
+      }) : null;
     const audit = typeormQueryRows<{ id: string }>(await input.manager.query(
       `INSERT INTO biz_housing_lease_effect_audit(
          tenant_id,park_id,approval_request_id,action_id,effect_kind,approval_execution_key,
          effect_line_key,actor_id,occurred_at,effect_hash,lease_id,occupancy_id,from_status,to_status,
          reason,source_expected_version,resulting_version,checkout_at,
-         occupancy_source_expected_version,occupancy_resulting_version)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         occupancy_source_expected_version,occupancy_resulting_version,rental_status_projection)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb)
        RETURNING id::text AS id`, [source.scope.tenantId, source.scope.parkId, input.requestId,
         actionId, evidence.effect.effectKind, input.executionIdempotencyKey,
         evidence.effect.effectLineKey, evidence.decisionActor, evidence.effect.effectHash,
         source.leaseId, source.lease.occupancyId, source.lease.status, toStatus,
         String(payload.reason ?? ""), input.sourceExpectedVersion, updated[0]!.version,
-        updated[0]!.checkoutAt, occupancy.sourceVersion, occupancy.resultingVersion]
+        updated[0]!.checkoutAt, occupancy.sourceVersion, occupancy.resultingVersion,
+        JSON.stringify(rentalStatusProjection)]
     ));
     if (audit.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }

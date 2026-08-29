@@ -12,6 +12,7 @@ test("housing activation and terminal checkout use the shared transaction projec
   assert.match(activation, /activateInTransaction[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*manager,[\s\S]*action: "occupy"/);
   assert.match(activation, /if \(lease\.status === "active"\) return lease;[\s\S]*rentalStatusProjection\.project/);
   assert.match(checkout, /toStatus === "terminated"[\s\S]*rentalStatusProjection\.project\(\{[\s\S]*manager: input\.manager[\s\S]*action: "release"/);
+  assert.match(checkout, /rental_status_projection\)[\s\S]*JSON\.stringify\(rentalStatusProjection\)/);
 });
 
 test("homestay check-in and check-out project and retain the disposition in action audit", () => {

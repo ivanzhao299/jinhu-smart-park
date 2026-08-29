@@ -470,8 +470,9 @@ test("checkout submission and execution share the pointer-first ordered lock sna
 
   queryOrder.length = 0;
   let leaseUpdateSql = "";
+  let checkoutAuditParameters: unknown[] = [];
   const executionManager = {
-    query: async (sql: string) => {
+    query: async (sql: string, parameters: unknown[] = []) => {
       if (sql.includes("FROM biz_property_execution_effect_manifest")) return [{
         effectKind: "housing.lease.checkout", effectLineKey: `lease:${leaseId}`,
         effectHash: "a".repeat(64)
@@ -482,9 +483,10 @@ test("checkout submission and execution share the pointer-first ordered lock sna
         leaseUpdateSql = sql;
         return [{ version: 8, checkoutAt: new Date() }];
       }
-      if (sql.includes("INSERT INTO biz_housing_lease_effect_audit")) return [{
-        id: "90000000-0000-4000-8000-000000000039"
-      }];
+      if (sql.includes("INSERT INTO biz_housing_lease_effect_audit")) {
+        checkoutAuditParameters = parameters;
+        return [{ id: "90000000-0000-4000-8000-000000000039" }];
+      }
       return checkoutRows(sql);
     }
   };
@@ -500,6 +502,9 @@ test("checkout submission and execution share the pointer-first ordered lock sna
   assert.deepEqual(queryOrder, ["pointer", "occupancy", "lease", "handover", "receivable", "ledger"]);
   assert.match(leaseUpdateSql, /status=\$5::varchar/);
   assert.match(leaseUpdateSql, /CASE WHEN \$5::varchar='terminated'/);
+  assert.deepEqual(JSON.parse(String(checkoutAuditParameters[19])), {
+    disposition: "changed", beforeStatus: 30, afterStatus: 10
+  });
 });
 
 test("purchase lifecycle records the approving decision actor as the payment executor", async () => {

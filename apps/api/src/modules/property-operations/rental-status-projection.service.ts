@@ -64,6 +64,10 @@ export class RentalStatusProjectionService {
       return { disposition: "unchanged", beforeStatus, afterStatus: beforeStatus };
     }
     if (await this.hasBlockingBusiness(input)) {
+      if (beforeStatus === 40) {
+        const changed = await this.persist(input, unit, RENTED);
+        return { ...changed, disposition: "kept_occupied" };
+      }
       return { disposition: "kept_occupied", beforeStatus, afterStatus: beforeStatus };
     }
     return this.persist(input, unit, AVAILABLE);
@@ -121,7 +125,10 @@ export class RentalStatusProjectionService {
             AND contract.tenant_id=relation.tenant_id AND contract.park_id=relation.park_id
           WHERE relation.tenant_id=$1 AND relation.park_id=$2 AND relation.unit_id=$3
             AND relation.is_deleted=false AND relation.status=1
-            AND contract.is_deleted=false AND contract.status NOT IN ('90','91')
+            AND contract.is_deleted=false AND contract.status='75'
+            AND contract.effective_date IS NOT NULL
+            AND contract.effective_date
+                <= (clock_timestamp() AT TIME ZONE 'Asia/Shanghai')::date
             AND (relation.end_date + interval '1 day')
                 > (clock_timestamp() AT TIME ZONE 'Asia/Shanghai')::date
        ) AS blocked`,

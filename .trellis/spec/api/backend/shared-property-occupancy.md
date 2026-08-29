@@ -170,7 +170,8 @@ The shared service validates the mode and period; database exclusion plus cross-
 - Use the owning workflow's `EntityManager`; acquire `lock_property_unit_scope` before the scoped `biz_unit` write lock and blocker reads.
 - A real change writes `biz_unit` and `biz_unit_status_log(source_type='system')` in the same transaction.
 - Occupy accepts only 10 or idempotent 30. Status 20/50/60/70 is an operator/asset strong state and rejects the owning lifecycle transaction.
-- Release preserves 20/50/60/70 and preserves 30 while another commercial-leasing, housing-rental, or homestay occupancy/live aggregate remains. Status 40 may converge to 10.
+- Release preserves 20/50/60/70. While another commercial-leasing, housing-rental, or homestay occupancy/live aggregate remains, 30 stays 30 and 40 converges to 30; without a blocker, 30/40 converges to 10.
+- A legacy commercial contract blocks release only while status is effective (`75`), its effective date has arrived, and its unit relation has not ended at the Shanghai business-date boundary.
 - Homestay turnover `operations` occupancy controls readiness/availability but is not a rental business blocker; successful guest checkout still projects to 10.
 - Owning aggregates return early on already-active/already-checked terminal replay before calling the projection, preventing duplicate status logs.
 
@@ -184,6 +185,7 @@ The shared service validates the mode and period; database exclusion plus cross-
 ### 5. Good / Base / Bad Cases
 
 - Good: check-in changes 10 to 30 and the booking action snapshot records the projection result.
+- Good: housing checkout stores the projection result in the immutable lease effect audit, including no-change dispositions.
 - Base: replaying an already checked-in booking returns before projection and writes no duplicate log.
 - Bad: checkout updates the unit after committing the booking, or checks blockers without the shared advisory lock.
 
