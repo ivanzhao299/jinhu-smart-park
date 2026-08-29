@@ -347,8 +347,8 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
           const cleanupNeedles = JSON.stringify(sensitiveNeedles);
           await poll(cdp, sessionId, `(() => { const t=document.body?.innerText??''; return location.pathname==='/login' && localStorage.length===0 && sessionStorage.length===0 && !${cleanupNeedles}.some(value=>t.includes(value)); })()`, "YUZHOU_UAT_BROWSER_SESSION_CLEANUP_FAILED", `${actor}:${viewport.id}`);
           const cleanupState = await evaluate(cdp, sessionId, `(() => { const t=document.body?.innerText??'';const needles=${cleanupNeedles};return {localStorageEntries:localStorage.length,sessionStorageEntries:sessionStorage.length,sensitiveDomMatches:needles.filter(value=>t.includes(value)).length};})()`);
-          const cookieState=await cdp.send("Storage.getCookies",{browserContextId});cleanupState.cookieEntries=cookieState.cookies?.length??0;
-          const cleanupProof={runId:binding.runId,rehearsal:binding.rehearsal,triple:{...binding.triple},actor,actorSubjectHash:binding.actorSubjectHashes[actor],viewportId:viewport.id,...cleanupState,status:"PASS"};
+          const cookieState=await cdp.send("Storage.getCookies",{browserContextId});
+          const cleanupProof={runId:binding.runId,rehearsal:binding.rehearsal,triple:{...binding.triple},actor,actorSubjectHash:binding.actorSubjectHashes[actor],viewportId:viewport.id,localStorageEntries:cleanupState.localStorageEntries,sessionStorageEntries:cleanupState.sessionStorageEntries,cookieEntries:cookieState.cookies?.length??0,sensitiveDomMatches:cleanupState.sensitiveDomMatches,status:"PASS"};
           cleanupProof.proofSha256=sha256(JSON.stringify(cleanupProof));sessionCleanupProofs.push(cleanupProof);
         } finally {
           off();
