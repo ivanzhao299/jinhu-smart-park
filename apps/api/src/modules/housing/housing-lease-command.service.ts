@@ -13,6 +13,7 @@ import {
   type PropertyOccupancyPort
 } from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import type {
   AddHousingOccupantDto,
   ApproveHousingLeaseDto,
@@ -39,6 +40,7 @@ export class HousingLeaseCommandService {
     private readonly occupancyService: PropertyOccupancyPort,
     private readonly support: HousingTransactionSupportService,
     private readonly receivableWriter: HousingReceivableWriterService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort
@@ -280,6 +282,16 @@ export class HousingLeaseCommandService {
     lease.effectiveAt = new Date();
     lease.updateBy = actor.sub;
     const saved = await manager.getRepository(HousingLeaseEntity).save(lease);
+    await this.rentalStatusProjection.project({
+      manager,
+      scope,
+      unitId: lease.unitId,
+      actorId: actor.sub,
+      actorName: actor.realName ?? actor.username,
+      sourceType: "housing_lease",
+      sourceId: lease.id,
+      action: "occupy"
+    });
     await this.createDepositReceivable(manager, scope, actor, saved);
     return saved;
   }

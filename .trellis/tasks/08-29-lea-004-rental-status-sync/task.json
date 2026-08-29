@@ -3,7 +3,7 @@
   "name": "lea-004-rental-status-sync",
   "title": "LEA-004 一期出租状态同步",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": "api",

@@ -265,13 +265,14 @@ test("direct housing pure high-risk actions stop before a transaction for every 
     {} as never,
     {} as never,
     support,
-    writer
+    writer,
+    {} as never
   );
   const purchaseCommands = new HousingPurchaseService(
     {} as never, {} as never, dataSource as never, support
   );
   const leaseApprovalExecutor = new HousingLeaseApprovalExecutorService(
-    dataSource as never, {} as never, support
+    dataSource as never, {} as never, support, {} as never
   );
   const service = new HousingService(
     {} as never,

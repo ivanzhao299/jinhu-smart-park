@@ -11,6 +11,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { assertPropertyHighRiskActionApprovalRequired } from "../../shared/property-workbench/property-high-risk-stopship";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 import { HousingLeaseEntity, HousingLedgerEntryEntity } from "./entities/housing.entities";
 import {
@@ -63,6 +64,7 @@ export class HousingLeaseApprovalExecutorService {
     private readonly dataSource: DataSource,
     private readonly unitAccess: PropertyUnitAccessService,
     private readonly support: HousingTransactionSupportService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort
@@ -241,6 +243,17 @@ export class HousingLeaseApprovalExecutorService {
         toStatus, String(payload.reason ?? ""), evidence.decisionActor]
     ));
     if (updated.length !== 1) throw new ConflictException("Approval source changed");
+    if (toStatus === "terminated") {
+      await this.rentalStatusProjection.project({
+        manager: input.manager,
+        scope: source.scope,
+        unitId: source.lease.unitId,
+        actorId: evidence.decisionActor,
+        sourceType: "housing_lease",
+        sourceId: source.leaseId,
+        action: "release"
+      });
+    }
     const audit = typeormQueryRows<{ id: string }>(await input.manager.query(
       `INSERT INTO biz_housing_lease_effect_audit(
          tenant_id,park_id,approval_request_id,action_id,effect_kind,approval_execution_key,

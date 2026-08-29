@@ -445,6 +445,7 @@ test("checkout submission and execution share the pointer-first ordered lock sna
     checkoutDataSource as never,
     { assertAccess: async () => undefined } as never,
     new HousingTransactionSupportService(),
+    { project: async () => ({ disposition: "changed", beforeStatus: 30, afterStatus: 10 }) } as never,
     { createPendingRequest: async (_context: unknown, input: Record<string, unknown>) => {
       request = input;
       return input;

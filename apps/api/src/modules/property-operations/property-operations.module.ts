@@ -26,6 +26,7 @@ import { PropertyFoundationApprovalAdapter } from "./property-foundation-approva
 import { PropertyOccupancyAdapter } from "./property-occupancy.adapter";
 import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
 import { AssetSpaceMappingModule } from "../assets/asset-space-mapping.module";
+import { RentalStatusProjectionService } from "./rental-status-projection.service";
 
 @Module({
   imports: [
@@ -58,8 +59,10 @@ import { AssetSpaceMappingModule } from "../assets/asset-space-mapping.module";
     PartiesService,
     PartySensitiveDataService,
     PropertyUnitAccessService,
-    PropertyFoundationApprovalAdapter
+    PropertyFoundationApprovalAdapter,
+    RentalStatusProjectionService
   ],
-  exports: [PropertyOperationsService, PROPERTY_OCCUPANCY_PORT, PartiesService, PropertyUnitAccessService]
+  exports: [PropertyOperationsService, PROPERTY_OCCUPANCY_PORT, PartiesService, PropertyUnitAccessService,
+    RentalStatusProjectionService]
 })
 export class PropertyOperationsModule {}

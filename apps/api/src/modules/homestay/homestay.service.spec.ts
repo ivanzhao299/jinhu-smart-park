@@ -182,7 +182,8 @@ test("adding a new guest fails while the locked booking is at declared capacity"
       lockBooking: async () => ({
         id: "booking-1", unitId: "unit-1", status: "confirmed", guestCount: 1
       })
-    } as never
+    } as never,
+    {} as never
   );
 
   await assert.rejects(
@@ -435,7 +436,8 @@ test("credential issue persists the reference but masks it in the response", asy
     {} as never,
     { assertAccess: async () => undefined } as never,
     { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
-    new HomestayTransactionSupportService()
+    new HomestayTransactionSupportService(),
+    {} as never
   );
 
   const result = await service.issueCredential(scope, actor, "booking-1", {
@@ -477,7 +479,8 @@ test("credential return masks the stored reference in new and replayed responses
     {} as never,
     { assertAccess: async () => undefined } as never,
     { transaction: async (handler: (transactionManager: typeof manager) => unknown) => handler(manager) } as never,
-    new HomestayTransactionSupportService()
+    new HomestayTransactionSupportService(),
+    {} as never
   );
 
   const first = await service.returnCredential(scope, actor, "booking-1", credential.id);
