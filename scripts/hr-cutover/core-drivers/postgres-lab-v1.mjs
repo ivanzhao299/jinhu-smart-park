@@ -11,6 +11,7 @@ import {
   validateCoreT0T3Config
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
+import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "../materialize-core-non-t0-dictionaries.mjs";
 import { createDefaultSourceRestoreProbe, verifySourceRestoreReceiptFile } from "../source-restore-receipt.mjs";
 import { verifyCoreDictionaryCaptureBinding } from "../verify-yuzhou-core-dictionary-preflight.mjs";
 
@@ -62,7 +63,8 @@ const paths = config => {
     compose: join(config.target.runtimeRoot, "compose.yml"), postgresEnv: join(config.target.credentialRoot, "postgres.env"),
     decision: join(config.target.credentialRoot, "employee-job-state.reviewed.json"),
     payload: join(config.target.credentialRoot, "employee-job-state.private.json"),
-    attestation: join(config.target.credentialRoot, "employee-job-state.machine-attestation.json")
+    attestation: join(config.target.credentialRoot, "employee-job-state.machine-attestation.json"),
+    nonT0DictionaryPackage: join(auditRoot, "non-t0-dictionaries.machine-package.json")
   };
 };
 
@@ -172,6 +174,18 @@ function phaseEnvironment(config, domain, phase, state) {
     if (!/^[0-9a-f]{64}$/u.test(state.t0DictionarySha256 ?? "")) fail("CORE_T0_MACHINE_MATERIALIZATION_REQUIRED", "T0 dictionary binding");
     env.YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256 = state.t0DictionarySha256;
   }
+  if (domain === "T1") {
+    const dictionaries = state.nonT0DictionarySha256;
+    if (!dictionaries) fail("CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED", "T1 dictionary bindings");
+    env.YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256 = dictionaries.employment_event_type;
+    env.YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256 = dictionaries.employment_event_state;
+  }
+  if (domain === "T2") {
+    const dictionaries = state.nonT0DictionarySha256;
+    if (!dictionaries) fail("CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED", "T2 dictionary bindings");
+    env.YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256 = dictionaries.contract_type;
+    env.YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256 = dictionaries.contract_state;
+  }
   return env;
 }
 
@@ -228,6 +242,14 @@ function materializeT0(config, machinePackage, run, p, state) {
     input: buildCoreT0T3MaterializationSql(machinePackage.decision, machinePackage.privatePayload, machinePackage.machineAttestation), code: "CORE_T0_MACHINE_MATERIALIZATION_FAILED"
   });
   state.t0DictionarySha256 = machinePackage.privatePayload.dictionaryEvidenceSha256;
+  const nonT0Package = buildCoreNonT0DictionaryPackage(config, {
+    t1Types: join(stagingDirectory(config, "T1"), "employment-event-types.json"),
+    t1States: join(stagingDirectory(config, "T1"), "employment-event-states.json"),
+    t2Types: join(stagingDirectory(config, "T2"), "contract-types.jsonl"),
+    t2States: join(stagingDirectory(config, "T2"), "contract-states.raw.json")
+  });
+  privateInstall(p.nonT0DictionaryPackage, nonT0Package);
+  state.nonT0DictionarySha256 = materializeCoreNonT0Dictionaries(config, nonT0Package);
   return { status: "verified", productionImport: "HOLD" };
 }
 
@@ -235,6 +257,13 @@ function resolveT0DictionarySha(config, run) {
   const result = queryJson(config, run, `SELECT json_build_object('count',count(*),'sha',min(source_snapshot_sha256))::text FROM hr_legacy_dictionary_version WHERE tenant_id='${DEFAULT_TENANT}' AND park_id='${DEFAULT_PARK}' AND source_system='yuzhou-v10' AND dictionary_code='employee_job_state' AND status='approved' AND is_deleted=false AND verification_mode='machine_attested' AND machine_evidence_root_sha256='${config.machineAttestation.trustedRootSha256}';`, "CORE_T0_MACHINE_MATERIALIZATION_REQUIRED");
   if (Number(result.count) !== 1 || !/^[0-9a-f]{64}$/u.test(result.sha ?? "")) fail("CORE_T0_MACHINE_MATERIALIZATION_REQUIRED", "approved dictionary replay binding");
   return result.sha;
+}
+
+function resolveNonT0DictionaryShas(config, run) {
+  const required = ["employment_event_type", "employment_event_state", "contract_type", "contract_state"];
+  const result = queryJson(config, run, `SELECT json_build_object('count',count(*),'snapshots',COALESCE(json_object_agg(dictionary_code,source_snapshot_sha256),'{}'::json))::text FROM hr_legacy_dictionary_version WHERE tenant_id='${DEFAULT_TENANT}' AND park_id='${DEFAULT_PARK}' AND source_system='yuzhou-v10' AND dictionary_code IN ('employment_event_type','employment_event_state','contract_type','contract_state') AND status='approved' AND is_deleted=false AND verification_mode='machine_attested' AND machine_evidence_root_sha256='${config.machineAttestation.trustedRootSha256}';`, "CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED");
+  if (Number(result.count) !== required.length || !result.snapshots || required.some(code => !/^[0-9a-f]{64}$/u.test(result.snapshots[code] ?? ""))) fail("CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED", "approved dictionary replay binding");
+  return result.snapshots;
 }
 
 function materializeFacts() {
@@ -307,9 +336,9 @@ export async function createCoreT0T3Adapters(configInput, { commandRunner = defa
     executePhase: ({ domain, phase }) => {
       if (!CORE_DOMAIN_ORDER.includes(domain) || !["extract", "load", "rollback"].includes(phase)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", `${domain}.${phase}`);
       if (phase === "extract") assertSourceRestoreBinding(config, receiptProbe);
-      if (phase === "load" && ["T1", "T2"].includes(domain)) fail("CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED", `${domain} reviewed dictionary machine package is not implemented`);
       if (["load", "rollback"].includes(phase)) assertRuntimeBoundary(config, commandRunner);
       if (domain === "T0" && phase === "load" && !state.t0DictionarySha256) state.t0DictionarySha256 = resolveT0DictionarySha(config, commandRunner);
+      if (phase === "load" && ["T1", "T2"].includes(domain) && !state.nonT0DictionarySha256) state.nonT0DictionarySha256 = resolveNonT0DictionaryShas(config, commandRunner);
       commandRunner("sh", [resolve(ROOT, PHASE_SCRIPT[domain][phase])], { env: phaseEnvironment(config, domain, phase, state), code: "CORE_PHASE_FAILED" });
       return { domain, phase, status: "verified", productionImport: "HOLD" };
     },
