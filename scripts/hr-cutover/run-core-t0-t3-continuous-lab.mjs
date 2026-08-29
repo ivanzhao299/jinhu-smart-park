@@ -8,12 +8,19 @@ import { CoreT0T3Lifecycle, readCoreMachinePackage, validateCoreT0T3Config } fro
 import { createCoreT0T3Adapters } from "./core-drivers/postgres-lab-v1.mjs";
 
 const MIN_DURATION_MINUTES = 300;
+const CHECKPOINT_STATES = new Set(["review_hold", "rollback_ready", "cleaned"]);
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
 const elapsed = startedAt => Date.now() - startedAt;
 const delay = milliseconds => new Promise(resolveDelay => setTimeout(resolveDelay, milliseconds));
 const safeErrorCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "CORE_CONTINUOUS_STAGE_FAILED";
+
+export function normalizeCoreContinuousStopAfter(value) {
+  if (value === undefined || value === null) return null;
+  if (!CHECKPOINT_STATES.has(value)) fail("CORE_CONTINUOUS_STOP_AFTER_INVALID", String(value));
+  return value;
+}
 
 function privateJson(path) {
   const requested = resolve(path);
@@ -74,9 +81,10 @@ export async function advanceCoreT0T3Lifecycle(lifecycle, { machineRoot, package
   fail("CORE_CONTINUOUS_STATE_UNSUPPORTED", lifecycle.state);
 }
 
-export async function runCoreT0T3ContinuousLab({ configPath, durationMinutes = MIN_DURATION_MINUTES, pollMilliseconds = 15000, adapterFactory = createCoreT0T3Adapters, now = () => Date.now(), pause = delay } = {}) {
+export async function runCoreT0T3ContinuousLab({ configPath, durationMinutes = MIN_DURATION_MINUTES, pollMilliseconds = 15000, stopAfter = null, adapterFactory = createCoreT0T3Adapters, now = () => Date.now(), pause = delay } = {}) {
   if (!Number.isInteger(durationMinutes) || durationMinutes < MIN_DURATION_MINUTES) fail("CORE_CONTINUOUS_DURATION_INVALID", `minimum ${MIN_DURATION_MINUTES} minutes`);
   if (!Number.isInteger(pollMilliseconds) || pollMilliseconds < 1000 || pollMilliseconds > 60000) fail("CORE_CONTINUOUS_POLL_INVALID", String(pollMilliseconds));
+  stopAfter = normalizeCoreContinuousStopAfter(stopAfter);
   const config = validateCoreT0T3Config(privateJson(configPath));
   const paths = coreAuditPaths(config);
   ensurePrivateDirectory(paths.auditRoot); ensurePrivateDirectory(paths.machineRoot); acquireLock(paths.lock);
@@ -99,6 +107,7 @@ export async function runCoreT0T3ContinuousLab({ configPath, durationMinutes = M
       try {
         const advanced = await advanceCoreT0T3Lifecycle(lifecycle, { machineRoot: paths.machineRoot });
         event({ stateBefore: before, action: advanced.action, stateAfter: advanced.result.state });
+        if (stopAfter === advanced.result.state) return finish({ status: "CHECKPOINT_READY", state: stopAfter, residualCount: advanced.result.residualCount ?? null });
         if (advanced.result.state === "cleaned") return finish({ status: "CONTRACT_PASS", state: "cleaned", residualCount: advanced.result.residualCount ?? 0 });
       } catch (error) {
         const errorCode = safeErrorCode(error);
@@ -121,7 +130,7 @@ export async function runCoreT0T3ContinuousLab({ configPath, durationMinutes = M
 }
 
 function parseArgs(argv) {
-  const args = {}, allowed = new Set(["--config", "--duration-minutes", "--poll-seconds"]);
+  const args = {}, allowed = new Set(["--config", "--duration-minutes", "--poll-seconds", "--stop-after"]);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!allowed.has(key) || !argv[index + 1] || allowed.has(argv[index + 1])) fail("CORE_CONTINUOUS_ARGUMENT_INVALID", key);
@@ -130,7 +139,7 @@ function parseArgs(argv) {
     args[name] = argv[++index];
   }
   if (!args.config) fail("CORE_CONTINUOUS_ARGUMENT_INVALID", "--config");
-  return { configPath: args.config, durationMinutes: args.durationMinutes ? Number(args.durationMinutes) : MIN_DURATION_MINUTES, pollMilliseconds: args.pollSeconds ? Number(args.pollSeconds) * 1000 : 15000 };
+  return { configPath: args.config, durationMinutes: args.durationMinutes ? Number(args.durationMinutes) : MIN_DURATION_MINUTES, pollMilliseconds: args.pollSeconds ? Number(args.pollSeconds) * 1000 : 15000, stopAfter: normalizeCoreContinuousStopAfter(args.stopAfter) };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
