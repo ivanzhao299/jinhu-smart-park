@@ -718,3 +718,42 @@ Implemented transactional housing and homestay rental-status projection with con
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: LEA 上线后 UAT 复测与队列闭环
+
+**Date**: 2026-08-30
+**Task**: LEA 上线后 UAT 复测与队列闭环
+**Package**: api
+**Branch**: `evidence/lea-post-deploy-uat-archive`
+
+### Summary
+
+完成 Issue #496 的 LEA-003/004 上线后 mode×用途矩阵、改名权限/403、390px、Network、rental_status 双写审计与双业务回归；PR #504 经三轮 review、CI、Release Smoke、main CI/Deploy 双绿后合并，并归档 UAT 与 intake queue。
+
+### Main Changes
+
+- 提交并合并脱敏 UAT 报告、浏览器证据门禁和办公用途矩阵回归。
+- 完成主链 DB 状态/审计对比、390px、Network、403 与精确 teardown。
+- 归档 LEA 上线后 UAT 与 intake queue。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d6f67966` | test: LEA post-deploy UAT evidence (#504) |
+
+### Testing
+
+- [OK] PR #504 CI `33258693052` SUCCESS（含 Release Smoke）
+- [OK] main CI `33260301557` 与 Deploy `33260301563` SUCCESS
+- [OK] UAT 报告记录 API、浏览器、DB 审计和 teardown 结果
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 无；LEA 队列已闭环。
+- 剩余风险：无已知阻断风险；本地 `pnpm test` 的默认 S1 smoke 因 teardown 后默认 API 端口未启动而在环境预检失败，业务断言由独立完整 API/UAT 与 CI Release Smoke 覆盖。

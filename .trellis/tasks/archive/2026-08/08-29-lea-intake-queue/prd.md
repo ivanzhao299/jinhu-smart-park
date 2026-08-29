@@ -15,11 +15,11 @@
 
 ## Acceptance Criteria
 
-- [ ] 三个子任务均通过各自验证、review 不超过 3 轮、CI 和 main 双绿。
-- [ ] UAT 覆盖 mode×用途矩阵、picker reasons/facet、改名全链和出租状态同步。
-- [ ] G1-G7 关键抽查和住房/民宿双业务主链无回退。
-- [ ] 存量审计清单、截图 manifest、Network 证据、精确清理与 teardown 可追溯。
-- [ ] 队列任务和调查遗留归档，终报含 Issue/PR/commit/CI+Deploy/UAT/风险。
+- [x] 三个子任务均通过各自验证、review 不超过 3 轮、CI 和 main 双绿。
+- [x] UAT 覆盖 mode×用途矩阵、picker reasons/facet、改名全链和出租状态同步。
+- [x] G1-G7 关键抽查和住房/民宿双业务主链无回退。
+- [x] 存量审计清单、截图 manifest、Network 证据、精确清理与 teardown 可追溯。
+- [x] 队列任务和调查遗留归档，终报含 Issue/PR/commit/CI+Deploy/UAT/风险。
 
 ## Notes
 
