@@ -25,6 +25,11 @@ test("full-domain technical UAT constructs three distinct immutable browser acto
   assert.deepEqual(binding.triple, triple);
 });
 
+test("browser actor bindings accept the platform's numeric tenant and park scope identifiers", () => {
+  const numericScopes = Object.fromEntries(Object.entries(identities).map(([actor, identity]) => [actor, { ...identity, tenantId: "10000001", parkId: "20000001" }]));
+  assert.equal(new Set(Object.values(buildTechnicalUatBrowserBinding(config, numericScopes).actorSubjectHashes)).size, 3);
+});
+
 test("duplicate or missing isolated browser actors fail before handoff", () => {
   assert.throws(
     () => buildTechnicalUatBrowserBinding(config, { ...identities, employee: identities.manager }),
@@ -32,6 +37,10 @@ test("duplicate or missing isolated browser actors fail before handoff", () => {
   );
   assert.throws(
     () => buildTechnicalUatBrowserBinding(config, { ...identities, employee: { ...identities.employee, id: "" } }),
+    error => error instanceof YuzhouLiveRoleUatBrowserRunnerError && error.code === "TECHNICAL_UAT_BROWSER_ACTORS_INVALID"
+  );
+  assert.throws(
+    () => buildTechnicalUatBrowserBinding(config, { ...identities, employee: { ...identities.employee, tenantId: "invalid scope" } }),
     error => error instanceof YuzhouLiveRoleUatBrowserRunnerError && error.code === "TECHNICAL_UAT_BROWSER_ACTORS_INVALID"
   );
 });

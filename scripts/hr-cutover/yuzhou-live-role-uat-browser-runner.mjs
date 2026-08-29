@@ -19,6 +19,7 @@ const sleep = ms => new Promise(resolvePromise => setTimeout(resolvePromise, ms)
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const SHA40 = /^[0-9a-f]{40}$/u;
 const SHA64 = /^[0-9a-f]{64}$/u;
+const SCOPE_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 const LOOPBACK = /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{4,5}$/u;
 const CHROME_DEFAULT = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const BOUND_ACTORS = ["hr_reviewer", "manager", "employee"];
@@ -170,7 +171,7 @@ export function validateYuzhouBrowserObservation(observation, check, viewport, b
 
 export function technicalUatActorSubjectHash(identity) {
   if (!/^[0-9a-f-]{36}$/iu.test(identity?.id ?? "") || typeof identity?.username !== "string" || identity.username.length === 0
-    || !/^[0-9a-f-]{36}$/iu.test(identity?.tenantId ?? "") || !/^[0-9a-f-]{36}$/iu.test(identity?.parkId ?? "")
+    || !SCOPE_ID.test(identity?.tenantId ?? "") || !SCOPE_ID.test(identity?.parkId ?? "")
     || typeof identity?.roleCode !== "string" || identity.roleCode.length === 0) fail("TECHNICAL_UAT_BROWSER_ACTORS_INVALID", "verified /users/me identity required");
   return sha256(JSON.stringify({ id: identity.id, username: identity.username, tenantId: identity.tenantId, parkId: identity.parkId, roleCode: identity.roleCode }));
 }
