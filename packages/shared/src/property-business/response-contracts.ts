@@ -57,6 +57,16 @@ export interface PropertyWorkbenchEligibleUnitRef extends PropertyWorkbenchUnitR
   ineligible_reasons: string[];
 }
 
+export interface PropertyWorkbenchUnitFacets {
+  usage_type: Array<{ value: UnitUsageType; rental_segment: RentalSegment | null }>;
+  rental_segment: RentalSegment[];
+}
+
+export interface PropertyWorkbenchEligibleUnitListResponse
+extends PaginatedResult<PropertyWorkbenchEligibleUnitRef> {
+  facets: PropertyWorkbenchUnitFacets;
+}
+
 export interface PropertyWorkbenchPartyRef {
   id: string;
   displayName: string;
@@ -102,7 +112,7 @@ export type HomestayAvailabilityDetailResponse = HomestayAvailabilityItem;
 
 export type HomestayUnitCandidate = PropertyWorkbenchEligibleUnitRef;
 export type HomestayUnitCandidateListResponse =
-  PaginatedResult<HomestayUnitCandidate>;
+  PropertyWorkbenchEligibleUnitListResponse;
 export type HomestayUnitListResponse = HomestayUnitCandidateListResponse;
 
 export interface HomestayUnitDetailResponse extends PropertyWorkbenchUnitRef {
@@ -461,6 +471,7 @@ export interface HousingPurchaseListQuery {
 
 export interface HousingUnitCandidateQuery {
   keyword?: string;
+  usage_type?: UnitUsageType;
   sort?: HousingUnitCandidateSort;
   order?: HousingSortOrder;
   page: number;
@@ -470,7 +481,7 @@ export interface HousingUnitCandidateQuery {
 export type HousingUnitCandidateResponse = PropertyWorkbenchEligibleUnitRef;
 
 export type HousingUnitCandidateListResponse =
-  PaginatedResult<HousingUnitCandidateResponse>;
+  PropertyWorkbenchEligibleUnitListResponse;
 
 export interface HousingLeaseListItem extends HousingLeaseResponse {
   unitCode: string | null;

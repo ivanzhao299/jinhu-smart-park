@@ -15,6 +15,7 @@ test("LEA mode and usage inventory audit is read-only and freezes approved confl
   );
   assert.match(auditSql, /operating_mode='short_stay' AND usage_type NOT IN \(70\)/u);
   assert.match(auditSql, /operating_mode='long_rent' AND usage_type NOT IN \(70,10\)/u);
+  assert.doesNotMatch(auditSql, /WHERE operating_status='enabled'\s+AND \(\s+\(operating_mode='short_stay'/u);
   assert.match(auditSql, /rental_status IN \(20,50,60,70\)/u);
   assert.match(auditSql, /HOUSING_COMMERCIAL_CONTRACT_CROSS/u);
   assert.match(auditSql, /contract\.status NOT IN \('90','91'\)/u);

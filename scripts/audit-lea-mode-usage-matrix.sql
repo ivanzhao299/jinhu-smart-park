@@ -44,8 +44,7 @@ WITH active_commercial AS (
 ), conflicts AS (
   SELECT 'MODE_USAGE_NOT_ALLOWED'::text AS conflict_type, scoped_units.*
     FROM scoped_units
-   WHERE operating_status='enabled'
-     AND (
+   WHERE (
        (operating_mode='short_stay' AND usage_type NOT IN (70))
        OR (operating_mode='long_rent' AND usage_type NOT IN (70,10))
      )

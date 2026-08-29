@@ -330,7 +330,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!unit) throw new NotFoundException("Property unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -342,6 +342,9 @@ export class PropertyOccupanciesService {
       lock: { mode: "pessimistic_read" }
     });
     const mode = config?.operatingMode ?? "none";
+    if (!isUnitUsageAllowedForPropertyMode(mode, unit.usageType)) {
+      throw new ConflictException(`Unit usage is incompatible with operating mode ${mode}`);
+    }
     if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }
@@ -388,7 +391,7 @@ export class PropertyOccupanciesService {
       where: { id: entity.unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
       lock: { mode: "pessimistic_write" }
     });
-    if (!unit || unit.usageType !== UNIT_USAGE_HOUSING) throw new NotFoundException("Housing unit not found");
+    if (!unit) throw new NotFoundException("Property unit not found");
     if (
       isPropertyManagedOccupancyDomain(entity.sourceDomain)
       && unit.status !== 1
@@ -400,6 +403,9 @@ export class PropertyOccupanciesService {
       where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId: entity.unitId, isDeleted: false }
     });
     const mode = config?.operatingMode ?? "none";
+    if (!isUnitUsageAllowedForPropertyMode(mode, unit.usageType)) {
+      throw new ConflictException(`Unit usage is incompatible with operating mode ${mode}`);
+    }
     if (!occupancyDomainMatchesMode(entity.sourceDomain, mode)) {
       throw new ConflictException(`Occupancy source domain ${entity.sourceDomain} is incompatible with operating mode ${mode}`);
     }

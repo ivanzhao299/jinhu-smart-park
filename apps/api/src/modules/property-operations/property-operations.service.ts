@@ -245,16 +245,17 @@ export class PropertyOperationsService {
         where: { id: unitId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
-      if (
-        !unit
-        || !isUnitUsageAllowedForPropertyMode("long_rent", unit.usageType)
-      ) throw new NotFoundException("Eligible property unit not found");
+      if (!unit) throw new NotFoundException("Property unit not found");
 
       const configRepository = manager.getRepository(PropertyOperationConfigEntity);
       let config = await configRepository.findOne({
         where: { tenantId: scope.tenantId, parkId: scope.parkId, unitId, isDeleted: false },
         lock: { mode: "pessimistic_write" }
       });
+      const configuredMode = config?.operatingMode ?? "none";
+      if (!isUnitUsageAllowedForPropertyMode(configuredMode, unit.usageType)) {
+        throw new ConflictException(`Unit usage is incompatible with operating mode ${configuredMode}`);
+      }
       if ((config?.version ?? 0) !== dto.version) {
         throw new ConflictException({
           message: "Property operation configuration version has changed",

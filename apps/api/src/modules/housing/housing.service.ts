@@ -6,8 +6,10 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
-  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
+  HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS,
+  UNIT_USAGE_TYPES,
   deriveRentalSegment,
+  isUnitUsageAllowedForPropertyMode,
   type HousingEnergyMeterCandidateListResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
   type HousingTenantResponse,
@@ -143,18 +145,20 @@ export class HousingService {
     query: HousingUnitCandidateQueryDto
   ): Promise<HousingUnitCandidateListResponse> {
     const unitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    const facets = {
+      usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+      rental_segment: ["residential" as const, "office" as const]
+    };
     if (unitIds !== null && !unitIds.length) {
-      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+      return { items: [], total: 0, page: query.page, page_size: query.page_size, facets };
     }
     const parameters: unknown[] = [scope.tenantId, scope.parkId];
     const filters = [
       "unit.tenant_id=$1",
       "unit.park_id=$2",
       "unit.status=1",
-      "unit.usage_type=ANY($3::smallint[])",
       "unit.is_deleted=false"
     ];
-    parameters.push([...PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent]);
     if (unitIds !== null) {
       parameters.push(unitIds);
       filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);
@@ -164,6 +168,10 @@ export class HousingService {
       filters.push(
         `(unit.unit_code ILIKE $${parameters.length} OR unit.unit_name ILIKE $${parameters.length})`
       );
+    }
+    if (query.usage_type !== undefined) {
+      parameters.push(query.usage_type);
+      filters.push(`unit.usage_type=$${parameters.length}`);
     }
     const paginationStart = parameters.length + 1;
     const where = filters.join(" AND ");
@@ -196,12 +204,15 @@ export class HousingService {
         unitName: row.unitName,
         usage_type: Number(row.usage_type) as UnitUsageType,
         rental_segment: deriveRentalSegment(Number(row.usage_type)),
-        eligible: true,
-        ineligible_reasons: []
+        eligible: isUnitUsageAllowedForPropertyMode("long_rent", Number(row.usage_type)),
+        ineligible_reasons: isUnitUsageAllowedForPropertyMode("long_rent", Number(row.usage_type))
+          ? []
+          : [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_ALLOWED_FOR_MODE]
       })),
       total: Number(countRows[0]?.total ?? 0),
       page: query.page,
-      page_size: query.page_size
+      page_size: query.page_size,
+      facets
     };
   }
 

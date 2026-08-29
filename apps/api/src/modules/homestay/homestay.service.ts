@@ -7,9 +7,11 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
-  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
+  HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS,
+  UNIT_USAGE_TYPES,
   SYSTEM_PERMISSIONS,
   deriveRentalSegment,
+  isUnitUsageAllowedForPropertyMode,
   type HomestayAvailabilityListResponse,
   type HomestayAvailabilityResponse,
   type HomestayBookingDetailResponse,
@@ -125,14 +127,29 @@ export class HomestayService {
     query: HomestayUnitCandidateQueryDto
   ): Promise<HomestayUnitCandidateListResponse> {
     const allowedUnitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    const facets = {
+      usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+      rental_segment: ["residential" as const, "office" as const]
+    };
     if (allowedUnitIds !== null && allowedUnitIds.length === 0) {
-      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+      return { items: [], total: 0, page: query.page, page_size: query.page_size, facets };
     }
-    const itemAccessClause = allowedUnitIds === null ? "" : " AND unit.id = ANY($5::uuid[])";
-    const countAccessClause = allowedUnitIds === null ? "" : " AND unit.id = ANY($3::uuid[])";
-    const params = allowedUnitIds === null
-      ? [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size]
-      : [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size, allowedUnitIds];
+    const filters: string[] = [];
+    const itemParams: unknown[] = [scope.tenantId, scope.parkId, query.page_size, (query.page - 1) * query.page_size];
+    const countParams: unknown[] = [scope.tenantId, scope.parkId];
+    if (allowedUnitIds !== null) {
+      itemParams.push(allowedUnitIds);
+      countParams.push(allowedUnitIds);
+      filters.push(`unit.id = ANY($ACCESS_INDEX::uuid[])`);
+    }
+    if (query.usage_type !== undefined) {
+      itemParams.push(query.usage_type);
+      countParams.push(query.usage_type);
+      filters.push(`unit.usage_type = $USAGE_INDEX`);
+    }
+    const accessSql = (forItems: boolean) => filters.map((filter) => filter
+      .replace("$ACCESS_INDEX", String(forItems ? 5 : 3))
+      .replace("$USAGE_INDEX", String(forItems ? itemParams.length : countParams.length))).join(" AND ");
     const commonSql = (accessClause: string) => `
       FROM biz_unit unit
       JOIN biz_property_operation_config operation
@@ -145,22 +162,19 @@ export class HomestayService {
       WHERE unit.tenant_id = $1
         AND unit.park_id = $2
         AND unit.status = 1
-        AND unit.usage_type = ANY(ARRAY[${PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.short_stay.join(",")}]::smallint[])
-        AND unit.is_deleted = false${accessClause}`;
+        AND unit.is_deleted = false${accessClause ? ` AND ${accessClause}` : ""}`;
     const [items, countRows] = await Promise.all([
       this.dataSource.query(
         `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName",
                 unit.usage_type AS "usage_type"
-         ${commonSql(itemAccessClause)}
+         ${commonSql(accessSql(true))}
          ORDER BY unit.unit_code ASC
          LIMIT $3 OFFSET $4`,
-        params
+        itemParams
       ) as Promise<Array<{ id: string; unitCode: string; unitName: string; usage_type: number }>>,
       this.dataSource.query(
-        `SELECT count(*)::int AS total ${commonSql(countAccessClause)}`,
-        allowedUnitIds === null
-          ? [scope.tenantId, scope.parkId]
-          : [scope.tenantId, scope.parkId, allowedUnitIds]
+        `SELECT count(*)::int AS total ${commonSql(accessSql(false))}`,
+        countParams
       ) as Promise<Array<{ total: number }>>
     ]);
     const total = Number(countRows[0]?.total ?? 0);
@@ -169,12 +183,15 @@ export class HomestayService {
         ...item,
         usage_type: Number(item.usage_type) as UnitUsageType,
         rental_segment: deriveRentalSegment(Number(item.usage_type)),
-        eligible: true,
-        ineligible_reasons: []
+        eligible: isUnitUsageAllowedForPropertyMode("short_stay", Number(item.usage_type)),
+        ineligible_reasons: isUnitUsageAllowedForPropertyMode("short_stay", Number(item.usage_type))
+          ? []
+          : [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_ALLOWED_FOR_MODE]
       })),
       total,
       page: query.page,
-      page_size: query.page_size
+      page_size: query.page_size,
+      facets
     };
   }
 
