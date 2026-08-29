@@ -104,4 +104,5 @@ test("missing visible-text diagnostics retain only the safe missing-count metada
   const runner = readFileSync(resolve(root, "scripts/hr-cutover/yuzhou-live-role-uat-browser-runner.mjs"), "utf8");
   assert.match(runner, /missingCount=\$\{missing\.length\}/u);
   assert.doesNotMatch(runner, /missing=\$\{JSON\.stringify\(missing\)\}/u);
+  assert.match(runner, /const visibleText=textNodes\.join\(''\)/u);
 });
