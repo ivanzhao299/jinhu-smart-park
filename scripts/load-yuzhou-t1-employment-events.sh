@@ -11,7 +11,7 @@ PG_CONTAINER="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"
 EXPECTED_COMPOSE_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 SOURCE_SNAPSHOT_SHA256="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
 EVENTS_SHA256="${YUZHOU_T1_EVENTS_SHA256:-62519f3ebc86ec27235a1a4b3f3f09b023f093a4301b473f27c522981c15ab92}"
-TYPES_SHA256="${YUZHOU_T1_TYPES_SHA256:-8be590b8404068b5e6a3745e3917167885773226f41457be5f3c52440c6496ed}"
+TYPES_SHA256="${YUZHOU_T1_TYPES_SHA256:-}"
 TYPE_DICTIONARY_SHA256="${YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256:-}"
 STATE_DICTIONARY_SHA256="${YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256:-}"
 
@@ -23,6 +23,7 @@ printf '%s' "$TARGET_DATABASE" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{
 actual_events_sha="$(shasum -a 256 "$STAGING_DIR/employment-events.jsonl" | awk '{print $1}')"
 actual_types_sha="$(shasum -a 256 "$STAGING_DIR/employment-event-types.json" | awk '{print $1}')"
 [ "$actual_events_sha" = "$EVENTS_SHA256" ] || fail "employment events staging SHA-256 mismatch"
+[ "$TYPES_SHA256" != "" ] || fail "employment event types staging SHA-256 is required"
 [ "$actual_types_sha" = "$TYPES_SHA256" ] || fail "employment event types staging SHA-256 mismatch"
 for dictionary_sha in "$TYPE_DICTIONARY_SHA256" "$STATE_DICTIONARY_SHA256"; do printf '%s' "$dictionary_sha" | grep -Eq '^[0-9a-f]{64}$' || fail "approved employment-event dictionary SHA-256 is required"; done
 
@@ -76,7 +77,7 @@ SELECT staged.payload,employee.id employee_id,
 FROM stg_employment_event staged
 JOIN hr_legacy_dictionary_version type_version ON type_version.tenant_id=:'tenant_id' AND type_version.park_id=:'park_id' AND type_version.source_system='yuzhou-v10' AND type_version.dictionary_code='employment_event_type' AND type_version.source_snapshot_sha256=:'type_dictionary_sha' AND type_version.status='approved' AND type_version.is_deleted=false
 JOIN hr_legacy_dictionary_version state_version ON state_version.tenant_id=:'tenant_id' AND state_version.park_id=:'park_id' AND state_version.source_system='yuzhou-v10' AND state_version.dictionary_code='employment_event_state' AND state_version.source_snapshot_sha256=:'state_dictionary_sha' AND state_version.status='approved' AND state_version.is_deleted=false
-LEFT JOIN hr_legacy_dictionary_item type_item ON type_item.version_id=type_version.id AND type_item.tenant_id=type_version.tenant_id AND type_item.park_id=type_version.park_id AND type_item.is_deleted=false AND lower(btrim(type_item.source_name))=lower(btrim(staged.payload->'source'->>'legacyEventType'))
+LEFT JOIN hr_legacy_dictionary_item type_item ON type_item.version_id=type_version.id AND type_item.tenant_id=type_version.tenant_id AND type_item.park_id=type_version.park_id AND type_item.is_deleted=false AND lower(coalesce(NULLIF(btrim(type_item.source_value),''),E'\\x00'))=lower(coalesce(NULLIF(btrim(staged.payload->'source'->>'legacyEventType'),''),E'\\x00'))
 LEFT JOIN hr_legacy_dictionary_item state_item ON state_item.version_id=state_version.id AND state_item.tenant_id=state_version.tenant_id AND state_item.park_id=state_version.park_id AND state_item.is_deleted=false AND lower(coalesce(NULLIF(btrim(state_item.source_value),''),E'\\x00'))=lower(coalesce(NULLIF(btrim(staged.payload->'source'->>'legacyState'),''),E'\\x00'))
 LEFT JOIN hr_employee employee ON employee.tenant_id=:'tenant_id' AND employee.park_id=:'park_id' AND employee.employee_code=staged.payload->'source'->>'employeeCode' AND employee.is_deleted=false;
 
@@ -88,7 +89,7 @@ INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_d
 VALUES (:'run_id','yuzhou-v10',:'snapshot_sha',:'target_database','load','running','t1-employment-event-loader-v1',now());
 INSERT INTO legacy_source_object(source_system,source_database,object_type,object_schema,object_name,source_version,checksum_sha256,metadata)
 VALUES ('yuzhou-v10','manpower10','table','dbo','readjust','t1-loader-v1',:'events_sha',jsonb_build_object('rows',6887)),
-       ('yuzhou-v10','manpower10','table','dbo','readjustitem','t1-loader-v1',:'types_sha',jsonb_build_object('rows',8))
+       ('yuzhou-v10','manpower10','table','dbo','readjust','t1-loader-v2',:'types_sha',jsonb_build_object('domain','readjusttype_usage'))
 ON CONFLICT DO NOTHING;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id'), classified AS (SELECT * FROM stg_employment_event_decision)
