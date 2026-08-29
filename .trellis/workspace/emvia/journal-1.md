@@ -573,3 +573,38 @@ Closed Track C at final SHA: formal rollback 19/19, fresh unspliced performance 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: PSW park-switch permission queue closure
+
+**Date**: 2026-08-29
+**Task**: PSW park-switch permission queue closure
+**Package**: api
+**Branch**: `codex/evidence-psw-session`
+
+### Summary
+
+Completed PSW-001/002/003 and D5, ran authoritative S1/S2/S3 plus G1-G7 UAT, merged report PR #476, archived the UAT child and parent queue via PR #477, and verified main CI/Deploy workflow outcomes without misreporting docs-only deployment skips.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `624119680edfa7ade5ec4368c0c9560dd6866b30` | (see git log) |
+| `f5453251cc44794e7b3f39472f2e48cc39bdc6ed` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
