@@ -1,0 +1,7 @@
+{"file":".trellis/spec/api/backend/index.md","reason":"资产实体、operation config、审批与 picker API 的后端领域合同索引"}
+{"file":".trellis/spec/api/backend/asset-operating-space-mapping.md","reason":"资产单元到经营空间与 mode 资格的直接规范"}
+{"file":".trellis/spec/api/backend/apartment-inclusion-availability.md","reason":"住房/长租候选纳入和可用性合同"}
+{"file":".trellis/spec/web/frontend/index.md","reason":"资产与房产业务 Web 契约及 UI 规范索引"}
+{"file":".trellis/spec/shared/backend/index.md","reason":"API/Web shared 合同所有权与兼容规则"}
+{"file":".trellis/spec/shared/frontend/index.md","reason":"Web 消费 shared 契约的边界"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"字段从 DB 到 API/shared/Web/picker 的跨层核查框架"}
