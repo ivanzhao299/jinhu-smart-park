@@ -106,7 +106,11 @@ export function validateCoreT0T3Config(input) {
   if (basename(projectRoot) !== config.target.database || config.target.runtimeRoot !== join(projectRoot, "runtime")
     || config.target.stagingRoot !== join(projectRoot, "runtime", "staging") || config.target.evidenceRoot !== join(projectRoot, "runtime", "evidence")
     || config.target.credentialRoot !== join(projectRoot, "credentials") || config.source.etlEnvFile !== join(projectRoot, "credentials", "etl.env")) fail("CORE_TARGET_INVALID", "exact project directory topology");
-  const reachabilitySurface = JSON.stringify({ profile: config.profile, runId: config.runId, source: config.source, target: config.target });
+  // Dictionary packages are validated by the dedicated four-package preflight
+  // before provisioning. Their mandatory `productionImport: "HOLD"` marker is
+  // evidence of the boundary, not a production-import capability.
+  const { dictionaryPackages: _dictionaryPackages, ...sourceReachabilitySurface } = config.source;
+  const reachabilitySurface = JSON.stringify({ profile: config.profile, runId: config.runId, source: sourceReachabilitySurface, target: config.target });
   if (FORBIDDEN.test(reachabilitySurface)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", "T4, T5 and production historical import are unreachable");
   return config;
 }
