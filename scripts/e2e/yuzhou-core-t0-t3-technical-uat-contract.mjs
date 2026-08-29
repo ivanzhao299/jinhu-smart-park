@@ -22,6 +22,7 @@ test("core technical UAT is bound to rollback_ready and cannot promote a full ma
   assert.match(sharedRunner, /requiredState="uat_ready",finalizeManifest=true/u);
   assert.match(sharedRunner, /if\(finalizeManifest\)/u);
   assert.match(sharedRunner, /VERBOSITY=verbose/u);
+  assert.match(sharedRunner, /safeDatabaseDiagnostic/u);
   assert.match(sharedRunner, /constraint "\(\[A-Za-z0-9_\]\+\)"/u);
   assert.match(sharedRunner, /TECHNICAL_UAT_DATABASE_FAILED/u);
   assert.match(sharedRunner, /operation_\$\{operation\}_sqlstate_\$\{sqlState\}/u);
