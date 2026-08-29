@@ -38,6 +38,7 @@ const fixtureKeyFor=runId=>`uat${sha256(runId).slice(0,16)}`;
 let databaseOperation=0;
 const safeDatabaseDiagnostic=error=>String(error?.message??"").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?/u)?.[0]??"";
 const databaseCallsite=()=>[...new Error().stack?.matchAll(/scripts\/hr-cutover\/([A-Za-z0-9-]+)\.mjs:(\d+):\d+/gu)??[]][2]?.slice(1,3).join("_")??"unknown";
+const safeRuntimeCategories=value=>[...new Set([...(String(value??"").match(/(?:SQLSTATE|code)[:= ]+['"]?([0-9A-Z]{5})/gu)??[]).map(row=>row.replace(/^.*?([0-9A-Z]{5})$/u,"$1")),...(String(value??"").match(/(?:QueryFailedError|EntityNotFoundError|TypeError|ForbiddenException|ConflictException|NotFoundException)/gu)??[]).map(row=>row.replace(/Error$/u,""))])].sort();
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
@@ -104,11 +105,11 @@ COMMIT;`;
  // UAT users are referenced by append-only HR action evidence and are also needed by the browser matrix.
  // They remain inside the isolated database until the full lifecycle removes the registered database/container.
  const cleanupSql=`SELECT 1;`;
- let api,web,result,failure;
+ let api,web,result,failure;const apiStderr=[];
  try{
   psql(config,vars,provisionSql);
   const common={...process.env,POSTGRES_HOST:"127.0.0.1",POSTGRES_PORT:String(config.target.postgresPort),POSTGRES_USER:pg.POSTGRES_USER,POSTGRES_PASSWORD:pg.POSTGRES_PASSWORD,POSTGRES_DB:config.target.database,JWT_SECRET:randomBytes(48).toString("hex"),PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey,APP_PORT:String(config.target.apiPort),WEB_ORIGIN:`http://127.0.0.1:${config.target.webPort}`,FILE_STORAGE_LOCAL_ROOT:config.target.fileRoot,AUTH_SMS_FIXED_CODE:"",AUTH_SMS_CODE_VISIBLE:"false",AUTH_WECHAT_MOCK_ENABLED:"false",NODE_ENV:"test"};
-  api=spawn(process.execPath,[apiMain],{cwd:ROOT,env:common,stdio:"ignore"});
+  api=spawn(process.execPath,[apiMain],{cwd:ROOT,env:common,stdio:["ignore","ignore","pipe"]});api.stderr?.on("data",chunk=>{if(apiStderr.join("").length<65536)apiStderr.push(String(chunk));});
   web=spawn("pnpm",["--filter","@jinhu/web","start"],{cwd:ROOT,env:{...process.env,WEB_PORT:String(config.target.webPort),NEXT_PUBLIC_API_TARGET:`http://127.0.0.1:${config.target.apiPort}`},stdio:"ignore"});
   registryProcesses(config,[api.pid,web.pid]);
   await Promise.all([waitUrl(`http://127.0.0.1:${config.target.apiPort}/api/v1/health`),waitUrl(`http://127.0.0.1:${config.target.webPort}/login`)]);
@@ -195,7 +196,7 @@ COMMIT;`;
    const record={sha256:manifestHash(manifest),manifest};chain.push(record);writePrivate(chainPath,chain);verifyManifestChain(chain,{evidenceRoot:config.target.evidenceRoot});
    result={state:"uat_ready",technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",manifestSha256:record.sha256,productionImport:"HOLD"};
   }else result={state:requiredState,technicalUat:"PASS",apiChecks:59,negativeAuthorizationChecks:22,webRouteChecks:3,legacyObservedChecks:matrixObservations.length,browserViewportCells:browserResult.observedCells,legacyScorePromotion:"PASS_TECHNICAL",humanUat:"HOLD",productionImport:"HOLD"};
- }catch(error){failure=error;}finally{
+ }catch(error){failure=error;const categories=safeRuntimeCategories(apiStderr.join(""));if(categories.length&&existsSync(resolve(config.target.evidenceRoot,"resource-registry.json"))){const runtimePath=resolve(config.target.evidenceRoot,"technical-uat-runtime-failure-summary.json");writePrivate(runtimePath,{formatVersion:1,parentRunId:config.runId,failureCode:String(error?.code??"TECHNICAL_UAT_FAILED"),apiRuntimeCategories:categories,productionImport:"HOLD"});registryFile(config,runtimePath);}}finally{
   failure=await preserveFailure(failure,()=>Promise.all([stopChild(web),stopChild(api)]));
   if(existsSync(resolve(config.target.evidenceRoot,"resource-registry.json")))failure=await preserveFailure(failure,()=>registryProcesses(config,[]));
   failure=await preserveFailure(failure,()=>{try{psql(config,vars,cleanupSql);}catch(error){if(!String(error.message).includes("does not exist"))throw error;}});

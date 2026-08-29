@@ -24,6 +24,8 @@ test("core technical UAT is bound to rollback_ready and cannot promote a full ma
   assert.match(sharedRunner, /if\(finalizeManifest\)/u);
   assert.match(sharedRunner, /VERBOSITY=verbose/u);
   assert.match(sharedRunner, /safeDatabaseDiagnostic/u);
+  assert.match(sharedRunner, /safeRuntimeCategories/u);
+  assert.match(sharedRunner, /technical-uat-runtime-failure-summary\.json/u);
   assert.match(sharedRunner, /databaseCallsite/u);
   assert.match(sharedRunner, /l\.biz_id::text=:'bizId'/u);
   assert.doesNotMatch(sharedRunner, /l\.biz_id=:'bizId'::uuid/u);
