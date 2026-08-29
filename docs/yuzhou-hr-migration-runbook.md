@@ -222,6 +222,17 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 本入口没有 production import 或 production restore 子命令，也不接受布尔开关作为生产授权。所有结果固定输出 `productionImport=HOLD`。Slice 2 的 fixture 通过只证明编排、失败关闭、信号恢复和零残留合同，不代表真实 A/B 演练、三角色 UAT 或生产导入已经完成。
 
+### 8.0.1 T0→T3 首批机器演练合同
+
+为支持“先完成容易验证的数据，再处理最近三年工资和复杂尾项”，仓库单独冻结 `core_t0_t3` 合同。该合同只允许完整固定前缀 `T0→T1→T2→T3`，回滚只能是 `T3→T2→T1→T0`；不接受任意领域数组、跳域或乱序。T4、T5 在该 profile 中属于明确禁止域，不能要求 T4 evidence 或 T5 materialization key。
+
+首批流程固定为 `provision→extract_t0_t3→machine_review_hold→resume_t0_t3→core_facts→pair_compare→rollback_t3_t0→cleanup`。A/B 仍须使用相同 C/S/M、不同资源和各自独立的 v2 decision/private payload/machine attestation；最终 13 类业务、控制及资源残留必须全部为零。当前 `executionStatus=SPEC_FROZEN` 只表示机器合同和负向边界已冻结，不表示执行器或真实 A/B 已完成；生产历史导入始终为 `HOLD`。
+
+```sh
+pnpm test:e2e:yuzhou-core-t0-t3-rehearsal
+node scripts/hr-cutover/verify-core-t0-t3-rehearsal-contract.mjs
+```
+
 ### 8.1 隔离演练备份、故障检测与新库恢复
 
 真实 `lab` 演练只有在同一轮连续 T0→T5、PostgreSQL global facts 和三角色技术 UAT 均已通过、最新 manifest head 为 `uat_ready` 时，才能执行恢复证明：
