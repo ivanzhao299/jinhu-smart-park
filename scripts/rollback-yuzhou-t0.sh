@@ -32,7 +32,7 @@ BEGIN
   IF batch_uuid IS NULL THEN RAISE EXCEPTION 'succeeded migration batch not found'; END IF;
   SELECT count(*) INTO expected_employees FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_employee' AND is_active;
   SELECT count(*) INTO rejected_employees FROM migration_error
-    WHERE batch_id=batch_uuid AND error_code IN('EMPLOYEE_DATE_ORDER','EMPLOYEE_JOB_STATE_UNRESOLVED');
+    WHERE batch_id=batch_uuid AND error_code='EMPLOYEE_JOB_STATE_UNRESOLVED';
   SELECT count(*) INTO expected_positions FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_position' AND is_active;
   SELECT count(*) INTO expected_orgs FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='sys_org' AND is_active;
   IF expected_employees + rejected_employees<>2949 OR expected_positions<>18 OR expected_orgs<>138 THEN RAISE EXCEPTION 'rollback source accounting drift'; END IF;

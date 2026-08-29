@@ -130,14 +130,9 @@ SELECT id,'organization','dbo.departmentcode','load','running',138,138,0,0,:'dep
 UNION ALL SELECT id,'position','dbo.job','load','running',18,18,0,0,:'pos_sha',now() FROM b
 UNION ALL SELECT id,'employee','dbo.person','load','running',2949,
   (SELECT count(*) FROM stg_employee_decision WHERE decision='map' AND target_domain='employment_status'
-    AND target_value IN('active','probation','suspended','departed') AND NOT (
-    NULLIF(payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(payload->'source'->>'departureDate','') IS NOT NULL
-    AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)),0,
-  (SELECT count(*) FROM stg_employee_decision WHERE (
-    decision='map' AND target_domain='employment_status' AND target_value IN('active','probation','suspended','departed')
-    AND NOT (
-    NULLIF(payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(payload->'source'->>'departureDate','') IS NOT NULL
-    AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)) IS NOT TRUE),:'emp_sha',now() FROM b;
+    AND target_value IN('active','probation','suspended','departed')),0,
+  (SELECT count(*) FROM stg_employee_decision WHERE (decision='map' AND target_domain='employment_status'
+    AND target_value IN('active','probation','suspended','departed')) IS NOT TRUE),:'emp_sha',now() FROM b;
 
 INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark)
 SELECT :'tenant_id',:'park_id',NULL,s.payload->>'sourceKey',s.payload->'source'->>'orgName',
@@ -175,16 +170,16 @@ FROM stg_position s CROSS JOIN b JOIN hr_position p ON p.tenant_id=:'tenant_id' 
 
 WITH valid_employee AS (
   SELECT * FROM stg_employee_decision WHERE decision='map' AND target_domain='employment_status'
-    AND target_value IN('active','probation','suspended','departed') AND NOT (
-    NULLIF(payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(payload->'source'->>'departureDate','') IS NOT NULL
-    AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)
+    AND target_value IN('active','probation','suspended','departed')
   )
 INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,hire_date,probation_end_date,departure_date,remark)
 SELECT :'tenant_id',:'park_id',s.payload->>'sourceKey',s.payload->'source'->>'fullName',o.id,p.id,
   'full_time',s.target_value,
   NULLIF(s.payload->'source'->>'hireDate','')::date,NULLIF(s.payload->'source'->>'formalDate','')::date,
-  NULLIF(s.payload->'source'->>'departureDate','')::date,
-  'Migrated from Yuzhou V10; legacy_status='||(s.payload->'source'->>'legacyStatus')||'; run='||:'run_id'
+  CASE WHEN NULLIF(s.payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(s.payload->'source'->>'departureDate','') IS NOT NULL
+      AND (s.payload->'source'->>'departureDate')::date < (s.payload->'source'->>'hireDate')::date THEN NULL
+    ELSE NULLIF(s.payload->'source'->>'departureDate','')::date END,
+  'Migrated from Yuzhou V10; legacy_status='||(s.payload->'source'->>'legacyStatus')||'; legacy_date_order=review_required; run='||:'run_id'
 FROM valid_employee s
 JOIN sys_org o ON o.tenant_id::text=:'tenant_id' AND o.park_id::text=:'park_id' AND o.org_code=s.payload->'source'->>'departmentCode' AND o.is_deleted=false
 LEFT JOIN hr_position p ON p.tenant_id=:'tenant_id' AND p.park_id=:'park_id' AND p.position_code=s.payload->'source'->>'positionCode' AND p.is_deleted=false;
@@ -204,9 +199,7 @@ UNION ALL
 SELECT b.id,item.id,'mapping','EMPLOYEE_JOB_STATE_UNRESOLVED',s.payload->>'sourceIdentitySha256',
        jsonb_build_object('rule','approved_dictionary_mapping_required'),true,false
 FROM stg_employee_decision s CROSS JOIN b JOIN item ON item.batch_id=b.id
-WHERE NOT (NULLIF(s.payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(s.payload->'source'->>'departureDate','') IS NOT NULL
-  AND (s.payload->'source'->>'departureDate')::date < (s.payload->'source'->>'hireDate')::date)
-  AND (s.decision='map' AND s.target_domain='employment_status' AND s.target_value IN('active','probation','suspended','departed')) IS NOT TRUE;
+WHERE (s.decision='map' AND s.target_domain='employment_status' AND s.target_value IN('active','probation','suspended','departed')) IS NOT TRUE;
 
 UPDATE migration_batch_item i SET loaded_count=x.loaded_count,status=CASE WHEN i.rejected_count>0 THEN 'quarantined' ELSE 'succeeded' END,finished_at=now(),update_time=now()
 FROM (VALUES ('organization',138::bigint),('position',18::bigint),('employee',(SELECT count(*)::bigint FROM hr_employee WHERE tenant_id=:'tenant_id' AND park_id=:'park_id' AND remark LIKE '%run='||:'run_id'))) x(domain,loaded_count)
@@ -218,8 +211,8 @@ SELECT b.id,'T0_ORGANIZATION_COUNT','138'::jsonb,to_jsonb((SELECT count(*) FROM 
   (SELECT count(*)=138 FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='sys_org'),encode(digest('T0_ORGANIZATION_COUNT:138','sha256'),'hex') FROM b
 UNION ALL SELECT b.id,'T0_POSITION_COUNT','18'::jsonb,to_jsonb((SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_position')),'{}'::jsonb,
   (SELECT count(*)=18 FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_position'),encode(digest('T0_POSITION_COUNT:18','sha256'),'hex') FROM b
-UNION ALL SELECT b.id,'T0_EMPLOYEE_ACCOUNTING','2949'::jsonb,to_jsonb((SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_employee')+(SELECT count(*) FROM migration_error e WHERE e.batch_id=b.id AND e.error_code IN('EMPLOYEE_DATE_ORDER','EMPLOYEE_JOB_STATE_UNRESOLVED'))),'{}'::jsonb,
-  (SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_employee')+(SELECT count(*) FROM migration_error e WHERE e.batch_id=b.id AND e.error_code IN('EMPLOYEE_DATE_ORDER','EMPLOYEE_JOB_STATE_UNRESOLVED'))=2949,encode(digest('T0_EMPLOYEE_ACCOUNTING:2949','sha256'),'hex') FROM b;
+UNION ALL SELECT b.id,'T0_EMPLOYEE_ACCOUNTING','2949'::jsonb,to_jsonb((SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_employee')+(SELECT count(*) FROM migration_error e WHERE e.batch_id=b.id AND e.error_code='EMPLOYEE_JOB_STATE_UNRESOLVED')),'{}'::jsonb,
+  (SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.target_table='hr_employee')+(SELECT count(*) FROM migration_error e WHERE e.batch_id=b.id AND e.error_code='EMPLOYEE_JOB_STATE_UNRESOLVED')=2949,encode(digest('T0_EMPLOYEE_ACCOUNTING:2949','sha256'),'hex') FROM b;
 
 WITH b AS (SELECT id FROM migration_batch WHERE run_id=:'run_id')
 INSERT INTO migration_rollback_point(batch_id,rollback_code,reversible_scope,cleanup_manifest,evidence_sha256,verified_at)
