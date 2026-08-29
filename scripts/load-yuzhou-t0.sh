@@ -101,7 +101,7 @@ LEFT JOIN hr_legacy_dictionary_item dictionary_item
  AND dictionary_item.park_id=dictionary_version.park_id AND dictionary_item.is_deleted=false
  AND lower(coalesce(NULLIF(btrim(dictionary_item.source_code),''),E'\\x00'))=
      lower(coalesce(NULLIF(btrim(staged.payload->'source'->>'legacyStatus'),''),E'\\x00'))
- AND dictionary_item.source_name IS NULL AND dictionary_item.source_value IS NULL;
+ AND dictionary_item.source_value IS NULL;
 
 DO $$ BEGIN
   IF (SELECT count(*) FROM stg_department)<>138 OR (SELECT count(*) FROM stg_position)<>18 OR (SELECT count(*) FROM stg_employee_decision)<>2949 THEN
@@ -137,7 +137,7 @@ UNION ALL SELECT id,'employee','dbo.person','load','running',2949,
     decision='map' AND target_domain='employment_status' AND target_value IN('active','probation','suspended','departed')
     AND NOT (
     NULLIF(payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(payload->'source'->>'departureDate','') IS NOT NULL
-    AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)) IS NOT TRUE,:'emp_sha',now() FROM b;
+    AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)) IS NOT TRUE),:'emp_sha',now() FROM b;
 
 INSERT INTO sys_org(tenant_id,park_id,parent_id,org_code,org_name,org_type,sort_order,status,remark)
 SELECT :'tenant_id',:'park_id',NULL,s.payload->>'sourceKey',s.payload->'source'->>'orgName',
@@ -178,7 +178,7 @@ WITH valid_employee AS (
     AND target_value IN('active','probation','suspended','departed') AND NOT (
     NULLIF(payload->'source'->>'hireDate','') IS NOT NULL AND NULLIF(payload->'source'->>'departureDate','') IS NOT NULL
     AND (payload->'source'->>'departureDate')::date < (payload->'source'->>'hireDate')::date)
-)
+  )
 INSERT INTO hr_employee(tenant_id,park_id,employee_code,full_name,primary_org_id,position_id,employment_type,employment_status,hire_date,probation_end_date,departure_date,remark)
 SELECT :'tenant_id',:'park_id',s.payload->>'sourceKey',s.payload->'source'->>'fullName',o.id,p.id,
   'full_time',s.target_value,

@@ -23,7 +23,7 @@ SELECT set_config('yuzhou.run_id',:'run_id',true);
 SELECT set_config('yuzhou.target_database',:'target_database',true);
 
 DO $$
-DECLARE batch_uuid uuid; expected_employees bigint; expected_positions bigint; expected_orgs bigint;
+DECLARE batch_uuid uuid; expected_employees bigint; rejected_employees bigint; expected_positions bigint; expected_orgs bigint;
 BEGIN
   IF current_database()<>current_setting('yuzhou.target_database') OR current_database() !~ '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN
     RAISE EXCEPTION 'unsafe rollback target';
@@ -31,9 +31,15 @@ BEGIN
   SELECT id INTO batch_uuid FROM migration_batch WHERE run_id=current_setting('yuzhou.run_id') AND status='succeeded' FOR UPDATE;
   IF batch_uuid IS NULL THEN RAISE EXCEPTION 'succeeded migration batch not found'; END IF;
   SELECT count(*) INTO expected_employees FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_employee' AND is_active;
+  SELECT count(*) INTO rejected_employees FROM migration_error
+    WHERE batch_id=batch_uuid AND error_code IN('EMPLOYEE_DATE_ORDER','EMPLOYEE_JOB_STATE_UNRESOLVED');
   SELECT count(*) INTO expected_positions FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_position' AND is_active;
   SELECT count(*) INTO expected_orgs FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='sys_org' AND is_active;
-  IF expected_employees<>2938 OR expected_positions<>18 OR expected_orgs<>138 THEN RAISE EXCEPTION 'rollback mapping count drift'; END IF;
+  IF expected_employees + rejected_employees<>2949 OR expected_positions<>18 OR expected_orgs<>138 THEN RAISE EXCEPTION 'rollback source accounting drift'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM migration_check
+    WHERE batch_id=batch_uuid AND check_code IN ('T0_ORGANIZATION_COUNT','T0_POSITION_COUNT','T0_EMPLOYEE_ACCOUNTING') AND NOT passed
+  ) THEN RAISE EXCEPTION 'rollback verification drift'; END IF;
   IF (SELECT count(*) FROM hr_employee e JOIN legacy_record_map m ON m.target_id=e.id WHERE m.batch_id=batch_uuid AND m.target_table='hr_employee' AND m.is_active)<>expected_employees THEN RAISE EXCEPTION 'employee rollback target drift'; END IF;
   IF (SELECT count(*) FROM hr_position p JOIN legacy_record_map m ON m.target_id=p.id WHERE m.batch_id=batch_uuid AND m.target_table='hr_position' AND m.is_active)<>expected_positions THEN RAISE EXCEPTION 'position rollback target drift'; END IF;
   IF (SELECT count(*) FROM sys_org o JOIN legacy_record_map m ON m.target_id=o.id WHERE m.batch_id=batch_uuid AND m.target_table='sys_org' AND m.is_active)<>expected_orgs THEN RAISE EXCEPTION 'organization rollback target drift'; END IF;
@@ -50,7 +56,11 @@ UPDATE legacy_record_map SET mapping_status='rolled_back',is_active=false,update
 WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND is_active;
 UPDATE migration_batch_item SET phase='rollback',status='succeeded',finished_at=now(),update_time=now()
 WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id');
-UPDATE migration_rollback_point SET cleanup_manifest=cleanup_manifest||jsonb_build_object('deletedEmployees',2938,'deletedPositions',18,'deletedOrganizations',138),verified_at=now()
+UPDATE migration_rollback_point SET cleanup_manifest=cleanup_manifest||jsonb_build_object(
+  'deletedEmployees',(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND target_table='hr_employee'),
+  'deletedPositions',(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND target_table='hr_position'),
+  'deletedOrganizations',(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND target_table='sys_org')
+),verified_at=now()
 WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run_id') AND rollback_code='T0_INITIAL_LOAD';
 UPDATE migration_batch SET phase='rollback',status='rolled_back',finished_at=now(),update_time=now()
 WHERE run_id=:'run_id';
