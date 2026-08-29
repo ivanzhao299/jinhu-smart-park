@@ -74,7 +74,11 @@ const config = (rehearsal, suffix, basePort) => {
       sourceRestoreReceiptSha256,
       databaseAlias: "YuzhouHR_Lab_fixture01",
       etlEnvFile,
-      sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1"
+      sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1",
+      // Lifecycle-only fixtures do not provision resources; the live driver
+      // separately rejects this null placeholder before resource creation.
+      dictionaryPackages: null,
+      dictionaryCaptureReceipt: null
     },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: rehearsal === "A" ? fixture.trustedRootSha256 : fixtureB.trustedRootSha256 },
     target: {

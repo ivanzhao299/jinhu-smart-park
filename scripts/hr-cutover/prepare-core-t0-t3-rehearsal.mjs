@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { computeCoreT0T3MappingContractHash } from "./core-drivers/postgres-lab-v1.mjs";
 import { verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
+import { verifyCoreDictionaryCaptureBinding } from "./verify-yuzhou-core-dictionary-preflight.mjs";
+import { verifyCoreDictionaryCapture } from "./capture-yuzhou-core-dictionary-receipt.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -48,7 +50,7 @@ function parseEnv(path) {
 }
 
 export function parseCorePrepareArgs(argv) {
-  const args = {}, allowed = new Set(["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--source-container", "--source-backup", "--source-restore-receipt", "--machine-attestation-root"]);
+  const args = {}, allowed = new Set(["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--source-container", "--source-backup", "--source-restore-receipt", "--machine-attestation-root", "--event-type-package", "--event-state-package", "--contract-type-package", "--contract-state-package", "--dictionary-capture-receipt"]);
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (!allowed.has(key) || index + 1 >= argv.length || allowed.has(argv[index + 1])) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
@@ -56,7 +58,7 @@ export function parseCorePrepareArgs(argv) {
     if (Object.hasOwn(args, name)) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
     args[name] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "machineAttestationRoot"]) if (!args[key]) fail("CORE_PREPARE_ARGUMENT_MISSING", key);
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "machineAttestationRoot", "eventTypePackage", "eventStatePackage", "contractTypePackage", "contractStatePackage", "dictionaryCaptureReceipt"]) if (!args[key]) fail("CORE_PREPARE_ARGUMENT_MISSING", key);
   if (!["A", "B"].includes(args.rehearsal)) fail("CORE_PREPARE_ARGUMENT_INVALID", "rehearsal");
   if (!/^[a-z0-9_]{6,36}$/u.test(args.suffix)) fail("CORE_PREPARE_ARGUMENT_INVALID", "suffix");
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/u.test(args.sourceContainer)) fail("CORE_PREPARE_ARGUMENT_INVALID", "source container");
@@ -81,6 +83,24 @@ export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = co
   const sourceSnapshotHash = sha256File(sourceBackup);
   const sourceRestoreReceipt = regularFile(args.sourceRestoreReceipt, "source restore receipt", { privateFile: true });
   const sourceRestoreReceiptSha256 = sha256File(sourceRestoreReceipt);
+  const dictionaryPackagePaths = {
+    employment_event_type: args.eventTypePackage,
+    employment_event_state: args.eventStatePackage,
+    contract_type: args.contractTypePackage,
+    contract_state: args.contractStatePackage
+  };
+  const dictionaryPackages = Object.fromEntries(Object.entries(dictionaryPackagePaths).map(([key, path]) => {
+    try {
+      return [key, JSON.parse(readFileSync(regularFile(path, `${key} package`, { privateFile: true }), "utf8"))];
+    } catch {
+      fail("CORE_PREPARE_DICTIONARY_PACKAGE_INVALID", key);
+    }
+  }));
+  let dictionaryCaptureReceipt;
+  try { dictionaryCaptureReceipt = verifyCoreDictionaryCapture(JSON.parse(readFileSync(regularFile(args.dictionaryCaptureReceipt, "dictionary capture receipt", { privateFile: true }), "utf8"))); }
+  catch { fail("CORE_PREPARE_DICTIONARY_CAPTURE_INVALID", "capture receipt"); }
+  const dictionaryPreflight = verifyCoreDictionaryCaptureBinding(dictionaryPackages, dictionaryCaptureReceipt);
+  if (dictionaryPreflight.sourceSnapshotSha256 !== sourceSnapshotHash) fail("CORE_PREPARE_DICTIONARY_SOURCE_DRIFT", "dictionary packages differ from source backup");
   verifySourceRestoreReceiptFile({ receiptPath: sourceRestoreReceipt, receiptSha256: sourceRestoreReceiptSha256, sourceSnapshotSha256: sourceSnapshotHash,
     sourceBackupPath: sourceBackup, sourceContainer: args.sourceContainer, databaseAlias: parseEnv(regularFile(args.etlEnv, "ETL env", { privateFile: true })).YUZHOU_SQLSERVER_DATABASE }, { recheckLive: false });
   const etlSource = regularFile(args.etlEnv, "ETL env", { privateFile: true }), etl = parseEnv(etlSource);
@@ -94,7 +114,7 @@ export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = co
   const config = {
     formatVersion: 1, profile: "core_t0_t3", runId: `yzcore-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`, rehearsal: args.rehearsal,
     triple: { codeSha, sourceSnapshotHash, mappingContractHash },
-    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256, databaseAlias: etl.YUZHOU_SQLSERVER_DATABASE, etlEnvFile: etlCopy, sourceContainer: args.sourceContainer },
+    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256, databaseAlias: etl.YUZHOU_SQLSERVER_DATABASE, etlEnvFile: etlCopy, sourceContainer: args.sourceContainer, dictionaryPackages, dictionaryCaptureReceipt },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: args.machineAttestationRoot },
     target: {
       database: project, composeProject: project, container: `${project}-postgres-1`, network: `${project}_default`, volume: `${project}_postgres_data`,

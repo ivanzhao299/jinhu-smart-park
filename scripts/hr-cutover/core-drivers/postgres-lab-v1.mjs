@@ -12,6 +12,7 @@ import {
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
 import { createDefaultSourceRestoreProbe, verifySourceRestoreReceiptFile } from "../source-restore-receipt.mjs";
+import { verifyCoreDictionaryCaptureBinding } from "../verify-yuzhou-core-dictionary-preflight.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const FULL_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -117,6 +118,15 @@ function assertSourceRestoreBinding(config, probe) {
   return { status: "verified", productionImport: "HOLD" };
 }
 
+function assertCoreDictionaryPreflight(config) {
+  if (!config.source.dictionaryPackages || !config.source.dictionaryCaptureReceipt) fail("CORE_DICTIONARY_PREFLIGHT_REQUIRED", "four approved dictionary packages and their capture receipt are required before resource creation");
+  let result;
+  try { result = verifyCoreDictionaryCaptureBinding(config.source.dictionaryPackages, config.source.dictionaryCaptureReceipt); }
+  catch { fail("CORE_DICTIONARY_PREFLIGHT_DRIFT", "dictionary packages do not bind the capture receipt"); }
+  if (result.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || result.productionImport !== "HOLD") fail("CORE_DICTIONARY_PREFLIGHT_DRIFT", "dictionary packages differ from the fixed source snapshot");
+  return result;
+}
+
 function stagingDirectory(config, domain) {
   return join(config.target.stagingRoot, `staging-${config.runId}-t${CORE_DOMAIN_ORDER.indexOf(domain)}`);
 }
@@ -166,6 +176,7 @@ function queryJson(config, run, sql, code = "CORE_POSTGRES_QUERY_FAILED") {
 }
 
 function provision(config, run, p, sourceReceiptProbe) {
+  assertCoreDictionaryPreflight(config);
   assertSourceRestoreBinding(config, sourceReceiptProbe);
   if (existsSync(config.target.runtimeRoot)) fail("CORE_RUN_ALREADY_EXISTS", config.runId);
   assertPrivateFile(p.postgresEnv, "postgres.env");
