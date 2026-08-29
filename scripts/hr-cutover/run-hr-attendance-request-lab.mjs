@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* global process */
 import { spawnSync } from "node:child_process";
-import { existsSync,lstatSync,readFileSync,statSync } from "node:fs";
-import { resolve } from "node:path";
+import { chmodSync,existsSync,lstatSync,readFileSync,statSync,writeFileSync } from "node:fs";
+import { dirname,resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
 
@@ -31,7 +31,15 @@ function configForGate(configPath){
  const values=Object.fromEntries(readFileSync(credentialPath,"utf8").trim().split("\n").map(line=>{const at=line.indexOf("=");return[ line.slice(0,at),line.slice(at+1) ];}));
  if(!/^jinhu_hr_migration_lab_core_[a-z0-9_]{6,36}$/u.test(values.POSTGRES_DB??""))fail("HR_ATTENDANCE_LAB_DATABASE_INVALID","isolated database required");
  if(!Number.isInteger(config.target?.ports?.postgres)||config.target.ports.postgres<1024||config.target.ports.postgres>65535)fail("HR_ATTENDANCE_LAB_PORT_INVALID","postgres");
- return {credentialPath,postgresPort:config.target.ports.postgres};
+ const auditRoot=resolve(dirname(config.target.runtimeRoot),"audit");
+ if(!existsSync(auditRoot)||lstatSync(auditRoot).isSymbolicLink()||!statSync(auditRoot).isDirectory()||(statSync(auditRoot).mode&0o777)!==0o700)fail("HR_ATTENDANCE_LAB_AUDIT_UNSAFE",auditRoot);
+ return {credentialPath,postgresPort:config.target.ports.postgres,summaryPath:resolve(auditRoot,"attendance-request-lab-summary.json")};
+}
+
+function writeSummary(path,value){
+ if(existsSync(path))fail("HR_ATTENDANCE_LAB_SUMMARY_EXISTS",path);
+ writeFileSync(path,`${JSON.stringify(value)}\n`,{encoding:"utf8",mode:0o600,flag:"wx"});chmodSync(path,0o600);
+ if(!privateFile(path))fail("HR_ATTENDANCE_LAB_SUMMARY_UNSAFE",path);
 }
 
 function runAttendanceGate({credentialPath,postgresPort}){
@@ -50,12 +58,15 @@ export async function runHrAttendanceRequestLab(input){
   const verified=runAttendanceGate(gate);
   const cleanup=await runCoreT0T3ContinuousLab({configPath:options.config,durationMinutes:options.durationMinutes,pollMilliseconds:options.pollSeconds*1000});
   if(cleanup.status!=="CONTRACT_PASS"||cleanup.state!=="cleaned"||cleanup.residualCount!==0)fail("HR_ATTENDANCE_LAB_CLEANUP_INVALID",cleanup.state);
-  return {status:"CONTRACT_PASS",checkpointState:checkpoint.state,attendanceGate:verified,cleanupState:cleanup.state,residualCount:cleanup.residualCount,productionImport:"HOLD"};
+  const result={status:"CONTRACT_PASS",checkpointState:checkpoint.state,attendanceGate:verified,cleanupState:cleanup.state,residualCount:cleanup.residualCount,productionImport:"HOLD"};
+  writeSummary(gate.summaryPath,result);
+  return result;
  }catch(error){
   failure=error;
   if(checkpoint?.state==="rollback_ready"){
    try{await runCoreT0T3ContinuousLab({configPath:options.config,durationMinutes:options.durationMinutes,pollMilliseconds:options.pollSeconds*1000});}catch(cleanupError){fail("HR_ATTENDANCE_LAB_RECOVERY_FAILED",String(cleanupError?.code??"cleanup"));}
   }
+  try{if(!existsSync(gate.summaryPath))writeSummary(gate.summaryPath,{status:"FAILED",failureCode:String(failure?.code??"HR_ATTENDANCE_LAB_FAILED"),checkpointState:checkpoint?.state??"not_started",productionImport:"HOLD"});}catch(summaryError){throw summaryError;}
   throw failure;
  }
 }
