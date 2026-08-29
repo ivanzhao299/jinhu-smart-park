@@ -342,9 +342,32 @@ export type PropertyOperatingMode = (typeof PROPERTY_OPERATING_MODES)[number];
 export const PROPERTY_OPERATING_STATUSES = ["enabled", "suspended", "disabled"] as const;
 export type PropertyOperatingStatus = (typeof PROPERTY_OPERATING_STATUSES)[number];
 
+export const UNIT_USAGE_OFFICE = 10;
 export const UNIT_USAGE_HOUSING = 70;
-export const UNIT_USAGE_TYPES = [10, 20, 30, 40, 50, 60, UNIT_USAGE_HOUSING] as const;
+export const UNIT_USAGE_TYPES = [UNIT_USAGE_OFFICE, 20, 30, 40, 50, 60, UNIT_USAGE_HOUSING] as const;
 export type UnitUsageType = (typeof UNIT_USAGE_TYPES)[number];
+
+export const PROPERTY_MODE_UNIT_USAGE_ALLOWLIST = {
+  none: UNIT_USAGE_TYPES,
+  short_stay: [UNIT_USAGE_HOUSING],
+  long_rent: [UNIT_USAGE_HOUSING, UNIT_USAGE_OFFICE]
+} as const satisfies Record<PropertyOperatingMode, readonly UnitUsageType[]>;
+
+export const RENTAL_SEGMENTS = ["residential", "office"] as const;
+export type RentalSegment = (typeof RENTAL_SEGMENTS)[number];
+
+export function isUnitUsageAllowedForPropertyMode(
+  mode: PropertyOperatingMode,
+  usageType: number
+): usageType is UnitUsageType {
+  return (PROPERTY_MODE_UNIT_USAGE_ALLOWLIST[mode] as readonly number[]).includes(usageType);
+}
+
+export function deriveRentalSegment(usageType: number): RentalSegment | null {
+  if (usageType === UNIT_USAGE_HOUSING) return "residential";
+  if (usageType === UNIT_USAGE_OFFICE) return "office";
+  return null;
+}
 
 export const PROPERTY_OCCUPANCY_STATUSES = ["held", "active", "released", "completed", "cancelled"] as const;
 export type PropertyOccupancyStatus = (typeof PROPERTY_OCCUPANCY_STATUSES)[number];

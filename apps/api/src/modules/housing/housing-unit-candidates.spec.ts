@@ -4,7 +4,7 @@ import test from "node:test";
 import { METHOD_METADATA, PATH_METADATA } from "@nestjs/common/constants";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
-import { SYSTEM_PERMISSIONS, type TenantParkScope } from "@jinhu/shared";
+import { SYSTEM_PERMISSIONS, UNIT_USAGE_TYPES, deriveRentalSegment, type TenantParkScope } from "@jinhu/shared";
 import { MODULES_KEY } from "../../shared/decorators/modules.decorator";
 import { ANY_PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -79,6 +79,7 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
         id: "unit-1",
         unitCode: "A-101",
         unitName: "101",
+        usage_type: 10,
         assetUnitId: "must-not-return"
       }];
     });
@@ -103,32 +104,42 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
       assert.match(statement.sql, /unit\.tenant_id=\$1/u);
       assert.match(statement.sql, /unit\.park_id=\$2/u);
       assert.match(statement.sql, /unit\.status=1/u);
-      assert.match(statement.sql, /unit\.usage_type=\$3/u);
-      assert.match(statement.sql, /unit\.id=ANY\(\$4::uuid\[\]\)/u);
-      assert.match(statement.sql, /unit\.unit_code ILIKE \$5/u);
-      assert.match(statement.sql, /unit\.unit_name ILIKE \$5/u);
+      assert.doesNotMatch(statement.sql, /unit\.usage_type=ANY/u);
+      assert.match(statement.sql, /unit\.id=ANY\(\$3::uuid\[\]\)/u);
+      assert.match(statement.sql, /unit\.unit_code ILIKE \$4/u);
+      assert.match(statement.sql, /unit\.unit_name ILIKE \$4/u);
     }
     assert.deepEqual(statements[1]!.parameters, [
       scope.tenantId,
       scope.parkId,
-      70,
       ["unit-1"],
       "%A-101%"
     ]);
     assert.deepEqual(statements[0]!.parameters, [
       scope.tenantId,
       scope.parkId,
-      70,
       ["unit-1"],
       "%A-101%",
       pageSize,
       6 * pageSize
     ]);
     assert.deepEqual(result, {
-      items: [{ id: "unit-1", unitCode: "A-101", unitName: "101" }],
+      items: [{
+        id: "unit-1",
+        unitCode: "A-101",
+        unitName: "101",
+        usage_type: 10,
+        rental_segment: "office",
+        eligible: true,
+        ineligible_reasons: []
+      }],
       total: 37,
       page: 7,
-      page_size: pageSize
+      page_size: pageSize,
+      facets: {
+        usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+        rental_segment: ["residential", "office"]
+      }
     });
   }
 });
@@ -145,7 +156,13 @@ test("housing unit candidate empty scope and empty page remain server-authoritat
       actor,
       { page: 1, page_size: 20 }
     ),
-    { items: [], total: 0, page: 1, page_size: 20 }
+    {
+      items: [], total: 0, page: 1, page_size: 20,
+      facets: {
+        usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+        rental_segment: ["residential", "office"]
+      }
+    }
   );
   assert.equal(queryCalls, 0);
 
@@ -158,6 +175,12 @@ test("housing unit candidate empty scope and empty page remain server-authoritat
       actor,
       { page: 99, page_size: 20 }
     ),
-    { items: [], total: 41, page: 99, page_size: 20 }
+    {
+      items: [], total: 41, page: 99, page_size: 20,
+      facets: {
+        usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+        rental_segment: ["residential", "office"]
+      }
+    }
   );
 });

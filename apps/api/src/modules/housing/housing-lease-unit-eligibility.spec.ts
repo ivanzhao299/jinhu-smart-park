@@ -26,44 +26,39 @@ function managerWith(results: unknown[][]) {
   };
 }
 
-test("active enabled long-rent unit passes base and period eligibility", async () => {
-  const { manager, statements } = managerWith([
-    [],
-    [{ unitStatus: 1, usageType: 70, operatingMode: "long_rent", operatingStatus: "enabled" }],
-    [{ conflict: false }]
-  ]);
+test("housing and office units pass enabled long-rent eligibility", async () => {
+  for (const usageType of [70, 10]) {
+    const { manager, statements } = managerWith([
+      [],
+      [{ unitStatus: 1, usageType, operatingMode: "long_rent", operatingStatus: "enabled" }],
+      [{ conflict: false }]
+    ]);
 
-  await assertHousingLeaseUnitEligible(manager, scope, "unit-1", {
-    startAt: "2026-09-01T00:00:00.000Z",
-    endAt: "2027-09-01T00:00:00.000Z"
-  });
+    await assertHousingLeaseUnitEligible(manager, scope, "unit-1", {
+      startAt: "2026-09-01T00:00:00.000Z",
+      endAt: "2027-09-01T00:00:00.000Z"
+    });
 
-  assert.equal(statements.length, 3);
-  assert.equal(statements[0]!.sql, "SELECT lock_property_unit_scope($1, $2, $3)");
-  assert.deepEqual(statements[0]!.parameters, [scope.tenantId, scope.parkId, "unit-1"]);
-  assert.match(statements[1]!.sql, /LEFT JOIN biz_property_operation_config operation/u);
-  assert.match(statements[1]!.sql, /FOR SHARE OF unit/u);
-  assert.match(statements[2]!.sql, /FROM biz_property_occupancy occupancy/u);
-  assert.match(statements[2]!.sql, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/u);
-  assert.match(statements[2]!.sql, /FROM rel_leasing_contract_unit relation/u);
-  assert.match(statements[2]!.sql, /FROM biz_homestay_turnover_task task/u);
-  assert.match(statements[2]!.sql, /task\.status<>'completed'/u);
-  assert.match(statements[2]!.sql, /AT TIME ZONE 'Asia\/Shanghai'/u);
-  assert.deepEqual(statements[2]!.parameters, [
-    scope.tenantId,
-    scope.parkId,
-    "unit-1",
-    "2026-09-01T00:00:00.000Z",
-    "2027-09-01T00:00:00.000Z"
-  ]);
+    assert.equal(statements.length, 3);
+    assert.equal(statements[0]!.sql, "SELECT lock_property_unit_scope($1, $2, $3)");
+    assert.deepEqual(statements[0]!.parameters, [scope.tenantId, scope.parkId, "unit-1"]);
+    assert.match(statements[1]!.sql, /LEFT JOIN biz_property_operation_config operation/u);
+    assert.match(statements[1]!.sql, /FOR SHARE OF unit/u);
+    assert.match(statements[2]!.sql, /FROM biz_property_occupancy occupancy/u);
+    assert.match(statements[2]!.sql, /hold_expires_at IS NULL OR occupancy\.hold_expires_at>now\(\)/u);
+    assert.match(statements[2]!.sql, /FROM rel_leasing_contract_unit relation/u);
+    assert.match(statements[2]!.sql, /FROM biz_homestay_turnover_task task/u);
+    assert.match(statements[2]!.sql, /task\.status<>'completed'/u);
+    assert.match(statements[2]!.sql, /AT TIME ZONE 'Asia\/Shanghai'/u);
+  }
 });
 
 test("missing or ineligible operation configuration returns stable reason codes", async () => {
   for (const [row, expected] of [
     [{ unitStatus: 0, usageType: 70, operatingMode: "long_rent", operatingStatus: "enabled" },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_INACTIVE]],
-    [{ unitStatus: 1, usageType: 10, operatingMode: "long_rent", operatingStatus: "enabled" },
-      [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_HOUSING]],
+    [{ unitStatus: 1, usageType: 20, operatingMode: "long_rent", operatingStatus: "enabled" },
+      [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_ALLOWED_FOR_MODE]],
     [{ unitStatus: 1, usageType: 70, operatingMode: null, operatingStatus: null },
       [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_CONFIG_MISSING]],
     [{ unitStatus: 1, usageType: 70, operatingMode: "short_stay", operatingStatus: "enabled" },

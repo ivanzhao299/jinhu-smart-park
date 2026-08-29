@@ -191,9 +191,13 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   );
   assert.match(candidates, /operation\.operating_mode = 'short_stay'/);
   assert.match(candidates, /operation\.operating_status = 'enabled'/);
+  assert.match(candidates, /query\.usage_type !== undefined/);
+  assert.match(candidates, /facets/);
+  assert.match(candidates, /rental_segment: deriveRentalSegment/);
+  assert.match(candidates, /UNIT_USAGE_NOT_ALLOWED_FOR_MODE/);
   assert.match(candidates, /LIMIT \$3 OFFSET \$4/);
-  assert.match(candidates, /unit\.id = ANY\(\$5::uuid\[\]\)/);
-  assert.match(candidates, /unit\.id = ANY\(\$3::uuid\[\]\)/);
+  assert.match(candidates, /unit\.id = ANY\(\$ACCESS_INDEX::uuid\[\]\)/);
+  assert.match(candidates, /forItems \? 5 : 3/);
 
   const turnoverService = readFileSync(resolve(__dirname, "homestay-turnover.service.ts"), "utf8");
   const turnovers = turnoverService.slice(

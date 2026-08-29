@@ -6,13 +6,17 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
-  UNIT_USAGE_HOUSING,
+  HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS,
+  UNIT_USAGE_TYPES,
+  deriveRentalSegment,
+  isUnitUsageAllowedForPropertyMode,
   type HousingEnergyMeterCandidateListResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
   type HousingTenantResponse,
   type HousingUnitCandidateListResponse,
   type PaginatedResult,
-  type TenantParkScope
+  type TenantParkScope,
+  type UnitUsageType
 } from "@jinhu/shared";
 import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -141,18 +145,20 @@ export class HousingService {
     query: HousingUnitCandidateQueryDto
   ): Promise<HousingUnitCandidateListResponse> {
     const unitIds = await this.unitAccessService.allowedUnitIds(scope, actor);
+    const facets = {
+      usage_type: UNIT_USAGE_TYPES.map((value) => ({ value, rental_segment: deriveRentalSegment(value) })),
+      rental_segment: ["residential" as const, "office" as const]
+    };
     if (unitIds !== null && !unitIds.length) {
-      return { items: [], total: 0, page: query.page, page_size: query.page_size };
+      return { items: [], total: 0, page: query.page, page_size: query.page_size, facets };
     }
     const parameters: unknown[] = [scope.tenantId, scope.parkId];
     const filters = [
       "unit.tenant_id=$1",
       "unit.park_id=$2",
       "unit.status=1",
-      "unit.usage_type=$3",
       "unit.is_deleted=false"
     ];
-    parameters.push(UNIT_USAGE_HOUSING);
     if (unitIds !== null) {
       parameters.push(unitIds);
       filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);
@@ -163,6 +169,10 @@ export class HousingService {
         `(unit.unit_code ILIKE $${parameters.length} OR unit.unit_name ILIKE $${parameters.length})`
       );
     }
+    if (query.usage_type !== undefined) {
+      parameters.push(query.usage_type);
+      filters.push(`unit.usage_type=$${parameters.length}`);
+    }
     const paginationStart = parameters.length + 1;
     const where = filters.join(" AND ");
     const unitSortColumns = { code: "unit.unit_code", name: "unit.unit_name" } as const;
@@ -170,7 +180,8 @@ export class HousingService {
     const unitOrder = this.sortDirection(query.order, "ASC");
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
-        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName",
+                unit.usage_type AS "usage_type"
          FROM biz_unit unit
          ${HOUSING_LONG_RENT_OPERATION_JOIN}
          WHERE ${where}
@@ -190,11 +201,18 @@ export class HousingService {
       items: (rows as HousingUnitCandidateListResponse["items"]).map((row) => ({
         id: row.id,
         unitCode: row.unitCode,
-        unitName: row.unitName
+        unitName: row.unitName,
+        usage_type: Number(row.usage_type) as UnitUsageType,
+        rental_segment: deriveRentalSegment(Number(row.usage_type)),
+        eligible: isUnitUsageAllowedForPropertyMode("long_rent", Number(row.usage_type)),
+        ineligible_reasons: isUnitUsageAllowedForPropertyMode("long_rent", Number(row.usage_type))
+          ? []
+          : [HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_ALLOWED_FOR_MODE]
       })),
       total: Number(countRows[0]?.total ?? 0),
       page: query.page,
-      page_size: query.page_size
+      page_size: query.page_size,
+      facets
     };
   }
 

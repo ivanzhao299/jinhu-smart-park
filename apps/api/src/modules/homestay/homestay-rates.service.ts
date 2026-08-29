@@ -5,7 +5,11 @@ import {
   NotFoundException
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { type HomestayRateCalendarResponse, type TenantParkScope } from "@jinhu/shared";
+import {
+  isUnitUsageAllowedForPropertyMode,
+  type HomestayRateCalendarResponse,
+  type TenantParkScope
+} from "@jinhu/shared";
 import { DataSource, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
@@ -51,9 +55,9 @@ export class HomestayRatesService {
     assertBusinessDate(dateTo, "date_to");
     const unit = await this.assertUnitReadAccess(scope, actor, unitId);
     const dates = this.businessDates(dateFrom, dateTo);
+    await this.assertUnitEligible(scope, unitId, unit.status, unit.usageType);
     const config = await this.findRate(scope, unitId);
     if (!config) {
-      await this.assertUnconfiguredUnitEligible(scope, unitId, unit.status);
       if (allowUnconfiguredResponse) return { configured: false, unit_id: unitId };
       throw new NotFoundException("Homestay rate configuration not found");
     }
@@ -76,13 +80,14 @@ export class HomestayRatesService {
     unitId: string,
     dto: UpsertHomestayRateDto
   ): Promise<HomestayRateConfigEntity> {
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
     if (
       dto.late_cancel_fee_type === "percentage"
       && toMoneyCents(dto.late_cancel_fee_value) > 10_000n
     ) {
       throw new BadRequestException("Percentage cancellation fee cannot exceed 100");
     }
+    await this.assertUnitEligible(scope, unitId, unit.status, unit.usageType);
     await this.dataSource.query(this.rateUpsertSql(), [
       scope.tenantId,
       scope.parkId,
@@ -103,7 +108,8 @@ export class HomestayRatesService {
     unitId: string,
     dto: UpsertHomestayRateOverrideDto
   ): Promise<HomestayRateOverrideEntity> {
-    await this.unitAccessService.assertAccess(scope, actor, unitId);
+    const unit = await this.unitAccessService.assertAccess(scope, actor, unitId);
+    await this.assertUnitEligible(scope, unitId, unit.status, unit.usageType);
     await this.mustFindRate(scope, unitId);
     const businessDate = dto.business_date.slice(0, 10);
     await this.dataSource.query(this.overrideUpsertSql(), [
@@ -209,7 +215,7 @@ export class HomestayRatesService {
     scope: TenantParkScope,
     actor: JwtPrincipal,
     unitId: string
-  ): Promise<{ status: number }> {
+  ): Promise<{ status: number; usageType: number }> {
     try {
       return await this.unitAccessService.assertAccess(scope, actor, unitId);
     } catch (error) {
@@ -223,12 +229,16 @@ export class HomestayRatesService {
     }
   }
 
-  private async assertUnconfiguredUnitEligible(
+  private async assertUnitEligible(
     scope: TenantParkScope,
     unitId: string,
-    unitStatus: number
+    unitStatus: number,
+    usageType: number
   ): Promise<void> {
-    if (unitStatus !== 1) throw new NotFoundException("Homestay unit not found");
+    if (
+      unitStatus !== 1
+      || !isUnitUsageAllowedForPropertyMode("short_stay", usageType)
+    ) throw new NotFoundException("Homestay unit not found");
     const rows = await this.dataSource.query(
       `SELECT 1
          FROM biz_property_operation_config

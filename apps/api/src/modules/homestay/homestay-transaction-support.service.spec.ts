@@ -123,7 +123,7 @@ test("unit bookability takes the property advisory lock before the unit row lock
         if (entity === UnitEntity) {
           assert.equal(calls[0]?.includes("lock_property_unit_scope"), true);
           assert.deepEqual((options as { lock?: unknown }).lock, { mode: "pessimistic_write" });
-          return { id: "unit-1", status: 1 };
+          return { id: "unit-1", status: 1, usageType: 70 };
         }
         assert.equal(entity, PropertyOperationConfigEntity);
         return { operatingMode: "short_stay", operatingStatus: "enabled" };

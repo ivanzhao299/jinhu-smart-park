@@ -32,6 +32,7 @@ import {
   HOUSING_SORT_ORDERS,
   HOUSING_TASK_SORTS,
   HOUSING_UNIT_CANDIDATE_SORTS,
+  UNIT_USAGE_TYPES,
   type HousingBillingListQuery,
   type HousingEnergyMeterCandidateQuery,
   type HousingFinanceListQuery,
@@ -79,6 +80,7 @@ implements HousingEnergyMeterCandidateQuery {
 
 export class HousingUnitCandidateQueryDto implements HousingUnitCandidateQuery {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(100) keyword?: string;
+  @IsOptional() @Type(() => Number) @IsIn(UNIT_USAGE_TYPES) usage_type?: HousingUnitCandidateQuery["usage_type"];
   @IsOptional() @IsIn(HOUSING_UNIT_CANDIDATE_SORTS)
   sort?: HousingUnitCandidateQuery["sort"];
   @IsOptional() @IsIn(HOUSING_SORT_ORDERS) order?: HousingUnitCandidateQuery["order"];
