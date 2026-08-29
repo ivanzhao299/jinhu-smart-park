@@ -62,6 +62,7 @@
     "test:e2e:yuzhou-t1-event-type-decision": "node scripts/e2e/yuzhou-t1-event-type-decision-contract.mjs",
     "test:e2e:yuzhou-core-dictionary-preflight": "node scripts/e2e/yuzhou-core-dictionary-preflight-contract.mjs",
     "test:e2e:yuzhou-core-dictionary-capture": "node --test scripts/e2e/yuzhou-core-dictionary-capture-receipt.mjs",
+    "test:e2e:yuzhou-core-dictionary-template": "node --test scripts/e2e/yuzhou-core-dictionary-input-template-contract.mjs",
     "test:e2e:yuzhou-full-domain-contract": "node scripts/e2e/yuzhou-full-domain-contract.mjs",
     "test:e2e:yuzhou-legacy-compatibility-coverage": "node scripts/e2e/yuzhou-legacy-compatibility-coverage-contract.mjs",
     "test:e2e:yuzhou-legacy-atomic-inventory": "node scripts/e2e/yuzhou-legacy-atomic-inventory-contract.mjs",
