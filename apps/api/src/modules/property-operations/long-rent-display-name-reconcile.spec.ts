@@ -57,12 +57,10 @@ test("migration reconciles each existing tenant permission by tenant and code wi
   }
 
   for (const value of [
-    "affected_tenants",
-    "tenant.tenant_id, definition.code",
-    "permission.tenant_id = tenant.tenant_id",
-    "permission.code = definition.code",
-    "GROUP BY tenant.tenant_id, definition.code",
-    "row_count <> 1",
+    "permission.tenant_id, permission.code",
+    "JOIN long_rent_permission_name definition ON definition.code = permission.code",
+    "GROUP BY permission.tenant_id, permission.code",
+    "HAVING count(*) <> 1",
     "long-rent-permission-cardinality-drift",
     "long-rent-registry-cardinality-drift",
     "long-rent-registry-name-reconcile-failed",
@@ -75,6 +73,7 @@ test("migration reconciles each existing tenant permission by tenant and code wi
   assert.match(sql, /UPDATE sys_module_registry\s+SET module_name = '长租经营'/u);
   assert.doesNotMatch(sql, /UPDATE\s+rel_role_perm|INSERT\s+INTO\s+rel_role_perm|DELETE\s+FROM\s+rel_role_perm/iu);
   assert.doesNotMatch(sql, /SET\s+code\s*=/iu);
+  assert.doesNotMatch(sql, /CROSS JOIN long_rent_permission_name/iu);
 });
 
 test("the same name-only mapping converges two tenants independently and leaves unrelated codes unchanged", () => {
@@ -111,7 +110,7 @@ test("every housing approval incident title uses the long-rent display terminolo
   assert.ok(housingTitleLines.every((line) => !line.includes("住房")));
 });
 
-test("PostgreSQL executes the reconcile twice for two tenants and fails closed on a missing permission", {
+test("PostgreSQL reconciles tenant permission subsets and fails closed on duplicate tenant-code rows", {
   skip: !process.env.DATABASE_URL
 }, async () => {
   const { Client } = runtimeRequire("pg") as {
@@ -176,6 +175,13 @@ test("PostgreSQL executes the reconcile twice for two tenants and fails closed o
 
     await client.query(
       "DELETE FROM sys_permission WHERE tenant_id = 'tenant-b' AND code = 'housing:lease:read'"
+    );
+    await client.query(sql);
+    assert.equal((await client.query<{ count: number }>(
+      "SELECT count(*)::integer AS count FROM sys_permission WHERE tenant_id = 'tenant-b' AND code = 'housing:lease:read'"
+    )).rows[0]?.count, 0);
+    await client.query(
+      "INSERT INTO sys_permission VALUES ('duplicate-permission', 'tenant-a', 'housing:lease:read', '重复显示名', false, now())"
     );
     await assert.rejects(client.query(sql), /long-rent-permission-cardinality-drift/u);
     await client.query("ROLLBACK");

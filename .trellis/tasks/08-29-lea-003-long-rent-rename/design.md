@@ -16,7 +16,7 @@
 - 新建 `000284_*`，不编辑 000178/000182/000183/000283 等已存在 migration。
 - 目标租户来自实际存在的目标 module/permission 定义，而不是 registry 作为授权 authority。
 - 更新键包含 `tenant_id` 与稳定 code；按表的真实唯一身份更新 `name`/`module_name`/菜单 label 字段。
-- 迁移前后记录每个 tenant、每个目标 code 的 cardinality；目标定义缺失、重复或更新后名称不一致时 `RAISE EXCEPTION`。
+- 迁移前后按 tenant + code 核验每条已存在目标定义；租户可合法只持有权限子集，缺失不补写，重复或更新后名称不一致时 `RAISE EXCEPTION`。
 - 迁移不写 `rel_role_perm`，不改变 permission/module/menu code，不改变 park scope。
 - 允许 migration runner 重入时重复执行并得到相同结果。
 

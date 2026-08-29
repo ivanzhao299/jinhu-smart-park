@@ -37,7 +37,7 @@
 
 - 2026-08-29：Issue #485 已存在；分支已在 `8dce1137` 基线上创建；rename 触点与逐租户 name-only 方案已调查确认。
 - 2026-08-29：已补齐任务制品并激活任务；完成 shared/API/Web canonical label、长租中性文案、审计显示名和 `000284` name-only reconcile，稳定 code/route/role binding 均未改。
-- 2026-08-29：独立 quality review 指出的 permission 缺行 fail-open、registry cardinality/post-check、运行时旧文案、API surface label 重复源和仅静态 SQL 测试均已修正。
+- 2026-08-29：独立 quality review 曾要求 permission 缺行 fail closed；后续 production-shaped evidence 证明租户权限目录合法为子集，该假设已在 deploy 热修中纠正。registry cardinality/post-check、运行时旧文案、API surface label 重复源和 SQL 实跑测试仍保留。
 - 2026-08-29：targeted API 23 PASS/1 条 PostgreSQL fixture 因本机无 `DATABASE_URL` 条件跳过；Web menu 12/12、housing 28/28、workspace typecheck PASS。PostgreSQL fixture 将由带数据库的 CI 执行。
 - 2026-08-29：隔离 mock API 浏览器检查 3/3 PASS：1440×960、390×844 展开菜单、390×844 无 read 权限边界；均无水平溢出、console error 或 network failure。证据 manifest 暂存于 `/tmp/lea003-20260829-browser-uat/evidence/manifest.json`，服务/浏览器/缓存已精确 teardown。
 - 2026-08-29：`pnpm lint`、`pnpm typecheck`、`pnpm build`（190 pages）均 PASS；shared build、API/Web targeted tests 均 PASS；当时本地基线仅保留仓库已知重复 `000136`。
@@ -46,4 +46,5 @@
 - 2026-08-29：修复提交 `7b363250` CI 全绿：verify 13m04s，PostgreSQL Release Smoke 19m05s，migration/failure-retry/seed/bootstrap/login/property E2E/teardown 全部 PASS。
 - 2026-08-29：review round 1 共 3 条：签名漂移已由 `7b363250` 解决；补齐 authoritative product/UAT 文档；补齐全部 7 个 housing approval incident title 并新增精确回归。相关 API 14 PASS/1 PostgreSQL 条件 SKIP，repository 既有 10 PASS，lint/diff-check PASS。
 - 2026-08-29：round-2 CI Unit tests 揭示远端 main 并发加入 HR `000283`；按 forward-only 唯一编号纪律将本任务迁移改为 `000284`，不触碰 HR migration。待 targeted 编号/迁移测试后推送。
-- 续跑点：验证并 push `000284` 编号修复，等待 round-2 CI/review；全绿后 merge，并等待 main CI+Deploy 双绿。
+- 2026-08-29：PR #486 已 squash merge 为 `1a0c6ba1`，#485 自动关闭；main Deploy 在 `000284` 发现 production tenant permission subset 并 fail closed，migration 未落库，workflow 已恢复上一版源码、health PASS、Docker cleanup 回收 4.662GB。#485 已重开，热修分支改为只 reconcile 已存在 tenant-code、缺失允许、重复拒绝。
+- 续跑点：验证 tenant subset/duplicate PostgreSQL fixture 与 targeted contracts，创建热修 PR，完成 review/CI/merge/main CI+Deploy 双绿后再进入 LEA-004。
