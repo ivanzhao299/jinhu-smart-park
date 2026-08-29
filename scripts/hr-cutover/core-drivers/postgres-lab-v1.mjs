@@ -90,7 +90,13 @@ function assertPrivateFile(path, label) {
 }
 
 function defaultRun(command, args, options = {}) {
-  const result = spawnSync(command, args, { cwd: ROOT, encoding: "utf8", stdio: options.input === undefined ? "pipe" : ["pipe", "pipe", "pipe"], ...options });
+  const result = spawnSync(command, args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: options.input === undefined ? "pipe" : ["pipe", "pipe", "pipe"],
+    ...options
+  });
   if (result.error || result.status !== 0) fail(options.code ?? "CORE_DRIVER_COMMAND_FAILED", `${command}:${args[0] ?? ""}`);
   return String(result.stdout ?? "").trim();
 }
@@ -167,14 +173,20 @@ function queryJson(config, run, sql, code = "CORE_POSTGRES_QUERY_FAILED") {
 
 function provision(config, run, p, sourceReceiptProbe) {
   assertSourceRestoreBinding(config, sourceReceiptProbe);
-  if (existsSync(config.target.runtimeRoot)) fail("CORE_RUN_ALREADY_EXISTS", config.runId);
+  const resumingProvision = existsSync(config.target.runtimeRoot);
+  if (resumingProvision && existsSync(p.registry)) fail("CORE_RUN_ALREADY_EXISTS", config.runId);
   assertPrivateFile(p.postgresEnv, "postgres.env");
-  mkdirSync(config.target.runtimeRoot, { mode: 0o700 });
-  for (const directory of [config.target.stagingRoot, config.target.evidenceRoot, join(config.target.runtimeRoot, "files")]) mkdirSync(directory, { mode: 0o700 });
-  const compose = `services:\n  postgres:\n    image: postgres:16-alpine\n    container_name: ${config.target.container}\n    env_file:\n      - ${p.postgresEnv}\n    ports:\n      - "127.0.0.1:${config.target.ports.postgres}:5432"\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n    networks:\n      - migration\nvolumes:\n  postgres_data:\n    external: true\n    name: ${config.target.volume}\nnetworks:\n  migration:\n    name: ${config.target.network}\n`;
-  privateWrite(p.compose, compose);
-  run("docker", ["volume", "create", "--label", `com.docker.compose.project=${config.target.composeProject}`, config.target.volume], { code: "CORE_PROVISION_FAILED" });
-  run("docker", ["compose", "-p", config.target.composeProject, "-f", p.compose, "up", "-d", "postgres"], { code: "CORE_PROVISION_FAILED" });
+  if (resumingProvision) {
+    assertPrivateFile(p.compose, "compose.yml");
+    assertRuntimeBoundary(config, run);
+  } else {
+    mkdirSync(config.target.runtimeRoot, { mode: 0o700 });
+    for (const directory of [config.target.stagingRoot, config.target.evidenceRoot, join(config.target.runtimeRoot, "files")]) mkdirSync(directory, { mode: 0o700 });
+    const compose = `services:\n  postgres:\n    image: postgres:16-alpine\n    container_name: ${config.target.container}\n    env_file:\n      - ${p.postgresEnv}\n    ports:\n      - "127.0.0.1:${config.target.ports.postgres}:5432"\n    volumes:\n      - postgres_data:/var/lib/postgresql/data\n    networks:\n      - migration\nvolumes:\n  postgres_data:\n    external: true\n    name: ${config.target.volume}\nnetworks:\n  migration:\n    name: ${config.target.network}\n`;
+    privateWrite(p.compose, compose);
+    run("docker", ["volume", "create", "--label", `com.docker.compose.project=${config.target.composeProject}`, config.target.volume], { code: "CORE_PROVISION_FAILED" });
+    run("docker", ["compose", "-p", config.target.composeProject, "-f", p.compose, "up", "-d", "postgres"], { code: "CORE_PROVISION_FAILED" });
+  }
   let ready = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
     const probe = spawnSync("docker", ["exec", config.target.container, "pg_isready", "-U", "jinhu", "-d", config.target.database], { stdio: "ignore" });
@@ -188,7 +200,7 @@ function provision(config, run, p, sourceReceiptProbe) {
   const baseline = queryJson(config, run, "SELECT json_build_object('tenant',EXISTS(SELECT 1 FROM sys_tenant WHERE tenant_id='10000001' AND is_deleted=false),'park',EXISTS(SELECT 1 FROM biz_park WHERE tenant_id='10000001' AND park_id='20000001' AND is_deleted=false),'org',EXISTS(SELECT 1 FROM sys_org WHERE tenant_id='10000001' AND park_id='20000001' AND is_deleted=false))::text;");
   if (!baseline.tenant || !baseline.park || !baseline.org) fail("CORE_INITIALIZATION_BASELINE_INVALID", "production seed baseline");
   const roles = [config.target.role, `${config.target.accountNamespace}_hr`, `${config.target.accountNamespace}_manager`, `${config.target.accountNamespace}_employee`];
-  const roleSql = roles.map(role => `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION;`).join(" ");
+  const roleSql = roles.map(role => `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='${role}') THEN CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; END IF; END $$;`).join(" ");
   run("docker", ["exec", config.target.container, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database, "-c", roleSql], { code: "CORE_ROLE_PROVISION_FAILED" });
   privateWrite(p.registry, { formatVersion: 1, runId: config.runId, database: config.target.database, container: config.target.container, network: config.target.network, volume: config.target.volume, role: config.target.role, accounts: roles.slice(1), ports: Object.values(config.target.ports), productionImport: "HOLD" });
   return { status: "verified", productionImport: "HOLD" };
