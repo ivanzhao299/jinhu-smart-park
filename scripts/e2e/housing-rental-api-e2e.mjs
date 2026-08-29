@@ -251,7 +251,8 @@ async function run() {
   const operation = await request(`/property/units/${unit.id}/operation`, { token });
   assert(operation.configuredMode === "long_rent", "selected unit retains its explicit long-rent fixture mode");
 
-  await expectRequestStatus("/property/occupancies", 403, {
+  assert([10, 70].includes(Number(unit.usageType)), "long-rent fixture uses a supported office or residential usage");
+  await expectRequestStatus("/property/occupancies", Number(unit.usageType) === 70 ? 403 : 404, {
     method: "POST",
     token,
     idempotent: true,
