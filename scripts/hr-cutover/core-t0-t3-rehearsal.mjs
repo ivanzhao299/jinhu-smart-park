@@ -56,7 +56,7 @@ export function validateCoreT0T3Config(input) {
   if (!CODE_SHA.test(config.triple.codeSha ?? "")) fail("CORE_TRIPLE_INVALID", "code SHA");
   requireSha(config.triple.sourceSnapshotHash, "CORE_TRIPLE_INVALID", "source snapshot");
   requireSha(config.triple.mappingContractHash, "CORE_TRIPLE_INVALID", "mapping contract");
-  exactKeys(config.source, ["readOnly", "sourceBackupSha256", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "databaseAlias", "etlEnvFile", "sourceContainer"], "CORE_SOURCE_INVALID", "source shape");
+  exactKeys(config.source, ["readOnly", "sourceBackupSha256", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "databaseAlias", "etlEnvFile", "sourceContainer", "dictionaryPackages"], "CORE_SOURCE_INVALID", "source shape");
   if (config.source.readOnly !== true || config.source.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("CORE_SOURCE_INVALID", "read-only source backup binding");
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/u.test(config.source.databaseAlias ?? "")) fail("CORE_SOURCE_INVALID", "lab database alias");
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/u.test(config.source.sourceContainer ?? "")) fail("CORE_SOURCE_INVALID", "source container identity");

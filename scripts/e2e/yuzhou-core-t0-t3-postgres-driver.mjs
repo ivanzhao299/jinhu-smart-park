@@ -76,7 +76,7 @@ test("committed PostgreSQL driver rejects T4/T5 and stops T1/T2 before unproved 
   const config = {
     formatVersion: 1, profile: "core_t0_t3", runId: `yzcore-20260829T000000Z-${"1".repeat(8)}-rA`, rehearsal: "A",
     triple: { codeSha: "1".repeat(40), sourceSnapshotHash, mappingContractHash: computeCoreT0T3MappingContractHash() },
-    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath, sourceRestoreReceiptPath, sourceRestoreReceiptSha256, databaseAlias: "YuzhouHR_Lab_driver01", etlEnvFile, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1" },
+    source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath, sourceRestoreReceiptPath, sourceRestoreReceiptSha256, databaseAlias: "YuzhouHR_Lab_driver01", etlEnvFile, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", dictionaryPackages: null },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: "3".repeat(64) },
     target: { database, composeProject: database, container: `${database}-postgres-1`, network: `${database}_default`, volume: `${database}_postgres_data`, role: `${database}_operator`, accountNamespace: `${database}_accounts`, ports: { postgres: 33200, api: 33201, web: 33202 }, runtimeRoot, stagingRoot: join(runtimeRoot, "staging"), evidenceRoot: join(runtimeRoot, "evidence"), credentialRoot },
     productionImport: "HOLD"
@@ -97,4 +97,11 @@ test("committed PostgreSQL driver rejects T4/T5 and stops T1/T2 before unproved 
   assert.match(source, /networks:\\n {6}- migration/u);
   assert.match(source, /name: \$\{config\.target\.network\}/u);
   assert.doesNotMatch(source, /production-import|production_import|hr_payroll_legacy/u);
+});
+
+test("core provision rejects missing four-dictionary preflight before creating resources", async () => {
+  const source = readFileSync(resolve(ROOT, "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs"), "utf8");
+  const provision = source.slice(source.indexOf("function provision("), source.indexOf("function cleanup("));
+  assert.match(provision, /assertCoreDictionaryPreflight/);
+  assert.ok(provision.indexOf("assertCoreDictionaryPreflight") < provision.indexOf("existsSync(config.target.runtimeRoot)"));
 });
