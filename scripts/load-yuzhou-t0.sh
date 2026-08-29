@@ -221,7 +221,7 @@ SELECT id,'T0_INITIAL_LOAD',jsonb_build_object('tenantId',:'tenant_id','parkId',
   encode(digest(:'run_id'||':T0_INITIAL_LOAD','sha256'),'hex'),now() FROM b;
 
 UPDATE migration_batch SET phase='verify',status=CASE WHEN EXISTS(SELECT 1 FROM migration_check WHERE batch_id=migration_batch.id AND NOT passed) THEN 'failed' ELSE 'succeeded' END,
-  counts=jsonb_build_object('organizations',138,'positions',18,'employeesLoaded',(SELECT count(*) FROM legacy_record_map WHERE batch_id=migration_batch.id AND target_table='hr_employee'),'employeesQuarantined',(SELECT count(*) FROM migration_error WHERE batch_id=migration_batch.id)),finished_at=now(),update_time=now()
+  counts=jsonb_build_object('organizations',138,'positions',18,'employeesLoaded',(SELECT count(*) FROM legacy_record_map WHERE batch_id=migration_batch.id AND target_table='hr_employee'),'employeeDateOrderReview',(SELECT count(*) FROM migration_error WHERE batch_id=migration_batch.id AND error_code='EMPLOYEE_DATE_ORDER'),'employeesUnresolved',(SELECT count(*) FROM migration_error WHERE batch_id=migration_batch.id AND error_code='EMPLOYEE_JOB_STATE_UNRESOLVED')),finished_at=now(),update_time=now()
 WHERE run_id=:'run_id';
 
 DO $$ BEGIN IF EXISTS (SELECT 1 FROM migration_batch b JOIN migration_check c ON c.batch_id=b.id WHERE b.run_id=current_setting('yuzhou.run_id') AND NOT c.passed) THEN RAISE EXCEPTION 'T0 verification failed'; END IF; END $$;
