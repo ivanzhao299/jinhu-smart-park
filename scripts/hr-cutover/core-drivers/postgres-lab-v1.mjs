@@ -59,7 +59,7 @@ const paths = config => {
   const projectRoot = dirname(config.target.runtimeRoot), auditRoot = join(projectRoot, "audit");
   return {
     projectRoot, auditRoot, journal: join(auditRoot, "core-lifecycle.jsonl"), registry: join(auditRoot, "resource-registry.json"),
-    preCleanup: join(auditRoot, "pre-cleanup-residuals.json"), facts: join(auditRoot, "core-facts.json"),
+    preCleanup: join(auditRoot, "pre-cleanup-residuals.json"), facts: join(auditRoot, "core-facts.json"), protectedSnapshot: join(auditRoot, "protected-state-before-load.json"),
     compose: join(config.target.runtimeRoot, "compose.yml"), postgresEnv: join(config.target.credentialRoot, "postgres.env"),
     decision: join(config.target.credentialRoot, "employee-job-state.reviewed.json"),
     payload: join(config.target.credentialRoot, "employee-job-state.private.json"),
@@ -186,6 +186,14 @@ function queryJson(config, run, sql, code = "CORE_POSTGRES_QUERY_FAILED") {
   try { return JSON.parse(output.split("\n").filter(Boolean).at(-1)); } catch { fail(code, "invalid JSON result"); }
 }
 
+function protectedStateSnapshot(config, run) {
+  return queryJson(config, run, `SELECT json_build_object(
+    'sysUser', (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,E'\\n' ORDER BY x.id::text),''),'sha256'),'hex') FROM sys_user x),
+    'sysRole', (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,E'\\n' ORDER BY x.id::text),''),'sha256'),'hex') FROM sys_role x),
+    'preexistingEmployee', (SELECT encode(digest(COALESCE(string_agg(jsonb_build_object('id',x.id,'status',x.employment_status,'org',x.primary_org_id,'position',x.position_id,'departure',x.departure_date)::text,E'\\n' ORDER BY x.id::text),''),'sha256'),'hex') FROM hr_employee x WHERE COALESCE(x.remark,'') NOT LIKE 'Migrated from Yuzhou V10;%' )
+  )::text;`, "CORE_PROTECTED_STATE_SNAPSHOT_FAILED");
+}
+
 function provision(config, run, p, sourceReceiptProbe) {
   assertSourceRestoreBinding(config, sourceReceiptProbe);
   const resumingProvision = existsSync(config.target.runtimeRoot);
@@ -217,6 +225,7 @@ function provision(config, run, p, sourceReceiptProbe) {
   const roles = [config.target.role, `${config.target.accountNamespace}_hr`, `${config.target.accountNamespace}_manager`, `${config.target.accountNamespace}_employee`];
   const roleSql = roles.map(role => `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='${role}') THEN CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; END IF; END $$;`).join(" ");
   run("docker", ["exec", config.target.container, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database, "-c", roleSql], { code: "CORE_ROLE_PROVISION_FAILED" });
+  privateWrite(p.protectedSnapshot, protectedStateSnapshot(config, run));
   privateWrite(p.registry, { formatVersion: 1, runId: config.runId, database: config.target.database, container: config.target.container, network: config.target.network, volume: config.target.volume, role: config.target.role, accounts: roles.slice(1), ports: Object.values(config.target.ports), productionImport: "HOLD" });
   return { status: "verified", productionImport: "HOLD" };
 }
