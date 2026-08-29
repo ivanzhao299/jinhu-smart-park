@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -14,27 +14,57 @@ const tenantId = "10000001";
 const parkId = "20000001";
 const apiBase = readArg("--api-base") ?? "http://127.0.0.1:4330/api/v1";
 const webBase = readArg("--web-base") ?? "http://127.0.0.1:4330";
+const apiPathPrefix = new URL(apiBase).pathname.replace(/\/$/u, "");
+const trackedWebApiPrefix = `${webBase.replace(/\/$/u, "")}${apiPathPrefix}/`;
 const credentialsFile = resolve(repoRoot, readArg("--credentials") ?? defaultCredentialsFile);
 const reportFile = resolve(repoRoot, readArg("--report") ?? defaultReportFile);
 const maxPagesPerUser = Number(readArg("--max-pages-per-user") ?? 0);
 const chromePath = readArg("--chrome-path") ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const browserUrl = readArg("--browser-url");
+const closeExternalBrowser = process.argv.includes("--close-browser");
 const usernameFilter = new Set(parseListArg("--usernames"));
+const singleUsername = process.env.BROWSER_UAT_USERNAME;
+const singlePassword = process.env.BROWSER_UAT_PASSWORD;
 const pathPrefixes = parseListArg("--path-prefixes");
+const directPaths = parseListArg("--direct-paths");
+const expectForbidden = process.argv.includes("--expect-forbidden");
+const mobilePathPrefixes = parseListArg("--mobile-path-prefixes");
+const evidenceDirArg = readArg("--evidence-dir");
+const evidenceDir = evidenceDirArg ? resolve(repoRoot, evidenceDirArg) : null;
 const singlePathPrefix = readArg("--path-prefix");
 if (singlePathPrefix) pathPrefixes.push(singlePathPrefix);
 
 const failures = [];
 const warnings = [];
 const results = [];
+const screenshotManifest = [];
 
 async function main() {
-  if (!existsSync(envFile)) fail(`missing production env file: ${envFile}`);
-  if (!existsSync(credentialsFile)) fail(`missing credentials file: ${credentialsFile}; run pnpm go-live:uat-all -- --reset-passwords first`);
-  if (!existsSync(chromePath)) fail(`missing Chrome executable: ${chromePath}`);
+  if (Boolean(singleUsername) !== Boolean(singlePassword)) {
+    fail("BROWSER_UAT_USERNAME and BROWSER_UAT_PASSWORD must be supplied together");
+  }
+  const usesSingleUser = Boolean(singleUsername && singlePassword);
+  if (!usesSingleUser && !existsSync(envFile)) fail(`missing production env file: ${envFile}`);
+  if (!usesSingleUser && !existsSync(credentialsFile)) fail(`missing credentials file: ${credentialsFile}; run pnpm go-live:uat-all -- --reset-passwords first`);
+  if (!browserUrl && !existsSync(chromePath)) fail(`missing Chrome executable: ${chromePath}`);
+  if (evidenceDir) mkdirSync(evidenceDir, { recursive: true, mode: 0o700 });
 
   if (failures.length === 0) {
-    const credentials = readCredentials(credentialsFile);
-    const users = loadAllEnabledUsers().filter((user) => usernameFilter.size === 0 || usernameFilter.has(user.username));
+    const credentials = usesSingleUser
+      ? new Map([[singleUsername, singlePassword]])
+      : readCredentials(credentialsFile);
+    const users = (usesSingleUser
+      ? [{ username: singleUsername, displayName: singleUsername, role: "single-user UAT" }]
+      : loadAllEnabledUsers())
+      .filter((user) => usernameFilter.size === 0 || usernameFilter.has(user.username));
+    if (users.length === 0) fail("browser UAT selected no users");
+    if (failures.length > 0) {
+      const report = buildReport(usesSingleUser);
+      writeLocalReport(reportFile, report);
+      console.log(JSON.stringify(report, null, 2));
+      process.exitCode = 1;
+      return;
+    }
     const chrome = await launchChrome();
     try {
       for (const user of users) {
@@ -52,26 +82,31 @@ async function main() {
     }
   }
 
-  const pagesChecked = results.reduce((sum, result) => sum + result.pages_checked, 0);
-  const report = {
-    checked_at: new Date().toISOString(),
-    go_live_date: "2026-07-06",
-    status: failures.length === 0 ? "PASS" : "FAIL",
-    scope: "all_enabled_users_browser_page_uat",
-    api_base: apiBase,
-    web_base: webBase,
-    credentials_file: credentialsFile,
-    report_file: reportFile,
-    users_checked: results.length,
-    pages_checked: pagesChecked,
-    results,
-    warnings,
-    failures
-  };
+  const report = buildReport(usesSingleUser);
 
   writeLocalReport(reportFile, report);
   console.log(JSON.stringify(report, null, 2));
   if (failures.length > 0) process.exitCode = 1;
+}
+
+function buildReport(usesSingleUser) {
+  const pagesChecked = results.reduce((sum, result) => sum + result.pages_checked, 0);
+  return {
+    checked_at: new Date().toISOString(),
+    go_live_date: "2026-07-06",
+    status: failures.length === 0 ? "PASS" : "FAIL",
+    scope: usesSingleUser ? "single_user_browser_page_uat" : "all_enabled_users_browser_page_uat",
+    api_base: apiBase,
+    web_base: webBase,
+    credentials_file: singleUsername && singlePassword ? null : credentialsFile,
+    report_file: reportFile,
+    users_checked: results.length,
+    pages_checked: pagesChecked,
+    results,
+    screenshot_manifest: screenshotManifest,
+    warnings,
+    failures
+  };
 }
 
 async function checkUser(user, password, chrome) {
@@ -87,7 +122,8 @@ async function checkUser(user, password, chrome) {
     pages_checked: 0,
     page_render_check: "FAIL",
     failed_pages: [],
-    warning_pages: []
+    warning_pages: [],
+    page_evidence: []
   };
 
   const login = await requestJson(`${apiBase}/auth/login`, {
@@ -113,31 +149,33 @@ async function checkUser(user, password, chrome) {
     .filter(Boolean);
   result.api_menu_pages_total = apiPages.length;
 
-  let renderedMenu;
-  try {
-    renderedMenu = await chrome.listMenuPaths({
-      token,
-      userContext: me.body.data,
-      viewport: { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
-    });
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    result.failed_pages.push(`MENU_DISCOVERY: browser_harness_error (${reason})`);
-    fail(`browser UAT ${user.username} could not discover rendered menu pages: browser_harness_error (${reason})`);
-    return result;
+  let renderedPages;
+  if (directPaths.length > 0) {
+    renderedPages = directPaths.map(normalizeMenuHref).filter(Boolean);
+  } else {
+    let renderedMenu;
+    try {
+      renderedMenu = await chrome.listMenuPaths({
+        token,
+        userContext: me.body.data,
+        viewport: { width: 1440, height: 960, mobile: false, deviceScaleFactor: 1 }
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      result.failed_pages.push(`MENU_DISCOVERY: browser_harness_error (${reason})`);
+      fail(`browser UAT ${user.username} could not discover rendered menu pages: browser_harness_error (${reason})`);
+      return result;
+    }
+    if (renderedMenu.status === "FAIL") {
+      result.failed_pages.push(`MENU_DISCOVERY: ${renderedMenu.reason}`);
+      fail(`browser UAT ${user.username} could not discover rendered menu pages: ${renderedMenu.reason}`);
+      return result;
+    }
+    if (renderedMenu.warnings.length > 0) {
+      warnings.push(`${user.username} menu discovery: ${renderedMenu.warnings.slice(0, 2).join(" | ")}`);
+    }
+    renderedPages = Array.from(new Set(renderedMenu.paths)).map(normalizeMenuHref).filter(Boolean);
   }
-  if (renderedMenu.status === "FAIL") {
-    result.failed_pages.push(`MENU_DISCOVERY: ${renderedMenu.reason}`);
-    fail(`browser UAT ${user.username} could not discover rendered menu pages: ${renderedMenu.reason}`);
-    return result;
-  }
-  if (renderedMenu.warnings.length > 0) {
-    warnings.push(`${user.username} menu discovery: ${renderedMenu.warnings.slice(0, 2).join(" | ")}`);
-  }
-
-  const renderedPages = Array.from(new Set(renderedMenu.paths))
-    .map(normalizeMenuHref)
-    .filter(Boolean);
   const apiPageSet = new Set(apiPages);
   result.rendered_only_pages = renderedPages.filter((pagePath) => !apiPageSet.has(pagePath));
 
@@ -158,8 +196,9 @@ async function checkUser(user, password, chrome) {
 
     let pageResult;
     try {
-      pageResult = await chrome.visit({
-        path: pagePath,
+        pageResult = await chrome.visit({
+          path: pagePath,
+          username: user.username,
         token,
         userContext: me.body.data,
         viewport: isMobileTerminalPath(pagePath)
@@ -180,6 +219,7 @@ async function checkUser(user, password, chrome) {
       result.warning_pages.push({ path: pagePath, warnings: pageResult.warnings.slice(0, 5) });
       warnings.push(`${user.username} ${pagePath}: ${pageResult.warnings.slice(0, 2).join(" | ")}`);
     }
+    result.page_evidence.push({ path: pagePath, ...pageResult });
   }
 
   if (result.failed_pages.length === 0) {
@@ -190,8 +230,31 @@ async function checkUser(user, password, chrome) {
 }
 
 async function launchChrome() {
+  if (browserUrl) {
+    const version = await waitForJson(`${browserUrl}/json/version`, 15000);
+    const browser = new CdpClient(version.webSocketDebuggerUrl);
+    await browser.open();
+    return {
+      async listMenuPaths(input) {
+        return collectRenderedMenuPaths(browser, input);
+      },
+      async visit(input) {
+        return visitPage(browser, input);
+      },
+      async close() {
+        try {
+          if (closeExternalBrowser) await browser.send("Browser.close");
+        } finally {
+          await browser.close();
+        }
+      }
+    };
+  }
   const port = 46000 + Math.floor(Math.random() * 1000);
   const userDataDir = mkdtempSync(resolve(tmpdir(), "jinhu-browser-uat-"));
+  const chromeUserDataDir = chromePath.toLowerCase().endsWith(".exe")
+    ? execFileSync("wslpath", ["-w", userDataDir], { encoding: "utf8" }).trim()
+    : userDataDir;
   const child = spawn(chromePath, [
     "--headless=new",
     "--disable-gpu",
@@ -200,7 +263,8 @@ async function launchChrome() {
     "--no-default-browser-check",
     "--hide-scrollbars",
     `--remote-debugging-port=${port}`,
-    `--user-data-dir=${userDataDir}`,
+    "--remote-debugging-address=127.0.0.1",
+    `--user-data-dir=${chromeUserDataDir}`,
     "about:blank"
   ], { stdio: "ignore" });
 
@@ -262,13 +326,15 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
     }, sessionId);
     await waitForReady(browser, sessionId);
 
-    await browser.send("Runtime.evaluate", {
-      expression: `
+    const seedSessionSource = `
         localStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
         sessionStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
         localStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
         sessionStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-      `,
+      `;
+    await browser.send("Page.addScriptToEvaluateOnNewDocument", { source: seedSessionSource }, sessionId);
+    await browser.send("Runtime.evaluate", {
+      expression: seedSessionSource,
       awaitPromise: true
     }, sessionId);
 
@@ -319,12 +385,14 @@ async function collectRenderedMenuPaths(browser, { token, userContext, viewport 
   }
 }
 
-async function visitPage(browser, { path, token, userContext, viewport }) {
+async function visitPage(browser, { path, username, token, userContext, viewport }) {
   const target = await browser.send("Target.createTarget", { url: `${webBase}/login` });
   const attached = await browser.send("Target.attachToTarget", { targetId: target.targetId, flatten: true });
   const sessionId = attached.sessionId;
   const runtimeErrors = [];
   const pageWarnings = [];
+  const network = [];
+  const pendingApiRequests = new Map();
 
   const off = browser.onEvent((message) => {
     if (message.sessionId !== sessionId) return;
@@ -338,11 +406,39 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
         .join(" ");
       if (text) pageWarnings.push(`console.error: ${text}`);
     }
+    if (message.method === "Network.responseReceived") {
+      const response = message.params?.response;
+      if (response?.url?.startsWith(trackedWebApiPrefix)) {
+        network.push({
+          resource_type: message.params?.type ?? "Other",
+          path: new URL(response.url).pathname,
+          status: response.status
+        });
+      }
+    }
+    if (message.method === "Network.requestWillBeSent") {
+      const url = message.params?.request?.url;
+      if (url?.startsWith(trackedWebApiPrefix)) pendingApiRequests.set(message.params.requestId, url);
+    }
+    if (message.method === "Network.loadingFinished") pendingApiRequests.delete(message.params?.requestId);
+    if (message.method === "Network.loadingFailed") {
+      const url = pendingApiRequests.get(message.params?.requestId);
+      if (url) {
+        network.push({
+          resource_type: message.params?.type ?? "Other",
+          path: new URL(url).pathname,
+          status: "transport_failed",
+          error: message.params?.errorText ?? "unknown"
+        });
+      }
+      pendingApiRequests.delete(message.params?.requestId);
+    }
   });
 
   try {
     await browser.send("Page.enable", {}, sessionId);
     await browser.send("Runtime.enable", {}, sessionId);
+    await browser.send("Network.enable", {}, sessionId);
     await browser.send("Emulation.setDeviceMetricsOverride", {
       width: viewport.width,
       height: viewport.height,
@@ -351,13 +447,15 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
     }, sessionId);
     await waitForReady(browser, sessionId);
 
-    await browser.send("Runtime.evaluate", {
-      expression: `
+    const seedSessionSource = `
         localStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
         sessionStorage.setItem("jinhu_access_token", ${JSON.stringify(token)});
         localStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
         sessionStorage.setItem("jinhu_auth_user", ${JSON.stringify(JSON.stringify(userContext))});
-      `,
+      `;
+    await browser.send("Page.addScriptToEvaluateOnNewDocument", { source: seedSessionSource }, sessionId);
+    await browser.send("Runtime.evaluate", {
+      expression: seedSessionSource,
       awaitPromise: true
     }, sessionId);
 
@@ -365,8 +463,25 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
     await browser.send("Page.navigate", { url: `${webBase}${path}` }, sessionId);
     await loadPromise;
     await waitForReady(browser, sessionId);
-    await sleep(500);
-
+    if (expectForbidden) await sleep(2000);
+    const settleDeadline = Date.now() + 5000;
+    let settledAt = null;
+    while (Date.now() < settleDeadline) {
+      if (pendingApiRequests.size === 0) {
+        settledAt ??= Date.now();
+        if (Date.now() - settledAt >= 300) break;
+      } else {
+        settledAt = null;
+      }
+      await sleep(100);
+    }
+    if (pendingApiRequests.size > 0) {
+      network.push({
+        resource_type: "Pending",
+        path: new URL(pendingApiRequests.values().next().value).pathname,
+        status: "settle_timeout"
+      });
+    }
     const evaluation = await browser.send("Runtime.evaluate", {
       expression: `(() => {
         const text = document.body?.innerText ?? "";
@@ -378,7 +493,10 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
           hasLogin: Boolean(document.querySelector(".signin-page")) || location.pathname === "/login",
           hasForbidden: location.pathname === "/403" || /403|无权访问|权限不足/.test(text),
           hasNextError: /Application error|Unhandled Runtime Error|ChunkLoadError|Hydration failed/i.test(text),
-          headline: (document.querySelector("h1, h2, main")?.textContent ?? "").trim().slice(0, 120)
+          headline: (document.querySelector("h1, h2, main")?.textContent ?? "").trim().slice(0, 120),
+          viewportWidth: window.innerWidth,
+          documentWidth: document.documentElement.scrollWidth,
+          horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 1
         };
       })()`,
       returnByValue: true,
@@ -386,12 +504,31 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
     }, sessionId);
 
     const value = evaluation.result?.value ?? {};
-    const hardFailure = getRenderFailure(value, runtimeErrors);
+    if (evidenceDir) {
+      const safeUsername = String(username).replaceAll(/[^A-Za-z0-9_.-]/g, "_");
+      const filename = `${safeUsername}-${String(viewport.width)}-${path.replace(/^\/+/, "").replaceAll("/", "-") || "root"}.png`;
+      const screenshot = await browser.send("Page.captureScreenshot", { format: "png", fromSurface: true }, sessionId);
+      writeFileSync(resolve(evidenceDir, filename), Buffer.from(screenshot.data, "base64"), { mode: 0o600 });
+      screenshotManifest.push({ path, viewport, filename, captured_at: new Date().toISOString() });
+    }
+    const renderFailure = getRenderFailure(value, runtimeErrors, { allowForbidden: expectForbidden });
+    const failedNetwork = network.find((entry) =>
+      (entry.status === "transport_failed" || entry.status === "settle_timeout" || Number(entry.status) >= 400)
+      && !(expectForbidden && Number(entry.status) === 403)
+    );
+    const hardFailure = renderFailure
+      || (expectForbidden && !value.hasForbidden ? "expected_forbidden_not_rendered" : "")
+      || (viewport.mobile && Math.abs(Number(value.viewportWidth) - viewport.width) > 1
+        ? `mobile_viewport_mismatch:${value.viewportWidth}!=${viewport.width}`
+        : "")
+      || (viewport.mobile && value.horizontalOverflow ? `horizontal_overflow:${value.documentWidth}>${value.viewportWidth}` : "")
+      || (failedNetwork ? `api_response_failed:${failedNetwork.status}:${failedNetwork.path}` : "");
     return {
       status: hardFailure ? "FAIL" : "PASS",
       reason: hardFailure,
       warnings: pageWarnings,
-      page: value
+      page: value,
+      network
     };
   } finally {
     off();
@@ -399,10 +536,10 @@ async function visitPage(browser, { path, token, userContext, viewport }) {
   }
 }
 
-function getRenderFailure(value, runtimeErrors) {
+function getRenderFailure(value, runtimeErrors, options = {}) {
   if (runtimeErrors.length > 0) return `runtime exception: ${runtimeErrors.slice(0, 2).join(" | ")}`;
   if (value.hasLogin) return "redirected_to_login";
-  if (value.hasForbidden) return "forbidden_or_permission_error";
+  if (value.hasForbidden && !options.allowForbidden) return "forbidden_or_permission_error";
   if (value.hasNextError) return "next_runtime_error";
   if (Number(value.textLength ?? 0) < 30) return "blank_or_too_little_content";
   return "";
@@ -626,7 +763,10 @@ function normalizeMenuHref(href) {
 }
 
 function isMobileTerminalPath(path) {
-  return path === "/operations/terminal" || path === "/engineering/terminal" || path === "/preview/operations-terminal";
+  return mobilePathPrefixes.some((prefix) => path.startsWith(prefix))
+    || path === "/operations/terminal"
+    || path === "/engineering/terminal"
+    || path === "/preview/operations-terminal";
 }
 
 function writeLocalReport(file, report) {

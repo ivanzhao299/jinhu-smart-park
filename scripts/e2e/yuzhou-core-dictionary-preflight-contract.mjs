@@ -1,0 +1,11 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { verifyCoreDictionaryPreflight } from "../hr-cutover/verify-yuzhou-core-dictionary-preflight.mjs";
+const t1=JSON.parse(readFileSync(resolve(import.meta.dirname,"../hr-cutover/contracts/yuzhou-t1-employment-event-type-decision-v1.json"),"utf8"));
+const base=code=>({formatVersion:1,artifactKind:"yuzhou_hr_dictionary_machine_decision",sourceSystem:"yuzhou-v10",sourceSnapshotSha256:t1.sourceSnapshotSha256,sourceCaptureSha256:"a".repeat(64),dictionaryCode:code,sourceObject:`fixture.${code}`,sourceRecordCount:1,decisions:[{sourceValue:"fixture",sourceName:null,usageCount:1,decision:"map",targetDomain:code,targetValue:"fixture_target",reasonCode:"FIXTURE_MACHINE_REVIEWED"}],productionImport:"HOLD"});
+const input={employment_event_type:t1,employment_event_state:base("employment_event_state"),contract_type:base("contract_type"),contract_state:base("contract_state")};
+assert.equal(verifyCoreDictionaryPreflight(input).packageCount,4);
+delete input.contract_state;assert.throws(()=>verifyCoreDictionaryPreflight(input),/PACKAGE_SET_INVALID/);
+input.contract_state=base("contract_state");input.contract_state.decisions[0].targetValue=null;assert.throws(()=>verifyCoreDictionaryPreflight(input),/PACKAGE_ITEM_INVALID/);
+console.log("Yuzhou core dictionary preflight contract passed.");

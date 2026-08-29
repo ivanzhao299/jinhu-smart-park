@@ -10,9 +10,9 @@
 - [x] 运行 targeted tests、shared build、API/Web lint/typecheck/build 及必要的 migration validation。
 - [x] 启动隔离测试环境，按成熟基建完成桌面/390px 浏览器检查、截图 manifest 与 Network 核验，并精确 teardown。
 - [x] 执行 Trellis quality check，记录结果与残余风险。
-- [ ] 提交、push 当前 `codex/fix-lea-003-rename-long-rental`，创建 `Closes #485` PR。
-- [ ] review 最多 3 轮；CI 全绿后 squash merge；等待 main CI+Deploy 双绿并确认 Issue 关闭。
-- [ ] 更新任务证据、归档 LEA-003，随后严格进入 LEA-004。
+- [x] 提交、push 当前 `codex/fix-lea-003-rename-long-rental`，创建 `Closes #485` PR。
+- [x] review 最多 3 轮；CI 全绿后 squash merge；等待 main CI+Deploy 双绿并确认 Issue 关闭。
+- [x] 更新任务证据、归档 LEA-003，随后严格进入 LEA-004。
 
 ## Validation commands
 
@@ -47,4 +47,6 @@
 - 2026-08-29：review round 1 共 3 条：签名漂移已由 `7b363250` 解决；补齐 authoritative product/UAT 文档；补齐全部 7 个 housing approval incident title 并新增精确回归。相关 API 14 PASS/1 PostgreSQL 条件 SKIP，repository 既有 10 PASS，lint/diff-check PASS。
 - 2026-08-29：round-2 CI Unit tests 揭示远端 main 并发加入 HR `000283`；按 forward-only 唯一编号纪律将本任务迁移改为 `000284`，不触碰 HR migration。待 targeted 编号/迁移测试后推送。
 - 2026-08-29：PR #486 已 squash merge 为 `1a0c6ba1`，#485 自动关闭；main Deploy 在 `000284` 发现 production tenant permission subset 并 fail closed，migration 未落库，workflow 已恢复上一版源码、health PASS、Docker cleanup 回收 4.662GB。#485 已重开，热修分支改为只 reconcile 已存在 tenant-code、缺失允许、重复拒绝。
-- 续跑点：验证 tenant subset/duplicate PostgreSQL fixture 与 targeted contracts，创建热修 PR，完成 review/CI/merge/main CI+Deploy 双绿后再进入 LEA-004。
+- 2026-08-29：热修 commit `42f4a31e` / PR #487 仅 reconcile 每租户实际存在的 target permission rows；缺失权限不插入、不授权，重复 tenant-code 继续 fail closed。targeted 14 PASS、1 条本机 PostgreSQL 条件 SKIP，lint/diff-check PASS；Codex review 第 1 轮无 finding；PR verify 与 Release Smoke 全绿。
+- 2026-08-29：PR #487 squash merge 为 `33679b0b`，#485 CLOSED。main CI `33243494366` SUCCESS；Deploy Production `33243494370` SUCCESS。生产日志确认 `000284` APPLY→SUCCESS、API liveness/readiness、Web 受保护验收和 Docker cleanup started→finished；未执行任何生产直操作。
+- 续跑点：LEA-003 已满足双绿与生产形态迁移证据，归档后切换到 LEA-004 Issue/分支实施。

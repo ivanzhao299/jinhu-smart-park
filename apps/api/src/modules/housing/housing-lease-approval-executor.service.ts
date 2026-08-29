@@ -11,6 +11,7 @@ import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { assertPropertyHighRiskActionApprovalRequired } from "../../shared/property-workbench/property-high-risk-stopship";
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 import { HousingLeaseEntity, HousingLedgerEntryEntity } from "./entities/housing.entities";
 import {
@@ -63,6 +64,7 @@ export class HousingLeaseApprovalExecutorService {
     private readonly dataSource: DataSource,
     private readonly unitAccess: PropertyUnitAccessService,
     private readonly support: HousingTransactionSupportService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort
@@ -241,19 +243,30 @@ export class HousingLeaseApprovalExecutorService {
         toStatus, String(payload.reason ?? ""), evidence.decisionActor]
     ));
     if (updated.length !== 1) throw new ConflictException("Approval source changed");
+    const rentalStatusProjection = toStatus === "terminated"
+      ? await this.rentalStatusProjection.project({
+        manager: input.manager,
+        scope: source.scope,
+        unitId: source.lease.unitId,
+        actorId: evidence.decisionActor,
+        sourceType: "housing_lease",
+        sourceId: source.leaseId,
+        action: "release"
+      }) : null;
     const audit = typeormQueryRows<{ id: string }>(await input.manager.query(
       `INSERT INTO biz_housing_lease_effect_audit(
          tenant_id,park_id,approval_request_id,action_id,effect_kind,approval_execution_key,
          effect_line_key,actor_id,occurred_at,effect_hash,lease_id,occupancy_id,from_status,to_status,
          reason,source_expected_version,resulting_version,checkout_at,
-         occupancy_source_expected_version,occupancy_resulting_version)
-       VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         occupancy_source_expected_version,occupancy_resulting_version,rental_status_projection)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,clock_timestamp(),$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb)
        RETURNING id::text AS id`, [source.scope.tenantId, source.scope.parkId, input.requestId,
         actionId, evidence.effect.effectKind, input.executionIdempotencyKey,
         evidence.effect.effectLineKey, evidence.decisionActor, evidence.effect.effectHash,
         source.leaseId, source.lease.occupancyId, source.lease.status, toStatus,
         String(payload.reason ?? ""), input.sourceExpectedVersion, updated[0]!.version,
-        updated[0]!.checkoutAt, occupancy.sourceVersion, occupancy.resultingVersion]
+        updated[0]!.checkoutAt, occupancy.sourceVersion, occupancy.resultingVersion,
+        rentalStatusProjection === null ? null : JSON.stringify(rentalStatusProjection)]
     ));
     if (audit.length !== 1) throw new ConflictException("Approval effect cardinality mismatch");
   }

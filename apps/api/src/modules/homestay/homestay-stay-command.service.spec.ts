@@ -70,7 +70,8 @@ function credentialLossHarness(status: "issued" | "returned" | "lost") {
     {} as never,
     { assertAccess: async () => undefined } as never,
     { transaction: async (callback: (value: typeof manager) => unknown) => callback(manager) } as never,
-    { lockBooking: async () => ({ id: "booking-1", unitId: "unit-1" }) } as never
+    { lockBooking: async () => ({ id: "booking-1", unitId: "unit-1" }) } as never,
+    {} as never
   );
   return { credential, getSaveCalls: () => saveCalls, service };
 }

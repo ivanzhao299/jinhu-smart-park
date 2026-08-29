@@ -194,7 +194,9 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
     const support = new HomestayTransactionSupportService();
     const access = { assertAccess: async () => undefined };
     const stayCommands = new HomestayStayCommandService(
-      {} as never, access as never, transactionDataSource as never, support, verifier
+      {} as never, access as never, transactionDataSource as never, support,
+      { project: async () => ({ disposition: "changed", beforeStatus: 10, afterStatus: 30 }) } as never,
+      verifier
     );
     const service = new HomestayService(
       {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,

@@ -18,7 +18,7 @@ const readArray = (name) => {
   }
 };
 
-const typeRows = readArray("employment-event-types.raw.json").sort((a, b) => String(a.legacyType).localeCompare(String(b.legacyType), "zh-CN"));
+const typeRows = readArray("employment-event-types.raw.json").sort((a, b) => String(a.sourceValue ?? "").localeCompare(String(b.sourceValue ?? ""), "zh-CN"));
 const stateRows = readArray("employment-event-states.raw.json").sort((a, b) => String(a.sourceValue ?? "").localeCompare(String(b.sourceValue ?? ""), "zh-CN"));
 const eventRows = readArray("employment-events.raw.json").sort((a, b) => Number(a.legacyId) - Number(b.legacyId));
 const seenIds = new Set();
@@ -39,10 +39,13 @@ const events = eventRows.map((source) => {
     source,
   };
 });
-const types = typeRows.map((source) => ({
-  legacyType: String(source.legacyType ?? "").trim(),
-  legacyCode: source.legacyCode == null ? null : String(source.legacyCode),
-}));
+const seenTypes = new Set();
+const types = typeRows.map((source) => {
+  const sourceValue = String(source.sourceValue ?? "").trim(), usageCount = Number(source.usageCount);
+  if (!sourceValue || seenTypes.has(sourceValue) || !Number.isSafeInteger(usageCount) || usageCount < 1) throw new Error("employment event type usage evidence is invalid");
+  seenTypes.add(sourceValue);
+  return { sourceValue, usageCount };
+});
 const eventPath = resolve(outputDir, "employment-events.jsonl");
 const typePath = resolve(outputDir, "employment-event-types.json");
 const statePath = resolve(outputDir, "employment-event-states.json");

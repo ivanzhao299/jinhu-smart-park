@@ -48,7 +48,9 @@ test("DEC-01 cancellation is atomic and DEC-02 counts direct plus mapped legacy 
   const query = async (sql: string, parameters?: unknown[]) =>
     runner.query(sql, parameters);
   const support = new HomestayTransactionSupportService();
-  const executor = new HomestayCancellationExecutorService(support);
+  const executor = new HomestayCancellationExecutorService(support, {
+    project: async () => ({ disposition: "changed", beforeStatus: 30, afterStatus: 10 })
+  } as never);
   const finance = new HomestayFinanceService(
     {} as never,
     {} as never,

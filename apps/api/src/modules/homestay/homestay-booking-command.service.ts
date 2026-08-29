@@ -23,6 +23,7 @@ import {
   type PropertyOccupancyPort
 } from "../property-operations/property-occupancy.port";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { RentalStatusProjectionService } from "../property-operations/rental-status-projection.service";
 import type {
   CreateHomestayBookingDto,
   RescheduleHomestayBookingDto
@@ -63,6 +64,7 @@ export class HomestayBookingCommandService {
     private readonly propertyOccupanciesService: PropertyOccupancyPort,
     private readonly dataSource: DataSource,
     private readonly transactionSupport: HomestayTransactionSupportService,
+    private readonly rentalStatusProjection: RentalStatusProjectionService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
     private readonly approvalCommands?: PropertyApprovalCommandPort
@@ -199,9 +201,15 @@ export class HomestayBookingCommandService {
       booking.noShowAt = new Date();
       booking.updateBy = actor.sub;
       const saved = await manager.getRepository(HomestayBookingEntity).save(booking);
+      const rentalStatus = await this.rentalStatusProjection.project({
+        manager, scope, unitId: booking.unitId, actorId: actor.sub,
+        actorName: actor.realName ?? actor.username, sourceType: "homestay_booking",
+        sourceId: booking.id, action: "release"
+      });
       await this.transactionSupport.log(
         manager, scope, actor, saved, "no_show", before, saved.status, reason, {
-          revoked_credentials: revokedCredentials
+          revoked_credentials: revokedCredentials,
+          rental_status_projection: rentalStatus
         }
       );
       return saved;
