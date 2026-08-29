@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CORE_DOMAIN_ORDER, CORE_RESIDUAL_CLASSES, CoreT0T3Error, CoreT0T3FileJournal,
-  validateCoreT0T3Config
+  sealCoreT0T3Facts, validateCoreT0T3Config
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "../materialize-core-non-t0-dictionaries.mjs";
@@ -265,8 +265,27 @@ function resolveNonT0DictionaryShas(config, run) {
   return result.snapshots;
 }
 
-function materializeFacts() {
-  fail("CORE_BUSINESS_CANONICAL_FACTS_REQUIRED", "target business canonical and protected side-effect facts are not implemented");
+function coreDomainFacts(config, run, domain, tables) {
+  const childRun = `${config.runId}-t${CORE_DOMAIN_ORDER.indexOf(domain)}`;
+  const rows = tables.map(({ table, key }) => `SELECT '${table}' AS target_table,to_jsonb(x)::text AS row_json FROM ${table} x JOIN legacy_record_map m ON m.target_table='${table}' AND m.target_id=x.${key} JOIN migration_batch b ON b.id=m.batch_id WHERE b.run_id='${childRun}'`).join(" UNION ALL ");
+  return queryJson(config, run, `WITH item AS (SELECT COALESCE(sum(extracted_count),0)::int AS source,COALESCE(sum(loaded_count),0)::int AS loaded,COALESCE(sum(rejected_count),0)::int AS quarantined FROM migration_batch_item i JOIN migration_batch b ON b.id=i.batch_id WHERE b.run_id='${childRun}'), canonical_rows AS (${rows}), reason AS (SELECT encode(digest(COALESCE(string_agg(error_code||':'||source_identity_sha256,E'\\n' ORDER BY error_code,source_identity_sha256),''),'sha256'),'hex') AS h FROM migration_error e JOIN migration_batch b ON b.id=e.batch_id WHERE b.run_id='${childRun}') SELECT json_build_object('source',(SELECT source FROM item),'loaded',(SELECT loaded FROM item),'quarantined',(SELECT quarantined FROM item),'approvedIgnored',(SELECT source-loaded-quarantined FROM item),'canonicalSha256',(SELECT encode(digest(COALESCE(string_agg(target_table||':'||row_json,E'\\n' ORDER BY target_table,row_json),''),'sha256'),'hex') FROM canonical_rows),'quarantineReasonSha256',(SELECT h FROM reason))::text;`, "CORE_BUSINESS_FACTS_QUERY_FAILED");
+}
+
+function materializeFacts(config, run, p) {
+  assertPrivateFile(p.protectedSnapshot, "protected-state-before-load.json");
+  const expectedProtected = JSON.parse(readFileSync(p.protectedSnapshot, "utf8"));
+  const actualProtected = protectedStateSnapshot(config, run);
+  if (JSON.stringify(expectedProtected) !== JSON.stringify(actualProtected)) fail("CORE_PROTECTED_STATE_DRIFT", config.rehearsal);
+  const tableSets = {
+    T0: [{ table: "sys_org", key: "id" }, { table: "hr_position", key: "id" }, { table: "hr_employee", key: "id" }],
+    T1: [{ table: "hr_employment_event", key: "id" }],
+    T2: [{ table: "hr_contract_type", key: "id" }, { table: "hr_contract", key: "id" }, { table: "hr_contract_change", key: "id" }],
+    T3: [{ table: "hr_attendance_calendar_source", key: "id" }, { table: "hr_insurance_policy", key: "id" }, { table: "hr_employee_insurance_period", key: "id" }]
+  };
+  const domains = CORE_DOMAIN_ORDER.map(domain => ({ domain, ...coreDomainFacts(config, run, domain, tableSets[domain]) }));
+  const facts = sealCoreT0T3Facts({ formatVersion: 1, profile: "core_t0_t3", runId: config.runId, rehearsal: config.rehearsal, triple: config.triple, domains, sideEffectViolationCount: 0, productionImport: "HOLD" });
+  privateWrite(p.facts, facts);
+  return facts;
 }
 
 function removeDockerResource(run, kind, identity, args) {
