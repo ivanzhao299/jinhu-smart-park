@@ -18,6 +18,11 @@ const taskCard = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contr
 const apiMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-api-matrix-v1.json"), "utf8"));
 const browserMatrix = JSON.parse(readFileSync(resolve(root, "scripts/hr-cutover/contracts/yuzhou-live-role-uat-browser-matrix-v1.json"), "utf8"));
 const hash = value => createHash("sha256").update(value).digest("hex");
+
+test("sensitive employee-profile reads share one audit semantic across full, team and self scopes", () => {
+  const expected={bizType:"hr_employee",action:"读取员工敏感档案"};
+  for(const route of ["/hr/employees/{profileEmployeeId}/profile","/hr/employees/{teamEmployeeId}/profile","/hr/employees/me/profile"])assert.deepEqual(technicalUatAuditSemantic("GET",route),expected);
+});
 const triple = { codeSha: "1".repeat(40), sourceSnapshotHash: "2".repeat(64), mappingContractHash: "3".repeat(64) };
 const statusFor = outcome => outcome === "success" ? 200 : outcome === "forbidden" ? 403 : outcome === "conflict" ? 409 : 404;
 function observation(legacyId, kind, checkId, auditBizIdSha256) {

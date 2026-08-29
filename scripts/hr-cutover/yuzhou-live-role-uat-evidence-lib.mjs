@@ -26,6 +26,8 @@ const auditSemantics = new Map([
   ["POST /hr/onboarding-applications/{onboardingId}/review", ["hr_onboarding_application", "审核入职申请"]],
   ["POST /hr/onboarding-applications/{onboardingId}/confirm", ["hr_onboarding_application", "确认员工入职"]],
   ["GET /hr/employees/{profileEmployeeId}/profile", ["hr_employee", "读取员工敏感档案"]],
+  ["GET /hr/employees/{teamEmployeeId}/profile", ["hr_employee", "读取员工敏感档案"]],
+  ["GET /hr/employees/me/profile", ["hr_employee", "读取员工敏感档案"]],
   ["POST /hr/probation-applications", ["hr_probation_application", "创建转正申请"]],
   ["POST /hr/probation-applications/{probationId}/actions", ["hr_probation_application", "提交或取消转正申请"]],
   ["POST /hr/probation-applications/{probationId}/review", ["hr_probation_application", "审核转正申请"]],
