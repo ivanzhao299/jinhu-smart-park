@@ -9,13 +9,13 @@ CONFIG=""
 RECOVER=""
 DECISION=""
 PAYLOAD=""
-APPROVAL=""
+MACHINE_ATTESTATION=""
 PREVIOUS=""
 for ARG in "$@"; do
   if [ "$PREVIOUS" = "--config" ]; then CONFIG="$ARG"; PREVIOUS=""; continue; fi
   if [ "$PREVIOUS" = "--job-state-decision" ]; then DECISION="$ARG"; PREVIOUS=""; continue; fi
   if [ "$PREVIOUS" = "--job-state-source-payload" ]; then PAYLOAD="$ARG"; PREVIOUS=""; continue; fi
-  if [ "$PREVIOUS" = "--job-state-approval" ]; then APPROVAL="$ARG"; PREVIOUS=""; continue; fi
+  if [ "$PREVIOUS" = "--job-state-machine-attestation" ]; then MACHINE_ATTESTATION="$ARG"; PREVIOUS=""; continue; fi
   if [ "$ARG" = "--recover" ]; then RECOVER="--recover"; continue; fi
   PREVIOUS="$ARG"
 done
@@ -23,7 +23,7 @@ done
 
 case "$COMMAND" in
   provision|run|rollback) ;;
-  resume) [ -n "$DECISION" ] && [ -n "$PAYLOAD" ] && [ -n "$APPROVAL" ] || { printf 'resume requires three review artifacts\n' >&2; exit 2; } ;;
+  resume) [ -n "$DECISION" ] && [ -n "$PAYLOAD" ] && [ -n "$MACHINE_ATTESTATION" ] || { printf 'resume requires decision, payload, and machine attestation artifacts\n' >&2; exit 2; } ;;
   cleanup|status) ;;
   *) printf 'unsupported lifecycle command\n' >&2; exit 2 ;;
 esac
@@ -35,6 +35,6 @@ if [ -n "$RECOVER" ]; then
   exec node "$NODE_RUNNER" "$COMMAND" --config "$CONFIG" --recover
 fi
 if [ "$COMMAND" = "resume" ]; then
-  exec node "$NODE_RUNNER" resume --config "$CONFIG" --job-state-decision "$DECISION" --job-state-source-payload "$PAYLOAD" --job-state-approval "$APPROVAL"
+  exec node "$NODE_RUNNER" resume --config "$CONFIG" --job-state-decision "$DECISION" --job-state-source-payload "$PAYLOAD" --job-state-machine-attestation "$MACHINE_ATTESTATION"
 fi
 exec node "$NODE_RUNNER" "$COMMAND" --config "$CONFIG"

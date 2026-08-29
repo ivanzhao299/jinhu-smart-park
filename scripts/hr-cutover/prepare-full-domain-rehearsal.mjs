@@ -38,10 +38,10 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === "--") continue;
-    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--materialization-key"].includes(key)) fail(`unknown argument: ${key}`);
+    if (!["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--t4-evidence", "--source-container", "--source-backup", "--materialization-key", "--machine-attestation-root"].includes(key)) fail(`unknown argument: ${key}`);
     args[key.slice(2).replace(/-([a-z])/g, (_, value) => value.toUpperCase())] = argv[++index];
   }
-  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "materializationKey"]) {
+  for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "t4Evidence", "sourceContainer", "sourceBackup", "materializationKey", "machineAttestationRoot"]) {
     if (!args[key]) fail(`missing --${key.replace(/[A-Z]/g, (value) => `-${value.toLowerCase()}`)}`);
   }
   if (!["A", "B"].includes(args.rehearsal)) fail("rehearsal must be A or B");
@@ -51,6 +51,7 @@ function parseArgs(argv) {
     if (!Number.isInteger(args[key]) || args[key] < 1024 || args[key] > 65535) fail(`${key} is invalid`);
   }
   if (new Set([args.postgresPort, args.apiPort, args.webPort]).size !== 3) fail("ports must be distinct");
+  if (!/^[0-9a-f]{64}$/u.test(args.machineAttestationRoot)) fail("machineAttestationRoot must be a lowercase SHA-256 trusted root");
   return args;
 }
 
@@ -90,7 +91,7 @@ function configFor(args, codeSha, mappingContractHash) {
   const materializationKey = join(credentialRoot, "materialization.key");
   const jobStateDecision = join(credentialRoot, "employee-job-state.reviewed.json");
   const jobStateSourcePayload = join(credentialRoot, "employee-job-state.private.json");
-  const jobStateApproval = join(credentialRoot, "employee-job-state.approval.json");
+  const jobStateMachineAttestation = join(credentialRoot, "employee-job-state.machine-attestation.json");
   const etlSource = assertRegularFile(args.etlEnv, "ETL source file", { privateFile: true });
   const t4Source = assertRegularFile(args.t4Evidence, "T4 evidence file");
   privateCopy(etlSource, etlCopy);
@@ -141,6 +142,7 @@ function configFor(args, codeSha, mappingContractHash) {
       t4EvidenceFile: t4Copy
     },
     t4Evidence: { status: "COMPLETED", sha256: sha256(readFileSync(t4Copy)) },
+    machineAttestation: { checkpointVersion: 2, trustedRootSha256: args.machineAttestationRoot },
     target: {
       database: project,
       composeProject: project,
@@ -159,7 +161,7 @@ function configFor(args, codeSha, mappingContractHash) {
       materializationKeyArtifact: materializationKey,
       jobStateDecisionArtifact: jobStateDecision,
       jobStateSourcePayloadArtifact: jobStateSourcePayload,
-      jobStateApprovalArtifact: jobStateApproval,
+      jobStateMachineAttestationArtifact: jobStateMachineAttestation,
       auditBundle: join(credentialRoot, "cleanup-audit.json")
     },
     adapterEnv,

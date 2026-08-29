@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { configFor, assertRegularFile } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
+import { configFor, assertRegularFile, parseArgs } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
 import { readMaterializationKeyFile } from "../hr-cutover/materialization-key-contract.mjs";
 
 test("rehearsal preparation accepts only private non-symlink source inputs", () => {
@@ -70,4 +70,29 @@ test("rehearsal preparation requires the exact T5 32-byte hexadecimal key contra
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("rehearsal preparation requires an externally fixed machine-attestation root", () => {
+  const base = [
+    "--rehearsal", "A",
+    "--suffix", "machine_gate",
+    "--postgres-port", "15432",
+    "--api-port", "18080",
+    "--web-port", "13000",
+    "--control-root", "/tmp/control",
+    "--etl-env", "/tmp/etl.env",
+    "--t4-evidence", "/tmp/t4.json",
+    "--source-container", "yuzhou-source",
+    "--source-backup", "/tmp/source.bak",
+    "--materialization-key", "/tmp/materialization.key",
+  ];
+  assert.throws(() => parseArgs(base), /missing --machine-attestation-root/);
+  assert.throws(
+    () => parseArgs([...base, "--machine-attestation-root", "A".repeat(64)]),
+    /lowercase SHA-256 trusted root/,
+  );
+  assert.equal(
+    parseArgs([...base, "--machine-attestation-root", "a".repeat(64)]).machineAttestationRoot,
+    "a".repeat(64),
+  );
 });

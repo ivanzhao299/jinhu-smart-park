@@ -27,8 +27,15 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
-import { materializeReviewedJobState, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
+import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding } from "./materialize-reviewed-job-state.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
+import {
+  canonicalYuzhouJobStateMachineJson,
+  compileYuzhouJobStateMachineAttestation,
+  computeYuzhouJobStateCheckpointArtifactHash,
+  computeYuzhouJobStateCheckpointRoot,
+  verifyYuzhouJobStateMachineAttestation
+} from "./yuzhou-job-state-machine-attestation.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
@@ -130,7 +137,7 @@ function validateTriple(triple) {
 }
 
 export function validateConfig(config) {
-  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification"], "config");
+  exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
   const match = RUN_ID.exec(config.runId ?? "");
@@ -195,7 +202,8 @@ export function validateConfig(config) {
     const controlledTestRun = process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_RUN_ID === config.runId;
     if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }
-  const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", "jobStateApprovalArtifact"] : [];
+  const legacyApproval = config.backend === "lab" && Object.hasOwn(config.target ?? {}, "jobStateApprovalArtifact");
+  const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", legacyApproval ? "jobStateApprovalArtifact" : "jobStateMachineAttestationArtifact"] : [];
   exactKeys(config.target, ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...reviewedArtifacts], [], "target");
   const target = config.target;
   if (!LAB_ID.test(target.database ?? "") || !LAB_ID.test(target.composeProject ?? "") || target.database !== target.composeProject || FORBIDDEN_TARGET.test(target.database)) fail("UNSAFE_TARGET_IDENTITY", "database and Compose project must be the same full-domain lab identity");
@@ -211,7 +219,10 @@ export function validateConfig(config) {
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
   if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
   if (config.backend === "lab") {
-    if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json" || basename(target.jobStateApprovalArtifact) !== "employee-job-state.approval.json") fail("CONFIG_INVALID", "job-state review artifact filenames are invalid");
+    if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json") fail("CONFIG_INVALID", "job-state machine artifact filenames are invalid");
+    if (legacyApproval) {
+      if (basename(target.jobStateApprovalArtifact) !== "employee-job-state.approval.json") fail("CONFIG_INVALID", "legacy job-state approval artifact filename is invalid");
+    } else if (basename(target.jobStateMachineAttestationArtifact) !== "employee-job-state.machine-attestation.json") fail("CONFIG_INVALID", "job-state machine attestation artifact filename is invalid");
   }
   if (inside(target.root, target.auditBundle) || !target.auditBundle.endsWith(".json")) fail("CLEANUP_PATH_ESCAPE", "auditBundle must be a controlled JSON artifact outside the runtime root");
   exactKeys(config.adapterEnv, DOMAIN_ORDER, [], "adapterEnv");
@@ -232,6 +243,10 @@ export function validateConfig(config) {
     if (typeof config.verification.manifestChainFile !== "string" || !isAbsolute(config.verification.manifestChainFile) || !inside(target.evidenceRoot, config.verification.manifestChainFile)) fail("CONFIG_INVALID", "verification manifest chain must be below evidenceRoot");
     if (!/^hr_cutover_facts_[a-z0-9_]{4,32}$/.test(config.verification.factSchema ?? "")) fail("CONFIG_INVALID", "verification factSchema is invalid");
   }
+  if (config.machineAttestation !== undefined) {
+    exactKeys(config.machineAttestation, ["checkpointVersion", "trustedRootSha256"], [], "machineAttestation");
+    if (config.machineAttestation.checkpointVersion !== 2 || !SHA256.test(config.machineAttestation.trustedRootSha256 ?? "")) fail("MACHINE_ATTESTATION_REQUIRED", "checkpoint v2 and an externally fixed trusted root are required");
+  }
   return config;
 }
 
@@ -240,7 +255,7 @@ export function compareIsolation(configAInput, configBInput) {
   const b = validateConfig(structuredClone(configBInput));
   if (a.rehearsal !== "A" || b.rehearsal !== "B") fail("REHEARSAL_PAIR_INVALID", "pair must be A then B");
   if (JSON.stringify(a.triple) !== JSON.stringify(b.triple)) fail("TRIPLE_MISMATCH", "A/B must use the byte-exact same C/S/M triple");
-  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", "jobStateApprovalArtifact"] : [])];
+  const fields = ["database", "composeProject", "volume", "postgresContainer", "postgresPort", "apiPort", "webPort", "role", "accountNamespace", "root", "stagingRoot", "evidenceRoot", "fileRoot", "credentialArtifact", "materializationKeyArtifact", "auditBundle", ...(a.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", Object.hasOwn(a.target, "jobStateMachineAttestationArtifact") ? "jobStateMachineAttestationArtifact" : "jobStateApprovalArtifact"] : [])];
   for (const field of fields) if (a.target[field] === b.target[field]) fail("REHEARSAL_RESOURCE_REUSE", field);
   return { ok: true, triple: a.triple };
 }
@@ -352,7 +367,7 @@ function paths(config) {
     operationLockTakeoverClaim: join(config.target.root, ".operation.lock.takeover.claim"),
     operationLockTakeoverStale: join(config.target.root, ".operation.lock.takeover.stale"),
     operationLockNext: join(config.target.root, ".operation.lock.next"),
-    reviewTemps: [join(config.target.root, ".job-state-decision.installing"), join(config.target.root, ".job-state-payload.installing"), join(config.target.root, ".job-state-approval.installing")],
+    reviewTemps: [join(config.target.root, ".job-state-decision.installing"), join(config.target.root, ".job-state-payload.installing"), join(config.target.root, ".job-state-machine-attestation.installing")],
     fixtureRoot: join(config.target.root, "fixture-resources")
   };
 }
@@ -433,7 +448,11 @@ function resourcePlan(config) {
     { type: "credential_artifact", planned: t.credentialArtifact },
     { type: "credential_artifact", planned: t.materializationKeyArtifact }
   ];
-  if (config.backend === "lab") resources.push({ type: "credential_artifact", planned: t.jobStateDecisionArtifact }, { type: "credential_artifact", planned: t.jobStateSourcePayloadArtifact }, { type: "credential_artifact", planned: t.jobStateApprovalArtifact });
+  if (config.backend === "lab") resources.push(
+    { type: "credential_artifact", planned: t.jobStateDecisionArtifact },
+    { type: "credential_artifact", planned: t.jobStateSourcePayloadArtifact },
+    { type: "credential_artifact", planned: t.jobStateMachineAttestationArtifact ?? t.jobStateApprovalArtifact }
+  );
   if (config.verification) resources.push({ type: "file", planned: config.verification.manifestChainFile });
   return resources.map((item) => ({ ...item, observed: item.observed ?? null, removed: false, residualCount: 0 }));
 }
@@ -689,14 +708,13 @@ export function runForward(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "provisioned") fail("STATE_TRANSITION_INVALID", "run requires provisioned state");
+  if (config.backend === "lab" && (config.machineAttestation?.checkpointVersion !== 2 || !SHA256.test(config.machineAttestation?.trustedRootSha256 ?? "") || !Object.hasOwn(config.target, "jobStateMachineAttestationArtifact"))) fail("MACHINE_ATTESTATION_REQUIRED", "lab run requires checkpoint v2 and a trusted-root machine attestation target");
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "extract");
   validateChildJournal(config, "extract");
-  transition(config, "review_hold", { gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" });
-  if (config.backend === "lab") return { state: "review_hold", gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" };
+  transition(config, "review_hold", { gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation?.trustedRootSha256 ?? null, productionImport: "HOLD" });
+  if (config.backend === "lab") return { state: "review_hold", gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
   transition(config, "loading");
-  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
-  if (config.backend === "lab") appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materializeReviewedJobState(config), triple: config.triple, productionImport: "HOLD" });
   for (const domain of DOMAIN_ORDER) runAdapter(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
@@ -711,14 +729,13 @@ async function runForwardAsync(configInput, configPath) {
   const config = validateConfig(structuredClone(configInput));
   config.__configPath = resolve(configPath);
   if (currentState(config) !== "provisioned") fail("STATE_TRANSITION_INVALID", "run requires provisioned state");
+  if (config.backend === "lab" && (config.machineAttestation?.checkpointVersion !== 2 || !SHA256.test(config.machineAttestation?.trustedRootSha256 ?? "") || !Object.hasOwn(config.target, "jobStateMachineAttestationArtifact"))) fail("MACHINE_ATTESTATION_REQUIRED", "lab run requires checkpoint v2 and a trusted-root machine attestation target");
   transition(config, "extracting");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "extract");
   validateChildJournal(config, "extract");
-  transition(config, "review_hold", { gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" });
-  if (config.backend === "lab") return { state: "review_hold", gate: "DETACHED_HR_APPROVAL_REQUIRED", productionImport: "HOLD" };
+  transition(config, "review_hold", { gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation?.trustedRootSha256 ?? null, productionImport: "HOLD" });
+  if (config.backend === "lab") return { state: "review_hold", gate: "MACHINE_ATTESTATION_REQUIRED", checkpointVersion: 2, trustedRootSha256: config.machineAttestation.trustedRootSha256, productionImport: "HOLD" };
   transition(config, "loading");
-  if (config.backend === "lab") materializeFullDomainFacts(config, "before");
-  if (config.backend === "lab") appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materializeReviewedJobState(config), triple: config.triple, productionImport: "HOLD" });
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
   validateChildJournal(config, "load");
   transition(config, "verifying");
@@ -729,16 +746,21 @@ async function runForwardAsync(configInput, configPath) {
   return { state: "uat_ready", productionImport: "HOLD" };
 }
 
-function installReviewArtifacts(config, artifacts) {
-  const pairs = [[artifacts.decision, config.target.jobStateDecisionArtifact], [artifacts.payload, config.target.jobStateSourcePayloadArtifact], [artifacts.approval, config.target.jobStateApprovalArtifact]];
+function installMachineArtifacts(config, artifacts) {
+  if (config.machineAttestation?.checkpointVersion !== 2 || !SHA256.test(config.machineAttestation?.trustedRootSha256 ?? "") || !Object.hasOwn(config.target, "jobStateMachineAttestationArtifact")) fail("MACHINE_ATTESTATION_REQUIRED", "legacy v1 review checkpoints cannot resume; use rollback or cleanup");
+  const pairs = [[artifacts.decision, config.target.jobStateDecisionArtifact], [artifacts.payload, config.target.jobStateSourcePayloadArtifact], [artifacts.machineAttestation, config.target.jobStateMachineAttestationArtifact]];
   const sourceBytes = pairs.map(([source]) => { const candidate = resolve(source); let fd; try { fd = openSync(candidate, constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail("REVIEW_ARTIFACT_UNSAFE", "review artifacts must be non-symlink 0600 regular files"); return readFileSync(fd); } catch (error) { if (error.code === "REVIEW_ARTIFACT_UNSAFE") throw error; fail("REVIEW_ARTIFACT_UNSAFE", "review artifact cannot be opened safely"); } finally { if (fd !== undefined) closeSync(fd); } });
-  let decision, payload, approval;
-  try { [decision, payload, approval] = sourceBytes.map(bytes => JSON.parse(bytes)); verifyMaterializationPackage(decision, payload, approval, config); }
-  catch (error) { fail("REVIEW_ARTIFACT_INVALID", error.message); }
+  let decision, payload, machineAttestation;
+  try {
+    [decision, payload, machineAttestation] = sourceBytes.map(bytes => JSON.parse(bytes));
+    const verified = verifyMachineArtifactPackage(config, decision, payload, machineAttestation);
+    if (verified.checkpointRootSha256 !== config.machineAttestation.trustedRootSha256) fail("MACHINE_ATTESTATION_TRUST_ROOT_MISMATCH", "machine artifacts are not anchored to the checkpoint v2 trusted root");
+  }
+  catch (error) { if (error instanceof LifecycleError) throw error; fail("MACHINE_ATTESTATION_INVALID", error.message); }
   const sourceHashes = sourceBytes.map(bytes => createHash("sha256").update(bytes).digest("hex"));
   const existing = pairs.map(([, destination], index) => existsSync(destination) && !lstatSync(destination).isSymbolicLink() && mode(destination) === "0600" && createHash("sha256").update(readFileSync(destination)).digest("hex") === sourceHashes[index]);
   if (existing.every(Boolean)) return;
-  if (pairs.some(([, destination], index) => existsSync(destination) && !existing[index])) fail("REVIEW_ARTIFACT_DRIFT", "installed review artifacts differ");
+  if (pairs.some(([, destination], index) => existsSync(destination) && !existing[index])) fail("MACHINE_ATTESTATION_DRIFT", "installed machine artifacts differ");
   for (const [, destination] of pairs) if (existsSync(destination)) unlinkSync(destination);
   const temps = paths(config).reviewTemps;
   try {
@@ -749,27 +771,89 @@ function installReviewArtifacts(config, artifacts) {
     verifyCurrentT0Binding(config, payload);
   } catch (error) {
     for (const path of [...temps, ...pairs.map(([, destination]) => destination)]) if (existsSync(path)) unlinkSync(path);
-    fail("REVIEW_ARTIFACT_INSTALL_FAILED", error.message);
+    fail("MACHINE_ATTESTATION_INSTALL_FAILED", error.message);
   }
 }
 
-async function resumeAfterReviewAsync(configInput, configPath, artifacts) {
+function buildMachineCheckpoint(config, decision, payload) {
+  const t0Evidence = {
+    ...payload.t0Binding,
+    dictionaryEvidenceSha256: payload.dictionaryEvidenceSha256,
+    sourceDistinctStateCount: 7,
+    sourceRecordCount: 2949
+  };
+  const checkpoint = {
+    formatVersion: 1,
+    kind: "yuzhou-job-state-preload-checkpoint",
+    triple: config.triple,
+    decisionArtifact: decision,
+    privatePayload: payload,
+    t0Evidence,
+    bindings: {
+      decisionArtifactSha256: computeYuzhouJobStateCheckpointArtifactHash("decision_artifact", decision),
+      privatePayloadArtifactSha256: computeYuzhouJobStateCheckpointArtifactHash("private_payload", payload),
+      t0EvidenceArtifactSha256: computeYuzhouJobStateCheckpointArtifactHash("t0_evidence", t0Evidence)
+    },
+    checkpointRootSha256: ""
+  };
+  checkpoint.checkpointRootSha256 = computeYuzhouJobStateCheckpointRoot(checkpoint);
+  return checkpoint;
+}
+
+function verifyMachineArtifactPackage(config, decision, payload, machineAttestation) {
+  const checkpoint = buildMachineCheckpoint(config, decision, payload);
+  const compiled = compileYuzhouJobStateMachineAttestation(checkpoint, { expectedCheckpointRootSha256: config.machineAttestation.trustedRootSha256 });
+  verifyYuzhouJobStateMachineAttestation(machineAttestation, { expectedCheckpointRootSha256: config.machineAttestation.trustedRootSha256 });
+  if (canonicalYuzhouJobStateMachineJson(compiled) !== canonicalYuzhouJobStateMachineJson(machineAttestation)) fail("MACHINE_ATTESTATION_INVALID", "machine attestation differs from deterministic compilation");
+  return { checkpointRootSha256: checkpoint.checkpointRootSha256, machineAttestationSha256: operationSha(canonicalYuzhouJobStateMachineJson(machineAttestation)) };
+}
+
+function machineVerifiedAt(runId) {
+  const value = /^yzfull-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z-/u.exec(runId);
+  if (!value) fail("RUN_ID_INVALID", "cannot derive deterministic machine verification time");
+  return `${value[1]}-${value[2]}-${value[3]}T${value[4]}:${value[5]}:${value[6]}Z`;
+}
+
+function materializeMachineAttestedJobState(config) {
+  const decision = readJson(config.target.jobStateDecisionArtifact), payload = readJson(config.target.jobStateSourcePayloadArtifact), machineAttestation = readJson(config.target.jobStateMachineAttestationArtifact);
+  const verified = verifyMachineArtifactPackage(config, decision, payload, machineAttestation);
+  verifyCurrentT0Binding(config, payload);
+  const { payloadSha256: _payloadSha256, approvalSubject: _approvalSubject, ...payloadBody } = payload;
+  const machinePayload = {
+    ...payloadBody,
+    formatVersion: 2,
+    verification: {
+      mode: "machine_attested",
+      machineAttestationSha256: verified.machineAttestationSha256,
+      evidenceRootSha256: verified.checkpointRootSha256,
+      verifiedAt: machineVerifiedAt(config.runId),
+      actorKind: "machine_policy_engine"
+    }
+  };
+  machinePayload.payloadSha256 = canonicalHash(machinePayload);
+  const result = spawnSync("docker", ["exec", "-i", config.target.postgresContainer, "psql", "-X", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database], { input: buildMaterializationSql(decision, machinePayload, machineAttestation), encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] });
+  if (result.error || result.status !== 0) fail("DICTIONARY_MATERIALIZATION_FAILED", "machine-attested dictionary write failed");
+  return { canonicalDecisionSha256: decision.canonicalDecisionSha256, privatePayloadSha256: payload.payloadSha256, verificationMode: "machine_attested", machineAttestationSha256: verified.machineAttestationSha256, t0BindingSha256: canonicalHash(payload.t0Binding), t0ManifestSha256: payload.t0Binding.manifestSha256, dictionarySnapshotSha256: payload.dictionaryEvidenceSha256, databaseItemsSha256: payload.expectedDatabaseItemsSha256, productionImport: "HOLD" };
+}
+
+async function resumeAfterMachineAttestationAsync(configInput, configPath, artifacts) {
   const config = validateConfig(structuredClone(configInput)); config.__configPath = resolve(configPath);
   if (config.backend !== "lab" || currentState(config) !== "review_hold") fail("STATE_TRANSITION_INVALID", "resume requires a lab run at review_hold");
-  installReviewArtifacts(config, artifacts);
+  installMachineArtifacts(config, artifacts);
   registerControlledFilesystem(config);
   refreshOwnedResumeLock(config, config.__configPath, artifacts);
-  const installedDecision = readJson(config.target.jobStateDecisionArtifact), installedPayload = readJson(config.target.jobStateSourcePayloadArtifact);
-  const expectedMaterialization = { kind: "dictionary_materialization", domain: "T0", status: "verified", canonicalDecisionSha256: installedDecision.canonicalDecisionSha256, privatePayloadSha256: installedPayload.payloadSha256, t0BindingSha256: createHash("sha256").update(`${JSON.stringify(Object.fromEntries(Object.entries(installedPayload.t0Binding).sort(([left], [right]) => left.localeCompare(right))))}\n`).digest("hex"), t0ManifestSha256: installedPayload.t0Binding.manifestSha256, dictionarySnapshotSha256: installedPayload.dictionaryEvidenceSha256, databaseItemsSha256: installedPayload.expectedDatabaseItemsSha256, triple: config.triple, productionImport: "HOLD" };
+  const installedDecision = readJson(config.target.jobStateDecisionArtifact), installedPayload = readJson(config.target.jobStateSourcePayloadArtifact), installedMachineAttestation = readJson(config.target.jobStateMachineAttestationArtifact), machineAttestationSha256 = operationSha(canonicalYuzhouJobStateMachineJson(installedMachineAttestation));
+  const machineCheckpointBindingSha256 = createHash("sha256").update(`yuzhou-job-state-lifecycle-checkpoint-v2\0${canonicalYuzhouJobStateMachineJson({ triple: config.triple, trustedRootSha256: config.machineAttestation.trustedRootSha256, machineAttestationSha256 })}`).digest("hex");
+  const expectedMaterialization = { kind: "dictionary_materialization", domain: "T0", status: "verified", verificationMode: "machine_attested", canonicalDecisionSha256: installedDecision.canonicalDecisionSha256, privatePayloadSha256: installedPayload.payloadSha256, machineAttestationSha256, machineTrustedRootSha256: installedMachineAttestation.expectedCheckpointRootSha256, machineCheckpointBindingSha256, t0BindingSha256: createHash("sha256").update(`${JSON.stringify(Object.fromEntries(Object.entries(installedPayload.t0Binding).sort(([left], [right]) => left.localeCompare(right))))}\n`).digest("hex"), t0ManifestSha256: installedPayload.t0Binding.manifestSha256, dictionarySnapshotSha256: installedPayload.dictionaryEvidenceSha256, databaseItemsSha256: installedPayload.expectedDatabaseItemsSha256, triple: config.triple, productionImport: "HOLD" };
   const prewriteMaterializations = readFileSync(paths(config).journal, "utf8").trim().split("\n").filter(Boolean).map(line => JSON.parse(line)).filter(row => row.kind === "dictionary_materialization" && row.domain === "T0");
   const journalMatches = row => Object.entries(expectedMaterialization).every(([key, value]) => typeof value === "object" ? JSON.stringify(row[key]) === JSON.stringify(value) : row[key] === value);
   if (prewriteMaterializations.length > 1 || (prewriteMaterializations.length === 1 && !journalMatches(prewriteMaterializations[0]))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
   let materialized;
-  try { materialized = materializeReviewedJobState(config); }
-  catch (error) { for (const path of [config.target.jobStateDecisionArtifact, config.target.jobStateSourcePayloadArtifact, config.target.jobStateApprovalArtifact]) if (existsSync(path)) unlinkSync(path); throw error; }
+  try { materialized = materializeMachineAttestedJobState(config); }
+  catch (error) { for (const path of [config.target.jobStateDecisionArtifact, config.target.jobStateSourcePayloadArtifact, config.target.jobStateMachineAttestationArtifact]) if (existsSync(path)) unlinkSync(path); throw error; }
   if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-db-commit-pre-journal") process.exit(86);
   const existingMaterializations = prewriteMaterializations;
-  if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
+  if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "verificationMode", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
   if (existingMaterializations.length === 0) appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materialized, triple: config.triple, productionImport: "HOLD" });
   if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-materialization-journal") return { state: "review_hold", testBreakpoint: "post-materialization-journal", productionImport: "HOLD" };
   transition(config, "loading");
@@ -781,8 +865,8 @@ async function resumeAfterReviewAsync(configInput, configPath, artifacts) {
 }
 
 function preflightStaleResumeTakeover(config, artifacts) {
-  installReviewArtifacts(config, artifacts);
-  materializeReviewedJobState(config);
+  installMachineArtifacts(config, artifacts);
+  materializeMachineAttestedJobState(config);
 }
 
 function assertLabRollbackEvidence(config) {
@@ -965,18 +1049,18 @@ function parseArgs(argv) {
     if (argv[index] === "--config") args.config = argv[++index];
     else if (argv[index] === "--job-state-decision") args.decision = argv[++index];
     else if (argv[index] === "--job-state-source-payload") args.payload = argv[++index];
-    else if (argv[index] === "--job-state-approval") args.approval = argv[++index];
+    else if (argv[index] === "--job-state-machine-attestation") args.machineAttestation = argv[++index];
     else if (argv[index] === "--recover") args.recovery = true;
     else fail("CLI_ARGUMENT_INVALID", argv[index]);
   }
-  if (!["provision", "run", "resume", "rollback", "cleanup", "status"].includes(args.command) || !args.config || (args.command === "resume" && ![args.decision,args.payload,args.approval].every(Boolean))) fail("CLI_ARGUMENT_INVALID", "usage: full-domain-lifecycle.mjs <provision|run|resume|rollback|cleanup|status> --config <file>");
+  if (!["provision", "run", "resume", "rollback", "cleanup", "status"].includes(args.command) || !args.config || (args.command === "resume" && ![args.decision,args.payload,args.machineAttestation].every(Boolean))) fail("CLI_ARGUMENT_INVALID", "usage: full-domain-lifecycle.mjs <provision|run|resume|rollback|cleanup|status> --config <file>");
   return args;
 }
 
 const operationSha = value => createHash("sha256").update(value).digest("hex");
 function reviewPackageSha256(artifacts) {
-  if (!artifacts || ![artifacts.decision, artifacts.payload, artifacts.approval].every(value => typeof value === "string")) fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are required");
-  const hashes = [artifacts.decision, artifacts.payload, artifacts.approval].map(path => { let fd; try { fd = openSync(resolve(path), constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are unsafe"); return operationSha(readFileSync(fd)); } catch (error) { if (error instanceof LifecycleError) throw error; fail("OPERATION_LOCK_BINDING_INVALID", "resume review artifacts are unavailable"); } finally { if (fd !== undefined) closeSync(fd); } });
+  if (!artifacts || ![artifacts.decision, artifacts.payload, artifacts.machineAttestation].every(value => typeof value === "string")) fail("OPERATION_LOCK_BINDING_INVALID", "resume machine artifacts are required");
+  const hashes = [artifacts.decision, artifacts.payload, artifacts.machineAttestation].map(path => { let fd; try { fd = openSync(resolve(path), constants.O_RDONLY | constants.O_NOFOLLOW); const info = fstatSync(fd); if (!info.isFile() || (info.mode & 0o777) !== 0o600) fail("OPERATION_LOCK_BINDING_INVALID", "resume machine artifacts are unsafe"); return operationSha(readFileSync(fd)); } catch (error) { if (error instanceof LifecycleError) throw error; fail("OPERATION_LOCK_BINDING_INVALID", "resume machine artifacts are unavailable"); } finally { if (fd !== undefined) closeSync(fd); } });
   return operationSha(JSON.stringify(hashes));
 }
 function operationBinding(config, configPath, command, artifacts) {
@@ -1101,8 +1185,8 @@ async function main() {
   if (["run", "resume", "rollback"].includes(args.command)) {
     if (!existsSync(config.target.root)) fail("STATE_TRANSITION_INVALID", `${args.command} requires a provisioned run`);
     if (args.command === "resume") installSignalCleanup(config);
-    const reviewArtifacts = args.command === "resume" ? { decision: args.decision, payload: args.payload, approval: args.approval } : undefined;
-    acquireOperationLock(config, configPath, args.command, { artifacts: reviewArtifacts, staleResumePreflight: args.command === "resume" ? preflightStaleResumeTakeover : undefined });
+    const machineArtifacts = args.command === "resume" ? { decision: args.decision, payload: args.payload, machineAttestation: args.machineAttestation } : undefined;
+    acquireOperationLock(config, configPath, args.command, { artifacts: machineArtifacts, staleResumePreflight: args.command === "resume" ? preflightStaleResumeTakeover : undefined });
     ownsRecovery = args.command !== "resume";
   }
   if (ownsRecovery) installSignalCleanup(config);
@@ -1110,7 +1194,7 @@ async function main() {
   try {
     if (args.command === "provision") result = provision(config);
     else if (args.command === "run") result = await runForwardAsync(config, configPath);
-    else if (args.command === "resume") result = await resumeAfterReviewAsync(config, configPath, { decision: args.decision, payload: args.payload, approval: args.approval });
+    else if (args.command === "resume") result = await resumeAfterMachineAttestationAsync(config, configPath, { decision: args.decision, payload: args.payload, machineAttestation: args.machineAttestation });
     else if (args.command === "rollback") result = await runRollbackAsync(config, configPath);
     else if (args.command === "cleanup") result = cleanup(config, { recovery: args.recovery });
     else result = { state: currentState(validateConfig(config)), productionImport: "HOLD" };
