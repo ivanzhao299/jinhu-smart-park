@@ -140,6 +140,7 @@
     "hr:migration:t3-attendance-events:profile": "sh scripts/profile-yuzhou-t3-attendance-events.sh",
     "hr:migration:t3-attendance-request:lab": "node scripts/hr-cutover/run-hr-attendance-request-lab.mjs",
     "hr:migration:training-reward-events:profile": "sh scripts/profile-yuzhou-training-reward-events.sh",
+    "hr:migration:training-reward-history:extract": "sh scripts/extract-yuzhou-training-reward-history.sh",
     "test:hr:attendance-request:pg": "sh scripts/run-hr-attendance-request-pg-gate.sh",
     "test:e2e:yuzhou-core-t0-t3-technical-uat": "node --test scripts/e2e/yuzhou-core-t0-t3-technical-uat-contract.mjs",
     "test:e2e:yuzhou-full-domain-lifecycle": "node scripts/e2e/yuzhou-full-domain-lifecycle.mjs",
