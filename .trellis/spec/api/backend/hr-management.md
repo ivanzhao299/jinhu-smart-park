@@ -907,3 +907,66 @@ await dataSource.transaction(async manager => {
 - Apply the forward migration from `template0`; separately clone a real predecessor state, run the official migration runner, then run checksum replay and verify both history tables contain one matching succeeded row.
 - PostgreSQL-test `SERIALIZABLE`, window/expiry checks, target-table allowlist, exact T0 owner-map trigger, PUBLIC revocation, cross-intent authorization reuse denial, and distinct rollback authorization acceptance.
 - Contract-test exact A/B/triple/target/manifest/window/approval binding, stale/wrong target/SHA failures before opening a transaction, absent concrete adapters, one T0–T3 transaction, independent failure receipt, reverse rollback order, and ordinary deploy/seed/lab unreachability.
+
+## Scenario: Yuzhou core T0-T3 isolated rehearsal
+
+### 1. Scope / Trigger
+
+- Trigger: changing the `core_t0_t3` contract, prepare command, PostgreSQL lab driver, machine-review artifacts, facts compiler, A/B pair runner, rollback, or residual cleanup.
+- This is an isolated rehearsal contract. It must remain unreachable from ordinary deployment and production-history import.
+
+### 2. Signatures
+
+- Prepare command: `pnpm hr:migration:core-t0-t3:prepare -- --rehearsal <A|B> --suffix <id> --postgres-port <port> --api-port <port> --web-port <port> --control-root <0700-dir> --etl-env <0600-file> --source-container <lab-container> --source-backup <0600-file> --machine-attestation-root <sha256>`.
+- Pair command: `pnpm hr:migration:core-t0-t3:pair -- --config-a <0600-json> --config-b <0600-json> --driver <committed-driver> --summary <new-0600-json> --decision-a <file> --payload-a <file> --machine-attestation-a <file> --decision-b <file> --payload-b <file> --machine-attestation-b <file>`.
+- Fixed domain order is `T0,T1,T2,T3`; fixed rollback order is `T3,T2,T1,T0`.
+
+### 3. Contracts
+
+- A/B use the same `codeSha/sourceSnapshotHash/mappingContractHash`, different deterministic resources, different external trusted roots, and six distinct non-symlink `0600` v2 machine artifacts under separate `0700` roots.
+- The lifecycle journal is append-only, `0600`, SHA-256 chained, sequence checked, C/S/M bound, and fsynced. Replay accepts only the exact state, domain, machine-materialization, facts, rollback, cleanup-evidence order.
+- A source backup hash is only a file fact. Extract is forbidden until a hash-bound restore receipt also proves the live source container/database identity and current read-only authority. Passing `YUZHOU_BACKUP_SHA256` alone is not proof.
+- T1/T2 writes are forbidden until their four reviewed dictionary machine packages are independently bound, materialized, and replay-drift checked. Business canonical facts and protected-side-effect facts must come from PostgreSQL evidence, never hard-coded zeroes.
+- Cleanup targets only the registered deterministic container, network, volume, runtime root, and credential root. Audit/journal evidence remains outside those roots. PASS requires every one of the 13 residual classes to be present and zero.
+- Until all executable prerequisites and a real A/B run pass, output is `CONTRACT_PASS` with `executionStatus=SPEC_FROZEN`; `READY` or execution `PASS` is forbidden. `productionImport` remains `HOLD`.
+
+### 4. Validation & Error Matrix
+
+- backup bytes differ from the pinned S hash -> `CORE_SOURCE_BACKUP_DRIFT` before extract.
+- restore receipt, live read-only proof, or source identity binding missing -> `CORE_SOURCE_RESTORE_BINDING_REQUIRED` before extract.
+- T1/T2 reviewed dictionary package missing -> `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` before the affected write.
+- business canonical or protected-side-effect evidence missing -> `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` before pair PASS.
+- T4/T5, arbitrary subset/order, production-loader reference, reused resource/trusted root/artifact, journal drift, wrong C/S/M, or nonzero/missing residual class -> fail closed; no summary PASS.
+- recovery cleanup failure -> `CORE_RECOVERY_FAILED`; preserve the failure and remaining audit evidence.
+
+### 5. Good / Base / Bad Cases
+
+- Good: two fresh labs with the same C/S/M and distinct roots run T0-T3, compare sealed facts, roll back T3-T0, and enumerate all 13 residual classes at zero.
+- Base: the contract and driver boundary validate but source restore binding or reviewed dictionaries are incomplete; return the stable blocker and keep `SPEC_FROZEN/HOLD`.
+- Bad: trust a backup hash environment variable as proof of the running database, use default dictionary mappings, omit a residual class, or label an injected-adapter test as a real A/B PASS.
+
+### 6. Tests Required
+
+- Contract-test exact CLI/config keys, duplicate/unknown arguments, deterministic resource identities, six-artifact isolation, trusted-root reuse, fixed domain orders, and deployment/loader unreachability.
+- Replay-test journal content/hash/order tampering, process restart, partial load recovery, reverse rollback, cleanup failure, and persisted 13-class cleanup evidence.
+- PostgreSQL integration must prove official migration/production seed, restore receipt plus live read-only source identity, four dictionary packages, real canonical/side-effect facts, A/B equality, rollback, and residual zero before changing execution status.
+- Re-run full-domain lifecycle regression so the core-only SQL target guard cannot weaken or change the existing full-domain builder.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```js
+env.YUZHOU_BACKUP_SHA256 = pinnedHash;
+return { status: "PASS", sideEffectViolationCount: 0 };
+```
+
+#### Correct
+
+```js
+assertBackupBytesMatchPinnedHash(config);
+assertRestoreReceiptAndLiveReadOnlyIdentity(config);
+assertReviewedDictionaryMachinePackages(config);
+const facts = queryCanonicalAndProtectedSideEffectFacts(postgres);
+return sealContractOnlyOrRealEvidence(facts);
+```

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://park.cnjinhu.com/schemas/hr/source-restore-receipt-v1.json",
+  "title": "Yuzhou HR isolated source restore receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["formatVersion", "artifactKind", "sourceSnapshotSha256", "backup", "identities", "state", "etlAuthority", "productionImport", "canonicalSha256"],
+  "properties": {
+    "formatVersion": { "const": 1 },
+    "artifactKind": { "const": "yuzhou_hr_source_restore_receipt" },
+    "sourceSnapshotSha256": { "$ref": "#/$defs/sha256" },
+    "backup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "bytes", "containerCopySha256", "containerCopyBytes"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "bytes": { "type": "integer", "minimum": 1 },
+        "containerCopySha256": { "$ref": "#/$defs/sha256" },
+        "containerCopyBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["containerSha256", "imageSha256", "databaseSha256", "restoreSha256", "catalogSha256"],
+      "properties": {
+        "containerSha256": { "$ref": "#/$defs/sha256" },
+        "imageSha256": { "$ref": "#/$defs/sha256" },
+        "databaseSha256": { "$ref": "#/$defs/sha256" },
+        "restoreSha256": { "$ref": "#/$defs/sha256" },
+        "catalogSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["online", "readOnly"],
+      "properties": { "online": { "const": true }, "readOnly": { "const": true } }
+    },
+    "etlAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["loginSucceeded", "sysadmin", "dbDatareader", "viewDefinition", "insert", "update", "delete", "execute"],
+      "properties": {
+        "loginSucceeded": { "const": true },
+        "sysadmin": { "const": false },
+        "dbDatareader": { "const": true },
+        "viewDefinition": { "const": true },
+        "insert": { "const": false },
+        "update": { "const": false },
+        "delete": { "const": false },
+        "execute": { "const": false }
+      }
+    },
+    "productionImport": { "const": "HOLD" },
+    "canonicalSha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": { "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+}

@@ -1,0 +1,65 @@
+{
+  "formatVersion": 1,
+  "profile": "core_t0_t3",
+  "executionStatus": "SPEC_FROZEN",
+  "domainOrder": ["T0", "T1", "T2", "T3"],
+  "rollbackOrder": ["T3", "T2", "T1", "T0"],
+  "forbiddenDomains": ["T4", "T5"],
+  "requiredStages": [
+    "provision",
+    "extract_t0_t3",
+    "machine_review_hold",
+    "resume_t0_t3",
+    "core_facts",
+    "pair_compare",
+    "rollback_t3_t0",
+    "cleanup"
+  ],
+  "sourceAuthority": {
+    "readOnly": true,
+    "snapshotBinding": "source_backup_sha256",
+    "requiresT4Evidence": false,
+    "requiresT5MaterializationKey": false
+  },
+  "machineGate": {
+    "checkpointVersion": 2,
+    "decisionKind": "MACHINE_CANDIDATE",
+    "requiredArtifactsPerRehearsal": ["decision", "private_payload", "machine_attestation"],
+    "trustedRootExternal": true,
+    "legacyV1Writable": false
+  },
+  "resourceIsolation": [
+    "database",
+    "compose_project",
+    "container",
+    "network",
+    "volume",
+    "role",
+    "account_namespace",
+    "ports",
+    "runtime_root",
+    "staging_root",
+    "evidence_root",
+    "credential_root"
+  ],
+  "residualClasses": [
+    "database",
+    "container",
+    "network",
+    "volume",
+    "role",
+    "account",
+    "file",
+    "directory",
+    "port",
+    "process",
+    "credential_artifact",
+    "business_row",
+    "control_row"
+  ],
+  "requiredFinalState": {
+    "state": "cleaned",
+    "residualCount": 0
+  },
+  "productionImport": "HOLD"
+}
