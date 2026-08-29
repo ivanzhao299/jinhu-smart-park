@@ -35,7 +35,18 @@ export function buildCoreT0MachinePackage(configInput, machineRoot) {
     || manifest.value?.domains?.jobStateCodes?.fileSha256 !== codes.sha256) fail("CORE_T0_MACHINE_STAGE_DRIFT");
   const dictionary = new Map(codes.value.map(row => [String(row.sourceCode ?? "").trim().toLowerCase(), row]));
   const t0Binding = { manifestSha256: manifest.sha256, employeeJobStatesSha256: states.sha256, jobStateCodeMetadataSha256: metadata.sha256, jobStateCodesSha256: codes.sha256 };
-  const dictionaryEvidenceSha256 = canonicalHash({ ...t0Binding, sourceDictionaryRowCount: codes.value.length, sourceDistinctStateCount: 7, sourceRecordCount: 2949 });
+  // The runtime verifier intentionally binds the manifest separately.  The
+  // dictionary evidence is the three source dictionaries plus their observed
+  // cardinalities, so its canonical projection must stay byte-for-byte
+  // identical to verifyCurrentT0Binding().
+  const dictionaryEvidenceSha256 = canonicalHash({
+    employeeJobStatesSha256: t0Binding.employeeJobStatesSha256,
+    jobStateCodeMetadataSha256: t0Binding.jobStateCodeMetadataSha256,
+    jobStateCodesSha256: t0Binding.jobStateCodesSha256,
+    sourceDictionaryRowCount: codes.value.length,
+    sourceDistinctStateCount: 7,
+    sourceRecordCount: 2949
+  });
   const decisions = states.value.map(row => {
     const sourceCode = String(row.sourceCode ?? "").trim(), normalized = sourceCode.toLowerCase(), source = dictionary.get(normalized), observedRecordCount = row.usageCount;
     if (!source || !statusTarget.has(normalized) || !Number.isSafeInteger(observedRecordCount) || observedRecordCount < 1) fail("CORE_T0_MACHINE_SOURCE_DRIFT");
