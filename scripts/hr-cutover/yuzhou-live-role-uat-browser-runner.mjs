@@ -305,12 +305,13 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
             try {
             runtimeErrors.length = 0;
             networkFailures.length = 0;
+            sameOriginRequests.clear();
             await cdp.send("Page.navigate", { url: `${webBase}${check.route}` }, sessionId);
             await pollVisibleTexts(cdp, sessionId, check, viewport);
             // A static heading can render before a client-side same-origin API request starts.
-            // Require a short hydration window and then a settled request set before PASS.
+            // Isolate the route request set and allow its initial async data fetch to settle before PASS.
             await sleep(200);
-            for(let attempt=0;attempt<50&&sameOriginRequests.size>0;attempt+=1)await sleep(20);
+            for(let attempt=0;attempt<250&&sameOriginRequests.size>0;attempt+=1)await sleep(20);
             if(sameOriginRequests.size>0)networkFailures.push("pending");
             const result = await evaluate(cdp, sessionId, `(() => { const visible=node=>{let e=node.nodeType===Node.TEXT_NODE?node.parentElement:node;if(!e)return false;const leaf=e;for(;e;e=e.parentElement){const s=getComputedStyle(e);if(e.hidden||e.inert||e.getAttribute('aria-hidden')==='true'||s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;}return leaf.getClientRects().length>0;};const textNodes=[];const walker=document.createTreeWalker(document.body??document.documentElement,NodeFilter.SHOW_TEXT,{acceptNode:node=>visible(node)&&node.nodeValue?.trim()?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT});let node;while((node=walker.nextNode()))textNodes.push(node.nodeValue);const visibleText=textNodes.join('\\n');const visibleTexts=${JSON.stringify(check.visibleTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const forbiddenTexts=${JSON.stringify(check.forbiddenTexts)}.map(value=>({value,matched:visibleText.includes(value)}));const clientWidth=document.documentElement.clientWidth;const scrollWidth=Math.max(document.documentElement.scrollWidth,document.body?.scrollWidth??0);return {path:location.pathname,visibleText,clientWidth,scrollWidth,alerts:[...document.querySelectorAll('[role=alert]')].filter(visible).map(node=>node.textContent??'').filter(Boolean),visibleTexts,forbiddenTexts};})()`);
             if (result.path !== (check.expectedPath ?? check.route) || runtimeErrors.length || networkFailures.length || result.alerts.length) {

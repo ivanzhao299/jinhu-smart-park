@@ -89,3 +89,9 @@ test("browser runner allows only exact full or core isolated lab namespaces", ()
   assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_core_/evidence"), false);
   assert.equal(isYuzhouLiveRoleUatLabPath("/tmp/jinhu_hr_migration_lab_other_uata1/evidence"), false);
 });
+
+test("browser route checks isolate their request set and retain a bounded async settlement window", () => {
+  const runner = readFileSync(resolve(root, "scripts/hr-cutover/yuzhou-live-role-uat-browser-runner.mjs"), "utf8");
+  assert.match(runner, /networkFailures\.length = 0;\s*sameOriginRequests\.clear\(\);\s*await cdp\.send\("Page\.navigate"/u);
+  assert.match(runner, /attempt<250&&sameOriginRequests\.size>0/u);
+});
