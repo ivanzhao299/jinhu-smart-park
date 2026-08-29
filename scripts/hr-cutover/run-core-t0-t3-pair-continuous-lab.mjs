@@ -54,9 +54,9 @@ function currentHead(){const result=spawnSync("git",["rev-parse","HEAD"],{cwd:RO
 async function main(){
  const args=parseCorePairContinuousArgs(process.argv.slice(2)),configA=privateJson(args.configA,"config A"),configB=privateJson(args.configB,"config B"),head=currentHead();
  if(configA.triple.codeSha!==head||configB.triple.codeSha!==head)fail("CORE_PAIR_CONTINUOUS_TRIPLE_INVALID","checkout code SHA differs from config");
- const summary=ensureSummary(args.summary),result=await runCoreT0T3PairContinuous({configAPath:args.configA,configBPath:args.configB,summaryPath:summary});
- writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);
- process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
+ const summary=ensureSummary(args.summary);
+ try{const result=await runCoreT0T3PairContinuous({configAPath:args.configA,configBPath:args.configB,summaryPath:summary});writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);}
+ catch(error){const result={formatVersion:1,profile:"core_t0_t3",status:"HOLD",errorCode:safeCode(error),productionImport:"HOLD"};writeFileSync(summary,`${JSON.stringify(result,null,2)}\n`,{flag:"wx",mode:0o600});chmodSync(summary,0o600);if(!privateMode(summary))fail("CORE_PAIR_CONTINUOUS_SUMMARY_UNSAFE",summary);throw error;}
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(error=>{process.stderr.write(`${safeCode(error)}\n`);process.exitCode=1;});
