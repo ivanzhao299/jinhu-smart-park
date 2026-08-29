@@ -79,6 +79,7 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
         id: "unit-1",
         unitCode: "A-101",
         unitName: "101",
+        usage_type: 10,
         assetUnitId: "must-not-return"
       }];
     });
@@ -103,7 +104,7 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
       assert.match(statement.sql, /unit\.tenant_id=\$1/u);
       assert.match(statement.sql, /unit\.park_id=\$2/u);
       assert.match(statement.sql, /unit\.status=1/u);
-      assert.match(statement.sql, /unit\.usage_type=\$3/u);
+      assert.match(statement.sql, /unit\.usage_type=ANY\(\$3::smallint\[\]\)/u);
       assert.match(statement.sql, /unit\.id=ANY\(\$4::uuid\[\]\)/u);
       assert.match(statement.sql, /unit\.unit_code ILIKE \$5/u);
       assert.match(statement.sql, /unit\.unit_name ILIKE \$5/u);
@@ -111,21 +112,29 @@ test("housing unit candidates use authoritative biz_unit IDs with constant scope
     assert.deepEqual(statements[1]!.parameters, [
       scope.tenantId,
       scope.parkId,
-      70,
+      [70, 10],
       ["unit-1"],
       "%A-101%"
     ]);
     assert.deepEqual(statements[0]!.parameters, [
       scope.tenantId,
       scope.parkId,
-      70,
+      [70, 10],
       ["unit-1"],
       "%A-101%",
       pageSize,
       6 * pageSize
     ]);
     assert.deepEqual(result, {
-      items: [{ id: "unit-1", unitCode: "A-101", unitName: "101" }],
+      items: [{
+        id: "unit-1",
+        unitCode: "A-101",
+        unitName: "101",
+        usage_type: 10,
+        rental_segment: "office",
+        eligible: true,
+        ineligible_reasons: []
+      }],
       total: 37,
       page: 7,
       page_size: pageSize

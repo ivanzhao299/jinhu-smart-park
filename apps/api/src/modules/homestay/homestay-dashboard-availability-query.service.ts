@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
+  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
   SYSTEM_PERMISSIONS,
   type HomestayAvailabilityItem,
   type HomestayAvailabilityListResponse,
@@ -201,6 +202,7 @@ export class HomestayDashboardAvailabilityQueryService {
         AND unit.park_id = config.park_id
         AND unit.is_deleted = false
         AND unit.status = 1
+        AND unit.usage_type = ANY(ARRAY[${PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.short_stay.join(",")}]::smallint[])
        WHERE config.tenant_id = $1
         AND config.park_id = $2
         AND config.is_deleted = false
@@ -417,6 +419,7 @@ export class HomestayDashboardAvailabilityQueryService {
        AND turnover.is_deleted = false
        AND turnover.status <> 'completed'
       WHERE unit.tenant_id = $1 AND unit.park_id = $2
+        AND unit.usage_type = ANY(ARRAY[${PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.short_stay.join(",")}]::smallint[])
         AND unit.is_deleted = false${unitClause}
       GROUP BY unit.id, unit.unit_code, unit.unit_name,
                mode.operating_mode, mode.operating_status

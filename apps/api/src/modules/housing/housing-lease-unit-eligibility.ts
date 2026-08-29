@@ -1,7 +1,7 @@
 import { ConflictException } from "@nestjs/common";
 import {
   HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS,
-  UNIT_USAGE_HOUSING,
+  isUnitUsageAllowedForPropertyMode,
   type HousingLeaseUnitEligibilityProjection,
   type HousingLeaseUnitEligibilityReason,
   type TenantParkScope
@@ -44,8 +44,8 @@ function projectEligibility(row: EligibilityRow | undefined, conflict = false): 
   if (!row || Number(row.unitStatus) !== 1) {
     reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_INACTIVE);
   }
-  if (row && Number(row.usageType) !== UNIT_USAGE_HOUSING) {
-    reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_HOUSING);
+  if (row && !isUnitUsageAllowedForPropertyMode("long_rent", Number(row.usageType))) {
+    reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.UNIT_USAGE_NOT_ALLOWED_FOR_MODE);
   }
   if (row && row.operatingMode === null) {
     reasonCodes.push(HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS.OPERATION_CONFIG_MISSING);

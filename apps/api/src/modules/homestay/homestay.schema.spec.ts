@@ -191,6 +191,9 @@ test("homestay operational lists use authoritative candidates and bounded turnov
   );
   assert.match(candidates, /operation\.operating_mode = 'short_stay'/);
   assert.match(candidates, /operation\.operating_status = 'enabled'/);
+  assert.match(candidates, /unit\.usage_type = ANY/);
+  assert.match(candidates, /rental_segment: deriveRentalSegment/);
+  assert.match(candidates, /ineligible_reasons: \[\]/);
   assert.match(candidates, /LIMIT \$3 OFFSET \$4/);
   assert.match(candidates, /unit\.id = ANY\(\$5::uuid\[\]\)/);
   assert.match(candidates, /unit\.id = ANY\(\$3::uuid\[\]\)/);

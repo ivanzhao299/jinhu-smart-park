@@ -6,13 +6,15 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
-  UNIT_USAGE_HOUSING,
+  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
+  deriveRentalSegment,
   type HousingEnergyMeterCandidateListResponse,
   type HousingLeaseListItem as HousingLeaseListResponseItem,
   type HousingTenantResponse,
   type HousingUnitCandidateListResponse,
   type PaginatedResult,
-  type TenantParkScope
+  type TenantParkScope,
+  type UnitUsageType
 } from "@jinhu/shared";
 import { DataSource, type EntityManager, type Repository } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -149,10 +151,10 @@ export class HousingService {
       "unit.tenant_id=$1",
       "unit.park_id=$2",
       "unit.status=1",
-      "unit.usage_type=$3",
+      "unit.usage_type=ANY($3::smallint[])",
       "unit.is_deleted=false"
     ];
-    parameters.push(UNIT_USAGE_HOUSING);
+    parameters.push([...PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.long_rent]);
     if (unitIds !== null) {
       parameters.push(unitIds);
       filters.push(`unit.id=ANY($${parameters.length}::uuid[])`);
@@ -170,7 +172,8 @@ export class HousingService {
     const unitOrder = this.sortDirection(query.order, "ASC");
     const [rows, countRows] = await Promise.all([
       this.dataSource.query(
-        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName",
+                unit.usage_type AS "usage_type"
          FROM biz_unit unit
          ${HOUSING_LONG_RENT_OPERATION_JOIN}
          WHERE ${where}
@@ -190,7 +193,11 @@ export class HousingService {
       items: (rows as HousingUnitCandidateListResponse["items"]).map((row) => ({
         id: row.id,
         unitCode: row.unitCode,
-        unitName: row.unitName
+        unitName: row.unitName,
+        usage_type: Number(row.usage_type) as UnitUsageType,
+        rental_segment: deriveRentalSegment(Number(row.usage_type)),
+        eligible: true,
+        ineligible_reasons: []
       })),
       total: Number(countRows[0]?.total ?? 0),
       page: query.page,

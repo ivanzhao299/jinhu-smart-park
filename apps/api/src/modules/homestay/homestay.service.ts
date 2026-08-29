@@ -7,7 +7,9 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   PROPERTY_APPROVAL_COMMAND_PORT,
+  PROPERTY_MODE_UNIT_USAGE_ALLOWLIST,
   SYSTEM_PERMISSIONS,
+  deriveRentalSegment,
   type HomestayAvailabilityListResponse,
   type HomestayAvailabilityResponse,
   type HomestayBookingDetailResponse,
@@ -20,7 +22,8 @@ import {
   type HomestayTurnoverListResponse,
   type HomestayUnitCandidateListResponse,
   type PropertyApprovalCommandPort,
-  type TenantParkScope
+  type TenantParkScope,
+  type UnitUsageType
 } from "@jinhu/shared";
 import {
   DataSource,
@@ -142,15 +145,17 @@ export class HomestayService {
       WHERE unit.tenant_id = $1
         AND unit.park_id = $2
         AND unit.status = 1
+        AND unit.usage_type = ANY(ARRAY[${PROPERTY_MODE_UNIT_USAGE_ALLOWLIST.short_stay.join(",")}]::smallint[])
         AND unit.is_deleted = false${accessClause}`;
     const [items, countRows] = await Promise.all([
       this.dataSource.query(
-        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName"
+        `SELECT unit.id, unit.unit_code AS "unitCode", unit.unit_name AS "unitName",
+                unit.usage_type AS "usage_type"
          ${commonSql(itemAccessClause)}
          ORDER BY unit.unit_code ASC
          LIMIT $3 OFFSET $4`,
         params
-      ) as Promise<Array<{ id: string; unitCode: string; unitName: string }>>,
+      ) as Promise<Array<{ id: string; unitCode: string; unitName: string; usage_type: number }>>,
       this.dataSource.query(
         `SELECT count(*)::int AS total ${commonSql(countAccessClause)}`,
         allowedUnitIds === null
@@ -159,7 +164,18 @@ export class HomestayService {
       ) as Promise<Array<{ total: number }>>
     ]);
     const total = Number(countRows[0]?.total ?? 0);
-    return { items, total, page: query.page, page_size: query.page_size };
+    return {
+      items: items.map((item) => ({
+        ...item,
+        usage_type: Number(item.usage_type) as UnitUsageType,
+        rental_segment: deriveRentalSegment(Number(item.usage_type)),
+        eligible: true,
+        ineligible_reasons: []
+      })),
+      total,
+      page: query.page,
+      page_size: query.page_size
+    };
   }
 
   async getRateCalendar(

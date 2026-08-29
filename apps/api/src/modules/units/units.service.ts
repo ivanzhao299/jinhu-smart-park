@@ -1,6 +1,14 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { SYSTEM_PERMISSIONS, UNIT_USAGE_HOUSING, type PaginatedResult, type TenantParkScope } from "@jinhu/shared";
+import {
+  PROPERTY_OPERATING_MODES,
+  SYSTEM_PERMISSIONS,
+  UNIT_USAGE_HOUSING,
+  isUnitUsageAllowedForPropertyMode,
+  type PaginatedResult,
+  type PropertyOperatingMode,
+  type TenantParkScope
+} from "@jinhu/shared";
 import * as XLSX from "xlsx";
 import {
   Between,
@@ -364,7 +372,10 @@ export class UnitsService {
       const lockedUnit = await this.lockUnitForPropertyActivityChange(manager, scope, entity.id);
       if (dto.usageType === undefined) {
         entity.usageType = Number(lockedUnit.usage_type);
-      } else if (Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING && dto.usageType !== UNIT_USAGE_HOUSING) {
+      } else {
+        await this.assertUsageCompatibleWithPropertyModes(manager, scope, entity.id, dto.usageType);
+      }
+      if (dto.usageType !== undefined && Number(lockedUnit.usage_type) === UNIT_USAGE_HOUSING && dto.usageType !== UNIT_USAGE_HOUSING) {
         await this.assertNoPropertyActivity(
           manager,
           scope,
@@ -486,6 +497,46 @@ export class UnitsService {
       || row?.has_enabled_apartment_room
     ) {
       throw new ConflictException(message);
+    }
+  }
+
+  private async assertUsageCompatibleWithPropertyModes(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    unitId: string,
+    usageType: number
+  ): Promise<void> {
+    const rows = await manager.query(
+      `SELECT config.operating_mode AS mode
+         FROM biz_property_operation_config config
+        WHERE config.tenant_id=$1 AND config.park_id=$2 AND config.unit_id=$3
+          AND config.is_deleted=false AND config.operating_mode<>'none'
+       UNION
+       SELECT request.canonical_payload->>'targetMode' AS mode
+         FROM biz_property_operation_config config
+         JOIN biz_property_approval_request request
+           ON request.tenant_id=config.tenant_id AND request.park_id=config.park_id
+          AND request.source_id=config.id
+          AND request.source_type='property-operation-config'
+          AND request.action_id='property.mode-transition.request'
+          AND (
+            request.decision_status IN ('draft','submitted','pending_approval')
+            OR (
+              request.decision_status='approved'
+              AND request.execution_status IN ('not_started','executing','retry_wait','infra_exhausted')
+            )
+          )
+        WHERE config.tenant_id=$1 AND config.park_id=$2 AND config.unit_id=$3
+          AND config.is_deleted=false`,
+      [scope.tenantId, scope.parkId, unitId]
+    ) as Array<{ mode: string | null }>;
+    const modes = rows
+      .map((row) => row.mode)
+      .filter((mode): mode is PropertyOperatingMode =>
+        Boolean(mode && PROPERTY_OPERATING_MODES.includes(mode as PropertyOperatingMode))
+      );
+    if (modes.some((mode) => !isUnitUsageAllowedForPropertyMode(mode, usageType))) {
+      throw new ConflictException("房源当前或待生效经营模式与目标用途不兼容");
     }
   }
 

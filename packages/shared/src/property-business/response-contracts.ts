@@ -1,4 +1,9 @@
-import type { HomestayBookingStatus, PaginatedResult } from "../index";
+import type {
+  HomestayBookingStatus,
+  PaginatedResult,
+  RentalSegment,
+  UnitUsageType
+} from "../index";
 
 /**
  * Stable property-workbench HTTP projections.
@@ -45,6 +50,13 @@ export interface PropertyWorkbenchUnitRef {
   unitName: string;
 }
 
+export interface PropertyWorkbenchEligibleUnitRef extends PropertyWorkbenchUnitRef {
+  usage_type: UnitUsageType;
+  rental_segment: RentalSegment | null;
+  eligible: boolean;
+  ineligible_reasons: string[];
+}
+
 export interface PropertyWorkbenchPartyRef {
   id: string;
   displayName: string;
@@ -88,7 +100,7 @@ export type HomestayAvailabilityListResponse =
   PaginatedResult<HomestayAvailabilityItem>;
 export type HomestayAvailabilityDetailResponse = HomestayAvailabilityItem;
 
-export type HomestayUnitCandidate = PropertyWorkbenchUnitRef;
+export type HomestayUnitCandidate = PropertyWorkbenchEligibleUnitRef;
 export type HomestayUnitCandidateListResponse =
   PaginatedResult<HomestayUnitCandidate>;
 export type HomestayUnitListResponse = HomestayUnitCandidateListResponse;
@@ -332,7 +344,7 @@ export type HousingTenantResponse = HousingTenantListItem;
 
 export const HOUSING_LEASE_UNIT_ELIGIBILITY_REASONS = {
   UNIT_INACTIVE: "UNIT_INACTIVE",
-  UNIT_USAGE_NOT_HOUSING: "UNIT_USAGE_NOT_HOUSING",
+  UNIT_USAGE_NOT_ALLOWED_FOR_MODE: "UNIT_USAGE_NOT_ALLOWED_FOR_MODE",
   OPERATION_CONFIG_MISSING: "OPERATION_CONFIG_MISSING",
   OPERATION_MODE_NOT_LONG_RENT: "OPERATION_MODE_NOT_LONG_RENT",
   OPERATION_STATUS_NOT_ENABLED: "OPERATION_STATUS_NOT_ENABLED",
@@ -455,7 +467,7 @@ export interface HousingUnitCandidateQuery {
   page_size: number;
 }
 
-export type HousingUnitCandidateResponse = PropertyWorkbenchUnitRef;
+export type HousingUnitCandidateResponse = PropertyWorkbenchEligibleUnitRef;
 
 export type HousingUnitCandidateListResponse =
   PaginatedResult<HousingUnitCandidateResponse>;

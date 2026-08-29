@@ -130,7 +130,7 @@ function LeasePrimary({ capabilities, data, reload }: LeaseContextProps) {
 function eligibilityReasonLabels(reasonCodes: string[]): string[] {
   const labels: Record<string, string> = {
     UNIT_INACTIVE: "房源已停用或不存在",
-    UNIT_USAGE_NOT_HOUSING: "房源用途不是住房",
+    UNIT_USAGE_NOT_ALLOWED_FOR_MODE: "房源用途不符合当前经营模式",
     OPERATION_CONFIG_MISSING: "尚未配置经营模式",
     OPERATION_MODE_NOT_LONG_RENT: "经营模式不是长租",
     OPERATION_STATUS_NOT_ENABLED: "经营状态不是启用",

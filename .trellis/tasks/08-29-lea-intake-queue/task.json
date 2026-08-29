@@ -1,0 +1,30 @@
+{
+  "id": "lea-intake-queue",
+  "name": "lea-intake-queue",
+  "title": "长租经营准入与房源配置实施队列",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P2",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-29",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "codex/asset-unit-field-semantics-review",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-29-lea-001-002-mode-usage-matrix",
+    "08-29-lea-003-long-rent-rename",
+    "08-29-lea-004-rental-status-sync"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
