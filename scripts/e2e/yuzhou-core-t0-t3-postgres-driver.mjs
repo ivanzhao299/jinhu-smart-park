@@ -191,12 +191,14 @@ test("committed PostgreSQL driver rejects T4/T5 and fails closed when T1/T2 dict
   assert.equal(commands.length, 1);
   assert.throws(() => adapters.executePhase({ domain: "T1", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
   assert.throws(() => adapters.executePhase({ domain: "T2", phase: "load" }), /CORE_NON_T0_DICTIONARY_MATERIALIZATION_REQUIRED/u);
-  assert.throws(() => adapters.materializeFacts(), /CORE_BUSINESS_CANONICAL_FACTS_REQUIRED/u);
+  assert.throws(() => adapters.materializeFacts(), /CORE_DRIVER_PRIVATE_FILE_INVALID/u);
   const source = readFileSync(resolve(ROOT, "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs"), "utf8");
   assert.match(source, /maxBuffer: 64 \* 1024 \* 1024/u);
   assert.match(source, /networks:\\n {6}- migration/u);
   assert.match(source, /name: \$\{config\.target\.network\}/u);
   assert.match(source, /materializeCoreNonT0Dictionaries/u);
+  assert.match(source, /CORE_PROTECTED_STATE_DRIFT/u);
+  assert.match(source, /coreDomainFacts/u);
   assert.doesNotMatch(source, /CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED/u);
   assert.doesNotMatch(source, /production-import|production_import|hr_payroll_legacy/u);
 });
