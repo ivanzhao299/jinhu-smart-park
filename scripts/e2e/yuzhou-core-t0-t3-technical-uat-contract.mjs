@@ -27,6 +27,9 @@ test("core technical UAT is bound to rollback_ready and cannot promote a full ma
   assert.match(sharedRunner, /databaseCallsite/u);
   assert.match(sharedRunner, /l\.biz_id::text=:'bizId'/u);
   assert.doesNotMatch(sharedRunner, /l\.biz_id=:'bizId'::uuid/u);
+  const p0Scenario = readFileSync(resolve(root, "scripts/hr-cutover/yuzhou-live-role-uat-p0-scenario.mjs"), "utf8");
+  assert.match(p0Scenario, /'\{\}'::jsonb/u);
+  assert.match(p0Scenario, /'\{"baseSalary":"2000\.00"\}'::jsonb/u);
   assert.match(sharedRunner, /constraint "\(\[A-Za-z0-9_\]\+\)"/u);
   assert.match(sharedRunner, /TECHNICAL_UAT_DATABASE_FAILED/u);
   assert.match(sharedRunner, /operation_\$\{operation\}_sqlstate_\$\{sqlState\}/u);
