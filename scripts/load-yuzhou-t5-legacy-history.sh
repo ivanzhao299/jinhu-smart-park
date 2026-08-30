@@ -40,19 +40,24 @@ node - "$STAGE" "$PINNED_BUSINESS_HASH" <<'NODE'
 const {createHash}=require('crypto'),{readFileSync}=require('fs'),{join}=require('path');
 const [dir,pinned]=process.argv.slice(2),manifest=JSON.parse(readFileSync(join(dir,'manifest.json')));
 const canonical=value=>Array.isArray(value)?`[${value.map(canonical).join(",")}]`:value&&typeof value==='object'?`{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`:JSON.stringify(value);
-if(manifest.productionImport!=='HOLD')throw Error('production import gate is not HOLD');
-if(manifest.payloadSanitization!=='nul_to_literal_escape_v1')throw Error('payload sanitization contract mismatch');
+const stage=name=>process.stderr.write(`T5_LOAD_STAGE=${name}\n`);
+stage('preflight_manifest_production_gate');if(manifest.productionImport!=='HOLD')throw Error('production import gate is not HOLD');
+stage('preflight_manifest_sanitization');if(manifest.payloadSanitization!=='nul_to_literal_escape_v1')throw Error('payload sanitization contract mismatch');
 const catalogPath=join(dir,'catalog.raw.json'),catalog=JSON.parse(readFileSync(catalogPath));
+stage('preflight_manifest_catalog_hash');
 const calculatedCatalogHash=createHash('sha256').update(canonical(catalog)).digest('hex');
 if(calculatedCatalogHash!==manifest.catalogSha256)throw Error('catalog hash mismatch');
-if((require('fs').statSync(catalogPath).mode&0o777)!==0o600)throw Error('catalog staging mode must be 0600');
-if(manifest.mappingContractSha256!=='0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3')throw Error('reviewed employee mapping contract drift');
+stage('preflight_manifest_catalog_mode');if((require('fs').statSync(catalogPath).mode&0o777)!==0o600)throw Error('catalog staging mode must be 0600');
+stage('preflight_manifest_mapping_contract');if(manifest.mappingContractSha256!=='0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3')throw Error('reviewed employee mapping contract drift');
 const business={formatVersion:manifest.formatVersion,catalogSha256:manifest.catalogSha256,mappingContractSha256:manifest.mappingContractSha256,domains:manifest.domains};
+stage('preflight_manifest_business_hash');
 const calculatedBusinessHash=createHash('sha256').update(canonical(business)).digest('hex');
 if(manifest.businessSha256!==calculatedBusinessHash||calculatedBusinessHash!==pinned)throw Error('business hash mismatch');
 for(const [name,item] of Object.entries(manifest.domains)){
+ stage('preflight_manifest_domain_file');
  const data=readFileSync(join(dir,item.file));const hash=createHash('sha256').update(data).digest('hex');
  if(hash!==item.fileSha256)throw Error(`${name} staging SHA-256 mismatch`);
+ stage('preflight_manifest_domain_mode');
  const mode=(require('fs').statSync(join(dir,item.file)).mode&0o777);if(mode!==0o600)throw Error(`${name} staging mode must be 0600`);
 }
 NODE
