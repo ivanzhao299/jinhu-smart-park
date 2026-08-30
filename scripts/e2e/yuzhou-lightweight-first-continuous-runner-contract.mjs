@@ -1,0 +1,51 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, chmodSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { parseLightweightFirstArgs, runLightweightFirstContinuous } from "../hr-cutover/run-lightweight-first-continuous-lab.mjs";
+
+assert.deepEqual(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5", "--t3-stage", "/tmp/t3", "--t4-stage", "/tmp/t4"]), { config: "/tmp/config", t5Stage: "/tmp/t5", t3Stage: "/tmp/t3", t4Stage: "/tmp/t4" });
+assert.throws(() => parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5"]), /LIGHTWEIGHT_ARGUMENT_INVALID/);
+
+const root = mkdtempSync(join(tmpdir(), "yuzhou-lightweight-runner-"));
+chmodSync(root, 0o700);
+const sha = value => createHash("sha256").update(value).digest("hex");
+const writePrivate = (path, value) => { writeFileSync(path, value, { mode: 0o600 }); chmodSync(path, 0o600); };
+const database = "jinhu_hr_migration_lab_core_lwtest01", project = join(root, database), runtime = join(project, "runtime"), credentials = join(project, "credentials");
+for (const path of [project, runtime, join(runtime, "staging"), join(runtime, "evidence"), credentials]) { mkdirSync(path, { recursive: true, mode: 0o700 }); chmodSync(path, 0o700); }
+const backup = join(root, "source.dbk"), receipt = join(root, "receipt.json"), etl = join(credentials, "etl.env");
+writePrivate(backup, "backup"); writePrivate(receipt, "{}"); writePrivate(etl, "redacted\n");
+const snapshot = "a".repeat(64), business = "b".repeat(64);
+const config = {
+  formatVersion: 1, profile: "core_t0_t2", runId: "yzcore-20260831T010101Z-12345678-rA", rehearsal: "A",
+  triple: { codeSha: "1".repeat(40), sourceSnapshotHash: snapshot, mappingContractHash: "2".repeat(64) },
+  source: { readOnly: true, sourceBackupSha256: snapshot, sourceBackupPath: backup, sourceRestoreReceiptPath: receipt, sourceRestoreReceiptSha256: sha("{}"), databaseAlias: "YuzhouHR_Lab_lwtest01", etlEnvFile: etl, sourceContainer: "yuzhou-source-lab", dictionaryPackages: {}, dictionaryCaptureReceipt: "" },
+  machineAttestation: { checkpointVersion: 2, trustedRootSha256: "3".repeat(64) },
+  target: { database, composeProject: database, container: `${database}-postgres-1`, network: `${database}_default`, volume: `${database}_postgres_data`, role: `${database}_operator`, accountNamespace: `${database}_accounts`, ports: { postgres: 45331, api: 45332, web: 45333 }, runtimeRoot: runtime, stagingRoot: join(runtime, "staging"), evidenceRoot: join(runtime, "evidence"), credentialRoot: credentials },
+  productionImport: "HOLD"
+};
+const configPath = join(root, "config.json"); writePrivate(configPath, JSON.stringify(config));
+const makeStage = (name, manifest) => { const path = join(root, name); mkdirSync(path, { mode: 0o700 }); chmodSync(path, 0o700); if (manifest) writePrivate(join(path, "manifest.json"), JSON.stringify(manifest)); return path; };
+const t5 = makeStage("t5", { sourceSnapshotSha256: snapshot });
+const t3 = makeStage("t3");
+const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
+const commands = [];
+const spawn = (_command, args, options) => { commands.push({ script: args[0].split("/").at(-1), env: options.env }); return { status: 0, stdout: "" }; };
+let coreCalls = 0;
+const coreRunner = async options => {
+  coreCalls += 1;
+  if (options.stopAfter === "rollback_ready") return { status: "CHECKPOINT_READY", state: "rollback_ready" };
+  return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
+};
+const result = await runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000001" });
+assert.deepEqual(result, { status: "CONTRACT_PASS", order: ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"], uat: "PASS", productionImport: "HOLD" });
+assert.equal(coreCalls, 2);
+assert.deepEqual(commands.map(row => row.script), ["provision-yuzhou-t5-nonfile-actor.sh", "load-yuzhou-t5-nonfile-history.sh", "load-yuzhou-t3-attendance-insurance.sh", "load-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
+assert.equal(commands.at(3).env.YUZHOU_T4_LOAD_MODE, "full_archive");
+assert.equal(commands.at(-1).env.ALLOW_YUZHOU_ROLLBACK, "yes");
+assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
+const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_CHILD_FAILED/);
+console.log("Yuzhou lightweight-first continuous runner argument contract passed.");
