@@ -40,6 +40,8 @@ for(const table of ["person_user","person_user_item","readjust","readjustitem","
 assert.doesNotMatch(extract,/SELECT \*/);
 assert.match(extract,/c\.name NOT IN\('password','photo'\)/);
 assert.doesNotMatch(extract,/printf[^\n]*(?:idcard|handtel|ticketno|cause|fName)/i);
+assert.match(extract,/\[ "\$raw_file" = "\$OUT\/catalog\.raw\.json" \] && continue/);
+assert.match(extract,/find "\$OUT" -maxdepth 1 -type f -name '\*\.raw\.json' ! -name 'catalog\.raw\.json'/);
 assert.match(transform,/replaceAll\("\\\\","\\\\\\\\"\)/);
 assert.match(transform,/productionImport:"HOLD"/);
 assert.match(transform,/payloadSanitization:"nul_to_literal_escape_v1"/);
@@ -70,6 +72,7 @@ assert.match(load,/20163/);
 assert.match(load,/YUZHOU_T5_BUSINESS_SHA256/);
 assert.match(load,/calculatedBusinessHash/);
 assert.match(load,/calculatedCatalogHash/);
+assert.match(load,/catalog\.raw\.json/);
 assert.match(load,/t5-stage-domain-items\.mjs/);
 assert.match(load,/jsonb_to_recordset\(:'items'::jsonb\)/);
 assert.match(load,/catalog staging mode must be 0600/);

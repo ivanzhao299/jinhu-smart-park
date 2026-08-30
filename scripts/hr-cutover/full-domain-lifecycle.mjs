@@ -139,7 +139,7 @@ function validateTriple(triple) {
   for (const field of ["sourceSnapshotHash", "mappingContractHash"]) if (!SHA256.test(triple[field])) fail("TRIPLE_MISMATCH", `${field} must be a lowercase SHA-256`);
 }
 
-export function validateConfig(config) {
+export function validateConfig(config, { recoveryCleanup = false } = {}) {
   exactKeys(config, ["formatVersion", "runId", "rehearsal", "backend", "triple", "target", "source", "t4Evidence", "adapterEnv"], ["verification", "machineAttestation"], "config");
   scanSensitive(config);
   if (config.formatVersion !== 1) fail("CONFIG_INVALID", "formatVersion must be 1");
@@ -148,7 +148,10 @@ export function validateConfig(config) {
   if (!['fixture', 'lab'].includes(config.backend)) fail("BACKEND_INVALID", "backend must be fixture or lab");
   validateTriple(config.triple);
   const contract = JSON.parse(readFileSync(CONTRACT_PATH, "utf8"));
-  if (config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
+  // Recovery cleanup only deletes identities already pinned in this run's
+  // registry. Mapping changes must still block every write-capable phase, but
+  // cannot strand an older isolated run after a corrective mapping commit.
+  if (!recoveryCleanup && config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
   const currentCodeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
   if (currentCodeSha.status !== 0 || currentCodeSha.stdout.trim() !== config.triple.codeSha) fail("TRIPLE_MISMATCH", "codeSha does not match the checked-out candidate");
   exactKeys(config.source, ["databaseAlias", "readOnly", "etlEnvFile", "t4EvidenceFile"], [], "source");
@@ -203,7 +206,7 @@ export function validateConfig(config) {
     }
     const worktree = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
     const controlledTestRun = process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_RUN_ID === config.runId;
-    if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
+    if (worktree.status !== 0 || (worktree.stdout.trim() !== "" && !controlledTestRun && !recoveryCleanup)) fail("CODE_WORKTREE_DIRTY", "lab runs require the byte-exact clean commit pinned by codeSha");
   }
   const legacyApproval = config.backend === "lab" && Object.hasOwn(config.target ?? {}, "jobStateApprovalArtifact");
   const reviewedArtifacts = config.backend === "lab" ? ["jobStateDecisionArtifact", "jobStateSourcePayloadArtifact", legacyApproval ? "jobStateApprovalArtifact" : "jobStateMachineAttestationArtifact"] : [];
@@ -1026,7 +1029,7 @@ function removeRegisteredFilesystem(config, registry) {
 }
 
 export function cleanup(configInput, options = {}) {
-  const config = validateConfig(structuredClone(configInput));
+  const config = validateConfig(structuredClone(configInput), { recoveryCleanup: options.recovery === true });
   const p = paths(config);
   const state = currentState(config);
   if (!options.recovery && state !== "rollback_ready") fail("STATE_TRANSITION_INVALID", "normal cleanup requires rollback_ready state");
@@ -1237,7 +1240,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const configPath = realpathSync(resolve(args.config));
   const config = readJson(configPath);
-  validateConfig(config);
+  validateConfig(config, { recoveryCleanup: args.command === "cleanup" && args.recovery });
   const p = paths(config);
   let ownsRecovery = args.command === "provision";
   if (["run", "resume", "rollback"].includes(args.command)) {

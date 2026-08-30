@@ -71,9 +71,14 @@ query jch_1.raw.json "SET NOCOUNT ON; SELECT CAST(NULL AS int) id WHERE 1=0 ORDE
 node "$ROOT_DIR/scripts/transform-yuzhou-t5-legacy-history.mjs" "$OUT"
 for raw_file in "$OUT"/*.raw.json; do
   [ -e "$raw_file" ] || continue
+  # The catalog contains schema-only metadata that the loader recomputes as
+  # part of the T5 manifest contract. All row-value extracts are discarded;
+  # retaining this one non-sensitive source definition is required to verify
+  # the staged business hash before any target write.
+  [ "$raw_file" = "$OUT/catalog.raw.json" ] && continue
   rm -f "$raw_file"
 done
-if find "$OUT" -maxdepth 1 -type f -name '*.raw.json' | grep -q .; then
+if find "$OUT" -maxdepth 1 -type f -name '*.raw.json' ! -name 'catalog.raw.json' | grep -q .; then
   fail "raw T5 source artifacts were not removed"
 fi
 printf 'YUZHOU_T5_EXTRACT_OK run_id=%s output=%s\n' "$RUN_ID" "$OUT"
