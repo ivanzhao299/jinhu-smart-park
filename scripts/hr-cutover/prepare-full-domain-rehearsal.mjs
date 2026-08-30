@@ -11,8 +11,8 @@ import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
+const T5_BASELINE = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json"), "utf8"));
 const T4_BUSINESS_SHA256 = "5849168cdb64fbae68bb9e4ae98ec2c90f1dcba216ae01a229878c7777535800";
-const T5_BUSINESS_SHA256 = "5939691dfdddd5912992328dba58505f92bcfb7bb7de07ada571959a52d37005";
 const DEFAULT_TENANT = "10000001";
 const DEFAULT_PARK = "20000001";
 
@@ -24,6 +24,21 @@ const fileSha256 = (path) => {
   if (result.status !== 0) fail("cannot hash source backup");
   return result.stdout.trim().split(/\s+/)[0];
 };
+
+export function t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 }) {
+  const expected = ["formatVersion", "artifactKind", "sourceSystem", "sourceSnapshotSha256", "sourceRestoreReceiptSha256", "businessSha256", "catalogSha256", "mappingContractSha256", "sourceRows", "photoRows", "documentRows", "nonfileMaterializationRows", "proof", "productionImport"].sort();
+  if (JSON.stringify(Object.keys(T5_BASELINE).sort()) !== JSON.stringify(expected)
+    || T5_BASELINE.formatVersion !== 1 || T5_BASELINE.artifactKind !== "yuzhou_t5_canonical_baseline" || T5_BASELINE.sourceSystem !== "yuzhou-v10"
+    || T5_BASELINE.sourceRows !== 20163 || T5_BASELINE.photoRows !== 2949 || T5_BASELINE.documentRows !== 1003 || T5_BASELINE.nonfileMaterializationRows !== 7752
+    || T5_BASELINE.proof !== "two_matching_isolated_t5_extractions_with_matching_domain_hashes" || T5_BASELINE.productionImport !== "HOLD") fail("T5 canonical baseline contract is invalid");
+  for (const field of ["sourceSnapshotSha256", "sourceRestoreReceiptSha256", "businessSha256", "catalogSha256", "mappingContractSha256"]) {
+    if (!/^[0-9a-f]{64}$/.test(T5_BASELINE[field] ?? "")) fail(`T5 canonical baseline ${field} is invalid`);
+  }
+  if (T5_BASELINE.sourceSnapshotSha256 !== sourceSnapshotHash || T5_BASELINE.sourceRestoreReceiptSha256 !== sourceRestoreReceiptSha256) {
+    fail("T5 canonical baseline does not bind the current source restore receipt");
+  }
+  return T5_BASELINE.businessSha256;
+}
 
 function deterministicUuid(namespace) {
   const hex = sha256(`jinhu-yuzhou-t5-isolated-actor-v1\0${namespace}`);
@@ -107,6 +122,7 @@ function configFor(args, codeSha, mappingContractHash) {
     sourceContainer: args.sourceContainer,
     databaseAlias: source.YUZHOU_SQLSERVER_DATABASE
   }, { recheckLive: false });
+  const t5BusinessSha256 = t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 });
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 });
   chmodSync(projectRoot, 0o700);
   chmodSync(credentialRoot, 0o700);
@@ -142,7 +158,7 @@ function configFor(args, codeSha, mappingContractHash) {
     YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
     YUZHOU_T4_BUSINESS_SHA256: T4_BUSINESS_SHA256
   };
-  adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = T5_BUSINESS_SHA256;
+  adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = t5BusinessSha256;
   adapterEnv.T5.load.YUZHOU_MATERIALIZATION_ACTOR_USER_ID = t5MaterializationActorUserId;
 
   const factSuffix = `${args.rehearsal.toLowerCase()}_${args.suffix}`.slice(-30);

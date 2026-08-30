@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "artifactKind": "yuzhou_t5_canonical_baseline",
+  "sourceSystem": "yuzhou-v10",
+  "sourceSnapshotSha256": "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e",
+  "sourceRestoreReceiptSha256": "941261f619f84a02f668bf1d4465a0a3b501817ce73756738a2f760f6ec96867",
+  "businessSha256": "8856da58163b4412a12c9cf70a8a4008b356c3493ab224ed900e9dda329e608c",
+  "catalogSha256": "77273bb0d21fd09d917151b0bf6cb339f027b2b6ff564923cde691bed97fabf0",
+  "mappingContractSha256": "0d39503e429ec524ba8db09945d7fe8fa51f56e53d751fd67bccec9f83dcaee3",
+  "sourceRows": 20163,
+  "photoRows": 2949,
+  "documentRows": 1003,
+  "nonfileMaterializationRows": 7752,
+  "proof": "two_matching_isolated_t5_extractions_with_matching_domain_hashes",
+  "productionImport": "HOLD"
+}
