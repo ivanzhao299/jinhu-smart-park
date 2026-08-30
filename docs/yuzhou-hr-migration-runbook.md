@@ -338,7 +338,7 @@ fixture lifecycle 只停在 `verifying` 并返回 `FIXTURE_CANNOT_ENTER_UAT_READ
 
 T4 抽取只允许使用固定备份、只读 SQL Server 恢复库和非 `sa/sysadmin` 的最小 ETL 账号。正式证据必须对同一源执行两次完整抽取，逐文件比较哈希，并同时固定 35 张工资表、46,092 条工资行、711 个项目、244 个公式、1,431 条关账、647 条账套成员、9 条税率和 2010～2026 年范围。任何业务内容哈希变化都会使旧 T4 证据和后续 A/B 证据失效。
 
-玉舟已停用且无新增数据，不设计 S0→S1 delta，也不等待停写窗口；固定 backup/catalog/business hash 是唯一源基线。全量抽取仍审计46,092行和2010～2026范围，但生产热候选固定 `YUZHOU_T4_PERIOD_START=2024-01-01`、`YUZHOU_T4_PERIOD_END=2026-12-31`。候选精确守恒为 `8,342 = 8,320 loaded + 22 quarantined`、190,374条明细、266条窗口内关账；候选源/加载净额均为15,723,009.9100。2010～2023共37,750行、源净额86,471,046.8900，只登记 `deferred_cold_archive`，不写热历史表，也不阻断 T0/T1/T2/T3/T5 或全局功能演练。
+玉舟已停用且无新增数据，不设计 S0→S1 delta，也不等待停写窗口；固定 backup/catalog/business hash 是唯一源基线。全量抽取仍审计46,092行和2010～2026范围，但生产热候选固定 `YUZHOU_T4_PERIOD_START=2024-01-01`、`YUZHOU_T4_PERIOD_END=2026-12-31`。当前已验证的 T0 映射将候选 8,342 条记录全部唯一关联，因此候选精确守恒为 `8,342 = 8,342 loaded + 0 quarantined`、190,880 条明细、266 条窗口内关账；候选源/加载净额均为15,723,009.9100。2010～2023共37,750行、源净额86,471,046.8900，只登记 `deferred_cold_archive`，不写热历史表，也不阻断 T0/T1/T2/T3/T5 或全局功能演练。
 
 真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
 
