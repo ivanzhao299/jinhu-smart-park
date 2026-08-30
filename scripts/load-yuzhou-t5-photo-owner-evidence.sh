@@ -1,0 +1,82 @@
+#!/usr/bin/env sh
+set -eu
+umask 077
+
+ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+RUN_ID="${YUZHOU_T5_FILE_RUN_ID:-${YUZHOU_MIGRATION_RUN_ID:-}}"
+DB="${YUZHOU_TARGET_DATABASE:-}"
+STAGE="${YUZHOU_T5_FILE_STAGING_DIR:-}"
+PG="${YUZHOU_POSTGRES_CONTAINER:-}"
+PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-}"
+T0_RUN="${YUZHOU_T0_RUN_ID:-}"
+TENANT="${YUZHOU_TARGET_TENANT_ID:-10000001}"
+PARK="${YUZHOU_TARGET_PARK_ID:-20000001}"
+fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
+[ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
+[ "${YUZHOU_T5_FILE_MODE:-}" = isolated_rehearsal ] || fail "T5_FILE only permits isolated_rehearsal"
+printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid T5_FILE run id"
+printf %s "$T0_RUN" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "T0 run id is required"
+printf %s "$DB" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe target database"
+printf %s "$PROJECT" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe compose project"
+printf %s "$TENANT" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid tenant"
+printf %s "$PARK" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid park"
+[ -d "$STAGE" ] && [ -f "$STAGE/manifest.json" ] && [ -f "$STAGE/photo-owner-evidence.jsonl" ] || fail "photo owner stage is missing"
+[ "$(stat -f '%Lp' "$STAGE" 2>/dev/null || stat -c '%a' "$STAGE")" = 700 ] || fail "photo owner stage must be mode 0700"
+[ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "photo owner manifest must be mode 0600"
+[ "$(stat -f '%Lp' "$STAGE/photo-owner-evidence.jsonl" 2>/dev/null || stat -c '%a' "$STAGE/photo-owner-evidence.jsonl")" = 600 ] || fail "photo owner evidence must be mode 0600"
+[ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null || true)" = "$PROJECT" ] || fail "wrong PostgreSQL compose project"
+
+META="$(node - "$STAGE" <<'NODE'
+const {createHash}=require('crypto'),{readFileSync,statSync,lstatSync}=require('fs'),{join}=require('path');
+const stage=process.argv[2],file=join(stage,'photo-owner-evidence.jsonl'),manifest=JSON.parse(readFileSync(join(stage,'manifest.json'),'utf8'));
+const sha=v=>createHash('sha256').update(v).digest('hex'),canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(',')}]`:v&&typeof v==='object'?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}`:JSON.stringify(v);
+if(lstatSync(file).isSymbolicLink()||(statSync(file).mode&0o777)!==0o600)throw Error('unsafe photo owner evidence');
+const d=manifest.domains?.photo;if(manifest.artifactKind!=='yuzhou_t5_photo_owner_stage'||manifest.productionImport!=='HOLD'||manifest.sourceRows!==2155||manifest.excludedEmptyRows!==794||manifest.ownerLookupAlgorithm!=="sha256(dbo.person\\0+trim(person))"||!d||d.sourceObject!=='dbo.person.photo'||d.rows!==2155||d.file!=='photo-owner-evidence.jsonl'||d.fileSha256!==sha(readFileSync(file)))throw Error('photo owner manifest boundary');
+for(const field of ['sourceSnapshotSha256','sourceRestoreReceiptSha256','sourceBusinessSha256','sourceCatalogSha256','sourcePhotoFileSha256','stageSha256'])if(!/^[0-9a-f]{64}$/.test(manifest[field]??''))throw Error('photo owner manifest hash');
+const lines=readFileSync(file,'utf8').trim().split('\n');if(lines.length!==2155)throw Error('photo owner source count');const rows=lines.map(line=>JSON.parse(line));
+const fields=['sourceTable','sourceIdentitySha256','sourceRowSha256','ownerSourceTable','ownerSourceIdentitySha256','fileRole','contentSha256','actualSize','detectedMime','readabilityStatus'];
+if(rows.some(r=>JSON.stringify(Object.keys(r).sort())!==JSON.stringify([...fields].sort())||r.sourceTable!=='dbo.person.photo'||r.ownerSourceTable!=='dbo.person'||r.fileRole!=='employee_photo'||r.readabilityStatus!=='readable'||!['image/jpeg','image/png','image/gif','image/bmp'].includes(r.detectedMime)||!Number.isSafeInteger(r.actualSize)||r.actualSize<1||!['sourceIdentitySha256','sourceRowSha256','ownerSourceIdentitySha256','contentSha256'].every(k=>/^[0-9a-f]{64}$/.test(r[k]))))throw Error('photo owner row boundary');
+if(new Set(rows.map(r=>r.sourceIdentitySha256)).size!==2155)throw Error('photo owner source duplicate');
+process.stdout.write(JSON.stringify({snapshot:manifest.sourceSnapshotSha256,catalog:manifest.sourceCatalogSha256,stage:manifest.stageSha256,file:d.fileSha256}));
+NODE
+)"
+SNAPSHOT="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).snapshot)' "$META")"
+CATALOG="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).catalog)' "$META")"
+STAGE_HASH="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).stage)' "$META")"
+FILE_HASH="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).file)' "$META")"
+REMOTE="/tmp/yuzhou-t5-file-$RUN_ID"
+cleanup(){ docker exec "$PG" sh -c "rm -rf '$REMOTE'" >/dev/null 2>&1 || true; }
+trap cleanup EXIT HUP INT TERM
+docker exec "$PG" mkdir -p "$REMOTE"; docker cp "$STAGE/photo-owner-evidence.jsonl" "$PG:$REMOTE/input.jsonl"; docker exec "$PG" sh -c "chown postgres:postgres '$REMOTE/input.jsonl' && chmod 600 '$REMOTE/input.jsonl'"
+
+docker exec -i "$PG" psql -X -q -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -v run="$RUN_ID" -v t0_run="$T0_RUN" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" -v catalog="$CATALOG" -v stage="$STAGE_HASH" -v file="$FILE_HASH" -v path="$REMOTE/input.jsonl" >/dev/null <<'SQL'
+BEGIN;
+SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='10min';
+LOCK TABLE hr_employee,sys_file,hr_employee_document,hr_employee_compensation,hr_payroll_run,hr_payslip,biz_user_message IN SHARE MODE;
+SELECT set_config('yuzhou.t5_run',:'run',true),set_config('yuzhou.t5_db',:'db',true);
+DO $$BEGIN
+ IF current_database()<>current_setting('yuzhou.t5_db') OR current_database()!~'^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION 'unsafe target'; END IF;
+ IF EXISTS(SELECT 1 FROM migration_batch WHERE run_id=current_setting('yuzhou.t5_run')) THEN RAISE EXCEPTION 'duplicate T5_FILE migration run'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM migration_batch WHERE run_id=:'t0_run' AND source_system='yuzhou-v10' AND source_snapshot_sha256=:'snapshot' AND target_database=current_database() AND status='succeeded') THEN RAISE EXCEPTION 'compatible succeeded T0 batch required'; END IF;
+END$$;
+CREATE TEMP TABLE source_rows(payload jsonb); COPY source_rows FROM :'path';
+DO $$BEGIN IF (SELECT count(*) FROM source_rows)<>2155 OR EXISTS(SELECT 1 FROM source_rows GROUP BY payload->>'sourceIdentitySha256' HAVING count(*)<>1) THEN RAISE EXCEPTION 'T5_FILE source contract drift'; END IF; END$$;
+CREATE TEMP TABLE protected_before AS SELECT (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_employee x) employee_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM sys_file x) file_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_employee_document x) document_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_payroll_run x) payroll_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM biz_user_message x) message_hash;
+INSERT INTO migration_batch(run_id,source_system,source_snapshot_sha256,target_database,phase,status,tool_version,started_at) VALUES(:'run','yuzhou-v10',:'snapshot',:'db','load','running','t5-file-owner-evidence-v1',now());
+INSERT INTO hr_legacy_t5_import_batch(tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status) SELECT :'tenant',:'park',id,:'run',:'snapshot',:'catalog',:'stage',2155,0,2155,'unpublished' FROM migration_batch WHERE run_id=:'run';
+INSERT INTO migration_batch_item(batch_id,domain,source_object,phase,status,extracted_count,valid_count,loaded_count,rejected_count,checksum_sha256,started_at) SELECT id,'employee_file','dbo.person.photo','load','running',2155,2155,0,0,:'file',now() FROM migration_batch WHERE run_id=:'run';
+CREATE TEMP TABLE classified AS SELECT s.payload,x.employee_id,x.matches,CASE WHEN x.matches=1 THEN NULL WHEN x.matches=0 THEN 'PHOTO_OWNER_UNMAPPED' ELSE 'PHOTO_OWNER_AMBIGUOUS' END quarantine_code FROM source_rows s LEFT JOIN LATERAL(SELECT min(e.id::text)::uuid employee_id,count(*) matches FROM legacy_record_map m JOIN migration_batch b ON b.id=m.batch_id AND b.run_id=:'t0_run' AND b.status='succeeded' JOIN hr_employee e ON e.id=m.target_id AND e.tenant_id=:'tenant' AND e.park_id=:'park' AND e.is_deleted=false WHERE m.source_system='yuzhou-v10' AND m.source_table='dbo.person' AND m.source_identity_sha256=s.payload->>'ownerSourceIdentitySha256' AND m.target_table='hr_employee' AND m.mapping_status IN('loaded','verified') AND m.is_active)x ON true;
+INSERT INTO hr_legacy_t5_file_evidence(tenant_id,park_id,import_batch_id,employee_id,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,file_role,content_sha256,actual_size,detected_mime,readability_status,metadata) SELECT :'tenant',:'park',b.id,c.employee_id,'dbo.person.photo','source_identity_sha256='||(c.payload->>'sourceIdentitySha256'),c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256','employee_photo',c.payload->>'contentSha256',(c.payload->>'actualSize')::bigint,c.payload->>'detectedMime','readable',jsonb_build_object('ownerResolution','t0_legacy_record_map_hash_only_v1','stageSha256',:'stage') FROM classified c CROSS JOIN hr_legacy_t5_import_batch b WHERE b.batch_code=:'run' AND c.quarantine_code IS NULL;
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run') INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status) SELECT b.id,'yuzhou-v10',f.source_table,f.source_pk_canonical,f.source_identity_sha256,f.source_row_sha256,'hr_legacy_t5_file_evidence',f.id,'loaded' FROM b CROSS JOIN hr_legacy_t5_file_evidence f JOIN hr_legacy_t5_import_batch ib ON ib.id=f.import_batch_id WHERE ib.batch_code=:'run';
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run') INSERT INTO legacy_record_map(batch_id,source_system,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,target_table,target_id,mapping_status) SELECT b.id,'yuzhou-v10','dbo.person.photo','source_identity_sha256='||(c.payload->>'sourceIdentitySha256'),c.payload->>'sourceIdentitySha256',c.payload->>'sourceRowSha256','hr_legacy_t5_quarantine',NULL,'quarantined' FROM b CROSS JOIN classified c WHERE c.quarantine_code IS NOT NULL;
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),i AS(SELECT id FROM migration_batch_item WHERE batch_id=(SELECT id FROM b)) INSERT INTO migration_error(batch_id,batch_item_id,category,error_code,source_identity_sha256,redacted_evidence,evidence_redacted,retryable) SELECT b.id,i.id,'mapping',c.quarantine_code,c.payload->>'sourceIdentitySha256',jsonb_build_object('sourceTable','dbo.person.photo','rule',lower(c.quarantine_code)),true,false FROM b CROSS JOIN i CROSS JOIN classified c WHERE c.quarantine_code IS NOT NULL;
+UPDATE migration_batch_item SET loaded_count=(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='loaded'),rejected_count=(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='quarantined'),valid_count=2155-(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='quarantined'),status=CASE WHEN EXISTS(SELECT 1 FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='quarantined') THEN'quarantined'ELSE'succeeded'END,finished_at=now() WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run');
+UPDATE hr_legacy_t5_import_batch SET loaded_row_count=(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='loaded'),quarantined_row_count=(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=:'run') AND mapping_status='quarantined'),status='staged',update_time=now() WHERE batch_code=:'run';
+DO $$BEGIN IF (SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id=current_setting('yuzhou.t5_run')))!=(SELECT count(*) FROM source_rows) THEN RAISE EXCEPTION 'T5_FILE record-map conservation failed'; END IF; END$$;
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run'),a AS(SELECT loaded_row_count l,quarantined_row_count q FROM hr_legacy_t5_import_batch WHERE batch_code=:'run') INSERT INTO migration_check(batch_id,check_code,expected_value,actual_value,tolerance,passed,evidence_sha256) SELECT b.id,'T5_FILE_SOURCE_ACCOUNTING',to_jsonb(2155),to_jsonb(a.l+a.q),'{}'::jsonb,a.l+a.q=2155,encode(digest('T5_FILE_SOURCE_ACCOUNTING:2155','sha256'),'hex') FROM b CROSS JOIN a UNION ALL SELECT b.id,'T5_FILE_NO_BINARY_OR_LINK_WRITE',to_jsonb(p),to_jsonb(a),'{}'::jsonb,p=a,encode(digest(to_jsonb(p)::text,'sha256'),'hex') FROM b CROSS JOIN protected_before p CROSS JOIN(SELECT (SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_employee x) employee_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM sys_file x) file_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_employee_document x) document_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM hr_payroll_run x) payroll_hash,(SELECT encode(digest(COALESCE(string_agg(to_jsonb(x)::text,'' ORDER BY x.id),''),'sha256'),'hex') FROM biz_user_message x)a;
+WITH b AS(SELECT id FROM migration_batch WHERE run_id=:'run') INSERT INTO migration_rollback_point(batch_id,rollback_code,reversible_scope,cleanup_manifest,evidence_sha256,verified_at) SELECT b.id,'T5_LEGACY_HISTORY',jsonb_build_object('runId',:'run','binaryObjects',false),jsonb_build_object('strategy','exact_file_evidence_maps','targetTables',jsonb_build_array('hr_legacy_t5_file_evidence')),encode(digest(:'run'||':T5_LEGACY_HISTORY','sha256'),'hex'),now() FROM b;
+UPDATE migration_batch SET phase='verify',status=CASE WHEN EXISTS(SELECT 1 FROM migration_check WHERE batch_id=migration_batch.id AND NOT passed)THEN'failed'ELSE'succeeded'END,counts=(SELECT jsonb_build_object('source',source_row_count,'loaded',loaded_row_count,'quarantined',quarantined_row_count) FROM hr_legacy_t5_import_batch WHERE migration_batch_id=migration_batch.id),finished_at=now() WHERE run_id=:'run';
+DO $$BEGIN IF EXISTS(SELECT 1 FROM migration_check c JOIN migration_batch b ON b.id=c.batch_id WHERE b.run_id=current_setting('yuzhou.t5_run') AND NOT c.passed)THEN RAISE EXCEPTION 'T5_FILE verification failed';END IF;END$$;
+COMMIT;
+SQL
+docker exec "$PG" psql -X -q -A -t -F '|' -U jinhu -d "$DB" -c "SELECT status,counts->>'source',counts->>'loaded',counts->>'quarantined' FROM migration_batch WHERE run_id='$RUN_ID'"
