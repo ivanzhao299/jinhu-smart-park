@@ -70,8 +70,18 @@
     "acceptedSourceMagic": ["JPEG", "PNG", "GIF", "BMP"],
     "acceptedTargetMime": ["image/jpeg", "image/png"],
     "bmpPipeline": ["magic_check", "safe_decode", "dimension_limit", "malware_scan", "encode_jpeg_or_png", "rehash"],
+    "preflightPolicy": {
+      "version": "yuzhou-photo-normalization-preflight-v1",
+      "artifact": "scripts/hr-cutover/yuzhou-photo-normalization-preflight.mjs",
+      "artifactSha256": "205ad1d0b415c63d373a5be529bd1a524adbc106562c92304dcdac1bc808ff94",
+      "policySha256": "cc0bbcd20660d69b66a67d840271e986a5804cadb0c4de24d2f8fe985698c8f9",
+      "maxBytes": 20971520,
+      "maxDimension": 12000,
+      "maxPixels": 50000000,
+      "implementationStatus": "IMPLEMENTED_NO_SOURCE_BINARY_READ"
+    },
     "hashSeparation": "sourceContentSha256_and_normalizedContentSha256",
-    "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
+    "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "BYTE_LIMIT_EXCEEDED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
     "writesBinary": false
   },
   "targetPlan": {
@@ -140,5 +150,5 @@
     "documentImport": "HOLD",
     "productionImport": "HOLD"
   },
-  "contractSha256": "ddf36656b8fef7d8ab32c56d55ff6e291e5425c9a1f739f66a80c3d078c45e0c"
+  "contractSha256": "19ed28365d98a1557a7072e1916938e2f2b58ad303a03915641162f647de0001"
 }

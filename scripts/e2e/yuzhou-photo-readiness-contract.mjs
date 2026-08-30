@@ -9,6 +9,7 @@ import process from "node:process";
 import test from "node:test";
 import { deriveT0EmployeeLookupKey, photoReadinessHash, verifyYuzhouPhotoReadiness } from "../hr-cutover/yuzhou-photo-readiness-lib.mjs";
 import { photoRehearsalEvidenceHash, verifyYuzhouPhotoRehearsalEvidence, verifyYuzhouPhotoRehearsalEvidenceFromPath } from "../hr-cutover/yuzhou-photo-readiness-rehearsal-evidence-lib.mjs";
+import { YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY, photoNormalizationPreflightPolicyHash } from "../hr-cutover/yuzhou-photo-normalization-preflight.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const contractPath = resolve(root, "scripts/hr-cutover/contracts/yuzhou-photo-readiness-v1.json");
@@ -117,6 +118,10 @@ test("binary, conversion, target write, RBAC and idempotency overclaims fail clo
   rejects(source, value => { value.sourceBinding.binaryAccess = "READ"; }, "YUZHOU_PHOTO_SOURCE_ACCESS_NOT_HELD");
   rejects(source, value => { value.normalizationPlan.executionStatus = "PASS"; }, "YUZHOU_PHOTO_NORMALIZATION_OVERCLAIMED");
   rejects(source, value => { value.normalizationPlan.bmpPipeline.splice(2, 1); }, "YUZHOU_PHOTO_BMP_PIPELINE_INVALID");
+  assert.equal(source.normalizationPlan.preflightPolicy.version, YUZHOU_PHOTO_NORMALIZATION_PREFLIGHT_POLICY.version);
+  assert.equal(source.normalizationPlan.preflightPolicy.policySha256, photoNormalizationPreflightPolicyHash());
+  rejects(source, value => { value.normalizationPlan.preflightPolicy.maxPixels += 1; }, "YUZHOU_PHOTO_PREFLIGHT_POLICY_INVALID");
+  rejects(source, value => { value.normalizationPlan.preflightPolicy.artifactSha256 = "0".repeat(64); }, "YUZHOU_PHOTO_PREFLIGHT_ARTIFACT_HASH_MISMATCH");
   rejects(source, value => { value.normalizationPlan.acceptedTargetMime.push("image/bmp"); }, "YUZHOU_PHOTO_TARGET_MIME_INVALID");
   rejects(source, value => { value.targetPlan.metadataCreated = 1; }, "YUZHOU_PHOTO_TARGET_SIDE_EFFECT");
   rejects(source, value => { value.targetPlan.downloadUrlGenerated = true; }, "YUZHOU_PHOTO_TARGET_SIDE_EFFECT");
