@@ -22,3 +22,7 @@ logs
 *.log
 tmp
 temp
+
+# Historical backups and migration evidence never belong in a Docker build context.
+database/backups
+database/import-reports

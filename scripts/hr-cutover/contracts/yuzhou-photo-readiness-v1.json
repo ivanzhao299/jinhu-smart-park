@@ -80,6 +80,16 @@
       "maxPixels": 50000000,
       "implementationStatus": "IMPLEMENTED_NO_SOURCE_BINARY_READ"
     },
+    "workerBoundary": {
+      "implementationStatus": "IMPLEMENTED_SYNTHETIC_REHEARSAL_ONLY",
+      "sourceBinaryAccess": "NOT_EXECUTED",
+      "productionExecution": "FORBIDDEN",
+      "dockerfile": "infra/docker/Dockerfile.yuzhou-photo-worker",
+      "dockerfileSha256": "5ab43d7d2e8548945dccd74e768c1a935e7572a487841a955f756b56451f6f50",
+      "workerArtifact": "scripts/hr-cutover/yuzhou-photo-normalization-worker.mjs",
+      "workerArtifactSha256": "aa046a5c68a9bac512574221033fea10bbd21d0a3a3c68af64f21656bdba9a80",
+      "runtimeRequirements": ["non_root", "network_none", "read_only_root", "pids_limit", "memory_limit", "cpu_limit", "fixed_input_output_paths"]
+    },
     "hashSeparation": "sourceContentSha256_and_normalizedContentSha256",
     "quarantineReasons": ["EMPTY_BINARY", "UNKNOWN_MAGIC", "DECODE_FAILED", "BYTE_LIMIT_EXCEEDED", "DIMENSION_LIMIT_EXCEEDED", "SECURITY_SCAN_FAILED", "OWNER_MAP_MISSING"],
     "writesBinary": false
@@ -150,5 +160,5 @@
     "documentImport": "HOLD",
     "productionImport": "HOLD"
   },
-  "contractSha256": "19ed28365d98a1557a7072e1916938e2f2b58ad303a03915641162f647de0001"
+  "contractSha256": "dbdf80ff33d04e082e5099634d6a55c8a98c68914bf2502e09638a2924fbd92c"
 }

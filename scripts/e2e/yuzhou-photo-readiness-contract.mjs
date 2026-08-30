@@ -122,6 +122,10 @@ test("binary, conversion, target write, RBAC and idempotency overclaims fail clo
   assert.equal(source.normalizationPlan.preflightPolicy.policySha256, photoNormalizationPreflightPolicyHash());
   rejects(source, value => { value.normalizationPlan.preflightPolicy.maxPixels += 1; }, "YUZHOU_PHOTO_PREFLIGHT_POLICY_INVALID");
   rejects(source, value => { value.normalizationPlan.preflightPolicy.artifactSha256 = "0".repeat(64); }, "YUZHOU_PHOTO_PREFLIGHT_ARTIFACT_HASH_MISMATCH");
+  assert.equal(source.normalizationPlan.workerBoundary.sourceBinaryAccess, "NOT_EXECUTED");
+  assert.equal(source.normalizationPlan.workerBoundary.productionExecution, "FORBIDDEN");
+  rejects(source, value => { value.normalizationPlan.workerBoundary.productionExecution = "ALLOWED"; }, "YUZHOU_PHOTO_WORKER_BOUNDARY_INVALID");
+  rejects(source, value => { value.normalizationPlan.workerBoundary.workerArtifactSha256 = "0".repeat(64); }, "YUZHOU_PHOTO_WORKER_ARTIFACT_HASH_MISMATCH");
   rejects(source, value => { value.normalizationPlan.acceptedTargetMime.push("image/bmp"); }, "YUZHOU_PHOTO_TARGET_MIME_INVALID");
   rejects(source, value => { value.targetPlan.metadataCreated = 1; }, "YUZHOU_PHOTO_TARGET_SIDE_EFFECT");
   rejects(source, value => { value.targetPlan.downloadUrlGenerated = true; }, "YUZHOU_PHOTO_TARGET_SIDE_EFFECT");

@@ -177,6 +177,8 @@
     "test:e2e:yuzhou-t5a-archive-materialization:pg": "node scripts/e2e/yuzhou-t5a-archive-materialization-direct-pg.mjs",
     "test:e2e:yuzhou-photo-readiness": "node --test scripts/e2e/yuzhou-photo-readiness-contract.mjs",
     "test:e2e:yuzhou-photo-normalization-preflight": "node --test scripts/e2e/yuzhou-photo-normalization-preflight-contract.mjs",
+    "test:e2e:yuzhou-photo-normalization-worker": "node --test scripts/e2e/yuzhou-photo-normalization-worker-contract.mjs",
+    "test:e2e:yuzhou-photo-normalization-worker-docker": "node scripts/e2e/yuzhou-photo-normalization-worker-docker.mjs",
     "test:e2e:yuzhou-production-import-preflight": "node --test scripts/e2e/yuzhou-production-import-preflight-contract.mjs",
     "test:e2e:yuzhou-production-import-execution": "node --test scripts/e2e/yuzhou-production-import-execution-contract.mjs",
     "test:e2e:yuzhou-production-import-v2": "node --test scripts/e2e/yuzhou-production-import-v2-contract.mjs",
