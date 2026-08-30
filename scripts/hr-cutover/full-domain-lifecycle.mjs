@@ -662,10 +662,30 @@ export function provision(configInput) {
   }
 }
 
+const T5_LOAD_STAGE = /T5_LOAD_STAGE=(preflight|database_transaction)\b/g;
+
+function childFailureStage(output) {
+  const stages = [...String(output ?? "").matchAll(T5_LOAD_STAGE)].map((match) => `T5_LOAD_STAGE=${match[1]}`);
+  return stages.at(-1) ?? null;
+}
+
+function recordChildFailure(config, domain, phase, stage) {
+  appendPrivate(paths(config).journal, {
+    kind: "child_failure", domain, phase, status: "failed", code: "CHILD_FAILED", triple: config.triple,
+    ...(stage ? { stage } : {})
+  });
+}
+
 function runAdapter(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
-  try { command(process.execPath, args, { code: "CHILD_FAILED" }); }
-  finally { registerControlledFilesystem(config); }
+  try {
+    const result = spawnSync(process.execPath, args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    if (result.error || result.status !== 0) {
+      const stage = childFailureStage(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+      recordChildFailure(config, domain, phase, stage);
+      fail("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`);
+    }
+  } finally { registerControlledFilesystem(config); }
   const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
     ? extractManifestFacts(config, domain) : null;
   appendPrivate(paths(config).journal, {
@@ -677,13 +697,30 @@ function runAdapter(config, domain, phase) {
 async function runAdapterAsync(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
   try { await new Promise((resolveChild, rejectChild) => {
-    const child = spawn(process.execPath, args, { stdio: "inherit" });
+    let tail = "", stage = null, settled = false;
+    const observe = (chunk) => {
+      tail = `${tail}${chunk}`.slice(-256);
+      stage = childFailureStage(tail) ?? stage;
+    };
+    const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     ACTIVE_CHILD = child;
-    child.once("error", () => rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`)));
+    child.stdout.on("data", observe);
+    child.stderr.on("data", observe);
+    child.once("error", () => {
+      if (settled) return;
+      settled = true;
+      recordChildFailure(config, domain, phase, stage);
+      rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`));
+    });
     child.once("close", (code, signal) => {
       ACTIVE_CHILD = null;
+      if (settled) return;
+      settled = true;
       if (code === 0 && !signal) resolveChild();
-      else rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}`));
+      else {
+        recordChildFailure(config, domain, phase, stage);
+        rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`));
+      }
     });
   }); } finally { registerControlledFilesystem(config); }
   const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)

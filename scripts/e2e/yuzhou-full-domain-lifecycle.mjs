@@ -96,6 +96,8 @@ try {
   assert.match(lifecycleSource, /\["network", "inspect", entry\.planned\]/u, "network residual verification must inspect the exact planned identity");
   assert.match(lifecycleSource, /\["network", "rm", entry\.planned\]/u, "cleanup must remove the exact registered Compose network");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
+  assert.match(lifecycleSource, /T5_LOAD_STAGE=\(preflight\|database_transaction\)/u, "T5 failures must retain only an allowlisted safe stage marker");
+  assert.match(lifecycleSource, /kind: "child_failure"/u, "child failures must be recorded without preserving raw child output");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
   const configAPath = join(sandbox, "config-a.json");
@@ -216,6 +218,7 @@ try {
   expectCode("CHILD_FAILED", () => runForward(failedChild, failedChildPath));
   const failedJournal = readFileSync(join(failedChild.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(failedJournal.filter((row) => row.kind === "child" && row.phase === "load").map((row) => row.domain), ["T0", "T1"]);
+  assert.deepEqual(failedJournal.filter((row) => row.kind === "child_failure").map(({ domain, phase, status, code, stage }) => ({ domain, phase, status, code, stage })), [{ domain: "T2", phase: "load", status: "failed", code: "CHILD_FAILED", stage: undefined }]);
   assert.equal(cleanup(failedChild, { recovery: true }).residualCount, 0);
 
   const concurrent = configFor("B", "slice2_concurrent_b", [45731, 45732, 45733]);
