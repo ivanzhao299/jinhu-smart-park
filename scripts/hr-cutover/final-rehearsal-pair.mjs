@@ -82,7 +82,10 @@ function runtimeSnapshot(configs){
 
 function command(script,args){
   const result=spawnSync(process.execPath,[resolve(ROOT,script),...args],{cwd:ROOT,encoding:"utf8",stdio:["ignore","pipe","pipe"]});
-  if(result.status!==0)fail("FINAL_PAIR_STAGE_FAILED",`${script}:${result.stderr.trim().split("\n").at(-1)??result.status}`);
+  if(result.status!==0){
+    const diagnostics=`${result.stdout}\n${result.stderr}`.match(/T5_LOAD_STAGE=[a-z_]+/g);
+    fail("FINAL_PAIR_STAGE_FAILED",`${script}:${diagnostics?.at(-1)??result.stderr.trim().split("\n").at(-1)??result.status}`);
+  }
   const line=result.stdout.trim().split("\n").filter(Boolean).at(-1);return line?JSON.parse(line):{};
 }
 function readHead(config){

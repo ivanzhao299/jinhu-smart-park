@@ -85,6 +85,14 @@ test("runner is a fixed fail-closed sequence and deployment workflows do not inv
   assert.doesNotMatch(deploy,/load-yuzhou|hr:migration:full|ALLOW_YUZHOU_MIGRATION/u);
 });
 
+test("T5 failures retain only a safe stage marker for pair diagnostics",()=>{
+  const loader=read("scripts/load-yuzhou-t5-legacy-history.sh"),runner=read("scripts/hr-cutover/final-rehearsal-pair.mjs");
+  assert.match(loader,/T5_LOAD_STAGE=%s/);
+  assert.match(loader,/stage preflight/);
+  assert.match(loader,/stage database_transaction/);
+  assert.match(runner,/T5_LOAD_STAGE=\[a-z_\]\+/);
+});
+
 test("pair execution is serial and any stage failure invokes scoped recovery without a PASS result",()=>{
   const configs=["A","B"].map(rehearsal=>({rehearsal,__configPath:`/controlled/${rehearsal}.json`,triple:{codeSha:"a".repeat(40),sourceSnapshotHash:"b".repeat(64),mappingContractHash:"c".repeat(64)},target:{root:`/controlled/runtime-${rehearsal}`,auditBundle:`/controlled/audit-${rehearsal}.json`}}));
   const calls=[],hooks={

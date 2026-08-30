@@ -12,7 +12,9 @@ EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration
 SNAPSHOT="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
 PINNED_BUSINESS_HASH="${YUZHOU_T5_BUSINESS_SHA256:-}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
+stage(){ printf 'T5_LOAD_STAGE=%s\n' "$1" >&2; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
+stage preflight
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
 printf %s "$DB" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe target database"
 printf %s "$PINNED_BUSINESS_HASH" | grep -Eq '^[0-9a-f]{64}$' || fail "pin YUZHOU_T5_BUSINESS_SHA256"
@@ -57,6 +59,7 @@ DOMAIN_ITEMS="$(node "$ROOT_DIR/scripts/hr-cutover/t5-stage-domain-items.mjs" "$
 [ -n "$DOMAIN_ITEMS" ] || fail "T5 staging domain item contract is empty"
 MATERIALIZATION_ACTOR="${YUZHOU_MATERIALIZATION_ACTOR_USER_ID:-}"
 printf %s "$MATERIALIZATION_ACTOR" | grep -Eq '^[0-9a-fA-F-]{36}$' || fail "YUZHOU_MATERIALIZATION_ACTOR_USER_ID is required"
+stage database_transaction
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" \
   -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" \
   -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$MATERIALIZATION_ACTOR" -v path="$REMOTE/all.jsonl" -v items="$DOMAIN_ITEMS" <<'SQL'
