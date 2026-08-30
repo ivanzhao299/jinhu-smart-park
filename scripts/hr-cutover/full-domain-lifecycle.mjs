@@ -662,7 +662,7 @@ export function provision(configInput) {
   }
 }
 
-const T5_LOAD_STAGE = /T5_LOAD_STAGE=(preflight|database_transaction)\b/g;
+const T5_LOAD_STAGE = /T5_LOAD_STAGE=(preflight(?:_[a-z_]+)?|database_transaction)\b/g;
 
 function childFailureStage(output) {
   const stages = [...String(output ?? "").matchAll(T5_LOAD_STAGE)].map((match) => `T5_LOAD_STAGE=${match[1]}`);

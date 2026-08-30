@@ -15,16 +15,27 @@ fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 stage(){ printf 'T5_LOAD_STAGE=%s\n' "$1" >&2; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
 stage preflight
+stage preflight_run_id
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
+stage preflight_target_database
 printf %s "$DB" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe target database"
+stage preflight_business_hash
 printf %s "$PINNED_BUSINESS_HASH" | grep -Eq '^[0-9a-f]{64}$' || fail "pin YUZHOU_T5_BUSINESS_SHA256"
+stage preflight_snapshot_hash
 printf %s "$SNAPSHOT" | grep -Eq '^[0-9a-f]{64}$' || fail "invalid backup SHA-256"
+stage preflight_target_tenant
 printf %s "$TENANT" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid target tenant"
+stage preflight_target_park
 printf %s "$PARK" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' || fail "invalid target park"
+stage preflight_staging_manifest
 [ -f "$STAGE/manifest.json" ] || fail "manifest is missing"
+stage preflight_staging_directory_mode
 [ "$(stat -f '%Lp' "$STAGE" 2>/dev/null || stat -c '%a' "$STAGE")" = 700 ] || fail "staging directory must be mode 0700"
+stage preflight_manifest_mode
 [ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "manifest must be mode 0600"
+stage preflight_compose_project
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = "$EXPECTED_PROJECT" ] || fail "wrong PostgreSQL compose project"
+stage preflight_manifest_contract
 node - "$STAGE" "$PINNED_BUSINESS_HASH" <<'NODE'
 const {createHash}=require('crypto'),{readFileSync}=require('fs'),{join}=require('path');
 const [dir,pinned]=process.argv.slice(2),manifest=JSON.parse(readFileSync(join(dir,'manifest.json')));

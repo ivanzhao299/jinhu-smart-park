@@ -96,7 +96,7 @@ try {
   assert.match(lifecycleSource, /\["network", "inspect", entry\.planned\]/u, "network residual verification must inspect the exact planned identity");
   assert.match(lifecycleSource, /\["network", "rm", entry\.planned\]/u, "cleanup must remove the exact registered Compose network");
   assert.doesNotMatch(lifecycleSource, /command\("docker", \["run"/u, "lab provisioning must not bypass the governed Compose identity");
-  assert.match(lifecycleSource, /T5_LOAD_STAGE=\(preflight\|database_transaction\)/u, "T5 failures must retain only an allowlisted safe stage marker");
+  assert.match(lifecycleSource, /T5_LOAD_STAGE=\(preflight\(\?:_\[a-z_\]\+\)\?\|database_transaction\)/u, "T5 failures must retain only an allowlisted safe stage marker");
   assert.match(lifecycleSource, /kind: "child_failure"/u, "child failures must be recorded without preserving raw child output");
   const configA = configFor("A", "slice2_fixture_a", [45131, 45132, 45133]);
   const configB = configFor("B", "slice2_fixture_b", [45231, 45232, 45233]);
