@@ -76,9 +76,9 @@ export function prepareCoreDictionaryPreflight({ sourceSnapshotSha256, eventType
 
 function parseArgs(argv) {
   const names = new Map([["--source-snapshot", "sourceSnapshotSha256"], ["--event-type-package", "eventTypePackagePath"], ["--event-state", "eventStatePath"], ["--contract-type", "contractTypePath"], ["--contract-state", "contractStatePath"], ["--output-root", "outputRoot"]]);
-  const args = {};
-  for (let index = 0; index < argv.length; index += 2) { const key = argv[index], name = names.get(key); if (!name || !argv[index + 1] || Object.hasOwn(args, name)) fail("CORE_DICTIONARY_ARGUMENT_INVALID"); args[name] = argv[index + 1]; }
-  if (argv.length !== names.size * 2 || [...names.values()].some(name => !args[name])) fail("CORE_DICTIONARY_ARGUMENT_INVALID");
+  const input = argv[0] === "--" ? argv.slice(1) : argv, args = {};
+  for (let index = 0; index < input.length; index += 2) { const key = input[index], name = names.get(key); if (!name || !input[index + 1] || Object.hasOwn(args, name)) fail("CORE_DICTIONARY_ARGUMENT_INVALID"); args[name] = input[index + 1]; }
+  if (input.length !== names.size * 2 || [...names.values()].some(name => !args[name])) fail("CORE_DICTIONARY_ARGUMENT_INVALID");
   return args;
 }
 

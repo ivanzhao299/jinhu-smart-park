@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { chmodSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -30,4 +31,12 @@ test("core dictionary preparer writes source-bound private packages under HOLD",
 test("core dictionary preparer refuses to overwrite an existing receipt root", () => {
   const snapshot = JSON.parse(readFileSync(eventType, "utf8")).sourceSnapshotSha256;
   assert.throws(() => prepareCoreDictionaryPreflight({ sourceSnapshotSha256: snapshot, eventTypePackagePath: eventType, eventStatePath: eventState, contractTypePath: contractType, contractStatePath: contractState, outputRoot: output }), /CORE_DICTIONARY_OUTPUT_EXISTS/u);
+});
+
+test("core dictionary preparer accepts pnpm's delimiter once", () => {
+  const cliOutput = join(root, "cli-output");
+  const snapshot = JSON.parse(readFileSync(eventType, "utf8")).sourceSnapshotSha256;
+  const result = spawnSync(process.execPath, ["scripts/hr-cutover/prepare-yuzhou-core-dictionary-preflight.mjs", "--", "--source-snapshot", snapshot, "--event-type-package", eventType, "--event-state", eventState, "--contract-type", contractType, "--contract-state", contractState, "--output-root", cliOutput], { cwd: process.cwd(), encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).status, "PASS");
 });
