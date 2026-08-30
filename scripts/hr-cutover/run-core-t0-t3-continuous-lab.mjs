@@ -14,7 +14,10 @@ const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
 const elapsed = startedAt => Date.now() - startedAt;
 const delay = milliseconds => new Promise(resolveDelay => setTimeout(resolveDelay, milliseconds));
-const safeErrorCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "CORE_CONTINUOUS_STAGE_FAILED";
+export const safeErrorCode = error => {
+  const candidates = [error?.code, String(error?.message ?? "").split(":")[0]];
+  return candidates.find(value => /^[A-Z][A-Z0-9_]+$/u.test(value ?? "")) ?? "CORE_CONTINUOUS_STAGE_FAILED";
+};
 
 export function normalizeCoreContinuousStopAfter(value) {
   if (value === undefined || value === null) return null;
