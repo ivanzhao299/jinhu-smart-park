@@ -21,8 +21,8 @@ const writePrivate = (path, value) => {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { flag: "wx", mode: 0o600 }); chmodSync(path, 0o600);
 };
 
-export function buildCoreT0MachinePackage(configInput, machineRoot) {
-  const config = validateCoreT0T3Config(configInput), root = resolve(machineRoot);
+export function buildCoreT0MachinePackage(configInput, machineRoot, { validate = validateCoreT0T3Config } = {}) {
+  const config = validate(configInput), root = resolve(machineRoot);
   if (!existsSync(root) || lstatSync(root).isSymbolicLink() || (statSync(root).mode & 0o777) !== 0o700) fail("CORE_T0_MACHINE_ROOT_UNSAFE");
   const stage = join(config.target.stagingRoot, `staging-${config.runId}-t0`);
   const manifest = privateJson(join(stage, "manifest.json"));
@@ -59,7 +59,9 @@ export function buildCoreT0MachinePackage(configInput, machineRoot) {
   const decision = { formatVersion: 2, artifactKind: "yuzhou_employee_job_state_machine_decision", artifactVersion: "v2", artifactStatus: "MACHINE_CANDIDATE", triple: config.triple, expectedCheckpointRootSha256: config.machineAttestation.trustedRootSha256, checkpointRootSha256: config.machineAttestation.trustedRootSha256, evidenceIndex, evidenceIndexSha256: canonicalEvidenceIndexHash(evidenceIndex), scopeBinding, sourceContract: { sourceSystem: "yuzhou-v10", dictionaryCode: "employee_job_state", sourceSnapshotSha256: dictionaryEvidenceSha256, sourceDistinctStateCount: 7, sourceRecordCount: 2949 }, decisions, semanticLedger: { sourceDistinctStateCount: 7, sourceRecordCount: 2949, mappedStateCount: 7, quarantinedStateCount: 0, mappedRecordCount: 2949, quarantinedRecordCount: 0, conservationVerified: true }, canonicalDecisionSha256: "", machineAssertion: { mode: "trusted_root_deterministic_machine_semantics", policyVersion: "yuzhou-job-state-machine-policy-v2", status: "PASS", reasonCodes: [], humanSignature: false, humanIdentityAsserted: false }, productionImport: "HOLD" };
   decision.canonicalDecisionSha256 = canonicalDecisionHash(decision); verifyYuzhouJobStateDecisionArtifact(decision);
   const payload = { formatVersion: 2, kind: "yuzhou-job-state-private-materialization", canonicalDecisionSha256: decision.canonicalDecisionSha256, payloadSha256: "", dictionaryVersionId: randomUUID(), expectedDatabaseItemsSha256: "0".repeat(64), csm: config.triple, t0Binding, scope: { tenantId: "10000001", parkId: "20000001", ...scopeBinding }, dictionaryEvidenceSha256, machineActor: { id: randomUUID(), kind: "machine_policy_engine", verifiedAt: new Date().toISOString().replace(/\.\d{3}Z$/u, "Z") }, items: decisions.map(row => { const source = dictionary.get(states.value.find(item => sha(`dbo.person.jobstate\u0000${String(item.sourceCode).trim().toLowerCase()}`) === row.sourceIdentitySha256).sourceCode.toLowerCase()); return { id: randomUUID(), sourceCode: source.sourceCode, sourceName: source.sourceName, sourceValue: null, sourceIdentitySha256: row.sourceIdentitySha256, sourceRowSha256: row.sourceRowSha256 }; }), productionImport: "HOLD" };
-  const probe = spawnSync("docker", ["exec", "-i", config.target.container, "psql", "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database], { input: buildItemsDigestProbeSql(decision, payload), encoding: "utf8" });
+  const postgresContainer = config.target.container ?? config.target.postgresContainer;
+  if (typeof postgresContainer !== "string" || !postgresContainer) fail("CORE_T0_MACHINE_TARGET_INVALID");
+  const probe = spawnSync("docker", ["exec", "-i", postgresContainer, "psql", "-X", "-A", "-t", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database], { input: buildItemsDigestProbeSql(decision, payload), encoding: "utf8" });
   const expected = probe.stdout.split("\n").map(line => line.trim()).find(line => /^[0-9a-f]{64}$/u.test(line));
   if (probe.status !== 0 || !expected) fail("CORE_T0_MACHINE_DIGEST_PROBE_FAILED");
   payload.expectedDatabaseItemsSha256 = expected; payload.payloadSha256 = canonicalHash(Object.fromEntries(Object.entries(payload).filter(([key]) => key !== "payloadSha256")));
