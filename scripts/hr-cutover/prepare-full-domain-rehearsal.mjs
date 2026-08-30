@@ -24,6 +24,11 @@ const fileSha256 = (path) => {
   return result.stdout.trim().split(/\s+/)[0];
 };
 
+function deterministicUuid(namespace) {
+  const hex = sha256(`jinhu-yuzhou-t5-isolated-actor-v1\0${namespace}`);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${(Number.parseInt(hex[16], 16) & 0x3 | 0x8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
 function assertRegularFile(path, label, { privateFile = false } = {}) {
   const candidate = resolve(path);
   if (!existsSync(candidate) || lstatSync(candidate).isSymbolicLink() || !statSync(candidate).isFile()) {
@@ -110,6 +115,7 @@ function configFor(args, codeSha, mappingContractHash) {
 
   const timestamp = new Date().toISOString().replaceAll(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
   const runId = `yzfull-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`;
+  const t5MaterializationActorUserId = deterministicUuid(`${project}:${runId}`);
   const commonLoad = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
     YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
@@ -127,6 +133,7 @@ function configFor(args, codeSha, mappingContractHash) {
     YUZHOU_T4_BUSINESS_SHA256: T4_BUSINESS_SHA256
   };
   adapterEnv.T5.load.YUZHOU_T5_BUSINESS_SHA256 = T5_BUSINESS_SHA256;
+  adapterEnv.T5.load.YUZHOU_MATERIALIZATION_ACTOR_USER_ID = t5MaterializationActorUserId;
 
   const factSuffix = `${args.rehearsal.toLowerCase()}_${args.suffix}`.slice(-30);
   const config = {
@@ -200,4 +207,4 @@ if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.me
   }
 }
 
-export { assertRegularFile, configFor, parseArgs };
+export { assertRegularFile, configFor, deterministicUuid, parseArgs };

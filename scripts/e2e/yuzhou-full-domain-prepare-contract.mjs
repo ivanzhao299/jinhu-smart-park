@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, symlinkSync, 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { configFor, assertRegularFile, parseArgs } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
+import { configFor, assertRegularFile, deterministicUuid, parseArgs } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
 import { readMaterializationKeyFile } from "../hr-cutover/materialization-key-contract.mjs";
 
 test("rehearsal preparation accepts only private non-symlink source inputs", () => {
@@ -95,4 +95,13 @@ test("rehearsal preparation requires an externally fixed machine-attestation roo
     parseArgs([...base, "--machine-attestation-root", "a".repeat(64)]).machineAttestationRoot,
     "a".repeat(64),
   );
+});
+
+test("full-domain rehearsal gives T5 a deterministic isolated non-login actor identity", () => {
+  const first = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");
+  const second = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000000Z-aaaaaaaa-rA");
+  const other = deterministicUuid("jinhu_hr_migration_lab_full_actor_test:yzfull-20260831T000001Z-aaaaaaaa-rB");
+  assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(first, second);
+  assert.notEqual(first, other);
 });

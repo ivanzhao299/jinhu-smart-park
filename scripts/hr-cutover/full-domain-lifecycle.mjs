@@ -87,7 +87,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
   T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
-  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
+  T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
 
 export class LifecycleError extends Error {
@@ -529,6 +529,24 @@ function provisionFixture(config, registry) {
   }
 }
 
+function provisionT5MaterializationActor(config) {
+  const actor = config.adapterEnv.T5?.load?.YUZHOU_MATERIALIZATION_ACTOR_USER_ID;
+  const tenant = config.adapterEnv.T5?.load?.YUZHOU_TARGET_TENANT_ID;
+  const park = config.adapterEnv.T5?.load?.YUZHOU_TARGET_PARK_ID;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(actor ?? "")) fail("T5_MATERIALIZATION_ACTOR_REQUIRED", "T5 requires a deterministic isolated actor UUID");
+  if (![tenant, park].every(value => typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(value))) fail("T5_MATERIALIZATION_ACTOR_INVALID", "T5 tenant and park identities are invalid");
+  const actorUsername = `yuzhou-t5-${config.runId}`;
+  const result = spawnSync("docker", [
+    "exec", "-i", config.target.postgresContainer, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", config.target.database,
+    "-v", `actor=${actor}`, "-v", `username=${actorUsername}`, "-v", `tenant=${tenant}`, "-v", `park=${park}`, "-v", `db=${config.target.database}`
+  ], {
+    input: `BEGIN;\nSELECT set_config('yuzhou.t5_actor_id', :'actor', true), set_config('yuzhou.t5_actor_username', :'username', true), set_config('yuzhou.t5_actor_tenant', :'tenant', true), set_config('yuzhou.t5_actor_park', :'park', true), set_config('yuzhou.t5_actor_db', :'db', true);\nDO $$BEGIN\n IF current_database()<>current_setting('yuzhou.t5_actor_db') OR current_database()!~'^jinhu_hr_migration_lab_full_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION 'unsafe target'; END IF;\n IF EXISTS(SELECT 1 FROM sys_user WHERE id=current_setting('yuzhou.t5_actor_id')::uuid) OR EXISTS(SELECT 1 FROM sys_user WHERE tenant_id=current_setting('yuzhou.t5_actor_tenant') AND park_id=current_setting('yuzhou.t5_actor_park') AND username=current_setting('yuzhou.t5_actor_username')) THEN RAISE EXCEPTION 'isolated materialization actor already exists'; END IF;\n INSERT INTO sys_user(id,tenant_id,park_id,username,display_name,password_hash,is_enabled,status,remark) VALUES(current_setting('yuzhou.t5_actor_id')::uuid,current_setting('yuzhou.t5_actor_tenant'),current_setting('yuzhou.t5_actor_park'),current_setting('yuzhou.t5_actor_username'),'Yuzhou T5 isolated materialization actor','not-a-login-hash',true,'enabled','isolated full-domain migration actor');\nEND$$;\nCOMMIT;\n`,
+    encoding: "utf8",
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  if (result.status !== 0) fail("T5_MATERIALIZATION_ACTOR_PROVISION_FAILED", "isolated T5 actor provisioning failed");
+}
+
 function provisionLab(config, registry) {
   const t = config.target;
   const p = paths(config);
@@ -589,12 +607,14 @@ function provisionLab(config, registry) {
   command("sh", [resolve(ROOT, "scripts/db-seed-prod.sh")], {
     env: { ...releaseEnv, ALLOW_PRODUCTION_SEED: "yes" }
   });
+  provisionT5MaterializationActor(config);
   const initializationBaseline = verifyLabInitializationBaseline(releaseEnv);
   appendPrivate(p.journal, {
     kind: "lab_bootstrap",
     migration: "succeeded",
     productionSeed: "succeeded",
     initializationBaseline,
+    t5MaterializationActor: "provisioned",
     productionImport: "HOLD"
   });
   const roles = [t.role, `${t.accountNamespace}_hr`, `${t.accountNamespace}_manager`, `${t.accountNamespace}_employee`];
