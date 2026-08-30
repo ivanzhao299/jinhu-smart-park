@@ -354,6 +354,8 @@ T4 抽取只允许使用固定备份、只读 SQL Server 恢复库和非 `sa/sys
 
 真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
 
+截至 2026-08-30，热历史候选已在全新 `core` 隔离库完成一次真实 `load → rollback → reload → rollback → core cleanup` 闭环：两次装载均得到 `8,342` 个历史工资快照和 `190,880` 个工资项，批次守恒与保护表检查均通过；两次回滚后的活动映射、历史批次、快照和项目均为 `0`，core runtime 的最终 `residualCount=0`。该结果只证明 2024–2026 热历史在受控源和隔离目标中的可重跑性；2010–2023 冷历史归档尚未开始，生产历史导入和任何正式发薪均继续为 `HOLD`。
+
 `000264_hr_payroll_legacy_item_bulk_guard.sql` 只把快照项目 INSERT 的批次状态检查从逐行查询改为同事务的 statement-level transition-table 集合检查。未知或已发布批次仍使整条 INSERT 回滚；UPDATE/DELETE 仍逐行禁止，原 FK、唯一性、owner、金额和不可变约束均保留。不得通过禁用 trigger、`session_replication_role` 或放宽 statement timeout 绕过装载门禁。
 
 双轨计算只读取 `parse_status=approved_for_simulation` 且 AST、依赖和 parser version 可重新验证的公式，并冻结员工、定薪、保险、考勤输入、公式、engine 和 reconciliation policy 版本。条件表达式、解析失败、循环依赖、缺项目、除零、溢出或缺少权威净额映射全部失败关闭，绝不能按 0 继续。模拟只写 `hr_payroll_reconciliation_*`，不得写正式 payroll run、payslip、payment、bank、tax、message 或 outbox。
