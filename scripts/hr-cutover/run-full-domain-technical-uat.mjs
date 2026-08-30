@@ -39,6 +39,11 @@ let databaseOperation=0;
 const safeDatabaseDiagnostic=error=>String(error?.message??"").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?/u)?.[0]??"";
 const databaseCallsite=()=>[...new Error().stack?.matchAll(/scripts\/hr-cutover\/([A-Za-z0-9-]+)\.mjs:(\d+):\d+/gu)??[]][2]?.slice(1,3).join("_")??"unknown";
 const safeRuntimeCategories=value=>[...new Set([...(String(value??"").match(/(?:SQLSTATE|code)[:= ]+['"]?([0-9A-Z]{5})/gu)??[]).map(row=>row.replace(/^.*?([0-9A-Z]{5})$/u,"$1")),...(String(value??"").match(/(?:QueryFailedError|EntityNotFoundError|TypeError|ForbiddenException|ConflictException|NotFoundException)/gu)??[]).map(row=>row.replace(/Error$/u,""))])].sort();
+const CHILD_ENV_KEYS=Object.freeze(["PATH","HOME","TMPDIR","LANG","LC_ALL","NODE","COREPACK_ROOT","PNPM_HOME","NPM_CONFIG_USERCONFIG","NPM_CONFIG_CACHE","XDG_CACHE_HOME"]);
+export function technicalUatChildEnvironment(overrides={}){
+ const inherited=Object.fromEntries(CHILD_ENV_KEYS.flatMap(key=>process.env[key]===undefined?[]:[[key,process.env[key]]]));
+ return {...inherited,...overrides};
+}
 
 function parse(argv){const out={};for(let i=0;i<argv.length;i+=1){if(argv[i]==="--")continue;if(argv[i]!=="--config")fail("CLI_ARGUMENT_INVALID",argv[i]);out.config=resolve(argv[++i]);}if(!out.config)fail("CLI_ARGUMENT_INVALID","--config required");return out;}
 function credential(path){return Object.fromEntries(readFileSync(path,"utf8").trim().split("\n").map((line)=>{const at=line.indexOf("=");return[line.slice(0,at),line.slice(at+1)];}));}
@@ -59,7 +64,7 @@ async function waitLoopbackPortClear(port){for(let attempt=0;attempt<50;attempt+
 async function preserveFailure(previous,action){try{await action();return previous;}catch(error){return previous??error;}}
 function buildWebForTarget(config){
  const apiTarget=`http://127.0.0.1:${config.target.apiPort}`;
- const build=spawnSync("pnpm",["--filter","@jinhu/web","build"],{cwd:ROOT,env:{...process.env,NEXT_PUBLIC_API_TARGET:apiTarget},stdio:"ignore"});
+ const build=spawnSync("pnpm",["--filter","@jinhu/web","build"],{cwd:ROOT,env:technicalUatChildEnvironment({NEXT_PUBLIC_API_TARGET:apiTarget}),stdio:"ignore"});
  if(build.status!==0)fail("TECHNICAL_UAT_WEB_BUILD_FAILED",`exit ${build.status??"signal"}`);
  const routesPath=resolve(ROOT,"apps/web/.next/routes-manifest.json");
  if(!existsSync(routesPath))fail("TECHNICAL_UAT_WEB_BUILD_INVALID","routes manifest missing");
@@ -109,9 +114,9 @@ COMMIT;`;
  let api,web,result,failure;const apiRuntimeOutput=[];
  try{
   psql(config,vars,provisionSql);
-  const common={...process.env,POSTGRES_HOST:"127.0.0.1",POSTGRES_PORT:String(config.target.postgresPort),POSTGRES_USER:pg.POSTGRES_USER,POSTGRES_PASSWORD:pg.POSTGRES_PASSWORD,POSTGRES_DB:config.target.database,JWT_SECRET:randomBytes(48).toString("hex"),PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey,APP_PORT:String(config.target.apiPort),WEB_ORIGIN:`http://127.0.0.1:${config.target.webPort}`,FILE_STORAGE_LOCAL_ROOT:config.target.fileRoot,AUTH_SMS_FIXED_CODE:"",AUTH_SMS_CODE_VISIBLE:"false",AUTH_WECHAT_MOCK_ENABLED:"false",NODE_ENV:"test"};
+  const common=technicalUatChildEnvironment({POSTGRES_HOST:"127.0.0.1",POSTGRES_PORT:String(config.target.postgresPort),POSTGRES_USER:pg.POSTGRES_USER,POSTGRES_PASSWORD:pg.POSTGRES_PASSWORD,POSTGRES_DB:config.target.database,JWT_SECRET:randomBytes(48).toString("hex"),PARTY_DATA_ENCRYPTION_KEY:partyDataEncryptionKey,APP_PORT:String(config.target.apiPort),WEB_ORIGIN:`http://127.0.0.1:${config.target.webPort}`,FILE_STORAGE_LOCAL_ROOT:config.target.fileRoot,AUTH_SMS_FIXED_CODE:"",AUTH_SMS_CODE_VISIBLE:"false",AUTH_WECHAT_MOCK_ENABLED:"false",NODE_ENV:"test"});
   api=spawn(process.execPath,[apiMain],{cwd:ROOT,env:common,stdio:["ignore","pipe","pipe"]});for(const stream of [api.stdout,api.stderr])stream?.on("data",chunk=>{if(apiRuntimeOutput.join("").length<65536)apiRuntimeOutput.push(String(chunk));});
-  web=spawn("pnpm",["--filter","@jinhu/web","start"],{cwd:ROOT,env:{...process.env,WEB_PORT:String(config.target.webPort),NEXT_PUBLIC_API_TARGET:`http://127.0.0.1:${config.target.apiPort}`},stdio:"ignore"});
+  web=spawn("pnpm",["--filter","@jinhu/web","start"],{cwd:ROOT,env:technicalUatChildEnvironment({WEB_PORT:String(config.target.webPort),NEXT_PUBLIC_API_TARGET:`http://127.0.0.1:${config.target.apiPort}`}),stdio:"ignore"});
   registryProcesses(config,[api.pid,web.pid]);
   await Promise.all([waitUrl(`http://127.0.0.1:${config.target.apiPort}/api/v1/health`),waitUrl(`http://127.0.0.1:${config.target.webPort}/login`)]);
   const headers=[],accessTokens=[];

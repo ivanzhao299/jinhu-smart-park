@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
 import { parseCoreTechnicalUatArgs } from "../hr-cutover/run-core-t0-t3-technical-uat.mjs";
+import { technicalUatChildEnvironment } from "../hr-cutover/run-full-domain-technical-uat.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 
@@ -10,6 +11,21 @@ test("core technical UAT accepts one pnpm delimiter and rejects malformed argume
   assert.equal(parseCoreTechnicalUatArgs(["--", "--config", "/tmp/core-uat.json"]).configPath, "/tmp/core-uat.json");
   for (const args of [[], ["--config"], ["--", "--", "--config", "/tmp/core-uat.json"], ["--other", "/tmp/core-uat.json"]]) {
     assert.throws(() => parseCoreTechnicalUatArgs(args), /CORE_TECHNICAL_UAT_ARGUMENT_INVALID/u);
+  }
+});
+
+test("technical UAT child processes do not inherit migration environment", () => {
+  const previous = process.env.YUZHOU_ETL_CREDENTIAL_FILE;
+  process.env.YUZHOU_ETL_CREDENTIAL_FILE = "/private/etl.env";
+  try {
+    const environment = technicalUatChildEnvironment({ NODE_ENV: "test", APP_PORT: "36481" });
+    assert.equal(environment.YUZHOU_ETL_CREDENTIAL_FILE, undefined);
+    assert.equal(environment.NODE_ENV, "test");
+    assert.equal(environment.APP_PORT, "36481");
+    assert.ok(environment.PATH);
+  } finally {
+    if (previous === undefined) delete process.env.YUZHOU_ETL_CREDENTIAL_FILE;
+    else process.env.YUZHOU_ETL_CREDENTIAL_FILE = previous;
   }
 });
 
