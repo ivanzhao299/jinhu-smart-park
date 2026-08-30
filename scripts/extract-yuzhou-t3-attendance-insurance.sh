@@ -9,6 +9,7 @@ OUTPUT_ROOT="${YUZHOU_STAGING_ROOT:-$ROOT_DIR/database/import-reports/yuzhou-hr}
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set ALLOW_YUZHOU_MIGRATION=yes"
 printf %s "$RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid run id"
+printf %s "${YUZHOU_BACKUP_SHA256:-}" | grep -Eq '^[0-9a-f]{64}$' || fail "YUZHOU_BACKUP_SHA256 is required"
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
 . "$CREDENTIAL_FILE"
 [ "$YUZHOU_SQLSERVER_ETL_LOGIN" != sa ] || fail "sa is forbidden for extraction"

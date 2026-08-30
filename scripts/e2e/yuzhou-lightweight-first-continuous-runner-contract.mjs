@@ -29,7 +29,7 @@ const config = {
 const configPath = join(root, "config.json"); writePrivate(configPath, JSON.stringify(config));
 const makeStage = (name, manifest) => { const path = join(root, name); mkdirSync(path, { mode: 0o700 }); chmodSync(path, 0o700); if (manifest) writePrivate(join(path, "manifest.json"), JSON.stringify(manifest)); return path; };
 const t5 = makeStage("t5", { sourceSnapshotSha256: snapshot });
-const t3 = makeStage("t3");
+const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, productionImport: "HOLD" });
 const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
 const commands = [];
 const spawn = (_command, args, options) => { commands.push({ script: args[0].split("/").at(-1), env: options.env }); return { status: 0, stdout: "" }; };

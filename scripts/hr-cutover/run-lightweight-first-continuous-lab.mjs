@@ -77,8 +77,9 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   verifyLightweightFirstSliceOrder(CONTRACT);
   const config = validateCoreT0T3Config(privateJson(configPath, "LIGHTWEIGHT_CONFIG_UNSAFE"));
   if (config.profile !== "core_t0_t2") fail("LIGHTWEIGHT_CORE_PROFILE_INVALID", config.profile);
-  const input = { T5_NONFILE: stage(t5Stage, "T5_NONFILE"), T3: stage(t3Stage, "T3", false), T4: stage(t4Stage, "T4") };
-  if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
+  const input = { T5_NONFILE: stage(t5Stage, "T5_NONFILE"), T3: stage(t3Stage, "T3"), T4: stage(t4Stage, "T4") };
+  if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
+  if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
   if (t5IdentityResolution) privateJson(t5IdentityResolution, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
   const run = suffix => `${config.runId.toLowerCase().replace(/^yzcore-/, "yzlw-").slice(0, 54)}-${suffix}`;
   const runs = { t5: run("t5"), t3: run("t3"), t4: run("t4") };

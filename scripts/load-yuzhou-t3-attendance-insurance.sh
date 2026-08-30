@@ -5,7 +5,14 @@ AH="${YUZHOU_T3_ATTENDANCE_SHA256:-9060321bf7a7d7f935f6c5dfbae7aba2774d28fd254d4
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set mutation flag"; printf %s "$RUN_ID"|grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$'||fail "invalid run id"; printf %s "$DB"|grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$'||fail "invalid isolated target database"
 for f in attendance policies insurance; do [ -f "$STAGE/$f.jsonl" ]||fail "staging file missing"; done
+[ -f "$STAGE/manifest.json" ] || fail "staging manifest missing"
+[ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "staging manifest must be mode 0600"
 [ "$(shasum -a 256 "$STAGE/attendance.jsonl"|awk '{print $1}')" = "$AH" ]||fail "attendance staging SHA-256 mismatch"; [ "$(shasum -a 256 "$STAGE/policies.jsonl"|awk '{print $1}')" = "$PH" ]||fail "policies staging SHA-256 mismatch"; [ "$(shasum -a 256 "$STAGE/insurance.jsonl"|awk '{print $1}')" = "$IH" ]||fail "insurance staging SHA-256 mismatch"
+node - "$STAGE/manifest.json" "$SNAP" "$AH" "$PH" "$IH" <<'NODE' || fail "T3 staging manifest binding mismatch"
+const fs=require('fs'),[path,snapshot,attendance,policies,insurance]=process.argv.slice(2),m=JSON.parse(fs.readFileSync(path,'utf8'));
+if(m.formatVersion!==1||m.artifactKind!=='yuzhou_t3_attendance_insurance_stage'||m.sourceReadOnly!==true||m.sourceSnapshotSha256!==snapshot||m.productionImport!=='HOLD')throw Error('source binding');
+for(const [domain,hash] of Object.entries({attendance,policies,insurance}))if(m.domains?.[domain]?.file!==`${domain}.jsonl`||m.domains[domain].fileSha256!==hash)throw Error(domain);
+NODE
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG")" = "$EXPECTED_PROJECT" ]||fail "wrong postgres project"
 TMP="/tmp/yuzhou-t3-$RUN_ID"; cleanup(){ docker exec "$PG" rm -rf "$TMP" >/dev/null 2>&1||true; }; trap cleanup EXIT HUP INT TERM; docker exec "$PG" mkdir -p "$TMP"; for f in attendance policies insurance; do docker cp "$STAGE/$f.jsonl" "$PG:$TMP/$f.jsonl"; done; docker exec "$PG" chown -R postgres:postgres "$TMP"; docker exec "$PG" chmod -R go-rwx "$TMP"
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snap="$SNAP" -v ah="$AH" -v ph="$PH" -v ih="$IH" -v apath="$TMP/attendance.jsonl" -v ppath="$TMP/policies.jsonl" -v ipath="$TMP/insurance.jsonl" <<'SQL'

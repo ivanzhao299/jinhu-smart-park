@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 const dir=resolve(process.argv[2]??""); if(!basename(dir).startsWith("staging-")) throw Error("controlled staging directory is required");
+const snapshot=process.env.YUZHOU_BACKUP_SHA256??"";if(!/^[0-9a-f]{64}$/u.test(snapshot))throw Error("YUZHOU_BACKUP_SHA256 is required");
 const sha=v=>createHash("sha256").update(v).digest("hex");
 const canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(",")}]`:v&&typeof v==="object"?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`:JSON.stringify(v);
 const safe=v=>JSON.stringify(v).replaceAll("\\","\\\\");
@@ -17,4 +18,4 @@ const insurance=read("insurance.raw.json").map(source=>identity("dbo.person_insu
 const ensure=(rows,count,label)=>{if(rows.length!==count)throw Error(`${label} count drift: ${rows.length}`);const seen=new Set;for(const r of rows){if(seen.has(r.sourceKey))throw Error(`${label} duplicate key`);seen.add(r.sourceKey)}};
 ensure(attendance,144,"attendance");ensure(policies,12,"policies");ensure(insurance,35008,"insurance");
 const files={attendance:{rows:attendance.length,file:"attendance.jsonl",fileSha256:write("attendance.jsonl",attendance)},policies:{rows:policies.length,file:"policies.jsonl",fileSha256:write("policies.jsonl",policies)},insurance:{rows:insurance.length,file:"insurance.jsonl",fileSha256:write("insurance.jsonl",insurance)}};
-writeFileSync(resolve(dir,"manifest.json"),JSON.stringify({formatVersion:1,generatedAt:new Date().toISOString(),domains:files},null,2)+"\n",{mode:0o600});
+writeFileSync(resolve(dir,"manifest.json"),JSON.stringify({formatVersion:1,artifactKind:"yuzhou_t3_attendance_insurance_stage",sourceReadOnly:true,sourceSnapshotSha256:snapshot,productionImport:"HOLD",generatedAt:new Date().toISOString(),domains:files},null,2)+"\n",{mode:0o600});
