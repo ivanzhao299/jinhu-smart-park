@@ -183,8 +183,8 @@ export function validateConfig(config) {
     const candidate = t4Record.productionCandidate;
     const candidateExpected = {
       periodStart: "2024-01-01", periodEnd: "2026-12-31", fullSourceRows: 46092,
-      candidateRows: 8342, candidateLoadedRows: 8320, candidateQuarantinedRows: 22,
-      candidateSnapshotItems: 190374, candidateCloseRecords: 266,
+      candidateRows: 8342, candidateLoadedRows: 8342, candidateQuarantinedRows: 0,
+      candidateSnapshotItems: 190880, candidateCloseRecords: 266,
       candidateSourceNet: "15723009.9100", candidateLoadedNet: "15723009.9100",
       coldArchiveRows: 37750, coldArchiveDisposition: "deferred"
     };

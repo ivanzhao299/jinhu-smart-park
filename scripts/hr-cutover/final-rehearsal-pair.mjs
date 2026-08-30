@@ -27,7 +27,7 @@ const canonical=value=>`${JSON.stringify(value,null,2)}\n`;
 export function validatePairContract(contract){
   if(contract?.formatVersion!==1||contract.contractKind!=="yuzhou_hr_final_rehearsal_pair"||contract.executionBoundary!=="isolated_lab_only"||contract.productionImport!=="HOLD")fail("FINAL_PAIR_CONTRACT_INVALID","identity/boundary");
   if(JSON.stringify(contract.rehearsalOrder)!==JSON.stringify(["A","B"])||JSON.stringify(contract.domainOrder)!==JSON.stringify(["T0","T1","T2","T3","T4","T5"])||JSON.stringify(contract.rollbackOrder)!==JSON.stringify(["T5","T4","T3","T2","T1","T0"]))fail("FINAL_PAIR_ORDER_INVALID","domain order");
-  const expected={T2:{contracts:802,changes:357},T4:{hotYears:[2024,2025,2026],headers:8342,regularHeaders:8320,adjustmentHeaders:22,items:190374,closes:266,net:"15723009.9100",coldArchiveRows:37750},T5:{rows:20163}};
+  const expected={T2:{contracts:802,changes:357},T4:{hotYears:[2024,2025,2026],headers:8342,regularHeaders:8342,adjustmentHeaders:0,items:190880,closes:266,net:"15723009.9100",coldArchiveRows:37750},T5:{rows:20163}};
   if(JSON.stringify(contract.sourceFacts)!==JSON.stringify(expected)||contract.sourceFacts.T4.headers!==contract.sourceFacts.T4.regularHeaders+contract.sourceFacts.T4.adjustmentHeaders)fail("FINAL_PAIR_FACTS_DRIFT","frozen source facts");
   if(JSON.stringify(contract.requiredStages)!==JSON.stringify(["provision","T0_T5","technical_uat","p0_matrix","backup_restore_fault","pair_compare","T5_T0_rollback","cleanup"]))fail("FINAL_PAIR_STAGES_INVALID","continuous stages");
   if(JSON.stringify(contract.requiredFinalState)!==JSON.stringify({state:"cleaned",residualCount:0,p0Execution:"PASS",productionImport:"HOLD"}))fail("FINAL_PAIR_FINAL_STATE_INVALID","final state");

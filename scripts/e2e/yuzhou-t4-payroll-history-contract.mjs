@@ -19,7 +19,7 @@ assert.equal(Object.keys(evidence.payrollProfile.salaryRowsByTable).length, 35);
 assert.equal(Object.values(evidence.payrollProfile.salaryRowsByTable).reduce((sum, value) => sum + value, 0), 46092);
 assert.deepEqual(
   [evidence.productionCandidate.periodStart, evidence.productionCandidate.periodEnd, evidence.productionCandidate.candidateRows, evidence.productionCandidate.candidateLoadedRows, evidence.productionCandidate.candidateQuarantinedRows, evidence.productionCandidate.coldArchiveRows],
-  ["2024-01-01", "2026-12-31", 8342, 8320, 22, 37750],
+  ["2024-01-01", "2026-12-31", 8342, 8342, 0, 37750],
 );
 
 assert.match(extract, /source must be read-only and ETL must be non-sysadmin/);

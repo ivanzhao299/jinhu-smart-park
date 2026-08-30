@@ -9,7 +9,7 @@
   "rollbackOrder": ["T5", "T4", "T3", "T2", "T1", "T0"],
   "sourceFacts": {
     "T2": { "contracts": 802, "changes": 357 },
-    "T4": { "hotYears": [2024, 2025, 2026], "headers": 8342, "regularHeaders": 8320, "adjustmentHeaders": 22, "items": 190374, "closes": 266, "net": "15723009.9100", "coldArchiveRows": 37750 },
+    "T4": { "hotYears": [2024, 2025, 2026], "headers": 8342, "regularHeaders": 8342, "adjustmentHeaders": 0, "items": 190880, "closes": 266, "net": "15723009.9100", "coldArchiveRows": 37750 },
     "T5": { "rows": 20163 }
   },
   "requiredStages": ["provision", "T0_T5", "technical_uat", "p0_matrix", "backup_restore_fault", "pair_compare", "T5_T0_rollback", "cleanup"],
