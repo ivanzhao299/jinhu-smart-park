@@ -272,6 +272,8 @@ pnpm hr:migration:t3-attendance-events:stage
 
 该阶段仅形成 `0600` 的隔离审计证据，并将受控备份哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
 
+截至 2026-08-30，固定恢复源的实际汇总为：`dbo.attrecord=1`、可关联 `dbo.person=0`，`dbo.leave=0`、`dbo.overtime=0`、`dbo.timekeeprecord=0`。该唯一打卡记录已经完成一次隔离审计演练：`1 = 0 loaded + 1 quarantined`，原因是 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`；业务打卡表保持 `0` 行，审计回滚后 migration audit residual 也为 `0`，随后 core 临时资源清理为 `0`。这不是“无数据即跳过”的推断，而是同一受控备份的只读计数和隔离验证；缺少可核验员工映射前，历史打卡业务导入与生产导入继续为 `HOLD`。
+
 现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：
 
 截至 2026-08-30，此闭环已在一套全新 core 隔离库实际执行：API/数据库 gate 的 `11` 条输出断言通过，随后 runner 完成 T3→T0 反序回滚与资源清理，`residualCount=0`。该结果只证明现代考勤申请状态机在单套隔离基线可运行；不替代历史打卡事实导入、独立 A/B、真人 UAT 或生产导入授权，`productionImport` 仍为 `HOLD`。
