@@ -232,6 +232,10 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   for (const field of ["stagingRoot", "evidenceRoot", "fileRoot"]) if (!inside(target.root, target[field])) fail("CLEANUP_PATH_ESCAPE", `${field} must be below target.root`);
   if (basename(target.credentialArtifact) !== "postgres.env") fail("CONFIG_INVALID", "credential artifact filename must be postgres.env");
   if (basename(target.materializationKeyArtifact) !== "materialization.key") fail("CONFIG_INVALID", "materialization key artifact filename must be materialization.key");
+  const credentialRoot = dirname(target.credentialArtifact);
+  if (config.source.etlEnvFile !== join(credentialRoot, "etl.env") || config.source.t4EvidenceFile !== join(credentialRoot, "t4-evidence.json")) {
+    fail("CONFIG_INVALID", "prepared ETL and T4 evidence copies must stay in the controlled credential root");
+  }
   if (config.backend === "lab") {
     if (basename(target.jobStateDecisionArtifact) !== "employee-job-state.reviewed.json" || basename(target.jobStateSourcePayloadArtifact) !== "employee-job-state.private.json") fail("CONFIG_INVALID", "job-state machine artifact filenames are invalid");
     if (legacyApproval) {
@@ -459,6 +463,8 @@ function resourcePlan(config) {
     { type: "port", planned: `127.0.0.1:${t.apiPort}` },
     { type: "port", planned: `127.0.0.1:${t.webPort}` },
     { type: "process", planned: `${config.runId}:managed_children`, observed: [] },
+    { type: "credential_artifact", planned: config.source.etlEnvFile },
+    { type: "credential_artifact", planned: config.source.t4EvidenceFile },
     { type: "credential_artifact", planned: t.credentialArtifact },
     { type: "credential_artifact", planned: t.materializationKeyArtifact }
   ];

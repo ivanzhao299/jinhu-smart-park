@@ -219,7 +219,7 @@ try {
   assert.equal(currentState(configA), "verifying");
 
   const auditA = JSON.parse(readFileSync(configA.target.auditBundle, "utf8"));
-  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 2, "PostgreSQL and materialization credentials must both be registered");
+  assert.equal(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").length, 4, "ETL, T4 evidence, PostgreSQL, and materialization artifacts must all be registered");
   assert(auditA.resourceLedger.filter((entry) => entry.type === "credential_artifact").every((entry) => entry.removed && entry.residualCount === 0));
   const journal = auditA.journal;
   assert.deepEqual(journal.filter((row) => row.kind === "state").map((row) => row.state), STATES.slice(0, 6));
