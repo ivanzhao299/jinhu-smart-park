@@ -32,12 +32,14 @@ const {readFileSync,statSync}=require('fs'),{join}=require('path');
 const stage=process.argv[2],manifest=JSON.parse(readFileSync(join(stage,'manifest.json'),'utf8'));
 for(const name of ['person_core','family','knowhow','ticket']){const file=join(stage,manifest.domains?.[name]?.file??'');if((statSync(file).mode&0o777)!==0o600)throw Error(`unsafe staged file ${name}`);}
 if(manifest.artifactKind!=='yuzhou_t5_nonfile_materialization_stage'||manifest.productionImport!=='HOLD'||manifest.sourceRows!==7752||manifest.businessWriteTarget!=='nonfile_employee_profile_family_skill_credential_only'||JSON.stringify(manifest.filesExcluded)!==JSON.stringify(['photo','docs']))throw Error('nonfile manifest boundary');
-if(!/^[0-9a-f]{64}$/.test(manifest.sourceCatalogSha256??'')||!/^[0-9a-f]{64}$/.test(manifest.nonfileBusinessSha256??''))throw Error('nonfile manifest hash');
-process.stdout.write(JSON.stringify({catalog:manifest.sourceCatalogSha256,manifest:manifest.nonfileBusinessSha256}));
+if(!/^[0-9a-f]{64}$/.test(manifest.sourceSnapshotSha256??'')||!/^[0-9a-f]{64}$/.test(manifest.sourceRestoreReceiptSha256??'')||!/^[0-9a-f]{64}$/.test(manifest.sourceCatalogSha256??'')||!/^[0-9a-f]{64}$/.test(manifest.mappingContractSha256??'')||!/^[0-9a-f]{64}$/.test(manifest.nonfileBusinessSha256??''))throw Error('nonfile manifest hash');
+process.stdout.write(JSON.stringify({snapshot:manifest.sourceSnapshotSha256,catalog:manifest.sourceCatalogSha256,manifest:manifest.nonfileBusinessSha256}));
 NODE
 )"
+MANIFEST_SNAPSHOT="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).snapshot)' "$META")"
 CATALOG_HASH="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).catalog)' "$META")"
 MANIFEST_HASH="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).manifest)' "$META")"
+[ "$SNAPSHOT" = "$MANIFEST_SNAPSHOT" ] || fail "nonfile stage source snapshot differs from requested backup"
 COMBINED="$(mktemp "${TMPDIR:-/tmp}/yuzhou-t5-nonfile.XXXXXX")"
 EMPTY_RESOLUTION="$(mktemp "${TMPDIR:-/tmp}/yuzhou-t5-resolution.XXXXXX")"
 RESOLUTION_META='{"status":"NONE","candidateCount":0,"mapCount":0,"quarantineCount":0,"resolutionSha256":null,"productionImport":"HOLD"}'

@@ -10,7 +10,7 @@ const provisionActor=readFileSync(resolve(root,"scripts/provision-yuzhou-t5-nonf
 const rollbackActor=readFileSync(resolve(root,"scripts/rollback-yuzhou-t5-nonfile-actor.sh"),"utf8");
 const resolution=readFileSync(resolve(root,"scripts/verify-yuzhou-t5-identity-resolution-package.mjs"),"utf8");
 
-for(const value of ["t5-nonfile-stage-domain-items.mjs","7752","dbo.person.core_residue","dbo.family","dbo.knowhow","dbo.ticket","T5_NONFILE_FILES_EXCLUDED","T5_NONFILE_NO_FILE_EVIDENCE","T5_NONFILE_ONLINE_STATE_UNCHANGED","sourceCatalogSha256","nonfile_employee_profile_family_skill_credential_only","filesExcluded", "jinhu_hr_migration_lab_core_"])assert.match(load,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+for(const value of ["t5-nonfile-stage-domain-items.mjs","7752","dbo.person.core_residue","dbo.family","dbo.knowhow","dbo.ticket","T5_NONFILE_FILES_EXCLUDED","T5_NONFILE_NO_FILE_EVIDENCE","T5_NONFILE_ONLINE_STATE_UNCHANGED","sourceSnapshotSha256","sourceRestoreReceiptSha256","mappingContractSha256","nonfile stage source snapshot differs from requested backup","nonfile_employee_profile_family_skill_credential_only","filesExcluded", "jinhu_hr_migration_lab_core_"])assert.match(load,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
 assert.match(load,/LOCK TABLE hr_employee,sys_user,hr_employee_compensation/);
 assert.match(load,/T5 nonfile record-map conservation failed/);
 assert.match(load,/T5 nonfile per-source conservation failed/);
