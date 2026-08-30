@@ -19,7 +19,7 @@ function privateFile(path, label) {
   return path;
 }
 
-function stage(stagePath) {
+export function readT5NonfileProfileStage(stagePath) {
   const root = privateDirectory(resolve(stagePath), "stage");
   const manifestPath = privateFile(join(root, "manifest.json"), "manifest");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -33,24 +33,31 @@ function stage(stagePath) {
   return { manifest, profilePath };
 }
 
-export function buildT5IdentityAmbiguityReceipt({ stagePath }) {
-  const input = stage(stagePath);
-  const groups = new Map();
-  let profileRows = 0, missingFingerprintRows = 0;
+export function readT5ProfileIdentityRows({ stagePath }) {
+  const input = readT5NonfileProfileStage(stagePath), rows = [];
   for (const line of readFileSync(input.profilePath, "utf8").trimEnd().split("\n")) {
     if (!line) continue;
     const row = JSON.parse(line), materialized = row.materialized;
     if (row.sourceTable !== "dbo.person.core_residue" || materialized?.kind !== "profile" || !SHA256.test(row.sourceIdentitySha256 ?? "") || !SHA256.test(row.sourceRowSha256 ?? "")) fail("profile row shape");
-    profileRows += 1;
     const fingerprint = materialized.idNumber?.fingerprint;
-    if (fingerprint === null || fingerprint === undefined || fingerprint === "") { missingFingerprintRows += 1; continue; }
+    if (fingerprint === null || fingerprint === undefined || fingerprint === "") { rows.push({ sourceIdentitySha256: row.sourceIdentitySha256, fingerprint: null, disposition: materialized.disposition }); continue; }
     // The protected materializer owns the fingerprint algorithm.  This
     // aggregate receipt only needs a non-empty opaque equality token; it must
     // not constrain or expose the token's implementation-specific encoding.
     if (typeof fingerprint !== "string" || !fingerprint || fingerprint.length > 256) fail("profile fingerprint shape");
-    groups.set(fingerprint, (groups.get(fingerprint) ?? 0) + 1);
+    rows.push({ sourceIdentitySha256: row.sourceIdentitySha256, fingerprint, disposition: materialized.disposition });
   }
-  if (profileRows !== PROFILE_ROWS) fail("profile row count");
+  if (rows.length !== PROFILE_ROWS) fail("profile row count");
+  return { manifest: input.manifest, rows };
+}
+
+export function buildT5IdentityAmbiguityReceipt({ stagePath }) {
+  const input = readT5ProfileIdentityRows({ stagePath }), groups = new Map();
+  let missingFingerprintRows = 0;
+  for (const row of input.rows) {
+    if (!row.fingerprint) { missingFingerprintRows += 1; continue; }
+    groups.set(row.fingerprint, (groups.get(row.fingerprint) ?? 0) + 1);
+  }
   const ambiguousGroups = [...groups.values()].filter(count => count > 1);
   const groupSizeHistogram = Object.fromEntries([...new Set(ambiguousGroups)].sort((left, right) => left - right).map(size => [String(size), ambiguousGroups.filter(count => count === size).length]));
   const ambiguousProfileRows = ambiguousGroups.reduce((sum, count) => sum + count, 0);
@@ -61,7 +68,7 @@ export function buildT5IdentityAmbiguityReceipt({ stagePath }) {
     sourceBusinessSha256: input.manifest.sourceBusinessSha256,
     sourceCatalogSha256: input.manifest.sourceCatalogSha256,
     nonfileBusinessSha256: input.manifest.nonfileBusinessSha256,
-    sourceProfileRows: profileRows,
+    sourceProfileRows: input.rows.length,
     uniqueFingerprintGroups: groups.size,
     missingFingerprintRows,
     ambiguousFingerprintGroups: ambiguousGroups.length,
