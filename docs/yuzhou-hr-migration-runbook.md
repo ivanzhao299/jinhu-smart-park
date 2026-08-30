@@ -274,6 +274,8 @@ pnpm hr:migration:t3-attendance-events:stage
 
 现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：
 
+截至 2026-08-30，此闭环已在一套全新 core 隔离库实际执行：API/数据库 gate 的 `11` 条输出断言通过，随后 runner 完成 T3→T0 反序回滚与资源清理，`residualCount=0`。该结果只证明现代考勤申请状态机在单套隔离基线可运行；不替代历史打卡事实导入、独立 A/B、真人 UAT 或生产导入授权，`productionImport` 仍为 `HOLD`。
+
 ```sh
 set -a; . '<0600 core credential root>/postgres.env'; set +a
 POSTGRES_HOST=127.0.0.1 POSTGRES_PORT='<core postgres port>' \
