@@ -22,6 +22,7 @@ assert.match(extract, /employment-event-states\.raw\.json[\s\S]*GROUP BY state/)
 assert.match(transform, /copySafeJson/);
 assert.match(load, /T1_EMPLOYEE_STATE_UNCHANGED/);
 assert.match(load, /legacy_record_map/);
+assert.match(load, /target_id,mapping_status,is_active\)\nSELECT[\s\S]*'loaded',true/);
 assert.match(load, /staging SHA-256 mismatch/);
 assert.match(load, /YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256/);
 assert.match(load, /YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256/);
