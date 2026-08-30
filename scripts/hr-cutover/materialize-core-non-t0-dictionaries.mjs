@@ -4,6 +4,7 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, statSync, wr
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { verifyT1EventTypeDecision } from "./verify-yuzhou-t1-event-type-decision.mjs";
 
 const SHA256 = /^[0-9a-f]{64}$/u;
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -13,12 +14,6 @@ const canonicalHash = value => hash(`${canonical(value)}\n`);
 const mode = path => (statSync(path).mode & 0o777).toString(8).padStart(4, "0");
 const fail = code => { throw new Error(code); };
 
-const eventTypeRules = new Map([
-  ["调职", { decision: "map", target: "transfer", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }],
-  ["复职", { decision: "map", target: "resume", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }],
-  ["就职", { decision: "raw_only", target: null, reason: "EMPLOYMENT_START_SEMANTICS_UNRESOLVED" }],
-  ["离职", { decision: "map", target: "depart", reason: "DETERMINISTIC_COMPATIBILITY_MAPPING" }]
-]);
 const eventStateTargets = new Map([["1", { decision: "map", target: "accepted", reason: "EFFECTIVE_SOURCE_STATE" }], ["0", { decision: "reject", target: null, reason: "SOURCE_NON_EFFECTIVE_STATE" }]]);
 const contractTypeTargets = new Map([["01", "YUZHOU_01"], ["02", "YUZHOU_02"], ["03", "YUZHOU_03"], ["04", "YUZHOU_04"]]);
 const contractStateTargets = new Map([["生效", "active"], ["解除", "terminated"]]);
@@ -44,6 +39,13 @@ function requiredMap(rows, selector, rules, code) {
   return selected;
 }
 
+function reviewedEventTypeRules(config) {
+  const decision = config?.source?.dictionaryPackages?.employment_event_type;
+  const verified = verifyT1EventTypeDecision(decision);
+  if (verified.sourceSnapshotSha256 !== config.triple?.sourceSnapshotHash) fail("CORE_T1_EVENT_TYPE_SOURCE_DRIFT");
+  return new Map(decision.decisions.map(row => [row.sourceValue, { decision: row.decision, target: row.targetValue, reason: row.reasonCode }]));
+}
+
 function item({ sourceCode = null, sourceName = null, sourceValue = null, sourceTable, sourceKey, targetDomain, targetValue, decision = "map", reasonCode }) {
   const sourceIdentitySha256 = hash(`${sourceTable}\u0000${sourceKey}`);
   return { id: randomUUID(), sourceCode, sourceName, sourceValue, sourceIdentitySha256,
@@ -55,6 +57,7 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
   if (!config?.triple || !SHA256.test(config?.machineAttestation?.trustedRootSha256 ?? "") || !/^jinhu_hr_migration_lab_core_[a-z0-9_]{6,40}$/u.test(config?.target?.database ?? "")) fail("CORE_DICTIONARY_CONFIG_INVALID");
   const t1Types = privateJson(paths.t1Types), t1States = privateJson(paths.t1States), t2Types = jsonLines(paths.t2Types), t2States = privateJson(paths.t2States);
   if (!Array.isArray(t1Types.value) || !Array.isArray(t1States.value) || !Array.isArray(t2States.value)) fail("CORE_DICTIONARY_SOURCE_INVALID");
+  const eventTypeRules = reviewedEventTypeRules(config);
   requiredMap(t1Types.value, row => String(row.legacyType ?? "").trim(), eventTypeRules, "CORE_T1_EVENT_TYPE_SET_DRIFT");
   requiredMap(t1States.value, row => String(row.sourceValue ?? "").trim(), eventStateTargets, "CORE_T1_EVENT_STATE_SET_DRIFT");
   requiredMap(t2Types.value, row => String(row.source?.typeCode ?? "").trim(), contractTypeTargets, "CORE_T2_CONTRACT_TYPE_SET_DRIFT");
