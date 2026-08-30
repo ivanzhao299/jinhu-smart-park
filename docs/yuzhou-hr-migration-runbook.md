@@ -238,6 +238,12 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 需要把已验证的 core 映射交给后续隔离切片时，runner 可使用 `--stop-after rollback_ready` 写出 `CHECKPOINT_READY` 并保留本 run 的资源；只允许 `review_hold`、`rollback_ready` 或 `cleaned` 三个检查点。后续切片完成后必须从同一 config 恢复反序 rollback 与 cleanup，不能把 checkpoint 当作生产导入授权。
 
+### 8.0.1a 轻量优先数据切片
+
+受控实际落地顺序由 `scripts/hr-cutover/contracts/lightweight-first-slice-order-v1.json` 冻结为 `T0→T1→T2→T5_NONFILE→T3→T4`，反序回滚为 `T4→T3→T5_NONFILE→T2→T1→T0`。这与最终全域 T0→T5 A/B 合同并存：前者约束分批开发与隔离装载的成本顺序，后者只在全部域都已准备好时做完整性复核。
+
+`T5_NONFILE` 仅覆盖员工档案、家庭关系、技能和证照的非文件投影，必须先命中 T0 的稳定员工映射；任何照片、文档、旧路径或文件对象都属于独立 `T5_FILE`，保持 `HOLD`。工资 `T4` 必须是最后一个数据写入切片，不能因已有抽取、schema 或测试而提前装载。每一切片仍须完成受控源绑定、守恒、保护表前后哈希、精确回滚、零残留和同内容重装后，才可推进下一切片；生产历史导入始终为 `HOLD`。
+
 在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
 
 ```sh

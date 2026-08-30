@@ -1,0 +1,65 @@
+{
+  "formatVersion": 1,
+  "contractKind": "yuzhou_hr_lightweight_first_slice_order",
+  "executionStatus": "SPEC_FROZEN",
+  "productionImport": "HOLD",
+  "sourceBinding": {
+    "sourceSystem": "yuzhou_hr_v10",
+    "requiresControlledBackup": true,
+    "requiresReadOnlySource": true
+  },
+  "orderedSlices": [
+    {
+      "id": "T0",
+      "scope": "organization_position_employee_master_data",
+      "dependsOn": [],
+      "mustFinishBefore": ["T1", "T2", "T5_NONFILE", "T3", "T4"]
+    },
+    {
+      "id": "T1",
+      "scope": "employment_event_history",
+      "dependsOn": ["T0"],
+      "mustFinishBefore": ["T2", "T5_NONFILE", "T3", "T4"]
+    },
+    {
+      "id": "T2",
+      "scope": "contract_and_contract_change_history",
+      "dependsOn": ["T0", "T1"],
+      "mustFinishBefore": ["T5_NONFILE", "T3", "T4"]
+    },
+    {
+      "id": "T5_NONFILE",
+      "scope": "employee_profile_family_skill_credential_without_files",
+      "dependsOn": ["T0", "T1", "T2"],
+      "mustFinishBefore": ["T3", "T4"],
+      "fileEvidence": "prohibited"
+    },
+    {
+      "id": "T3",
+      "scope": "attendance_insurance_and_request_facts",
+      "dependsOn": ["T0", "T1", "T2", "T5_NONFILE"],
+      "mustFinishBefore": ["T4"]
+    },
+    {
+      "id": "T4",
+      "scope": "payroll_history_and_reconciliation",
+      "dependsOn": ["T0", "T1", "T2", "T5_NONFILE", "T3"],
+      "mustFinishBefore": [],
+      "mustBeLastDataWriteSlice": true,
+      "productionImport": "HOLD"
+    }
+  ],
+  "rollbackOrder": ["T4", "T3", "T5_NONFILE", "T2", "T1", "T0"],
+  "separateHolds": {
+    "T5_FILE": {
+      "scope": "photos_and_attachments",
+      "status": "HOLD",
+      "requiresSeparateAuthorization": true,
+      "notPartOfOrderedDataWrites": true
+    },
+    "productionHistoricalImport": {
+      "status": "HOLD",
+      "requiresOneTimeAuthorization": true
+    }
+  }
+}
