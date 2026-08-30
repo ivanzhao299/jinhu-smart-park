@@ -5,7 +5,7 @@ import { chmodSync, linkSync, mkdirSync, mkdtempSync, readFileSync, realpathSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
+import { assertCleanupEvidence, assertP0Summary, assertTechnicalUatTargetIdentity, runFinalPair, runFinalPairExtract, validateMachineArtifactSources, validateMachineResumeCheckpoint, validateMachineTrustRoots, validatePairContract, validatePairResourceIsolation, validateRuntimeVacancy } from "../hr-cutover/final-rehearsal-pair.mjs";
 
 const root=resolve(import.meta.dirname,"../.."),read=path=>readFileSync(resolve(root,path),"utf8");
 const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pair-v1.json"));
@@ -106,4 +106,15 @@ test("lab pair exposes a durable A/B review-hold checkpoint before any resume",(
   const evidence=config=>checkpoint.runs.find(row=>row.rehearsal===config.rehearsal);assert.equal(validateMachineResumeCheckpoint(checkpoint,configs,{checkpointEvidence:evidence}).status,"PASS");
   assert.throws(()=>validateMachineResumeCheckpoint({...checkpoint,formatVersion:1},configs,{checkpointEvidence:evidence}),error=>error.code==="FINAL_PAIR_CHECKPOINT_INVALID"&&/rollback or cleanup/u.test(error.message));
   const drift=structuredClone(checkpoint);drift.runs[0].trustedRootSha256="9".repeat(64);assert.throws(()=>validateMachineResumeCheckpoint(drift,configs,{checkpointEvidence:evidence}),error=>error.code==="FINAL_PAIR_CHECKPOINT_INVALID");
+});
+
+test("machine resume roots bind decision roots and v2 attestation trusted root",()=>{
+  const sandbox=mkdtempSync(join(tmpdir(),"yuzhou-final-root-"));
+  try{
+    const machines={},configs=[];
+    for(const rehearsal of ["A","B"]){const trustedRoot=(rehearsal==="A"?"1":"2").repeat(64),decision=join(sandbox,`${rehearsal}-decision.json`),payload=join(sandbox,`${rehearsal}-payload.json`),attestation=join(sandbox,`${rehearsal}-attestation.json`);writeFileSync(decision,JSON.stringify({expectedCheckpointRootSha256:trustedRoot,checkpointRootSha256:trustedRoot}),{mode:0o600});writeFileSync(payload,"{}",{mode:0o600});writeFileSync(attestation,JSON.stringify({trustedCheckpointRootSha256:trustedRoot}),{mode:0o600});machines[rehearsal]={decision,payload,machineAttestation:attestation};configs.push({rehearsal,machineAttestation:{trustedRootSha256:trustedRoot}});}
+    assert.doesNotThrow(()=>validateMachineTrustRoots(machines,configs));
+    writeFileSync(machines.A.machineAttestation,JSON.stringify({trustedCheckpointRootSha256:"9".repeat(64)}));
+    assert.throws(()=>validateMachineTrustRoots(machines,configs),error=>error.code==="FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH");
+  }finally{rmSync(sandbox,{recursive:true,force:true});}
 });

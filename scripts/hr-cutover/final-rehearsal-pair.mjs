@@ -264,6 +264,14 @@ export function validateMachineArtifactSources(machineByRehearsal,configs,{summa
   return{status:"PASS",artifactCount:6,reviewRoots:2,productionImport:"HOLD"};
 }
 
+export function validateMachineTrustRoots(machineByRehearsal,configs){
+  for(const config of configs){
+    const machine=machineByRehearsal[config.rehearsal],trustedRoot=config.machineAttestation?.trustedRootSha256;
+    const decision=JSON.parse(readFileSync(machine.decision,"utf8")),attestation=JSON.parse(readFileSync(machine.machineAttestation,"utf8"));
+    if(decision.expectedCheckpointRootSha256!==trustedRoot||decision.checkpointRootSha256!==trustedRoot||attestation.trustedCheckpointRootSha256!==trustedRoot)fail("FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH",config.rehearsal);
+  }
+}
+
 if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.url)){
   try{
     const args=parse(process.argv.slice(2)),contractPath=realpathSync(resolve(args.contract??DEFAULT_PAIR_CONTRACT)),contract=JSON.parse(readFileSync(contractPath,"utf8"));
@@ -282,7 +290,7 @@ if(process.argv[1]&&realpathSync(process.argv[1])===fileURLToPath(import.meta.ur
     const machineByRehearsal={A:{decision:args.decisionA,payload:args.payloadA,machineAttestation:args.machineAttestationA},B:{decision:args.decisionB,payload:args.payloadB,machineAttestation:args.machineAttestationB}};
     if(Object.values(machineByRehearsal).some(machine=>!machine.decision||!machine.payload||!machine.machineAttestation))fail("FINAL_PAIR_MACHINE_ATTESTATION_REQUIRED","six A/B machine artifacts required before resume");
     validateMachineArtifactSources(machineByRehearsal,configs,{summaryPath:summaryResolved});
-    for(const config of configs){const machine=machineByRehearsal[config.rehearsal],attestation=JSON.parse(readFileSync(machine.machineAttestation,"utf8"));if(attestation.expectedCheckpointRootSha256!==config.machineAttestation.trustedRootSha256||attestation.checkpointRootSha256!==config.machineAttestation.trustedRootSha256)fail("FINAL_PAIR_MACHINE_TRUST_ROOT_MISMATCH",config.rehearsal);}
+    validateMachineTrustRoots(machineByRehearsal,configs);
     const result=runFinalPair(configs[0],configs[1],contract,{resumeOnly:true,machineArtifacts:config=>machineByRehearsal[config.rehearsal]});privateJson(summary,result);process.stdout.write(`${JSON.stringify({status:result.status,summary,productionImport:"HOLD"})}\n`);
   }catch(error){process.stderr.write(`${error.code??"FINAL_PAIR_FAILED"}: ${error.message.replace(/^.*?: /u,"")}\n`);process.exitCode=1;}
 }
