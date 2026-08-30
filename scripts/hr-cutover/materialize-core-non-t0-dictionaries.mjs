@@ -68,7 +68,7 @@ export function buildCoreNonT0DictionaryPackage(config, paths) {
   const actorId = randomUUID(), verifiedAt = new Date().toISOString().replace(/\.\d{3}Z$/u, "Z");
   const dictionaries = [
     { dictionaryCode: "employment_event_type", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_type", source: evidence.t1Types }),
-      items: t1Types.value.map(row => { const name = String(row.sourceValue).trim(), rule = eventTypeRules.get(name); return item({ sourceName: name, sourceTable: "dbo.readjust.readjusttype", sourceKey: name, targetDomain: "employment_event_type", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
+      items: t1Types.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventTypeRules.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.readjusttype", sourceKey: value, targetDomain: "employment_event_type", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "employment_event_state", sourceTable: "dbo.readjust", sourceSnapshotSha256: canonicalHash({ kind: "employment_event_state", source: evidence.t1States }),
       items: t1States.value.map(row => { const value = String(row.sourceValue).trim(), rule = eventStateTargets.get(value); return item({ sourceValue: value, sourceTable: "dbo.readjust.state", sourceKey: value, targetDomain: "migration_decision", targetValue: rule.target, decision: rule.decision, reasonCode: rule.reason }); }) },
     { dictionaryCode: "contract_type", sourceTable: "dbo.compacttypecode", sourceSnapshotSha256: canonicalHash({ kind: "contract_type", source: evidence.t2Types }),

@@ -31,6 +31,8 @@ assert.match(t2,/approved contract dictionary SHA-256 is required/);
 assert.doesNotMatch(t2,/normalizedStatus|legacyState===|THEN\s*'active'[\s\S]*THEN\s*'terminated'/);
 assert.match(coreNonT0,/verifyT1EventTypeDecision/);
 assert.match(coreNonT0,/row => String\(row\.sourceValue \?\? ""\)\.trim\(\)/);
+assert.match(coreNonT0,/dictionaryCode: "employment_event_type"[\s\S]*item\(\{ sourceValue: value, sourceTable: "dbo\.readjust\.readjusttype"/);
+assert.doesNotMatch(coreNonT0,/dictionaryCode: "employment_event_type"[\s\S]*item\(\{ sourceName:/);
 assert.doesNotMatch(coreNonT0,/row\.legacyType/);
 
 console.log("Yuzhou dictionary materialization contract passed.");
