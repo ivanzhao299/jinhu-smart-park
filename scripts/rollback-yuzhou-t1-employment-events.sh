@@ -17,12 +17,16 @@ SET LOCAL lock_timeout='10s';
 SET LOCAL statement_timeout='5min';
 SELECT set_config('yuzhou.run_id',:'run_id',true);
 SELECT set_config('yuzhou.target_database',:'target_database',true);
-DO $$ DECLARE batch_uuid uuid; mapped_count bigint; BEGIN
+DO $$ DECLARE batch_uuid uuid; mapped_count bigint; quarantined_without_target_write_count bigint; BEGIN
  IF current_database()<>current_setting('yuzhou.target_database') OR current_database() !~ '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION 'unsafe migration target'; END IF;
  SELECT id INTO batch_uuid FROM migration_batch WHERE run_id=current_setting('yuzhou.run_id') AND status='succeeded' FOR UPDATE;
  IF batch_uuid IS NULL THEN RAISE EXCEPTION 'succeeded migration batch not found'; END IF;
  SELECT count(*) INTO mapped_count FROM legacy_record_map WHERE batch_id=batch_uuid AND target_table='hr_employment_event' AND is_active;
- IF mapped_count=0 THEN RAISE EXCEPTION 'no active T1 event mappings found'; END IF;
+ IF mapped_count=0 THEN
+   SELECT count(*) INTO quarantined_without_target_write_count FROM migration_batch_item
+    WHERE batch_id=batch_uuid AND domain='employment_event' AND status='quarantined' AND loaded_count=0;
+   IF quarantined_without_target_write_count<>1 THEN RAISE EXCEPTION 'no active T1 event mappings found'; END IF;
+ END IF;
 END $$;
 WITH target AS (SELECT m.target_id FROM legacy_record_map m JOIN migration_batch b ON b.id=m.batch_id WHERE b.run_id=:'run_id' AND m.target_table='hr_employment_event' AND m.is_active)
 DELETE FROM hr_employment_event e USING target t WHERE e.id=t.target_id;

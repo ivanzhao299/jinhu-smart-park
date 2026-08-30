@@ -281,6 +281,18 @@ test("recovery cleanup or residual failure remains fail closed", () => {
   assert.throws(() => residual.lifecycle.recover(), /CORE_RESIDUAL_NONZERO/u);
 });
 
+test("recovery is replay-safe after a prior recovery attempt", () => {
+  const journalPath = join(configB.target.credentialRoot, "core-recovery-lifecycle.jsonl");
+  const journal = new CoreT0T3FileJournal(journalPath, configB);
+  const first = harness(configB, { failOnce: "load:T1", cleanupFails: true, journal });
+  first.lifecycle.provision(); first.lifecycle.extract();
+  assert.throws(() => first.lifecycle.resume(machinePackageB), /injected crash/u);
+  assert.throws(() => first.lifecycle.recover(), /CORE_CLEANUP_FAILED/u);
+  const second = harness(configB, { journal });
+  assert.equal(second.lifecycle.state, "recovery");
+  assert.equal(second.lifecycle.recover().state, "cleaned");
+});
+
 test("contract-only pair entry reads six independent 0600 machine artifacts without claiming real execution readiness", async () => {
   const control = join(root, "runner-control"); mkdirSync(control, { mode: 0o700 }); chmodSync(control, 0o700);
   const paths = {};

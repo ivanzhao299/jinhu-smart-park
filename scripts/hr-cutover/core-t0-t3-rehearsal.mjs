@@ -401,8 +401,10 @@ export class CoreT0T3Lifecycle {
   }
   recover() {
     if (this.state === "cleaned") return { state: "cleaned", residualCount: 0, residualClasses: CORE_RESIDUAL_CLASSES.length, productionImport: "HOLD" };
-    this.state = "recovery";
-    this.#event("state", { state: "recovery" });
+    if (this.state !== "recovery") {
+      this.state = "recovery";
+      this.#event("state", { state: "recovery" });
+    }
     for (const domain of CORE_ROLLBACK_ORDER) if (this.completed.has(`load:${domain}`)) this.#phase(domain, "rollback");
     return this.cleanup();
   }

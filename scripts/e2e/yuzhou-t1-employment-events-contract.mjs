@@ -41,5 +41,6 @@ assert.doesNotMatch(extract, /SELECT readjustitem AS legacyType/);
 assert.match(load, /BEGIN;[\s\S]*COMMIT;/);
 assert.doesNotMatch(load, /password|bank_account|idcard/i);
 assert.match(rollback, /target_table='hr_employment_event'/);
+assert.match(rollback, /status='quarantined' AND loaded_count=0/);
 assert.doesNotMatch(rollback, /DELETE FROM hr_employee\b/);
 console.log("Yuzhou T1 employment event contract passed.");
