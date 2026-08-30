@@ -50,7 +50,7 @@ function parseEnv(path) {
 }
 
 export function parseCorePrepareArgs(argv) {
-  const args = {}, allowed = new Set(["--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--source-container", "--source-backup", "--source-restore-receipt", "--machine-attestation-root", "--event-type-package", "--event-state-package", "--contract-type-package", "--contract-state-package", "--dictionary-capture-receipt"]);
+  const args = {}, allowed = new Set(["--profile", "--rehearsal", "--suffix", "--postgres-port", "--api-port", "--web-port", "--control-root", "--etl-env", "--source-container", "--source-backup", "--source-restore-receipt", "--machine-attestation-root", "--event-type-package", "--event-state-package", "--contract-type-package", "--contract-state-package", "--dictionary-capture-receipt"]);
   const input = argv[0] === "--" ? argv.slice(1) : argv;
   for (let index = 0; index < input.length; index += 1) {
     const key = input[index];
@@ -59,7 +59,9 @@ export function parseCorePrepareArgs(argv) {
     if (Object.hasOwn(args, name)) fail("CORE_PREPARE_ARGUMENT_INVALID", key);
     args[name] = input[++index];
   }
+  args.profile ??= "core_t0_t3";
   for (const key of ["rehearsal", "suffix", "postgresPort", "apiPort", "webPort", "controlRoot", "etlEnv", "sourceContainer", "sourceBackup", "sourceRestoreReceipt", "machineAttestationRoot", "eventTypePackage", "eventStatePackage", "contractTypePackage", "contractStatePackage", "dictionaryCaptureReceipt"]) if (!args[key]) fail("CORE_PREPARE_ARGUMENT_MISSING", key);
+  if (!["core_t0_t2", "core_t0_t3"].includes(args.profile)) fail("CORE_PREPARE_ARGUMENT_INVALID", "profile");
   if (!["A", "B"].includes(args.rehearsal)) fail("CORE_PREPARE_ARGUMENT_INVALID", "rehearsal");
   if (!/^[a-z0-9_]{6,36}$/u.test(args.suffix)) fail("CORE_PREPARE_ARGUMENT_INVALID", "suffix");
   if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/u.test(args.sourceContainer)) fail("CORE_PREPARE_ARGUMENT_INVALID", "source container");
@@ -73,7 +75,7 @@ export function parseCorePrepareArgs(argv) {
 }
 
 export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = computeCoreT0T3MappingContractHash() }) {
-  const args = { ...argsInput, controlRoot: resolve(argsInput.controlRoot) };
+  const args = { ...argsInput, profile: argsInput.profile ?? "core_t0_t3", controlRoot: resolve(argsInput.controlRoot) };
   let controlLink, controlInfo;
   try { controlLink = lstatSync(args.controlRoot); controlInfo = statSync(realpathSync(args.controlRoot)); }
   catch { fail("CORE_PREPARE_CONTROL_ROOT_INVALID", "0700 control root must already exist"); }
@@ -113,7 +115,7 @@ export function prepareCoreConfig(argsInput, { codeSha, mappingContractHash = co
   privateWrite(join(credentialRoot, "postgres.env"), `POSTGRES_USER=jinhu\nPOSTGRES_PASSWORD=${randomBytes(32).toString("hex")}\nPOSTGRES_DB=${project}\n`);
   const timestamp = new Date().toISOString().replaceAll(/[-:]/gu, "").replace(/\.\d{3}Z$/u, "Z");
   const config = {
-    formatVersion: 1, profile: "core_t0_t3", runId: `yzcore-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`, rehearsal: args.rehearsal,
+    formatVersion: 1, profile: args.profile, runId: `yzcore-${timestamp}-${codeSha.slice(0, 8)}-r${args.rehearsal}`, rehearsal: args.rehearsal,
     triple: { codeSha, sourceSnapshotHash, mappingContractHash },
     source: { readOnly: true, sourceBackupSha256: sourceSnapshotHash, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256, databaseAlias: etl.YUZHOU_SQLSERVER_DATABASE, etlEnvFile: etlCopy, sourceContainer: args.sourceContainer, dictionaryPackages, dictionaryCaptureReceipt },
     machineAttestation: { checkpointVersion: 2, trustedRootSha256: args.machineAttestationRoot },

@@ -9,6 +9,7 @@ import {
   CORE_RESIDUAL_CLASSES,
   CoreT0T3FileJournal,
   CoreT0T3Lifecycle,
+  coreProfile,
   compareCoreT0T3Facts,
   runCoreT0T3Pair,
   sealCoreT0T3Facts,
@@ -56,14 +57,14 @@ const sourceRestoreReceipt = sealSourceRestoreReceipt({
 writeFileSync(sourceRestoreReceiptPath, `${JSON.stringify(sourceRestoreReceipt, null, 2)}\n`, { mode: 0o600 }); chmodSync(sourceRestoreReceiptPath, 0o600);
 const sourceRestoreReceiptSha256 = digest(readFileSync(sourceRestoreReceiptPath));
 const project = suffix => `jinhu_hr_migration_lab_core_${suffix}`;
-const config = (rehearsal, suffix, basePort) => {
+const config = (rehearsal, suffix, basePort, profile = "core_t0_t3") => {
   const database = project(suffix), runtimeRoot = join(root, database, "runtime"), credentialRoot = join(root, database, "credentials");
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 }); chmodSync(credentialRoot, 0o700);
   const etlEnvFile = join(credentialRoot, "etl.env");
   writeFileSync(etlEnvFile, "YUZHOU_SQLSERVER_DATABASE=YuzhouHR_Lab_fixture01\n", { flag: "wx", mode: 0o600 }); chmodSync(etlEnvFile, 0o600);
   return {
     formatVersion: 1,
-    profile: "core_t0_t3",
+    profile,
     runId: `yzcore-20260829T000000Z-${triple.codeSha.slice(0, 8)}-r${rehearsal}`,
     rehearsal,
     triple,
@@ -106,11 +107,11 @@ const pairedMachinePackage = (base, label, offset, trustedRootSha256) => ({ ...b
 
 const factsFor = current => sealCoreT0T3Facts({
   formatVersion: 1,
-  profile: "core_t0_t3",
+  profile: current.profile,
   runId: current.runId,
   rehearsal: current.rehearsal,
   triple: current.triple,
-  domains: CORE_DOMAIN_ORDER.map((domain, index) => ({
+  domains: coreProfile(current.profile).domainOrder.map((domain, index) => ({
     domain,
     source: 10 + index,
     loaded: 8 + index,
@@ -177,6 +178,16 @@ test("lifecycle is a fixed T0-T3 prefix, v2 machine gate, T3-T0 rollback and 13-
   assert.equal(calls.filter(value => value === "machine:T0").length, 1);
   assert.deepEqual(cleanup, { state: "cleaned", residualCount: 0, residualClasses: 13, productionImport: "HOLD" });
   assert.equal(lifecycle.events.some(row => /T4|T5/u.test(JSON.stringify(row))), false);
+});
+
+test("T0-T2 prefix excludes T3 from extract, load, facts and rollback", () => {
+  const prefix = config("A", "prefix01", 32300, "core_t0_t2");
+  const { lifecycle, calls } = harness(prefix);
+  lifecycle.provision(); lifecycle.extract(); lifecycle.resume(machinePackage); lifecycle.rollback(); lifecycle.cleanup();
+  assert.deepEqual(calls.filter(value => value.startsWith("extract:")), ["T0", "T1", "T2"].map(domain => `extract:${domain}`));
+  assert.deepEqual(calls.filter(value => value.startsWith("load:")), ["T0", "T1", "T2"].map(domain => `load:${domain}`));
+  assert.deepEqual(calls.filter(value => value.startsWith("rollback:")), ["T2", "T1", "T0"].map(domain => `rollback:${domain}`));
+  assert.equal(JSON.stringify(lifecycle.facts).includes('"T3"'), false);
 });
 
 test("crash replay resumes without repeating verified phases or machine materialization", () => {

@@ -134,6 +134,12 @@ test("prepare emits an exact core driver config with a deterministic named netwo
   assert.deepEqual(retained, retainedCoreT0T3Binding(prepared.config));
   assert.equal(JSON.stringify(retained).match(/password|etlEnvFile/iu), null);
   assert.equal(validateCoreT0T3Config(prepared.config).profile, "core_t0_t3");
+  const prefix = prepareCoreConfig({
+    rehearsal: "B", profile: "core_t0_t2", suffix: "prefix01", postgresPort: 33103, apiPort: 33104, webPort: 33105,
+    controlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "b".repeat(64), ...packages
+  }, { codeSha: "2".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
+  assert.equal(validateCoreT0T3Config(prefix.config).profile, "core_t0_t2");
   const legacyShape = structuredClone(prepared.config);
   legacyShape.source = { readOnly: true, sourceBackupSha256: legacyShape.triple.sourceSnapshotHash };
   assert.throws(() => validateCoreT0T3Config(legacyShape), /CORE_SOURCE_INVALID/u);

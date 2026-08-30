@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   CORE_DOMAIN_ORDER, CORE_RESIDUAL_CLASSES, CoreT0T3Error, CoreT0T3FileJournal,
-  sealCoreT0T3Facts, validateCoreT0T3Config
+  coreProfile, sealCoreT0T3Facts, validateCoreT0T3Config
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "../materialize-core-non-t0-dictionaries.mjs";
@@ -18,8 +18,10 @@ import { verifyCoreDictionaryCaptureBinding } from "../verify-yuzhou-core-dictio
 const ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const FULL_CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
 const DRIVER_CONTRACT_PATHS = Object.freeze([
+  "scripts/hr-cutover/contracts/core-t0-t2-rehearsal-v1.json",
   "scripts/hr-cutover/contracts/core-t0-t3-rehearsal-v1.json",
   "scripts/hr-cutover/core-t0-t3-rehearsal.mjs",
+  "scripts/hr-cutover/verify-core-t0-t2-rehearsal-contract.mjs",
   "scripts/hr-cutover/prepare-core-t0-t3-rehearsal.mjs",
   "scripts/hr-cutover/core-drivers/postgres-lab-v1.mjs",
   "scripts/hr-cutover/source-restore-receipt.mjs",
@@ -144,7 +146,7 @@ function assertCoreDictionaryPreflight(config) {
 }
 
 function stagingDirectory(config, domain) {
-  return join(config.target.stagingRoot, `staging-${config.runId}-t${CORE_DOMAIN_ORDER.indexOf(domain)}`);
+  return join(config.target.stagingRoot, `staging-${config.runId}-t${coreProfile(config.profile).domainOrder.indexOf(domain)}`);
 }
 
 function verifiedManifestBindings(config, domain) {
@@ -165,7 +167,7 @@ function verifiedManifestBindings(config, domain) {
 }
 
 function phaseEnvironment(config, domain, phase, state) {
-  const childRunId = `${config.runId}-t${CORE_DOMAIN_ORDER.indexOf(domain)}`;
+  const childRunId = `${config.runId}-t${coreProfile(config.profile).domainOrder.indexOf(domain)}`;
   const env = Object.fromEntries(["PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "DOCKER_HOST", "COLIMA_HOME"].flatMap(key => process.env[key] === undefined ? [] : [[key, process.env[key]]]));
   Object.assign(env, {
     ALLOW_YUZHOU_MIGRATION: "yes", YUZHOU_MIGRATION_RUN_ID: childRunId,
@@ -284,7 +286,7 @@ function resolveNonT0DictionaryShas(config, run) {
 }
 
 function coreDomainFacts(config, run, domain, tables) {
-  const childRun = `${config.runId}-t${CORE_DOMAIN_ORDER.indexOf(domain)}`;
+  const childRun = `${config.runId}-t${coreProfile(config.profile).domainOrder.indexOf(domain)}`;
   // Target UUID relationships and audit fields are independently generated in
   // A/B.  Source-row hashes retain the legacy relation semantics; the target
   // projection verifies all stable business scalars without run-local IDs.
@@ -304,8 +306,8 @@ function materializeFacts(config, run, p) {
     T2: [{ table: "hr_contract_type", key: "id" }, { table: "hr_contract", key: "id" }, { table: "hr_contract_change", key: "id" }],
     T3: [{ table: "hr_attendance_calendar_source", key: "id" }, { table: "hr_insurance_policy", key: "id" }, { table: "hr_employee_insurance_period", key: "id" }]
   };
-  const domains = CORE_DOMAIN_ORDER.map(domain => ({ domain, ...coreDomainFacts(config, run, domain, tableSets[domain]) }));
-  const facts = sealCoreT0T3Facts({ formatVersion: 1, profile: "core_t0_t3", runId: config.runId, rehearsal: config.rehearsal, triple: config.triple, domains, sideEffectViolationCount: 0, productionImport: "HOLD" });
+  const domains = coreProfile(config.profile).domainOrder.map(domain => ({ domain, ...coreDomainFacts(config, run, domain, tableSets[domain]) }));
+  const facts = sealCoreT0T3Facts({ formatVersion: 1, profile: config.profile, runId: config.runId, rehearsal: config.rehearsal, triple: config.triple, domains, sideEffectViolationCount: 0, productionImport: "HOLD" });
   privateWrite(p.facts, facts);
   return facts;
 }
@@ -333,7 +335,19 @@ function cleanupResources(config, run, p, { recovery = false } = {}) {
       if (!recovery) fail("CORE_PRECLEANUP_PROBE_FAILED", "migration control schema is missing");
       result = { activeBusinessRows: 0, activeControlRows: 0, recoveryBeforeSchemaReady: true };
     } else {
-      result = queryJson(config, run, `WITH batches AS (SELECT id FROM migration_batch WHERE run_id IN ('${config.runId}-t0','${config.runId}-t1','${config.runId}-t2','${config.runId}-t3')), maps AS (SELECT m.* FROM legacy_record_map m JOIN batches b ON b.id=m.batch_id), residual AS (SELECT count(*) n FROM sys_org x JOIN maps m ON m.target_table='sys_org' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_position x JOIN maps m ON m.target_table='hr_position' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_employee x JOIN maps m ON m.target_table='hr_employee' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_employment_event x JOIN maps m ON m.target_table='hr_employment_event' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_contract_type x JOIN maps m ON m.target_table='hr_contract_type' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_contract x JOIN maps m ON m.target_table='hr_contract' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_contract_change x JOIN maps m ON m.target_table='hr_contract_change' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_attendance_calendar_source x JOIN maps m ON m.target_table='hr_attendance_calendar_source' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_insurance_policy x JOIN maps m ON m.target_table='hr_insurance_policy' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_employee_insurance_period x JOIN maps m ON m.target_table='hr_employee_insurance_period' AND m.target_id=x.id UNION ALL SELECT count(*) FROM hr_attendance_import_batch WHERE batch_code='${config.runId}-t3' UNION ALL SELECT count(*) FROM hr_attendance_symbol_rule WHERE remark='Yuzhou T3 rule') SELECT json_build_object('activeBusinessRows',(SELECT COALESCE(sum(n),0) FROM residual),'activeControlRows',(SELECT count(*) FROM migration_batch WHERE run_id IN ('${config.runId}-t0','${config.runId}-t1','${config.runId}-t2','${config.runId}-t3') AND status NOT IN ('rolled_back','failed')))::text;`, "CORE_PRECLEANUP_PROBE_FAILED");
+      const domainOrder = coreProfile(config.profile).domainOrder;
+      const childRuns = domainOrder.map((domain, index) => `'${config.runId}-t${index}'`).join(",");
+      const residualChecks = [
+        "SELECT count(*) n FROM sys_org x JOIN maps m ON m.target_table='sys_org' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_position x JOIN maps m ON m.target_table='hr_position' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_employee x JOIN maps m ON m.target_table='hr_employee' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_employment_event x JOIN maps m ON m.target_table='hr_employment_event' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_contract_type x JOIN maps m ON m.target_table='hr_contract_type' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_contract x JOIN maps m ON m.target_table='hr_contract' AND m.target_id=x.id",
+        "SELECT count(*) FROM hr_contract_change x JOIN maps m ON m.target_table='hr_contract_change' AND m.target_id=x.id",
+        ...(domainOrder.includes("T3") ? ["SELECT count(*) FROM hr_attendance_calendar_source x JOIN maps m ON m.target_table='hr_attendance_calendar_source' AND m.target_id=x.id", "SELECT count(*) FROM hr_insurance_policy x JOIN maps m ON m.target_table='hr_insurance_policy' AND m.target_id=x.id", "SELECT count(*) FROM hr_employee_insurance_period x JOIN maps m ON m.target_table='hr_employee_insurance_period' AND m.target_id=x.id", `SELECT count(*) FROM hr_attendance_import_batch WHERE batch_code='${config.runId}-t3'`, "SELECT count(*) FROM hr_attendance_symbol_rule WHERE remark='Yuzhou T3 rule'"] : [])
+      ].join(" UNION ALL ");
+      result = queryJson(config, run, `WITH batches AS (SELECT id FROM migration_batch WHERE run_id IN (${childRuns})), maps AS (SELECT m.* FROM legacy_record_map m JOIN batches b ON b.id=m.batch_id), residual AS (${residualChecks}) SELECT json_build_object('activeBusinessRows',(SELECT COALESCE(sum(n),0) FROM residual),'activeControlRows',(SELECT count(*) FROM migration_batch WHERE run_id IN (${childRuns}) AND status NOT IN ('rolled_back','failed')))::text;`, "CORE_PRECLEANUP_PROBE_FAILED");
     }
     activeRows = Number(result.activeBusinessRows) + Number(result.activeControlRows);
     privateWrite(p.preCleanup, result, { replace: existsSync(p.preCleanup) });
@@ -374,7 +388,7 @@ export async function createCoreT0T3Adapters(configInput, { commandRunner = defa
     journal,
     provisionResources: () => provision(config, commandRunner, p, receiptProbe),
     executePhase: ({ domain, phase }) => {
-      if (!CORE_DOMAIN_ORDER.includes(domain) || !["extract", "load", "rollback"].includes(phase)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", `${domain}.${phase}`);
+      if (!coreProfile(config.profile).domainOrder.includes(domain) || !["extract", "load", "rollback"].includes(phase)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", `${domain}.${phase}`);
       if (phase === "extract") assertSourceRestoreBinding(config, receiptProbe);
       if (["load", "rollback"].includes(phase)) assertRuntimeBoundary(config, commandRunner);
       if (domain === "T0" && phase === "load" && !state.t0DictionarySha256) state.t0DictionarySha256 = resolveT0DictionarySha(config, commandRunner);
