@@ -183,7 +183,7 @@ planned → provisioned → extracting → review_hold → loading → verifying
 命令入口为：
 
 ```sh
-pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --materialization-key '<0600实验室物化密钥文件>'
+pnpm hr:migration:full:prepare -- --rehearsal A --suffix '<本轮唯一后缀>' --postgres-port '<端口>' --api-port '<端口>' --web-port '<端口>' --control-root '<0700受控根目录>' --etl-env '<0600只读ETL文件>' --t4-evidence '<固定T4证据>' --source-container '<只读源容器>' --source-backup '<与证据哈希一致的只读源备份>' --source-restore-receipt '<0600密封源恢复回执>' --materialization-key '<0600实验室物化密钥文件>'
 pnpm hr:migration:full:provision -- --config '<受控配置.json>'
 pnpm hr:migration:full:run -- --config '<受控配置.json>'
 pnpm hr:migration:full:rollback -- --config '<受控配置.json>'
@@ -192,7 +192,7 @@ pnpm hr:migration:full:cleanup -- --config '<受控配置.json>' --recover
 pnpm hr:migration:full:status -- --config '<受控配置.json>'
 ```
 
-`prepare` 只在干净且 SHA 已固定的候选工作树运行。它为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
+`prepare` 只在干净且 SHA 已固定的候选工作树运行。它先验证备份、T4 证据、密封源恢复回执与只读 ETL 数据库别名，再为本轮生成唯一 Compose/DB/volume/ports/account namespace，复制只读 ETL 与 T4 证据为 `0600` 工件，并生成随机 PostgreSQL 实验凭据；命令输出只包含配置路径、project、run id 和 `productionImport=HOLD`，不得输出凭据内容。T5 只能使用 [canonical A/B 基线合同](../scripts/hr-cutover/contracts/yuzhou-t5-canonical-baseline-v1.json) 中与当前源快照和恢复回执一致的业务哈希。A/B 必须分别执行 prepare，之后由 isolation verifier 证明资源完全不同而 C/S/M 完全相同。
 
 两阶段执行命令如下。三份机器复核文件必须是外部 `0600` 非符号链接普通文件：v2 `MACHINE_CANDIDATE` decision 只保存哈希与机器规则结论，真实源状态和值只允许存在于私有 payload，machine attestation 绑定受信任根且不得由运行时使用输入文件自算根。T0 同时抽取人员中实际使用的状态计数、`jobstatecode` 列元数据和完整字典行；状态名称、启用标志、顺序及默认标志都进入只读源 hash，禁止只凭代码或转换器默认分支猜测语义。三件套必须共同绑定当前 `runId`、A/B 标识、C/S/M、T0 manifest、三份 T0 字典证据文件 hash 和预期 PostgreSQL items digest：
 
