@@ -470,6 +470,58 @@ CREATE INDEX ON hr_employee_insurance_item(period_id);
 -- Keep a separate partial business index only when query access also benefits from it.
 ```
 
+## Scenario: Yuzhou historical payroll archive migration
+
+### 1. Scope / Trigger
+
+- Trigger: changing `scripts/*yuzhou-t4*`, `load-yuzhou-t4-payroll-history.sql`, the T4 rollback procedure, or historical payroll archive tables.
+
+### 2. Signatures
+
+- Load: `ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<run> YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<suffix> pnpm hr:migration:t4:load`.
+- Rollback additionally requires `ALLOW_YUZHOU_ROLLBACK=yes`; it invokes `rollback_yuzhou_t4_payroll_history(run, expected_database)`.
+- Archive targets: `hr_payroll_legacy_batch`, `hr_payroll_legacy_snapshot`, `hr_payroll_legacy_snapshot_item`, `hr_payroll_review_case`, and `legacy_record_map`.
+
+### 3. Contracts
+
+- The fixed source is loaded only into an isolated lab target. Historical rows never write online payroll, payslip, payment, bank, tax, message, outbox, employee, compensation, or attendance facts.
+- Each source disposition is explicit: `loaded` yields `mapping_status='mapped'`; an unmatched target employee yields `mapping_status='employee_unmapped'`, a null employee FK, all of its source items, and exactly one `employee_unmapped` review case. Both states are archived and count toward selected-source, item, and net-amount conservation; neither is silently rejected.
+- The stable shard key is source content identity. The loader pins source/catalog/manifest hashes, checks protected online-state hashes, records every target in `legacy_record_map`, and only the selected batch's active maps authorize rollback.
+
+### 4. Validation & Error Matrix
+
+- non-isolated target, source/hash/count mismatch, duplicate run, invalid mode, changed protected online state, or any archive/item/net/review accounting drift -> fail the load transaction.
+- target employee absent -> archive as `employee_unmapped` plus review case; never create a guessed employee relationship.
+- published batch, missing rollback flag, wrong expected database, or an active-map/residual mismatch -> reject rollback without broad deletion.
+
+### 5. Good / Base / Bad Cases
+
+- Good: mapped and unmapped-employee source rows jointly reconcile to the selected source; the unmapped subset remains reviewable without an employee FK.
+- Base: a cold archive holds historical snapshots and items but leaves online payroll tables unchanged.
+- Bad: use an inner item join that drops an unmatched employee's wage items, count it as rejected, synthesize an employee mapping, or delete by remark rather than active record-map proof.
+
+### 6. Tests Required
+
+- Static contract tests assert both archive dispositions, left-preserved item loading, one review case per unmapped snapshot, protected-table guards, item/net/count accounting, and active-map rollback behavior.
+- In isolated PostgreSQL, run the real fixed source through load -> aggregate check -> rollback -> zero-residual check -> same-source reload -> aggregate check -> rollback.
+- Assert archive snapshots, items, review cases, and active maps are zero after rollback; an audit batch may remain only with `status='rolled_back'` and inactive maps.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+JOIN target_employee e ON e.legacy_key = source.employee_key;
+-- Missing employee discards the entire historical payroll row and its items.
+```
+
+#### Correct
+
+```sql
+LEFT JOIN target_employee e ON e.legacy_key = source.employee_key;
+-- Archive with employee_unmapped, retain items, create one review case, and reconcile it.
+```
+
 ## Scenario: Historical attendance and insurance read productization
 
 ### 1. Scope / Trigger
