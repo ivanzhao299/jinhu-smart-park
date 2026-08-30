@@ -232,6 +232,8 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 如需无人值守地完成一个已 prepare 的 core 演练，可使用 `node scripts/hr-cutover/run-core-t0-t3-continuous-lab.mjs --config '<0600 config>' --duration-minutes 300`。该 runner 仅推进当前 journal 的下一可恢复阶段（provision、extract、机器包、resume、rollback、cleanup），并把状态事件和最终摘要写入同一 0700 audit 根；最短窗口为五小时，但在 `cleaned + residual=0` 后会立即结束。任一失败先做该 run 的受控恢复并报告失败码，不会开启生产历史导入，也不会扩大到 T4/T5。
 
+新版 core 配置必须先从同一受控备份的只读字典 Stage 生成私有预检输入，禁止手工拼接字典 JSON。`hr:migration:core-dictionary-preflight:prepare` 只生成 `0600` 的捕获回执与四份源绑定包，并立即验证行数守恒、源快照和 `HOLD`；它不读取人员、工资或附件内容，也不写入任何业务库。随后才可将生成的四包和回执交给 `core-t0-t3:prepare`。
+
 需要把已验证的 core 映射交给后续隔离切片时，runner 可使用 `--stop-after rollback_ready` 写出 `CHECKPOINT_READY` 并保留本 run 的资源；只允许 `review_hold`、`rollback_ready` 或 `cleaned` 三个检查点。后续切片完成后必须从同一 config 恢复反序 rollback 与 cleanup，不能把 checkpoint 当作生产导入授权。
 
 在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
