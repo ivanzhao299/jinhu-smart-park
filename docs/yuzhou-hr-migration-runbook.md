@@ -246,6 +246,16 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 为遵守该顺序，`core_t0_t2` 是 `core_t0_t3` 的受限前缀合同：只允许 T0、T1、T2 的受控源恢复、字典机器物化、加载、事实核对、反序回滚和零残留清理；T3/T4/T5 均不可达。它用于提供 T5_NONFILE 所需的稳定员工映射，不能将 checkpoint 解释为生产授权；T5_NONFILE 完成后仍必须从同一隔离 run 继续反序回滚和 cleanup。
 
+`pnpm hr:migration:lightweight-first:continuous` 将已经受控生成的 T5 非文件、T3 和 T4 阶段工件串接到同一 `core_t0_t2` 隔离 run：它只接受同一源快照、`0700` 的阶段目录和 `0600` 的 T5/T4 manifest，先停在 core `rollback_ready`，再依次执行 `T5_NONFILE→T3→T4→技术验收`，并且无论业务阶段还是验收成功/失败，均按 `T4→T3→T5_NONFILE→T2→T1→T0` 反序清理。它只传递白名单环境变量，不创建照片/附件对象，不接受生产数据库，也不把技术通过提升为生产授权。T3 仍使用其加载器的固定阶段哈希校验；在 T3 独立源恢复回执实现前，runner 不把它描述为 T4/T5 级别的独立 manifest 证明。
+
+```sh
+pnpm hr:migration:lightweight-first:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --t5-stage '<0700 T5_NONFILE 阶段目录>' \
+  --t3-stage '<0700 T3 阶段目录>' \
+  --t4-stage '<0700 T4 阶段目录>'
+```
+
 在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
 
 ```sh
