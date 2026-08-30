@@ -33,6 +33,15 @@ function parseArgs(argv) {
 
 function mode(path) { return (statSync(path).mode & 0o777).toString(8).padStart(4, "0"); }
 
+function nonT0DictionaryBindings(config) {
+  const journal = readFileSync(resolve(config.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+  const records = journal.filter((row) => row.kind === "dictionary_materialization" && row.domain === "T1_T2" && row.status === "verified");
+  if (records.length !== 1 || JSON.stringify(records[0].triple) !== JSON.stringify(config.triple) || !records[0].snapshots || typeof records[0].snapshots !== "object") fail("DICTIONARY_MATERIALIZATION_UNVERIFIED", "T1/T2 dictionaries are not bound to this run");
+  const snapshots = records[0].snapshots;
+  for (const key of ["employment_event_type", "employment_event_state", "contract_type", "contract_state"]) if (!/^[0-9a-f]{64}$/.test(snapshots[key] ?? "")) fail("DICTIONARY_MATERIALIZATION_UNVERIFIED", `T1/T2 ${key} dictionary hash is invalid`);
+  return snapshots;
+}
+
 function childEnvironment(config, domain, phase) {
   const childIndex = CONTRACT.domainOrder.indexOf(domain);
   const env = {};
@@ -54,6 +63,16 @@ function childEnvironment(config, domain, phase) {
         || !/^[0-9a-f]{64}$/.test(records[0].dictionarySnapshotSha256 ?? "")
         || records[0].t0ManifestSha256 !== extracts[0].extractManifestSha256) fail("DICTIONARY_MATERIALIZATION_UNVERIFIED", "T0 reviewed dictionary materialization is not bound to this run");
       env.YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256 = records[0].dictionarySnapshotSha256;
+    }
+    if (domain === "T1" || domain === "T2") {
+      const dictionaries = nonT0DictionaryBindings(config);
+      if (domain === "T1") {
+        env.YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256 = dictionaries.employment_event_type;
+        env.YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256 = dictionaries.employment_event_state;
+      } else {
+        env.YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256 = dictionaries.contract_type;
+        env.YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256 = dictionaries.contract_state;
+      }
     }
   }
   Object.assign(env, {

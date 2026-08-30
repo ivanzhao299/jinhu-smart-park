@@ -28,6 +28,7 @@ import { manifestHash, verifyManifestChain } from "./parent-manifest.mjs";
 import { assertManifestFacts, verifyGlobalFacts } from "./verify-global-facts.mjs";
 import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs";
 import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
+import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "./materialize-core-non-t0-dictionaries.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
@@ -40,6 +41,7 @@ import {
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json");
+const T1_EVENT_TYPE_DECISION_PATH = resolve(ROOT, "scripts/hr-cutover/contracts/yuzhou-t1-employment-event-type-decision-v1.json");
 const DOMAIN_ORDER = ["T0", "T1", "T2", "T3", "T4", "T5"];
 const ROLLBACK_ORDER = [...DOMAIN_ORDER].reverse();
 const STATES = ["planned", "provisioned", "extracting", "review_hold", "loading", "verifying", "uat_ready", "rollback_ready", "cleaned"];
@@ -81,8 +83,8 @@ const EXTRACT_MANIFEST_BINDINGS = {
 let ACTIVE_CHILD = null;
 export const ADAPTER_ENV_ALLOWLIST = {
   T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256", "YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256"], rollback: [] },
-  T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256"], rollback: [] },
-  T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256"], rollback: [] },
+  T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
+  T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
   T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256"], rollback: [] }
@@ -820,6 +822,20 @@ function materializeMachineAttestedJobState(config) {
   return { canonicalDecisionSha256: decision.canonicalDecisionSha256, privatePayloadSha256: payload.payloadSha256, verificationMode: "machine_attested", machineAttestationSha256: packageVerification.machineAttestationSha256, t0BindingSha256: canonicalHash(payload.t0Binding), t0ManifestSha256: payload.t0Binding.manifestSha256, dictionarySnapshotSha256: payload.dictionaryEvidenceSha256, databaseItemsSha256: payload.expectedDatabaseItemsSha256, productionImport: "HOLD" };
 }
 
+function materializeMachineAttestedNonT0Dictionaries(config) {
+  const dictionaryConfig = structuredClone(config);
+  dictionaryConfig.source = { ...dictionaryConfig.source, dictionaryPackages: { employment_event_type: readJson(T1_EVENT_TYPE_DECISION_PATH) } };
+  const dictionaryPackage = buildCoreNonT0DictionaryPackage(dictionaryConfig, {
+    t1Types: join(stagingDir(config, "T1"), "employment-event-types.json"),
+    t1States: join(stagingDir(config, "T1"), "employment-event-states.json"),
+    t2Types: join(stagingDir(config, "T2"), "contract-types.jsonl"),
+    t2States: join(stagingDir(config, "T2"), "contract-states.raw.json")
+  });
+  const snapshots = materializeCoreNonT0Dictionaries(dictionaryConfig, dictionaryPackage);
+  appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T1_T2", status: "verified", snapshots, triple: config.triple, productionImport: "HOLD" });
+  return snapshots;
+}
+
 async function resumeAfterMachineAttestationAsync(configInput, configPath, artifacts) {
   const config = validateConfig(structuredClone(configInput)); config.__configPath = resolve(configPath);
   if (config.backend !== "lab" || currentState(config) !== "review_hold") fail("STATE_TRANSITION_INVALID", "resume requires a lab run at review_hold");
@@ -840,6 +856,7 @@ async function resumeAfterMachineAttestationAsync(configInput, configPath, artif
   if (existingMaterializations.length > 1 || (existingMaterializations.length === 1 && (!journalMatches(existingMaterializations[0]) || ["canonicalDecisionSha256", "privatePayloadSha256", "verificationMode", "t0BindingSha256", "t0ManifestSha256", "dictionarySnapshotSha256", "databaseItemsSha256"].some(key => existingMaterializations[0][key] !== materialized[key])))) fail("DICTIONARY_MATERIALIZATION_JOURNAL_DRIFT", "materialization journal differs");
   if (existingMaterializations.length === 0) appendPrivate(paths(config).journal, { kind: "dictionary_materialization", domain: "T0", status: "verified", ...materialized, triple: config.triple, productionImport: "HOLD" });
   if (process.env.NODE_ENV === "test" && process.env.YUZHOU_TEST_FAULT_RUN_ID === config.runId && process.env.YUZHOU_TEST_FAULT_POINT === "post-materialization-journal") return { state: "review_hold", testBreakpoint: "post-materialization-journal", productionImport: "HOLD" };
+  materializeMachineAttestedNonT0Dictionaries(config);
   transition(config, "loading");
   materializeFullDomainFacts(config, "before");
   for (const domain of DOMAIN_ORDER) await runAdapterAsync(config, domain, "load");
