@@ -81,7 +81,11 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
   if (t5IdentityResolution) privateJson(t5IdentityResolution, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
-  const run = suffix => `${config.runId.toLowerCase().replace(/^yzcore-/, "yzlw-").slice(0, 54)}-${suffix}`;
+  // T5's materialization actor uses the strictest historical run-id ceiling
+  // (37 characters). Keep the timestamp and candidate SHA prefix while
+  // deriving all three child runs from the same core run.
+  const runStem = config.runId.toLowerCase().replace(/^yzcore-/, "").replace(/-r[ab]$/u, "").slice(0, 27);
+  const run = suffix => `yzlw-${runStem}-${suffix}`;
   const runs = { t5: run("t5"), t3: run("t3"), t4: run("t4") };
   const actor = uuid();
   const reached = [];
