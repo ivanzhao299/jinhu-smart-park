@@ -354,7 +354,7 @@ T4 抽取只允许使用固定备份、只读 SQL Server 恢复库和非 `sa/sys
 
 真实装载必须使用 `template0` 新库和官方 migration runner。候选项目按 `legacy scheme + source content hash shard` 稳定分片；任一分片失败回滚整个 run。完成后执行受控 rollback、实际 residual=0 和同内容 reload，并复核正式工资、工资条、支付、银行、税务、消息/outbox及在线员工/薪酬/考勤表前后哈希不变。
 
-截至 2026-08-31，热历史候选已在全新 `core` 隔离库完成一次真实 `load → rollback → reload → rollback → core cleanup` 闭环：两次装载均得到 `8,342` 个历史工资快照和 `190,880` 个工资项，批次守恒与保护表检查均通过；两次回滚后的活动映射、历史批次、快照和项目均为 `0`，core runtime 的最终 `residualCount=0`。同一受控源的 2010–2023 冷历史也已在独立隔离目标完成两次 `16 分片 load → 对账 → rollback`：每次均为 `37,750` 个历史快照、`887,140` 个明细、`1,165` 个关闭期间和 `34` 个 `employee_unmapped` 待办，检查均通过；每次回滚后历史批次、快照、明细、待办和活动映射均为 `0`，仅保留状态为 `rolled_back` 的迁移审计和失效映射。该结果证明热、冷历史在受控源和隔离目标中的可重跑性；它不替代全域 A/B、角色 UAT、生产目标备份/窗口和正式生产授权，生产历史导入与任何正式发薪继续为 `HOLD`。
+截至 2026-08-31，热历史候选已在全新 `core` 隔离库完成一次真实 `load → rollback → reload → rollback → core cleanup` 闭环：两次装载均得到 `8,342` 个历史工资快照和 `190,880` 个工资项，批次守恒与保护表检查均通过；两次回滚后的活动映射、历史批次、快照和项目均为 `0`，core runtime 的最终 `residualCount=0`。同一受控源的 2010–2023 冷历史也已在独立隔离目标完成两次 `16 分片 load → 对账 → rollback`：每次均为 `37,750` 个历史快照、`887,140` 个明细、`1,165` 个关闭期间和 `34` 个 `employee_unmapped` 待办，检查均通过；每次回滚后历史批次、快照、明细、待办和活动映射均为 `0`，仅保留状态为 `rolled_back` 的迁移审计和失效映射。随后同一隔离目标完成单批次 `full_archive` 的两轮同源真实 `16 分片 load → 对账 → rollback`：每轮均一次性得到全量 `46,092` 个历史快照、`1,078,020` 个明细、`1,431` 个关闭期间、净额 `102,194,056.8000` 和 `34` 个 `employee_unmapped` 待办，0 条校验失败；两次回滚后同样为零业务残留。该结果证明热、冷及全量归档在受控源和隔离目标中的可执行性；它不替代全域 A/B、角色 UAT、生产目标备份/窗口和正式生产授权，生产历史导入与任何正式发薪继续为 `HOLD`。
 
 `000264_hr_payroll_legacy_item_bulk_guard.sql` 只把快照项目 INSERT 的批次状态检查从逐行查询改为同事务的 statement-level transition-table 集合检查。未知或已发布批次仍使整条 INSERT 回滚；UPDATE/DELETE 仍逐行禁止，原 FK、唯一性、owner、金额和不可变约束均保留。不得通过禁用 trigger、`session_replication_role` 或放宽 statement timeout 绕过装载门禁。
 

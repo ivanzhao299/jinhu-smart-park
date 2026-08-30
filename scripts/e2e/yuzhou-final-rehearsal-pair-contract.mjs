@@ -12,7 +12,7 @@ const contract=JSON.parse(read("scripts/hr-cutover/contracts/final-rehearsal-pai
 
 test("final A/B contract freezes source facts, continuous order and production HOLD",()=>{
   const result=validatePairContract(contract);assert.equal(result.status,"PASS");assert.equal(result.productionImport,"HOLD");assert.match(result.sha256,/^[0-9a-f]{64}$/u);
-  assert.deepEqual(contract.sourceFacts.T4,{hotYears:[2024,2025,2026],headers:8342,regularHeaders:8342,adjustmentHeaders:0,items:190880,closes:266,net:"15723009.9100",coldArchiveRows:37750});
+  assert.deepEqual(contract.sourceFacts.T4,{fullYears:[2010,2026],fullRows:46092,fullItems:1078020,fullCloses:1431,fullNet:"102194056.8000",hotRows:8342,coldArchiveRows:37750,coldArchiveItems:887140,coldArchiveCloses:1165,coldArchiveNet:"86471046.8900",coldEmployeeUnmappedRows:34});
   assert.deepEqual(contract.sourceFacts.T2,{contracts:802,changes:357});assert.deepEqual(contract.sourceFacts.T5,{rows:20163});
 });
 

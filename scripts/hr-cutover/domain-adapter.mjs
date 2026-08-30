@@ -68,6 +68,7 @@ function childEnvironment(config, domain, phase) {
     YUZHOU_STAGING_DIR: domain === "T4" ? resolve(config.target.stagingRoot, `staging-t4-${config.runId}-t4`) : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`)
   });
   if (domain === "T5" && phase === "extract") env.YUZHOU_PARTY_DATA_KEY_FILE = config.target.materializationKeyArtifact;
+  if (domain === "T4" && phase === "load") env.YUZHOU_T4_LOAD_MODE = "full_archive";
   if (phase === "rollback") env.ALLOW_YUZHOU_ROLLBACK = "yes";
   const allowed = new Set([...BASE_ENV, ...REQUIRED_FIXED, ...CONTRACT.domains[domain].requiredEnv, ...ADAPTER_ENV_ALLOWLIST[domain][phase], "YUZHOU_FIXTURE_DELAY_MS", "YUZHOU_FIXTURE_FAIL"]);
   for (const key of Object.keys(env)) {

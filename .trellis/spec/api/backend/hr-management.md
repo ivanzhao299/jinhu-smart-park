@@ -46,7 +46,7 @@
 - Base: a preboarding employee exists without a login account and later links to a current-scope user.
 - Bad: directly update `employmentStatus`, show raw 360 reviewers, grant department managers payroll access, or edit a confirmed payslip in place.
 
-### 6. Tests Required
+### 7. Tests Required
 
 - Shared build plus API/Web type-check and lint.
 - `hr-foundation.contract.spec.ts` must cover lifecycle, scope, protected files, goal weights, performance state, anonymity, payroll freeze/correction, and approval actions.
@@ -478,27 +478,32 @@ CREATE INDEX ON hr_employee_insurance_item(period_id);
 
 ### 2. Signatures
 
-- Load: `ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<run> YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<suffix> pnpm hr:migration:t4:load`.
+- Load: `ALLOW_YUZHOU_MIGRATION=yes YUZHOU_MIGRATION_RUN_ID=<run> YUZHOU_TARGET_DATABASE=jinhu_hr_migration_lab_<suffix> YUZHOU_T4_LOAD_MODE=hot_history|cold_archive|full_archive pnpm hr:migration:t4:load`.
 - Rollback additionally requires `ALLOW_YUZHOU_ROLLBACK=yes`; it invokes `rollback_yuzhou_t4_payroll_history(run, expected_database)`.
 - Archive targets: `hr_payroll_legacy_batch`, `hr_payroll_legacy_snapshot`, `hr_payroll_legacy_snapshot_item`, `hr_payroll_review_case`, and `legacy_record_map`.
 
 ### 3. Contracts
 
-- The fixed source is loaded only into an isolated lab target. Historical rows never write online payroll, payslip, payment, bank, tax, message, outbox, employee, compensation, or attendance facts.
+- The fixed source is loaded only into an isolated lab target. `full_archive` is one 2010–2026 batch, so it creates the shared book/item/formula/tax directory once and archives every period without cross-batch catalog duplicates. Historical rows never write online payroll, payslip, payment, bank, tax, message, outbox, employee, compensation, or attendance facts.
 - Each source disposition is explicit: `loaded` yields `mapping_status='mapped'`; an unmatched target employee yields `mapping_status='employee_unmapped'`, a null employee FK, all of its source items, and exactly one `employee_unmapped` review case. Both states are archived and count toward selected-source, item, and net-amount conservation; neither is silently rejected.
 - The stable shard key is source content identity. The loader pins source/catalog/manifest hashes, checks protected online-state hashes, records every target in `legacy_record_map`, and only the selected batch's active maps authorize rollback.
 
 ### 4. Validation & Error Matrix
 
-- non-isolated target, source/hash/count mismatch, duplicate run, invalid mode, changed protected online state, or any archive/item/net/review accounting drift -> fail the load transaction.
+- non-isolated target, source/hash/count mismatch, duplicate run, invalid mode/window, changed protected online state, or any archive/item/net/review accounting drift -> fail the load transaction.
 - target employee absent -> archive as `employee_unmapped` plus review case; never create a guessed employee relationship.
 - published batch, missing rollback flag, wrong expected database, or an active-map/residual mismatch -> reject rollback without broad deletion.
 
 ### 5. Good / Base / Bad Cases
 
-- Good: mapped and unmapped-employee source rows jointly reconcile to the selected source; the unmapped subset remains reviewable without an employee FK.
+- Good: mapped and unmapped-employee source rows jointly reconcile to the selected source; a `full_archive` batch has full rows = hot rows + cold rows while the unmapped subset remains reviewable without an employee FK.
 - Base: a cold archive holds historical snapshots and items but leaves online payroll tables unchanged.
 - Bad: use an inner item join that drops an unmatched employee's wage items, count it as rejected, synthesize an employee mapping, or delete by remark rather than active record-map proof.
+
+### 6. Required Verification
+
+- Execute `full_archive` against an isolated target twice from the same fixed source: each run must reconcile full rows, item rows, closing periods, net amount, and unmapped-employee review cases; each rollback must leave zero active maps and zero archived business facts for that run.
+- Run the T4 loader rollback, payroll history, and bulk-guard contracts, then the final-rehearsal-pair and full-domain static contracts before accepting a loader or orchestration change.
 
 ### 6. Tests Required
 
