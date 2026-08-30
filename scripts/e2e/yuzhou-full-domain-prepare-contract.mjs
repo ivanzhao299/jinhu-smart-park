@@ -84,6 +84,7 @@ test("rehearsal preparation requires an externally fixed machine-attestation roo
     "--t4-evidence", "/tmp/t4.json",
     "--source-container", "yuzhou-source",
     "--source-backup", "/tmp/source.bak",
+    "--source-restore-receipt", "/tmp/source-receipt.json",
     "--materialization-key", "/tmp/materialization.key",
   ];
   assert.throws(() => parseArgs(base), /missing --machine-attestation-root/);
@@ -95,6 +96,7 @@ test("rehearsal preparation requires an externally fixed machine-attestation roo
     parseArgs([...base, "--machine-attestation-root", "a".repeat(64)]).machineAttestationRoot,
     "a".repeat(64),
   );
+  assert.throws(() => parseArgs(base.filter((value) => value !== "--source-restore-receipt" && value !== "/tmp/source-receipt.json")), /missing --source-restore-receipt/);
 });
 
 test("full-domain rehearsal gives T5 a deterministic isolated non-login actor identity", () => {

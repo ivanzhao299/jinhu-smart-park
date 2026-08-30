@@ -27,6 +27,7 @@
       "scripts/hr-cutover/full-domain-lifecycle.mjs",
       "scripts/hr-cutover/final-rehearsal-pair.mjs",
       "scripts/hr-cutover/materialization-key-contract.mjs",
+      "scripts/hr-cutover/source-restore-receipt.mjs",
       "scripts/hr-cutover/materialize-full-domain-facts.mjs",
       "scripts/hr-cutover/run-full-domain-technical-uat.mjs",
       "scripts/hr-cutover/contracts/yuzhou-live-role-uat-task-card-v1.json",

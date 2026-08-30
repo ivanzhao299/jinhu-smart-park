@@ -30,6 +30,7 @@ import { materializeFullDomainFacts } from "./materialize-full-domain-facts.mjs"
 import { buildMaterializationSql, canonicalHash, verifyCurrentT0Binding, verifyMaterializationPackage } from "./materialize-reviewed-job-state.mjs";
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "./materialize-core-non-t0-dictionaries.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
+import { validateSourceRestoreReceipt } from "./source-restore-receipt.mjs";
 import {
   canonicalYuzhouJobStateMachineJson,
   compileYuzhouJobStateMachineAttestation,
@@ -154,12 +155,19 @@ export function validateConfig(config, { recoveryCleanup = false } = {}) {
   if (!recoveryCleanup && config.triple.mappingContractHash !== computeMappingContractHash(contract)) fail("TRIPLE_MISMATCH", "mappingContractHash does not match the executable mapping bundle");
   const currentCodeSha = spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", stdio: "pipe" });
   if (currentCodeSha.status !== 0 || currentCodeSha.stdout.trim() !== config.triple.codeSha) fail("TRIPLE_MISMATCH", "codeSha does not match the checked-out candidate");
-  exactKeys(config.source, ["databaseAlias", "readOnly", "etlEnvFile", "t4EvidenceFile"], [], "source");
+  exactKeys(config.source, ["databaseAlias", "readOnly", "sourceBackupPath", "sourceRestoreReceiptPath", "sourceRestoreReceiptSha256", "sourceContainer", "etlEnvFile", "t4EvidenceFile"], [], "source");
   if (!/^YuzhouHR_Lab_[A-Za-z0-9_]{6,40}$/.test(config.source.databaseAlias ?? "") || config.source.readOnly !== true) fail("SOURCE_NOT_READ_ONLY", "source must be an explicit read-only Yuzhou lab database");
-  for (const field of ["etlEnvFile", "t4EvidenceFile"]) {
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{1,127}$/.test(config.source.sourceContainer ?? "")) fail("SOURCE_NOT_READ_ONLY", "source container identity is invalid");
+  if (!SHA256.test(config.source.sourceRestoreReceiptSha256 ?? "")) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt hash is invalid");
+  for (const field of ["sourceBackupPath", "sourceRestoreReceiptPath", "etlEnvFile", "t4EvidenceFile"]) {
     if (typeof config.source[field] !== "string" || !isAbsolute(config.source[field]) || resolve(config.source[field]) !== config.source[field]) fail("CONFIG_INVALID", `${field} must be an absolute path`);
     if (!existsSync(config.source[field]) || lstatSync(config.source[field]).isSymbolicLink() || !statSync(config.source[field]).isFile() || mode(config.source[field]) !== "0600") fail("UNSAFE_FILE_PERMISSION", `${field} must be a non-symlink 0600 regular file`);
   }
+  let sourceRestoreReceipt;
+  try { sourceRestoreReceipt = validateSourceRestoreReceipt(JSON.parse(readFileSync(config.source.sourceRestoreReceiptPath, "utf8"))); }
+  catch { fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt must be a sealed receipt"); }
+  if (createHash("sha256").update(readFileSync(config.source.sourceRestoreReceiptPath)).digest("hex") !== config.source.sourceRestoreReceiptSha256) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt bytes drifted");
+  if (sourceRestoreReceipt.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("SOURCE_RESTORE_RECEIPT_INVALID", "source restore receipt does not bind the C/S/M source snapshot");
   exactKeys(config.t4Evidence, ["status", "sha256"], [], "t4Evidence");
   if (config.t4Evidence.status !== "COMPLETED" || !SHA256.test(config.t4Evidence.sha256 ?? "")) fail("T4_EXTRACTION_NOT_STARTED", "completed hash-pinned T4 evidence is required before any lifecycle write");
   const t4Bytes = readFileSync(config.source.t4EvidenceFile);

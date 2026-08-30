@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADAPTER_ENV_ALLOWLIST, LifecycleError, resolveVerifiedExtractBindings, validateConfig } from "./full-domain-lifecycle.mjs";
 import { MaterializationKeyContractError, readMaterializationKeyFile } from "./materialization-key-contract.mjs";
+import { createDefaultSourceRestoreProbe, verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/full-domain-contract-v1.json"), "utf8"));
@@ -107,6 +108,17 @@ function validateCredentialBoundary(config, domain, phase) {
       if (error instanceof MaterializationKeyContractError) fail("UNSAFE_FILE_PERMISSION", error.message);
       throw error;
     }
+  }
+  if (config.backend === "lab") {
+    const probe = createDefaultSourceRestoreProbe({ etlEnvFile: config.source.etlEnvFile });
+    verifySourceRestoreReceiptFile({
+      receiptPath: config.source.sourceRestoreReceiptPath,
+      receiptSha256: config.source.sourceRestoreReceiptSha256,
+      sourceSnapshotSha256: config.triple.sourceSnapshotHash,
+      sourceBackupPath: config.source.sourceBackupPath,
+      sourceContainer: config.source.sourceContainer,
+      databaseAlias: config.source.databaseAlias
+    }, { probe, recheckLive: true });
   }
 }
 

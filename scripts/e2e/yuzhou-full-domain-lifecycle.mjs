@@ -19,6 +19,7 @@ import {
   validateConfig
 } from "../hr-cutover/full-domain-lifecycle.mjs";
 import { computeMappingContractHash } from "../hr-cutover/verify-full-domain-contract.mjs";
+import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
 const lifecyclePath = resolve(root, "scripts/hr-cutover/full-domain-lifecycle.mjs");
@@ -42,10 +43,25 @@ function configFor(rehearsal, suffix, ports) {
   chmodSync(credentialRoot, 0o700);
   const etlEnv = join(credentialRoot, "etl.env");
   const t4File = join(credentialRoot, "t4-evidence.json");
+  const sourceBackup = join(credentialRoot, "source.bak");
+  const sourceRestoreReceipt = join(credentialRoot, "source-restore-receipt.json");
   const postgresEnv = join(credentialRoot, "postgres.env");
   const materializationKey = join(credentialRoot, "materialization.key");
   writeFileSync(etlEnv, "fixture-only\n", { mode: 0o600 });
   privateJson(t4File, { status: "COMPLETED", evidenceKind: "fixture" });
+  writeFileSync(sourceBackup, "fixture-source\n", { mode: 0o600 });
+  const sourceSnapshotHash = createHash("sha256").update(readFileSync(sourceBackup)).digest("hex");
+  const sourceRestoreReceiptBody = sealSourceRestoreReceipt({
+    formatVersion: 1,
+    artifactKind: "yuzhou_hr_source_restore_receipt",
+    sourceSnapshotSha256: sourceSnapshotHash,
+    backup: { sha256: sourceSnapshotHash, bytes: readFileSync(sourceBackup).length, containerCopySha256: sourceSnapshotHash, containerCopyBytes: readFileSync(sourceBackup).length },
+    identities: { containerSha256: "a".repeat(64), imageSha256: "b".repeat(64), databaseSha256: "c".repeat(64), restoreSha256: "d".repeat(64), catalogSha256: "e".repeat(64) },
+    state: { online: true, readOnly: true },
+    etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false },
+    productionImport: "HOLD"
+  });
+  privateJson(sourceRestoreReceipt, sourceRestoreReceiptBody);
   writeFileSync(postgresEnv, "fixture-only\n", { mode: 0o600 });
   writeFileSync(materializationKey, `${"ab".repeat(32)}\n`, { mode: 0o600 });
   const adapterEnv = Object.fromEntries(DOMAIN_ORDER.map((domain) => [domain, { extract: {}, load: {}, rollback: {} }]));
@@ -54,8 +70,8 @@ function configFor(rehearsal, suffix, ports) {
     runId: `yzfull-20260826T120000Z-${codeSha.slice(0, 8)}-r${rehearsal}`,
     rehearsal,
     backend: "fixture",
-    triple: { codeSha, sourceSnapshotHash: "3".repeat(64), mappingContractHash },
-    source: { databaseAlias: `YuzhouHR_Lab_${suffix}`, readOnly: true, etlEnvFile: etlEnv, t4EvidenceFile: t4File },
+    triple: { codeSha, sourceSnapshotHash, mappingContractHash },
+    source: { databaseAlias: `YuzhouHR_Lab_${suffix}`, readOnly: true, sourceBackupPath: sourceBackup, sourceRestoreReceiptPath: sourceRestoreReceipt, sourceRestoreReceiptSha256: createHash("sha256").update(readFileSync(sourceRestoreReceipt)).digest("hex"), sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", etlEnvFile: etlEnv, t4EvidenceFile: t4File },
     t4Evidence: { status: "COMPLETED", sha256: createHash("sha256").update(readFileSync(t4File)).digest("hex") },
     target: {
       database: project,
@@ -128,7 +144,7 @@ try {
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;
   expectCode("REHEARSAL_RESOURCE_REUSE", () => compareIsolation(configA, reused));
   const wrongTriple = clone(configB); wrongTriple.triple.sourceSnapshotHash = "4".repeat(64);
-  expectCode("TRIPLE_MISMATCH", () => compareIsolation(configA, wrongTriple));
+  expectCode("SOURCE_RESTORE_RECEIPT_INVALID", () => compareIsolation(configA, wrongTriple));
   const wrongMapping = clone(configA); wrongMapping.triple.mappingContractHash = "0".repeat(64);
   expectCode("TRIPLE_MISMATCH", () => validateConfig(wrongMapping));
   const unsafe = clone(configA); unsafe.target.database = "jinhu_production";
@@ -148,6 +164,8 @@ try {
   assert(!existsSync(configA.target.root), "T4 gate must fail before the first runtime write");
   const t4Tampered = clone(configA); t4Tampered.t4Evidence.sha256 = "9".repeat(64);
   expectCode("T4_EVIDENCE_HASH_MISMATCH", () => validateConfig(t4Tampered));
+  const receiptDrift = clone(configA); receiptDrift.triple.sourceSnapshotHash = "9".repeat(64);
+  expectCode("SOURCE_RESTORE_RECEIPT_INVALID", () => validateConfig(receiptDrift));
   const invalidKey = configFor("A", "invalid_key_preflight", [45041, 45042, 45043]);
   writeFileSync(invalidKey.target.materializationKeyArtifact, `${"ab".repeat(48)}\n`, { mode: 0o600 });
   expectCode("UNSAFE_FILE_PERMISSION", () => provision(invalidKey));
@@ -164,6 +182,18 @@ try {
   writeFileSync(realT4Gate.source.t4EvidenceFile, actualT4Evidence, { mode: 0o600 });
   chmodSync(realT4Gate.source.t4EvidenceFile, 0o600);
   realT4Gate.triple.sourceSnapshotHash = JSON.parse(actualT4Evidence).sourceBackupSha256;
+  const realSourceSnapshotHash = realT4Gate.triple.sourceSnapshotHash;
+  privateJson(realT4Gate.source.sourceRestoreReceiptPath, sealSourceRestoreReceipt({
+    formatVersion: 1,
+    artifactKind: "yuzhou_hr_source_restore_receipt",
+    sourceSnapshotSha256: realSourceSnapshotHash,
+    backup: { sha256: realSourceSnapshotHash, bytes: 1, containerCopySha256: realSourceSnapshotHash, containerCopyBytes: 1 },
+    identities: { containerSha256: "a".repeat(64), imageSha256: "b".repeat(64), databaseSha256: "c".repeat(64), restoreSha256: "d".repeat(64), catalogSha256: "e".repeat(64) },
+    state: { online: true, readOnly: true },
+    etlAuthority: { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false },
+    productionImport: "HOLD"
+  }));
+  realT4Gate.source.sourceRestoreReceiptSha256 = createHash("sha256").update(readFileSync(realT4Gate.source.sourceRestoreReceiptPath)).digest("hex");
   realT4Gate.t4Evidence.sha256 = createHash("sha256").update(actualT4Evidence).digest("hex");
   const dirty = spawnSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: root, encoding: "utf8" }).stdout.trim() !== "";
   if (dirty) expectCode("CODE_WORKTREE_DIRTY", () => validateConfig(realT4Gate));
