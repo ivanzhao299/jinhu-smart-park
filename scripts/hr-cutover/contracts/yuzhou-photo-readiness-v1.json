@@ -54,6 +54,17 @@
       "sourcePkCanonical": "person=<normalizedPerson>",
       "sourceIdentitySha256": "sha256('dbo.person\\0'+normalizedPerson)"
     },
+    "stagePreparer": {
+      "status": "IMPLEMENTED_NO_SOURCE_EXECUTION",
+      "artifact": "scripts/prepare-yuzhou-photo-owner-stage.mjs",
+      "artifactSha256": "89cc904a13f6d011b37d81223102fe6f4446326a58ec73636ad3852d9372025e",
+      "artifactKind": "yuzhou_t5_photo_owner_stage",
+      "outputFields": ["sourceTable", "sourceIdentitySha256", "sourceRowSha256", "ownerSourceTable", "ownerSourceIdentitySha256", "fileRole", "contentSha256", "actualSize", "detectedMime", "readabilityStatus"],
+      "contentBearingRows": 2155,
+      "excludedEmptyRows": 794,
+      "sourceBinaryAccess": "NOT_EXECUTED",
+      "productionExecution": "FORBIDDEN"
+    },
     "rehearsalBinding": {
       "status": "NOT_EXECUTED",
       "requiredEqualityFields": ["rehearsal", "parentRunId", "t0BatchId", "tenantId", "parkId", "codeSha", "sourceSnapshotHash", "mappingContractHash"],
@@ -160,5 +171,5 @@
     "documentImport": "HOLD",
     "productionImport": "HOLD"
   },
-  "contractSha256": "dbdf80ff33d04e082e5099634d6a55c8a98c68914bf2502e09638a2924fbd92c"
+  "contractSha256": "bdbec05fb75f5abadb9d42bc414a52128f00cf8039d6076515077cd52bfe04b6"
 }

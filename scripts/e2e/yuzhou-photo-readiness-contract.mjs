@@ -83,6 +83,11 @@ test("owner resolution requires exact active T0 maps and forbids guessing", () =
   rejects(source, value => { value.ownerResolution.pendingRows = 2154; }, "YUZHOU_PHOTO_OWNER_LEDGER_MISMATCH");
   rejects(source, value => { value.ownerResolution.rehearsalBinding.status = "BOUND"; }, "YUZHOU_PHOTO_OWNER_BINDING_OVERCLAIMED");
   rejects(source, value => { value.ownerResolution.rehearsalBinding.requiredEqualityFields.pop(); }, "YUZHOU_PHOTO_OWNER_REHEARSAL_FIELDS_INVALID");
+  assert.equal(source.ownerResolution.stagePreparer.status, "IMPLEMENTED_NO_SOURCE_EXECUTION");
+  assert.equal(source.ownerResolution.stagePreparer.sourceBinaryAccess, "NOT_EXECUTED");
+  assert.equal(source.ownerResolution.stagePreparer.productionExecution, "FORBIDDEN");
+  rejects(source, value => { value.ownerResolution.stagePreparer.outputFields.pop(); }, "YUZHOU_PHOTO_OWNER_STAGE_FIELDS_INVALID");
+  rejects(source, value => { value.ownerResolution.stagePreparer.artifactSha256 = "0".repeat(64); }, "YUZHOU_PHOTO_OWNER_STAGE_ARTIFACT_HASH_MISMATCH");
 });
 
 test("photo row.person uses the exact existing T0 employee identity algorithm", () => {
