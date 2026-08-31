@@ -15,4 +15,5 @@ case "$POSTGRES_PORT" in *[!0-9]*|"") fail "attendance PostgreSQL gate requires 
 case "$POSTGRES_DB" in jinhu_hr_migration_lab_core_*) ;; *) fail "attendance PostgreSQL gate requires isolated migration lab database" ;; esac
 
 export HR_ATTENDANCE_REQUEST_PG_REQUIRED=1
-exec pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-attendance-request.pg.spec.ts
+export HR_ATTENDANCE_CALC_PG_REQUIRED=1
+exec pnpm --filter @jinhu/api exec node --test --require ts-node/register src/modules/hr/hr-attendance-request.pg.spec.ts src/modules/hr/hr-attendance-calculation.pg.spec.ts
