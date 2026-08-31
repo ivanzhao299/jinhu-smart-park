@@ -104,7 +104,7 @@ function currentHead() { const result = spawnSync("git", ["rev-parse", "HEAD"], 
 async function main() {
   const args = parseT3AttendanceQuarantinePairArgs(process.argv.slice(2)), configA = validateCoreT0T3Config(privateJson(args.configAPath, "T3_ATTENDANCE_QUARANTINE_CONFIG_A_UNSAFE")), configB = validateCoreT0T3Config(privateJson(args.configBPath, "T3_ATTENDANCE_QUARANTINE_CONFIG_B_UNSAFE"));
   if (configA.triple.codeSha !== currentHead() || configB.triple.codeSha !== currentHead()) fail("T3_ATTENDANCE_QUARANTINE_PAIR_TRIPLE_INVALID", "checkout code SHA differs from config");
-  const summary = ensureSummary(args.summary);
+  const summary = ensureSummary(args.summaryPath);
   try { const result = await runT3AttendanceQuarantinePair(args); writeFileSync(summary, `${JSON.stringify(result, null, 2)}\n`, { flag: "wx", mode: 0o600 }); chmodSync(summary, 0o600); process.stdout.write(`${JSON.stringify({ status: result.status, summary, productionImport: "HOLD" })}\n`); }
   catch (error) { writeFileSync(summary, `${JSON.stringify({ formatVersion: 1, profile: "core_t0_t3", status: "HOLD", errorCode: safeCode(error), productionImport: "HOLD" }, null, 2)}\n`, { flag: "wx", mode: 0o600 }); chmodSync(summary, 0o600); throw error; }
 }

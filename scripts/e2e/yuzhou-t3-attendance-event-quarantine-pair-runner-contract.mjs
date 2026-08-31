@@ -6,6 +6,8 @@ import { join } from "node:path";
 import test from "node:test";
 import { parseT3AttendanceQuarantinePairArgs, runT3AttendanceQuarantineContinuous, runT3AttendanceQuarantinePair } from "../hr-cutover/run-t3-attendance-event-quarantine-pair-lab.mjs";
 
+const runnerSource = readFileSync(join(import.meta.dirname, "../hr-cutover/run-t3-attendance-event-quarantine-pair-lab.mjs"), "utf8");
+
 const root = mkdtempSync(join(tmpdir(), "jinhu-t3-quarantine-pair-"));
 const write = (path, value) => { writeFileSync(path, typeof value === "string" ? value : `${JSON.stringify(value)}\n`, { mode: 0o600 }); chmodSync(path, 0o600); };
 const digest = path => createHash("sha256").update(readFileSync(path)).digest("hex");
@@ -25,6 +27,7 @@ test("T3 attendance quarantine pair rejects an A/B conservation difference and m
   await assert.rejects(() => runT3AttendanceQuarantinePair({ configAPath: aPath, configBPath: bPath, stageAPath: join(root, "stage-a"), stageBPath: join(root, "stage-b") }, { runner: async ({ configPath }) => { const row = result(configPath === aPath ? "A" : "B"); if (configPath === bPath) row.cycles[1].load.quarantined = 0; return row; } }), /T3_ATTENDANCE_QUARANTINE_PAIR_MISMATCH/u);
   const parsed = parseT3AttendanceQuarantinePairArgs(["--config-a", "/private/a", "--config-b", "/private/b", "--stage-a", "/private/sa", "--stage-b", "/private/sb", "--summary", "/private/summary"]);
   assert.equal(parsed.stageBPath, "/private/sb"); assert.throws(() => parseT3AttendanceQuarantinePairArgs(["--config-a", "/private/a"]), /T3_ATTENDANCE_QUARANTINE_PAIR_ARGUMENT_INVALID/u);
+  assert.match(runnerSource, /ensureSummary\(args\.summaryPath\)/u);
 });
 
 test("T3 attendance quarantine runner repeats audit-only load and exact rollback before core cleanup", async () => {
