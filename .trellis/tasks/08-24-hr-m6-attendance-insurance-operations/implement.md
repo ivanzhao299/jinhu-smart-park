@@ -46,6 +46,12 @@
 - 候选 `2aa3d2e7cab4fc2c04cddc3dcf0b07c46801dd14` 将审批后的请假、加班、出差和更正请求来源纳入不可变日结果追溯，并将其真实 PostgreSQL 断言纳入同一个隔离考勤门禁，避免只跑申请状态机而遗漏计算来源。
 - 新鲜 `core_t0_t3` 隔离 run `yzcore-20260831T112254Z-2aa3d2e7-rA` 已用同一受控备份/恢复回执/映射契约完成 T0→T3 装载、`rollback_ready` 门禁和 T3→T0 反序回滚。门禁输出 `16` 项、状态 `PASS`；清理状态 `cleaned`、`residualCount=0`，13 类资源/业务/控制残留均为零，`productionImport=HOLD`。
 
+### 2026-08-31 当前 SHA 重绑定 A/B 证据
+
+- 早先候选的演练记录不能替代当前代码的证据。当前候选 `89810948b907b075d6f84dd7ccf40b1a070957e5` 已使用新的受控源恢复回执和映射契约，完成两套相互隔离的 `core_t0_t3` A/B 连续演练。
+- A/B canonical comparison 为 `PASS`；两套技术 UAT 均为 `PASS`，各记录 `46` 项观测检查。两个环境均从 `rollback_ready` 反序回滚并清理，结果均为 `CONTRACT_PASS`、`residualCount=0`。
+- 本轮只使用隔离目标，未向生产写入；所有回执、演练和技术 UAT 均保持 `productionImport=HOLD`。该证据仍不替代远端合并、生产运行 SHA、真人 HR/负责人/员工三角色 UAT、生产前备份或一次性生产导入授权。
+
 ## Rollback points
 
 - 历史兼容表不做反向变更；新 schema 仅前向。
