@@ -47,13 +47,13 @@ const legacyRuntimeEvidence = legacyIds => {
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
-  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 185, mapped_only: 46 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 173, score60: 0, score40: 16, score20: 30 });
-  assert.equal(result.summary.averageScore, 69.96);
+  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 190, mapped_only: 41 });
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 178, score60: 0, score40: 11, score20: 30 });
+  assert.equal(result.summary.averageScore, 70.82);
   assert.equal(result.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
   assert.deepEqual(result.summary.targetImplementation, {
-    statuses: { implemented: 0, partial: 185, mapped_only: 46 },
-    averageScore: 69.96,
+    statuses: { implemented: 0, partial: 190, mapped_only: 41 },
+    averageScore: 70.82,
     scoreMeaning: "smart_park_target_technical_implementation"
   });
   assert.equal(result.gates.productionImport, "HOLD");
@@ -61,7 +61,7 @@ test("all 231 Group Web modules receive a conservative implementation score", ()
 
 test("decision-center coverage reflects only the shipped aggregate workforce capabilities", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
-  for (const legacyId of [166, 167, 228, 229, 230, 246]) {
+  for (const legacyId of [166, 167, 168, 208, 209, 210, 228, 229, 230, 246, 247]) {
     const item = result.items.find(candidate => candidate.legacyId === legacyId);
     assert.equal(item.selectedRoute, "/hr/decision-center");
     assert.equal(item.score, 80);
@@ -73,16 +73,13 @@ test("decision-center coverage reflects only the shipped aggregate workforce cap
   assert.equal(recruitment.score, 80);
   assert.equal(recruitment.implementationStatus, "partial");
   assert.deepEqual(recruitment.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
-  for (const legacyId of [168, 231, 247]) {
-    const item = result.items.find(candidate => candidate.legacyId === legacyId);
-    assert.notEqual(item.selectedRoute, "/hr/decision-center");
-  }
+  assert.notEqual(recruitment.selectedRoute, "/hr/decision-center");
   assert.deepEqual(result.summary.domains.decision_center, {
     total: 16,
     implemented: 0,
-    partial: 11,
-    mapped_only: 5,
-    averageScore: 67.5
+    partial: 16,
+    mapped_only: 0,
+    averageScore: 80
   });
 });
 

@@ -3201,7 +3201,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/decision-center"
       ],
       "mappingStatus": "mapped"
     },
@@ -3217,7 +3217,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/decision-center"
       ],
       "mappingStatus": "mapped"
     },
@@ -3233,7 +3233,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/decision-center"
       ],
       "mappingStatus": "mapped"
     },
@@ -3249,7 +3249,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/decision-center"
       ],
       "mappingStatus": "mapped"
     },
@@ -3265,7 +3265,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/decision-center"
       ],
       "mappingStatus": "mapped"
     },

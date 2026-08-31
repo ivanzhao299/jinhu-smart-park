@@ -69,6 +69,11 @@ test("existing system-management and contract-reminder capabilities use exact Sm
   assert.deepEqual(routes.get(229), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(230), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(246), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(247), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(168), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(208), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(209), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(210), ["/hr/decision-center"]);
 });
 
 test("mapping evidence rejects workstation data, credentials and production import release", () => {
