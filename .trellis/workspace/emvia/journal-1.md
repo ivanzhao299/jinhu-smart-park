@@ -757,3 +757,37 @@ Implemented transactional housing and homestay rental-status projection with con
 
 - 无；LEA 队列已闭环。
 - 剩余风险：无已知阻断风险；本地 `pnpm test` 的默认 S1 smoke 因 teardown 后默认 API 端口未启动而在环境预检失败，业务断言由独立完整 API/UAT 与 CI Release Smoke 覆盖。
+
+
+## Session 22: 身份核验工作台设计实现与大陆合规核查
+
+**Date**: 2026-08-31
+**Task**: 身份核验工作台设计实现与大陆合规核查
+**Package**: api
+**Branch**: `review/identity-workbench-compliance-20260831`
+
+### Summary
+
+完成零产品代码改动的身份核验工作台设计、实现、使用说明三方核查及大陆住宿运营合规评估；报告形成16条IDY矩阵、P0 6/P1 6/P2 3问题，完成独立代码与法源review并创建PR #508。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d58059a5` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
