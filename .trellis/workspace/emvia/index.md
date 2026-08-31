@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
+- **Total Sessions**: 24
 - **Last Active**: 2026-08-31
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~831 | Active |
+| `journal-1.md` | ~866 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-08-31 | IDY-F04 plaintext reveal audit closure | `7045c318`, `4aecb6a7` | `codex/fix-idy-04-reveal-audit-archive` |
 | 23 | 2026-08-31 | IDY-F01 Party key fail-closed and rotation | `923586d3`, `24234beb`, `f60e5390`, `fed3df85`, `2473a14a` | `codex/fix-idy-02-consent-retention` |
 | 22 | 2026-08-31 | 身份核验工作台设计实现与大陆合规核查 | `d58059a5` | `review/identity-workbench-compliance-20260831` |
 | 21 | 2026-08-30 | LEA 上线后 UAT 复测与队列闭环 | `d6f67966` | `evidence/lea-post-deploy-uat-archive` |

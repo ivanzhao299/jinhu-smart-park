@@ -829,3 +829,38 @@ Merged PR #510; Party-only fail-closed keyring, versioned metadata/dual-read rot
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: IDY-F04 plaintext reveal audit closure
+
+**Date**: 2026-08-31
+**Task**: IDY-F04 plaintext reveal audit closure
+**Package**: api
+**Branch**: `codex/fix-idy-04-reveal-audit-archive`
+
+### Summary
+
+Completed masked-by-default Party detail, permissioned reason-bound plaintext reveal with required audit, three hosted review rounds, full PR and main CI Release Smoke, and production deployment verification.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7045c318` | (see git log) |
+| `4aecb6a7` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
