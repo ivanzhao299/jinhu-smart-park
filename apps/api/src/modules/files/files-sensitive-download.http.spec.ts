@@ -25,6 +25,8 @@ const principal: JwtPrincipal = {
 let fixturePath = "";
 let auditFailure = false;
 let originalName = "employee-file.pdf";
+let photoMode = false;
+let requiredAudit: Record<string, unknown> | undefined;
 
 @Injectable()
 class PrincipalGuard implements CanActivate {
@@ -42,11 +44,11 @@ const fileRepository = {
       parkId: principal.parkId,
       fileCode: "FILE-HTTP",
       originalName,
-      storedName: "employee-file.pdf",
+      storedName: photoMode ? "employee-photo.jpg" : "employee-file.pdf",
       fileUrl: "/api/v1/files/11111111-1111-4111-8111-111111111111/download",
       fileSize: "16",
-      mimeType: "application/pdf",
-      bizType: "hr_employee_document",
+      mimeType: photoMode ? "image/jpeg" : "application/pdf",
+      bizType: photoMode ? "hr_employee_photo" : "hr_employee_document",
       bizId: "22222222-2222-4222-8222-222222222222",
       storageType: "local",
       storageBucket: "local",
@@ -60,7 +62,8 @@ const fileRepository = {
 
 const storageService = { resolve: () => fixturePath };
 const auditService = {
-  async recordOperationRequired(): Promise<void> {
+  async recordOperationRequired(input: Record<string, unknown>): Promise<void> {
+    requiredAudit = input;
     if (auditFailure) throw new Error("audit persistence unavailable");
   },
   async recordOperation(): Promise<void> {}
@@ -105,6 +108,8 @@ describe("HR sensitive file download HTTP boundary", () => {
 
   beforeEach(() => {
     auditFailure = false;
+    photoMode = false;
+    requiredAudit = undefined;
     originalName = "employee-file.pdf";
     fixturePath = join(temporaryDirectory, "employee-file.pdf");
   });
@@ -149,6 +154,33 @@ describe("HR sensitive file download HTTP boundary", () => {
     assert.equal(/[\r\n]/u.test(disposition), false);
     assert.equal(response.headers.has("x-injected"), false);
     assert.deepEqual(Buffer.from(await response.arrayBuffer()), payload);
+  });
+
+  it("treats employee photos as audited HR-sensitive downloads before image headers or bytes", async () => {
+    photoMode = true;
+    originalName = "employee-photo.jpg";
+    const response = await download();
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "image/jpeg");
+    assert.equal(requiredAudit?.resource, "hr.employee_photo");
+    assert.equal(requiredAudit?.action, "下载员工照片");
+    assert.deepEqual(requiredAudit?.afterJson, {
+      fieldGroups: ["attachment"],
+      projection: "download",
+      itemCount: 1,
+    });
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), payload);
+  });
+
+  it("does not emit photo headers or bytes if the employee-photo audit fails", async () => {
+    photoMode = true;
+    auditFailure = true;
+    const response = await download();
+    const body = await response.text();
+    assert.equal(response.status, 500);
+    assert.equal(response.headers.has("content-disposition"), false);
+    assert.notEqual(response.headers.get("content-type"), "image/jpeg");
+    assert.equal(body.includes(payload.toString("utf8")), false);
   });
 
   async function download(): Promise<Response> {
