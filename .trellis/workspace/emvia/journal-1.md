@@ -791,3 +791,41 @@ Implemented transactional housing and homestay rental-status projection with con
 ### Next Steps
 
 - None - task complete
+
+
+## Session 23: IDY-F01 Party key fail-closed and rotation
+
+**Date**: 2026-08-31
+**Task**: IDY-F01 Party key fail-closed and rotation
+**Package**: api
+**Branch**: `codex/fix-idy-02-consent-retention`
+
+### Summary
+
+Merged PR #510; Party-only fail-closed keyring, versioned metadata/dual-read rotation, scoped audit CLI, migration guards, three review rounds, PR/main CI and production deploy with health and Docker cleanup all passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `923586d3` | (see git log) |
+| `24234beb` | (see git log) |
+| `f60e5390` | (see git log) |
+| `fed3df85` | (see git log) |
+| `2473a14a` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
