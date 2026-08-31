@@ -101,6 +101,12 @@ FROM migration_batch b CROSS JOIN generate_series(0,2154) g WHERE b.run_id='${t0
   assert.match(immutable, /immutable outside exact unpublished legacy rollback/u);
   assert.equal(command("sh", ["scripts/rollback-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...environment, ALLOW_YUZHOU_ROLLBACK: "yes" } }), "rolled_back");
   assert.equal(psql(database, `SELECT (SELECT status FROM migration_batch WHERE run_id='${runId}')||'|'||(SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${runId}') AND is_active)||'|'||(SELECT count(*) FROM sys_file)||'|'||(SELECT count(*) FROM hr_employee_document)||'|'||(SELECT count(*) FROM hr_employee_compensation)||'|'||(SELECT count(*) FROM hr_payroll_run)||'|'||(SELECT count(*) FROM hr_payslip);`), "rolled_back|0|0|0|0|0|0|0");
+  const reloadRunId = `${runId}-reload`;
+  const reloadEnvironment = { ...environment, YUZHOU_T5_FILE_RUN_ID: reloadRunId };
+  assert.equal(command("sh", ["scripts/load-yuzhou-t5-photo-owner-evidence.sh"], { env: reloadEnvironment }), "succeeded|2155|2155|0");
+  assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${reloadRunId}') AND is_active);`), "2155|2155");
+  assert.equal(command("sh", ["scripts/rollback-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...reloadEnvironment, ALLOW_YUZHOU_ROLLBACK: "yes" } }), "rolled_back");
+  assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${reloadRunId}') AND is_active);`), "0|0");
   const quarantinedRunId = `${runId}-quarantine`;
   const quarantinedStage = createSyntheticStage("one-unmapped", 0).stage;
   const quarantinedEnvironment = { ...environment, YUZHOU_T5_FILE_RUN_ID: quarantinedRunId, YUZHOU_T5_FILE_STAGING_DIR: quarantinedStage };
@@ -108,7 +114,7 @@ FROM migration_batch b CROSS JOIN generate_series(0,2154) g WHERE b.run_id='${t0
   assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND mapping_status='quarantined' AND is_active)||'|'||(SELECT count(*) FROM migration_error WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND error_code='PHOTO_OWNER_UNMAPPED');`), "2154|1|1");
   assert.equal(command("sh", ["scripts/rollback-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...quarantinedEnvironment, ALLOW_YUZHOU_ROLLBACK: "yes" } }), "rolled_back");
   assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND is_active)||'|'||(SELECT count(*) FROM migration_error WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}'))||'|'||(SELECT count(*) FROM sys_file)||'|'||(SELECT count(*) FROM hr_employee_document)||'|'||(SELECT count(*) FROM hr_employee_compensation)||'|'||(SELECT count(*) FROM hr_payroll_run)||'|'||(SELECT count(*) FROM hr_payslip);`), "0|0|1|0|0|0|0|0");
-  process.stdout.write("Yuzhou T5_FILE photo-owner evidence direct PostgreSQL fixture passed: synthetic 2155-row load, immutability denial, mapped and quarantined rollback, protected-write residual=0.\n");
+  process.stdout.write("Yuzhou T5_FILE photo-owner evidence direct PostgreSQL fixture passed: synthetic 2155-row load, immutability denial, same-stage reload, mapped and quarantined rollback, protected-write residual=0.\n");
 } finally {
   if (created) command("docker", ["exec", "-i", container, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres"], { input: `DROP DATABASE IF EXISTS ${database} WITH (FORCE);\n`, expect: 0 });
   rmSync(stageRoot, { recursive: true, force: true });
