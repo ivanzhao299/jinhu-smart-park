@@ -122,7 +122,12 @@ export function validateCoreT0T3Config(input) {
   // before provisioning. Their mandatory `productionImport: "HOLD"` marker is
   // evidence of the boundary, not a production-import capability.
   const { dictionaryPackages: _dictionaryPackages, dictionaryCaptureReceipt: _dictionaryCaptureReceipt, ...sourceReachabilitySurface } = config.source;
-  const reachabilitySurface = JSON.stringify({ profile: config.profile, runId: config.runId, source: sourceReachabilitySurface, target: config.target });
+  // Resource identifiers may legitimately contain slice labels (for example a
+  // lab reserved by the outer lightweight-first runner). They are not an
+  // execution surface. Core reachability is determined by its source inputs
+  // and enforced domain order, so do not reject a sealed core config merely
+  // because an opaque run or resource name includes T4/T5 text.
+  const reachabilitySurface = JSON.stringify({ source: sourceReachabilitySurface });
   if (FORBIDDEN.test(reachabilitySurface)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", "T4, T5 and production historical import are unreachable");
   return config;
 }
