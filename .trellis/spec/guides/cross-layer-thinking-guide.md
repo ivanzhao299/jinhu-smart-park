@@ -128,6 +128,9 @@ After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)
 - [ ] Verified error handling at each boundary
 - [ ] Checked data survives round-trip
+- [ ] When a frozen hash is derived from a component-file bundle, recompute every
+      fixture manifest that embeds it and run the owning full-flow fixture; a
+      component edit must not leave a stale "valid" fixture behind
 - [ ] Checked that consumers import shared decoders / projections instead of
       casting payload fields locally
 - [ ] Checked that derived state points back to the source event identifier
