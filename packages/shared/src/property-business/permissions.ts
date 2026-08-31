@@ -35,6 +35,7 @@ export const PROPERTY_BUSINESS_PERMISSIONS = {
   PARTY_CREATE: "party:create",
   PARTY_UPDATE: "party:update",
   PARTY_SENSITIVE_READ: "party:sensitive_read",
+  PARTY_IDENTITY_REVEAL: "party:identity_reveal",
   PARTY_ROLE_MANAGE: "party_role:manage",
   HOMESTAY_DASHBOARD_READ: "homestay:dashboard:read",
   HOMESTAY_TASK_READ: "homestay:task:read",
@@ -138,6 +139,7 @@ export const PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS = [
 ] as const;
 
 export const TRACK_B_ACTION_PERMISSION_CODES = [
+  PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_REVEAL,
   PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
   PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
   PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE,
@@ -183,6 +185,7 @@ export interface TrackBPermissionDefinition {
 }
 
 export const TRACK_B_ACTION_PERMISSION_DEFINITIONS = [
+  { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_REVEAL, resource: "biz.party_identity", action: "reveal", method: "POST", apiPath: "/api/v1/property/parties/:partyId/identity-reveal", frontendRoute: "/assets/parties", module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE, resource: "biz.party_identity", action: "update", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY, resource: "biz.party_identity", action: "verify", method: "POST", apiPath: "/api/v1/property/identity-submissions/:submissionId/decisions", frontendRoute: "/assets/identity-submissions", module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE, resource: "biz.party_consent", action: "manage", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },

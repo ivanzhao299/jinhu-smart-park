@@ -674,7 +674,7 @@ fresh_order_visibility_count="$(
           AND remark='PR192 Track B frozen permission definition'
           AND is_deleted=false AND visible=(permission_type='page');"
 )"
-test "$fresh_order_visibility_count" -eq 25
+test "$fresh_order_visibility_count" -eq 26
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
@@ -708,7 +708,7 @@ fresh_order_rollback_state="$(
       AND remark='PR192 Track B frozen permission definition'
       AND is_deleted=false;"
 )"
-test "$fresh_order_rollback_state" = '25|1'
+test "$fresh_order_rollback_state" = '26|1'
 
 docker compose -f "$COMPOSE_FILE" exec -T postgres \
   psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$fresh_order_db" \
@@ -759,7 +759,7 @@ fresh_order_permission_visibility_count="$(
           AND is_deleted=false
           AND visible=(permission_type='page');"
 )"
-test "$fresh_order_permission_visibility_count" -eq 25
+test "$fresh_order_permission_visibility_count" -eq 26
 
 fresh_order_leasing_workorder_grant_count="$(
   docker compose -f "$COMPOSE_FILE" exec -T postgres \

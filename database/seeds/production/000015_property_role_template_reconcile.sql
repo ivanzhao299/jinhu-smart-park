@@ -44,7 +44,7 @@ BEGIN
     AND permission.permission_type IN ('page','api')
     AND permission.is_deleted=false;
 
-  IF visible_definition_count<>25 OR visible_drift_count<>0 THEN
+  IF visible_definition_count<>26 OR visible_drift_count<>0 THEN
     RAISE EXCEPTION 'property-track-b-visible-seed-drift: definitions=%, drift=%',
       visible_definition_count,visible_drift_count USING ERRCODE='23514';
   END IF;

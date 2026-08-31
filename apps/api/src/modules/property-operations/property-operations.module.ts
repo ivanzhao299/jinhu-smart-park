@@ -27,6 +27,7 @@ import { PropertyOccupancyAdapter } from "./property-occupancy.adapter";
 import { PROPERTY_OCCUPANCY_PORT } from "./property-occupancy.port";
 import { AssetSpaceMappingModule } from "../assets/asset-space-mapping.module";
 import { RentalStatusProjectionService } from "./rental-status-projection.service";
+import { AuditModule } from "../audit/audit.module";
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { RentalStatusProjectionService } from "./rental-status-projection.servic
     DataScopesModule,
     PropertyIdentityModule,
     PropertyApprovalModule,
-    AssetSpaceMappingModule
+    AssetSpaceMappingModule,
+    AuditModule
   ],
   controllers: [
     PropertyOperationsController,

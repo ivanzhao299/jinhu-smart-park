@@ -134,11 +134,12 @@ const seedDefinitions = parseSqlTuples(
 );
 
 assert.equal(migrationDefinitions.length, 25, "000189 must retain 25 signed permission tuples");
-assert.equal(seedDefinitions.length, 25, "post-seed reconcile must contain 25 permission tuples");
+assert.equal(seedDefinitions.length, 26, "post-seed reconcile must contain 26 permission tuples");
+assert.equal(seedDefinitions[0]?.[0], "party:identity_reveal");
 assert.deepEqual(
-  seedDefinitions,
+  seedDefinitions.slice(1),
   migrationDefinitions,
-  "post-seed definitions must exactly match the frozen 000189 signed tuples"
+  "post-seed definitions after the F04 extension must exactly match the frozen 000189 signed tuples"
 );
 
 const parentCaseStart = productionCoreSeed.indexOf("parent.code = CASE");
@@ -411,8 +412,8 @@ assert.equal(
 );
 
 for (const assertionToken of [
-  "permission_count <> 25",
-  "super_admin_grant_count <> 25",
+  "permission_count <> 26",
+  "super_admin_grant_count <> 26",
   "bundle_count <> 16",
   "bundle_member_count <> 131",
   "bundle_permission_count <> 57",

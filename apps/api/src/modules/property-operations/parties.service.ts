@@ -12,6 +12,8 @@ import {
   SYSTEM_PERMISSIONS,
   type PartyIdentitySummary,
   type PartyDetailResponse,
+  type PartyIdentityRevealReasonCode,
+  type PartyIdentityRevealResponse,
   type PartyListItemResponse,
   type PartyListResponse,
   type TenantParkScope
@@ -29,6 +31,7 @@ import { PartyRoleEntity } from "./entities/party-role.entity";
 import { PartyEntity } from "./entities/party.entity";
 import { PartySensitiveDataService } from "./party-sensitive-data.service";
 import { LegacyPartyIdentityAdapter } from "../property-identity/legacy-party-identity.adapter";
+import { AuditService } from "../audit/audit.service";
 import {
   isValidPartyIdentityNumber,
   normalizePartyIdentityNumber
@@ -43,7 +46,9 @@ export class PartiesService {
     private readonly rolesRepository: Repository<PartyRoleEntity>,
     private readonly sensitiveDataService: PartySensitiveDataService,
     @Optional()
-    private readonly identityAdapter?: LegacyPartyIdentityAdapter
+    private readonly identityAdapter?: LegacyPartyIdentityAdapter,
+    @Optional()
+    private readonly auditService?: AuditService
   ) {}
 
   async list(
@@ -176,13 +181,11 @@ export class PartiesService {
     actor: JwtPrincipal,
     id: string
   ): Promise<PartyDetailResponse> {
-    const canReadSensitive = this.hasPermission(actor, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
     const builder = this.partiesRepository.createQueryBuilder("party")
       .where("party.id = :id", { id })
       .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("party.is_deleted = false");
-    if (canReadSensitive) builder.addSelect("party.identityNumberEncrypted");
     const entity = await builder.getOne();
     if (!entity) throw new NotFoundException("Party not found");
     const [roles, summaries] = await Promise.all([
@@ -193,13 +196,7 @@ export class PartiesService {
       this.identitySummaries(scope, actor, [id])
     ]);
     const response = this.withIdentitySummary(
-      this.toResponse(entity, actor,
-        canReadSensitive && !entity.processingRestrictedAt
-          ? this.sensitiveDataService.decrypt(
-            entity.identityNumberEncrypted,
-            entity.identityNumberEncryptionKeyId ?? undefined
-          )
-          : undefined),
+      this.toResponse(entity, actor),
       summaries.get(id) ?? null
     );
     return {
@@ -213,6 +210,48 @@ export class PartiesService {
         createTime: role.createTime.toISOString()
       }))
     };
+  }
+
+  async revealIdentity(
+    scope: TenantParkScope,
+    actor: JwtPrincipal,
+    id: string,
+    reasonCode: PartyIdentityRevealReasonCode
+  ): Promise<PartyIdentityRevealResponse> {
+    this.assertPermission(actor, SYSTEM_PERMISSIONS.PARTY_IDENTITY_REVEAL);
+    if (!this.auditService) throw new ConflictException("Required audit is unavailable");
+    return this.partiesRepository.manager.transaction(async (manager) => {
+      const party = await this.mustFind(scope, id, true, manager.getRepository(PartyEntity), true);
+      if (!party.identityNumberEncrypted) throw new NotFoundException("Party identity number not found");
+      const identityNumber = this.sensitiveDataService.decrypt(
+        party.identityNumberEncrypted,
+        party.identityNumberEncryptionKeyId ?? undefined
+      );
+      if (!identityNumber) throw new NotFoundException("Party identity number not found");
+      await this.auditService!.recordOperationRequired({
+        tenantId: scope.tenantId,
+        parkId: scope.parkId,
+        userId: actor.sub,
+        username: actor.username,
+        realName: actor.realName,
+        roleCodes: actor.roles,
+        module: "共享房产底座",
+        resource: "biz.party_identity",
+        action: "查看业务相对方证件明文",
+        bizType: "biz_party",
+        bizId: party.id,
+        afterJson: { reasonCode },
+        method: "POST",
+        path: `/api/v1/property/parties/${party.id}/identity-reveal`,
+        success: true,
+        result: "success",
+        requestId: null
+      }, manager);
+      return {
+        partyId: party.id,
+        identityNumber
+      };
+    });
   }
 
   async create(
@@ -440,7 +479,6 @@ export class PartiesService {
     delete publicFields.email;
     delete publicFields.identityDocumentType;
     delete publicFields.identityNumberMasked;
-    delete publicFields.identityNumber;
     return publicFields;
   }
 
@@ -491,7 +529,6 @@ export class PartiesService {
   private toResponse(
     entity: PartyEntity,
     actor?: JwtPrincipal,
-    identityNumber?: string | null
   ): PartyListItemResponse {
     const response: PartyListItemResponse = {
       id: entity.id,
@@ -513,13 +550,11 @@ export class PartiesService {
       version: entity.version,
       remark: entity.remark
     };
-    if (identityNumber !== undefined) response.identityNumber = identityNumber;
     if (entity.processingRestrictedAt) {
       delete response.mobile;
       delete response.email;
       delete response.identityDocumentType;
       delete response.identityNumberMasked;
-      delete response.identityNumber;
     }
     return actor ? this.projectForActor(response, actor) : response;
   }

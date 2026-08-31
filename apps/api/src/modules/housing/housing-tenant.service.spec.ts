@@ -133,7 +133,7 @@ test("housing tenant list masks contact fields without mutating the Party respon
 });
 
 test("housing tenant read-only projection omits contact fields and raw Party metadata", async () => {
-  const source = partyResponse({ identityNumber: "320123199001011234" });
+  const source = partyResponse({ identityNumberMasked: "320***********1234" });
   const service = tenantService({
     list: async () => ({ items: [source], total: 1, page: 1, page_size: 20 }),
     create: async () => source
@@ -147,7 +147,7 @@ test("housing tenant read-only projection omits contact fields and raw Party met
   assert.deepEqual(Object.keys(result.items[0]!).sort(), [
     "displayName", "id", "verificationStatus"
   ]);
-  assert.equal("identityNumber" in result.items[0]!, false);
+  assert.equal("identityNumberMasked" in result.items[0]!, false);
   assert.equal("tenantId" in result.items[0]!, false);
 });
 

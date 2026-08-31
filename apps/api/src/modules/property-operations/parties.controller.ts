@@ -11,6 +11,7 @@ import {
   AddPartyRoleDto,
   CreatePartyDto,
   PartyQueryDto,
+  RevealPartyIdentityDto,
   UpdatePartyDto,
   VerifyPartyDto
 } from "./dto/party.dto";
@@ -35,6 +36,19 @@ export class PartiesController {
   @RequirePermissions(SYSTEM_PERMISSIONS.PARTY_READ)
   detail(@CurrentScope() scope: TenantParkScope, @CurrentUser() actor: JwtPrincipal, @Param("id") id: string) {
     return this.service.detail(scope, actor, id);
+  }
+
+  @Post(":id/identity-reveal")
+  // Deliberately no IdempotencyInterceptor: a cached replay would retain plaintext
+  // and skip the required audit that must accompany every reveal attempt.
+  @RequirePermissions(PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_REVEAL)
+  revealIdentity(
+    @CurrentScope() scope: TenantParkScope,
+    @CurrentUser() actor: JwtPrincipal,
+    @Param("id") id: string,
+    @Body() dto: RevealPartyIdentityDto
+  ) {
+    return this.service.revealIdentity(scope, actor, id, dto.reason_code);
   }
 
   @Post()

@@ -3,12 +3,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { PROPERTY_BUSINESS_PERMISSIONS } from "@jinhu/shared";
 import { PERMISSIONS_KEY } from "../../shared/decorators/permissions.decorator";
+import { INTERCEPTORS_METADATA } from "@nestjs/common/constants";
 import { PartiesController } from "./parties.controller";
 
 test("legacy party verification requires the exact identity verifier permission", () => {
   assert.deepEqual(
     Reflect.getMetadata(PERMISSIONS_KEY, PartiesController.prototype.verify),
     [PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY]
+  );
+});
+
+test("party identity reveal requires the exact atomic permission", () => {
+  assert.deepEqual(
+    Reflect.getMetadata(PERMISSIONS_KEY, PartiesController.prototype.revealIdentity),
+    [PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_REVEAL]
+  );
+  assert.equal(
+    Reflect.getMetadata(INTERCEPTORS_METADATA, PartiesController.prototype.revealIdentity),
+    undefined,
+    "plaintext reveal must never use a replay cache that bypasses per-access audit"
   );
 });
 

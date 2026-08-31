@@ -760,7 +760,19 @@ export interface PartyListItemResponse {
   email?: string | null;
   identityDocumentType?: string | null;
   identityNumberMasked?: string | null;
-  identityNumber?: string | null;
+}
+
+export const PARTY_IDENTITY_REVEAL_REASON_CODES = [
+  "BUSINESS_OPERATION",
+  "LEGAL_COMPLIANCE",
+  "DISPUTE_HANDLING",
+  "DATA_SUBJECT_REQUEST"
+] as const;
+export type PartyIdentityRevealReasonCode = typeof PARTY_IDENTITY_REVEAL_REASON_CODES[number];
+
+export interface PartyIdentityRevealResponse {
+  partyId: string;
+  identityNumber: string;
 }
 
 export const PARTY_LIST_SORTS = [

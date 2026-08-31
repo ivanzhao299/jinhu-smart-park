@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { URLSearchParams } from "node:url";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   encodeReturnContext,
   resolveReturnHref
@@ -43,4 +45,14 @@ test("Party return context round-trips percent text and sorting", () => {
     resolveReturnHref(received, PARTY_RETURN_POLICY),
     "/assets/parties?keyword=50%25+off&sort=verificationStatus&order=desc#party-list"
   );
+});
+
+test("Party detail keeps plaintext behind an audited reveal action", () => {
+  const source = readFileSync(resolve(import.meta.dirname, "PartyDetailClient.tsx"), "utf8");
+  assert.match(source, /PARTY_IDENTITY_REVEAL/);
+  assert.match(source, /reason_code: reasonCode/);
+  assert.match(source, /idempotencyKey: idempotency\.keyFor\("party-identity-reveal"/);
+  assert.match(source, /\/identity-reveal/);
+  assert.match(source, /party\.identityNumberMasked \?\? "—"/);
+  assert.doesNotMatch(source, /party\.identityNumber \?\?/);
 });

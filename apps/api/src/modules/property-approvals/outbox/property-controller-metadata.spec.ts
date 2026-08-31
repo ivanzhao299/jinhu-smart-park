@@ -118,7 +118,7 @@ describe("property runtime controller authorization metadata", () => {
         requiredModule
       }))
       .sort((a, b) => `${a.method}:${a.path}`.localeCompare(`${b.method}:${b.path}`));
-    assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 66);
+    assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 67);
     assert.equal(actual.length, 13);
     assert.deepEqual(actual, expected);
   });

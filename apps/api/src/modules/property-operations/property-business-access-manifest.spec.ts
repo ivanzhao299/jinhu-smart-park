@@ -243,7 +243,7 @@ test("root permission exports preserve legacy/action values and seed every granu
     [...TRACK_B_PAGE_PERMISSION_CODES]
   );
   const migrationOwnedPermissionCodes = new Set<string>(TRACK_B_ACTION_PERMISSION_CODES);
-  assert.equal(migrationOwnedPermissionCodes.size, 22);
+  assert.equal(migrationOwnedPermissionCodes.size, 23);
   for (const code of Object.values(PROPERTY_BUSINESS_PERMISSIONS)) {
     const expectedSeedCount = migrationOwnedPermissionCodes.has(code) ? 0 : 1;
     assert.equal(
@@ -270,14 +270,15 @@ test("root permission exports preserve legacy/action values and seed every granu
   )?.[1];
   assert.ok(signedCodeBlock);
   assert.ok(signedDefinitionBlock);
-  const governancePermissions = new Set<string>([
+  const postB0PermissionExtensions = new Set<string>([
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_REVEAL,
     PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE,
     PROPERTY_BUSINESS_PERMISSIONS.PARTY_SUBJECT_RIGHTS_MANAGE,
     PROPERTY_BUSINESS_PERMISSIONS.PARTY_RETENTION_MANAGE,
     PROPERTY_BUSINESS_PERMISSIONS.PARTY_LEGAL_HOLD_MANAGE
   ]);
   const expectedTrackBPermissions = [
-    ...TRACK_B_ACTION_PERMISSION_CODES.filter((code) => !governancePermissions.has(code)),
+    ...TRACK_B_ACTION_PERMISSION_CODES.filter((code) => !postB0PermissionExtensions.has(code)),
     ...TRACK_B_PAGE_PERMISSION_CODES
   ].sort();
   const extractCodes = (block: string) =>
