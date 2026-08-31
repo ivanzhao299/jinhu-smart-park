@@ -102,6 +102,14 @@ test("labor contract projection excludes legacy source, salary, scope, and audit
   assert.deepEqual(Object.keys(projected),["id","employeeId","employeeCode","employeeName","contractNo","contractTypeId","contractTypeName","startDate","endDate","probationEndDate","status","isHistoricalImport"]);
 });
 
+test("labor contract self projection is limited to the employee summary allowlist",()=>{
+  const projector=(HrService.prototype as unknown as {projectSelfContract:(row:Record<string,unknown>)=>Record<string,unknown>}).projectSelfContract;
+  const projected=projector.call({}, {
+    id:"contract-1",employeeId:"employee-1",employeeCode:"employee-code",employeeName:"employee-name",contractNo:"contract-number",contractTypeId:"type-1",contractTypeName:"contract-type",startDate:"2026-01-01",endDate:"2027-01-01",probationEndDate:"2026-04-01",contractTermMonths:12,cumulativeTermMonths:12,firstSignatureDate:"2026-01-01",lastSignatureDate:"2026-01-01",renewalCount:0,signatureDate:"2026-01-01",effectiveDate:"2026-01-01",positionTitle:"position",workType:"work-type",departmentNameSnapshot:"department",probationMonths:3,probationSalary:"100.00",baseSalary:"200.00",remark:"remark",status:"active",isHistoricalImport:true,sourceSnapshot:{legacy:true},tenantId:"tenant-1",parkId:"park-1"
+  });
+  assert.deepEqual(projected,{id:"contract-1",contractNo:"contract-number",contractTypeName:"contract-type",startDate:"2026-01-01",endDate:"2027-01-01",status:"active",isHistoricalImport:true});
+});
+
 test("employee routes expose only the reviewed full, self, and manager permissions", () => {
   const expected = [
     HR_PERMISSIONS.HR_EMPLOYEE_READ,
