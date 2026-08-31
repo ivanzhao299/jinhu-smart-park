@@ -178,6 +178,7 @@
     "test:e2e:yuzhou-t5-legacy-history": "node scripts/e2e/yuzhou-t5-legacy-history-contract.mjs",
     "test:e2e:yuzhou-t5a-archive-materialization": "node --test scripts/e2e/yuzhou-t5a-archive-materialization-contract.mjs",
     "test:e2e:yuzhou-t5a-archive-materialization:pg": "node scripts/e2e/yuzhou-t5a-archive-materialization-direct-pg.mjs",
+    "test:e2e:yuzhou-t5-photo-owner-evidence:pg": "node scripts/e2e/yuzhou-t5-photo-owner-evidence-direct-pg.mjs",
     "test:e2e:yuzhou-photo-readiness": "node --test scripts/e2e/yuzhou-photo-readiness-contract.mjs",
     "test:e2e:yuzhou-photo-owner-stage": "node --test scripts/e2e/yuzhou-photo-owner-stage-contract.mjs",
     "test:e2e:yuzhou-t5-photo-owner-evidence": "node scripts/e2e/yuzhou-t5-photo-owner-evidence-contract.mjs",
