@@ -2,7 +2,7 @@
 
 ## Resume Point
 
-- Phase: PR review round 2 findings repaired and locally verified; next action is commit/push, final review round 3, CI, merge.
+- Phase: final review round 3 findings repaired; next action is full unit gate, commit/push, CI, resolve addressed threads, merge.
 - Branch: `codex/fix-idy-01-encryption-key` from `origin/main@37647cc9`.
 - Issue: #509 (parent queue); PR: #510.
 - Keyring/fail-closed, Party metadata, tenant-scoped rotation, required audit, CLI, tests and docs are implemented.
@@ -56,3 +56,7 @@
 - Fresh disposable PostgreSQL 16: 277/277 migrations and replay pass; CAS definitions patched, receipt scope columns are 64, Party guard validated and snapshot/draft NOT VALID guards installed; task-owned container/network/volume removed.
 - Full API unit on CI-aligned Node 22.23.2: 1668 total; 1627 pass, 41 explicit PostgreSQL skips, 0 fail. Two prior Node 24 runs were not accepted as evidence: one unrelated isolated test-process failure and one V8 native fatal; the originally named files passed in isolation.
 - Scope/secret check: no HR file changed, `git diff --check` pass, diff secret-pattern scan pass.
+- Review round 3 completed at `f60e539` and exposed four final findings. No fourth review will be requested: explicit key-id authentication/envelope failures now surface; request-key replay is bound to the current active key; the CLI no longer imports `UsersModule` and resolves the enabled scoped actor through a DataSource-only provider; deployment docs prohibit historical-key retirement while unversioned HR ciphertext can still reference it.
+- Final-review focused gate on Node 22.23.2: 16/16 pass, including actor resolver scope/fail-closed, replay conflict, explicit ciphertext failure and legacy dual-read cases. API typecheck/lint/build pass; `git diff --check` pass.
+- Final-review full API unit on Node 22.23.2: 1671 total; 1630 pass, 41 explicit skips, 0 fail.
+- A pre-gate command attempted an unavailable `tsx` loader under Node 24 and did not execute test code; it is not accepted as validation evidence. The same named tests passed through the repository's `ts-node/register` path on Node 22.23.2.

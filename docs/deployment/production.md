@@ -56,7 +56,9 @@ Party 敏感数据只接受专用配置，不再回退到 IoT、JWT 或固定开
 
 首次升级把 `PARTY_DATA_IDENTITY_HASH_KEY` 设置为原 v1 key，以保持存量身份 HMAC 与唯一性语义；之后 AES key 可独立轮换。不得直接更换 fingerprint key，除非另有覆盖 Party 与 immutable snapshot 的受控 hash migration。
 
-轮换顺序：先部署 active+历史 keyring 的双读配置，再执行 migration，然后逐 tenant/park 运行构建产物中的 `pnpm --filter @jinhu/api party-data-key:rotate -- --tenant-id=... --park-id=... --actor-id=... --request-key=...`。`actor-id` 必须解析为该 tenant/park 内启用且具备 `party:identity_verify`（或超级权限）的真实用户；CLI 使用最小运行模块，不启动 MQTT 或业务 scheduler。命令按 scope 加锁，校验 active-key/历史 key、软删除 Party、当前 draft 与 snapshot 的全部保留密文，并在同一事务写 rotation receipt 与 required audit；未知 key/unreadable ciphertext 会整 scope 回滚。确认所有 scope 的旧 encryption key 引用为零并经过观察期后才可从 encryption keyring 移除旧 key。所有 key 变量均不得写入日志、截图、UAT 证据、Issue、PR 或提交文件。
+轮换顺序：先部署 active+历史 keyring 的双读配置，再执行 migration，然后逐 tenant/park 运行构建产物中的 `pnpm --filter @jinhu/api party-data-key:rotate -- --tenant-id=... --park-id=... --actor-id=... --request-key=...`。`actor-id` 必须解析为该 tenant/park 内启用且具备 `party:identity_verify`（或超级权限）的真实用户；CLI 使用最小运行模块，不启动 MQTT 或业务 scheduler。命令按 scope 加锁，校验 active-key/历史 key、软删除 Party、当前 draft 与 snapshot 的全部保留密文，并在同一事务写 rotation receipt 与 required audit；未知 key/unreadable ciphertext 会整 scope 回滚。同一个 `request-key` 只绑定执行时的 active key，active key 变化后复用会冲突失败。
+
+当前 HR 存量敏感字段没有 key-id metadata，依赖完整 Party-domain keyring 做 active-first 双读，且不在上述 Party/identity 轮换 inventory 内。因此即使所有 Party/identity scope 的旧 key 引用为零，也**禁止移除任何曾用于 HR 写入的历史 key**；在另行完成 HR metadata、逐租户 inventory 与迁移并证明引用为零之前，历史 key 必须作为 decrypt-only key 保留。该限制不是旧 key 可退役的证明。所有 key 变量均不得写入日志、截图、UAT 证据、Issue、PR 或提交文件。
 
 `PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
 `true` 时启用。Track B 审批执行能力完成发布门禁前，生产环境必须保持

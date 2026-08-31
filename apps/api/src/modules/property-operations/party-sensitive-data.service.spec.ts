@@ -71,6 +71,14 @@ test("party sensitive data rejects malformed envelopes and supports empty plaint
   assert.equal(service.decrypt("enc:v1:00112233445566778899aabb:00112233445566778899aabbccddeeff:a"), null);
   assert.equal(service.decrypt(`${ciphertext.slice(0, -2)}00`), null);
   assert.equal(service.decrypt(service.encrypt("")), "");
+  assert.throws(
+    () => service.decrypt(`${ciphertext}:extra`, "party-data-v1"),
+    /ciphertext envelope is invalid/u
+  );
+  assert.throws(
+    () => service.decrypt(`${ciphertext.slice(0, -2)}00`, "party-data-v1"),
+    /ciphertext authentication failed/u
+  );
 });
 
 test("identity fingerprint remains stable while the encryption key rotates", () => {

@@ -33,13 +33,19 @@ export class PartySensitiveDataService {
   }
 
   decrypt(value: string | null, keyId?: string): string | null {
-    if (!value?.startsWith(PREFIX)) return null;
+    const fail = (message: string): null => {
+      if (keyId !== undefined) throw new Error(message);
+      return null;
+    };
+    if (!value?.startsWith(PREFIX)) return fail("Party data ciphertext envelope is invalid");
     const segments = value.slice(PREFIX.length).split(":");
-    if (segments.length !== 3) return null;
+    if (segments.length !== 3) return fail("Party data ciphertext envelope is invalid");
     const [ivHex, tagHex, payloadHex] = segments as [string, string, string];
     if (!/^[0-9a-f]{24}$/iu.test(ivHex)
       || !/^[0-9a-f]{32}$/iu.test(tagHex)
-      || !/^(?:[0-9a-f]{2})*$/iu.test(payloadHex)) return null;
+      || !/^(?:[0-9a-f]{2})*$/iu.test(payloadHex)) {
+      return fail("Party data ciphertext envelope is invalid");
+    }
 
     const keyIds = keyId === undefined
       ? [this.keyring.activeKeyId, ...this.keyring.keys.keys()].filter(
@@ -55,9 +61,12 @@ export class PartySensitiveDataService {
           decipher.update(Buffer.from(payloadHex, "hex")),
           decipher.final()
         ]).toString("utf8");
-      } catch {
+      } catch (error) {
         // Unversioned legacy consumers have no key-id metadata, so try the next
         // configured Party-domain key. Explicit key-id callers never fall back.
+        if (keyId !== undefined) {
+          throw new Error("Party data ciphertext authentication failed", { cause: error });
+        }
       }
     }
     return null;

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable } from "@nestjs/common";
 import type { TenantParkScope } from "@jinhu/shared";
 import { DataSource, type EntityManager } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
@@ -41,10 +41,14 @@ export class PartyDataKeyRotationService {
       await manager.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [
         `party-data-key-rotation:${scope.tenantId}:${scope.parkId}`
       ]);
-      const existing = await this.receipt(manager, scope, normalizedRequestKey);
-      if (existing) return { ...existing, replayed: true };
-
       const activeKeyId = this.sensitiveData.activeKeyId();
+      const existing = await this.receipt(manager, scope, normalizedRequestKey);
+      if (existing) {
+        if (existing.activeKeyId !== activeKeyId) {
+          throw new ConflictException("Rotation request key is bound to a different active key");
+        }
+        return { ...existing, replayed: true };
+      }
       const draftInventory = await manager.query(
         `SELECT submission.id::text,
                 submission.draft_encryption_key_id,

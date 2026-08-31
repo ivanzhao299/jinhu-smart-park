@@ -144,6 +144,31 @@ test("party data rotation replays a receipt without touching ciphertext or audit
   assert.equal(queryCount, 2);
 });
 
+test("party data rotation rejects a replay key bound to another active key", async () => {
+  let queryCount = 0;
+  const manager = { query: async (sql: string) => {
+    queryCount += 1;
+    if (sql.includes("FROM public.biz_party_data_key_rotation_receipt")) return [{
+      id: "00000000-0000-4000-8000-000000000040",
+      active_key_id: "party-data-v2",
+      party_count: 2,
+      snapshot_count: 3,
+      draft_count: 4
+    }];
+    return [];
+  } };
+  const rotation = new PartyDataKeyRotationService(
+    { transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    { activeKeyId: () => "party-data-v3" } as never,
+    { recordOperationRequired: async () => assert.fail("conflicting replay must not audit") } as never
+  );
+  await assert.rejects(
+    rotation.rotate(scope, actor, "rotation-1"),
+    /bound to a different active key/u
+  );
+  assert.equal(queryCount, 2);
+});
+
 test("party data rotation validates active-key ciphertext without rewriting it", async () => {
   const crypto = new PartySensitiveDataService(new ConfigService({
     PARTY_DATA_ENCRYPTION_KEY: "old-party-key-123456789012345678901234",
@@ -171,7 +196,7 @@ test("party data rotation validates active-key ciphertext without rewriting it",
   );
   await assert.rejects(
     rotation.rotate(scope, actor, "rotation-active-invalid"),
-    /ciphertext envelope is invalid/u
+    /ciphertext authentication failed/u
   );
   assert.equal(queries.some((sql) => sql.includes("SET identity_number_encrypted")), false);
 });
