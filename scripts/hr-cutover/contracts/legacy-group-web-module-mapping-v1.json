@@ -3121,7 +3121,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/training"
       ],
       "mappingStatus": "mapped"
     },
@@ -3137,7 +3137,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/performance"
       ],
       "mappingStatus": "mapped"
     },
@@ -3153,7 +3153,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/attendance"
       ],
       "mappingStatus": "mapped"
     },
@@ -3169,7 +3169,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/compensation"
       ],
       "mappingStatus": "mapped"
     },
