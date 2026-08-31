@@ -23,4 +23,17 @@ export class PropertyIdentityVerificationService implements IdentityVerification
       manager: input.manager.transactionContext as EntityManager
     });
   }
+
+  verifyForHousingMoveIn(input: {
+    manager: { readonly transactionContext: unknown };
+    scope: TenantParkScope;
+    leaseId: string;
+    partyIds: readonly string[];
+    expectedConsent: "granted";
+  }): Promise<readonly VerifiedIdentityEvidence[]> {
+    return this.identityService.verifyForHousingMoveIn({
+      ...input,
+      manager: input.manager.transactionContext as EntityManager
+    });
+  }
 }

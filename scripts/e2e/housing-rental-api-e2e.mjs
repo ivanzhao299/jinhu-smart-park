@@ -400,6 +400,79 @@ async function run() {
     "lease detail owns each persisted occupant display label"
   );
 
+  const moveInBody = {
+    handover_type: "move_in",
+    item_snapshot: [{ description: "入住物品验收完成", checked: true }],
+    meter_readings: [{ type: "electricity", reading: 0 }],
+    credentials: [{ type: "door_card", issued: 2 }],
+    damage_amount: "0.00",
+    unsettled_amount: "0.00",
+    deposit_deduction_amount: "0.00",
+    remark: "真实 API E2E 入住交割"
+  };
+  await expectRequestStatus(`/housing/leases/${lease.id}/handovers`, 409, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: moveInBody
+  });
+  await request(`/property/party-data-governance/parties/${tenant.id}/consent-facts`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    idempotencyKey: key("housing-move-in-consent"),
+    body: {
+      lawful_basis: "consent",
+      processing_purpose: "housing_move_in",
+      notice_version: "housing-move-in-notice-v1",
+      effective_at: new Date().toISOString(),
+      channel: "web"
+    }
+  });
+  const identitySubmissionId = updatedTenant.identitySummary?.currentSubmissionId;
+  assert(typeof identitySubmissionId === "string", "housing tenant owns a draft identity submission");
+  const identityDraft = await request(`/property/identity-submissions/${identitySubmissionId}`, { token });
+  const identitySubmitKey = key("housing-identity-submit");
+  const submittedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/submit`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    idempotencyKey: identitySubmitKey,
+    body: { clientKey: identitySubmitKey, expectedVersion: identityDraft.version }
+  });
+  const identityClaimKey = key("housing-identity-claim");
+  const claimedIdentity = await request(`/property/identity-submissions/${identitySubmissionId}/claim`, {
+    method: "POST",
+    token: approverToken,
+    idempotent: true,
+    idempotencyKey: identityClaimKey,
+    body: {
+      clientKey: identityClaimKey,
+      expectedVersion: submittedIdentity.version,
+      expectedAssignmentVersion: submittedIdentity.assignmentVersion
+    }
+  });
+  const identityDecisionKey = key("housing-identity-decision");
+  await request(`/property/identity-submissions/${identitySubmissionId}/decisions`, {
+    method: "POST",
+    token: approverToken,
+    idempotent: true,
+    idempotencyKey: identityDecisionKey,
+    body: {
+      clientKey: identityDecisionKey,
+      decision: "verified",
+      expectedVersion: claimedIdentity.version,
+      expectedAssignmentVersion: claimedIdentity.assignmentVersion,
+      reason: "Housing API E2E identity verification"
+    }
+  });
+  await request(`/housing/leases/${lease.id}/handovers`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: moveInBody
+  });
+
   const propertyChargePlan = await request(`/housing/leases/${lease.id}/charge-plans`, {
     method: "PUT",
     token,

@@ -746,6 +746,17 @@ test("check-in verifier locks snapshot references then files in stable UUID orde
   assert.match(statements[2]!, /ORDER BY id[\s\S]*FOR UPDATE/);
   assert.deepEqual(paramsLog[1]?.[2], [secondSubmissionId]);
   assert.deepEqual(paramsLog[2]?.[2], ["00000000-0000-4000-8000-000000000051"]);
+  assert.equal(paramsLog[0]?.[4], "accommodation_checkin");
+
+  const housingResult = await service.verifyForHousingMoveIn({
+    manager: manager as never,
+    scope,
+    leaseId: "00000000-0000-4000-8000-000000000061",
+    partyIds: [partyId],
+    expectedConsent: "granted"
+  });
+  assert.equal(housingResult.length, 1);
+  assert.equal(paramsLog[3]?.[4], "housing_move_in");
 });
 
 test("check-in verifier fails closed when a frozen file digest drifts", async () => {

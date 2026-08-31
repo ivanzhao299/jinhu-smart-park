@@ -566,6 +566,14 @@ export interface IdentityVerificationPort {
     partyIds: readonly string[];
     expectedConsent: "granted";
   }): Promise<readonly VerifiedIdentityEvidence[]>;
+
+  verifyForHousingMoveIn(input: {
+    manager: EntityManagerPort;
+    scope: TenantParkScope;
+    leaseId: string;
+    partyIds: readonly string[];
+    expectedConsent: "granted";
+  }): Promise<readonly VerifiedIdentityEvidence[]>;
 }
 
 export interface ApprovalMutationCommand {

@@ -724,6 +724,26 @@ export class PropertyIdentityService {
     partyIds: readonly string[];
     expectedConsent: "granted";
   }): Promise<readonly VerifiedIdentityEvidence[]> {
+    return this.verifyForPurpose(input, "accommodation_checkin");
+  }
+
+  async verifyForHousingMoveIn(input: {
+    manager: EntityManager;
+    scope: TenantParkScope;
+    leaseId: string;
+    partyIds: readonly string[];
+    expectedConsent: "granted";
+  }): Promise<readonly VerifiedIdentityEvidence[]> {
+    return this.verifyForPurpose(input, "housing_move_in");
+  }
+
+  private async verifyForPurpose(input: {
+    manager: EntityManager;
+    scope: TenantParkScope;
+    partyIds: readonly string[];
+    expectedConsent: "granted";
+  }, consentPurpose: "accommodation_checkin" | "housing_move_in"):
+  Promise<readonly VerifiedIdentityEvidence[]> {
     const partyIds = [...new Set(input.partyIds)].sort();
     if (!partyIds.length) return [];
     const rows = await input.manager.query(
@@ -747,13 +767,13 @@ export class PropertyIdentityService {
          AND p.processing_restricted_at IS NULL
          AND consent.status='granted' AND consent.lawful_basis='consent'
          AND consent.provenance='operator_recorded'
-         AND consent.processing_purpose='accommodation_checkin'
+         AND consent.processing_purpose=$5
          AND consent.effective_at <= now()
          AND consent.revoked_at IS NULL
          AND p.identity_version=s.identity_version
        ORDER BY p.id
        FOR UPDATE OF p,s,snapshot`,
-      [input.scope.tenantId, input.scope.parkId, partyIds, input.expectedConsent]
+      [input.scope.tenantId, input.scope.parkId, partyIds, input.expectedConsent, consentPurpose]
     ) as Array<Record<string, unknown>>;
     if (rows.length !== partyIds.length) {
       throw propertyIdentityError("identity-snapshot-stale");
