@@ -4,7 +4,7 @@
 
 - Branch: `codex/fix-idy-05-housing-identity-gate` from `origin/main@42ab2d7d`.
 - Issue: #518; parent queue: #509.
-- Implementation complete locally; quality gates in progress.
+- Complete and merged to `main`.
 
 ## Checklist
 
@@ -18,7 +18,7 @@
 - [x] Extend housing API E2E with valid identity/consent fixture and negative/positive move-in cases.
 - [x] Update identity consent/release documentation for F05 semantics.
 - [x] Run focused build/lint/typecheck/unit and E2E contract, then Trellis full check.
-- [ ] Commit, push, PR `Closes #518`, hosted review ≤3, CI/Release Smoke, squash merge, main CI+Deploy.
+- [x] Commit, push, PR `Closes #518`, hosted review ≤3, CI/Release Smoke, squash merge, main CI+Deploy.
 - [ ] Record final evidence, archive task, fast-forward RBAC main, delete branches, prune.
 
 ## Validation Commands
@@ -49,3 +49,7 @@
 - Workspace `pnpm lint && pnpm typecheck && pnpm build`: PASS.
 - Workspace `pnpm test`: unit/contract phase passed; legacy S1 integration smoke could not self-start its API in the current local environment, both without and with the non-secret test encryption key. The disposable PostgreSQL/API property E2E remains delegated to PR Release Smoke; no production/shared environment was touched.
 - Independent read-only quality audit confirmed move-in-only placement, exact consent purpose, full scoped party set, transaction ordering, and Nest wiring. It identified missing no-persistence and aggregate E2E contract assertions; both were added before this evidence was recorded.
+- Work commit: `d631e62b`; PR #519 squash-merged as main `b6934fec`; Issue #518 closed.
+- Hosted review: 1/3, completed with no findings.
+- PR CI run `33411723489`: Detect PASS 9s; Lint/Typecheck/Build PASS 14m04s; Release Smoke PASS 22m22s, including disposable PostgreSQL/API property E2E and teardown.
+- Main CI run `33415348798`: PASS, including Release Smoke. Main Deploy run `33415348718`: PASS.
