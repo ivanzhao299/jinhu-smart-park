@@ -154,6 +154,7 @@
     "hr:migration:core-dictionary-preflight:prepare": "node scripts/hr-cutover/prepare-yuzhou-core-dictionary-preflight.mjs",
     "hr:migration:core-t0-t3:pair": "node scripts/hr-cutover/core-t0-t3-pair-runner.mjs",
     "hr:migration:core-t0-t3:pair-continuous": "node scripts/hr-cutover/run-core-t0-t3-pair-continuous-lab.mjs",
+    "hr:migration:t5:nonfile:pair-continuous": "node scripts/hr-cutover/run-t5-nonfile-pair-continuous-lab.mjs",
     "hr:migration:core-t0-t3:technical-uat": "node scripts/hr-cutover/run-core-t0-t3-technical-uat.mjs",
     "hr:migration:lightweight-first:continuous": "node scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs",
     "hr:migration:t5:photo-owner:continuous": "node scripts/hr-cutover/run-t5-photo-owner-evidence-lab.mjs",
