@@ -284,6 +284,9 @@ test("HR M5 labor contracts are list-first, server-filtered, and history-aware",
   assert.match(contracts,/确认生效/);
   assert.match(contracts,/确认变更/);
   assert.match(contracts,/selected\.isHistoricalImport/);
+  assert.match(contracts,/selected\.employeeName\?`\$\{selected\.employeeName\} · `:""/);
+  assert.match(contracts,/selected\.employeeName&&selected\.employeeCode\?<span>员工：/);
+  assert.match(contracts,/selected\.probationEndDate!==undefined/);
   assert.match(contracts,/setAction\(null\);try\{setSelected/);
   assert.match(api,/createContract:/);
   assert.match(api,/updateContract:/);
