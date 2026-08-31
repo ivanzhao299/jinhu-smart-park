@@ -11,6 +11,7 @@ import {
   compareIsolation,
   currentState,
   DOMAIN_ORDER,
+  extractManifestFacts,
   provision,
   ROLLBACK_ORDER,
   runForward,
@@ -140,6 +141,33 @@ try {
   assert(contract.triple.mappingContractComponents.includes("scripts/sql/load-yuzhou-t4-payroll-history.sql"), "T4 SQL must be pinned by the mapping hash");
   assert.doesNotMatch(t4LoaderSource, /digest\(t\|\|x\.id::text/u, "T4 canonical identity must not derive from random target UUIDs");
   assert.match(t4LoaderSource, /source_content_group_hash\|\|':'\|\|i\.legacy_column_name/u, "T4 snapshot-item identity must derive from stable source content");
+
+  const t3ManifestConfig = { runId: configA.runId, triple: configA.triple, target: { stagingRoot: join(sandbox, "t3-manifest-staging") } };
+  const t3ManifestRoot = join(t3ManifestConfig.target.stagingRoot, `staging-${t3ManifestConfig.runId}-t3`);
+  mkdirSync(t3ManifestRoot, { recursive: true, mode: 0o700 });
+  chmodSync(t3ManifestRoot, 0o700);
+  const t3Domains = Object.fromEntries([
+    ["attendance", "attendance.jsonl"], ["policies", "policies.jsonl"], ["insurance", "insurance.jsonl"]
+  ].map(([name, file]) => {
+    const bytes = Buffer.from(`${name}\n`);
+    writeFileSync(join(t3ManifestRoot, file), bytes, { mode: 0o600 });
+    chmodSync(join(t3ManifestRoot, file), 0o600);
+    return [name, { rows: 0, file, fileSha256: createHash("sha256").update(bytes).digest("hex") }];
+  }));
+  privateJson(join(t3ManifestRoot, "manifest.json"), {
+    formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+  });
+  assert.deepEqual(Object.keys(extractManifestFacts(t3ManifestConfig, "T3").env).sort(), ["YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256"]);
+  const t3ManifestDrift = JSON.parse(readFileSync(join(t3ManifestRoot, "manifest.json"), "utf8"));
+  t3ManifestDrift.sourceSnapshotSha256 = "0".repeat(64);
+  writeFileSync(join(t3ManifestRoot, "manifest.json"), `${JSON.stringify(t3ManifestDrift)}\n`, { mode: 0o600 });
+  chmodSync(join(t3ManifestRoot, "manifest.json"), 0o600);
+  expectCode("EXTRACT_MANIFEST_UNVERIFIED", () => extractManifestFacts(t3ManifestConfig, "T3"));
+  privateJson(join(t3ManifestRoot, "manifest.json"), {
+    formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+  });
 
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;
   expectCode("REHEARSAL_RESOURCE_REUSE", () => compareIsolation(configA, reused));

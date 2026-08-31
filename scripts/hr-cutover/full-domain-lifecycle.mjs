@@ -81,6 +81,13 @@ const EXTRACT_MANIFEST_BINDINGS = {
     insurance: { file: "insurance.jsonl", env: "YUZHOU_T3_INSURANCE_SHA256" }
   }
 };
+export const EXTRACT_MANIFEST_HEADERS = {
+  T3: {
+    artifactKind: "yuzhou_t3_attendance_insurance_stage",
+    sourceReadOnly: true,
+    productionImport: "HOLD"
+  }
+};
 let ACTIVE_CHILD = null;
 export const ADAPTER_ENV_ALLOWLIST = {
   T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256", "YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256"], rollback: [] },
@@ -311,7 +318,7 @@ function stagingDir(config, domain) {
     : resolve(config.target.stagingRoot, `staging-${config.runId}-t${childIndex}`);
 }
 
-function extractManifestFacts(config, domain) {
+export function extractManifestFacts(config, domain) {
   const definition = EXTRACT_MANIFEST_BINDINGS[domain];
   if (!definition) fail("EXTRACT_MANIFEST_DOMAIN_INVALID", domain);
   const directory = stagingDir(config, domain);
@@ -325,8 +332,11 @@ function extractManifestFacts(config, domain) {
   const manifestBytes = readFileSync(manifestPath);
   let manifest;
   try { manifest = JSON.parse(manifestBytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest is not valid JSON`); }
-  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [], `${domain}.manifest`);
+  const header = EXTRACT_MANIFEST_HEADERS[domain] ?? {};
+  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [...Object.keys(header), ...(domain === "T3" ? ["sourceSnapshotSha256"] : [])], `${domain}.manifest`);
   if (manifest.formatVersion !== 1 || typeof manifest.generatedAt !== "string") fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest header is invalid`);
+  for (const [field, expected] of Object.entries(header)) if (manifest[field] !== expected) fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${field} manifest header is invalid`);
+  if (domain === "T3" && manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("EXTRACT_MANIFEST_UNVERIFIED", "T3 source snapshot does not bind the C/S/M triple");
   exactKeys(manifest.domains, Object.keys(definition), [], `${domain}.manifest.domains`);
   const env = {};
   for (const [key, expected] of Object.entries(definition)) {
