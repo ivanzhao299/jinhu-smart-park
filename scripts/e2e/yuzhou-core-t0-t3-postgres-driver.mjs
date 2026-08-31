@@ -146,6 +146,14 @@ test("prepare emits an exact core driver config with a deterministic named netwo
     machineAttestationRoot: "c".repeat(64), ...packages
   }, { codeSha: "3".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
   assert.equal(validateCoreT0T3Config(lightweightNamed.config).profile, "core_t0_t2");
+  const labelledControlRoot = join(sandbox, "control-t4");
+  mkdirSync(labelledControlRoot, { mode: 0o700 }); chmodSync(labelledControlRoot, 0o700);
+  const labelledPath = prepareCoreConfig({
+    rehearsal: "B", profile: "core_t0_t2", suffix: "corex01", postgresPort: 33115, apiPort: 33116, webPort: 33117,
+    controlRoot: labelledControlRoot, etlEnv, sourceContainer: "jinhu_yuzhou_migration_lab-sqlserver-1", sourceBackup, sourceRestoreReceipt,
+    machineAttestationRoot: "d".repeat(64), ...packages
+  }, { codeSha: "4".repeat(40), mappingContractHash: computeCoreT0T3MappingContractHash() });
+  assert.equal(validateCoreT0T3Config(labelledPath.config).profile, "core_t0_t2");
   const legacyShape = structuredClone(prepared.config);
   legacyShape.source = { readOnly: true, sourceBackupSha256: legacyShape.triple.sourceSnapshotHash };
   assert.throws(() => validateCoreT0T3Config(legacyShape), /CORE_SOURCE_INVALID/u);

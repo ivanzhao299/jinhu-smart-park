@@ -121,13 +121,18 @@ export function validateCoreT0T3Config(input) {
   // Dictionary packages are validated by the dedicated four-package preflight
   // before provisioning. Their mandatory `productionImport: "HOLD"` marker is
   // evidence of the boundary, not a production-import capability.
-  const { dictionaryPackages: _dictionaryPackages, dictionaryCaptureReceipt: _dictionaryCaptureReceipt, ...sourceReachabilitySurface } = config.source;
-  // Resource identifiers may legitimately contain slice labels (for example a
-  // lab reserved by the outer lightweight-first runner). They are not an
-  // execution surface. Core reachability is determined by its source inputs
-  // and enforced domain order, so do not reject a sealed core config merely
-  // because an opaque run or resource name includes T4/T5 text.
-  const reachabilitySurface = JSON.stringify({ source: sourceReachabilitySurface });
+  // Resource identifiers and private file paths may legitimately contain
+  // slice labels (for example a lab reserved by the outer lightweight-first
+  // runner). They are not an execution surface. Core reachability is instead
+  // determined by the source identity and enforced domain order, so inspect
+  // only the identity-bearing source fields here.
+  const reachabilitySurface = JSON.stringify({
+    readOnly: config.source.readOnly,
+    sourceBackupSha256: config.source.sourceBackupSha256,
+    sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256,
+    databaseAlias: config.source.databaseAlias,
+    sourceContainer: config.source.sourceContainer
+  });
   if (FORBIDDEN.test(reachabilitySurface)) fail("CORE_FORBIDDEN_DOMAIN_REACHABLE", "T4, T5 and production historical import are unreachable");
   return config;
 }
