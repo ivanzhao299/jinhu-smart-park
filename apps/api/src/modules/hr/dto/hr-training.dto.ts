@@ -34,6 +34,10 @@ export class CreateHrTrainingPlanDto {
  @Transform(trim) @Matches(/^[A-Z]{3}$/) costCurrency!:string;
  @IsArray() @ArrayMaxSize(500) @IsUUID("4",{each:true}) employeeIds!:string[];
 }
+export class CreateHrTrainingPositionRequirementDto {
+ @IsUUID() positionId!:string;
+ @IsUUID() courseId!:string;
+}
 export class HrTrainingParticipantResultDto {
  @Transform(trim) @Matches(HOURS) completedHours!:string;
  @IsOptional() @Transform(trim) @Matches(/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/) score?:string;
