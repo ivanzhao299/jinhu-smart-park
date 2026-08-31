@@ -52,6 +52,12 @@
 - A/B canonical comparison 为 `PASS`；两套技术 UAT 均为 `PASS`，各记录 `46` 项观测检查。两个环境均从 `rollback_ready` 反序回滚并清理，结果均为 `CONTRACT_PASS`、`residualCount=0`。
 - 本轮只使用隔离目标，未向生产写入；所有回执、演练和技术 UAT 均保持 `productionImport=HOLD`。该证据仍不替代远端合并、生产运行 SHA、真人 HR/负责人/员工三角色 UAT、生产前备份或一次性生产导入授权。
 
+### 2026-09-01 T3 历史打卡哈希隔离 A/B
+
+- 当前候选 `2a02d4b229aafb19b5ca2625a7c230042fe84568` 新增专用的 T3 打卡 quarantine A/B 编排入口。入口只接受两套 `core_t0_t3` 隔离配置、两份私有 hash-only stage 和新的摘要路径；任一侧均先完成 core `rollback_ready`，再执行两次 load→rollback，最后由同一 core 反序清理。
+- 当前只读源与密封恢复回执已重绑后，A/B stage 都只确认一个无法关联人员的打卡来源事实；每一轮均为 `source=1`、`loaded=0`、`quarantined=1`。业务打卡表保持零写入，未向 stage、日志或任务记录写入任何人员、卡号、时间或进出标记。
+- 正式 A/B 摘要为 `CONTRACT_PASS`，comparison 为 `PASS`；每侧两轮均已回滚，A/B core 清理均为 `residualCount=0`。此结果仅完成“哈希化审计隔离”子切片；在稳定员工映射、业务字段装载、三角色 UAT 和生产门禁完成前，历史打卡业务导入与生产导入继续为 `HOLD`。
+
 ## Rollback points
 
 - 历史兼容表不做反向变更；新 schema 仅前向。
