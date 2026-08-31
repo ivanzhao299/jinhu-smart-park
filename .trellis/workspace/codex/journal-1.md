@@ -39,3 +39,41 @@ Added a shared fail-closed T5 file-owner runner, retained photo compatibility, a
 ### Next Steps
 
 - None - task complete
+
+
+## Session 7: Yuzhou HR T5 unowned history archive verification
+
+**Date**: 2026-08-31
+**Task**: Yuzhou HR T5 unowned history archive verification
+**Package**: api
+**Branch**: `codex/hr-source-restore-receipt-v1`
+
+### Summary
+
+Completed and independently reviewed the T5 unowned legacy-history archive. Added direct rollback coverage for a synthetic unowned dbo.his record and active mapping; isolated real migrations, rollback, and zero-residual checks passed. Bound existing system and limited contract/probation reminder workspaces without overstating legacy parity; production import remains HOLD.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `74a48353` | (see git log) |
+| `b1f141eb` | (see git log) |
+| `de790e47` | (see git log) |
+| `ca10ee60` | (see git log) |
+| `c707cf4f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
