@@ -14,6 +14,9 @@ for(const value of ["t5-nonfile-stage-domain-items.mjs","7752","dbo.person.core_
 assert.match(load,/LOCK TABLE hr_employee,sys_user,hr_employee_compensation/);
 assert.match(load,/T5 nonfile record-map conservation failed/);
 assert.match(load,/T5 nonfile per-source conservation failed/);
+assert.match(load,/T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT/);
+assert.match(load,/T5_NONFILE_TRANSACTION_REJECTED/);
+assert.match(load,/2>"\$LOAD_ERROR"/);
 assert.match(load,/INSERT INTO hr_legacy_t5_record/);
 assert.match(load,/INSERT INTO hr_employee_profile/);
 assert.match(load,/INSERT INTO hr_employee_family/);

@@ -51,6 +51,9 @@ assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOK
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
 
+const t5Failure = (_command, args, options) => args[0].endsWith("load-yuzhou-t5-nonfile-history.sh") ? { status: 1, stdout: "", stderr: "ERROR: T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT\n" } : spawn(_command, args, options);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t5Failure, uuid: () => "00000000-0000-4000-8000-000000000003" }), /LIGHTWEIGHT_T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT/);
+
 const cli = spawnSync(process.execPath, ["scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs"], { cwd: resolve(import.meta.dirname, "../.."), encoding: "utf8" });
 assert.equal(cli.status, 1);
 assert.equal(cli.stderr.trim(), "LIGHTWEIGHT_ARGUMENT_INVALID");

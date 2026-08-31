@@ -42,6 +42,7 @@ MANIFEST_HASH="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).manif
 [ "$SNAPSHOT" = "$MANIFEST_SNAPSHOT" ] || fail "nonfile stage source snapshot differs from requested backup"
 COMBINED="$(mktemp "${TMPDIR:-/tmp}/yuzhou-t5-nonfile.XXXXXX")"
 EMPTY_RESOLUTION="$(mktemp "${TMPDIR:-/tmp}/yuzhou-t5-resolution.XXXXXX")"
+LOAD_ERROR="$(mktemp "${TMPDIR:-/tmp}/yuzhou-t5-load-error.XXXXXX")"
 RESOLUTION_META='{"status":"NONE","candidateCount":0,"mapCount":0,"quarantineCount":0,"resolutionSha256":null,"productionImport":"HOLD"}'
 if [ -n "$IDENTITY_RESOLUTION_FILE" ]; then
   RESOLUTION_META="$(node "$ROOT_DIR/scripts/verify-yuzhou-t5-identity-resolution-package.mjs" verify --stage "$STAGE" --decision "$IDENTITY_RESOLUTION_FILE")"
@@ -55,7 +56,7 @@ RESOLUTION_CANDIDATES="$(node -e 'const x=JSON.parse(process.argv[1]);process.st
 RESOLUTION_MAPS="$(node -e 'const x=JSON.parse(process.argv[1]);process.stdout.write(String(x.mapCount))' "$RESOLUTION_META")"
 RESOLUTION_QUARANTINES="$(node -e 'const x=JSON.parse(process.argv[1]);process.stdout.write(String(x.quarantineCount))' "$RESOLUTION_META")"
 REMOTE="/tmp/yuzhou-t5-nonfile-$RUN_ID"
-cleanup(){ rm -f "$COMBINED" "$EMPTY_RESOLUTION"; docker exec "$PG" sh -c "rm -rf '$REMOTE'" >/dev/null 2>&1 || true; }
+cleanup(){ rm -f "$COMBINED" "$EMPTY_RESOLUTION" "$LOAD_ERROR"; docker exec "$PG" sh -c "rm -rf '$REMOTE'" >/dev/null 2>&1 || true; }
 trap cleanup EXIT HUP INT TERM
 chmod 600 "$COMBINED"
 node - "$STAGE" "$COMBINED" <<'NODE'
@@ -69,8 +70,8 @@ docker cp "$COMBINED" "$PG:$REMOTE/all.jsonl"
 docker cp "$RESOLUTION_INPUT" "$PG:$REMOTE/identity-resolution.json"
 docker exec "$PG" sh -c "chown postgres:postgres '$REMOTE/all.jsonl' '$REMOTE/identity-resolution.json' && chmod 600 '$REMOTE/all.jsonl' '$REMOTE/identity-resolution.json'"
 
-docker exec -i "$PG" psql -X -q -v ON_ERROR_STOP=1 -U jinhu -d "$DB" \
-  -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$ACTOR" -v path="$REMOTE/all.jsonl" -v resolution_path="$REMOTE/identity-resolution.json" -v resolution_mode="$RESOLUTION_MODE" -v resolution_hash="$RESOLUTION_HASH" -v resolution_candidates="$RESOLUTION_CANDIDATES" -v resolution_maps="$RESOLUTION_MAPS" -v resolution_quarantines="$RESOLUTION_QUARANTINES" -v items="$ITEMS" >/dev/null <<'SQL'
+if ! docker exec -i "$PG" psql -X -q -v ON_ERROR_STOP=1 -U jinhu -d "$DB" \
+  -v run="$RUN_ID" -v db="$DB" -v tenant="$TENANT" -v park="$PARK" -v snapshot="$SNAPSHOT" -v catalog="$CATALOG_HASH" -v manifest="$MANIFEST_HASH" -v actor="$ACTOR" -v path="$REMOTE/all.jsonl" -v resolution_path="$REMOTE/identity-resolution.json" -v resolution_mode="$RESOLUTION_MODE" -v resolution_hash="$RESOLUTION_HASH" -v resolution_candidates="$RESOLUTION_CANDIDATES" -v resolution_maps="$RESOLUTION_MAPS" -v resolution_quarantines="$RESOLUTION_QUARANTINES" -v items="$ITEMS" >/dev/null 2>"$LOAD_ERROR" <<'SQL'
 BEGIN;
 SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='10min';
 LOCK TABLE hr_employee,sys_user,hr_employee_compensation,hr_payroll_run,hr_payslip,hr_performance_cycle,hr_performance_plan,hr_performance_item,biz_user_message IN SHARE MODE;
@@ -185,4 +186,34 @@ UPDATE migration_batch SET phase='verify',status=CASE WHEN EXISTS(SELECT 1 FROM 
 DO $$BEGIN IF EXISTS(SELECT 1 FROM migration_check c JOIN migration_batch b ON b.id=c.batch_id WHERE b.run_id=current_setting('yuzhou.t5_run') AND NOT c.passed) THEN RAISE EXCEPTION 'T5 nonfile verification failed'; END IF; END$$;
 COMMIT;
 SQL
+then
+  if grep -q 'canceling statement due to statement timeout' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT'
+  fi
+  if grep -q 'T5 nonfile source count drift' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_SOURCE_COUNT_DRIFT'
+  fi
+  if grep -q 'T5 nonfile duplicate source identity' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_DUPLICATE_SOURCE_IDENTITY'
+  fi
+  if grep -q 'T5 nonfile invalid source hash' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_SOURCE_HASH_INVALID'
+  fi
+  if grep -q 'T5 nonfile domain boundary drift' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_DOMAIN_BOUNDARY_DRIFT'
+  fi
+  if grep -q 'T5 nonfile record-map conservation failed' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_RECORD_MAP_CONSERVATION_FAILED'
+  fi
+  if grep -q 'T5 nonfile quarantine evidence conservation failed' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_QUARANTINE_CONSERVATION_FAILED'
+  fi
+  if grep -q 'T5 nonfile per-source conservation failed' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_PER_SOURCE_CONSERVATION_FAILED'
+  fi
+  if grep -q 'T5 nonfile verification failed' "$LOAD_ERROR"; then
+    fail 'T5_NONFILE_TRANSACTION_VERIFICATION_FAILED'
+  fi
+  fail 'T5_NONFILE_TRANSACTION_REJECTED'
+fi
 docker exec "$PG" psql -X -q -A -t -F '|' -U jinhu -d "$DB" -c "SELECT status,counts->>'source',counts->>'loaded',counts->>'quarantined' FROM migration_batch WHERE run_id='$RUN_ID'"

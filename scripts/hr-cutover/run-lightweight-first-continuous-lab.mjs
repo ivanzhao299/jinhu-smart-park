@@ -57,9 +57,15 @@ const CHILD_FAILURE_CODES = Object.freeze({
   "scripts/rollback-yuzhou-t5-nonfile-actor.sh": "LIGHTWEIGHT_T5_ACTOR_ROLLBACK_FAILED"
 });
 
+function childFailureCode(script, stderr) {
+  if (script !== "scripts/load-yuzhou-t5-nonfile-history.sh") return CHILD_FAILURE_CODES[script] ?? "LIGHTWEIGHT_CHILD_FAILED";
+  const match = String(stderr ?? "").match(/\b(T5_NONFILE_TRANSACTION_[A-Z_]+)\b/u);
+  return match ? `LIGHTWEIGHT_${match[1]}` : CHILD_FAILURE_CODES[script];
+}
+
 function execute(script, env, spawn = spawnSync) {
   const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
-  if (result.error || result.status !== 0) fail(CHILD_FAILURE_CODES[script] ?? "LIGHTWEIGHT_CHILD_FAILED", script);
+  if (result.error || result.status !== 0) fail(childFailureCode(script, result.stderr), script);
   return result.stdout;
 }
 
