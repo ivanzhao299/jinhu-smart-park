@@ -73,13 +73,19 @@ function buildWebForTarget(config){
  const rewrites=[...(routes.rewrites?.beforeFiles??[]),...(routes.rewrites?.afterFiles??[]),...(routes.rewrites?.fallback??[])];
  if(!rewrites.some((rewrite)=>rewrite.source==="/api/:path*"&&rewrite.destination===expected))fail("TECHNICAL_UAT_WEB_TARGET_MISMATCH",expected);
 }
+function buildApiForTarget(){
+ const build=spawnSync("pnpm",["--filter","@jinhu/api","build"],{cwd:ROOT,env:technicalUatChildEnvironment(),stdio:"ignore"});
+ if(build.status!==0)fail("TECHNICAL_UAT_API_BUILD_FAILED",`exit ${build.status??"signal"}`);
+ const apiMain=resolve(ROOT,"apps/api/dist/main.js");
+ if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","API main missing after build");
+ return apiMain;
+}
 
 export async function runTechnicalUat(configInput,{configValidator=validateConfig,stateResolver=currentState,requiredState="uat_ready",finalizeManifest=true}={}){
  const config=configValidator(structuredClone(configInput));
  if(config.backend!=="lab"||stateResolver(config)!==requiredState)fail("STATE_TRANSITION_INVALID",`technical UAT requires lab ${requiredState} state`);
  const partyDataEncryptionKey=materializationKey(config.target.materializationKeyArtifact);
- const apiMain=resolve(ROOT,"apps/api/dist/main.js");
- if(!existsSync(apiMain))fail("TECHNICAL_UAT_BUILD_MISSING","build API before the rehearsal");
+ const apiMain=buildApiForTarget();
  buildWebForTarget(config);
  const pg=credential(config.target.credentialArtifact),password=randomBytes(24).toString("base64url"),hash=await bcrypt.hash(password,12);
  const users=[`${config.target.accountNamespace}_hr_maker`,`${config.target.accountNamespace}_hr_reviewer`,`${config.target.accountNamespace}_manager`,`${config.target.accountNamespace}_employee`];
