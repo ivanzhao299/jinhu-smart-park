@@ -41,6 +41,11 @@
 - 同一候选已完成 M6 在线申请连续 lab：`rollback_ready` 上的真实 PostgreSQL 考勤申请门禁 `PASS`（11 项输出断言），随后 `cleaned` 且 `residualCount=0`。生产历史导入始终为 `HOLD`。
 - 代码门禁已复验：M6 API 单元/契约 17/17、Web HR 单元/契约 55/55、API/Web lint、API/Web typecheck 均通过。技术 UAT 覆盖 59 项 API、22 项负向授权、3 条前端路由和受控浏览器矩阵；它不替代真人三角色 UAT、远端合并或生产发布验证。
 
+### 2026-08-31 审批来源追溯门禁补强
+
+- 候选 `2aa3d2e7cab4fc2c04cddc3dcf0b07c46801dd14` 将审批后的请假、加班、出差和更正请求来源纳入不可变日结果追溯，并将其真实 PostgreSQL 断言纳入同一个隔离考勤门禁，避免只跑申请状态机而遗漏计算来源。
+- 新鲜 `core_t0_t3` 隔离 run `yzcore-20260831T112254Z-2aa3d2e7-rA` 已用同一受控备份/恢复回执/映射契约完成 T0→T3 装载、`rollback_ready` 门禁和 T3→T0 反序回滚。门禁输出 `16` 项、状态 `PASS`；清理状态 `cleaned`、`residualCount=0`，13 类资源/业务/控制残留均为零，`productionImport=HOLD`。
+
 ## Rollback points
 
 - 历史兼容表不做反向变更；新 schema 仅前向。
