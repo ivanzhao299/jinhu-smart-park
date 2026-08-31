@@ -1,0 +1,33 @@
+{
+  "id": "idy-f04-reveal-audit",
+  "name": "idy-f04-reveal-audit",
+  "title": "IDY-F04 明文揭示审计闭环",
+  "description": "Issue #513；Party 详情默认脱敏，独立权限与理由约束的明文揭示动作，强制审计及权限矩阵和契约回归。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P0",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-31",
+  "completedAt": "2026-08-31",
+  "branch": "codex/fix-idy-04-reveal-audit",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": "4aecb6a71cab39f06da6ce854c02d63f6587013c",
+  "pr_url": "https://github.com/ivanzhao299/jinhu-smart-park/pull/514",
+  "subtasks": [],
+  "children": [],
+  "parent": "08-31-identity-workbench-hard-defects",
+  "relatedFiles": [],
+  "notes": "PR #514 implemented the reveal audit closure and PR #516 aligned the housing E2E masked-detail contract. main CI #33403442390 and Deploy Production #33403442373 passed.",
+  "meta": {
+    "issue_number": 513,
+    "implementation_pr": 514,
+    "followup_pr": 516,
+    "main_merge_sha": "4aecb6a71cab39f06da6ce854c02d63f6587013c",
+    "main_ci_run": "33403442390",
+    "production_deploy_run": "33403442373"
+  }
+}

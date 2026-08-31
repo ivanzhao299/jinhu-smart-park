@@ -17,4 +17,7 @@
 - Hosted review round 2 completed with no new findings. CI full unit/build passed; Release Smoke exposed the downstream role-template visible-definition cardinality freeze, now synchronized from 25 to 26.
 - Hosted review round 3 completed; no further review requests are permitted. Release Smoke then exposed three matching 25-count assertions in the isolated 000194 retry harness; synchronized only those property assertions to 26.
 - Final Release Smoke passed every migration/seed/retry gate and reached housing API E2E, where a legacy assertion still expected plaintext Party detail. Replaced it with plaintext absence plus canonical masked-value assertions.
-- Next: obtain final CI green, squash merge and archive.
+- PR #514 squash-merged as `7045c318`; the post-merge housing E2E contract correction was isolated in PR #516 and squash-merged as `4aecb6a7`. Superseded conflicting PR #515 was closed without merge.
+- Final evidence: PR #516 Detect Release Smoke Scope PASS (6s), Lint/Typecheck/Build PASS (13m12s), Release Smoke PASS (22m28s). `main@4aecb6a7` CI run #33403442390 PASS, including Lint/Typecheck/Build (10m37s), Release Smoke (19m21s), property API E2E and container teardown; Deploy Production run #33403442373 PASS, including protected acceptance-account verification.
+- Issue #513 closed by merged PR #514. Hosted review completed in three rounds (round 2 no findings; no requests beyond the agreed maximum).
+- Status: implementation, review, CI, deployment and main verification complete; ready to archive.
