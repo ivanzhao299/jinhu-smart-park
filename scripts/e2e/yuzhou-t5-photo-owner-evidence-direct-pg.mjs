@@ -13,7 +13,6 @@ const database = `jinhu_hr_migration_lab_t5file${process.pid}${Date.now()}`;
 const runId = `t5-file-fixture-${process.pid}`;
 const t0RunId = `t0-file-fixture-${process.pid}`;
 const stageRoot = mkdtempSync(join(tmpdir(), "yuzhou-t5-file-evidence-"));
-const stage = join(stageRoot, "stage");
 const sha = value => createHash("sha256").update(value).digest("hex");
 
 const command = (program, args, { input, expect = 0, env = {} } = {}) => {
@@ -28,7 +27,8 @@ const psqlFailure = (target, sql) => {
   return `${result.stdout}${result.stderr}`;
 };
 
-function createSyntheticStage() {
+function createSyntheticStage(name, missingOwnerIndex = -1) {
+  const stage = join(stageRoot, name);
   chmodSync(stageRoot, 0o700);
   mkdirSync(stage, { mode: 0o700 });
   chmodSync(stage, 0o700);
@@ -37,7 +37,7 @@ function createSyntheticStage() {
     sourceIdentitySha256: sha(`photo:${index}`),
     sourceRowSha256: sha(`row:${index}`),
     ownerSourceTable: "dbo.person",
-    ownerSourceIdentitySha256: sha(`dbo.person\0owner-${index}`),
+    ownerSourceIdentitySha256: sha(`dbo.person\0${index === missingOwnerIndex ? `missing-owner-${index}` : `owner-${index}`}`),
     fileRole: "employee_photo",
     contentSha256: sha(`content:${index}`),
     actualSize: index + 1,
@@ -57,14 +57,14 @@ function createSyntheticStage() {
   };
   writeFileSync(join(stage, "manifest.json"), `${JSON.stringify(manifest)}\n`, { mode: 0o600 });
   chmodSync(join(stage, "manifest.json"), 0o600);
-  return snapshot;
+  return { snapshot, stage };
 }
 
 let created = false;
 try {
   assert.equal(command("docker", ["inspect", "--format", '{{index .Config.Labels "com.docker.compose.project"}}', container]), composeProject, "unexpected PostgreSQL compose project");
   assert.match(database, /^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$/u);
-  const snapshot = createSyntheticStage();
+  const { snapshot, stage } = createSyntheticStage("all-mapped");
   command("docker", ["exec", "-i", container, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres"], { input: `CREATE DATABASE ${database} TEMPLATE template0;\n` });
   created = true;
   psql(database, `
@@ -101,7 +101,14 @@ FROM migration_batch b CROSS JOIN generate_series(0,2154) g WHERE b.run_id='${t0
   assert.match(immutable, /immutable outside exact unpublished legacy rollback/u);
   assert.equal(command("sh", ["scripts/rollback-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...environment, ALLOW_YUZHOU_ROLLBACK: "yes" } }), "rolled_back");
   assert.equal(psql(database, `SELECT (SELECT status FROM migration_batch WHERE run_id='${runId}')||'|'||(SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${runId}') AND is_active)||'|'||(SELECT count(*) FROM sys_file)||'|'||(SELECT count(*) FROM hr_employee_document);`), "rolled_back|0|0|0|0");
-  process.stdout.write("Yuzhou T5_FILE photo-owner evidence direct PostgreSQL fixture passed: synthetic 2155-row load, immutability denial, rollback, protected-write residual=0.\n");
+  const quarantinedRunId = `${runId}-quarantine`;
+  const quarantinedStage = createSyntheticStage("one-unmapped", 0).stage;
+  const quarantinedEnvironment = { ...environment, YUZHOU_T5_FILE_RUN_ID: quarantinedRunId, YUZHOU_T5_FILE_STAGING_DIR: quarantinedStage };
+  assert.equal(command("sh", ["scripts/load-yuzhou-t5-photo-owner-evidence.sh"], { env: quarantinedEnvironment }), "succeeded|2155|2154|1");
+  assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND mapping_status='quarantined' AND is_active)||'|'||(SELECT count(*) FROM migration_error WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND error_code='PHOTO_OWNER_UNMAPPED');`), "2154|1|1");
+  assert.equal(command("sh", ["scripts/rollback-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...quarantinedEnvironment, ALLOW_YUZHOU_ROLLBACK: "yes" } }), "rolled_back");
+  assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}') AND is_active)||'|'||(SELECT count(*) FROM migration_error WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${quarantinedRunId}'))||'|'||(SELECT count(*) FROM sys_file)||'|'||(SELECT count(*) FROM hr_employee_document);`), "0|0|1|0|0");
+  process.stdout.write("Yuzhou T5_FILE photo-owner evidence direct PostgreSQL fixture passed: synthetic 2155-row load, immutability denial, mapped and quarantined rollback, protected-write residual=0.\n");
 } finally {
   if (created) command("docker", ["exec", "-i", container, "psql", "-X", "-q", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", "postgres"], { input: `DROP DATABASE IF EXISTS ${database} WITH (FORCE);\n`, expect: 0 });
   rmSync(stageRoot, { recursive: true, force: true });
