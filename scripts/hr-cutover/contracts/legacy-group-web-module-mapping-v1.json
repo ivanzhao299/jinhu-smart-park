@@ -3009,7 +3009,7 @@
       "domain": "data_configuration",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/hr/contracts"
       ],
       "mappingStatus": "mapped"
     },

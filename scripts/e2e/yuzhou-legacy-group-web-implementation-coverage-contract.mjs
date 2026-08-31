@@ -47,13 +47,13 @@ const legacyRuntimeEvidence = legacyIds => {
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
-  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 173, mapped_only: 58 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 161, score60: 0, score40: 27, score20: 31 });
-  assert.equal(result.summary.averageScore, 67.79);
+  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 174, mapped_only: 57 });
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 162, score60: 0, score40: 27, score20: 30 });
+  assert.equal(result.summary.averageScore, 68.05);
   assert.equal(result.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
   assert.deepEqual(result.summary.targetImplementation, {
-    statuses: { implemented: 0, partial: 173, mapped_only: 58 },
-    averageScore: 67.79,
+    statuses: { implemented: 0, partial: 174, mapped_only: 57 },
+    averageScore: 68.05,
     scoreMeaning: "smart_park_target_technical_implementation"
   });
   assert.equal(result.gates.productionImport, "HOLD");
