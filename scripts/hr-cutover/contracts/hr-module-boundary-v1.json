@@ -1,0 +1,46 @@
+{
+  "formatVersion": 1,
+  "contractKind": "jinhu_hr_module_portability_boundary",
+  "executionStatus": "SPEC_FROZEN",
+  "storageModel": {
+    "physical": "shared_postgresql_database",
+    "logical": "hr_table_namespace",
+    "managedTablePrefix": "hr_",
+    "supportsIndependentExport": true
+  },
+  "ownedDataBoundary": {
+    "tableSelection": "all_tables_with_hr_prefix",
+    "scopeColumns": ["tenant_id", "park_id"],
+    "excludesPlatformIdentityAndRbac": true,
+    "excludesPhysicalFilePayload": true
+  },
+  "sharedMigrationLedger": {
+    "tables": [
+      "legacy_source_object",
+      "legacy_record_map",
+      "migration_batch",
+      "migration_batch_item",
+      "migration_error",
+      "migration_check",
+      "migration_rollback_point"
+    ],
+    "sourceSystem": "yuzhou-v10",
+    "selection": "source_system_and_batch_owned_only",
+    "requiresExactBatchBinding": true
+  },
+  "platformDependencies": [
+    "tenant_park_scope_reference",
+    "organization_reference",
+    "login_identity_reference",
+    "rbac_and_audit_integration",
+    "unified_file_reference"
+  ],
+  "portabilityRules": {
+    "copyPlatformTables": false,
+    "rehydratePlatformReferencesInTargetScope": true,
+    "preserveSourceIdentityAndRowHash": true,
+    "rollbackUsesActiveRecordMapsOnly": true,
+    "attachmentPayloadsRequireSeparateT5FileSlice": true
+  },
+  "productionImport": "HOLD"
+}

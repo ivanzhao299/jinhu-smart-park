@@ -4,6 +4,8 @@
 
 本手册用于玉舟集团版 V10 到 Jinhu Smart Park 独立人力资源模块的迁移演练。实验室由两个隔离数据库组成：Jinhu PostgreSQL 目标库和玉舟 SQL Server 源库。源库只读，数据只允许按“源库 → staging → 目标库”方向流动。
 
+HR 在目标 PostgreSQL 中是独立逻辑数据域：`hr_*` 业务与导入回执表可随指定 `tenant_id + park_id` 导出/迁移；平台身份、组织、RBAC、审计和统一文件服务保持为外部依赖并在目标范围重新绑定。共享 `legacy_*`/`migration_*` 账本只允许携带 `source_system=yuzhou-v10` 且由本次 `batch_id` 精确拥有的记录，禁止整表复制或宽泛清理。完整规则和 DDL 锚点以 `scripts/hr-cutover/contracts/hr-module-boundary-v1.json` 为准，可通过 `pnpm test:e2e:yuzhou-hr-module-boundary` 验证。
+
 2026-08-20 已在下载目录发现 `hr2026081914.dbk`，完成源/隔离副本 SHA-256 核验、`VERIFYONLY` 和隔离恢复。恢复库 `YuzhouHR_Lab_20260820_intake01` 为 ONLINE/READ_ONLY，catalog 为 162 表、169 过程、16 函数、2 触发器。在完成全量 catalog、行级抽取和数据质量检查之前，仍不能宣称已完成 2949 名员工等真实业务数据迁移。
 
 ## 2. 已验证的本机基线

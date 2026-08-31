@@ -61,6 +61,7 @@
     "test:e2e:yuzhou-dictionary-materialization": "node scripts/e2e/yuzhou-dictionary-materialization-contract.mjs",
     "test:e2e:yuzhou-t1-event-type-decision": "node scripts/e2e/yuzhou-t1-event-type-decision-contract.mjs",
     "test:e2e:yuzhou-core-dictionary-preflight": "node scripts/e2e/yuzhou-core-dictionary-preflight-contract.mjs",
+    "test:e2e:yuzhou-hr-module-boundary": "node scripts/e2e/yuzhou-hr-module-boundary-contract.mjs",
     "test:e2e:yuzhou-core-dictionary-preflight-preparer": "node --test scripts/e2e/yuzhou-core-dictionary-preflight-preparer.mjs",
     "test:e2e:yuzhou-core-dictionary-capture": "node --test scripts/e2e/yuzhou-core-dictionary-capture-receipt.mjs",
     "test:e2e:yuzhou-full-domain-contract": "node scripts/e2e/yuzhou-full-domain-contract.mjs",

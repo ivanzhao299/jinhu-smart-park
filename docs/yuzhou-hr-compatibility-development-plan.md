@@ -21,6 +21,14 @@
 - **金额不可变**：工资确认后禁止原地修改，使用更正批次；工资项、公式、税率和核算结果都要版本化。
 - **证据分层**：代码、迁移、测试、推送、部署、health/ready、UAT 分开记录，不能用其中一项代替另一项。
 
+### 2.1 HR 模块数据边界与可复用性
+
+HR 当前采用“**共享 PostgreSQL、独立逻辑数据域**”而不是另起一个无租户、权限和审计能力的孤立数据库。所有 HR 业务、历史归档、生产导入操作和回执表均以 `hr_` 前缀归属 HR；模块导出/迁移时按目标 `tenant_id + park_id` 选择这些表。平台身份、组织、RBAC、审计和统一文件服务不复制进 HR 包，而是在目标范围重新绑定，这样不会把园区其他业务数据或登录身份随 HR 迁走。
+
+`legacy_source_object`、`legacy_record_map`、`migration_batch`、`migration_batch_item`、`migration_error`、`migration_check`、`migration_rollback_point` 是共享迁移账本，不属于任何一个 HR 导出包的“全表复制”范围；玉舟 HR 仅携带 `source_system=yuzhou-v10` 且精确绑定本次 `batch_id` 的记录。所有 rollback 仍只能通过该批次的 active record map 删除或恢复其创建的目标行。照片和附件二进制不随模块数据包迁移，必须保持在独立 `T5_FILE` 切片并通过统一文件引用重新绑定。
+
+该边界由 `scripts/hr-cutover/contracts/hr-module-boundary-v1.json` 固化，并由 `pnpm test:e2e:yuzhou-hr-module-boundary` 同时核验 DDL 锚点、共享账本选择和生产导入保持 `HOLD`。这保证模块可整体迁移/复用，同时不把“逻辑隔离”误报为已完成的物理拆库。
+
 ## 3. 旧系统到新系统的领域映射
 
 | 玉舟领域 | 关键旧对象 | Jinhu 目标 | 处理方式 |
