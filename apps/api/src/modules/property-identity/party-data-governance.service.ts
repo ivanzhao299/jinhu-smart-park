@@ -559,10 +559,10 @@ export class PartyDataGovernanceService {
     await manager.query(
       `INSERT INTO public.biz_party_identity_retention_assignment(
         tenant_id,park_id,party_id,category,object_id,retention_until,expiry_action,state,source)
-       SELECT $1,$2,$3::uuid,'protected_audit',$4::uuid,$5::timestamptz + make_interval(days=>policy.protected_audit_days),
+       SELECT $1::varchar,$2::varchar,$3::uuid,'protected_audit',$4::uuid,$5::timestamptz + make_interval(days=>policy.protected_audit_days),
          policy.protected_audit_action,'active','policy'
        FROM public.biz_party_identity_retention_policy policy
-       WHERE policy.tenant_id=$1 AND policy.park_id=$2
+       WHERE policy.tenant_id=$1::varchar AND policy.park_id=$2::varchar
        ON CONFLICT(tenant_id,park_id,category,object_id) DO NOTHING`,
       [scope.tenantId,scope.parkId,retentionPartyId,auditRows[0].id,auditRows[0].create_time]);
   }

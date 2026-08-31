@@ -69,6 +69,8 @@ test("governance commands keep audit retention and writes tenant-park scoped", (
   assert.match(service, /WHERE tenant_id=\$1 AND park_id=\$2 AND id=\$3::uuid/u);
   assert.match(service, /release_reason_code=\$6/u);
   assert.match(service, /reasonCode: dto\.reason_code/u);
+  assert.match(service, /SELECT \$1::varchar,\$2::varchar,\$3::uuid,'protected_audit'/u);
+  assert.match(service, /policy\.tenant_id=\$1::varchar AND policy\.park_id=\$2::varchar/u);
 });
 
 test("retention policy read is side-effect free and defaults remain legally unapproved", () => {
