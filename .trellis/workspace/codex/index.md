@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-08-31
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~79 | Active |
+| `journal-1.md` | ~117 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-08-31 | Archive verified Yuzhou T1 employment-event migration | `c707cf4f`, `ca10ee60`, `de790e47`, `74a48353`, `b1f141eb` | `codex/hr-source-restore-receipt-v1` |
 | 7 | 2026-08-31 | Yuzhou HR T5 unowned history archive verification | `74a48353`, `b1f141eb`, `de790e47`, `ca10ee60`, `c707cf4f` | `codex/hr-source-restore-receipt-v1` |
 | 6 | 2026-08-31 | Yuzhou T5 document owner evidence rehearsal | `d168a502`, `7309ea8c` | `codex/hr-source-restore-receipt-v1` |
 | 5 | 2026-08-24 | HR M3 权限隐私与移动端生产基线 | `6996fcba173a3e30470773d2b8029c26f4649196` | `codex/hr-m4-production-workbench` |

@@ -77,3 +77,41 @@ Completed and independently reviewed the T5 unowned legacy-history archive. Adde
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: Archive verified Yuzhou T1 employment-event migration
+
+**Date**: 2026-08-31
+**Task**: Archive verified Yuzhou T1 employment-event migration
+**Package**: api
+**Branch**: `codex/hr-source-restore-receipt-v1`
+
+### Summary
+
+Confirmed the completed T1 migration against the fixed read-only source: 6,887 employment-event records were deterministically extracted; 6,851 loaded, 36 redacted quarantined, with current employee state unchanged, precise rollback, reload, and duplicate-run rejection. Archived the already-complete task to prevent duplicate work; production import remains HOLD.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c707cf4f` | (see git log) |
+| `ca10ee60` | (see git log) |
+| `de790e47` | (see git log) |
+| `74a48353` | (see git log) |
+| `b1f141eb` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
