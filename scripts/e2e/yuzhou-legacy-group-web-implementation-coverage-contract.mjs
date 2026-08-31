@@ -47,13 +47,13 @@ const legacyRuntimeEvidence = legacyIds => {
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
-  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 180, mapped_only: 51 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 168, score60: 0, score40: 21, score20: 30 });
-  assert.equal(result.summary.averageScore, 69.09);
+  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 181, mapped_only: 50 });
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 169, score60: 0, score40: 20, score20: 30 });
+  assert.equal(result.summary.averageScore, 69.26);
   assert.equal(result.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
   assert.deepEqual(result.summary.targetImplementation, {
-    statuses: { implemented: 0, partial: 180, mapped_only: 51 },
-    averageScore: 69.09,
+    statuses: { implemented: 0, partial: 181, mapped_only: 50 },
+    averageScore: 69.26,
     scoreMeaning: "smart_park_target_technical_implementation"
   });
   assert.equal(result.gates.productionImport, "HOLD");
@@ -68,6 +68,11 @@ test("decision-center coverage reflects only the shipped aggregate workforce cap
     assert.equal(item.implementationStatus, "partial");
     assert.deepEqual(item.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
   }
+  const recruitment = result.items.find(candidate => candidate.legacyId === 231);
+  assert.equal(recruitment.selectedRoute, "/hr/recruitment");
+  assert.equal(recruitment.score, 80);
+  assert.equal(recruitment.implementationStatus, "partial");
+  assert.deepEqual(recruitment.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
   for (const legacyId of [168, 231, 232, 233, 234, 235, 247]) {
     const item = result.items.find(candidate => candidate.legacyId === legacyId);
     assert.notEqual(item.selectedRoute, "/hr/decision-center");
@@ -75,9 +80,9 @@ test("decision-center coverage reflects only the shipped aggregate workforce cap
   assert.deepEqual(result.summary.domains.decision_center, {
     total: 16,
     implemented: 0,
-    partial: 6,
-    mapped_only: 10,
-    averageScore: 55
+    partial: 7,
+    mapped_only: 9,
+    averageScore: 57.5
   });
 });
 

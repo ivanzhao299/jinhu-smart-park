@@ -61,6 +61,7 @@ test("existing system-management and contract-reminder capabilities use exact Sm
   assert.deepEqual(routes.get(166), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(167), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(228), ["/hr/decision-center"]);
+  assert.deepEqual(routes.get(231), ["/hr/recruitment"]);
   assert.deepEqual(routes.get(229), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(230), ["/hr/decision-center"]);
   assert.deepEqual(routes.get(246), ["/hr/decision-center"]);

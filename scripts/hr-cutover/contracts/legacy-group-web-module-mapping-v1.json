@@ -3105,7 +3105,7 @@
       "domain": "decision_center",
       "ownership": "hr",
       "targetRoutes": [
-        "/hr"
+        "/hr/recruitment"
       ],
       "mappingStatus": "mapped"
     },
