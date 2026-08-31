@@ -35,6 +35,7 @@ const DRIVER_CONTRACT_PATHS = Object.freeze([
   "scripts/extract-yuzhou-t3-attendance-insurance.sh", "scripts/transform-yuzhou-t3-attendance-insurance.mjs", "scripts/load-yuzhou-t3-attendance-insurance.sh", "scripts/rollback-yuzhou-t3-attendance-insurance.sh"
 ]);
 const DEFAULT_TENANT = "10000001", DEFAULT_PARK = "20000001";
+const SHA256 = /^[0-9a-f]{64}$/u;
 const PHASE_SCRIPT = Object.freeze(Object.fromEntries(CORE_DOMAIN_ORDER.map(domain => [domain, {
   extract: FULL_CONTRACT.domains[domain].extract,
   load: FULL_CONTRACT.domains[domain].load,
