@@ -12,11 +12,28 @@ require YUZHOU_SQLSERVER_DATABASE
 require YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID
 require YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT
 require YUZHOU_BACKUP_SHA256
+require YUZHOU_SOURCE_RESTORE_RECEIPT_PATH
+require YUZHOU_MAPPING_CONTRACT_SHA256
 
 case "$YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID" in
   *[!A-Za-z0-9._-]*|""|?|??|???|????) fail "invalid YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID" ;;
 esac
 printf %s "$YUZHOU_BACKUP_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail "invalid YUZHOU_BACKUP_SHA256"
+printf %s "$YUZHOU_MAPPING_CONTRACT_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail "invalid YUZHOU_MAPPING_CONTRACT_SHA256"
+source_binding="$(node --input-type=module - "$YUZHOU_SOURCE_RESTORE_RECEIPT_PATH" "$YUZHOU_BACKUP_SHA256" <<'NODE'
+import { createHash } from "node:crypto";
+import { lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
+import { validateSourceRestoreReceipt } from "./scripts/hr-cutover/source-restore-receipt.mjs";
+const [path, snapshot] = process.argv.slice(2);
+if (!isAbsolute(path) || resolve(path) !== path) throw Error("source restore receipt is required");
+const link = lstatSync(path), actual = realpathSync(path), info = statSync(actual);
+if (link.isSymbolicLink() || !info.isFile() || info.nlink !== 1 || (info.mode & 0o777) !== 0o600) throw Error("source restore receipt is unsafe");
+const bytes = readFileSync(actual), receipt = validateSourceRestoreReceipt(JSON.parse(bytes));
+if (receipt.sourceSnapshotSha256 !== snapshot || receipt.productionImport !== "HOLD") throw Error("source restore receipt snapshot binding mismatch");
+process.stdout.write(JSON.stringify({ sourceRestoreReceiptSha256: createHash("sha256").update(bytes).digest("hex"), sourceCatalogSha256: receipt.identities.catalogSha256 }));
+NODE
+)" || fail "source restore receipt binding is invalid"
 case "$YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT" in
   database/import-reports/yuzhou-hr/t3-attendance-events-stage) ;;
   *) fail "attendance event staging must remain under database/import-reports/yuzhou-hr/t3-attendance-events-stage" ;;
@@ -43,13 +60,19 @@ chmod 600 "$raw"
 
 finalize_manifest(){
   [ -f "$manifest" ] || return 0
-  node - "$manifest" "$YUZHOU_BACKUP_SHA256" <<'NODE'
+  node - "$manifest" "$YUZHOU_BACKUP_SHA256" "$source_binding" "$YUZHOU_MAPPING_CONTRACT_SHA256" <<'NODE'
 const fs=require("fs");
-const [manifestPath,sourceSnapshotSha256]=process.argv.slice(2);
+const crypto=require("crypto");
+const [manifestPath,sourceSnapshotSha256,binding,mappingContractSha256]=process.argv.slice(2);
 if(!/^[0-9a-f]{64}$/.test(sourceSnapshotSha256))throw Error("invalid source backup hash");
 const manifest=JSON.parse(fs.readFileSync(manifestPath,"utf8"));
 if(manifest.sourceReadOnly!==true||manifest.productionImport!=="HOLD")throw Error("unsafe source attendance manifest");
+const source=JSON.parse(binding),sha=v=>crypto.createHash("sha256").update(v).digest("hex"),canonical=v=>Array.isArray(v)?`[${v.map(canonical).join(",")}]`:v&&typeof v==="object"?`{${Object.keys(v).sort().map(k=>`${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`:JSON.stringify(v);
 manifest.sourceSnapshotSha256=sourceSnapshotSha256;
+manifest.sourceRestoreReceiptSha256=source.sourceRestoreReceiptSha256;
+manifest.sourceCatalogSha256=source.sourceCatalogSha256;
+manifest.mappingContractSha256=mappingContractSha256;
+manifest.sourceBusinessSha256=sha(canonical({sourceSnapshotSha256,sourceRestoreReceiptSha256:source.sourceRestoreReceiptSha256,sourceCatalogSha256:source.sourceCatalogSha256,sourceTable:manifest.sourceTable,sourceRows:manifest.sourceRows,quarantinedRows:manifest.quarantinedRows,quarantineFileSha256:manifest.quarantineFileSha256,quarantineCodes:manifest.quarantineCodes}));
 fs.writeFileSync(manifestPath,JSON.stringify(manifest,null,2).concat("\n"),{encoding:"utf8",mode:0o600});
 fs.chmodSync(manifestPath,0o600);
 NODE

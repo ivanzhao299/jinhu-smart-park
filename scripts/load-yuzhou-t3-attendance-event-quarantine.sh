@@ -12,11 +12,16 @@ require YUZHOU_T3_ATTENDANCE_EVENTS_STAGING_DIR
 require YUZHOU_POSTGRES_CONTAINER
 require YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT
 require YUZHOU_BACKUP_SHA256
+require YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256
+require YUZHOU_SOURCE_CATALOG_SHA256
+require YUZHOU_SOURCE_BUSINESS_SHA256
+require YUZHOU_MAPPING_CONTRACT_SHA256
 
 printf %s "$YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$' || fail "invalid attendance event run id"
 printf %s "$YUZHOU_TARGET_DATABASE" | grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' || fail "unsafe target database"
 printf %s "$YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT" | grep -Eq '^jinhu_hr_migration_lab_core_[a-z0-9_]{6,36}$' || fail "unsafe expected compose project"
 printf %s "$YUZHOU_BACKUP_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail "invalid source backup hash"
+for value in "$YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256" "$YUZHOU_SOURCE_CATALOG_SHA256" "$YUZHOU_SOURCE_BUSINESS_SHA256" "$YUZHOU_MAPPING_CONTRACT_SHA256"; do printf %s "$value" | grep -Eq '^[0-9a-f]{64}$' || fail "current attendance source binding is required"; done
 
 stage="$YUZHOU_T3_ATTENDANCE_EVENTS_STAGING_DIR"
 manifest="$stage/manifest.json"
@@ -26,7 +31,7 @@ rows="$stage/attendance-punch-quarantine.jsonl"
 [ -f "$rows" ] && [ "$(stat -f '%Lp' "$rows" 2>/dev/null || stat -c '%a' "$rows")" = 600 ] || fail "controlled attendance rows required"
 [ "$(docker inspect --format '{{ index .Config.Labels "com.docker.compose.project" }}' "$YUZHOU_POSTGRES_CONTAINER" 2>/dev/null || true)" = "$YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT" ] || fail "wrong PostgreSQL compose project"
 
-stage_meta="$(node -e 'const fs=require("fs"),crypto=require("crypto");const [manifestPath,rowsPath,snapshot]=process.argv.slice(1);const sha=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const m=JSON.parse(fs.readFileSync(manifestPath,"utf8"));const rows=fs.readFileSync(rowsPath,"utf8").trim().split("\n").filter(Boolean).map(JSON.parse);const hash=/^[0-9a-f]{64}$/;if(m.artifactKind!=="yuzhou_t3_attendance_punch_quarantine_stage"||m.sourceReadOnly!==true||m.sourceSnapshotSha256!==snapshot||m.productionImport!=="HOLD"||m.businessWriteTarget!=="none"||m.sourceRows!==rows.length||m.eligibleRows!==0||m.quarantinedRows!==rows.length||m.quarantineFileSha256!==sha(rowsPath)||rows.some(r=>r.domain!=="attendance_punch_event"||r.sourceTable!=="dbo.attrecord"||r.status!=="quarantined"||!hash.test(r.sourceIdentitySha256??"")||!hash.test(r.sourceRowSha256??"")||!["ATTENDANCE_PUNCH_PERSON_UNMAPPED","ATTENDANCE_PUNCH_TARGET_EMPLOYEE_MAPPING_REQUIRED"].includes(r.quarantineCode)))throw Error("unsafe attendance quarantine stage");console.log(JSON.stringify({sourceRows:rows.length,quarantineFileSha256:m.quarantineFileSha256}));' "$manifest" "$rows" "$YUZHOU_BACKUP_SHA256")" || fail "unsafe attendance quarantine stage"
+stage_meta="$(node -e 'const fs=require("fs"),crypto=require("crypto");const [manifestPath,rowsPath,snapshot,receipt,catalog,business,mapping]=process.argv.slice(1);const sha=p=>crypto.createHash("sha256").update(fs.readFileSync(p)).digest("hex");const m=JSON.parse(fs.readFileSync(manifestPath,"utf8"));const rows=fs.readFileSync(rowsPath,"utf8").trim().split("\n").filter(Boolean).map(JSON.parse);const hash=/^[0-9a-f]{64}$/;if(m.artifactKind!=="yuzhou_t3_attendance_punch_quarantine_stage"||m.sourceReadOnly!==true||m.sourceSnapshotSha256!==snapshot||m.sourceRestoreReceiptSha256!==receipt||m.sourceCatalogSha256!==catalog||m.sourceBusinessSha256!==business||m.mappingContractSha256!==mapping||m.productionImport!=="HOLD"||m.businessWriteTarget!=="none"||m.sourceRows!==rows.length||m.eligibleRows!==0||m.quarantinedRows!==rows.length||m.quarantineFileSha256!==sha(rowsPath)||rows.some(r=>r.domain!=="attendance_punch_event"||r.sourceTable!=="dbo.attrecord"||r.status!=="quarantined"||!hash.test(r.sourceIdentitySha256??"")||!hash.test(r.sourceRowSha256??"")||!["ATTENDANCE_PUNCH_PERSON_UNMAPPED","ATTENDANCE_PUNCH_TARGET_EMPLOYEE_MAPPING_REQUIRED"].includes(r.quarantineCode)))throw Error("unsafe attendance quarantine stage");console.log(JSON.stringify({sourceRows:rows.length,quarantineFileSha256:m.quarantineFileSha256}));' "$manifest" "$rows" "$YUZHOU_BACKUP_SHA256" "$YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256" "$YUZHOU_SOURCE_CATALOG_SHA256" "$YUZHOU_SOURCE_BUSINESS_SHA256" "$YUZHOU_MAPPING_CONTRACT_SHA256")" || fail "unsafe attendance quarantine stage"
 source_rows="$(node -e 'console.log(JSON.parse(process.argv[1]).sourceRows)' "$stage_meta")"
 stage_sha="$(node -e 'console.log(JSON.parse(process.argv[1]).quarantineFileSha256)' "$stage_meta")"
 

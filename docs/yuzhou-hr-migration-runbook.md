@@ -280,10 +280,13 @@ pnpm hr:migration:core-t0-t3:technical-uat -- --config '<同一轮、0600 core �
 set -a; . database/import-reports/yuzhou-hr/canonical-source-receipt-etl.env; set +a
 YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID='<new-run-id>' \
 YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT='database/import-reports/yuzhou-hr/t3-attendance-events' \
+YUZHOU_BACKUP_SHA256='<sealed source snapshot SHA-256>' \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute 0600 source restore receipt>' \
+YUZHOU_MAPPING_CONTRACT_SHA256='<approved mapping contract SHA-256>' \
 pnpm hr:migration:t3-attendance-events:profile
 ```
 
-脚本只接受 migration lab 内的只读 SQL Server 与非 `sa` ETL 登录，输出目录为 `0700`、原始聚合与回执为 `0600`。它不导入、更新或删除源/目标数据；不论是否有历史行，`productionImport` 均固定为 `HOLD`。只有在该回执、字段映射、隔离装载、守恒、回滚和重装都通过后，才可为这些事件另开历史导入切片。
+脚本只接受 migration lab 内的只读 SQL Server 与非 `sa` ETL 登录，输出目录为 `0700`、原始聚合与回执为 `0600`。回执必须绑定受控备份、密封恢复回执、源目录身份和批准映射契约；它不导入、更新或删除源/目标数据；不论是否有历史行，`productionImport` 均固定为 `HOLD`。只有在该回执、字段映射、隔离装载、守恒、回滚和重装都通过后，才可为这些事件另开历史导入切片。
 
 打卡表的下一步是**哈希化隔离分期**，不是业务表导入。它只从同一个只读恢复库计算 `dbo.attrecord` 的源身份摘要与行摘要；分期文件不包含人员号、卡号、打卡时间或进出标记。当前阶段没有可信的 `hr_employee` 映射，故所有记录固定写为 `quarantined`：源人员不存在时为 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`，源人员存在但尚无目标映射时为 `ATTENDANCE_PUNCH_TARGET_EMPLOYEE_MAPPING_REQUIRED`。`eligibleRows` 固定为零，且不得写入 `hr_attendance_punch_event`：
 
@@ -293,10 +296,12 @@ ALLOW_YUZHOU_MIGRATION=yes \
 YUZHOU_T3_ATTENDANCE_EVENTS_RUN_ID='<new-run-id>' \
 YUZHOU_T3_ATTENDANCE_EVENTS_OUTPUT_ROOT='database/import-reports/yuzhou-hr/t3-attendance-events-stage' \
 YUZHOU_BACKUP_SHA256="$(shasum -a 256 database/backups/yuzhou-hr/hr2026081914.dbk | awk '{print $1}')" \
+YUZHOU_SOURCE_RESTORE_RECEIPT_PATH='<absolute 0600 source restore receipt>' \
+YUZHOU_MAPPING_CONTRACT_SHA256='<approved mapping contract SHA-256>' \
 pnpm hr:migration:t3-attendance-events:stage
 ```
 
-该阶段仅形成 `0600` 的隔离审计证据，并将受控备份哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
+该阶段仅形成 `0600` 的隔离审计证据，并将受控备份、密封恢复回执、源目录身份、映射契约和业务哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。quarantine loader 必须重新校验全部 C/S/M 哈希，回滚按实际源行数守恒，不得假定单行。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
 
 截至 2026-08-30，固定恢复源的实际汇总为：`dbo.attrecord=1`、可关联 `dbo.person=0`，`dbo.leave=0`、`dbo.overtime=0`、`dbo.timekeeprecord=0`。该唯一打卡记录已经完成一次隔离审计演练：`1 = 0 loaded + 1 quarantined`，原因是 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`；业务打卡表保持 `0` 行，审计回滚后 migration audit residual 也为 `0`，随后 core 临时资源清理为 `0`。这不是“无数据即跳过”的推断，而是同一受控备份的只读计数和隔离验证；缺少可核验员工映射前，历史打卡业务导入与生产导入继续为 `HOLD`。
 
