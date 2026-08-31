@@ -47,8 +47,8 @@ BEGIN
 END;
 $$;
 
--- Add the reveal atom once per tenant. The permission row remains tenant-wide;
--- its park_id follows the tenant's deterministic enabled asset parent row.
+-- Add the reveal atom once per tenant. The API permission is tenant-wide and
+-- deliberately has no parent, matching the production seed reconciliation.
 WITH tenant_parent AS (
   SELECT DISTINCT ON (permission.tenant_id)
     permission.tenant_id,
@@ -71,14 +71,14 @@ INSERT INTO sys_permission (
 )
 SELECT
   uuid_generate_v4(), parent.tenant_id, parent.park_id,
-  'party:identity_reveal', '身份明文受控查看', parent.parent_id,
+  'party:identity_reveal', '身份明文受控查看', NULL,
   'biz.party_identity', 'reveal', 'party:identity_reveal', 'party:identity_reveal',
   3, 3, 8100, 'api', 40, 'POST',
   '/api/v1/property/parties/:partyId/identity-reveal', '/assets/parties',
   NULL, NULL, NULL, NULL,
   true, true, false, false, false, false,
   true, 'enabled', clock_timestamp(), clock_timestamp(), false, 1,
-  'IDY-F04 controlled plaintext reveal permission'
+  'PR192 Track B frozen permission definition'
 FROM tenant_parent parent
 ON CONFLICT (tenant_id, code) WHERE is_deleted = false DO NOTHING;
 
@@ -92,6 +92,7 @@ BEGIN
     AND permission.is_deleted = false
     AND (
       permission.resource IS DISTINCT FROM 'biz.party_identity'
+      OR permission.parent_id IS NOT NULL
       OR permission.action IS DISTINCT FROM 'reveal'
       OR permission.permission_type IS DISTINCT FROM 'api'
       OR permission.perm_type IS DISTINCT FROM 40
@@ -99,6 +100,7 @@ BEGIN
       OR permission.api_path IS DISTINCT FROM '/api/v1/property/parties/:partyId/identity-reveal'
       OR permission.is_enabled IS DISTINCT FROM true
       OR permission.status IS DISTINCT FROM 'enabled'
+      OR permission.remark IS DISTINCT FROM 'PR192 Track B frozen permission definition'
     );
   IF drift_count <> 0 THEN
     RAISE EXCEPTION 'party-identity-reveal-permission-definition-drift'

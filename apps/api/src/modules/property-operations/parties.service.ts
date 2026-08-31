@@ -221,7 +221,7 @@ export class PartiesService {
     this.assertPermission(actor, SYSTEM_PERMISSIONS.PARTY_IDENTITY_REVEAL);
     if (!this.auditService) throw new ConflictException("Required audit is unavailable");
     return this.partiesRepository.manager.transaction(async (manager) => {
-      const party = await this.mustFind(scope, id, true, manager.getRepository(PartyEntity), false);
+      const party = await this.mustFind(scope, id, true, manager.getRepository(PartyEntity), true);
       if (!party.identityNumberEncrypted) throw new NotFoundException("Party identity number not found");
       const identityNumber = this.sensitiveDataService.decrypt(
         party.identityNumberEncrypted,

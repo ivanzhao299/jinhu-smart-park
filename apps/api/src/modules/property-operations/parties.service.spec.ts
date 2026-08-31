@@ -329,11 +329,13 @@ test("party detail exposes masked protected fields and never decrypts plaintext"
 
 test("party identity reveal requires exact permission and required audit before returning plaintext", async () => {
   const events: string[] = [];
+  let lockMode: string | null = null;
   const entity = partyFixture();
   const builder = {
     where: () => builder,
     andWhere: () => builder,
     addSelect: () => builder,
+    setLock: (mode: string) => { lockMode = mode; return builder; },
     getOne: async () => entity
   };
   const manager: RevealTestManager = {
@@ -364,6 +366,7 @@ test("party identity reveal requires exact permission and required audit before 
   }, entity.id, "LEGAL_COMPLIANCE");
 
   assert.deepEqual(events, ["decrypt", "audit"]);
+  assert.equal(lockMode, "pessimistic_write");
   assert.deepEqual(result, { partyId: entity.id, identityNumber: "11010519491231002X" });
 });
 
@@ -382,6 +385,7 @@ test("party identity reveal fails closed when required audit fails", async () =>
     where: () => builder,
     andWhere: () => builder,
     addSelect: () => builder,
+    setLock: () => builder,
     getOne: async () => entity
   };
   const manager: RevealTestManager = {
