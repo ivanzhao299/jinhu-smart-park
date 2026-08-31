@@ -10,7 +10,7 @@
 - `hr_employee` 是雇佣聚合，允许待入职员工暂不关联 `sys_user`；员工状态只能通过 lifecycle transition 变化。
 - `hr_employee_document` 已接受保护文件策略；通用附件权限不能替代 HR 业务权限和员工数据范围。
 - Workflow Inbox 统一使用 `biz_user_message`，不建设第二套 HR 待办或通知表。
-- 玉舟资料显示：人才库 `accept` 约 117 条且为 52 列宽表；家庭成员 `family` 4,560 条；社会履历 `his` 375 条；证照 `ticket` 237 条；旧 `docs` 1,003 条。培训来源为 `course/coursecode/course_person/train/trainhis/jobtrain`；奖惩来源为 `bonuscode/bonusrecord/jch_1`，其中 `bonusrecord` 在旧分析时为空。
+- 受控源的 2026-08-31 两次只读目录具有相同 SHA-256（`0d8e6394…f06d5c4f`）：`family=4,560`、`his=375`、`knowhow=6`、`ticket=237`、`docs=1,003`、`person=2,949`、`trainhis=2`、`bonuscode=8`。同一当前快照中 `accept=0`、`course=0`、`train=0`、`jobtrain=0`、`bonusrecord=0`；不得再将早期“accept 约 117 条”的历史分析估计当作当前源事实或导入目标。
 - 旧照片、证件号码、私人联系方式、家庭信息、履历、培训成绩和奖惩原因均属于敏感 HR 数据；不得写入通用列表、日志、消息正文或下载 URL。
 
 ## Product Requirements
