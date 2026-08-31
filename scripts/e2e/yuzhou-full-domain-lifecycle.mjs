@@ -156,9 +156,12 @@ try {
   }));
   privateJson(join(t3ManifestRoot, "manifest.json"), {
     formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
-    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256,
+    sourceCatalogSha256: "c".repeat(64), sourceBusinessSha256: "b".repeat(64), mappingContractSha256: configA.triple.mappingContractHash,
+    productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
   });
-  assert.deepEqual(Object.keys(extractManifestFacts(t3ManifestConfig, "T3").env).sort(), ["YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256"]);
+  t3ManifestConfig.source = { sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256 };
+  assert.deepEqual(Object.keys(extractManifestFacts(t3ManifestConfig, "T3").env).sort(), ["YUZHOU_MAPPING_CONTRACT_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256"]);
   const t3ManifestDrift = JSON.parse(readFileSync(join(t3ManifestRoot, "manifest.json"), "utf8"));
   t3ManifestDrift.sourceSnapshotSha256 = "0".repeat(64);
   writeFileSync(join(t3ManifestRoot, "manifest.json"), `${JSON.stringify(t3ManifestDrift)}\n`, { mode: 0o600 });
@@ -166,7 +169,9 @@ try {
   expectCode("EXTRACT_MANIFEST_UNVERIFIED", () => extractManifestFacts(t3ManifestConfig, "T3"));
   privateJson(join(t3ManifestRoot, "manifest.json"), {
     formatVersion: 1, artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true,
-    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
+    sourceSnapshotSha256: configA.triple.sourceSnapshotHash, sourceRestoreReceiptSha256: configA.source.sourceRestoreReceiptSha256,
+    sourceCatalogSha256: "c".repeat(64), sourceBusinessSha256: "b".repeat(64), mappingContractSha256: configA.triple.mappingContractHash,
+    productionImport: "HOLD", generatedAt: new Date().toISOString(), domains: t3Domains
   });
 
   const reused = clone(configB); reused.target.apiPort = configA.target.apiPort;

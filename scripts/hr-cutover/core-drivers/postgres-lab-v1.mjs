@@ -12,7 +12,7 @@ import {
 } from "../core-t0-t3-rehearsal.mjs";
 import { buildCoreT0T3MaterializationSql, verifyCurrentT0Binding } from "../materialize-reviewed-job-state.mjs";
 import { buildCoreNonT0DictionaryPackage, materializeCoreNonT0Dictionaries } from "../materialize-core-non-t0-dictionaries.mjs";
-import { createDefaultSourceRestoreProbe, verifySourceRestoreReceiptFile } from "../source-restore-receipt.mjs";
+import { createDefaultSourceRestoreProbe, validateSourceRestoreReceipt, verifySourceRestoreReceiptFile } from "../source-restore-receipt.mjs";
 import { verifyCoreDictionaryCaptureBinding } from "../verify-yuzhou-core-dictionary-preflight.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
@@ -163,6 +163,24 @@ function verifiedManifestBindings(config, domain) {
     if (entry?.file !== file || entry.fileSha256 !== actual) fail("CORE_EXTRACT_MANIFEST_DRIFT", `${domain}.${key}`);
     env[envKey] = actual;
   }
+  if (domain === "T3") {
+    let receipt;
+    try { receipt = validateSourceRestoreReceipt(JSON.parse(readFileSync(config.source.sourceRestoreReceiptPath, "utf8"))); }
+    catch { fail("CORE_SOURCE_RECEIPT_INVALID", "T3 source restore receipt"); }
+    const t3Bindings = {
+      sourceSnapshotSha256: config.triple.sourceSnapshotHash,
+      sourceRestoreReceiptSha256: config.source.sourceRestoreReceiptSha256,
+      sourceCatalogSha256: receipt.identities.catalogSha256,
+      mappingContractSha256: config.triple.mappingContractHash
+    };
+    if (!SHA256.test(manifest.sourceBusinessSha256 ?? "") || Object.entries(t3Bindings).some(([key, value]) => manifest[key] !== value)) fail("CORE_EXTRACT_MANIFEST_DRIFT", "T3.current-source-binding");
+    Object.assign(env, {
+      YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: t3Bindings.sourceRestoreReceiptSha256,
+      YUZHOU_SOURCE_CATALOG_SHA256: t3Bindings.sourceCatalogSha256,
+      YUZHOU_SOURCE_BUSINESS_SHA256: manifest.sourceBusinessSha256,
+      YUZHOU_MAPPING_CONTRACT_SHA256: t3Bindings.mappingContractSha256
+    });
+  }
   return env;
 }
 
@@ -176,7 +194,9 @@ function phaseEnvironment(config, domain, phase, state) {
     YUZHOU_STAGING_DIR: stagingDirectory(config, domain), YUZHOU_TARGET_DATABASE: config.target.database,
     YUZHOU_POSTGRES_CONTAINER: config.target.container, YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT: config.target.composeProject,
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT, YUZHOU_TARGET_PARK_ID: DEFAULT_PARK,
-    YUZHOU_BACKUP_SHA256: config.triple.sourceSnapshotHash
+    YUZHOU_BACKUP_SHA256: config.triple.sourceSnapshotHash,
+    YUZHOU_SOURCE_RESTORE_RECEIPT_PATH: config.source.sourceRestoreReceiptPath,
+    YUZHOU_MAPPING_CONTRACT_SHA256: config.triple.mappingContractHash
   });
   if (phase === "rollback") env.ALLOW_YUZHOU_ROLLBACK = "yes";
   if (phase === "load") Object.assign(env, verifiedManifestBindings(config, domain));

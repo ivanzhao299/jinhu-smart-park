@@ -116,8 +116,10 @@ test("full-domain preparation pins T5 to the canonical A/B baseline and source r
   assert.throws(() => t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256: "0".repeat(64) }), /does not bind the current source restore receipt/);
 });
 
-test("full-domain T3 extraction receives the pinned source snapshot required by the attendance-insurance extractor", () => {
-  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T3.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256"]);
+test("full-domain T3 extraction receives the pinned current source bindings required by the attendance-insurance extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T3.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"]);
   const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
   assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash/);
+  assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt/);
+  assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash/);
 });

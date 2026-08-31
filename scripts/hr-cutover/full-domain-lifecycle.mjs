@@ -93,7 +93,7 @@ export const ADAPTER_ENV_ALLOWLIST = {
   T0: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_DEPARTMENTS_SHA256", "YUZHOU_POSITIONS_SHA256", "YUZHOU_EMPLOYEES_SHA256", "YUZHOU_T0_JOB_STATE_DICTIONARY_SHA256"], rollback: [] },
   T1: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T1_EVENTS_SHA256", "YUZHOU_T1_TYPES_SHA256", "YUZHOU_T1_EVENT_TYPE_DICTIONARY_SHA256", "YUZHOU_T1_EVENT_STATE_DICTIONARY_SHA256"], rollback: [] },
   T2: { extract: ["YUZHOU_SQLSERVER_CONTAINER"], load: [...LOAD_COMMON_ENV, "YUZHOU_T2_TYPES_SHA256", "YUZHOU_T2_CONTRACTS_SHA256", "YUZHOU_T2_CHANGES_SHA256", "YUZHOU_T2_CONTRACT_TYPE_DICTIONARY_SHA256", "YUZHOU_T2_CONTRACT_STATE_DICTIONARY_SHA256"], rollback: [] },
-  T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256"], rollback: [] },
+  T3: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH", "YUZHOU_MAPPING_CONTRACT_SHA256"], load: [...LOAD_COMMON_ENV, "YUZHOU_T3_ATTENDANCE_SHA256", "YUZHOU_T3_POLICIES_SHA256", "YUZHOU_T3_INSURANCE_SHA256", "YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256", "YUZHOU_SOURCE_CATALOG_SHA256", "YUZHOU_SOURCE_BUSINESS_SHA256", "YUZHOU_MAPPING_CONTRACT_SHA256"], rollback: [] },
   T4: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_SOURCE_BACKUP_FILE"], load: ["YUZHOU_TARGET_TENANT_ID", "YUZHOU_TARGET_PARK_ID", "YUZHOU_T4_BUSINESS_SHA256", "YUZHOU_T4_LOAD_MODE"], rollback: [] },
   T5: { extract: ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_PARTY_DATA_KEY_FILE"], load: [...LOAD_COMMON_ENV, "YUZHOU_T5_BUSINESS_SHA256", "YUZHOU_MATERIALIZATION_ACTOR_USER_ID"], rollback: [] }
 };
@@ -333,10 +333,13 @@ export function extractManifestFacts(config, domain) {
   let manifest;
   try { manifest = JSON.parse(manifestBytes); } catch { fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest is not valid JSON`); }
   const header = EXTRACT_MANIFEST_HEADERS[domain] ?? {};
-  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [...Object.keys(header), ...(domain === "T3" ? ["sourceSnapshotSha256"] : [])], `${domain}.manifest`);
+  exactKeys(manifest, ["formatVersion", "generatedAt", "domains"], [...Object.keys(header), ...(domain === "T3" ? ["sourceSnapshotSha256", "sourceRestoreReceiptSha256", "sourceCatalogSha256", "sourceBusinessSha256", "mappingContractSha256"] : [])], `${domain}.manifest`);
   if (manifest.formatVersion !== 1 || typeof manifest.generatedAt !== "string") fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain} manifest header is invalid`);
   for (const [field, expected] of Object.entries(header)) if (manifest[field] !== expected) fail("EXTRACT_MANIFEST_UNVERIFIED", `${domain}.${field} manifest header is invalid`);
-  if (domain === "T3" && manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash) fail("EXTRACT_MANIFEST_UNVERIFIED", "T3 source snapshot does not bind the C/S/M triple");
+  if (domain === "T3") {
+    if (manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || manifest.sourceRestoreReceiptSha256 !== config.source?.sourceRestoreReceiptSha256 || manifest.mappingContractSha256 !== config.triple.mappingContractHash
+      || !SHA256.test(manifest.sourceCatalogSha256 ?? "") || !SHA256.test(manifest.sourceBusinessSha256 ?? "")) fail("EXTRACT_MANIFEST_UNVERIFIED", "T3 current source does not bind the C/S/M triple");
+  }
   exactKeys(manifest.domains, Object.keys(definition), [], `${domain}.manifest.domains`);
   const env = {};
   for (const [key, expected] of Object.entries(definition)) {
@@ -353,6 +356,12 @@ export function extractManifestFacts(config, domain) {
     if (actualSha256 !== entry.fileSha256) fail("EXTRACT_MANIFEST_HASH_DRIFT", `${domain}.${key} staging bytes differ from the manifest`);
     if (expected.env) env[expected.env] = entry.fileSha256;
   }
+  if (domain === "T3") Object.assign(env, {
+    YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: manifest.sourceRestoreReceiptSha256,
+    YUZHOU_SOURCE_CATALOG_SHA256: manifest.sourceCatalogSha256,
+    YUZHOU_SOURCE_BUSINESS_SHA256: manifest.sourceBusinessSha256,
+    YUZHOU_MAPPING_CONTRACT_SHA256: manifest.mappingContractSha256
+  });
   return {
     manifestSha256: createHash("sha256").update(manifestBytes).digest("hex"),
     bindingSha256: createHash("sha256").update(`${JSON.stringify(env)}\n`).digest("hex"),

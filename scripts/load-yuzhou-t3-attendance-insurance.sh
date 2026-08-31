@@ -2,15 +2,17 @@
 set -eu
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"; RUN_ID="${YUZHOU_MIGRATION_RUN_ID:-}"; DB="${YUZHOU_TARGET_DATABASE:-}"; TENANT="${YUZHOU_TARGET_TENANT_ID:-10000001}"; PARK="${YUZHOU_TARGET_PARK_ID:-20000001}"; STAGE="${YUZHOU_STAGING_DIR:-$ROOT_DIR/database/import-reports/yuzhou-hr/staging-$RUN_ID}"; PG="${YUZHOU_POSTGRES_CONTAINER:-jinhu-smart-park-postgres}"; EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-jinhu_hr_migration_lab}"
 AH="${YUZHOU_T3_ATTENDANCE_SHA256:-9060321bf7a7d7f935f6c5dfbae7aba2774d28fd254d4e0d2b5a0957ad251c62}"; PH="${YUZHOU_T3_POLICIES_SHA256:-dadab284fb59d6bbf3c3baa5d52b356b6c18f8e9e11fdab5a62c4669f566dbdb}"; IH="${YUZHOU_T3_INSURANCE_SHA256:-fc76166540dea2056cd7c012a545de26435ae362abb26af7efd7802dc7c6d033}"; SNAP="${YUZHOU_BACKUP_SHA256:-3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e}"
+RECEIPT="${YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256:-}"; CATALOG="${YUZHOU_SOURCE_CATALOG_SHA256:-}"; BUSINESS="${YUZHOU_SOURCE_BUSINESS_SHA256:-}"; MAPPING="${YUZHOU_MAPPING_CONTRACT_SHA256:-}"
 fail(){ printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 [ "${ALLOW_YUZHOU_MIGRATION:-no}" = yes ] || fail "set mutation flag"; printf %s "$RUN_ID"|grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{5,63}$'||fail "invalid run id"; printf %s "$DB"|grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$'||fail "invalid isolated target database"
+for value in "$RECEIPT" "$CATALOG" "$BUSINESS" "$MAPPING"; do printf %s "$value"|grep -Eq '^[0-9a-f]{64}$'||fail "T3 current source binding is required"; done
 for f in attendance policies insurance; do [ -f "$STAGE/$f.jsonl" ]||fail "staging file missing"; done
 [ -f "$STAGE/manifest.json" ] || fail "staging manifest missing"
 [ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "staging manifest must be mode 0600"
 [ "$(shasum -a 256 "$STAGE/attendance.jsonl"|awk '{print $1}')" = "$AH" ]||fail "attendance staging SHA-256 mismatch"; [ "$(shasum -a 256 "$STAGE/policies.jsonl"|awk '{print $1}')" = "$PH" ]||fail "policies staging SHA-256 mismatch"; [ "$(shasum -a 256 "$STAGE/insurance.jsonl"|awk '{print $1}')" = "$IH" ]||fail "insurance staging SHA-256 mismatch"
-node - "$STAGE/manifest.json" "$SNAP" "$AH" "$PH" "$IH" <<'NODE' || fail "T3 staging manifest binding mismatch"
-const fs=require('fs'),[path,snapshot,attendance,policies,insurance]=process.argv.slice(2),m=JSON.parse(fs.readFileSync(path,'utf8'));
-if(m.formatVersion!==1||m.artifactKind!=='yuzhou_t3_attendance_insurance_stage'||m.sourceReadOnly!==true||m.sourceSnapshotSha256!==snapshot||m.productionImport!=='HOLD')throw Error('source binding');
+node - "$STAGE/manifest.json" "$SNAP" "$AH" "$PH" "$IH" "$RECEIPT" "$CATALOG" "$BUSINESS" "$MAPPING" <<'NODE' || fail "T3 staging manifest binding mismatch"
+const fs=require('fs'),[path,snapshot,attendance,policies,insurance,receipt,catalog,business,mapping]=process.argv.slice(2),m=JSON.parse(fs.readFileSync(path,'utf8'));
+if(m.formatVersion!==1||m.artifactKind!=='yuzhou_t3_attendance_insurance_stage'||m.sourceReadOnly!==true||m.sourceSnapshotSha256!==snapshot||m.sourceRestoreReceiptSha256!==receipt||m.sourceCatalogSha256!==catalog||m.sourceBusinessSha256!==business||m.mappingContractSha256!==mapping||m.productionImport!=='HOLD')throw Error('source binding');
 for(const [domain,hash] of Object.entries({attendance,policies,insurance}))if(m.domains?.[domain]?.file!==`${domain}.jsonl`||m.domains[domain].fileSha256!==hash)throw Error(domain);
 NODE
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG")" = "$EXPECTED_PROJECT" ]||fail "wrong postgres project"

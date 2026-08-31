@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { DOMAIN_ORDER, validateConfig } from "./full-domain-lifecycle.mjs";
 import { readMaterializationKeyFile } from "./materialization-key-contract.mjs";
-import { verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
+import { validateSourceRestoreReceipt, verifySourceRestoreReceiptFile } from "./source-restore-receipt.mjs";
 import { t5BusinessHashFor } from "./t5-canonical-baseline.mjs";
 import { computeMappingContractHash } from "./verify-full-domain-contract.mjs";
 
@@ -109,6 +109,7 @@ function configFor(args, codeSha, mappingContractHash) {
     sourceContainer: args.sourceContainer,
     databaseAlias: source.YUZHOU_SQLSERVER_DATABASE
   }, { recheckLive: false });
+  validateSourceRestoreReceipt(JSON.parse(readFileSync(sourceRestoreReceipt, "utf8")));
   const t5BusinessSha256 = t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 });
   mkdirSync(credentialRoot, { recursive: true, mode: 0o700 });
   chmodSync(projectRoot, 0o700);
@@ -140,6 +141,8 @@ function configFor(args, codeSha, mappingContractHash) {
     rollback: {}
   }]));
   adapterEnv.T3.extract.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash;
+  adapterEnv.T3.extract.YUZHOU_SOURCE_RESTORE_RECEIPT_PATH = sourceRestoreReceipt;
+  adapterEnv.T3.extract.YUZHOU_MAPPING_CONTRACT_SHA256 = mappingContractHash;
   adapterEnv.T4.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T4.load = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,
