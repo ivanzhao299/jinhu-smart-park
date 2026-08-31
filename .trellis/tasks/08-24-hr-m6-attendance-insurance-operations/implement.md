@@ -30,10 +30,16 @@
 
 ## 5. 验证与发布
 
-- [ ] fresh/upgrade PostgreSQL、production seed replay、T3 总账与回滚契约通过。
+- [x] fresh/upgrade PostgreSQL、production seed replay、T3 总账与回滚契约通过。
 - [ ] 单元、权限、并发、审计、契约、lint/typecheck/build/security 通过。
 - [ ] 桌面与 390px、HR/负责人/员工三角色只读和写路径 UAT 通过。
 - [ ] 发布前重新 fetch，确认本地候选、远端合并和生产运行 SHA；迁移、健康、受保护账号与 Docker 清理通过。
+
+### 2026-08-31 当前候选隔离证据
+
+- 当前候选 `6d4a4b69382a9f93800a063c1c0ba3e829a6d3c4` 已完成两套独立 `core_t0_t3` lab：两边技术 UAT 均为 `PASS`，T0/T1/T2/T3 的 source/loaded/quarantined 分别为 `3105/3105/0`、`6887/6886/1`、`1163/1155/8`、`35164/35159/5`，A/B canonical comparison 为 `PASS`，两个反序回滚均 `residualCount=0`、副作用计数为 `0`。
+- 同一候选已完成 M6 在线申请连续 lab：`rollback_ready` 上的真实 PostgreSQL 考勤申请门禁 `PASS`（11 项输出断言），随后 `cleaned` 且 `residualCount=0`。生产历史导入始终为 `HOLD`。
+- 代码门禁已复验：M6 API 单元/契约 17/17、Web HR 单元/契约 55/55、API/Web lint、API/Web typecheck 均通过。技术 UAT 覆盖 59 项 API、22 项负向授权、3 条前端路由和受控浏览器矩阵；它不替代真人三角色 UAT、远端合并或生产发布验证。
 
 ## Rollback points
 
