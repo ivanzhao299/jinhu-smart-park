@@ -63,11 +63,12 @@ export class AuditLogInterceptor implements NestInterceptor {
     };
 
     return next.handle().pipe(
-      tap(() => {
+      tap((response) => {
         if (request.idempotencyReplay) return;
         const auditScope = request.auditScopeOverride;
         void this.auditService.recordOperation({
           ...baseLog,
+          ...(baseLog.bizId ? {} : { bizId: this.responseBizId(response) }),
           ...(auditScope ? { tenantId: auditScope.tenantId, parkId: auditScope.parkId } : {}),
           success: true
         }).catch(() => undefined);
@@ -92,6 +93,13 @@ export class AuditLogInterceptor implements NestInterceptor {
       return value as Record<string, unknown>;
     }
     return {};
+  }
+
+  private responseBizId(value: unknown): string | null {
+    const response = this.asRecord(value);
+    if (typeof response.id === "string") return response.id;
+    const data = this.asRecord(response.data);
+    return typeof data.id === "string" ? data.id : null;
   }
 
   private sanitize(value: Record<string, unknown>): Record<string, unknown> {

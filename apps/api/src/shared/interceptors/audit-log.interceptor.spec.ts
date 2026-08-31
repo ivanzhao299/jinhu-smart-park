@@ -82,3 +82,33 @@ test("audit logging suppresses cached idempotent replays", async () => {
 
   assert.deepEqual(recorded, []);
 });
+
+test("audit logging binds a create response id when the request has no business id", async () => {
+  const recorded: Array<Record<string, unknown>> = [];
+  const request = {
+    method: "POST",
+    user: {
+      sub: "operator-1", username: "operator", tenantId: "tenant-1", parkId: "park-1",
+      roles: [], permissions: ["*"], isSuper: true
+    },
+    body: {}, params: {}, headers: {}, route: { path: "/records" }, path: "/records", originalUrl: "/api/v1/records", ip: "127.0.0.1"
+  } as unknown as AuditScopeRequest;
+  const context = {
+    switchToHttp: () => ({ getRequest: () => request }),
+    getHandler: () => function createRecord() {},
+    getClass: () => class RecordsController {}
+  } as unknown as ExecutionContext;
+  const interceptor = new AuditLogInterceptor(
+    { recordOperation: async (entry: Record<string, unknown>) => { recorded.push(entry); } } as never,
+    { getId: () => "request-create" } as never,
+    { getAllAndOverride: () => ({ module: "测试", resource: "record", action: "创建记录", bizType: "record" }) } as never
+  );
+
+  await lastValueFrom(interceptor.intercept(context, { handle: () => new Observable((subscriber) => {
+    subscriber.next({ id: "created-record-id" });
+    subscriber.complete();
+  }) } as CallHandler));
+
+  assert.equal(recorded.length, 1);
+  assert.equal(recorded[0]?.bizId, "created-record-id");
+});
