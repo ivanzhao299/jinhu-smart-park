@@ -10,13 +10,14 @@ printf %s "$DB"|grep -Eq '^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$'||fail "un
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null||true)" = "$PROJECT" ]||fail "wrong PostgreSQL compose project"
 docker exec -i "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -v run="$RUN_ID" -v db="$DB" <<'SQL'
 BEGIN; SET LOCAL lock_timeout='10s'; SET LOCAL statement_timeout='5min'; SET CONSTRAINTS ALL DEFERRED; SELECT set_config('yuzhou.training_reward_rollback',:'run',true),set_config('yuzhou.training_reward_db',:'db',true);
-DO $$DECLARE v_batch_id uuid; projected bigint; mapped bigint; BEGIN
+DO $$DECLARE v_batch_id uuid; projected bigint; mapped bigint; expected bigint; BEGIN
  IF current_database()<>current_setting('yuzhou.training_reward_db') OR current_database()!~'^jinhu_hr_migration_lab_[A-Za-z0-9_]{6,64}$' THEN RAISE EXCEPTION'unsafe target'; END IF;
  SELECT id INTO v_batch_id FROM migration_batch WHERE run_id=current_setting('yuzhou.training_reward_rollback') AND status='succeeded' AND target_database=current_database() FOR UPDATE;
  IF v_batch_id IS NULL THEN RAISE EXCEPTION 'rollbackable batch not found'; END IF;
+ SELECT COALESCE((counts->>'loadedRows')::bigint,-1) INTO expected FROM migration_batch WHERE id=v_batch_id;
  SELECT count(*) INTO projected FROM hr_legacy_training_reward_projection WHERE migration_batch_id=v_batch_id AND status='staged';
  SELECT count(*) INTO mapped FROM legacy_record_map m WHERE m.batch_id=v_batch_id AND m.is_active AND m.mapping_status='loaded';
- IF projected<>7 OR mapped<>7 THEN RAISE EXCEPTION 'rollback target accounting drift'; END IF;
+ IF expected<0 OR projected<>expected OR mapped<>expected THEN RAISE EXCEPTION 'rollback target accounting drift'; END IF;
 END$$;
 DELETE FROM hr_training_participant x USING hr_legacy_training_reward_projection p,migration_batch b WHERE p.migration_batch_id=b.id AND b.run_id=:'run' AND p.training_participant_id=x.id;
 DELETE FROM hr_training_plan x USING hr_legacy_training_reward_projection p,migration_batch b WHERE p.migration_batch_id=b.id AND b.run_id=:'run' AND p.training_plan_id=x.id;

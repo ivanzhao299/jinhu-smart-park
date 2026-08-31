@@ -212,3 +212,63 @@ INSERT INTO target_catalog (...)
 SELECT ... FROM active_assignment_scope CROSS JOIN signed_manifest
 ON CONFLICT (tenant_id, park_id, control_key) DO NOTHING;
 ```
+
+## Scenario: `psql` variables inside procedural migration-loader guards
+
+### 1. Scope / Trigger
+
+- Trigger: an isolated migration loader passes shell-supplied counts, run identities, or scope values into PostgreSQL and validates them inside a `DO $$...$$` block.
+
+### 2. Signatures
+
+- Loader boundary: `psql -v source_rows="$SOURCE_ROWS" ... <<'SQL'`.
+- Transaction-local bridge: `SELECT set_config('yuzhou.<slice>_source_rows', :'source_rows', true);` followed by `current_setting('yuzhou.<slice>_source_rows')::bigint` inside the procedural guard.
+
+### 3. Contracts
+
+- `psql` interpolation is permitted only in ordinary SQL tokens at the here-document boundary.
+- A `DO $$...$$` body reads dynamic values only from transaction-local `set_config` settings; it must not contain `:'name'` placeholders.
+- The setting is established in the same transaction before the guard, is cast at use, and a malformed/missing value causes PostgreSQL to abort the entire isolated load.
+- Load and rollback accounting derives from the recorded `migration_batch.counts`, never an observed hard-coded row total.
+
+### 4. Validation & Error Matrix
+
+- Placeholder placed inside a `DO` body -> syntax failure before intended guard; treat this as a loader defect and add a regression assertion.
+- Missing/non-numeric transaction-local count -> cast failure and full transaction rollback.
+- Staged count differs from the transaction-local expected count -> `source staging drift`; no batch/projection rows commit.
+- Rollback projection or map count differs from recorded `loadedRows` -> `rollback target accounting drift`; retain the batch and actor for diagnosis.
+
+### 5. Good/Base/Bad Cases
+
+- Good: set `source_rows` once before `DO`, then compare `count(*)` with `current_setting(...)::bigint`.
+- Base: a source snapshot changes row count; the loader and rollback use the new recorded count without code changes.
+- Bad: compare to `:'source_rows'` inside `DO`, or hard-code a previously observed count such as `7`.
+
+### 6. Tests Required
+
+- Static contract test asserts the transaction-local `set_config` and `current_setting` pair.
+- Static contract test rejects every `:'run'`, `:'tenant'`, `:'park'`, `:'actor'`, or count placeholder in the procedural guard.
+- Isolated PostgreSQL rehearsal performs load, rollback, re-load, and rollback; it asserts zero projection, active-map, and temporary-actor residuals.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sql
+DO $$BEGIN
+  IF (SELECT count(*) FROM source_rows) <> :'source_rows'::bigint THEN
+    RAISE EXCEPTION 'source staging drift';
+  END IF;
+END$$;
+```
+
+#### Correct
+
+```sql
+SELECT set_config('yuzhou.training_reward_source_rows', :'source_rows', true);
+DO $$BEGIN
+  IF (SELECT count(*) FROM source_rows) <> current_setting('yuzhou.training_reward_source_rows')::bigint THEN
+    RAISE EXCEPTION 'source staging drift';
+  END IF;
+END$$;
+```
