@@ -2961,7 +2961,7 @@
       "domain": "data_configuration",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/dicts"
       ],
       "mappingStatus": "mapped"
     },
@@ -2977,7 +2977,7 @@
       "domain": "data_configuration",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/dicts"
       ],
       "mappingStatus": "mapped"
     },
@@ -3281,7 +3281,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/users"
       ],
       "mappingStatus": "mapped"
     },
@@ -3297,7 +3297,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/users"
       ],
       "mappingStatus": "mapped"
     },
@@ -3313,7 +3313,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/roles"
       ],
       "mappingStatus": "mapped"
     },
@@ -3329,7 +3329,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/permissions"
       ],
       "mappingStatus": "mapped"
     },
@@ -3345,7 +3345,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/roles"
       ],
       "mappingStatus": "mapped"
     },
@@ -3361,7 +3361,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/data-scopes"
       ],
       "mappingStatus": "mapped"
     },
@@ -3377,7 +3377,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/audit"
       ],
       "mappingStatus": "mapped"
     },
@@ -3393,7 +3393,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/audit/login-logs"
       ],
       "mappingStatus": "mapped"
     },
@@ -3409,7 +3409,7 @@
       "domain": "system_management",
       "ownership": "platform",
       "targetRoutes": [
-        "/admin"
+        "/system/audit/op-logs"
       ],
       "mappingStatus": "mapped"
     },

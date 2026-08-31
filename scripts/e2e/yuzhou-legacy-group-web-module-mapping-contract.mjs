@@ -43,6 +43,23 @@ test("module, domain, route and source-table coverage cannot silently shrink", (
   rejects("GROUP_WEB_MAPPING_BOUNDARY_INVALID", () => verifyLegacyGroupWebModuleMapping(source));
 });
 
+test("existing system-management capabilities use exact Smart Park routes rather than the removed admin root", () => {
+  const routes = new Map(manifest.items.map(item => [item.legacyId, item.targetRoutes]));
+  assert.deepEqual(routes.get(258), ["/system/dicts"]);
+  assert.deepEqual(routes.get(173), ["/system/dicts"]);
+  assert.deepEqual(routes.get(169), ["/system/users"]);
+  assert.deepEqual(routes.get(170), ["/system/users"]);
+  assert.deepEqual(routes.get(171), ["/system/roles"]);
+  assert.deepEqual(routes.get(290), ["/system/permissions"]);
+  assert.deepEqual(routes.get(292), ["/system/roles"]);
+  assert.deepEqual(routes.get(293), ["/system/data-scopes"]);
+  assert.deepEqual(routes.get(175), ["/system/audit"]);
+  assert.deepEqual(routes.get(177), ["/system/audit/login-logs"]);
+  assert.deepEqual(routes.get(176), ["/system/audit/op-logs"]);
+  assert.deepEqual(routes.get(174), ["/admin"]);
+  assert.deepEqual(routes.get(181), ["/admin"]);
+});
+
 test("mapping evidence rejects workstation data, credentials and production import release", () => {
   const path = clone(manifest);
   path.items[0].legacyUrl = "/Users/example/evidence";

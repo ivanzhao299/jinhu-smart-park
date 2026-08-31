@@ -114,6 +114,14 @@ const ROUTE_EVIDENCE = Object.freeze({
   "/hr/talent": { page: "apps/web/app/hr/talent/page.tsx", api: ["apps/api/src/modules/hr/hr-talent.controller.ts"], migrations: ["database/migrations/000261_hr_talent_management.sql"] },
   "/hr/training": { page: "apps/web/app/hr/training/page.tsx", api: ["apps/api/src/modules/hr/hr-training.controller.ts"], migrations: ["database/migrations/000254_hr_training_operations.sql"] },
   "/hr/work-reports": { page: "apps/web/app/hr/work-reports/page.tsx", api: ["apps/api/src/modules/hr/hr-goal-report.controller.ts"], migrations: ["database/migrations/000257_hr_goal_report_execution.sql"] },
+  "/system/users": { page: "apps/web/app/system/users/page.tsx", api: ["apps/api/src/modules/users/users.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql", "database/migrations/000019_rel_user_park.sql"] },
+  "/system/roles": { page: "apps/web/app/system/roles/page.tsx", api: ["apps/api/src/modules/roles/roles.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/permissions": { page: "apps/web/app/system/permissions/page.tsx", api: ["apps/api/src/modules/permissions/permissions.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/data-scopes": { page: "apps/web/app/system/data-scopes/page.tsx", api: ["apps/api/src/modules/data-scopes/data-scopes.controller.ts"], migrations: ["database/migrations/000025_data_scope_open_contract.sql"] },
+  "/system/dicts": { page: "apps/web/app/system/dicts/page.tsx", api: ["apps/api/src/modules/dicts/dicts.controller.ts"], migrations: ["database/migrations/000002_s1_system_foundation.sql"] },
+  "/system/audit": { page: "apps/web/app/system/audit/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/audit/login-logs": { page: "apps/web/app/system/audit/login-logs/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
+  "/system/audit/op-logs": { page: "apps/web/app/system/audit/op-logs/page.tsx", api: ["apps/api/src/modules/audit/audit.controller.ts"], migrations: ["database/migrations/000001_init_auth.sql"] },
   "/admin": { page: null, api: [], migrations: [] },
   "/workflow": { page: null, api: [], migrations: [] }
 });
