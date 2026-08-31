@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
+import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const MIN_DURATION_MINUTES = 300;
@@ -94,14 +95,13 @@ function execute(script, env, spawn = spawnSync) {
 }
 
 function assertLoadReceipt(output, runId, type) {
-  const match = new RegExp(`^(succeeded)\\|(${type.sourceRows})\\|(\\d+)\\|(\\d+)$`).exec(output);
-  if (!match || Number(match[3]) + Number(match[4]) !== type.sourceRows) fail("T5_FILE_LOAD_RECEIPT_INVALID", runId);
-  return { runId, status: match[1], source: Number(match[2]), loaded: Number(match[3]), quarantined: Number(match[4]) };
+  const receipt = assertIsolatedLoadReceipt(output, { runId, code: "T5_FILE_LOAD_RECEIPT_INVALID" });
+  if (receipt.source !== type.sourceRows) fail("T5_FILE_LOAD_RECEIPT_INVALID", runId);
+  return receipt;
 }
 
 function assertRollbackReceipt(output, runId) {
-  if (output !== "rolled_back") fail("T5_FILE_ROLLBACK_RECEIPT_INVALID", runId);
-  return { runId, status: output };
+  return assertIsolatedRollbackReceipt(output, { runId, code: "T5_FILE_ROLLBACK_RECEIPT_INVALID" });
 }
 
 function assertCheckpoint(result) {

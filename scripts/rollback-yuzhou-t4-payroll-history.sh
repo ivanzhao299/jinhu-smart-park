@@ -20,4 +20,4 @@ docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d "$DB" -q -c "REVOKE ALL
 docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U jinhu -d postgres -q -c "ALTER ROLE yuzhou_t4_loader LOGIN;"
 docker exec "$PG" psql -X -v ON_ERROR_STOP=1 -U yuzhou_t4_loader -d "$DB" -c "CALL rollback_yuzhou_t4_payroll_history('$RUN_ID','$DB');"
 cleanup_role
-docker exec "$PG" psql -X -A -t -F '|' -U jinhu -d "$DB" -c "SELECT b.status,b.phase,(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.is_active) active_maps FROM migration_batch b WHERE b.run_id='$RUN_ID';"
+docker exec "$PG" psql -X -q -A -t -F '|' -U jinhu -d "$DB" -c "SELECT b.status,(SELECT count(*) FROM legacy_record_map m WHERE m.batch_id=b.id AND m.is_active) FROM migration_batch b WHERE b.run_id='$RUN_ID';"

@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
 import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
+import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
 import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
@@ -114,6 +115,7 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   const runs = { t5: run("t5"), t3: run("t3"), t4: run("t4") };
   const actor = uuid();
   const reached = [];
+  const receipts = {};
   let primary = null;
   let result = null;
   let cleanup = { state: "not_started", residualCount: null };
@@ -121,28 +123,34 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
     assertCheckpoint(checkpoint);
     execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
-    execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn); reached.push("T5_NONFILE");
-    execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
+    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
+    receipts.T3 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
       YUZHOU_MIGRATION_RUN_ID: runs.t3,
       YUZHOU_STAGING_DIR: input.T3.path,
       YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: input.T3.manifest.sourceRestoreReceiptSha256,
       YUZHOU_SOURCE_CATALOG_SHA256: input.T3.manifest.sourceCatalogSha256,
       YUZHOU_SOURCE_BUSINESS_SHA256: input.T3.manifest.sourceBusinessSha256,
       YUZHOU_MAPPING_CONTRACT_SHA256: input.T3.manifest.mappingContractSha256
-    }), spawn); reached.push("T3");
+    }), spawn), { runId: runs.t3, code: "LIGHTWEIGHT_T3_LOAD_RECEIPT_INVALID" }) }; reached.push("T3");
     const business = input.T4.manifest.businessContentSha256;
     if (!/^[0-9a-f]{64}$/u.test(business ?? "")) fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "business hash");
-    execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn); reached.push("T4");
+    receipts.T4 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn), { runId: runs.t4, code: "LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID" }) }; reached.push("T4");
     const uat = await technicalUat(configPath);
     if (uat?.status !== "PASS" || uat.productionImport !== "HOLD") fail("LIGHTWEIGHT_TECHNICAL_UAT_FAILED", "core technical UAT");
-    result = { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), uat: "PASS", productionImport: "HOLD" };
+    result = { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), receipts, uat: "PASS", productionImport: "HOLD" };
   } catch (error) { primary = error; }
   finally {
-    const rollback = (script, env) => { try { execute(script, childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", ...env }), spawn); } catch (error) { if (!primary) primary = error; } };
-    if (reached.includes("T4")) rollback("scripts/rollback-yuzhou-t4-payroll-history.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t4 });
-    if (reached.includes("T3")) rollback("scripts/rollback-yuzhou-t3-attendance-insurance.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t3 });
-    if (reached.includes("T5_NONFILE")) rollback("scripts/rollback-yuzhou-t5-nonfile-history.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5 });
-    if (reached.includes("T5_NONFILE")) rollback("scripts/rollback-yuzhou-t5-nonfile-actor.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor });
+    const rollback = (stage, script, env, receipt) => {
+      try { receipts[stage].rollback = receipt(execute(script, childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", ...env }), spawn)); }
+      catch (error) { if (!primary) primary = error; }
+    };
+    if (reached.includes("T4")) rollback("T4", "scripts/rollback-yuzhou-t4-payroll-history.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t4 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t4, code: "LIGHTWEIGHT_T4_ROLLBACK_RECEIPT_INVALID", requireZeroActiveMaps: true }));
+    if (reached.includes("T3")) rollback("T3", "scripts/rollback-yuzhou-t3-attendance-insurance.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t3 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t3, code: "LIGHTWEIGHT_T3_ROLLBACK_RECEIPT_INVALID", requireZeroActiveMaps: true }));
+    if (reached.includes("T5_NONFILE")) rollback("T5_NONFILE", "scripts/rollback-yuzhou-t5-nonfile-history.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t5, code: "LIGHTWEIGHT_T5_ROLLBACK_RECEIPT_INVALID" }));
+    if (reached.includes("T5_NONFILE")) {
+      try { execute("scripts/rollback-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn); }
+      catch (error) { if (!primary) primary = error; }
+    }
     try {
       const coreCleanup = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000 });
       assertCleanup(coreCleanup);

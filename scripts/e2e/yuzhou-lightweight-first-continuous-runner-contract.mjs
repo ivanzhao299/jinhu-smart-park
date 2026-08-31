@@ -33,7 +33,15 @@ const t5 = makeStage("t5", { sourceSnapshotSha256: snapshot });
 const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: "c".repeat(64), sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "f".repeat(64), productionImport: "HOLD" });
 const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
 const commands = [];
-const spawn = (_command, args, options) => { commands.push({ script: args[0].split("/").at(-1), env: options.env }); return { status: 0, stdout: "" }; };
+const spawn = (_command, args, options) => {
+  const script = args[0].split("/").at(-1); commands.push({ script, env: options.env });
+  const stdout = script === "load-yuzhou-t5-nonfile-history.sh" ? "succeeded|12|10|2\n"
+    : script === "load-yuzhou-t3-attendance-insurance.sh" ? "succeeded|30|28|2\n"
+      : script === "load-yuzhou-t4-payroll-history.sh" ? "succeeded|40|40|0\n"
+        : script === "rollback-yuzhou-t4-payroll-history.sh" || script === "rollback-yuzhou-t3-attendance-insurance.sh" ? "rolled_back|0\n"
+          : script === "rollback-yuzhou-t5-nonfile-history.sh" ? "rolled_back\n" : "";
+  return { status: 0, stdout };
+};
 let coreCalls = 0;
 const coreRunner = async options => {
   coreCalls += 1;
@@ -41,7 +49,16 @@ const coreRunner = async options => {
   return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
 };
 const result = await runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000001" });
-assert.deepEqual(result, { status: "CONTRACT_PASS", order: ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"], uat: "PASS", productionImport: "HOLD", cleanup: { state: "cleaned", residualCount: 0 } });
+assert.equal(result.status, "CONTRACT_PASS");
+assert.deepEqual(result.order, ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"]);
+assert.deepEqual(result.receipts, {
+  T5_NONFILE: { load: { runId: "yzlw-20260831t010101z-12345678-t5", status: "succeeded", source: 12, loaded: 10, quarantined: 2 }, rollback: { runId: "yzlw-20260831t010101z-12345678-t5", status: "rolled_back" } },
+  T3: { load: { runId: "yzlw-20260831t010101z-12345678-t3", status: "succeeded", source: 30, loaded: 28, quarantined: 2 }, rollback: { runId: "yzlw-20260831t010101z-12345678-t3", status: "rolled_back", activeMaps: 0 } },
+  T4: { load: { runId: "yzlw-20260831t010101z-12345678-t4", status: "succeeded", source: 40, loaded: 40, quarantined: 0 }, rollback: { runId: "yzlw-20260831t010101z-12345678-t4", status: "rolled_back", activeMaps: 0 } }
+});
+assert.equal(result.uat, "PASS");
+assert.equal(result.productionImport, "HOLD");
+assert.deepEqual(result.cleanup, { state: "cleaned", residualCount: 0 });
 assert.equal(coreCalls, 2);
 assert.deepEqual(commands.map(row => row.script), ["provision-yuzhou-t5-nonfile-actor.sh", "load-yuzhou-t5-nonfile-history.sh", "load-yuzhou-t3-attendance-insurance.sh", "load-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
 assert.equal(commands.at(3).env.YUZHOU_T4_LOAD_MODE, "full_archive");
@@ -56,6 +73,10 @@ assert.equal(result.cleanup.state, "cleaned");
 assert.equal(result.cleanup.residualCount, 0);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
+assert.deepEqual(commands.slice(-3).map(row => row.script), ["rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
+
+const t4ReceiptFailure = (_command, args, options) => args[0].endsWith("load-yuzhou-t4-payroll-history.sh") ? { status: 0, stdout: "succeeded|40|39|0\n" } : spawn(_command, args, options);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t4ReceiptFailure, uuid: () => "00000000-0000-4000-8000-000000000004" }), /LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID/);
 
 const t5Failure = (_command, args, options) => args[0].endsWith("load-yuzhou-t5-nonfile-history.sh") ? { status: 1, stdout: "", stderr: "ERROR: T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT\n" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t5Failure, uuid: () => "00000000-0000-4000-8000-000000000003" }), /LIGHTWEIGHT_T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT/);
