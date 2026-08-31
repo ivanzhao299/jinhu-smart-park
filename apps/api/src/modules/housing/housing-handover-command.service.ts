@@ -6,6 +6,7 @@ import {
   Optional
 } from "@nestjs/common";
 import {
+  type IdentityVerificationPort,
   PROPERTY_APPROVAL_COMMAND_PORT,
   PROPERTY_APPROVAL_PORT_CONTRACT_VERSION,
   SYSTEM_PERMISSIONS,
@@ -22,6 +23,8 @@ import {
 import { typeormQueryRows } from "../../shared/property-workbench/typeorm-query-rows";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
 import { PropertyUnitAccessService } from "../property-operations/property-unit-access.service";
+import { PropertyIdentityVerificationService } from
+  "../property-identity/property-identity-verification.service";
 import { propertyApprovalCanonicalHash } from "../property-approvals/property-approval.service";
 import type { CompleteHousingHandoverDto } from "./dto/housing.dto";
 import {
@@ -74,7 +77,9 @@ export class HousingHandoverCommandService {
     private readonly receivableWriter: HousingReceivableWriterService,
     @Optional()
     @Inject(PROPERTY_APPROVAL_COMMAND_PORT)
-    private readonly approvalCommands?: PropertyApprovalCommandPort
+    private readonly approvalCommands?: PropertyApprovalCommandPort,
+    @Optional()
+    private readonly identityVerifier?: PropertyIdentityVerificationService
   ) {}
 
   complete(
@@ -118,6 +123,9 @@ export class HousingHandoverCommandService {
       return handover;
     }
     this.assertHandoverState(lease, dto);
+    if (dto.handover_type === "move_in") {
+      await this.assertMoveInIdentity(manager, scope, lease);
+    }
     const photoIds = dto.photo_file_ids ?? [];
     await this.assertEvidence(manager, scope, lease.id, dto, photoIds);
     this.assertDeductionLimits(lease.depositAmount, dto);
@@ -139,6 +147,39 @@ export class HousingHandoverCommandService {
           manager, scope, actor, lease, handover, dto, photoIds, checkoutCharge, clientKey
         )
       : this.completeDirect(manager, scope, actor, lease, handover, dto, photoIds, checkoutCharge);
+  }
+
+  private async assertMoveInIdentity(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    lease: HousingLeaseEntity
+  ) {
+    if (!this.identityVerifier) {
+      throw new ConflictException("Property identity verification runtime is unavailable");
+    }
+    const occupants = typeormQueryRows<{ partyId: string }>(await manager.query(
+      `SELECT party_id::text AS "partyId"
+         FROM rel_housing_lease_occupant
+        WHERE tenant_id=$1 AND park_id=$2 AND lease_id=$3 AND is_deleted=false
+        ORDER BY party_id
+        FOR UPDATE`,
+      [scope.tenantId, scope.parkId, lease.id]
+    ));
+    const partyIds = [...new Set([
+      lease.tenantPartyId,
+      ...occupants.map((occupant) => occupant.partyId)
+    ])].sort();
+    const evidence = await (this.identityVerifier as IdentityVerificationPort)
+      .verifyForHousingMoveIn({
+        manager: { transactionContext: manager },
+        scope,
+        leaseId: lease.id,
+        partyIds,
+        expectedConsent: "granted"
+      });
+    if (evidence.length !== partyIds.length) {
+      throw new ConflictException("Housing move-in identity verification is incomplete");
+    }
   }
 
   private requiresFinancialApproval(dto: CompleteHousingHandoverDto) {

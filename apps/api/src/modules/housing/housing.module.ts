@@ -6,6 +6,7 @@ import { FieldPoliciesModule } from "../field-policies/field-policies.module";
 import { HousingFieldPolicyInterceptor } from "../field-policies/property-field-policy.interceptor";
 import { PropertyOperationsModule } from "../property-operations/property-operations.module";
 import { PropertyApprovalModule } from "../property-approvals/property-approval.module";
+import { PropertyIdentityModule } from "../property-identity/property-identity.module";
 import { WorkOrdersModule } from "../work-orders/work-orders.module";
 import {
   HousingChargePlanEntity,
@@ -61,6 +62,7 @@ import {
     FieldPoliciesModule,
     PropertyOperationsModule,
     PropertyApprovalModule,
+    PropertyIdentityModule,
     WorkOrdersModule
   ],
   controllers: [HousingController],
