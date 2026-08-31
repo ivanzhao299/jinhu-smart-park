@@ -16,7 +16,7 @@ export const HR_ACCESS_MATRIX = {
   payroll: "permission" | "self_published_only";
 }>;
 export const HR_PERMISSIONS = {
-  HR_MENU: "hr", HR_DASHBOARD_PAGE: "hr:dashboard", HR_ORGANIZATION_PAGE: "hr:organization", HR_EMPLOYEES_PAGE: "hr:employees", HR_GOALS_PAGE: "hr:goals", HR_WORK_REPORTS_PAGE: "hr:work_reports",
+  HR_MENU: "hr", HR_DASHBOARD_PAGE: "hr:dashboard", HR_DECISION_CENTER_PAGE: "hr:decision_center", HR_ORGANIZATION_PAGE: "hr:organization", HR_EMPLOYEES_PAGE: "hr:employees", HR_GOALS_PAGE: "hr:goals", HR_WORK_REPORTS_PAGE: "hr:work_reports",
   HR_EMPLOYEE_READ: "hr:employee:read", HR_EMPLOYEE_TEAM_READ: "hr:employee:team_read", HR_EMPLOYEE_MANAGE: "hr:employee:manage", HR_EMPLOYEE_SELF_READ: "hr:employee:self_read",
   HR_EMPLOYEE_PROFILE_READ: "hr:employee_profile:read", HR_EMPLOYEE_PROFILE_TEAM_READ: "hr:employee_profile:team_read", HR_EMPLOYEE_PROFILE_SELF_READ: "hr:employee_profile:self_read", HR_EMPLOYEE_PROFILE_MANAGE: "hr:employee_profile:manage",
   HR_EMPLOYMENT_TRANSITION: "hr:employment:transition",

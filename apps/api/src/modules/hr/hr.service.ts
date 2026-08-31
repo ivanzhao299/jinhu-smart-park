@@ -95,6 +95,40 @@ export class HrService {
   await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.employment_event.statistics",action:"读取人事异动统计",bizType:"hr_employment_event",bizId:null,path:"/hr/employment-events/statistics",fieldGroups:[],projection:"park",itemCount:result.total});
   return result;
  }
+ async workforceDecisionSnapshot(scope:TenantParkScope,actor:JwtPrincipal,q:HrEmploymentEventStatisticsQueryDto){
+  const from=Date.parse(`${q.from}T00:00:00.000Z`),to=Date.parse(`${q.to}T00:00:00.000Z`),maxSpan=366*25*24*60*60*1000;
+  if(!Number.isFinite(from)||!Number.isFinite(to)||from>to)throw new BadRequestException("Workforce decision snapshot date range is invalid");
+  if(to-from>maxSpan)throw new BadRequestException("Workforce decision snapshot range exceeds 25 years");
+  const rows=await this.dataSource.query(`WITH workforce AS (
+    SELECT employment_status,employment_type FROM hr_employee WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+   ), workforce_totals AS (
+    SELECT count(*)::int employee_total,count(*) FILTER(WHERE employment_status IN ('active','probation'))::int active_headcount FROM workforce
+   ), workforce_by_status AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('status',employment_status,'count',employee_count) ORDER BY employee_count DESC,employment_status),'[]'::jsonb) items
+    FROM (SELECT employment_status,count(*)::int employee_count FROM workforce GROUP BY employment_status) grouped
+   ), workforce_by_type AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('type',employment_type,'count',employee_count) ORDER BY employee_count DESC,employment_type),'[]'::jsonb) items
+    FROM (SELECT employment_type,count(*)::int employee_count FROM workforce GROUP BY employment_type) grouped
+   ), filtered_events AS (
+    SELECT event_type,effective_date,employee_id,is_historical_import FROM hr_employment_event
+    WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+      AND (is_historical_import=false OR migration_decision='accepted')
+      AND effective_date>=$3::date AND effective_date<=$4::date
+   ), event_totals AS (
+    SELECT count(*)::int total,count(DISTINCT employee_id)::int employee_count,count(*) FILTER(WHERE is_historical_import)::int historical_count,count(*) FILTER(WHERE NOT is_historical_import)::int online_count FROM filtered_events
+   ), event_by_type AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('eventType',event_type,'count',event_count) ORDER BY event_count DESC,event_type),'[]'::jsonb) items
+    FROM (SELECT event_type,count(*)::int event_count FROM filtered_events GROUP BY event_type) grouped
+   ), event_by_month AS (
+    SELECT coalesce(jsonb_agg(jsonb_build_object('month',month_key,'count',event_count) ORDER BY month_key),'[]'::jsonb) items
+    FROM (SELECT to_char(date_trunc('month',effective_date),'YYYY-MM') month_key,count(*)::int event_count FROM filtered_events GROUP BY date_trunc('month',effective_date)) grouped
+   ) SELECT workforce_totals.employee_total,workforce_totals.active_headcount,workforce_by_status.items "byStatus",workforce_by_type.items "byType",event_totals.total,event_totals.employee_count,event_totals.historical_count,event_totals.online_count,event_by_type.items "eventByType",event_by_month.items "eventByMonth"
+   FROM workforce_totals CROSS JOIN workforce_by_status CROSS JOIN workforce_by_type CROSS JOIN event_totals CROSS JOIN event_by_type CROSS JOIN event_by_month`,[scope.tenantId,scope.parkId,q.from,q.to]);
+  const row=(rows[0]??{}) as Record<string,unknown>,counts=(value:unknown,key:string)=>Array.isArray(value)?value.map(item=>({[key]:String((item as Record<string,unknown>)[key]),count:Number((item as Record<string,unknown>).count)})):[];
+  const result={from:q.from,to:q.to,employeeTotal:Number(row.employee_total??0),activeHeadcount:Number(row.active_headcount??0),byStatus:counts(row.byStatus,"status"),byType:counts(row.byType,"type"),employmentEvents:{total:Number(row.total??0),employeeCount:Number(row.employee_count??0),historicalCount:Number(row.historical_count??0),onlineCount:Number(row.online_count??0),byType:counts(row.eventByType,"eventType"),byMonth:counts(row.eventByMonth,"month")}};
+  await recordHrSensitiveRead(this.auditService,scope,actor,{resource:"hr.decision_center.workforce",action:"读取人员决策聚合",bizType:"hr_employee",bizId:null,path:"/hr/decision-center/workforce",fieldGroups:[],projection:"park",itemCount:result.employeeTotal});
+  return result;
+ }
  async employeeProfile(scope:TenantParkScope,actor:JwtPrincipal,id:string){return this.readEmployeeProfile(scope,actor,id,"/hr/employees/:id/profile");}
  async myEmployeeProfile(scope:TenantParkScope,actor:JwtPrincipal){const employee=await this.myEmployee(scope,actor);return this.readEmployeeProfile(scope,actor,employee.id,"/hr/employees/me/profile");}
 
