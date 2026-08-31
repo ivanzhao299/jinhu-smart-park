@@ -739,8 +739,17 @@ export class PropertyIdentityService {
        JOIN public.biz_party_identity_snapshot snapshot
          ON snapshot.tenant_id=s.tenant_id AND snapshot.park_id=s.park_id
         AND snapshot.id=s.snapshot_id
+       JOIN public.biz_party_consent_fact consent
+         ON consent.tenant_id=p.tenant_id AND consent.park_id=p.park_id
+        AND consent.id=p.current_consent_fact_id AND consent.party_id=p.id
        WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.id=ANY($3::uuid[])
          AND p.consent_status=$4 AND p.is_deleted=false AND s.status='verified'
+         AND p.processing_restricted_at IS NULL
+         AND consent.status='granted' AND consent.lawful_basis='consent'
+         AND consent.provenance='operator_recorded'
+         AND consent.processing_purpose='accommodation_checkin'
+         AND consent.effective_at <= now()
+         AND consent.revoked_at IS NULL
          AND p.identity_version=s.identity_version
        ORDER BY p.id
        FOR UPDATE OF p,s,snapshot`,
@@ -860,6 +869,7 @@ export class PropertyIdentityService {
           return this.replayProjection(manager, scope, receipt.result_ref);
         }
         if (!inserted.length) throw propertyIdentityError("property-runtime-unavailable");
+        await this.assertProcessingAllowed(manager, scope, actionId, targetId);
         const resultId = await command(manager);
         if (!resultId) throw propertyIdentityError("property-runtime-unavailable");
         const projection = await this.detail(scope, actor, resultId, manager);
@@ -891,6 +901,33 @@ export class PropertyIdentityService {
     } catch (error) {
       translateIdentityDatabaseError(error);
     }
+  }
+
+  private async assertProcessingAllowed(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actionId: IdentityActionId,
+    targetId: string
+  ): Promise<void> {
+    const rows = await manager.query(
+      actionId === "party.identity.create-draft"
+        ? `SELECT 1 FROM public.biz_party
+           WHERE tenant_id=$1 AND park_id=$2 AND id=$3::uuid
+             AND is_deleted=false AND processing_restricted_at IS NULL
+           FOR UPDATE`
+        : `SELECT 1 FROM public.biz_party_identity_submission submission
+           JOIN public.biz_party party
+             ON party.tenant_id=submission.tenant_id
+            AND party.park_id=submission.park_id
+            AND party.id=submission.party_id
+            AND party.is_deleted=false
+            AND party.processing_restricted_at IS NULL
+           WHERE submission.tenant_id=$1 AND submission.park_id=$2
+             AND submission.id=$3::uuid
+           FOR UPDATE OF party`,
+      [scope.tenantId, scope.parkId, targetId]
+    ) as unknown[];
+    if (!rows.length) throw propertyIdentityError("property-action-forbidden");
   }
 
   private async appendOutbox(

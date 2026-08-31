@@ -48,9 +48,9 @@ function productionResolver(overrides = {}) {
   };
 }
 
-test("Track B task endpoint v2 keeps 53 rows and exact OR authorization", () => {
+test("Track B task endpoint v2 keeps 66 rows and exact OR authorization", () => {
   const manifest = shared.PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST;
-  assert.equal(manifest.length, 53);
+  assert.equal(manifest.length, 66);
   assert.deepEqual(shared.validatePropertyTrackBEndpointPermissionManifest(), []);
 
   const release = manifest.find((row) => row.actionId === "property.task.release");
@@ -102,10 +102,10 @@ test("Track B task endpoint v2 keeps 53 rows and exact OR authorization", () => 
     [identityRows.length, controlRows.length,
       manifest.length - identityRows.length - controlRows.length - domainRows.length,
       domainRows.length],
-    [11, 12, 21, 9]
+    [11, 12, 34, 9]
   );
   const endpointKeys = manifest.map((row) => `${row.method}\t${row.path}`);
-  assert.equal(new Set(endpointKeys).size, 53);
+  assert.equal(new Set(endpointKeys).size, 66);
   for (const route of Object.values(shared.PROPERTY_TRACK_B_API_ROUTES)) {
     assert.ok(manifest.some((row) => row.path === route), `missing route ${route}`);
   }

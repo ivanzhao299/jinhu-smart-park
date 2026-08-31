@@ -47,7 +47,7 @@ test("B-0 four-input contract digest is exact and non-circular", () => {
   );
 });
 
-test("B-0 shared precondition freezes the 53-row endpoint authority", () => {
+test("B-0 shared precondition freezes the 66-row endpoint authority", () => {
   const contracts = readFileSync(
     resolve(repositoryRoot, "packages/shared/src/property-business/track-b-contracts.ts"),
     "utf8"
@@ -63,11 +63,11 @@ test("B-0 shared precondition freezes the 53-row endpoint authority", () => {
     contracts,
     /TRACK_B_CONTRACT_SHA256\s*=\s*\n?\s*"e27d523469491916efbda41b0570e146362a0d6037a54454330650dc8b397944"/
   );
-  assert.equal(endpoints.match(/\brow\("/g)?.length, 53);
-  assert.equal(endpoints.match(/^\s*row\("(?:GET|POST|PUT)"/gm)?.length, 53);
+  assert.equal(endpoints.match(/\brow\("/g)?.length, 66);
+  assert.equal(endpoints.match(/^\s*row\("(?:GET|POST|PUT)"/gm)?.length, 66);
   assert.match(
     endpoints,
-    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"be9531e85e2cdc580f48fb686002be4063b0568f80f8278e9ef5cd33651919cd"/
+    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"0d91b180c82120339e1de630fde6a9c3e6361dec1190a257c4234e26becadc44"/
   );
 });
 

@@ -85,6 +85,10 @@ export const PROPERTY_BUSINESS_PERMISSIONS = {
 
   PARTY_IDENTITY_UPDATE: "party:identity_update",
   PARTY_IDENTITY_VERIFY: "party:identity_verify",
+  PARTY_CONSENT_MANAGE: "party:consent_manage",
+  PARTY_SUBJECT_RIGHTS_MANAGE: "party:subject_rights_manage",
+  PARTY_RETENTION_MANAGE: "party:retention_manage",
+  PARTY_LEGAL_HOLD_MANAGE: "party:legal_hold_manage",
   PROPERTY_APPROVAL_CREATE: "property_approval:create",
   PROPERTY_APPROVAL_READ: "property_approval:read",
   PROPERTY_APPROVAL_DECIDE: "property_approval:decide",
@@ -136,6 +140,10 @@ export const PROPERTY_BUSINESS_PAGE_PERMISSION_SEEDS = [
 export const TRACK_B_ACTION_PERMISSION_CODES = [
   PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE,
   PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY,
+  PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE,
+  PROPERTY_BUSINESS_PERMISSIONS.PARTY_SUBJECT_RIGHTS_MANAGE,
+  PROPERTY_BUSINESS_PERMISSIONS.PARTY_RETENTION_MANAGE,
+  PROPERTY_BUSINESS_PERMISSIONS.PARTY_LEGAL_HOLD_MANAGE,
   PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE,
   PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ,
   PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_DECIDE,
@@ -177,6 +185,10 @@ export interface TrackBPermissionDefinition {
 export const TRACK_B_ACTION_PERMISSION_DEFINITIONS = [
   { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_UPDATE, resource: "biz.party_identity", action: "update", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_IDENTITY_VERIFY, resource: "biz.party_identity", action: "verify", method: "POST", apiPath: "/api/v1/property/identity-submissions/:submissionId/decisions", frontendRoute: "/assets/identity-submissions", module: "asset" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE, resource: "biz.party_consent", action: "manage", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_SUBJECT_RIGHTS_MANAGE, resource: "biz.party_subject_rights", action: "manage", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_RETENTION_MANAGE, resource: "biz.party_retention", action: "manage", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
+  { code: PROPERTY_BUSINESS_PERMISSIONS.PARTY_LEGAL_HOLD_MANAGE, resource: "biz.party_legal_hold", action: "manage", method: null, apiPath: null, frontendRoute: "/assets/identity-submissions", module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_CREATE, resource: "biz.property_approval", action: "create", method: null, apiPath: null, frontendRoute: null, module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_READ, resource: "biz.property_approval", action: "read", method: "GET", apiPath: "/api/v1/property/approvals", frontendRoute: null, module: "asset" },
   { code: PROPERTY_BUSINESS_PERMISSIONS.PROPERTY_APPROVAL_DECIDE, resource: "biz.property_approval", action: "decide", method: "POST", apiPath: "/api/v1/property/approvals/:requestId/decisions", frontendRoute: null, module: "asset" },

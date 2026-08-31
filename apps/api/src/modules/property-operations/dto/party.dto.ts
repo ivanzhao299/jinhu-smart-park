@@ -87,10 +87,6 @@ export class CreatePartyDto {
   source_domain?: PropertyOccupancyDomain;
 
   @IsOptional()
-  @IsIn(["pending", "granted", "withdrawn"])
-  consent_status?: string;
-
-  @IsOptional()
   @Transform(optionalTrim)
   @IsString()
   @MaxLength(500)

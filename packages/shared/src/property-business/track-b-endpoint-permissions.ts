@@ -123,6 +123,32 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
     [P.IDENTITY_SUBMISSIONS_PAGE, P.PARTY_IDENTITY_VERIFY], "asset", identity),
   row("GET", "/api/v1/property/identity-submissions/:submissionId/audit", "party.identity.audit.read",
     [P.IDENTITY_SUBMISSIONS_PAGE, "audit:read", P.PARTY_SENSITIVE_READ], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/parties/:partyId/consent-facts", "party.consent.record",
+    [P.PARTY_CONSENT_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/parties/:partyId/consent-facts/:factId/withdraw", "party.consent.withdraw",
+    [P.PARTY_CONSENT_MANAGE], "asset", identity),
+  row("GET", "/api/v1/property/party-data-governance/parties/:partyId/status", "party.consent.status.read",
+    [P.PARTY_CONSENT_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/subject-requests", "party.subject-rights.request",
+    [P.PARTY_SUBJECT_RIGHTS_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/subject-requests/:requestId/decision", "party.subject-rights.decide",
+    [P.PARTY_SUBJECT_RIGHTS_MANAGE], "asset", identity),
+  row("GET", "/api/v1/property/party-data-governance/subject-requests/:requestId", "party.subject-rights.read",
+    [P.PARTY_SUBJECT_RIGHTS_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/subject-requests/:requestId/complete", "party.subject-rights.complete",
+    [P.PARTY_SUBJECT_RIGHTS_MANAGE], "asset", identity),
+  row("PUT", "/api/v1/property/party-data-governance/retention-policy", "party.retention.policy.update",
+    [P.PARTY_RETENTION_MANAGE], "asset", identity),
+  row("GET", "/api/v1/property/party-data-governance/retention-policy", "party.retention.policy.read",
+    [P.PARTY_RETENTION_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/retention-actions/execute-due", "party.retention.execute-due",
+    [P.PARTY_RETENTION_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/retention-actions/classify-legacy", "party.retention.classify-legacy",
+    [P.PARTY_RETENTION_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/legal-holds", "party.legal-hold.create",
+    [P.PARTY_LEGAL_HOLD_MANAGE], "asset", identity),
+  row("POST", "/api/v1/property/party-data-governance/legal-holds/:holdId/release", "party.legal-hold.release",
+    [P.PARTY_LEGAL_HOLD_MANAGE], "asset", identity),
 
   row("GET", "/api/v1/property/operations", "property.operation.list",
     [P.PROPERTY_OPERATIONS_PAGE, P.PROPERTY_OPERATION_READ], "asset", operation),
@@ -256,7 +282,7 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
 ] as const satisfies readonly PropertyTrackBEndpointPermission[];
 
 export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256 =
-  "be9531e85e2cdc580f48fb686002be4063b0568f80f8278e9ef5cd33651919cd" as const;
+  "0d91b180c82120339e1de630fde6a9c3e6361dec1190a257c4234e26becadc44" as const;
 
 export function validatePropertyTrackBEndpointPermissionManifest(
   manifest: readonly PropertyTrackBEndpointPermission[] =

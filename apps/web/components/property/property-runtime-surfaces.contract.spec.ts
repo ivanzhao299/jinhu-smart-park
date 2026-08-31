@@ -133,6 +133,13 @@ test("identity detail deep-link targets a focusable Party identity section", () 
   assert.match(party, /searchParams\.get\("tab"\) === "identity"/);
   assert.match(party, /getElementById\("identity"\)/);
   assert.match(party, /id="identity" tabIndex=\{-1\}/);
+  assert.match(party, /SYSTEM_PERMISSIONS\.PARTY_CONSENT_MANAGE/);
+  assert.match(party, /PartyConsentActions/);
+  assert.match(party, /party-consent-record/);
+  assert.match(party, /party-consent-withdraw/);
+  assert.doesNotMatch(party, /name="consent_status"/);
+  const partyWorkbench = readFileSync(resolve(webRoot, "app/assets/parties/PartyWorkbenchClient.tsx"), "utf8");
+  assert.doesNotMatch(partyWorkbench, /name="consent_status"/);
 });
 
 test("property control-plane routes inherit the authenticated dashboard context", () => {

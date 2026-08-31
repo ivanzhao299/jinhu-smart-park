@@ -182,7 +182,6 @@ function PartyCreateForm({ onCreated }: { onCreated(): void }) {
       display_name: String(form.get("display_name") ?? ""),
       mobile: String(form.get("mobile") ?? "") || undefined,
       email: String(form.get("email") ?? "") || undefined,
-      consent_status: String(form.get("consent_status") ?? "pending"),
       remark: String(form.get("remark") ?? "") || undefined
     };
     try {
@@ -212,7 +211,6 @@ function PartyCreateForm({ onCreated }: { onCreated(): void }) {
           <label>名称<input maxLength={200} name="display_name" required /></label>
           <label>手机号<input autoComplete="tel" maxLength={32} name="mobile" /></label>
           <label>邮箱<input autoComplete="email" maxLength={200} name="email" type="email" /></label>
-          <label>授权状态<select name="consent_status"><option value="pending">待确认</option><option value="granted">已授权</option><option value="withdrawn">已撤回</option></select></label>
           <label>备注<textarea maxLength={500} name="remark" /></label>
           <button className="ds-button ds-button-primary" disabled={submitting} type="submit">
             {submitting ? "创建中…" : "保存档案"}

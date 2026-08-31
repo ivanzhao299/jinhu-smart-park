@@ -110,8 +110,22 @@ test("homestay check-in freezes verified identity evidence and file drift fails 
       await manager.query(
         `INSERT INTO biz_party(id,tenant_id,park_id,party_type,display_name,
            source_domain,consent_status)
-         VALUES($1,$2,$3,'person','Verified guest','homestay','granted')`,
+         VALUES($1,$2,$3,'person','Verified guest','homestay','pending')`,
         [ids.party, ids.tenant, ids.park]
+      );
+      const consent = await manager.query(
+        `INSERT INTO biz_party_consent_fact(
+          tenant_id,park_id,party_id,status,lawful_basis,processing_purpose,notice_version,
+          effective_at,channel,provenance,operator_id,request_key,request_hash,create_by)
+         VALUES($1,$2,$3,'granted','consent','accommodation_checkin','pg-notice-v1',
+          now(),'in_person','operator_recorded',$4,'pg-consent',repeat('a',64),$4)
+         RETURNING id::text`,
+        [ids.tenant, ids.park, ids.party, ids.actor]
+      ) as Array<{ id: string }>;
+      await manager.query(
+        `UPDATE biz_party SET consent_status='granted',current_consent_fact_id=$4::uuid
+         WHERE tenant_id=$1 AND park_id=$2 AND id=$3::uuid`,
+        [ids.tenant, ids.park, ids.party, consent[0]!.id]
       );
       await manager.query(
         `INSERT INTO biz_party_identity_verification_queue(
@@ -316,6 +330,12 @@ async function cleanupIdentityFixture(
     "rel_party_identity_draft_file",
     "biz_party_identity_decision",
     "biz_party_identity_assignment_audit",
+    "biz_party_data_governance_action_receipt",
+    "biz_party_data_subject_request",
+    "biz_party_identity_legal_hold",
+    "biz_party_identity_retention_assignment",
+    "biz_party_consent_fact",
+    "biz_party_identity_retention_policy",
     "biz_party_identity_submission",
     "biz_party_identity_snapshot",
     "sys_file",

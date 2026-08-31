@@ -248,8 +248,20 @@ async function run() {
       mobile: `13${String(Date.now()).slice(-9)}`,
       identity_document_type: "id_card",
       identity_number: `11010519900101${identitySuffix}`,
-      source_domain: "homestay",
-      consent_status: "granted"
+      source_domain: "homestay"
+    }
+  });
+  await request(`/property/party-data-governance/parties/${guest.id}/consent-facts`, {
+    method: "POST",
+    token,
+    idempotent: true,
+    idempotencyKey: key("identity-consent"),
+    body: {
+      lawful_basis: "consent",
+      processing_purpose: "accommodation_checkin",
+      notice_version: "homestay-checkin-notice-v1",
+      effective_at: new Date().toISOString(),
+      channel: "web"
     }
   });
   const identitySubmissionId = guest.identitySummary?.currentSubmissionId;

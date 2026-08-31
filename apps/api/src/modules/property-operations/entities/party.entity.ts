@@ -45,6 +45,18 @@ export class PartyEntity extends AuditableEntity {
   @Column({ name: "consent_status", type: "varchar", length: 32, default: "pending" })
   consentStatus!: string;
 
+  @Column({ name: "current_consent_fact_id", type: "uuid", nullable: true })
+  currentConsentFactId!: string | null;
+
+  @Column({ name: "processing_restricted_at", type: "timestamptz", nullable: true })
+  processingRestrictedAt!: Date | null;
+
+  @Column({ name: "processing_restriction_reason", type: "varchar", length: 500, nullable: true })
+  processingRestrictionReason!: string | null;
+
+  @Column({ name: "processing_restriction_request_id", type: "uuid", nullable: true })
+  processingRestrictionRequestId!: string | null;
+
   @Column({ name: "identity_version", type: "bigint", default: 0 })
   identityVersion!: string;
 
