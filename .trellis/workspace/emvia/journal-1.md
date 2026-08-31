@@ -864,3 +864,37 @@ Completed masked-by-default Party detail, permissioned reason-bound plaintext re
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: IDY-F05 housing identity gate
+
+**Date**: 2026-09-01
+**Task**: IDY-F05 housing identity gate
+**Package**: api
+**Branch**: `codex/fix-idy-05-housing-identity-gate-archive`
+
+### Summary
+
+Merged PR #519: housing move-in now requires current verified identity and exact housing_move_in consent for the main tenant and all active occupants; PR and main CI/Deploy passed.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b6934fec` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
