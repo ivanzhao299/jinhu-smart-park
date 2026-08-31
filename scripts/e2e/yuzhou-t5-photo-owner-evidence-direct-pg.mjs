@@ -21,6 +21,11 @@ const command = (program, args, { input, expect = 0, env = {} } = {}) => {
   return (result.stdout ?? "").trim();
 };
 const psql = (target, sql) => command("docker", ["exec", "-i", container, "psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", target], { input: sql });
+const commandFailure = (program, args, { input, env = {} } = {}) => {
+  const result = spawnSync(program, args, { cwd: root, encoding: "utf8", input, env: { ...process.env, ...env }, maxBuffer: 4 * 1024 * 1024 });
+  assert.notEqual(result.status, 0, `${program} unexpectedly succeeded`);
+  return `${result.stdout ?? ""}${result.stderr ?? ""}`;
+};
 const psqlFailure = (target, sql) => {
   const result = spawnSync("docker", ["exec", "-i", container, "psql", "-X", "-q", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-U", "jinhu", "-d", target], { cwd: root, encoding: "utf8", input: sql, maxBuffer: 4 * 1024 * 1024 });
   assert.notEqual(result.status, 0, "unsafe direct write unexpectedly succeeded");
@@ -95,6 +100,8 @@ FROM migration_batch b CROSS JOIN generate_series(0,2154) g WHERE b.run_id='${t0
     YUZHOU_TARGET_TENANT_ID: "fixture-tenant", YUZHOU_TARGET_PARK_ID: "fixture-park",
     ALLOW_YUZHOU_MIGRATION: "yes", YUZHOU_T5_FILE_MODE: "isolated_rehearsal"
   };
+  assert.match(commandFailure("sh", ["scripts/load-yuzhou-t5-photo-owner-evidence.sh"], { env: { ...environment, YUZHOU_T0_RUN_ID: "unknown-t0-run" } }), /compatible succeeded T0 batch required/u);
+  assert.equal(psql(database, `SELECT count(*) FROM migration_batch WHERE run_id='${runId}';`), "0");
   assert.equal(command("sh", ["scripts/load-yuzhou-t5-photo-owner-evidence.sh"], { env: environment }), "succeeded|2155|2155|0");
   assert.equal(psql(database, `SELECT (SELECT count(*) FROM hr_legacy_t5_file_evidence)||'|'||(SELECT count(*) FROM legacy_record_map WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${runId}') AND is_active)||'|'||(SELECT count(*) FROM migration_check WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${runId}') AND passed)||'|'||(SELECT count(*) FROM jsonb_object_keys((SELECT expected_value FROM migration_check WHERE batch_id=(SELECT id FROM migration_batch WHERE run_id='${runId}') AND check_code='T5_FILE_NO_BINARY_OR_LINK_WRITE')));`), "2155|2155|2|7");
   const immutable = psqlFailure(database, `DELETE FROM hr_legacy_t5_file_evidence WHERE import_batch_id=(SELECT id FROM hr_legacy_t5_import_batch WHERE batch_code='${runId}');`);
