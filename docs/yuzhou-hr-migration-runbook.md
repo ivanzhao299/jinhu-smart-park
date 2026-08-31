@@ -248,6 +248,14 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 `pnpm hr:migration:lightweight-first:continuous` 将已经受控生成的 T5 非文件、T3 和 T4 阶段工件串接到同一 `core_t0_t2` 隔离 run：它只接受同一源快照、`0700` 的阶段目录和 `0600` 的 T3/T5/T4 manifest，先停在 core `rollback_ready`，再依次执行 `T5_NONFILE→T3→T4→技术验收`，并且无论业务阶段还是验收成功/失败，均按 `T4→T3→T5_NONFILE→T2→T1→T0` 反序清理。T3 manifest 必须声明只读受控源、当前备份快照和 `HOLD`；加载器重新核对 manifest 与三个阶段文件哈希，core 配置则同时验证同一源恢复回执。它只传递白名单环境变量，不创建照片/附件对象，不接受生产数据库，也不把技术通过提升为生产授权。
 
+`T5_FILE` 不属于轻量优先顺序，必须通过 `hr:migration:t5:photo-owner:continuous` 作为独立证据切片运行。该入口只接受与 `core_t0_t2` 同一受控备份和恢复回执绑定的 `0700` 照片归属 stage，先使 T0→T2 停在 `rollback_ready`，再用该 run 的 T0 映射进行“加载 → 精确回滚 → 同一 stage 重装 → 再次回滚”，随后继续 T2→T0 清理并要求 `residual=0`。它只写 hash-only 的 `hr_legacy_t5_file_evidence`，明确禁止写入 `sys_file`、`hr_employee_document`、在线员工、薪酬、工资、工资条和消息表；物理二进制归一化、员工附件关联和旧文档仍是后续独立切片，生产导入固定为 `HOLD`。
+
+```sh
+pnpm hr:migration:t5:photo-owner:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --photo-owner-stage '<0700 hash-only 照片归属 stage>'
+```
+
 ```sh
 pnpm hr:migration:lightweight-first:continuous -- \
   --config '<同一轮、0600 core_t0_t2 配置>' \
