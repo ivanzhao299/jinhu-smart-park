@@ -527,6 +527,59 @@ LEFT JOIN target_employee e ON e.legacy_key = source.employee_key;
 -- Archive with employee_unmapped, retain items, create one review case, and reconcile it.
 ```
 
+## Scenario: Yuzhou T5 hash-only file-owner evidence rehearsal
+
+### 1. Scope / Trigger
+
+- Trigger: changing photo/document owner stages, T5 evidence loaders, or either continuous evidence command.
+- This is isolated compatibility evidence, never physical attachment import or production historical import.
+
+### 2. Signatures
+
+- `pnpm hr:migration:t5:photo-owner:continuous -- --config <0600> --photo-owner-stage <0700>`.
+- `pnpm hr:migration:t5:document-owner:continuous -- --config <0600> --document-owner-stage <0700>`.
+
+### 3. Contracts
+
+- Both commands require a current-HEAD sealed `core_t0_t2` configuration, the same source snapshot/restore receipt, `productionImport=HOLD`, and child processes with the fixed T5_FILE allowlist only.
+- The generic runner stops at `rollback_ready`, performs load -> exact rollback -> reload -> exact rollback using the existing domain loader, and always resumes core cleanup.
+- Photo evidence is 2,155 readable hash-only records. Document evidence is 1,003 hash-only records: 989 owner mappings and 14 quarantines for empty legacy content. Neither route writes `sys_file`, `hr_employee_document`, online employees, compensation, payroll, payslips, or messages.
+
+### 4. Validation & Error Matrix
+
+- Unsafe/mismatched stage, source receipt, source snapshot, target profile, or current code SHA -> fail before core provisioning.
+- Loader/rollback failure -> write a private HOLD summary, attempt exact outstanding rollback, then core cleanup; never promote a partial result.
+- Any core residual after cleanup -> fail the slice; production remains HOLD.
+
+### 5. Good / Base / Bad Cases
+
+- Good: two independent A/B labs use the same sealed source and each records two complete evidence cycles with zero residual resources.
+- Base: document source rows with empty content become hash-only owner evidence or redacted quarantine, never attachment objects.
+- Bad: use manual shell sequencing that can skip cleanup, expose legacy paths/content, or treat evidence success as authorization to import files.
+
+### 6. Tests Required
+
+- Keep the photo compatibility runner contract passing when the shared runner changes.
+- Test document argument translation, stage/source binding, 1,003 = 989 + 14 accounting, two cycles, allowlisted child environment, private summary mode, and failed rollback recovery.
+- Run real-source A/B only in isolated labs and retain aggregate receipts only.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```sh
+load-document-owner-evidence && rollback-document-owner-evidence
+# A process interruption can leave the core checkpoint and lab resources behind.
+```
+
+#### Correct
+
+```sh
+pnpm hr:migration:t5:document-owner:continuous -- \
+  --config '<sealed core_t0_t2 config>' \
+  --document-owner-stage '<sealed hash-only stage>'
+```
+
 ## Scenario: Historical attendance and insurance read productization
 
 ### 1. Scope / Trigger

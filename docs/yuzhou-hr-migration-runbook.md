@@ -256,6 +256,14 @@ pnpm hr:migration:t5:photo-owner:continuous -- \
   --photo-owner-stage '<0700 hash-only 照片归属 stage>'
 ```
 
+旧 `dbo.docs` 的内容在受控源中为空，因此可用相同的独立证据合同验证文档归属，而不创建二进制文件或 `hr_employee_document` 关联。该入口固定校验 1,003 条源记录、989 条映射和 14 条隔离，并与照片切片一样执行两次“加载→精确回滚”后再清理 T0→T2 lab；所有回执固定为 `productionImport=HOLD`：
+
+```sh
+pnpm hr:migration:t5:document-owner:continuous -- \
+  --config '<同一轮、0600 core_t0_t2 配置>' \
+  --document-owner-stage '<0700 hash-only 文档归属 stage>'
+```
+
 ```sh
 pnpm hr:migration:lightweight-first:continuous -- \
   --config '<同一轮、0600 core_t0_t2 配置>' \
