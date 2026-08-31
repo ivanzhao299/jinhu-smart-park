@@ -66,6 +66,7 @@ interface SubmissionRow {
   snapshot_id: string | null;
   document_type: "id_card" | "passport" | null;
   encrypted_payload: string | null;
+  encryption_key_id: string | null;
   identity_number_masked: string | null;
   drafted_at: Date | string;
   submitted_at: Date | string | null;
@@ -97,6 +98,7 @@ const PROJECTION_SQL = `
     s.drafted_by, s.recorded_by, s.submitted_by, s.snapshot_id,
     COALESCE(snapshot.document_type, p.identity_document_type) AS document_type,
     snapshot.encrypted_payload,
+    COALESCE(snapshot.encryption_key_id, p.identity_number_encryption_key_id) AS encryption_key_id,
     CASE WHEN snapshot.id IS NULL THEN p.identity_number_masked ELSE NULL END AS identity_number_masked,
     s.drafted_at, s.submitted_at, s.decided_at, s.withdrawn_at, s.superseded_at,
     s.update_time,
@@ -304,6 +306,7 @@ export class PropertyIdentityService {
         if (dto.documentType !== null && !normalized) {
           const existingRows = await manager.query(
             `SELECT party.identity_document_type, party.identity_number_encrypted,
+                    party.identity_number_encryption_key_id,
                     party.identity_number_hash, party.identity_number_masked,
                     submission.draft_hash_algorithm, submission.draft_hash_version,
                     submission.draft_encryption_key_id, submission.draft_payload_format_version,
@@ -325,6 +328,7 @@ export class PropertyIdentityService {
                AND submission.park_id=$2
                AND submission.id=$3::uuid
              GROUP BY party.identity_document_type, party.identity_number_encrypted,
+                      party.identity_number_encryption_key_id,
                       party.identity_number_hash, party.identity_number_masked,
                       submission.draft_hash_algorithm, submission.draft_hash_version,
                       submission.draft_encryption_key_id, submission.draft_payload_format_version`,
@@ -332,6 +336,7 @@ export class PropertyIdentityService {
           ) as Array<{
             identity_document_type: string | null;
             identity_number_encrypted: string | null;
+            identity_number_encryption_key_id: string | null;
             identity_number_hash: string | null;
             identity_number_masked: string | null;
             draft_hash_algorithm: string | null;
@@ -351,7 +356,9 @@ export class PropertyIdentityService {
             || !existing.identity_number_masked
             || existing.draft_hash_algorithm !== "hmac-sha256"
             || existing.draft_hash_version !== 1
-            || existing.draft_encryption_key_id !== "party-data-v1"
+            || !existing.draft_encryption_key_id
+            || existing.identity_number_encryption_key_id !== existing.draft_encryption_key_id
+            || !this.sensitiveData.hasKey(existing.draft_encryption_key_id)
             || existing.draft_payload_format_version !== 1
             || !onlyExistingFiles
           ) {
@@ -364,7 +371,7 @@ export class PropertyIdentityService {
             masked: existing.identity_number_masked,
             hashAlgorithm: existing.draft_hash_algorithm,
             hashVersion: existing.draft_hash_version,
-            encryptionKeyId: existing.draft_encryption_key_id as "party-data-v1",
+            encryptionKeyId: existing.draft_encryption_key_id,
             payloadFormatVersion: existing.draft_payload_format_version
           };
         }
@@ -975,7 +982,7 @@ export class PropertyIdentityService {
   private project(row: SubmissionRow, actor: JwtPrincipal): IdentitySubmissionProjection {
     const canReadSensitive = this.hasPermission(actor, PROPERTY_BUSINESS_PERMISSIONS.PARTY_SENSITIVE_READ);
     const decrypted = row.encrypted_payload
-      ? this.sensitiveData.decrypt(row.encrypted_payload)
+      ? this.sensitiveData.decrypt(row.encrypted_payload, row.encryption_key_id ?? undefined)
       : null;
     const masked = row.identity_number_masked
       ?? (decrypted ? this.sensitiveData.mask(decrypted) : null);

@@ -38,6 +38,38 @@ test("shared property migration keeps encrypted party identity fields separate f
   assert.match(migration, /identity_number_masked varchar\(64\)/);
 });
 
+test("party key metadata migration is forward-only, scoped and auditable", () => {
+  const migration = readFileSync(resolve(
+    __dirname,
+    "../../../../../database/migrations/000286_party_data_encryption_key_metadata.sql"
+  ), "utf8");
+  assert.match(migration, /ADD COLUMN IF NOT EXISTS identity_number_encryption_key_id varchar\(128\)/u);
+  assert.match(migration, /SET identity_number_encryption_key_id = 'party-data-v1'/u);
+  assert.match(migration, /identity_number_encryption_key_id = p_encryption_key_id/u);
+  assert.match(migration, /identity_number_encryption_key_id = NULL/u);
+  assert.match(migration, /party-data-key-metadata-update-draft-cas-definition-drift/u);
+  assert.match(migration, /party-data-key-metadata-create-draft-cas-definition-drift/u);
+  assert.match(migration, /ck_biz_party_identity_encryption_key_metadata/u);
+  assert.match(migration, /ck_party_identity_snapshot_encryption_key_id_format/u);
+  assert.match(migration, /ck_party_identity_submission_draft_key_id_format/u);
+  assert.match(migration, /biz_party_data_key_rotation_receipt/u);
+  assert.match(migration, /tenant_id varchar\(64\) NOT NULL/u);
+  assert.match(migration, /park_id varchar\(64\) NOT NULL/u);
+  assert.match(migration, /UNIQUE \(tenant_id, park_id, request_key\)/u);
+  assert.doesNotMatch(migration, /PARTY_DATA_ENCRYPTION_KEY=/u);
+});
+
+test("production compose forwards the complete Party keyring contract", () => {
+  const compose = readFileSync(resolve(
+    __dirname,
+    "../../../../../infra/docker/docker-compose.prod.yml"
+  ), "utf8");
+  assert.match(compose, /PARTY_DATA_ENCRYPTION_KEY:/u);
+  assert.match(compose, /PARTY_DATA_ENCRYPTION_ACTIVE_KEY_ID:/u);
+  assert.match(compose, /PARTY_DATA_ENCRYPTION_KEYRING:/u);
+  assert.match(compose, /PARTY_DATA_IDENTITY_HASH_KEY:/u);
+});
+
 test("commercial contract compatibility uses Shanghai business-day boundaries", () => {
   const migrationPath = resolve(
     __dirname,

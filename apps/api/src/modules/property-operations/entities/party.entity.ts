@@ -27,6 +27,9 @@ export class PartyEntity extends AuditableEntity {
   @Column({ name: "identity_number_encrypted", type: "text", nullable: true, select: false })
   identityNumberEncrypted!: string | null;
 
+  @Column({ name: "identity_number_encryption_key_id", type: "varchar", length: 128, nullable: true })
+  identityNumberEncryptionKeyId!: string | null;
+
   @Column({ name: "identity_number_hash", type: "varchar", length: 80, nullable: true, select: false })
   identityNumberHash!: string | null;
 

@@ -14,9 +14,12 @@ import { PropertyIdentityController } from "./property-identity.controller";
 import { PropertyIdentityService } from "./property-identity.service";
 import { PropertyIdentityVerificationService } from "./property-identity-verification.service";
 import { LegacyPartyIdentityAdapter } from "./legacy-party-identity.adapter";
+import { AuditModule } from "../audit/audit.module";
+import { PartyDataKeyRotationService } from "./party-data-key-rotation.service";
 
 @Module({
   imports: [
+    AuditModule,
     TypeOrmModule.forFeature([
       PartyIdentityVerificationQueueEntity,
       PartyIdentitySubmissionEntity,
@@ -32,12 +35,14 @@ import { LegacyPartyIdentityAdapter } from "./legacy-party-identity.adapter";
     PartySensitiveDataService,
     PropertyIdentityService,
     PropertyIdentityVerificationService,
-    LegacyPartyIdentityAdapter
+    LegacyPartyIdentityAdapter,
+    PartyDataKeyRotationService
   ],
   exports: [
     PropertyIdentityService,
     PropertyIdentityVerificationService,
-    LegacyPartyIdentityAdapter
+    LegacyPartyIdentityAdapter,
+    PartyDataKeyRotationService
   ]
 })
 export class PropertyIdentityModule {}

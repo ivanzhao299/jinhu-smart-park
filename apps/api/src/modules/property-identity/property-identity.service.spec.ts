@@ -273,6 +273,7 @@ test("identity update preserves existing encrypted identity when editing retaine
         return [{
           identity_document_type: "id_card",
           identity_number_encrypted: "enc:v1:existing",
+          identity_number_encryption_key_id: "party-data-v1",
           identity_number_hash: "hmac256:existing",
           identity_number_masked: "11************02",
           draft_hash_algorithm: "hmac-sha256",
@@ -293,7 +294,12 @@ test("identity update preserves existing encrypted identity when editing retaine
   };
   const service = new PropertyIdentityService(
     { manager, transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
-    { identityProfile: () => { throw new Error("identityProfile must not be called"); }, decrypt: () => null, mask: () => null } as never
+    {
+      identityProfile: () => { throw new Error("identityProfile must not be called"); },
+      decrypt: () => null,
+      mask: () => null,
+      hasKey: (keyId: string) => keyId === "party-data-v1"
+    } as never
   );
 
   const result = await service.update(scope, actor, submissionId, "update-1", {

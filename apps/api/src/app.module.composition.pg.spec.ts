@@ -4,7 +4,6 @@ import { after, before, describe, it } from "node:test";
 import { ApplicationConfig, NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { PROPERTY_MUTATION_RECEIPT_PORT } from "@jinhu/shared";
-import { AppModule } from "./app.module";
 import { PropertyApprovalModule } from
   "./modules/property-approvals/property-approval.module";
 import { DatabasePropertyMutationReceiptAdapter } from
@@ -15,6 +14,7 @@ import { PropertyTaskModule } from "./modules/property-tasks/property-task.modul
 import { PropertyTaskService } from "./modules/property-tasks/property-task.service";
 
 const gateRequired = process.env.PROPERTY_APPMODULE_COMPOSITION_PG_REQUIRED === "1";
+process.env.PARTY_DATA_ENCRYPTION_KEY ??= "app-module-composition-test-party-key-32-bytes";
 if (gateRequired && !process.env.POSTGRES_PASSWORD) {
   throw new Error("POSTGRES_PASSWORD is required for the AppModule composition gate");
 }
@@ -56,6 +56,7 @@ suite("AppModule PostgreSQL composition gate", () => {
   let app: NestExpressApplication;
 
   before(async () => {
+    const { AppModule } = await import("./app.module");
     app = await NestFactory.create<NestExpressApplication>(AppModule, {
       logger: false
     });

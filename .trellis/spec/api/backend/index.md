@@ -14,6 +14,8 @@ Apartment handover energy ledger: [Apartment Handover Energy Integration](./apar
 
 These rules describe the current NestJS API in `apps/api`. Follow them when changing controllers, services, DTOs, entities, migrations, seeds, and API smoke scripts.
 
+Versioned Party sensitive-data keys and tenant-scoped rotation: [Party Sensitive Data Key Rotation](./party-sensitive-data-key-rotation.md).
+
 Human resources lifecycle, goals, performance, protected documents, approvals, and payroll: [HR Management Domain Contract](./hr-management.md).
 
 Real-browser smoke and rehearsal interaction readiness: [Browser Rehearsal Hydration](./browser-rehearsal-hydration.md).
