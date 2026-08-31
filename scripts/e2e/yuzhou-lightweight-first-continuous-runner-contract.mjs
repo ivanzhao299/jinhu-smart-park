@@ -41,13 +41,15 @@ const coreRunner = async options => {
   return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
 };
 const result = await runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000001" });
-assert.deepEqual(result, { status: "CONTRACT_PASS", order: ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"], uat: "PASS", productionImport: "HOLD" });
+assert.deepEqual(result, { status: "CONTRACT_PASS", order: ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"], uat: "PASS", productionImport: "HOLD", cleanup: { state: "cleaned", residualCount: 0 } });
 assert.equal(coreCalls, 2);
 assert.deepEqual(commands.map(row => row.script), ["provision-yuzhou-t5-nonfile-actor.sh", "load-yuzhou-t5-nonfile-history.sh", "load-yuzhou-t3-attendance-insurance.sh", "load-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
 assert.equal(commands.at(3).env.YUZHOU_T4_LOAD_MODE, "full_archive");
 assert.equal(commands.at(-1).env.ALLOW_YUZHOU_ROLLBACK, "yes");
 assert.equal(commands.every(row => /^[A-Za-z0-9][A-Za-z0-9._-]{5,36}$/u.test(row.env.YUZHOU_T5_NONFILE_RUN_ID ?? row.env.YUZHOU_MIGRATION_RUN_ID)), true);
 assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
+assert.equal(result.cleanup.state, "cleaned");
+assert.equal(result.cleanup.residualCount, 0);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
 

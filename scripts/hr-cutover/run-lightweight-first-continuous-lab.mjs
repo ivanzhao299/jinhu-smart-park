@@ -2,8 +2,8 @@
 /* global process */
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { chmodSync, existsSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
@@ -63,6 +63,14 @@ function childFailureCode(script, stderr) {
   return match ? `LIGHTWEIGHT_${match[1]}` : CHILD_FAILURE_CODES[script];
 }
 
+function writeAuditSummary(config, value) {
+  const auditRoot = join(dirname(config.target.credentialRoot), "audit");
+  if (!existsSync(auditRoot) || !directoryMode(auditRoot)) return;
+  const summary = join(auditRoot, "lightweight-first-summary.json");
+  writeFileSync(summary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(summary, 0o600);
+}
+
 function execute(script, env, spawn = spawnSync) {
   const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
   if (result.error || result.status !== 0) fail(childFailureCode(script, result.stderr), script);
@@ -107,6 +115,8 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   const actor = uuid();
   const reached = [];
   let primary = null;
+  let result = null;
+  let cleanup = { state: "not_started", residualCount: null };
   try {
     const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
     assertCheckpoint(checkpoint);
@@ -118,17 +128,30 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn); reached.push("T4");
     const uat = await technicalUat(configPath);
     if (uat?.status !== "PASS" || uat.productionImport !== "HOLD") fail("LIGHTWEIGHT_TECHNICAL_UAT_FAILED", "core technical UAT");
-    return { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), uat: "PASS", productionImport: "HOLD" };
-  } catch (error) { primary = error; throw error; }
+    result = { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), uat: "PASS", productionImport: "HOLD" };
+  } catch (error) { primary = error; }
   finally {
     const rollback = (script, env) => { try { execute(script, childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", ...env }), spawn); } catch (error) { if (!primary) primary = error; } };
     if (reached.includes("T4")) rollback("scripts/rollback-yuzhou-t4-payroll-history.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t4 });
     if (reached.includes("T3")) rollback("scripts/rollback-yuzhou-t3-attendance-insurance.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t3 });
     if (reached.includes("T5_NONFILE")) rollback("scripts/rollback-yuzhou-t5-nonfile-history.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5 });
     if (reached.includes("T5_NONFILE")) rollback("scripts/rollback-yuzhou-t5-nonfile-actor.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor });
-    try { assertCleanup(await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000 })); } catch (error) { if (!primary) throw error; }
+    try {
+      const coreCleanup = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000 });
+      assertCleanup(coreCleanup);
+      cleanup = { state: "cleaned", residualCount: 0 };
+    } catch (error) {
+      cleanup = { state: "failed", residualCount: null };
+      if (!primary) primary = error;
+    }
+    const summary = primary
+      ? { formatVersion: 1, status: "HOLD", errorCode: safeCode(primary), reached, cleanup, productionImport: "HOLD" }
+      : { formatVersion: 1, status: "CONTRACT_PASS", ...result, reached, cleanup, productionImport: "HOLD" };
+    writeAuditSummary(config, summary);
     if (primary) throw primary;
+    result = { ...result, cleanup };
   }
+  return result;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
