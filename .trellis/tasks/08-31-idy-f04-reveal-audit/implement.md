@@ -16,4 +16,5 @@
 - Hosted review round 1: two contract findings already resolved by follow-up commits; accepted two P1 findings and changed migration/seed definition parity plus pessimistic row locking for reveal/restriction serialization.
 - Hosted review round 2 completed with no new findings. CI full unit/build passed; Release Smoke exposed the downstream role-template visible-definition cardinality freeze, now synchronized from 25 to 26.
 - Hosted review round 3 completed; no further review requests are permitted. Release Smoke then exposed three matching 25-count assertions in the isolated 000194 retry harness; synchronized only those property assertions to 26.
+- Final Release Smoke passed every migration/seed/retry gate and reached housing API E2E, where a legacy assertion still expected plaintext Party detail. Replaced it with plaintext absence plus canonical masked-value assertions.
 - Next: obtain final CI green, squash merge and archive.
