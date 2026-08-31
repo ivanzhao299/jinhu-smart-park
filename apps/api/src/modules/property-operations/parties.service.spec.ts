@@ -5,7 +5,7 @@ import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { Brackets } from "typeorm";
 import type { JwtPrincipal } from "../../shared/types/jwt-principal";
-import { PartyQueryDto } from "./dto/party.dto";
+import { PartyQueryDto, RevealPartyIdentityDto } from "./dto/party.dto";
 import type { PartyEntity } from "./entities/party.entity";
 import { PartiesService } from "./parties.service";
 
@@ -53,6 +53,11 @@ function partyFixture(overrides: Partial<PartyEntity> = {}): PartyEntity {
     ...overrides
   };
 }
+
+type RevealTestManager = {
+  getRepository(): { createQueryBuilder(): unknown };
+  transaction<T>(callback: (manager: RevealTestManager) => Promise<T>): Promise<T>;
+};
 
 test("party list uses shared projection and hides every sensitive field without exact permission", async () => {
   const entity = partyFixture({
@@ -269,7 +274,7 @@ test("empty housing unit scope still exposes only the actor's newly created unbo
   assert.equal(scopePredicate.parameters?.housingUnitIds, undefined);
 });
 
-test("party detail exposes protected fields and minimal roles only with sensitive read", async () => {
+test("party detail exposes masked protected fields and never decrypts plaintext", async () => {
   const entity = partyFixture({
     mobile: "13812345678",
     email: "tenant@example.com"
@@ -307,9 +312,10 @@ test("party detail exposes protected fields and minimal roles only with sensitiv
 
   const detail = await service.detail(scope, sensitiveActor, entity.id);
 
-  assert.equal(decryptCount, 1);
+  assert.equal(decryptCount, 0);
   assert.equal(detail.mobile, entity.mobile);
-  assert.equal(detail.identityNumber, "11010519491231002X");
+  assert.equal(detail.identityNumberMasked, entity.identityNumberMasked);
+  assert.equal("identityNumber" in detail, false);
   assert.deepEqual(detail.roles, [{
     id: role.id,
     roleType: role.roleType,
@@ -319,6 +325,80 @@ test("party detail exposes protected fields and minimal roles only with sensitiv
     createTime: "2026-01-02T00:00:00.000Z"
   }]);
   assert.equal("updateBy" in detail.roles[0]!, false);
+});
+
+test("party identity reveal requires exact permission and required audit before returning plaintext", async () => {
+  const events: string[] = [];
+  const entity = partyFixture();
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    addSelect: () => builder,
+    getOne: async () => entity
+  };
+  const manager: RevealTestManager = {
+    getRepository: () => ({ createQueryBuilder: () => builder }),
+    transaction: async <T>(callback: (value: RevealTestManager) => Promise<T>) => callback(manager)
+  };
+  const service = new PartiesService(
+    { manager } as never,
+    {} as never,
+    { decrypt: () => { events.push("decrypt"); return "11010519491231002X"; } } as never,
+    undefined,
+    { recordOperationRequired: async (input: { afterJson?: unknown; bizId?: string }, auditManager: unknown) => {
+      events.push("audit");
+      assert.deepEqual(input.afterJson, { reasonCode: "LEGAL_COMPLIANCE" });
+      assert.equal(input.bizId, entity.id);
+      assert.equal(auditManager, manager);
+      assert.doesNotMatch(JSON.stringify(input), /11010519491231002X/u);
+    } } as never
+  );
+  await assert.rejects(
+    service.revealIdentity(scope, actor, entity.id, "LEGAL_COMPLIANCE"),
+    /party:identity_reveal/u
+  );
+
+  const result = await service.revealIdentity(scope, {
+    ...actor,
+    permissions: ["party:identity_reveal"]
+  }, entity.id, "LEGAL_COMPLIANCE");
+
+  assert.deepEqual(events, ["decrypt", "audit"]);
+  assert.deepEqual(result, { partyId: entity.id, identityNumber: "11010519491231002X" });
+});
+
+test("party identity reveal reason is required and restricted to the controlled dictionary", async () => {
+  const missing = await validate(plainToInstance(RevealPartyIdentityDto, {}));
+  const freeText = await validate(plainToInstance(RevealPartyIdentityDto, { reason_code: "because I want it" }));
+  const controlled = await validate(plainToInstance(RevealPartyIdentityDto, { reason_code: "DISPUTE_HANDLING" }));
+  assert.ok(missing.length > 0);
+  assert.ok(freeText.length > 0);
+  assert.equal(controlled.length, 0);
+});
+
+test("party identity reveal fails closed when required audit fails", async () => {
+  const entity = partyFixture();
+  const builder = {
+    where: () => builder,
+    andWhere: () => builder,
+    addSelect: () => builder,
+    getOne: async () => entity
+  };
+  const manager: RevealTestManager = {
+    getRepository: () => ({ createQueryBuilder: () => builder }),
+    transaction: async <T>(callback: (value: RevealTestManager) => Promise<T>) => callback(manager)
+  };
+  const service = new PartiesService(
+    { manager } as never,
+    {} as never,
+    { decrypt: () => "11010519491231002X" } as never,
+    undefined,
+    { recordOperationRequired: async () => { throw new Error("audit unavailable"); } } as never
+  );
+  await assert.rejects(
+    service.revealIdentity(scope, { ...actor, permissions: ["party:identity_reveal"] }, entity.id, "BUSINESS_OPERATION"),
+    /audit unavailable/u
+  );
 });
 
 test("concurrent duplicate party-role creation returns the committed relation", async () => {

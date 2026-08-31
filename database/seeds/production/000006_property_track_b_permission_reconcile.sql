@@ -110,6 +110,7 @@ INSERT INTO property_track_b_expected_definition (
   api_path, frontend_route, sort_no, permission_level, parent_required
 )
 VALUES
+  ('party:identity_reveal','身份明文受控查看','biz.party_identity','reveal','api',40,'POST','/api/v1/property/parties/:partyId/identity-reveal','/assets/parties',8100,3,false),
   ('party:identity_update','身份资料录入','biz.party_identity','update','api',40,NULL,NULL,'/assets/identity-submissions',8101,3,false),
   ('party:identity_verify','身份资料核验','biz.party_identity','verify','api',40,'POST','/api/v1/property/identity-submissions/:submissionId/decisions','/assets/identity-submissions',8102,3,false),
   ('property_approval:create','房产业务审批申请','biz.property_approval','create','api',40,NULL,NULL,NULL,8110,3,false),

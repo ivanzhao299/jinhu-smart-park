@@ -2,6 +2,8 @@
 
 import {
   SYSTEM_PERMISSIONS,
+  PARTY_IDENTITY_REVEAL_REASON_CODES,
+  type PartyIdentityRevealResponse,
   type PartyDetailResponse,
   type PartyListItemResponse
 } from "@jinhu/shared";
@@ -35,6 +37,7 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
   const canUpdate = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_UPDATE);
   const canManageConsent = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_CONSENT_MANAGE);
   const canReadSensitive = hasPermission(user, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
+  const canRevealIdentity = hasPermission(user, SYSTEM_PERMISSIONS.PARTY_IDENTITY_REVEAL);
   const canReadIdentity = hasAccess(
     user,
     SYSTEM_PERMISSIONS.IDENTITY_SUBMISSIONS_PAGE,
@@ -95,7 +98,7 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
       state={state}
       title={party?.displayName ?? "业务相对方详情"}
     >
-      {party ? <PartyDetailContent canManageConsent={canManageConsent} canReadIdentity={canReadIdentity} canReadSensitive={canReadSensitive}
+      {party ? <PartyDetailContent canManageConsent={canManageConsent} canReadIdentity={canReadIdentity} canReadSensitive={canReadSensitive} canRevealIdentity={canRevealIdentity}
         canUpdate={canUpdate} onUpdated={load} party={party} /> : null}
     </CanonicalDetailShell>
   );
@@ -106,8 +109,8 @@ function returnUrl(href: string): UrlObject {
   return { pathname: url.pathname, query: Object.fromEntries(url.searchParams), hash: url.hash };
 }
 
-function PartyDetailContent({ canManageConsent, canReadIdentity, canReadSensitive, canUpdate, onUpdated, party }: {
-  canManageConsent: boolean; canReadIdentity: boolean; canReadSensitive: boolean; canUpdate: boolean;
+function PartyDetailContent({ canManageConsent, canReadIdentity, canReadSensitive, canRevealIdentity, canUpdate, onUpdated, party }: {
+  canManageConsent: boolean; canReadIdentity: boolean; canReadSensitive: boolean; canRevealIdentity: boolean; canUpdate: boolean;
   onUpdated(): Promise<void>; party: PartyDetailResponse;
 }) {
   return (
@@ -120,6 +123,7 @@ function PartyDetailContent({ canManageConsent, canReadIdentity, canReadSensitiv
         <DetailRow label="备注" value={party.remark ?? "—"} />
         {canReadSensitive ? <SensitiveRows party={party} /> : null}
       </dl></PropertyPanelSurface>
+      {canRevealIdentity ? <PartyIdentityReveal partyId={party.id} /> : null}
       <PropertyPanelSurface title="业务角色">
         {party.roles.map((role) => <p key={role.id}>{role.roleType} · {role.sourceType ?? "通用"} · {role.status}</p>)}
         {!party.roles.length ? <p>暂无业务角色。</p> : null}
@@ -141,8 +145,56 @@ function SensitiveRows({ party }: { party: PartyDetailResponse }) {
     <DetailRow label="手机号" value={party.mobile ?? "—"} />
     <DetailRow label="邮箱" value={party.email ?? "—"} />
     <DetailRow label="证件类型" value={party.identityDocumentType ?? "—"} />
-    <DetailRow label="证件号码" value={party.identityNumber ?? party.identityNumberMasked ?? "—"} />
+    <DetailRow label="证件号码" value={party.identityNumberMasked ?? "—"} />
   </>;
+}
+
+function PartyIdentityReveal({ partyId }: { partyId: string }) {
+  const [reasonCode, setReasonCode] = useState("");
+  const [identityNumber, setIdentityNumber] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const lock = useRef(false);
+  const idempotency = usePartyIdempotency();
+
+  async function reveal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (lock.current || !reasonCode) return;
+    lock.current = true;
+    setSubmitting(true);
+    setIdentityNumber(null);
+    setFeedback("");
+    try {
+      const response = await apiRequest<PartyIdentityRevealResponse>(
+        `/property/parties/${encodeURIComponent(partyId)}/identity-reveal`,
+        {
+          method: "POST",
+          token: getAccessToken(),
+          idempotencyKey: idempotency.keyFor("party-identity-reveal", { reason_code: reasonCode }),
+          body: { reason_code: reasonCode }
+        }
+      );
+      setIdentityNumber(response.data.identityNumber);
+      idempotency.complete();
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "证件明文查看失败");
+    } finally {
+      lock.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  return <PropertyPanelSurface title="受控查看证件明文">
+    <form className={styles.stack} onSubmit={reveal}>
+      <label>操作理由（必填）<select required value={reasonCode} onChange={(event) => setReasonCode(event.target.value)}>
+        <option value="">请选择</option>
+        {PARTY_IDENTITY_REVEAL_REASON_CODES.map((code) => <option key={code} value={code}>{code}</option>)}
+      </select></label>
+      <button className="ds-button" disabled={submitting || !reasonCode} type="submit">{submitting ? "审计中…" : "查看明文"}</button>
+      {identityNumber ? <p aria-live="polite">证件号码：{identityNumber}</p> : null}
+      {feedback ? <p aria-live="polite">{feedback}</p> : null}
+    </form>
+  </PropertyPanelSurface>;
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {

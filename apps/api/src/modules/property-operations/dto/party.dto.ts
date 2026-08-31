@@ -20,6 +20,7 @@ import {
   PARTY_LIST_SORTS,
   PARTY_TYPES,
   PROPERTY_OCCUPANCY_DOMAINS,
+  PARTY_IDENTITY_REVEAL_REASON_CODES,
   type PartyListQuery,
   type PartyType,
   type PropertyOccupancyDomain
@@ -110,6 +111,12 @@ export class VerifyPartyDto {
   @IsString()
   @MaxLength(500)
   remark?: string | null;
+}
+
+export class RevealPartyIdentityDto {
+  @Transform(({ value }) => String(value ?? "").trim())
+  @IsIn(PARTY_IDENTITY_REVEAL_REASON_CODES)
+  reason_code!: (typeof PARTY_IDENTITY_REVEAL_REASON_CODES)[number];
 }
 
 export class PartyQueryDto implements PartyListQuery {

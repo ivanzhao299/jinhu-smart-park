@@ -55,7 +55,7 @@ Compatibility note: S1-RBAC-STD-FIX unifies `tenant_id` and `park_id` scope colu
 The development account seed `../000002_dev_only_s1_accounts.sql` is intentionally excluded.
 
 The Track B reconciliation seed runs after the default tenant, park, module assignment,
-asset parent permission, and built-in roles exist. It inserts the 25 frozen Track B
+asset parent permission, and built-in roles exist. It inserts the 26 frozen Track B
 permission definitions only when absent, fails closed on definition drift, and grants
 those permissions only to the default scope's built-in `SUPER_ADMIN`. It does not
 create users, business demo data, module assignments, bundles, or grants for other roles.

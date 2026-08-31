@@ -123,6 +123,8 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
     [P.IDENTITY_SUBMISSIONS_PAGE, P.PARTY_IDENTITY_VERIFY], "asset", identity),
   row("GET", "/api/v1/property/identity-submissions/:submissionId/audit", "party.identity.audit.read",
     [P.IDENTITY_SUBMISSIONS_PAGE, "audit:read", P.PARTY_SENSITIVE_READ], "asset", identity),
+  row("POST", "/api/v1/property/parties/:partyId/identity-reveal", "party.identity.reveal",
+    [P.PARTY_IDENTITY_REVEAL], "asset", identity),
   row("POST", "/api/v1/property/party-data-governance/parties/:partyId/consent-facts", "party.consent.record",
     [P.PARTY_CONSENT_MANAGE], "asset", identity),
   row("POST", "/api/v1/property/party-data-governance/parties/:partyId/consent-facts/:factId/withdraw", "party.consent.withdraw",
@@ -282,7 +284,7 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
 ] as const satisfies readonly PropertyTrackBEndpointPermission[];
 
 export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256 =
-  "0d91b180c82120339e1de630fde6a9c3e6361dec1190a257c4234e26becadc44" as const;
+  "2a887d49aa3d9453bbb1cc1288634a21044253c81d42b113fd91d34ac9dc2545" as const;
 
 export function validatePropertyTrackBEndpointPermissionManifest(
   manifest: readonly PropertyTrackBEndpointPermission[] =

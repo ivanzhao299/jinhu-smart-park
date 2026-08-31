@@ -121,3 +121,57 @@ await retainAudit(retentionPartyId);
 // Correct for canonical identity audit sources: resolve Party ownership from a scoped FK-backed
 // assignment/decision row, or from an exact party_identity_submission sys_op_log reference.
 ```
+
+## Scenario: Controlled Party identity plaintext reveal
+
+### 1. Scope / Trigger
+
+- Trigger: reading a Party identity number in plaintext or changing the ordinary Party detail response.
+
+### 2. Signatures
+
+- Ordinary detail: `GET /property/parties/:id` returns `PartyDetailResponse` with masked identity only.
+- Reveal: `POST /property/parties/:id/identity-reveal` accepts `{ reason_code }` and returns `{ partyId, identityNumber }`.
+- Authority: atomic permission `party:identity_reveal`; audit action `查看业务相对方证件明文`.
+
+### 3. Contracts
+
+- `PartyListItemResponse` and `PartyDetailResponse` never contain an `identityNumber` field, including for super, wildcard, sensitive-read, and reveal-authorized actors.
+- Reveal reason is one of `PARTY_IDENTITY_REVEAL_REASON_CODES`; free text is rejected and plaintext never enters audit JSON, logs, errors, lists, exports, or the ordinary Party cache.
+- The POST still supplies `X-Idempotency-Key` for the global write guard, but never uses `IdempotencyInterceptor`: replay caching would retain plaintext and bypass the required per-access audit.
+- Reveal binds Party lookup, permission, processing restriction, tenant, park, required audit, ciphertext key id, and decryption. Required audit completes before a successful response.
+- `party:sensitive_read` controls masked/contact projection only and never authorizes plaintext reveal.
+
+### 4. Validation & Error Matrix
+
+- missing exact reveal permission -> forbidden before transaction or decryption.
+- missing/unknown reason code -> DTO rejection.
+- missing/cross-scope/deleted/restricted Party or missing ciphertext -> safe not found.
+- required audit persistence failure -> reject with no plaintext response.
+- asset-entitled tenant (existing asset parent or enabled asset assignment) without exactly one enabled `asset` parent -> migration fails instead of silently skipping that tenant; a non-asset tenant remains out of scope.
+- unknown key, malformed ciphertext, or authentication failure -> reject; never substitute masked or empty plaintext.
+
+### 5. Good / Base / Bad Cases
+
+- Good: an explicitly authorized operator selects a controlled reason; scoped ciphertext decrypts, required audit commits without sensitive values, then plaintext is returned by the dedicated action.
+- Base: a sensitive-read user opens Party detail and sees contact fields plus `identityNumberMasked` only.
+- Bad: ordinary detail calls `decrypt()` when `party:sensitive_read` is present, or an `@AuditLog` best-effort interceptor is treated as reveal evidence.
+
+### 6. Tests Required
+
+- Permission matrix: ordinary, sensitive-read, reveal-only, wildcard/super, and unauthorized projections contain no ordinary-response plaintext.
+- Reveal: exact permission, controlled reason validation, tenant/park query predicates, decrypt-key id, success audit metadata, no plaintext in audit serialization, and audit failure fail-closed.
+- Contract: shared response type omits plaintext; endpoint manifest and controller metadata agree; Web uses a separate reveal request/state and masked ordinary detail.
+- Migration: PostgreSQL 16 fresh/replay with at least two tenants proves one permission per tenant and scoped super-role grants without duplication.
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong: broad sensitive read silently expands an ordinary response.
+if (hasPermission(actor, "party:sensitive_read")) response.identityNumber = decrypt(ciphertext);
+
+// Correct: ordinary detail remains masked; the dedicated action audits before returning.
+const identityNumber = decrypt(ciphertext, keyId);
+await audit.recordOperationRequired({ afterJson: { reasonCode }, /* no plaintext */ }, manager);
+return { partyId, identityNumber };
+```
