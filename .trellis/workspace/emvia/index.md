@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
-- **Last Active**: 2026-08-30
+- **Total Sessions**: 22
+- **Last Active**: 2026-08-31
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~757 | Active |
+| `journal-1.md` | ~793 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-08-31 | 身份核验工作台设计实现与大陆合规核查 | `d58059a5` | `review/identity-workbench-compliance-20260831` |
 | 21 | 2026-08-30 | LEA 上线后 UAT 复测与队列闭环 | `d6f67966` | `evidence/lea-post-deploy-uat-archive` |
 | 20 | 2026-08-29 | LEA-004 rental status lifecycle sync | `7b3e2552`, `1d100a12`, `9d1dc1ec`, `43a45e41`, `b555025c`, `a7d23a72`, `2ba92730` | `codex/fix-lea-004-rental-status-sync` |
 | 19 | 2026-08-29 | LEA-003 长租经营改名与租户子集热修闭环 | `1a0c6ba1`, `33679b0b` | `codex/fix-lea-004-rental-status-sync` |
