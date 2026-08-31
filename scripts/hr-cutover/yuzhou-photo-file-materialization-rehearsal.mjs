@@ -19,6 +19,7 @@ export class YuzhouPhotoFileMaterializationError extends Error {
 
 const fail = (code, detail) => { throw new YuzhouPhotoFileMaterializationError(code, detail); };
 const sha256 = bytes => createHash("sha256").update(bytes).digest("hex");
+const md5 = bytes => createHash("md5").update(bytes).digest("hex");
 const isInside = (root, target) => {
   const value = relative(root, target);
   return value !== "" && !value.startsWith("..") && !value.includes("/../") && !value.includes("\\..\\");
@@ -71,9 +72,9 @@ function validateRecords(records) {
   const sourceIdentities = new Set();
   const outputHashes = new Set();
   return records.map((record, index) => {
-    const required = ["sourceIdentitySha256", "sourceContentSha256", "normalizedContentSha256", "employeeId", "normalizedFile"].sort();
+    const required = ["sourceIdentitySha256", "sourceRowSha256", "sourceContentSha256", "normalizedContentSha256", "employeeId", "normalizedFile"].sort();
     if (!record || typeof record !== "object" || Array.isArray(record) || JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(required)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RECORD_INVALID", `record ${index} shape differs`);
-    for (const field of ["sourceIdentitySha256", "sourceContentSha256", "normalizedContentSha256"]) if (!SHA256.test(record[field] ?? "")) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RECORD_INVALID", `record ${index} hash invalid`);
+    for (const field of ["sourceIdentitySha256", "sourceRowSha256", "sourceContentSha256", "normalizedContentSha256"]) if (!SHA256.test(record[field] ?? "")) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RECORD_INVALID", `record ${index} hash invalid`);
     if (!UUID.test(record.employeeId ?? "")) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RECORD_INVALID", `record ${index} employee invalid`);
     const expectedName = `${record.normalizedContentSha256}.jpg`;
     if (record.normalizedFile !== expectedName || basename(record.normalizedFile) !== record.normalizedFile) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RECORD_INVALID", `record ${index} normalized file invalid`);
@@ -97,6 +98,7 @@ export function buildYuzhouPhotoFileMaterializationMetadata({ runId, record }) {
     bizId: validated.employeeId,
     mimeType: "image/jpeg",
     sourceIdentitySha256: validated.sourceIdentitySha256,
+    sourceRowSha256: validated.sourceRowSha256,
     sourceContentSha256: validated.sourceContentSha256,
     normalizedContentSha256: validated.normalizedContentSha256,
     storagePath
@@ -122,6 +124,7 @@ export async function materializeYuzhouPhotoFileRehearsal(input) {
     if (parentDirectory !== await ensurePrivateChildDirectory(storageRoot, "yuzhou-hr/t5-photo")) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_PATH_INVALID", "unexpected generated parent");
     await mkdir(temporaryDirectory, { mode: 0o700 });
     await chmod(temporaryDirectory, 0o700);
+    const completed = [];
     for (const row of metadata) {
       const source = resolve(stageRoot, `${row.normalizedContentSha256}.jpg`);
       const target = resolve(temporaryDirectory, `${row.normalizedContentSha256}.jpg`);
@@ -134,6 +137,7 @@ export async function materializeYuzhouPhotoFileRehearsal(input) {
       await privateRegularFile(target, "YUZHOU_PHOTO_FILE_MATERIALIZATION_TARGET_FILE_UNSAFE");
       const written = await readFile(target);
       if (sha256(written) !== row.normalizedContentSha256) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_WRITE_HASH_MISMATCH", row.normalizedContentSha256);
+      completed.push(Object.freeze({ ...row, fileSize: written.byteLength, md5: md5(written) }));
     }
     await rename(temporaryDirectory, outputDirectory);
     return Object.freeze({
@@ -141,7 +145,7 @@ export async function materializeYuzhouPhotoFileRehearsal(input) {
       runId: value.runId,
       productionImport: "HOLD",
       storageRelativeDirectory: relativeDirectory,
-      files: Object.freeze(metadata)
+      files: Object.freeze(completed)
     });
   } catch (error) {
     await rm(temporaryDirectory, { recursive: true, force: true });
@@ -149,21 +153,61 @@ export async function materializeYuzhouPhotoFileRehearsal(input) {
   }
 }
 
-export async function rollbackYuzhouPhotoFileRehearsal({ mode, runId, storageRoot, files }) {
+function validateRollbackReceipt({ mode, runId, files }) {
   if (mode !== YUZHOU_PHOTO_FILE_MATERIALIZATION_MODE) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_MODE_FORBIDDEN", "only isolated synthetic rehearsal is allowed");
   if (!RUN_ID.test(runId ?? "") || !Array.isArray(files) || files.length === 0) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_INPUT_INVALID", "rollback input invalid");
-  const storage = await privateDirectory(storageRoot, "YUZHOU_PHOTO_FILE_MATERIALIZATION_STORAGE_UNSAFE");
-  const outputDirectory = resolve(storage, buildRunRelativeDirectory(runId));
-  if (!isInside(storage, outputDirectory)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_PATH_INVALID", "generated target escaped storage root");
-  await privateDirectory(outputDirectory, "YUZHOU_PHOTO_FILE_MATERIALIZATION_TARGET_DIRECTORY_UNSAFE");
+  return { mode, runId, files };
+}
+
+async function assertExactRunDirectory({ storage, directory, runId, files }) {
+  await privateDirectory(directory, "YUZHOU_PHOTO_FILE_MATERIALIZATION_TARGET_DIRECTORY_UNSAFE");
   const expected = new Set(files.map(file => {
     if (!file || file.bizType !== YUZHOU_PHOTO_FILE_MATERIALIZATION_BIZ_TYPE || !SHA256.test(file.normalizedContentSha256 ?? "") || file.storagePath !== `${buildRunRelativeDirectory(runId)}/${file.normalizedContentSha256}.jpg`) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_INPUT_INVALID", "metadata does not bind this run");
     return `${file.normalizedContentSha256}.jpg`;
   }));
   if (expected.size !== files.length) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_INPUT_INVALID", "duplicate metadata");
-  const actual = await readdir(outputDirectory);
+  const actual = await readdir(directory);
   if (actual.length !== expected.size || actual.some(name => !expected.has(name))) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_RESIDUAL_UNSAFE", "directory does not match exact run metadata");
-  for (const name of actual) await privateRegularFile(resolve(outputDirectory, name), "YUZHOU_PHOTO_FILE_MATERIALIZATION_TARGET_FILE_UNSAFE");
-  await rm(outputDirectory, { recursive: true, force: false });
-  return Object.freeze({ mode, runId, productionImport: "HOLD", binaryObjects: 0 });
+  for (const name of actual) await privateRegularFile(resolve(directory, name), "YUZHOU_PHOTO_FILE_MATERIALIZATION_TARGET_FILE_UNSAFE");
+  return expected;
+}
+
+export async function prepareYuzhouPhotoFileRehearsalRollback({ mode, runId, storageRoot, files }) {
+  const receipt = validateRollbackReceipt({ mode, runId, files });
+  const storage = await privateDirectory(storageRoot, "YUZHOU_PHOTO_FILE_MATERIALIZATION_STORAGE_UNSAFE");
+  const outputDirectory = resolve(storage, buildRunRelativeDirectory(runId));
+  const pendingDirectory = resolve(storage, `.yuzhou-photo-${runId}.rollback`);
+  if (!isInside(storage, outputDirectory)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_PATH_INVALID", "generated target escaped storage root");
+  if (!isInside(storage, pendingDirectory)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_PATH_INVALID", "generated pending directory escaped storage root");
+  if (await lstat(pendingDirectory).catch(() => null)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_RUN_EXISTS", `${runId} rollback pending`);
+  await assertExactRunDirectory({ storage, directory: outputDirectory, runId, files });
+  await rename(outputDirectory, pendingDirectory);
+  return Object.freeze({ mode: receipt.mode, runId: receipt.runId, productionImport: "HOLD", storageRoot: storage, pendingDirectory, files: receipt.files });
+}
+
+export async function finalizeYuzhouPhotoFileRehearsalRollback(handle) {
+  const receipt = validateRollbackReceipt(handle);
+  const storage = await privateDirectory(handle.storageRoot, "YUZHOU_PHOTO_FILE_MATERIALIZATION_STORAGE_UNSAFE");
+  const pendingDirectory = resolve(handle.pendingDirectory ?? "");
+  if (!isInside(storage, pendingDirectory) || basename(pendingDirectory) !== `.yuzhou-photo-${receipt.runId}.rollback`) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_INPUT_INVALID", "pending directory does not bind this run");
+  await assertExactRunDirectory({ storage, directory: pendingDirectory, runId: receipt.runId, files: receipt.files });
+  await rm(pendingDirectory, { recursive: true, force: false });
+  return Object.freeze({ mode: receipt.mode, runId: receipt.runId, productionImport: "HOLD", binaryObjects: 0 });
+}
+
+export async function restoreYuzhouPhotoFileRehearsalRollback(handle) {
+  const receipt = validateRollbackReceipt(handle);
+  const storage = await privateDirectory(handle.storageRoot, "YUZHOU_PHOTO_FILE_MATERIALIZATION_STORAGE_UNSAFE");
+  const outputDirectory = resolve(storage, buildRunRelativeDirectory(receipt.runId));
+  const pendingDirectory = resolve(handle.pendingDirectory ?? "");
+  if (!isInside(storage, outputDirectory) || !isInside(storage, pendingDirectory) || basename(pendingDirectory) !== `.yuzhou-photo-${receipt.runId}.rollback`) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_INPUT_INVALID", "pending directory does not bind this run");
+  if (await lstat(outputDirectory).catch(() => null)) fail("YUZHOU_PHOTO_FILE_MATERIALIZATION_ROLLBACK_RESIDUAL_UNSAFE", "output directory unexpectedly exists");
+  await assertExactRunDirectory({ storage, directory: pendingDirectory, runId: receipt.runId, files: receipt.files });
+  await rename(pendingDirectory, outputDirectory);
+  return Object.freeze({ mode: receipt.mode, runId: receipt.runId, productionImport: "HOLD", restored: true });
+}
+
+export async function rollbackYuzhouPhotoFileRehearsal(input) {
+  const handle = await prepareYuzhouPhotoFileRehearsalRollback(input);
+  return finalizeYuzhouPhotoFileRehearsalRollback(handle);
 }

@@ -31,6 +31,7 @@ function writeFixture(seed) {
   chmodSync(join(stageRoot, `${normalizedContentSha256}.jpg`), 0o600);
   return {
     sourceIdentitySha256: sha(`identity:${seed}`),
+    sourceRowSha256: sha(`row:${seed}`),
     sourceContentSha256: sha(`source:${seed}`),
     normalizedContentSha256,
     employeeId: `00000000-0000-4000-8000-${String(seed).padStart(12, "0")}`,
@@ -46,6 +47,8 @@ test("synthetic photo materialization writes only hash-addressed protected photo
   for (const file of receipt.files) {
     assert.equal(file.bizType, YUZHOU_PHOTO_FILE_MATERIALIZATION_BIZ_TYPE);
     assert.equal(file.mimeType, "image/jpeg");
+    assert.equal(file.fileSize > 0, true);
+    assert.match(file.md5, /^[0-9a-f]{32}$/u);
     assert.match(file.storagePath, /^yuzhou-hr\/t5-photo\/fixture-photo-a\/[0-9a-f]{64}\.jpg$/u);
     const entry = lstatSync(resolve(storageRoot, file.storagePath));
     assert.equal(entry.mode & 0o777, 0o600);
@@ -97,7 +100,7 @@ test("materialization rejects a generated parent symlink before changing or writ
 test("metadata is bound to a single synthetic run and rejects non-rehearsal semantics", () => {
   const record = writeFixture(5);
   const metadata = buildYuzhouPhotoFileMaterializationMetadata({ runId: "fixture-photo-d", record });
-  assert.deepEqual(Object.keys(metadata).sort(), ["bizId", "bizType", "mimeType", "normalizedContentSha256", "sourceContentSha256", "sourceIdentitySha256", "storagePath"]);
+  assert.deepEqual(Object.keys(metadata).sort(), ["bizId", "bizType", "mimeType", "normalizedContentSha256", "sourceContentSha256", "sourceIdentitySha256", "sourceRowSha256", "storagePath"]);
   assert.throws(
     () => buildYuzhouPhotoFileMaterializationMetadata({ runId: "bad", record }),
     error => error instanceof YuzhouPhotoFileMaterializationError && error.code === "YUZHOU_PHOTO_FILE_MATERIALIZATION_RUN_ID_INVALID"

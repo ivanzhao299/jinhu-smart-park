@@ -71,6 +71,8 @@
 
 - 新增 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs` 的合成对象根演练：它只接受 `isolated_synthetic_rehearsal`、哈希命名的 JPEG、当前用户拥有的 `0700` 阶段/存储目录和 `0600` 普通文件；目标路径固定为 run-scoped、内容哈希地址，输出仅含 `hr_employee_photo` 所需的受保护文件元数据。合成契约已覆盖写入哈希复核、失败临时目录清理、目录外残留拒绝和精确回滚。该实现未读取真实玉舟二进制、未写 PostgreSQL 或 `sys_file`，故不能作为照片真实 A/B、在线附件关联或生产导入完成的依据。
 
+- 合成文件根随后接入受控的 `sys_file + legacy_record_map` 持久化和补偿编排：数据库写入与数据库回滚都要求 `SERIALIZABLE`，并在任何业务写前锁定来源 identity、拒绝活动映射重放。文件先物化，数据库失败只清理本 run；文件回滚先原子改名，数据库失败恢复文件，数据库成功才删除待清理目录。定向单元契约与 `template0` 真实 PostgreSQL fixture 均验证合成 metadata/map、唯一重放拒绝和 active residual=0。该结果仅证明合成的目标存储-元数据-映射链可补偿，尚未读取玉舟二进制、未做真实照片 A/B、未执行受保护文件下载 UAT，生产导入仍为 `HOLD`。
+
 - [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
 - [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
 - [x] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。

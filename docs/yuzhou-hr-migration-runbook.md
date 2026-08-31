@@ -252,6 +252,8 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 照片对象存储的下一层已补充为 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs`，但它**仅**接受 `isolated_synthetic_rehearsal` 合成 JPEG 阶段，不读取玉舟图片、不连接 PostgreSQL、不创建 `sys_file`。它以归一化内容 SHA-256 生成 run-scoped 相对对象路径，要求阶段文件和存储根分别为当前用户拥有的 `0600`/`0700` 非符号链接对象；失败时只清理本 run 的临时目录，回滚会在删除前核对目录内容与回执完全一致。该验证只闭合了“受控文件根写入与精确文件回滚”的合成路径，不能代替真实二进制 A/B、`sys_file`/`legacy_record_map` 事务、RBAC 下载验收或生产导入授权。
 
+同一合成边界的后续编排位于 `yuzhou-photo-file-rehearsal-persistence.mjs` 与 `yuzhou-photo-file-rehearsal-runner.mjs`：它要求 PostgreSQL `SERIALIZABLE` 事务，按来源 identity 取得 advisory lock，先拒绝 active `legacy_record_map` 重放，再只写 `sys_file(biz_type=hr_employee_photo)` 与同批精确 map。文件已落盘而数据库写入失败时，runner 只删除这个 run 的文件目录；回滚时先将完整且已核验的 run 目录原子改名为待删除目录，数据库回滚失败则原位恢复目录，数据库成功后才删除待删除目录。`test:e2e:yuzhou-photo-file-rehearsal:pg` 在 `template0` 临时隔离库实测了合成 `sys_file + legacy_record_map` 写入、active-map 唯一冲突、序列化事务和零活动残留，并在结束时删除该库。它仍不是实际照片二进制 A/B，也没有读取、复制或展示任一真实人员图片。
+
 ```sh
 pnpm hr:migration:t5:photo-owner:continuous -- \
   --config '<同一轮、0600 core_t0_t2 配置>' \
