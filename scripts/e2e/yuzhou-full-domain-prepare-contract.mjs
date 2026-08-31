@@ -111,7 +111,7 @@ test("full-domain rehearsal gives T5 a deterministic isolated non-login actor id
 
 test("full-domain preparation pins T5 to the canonical A/B baseline and source restore receipt", () => {
   const sourceSnapshotHash = "3ed50b9a2ba420c0fb7a9c2628f9a2d62a05e7a14ba574929bc145ac47a9036e";
-  const sourceRestoreReceiptSha256 = "941261f619f84a02f668bf1d4465a0a3b501817ce73756738a2f760f6ec96867";
+  const sourceRestoreReceiptSha256 = "87573a33873c6f4e8c4490602fc09ac44b3f1ca9e29c8c486b09bf9cfb6eb4ae";
   assert.equal(t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 }), "8856da58163b4412a12c9cf70a8a4008b356c3493ab224ed900e9dda329e608c");
   assert.throws(() => t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256: "0".repeat(64) }), /does not bind the current source restore receipt/);
 });
