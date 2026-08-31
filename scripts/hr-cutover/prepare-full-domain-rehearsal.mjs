@@ -139,6 +139,7 @@ function configFor(args, codeSha, mappingContractHash) {
     load: { ...commonLoad },
     rollback: {}
   }]));
+  adapterEnv.T3.extract.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash;
   adapterEnv.T4.extract.YUZHOU_SOURCE_BACKUP_FILE = sourceBackup;
   adapterEnv.T4.load = {
     YUZHOU_TARGET_TENANT_ID: DEFAULT_TENANT,

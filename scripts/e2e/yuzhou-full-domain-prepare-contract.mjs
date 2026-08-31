@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { configFor, assertRegularFile, deterministicUuid, parseArgs, t5BusinessHashFor } from "../hr-cutover/prepare-full-domain-rehearsal.mjs";
 import { readMaterializationKeyFile } from "../hr-cutover/materialization-key-contract.mjs";
+import { ADAPTER_ENV_ALLOWLIST } from "../hr-cutover/full-domain-lifecycle.mjs";
 
 test("rehearsal preparation accepts only private non-symlink source inputs", () => {
   const root = mkdtempSync(join(tmpdir(), "jinhu-yuzhou-prepare-"));
@@ -113,4 +114,10 @@ test("full-domain preparation pins T5 to the canonical A/B baseline and source r
   const sourceRestoreReceiptSha256 = "941261f619f84a02f668bf1d4465a0a3b501817ce73756738a2f760f6ec96867";
   assert.equal(t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256 }), "8856da58163b4412a12c9cf70a8a4008b356c3493ab224ed900e9dda329e608c");
   assert.throws(() => t5BusinessHashFor({ sourceSnapshotHash, sourceRestoreReceiptSha256: "0".repeat(64) }), /does not bind the current source restore receipt/);
+});
+
+test("full-domain T3 extraction receives the pinned source snapshot required by the attendance-insurance extractor", () => {
+  assert.deepEqual(ADAPTER_ENV_ALLOWLIST.T3.extract, ["YUZHOU_SQLSERVER_CONTAINER", "YUZHOU_BACKUP_SHA256"]);
+  const source = readFileSync(new URL("../hr-cutover/prepare-full-domain-rehearsal.mjs", import.meta.url), "utf8");
+  assert.match(source, /adapterEnv\.T3\.extract\.YUZHOU_BACKUP_SHA256 = sourceSnapshotHash/);
 });
