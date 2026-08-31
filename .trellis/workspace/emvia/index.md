@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 25
+- **Total Sessions**: 26
 - **Last Active**: 2026-09-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~900 | Active |
+| `journal-1.md` | ~935 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 26 | 2026-09-01 | 身份治理硬伤组全链路闭环 | `5852c546`, `65d5ef68` | `codex/fix-idy-final-archive` |
 | 25 | 2026-09-01 | IDY-F05 housing identity gate | `b6934fec` | `codex/fix-idy-05-housing-identity-gate-archive` |
 | 24 | 2026-08-31 | IDY-F04 plaintext reveal audit closure | `7045c318`, `4aecb6a7` | `codex/fix-idy-04-reveal-audit-archive` |
 | 23 | 2026-08-31 | IDY-F01 Party key fail-closed and rotation | `923586d3`, `24234beb`, `f60e5390`, `fed3df85`, `2473a14a` | `codex/fix-idy-02-consent-retention` |
