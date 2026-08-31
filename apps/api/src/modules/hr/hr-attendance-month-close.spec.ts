@@ -10,7 +10,8 @@ import { HrController } from "./hr.controller";
 
 test("month close writes have exact atomic permissions, idempotency and body-free audit",()=>{
  for(const method of ["createAttendancePeriod","calculateAttendancePeriod"] as const)assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_ATTENDANCE_OPERATE]);
- for(const method of ["closeAttendancePeriod","correctAttendancePeriod"] as const)assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype[method]),[HR_PERMISSIONS.HR_ATTENDANCE_CLOSE]);
+ assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.closeAttendancePeriod),[HR_PERMISSIONS.HR_ATTENDANCE_CLOSE]);
+ assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.correctAttendancePeriod),[HR_PERMISSIONS.HR_ATTENDANCE_CORRECT]);
  for(const method of ["createAttendancePeriod","calculateAttendancePeriod","closeAttendancePeriod","correctAttendancePeriod"] as const){assert.ok(Reflect.getMetadata("__interceptors__",HrController.prototype[method])?.length);assert.equal(Reflect.getMetadata(AUDIT_LOG_KEY,HrController.prototype[method]).captureBody,false);}
  assert.deepEqual(Reflect.getMetadata(PERMISSIONS_KEY,HrController.prototype.payrollAttendanceInputs),[HR_PERMISSIONS.HR_ATTENDANCE_PAYROLL_INPUT_READ]);
 });
