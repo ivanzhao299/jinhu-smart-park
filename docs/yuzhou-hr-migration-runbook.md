@@ -264,6 +264,18 @@ pnpm hr:migration:t5:document-owner:continuous -- \
   --document-owner-stage '<0700 hash-only 文档归属 stage>'
 ```
 
+若需要把 document 或 photo 的两次独立 stage 作为一条可比较的 A/B 闭环执行，使用文件归属 pair 入口。它串行执行 A 后 B，并要求相同源快照、恢复回执、stage hash、两轮来源守恒/回滚收据和零残留；只记录 hash 和聚合数量，不读取二进制内容、不创建 `sys_file`、`hr_employee_document` 或生产对象：
+
+```sh
+pnpm hr:migration:t5:file-owner:pair-continuous -- \
+  --kind document \
+  --config-a '<A 0600 core_t0_t2 config>' \
+  --config-b '<B 0600 core_t0_t2 config>' \
+  --stage-a '<A 0700 document owner stage>' \
+  --stage-b '<B 0700 document owner stage>' \
+  --summary '<new 0600 summary outside either runtime root>'
+```
+
 ```sh
 pnpm hr:migration:lightweight-first:continuous -- \
   --config '<同一轮、0600 core_t0_t2 配置>' \

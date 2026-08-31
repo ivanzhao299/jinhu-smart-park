@@ -159,6 +159,7 @@
     "hr:migration:lightweight-first:continuous": "node scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs",
     "hr:migration:t5:photo-owner:continuous": "node scripts/hr-cutover/run-t5-photo-owner-evidence-lab.mjs",
     "hr:migration:t5:document-owner:continuous": "node scripts/hr-cutover/run-t5-document-owner-evidence-lab.mjs",
+    "hr:migration:t5:file-owner:pair-continuous": "node scripts/hr-cutover/run-t5-file-owner-evidence-pair-lab.mjs",
     "hr:migration:t3-attendance-events:profile": "sh scripts/profile-yuzhou-t3-attendance-events.sh",
     "hr:migration:t3-attendance-events:stage": "sh scripts/extract-yuzhou-t3-attendance-event-quarantine.sh",
     "hr:migration:t3-attendance-events:load-quarantine": "sh scripts/load-yuzhou-t3-attendance-event-quarantine.sh",
