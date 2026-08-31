@@ -24,12 +24,12 @@ evidence.
 
 ## Acceptance Criteria
 
-- [ ] A `dbo.his` source row is loaded only as unowned `experience` archive
+- [x] A `dbo.his` source row is loaded only as unowned `experience` archive
       evidence with no employee projection or side effects.
-- [ ] A normal employee-owned row still requires exact T0 mapping, and all
+- [x] A normal employee-owned row still requires exact T0 mapping, and all
       existing ambiguity/missing-owner quarantines remain fail-closed.
-- [ ] Rollback removes the unowned archive record and its active mapping.
-- [ ] No source values, credentials, or production data are printed or used.
+- [x] Rollback removes the unowned archive record and its active mapping.
+- [x] No source values, credentials, or production data are printed or used.
 
 ## Notes
 

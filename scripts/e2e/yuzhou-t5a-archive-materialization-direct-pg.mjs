@@ -44,8 +44,8 @@ VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaa
 
 INSERT INTO hr_legacy_t5_import_batch(id,tenant_id,park_id,migration_batch_id,batch_code,source_snapshot_sha256,catalog_sha256,manifest_sha256,source_row_count,loaded_row_count,quarantined_row_count,status)
 VALUES
- ('${sourceBatchId}','tenant-a','park-a','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fixture-source','${hash("a")}','${hash("c")}','${hash("d")}',4,0,4,'unpublished'),
- ('${otherSourceBatchId}','tenant-b','park-b','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','fixture-source','${hash("b")}','${hash("e")}','${hash("f")}',1,0,1,'unpublished');
+ ('${sourceBatchId}','tenant-a','park-a','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','fixture-source','${hash("a")}','${hash("c")}','${hash("d")}',5,4,1,'unpublished'),
+ ('${otherSourceBatchId}','tenant-b','park-b','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','fixture-source','${hash("b")}','${hash("e")}','${hash("f")}',1,1,0,'unpublished');
 INSERT INTO hr_legacy_t5_record(tenant_id,park_id,import_batch_id,employee_id,domain,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,mapping_status,record_payload)
 VALUES
  ('tenant-a','park-a','${sourceBatchId}','${employeeId}','candidate','dbo.person.core_residue','fixture-profile','${hash("3")}','${hash("4")}','employee_mapped','{}'),
@@ -56,8 +56,7 @@ INSERT INTO hr_legacy_t5_file_evidence(tenant_id,park_id,import_batch_id,employe
 VALUES('tenant-a','park-a','${sourceBatchId}','${employeeId}','dbo.person.photo','fixture-photo','${hash("9")}','${hash("0")}','employee_photo','${hash("a")}',12,'image/bmp','readable');
 INSERT INTO hr_employee_profile(tenant_id,park_id,employee_id,highest_education,legacy_source_identity_sha256,legacy_source_row_sha256)
 VALUES('tenant-a','park-a','${employeeId}','fixture-level','${hash("3")}','${hash("4")}');
-UPDATE hr_legacy_t5_import_batch SET source_row_count=5,loaded_row_count=4,quarantined_row_count=1,status='staged' WHERE id='${sourceBatchId}';
-UPDATE hr_legacy_t5_import_batch SET loaded_row_count=1,quarantined_row_count=0,status='staged' WHERE id='${otherSourceBatchId}';
+UPDATE hr_legacy_t5_import_batch SET status='staged' WHERE id IN ('${sourceBatchId}','${otherSourceBatchId}');
 COMMIT;
 `);
 
