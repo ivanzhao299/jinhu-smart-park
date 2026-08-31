@@ -167,6 +167,7 @@
     "hr:migration:training-reward-history:extract": "sh scripts/extract-yuzhou-training-reward-history.sh",
     "hr:migration:training-reward-history:load": "sh scripts/load-yuzhou-training-reward-history.sh",
     "hr:migration:training-reward-history:rollback": "sh scripts/rollback-yuzhou-training-reward-history.sh",
+    "hr:migration:training-reward:continuous": "node scripts/hr-cutover/run-training-reward-continuous-lab.mjs",
     "test:hr:attendance-request:pg": "sh scripts/run-hr-attendance-request-pg-gate.sh",
     "test:e2e:yuzhou-core-t0-t3-technical-uat": "node --test scripts/e2e/yuzhou-core-t0-t3-technical-uat-contract.mjs",
     "test:e2e:yuzhou-lightweight-first-continuous": "node --test scripts/e2e/yuzhou-lightweight-first-continuous-runner-contract.mjs",
