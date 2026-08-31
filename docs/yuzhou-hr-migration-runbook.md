@@ -311,6 +311,17 @@ pnpm hr:migration:t3-attendance-events:stage
 
 该阶段仅形成 `0600` 的隔离审计证据，并将受控备份、密封恢复回执、源目录身份、映射契约和业务哈希写入 manifest；`businessWriteTarget=none`、`productionImport=HOLD`。quarantine loader 必须重新校验全部 C/S/M 哈希，回滚按实际源行数守恒，不得假定单行。只有后续在同一受控源快照中重新提取、经批准员工映射、隔离 PostgreSQL 装载、逐项守恒、回滚和重装全部通过，才可另开打卡业务事实导入切片；不得复用这份哈希分期文件填充业务时间或身份字段。
 
+完成两次独立 stage 后，使用唯一的 A/B 编排入口执行每侧两次“审计隔离装载→精确回滚”，再从同一 core `rollback_ready` 检查点反序清理。该入口只接受 `core_t0_t3` 的两个隔离配置、两份 `0700` stage 和新的 `0600` 摘要路径；它固定断言 `1 = 0 loaded + 1 quarantined`、业务打卡表零写入、A/B 收据一致和两侧 `residualCount=0`，不接受生产目标或任何文件/工资 stage：
+
+```sh
+pnpm hr:migration:t3-attendance-events:pair-continuous -- \
+  --config-a '<A 0600 core_t0_t3 config>' \
+  --config-b '<B 0600 core_t0_t3 config>' \
+  --stage-a '<A 0700 attendance quarantine stage>' \
+  --stage-b '<B 0700 attendance quarantine stage>' \
+  --summary '<new 0600 summary outside either runtime root>'
+```
+
 截至 2026-08-30，固定恢复源的实际汇总为：`dbo.attrecord=1`、可关联 `dbo.person=0`，`dbo.leave=0`、`dbo.overtime=0`、`dbo.timekeeprecord=0`。该唯一打卡记录已经完成一次隔离审计演练：`1 = 0 loaded + 1 quarantined`，原因是 `ATTENDANCE_PUNCH_PERSON_UNMAPPED`；业务打卡表保持 `0` 行，审计回滚后 migration audit residual 也为 `0`，随后 core 临时资源清理为 `0`。这不是“无数据即跳过”的推断，而是同一受控备份的只读计数和隔离验证；缺少可核验员工映射前，历史打卡业务导入与生产导入继续为 `HOLD`。
 
 现代在线考勤申请的 PostgreSQL 闭环可在已到达 `rollback_ready` 的同一隔离 core lab 中执行；命令要求 loopback 地址、数字端口和 `jinhu_hr_migration_lab_core_` 数据库前缀，拒绝共享库和生产库。测试覆盖草稿→提交→审批、审批动作链与重叠时段拒绝，并由调用方在完成后继续同一 continuous runner 回滚和 cleanup：

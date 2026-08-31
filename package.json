@@ -163,6 +163,7 @@
     "hr:migration:t3-attendance-events:stage": "sh scripts/extract-yuzhou-t3-attendance-event-quarantine.sh",
     "hr:migration:t3-attendance-events:load-quarantine": "sh scripts/load-yuzhou-t3-attendance-event-quarantine.sh",
     "hr:migration:t3-attendance-events:rollback-quarantine": "sh scripts/rollback-yuzhou-t3-attendance-event-quarantine.sh",
+    "hr:migration:t3-attendance-events:pair-continuous": "node scripts/hr-cutover/run-t3-attendance-event-quarantine-pair-lab.mjs",
     "hr:migration:t3-attendance-request:lab": "node scripts/hr-cutover/run-hr-attendance-request-lab.mjs",
     "hr:migration:training-reward-events:profile": "sh scripts/profile-yuzhou-training-reward-events.sh",
     "hr:migration:training-reward-history:extract": "sh scripts/extract-yuzhou-training-reward-history.sh",
