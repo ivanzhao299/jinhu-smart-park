@@ -250,6 +250,8 @@ preflight 要求干净候选、当前 HEAD 与 C 一致、mapping bundle 与 M �
 
 `T5_FILE` 不属于轻量优先顺序，必须通过 `hr:migration:t5:photo-owner:continuous` 作为独立证据切片运行。该入口只接受与 `core_t0_t2` 同一受控备份和恢复回执绑定的 `0700` 照片归属 stage，先使 T0→T2 停在 `rollback_ready`，再用该 run 的 T0 映射进行“加载 → 精确回滚 → 同一 stage 重装 → 再次回滚”，随后继续 T2→T0 清理并要求 `residual=0`。它只写 hash-only 的 `hr_legacy_t5_file_evidence`，明确禁止写入 `sys_file`、`hr_employee_document`、在线员工、薪酬、工资、工资条和消息表；物理二进制归一化、员工附件关联和旧文档仍是后续独立切片，生产导入固定为 `HOLD`。
 
+照片对象存储的下一层已补充为 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs`，但它**仅**接受 `isolated_synthetic_rehearsal` 合成 JPEG 阶段，不读取玉舟图片、不连接 PostgreSQL、不创建 `sys_file`。它以归一化内容 SHA-256 生成 run-scoped 相对对象路径，要求阶段文件和存储根分别为当前用户拥有的 `0600`/`0700` 非符号链接对象；失败时只清理本 run 的临时目录，回滚会在删除前核对目录内容与回执完全一致。该验证只闭合了“受控文件根写入与精确文件回滚”的合成路径，不能代替真实二进制 A/B、`sys_file`/`legacy_record_map` 事务、RBAC 下载验收或生产导入授权。
+
 ```sh
 pnpm hr:migration:t5:photo-owner:continuous -- \
   --config '<同一轮、0600 core_t0_t2 配置>' \

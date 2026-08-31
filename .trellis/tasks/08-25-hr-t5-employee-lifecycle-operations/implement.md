@@ -69,6 +69,8 @@
 - 从当前受控回执分别生成两个独立文档归属 stage，stage hash 相同。两次隔离演练均完成两轮 `load -> rollback`：每轮 `source=1,003`、`loaded=989`、`quarantined=14`，A/B 比较为 `PASS`，两边均 `residualCount=0`。结果只证明旧文档与员工归属的 hash-only 证据可重跑、可审计、可回滚；二进制内容、对象归一化和附件关联仍未执行，生产导入保持 `HOLD`。
 - 照片归属复用同一 pair 入口并完成独立 A/B 演练。两个 stage 的来源/回执/哈希一致；两边各完成两轮 `load -> rollback`，每轮 `source=2,155`、`loaded=2,155`、`quarantined=0`，最终均为 `CONTRACT_PASS` 与 `residualCount=0`。该结果只涵盖既有内容 hash、大小和 MIME 的归属证据，不读取或复制图片二进制，不创建在线文件或员工附件关联，生产导入继续 `HOLD`。
 
+- 新增 `scripts/hr-cutover/yuzhou-photo-file-materialization-rehearsal.mjs` 的合成对象根演练：它只接受 `isolated_synthetic_rehearsal`、哈希命名的 JPEG、当前用户拥有的 `0700` 阶段/存储目录和 `0600` 普通文件；目标路径固定为 run-scoped、内容哈希地址，输出仅含 `hr_employee_photo` 所需的受保护文件元数据。合成契约已覆盖写入哈希复核、失败临时目录清理、目录外残留拒绝和精确回滚。该实现未读取真实玉舟二进制、未写 PostgreSQL 或 `sys_file`，故不能作为照片真实 A/B、在线附件关联或生产导入完成的依据。
+
 - [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
 - [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
 - [x] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。

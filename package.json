@@ -195,6 +195,7 @@
     "test:e2e:yuzhou-t5-document-owner-evidence-runner": "node scripts/e2e/yuzhou-t5-document-owner-evidence-runner-contract.mjs",
     "test:e2e:yuzhou-photo-normalization-preflight": "node --test scripts/e2e/yuzhou-photo-normalization-preflight-contract.mjs",
     "test:e2e:yuzhou-photo-normalization-worker": "node --test scripts/e2e/yuzhou-photo-normalization-worker-contract.mjs",
+    "test:e2e:yuzhou-photo-file-materialization": "node --test scripts/e2e/yuzhou-photo-file-materialization-rehearsal-contract.mjs",
     "test:e2e:yuzhou-photo-normalization-worker-docker": "node scripts/e2e/yuzhou-photo-normalization-worker-docker.mjs",
     "test:e2e:yuzhou-production-import-preflight": "node --test scripts/e2e/yuzhou-production-import-preflight-contract.mjs",
     "test:e2e:yuzhou-production-import-execution": "node --test scripts/e2e/yuzhou-production-import-execution-contract.mjs",
