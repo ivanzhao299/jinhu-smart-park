@@ -357,7 +357,9 @@ pnpm hr:migration:t3-attendance-request:lab -- \
   --config '<0600 core config>' --duration-minutes 300 --poll-seconds 1
 ```
 
-当前仍保持 `executionStatus=SPEC_FROZEN`，不能把 driver 接线等同于 A/B 真实通过。prepare 会保留固定 backup 的私有绝对路径并绑定实际 hash，但在存在可验证的 backup→source container/database restore receipt、实时只读状态和容器身份联合证明前，extract 固定以 `CORE_SOURCE_RESTORE_BINDING_REQUIRED` 停止；仅传 `YUZHOU_BACKUP_SHA256` 不构成源证明。T1 异动和 T2 合同 loader 分别强制读取 event type/state 与 contract type/state 四份 approved dictionary hash；现有 v2 机器包仅签署 T0 job-state dictionary，因此 T1/T2 写入前继续以 `CORE_NON_T0_DICTIONARY_ATTESTATIONS_REQUIRED` 停止。目标业务 canonical 与 protected side-effect facts 尚未实现，facts 阶段以 `CORE_BUSINESS_CANONICAL_FACTS_REQUIRED` 停止，不能用 record-map hash 或硬编码零副作用替代。生产历史导入始终为 `HOLD`。
+`executionStatus=SPEC_FROZEN` 是 core 契约分类，不是“只能接线、不能执行”的含义，也不能替代当前提交的真实 A/B 证据。`prepare` 会固定 backup、恢复回执、只读 source container、四本 T1/T2 字典决策包和 machine attestation root；运行时会重新证明 backup→只读恢复库的身份。T1/T2 的 event type/state 与 contract type/state 四本机器证明字典、以及 T0→T3 的目标 canonical facts 与受保护副作用检查已经由 `postgres-lab-v1` 实现；缺包、来源漂移、错误目标或事实不守恒均会失败关闭。
+
+截至 2026-09-01，先前的隔离演练因代码 SHA 已变化，不能充当当前提交的证据。一次针对当前提交的新 A/B `prepare` 已在创建临时数据库前失败关闭：受控 backup 和恢复回执均有效，但私有只读 SQL Server ETL 凭据封套缺失。不得从旧配置、日志或对话中恢复、猜测或复制该封套；应由受控秘密/开发者通道重新签发 `0600` 的最小只读封套后，重新建立 A/B 配置并连续执行 load、技术 UAT、T3→T0 rollback 与 residual=0。生产历史导入继续 `HOLD`。
 
 ```sh
 pnpm test:e2e:yuzhou-core-t0-t3-rehearsal
