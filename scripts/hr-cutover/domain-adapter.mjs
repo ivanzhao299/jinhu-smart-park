@@ -152,7 +152,8 @@ function main() {
 }
 
 try { main(); } catch (error) {
-  const code = error instanceof LifecycleError ? error.code : "UNEXPECTED_FAILURE";
+  const candidate = error instanceof LifecycleError ? error.code : error?.code;
+  const code = /^[A-Z][A-Z0-9_]{2,80}$/u.test(candidate ?? "") ? candidate : "UNEXPECTED_FAILURE";
   process.stderr.write(`${code}: ${error.message.replace(/^.*?: /, "")}\n`);
   process.exitCode = 1;
 }
