@@ -74,6 +74,7 @@ export class PartiesService {
       .where("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("party.is_deleted = false");
+    if (!applyProjection) builder.andWhere("party.processing_restricted_at IS NULL");
     if (query.party_type) builder.andWhere("party.party_type = :partyType", { partyType: query.party_type });
     if (housingUnitIds !== null) {
       const scopedLeasePredicate = housingUnitIds.length > 0 ?
@@ -193,7 +194,7 @@ export class PartiesService {
     ]);
     const response = this.withIdentitySummary(
       this.toResponse(entity, actor,
-        canReadSensitive
+        canReadSensitive && !entity.processingRestrictedAt
           ? this.sensitiveDataService.decrypt(
             entity.identityNumberEncrypted,
             entity.identityNumberEncryptionKeyId ?? undefined
@@ -388,9 +389,19 @@ export class PartiesService {
   }
 
   async removeRole(scope: TenantParkScope, actor: JwtPrincipal, roleId: string) {
-    const role = await this.rolesRepository.findOne({
-      where: { id: roleId, tenantId: scope.tenantId, parkId: scope.parkId, isDeleted: false }
-    });
+    const role = await this.rolesRepository.createQueryBuilder("role")
+      .innerJoin(
+        PartyEntity,
+        "party",
+        "party.tenant_id=role.tenant_id AND party.park_id=role.park_id AND party.id=role.party_id"
+      )
+      .where("role.id=:roleId", { roleId })
+      .andWhere("role.tenant_id=:tenantId", { tenantId: scope.tenantId })
+      .andWhere("role.park_id=:parkId", { parkId: scope.parkId })
+      .andWhere("role.is_deleted=false")
+      .andWhere("party.is_deleted=false")
+      .andWhere("party.processing_restricted_at IS NULL")
+      .getOne();
     if (!role) throw new NotFoundException("Party role not found");
     role.isDeleted = true;
     role.status = "inactive";
@@ -410,6 +421,7 @@ export class PartiesService {
       .andWhere("party.tenant_id = :tenantId", { tenantId: scope.tenantId })
       .andWhere("party.park_id = :parkId", { parkId: scope.parkId })
       .andWhere("party.is_deleted = false");
+    builder.andWhere("party.processing_restricted_at IS NULL");
     if (includeSensitive) {
       builder.addSelect("party.identityNumberEncrypted").addSelect("party.identityNumberHash");
     }
@@ -502,6 +514,13 @@ export class PartiesService {
       remark: entity.remark
     };
     if (identityNumber !== undefined) response.identityNumber = identityNumber;
+    if (entity.processingRestrictedAt) {
+      delete response.mobile;
+      delete response.email;
+      delete response.identityDocumentType;
+      delete response.identityNumberMasked;
+      delete response.identityNumber;
+    }
     return actor ? this.projectForActor(response, actor) : response;
   }
 

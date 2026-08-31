@@ -541,6 +541,7 @@ export class FileBusinessAccessService {
           AND party.park_id=submission.park_id
           AND party.id=submission.party_id
           AND party.is_deleted=false
+          AND party.processing_restricted_at IS NULL
          JOIN public.sys_user actor
            ON actor.tenant_id=submission.tenant_id
           AND actor.park_id=submission.park_id
@@ -589,6 +590,7 @@ export class FileBusinessAccessService {
           AND party.park_id=submission.park_id
           AND party.id=submission.party_id
           AND party.is_deleted=false
+          AND party.processing_restricted_at IS NULL
          JOIN public.sys_user actor
            ON actor.tenant_id=submission.tenant_id
           AND actor.park_id=submission.park_id
@@ -656,6 +658,7 @@ export class FileBusinessAccessService {
           AND party.park_id=submission.park_id
           AND party.id=submission.party_id
           AND party.is_deleted=false
+          AND party.processing_restricted_at IS NULL
          JOIN public.biz_party_identity_verification_queue queue
            ON queue.tenant_id=submission.tenant_id
           AND queue.park_id=submission.park_id

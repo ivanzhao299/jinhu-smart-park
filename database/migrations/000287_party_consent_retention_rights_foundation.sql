@@ -239,12 +239,14 @@ RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE party_value uuid; days_value integer; action_value varchar(32); object_time timestamptz;
 BEGIN
   IF TG_TABLE_NAME='rel_party_identity_draft_file' THEN
-    SELECT party_id,create_time INTO party_value,object_time FROM public.biz_party_identity_submission
+    SELECT party_id INTO party_value FROM public.biz_party_identity_submission
       WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.submission_id;
   ELSE
-    SELECT party_id,create_time INTO party_value,object_time FROM public.biz_party_identity_snapshot
+    SELECT party_id INTO party_value FROM public.biz_party_identity_snapshot
       WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.snapshot_id;
   END IF;
+  SELECT create_time INTO object_time FROM public.sys_file
+    WHERE tenant_id=NEW.tenant_id AND park_id=NEW.park_id AND id=NEW.file_id;
   INSERT INTO public.biz_party_identity_retention_policy(tenant_id,park_id)
     VALUES(NEW.tenant_id,NEW.park_id) ON CONFLICT(tenant_id,park_id) DO NOTHING;
   SELECT identity_photo_days,identity_photo_action INTO days_value,action_value
@@ -272,6 +274,68 @@ SELECT snapshot.tenant_id,snapshot.park_id,snapshot.party_id,'snapshot',snapshot
        'restrict_processing','pending_classification','legacy_unknown'
 FROM public.biz_party_identity_snapshot snapshot
 ON CONFLICT(tenant_id,park_id,category,object_id) DO NOTHING;
+
+INSERT INTO public.biz_party_identity_retention_assignment(
+  tenant_id,park_id,party_id,category,object_id,expiry_action,state,source
+)
+SELECT audit.tenant_id,audit.park_id,audit.party_id,'protected_audit',audit.object_id,
+       'retain_restricted','pending_classification','legacy_unknown'
+FROM (
+  SELECT assignment.tenant_id,assignment.park_id,assignment.party_id,assignment.id AS object_id
+  FROM public.biz_party_identity_assignment_audit assignment
+  UNION ALL
+  SELECT decision.tenant_id,decision.park_id,decision.party_id,decision.id
+  FROM public.biz_party_identity_decision decision
+  UNION ALL
+  SELECT op.tenant_id::text,op.park_id::text,submission.party_id,op.id
+  FROM public.sys_op_log op
+  JOIN public.biz_party_identity_submission submission
+    ON submission.tenant_id=op.tenant_id::text AND submission.park_id=op.park_id::text
+   AND op.biz_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+   AND submission.id=op.biz_id::uuid
+  WHERE op.biz_type='party_identity_submission'
+) audit
+ON CONFLICT(tenant_id,park_id,category,object_id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public.fn_party_identity_protected_audit_assign_retention()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE party_value uuid; object_time timestamptz; days_value integer; action_value varchar(32);
+BEGIN
+  IF TG_TABLE_NAME='biz_party_identity_assignment_audit' THEN
+    party_value:=NEW.party_id; object_time:=NEW.occurred_at;
+  ELSIF TG_TABLE_NAME='biz_party_identity_decision' THEN
+    party_value:=NEW.party_id; object_time:=NEW.create_time;
+  ELSIF NEW.biz_type='party_identity_submission'
+        AND NEW.biz_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+    SELECT party_id INTO party_value FROM public.biz_party_identity_submission
+      WHERE tenant_id=NEW.tenant_id::text AND park_id=NEW.park_id::text AND id=NEW.biz_id::uuid;
+    object_time:=NEW.create_time;
+  ELSE
+    RETURN NEW;
+  END IF;
+  IF party_value IS NULL THEN RETURN NEW; END IF;
+  INSERT INTO public.biz_party_identity_retention_policy(tenant_id,park_id)
+    VALUES(NEW.tenant_id::text,NEW.park_id::text) ON CONFLICT(tenant_id,park_id) DO NOTHING;
+  SELECT protected_audit_days,protected_audit_action INTO days_value,action_value
+  FROM public.biz_party_identity_retention_policy
+  WHERE tenant_id=NEW.tenant_id::text AND park_id=NEW.park_id::text;
+  INSERT INTO public.biz_party_identity_retention_assignment(
+    tenant_id,park_id,party_id,category,object_id,retention_until,expiry_action,state,source)
+  VALUES(NEW.tenant_id::text,NEW.park_id::text,party_value,'protected_audit',NEW.id,
+    COALESCE(object_time,now())+make_interval(days=>days_value),action_value,'active','policy')
+  ON CONFLICT(tenant_id,park_id,category,object_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+DROP TRIGGER IF EXISTS trg_party_identity_assignment_audit_retention ON public.biz_party_identity_assignment_audit;
+CREATE TRIGGER trg_party_identity_assignment_audit_retention AFTER INSERT ON public.biz_party_identity_assignment_audit
+FOR EACH ROW EXECUTE FUNCTION public.fn_party_identity_protected_audit_assign_retention();
+DROP TRIGGER IF EXISTS trg_party_identity_decision_retention ON public.biz_party_identity_decision;
+CREATE TRIGGER trg_party_identity_decision_retention AFTER INSERT ON public.biz_party_identity_decision
+FOR EACH ROW EXECUTE FUNCTION public.fn_party_identity_protected_audit_assign_retention();
+DROP TRIGGER IF EXISTS trg_party_identity_op_log_retention ON public.sys_op_log;
+CREATE TRIGGER trg_party_identity_op_log_retention AFTER INSERT ON public.sys_op_log
+FOR EACH ROW EXECUTE FUNCTION public.fn_party_identity_protected_audit_assign_retention();
 
 INSERT INTO public.biz_party_identity_retention_assignment(
   tenant_id,park_id,party_id,category,object_id,expiry_action,state,source

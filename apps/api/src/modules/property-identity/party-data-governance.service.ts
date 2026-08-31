@@ -64,15 +64,6 @@ export class PartyDataGovernanceService {
     const requestHash = this.payloadHash(dto);
     return this.dataSource.transaction(async (manager) => {
       await this.lockParty(manager, scope, partyId);
-      const source = await manager.query(
-        `SELECT processing_purpose,notice_version,effective_at,channel FROM public.biz_party_consent_fact
-         WHERE tenant_id=$1 AND park_id=$2 AND party_id=$3::uuid AND id=$4::uuid
-           AND lawful_basis='consent' AND status='granted'
-           AND id=(SELECT current_consent_fact_id FROM public.biz_party
-             WHERE tenant_id=$1 AND park_id=$2 AND id=$3::uuid)`,
-        [scope.tenantId, scope.parkId, partyId, factId]
-      ) as Array<Record<string, unknown>>;
-      if (!source[0]) throw new ConflictException("Only a current evidenced grant can be withdrawn");
       const existing = await manager.query(
         `SELECT id::text,status,request_hash FROM public.biz_party_consent_fact
          WHERE tenant_id=$1 AND park_id=$2 AND party_id=$3::uuid AND request_key=$4`,
@@ -82,6 +73,15 @@ export class PartyDataGovernanceService {
         this.assertRequestHash(existing[0].request_hash, requestHash);
         return { ...existing[0], request_hash: undefined, replayed: true };
       }
+      const source = await manager.query(
+        `SELECT processing_purpose,notice_version,effective_at,channel FROM public.biz_party_consent_fact
+         WHERE tenant_id=$1 AND park_id=$2 AND party_id=$3::uuid AND id=$4::uuid
+           AND lawful_basis='consent' AND status='granted'
+           AND id=(SELECT current_consent_fact_id FROM public.biz_party
+             WHERE tenant_id=$1 AND park_id=$2 AND id=$3::uuid)`,
+        [scope.tenantId, scope.parkId, partyId, factId]
+      ) as Array<Record<string, unknown>>;
+      if (!source[0]) throw new ConflictException("Only a current evidenced grant can be withdrawn");
       const rows = await manager.query(
         `INSERT INTO public.biz_party_consent_fact(
           tenant_id,park_id,party_id,status,lawful_basis,processing_purpose,notice_version,
@@ -141,7 +141,8 @@ export class PartyDataGovernanceService {
       const replay = await this.actionReplay(manager, scope, key, "subject-request-decision", id, requestHash);
       if (replay) return { ...replay, replayed: true };
       const rows = await manager.query(
-        `UPDATE public.biz_party_data_subject_request SET status=$4,decision_code=$5,
+        `UPDATE public.biz_party_data_subject_request SET status=$4,
+          outcome=CASE WHEN $4='rejected' THEN 'rejected' ELSE NULL END,decision_code=$5,
           decided_at=now(),decided_by=$3::uuid,decision_request_key=$7,update_time=now()
          WHERE tenant_id=$1 AND park_id=$2 AND id=$6::uuid AND status='submitted'
          RETURNING id::text,party_id::text,status`,
@@ -343,7 +344,7 @@ export class PartyDataGovernanceService {
           dto.protected_audit_days,dto.protected_audit_action,dto.legal_review_status,actor.sub]
       ) as Array<Record<string, unknown>>;
       const result = rows[0] ?? {};
-      await this.requiredAudit(manager, scope, actor, key, "party.retention.policy.update", scope.parkId,
+      await this.requiredAudit(manager, scope, actor, key, "party.retention.policy.update", null,
         { version: result.version, legalReviewStatus: dto.legal_review_status });
       await this.saveActionReceipt(manager, scope, actor, key, "retention-policy-update", null, requestHash, result);
       return { ...result, replayed: false };
@@ -374,7 +375,7 @@ export class PartyDataGovernanceService {
                WHEN 'submission' THEN submission.create_time
                WHEN 'snapshot' THEN snapshot.create_time
                WHEN 'identity_photo' THEN file.create_time
-               ELSE audit.create_time
+               ELSE COALESCE(audit.create_time,assignment_audit.occurred_at,decision.create_time)
              END AS source_time
            FROM public.biz_party_identity_retention_assignment assignment
            LEFT JOIN public.biz_party_identity_submission submission
@@ -389,6 +390,13 @@ export class PartyDataGovernanceService {
            LEFT JOIN public.sys_op_log audit
              ON assignment.category='protected_audit' AND audit.id=assignment.object_id
             AND audit.tenant_id=assignment.tenant_id AND audit.park_id=assignment.park_id
+           LEFT JOIN public.biz_party_identity_assignment_audit assignment_audit
+             ON assignment.category='protected_audit' AND assignment_audit.id=assignment.object_id
+            AND assignment_audit.tenant_id=assignment.tenant_id
+            AND assignment_audit.park_id=assignment.park_id
+           LEFT JOIN public.biz_party_identity_decision decision
+             ON assignment.category='protected_audit' AND decision.id=assignment.object_id
+            AND decision.tenant_id=assignment.tenant_id AND decision.park_id=assignment.park_id
            WHERE assignment.tenant_id=$1 AND assignment.park_id=$2
              AND assignment.source='legacy_unknown' AND assignment.state='pending_classification'
            ORDER BY assignment.create_time,assignment.id LIMIT $3 FOR UPDATE OF assignment SKIP LOCKED
@@ -411,7 +419,7 @@ export class PartyDataGovernanceService {
       ) as unknown[];
       const result = { classified: rows.length, replayed: false };
       await this.requiredAudit(manager, scope, actor, key, "party.retention.classify-legacy",
-        scope.parkId, result);
+        null, result);
       await this.saveActionReceipt(manager, scope, actor, key, "retention-classify-legacy", null, requestHash, result);
       return result;
     });
@@ -426,6 +434,13 @@ export class PartyDataGovernanceService {
       if (replay) return { ...replay, replayed: true };
       await manager.query(`SELECT pg_advisory_xact_lock(hashtextextended($1,0))`,
         [`party-retention:${scope.tenantId}:${scope.parkId}`]);
+      const policies = await manager.query(
+        `SELECT legal_review_status FROM public.biz_party_identity_retention_policy
+         WHERE tenant_id=$1 AND park_id=$2 FOR UPDATE`, [scope.tenantId, scope.parkId]
+      ) as Array<Record<string, unknown>>;
+      if (policies[0]?.legal_review_status !== "approved") {
+        throw new ConflictException("Retention policy requires legal approval before due execution");
+      }
       const due = await manager.query(
         `SELECT a.id::text,a.party_id::text,a.category,a.expiry_action,
           EXISTS(SELECT 1 FROM public.biz_party_identity_legal_hold h
@@ -459,7 +474,7 @@ export class PartyDataGovernanceService {
       }
       const result = { scanned: due.length, held, processingRestricted: restricted,
         requestedActions, actualAction: "processing_restricted", replayed: false };
-      await this.requiredAudit(manager, scope, actor, key, "party.retention.execute-due", scope.parkId, result);
+      await this.requiredAudit(manager, scope, actor, key, "party.retention.execute-due", null, result);
       await this.saveActionReceipt(manager, scope, actor, key, "retention-execute-due", null, requestHash, result);
       return result;
     });
@@ -522,7 +537,7 @@ export class PartyDataGovernanceService {
   }
 
   private async requiredAudit(manager: EntityManager, scope: TenantParkScope, actor: JwtPrincipal,
-    key: string, action: string, bizId: string, afterJson: Record<string, unknown>,
+    key: string, action: string, bizId: string | null, afterJson: Record<string, unknown>,
     retentionPartyId?: string) {
     await this.audit.recordOperationRequired({
       tenantId: scope.tenantId, parkId: scope.parkId, userId: actor.sub,

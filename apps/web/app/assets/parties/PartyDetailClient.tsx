@@ -188,10 +188,12 @@ function PartyConsentActions({ party, onUpdated }: {
     event.preventDefault();
     if (lock.current) return;
     const form = new FormData(event.currentTarget);
+    const processingPurpose = String(form.get("processing_purpose") ?? "identity_verification");
+    const lawfulBasis = processingPurpose === "legal_compliance" ? "legal_obligation" : "consent";
     const body = {
-      lawful_basis: "consent",
-      processing_purpose: String(form.get("processing_purpose") ?? "identity_verification"),
-      notice_version: String(form.get("notice_version") ?? ""),
+      lawful_basis: lawfulBasis,
+      processing_purpose: processingPurpose,
+      notice_version: lawfulBasis === "consent" ? String(form.get("notice_version") ?? "") : undefined,
       effective_at: new Date().toISOString(),
       channel: String(form.get("channel") ?? "in_person")
     };

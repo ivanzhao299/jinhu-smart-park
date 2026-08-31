@@ -215,6 +215,7 @@ test("identity create uses receipt and the 000185 command function only", async 
       if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
         return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
       }
+      if (statement.includes("SELECT 1 FROM public.biz_party")) return [{ "?column?": 1 }];
       if (statement.includes("fn_party_identity_create_draft_cas")) return [{ id: submissionId }];
       if (statement.includes("FROM public.biz_party_identity_submission s")) return [projection];
       if (statement.includes("biz_property_event_sequence")) return [{ sequence: 1 }];
@@ -654,6 +655,7 @@ test("superseding create appends the old superseded event and the new draft even
       if (statement.includes("SELECT request_hash,receipt_status,result_ref")) {
         return [{ request_hash: requestHash, receipt_status: "started", result_ref: null }];
       }
+      if (statement.includes("SELECT 1 FROM public.biz_party")) return [{ "?column?": 1 }];
       if (statement.includes("fn_party_identity_create_draft_cas")) {
         return [{ id: secondSubmissionId }];
       }

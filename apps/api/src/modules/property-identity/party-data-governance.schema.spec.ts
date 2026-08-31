@@ -26,6 +26,41 @@ test("000287 separates retention categories, legal hold, and rights outcomes", (
   assert.match(migration, /legacy_unknown'[\s\S]*pending_classification/u);
 });
 
+test("000287 derives photo retention from the file and enrolls all protected identity audit sources", () => {
+  const photoTrigger = migration.slice(
+    migration.indexOf("fn_party_identity_photo_assign_retention"),
+    migration.indexOf("trg_party_identity_draft_file_retention")
+  );
+  assert.match(photoTrigger, /FROM public\.sys_file/u);
+  assert.match(photoTrigger, /id=NEW\.file_id/u);
+  assert.doesNotMatch(photoTrigger, /party_id,create_time INTO party_value,object_time/u);
+
+  for (const source of [
+    "biz_party_identity_assignment_audit",
+    "biz_party_identity_decision",
+    "sys_op_log"
+  ]) {
+    assert.match(migration, new RegExp(`FROM public\\.${source}`, "u"));
+  }
+  assert.match(migration, /trg_party_identity_assignment_audit_retention/u);
+  assert.match(migration, /trg_party_identity_decision_retention/u);
+  assert.match(migration, /trg_party_identity_op_log_retention/u);
+  assert.match(service, /COALESCE\(audit\.create_time,assignment_audit\.occurred_at,decision\.create_time\)/u);
+});
+
+test("identity processing restriction is consumed by writes, domain projections, and evidence access", () => {
+  const identityService = readFileSync(resolve(__dirname, "property-identity.service.ts"), "utf8");
+  const partyService = readFileSync(resolve(
+    __dirname, "../property-operations/parties.service.ts"
+  ), "utf8");
+  const fileAccess = readFileSync(resolve(__dirname, "../files/file-business-access.service.ts"), "utf8");
+  assert.match(identityService, /assertProcessingAllowed/u);
+  assert.match(identityService, /party\.processing_restricted_at IS NULL/u);
+  assert.match(partyService, /if \(!applyProjection\)[\s\S]*processing_restricted_at IS NULL/u);
+  assert.match(partyService, /builder\.andWhere\("party\.processing_restricted_at IS NULL"\)/u);
+  assert.equal((fileAccess.match(/party\.processing_restricted_at IS NULL/gu) ?? []).length, 3);
+});
+
 test("governance commands keep audit retention and writes tenant-park scoped", () => {
   assert.match(service, /if \(!retentionPartyId\) return/u);
   assert.doesNotMatch(service, /test\(bizId\)/u);

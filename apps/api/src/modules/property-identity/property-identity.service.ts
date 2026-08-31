@@ -869,6 +869,7 @@ export class PropertyIdentityService {
           return this.replayProjection(manager, scope, receipt.result_ref);
         }
         if (!inserted.length) throw propertyIdentityError("property-runtime-unavailable");
+        await this.assertProcessingAllowed(manager, scope, actionId, targetId);
         const resultId = await command(manager);
         if (!resultId) throw propertyIdentityError("property-runtime-unavailable");
         const projection = await this.detail(scope, actor, resultId, manager);
@@ -900,6 +901,33 @@ export class PropertyIdentityService {
     } catch (error) {
       translateIdentityDatabaseError(error);
     }
+  }
+
+  private async assertProcessingAllowed(
+    manager: EntityManager,
+    scope: TenantParkScope,
+    actionId: IdentityActionId,
+    targetId: string
+  ): Promise<void> {
+    const rows = await manager.query(
+      actionId === "party.identity.create-draft"
+        ? `SELECT 1 FROM public.biz_party
+           WHERE tenant_id=$1 AND park_id=$2 AND id=$3::uuid
+             AND is_deleted=false AND processing_restricted_at IS NULL
+           FOR UPDATE`
+        : `SELECT 1 FROM public.biz_party_identity_submission submission
+           JOIN public.biz_party party
+             ON party.tenant_id=submission.tenant_id
+            AND party.park_id=submission.park_id
+            AND party.id=submission.party_id
+            AND party.is_deleted=false
+            AND party.processing_restricted_at IS NULL
+           WHERE submission.tenant_id=$1 AND submission.park_id=$2
+             AND submission.id=$3::uuid
+           FOR UPDATE OF party`,
+      [scope.tenantId, scope.parkId, targetId]
+    ) as unknown[];
+    if (!rows.length) throw propertyIdentityError("property-action-forbidden");
   }
 
   private async appendOutbox(
