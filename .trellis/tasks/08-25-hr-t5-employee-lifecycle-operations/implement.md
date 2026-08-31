@@ -56,6 +56,13 @@
 
 ## Phase 5 — 玉舟兼容切片
 
+### 2026-08-31 当前代码与真源回执重绑
+
+- 当前隔离代码提交 `424b937b98f856b5677337c02259b60269bcfb88` 已通过 T5 非文件 stage 的受限私有基线入口契约。该入口只接受绝对路径、非符号链接、单链接且权限 `0600` 的候选基线；默认仓库基线行为保持不变。
+- 旧的 M6 “current”回执在运行时身份门禁中被拒绝，没有发生 T5 加载。随后重新采集只读源端恢复回执；它与受控规范回执字节一致，仍绑定同一备份快照、健康只读 SQL Server 和最小只读 ETL 权限。生产导入持续为 `HOLD`。
+- 新鲜 stage 仅含非文件域 `person_core/family/knowhow/ticket`，来源守恒为 `7,752` 行，明确排除照片和文档。串行 A/B 隔离演练均得到一致的两轮结果：每轮 `source=7,752`、`loaded=7,648`、`quarantined=104`，每次均已回滚；A 与 B 最终均为 `CONTRACT_PASS`、`residualCount=0`。
+- 以上证明当前代码对这一个非文件历史切片可重跑、可回滚、可比例验证；不证明照片、文档、培训、奖惩、工资或任何生产目标已经导入。其他历史域仍须各自与当前回执重绑并完成独立的隔离闭环。
+
 - [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
 - [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
 - [x] `course/train/trainhis/jobtrain` 培训历史 load→rollback→reload；未知员工/课程 quarantine。
