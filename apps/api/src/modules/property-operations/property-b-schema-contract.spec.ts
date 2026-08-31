@@ -67,7 +67,7 @@ test("B-0 shared precondition freezes the 67-row endpoint authority", () => {
   assert.equal(endpoints.match(/^\s*row\("(?:GET|POST|PUT)"/gm)?.length, 67);
   assert.match(
     endpoints,
-    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"2a887d49aa3d9453bbb1cc1288634a21044253c81d42b113fd91d34ac9dc2545"/
+    /PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256\s*=\s*\n?\s*"f7fa07282846bec822e3a9b1a57e5e428c5012d72aaae1f3ef088c0d86b9d4c7"/
   );
 });
 
