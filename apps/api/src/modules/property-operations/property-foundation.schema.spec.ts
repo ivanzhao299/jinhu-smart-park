@@ -45,6 +45,10 @@ test("party key metadata migration is forward-only, scoped and auditable", () =>
   ), "utf8");
   assert.match(migration, /ADD COLUMN IF NOT EXISTS identity_number_encryption_key_id varchar\(128\)/u);
   assert.match(migration, /SET identity_number_encryption_key_id = 'party-data-v1'/u);
+  assert.match(migration, /identity_number_encryption_key_id = p_encryption_key_id/u);
+  assert.match(migration, /identity_number_encryption_key_id = NULL/u);
+  assert.match(migration, /party-data-key-metadata-update-draft-cas-definition-drift/u);
+  assert.match(migration, /party-data-key-metadata-create-draft-cas-definition-drift/u);
   assert.match(migration, /ck_biz_party_identity_encryption_key_metadata/u);
   assert.match(migration, /ck_party_identity_snapshot_encryption_key_id_format/u);
   assert.match(migration, /ck_party_identity_submission_draft_key_id_format/u);

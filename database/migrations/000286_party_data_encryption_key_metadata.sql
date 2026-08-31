@@ -8,6 +8,55 @@ SET identity_number_encryption_key_id = 'party-data-v1'
 WHERE identity_number_encrypted IS NOT NULL
   AND identity_number_encryption_key_id IS NULL;
 
+-- The canonical identity CAS functions predate Party ciphertext key metadata.
+-- Patch their reviewed definitions in place so every ciphertext write/clear is
+-- atomic with the corresponding key-id write/clear before the guard is added.
+DO $migration$
+DECLARE
+  v_signature text;
+  v_definition text;
+  v_patched text;
+BEGIN
+  v_signature := 'public.fn_party_identity_update_draft_cas(character varying,character varying,uuid,uuid,integer,character varying,text,character varying,character varying,character varying,integer,character varying,integer,uuid[])';
+  IF pg_catalog.to_regprocedure(v_signature) IS NULL THEN
+    RAISE EXCEPTION 'party-data-key-metadata-missing-update-draft-cas';
+  END IF;
+  SELECT pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(v_signature))
+  INTO v_definition;
+  IF pg_catalog.strpos(v_definition, 'identity_number_encryption_key_id = p_encryption_key_id') = 0 THEN
+    v_patched := pg_catalog.replace(
+      v_definition,
+      'identity_number_masked = p_identity_number_masked,',
+      'identity_number_masked = p_identity_number_masked,' || pg_catalog.chr(10)
+        || '            identity_number_encryption_key_id = p_encryption_key_id,'
+    );
+    IF v_patched = v_definition THEN
+      RAISE EXCEPTION 'party-data-key-metadata-update-draft-cas-definition-drift';
+    END IF;
+    EXECUTE v_patched;
+  END IF;
+
+  v_signature := 'public.fn_party_identity_create_draft_cas(character varying,character varying,uuid,uuid,bigint,uuid,character varying,integer)';
+  IF pg_catalog.to_regprocedure(v_signature) IS NULL THEN
+    RAISE EXCEPTION 'party-data-key-metadata-missing-create-draft-cas';
+  END IF;
+  SELECT pg_catalog.pg_get_functiondef(pg_catalog.to_regprocedure(v_signature))
+  INTO v_definition;
+  IF pg_catalog.strpos(v_definition, 'identity_number_encryption_key_id = NULL') = 0 THEN
+    v_patched := pg_catalog.replace(
+      v_definition,
+      'identity_number_masked = NULL,',
+      'identity_number_masked = NULL,' || pg_catalog.chr(10)
+        || '            identity_number_encryption_key_id = NULL,'
+    );
+    IF v_patched = v_definition THEN
+      RAISE EXCEPTION 'party-data-key-metadata-create-draft-cas-definition-drift';
+    END IF;
+    EXECUTE v_patched;
+  END IF;
+END;
+$migration$;
+
 ALTER TABLE public.biz_party
   DROP CONSTRAINT IF EXISTS ck_biz_party_identity_encryption_key_metadata;
 

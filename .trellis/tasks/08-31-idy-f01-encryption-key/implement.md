@@ -2,9 +2,9 @@
 
 ## Resume Point
 
-- Phase: implementation complete; next action is full quality check and PR review.
+- Phase: PR review round 2 repair complete; next action is commit/push and rerun PR CI.
 - Branch: `codex/fix-idy-01-encryption-key` from `origin/main@37647cc9`.
-- Issue: #509 (parent queue); F01 PR not yet created.
+- Issue: #509 (parent queue); PR: #510.
 - Keyring/fail-closed, Party metadata, tenant-scoped rotation, required audit, CLI, tests and docs are implemented.
 
 ## Checklist
@@ -46,3 +46,7 @@
 - Migration prerequisite contract and shell syntax: pass.
 - Disposable PostgreSQL 16 twice: migration apply + replay pass; v1 metadata backfill, three key-id guards, receipt table pass; task-owned containers removed.
 - Independent read-only review: five confirmed findings fixed (draft inventory, test startup fail-closed, DB key-id guards, duplicate JSON keys, from-key audit/docs).
+- PR CI round 1: main build gate passed; Release Smoke exposed that the pre-existing identity CAS functions did not write/clear the new Party key-id atomically. No merge occurred.
+- Review repair: migration now fail-closed patches both reviewed CAS definitions before enabling the Party metadata guard; definition drift aborts migration.
+- Focused identity/schema tests after repair: 33/33 pass.
+- Disposable PostgreSQL 16 failed-migration retry rehearsal: first syntax defect stopped at 000286 with 000285 last-successful; corrected checksum retried safely, both history stores recorded one succeeded row, patched write/clear definitions and validated guard all confirmed; task-owned container and volume removed.
