@@ -238,7 +238,7 @@ export class PartiesService {
       identityNumberMasked: null,
       sourceDomain: dto.source_domain ?? null,
       verificationStatus: "unverified",
-      consentStatus: dto.consent_status ?? "pending",
+      consentStatus: "pending",
       createBy: actor.sub,
       updateBy: actor.sub,
       remark: dto.remark?.trim() ?? null
@@ -299,7 +299,6 @@ export class PartiesService {
         if (dto.mobile !== undefined) entity.mobile = dto.mobile?.trim() ?? null;
         if (dto.email !== undefined) entity.email = dto.email?.trim() ?? null;
         if (dto.source_domain !== undefined) entity.sourceDomain = dto.source_domain;
-        if (dto.consent_status !== undefined) entity.consentStatus = dto.consent_status;
         if (dto.remark !== undefined) entity.remark = dto.remark?.trim() ?? null;
         entity.updateBy = actor.sub;
         const persisted = await repository.save(entity);
@@ -495,6 +494,8 @@ export class PartiesService {
       sourceDomain: entity.sourceDomain,
       verificationStatus: entity.verificationStatus,
       consentStatus: entity.consentStatus,
+      currentConsentFactId: entity.currentConsentFactId,
+      processingRestrictedAt: entity.processingRestrictedAt?.toISOString() ?? null,
       createTime: entity.createTime.toISOString(),
       updateTime: entity.updateTime.toISOString(),
       version: entity.version,

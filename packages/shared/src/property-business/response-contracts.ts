@@ -750,6 +750,8 @@ export interface PartyListItemResponse {
   sourceDomain: string | null;
   verificationStatus: string;
   consentStatus: string;
+  currentConsentFactId?: string | null;
+  processingRestrictedAt?: string | null;
   createTime: string;
   updateTime: string;
   version: number;

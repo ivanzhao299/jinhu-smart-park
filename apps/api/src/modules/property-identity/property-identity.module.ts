@@ -16,6 +16,8 @@ import { PropertyIdentityVerificationService } from "./property-identity-verific
 import { LegacyPartyIdentityAdapter } from "./legacy-party-identity.adapter";
 import { AuditModule } from "../audit/audit.module";
 import { PartyDataKeyRotationService } from "./party-data-key-rotation.service";
+import { PartyDataGovernanceController } from "./party-data-governance.controller";
+import { PartyDataGovernanceService } from "./party-data-governance.service";
 
 @Module({
   imports: [
@@ -30,19 +32,21 @@ import { PartyDataKeyRotationService } from "./party-data-key-rotation.service";
       PartyIdentityDraftFileEntity
     ])
   ],
-  controllers: [PropertyIdentityController],
+  controllers: [PropertyIdentityController, PartyDataGovernanceController],
   providers: [
     PartySensitiveDataService,
     PropertyIdentityService,
     PropertyIdentityVerificationService,
     LegacyPartyIdentityAdapter,
-    PartyDataKeyRotationService
+    PartyDataKeyRotationService,
+    PartyDataGovernanceService
   ],
   exports: [
     PropertyIdentityService,
     PropertyIdentityVerificationService,
     LegacyPartyIdentityAdapter,
-    PartyDataKeyRotationService
+    PartyDataKeyRotationService,
+    PartyDataGovernanceService
   ]
 })
 export class PropertyIdentityModule {}

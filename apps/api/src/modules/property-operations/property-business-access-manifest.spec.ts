@@ -243,14 +243,14 @@ test("root permission exports preserve legacy/action values and seed every granu
     [...TRACK_B_PAGE_PERMISSION_CODES]
   );
   const migrationOwnedPermissionCodes = new Set<string>(TRACK_B_ACTION_PERMISSION_CODES);
-  assert.equal(migrationOwnedPermissionCodes.size, 18);
+  assert.equal(migrationOwnedPermissionCodes.size, 22);
   for (const code of Object.values(PROPERTY_BUSINESS_PERMISSIONS)) {
     const expectedSeedCount = migrationOwnedPermissionCodes.has(code) ? 0 : 1;
     assert.equal(
       SYSTEM_PERMISSION_SEEDS.filter((seed) => seed.code === code).length,
       expectedSeedCount,
       migrationOwnedPermissionCodes.has(code)
-        ? `${code} is owned by migration 000189 and must not be production-seeded`
+        ? `${code} is migration-owned and must not be production-seeded`
         : `${code} must have exactly one production seed`
     );
   }
@@ -270,8 +270,14 @@ test("root permission exports preserve legacy/action values and seed every granu
   )?.[1];
   assert.ok(signedCodeBlock);
   assert.ok(signedDefinitionBlock);
+  const governancePermissions = new Set<string>([
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_CONSENT_MANAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_SUBJECT_RIGHTS_MANAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_RETENTION_MANAGE,
+    PROPERTY_BUSINESS_PERMISSIONS.PARTY_LEGAL_HOLD_MANAGE
+  ]);
   const expectedTrackBPermissions = [
-    ...TRACK_B_ACTION_PERMISSION_CODES,
+    ...TRACK_B_ACTION_PERMISSION_CODES.filter((code) => !governancePermissions.has(code)),
     ...TRACK_B_PAGE_PERMISSION_CODES
   ].sort();
   const extractCodes = (block: string) =>

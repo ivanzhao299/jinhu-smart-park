@@ -109,7 +109,7 @@ test("historical 65 plus seven read permissions equal the pre-Track-B shared sub
   assert.equal(new Set(extensionCodes).size, 7);
   assert.deepEqual(sorted(extensionCodes), sorted(expectedExtensionCodes));
   assert.equal(baseCodes.some((code) => extensionCodes.includes(code)), false);
-  assert.equal(trackBPermissionCodes.size, 25);
+  assert.equal(trackBPermissionCodes.size, 29);
   assert.equal(historicalPermissionCodes.length, 72);
   assert.deepEqual(
     sorted([...baseCodes, ...extensionCodes]),

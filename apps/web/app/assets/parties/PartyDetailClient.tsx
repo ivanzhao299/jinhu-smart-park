@@ -33,6 +33,7 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
   const pageAllowed = hasAccess(user, SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE, "asset");
   const canRead = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_READ);
   const canUpdate = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_UPDATE);
+  const canManageConsent = pageAllowed && hasPermission(user, SYSTEM_PERMISSIONS.PARTY_CONSENT_MANAGE);
   const canReadSensitive = hasPermission(user, SYSTEM_PERMISSIONS.PARTY_SENSITIVE_READ);
   const canReadIdentity = hasAccess(
     user,
@@ -94,7 +95,7 @@ export function PartyDetailClient({ partyId }: { partyId: string }) {
       state={state}
       title={party?.displayName ?? "业务相对方详情"}
     >
-      {party ? <PartyDetailContent canReadIdentity={canReadIdentity} canReadSensitive={canReadSensitive}
+      {party ? <PartyDetailContent canManageConsent={canManageConsent} canReadIdentity={canReadIdentity} canReadSensitive={canReadSensitive}
         canUpdate={canUpdate} onUpdated={load} party={party} /> : null}
     </CanonicalDetailShell>
   );
@@ -105,8 +106,8 @@ function returnUrl(href: string): UrlObject {
   return { pathname: url.pathname, query: Object.fromEntries(url.searchParams), hash: url.hash };
 }
 
-function PartyDetailContent({ canReadIdentity, canReadSensitive, canUpdate, onUpdated, party }: {
-  canReadIdentity: boolean; canReadSensitive: boolean; canUpdate: boolean;
+function PartyDetailContent({ canManageConsent, canReadIdentity, canReadSensitive, canUpdate, onUpdated, party }: {
+  canManageConsent: boolean; canReadIdentity: boolean; canReadSensitive: boolean; canUpdate: boolean;
   onUpdated(): Promise<void>; party: PartyDetailResponse;
 }) {
   return (
@@ -129,6 +130,7 @@ function PartyDetailContent({ canReadIdentity, canReadSensitive, canUpdate, onUp
           打开身份核验目录
         </Link>
       </PropertyPanelSurface> : null}
+      {canManageConsent ? <PartyConsentActions onUpdated={onUpdated} party={party} /> : null}
       {canUpdate ? <PartyUpdateForm canReadSensitive={canReadSensitive} onUpdated={onUpdated} party={party} /> : null}
     </div>
   );
@@ -145,6 +147,111 @@ function SensitiveRows({ party }: { party: PartyDetailResponse }) {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return <div><dt>{label}</dt><dd>{value}</dd></div>;
+}
+
+type ConsentStatusResponse = {
+  consent_status: string;
+  fact_id: string | null;
+  fact_status: string | null;
+  lawful_basis: string | null;
+  processing_purpose: string | null;
+  notice_version: string | null;
+  effective_at: string | null;
+  provenance: string | null;
+};
+
+function PartyConsentActions({ party, onUpdated }: {
+  party: PartyDetailResponse;
+  onUpdated(): Promise<void>;
+}) {
+  const [status, setStatus] = useState<ConsentStatusResponse | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const lock = useRef(false);
+  const idempotency = usePartyIdempotency();
+
+  async function loadStatus() {
+    try {
+      const response = await apiRequest<ConsentStatusResponse>(
+        `/property/party-data-governance/parties/${encodeURIComponent(party.id)}/status`,
+        { token: getAccessToken() }
+      );
+      setStatus(response.data);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "同意事实加载失败");
+    }
+  }
+
+  useEffect(() => { void loadStatus(); }, [party.id, party.currentConsentFactId]);
+
+  async function submitGrant(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (lock.current) return;
+    const form = new FormData(event.currentTarget);
+    const body = {
+      lawful_basis: "consent",
+      processing_purpose: String(form.get("processing_purpose") ?? "identity_verification"),
+      notice_version: String(form.get("notice_version") ?? ""),
+      effective_at: new Date().toISOString(),
+      channel: String(form.get("channel") ?? "in_person")
+    };
+    await runAction("party-consent-record", body,
+      `/property/party-data-governance/parties/${encodeURIComponent(party.id)}/consent-facts`);
+  }
+
+  async function submitWithdraw(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!status?.fact_id || lock.current) return;
+    const form = new FormData(event.currentTarget);
+    const body = {
+      revoked_at: new Date().toISOString(),
+      reason_code: String(form.get("reason_code") ?? "")
+    };
+    await runAction("party-consent-withdraw", body,
+      `/property/party-data-governance/parties/${encodeURIComponent(party.id)}/consent-facts/${encodeURIComponent(status.fact_id)}/withdraw`);
+  }
+
+  async function runAction(action: string, body: Record<string, unknown>, path: string) {
+    lock.current = true;
+    setSubmitting(true);
+    setFeedback("");
+    try {
+      await apiRequest(path, {
+        method: "POST", token: getAccessToken(),
+        idempotencyKey: idempotency.keyFor(action, body), body
+      });
+      idempotency.complete();
+      setFeedback("同意事实已更新。");
+      await Promise.all([loadStatus(), onUpdated()]);
+    } catch (error) {
+      setFeedback(error instanceof Error ? error.message : "同意事实更新失败");
+    } finally {
+      lock.current = false;
+      setSubmitting(false);
+    }
+  }
+
+  const withdrawable = status?.fact_status === "granted" && status.provenance === "operator_recorded";
+  return <PropertyPanelSurface title="同意证据">
+    <p>当前状态：{status?.fact_status ?? party.consentStatus}；来源：{status?.provenance ?? "未加载"}</p>
+    {status?.notice_version ? <p>告知版本：{status.notice_version}</p> : null}
+    <form className={styles.formGrid} onSubmit={submitGrant}>
+      <label>处理目的<select name="processing_purpose">
+        <option value="identity_verification">身份核验</option>
+        <option value="accommodation_checkin">民宿入住</option>
+        <option value="housing_move_in">住房入住</option>
+        <option value="legal_compliance">法定义务</option>
+      </select></label>
+      <label>告知文本版本<input maxLength={128} name="notice_version" required /></label>
+      <label>取得渠道<select name="channel"><option value="in_person">现场</option><option value="web">网页</option><option value="mobile">移动端</option><option value="paper">纸质</option></select></label>
+      <button className="ds-button ds-button-primary" disabled={submitting} type="submit">记录同意事实</button>
+    </form>
+    {withdrawable ? <form className={styles.formGrid} onSubmit={submitWithdraw}>
+      <label>撤回原因代码<input maxLength={64} name="reason_code" required /></label>
+      <button className="ds-button" disabled={submitting} type="submit">撤回当前同意</button>
+    </form> : null}
+    {feedback ? <p aria-live="polite">{feedback}</p> : null}
+  </PropertyPanelSurface>;
 }
 
 function PartyUpdateForm({
@@ -197,7 +304,6 @@ function PartyUpdateForm({
             <label>邮箱<input defaultValue={party.email ?? ""} maxLength={200} name="email" type="email" /></label>
           </>
         ) : null}
-        <label>授权状态<select defaultValue={party.consentStatus} name="consent_status"><option value="pending">待确认</option><option value="granted">已授权</option><option value="withdrawn">已撤回</option></select></label>
         <label>备注<textarea defaultValue={party.remark ?? ""} maxLength={500} name="remark" /></label>
         <button className="ds-button ds-button-primary" disabled={submitting} type="submit">
           {submitting ? "保存中…" : "保存修改"}
@@ -211,7 +317,6 @@ function PartyUpdateForm({
 function partyUpdateBody(form: FormData, sensitive: boolean) {
   const base = {
     display_name: String(form.get("display_name") ?? ""),
-    consent_status: String(form.get("consent_status") ?? "pending"),
     remark: String(form.get("remark") ?? "") || null
   };
   return sensitive ? {

@@ -739,8 +739,17 @@ export class PropertyIdentityService {
        JOIN public.biz_party_identity_snapshot snapshot
          ON snapshot.tenant_id=s.tenant_id AND snapshot.park_id=s.park_id
         AND snapshot.id=s.snapshot_id
+       JOIN public.biz_party_consent_fact consent
+         ON consent.tenant_id=p.tenant_id AND consent.park_id=p.park_id
+        AND consent.id=p.current_consent_fact_id AND consent.party_id=p.id
        WHERE p.tenant_id=$1 AND p.park_id=$2 AND p.id=ANY($3::uuid[])
          AND p.consent_status=$4 AND p.is_deleted=false AND s.status='verified'
+         AND p.processing_restricted_at IS NULL
+         AND consent.status='granted' AND consent.lawful_basis='consent'
+         AND consent.provenance='operator_recorded'
+         AND consent.processing_purpose='accommodation_checkin'
+         AND consent.effective_at <= now()
+         AND consent.revoked_at IS NULL
          AND p.identity_version=s.identity_version
        ORDER BY p.id
        FOR UPDATE OF p,s,snapshot`,

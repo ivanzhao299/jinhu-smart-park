@@ -80,13 +80,13 @@ test("Track B contract exposes the signed exact permission and surface sets", ()
     crypto.createHash("sha256").update(contractBytes).digest("hex"),
     TRACK_B_CONTRACT_SHA256
   );
-  assert.equal(TRACK_B_ACTION_PERMISSION_CODES.length, 18);
-  assert.equal(TRACK_B_ACTION_PERMISSION_DEFINITIONS.length, 18);
+  assert.equal(TRACK_B_ACTION_PERMISSION_CODES.length, 22);
+  assert.equal(TRACK_B_ACTION_PERMISSION_DEFINITIONS.length, 22);
   assert.deepEqual(
     TRACK_B_ACTION_PERMISSION_DEFINITIONS.map((definition) => definition.code).sort(),
     [...TRACK_B_ACTION_PERMISSION_CODES].sort()
   );
-  assert.equal(new Set(TRACK_B_ACTION_PERMISSION_CODES).size, 18);
+  assert.equal(new Set(TRACK_B_ACTION_PERMISSION_CODES).size, 22);
   assert.equal(TRACK_B_PAGE_PERMISSION_CODES.length, 7);
   assert.equal(new Set(TRACK_B_PAGE_PERMISSION_CODES).size, 7);
   assert.deepEqual(
@@ -198,7 +198,7 @@ test("identity clientKey preserves the exact shared header/body value", () => {
 });
 
 test("Track B endpoint authority is unique, canonical and signed", () => {
-  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 53);
+  assert.equal(PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST.length, 66);
   assert.deepEqual(validatePropertyTrackBEndpointPermissionManifest(), []);
   const sorted = [...PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST].sort((left, right) => {
     const leftKey = Buffer.from(`${left.method}\t${left.path}`, "utf8");
