@@ -50,12 +50,13 @@ INSERT INTO hr_legacy_t5_record(tenant_id,park_id,import_batch_id,employee_id,do
 VALUES
  ('tenant-a','park-a','${sourceBatchId}','${employeeId}','candidate','dbo.person.core_residue','fixture-profile','${hash("3")}','${hash("4")}','employee_mapped','{}'),
  ('tenant-a','park-a','${sourceBatchId}',NULL,'reward_category','dbo.bonuscode','fixture-dictionary','${hash("5")}','${hash("6")}','not_applicable','{}'),
+ ('tenant-a','park-a','${sourceBatchId}',NULL,'experience','dbo.his','fixture-unowned-history','${hash("a")}','${hash("b")}','not_applicable','{}'),
  ('tenant-b','park-b','${otherSourceBatchId}',NULL,'reward_category','dbo.bonuscode','fixture-other','${hash("7")}','${hash("8")}','not_applicable','{}');
 INSERT INTO hr_legacy_t5_file_evidence(tenant_id,park_id,import_batch_id,employee_id,source_table,source_pk_canonical,source_identity_sha256,source_row_sha256,file_role,content_sha256,actual_size,detected_mime,readability_status)
 VALUES('tenant-a','park-a','${sourceBatchId}','${employeeId}','dbo.person.photo','fixture-photo','${hash("9")}','${hash("0")}','employee_photo','${hash("a")}',12,'image/bmp','readable');
 INSERT INTO hr_employee_profile(tenant_id,park_id,employee_id,highest_education,legacy_source_identity_sha256,legacy_source_row_sha256)
 VALUES('tenant-a','park-a','${employeeId}','fixture-level','${hash("3")}','${hash("4")}');
-UPDATE hr_legacy_t5_import_batch SET loaded_row_count=3,quarantined_row_count=1,status='staged' WHERE id='${sourceBatchId}';
+UPDATE hr_legacy_t5_import_batch SET source_row_count=5,loaded_row_count=4,quarantined_row_count=1,status='staged' WHERE id='${sourceBatchId}';
 UPDATE hr_legacy_t5_import_batch SET loaded_row_count=1,quarantined_row_count=0,status='staged' WHERE id='${otherSourceBatchId}';
 COMMIT;
 `);
@@ -81,9 +82,10 @@ const applyOutput=run("./scripts/materialize-yuzhou-t5-archive-visibility.sh",[]
 });
 const [materializationId,status,sourceCount,deferredCount,archiveCount]=applyOutput.split("|");
 assert.match(materializationId,/^[0-9a-f-]{36}$/u);
-assert.deepEqual([status,sourceCount,deferredCount,archiveCount],["staged","2","1","2"]);
-assert.equal(psql(`SELECT count(*)||'|'||(SELECT count(*) FROM hr_legacy_archive_record WHERE materialization_batch_id='${materializationId}')||'|'||(SELECT count(*) FROM hr_legacy_file_logical_record) FROM hr_legacy_identity_registry WHERE materialization_batch_id='${materializationId}';`),"2|2|0");
+assert.deepEqual([status,sourceCount,deferredCount,archiveCount],["staged","3","1","3"]);
+assert.equal(psql(`SELECT count(*)||'|'||(SELECT count(*) FROM hr_legacy_archive_record WHERE materialization_batch_id='${materializationId}')||'|'||(SELECT count(*) FROM hr_legacy_file_logical_record) FROM hr_legacy_identity_registry WHERE materialization_batch_id='${materializationId}';`),"3|3|0");
 assert.equal(psql(`SELECT count(*) FROM hr_legacy_archive_record WHERE display_safe_projection ? 'sourceTable';`),"0");
+assert.equal(psql(`SELECT count(*) FROM hr_legacy_archive_record archive JOIN hr_legacy_identity_registry identity ON identity.id=archive.identity_registry_id WHERE identity.source_table='dbo.his' AND identity.owner_employee_id IS NULL;`),"1");
 assert.equal(psql("SELECT count(*) FROM pg_roles WHERE rolname LIKE 'yuzhou_t5a_apply_%' OR rolname LIKE 'yuzhou_t5a_rollback_%';"),"0");
 
 // Ordinary callers cannot invoke the procedure or mutate immutable archive rows.

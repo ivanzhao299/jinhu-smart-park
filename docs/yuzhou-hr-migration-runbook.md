@@ -117,7 +117,7 @@ export ALLOW_YUZHOU_ROLLBACK=yes
 pnpm hr:migration:t5:rollback
 ```
 
-`docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失、`his` 所有者语义无法证明的行进入脱敏 quarantine。
+`docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
 
 完整演练只传递 `YUZHOU_PARTY_DATA_KEY_FILE` 的受控路径，文件必须为 `0600` 普通非符号链接，内容必须是精确 64 个十六进制字符且只允许一个可选的末尾 LF；CRLF、空格、空白行、多行、短值和超长值一律在任何 Docker、源库或目标库访问前拒绝。转换器从文件读取密钥，密钥内容不进入 config、manifest、日志或 Git。A/B 各持有独立私有副本，但内容必须来自同一个实验室密钥源，才能证明确定性；该实验室密钥不得替代生产密钥。转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 

@@ -26,7 +26,7 @@
 | 玉舟领域 | 关键旧对象 | Jinhu 目标 | 处理方式 |
 |---|---|---|---|
 | 组织/岗位 | company、departmentcode、job、assignment | sys_org、hr_position | 保留原组织编码；按编码长度生成父子关系，建立旧编码映射 |
-| 员工主档 | person、sfz、family、his、ticket | hr_employee、hr_employee_profile、hr_employee_document + 扩展档案 | 宽表拆分；身份证、联系方式、证照、家庭和履历分域并字段分级 |
+| 员工主档 | person、sfz、family、ticket；his 为独立动态历史 | hr_employee、hr_employee_profile、hr_employee_document + 扩展档案；his 进入无主兼容归档 | 宽表拆分；身份证、联系方式、证照、家庭分域并字段分级；his 未证明员工归属前不得写入履历 |
 | 招聘人才 | accept | hr_candidate（新增） | 保留人才库与员工转化关系，不直接写入正式员工 |
 | 入转调离 | readjust、readjustitem | hr_employment_event、hr_approval_request/action | 保留 JZ/DZ/LZ/FZ 单号和前后快照，旧状态映射为新状态机 |
 | 合同 | compact、compact_c、compacttypecode | hr_contract、hr_contract_change（新增） | 主合同、续签/变更、试用期、附件、提醒和状态链 |

@@ -126,7 +126,6 @@ CREATE TEMP TABLE classified AS
 SELECT s.payload,e.id employee_id,e.matches,COALESCE(profile_identity.source_matches,0) source_matches,
  CASE WHEN profile_identity.source_matches>1 THEN 'EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS'
       WHEN EXISTS(SELECT 1 FROM hr_employee_profile p WHERE p.tenant_id=:'tenant' AND p.park_id=:'park' AND p.id_number_fingerprint=profile_identity.fingerprint AND NOT p.is_deleted) THEN 'EMPLOYEE_PROFILE_IDENTITY_CONFLICT'
-      WHEN s.payload->>'sourceTable'='dbo.his' THEN 'HISTORY_OWNER_UNRESOLVED'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND COALESCE(e.matches,0)=0 THEN 'EMPLOYEE_NOT_MAPPED'
       WHEN NULLIF(s.payload->>'employeeCode','') IS NOT NULL AND e.matches>1 THEN 'EMPLOYEE_MAPPING_AMBIGUOUS'
  END quarantine_code

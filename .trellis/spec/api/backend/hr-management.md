@@ -580,6 +580,42 @@ pnpm hr:migration:t5:document-owner:continuous -- \
   --document-owner-stage '<sealed hash-only stage>'
 ```
 
+## Scenario: Yuzhou T5 unowned dynamic-history archive
+
+### 1. Scope / Trigger
+
+- Trigger: changing the T5 legacy-history classifier or archive materialization for `dbo.his`.
+- `dbo.his` is a dynamic history-value store. The reviewed source schema links it only to `histitle` by `tableid`; it does not establish an employee owner.
+
+### 2. Contracts
+
+- A `dbo.his` record is retained as an immutable `hr_legacy_t5_record` with `domain=experience`, `employee_id=NULL`, and `mapping_status=not_applicable`.
+- It is materialized only as an `archive_only` compatibility record. It must never create or update `hr_employee_experience`, an employee profile, a file record, or an employee owner edge.
+- Missing or ambiguous employee mappings on genuinely employee-owned records remain quarantined. This exception is limited to unowned `dbo.his` history and is not a generic mapping bypass.
+- Future person-level projection requires a separately reviewed client-field and ownership-semantics contract; production historical import remains `HOLD`.
+
+### 3. Tests Required
+
+- Contract-test that the `dbo.his` unresolved-owner classifier branch is absent while normal employee mapping quarantine rules remain.
+- Use an isolated PostgreSQL fixture to materialize one unowned `dbo.his` row, assert the archive registry has no `owner_employee_id`, then prove controlled rollback leaves no residual projection.
+
+### 4. Wrong vs Correct
+
+#### Wrong
+
+```sql
+INSERT INTO hr_employee_experience(employee_id, ...)
+SELECT guessed_employee_id, ... FROM dbo_his_projection;
+```
+
+#### Correct
+
+```sql
+-- Retain a source-addressable compatibility archive until ownership semantics are proven.
+INSERT INTO hr_legacy_t5_record(employee_id, domain, source_table, mapping_status)
+VALUES (NULL, 'experience', 'dbo.his', 'not_applicable');
+```
+
 ## Scenario: Historical attendance and insurance read productization
 
 ### 1. Scope / Trigger
