@@ -35,7 +35,7 @@ test("asset Party workbench owns one canonical page permission and surface", () 
 
 test("asset Party page stays canonical while Track B bundles may grant access to it", () => {
   const propertyPermissionValues = Object.values(PROPERTY_BUSINESS_PERMISSIONS);
-  assert.equal(propertyPermissionValues.length, 101);
+  assert.equal(propertyPermissionValues.length, 102);
   assert.equal(
     propertyPermissionValues.includes(SYSTEM_PERMISSIONS.ASSET_PARTY_PAGE),
     false

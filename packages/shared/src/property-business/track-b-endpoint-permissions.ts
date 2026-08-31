@@ -284,7 +284,7 @@ export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST = [
 ] as const satisfies readonly PropertyTrackBEndpointPermission[];
 
 export const PROPERTY_TRACK_B_ENDPOINT_PERMISSION_MANIFEST_SHA256 =
-  "2a887d49aa3d9453bbb1cc1288634a21044253c81d42b113fd91d34ac9dc2545" as const;
+  "f7fa07282846bec822e3a9b1a57e5e428c5012d72aaae1f3ef088c0d86b9d4c7" as const;
 
 export function validatePropertyTrackBEndpointPermissionManifest(
   manifest: readonly PropertyTrackBEndpointPermission[] =
