@@ -2,7 +2,7 @@
 
 ## Resume Point
 
-- Phase: PR review round 2 repair complete; next action is commit/push and rerun PR CI.
+- Phase: PR review round 2 findings repaired and locally verified; next action is commit/push, final review round 3, CI, merge.
 - Branch: `codex/fix-idy-01-encryption-key` from `origin/main@37647cc9`.
 - Issue: #509 (parent queue); PR: #510.
 - Keyring/fail-closed, Party metadata, tenant-scoped rotation, required audit, CLI, tests and docs are implemented.
@@ -50,3 +50,9 @@
 - Review repair: migration now fail-closed patches both reviewed CAS definitions before enabling the Party metadata guard; definition drift aborts migration.
 - Focused identity/schema tests after repair: 33/33 pass.
 - Disposable PostgreSQL 16 failed-migration retry rehearsal: first syntax defect stopped at 000286 with 000285 last-successful; corrected checksum retried safely, both history stores recorded one succeeded row, patched write/clear definitions and validated guard all confirmed; task-owned container and volume removed.
+- PR CI after CAS repair: build, migration, property API E2E and Release Smoke all passed; smoke duration 21m53s.
+- Review round 2 exposed ten threads. CAS was already fixed; remaining findings were repaired without changing HR files: unversioned same-domain keyring reads, strict envelope parsing, production keyring forwarding, 64-char receipt scope, active/soft-deleted/current-draft inventory, real scoped CLI actor, and minimal CLI module without MQTT/schedulers.
+- Focused review-fix tests: 31/31 pass. API lint/typecheck/build: pass.
+- Fresh disposable PostgreSQL 16: 277/277 migrations and replay pass; CAS definitions patched, receipt scope columns are 64, Party guard validated and snapshot/draft NOT VALID guards installed; task-owned container/network/volume removed.
+- Full API unit on CI-aligned Node 22.23.2: 1668 total; 1627 pass, 41 explicit PostgreSQL skips, 0 fail. Two prior Node 24 runs were not accepted as evidence: one unrelated isolated test-process failure and one V8 native fatal; the originally named files passed in isolation.
+- Scope/secret check: no HR file changed, `git diff --check` pass, diff secret-pattern scan pass.

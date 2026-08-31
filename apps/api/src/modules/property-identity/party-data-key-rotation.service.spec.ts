@@ -83,6 +83,20 @@ test("party data rotation rewrites old ciphertext and commits required audit in 
     assert.equal(serviceCrypto.decrypt(ciphertext, "party-data-v2"), "identity-value");
   }
   assert.match(statements[0]?.sql ?? "", /pg_advisory_xact_lock/u);
+  const draftInventorySql = statements.find((row) =>
+    row.sql.includes("FROM public.biz_party_identity_submission submission"))?.sql ?? "";
+  assert.match(draftInventorySql, /submission\.id=party\.current_identity_submission_id/u);
+  assert.match(draftInventorySql, /submission\.status='draft'/u);
+  assert.doesNotMatch(draftInventorySql, /party\.is_deleted=false/u);
+  const partyInventorySql = statements.find((row) => row.sql.includes("FROM public.biz_party\n"))?.sql ?? "";
+  assert.doesNotMatch(partyInventorySql, /is_deleted=false|IS DISTINCT FROM/u);
+  const snapshotInventorySql = statements.find((row) =>
+    row.sql.includes("FROM public.biz_party_identity_snapshot"))?.sql ?? "";
+  assert.doesNotMatch(snapshotInventorySql, /IS DISTINCT FROM/u);
+  const draftUpdateSql = statements.find((row) =>
+    row.sql.includes("UPDATE public.biz_party_identity_submission"))?.sql ?? "";
+  assert.match(draftUpdateSql, /FROM public\.biz_party party/u);
+  assert.match(draftUpdateSql, /submission\.id=party\.current_identity_submission_id/u);
 });
 
 test("party data rotation rejects inconsistent draft metadata before rewriting ciphertext", async () => {
@@ -128,4 +142,36 @@ test("party data rotation replays a receipt without touching ciphertext or audit
   const result = await rotation.rotate(scope, actor, "rotation-1");
   assert.equal(result.replayed, true);
   assert.equal(queryCount, 2);
+});
+
+test("party data rotation validates active-key ciphertext without rewriting it", async () => {
+  const crypto = new PartySensitiveDataService(new ConfigService({
+    PARTY_DATA_ENCRYPTION_KEY: "old-party-key-123456789012345678901234",
+    PARTY_DATA_ENCRYPTION_ACTIVE_KEY_ID: "party-data-v2",
+    PARTY_DATA_ENCRYPTION_KEYRING: JSON.stringify({
+      "party-data-v2": "new-party-key-123456789012345678901234"
+    })
+  }));
+  const queries: string[] = [];
+  const manager = { query: async (sql: string) => {
+    queries.push(sql);
+    if (sql.includes("FROM public.biz_party_data_key_rotation_receipt")) return [];
+    if (sql.includes("FROM public.biz_party_identity_submission submission")) return [];
+    if (sql.includes("FROM public.biz_party\n")) return [{
+      id: "00000000-0000-4000-8000-000000000020",
+      encrypted_payload: "enc:v1:00112233445566778899aabb:00112233445566778899aabbccddeeff:00",
+      encryption_key_id: "party-data-v2"
+    }];
+    return [];
+  } };
+  const rotation = new PartyDataKeyRotationService(
+    { transaction: async <T>(work: (value: typeof manager) => Promise<T>) => work(manager) } as never,
+    crypto,
+    { recordOperationRequired: async () => assert.fail("invalid active ciphertext must not audit") } as never
+  );
+  await assert.rejects(
+    rotation.rotate(scope, actor, "rotation-active-invalid"),
+    /ciphertext envelope is invalid/u
+  );
+  assert.equal(queries.some((sql) => sql.includes("SET identity_number_encrypted")), false);
 });

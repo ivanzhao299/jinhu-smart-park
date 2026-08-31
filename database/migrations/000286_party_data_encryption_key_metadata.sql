@@ -92,8 +92,8 @@ COMMENT ON COLUMN public.biz_party.identity_number_encryption_key_id IS
 
 CREATE TABLE IF NOT EXISTS public.biz_party_data_key_rotation_receipt (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id varchar(50) NOT NULL,
-  park_id varchar(50) NOT NULL,
+  tenant_id varchar(64) NOT NULL,
+  park_id varchar(64) NOT NULL,
   request_key varchar(128) NOT NULL,
   active_key_id varchar(128) NOT NULL,
   party_count integer NOT NULL DEFAULT 0,

@@ -55,8 +55,10 @@ export class PartyDataKeyRotationService {
            ON party.tenant_id=submission.tenant_id
           AND party.park_id=submission.park_id
           AND party.id=submission.party_id
-          AND party.is_deleted=false
          WHERE submission.tenant_id=$1 AND submission.park_id=$2
+           AND submission.id=party.current_identity_submission_id
+           AND submission.identity_version=party.identity_version
+           AND submission.status='draft'
            AND submission.draft_encryption_key_id IS NOT NULL
          ORDER BY submission.id
          FOR UPDATE OF submission, party`,
@@ -68,17 +70,18 @@ export class PartyDataKeyRotationService {
         }
         this.decryptRequired(row);
       }
-      const parties = await manager.query(
+      const partyInventory = await manager.query(
         `SELECT id::text, identity_number_encrypted AS encrypted_payload,
                 identity_number_encryption_key_id AS encryption_key_id
          FROM public.biz_party
-         WHERE tenant_id=$1 AND park_id=$2 AND is_deleted=false
+         WHERE tenant_id=$1 AND park_id=$2
            AND identity_number_encrypted IS NOT NULL
-           AND identity_number_encryption_key_id IS DISTINCT FROM $3
          ORDER BY id
          FOR UPDATE`,
-        [scope.tenantId, scope.parkId, activeKeyId]
+        [scope.tenantId, scope.parkId]
       ) as CipherRow[];
+      for (const row of partyInventory) this.decryptRequired(row);
+      const parties = partyInventory.filter((row) => row.encryption_key_id !== activeKeyId);
       for (const row of parties) {
         const plaintext = this.decryptRequired(row);
         await manager.query(
@@ -94,14 +97,16 @@ export class PartyDataKeyRotationService {
         );
       }
 
-      const snapshots = await manager.query(
+      const snapshotInventory = await manager.query(
         `SELECT id::text, encrypted_payload, encryption_key_id
          FROM public.biz_party_identity_snapshot
-         WHERE tenant_id=$1 AND park_id=$2 AND encryption_key_id IS DISTINCT FROM $3
+         WHERE tenant_id=$1 AND park_id=$2
          ORDER BY id
          FOR UPDATE`,
-        [scope.tenantId, scope.parkId, activeKeyId]
+        [scope.tenantId, scope.parkId]
       ) as CipherRow[];
+      for (const row of snapshotInventory) this.decryptRequired(row);
+      const snapshots = snapshotInventory.filter((row) => row.encryption_key_id !== activeKeyId);
       for (const row of snapshots) {
         const plaintext = this.decryptRequired(row);
         await manager.query(
@@ -115,14 +120,22 @@ export class PartyDataKeyRotationService {
 
       const draftRows = await manager.query(
         `UPDATE public.biz_party_identity_submission
+         AS submission
          SET draft_encryption_key_id=$3,
              update_by=$4,
              update_time=now(),
-             version=version+1
-         WHERE tenant_id=$1 AND park_id=$2
-           AND draft_encryption_key_id IS NOT NULL
-           AND draft_encryption_key_id IS DISTINCT FROM $3
-         RETURNING id`,
+             version=submission.version+1
+         FROM public.biz_party party
+         WHERE submission.tenant_id=$1 AND submission.park_id=$2
+           AND party.tenant_id=submission.tenant_id
+           AND party.park_id=submission.park_id
+           AND party.id=submission.party_id
+           AND submission.id=party.current_identity_submission_id
+           AND submission.identity_version=party.identity_version
+           AND submission.status='draft'
+           AND submission.draft_encryption_key_id IS NOT NULL
+           AND submission.draft_encryption_key_id IS DISTINCT FROM $3
+         RETURNING submission.id`,
         [scope.tenantId, scope.parkId, activeKeyId, actor.sub]
       ) as Array<{ id: string }>;
       const expectedDraftCount = draftInventory.filter(

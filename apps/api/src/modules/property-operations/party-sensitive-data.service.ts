@@ -32,13 +32,35 @@ export class PartySensitiveDataService {
     return `${PREFIX}${iv.toString("hex")}:${cipher.getAuthTag().toString("hex")}:${encrypted.toString("hex")}`;
   }
 
-  decrypt(value: string | null, keyId = this.keyring.activeKeyId): string | null {
+  decrypt(value: string | null, keyId?: string): string | null {
     if (!value?.startsWith(PREFIX)) return null;
-    const [ivHex, tagHex, payloadHex] = value.slice(PREFIX.length).split(":");
-    if (!ivHex || !tagHex || !payloadHex) return null;
-    const decipher = createDecipheriv("aes-256-gcm", this.key(keyId), Buffer.from(ivHex, "hex"));
-    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
-    return Buffer.concat([decipher.update(Buffer.from(payloadHex, "hex")), decipher.final()]).toString("utf8");
+    const segments = value.slice(PREFIX.length).split(":");
+    if (segments.length !== 3) return null;
+    const [ivHex, tagHex, payloadHex] = segments as [string, string, string];
+    if (!/^[0-9a-f]{24}$/iu.test(ivHex)
+      || !/^[0-9a-f]{32}$/iu.test(tagHex)
+      || !/^(?:[0-9a-f]{2})*$/iu.test(payloadHex)) return null;
+
+    const keyIds = keyId === undefined
+      ? [this.keyring.activeKeyId, ...this.keyring.keys.keys()].filter(
+        (candidate, index, values) => values.indexOf(candidate) === index
+      )
+      : [keyId];
+    for (const candidate of keyIds) {
+      const key = this.key(candidate);
+      try {
+        const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+        decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+        return Buffer.concat([
+          decipher.update(Buffer.from(payloadHex, "hex")),
+          decipher.final()
+        ]).toString("utf8");
+      } catch {
+        // Unversioned legacy consumers have no key-id metadata, so try the next
+        // configured Party-domain key. Explicit key-id callers never fall back.
+      }
+    }
+    return null;
   }
 
   hash(value: string): string {

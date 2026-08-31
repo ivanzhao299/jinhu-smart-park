@@ -19,9 +19,11 @@
 - `PARTY_DATA_ENCRYPTION_KEY` is the legacy `party-data-v1` key. It never falls back to IoT, JWT, video, or a fixed development secret.
 - `PARTY_DATA_ENCRYPTION_KEYRING` is a JSON object of valid key id to secret; duplicate keys, short secrets, malformed JSON, and invalid key ids fail closed.
 - `PARTY_DATA_ENCRYPTION_ACTIVE_KEY_ID` selects the only key used for new ciphertext. Historical keys are decrypt-only.
+- Versioned Party reads must supply their stored key id and never fall back. Legacy consumers without key-id metadata may try configured Party-domain keys active-first so their existing ciphertext remains readable during rotation; they must never cross into IoT/JWT/other key domains.
 - `PARTY_DATA_IDENTITY_HASH_KEY` is stable across AES rotation. Its first explicit value must reproduce the historical v1 HMAC; replacing it requires a separate Party/snapshot hash migration.
 - `enc:v1` is the payload/algorithm envelope, not the key id. Do not rename payload format merely because the AES key rotates.
-- Rotation is tenant/park scoped, advisory-locked, request-key idempotent, and writes ciphertext, receipt, and required audit in one transaction. Audit includes from/to key ids and counts only.
+- Rotation is tenant/park scoped, advisory-locked, request-key idempotent, validates every retained ciphertext including active-key and soft-deleted Party rows, and writes ciphertext, receipt, and required audit in one transaction. Only the current draft submission owns mutable Party draft metadata; historical submissions are not relabeled. Audit includes from/to key ids and counts only.
+- The rotation CLI uses a minimal Nest context with no MQTT/schedulers and resolves `--actor-id` to an enabled in-scope database user with `party:identity_verify` (or super permission); audit never invents actor identity or roles.
 
 ### 4. Validation & Error Matrix
 
@@ -40,8 +42,8 @@
 
 ### 6. Tests Required
 
-- Unit: missing Party key with IoT/JWT present fails; malformed/duplicate keyring fails; old ciphertext decrypts by old key id; new profile uses active id; fingerprint stays stable.
-- Rotation: scope lock precedes inventory; Party/draft/snapshot metadata is consistent; old ciphertext is re-encrypted; replay performs no write; required audit receives the transaction manager and no secret fields.
+- Unit: missing Party key with IoT/JWT present fails; malformed/duplicate keyring and malformed ciphertext envelopes fail; old ciphertext decrypts by old key id and by the unversioned compatibility path; new profile uses active id; fingerprint stays stable.
+- Rotation: scope lock precedes inventory; active-key, soft-deleted Party and current-draft/snapshot metadata is validated; old ciphertext is re-encrypted; replay performs no write; required audit receives the transaction manager and no secret fields.
 - Migration: PostgreSQL 16 apply plus replay; Party v1 metadata backfill; three key-id guards; scoped receipt uniqueness.
 - Package gates: API unit, lint, typecheck, build, migration prerequisite contract, shell syntax, and secret/fallback source scan.
 

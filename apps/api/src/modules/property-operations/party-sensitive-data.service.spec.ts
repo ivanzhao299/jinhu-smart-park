@@ -55,8 +55,22 @@ test("party sensitive data writes the active key and dual-reads a historical key
   }));
 
   assert.equal(rotatedService.decrypt(oldCiphertext, "party-data-v1"), "historical-value");
+  assert.equal(rotatedService.decrypt(oldCiphertext), "historical-value");
   assert.equal(rotatedService.identityProfile("new-value").encryptionKeyId, "party-data-v2");
   assert.throws(() => rotatedService.decrypt(oldCiphertext, "party-data-unknown"), /not configured/u);
+});
+
+test("party sensitive data rejects malformed envelopes and supports empty plaintext", () => {
+  const service = new PartySensitiveDataService(new ConfigService({
+    PARTY_DATA_ENCRYPTION_KEY: "test-only-party-key-12345678901234567890"
+  }));
+  const ciphertext = service.encrypt("synthetic-value");
+  assert.equal(service.decrypt(`${ciphertext}:extra`), null);
+  assert.equal(service.decrypt("enc:v1:00:0011:aa"), null);
+  assert.equal(service.decrypt("enc:v1:zzzzzzzzzzzzzzzzzzzzzzzz:00112233445566778899aabbccddeeff:aa"), null);
+  assert.equal(service.decrypt("enc:v1:00112233445566778899aabb:00112233445566778899aabbccddeeff:a"), null);
+  assert.equal(service.decrypt(`${ciphertext.slice(0, -2)}00`), null);
+  assert.equal(service.decrypt(service.encrypt("")), "");
 });
 
 test("identity fingerprint remains stable while the encryption key rotates", () => {

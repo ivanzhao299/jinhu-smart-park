@@ -1,7 +1,34 @@
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { SYSTEM_PERMISSIONS } from "@jinhu/shared";
 import { PartyDataKeyRotationService } from "./modules/property-identity/party-data-key-rotation.service";
-import type { JwtPrincipal } from "./shared/types/jwt-principal";
+import { PropertyIdentityModule } from "./modules/property-identity/property-identity.module";
+import { UsersModule } from "./modules/users/users.module";
+import { UsersService } from "./modules/users/users.service";
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ envFilePath: [".env", "../../.env"], isGlobal: true }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        type: "postgres" as const,
+        host: config.get<string>("POSTGRES_HOST", "localhost"),
+        port: config.get<number>("POSTGRES_PORT", 5432),
+        database: config.get<string>("POSTGRES_DB", "jinhu_smart_park"),
+        username: config.get<string>("POSTGRES_USER", "jinhu"),
+        password: config.getOrThrow<string>("POSTGRES_PASSWORD"),
+        autoLoadEntities: true,
+        synchronize: false
+      })
+    }),
+    UsersModule,
+    PropertyIdentityModule
+  ]
+})
+class PartyDataKeyRotationCliModule {}
 
 function argument(name: string): string {
   const prefix = `--${name}=`;
@@ -15,18 +42,21 @@ async function main(): Promise<void> {
   const parkId = argument("park-id");
   const actorId = argument("actor-id");
   const requestKey = argument("request-key");
-  const app = await NestFactory.createApplicationContext(AppModule, { logger: ["error", "warn"] });
+  const app = await NestFactory.createApplicationContext(PartyDataKeyRotationCliModule, {
+    logger: ["error", "warn"]
+  });
   try {
-    const actor: JwtPrincipal = {
-      sub: actorId,
-      username: "party-data-key-rotation-cli",
-      tenantId,
-      parkId,
-      roles: ["SECURITY_OPERATOR"],
-      permissions: []
-    };
+    const scope = { tenantId, parkId };
+    const actor = await app.get(UsersService).resolveJwtPrincipal(scope, actorId);
+    if (actor.tenantId !== tenantId || actor.parkId !== parkId) {
+      throw new Error("Rotation actor scope does not match the requested tenant and park");
+    }
+    if (!actor.permissions.includes("*")
+      && !actor.permissions.includes(SYSTEM_PERMISSIONS.PARTY_IDENTITY_VERIFY)) {
+      throw new Error("Rotation actor lacks party identity verification permission");
+    }
     const result = await app.get(PartyDataKeyRotationService).rotate(
-      { tenantId, parkId },
+      scope,
       actor,
       requestKey
     );
