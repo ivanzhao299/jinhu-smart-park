@@ -316,8 +316,14 @@ async function run() {
   assert(updatedTenant.verificationStatus === "unverified", "identity-only update resets Party verification");
   const updatedTenantDetail = await request(`/property/parties/${tenant.id}`, { token });
   assert(
-    updatedTenantDetail.identityNumber === identityWithLowercaseCheckDigit.toUpperCase(),
-    "identity-only update uses the persisted type and returns the canonical ID-card value"
+    !Object.hasOwn(updatedTenantDetail, "identityNumber"),
+    "ordinary Party detail never returns plaintext identity"
+  );
+  assert(
+    updatedTenantDetail.identityNumberMasked?.endsWith(
+      identityWithLowercaseCheckDigit.slice(-2).toUpperCase()
+    ),
+    "identity-only update uses the persisted type and returns the canonical masked ID-card value"
   );
   await expectRequestStatus(`/property/parties/${tenant.id}`, 400, {
     method: "PUT",
