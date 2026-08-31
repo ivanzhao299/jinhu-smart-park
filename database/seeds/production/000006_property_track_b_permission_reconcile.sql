@@ -382,7 +382,7 @@ BEGIN
    AND permission.status = 'enabled'
    AND permission.is_deleted = false;
 
-  IF permission_count <> 25 OR super_admin_grant_count <> 25 THEN
+  IF permission_count <> 26 OR super_admin_grant_count <> 26 THEN
     RAISE EXCEPTION
       'property-track-b-seed-reconcile-incomplete: permissions=%, super_admin_grants=%',
       permission_count, super_admin_grant_count
