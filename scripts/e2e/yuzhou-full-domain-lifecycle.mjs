@@ -278,7 +278,7 @@ try {
   expectCode("CHILD_FAILED", () => runForward(failedChild, failedChildPath));
   const failedJournal = readFileSync(join(failedChild.target.evidenceRoot, "lifecycle-journal.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(failedJournal.filter((row) => row.kind === "child" && row.phase === "load").map((row) => row.domain), ["T0", "T1"]);
-  assert.deepEqual(failedJournal.filter((row) => row.kind === "child_failure").map(({ domain, phase, status, code, stage }) => ({ domain, phase, status, code, stage })), [{ domain: "T2", phase: "load", status: "failed", code: "CHILD_FAILED", stage: undefined }]);
+  assert.deepEqual(failedJournal.filter((row) => row.kind === "child_failure").map(({ domain, phase, status, code, stage, failureCode }) => ({ domain, phase, status, code, stage, failureCode })), [{ domain: "T2", phase: "load", status: "failed", code: "CHILD_FAILED", stage: undefined, failureCode: "FIXTURE_CHILD_FAILURE" }]);
   assert.equal(cleanup(failedChild, { recovery: true }).residualCount, 0);
 
   const concurrent = configFor("B", "slice2_concurrent_b", [45731, 45732, 45733]);

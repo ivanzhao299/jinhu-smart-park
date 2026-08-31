@@ -690,16 +690,21 @@ export function provision(configInput) {
 }
 
 const T5_LOAD_STAGE = /T5_LOAD_STAGE=(preflight(?:_[a-z_]+)?|database_transaction)\b/g;
+const SAFE_CHILD_FAILURE_CODE = /(?:^|\n)([A-Z][A-Z0-9_]{2,80}):/g;
 
-function childFailureStage(output) {
+function childFailureEvidence(output) {
   const stages = [...String(output ?? "").matchAll(T5_LOAD_STAGE)].map((match) => `T5_LOAD_STAGE=${match[1]}`);
-  return stages.at(-1) ?? null;
+  const codes = [...String(output ?? "").matchAll(SAFE_CHILD_FAILURE_CODE)].map((match) => match[1]);
+  const failureCode = codes.filter((code) => !["CHILD_FAILED", "ERROR"].includes(code)).at(-1)
+    ?? (codes.includes("ERROR") ? "SCRIPT_ERROR" : null);
+  return { stage: stages.at(-1) ?? null, failureCode };
 }
 
-function recordChildFailure(config, domain, phase, stage) {
+function recordChildFailure(config, domain, phase, evidence = {}) {
   appendPrivate(paths(config).journal, {
     kind: "child_failure", domain, phase, status: "failed", code: "CHILD_FAILED", triple: config.triple,
-    ...(stage ? { stage } : {})
+    ...(evidence.stage ? { stage: evidence.stage } : {}),
+    ...(evidence.failureCode ? { failureCode: evidence.failureCode } : {})
   });
 }
 
@@ -708,9 +713,9 @@ function runAdapter(config, domain, phase) {
   try {
     const result = spawnSync(process.execPath, args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
     if (result.error || result.status !== 0) {
-      const stage = childFailureStage(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
-      recordChildFailure(config, domain, phase, stage);
-      fail("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`);
+      const evidence = childFailureEvidence(`${result.stdout ?? ""}\n${result.stderr ?? ""}`);
+      recordChildFailure(config, domain, phase, evidence);
+      fail("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`);
     }
   } finally { registerControlledFilesystem(config); }
   const manifest = phase === "extract" && config.backend === "lab" && Object.hasOwn(EXTRACT_MANIFEST_BINDINGS, domain)
@@ -724,10 +729,11 @@ function runAdapter(config, domain, phase) {
 async function runAdapterAsync(config, domain, phase) {
   const args = [resolve(ROOT, "scripts/hr-cutover/domain-adapter.mjs"), "--config", config.__configPath, "--domain", domain, "--phase", phase];
   try { await new Promise((resolveChild, rejectChild) => {
-    let tail = "", stage = null, settled = false;
+    let tail = "", evidence = {}, settled = false;
     const observe = (chunk) => {
       tail = `${tail}${chunk}`.slice(-256);
-      stage = childFailureStage(tail) ?? stage;
+      const next = childFailureEvidence(tail);
+      evidence = { stage: next.stage ?? evidence.stage, failureCode: next.failureCode ?? evidence.failureCode };
     };
     const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "pipe"] });
     ACTIVE_CHILD = child;
@@ -736,8 +742,8 @@ async function runAdapterAsync(config, domain, phase) {
     child.once("error", () => {
       if (settled) return;
       settled = true;
-      recordChildFailure(config, domain, phase, stage);
-      rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`));
+      recordChildFailure(config, domain, phase, evidence);
+      rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`));
     });
     child.once("close", (code, signal) => {
       ACTIVE_CHILD = null;
@@ -745,8 +751,8 @@ async function runAdapterAsync(config, domain, phase) {
       settled = true;
       if (code === 0 && !signal) resolveChild();
       else {
-        recordChildFailure(config, domain, phase, stage);
-        rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${stage ? `:${stage}` : ""}`));
+        recordChildFailure(config, domain, phase, evidence);
+        rejectChild(new LifecycleError("CHILD_FAILED", `${domain}.${phase}${evidence.stage ? `:${evidence.stage}` : ""}`));
       }
     });
   }); } finally { registerControlledFilesystem(config); }
