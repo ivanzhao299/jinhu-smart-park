@@ -26,14 +26,14 @@ receipt shape used by the verified photo-owner evidence runner.
 
 ## Acceptance Criteria
 
-- [ ] Argument, stage-boundary, source-binding, two-cycle receipt, cleanup,
+- [x] Argument, stage-boundary, source-binding, two-cycle receipt, cleanup,
       and failure-recovery contracts are covered by a narrow automated test.
-- [ ] The runner invokes only the existing document loader/rollback scripts
+- [x] The runner invokes only the existing document loader/rollback scripts
       under the isolated T5_FILE allowlisted environment.
-- [ ] A fresh real-source A/B lab rehearsal records only aggregate evidence:
+- [x] A fresh real-source A/B lab rehearsal records only aggregate evidence:
       1,003 source, 989 loaded, 14 quarantined per cycle, two rollbacks per
       side, and zero residual resources after cleanup.
-- [ ] No production database, file binary, or personal-data output is used.
+- [x] No production database, file binary, or personal-data output is used.
 
 ## Notes
 
