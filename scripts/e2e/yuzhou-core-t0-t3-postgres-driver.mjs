@@ -19,7 +19,7 @@ const sha = value => createHash("sha256").update(value).digest("hex");
 const readOnlyAuthority = { loginSucceeded: true, sysadmin: false, dbDatareader: true, viewDefinition: true, insert: false, update: false, delete: false, execute: false };
 
 test("core prepare accepts the pnpm argument delimiter once and rejects a duplicate delimiter", () => {
-  const args = ["--rehearsal", "A", "--suffix", "driver01", "--postgres-port", "33100", "--api-port", "33101", "--web-port", "33102", "--control-root", "/tmp/control", "--etl-env", "/tmp/etl.env", "--source-container", "jinhu_yuzhou_migration_lab-sqlserver-1", "--source-backup", "/tmp/source.bak", "--source-restore-receipt", "/tmp/receipt.json", "--machine-attestation-root", "a".repeat(64)];
+  const args = ["--rehearsal", "A", "--suffix", "driver01", "--postgres-port", "33100", "--api-port", "33101", "--web-port", "33102", "--control-root", "/tmp/control", "--etl-env", "/tmp/etl.env", "--source-container", "jinhu_yuzhou_migration_lab-sqlserver-1", "--source-backup", "/tmp/source.bak", "--source-restore-receipt", "/tmp/receipt.json", "--machine-attestation-root", "a".repeat(64), "--event-type-package", "/tmp/event-type.json", "--event-state-package", "/tmp/event-state.json", "--contract-type-package", "/tmp/contract-type.json", "--contract-state-package", "/tmp/contract-state.json", "--dictionary-capture-receipt", "/tmp/dictionary-capture.json"];
   assert.equal(parseCorePrepareArgs(["--", ...args]).suffix, "driver01");
   assert.throws(() => parseCorePrepareArgs(["--", "--", ...args]), /CORE_PREPARE_ARGUMENT_INVALID/u);
 });
