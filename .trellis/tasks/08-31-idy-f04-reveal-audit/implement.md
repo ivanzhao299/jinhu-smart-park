@@ -14,4 +14,5 @@
 - Independent review round 1: migration eligibility preflight strengthened; reveal intentionally remains outside response replay cache so every access receives a fresh required audit.
 - PR #514 opened (`Closes #513`). CI contract drifts for the intentional +1 permission/action/endpoint were synchronized; shared contracts pass 33/33 and the API B0 digest contract passes 9/9.
 - Hosted review round 1: two contract findings already resolved by follow-up commits; accepted two P1 findings and changed migration/seed definition parity plus pessimistic row locking for reveal/restriction serialization.
-- Next: verify review fixes, push review round 2, obtain CI/review green, squash merge and archive.
+- Hosted review round 2 completed with no new findings. CI full unit/build passed; Release Smoke exposed the downstream role-template visible-definition cardinality freeze, now synchronized from 25 to 26.
+- Next: obtain final CI/review green, squash merge and archive.
