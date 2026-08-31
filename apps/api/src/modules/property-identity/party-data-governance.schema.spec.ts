@@ -45,6 +45,8 @@ test("000287 derives photo retention from the file and enrolls all protected ide
   assert.match(migration, /trg_party_identity_assignment_audit_retention/u);
   assert.match(migration, /trg_party_identity_decision_retention/u);
   assert.match(migration, /trg_party_identity_op_log_retention/u);
+  assert.match(migration, /op\.biz_id::text ~\*/u);
+  assert.match(migration, /NEW\.biz_id::text ~\*/u);
   assert.match(service, /COALESCE\(audit\.create_time,assignment_audit\.occurred_at,decision\.create_time\)/u);
 });
 

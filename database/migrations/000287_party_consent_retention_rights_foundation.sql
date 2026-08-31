@@ -291,7 +291,7 @@ FROM (
   FROM public.sys_op_log op
   JOIN public.biz_party_identity_submission submission
     ON submission.tenant_id=op.tenant_id::text AND submission.park_id=op.park_id::text
-   AND op.biz_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+   AND op.biz_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
    AND submission.id=op.biz_id::uuid
   WHERE op.biz_type='party_identity_submission'
 ) audit
@@ -306,7 +306,7 @@ BEGIN
   ELSIF TG_TABLE_NAME='biz_party_identity_decision' THEN
     party_value:=NEW.party_id; object_time:=NEW.create_time;
   ELSIF NEW.biz_type='party_identity_submission'
-        AND NEW.biz_id ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+        AND NEW.biz_id::text ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
     SELECT party_id INTO party_value FROM public.biz_party_identity_submission
       WHERE tenant_id=NEW.tenant_id::text AND park_id=NEW.park_id::text AND id=NEW.biz_id::uuid;
     object_time:=NEW.create_time;
