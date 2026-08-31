@@ -122,7 +122,14 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     assertCheckpoint(checkpoint);
     execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
     execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn); reached.push("T5_NONFILE");
-    execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t3, YUZHOU_STAGING_DIR: input.T3.path }), spawn); reached.push("T3");
+    execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
+      YUZHOU_MIGRATION_RUN_ID: runs.t3,
+      YUZHOU_STAGING_DIR: input.T3.path,
+      YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256: input.T3.manifest.sourceRestoreReceiptSha256,
+      YUZHOU_SOURCE_CATALOG_SHA256: input.T3.manifest.sourceCatalogSha256,
+      YUZHOU_SOURCE_BUSINESS_SHA256: input.T3.manifest.sourceBusinessSha256,
+      YUZHOU_MAPPING_CONTRACT_SHA256: input.T3.manifest.mappingContractSha256
+    }), spawn); reached.push("T3");
     const business = input.T4.manifest.businessContentSha256;
     if (!/^[0-9a-f]{64}$/u.test(business ?? "")) fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "business hash");
     execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn); reached.push("T4");

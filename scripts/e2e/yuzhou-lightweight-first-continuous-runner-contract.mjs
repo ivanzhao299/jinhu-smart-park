@@ -30,7 +30,7 @@ const config = {
 const configPath = join(root, "config.json"); writePrivate(configPath, JSON.stringify(config));
 const makeStage = (name, manifest) => { const path = join(root, name); mkdirSync(path, { mode: 0o700 }); chmodSync(path, 0o700); if (manifest) writePrivate(join(path, "manifest.json"), JSON.stringify(manifest)); return path; };
 const t5 = makeStage("t5", { sourceSnapshotSha256: snapshot });
-const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, productionImport: "HOLD" });
+const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: "c".repeat(64), sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "f".repeat(64), productionImport: "HOLD" });
 const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
 const commands = [];
 const spawn = (_command, args, options) => { commands.push({ script: args[0].split("/").at(-1), env: options.env }); return { status: 0, stdout: "" }; };
@@ -45,6 +45,10 @@ assert.deepEqual(result, { status: "CONTRACT_PASS", order: ["T0", "T1", "T2", "T
 assert.equal(coreCalls, 2);
 assert.deepEqual(commands.map(row => row.script), ["provision-yuzhou-t5-nonfile-actor.sh", "load-yuzhou-t5-nonfile-history.sh", "load-yuzhou-t3-attendance-insurance.sh", "load-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
 assert.equal(commands.at(3).env.YUZHOU_T4_LOAD_MODE, "full_archive");
+assert.equal(commands.at(2).env.YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256, "c".repeat(64));
+assert.equal(commands.at(2).env.YUZHOU_SOURCE_CATALOG_SHA256, "d".repeat(64));
+assert.equal(commands.at(2).env.YUZHOU_SOURCE_BUSINESS_SHA256, "e".repeat(64));
+assert.equal(commands.at(2).env.YUZHOU_MAPPING_CONTRACT_SHA256, "f".repeat(64));
 assert.equal(commands.at(-1).env.ALLOW_YUZHOU_ROLLBACK, "yes");
 assert.equal(commands.every(row => /^[A-Za-z0-9][A-Za-z0-9._-]{5,36}$/u.test(row.env.YUZHOU_T5_NONFILE_RUN_ID ?? row.env.YUZHOU_MIGRATION_RUN_ID)), true);
 assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
