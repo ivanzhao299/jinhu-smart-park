@@ -5,11 +5,19 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import { tmpdir } from "node:os";
 import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.mjs";
-import { prepareNonfileStage } from "../prepare-yuzhou-t5-nonfile-materialization-stage.mjs";
+import { parseT5NonfileStageArgs, prepareNonfileStage } from "../prepare-yuzhou-t5-nonfile-materialization-stage.mjs";
 const source=readFileSync(resolve(import.meta.dirname,"../../scripts/prepare-yuzhou-t5-nonfile-materialization-stage.mjs"),"utf8");
 test("T5 nonfile stage is bound to the receipt, canonical baseline, two matching extractions, and excludes photo and docs",()=>{
-  for(const value of ["person_core","input=argv[0]===\"--\"?argv.slice(1):argv","--source-restore-receipt","family","knowhow","ticket","source ${sourceField} mismatch","source domain mismatch","validateSourceRestoreReceipt","canonicalT5Baseline","sourceRestoreReceiptSha256","sourceSnapshotSha256","filesExcluded:[\"photo\",\"docs\"]","nonfileBusinessSha256","businessWriteTarget:\"nonfile_employee_profile_family_skill_credential_only\"","productionImport:\"HOLD\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
+  for(const value of ["person_core","--baseline","readBaseline","--source-restore-receipt","family","knowhow","ticket","source ${sourceField} mismatch","source domain mismatch","validateSourceRestoreReceipt","canonicalT5Baseline","sourceRestoreReceiptSha256","sourceSnapshotSha256","filesExcluded:[\"photo\",\"docs\"]","nonfileBusinessSha256","businessWriteTarget:\"nonfile_employee_profile_family_skill_credential_only\"","productionImport:\"HOLD\""])assert.match(source,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")));
   assert.doesNotMatch(source,/photo\.jsonl|docs\.jsonl/);
+});
+
+test("T5 nonfile stage CLI accepts only one optional sealed baseline argument",()=>{
+  const required=["--source-a","/private/a","--source-b","/private/b","--source-restore-receipt","/private/receipt.json","--output-root","/private/out","--run-id","t5fixture-a"];
+  assert.deepEqual(parseT5NonfileStageArgs(required),Object.fromEntries(Array.from({length:required.length/2},(_,index)=>[required[index*2],required[index*2+1]])));
+  assert.equal(parseT5NonfileStageArgs([...required,"--baseline","/private/candidate.json"])["--baseline"],"/private/candidate.json");
+  assert.throws(()=>parseT5NonfileStageArgs([...required,"--baseline","/private/candidate.json","--baseline","/private/other.json"]),/arguments/);
+  assert.throws(()=>parseT5NonfileStageArgs([...required,"--unexpected","x"]),/arguments/);
 });
 
 const sha=value=>createHash("sha256").update(value).digest("hex");
