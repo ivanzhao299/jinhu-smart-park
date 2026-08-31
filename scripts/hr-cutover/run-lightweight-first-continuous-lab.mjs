@@ -115,5 +115,8 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runLightweightFirstContinuous(parseLightweightFirstArgs(process.argv.slice(2))).then(result => process.stdout.write(`${JSON.stringify(result)}\n`)).catch(error => { process.stderr.write(`${safeCode(error)}\n`); process.exitCode = 1; });
+  Promise.resolve()
+    .then(() => runLightweightFirstContinuous(parseLightweightFirstArgs(process.argv.slice(2))))
+    .then(result => process.stdout.write(`${JSON.stringify(result)}\n`))
+    .catch(error => { process.stderr.write(`${safeCode(error)}\n`); process.exitCode = 1; });
 }

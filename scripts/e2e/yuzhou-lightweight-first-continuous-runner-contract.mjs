@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, chmodSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { parseLightweightFirstArgs, runLightweightFirstContinuous } from "../hr-cutover/run-lightweight-first-continuous-lab.mjs";
 
@@ -49,4 +50,9 @@ assert.equal(commands.every(row => /^[A-Za-z0-9][A-Za-z0-9._-]{5,36}$/u.test(row
 assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_CHILD_FAILED/);
+
+const cli = spawnSync(process.execPath, ["scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs"], { cwd: resolve(import.meta.dirname, "../.."), encoding: "utf8" });
+assert.equal(cli.status, 1);
+assert.equal(cli.stderr.trim(), "LIGHTWEIGHT_ARGUMENT_INVALID");
+assert.equal(cli.stdout, "");
 console.log("Yuzhou lightweight-first continuous runner argument contract passed.");

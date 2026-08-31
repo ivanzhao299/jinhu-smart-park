@@ -3,7 +3,7 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
-  chmodSync, closeSync, lstatSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync
+  chmodSync, closeSync, existsSync, lstatSync, openSync, readFileSync, readSync, realpathSync, statSync, writeFileSync
 } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -201,4 +201,7 @@ async function main() {
   process.stdout.write(`${JSON.stringify({ status: "SOURCE_RESTORE_RECEIPT_CAPTURED", receiptSha256: result.receiptSha256, productionImport: "HOLD" })}\n`);
 }
 
-if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { process.stderr.write(`${error.code ?? "SOURCE_RECEIPT_FAILED"}: ${String(error.message).replace(/^.*?: /u, "")}\n`); process.exitCode = 1; });
+// This module is also imported by lifecycle runners. stdin/eval callers may
+// expose a non-file argv[1] (for example "-"); only resolve it for a real CLI
+// entrypoint so importing the receipt validator remains side-effect free.
+if (process.argv[1] && existsSync(process.argv[1]) && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch(error => { process.stderr.write(`${error.code ?? "SOURCE_RECEIPT_FAILED"}: ${String(error.message).replace(/^.*?: /u, "")}\n`); process.exitCode = 1; });
