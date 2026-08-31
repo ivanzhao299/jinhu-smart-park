@@ -11,4 +11,7 @@ test("legacy role evidence derives audit rows from all isolated UAT actors inste
   assert.doesNotMatch(runner, /auditTargets=new Map/u);
   assert.match(runner, /actorByUsername\.get\(row\.username\)/u);
   assert.match(runner, /routeMatches\(candidate\.routeTemplate,row\.path\)/u);
+  assert.match(runner, /expectedAuditBizIdByOperationKey=new Map\(\)/u);
+  assert.match(runner, /expectedAuditBizIdByOperationKey\.get\(operationKeySha256\)!==bizIdSha256/u);
+  assert.match(runner, /TECHNICAL_UAT_AUDIT_EVIDENCE_INCOMPLETE/u);
 });
