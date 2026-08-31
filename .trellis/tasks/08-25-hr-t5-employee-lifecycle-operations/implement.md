@@ -67,6 +67,7 @@
 
 - 新增通用 `T5_FILE` 归属 pair 入口，串行执行 A 再 B；它仅接受独立的 `core_t0_t2` 受控配置与 `0700` stage，要求源快照、恢复回执、stage hash、两轮来源守恒/回滚回执均一致，并要求 A、B 均为零残留。入口不读取附件二进制，不创建 `sys_file`、`hr_employee_document` 或生产对象。
 - 从当前受控回执分别生成两个独立文档归属 stage，stage hash 相同。两次隔离演练均完成两轮 `load -> rollback`：每轮 `source=1,003`、`loaded=989`、`quarantined=14`，A/B 比较为 `PASS`，两边均 `residualCount=0`。结果只证明旧文档与员工归属的 hash-only 证据可重跑、可审计、可回滚；二进制内容、对象归一化和附件关联仍未执行，生产导入保持 `HOLD`。
+- 照片归属复用同一 pair 入口并完成独立 A/B 演练。两个 stage 的来源/回执/哈希一致；两边各完成两轮 `load -> rollback`，每轮 `source=2,155`、`loaded=2,155`、`quarantined=0`，最终均为 `CONTRACT_PASS` 与 `residualCount=0`。该结果只涵盖既有内容 hash、大小和 MIME 的归属证据，不读取或复制图片二进制，不创建在线文件或员工附件关联，生产导入继续 `HOLD`。
 
 - [x] 招聘 `accept` 两次只读抽取业务 hash 一致，source=loaded+quarantined；不自动转在职员工。
 - [x] `family/his/knowhow/ticket/photo/docs` 只读抽取，敏感 staging 权限 0600，日志/报告脱敏。
