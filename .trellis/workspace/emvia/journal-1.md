@@ -898,3 +898,38 @@ Merged PR #519: housing move-in now requires current verified identity and exact
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: 身份治理硬伤组全链路闭环
+
+**Date**: 2026-09-01
+**Task**: 身份治理硬伤组全链路闭环
+**Package**: api
+**Branch**: `codex/fix-idy-final-archive`
+
+### Summary
+
+完成 F04/F05 闭环、F01-F05 与 G1-G7 隔离 UAT、脱敏证据报告、精确 teardown，并归档 F02-F05/UAT 及父队列任务；住宿业 P0-02/03/04 继续按法务、产品、运营和属地条件 HOLD。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5852c546` | (see git log) |
+| `65d5ef68` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

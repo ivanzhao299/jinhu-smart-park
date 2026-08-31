@@ -3,7 +3,7 @@
   "name": "identity-workbench-hard-defects",
   "title": "身份核验工作台硬伤组修复队列",
   "description": "",
-  "status": "planning",
+  "status": "completed",
   "dev_type": null,
   "scope": null,
   "package": "api",
@@ -11,7 +11,7 @@
   "creator": "emvia",
   "assignee": "emvia",
   "createdAt": "2026-08-31",
-  "completedAt": null,
+  "completedAt": "2026-09-01",
   "branch": null,
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,7 @@
   "children": [
     "08-31-idy-f01-encryption-key",
     "08-31-08-31-idy-f02-f03-consent-retention",
+    "08-31-idy-f04-reveal-audit",
     "08-31-idy-f05-housing-identity-gate",
     "09-01-idy-uat-full-chain"
   ],
