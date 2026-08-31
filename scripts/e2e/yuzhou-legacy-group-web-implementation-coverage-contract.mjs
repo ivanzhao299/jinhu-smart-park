@@ -47,16 +47,38 @@ const legacyRuntimeEvidence = legacyIds => {
 test("all 231 Group Web modules receive a conservative implementation score", () => {
   const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
   assert.equal(result.summary.total, 231);
-  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 174, mapped_only: 57 });
-  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 162, score60: 0, score40: 27, score20: 30 });
-  assert.equal(result.summary.averageScore, 68.05);
+  assert.deepEqual(result.summary.statuses, { implemented: 0, partial: 179, mapped_only: 52 });
+  assert.deepEqual(result.summary.scoreBands, { score100: 0, score90: 12, score80: 167, score60: 0, score40: 22, score20: 30 });
+  assert.equal(result.summary.averageScore, 68.92);
   assert.equal(result.summary.scoreMeaning, "legacy_group_web_runtime_compatibility");
   assert.deepEqual(result.summary.targetImplementation, {
-    statuses: { implemented: 0, partial: 174, mapped_only: 57 },
-    averageScore: 68.05,
+    statuses: { implemented: 0, partial: 179, mapped_only: 52 },
+    averageScore: 68.92,
     scoreMeaning: "smart_park_target_technical_implementation"
   });
   assert.equal(result.gates.productionImport, "HOLD");
+});
+
+test("decision-center coverage reflects only the shipped aggregate workforce capabilities", () => {
+  const result = assessLegacyGroupWebImplementationCoverage(mapping, root);
+  for (const legacyId of [166, 167, 229, 230, 246]) {
+    const item = result.items.find(candidate => candidate.legacyId === legacyId);
+    assert.equal(item.selectedRoute, "/hr/decision-center");
+    assert.equal(item.score, 80);
+    assert.equal(item.implementationStatus, "partial");
+    assert.deepEqual(item.blockers, ["legacy_rule_parity", "legacy_runtime_uat"]);
+  }
+  for (const legacyId of [168, 228, 231, 232, 233, 234, 235, 247]) {
+    const item = result.items.find(candidate => candidate.legacyId === legacyId);
+    assert.notEqual(item.selectedRoute, "/hr/decision-center");
+  }
+  assert.deepEqual(result.summary.domains.decision_center, {
+    total: 16,
+    implemented: 0,
+    partial: 5,
+    mapped_only: 11,
+    averageScore: 52.5
+  });
 });
 
 test("a mapped destination cannot be called implemented without rule parity and live role UAT", () => {
