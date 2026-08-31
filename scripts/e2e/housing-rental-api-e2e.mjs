@@ -281,6 +281,18 @@ async function run() {
       consent_status: "granted"
     }
   });
+  await expectRequestStatus("/housing/tenants", 400, {
+    method: "POST",
+    token,
+    idempotent: true,
+    body: {
+      party_type: "person",
+      display_name: `非法同意状态租客 ${runId}`,
+      identity_document_type: "id_card",
+      identity_number: `11010519900101${String(Date.now()).slice(-4)}`,
+      consent_status: "granted"
+    }
+  });
 
   const tenant = await request("/housing/tenants", {
     method: "POST",
@@ -291,8 +303,7 @@ async function run() {
       display_name: `住房租客 ${runId}`,
       mobile: `13${String(Date.now()).slice(-9)}`,
       identity_document_type: "id_card",
-      identity_number: `11010519900101${String(Date.now()).slice(-4)}`,
-      consent_status: "granted"
+      identity_number: `11010519900101${String(Date.now()).slice(-4)}`
     }
   });
   const identityWithLowercaseCheckDigit = `11010519900101${String(Date.now()).slice(-3)}x`;
