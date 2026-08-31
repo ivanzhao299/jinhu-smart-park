@@ -194,7 +194,10 @@ export class PartiesService {
     const response = this.withIdentitySummary(
       this.toResponse(entity, actor,
         canReadSensitive
-          ? this.sensitiveDataService.decrypt(entity.identityNumberEncrypted)
+          ? this.sensitiveDataService.decrypt(
+            entity.identityNumberEncrypted,
+            entity.identityNumberEncryptionKeyId ?? undefined
+          )
           : undefined),
       summaries.get(id) ?? null
     );

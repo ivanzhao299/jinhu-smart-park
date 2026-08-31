@@ -1,0 +1,28 @@
+{
+  "id": "identity-workbench-hard-defects",
+  "name": "identity-workbench-hard-defects",
+  "title": "身份核验工作台硬伤组修复队列",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": "api",
+  "priority": "P0",
+  "creator": "emvia",
+  "assignee": "emvia",
+  "createdAt": "2026-08-31",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-31-idy-f01-encryption-key"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

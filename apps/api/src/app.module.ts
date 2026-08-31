@@ -80,6 +80,7 @@ import { PropertyHighRiskActionGuard } from "./shared/guards/property-high-risk-
 import { IdempotencyCleanupService } from "./shared/services/idempotency-cleanup.service";
 import { IdempotencyService, setIdempotencyService } from "./shared/services/idempotency.service";
 import { DataSource } from "typeorm";
+import { parsePartyDataKeyring } from "./modules/property-operations/party-data-keyring";
 
 function getEnvString(config: Record<string, unknown>, key: string, fallback = ""): string {
   const value = config[key];
@@ -91,6 +92,7 @@ function getEnvString(config: Record<string, unknown>, key: string, fallback = "
 
 function validateProductionAuthEnvironment(config: Record<string, unknown>): Record<string, unknown> {
   const nodeEnv = getEnvString(config, "NODE_ENV", process.env.NODE_ENV ?? "development");
+  parsePartyDataKeyring((key) => config[key]);
   if (nodeEnv !== "production") {
     return config;
   }
@@ -108,11 +110,6 @@ function validateProductionAuthEnvironment(config: Record<string, unknown>): Rec
   const wechatMockEnabled = getEnvString(config, "AUTH_WECHAT_MOCK_ENABLED", "false");
   if (wechatMockEnabled === "true") {
     throw new Error("AUTH_WECHAT_MOCK_ENABLED must be false in production");
-  }
-
-  const partyEncryptionKey = getEnvString(config, "PARTY_DATA_ENCRYPTION_KEY", "");
-  if (partyEncryptionKey.trim().length < 32) {
-    throw new Error("PARTY_DATA_ENCRYPTION_KEY must contain at least 32 characters in production");
   }
 
   return config;

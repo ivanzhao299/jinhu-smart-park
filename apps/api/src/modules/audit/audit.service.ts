@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import type { Repository } from "typeorm";
+import type { EntityManager, Repository } from "typeorm";
 import { Between, ILike, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import type { PaginatedResult, TenantParkScope } from "@jinhu/shared";
 import type { AuditQueryDto } from "./dto/audit-query.dto";
@@ -117,8 +117,9 @@ export class AuditService {
     }
   }
 
-  async recordOperationRequired(input: RecordOperationInput): Promise<void> {
-    const entity = this.opLogRepository.create({
+  async recordOperationRequired(input: RecordOperationInput, manager?: EntityManager): Promise<void> {
+    const repository = manager?.getRepository(OpLogEntity) ?? this.opLogRepository;
+    const entity = repository.create({
       tenantId: input.tenantId,
       parkId: input.parkId,
       userId: input.userId,
@@ -143,7 +144,7 @@ export class AuditService {
       requestId: input.requestId,
       idempotencyKey: input.idempotencyKey ?? null
     });
-    await this.opLogRepository.save(entity);
+    await repository.save(entity);
   }
 
   async recordLogin(input: RecordLoginInput): Promise<void> {

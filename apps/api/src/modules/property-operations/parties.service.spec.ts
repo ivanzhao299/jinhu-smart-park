@@ -30,6 +30,7 @@ function partyFixture(overrides: Partial<PartyEntity> = {}): PartyEntity {
     email: null,
     identityDocumentType: "id_card",
     identityNumberEncrypted: "enc:old",
+    identityNumberEncryptionKeyId: "party-data-v1",
     identityNumberHash: "hash:old",
     identityNumberMasked: "11************02",
     sourceDomain: null,

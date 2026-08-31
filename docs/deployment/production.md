@@ -34,6 +34,9 @@ At minimum set:
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
 - `PARTY_DATA_ENCRYPTION_KEY`（至少 32 字符的业务相对方证件号独立加密密钥；生产部署工作流会在缺失时于生产主机生成，已存在的有效值不会被轮换）
+- `PARTY_DATA_ENCRYPTION_ACTIVE_KEY_ID`（当前写入版本；首次升级保持 `party-data-v1`）
+- `PARTY_DATA_ENCRYPTION_KEYRING`（版本 key-id 到专用 key 的 JSON 对象；仅 v1 首次升级可暂为空，启用 v2 前必须配置）
+- `PARTY_DATA_IDENTITY_HASH_KEY`（稳定身份指纹 key；首次升级必须与原 v1 key 相同以保持存量 HMAC）
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 - `FILE_STORAGE_LOCAL_ROOT`
@@ -49,7 +52,11 @@ WEB_ORIGIN=https://park.cnjinhu.com
 AUTH_ALLOWED_ORIGINS=https://park.cnjinhu.com
 ```
 
-`PARTY_DATA_ENCRYPTION_KEY` 应使用不少于 32 个字符的独立高强度随机值并在环境生命周期内保持稳定。生产配置下缺失或长度不足会阻止 API 启动。更换该值前必须提供证件密文重加密方案，否则既有证件号将无法解密。该变量不得写入日志、截图、UAT 证据或提交文件。
+Party 敏感数据只接受专用配置，不再回退到 IoT、JWT 或固定开发 secret。`PARTY_DATA_ENCRYPTION_KEY` 是 `party-data-v1` 兼容 key；`PARTY_DATA_ENCRYPTION_KEYRING` 是 key-id 到 key 的 JSON 对象，`PARTY_DATA_ENCRYPTION_ACTIVE_KEY_ID` 必须指向其中一个已配置 key。缺失、短 key、重复/非法 key id 或未知 active id 会阻止 API 启动。
+
+首次升级把 `PARTY_DATA_IDENTITY_HASH_KEY` 设置为原 v1 key，以保持存量身份 HMAC 与唯一性语义；之后 AES key 可独立轮换。不得直接更换 fingerprint key，除非另有覆盖 Party 与 immutable snapshot 的受控 hash migration。
+
+轮换顺序：先部署 active+历史 keyring 的双读配置，再执行 migration，然后逐 tenant/park 运行构建产物中的 `pnpm --filter @jinhu/api party-data-key:rotate -- --tenant-id=... --park-id=... --actor-id=... --request-key=...`。命令按 scope 加锁并在同一事务写 rotation receipt 与 required audit；未知 key/unreadable ciphertext 会整 scope 回滚。确认所有 scope 的旧 encryption key 引用为零并经过观察期后才可从 encryption keyring 移除旧 key。所有 key 变量均不得写入日志、截图、UAT 证据、Issue、PR 或提交文件。
 
 `PROPERTY_WORKBENCH_V2` 仅在去除首尾空白并忽略大小写后严格等于
 `true` 时启用。Track B 审批执行能力完成发布门禁前，生产环境必须保持

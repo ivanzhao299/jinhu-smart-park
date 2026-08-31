@@ -82,7 +82,7 @@
 
 只有 `party:sensitive_read` 权限可以读取解密后的证件号。新增和修改接口关闭请求体审计捕获，通用审计清洗同时屏蔽证件字段。
 
-部署环境必须设置稳定、独立的 `PARTY_DATA_ENCRYPTION_KEY`。密钥轮换需要先制定重加密方案。
+部署环境必须设置 Party 专用的版本化 keyring，运行时不得回退到其他域或 JWT secret。密文 metadata 独立记录 key id；读取按 key id 双读，新写入只用 active key。逐 tenant/park 轮换通过 scope lock、幂等 receipt 与 required audit 执行，异常整 scope 回滚。身份 HMAC 使用独立稳定的 fingerprint key；更换 fingerprint key 需要独立 hash migration，不能冒充 AES 密钥轮换。
 
 ## 5. API
 
