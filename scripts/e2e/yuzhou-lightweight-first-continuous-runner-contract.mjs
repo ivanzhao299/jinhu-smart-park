@@ -49,7 +49,7 @@ assert.equal(commands.at(-1).env.ALLOW_YUZHOU_ROLLBACK, "yes");
 assert.equal(commands.every(row => /^[A-Za-z0-9][A-Za-z0-9._-]{5,36}$/u.test(row.env.YUZHOU_T5_NONFILE_RUN_ID ?? row.env.YUZHOU_MIGRATION_RUN_ID)), true);
 assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
-await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_CHILD_FAILED/);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
 
 const cli = spawnSync(process.execPath, ["scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs"], { cwd: resolve(import.meta.dirname, "../.."), encoding: "utf8" });
 assert.equal(cli.status, 1);

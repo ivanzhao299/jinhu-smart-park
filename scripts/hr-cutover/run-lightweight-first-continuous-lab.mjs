@@ -46,9 +46,20 @@ function childEnvironment(config, additions = {}) {
   };
 }
 
+const CHILD_FAILURE_CODES = Object.freeze({
+  "scripts/provision-yuzhou-t5-nonfile-actor.sh": "LIGHTWEIGHT_T5_ACTOR_PROVISION_FAILED",
+  "scripts/load-yuzhou-t5-nonfile-history.sh": "LIGHTWEIGHT_T5_LOAD_FAILED",
+  "scripts/load-yuzhou-t3-attendance-insurance.sh": "LIGHTWEIGHT_T3_LOAD_FAILED",
+  "scripts/load-yuzhou-t4-payroll-history.sh": "LIGHTWEIGHT_T4_LOAD_FAILED",
+  "scripts/rollback-yuzhou-t4-payroll-history.sh": "LIGHTWEIGHT_T4_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t3-attendance-insurance.sh": "LIGHTWEIGHT_T3_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t5-nonfile-history.sh": "LIGHTWEIGHT_T5_ROLLBACK_FAILED",
+  "scripts/rollback-yuzhou-t5-nonfile-actor.sh": "LIGHTWEIGHT_T5_ACTOR_ROLLBACK_FAILED"
+});
+
 function execute(script, env, spawn = spawnSync) {
   const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
-  if (result.error || result.status !== 0) fail("LIGHTWEIGHT_CHILD_FAILED", script);
+  if (result.error || result.status !== 0) fail(CHILD_FAILURE_CODES[script] ?? "LIGHTWEIGHT_CHILD_FAILED", script);
   return result.stdout;
 }
 
