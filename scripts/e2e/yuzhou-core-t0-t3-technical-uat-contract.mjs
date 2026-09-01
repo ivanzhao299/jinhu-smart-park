@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { parseCoreTechnicalUatArgs } from "../hr-cutover/run-core-t0-t3-technical-uat.mjs";
+import { buildCoreTechnicalUatReceipt, parseCoreTechnicalUatArgs } from "../hr-cutover/run-core-t0-t3-technical-uat.mjs";
 import { technicalUatChildEnvironment } from "../hr-cutover/run-full-domain-technical-uat.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
@@ -29,12 +29,29 @@ test("technical UAT child processes do not inherit migration environment", () =>
   }
 });
 
+test("core technical UAT receipt preserves only tokenized failure diagnostics", () => {
+  const error = new Error("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0");
+  error.code = "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE";
+  assert.deepEqual(buildCoreTechnicalUatReceipt({ runId: "yzcore-20260901T000000Z-363b9318-rA" }, { error }), {
+    formatVersion: 1,
+    status: "HOLD",
+    runId: "yzcore-20260901T000000Z-363b9318-rA",
+    errorCode: "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE",
+    errorDetail: "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0",
+    productionImport: "HOLD"
+  });
+  const unsafe = new Error("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: route includes employee name");
+  unsafe.code = "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE";
+  assert.equal(Object.hasOwn(buildCoreTechnicalUatReceipt({ runId: "yzcore-20260901T000000Z-363b9318-rA" }, { error: unsafe }), "errorDetail"), false);
+});
+
 test("core technical UAT is bound to rollback_ready and cannot promote a full manifest", () => {
   const runner = readFileSync(resolve(root, "scripts/hr-cutover/run-core-t0-t3-technical-uat.mjs"), "utf8");
   assert.match(runner, /lifecycle\.state !== "rollback_ready"/u);
   assert.match(runner, /requiredState: "rollback_ready", finalizeManifest: false/u);
   assert.match(runner, /productionImport: "HOLD"/u);
   assert.match(runner, /safeDatabaseDiagnostic/u);
+  assert.match(runner, /technical-uat-core-receipt\.json/u);
   const sharedRunner = readFileSync(resolve(root, "scripts/hr-cutover/run-full-domain-technical-uat.mjs"), "utf8");
   assert.match(sharedRunner, /requiredState="uat_ready",finalizeManifest=true/u);
   assert.match(sharedRunner, /if\(finalizeManifest\)/u);

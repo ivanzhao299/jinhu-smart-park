@@ -7,10 +7,12 @@ import { fileURLToPath } from "node:url";
 import { CoreT0T3Lifecycle, validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { createCoreT0T3Adapters } from "./core-drivers/postgres-lab-v1.mjs";
 import { runTechnicalUat } from "./run-full-domain-technical-uat.mjs";
+import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
 
 const DEFAULT_TENANT = "10000001", DEFAULT_PARK = "20000001";
 const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); error.code = code; throw error; };
 const safeDatabaseDiagnostic = error => String(error?.message ?? "").match(/operation_[0-9]+_sqlstate_[0-9A-Z]+(?:_constraint_[A-Za-z0-9_]+)?(?:_callsite_[A-Za-z0-9_-]+)?/u)?.[0] ?? "";
+const safeErrorCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "CORE_TECHNICAL_UAT_FAILED";
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 
@@ -60,14 +62,46 @@ export function buildCoreTechnicalUatConfig(coreInput) {
   };
 }
 
+export function buildCoreTechnicalUatReceipt(core, { result = null, error = null } = {}) {
+  if (result) return {
+    formatVersion: 1,
+    status: "PASS",
+    runId: core.runId,
+    observedChecks: result.legacyObservedChecks,
+    browserViewportCells: result.browserViewportCells,
+    productionImport: "HOLD"
+  };
+  const errorCode = safeErrorCode(error), errorDetail = safeDiagnosticDetail(error, errorCode);
+  return {
+    formatVersion: 1,
+    status: "HOLD",
+    runId: core.runId,
+    errorCode,
+    ...(errorDetail ? { errorDetail } : {}),
+    productionImport: "HOLD"
+  };
+}
+
+function writeCoreTechnicalUatReceipt(core, receipt) {
+  const auditRoot = join(dirname(core.target.runtimeRoot), "audit");
+  privateDirectory(auditRoot);
+  privateWrite(join(auditRoot, "technical-uat-core-receipt.json"), receipt, { replace: true });
+}
+
 export async function runCoreTechnicalUat(configPath) {
   const core = validateCoreT0T3Config(privateJson(configPath));
   const adapters = await createCoreT0T3Adapters(core);
   const lifecycle = new CoreT0T3Lifecycle(core, adapters);
   if (lifecycle.state !== "rollback_ready") fail("CORE_TECHNICAL_UAT_STATE_INVALID", lifecycle.state);
-  const config = buildCoreTechnicalUatConfig(core);
-  const result = await runTechnicalUat(config, { configValidator: value => value, stateResolver: () => lifecycle.state, requiredState: "rollback_ready", finalizeManifest: false });
-  return { status: result.technicalUat, runId: core.runId, observedChecks: result.legacyObservedChecks, browserViewportCells: result.browserViewportCells, productionImport: "HOLD" };
+  try {
+    const config = buildCoreTechnicalUatConfig(core);
+    const result = await runTechnicalUat(config, { configValidator: value => value, stateResolver: () => lifecycle.state, requiredState: "rollback_ready", finalizeManifest: false });
+    writeCoreTechnicalUatReceipt(core, buildCoreTechnicalUatReceipt(core, { result }));
+    return { status: result.technicalUat, runId: core.runId, observedChecks: result.legacyObservedChecks, browserViewportCells: result.browserViewportCells, productionImport: "HOLD" };
+  } catch (error) {
+    writeCoreTechnicalUatReceipt(core, buildCoreTechnicalUatReceipt(core, { error }));
+    throw error;
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
