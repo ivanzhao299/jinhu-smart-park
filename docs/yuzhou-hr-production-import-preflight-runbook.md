@@ -237,9 +237,12 @@ authorization receipt。
    失败回滚和连接中断演练；当前通用控制 writer 不得被描述为已通过大数据生产吞吐验收；
 10. 再次证明普通 deploy、seed、migration 和 lab runner 无法调用写入口。
 
-`000281` 仍然只是 `HOLD` 状态下的执行绑定和数据库控制合同，不提供生产 CLI、workflow、具体 T0～T3
-phase writer、临时角色 provisioner 或灾备 restore 入口。通过 v2 合同测试、空库迁移、checksum replay
-和隔离 PostgreSQL 依赖图测试，只证明受控输入和关系模型可以继续实现下一切片，不代表已获得生产写入授权。
+`000281` 仍然只是 `HOLD` 状态下的执行绑定和数据库控制合同。仓库已有可注入的 T0～T3 批量 phase writer 与逆序回退 adapter，但不提供可直达生产的 CLI、workflow、临时角色 provisioner 或灾备 restore 入口。通过 v2 合同测试、空库迁移、checksum replay
+和隔离 PostgreSQL 依赖图测试，只证明受控输入、批量写入和关系模型可以继续实现下一切片，不代表已获得生产写入授权。
+
+### 9.1 T0 来源阶段回执
+
+`materialize-production-t0-phase-artifact.mjs` 将已签名的私有 T0 staging（组织、岗位、员工）转换成仅含来源身份哈希、来源行哈希和目标表的封存阶段回执。它要求当前 C/S/M 绑定、`0700/0600` 私有输入/输出和 staging manifest 校验；不输出业务字段，不连接任何数据库，不创建计划，也不执行生产写入。该回执只是后续完整 T0～T3 生产输入的第一块来源证据，不能单独解除 `HOLD`。
 主 CI 固定执行 preflight 与 v2 合同测试；数据库敏感 Release Smoke 还会从已迁移的临时数据库克隆一份
 精确命名的 lab 数据库，执行 scope、依赖图、v1兼容、普通角色拒绝和 residual=0 PostgreSQL 合同后删除该 lab 数据库。
 
