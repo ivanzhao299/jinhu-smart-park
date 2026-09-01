@@ -163,6 +163,14 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 当前默认 allowlist 尚未通过独立生产目标审阅，所以使用仓库默认合同还会返回 `PRODUCTION_IMPORT_TARGET_NOT_ALLOWLISTED`。不得在运行时传入临时 allowlist 或修改证据绕过该门禁。
 
+### 7.1 生产目标只读证明
+
+已合并的候选代码可以从唯一的 `Deploy Production` 工作流手工触发
+`diagnose-yuzhou-hr-production-target`。该模式只在正式部署宿主机内以
+`READ ONLY` 事务检查当前 HR 模块是否对应唯一、有效的 tenant/park 范围，并只输出：范围数量、生产目标身份哈希、范围哈希和固定 `HOLD` 原因。它不输出数据库名、数据库账号、范围值、连接参数、业务数据或备份位置。
+
+该诊断永远不会执行 release marker、deploy、migration、seed、UAT、writer 或文件导入。即使它得到唯一身份哈希，结果仍为 `HOLD`，因为它只补齐 allowlist 审阅的输入；它不会伪造或取代生产前备份回执、before-image、冲突决策、人工 UAT、一次性导入授权或独立回滚授权。
+
 ## 8. 已实现但默认不可达的生产控制面
 
 `000278_hr_yuzhou_production_import_control.sql`、`000281_hr_yuzhou_production_import_control_v2.sql`、`production-import-sealed-plan-lib.mjs` 和

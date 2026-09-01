@@ -69,6 +69,14 @@ assert.match(
 assert.match(source, /scripts\/resolve-production-deploy-scope\.mjs/);
 assert.match(source, /scripts\/production-deploy-transfer-manifest\.mjs/);
 assert.match(source, /production-deploy-transfer\.contract\.mjs/);
+assert.match(source, /diagnose-yuzhou-hr-production-target/);
+assert.match(source, /Diagnose Yuzhou HR production target \(read-only\)/);
+assert.match(source, /scripts\/diagnose-yuzhou-hr-production-target\.sh/);
+assert.match(
+  source,
+  /inputs\.deploy_mode != 'diagnose-yuzhou-hr-production-target'[\s\S]*?steps\.deploy-mode\.outputs\.mode != 'ops-only'/,
+  "Yuzhou HR target diagnosis must remain outside deployment, seed, and release-marker steps",
+);
 assert.match(source, /if \[ "\$PROD_DEPLOY_MODE" = "full" \]/);
 assert.match(source, /rsync -az --delete[\s\S]*?--exclude='node_modules\/'[\s\S]*?"\$path\/"/);
 assert.match(source, /- database/);
