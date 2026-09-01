@@ -163,6 +163,11 @@ test("read-only target probe binds current database, current user, public databa
   assert.match(client.calls[0].sql, /^SELECT current_database\(\)/u);
   assert.match(client.calls[0].sql, /FROM pg_database WHERE datname=current_database\(\)/u);
   assert.doesNotMatch(client.calls[0].sql, /pg_control_system/u);
+  assert.match(client.calls[0].sql, /FROM sys_tenant tenant/u);
+  assert.match(client.calls[0].sql, /tenant\.tenant_id::text/u);
+  assert.match(client.calls[0].sql, /FROM biz_park park/u);
+  assert.match(client.calls[0].sql, /park\.park_id::text/u);
+  assert.doesNotMatch(client.calls[0].sql, /biz_tenant|tenant\.id::text|park\.id::text/u);
   assert.deepEqual(client.calls[0].parameters, ["tenant-a", "park-a"]);
 
   await assert.rejects(database.probeTarget({ targetIdentitySha256: H("f"), targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_TARGET_BINDING_MISMATCH");

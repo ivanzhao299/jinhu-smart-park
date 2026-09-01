@@ -58,8 +58,18 @@ WITH hr_scope AS (
     AND (assignment.expire_time IS NULL OR assignment.expire_time>clock_timestamp())
 ), validated AS (
   SELECT scope.tenant_id,scope.park_id,
-    EXISTS (SELECT 1 FROM biz_tenant tenant WHERE tenant.id::text=scope.tenant_id) AS tenant_exists,
-    EXISTS (SELECT 1 FROM biz_park park WHERE park.id::text=scope.park_id AND park.tenant_id::text=scope.tenant_id) AS park_exists
+    EXISTS (
+      SELECT 1 FROM sys_tenant tenant
+      WHERE btrim(tenant.tenant_id::text)=scope.tenant_id
+        AND tenant.status=1 AND tenant.is_deleted=false
+        AND (tenant.expire_time IS NULL OR tenant.expire_time>clock_timestamp())
+    ) AS tenant_exists,
+    EXISTS (
+      SELECT 1 FROM biz_park park
+      WHERE btrim(park.tenant_id::text)=scope.tenant_id
+        AND btrim(park.park_id::text)=scope.park_id
+        AND park.status=1 AND park.is_deleted=false
+    ) AS park_exists
   FROM hr_scope scope
 )
 SELECT count(*)::text,

@@ -16,6 +16,13 @@ case "$query" in
   *pg_database*) ;;
   *) echo "target probe must bind a public database catalog identity" >&2; exit 42 ;;
 esac
+case "$query" in
+  *sys_tenant*tenant.tenant_id*biz_park*park.park_id*) ;;
+  *) echo "target probe must use the canonical tenant and park scope tables" >&2; exit 43 ;;
+esac
+case "$query" in
+  *biz_tenant*|*tenant.id::text*|*park.id::text*) echo "target probe must not use retired tenant or entity identifiers" >&2; exit 44 ;;
+esac
 printf '%s\n' "${FAKE_TARGET_PROBE:?}"
 SH
 chmod 700 "$tmp/bin/docker"
