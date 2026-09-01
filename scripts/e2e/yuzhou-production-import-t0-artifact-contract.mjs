@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -18,7 +18,6 @@ const staging = join(root, "staging");
 const output = join(root, "output");
 for (const path of [staging, output]) {
   // mkdtemp already created the private root; explicit modes are part of the contract.
-  const { mkdirSync } = await import("node:fs");
   mkdirSync(path, { mode: 0o700 });
   chmodSync(path, 0o700);
 }
