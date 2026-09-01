@@ -40,9 +40,9 @@ function validateBinding(binding) {
   if (typeof binding.targetScope.tenantId !== "string" || binding.targetScope.tenantId.length === 0 || typeof binding.targetScope.parkId !== "string" || binding.targetScope.parkId.length === 0 || !SHA256.test(binding.targetScope.scopeSha256)) {
     fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "target scope is invalid");
   }
-  exactKeys(binding.serverIdentity, ["address", "port", "systemIdentifier"], [], "binding.serverIdentity");
-  if (typeof binding.serverIdentity.address !== "string" || binding.serverIdentity.address.length === 0 || binding.serverIdentity.address.length > 255 || !Number.isSafeInteger(binding.serverIdentity.port) || binding.serverIdentity.port < 1 || binding.serverIdentity.port > 65535 || !/^[0-9]{10,32}$/u.test(binding.serverIdentity.systemIdentifier ?? "")) {
-    fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "server/cluster identity is invalid");
+  exactKeys(binding.serverIdentity, ["address", "port", "databaseOid"], [], "binding.serverIdentity");
+  if (typeof binding.serverIdentity.address !== "string" || binding.serverIdentity.address.length === 0 || binding.serverIdentity.address.length > 255 || !Number.isSafeInteger(binding.serverIdentity.port) || binding.serverIdentity.port < 1 || binding.serverIdentity.port > 65535 || !/^[0-9]{1,20}$/u.test(binding.serverIdentity.databaseOid ?? "")) {
+    fail("PRODUCTION_IMPORT_PG_ADAPTER_CONFIG_INVALID", "server/database identity is invalid");
   }
   return {
     database: binding.database,
@@ -56,7 +56,7 @@ function validateBinding(binding) {
     serverIdentity: {
       address: binding.serverIdentity.address,
       port: binding.serverIdentity.port,
-      systemIdentifier: binding.serverIdentity.systemIdentifier,
+      databaseOid: binding.serverIdentity.databaseOid,
     },
   };
 }
@@ -148,7 +148,7 @@ export function createProductionImportPostgresAdapter(options) {
                 current_user AS database_user,
                 inet_server_addr()::text AS server_address,
                 inet_server_port()::integer AS server_port,
-                (pg_control_system()).system_identifier::text AS system_identifier,
+                (SELECT oid::text FROM pg_database WHERE datname=current_database()) AS database_oid,
                 EXISTS (
                   SELECT 1 FROM biz_tenant tenant
                   WHERE tenant.id::text = $1
@@ -162,7 +162,7 @@ export function createProductionImportPostgresAdapter(options) {
       if (rows.length !== 1) fail("PRODUCTION_IMPORT_PG_RESULT_INVALID", "target probe did not return exactly one row");
       const row = rows[0];
       if (row.database_name !== binding.database || row.database_user !== binding.databaseUser) fail("PRODUCTION_IMPORT_PG_CONNECTION_IDENTITY_MISMATCH", "database or user differs from the sealed adapter binding");
-      if (row.server_address !== binding.serverIdentity.address || Number(row.server_port) !== binding.serverIdentity.port || row.system_identifier !== binding.serverIdentity.systemIdentifier) fail("PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH", "server address, port, or cluster system identifier differs from the sealed adapter binding");
+      if (row.server_address !== binding.serverIdentity.address || Number(row.server_port) !== binding.serverIdentity.port || row.database_oid !== binding.serverIdentity.databaseOid) fail("PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH", "server address, port, or database identity differs from the sealed adapter binding");
       if (row.tenant_exists !== true || row.park_exists !== true) fail("PRODUCTION_IMPORT_PG_TARGET_SCOPE_MISMATCH", "tenant/park scope is absent from the connected database");
       return Object.freeze({
         database: row.database_name,

@@ -360,7 +360,7 @@ async function runIteration(iteration) {
   const client = await pool.connect();
   let adapter;
   try {
-    const preflight = await client.query("SELECT current_database() AS database,current_user AS username,inet_server_addr()::text AS server_address,inet_server_port()::integer AS server_port,(pg_control_system()).system_identifier::text AS system_identifier,to_regclass('public.hr_yuzhou_production_import_projection_receipt') IS NOT NULL AS has_receipts");
+    const preflight = await client.query("SELECT current_database() AS database,current_user AS username,inet_server_addr()::text AS server_address,inet_server_port()::integer AS server_port,(SELECT oid::text FROM pg_database WHERE datname=current_database()) AS database_oid,to_regclass('public.hr_yuzhou_production_import_projection_receipt') IS NOT NULL AS has_receipts");
     assert.equal(preflight.rows.length, 1);
     assert.equal(preflight.rows[0].database, LAB_DATABASE);
     assert.equal(preflight.rows[0].username, LAB_USER);
@@ -389,7 +389,7 @@ async function runIteration(iteration) {
         databaseUser: LAB_USER,
         targetIdentitySha256: fixture.plan.target.identitySha256,
         targetScope: fixture.targetScope,
-        serverIdentity: { address: preflight.rows[0].server_address, port: preflight.rows[0].server_port, systemIdentifier: preflight.rows[0].system_identifier },
+        serverIdentity: { address: preflight.rows[0].server_address, port: preflight.rows[0].server_port, databaseOid: preflight.rows[0].database_oid },
       },
     });
     const contract = activatedContract(fixture.plan);
