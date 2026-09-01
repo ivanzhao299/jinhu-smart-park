@@ -59,44 +59,47 @@ for value in "$instance_persistent_filesystem_count" "$instance_persistent_total
   numeric "$value"
 done
 
-instance_block_disk_row="$(lsblk -bnr -o NAME,PKNAME,TYPE,SIZE,MOUNTPOINTS 2>/dev/null | awk '
-  function root_disk(name, depth) {
-    if (name in disk) return name
-    if (!(name in parent) || depth > 16) return ""
-    return root_disk(parent[name], depth + 1)
-  }
-  $2 == "disk" && $3 ~ /^[0-9]+$/ {
-    disk[$1] = $3
-    if (NF >= 4 && $4 != "") mounted[$1] = 1
-    next
-  }
-  NF >= 4 && $4 ~ /^[0-9]+$/ {
-    parent[$1] = $2
-    if (NF >= 5 && $5 != "") mounted[$1] = 1
-  }
-  END {
-    for (name in mounted) {
-      disk_name = root_disk(name, 0)
-      if (disk_name != "") mounted_disk[disk_name] = 1
-    }
-    for (name in disk) {
-      count += 1
-      total += disk[name]
-      if (name in mounted_disk) {
-        mounted_count += 1
-        mounted_total += disk[name]
-      } else {
-        unmounted_count += 1
-        unmounted_total += disk[name]
+instance_block_disk_row="$(lsblk -J -b -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS 2>/dev/null | node -e '
+  let input = "";
+  process.stdin.setEncoding("utf8");
+  process.stdin.on("data", (chunk) => { input += chunk; });
+  process.stdin.on("end", () => {
+    const disks = [];
+    const hasMount = (node) => Array.isArray(node.mountpoints)
+      ? node.mountpoints.some(Boolean)
+      : Boolean(node.mountpoint || node.mountpoints);
+    const visit = (node, disk) => {
+      let current = disk;
+      if (node.type === "disk") {
+        current = { size: Number(node.size), mounted: false, hasFilesystem: false };
+        disks.push(current);
       }
-    }
-    printf "%d|%.0f|%d|%.0f|%d|%.0f", count, total, mounted_count, mounted_total, unmounted_count, unmounted_total
-  }
+      if (!current || !Number.isSafeInteger(current.size) || current.size <= 0) return;
+      if (hasMount(node)) current.mounted = true;
+      if (typeof node.fstype === "string" && node.fstype.trim() !== "") current.hasFilesystem = true;
+      for (const child of node.children || []) visit(child, current);
+    };
+    for (const node of JSON.parse(input).blockdevices || []) visit(node, null);
+    if (disks.length === 0) process.exit(1);
+    const summarize = (predicate) => disks.filter(predicate).reduce((sum, disk) => sum + disk.size, 0);
+    const mounted = (disk) => disk.mounted;
+    const unmounted = (disk) => !disk.mounted;
+    const unmountedWithFilesystem = (disk) => unmounted(disk) && disk.hasFilesystem;
+    const unmountedWithoutFilesystem = (disk) => unmounted(disk) && !disk.hasFilesystem;
+    const result = [
+      disks.length, summarize(() => true),
+      disks.filter(mounted).length, summarize(mounted),
+      disks.filter(unmounted).length, summarize(unmounted),
+      disks.filter(unmountedWithFilesystem).length, summarize(unmountedWithFilesystem),
+      disks.filter(unmountedWithoutFilesystem).length, summarize(unmountedWithoutFilesystem)
+    ];
+    process.stdout.write(result.join("|"));
+  });
 ')" || fail
-IFS='|' read -r instance_block_disk_count instance_block_disk_total_bytes instance_mounted_block_disk_count instance_mounted_block_disk_total_bytes instance_unmounted_block_disk_count instance_unmounted_block_disk_total_bytes <<EOF
+IFS='|' read -r instance_block_disk_count instance_block_disk_total_bytes instance_mounted_block_disk_count instance_mounted_block_disk_total_bytes instance_unmounted_block_disk_count instance_unmounted_block_disk_total_bytes instance_unmounted_with_filesystem_count instance_unmounted_with_filesystem_total_bytes instance_unmounted_without_filesystem_count instance_unmounted_without_filesystem_total_bytes <<EOF
 $instance_block_disk_row
 EOF
-for value in "$instance_block_disk_count" "$instance_block_disk_total_bytes" "$instance_mounted_block_disk_count" "$instance_mounted_block_disk_total_bytes" "$instance_unmounted_block_disk_count" "$instance_unmounted_block_disk_total_bytes"; do
+for value in "$instance_block_disk_count" "$instance_block_disk_total_bytes" "$instance_mounted_block_disk_count" "$instance_mounted_block_disk_total_bytes" "$instance_unmounted_block_disk_count" "$instance_unmounted_block_disk_total_bytes" "$instance_unmounted_with_filesystem_count" "$instance_unmounted_with_filesystem_total_bytes" "$instance_unmounted_without_filesystem_count" "$instance_unmounted_without_filesystem_total_bytes"; do
   numeric "$value"
 done
 
@@ -140,6 +143,10 @@ printf 'instance_mounted_block_disk_count=%s\n' "$instance_mounted_block_disk_co
 printf 'instance_mounted_block_disk_total_bytes=%s\n' "$instance_mounted_block_disk_total_bytes"
 printf 'instance_unmounted_block_disk_count=%s\n' "$instance_unmounted_block_disk_count"
 printf 'instance_unmounted_block_disk_total_bytes=%s\n' "$instance_unmounted_block_disk_total_bytes"
+printf 'instance_unmounted_with_filesystem_count=%s\n' "$instance_unmounted_with_filesystem_count"
+printf 'instance_unmounted_with_filesystem_total_bytes=%s\n' "$instance_unmounted_with_filesystem_total_bytes"
+printf 'instance_unmounted_without_filesystem_count=%s\n' "$instance_unmounted_without_filesystem_count"
+printf 'instance_unmounted_without_filesystem_total_bytes=%s\n' "$instance_unmounted_without_filesystem_total_bytes"
 printf 'docker_data_total_kib=%s\n' "$docker_total_kib"
 printf 'docker_data_used_kib=%s\n' "$docker_used_kib"
 printf 'docker_data_free_kib=%s\n' "$docker_free_kib"
