@@ -8,6 +8,9 @@ import { sealSourceRestoreReceipt } from "../hr-cutover/source-restore-receipt.m
 import { canonicalT5Baseline } from "../hr-cutover/t5-canonical-baseline.mjs";
 import { rebaseT5CanonicalBaseline } from "../hr-cutover/rebase-t5-canonical-baseline.mjs";
 
+const rebaseCli = readFileSync(resolve(import.meta.dirname, "../hr-cutover/rebase-t5-canonical-baseline.mjs"), "utf8");
+assert.match(rebaseCli, /T5_BASELINE_REBASE_FAILED/);
+
 const sha = value => createHash("sha256").update(value).digest("hex");
 const privateWrite = (path, value) => { writeFileSync(path, value, { mode: 0o600 }); chmodSync(path, 0o600); };
 const domains = { accept: 0, bonuscode: 8, bonusrecord: 0, compact: 802, compact_c: 357, compacttypecode: 4, course: 0, docs: 1003, family: 4560, his: 375, jch_1: 0, jobstatecode: 8, jobtrain: 0, knowhow: 6, person_core: 2949, person_user: 0, person_user_item: 8, photo: 2949, readjust: 6887, readjustitem: 8, ticket: 237, train: 0, trainhis: 2 };

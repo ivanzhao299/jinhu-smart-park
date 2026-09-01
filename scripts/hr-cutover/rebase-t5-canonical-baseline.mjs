@@ -89,6 +89,11 @@ function parseArgs(argv) {
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  const result = rebaseT5CanonicalBaseline(parseArgs(process.argv.slice(2)));
-  process.stdout.write(`${JSON.stringify({ status: "PASS", sourceRows: result.sourceRows, productionImport: result.productionImport })}\n`);
+  try {
+    const result = rebaseT5CanonicalBaseline(parseArgs(process.argv.slice(2)));
+    process.stdout.write(`${JSON.stringify({ status: "PASS", sourceRows: result.sourceRows, productionImport: result.productionImport })}\n`);
+  } catch (error) {
+    process.stderr.write(`${error?.code ?? "T5_BASELINE_REBASE_FAILED"}\n`);
+    process.exitCode = 1;
+  }
 }
