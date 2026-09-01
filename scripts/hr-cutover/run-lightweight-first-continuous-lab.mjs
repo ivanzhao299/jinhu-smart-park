@@ -7,7 +7,6 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
 import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
-import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
 import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
 import { safeDiagnosticDetail } from "./safe-run-diagnostic.mjs";
 import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
@@ -131,6 +130,11 @@ function assertCleanup(result) {
   if (result?.status !== "CONTRACT_PASS" || result?.state !== "cleaned" || result?.residualCount !== 0) fail("LIGHTWEIGHT_CORE_CLEANUP_FAILED", "core_t0_t2");
 }
 
+async function runDefaultTechnicalUat(configPath) {
+  const { runCoreTechnicalUat } = await import("./run-core-t0-t3-technical-uat.mjs");
+  return runCoreTechnicalUat(configPath);
+}
+
 export function parseLightweightFirstArgs(argv) {
   const input = argv[0] === "--" ? argv.slice(1) : argv, args = {}, allowed = new Set(["--config", "--t5-stage", "--t3-stage", "--t4-stage", "--t5-identity-resolution", "--t5-baseline"]);
   for (let index = 0; index < input.length; index += 1) {
@@ -145,7 +149,7 @@ export function parseLightweightFirstArgs(argv) {
   return args;
 }
 
-export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Stage, t4Stage, t5IdentityResolution = null, t5Baseline = null }, { coreRunner = runCoreT0T3ContinuousLab, technicalUat = runCoreTechnicalUat, spawn = spawnSync, uuid = randomUUID } = {}) {
+export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Stage, t4Stage, t5IdentityResolution = null, t5Baseline = null }, { coreRunner = runCoreT0T3ContinuousLab, technicalUat = runDefaultTechnicalUat, spawn = spawnSync, uuid = randomUUID } = {}) {
   verifyLightweightFirstSliceOrder(CONTRACT);
   const config = validateCoreT0T3Config(privateJson(configPath, "LIGHTWEIGHT_CONFIG_UNSAFE"));
   if (config.profile !== "core_t0_t2") fail("LIGHTWEIGHT_CORE_PROFILE_INVALID", config.profile);

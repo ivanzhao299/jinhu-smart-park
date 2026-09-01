@@ -70,7 +70,8 @@ const concurrentCoreRunner = async options => {
   }
   return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
 };
-const firstRun = runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner: concurrentCoreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000010" });
+const concurrentCommands = [];
+const firstRun = runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner: concurrentCoreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: successfulSpawn(concurrentCommands), uuid: () => "00000000-0000-4000-8000-000000000010" });
 await new Promise(resolve => setImmediate(resolve));
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000011" }), /LIGHTWEIGHT_RUN_CONCURRENT/);
 releaseConcurrentCore();
