@@ -2,7 +2,7 @@
 /* global process */
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, lstatSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { validateCoreT0T3Config } from "./core-t0-t3-rehearsal.mjs";
@@ -20,6 +20,7 @@ const fail = (code, detail) => { const error = new Error(`${code}: ${detail}`); 
 const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 const safeCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "LIGHTWEIGHT_CONTINUOUS_FAILED";
+const GLOBAL_LOCK_NAME = ".yuzhou-lightweight-first-continuous.lock";
 
 function privateJson(path, code) {
   const absolute = resolve(path);
@@ -90,6 +91,32 @@ function writeProgress(config, startedAt, phase, completedPercent, status = "RUN
   });
 }
 
+function globalLockPath(config) {
+  const root = dirname(resolve(config.source.sourceRestoreReceiptPath));
+  if (!existsSync(root) || lstatSync(root).isSymbolicLink() || !statSync(root).isDirectory() || !directoryMode(root)) fail("LIGHTWEIGHT_GLOBAL_LOCK_ROOT_UNSAFE", "controlled source root");
+  return join(root, GLOBAL_LOCK_NAME);
+}
+
+function acquireGlobalLock(config) {
+  const path = globalLockPath(config);
+  const bytes = Buffer.from(`${JSON.stringify({ formatVersion: 1, kind: "yuzhou_lightweight_first_continuous", runId: config.runId, codeSha: config.triple.codeSha, sourceSnapshotSha256: config.triple.sourceSnapshotHash, pid: process.pid })}\n`);
+  try {
+    writeFileSync(path, bytes, { flag: "wx", mode: 0o600 });
+    chmodSync(path, 0o600);
+  } catch (error) {
+    if (error?.code === "EEXIST") fail("LIGHTWEIGHT_RUN_CONCURRENT", "a controlled-source lightweight runner is active");
+    throw error;
+  }
+  return { path, bytes };
+}
+
+function releaseGlobalLock(lock) {
+  if (!existsSync(lock.path) || lstatSync(lock.path).isSymbolicLink() || !statSync(lock.path).isFile() || !privateMode(lock.path) || !readFileSync(lock.path).equals(lock.bytes)) fail("LIGHTWEIGHT_LOCK_OWNERSHIP_CHANGED", "global runner lock");
+  // The byte-for-byte ownership check above means only this runner's lock may
+  // be removed. A failed release remains fail-closed for later runners.
+  unlinkSync(lock.path);
+}
+
 function execute(script, env, spawn = spawnSync) {
   const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
   if (result.error || result.status !== 0) fail(childFailureCode(script, result.stderr), script);
@@ -135,6 +162,8 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
   const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== baseline.sourceSnapshotSha256 || input.T5_NONFILE.manifest.sourceRestoreReceiptSha256 !== baseline.sourceRestoreReceiptSha256 || input.T5_NONFILE.manifest.sourceBusinessSha256 !== baseline.businessSha256 || input.T5_NONFILE.manifest.sourceCatalogSha256 !== baseline.catalogSha256 || input.T5_NONFILE.manifest.mappingContractSha256 !== baseline.mappingContractSha256) fail("LIGHTWEIGHT_T5_BASELINE_DRIFT", "T5 stage differs from selected baseline");
+  const globalLock = acquireGlobalLock(config);
+  try {
   // T5's materialization actor uses the strictest historical run-id ceiling
   // (37 characters). Keep the timestamp and candidate SHA prefix while
   // deriving all three child runs from the same core run.
@@ -208,6 +237,9 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     result = { ...result, cleanup };
   }
   return result;
+  } finally {
+    releaseGlobalLock(globalLock);
+  }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

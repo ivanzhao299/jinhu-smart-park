@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
@@ -61,6 +61,21 @@ const coreRunner = async options => {
   if (options.stopAfter === "rollback_ready") return { status: "CHECKPOINT_READY", state: "rollback_ready" };
   return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
 };
+let releaseConcurrentCore;
+const concurrentCoreGate = new Promise(resolve => { releaseConcurrentCore = resolve; });
+const concurrentCoreRunner = async options => {
+  if (options.stopAfter === "rollback_ready") {
+    await concurrentCoreGate;
+    return { status: "CHECKPOINT_READY", state: "rollback_ready" };
+  }
+  return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
+};
+const firstRun = runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner: concurrentCoreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000010" });
+await new Promise(resolve => setImmediate(resolve));
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000011" }), /LIGHTWEIGHT_RUN_CONCURRENT/);
+releaseConcurrentCore();
+await firstRun;
+assert.equal(existsSync(join(root, ".yuzhou-lightweight-first-continuous.lock")), false);
 const result = await runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn, uuid: () => "00000000-0000-4000-8000-000000000001" });
 assert.equal(result.status, "CONTRACT_PASS");
 assert.deepEqual(result.order, ["T0", "T1", "T2", "T5_NONFILE", "T3", "T4"]);
@@ -105,6 +120,7 @@ const heldProgress = JSON.parse(readFileSync(join(audit, "lightweight-first-prog
 assert.equal(heldProgress.status, "HOLD");
 assert.equal(heldProgress.phase, "HOLD");
 assert.equal(heldProgress.completedPercent, 100);
+assert.equal(existsSync(join(root, ".yuzhou-lightweight-first-continuous.lock")), false);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
 assert.deepEqual(commands.slice(-3).map(row => row.script), ["rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
