@@ -171,13 +171,18 @@ if [ -z "$FILE_STORAGE_ROOT" ]; then
 fi
 compose exec -T api sh -c "test -d '$FILE_STORAGE_ROOT'" >/dev/null || fail_gate "file storage root is not a directory"
 api_file_used="$(compose exec -T api sh -c 'file_root="${FILE_STORAGE_LOCAL_ROOT:-}"; test -n "$file_root" && test -d "$file_root" || exit 1; du -sk "$file_root" | awk '\''NR == 1 { print $1; exit }'\''' | tr -d ' \r\n')"
-for available in "$postgres_tmp_free" "$postgres_data_free" "$postgres_data_used" "$api_tmp_free" "$api_file_used"; do
+for available in "$postgres_tmp_free" "$postgres_data_free" "$api_tmp_free"; do
   case "$available" in
     ''|*[!0-9]*) fail_gate "container free-space probe failed" ;;
   esac
   if [ "$available" -lt "$MIN_CONTAINER_FREE_KIB" ]; then
     fail_gate "container free-space guard"
   fi
+done
+for used in "$postgres_data_used" "$api_file_used"; do
+  case "$used" in
+    ''|*[!0-9]*) fail_gate "recovery working-set probe failed" ;;
+  esac
 done
 required_host_free_kib=$((MIN_HOST_BASE_FREE_KIB + RECOVERY_WORKING_SET_MULTIPLIER * (postgres_data_used + api_file_used)))
 assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host_free_kib"

@@ -13,6 +13,11 @@ grep -Fq 'assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host
 grep -Fq 'postgres_tmp_free="$(compose exec -T postgres' "$script"
 grep -Fq 'postgres_data_row="$(compose exec -T postgres' "$script"
 grep -Fq 'api_tmp_free="$(compose exec -T api' "$script"
+grep -Fq 'for used in "$postgres_data_used" "$api_file_used"; do' "$script"
+if grep -Fq 'for available in "$postgres_tmp_free" "$postgres_data_free" "$postgres_data_used" "$api_tmp_free" "$api_file_used"; do' "$script"; then
+  echo 'recovery working-set sizes must not be compared as container free space' >&2
+  exit 1
+fi
 
 host_guard_line="$(grep -nF 'assert_free_space "host recovery workload" "$ROOT_DIR" "$required_host_free_kib"' "$script" | cut -d: -f1)"
 dump_line="$(grep -nF 'pg_dump -U "$POSTGRES_USER_VALUE" -d "$POSTGRES_DB_VALUE" -Fc -f "$DB_DUMP_PATH"' "$script" | cut -d: -f1)"
