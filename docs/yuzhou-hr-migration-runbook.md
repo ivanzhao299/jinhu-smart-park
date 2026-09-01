@@ -326,6 +326,8 @@ pnpm hr:migration:lightweight-first:continuous -- \
   --t5-baseline '<同一恢复回执、0600 T5 候选基线>'
 ```
 
+`--t5-identity-resolution` 是可选参数，并且只接受逐条覆盖全部歧义候选的、经审阅 `yuzhou_t5_profile_identity_resolution` 决议包；运行器会在启动 core lab 前验证它。`yuzhou_t5_profile_identity_ambiguity_receipt` 只是统计/待办回执，不能作为该参数传入。没有已签署决议包时必须省略该参数，加载器将歧义档案固定隔离为 `EMPLOYEE_PROFILE_IDENTITY_AMBIGUOUS`，绝不自动归并。
+
 在同一轮 core run 已停在 `rollback_ready` 后，可以执行三角色的真实 API 与无头浏览器技术验收：
 
 ```sh

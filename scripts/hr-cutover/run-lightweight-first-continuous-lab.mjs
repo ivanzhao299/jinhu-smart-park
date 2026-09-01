@@ -11,6 +11,7 @@ import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
 import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
 import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
 import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
+import { verifyT5IdentityResolutionPackage } from "../verify-yuzhou-t5-identity-resolution-package.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/lightweight-first-slice-order-v1.json"), "utf8"));
@@ -108,7 +109,12 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   const input = { T5_NONFILE: stage(t5Stage, "T5_NONFILE"), T3: stage(t3Stage, "T3"), T4: stage(t4Stage, "T4") };
   if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
-  if (t5IdentityResolution) privateJson(t5IdentityResolution, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
+  const t5IdentityResolutionPath = t5IdentityResolution ? resolve(t5IdentityResolution) : null;
+  if (t5IdentityResolutionPath) {
+    privateJson(t5IdentityResolutionPath, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
+    try { verifyT5IdentityResolutionPackage({ stagePath: input.T5_NONFILE.path, decisionPath: t5IdentityResolutionPath }); }
+    catch { fail("LIGHTWEIGHT_T5_RESOLUTION_INVALID", "reviewed decision package"); }
+  }
   const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
   if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
   const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
@@ -129,7 +135,7 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
     assertCheckpoint(checkpoint);
     execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
-    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5BaselinePath ? { YUZHOU_T5_BASELINE_FILE: t5BaselinePath } : {}), ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
+    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5BaselinePath ? { YUZHOU_T5_BASELINE_FILE: t5BaselinePath } : {}), ...(t5IdentityResolutionPath ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: t5IdentityResolutionPath } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
     receipts.T3 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
       YUZHOU_MIGRATION_RUN_ID: runs.t3,
       YUZHOU_STAGING_DIR: input.T3.path,

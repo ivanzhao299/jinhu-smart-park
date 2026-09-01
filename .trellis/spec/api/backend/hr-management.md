@@ -1143,6 +1143,7 @@ return sealContractOnlyOrRealEvidence(facts);
 - Candidate shape or stage binding mismatch -> `LIGHTWEIGHT_T5_BASELINE_DRIFT` before a core-lab start.
 - Invalid/missing stage after a valid CLI configuration -> `LIGHTWEIGHT_STAGE_UNSAFE` before a core-lab start.
 - A T5 loader precondition failure emits an allowlisted `T5_NONFILE_*` code (for example `T5_NONFILE_STAGING_DIR_MODE_INVALID`), and the runner records only the prefixed `LIGHTWEIGHT_T5_NONFILE_*` code; it never persists child stderr, paths, rows, credentials, or personal data.
+- `--t5-identity-resolution` accepts only a fully reviewed `yuzhou_t5_profile_identity_resolution` package bound to the T5 stage; an ambiguity receipt is rejected as `LIGHTWEIGHT_T5_RESOLUTION_INVALID` before a core-lab start. When no reviewed package exists, omit the parameter so ambiguous profiles are quarantined rather than automatically resolved.
 - Candidate that matches the T5 stage -> pass it only to the T5 loader; T3/T4 receive their own receipt-bound inputs.
 
 ### 5. Good / Base / Bad Cases

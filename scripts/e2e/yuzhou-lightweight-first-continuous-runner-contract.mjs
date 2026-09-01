@@ -39,9 +39,11 @@ const candidateBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: "9".r
 const candidateBaselinePath = join(root, "candidate-baseline.json"); writePrivate(candidateBaselinePath, JSON.stringify(candidateBaseline));
 const candidateT5 = makeStage("candidate-t5", t5Manifest(candidateBaseline));
 const unsafeCandidateBaselinePath = join(root, "unsafe-candidate-baseline.json"); writeFileSync(unsafeCandidateBaselinePath, JSON.stringify(candidateBaseline), { mode: 0o644 }); chmodSync(unsafeCandidateBaselinePath, 0o644);
+const invalidResolutionPath = join(root, "invalid-resolution.json"); writePrivate(invalidResolutionPath, "{}");
 const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: "c".repeat(64), sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "f".repeat(64), productionImport: "HOLD" });
 const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: candidateT5, t3Stage: t3, t4Stage: t4, t5Baseline: unsafeCandidateBaselinePath }), /LIGHTWEIGHT_T5_BASELINE_UNSAFE/);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4, t5IdentityResolution: invalidResolutionPath }), /LIGHTWEIGHT_T5_RESOLUTION_INVALID/);
 const commands = [];
 const successfulSpawn = commands => (_command, args, options) => {
   const script = args[0].split("/").at(-1); commands.push({ script, env: options.env });
