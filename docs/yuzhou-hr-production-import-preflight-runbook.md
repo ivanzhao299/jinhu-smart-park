@@ -167,7 +167,7 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 已合并的候选代码可以从唯一的 `Deploy Production` 工作流手工触发
 `diagnose-yuzhou-hr-production-target`。该模式只在正式部署宿主机内以
-`READ ONLY` 事务检查当前 HR 模块是否对应唯一、有效的 tenant/park 范围，并只输出：范围数量、生产目标身份哈希、范围哈希和固定 `HOLD` 原因。目标哈希只由普通运行角色可读取的连接端点、当前数据库 catalog 身份、数据库/角色和已验证范围在进程内计算；它不要求 superuser 或 `pg_control_system()` 权限，也不输出数据库名、数据库账号、范围值、连接参数、业务数据或备份位置。
+`READ ONLY` 事务检查当前 HR 模块是否对应唯一、有效的 tenant/park 范围，并只输出：范围数量、生产目标身份哈希、范围哈希和固定 `HOLD` 原因。范围只按权威 `sys_tenant.tenant_id` 与 `biz_park(tenant_id,park_id)` 交叉验证，不按内部实体 UUID 或退休表推断。目标哈希只由普通运行角色可读取的连接端点、当前数据库 catalog 身份、数据库/角色和已验证范围在进程内计算；它不要求 superuser 或 `pg_control_system()` 权限，也不输出数据库名、数据库账号、范围值、连接参数、业务数据或备份位置。
 
 该诊断永远不会执行 release marker、deploy、migration、seed、UAT、writer 或文件导入。即使它得到唯一身份哈希，结果仍为 `HOLD`，因为它只补齐 allowlist 审阅的输入；它不会伪造或取代生产前备份回执、before-image、冲突决策、人工 UAT、一次性导入授权或独立回滚授权。
 

@@ -150,12 +150,18 @@ export function createProductionImportPostgresAdapter(options) {
                 inet_server_port()::integer AS server_port,
                 (SELECT oid::text FROM pg_database WHERE datname=current_database()) AS database_oid,
                 EXISTS (
-                  SELECT 1 FROM biz_tenant tenant
-                  WHERE tenant.id::text = $1
+                  SELECT 1 FROM sys_tenant tenant
+                  WHERE btrim(tenant.tenant_id::text) = $1
+                    AND tenant.status = 1
+                    AND tenant.is_deleted = false
+                    AND (tenant.expire_time IS NULL OR tenant.expire_time > clock_timestamp())
                 ) AS tenant_exists,
                 EXISTS (
                   SELECT 1 FROM biz_park park
-                  WHERE park.id::text = $2 AND park.tenant_id::text = $1
+                  WHERE btrim(park.tenant_id::text) = $1
+                    AND btrim(park.park_id::text) = $2
+                    AND park.status = 1
+                    AND park.is_deleted = false
                 ) AS park_exists`,
         [binding.targetScope.tenantId, binding.targetScope.parkId],
       ), "target probe");

@@ -116,6 +116,10 @@ Reference files:
   perform its stated operation. Its target identity may use only that role's public connection and catalog facts;
   do not depend on `pg_control_system()`, superuser-only statistics, or an implicit privileged fallback. Contract
   tests must reject such privileged probes before a workflow can report a target-attestation result.
+- Production target diagnostics and writers must validate tenant/park scope against the schema's canonical business
+  keys, not internal entity UUIDs or retired compatibility tables. Keep the same table/key tuple in the read-only
+  attestation and the eventual writer probe, and contract-test the generated SQL so a renamed or guessed identity
+  cannot reach a production target.
 - Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly
   observed production classification must become a deterministic isolated PostgreSQL fixture before the next
   deployment attempt.
