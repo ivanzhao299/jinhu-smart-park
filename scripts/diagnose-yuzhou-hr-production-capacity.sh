@@ -3,8 +3,9 @@ set -eu
 
 mode="${1:-}"
 root_dir="${2:-}"
-host_min_kib=$((100 * 1024 * 1024))
+host_base_min_kib=$((20 * 1024 * 1024))
 container_min_kib=$((15 * 1024 * 1024))
+recovery_working_set_multiplier=2
 
 fail() {
   printf '%s\n' "YUZHOU_HR_CAPACITY_PROBE_FAILED" >&2
@@ -122,8 +123,10 @@ for value in "$postgres_tmp_free_kib" "$postgres_data_free_kib" "$postgres_data_
   numeric "$value"
 done
 
+host_recovery_required_kib=$((host_base_min_kib + recovery_working_set_multiplier * (postgres_data_used_kib + api_file_used_kib)))
+
 status="READY_FOR_GATE19"
-if [ "$host_free_kib" -lt "$host_min_kib" ] || [ "$docker_free_kib" -lt "$container_min_kib" ] || [ "$postgres_tmp_free_kib" -lt "$container_min_kib" ] || [ "$postgres_data_free_kib" -lt "$container_min_kib" ] || [ "$api_tmp_free_kib" -lt "$container_min_kib" ]; then
+if [ "$host_free_kib" -lt "$host_recovery_required_kib" ] || [ "$docker_free_kib" -lt "$container_min_kib" ] || [ "$postgres_tmp_free_kib" -lt "$container_min_kib" ] || [ "$postgres_data_free_kib" -lt "$container_min_kib" ] || [ "$api_tmp_free_kib" -lt "$container_min_kib" ]; then
   status="DISK_GUARD"
 fi
 
@@ -132,7 +135,9 @@ printf 'status=%s\n' "$status"
 printf 'host_total_kib=%s\n' "$host_total_kib"
 printf 'host_used_kib=%s\n' "$host_used_kib"
 printf 'host_free_kib=%s\n' "$host_free_kib"
-printf 'host_minimum_kib=%s\n' "$host_min_kib"
+printf 'host_base_minimum_kib=%s\n' "$host_base_min_kib"
+printf 'host_recovery_working_set_multiplier=%s\n' "$recovery_working_set_multiplier"
+printf 'host_recovery_required_kib=%s\n' "$host_recovery_required_kib"
 printf 'instance_persistent_filesystem_count=%s\n' "$instance_persistent_filesystem_count"
 printf 'instance_persistent_total_kib=%s\n' "$instance_persistent_total_kib"
 printf 'instance_persistent_used_kib=%s\n' "$instance_persistent_used_kib"
