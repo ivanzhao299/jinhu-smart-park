@@ -171,6 +171,12 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 该诊断永远不会执行 release marker、deploy、migration、seed、UAT、writer 或文件导入。即使它得到唯一身份哈希，结果仍为 `HOLD`，因为它只补齐 allowlist 审阅的输入；它不会伪造或取代生产前备份回执、before-image、冲突决策、人工 UAT、一次性导入授权或独立回滚授权。
 
+### 7.2 当前备份恢复证明
+
+在固定目标范围之后、任何生产历史 writer 之前，使用 `Production Backup Restore Gate` 重新执行当前的 PostgreSQL 备份、临时恢复和聚合核对。该 Gate 在创建 dump、临时恢复库或文件归档前要求宿主机至少 100 GiB、PostgreSQL 与 API 容器各至少 15 GiB 可用空间；任一检查失败即停止，不创建导入批次。它只保留不含连接参数、数据库名、内部地址、文件路径或业务明细的聚合报告。
+
+Gate-19 证明当前备份/恢复链和容量门禁，不能代替 T0～T3 的范围化 before-image、`legacy_record_map` 快照、冲突决策或一次性 rollback 授权；这些仍须由封存生产计划在写入窗口前生成和绑定。
+
 ## 8. 已实现但默认不可达的生产控制面
 
 `000278_hr_yuzhou_production_import_control.sql`、`000281_hr_yuzhou_production_import_control_v2.sql`、`production-import-sealed-plan-lib.mjs` 和
