@@ -7,6 +7,7 @@ workflow="$root/.github/workflows/deploy-production.yml"
 
 grep -Fq 'mount-empty-disk' "$script"
 grep -Fq 'PRODUCTION_DATA_DISK_CANDIDATE_UNRESOLVED' "$script"
+grep -Fq 'PRODUCTION_DATA_DISK_INVENTORY_UNAVAILABLE' "$script"
 grep -Fq 'PRODUCTION_DATA_DISK_SIGNATURE_PRESENT' "$script"
 grep -Fq 'wipefs -n' "$script"
 grep -Fq 'mkfs.ext4 -F -m 0' "$script"

@@ -20,7 +20,9 @@ for command in lsblk node wipefs mkfs.ext4 mountpoint findmnt blkid sudo; do
 done
 sudo -n true >/dev/null 2>&1 || fail "PRODUCTION_DATA_DISK_PRIVILEGE_REQUIRED"
 
-candidate="$(lsblk -J -b -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,CHILDREN 2>/dev/null | node -e '
+inventory="$(lsblk -J -b -o NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS 2>/dev/null)" \
+  || fail "PRODUCTION_DATA_DISK_INVENTORY_UNAVAILABLE"
+candidate="$(printf '%s' "$inventory" | node -e '
   let input = "";
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => { input += chunk; });
