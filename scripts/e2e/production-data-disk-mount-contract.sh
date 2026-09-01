@@ -14,6 +14,7 @@ grep -Fq 'mountpoint -q' "$script"
 grep -Fq 'persistent_mount=true' "$script"
 grep -Fq 'YUZHOU_PRODUCTION_DATA_VOLUME_ACTION=mount-empty-disk' "$workflow"
 grep -Fq 'Prepare Yuzhou HR production data volume' "$workflow"
+grep -Fq "inputs.deploy_mode == 'prepare-yuzhou-hr-production-data-volume'" "$workflow"
 mount_exclusions="$(grep -Fc "inputs.deploy_mode != 'prepare-yuzhou-hr-production-data-volume'" "$workflow")"
 test "$mount_exclusions" -eq 9
 

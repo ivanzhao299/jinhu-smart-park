@@ -157,7 +157,7 @@ jobs:
   deploy:
     name: Deploy to production host
     needs: [classify, verify]
-    if: ${{ needs.classify.outputs.mode != 'ops-only' || startsWith(inputs.deploy_mode, 'diagnose-') }}
+    if: ${{ needs.classify.outputs.mode != 'ops-only' || startsWith(inputs.deploy_mode, 'diagnose-') || inputs.deploy_mode == 'prepare-yuzhou-hr-production-data-volume' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
