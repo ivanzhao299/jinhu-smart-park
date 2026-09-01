@@ -59,31 +59,46 @@ for value in "$instance_persistent_filesystem_count" "$instance_persistent_total
   numeric "$value"
 done
 
-instance_block_disk_row="$(lsblk -b -dn -o TYPE,SIZE 2>/dev/null | awk '$1 == "disk" && $2 ~ /^[0-9]+$/ { count += 1; total += $2 } END { printf "%d|%.0f", count, total }')" || fail
-IFS='|' read -r instance_block_disk_count instance_block_disk_total_bytes <<EOF
+instance_block_disk_row="$(lsblk -bnr -o NAME,PKNAME,TYPE,SIZE,MOUNTPOINTS 2>/dev/null | awk '
+  function root_disk(name, depth) {
+    if (name in disk) return name
+    if (!(name in parent) || depth > 16) return ""
+    return root_disk(parent[name], depth + 1)
+  }
+  $2 == "disk" && $3 ~ /^[0-9]+$/ {
+    disk[$1] = $3
+    if (NF >= 4 && $4 != "") mounted[$1] = 1
+    next
+  }
+  NF >= 4 && $4 ~ /^[0-9]+$/ {
+    parent[$1] = $2
+    if (NF >= 5 && $5 != "") mounted[$1] = 1
+  }
+  END {
+    for (name in mounted) {
+      disk_name = root_disk(name, 0)
+      if (disk_name != "") mounted_disk[disk_name] = 1
+    }
+    for (name in disk) {
+      count += 1
+      total += disk[name]
+      if (name in mounted_disk) {
+        mounted_count += 1
+        mounted_total += disk[name]
+      } else {
+        unmounted_count += 1
+        unmounted_total += disk[name]
+      }
+    }
+    printf "%d|%.0f|%d|%.0f|%d|%.0f", count, total, mounted_count, mounted_total, unmounted_count, unmounted_total
+  }
+')" || fail
+IFS='|' read -r instance_block_disk_count instance_block_disk_total_bytes instance_mounted_block_disk_count instance_mounted_block_disk_total_bytes instance_unmounted_block_disk_count instance_unmounted_block_disk_total_bytes <<EOF
 $instance_block_disk_row
 EOF
-numeric "$instance_block_disk_count"
-numeric "$instance_block_disk_total_bytes"
-
-instance_mounted_block_disk_count=0
-instance_mounted_block_disk_total_bytes=0
-instance_unmounted_block_disk_count=0
-instance_unmounted_block_disk_total_bytes=0
-instance_disk_rows="$(lsblk -bn -d -o NAME,SIZE 2>/dev/null | awk '$1 != "" && $2 ~ /^[0-9]+$/ { print $1 "|" $2 }')" || fail
-test -n "$instance_disk_rows" || fail
-while IFS='|' read -r disk_name disk_size; do
-  numeric "$disk_size"
-  if lsblk -bnr -o MOUNTPOINTS "/dev/$disk_name" 2>/dev/null | awk 'NF { found = 1 } END { exit found ? 0 : 1 }'; then
-    instance_mounted_block_disk_count=$((instance_mounted_block_disk_count + 1))
-    instance_mounted_block_disk_total_bytes=$((instance_mounted_block_disk_total_bytes + disk_size))
-  else
-    instance_unmounted_block_disk_count=$((instance_unmounted_block_disk_count + 1))
-    instance_unmounted_block_disk_total_bytes=$((instance_unmounted_block_disk_total_bytes + disk_size))
-  fi
-done <<EOF
-$instance_disk_rows
-EOF
+for value in "$instance_block_disk_count" "$instance_block_disk_total_bytes" "$instance_mounted_block_disk_count" "$instance_mounted_block_disk_total_bytes" "$instance_unmounted_block_disk_count" "$instance_unmounted_block_disk_total_bytes"; do
+  numeric "$value"
+done
 
 docker_root="$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)" || fail
 test -n "$docker_root" || fail
