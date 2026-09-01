@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import test from "node:test";
-import { YuzhouLiveRoleUatBrowserRunnerError, buildTechnicalUatBrowserBinding, isYuzhouLiveRoleUatLabPath, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
+import { YuzhouLiveRoleUatBrowserRunnerError, buildTechnicalUatBrowserBinding, isFatalBrowserRuntimeEvent, isYuzhouLiveRoleUatLabPath, missingVisibleTexts, observeSameOriginApiNetworkEvent, runYuzhouLiveRoleUatBrowserMatrix, validateYuzhouBrowserObservation } from "../hr-cutover/yuzhou-live-role-uat-browser-runner.mjs";
 
 const check = { legacyId: 35, roleType: "department_manager", actor: "manager", route: "/hr/employees" };
 const viewport = { id: "phone_390", width: 390, height: 844, mobile: true };
@@ -45,6 +45,13 @@ test("browser observation drift and horizontal overflow fail closed", () => {
 test("visible-text diagnostics report only missing contract labels", () => {
   assert.deepEqual(missingVisibleTexts("团队员工档案", ["团队员工档案", "查看与办理"]), ["查看与办理"]);
   assert.deepEqual(missingVisibleTexts("", ["团队员工档案", "查看与办理"]), ["团队员工档案", "查看与办理"]);
+});
+
+test("only actual browser exceptions and explicit console errors block the runtime surface", () => {
+  assert.equal(isFatalBrowserRuntimeEvent({ method: "Runtime.exceptionThrown" }), true);
+  assert.equal(isFatalBrowserRuntimeEvent({ method: "Runtime.consoleAPICalled", params: { type: "error" } }), true);
+  assert.equal(isFatalBrowserRuntimeEvent({ method: "Runtime.consoleAPICalled", params: { type: "warning" } }), false);
+  assert.equal(isFatalBrowserRuntimeEvent({ method: "Log.entryAdded", params: { entry: { level: "error" } } }), false);
 });
 
 test("same-origin API 4xx, 5xx and loading failures cannot be hidden by static page text", () => {

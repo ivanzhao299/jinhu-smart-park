@@ -125,6 +125,15 @@ export function observeSameOriginApiNetworkEvent(message, webBase, requests, fai
   if (message.method === "Network.loadingFinished" && requests.has(message.params?.requestId)) requests.delete(message.params.requestId);
 }
 
+// The Log domain can emit browser-internal diagnostics that are not page
+// runtime failures. Keep the UAT fail-closed for actual exceptions and for an
+// application's explicit console.error call, without turning generic Log
+// entries into false failures.
+export function isFatalBrowserRuntimeEvent(message) {
+  return message?.method === "Runtime.exceptionThrown"
+    || (message?.method === "Runtime.consoleAPICalled" && message.params?.type === "error");
+}
+
 async function pollVisibleTexts(cdp, sessionId, check, viewport, attempts = 200) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const state = await evaluate(cdp, sessionId, `(() => { const text=document.body?.innerText??''; return { ready:document.readyState==='complete', path:location.pathname, text }; })()`);
@@ -284,13 +293,13 @@ export async function runYuzhouLiveRoleUatBrowserMatrix(options) {
         const runtimeErrors = [], networkFailures = [], sameOriginRequests = new Map();
         const off = cdp.on(message => {
           if (message.sessionId !== sessionId) return;
-          if (message.method === "Runtime.exceptionThrown" || (message.method === "Log.entryAdded" && message.params?.entry?.level === "error")) runtimeErrors.push(message.method);
+          if (isFatalBrowserRuntimeEvent(message)) runtimeErrors.push(message.method);
           observeSameOriginApiNetworkEvent(message,webBase,sameOriginRequests,networkFailures);
         });
         try {
           await Promise.all([
             cdp.send("Page.enable", {}, sessionId), cdp.send("Runtime.enable", {}, sessionId),
-            cdp.send("Log.enable", {}, sessionId), cdp.send("Network.enable", {}, sessionId)
+            cdp.send("Network.enable", {}, sessionId)
           ]);
           await cdp.send("Emulation.setDeviceMetricsOverride", { width: viewport.width, height: viewport.height, deviceScaleFactor: 1, mobile: viewport.mobile }, sessionId);
           await cdp.send("Page.navigate", { url: `${webBase}/login` }, sessionId);

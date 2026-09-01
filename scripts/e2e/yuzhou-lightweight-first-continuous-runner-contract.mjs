@@ -85,6 +85,13 @@ assert.equal(commands.every(row => /^[A-Za-z0-9][A-Za-z0-9._-]{5,36}$/u.test(row
 assert.equal(commands.some(row => Object.keys(row.env).some(key => /PASSWORD|TOKEN|SECRET/i.test(key))), false);
 assert.equal(result.cleanup.state, "cleaned");
 assert.equal(result.cleanup.residualCount, 0);
+const successfulProgress = JSON.parse(readFileSync(join(audit, "lightweight-first-progress.json"), "utf8"));
+assert.equal(successfulProgress.formatVersion, 1);
+assert.equal(successfulProgress.status, "CONTRACT_PASS");
+assert.equal(successfulProgress.phase, "COMPLETE");
+assert.equal(successfulProgress.completedPercent, 100);
+assert.equal(successfulProgress.productionImport, "HOLD");
+assert.equal(Number.isFinite(successfulProgress.elapsedMilliseconds), true);
 const browserRuntimeFailure = async () => {
   const error = new Error("YUZHOU_UAT_BROWSER_RUNTIME_SURFACE: 35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0");
   error.code = "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE";
@@ -94,6 +101,10 @@ await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: 
 const diagnosticSummary = JSON.parse(readFileSync(join(audit, "lightweight-first-summary.json"), "utf8"));
 assert.equal(diagnosticSummary.errorCode, "YUZHOU_UAT_BROWSER_RUNTIME_SURFACE");
 assert.equal(diagnosticSummary.errorDetail, "35:department_manager:phone_390:path=/hr/employees:runtimeErrors=1:runtimeKinds=Runtime.exceptionThrown:networkFailures=1:networkKinds=http:500:alerts=0");
+const heldProgress = JSON.parse(readFileSync(join(audit, "lightweight-first-progress.json"), "utf8"));
+assert.equal(heldProgress.status, "HOLD");
+assert.equal(heldProgress.phase, "HOLD");
+assert.equal(heldProgress.completedPercent, 100);
 const rollbackFailure = (_command, args, options) => args[0].endsWith("rollback-yuzhou-t4-payroll-history.sh") ? { status: 1, stdout: "" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: rollbackFailure, uuid: () => "00000000-0000-4000-8000-000000000002" }), /LIGHTWEIGHT_T4_ROLLBACK_FAILED/);
 assert.deepEqual(commands.slice(-3).map(row => row.script), ["rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);

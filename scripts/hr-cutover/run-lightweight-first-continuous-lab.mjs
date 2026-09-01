@@ -67,12 +67,27 @@ function childFailureCode(script, stderr) {
   return match ? `LIGHTWEIGHT_${match[1]}` : CHILD_FAILURE_CODES[script];
 }
 
-function writeAuditSummary(config, value) {
+function writeAuditRecord(config, name, value) {
   const auditRoot = join(dirname(config.target.credentialRoot), "audit");
   if (!existsSync(auditRoot) || !directoryMode(auditRoot)) return;
-  const summary = join(auditRoot, "lightweight-first-summary.json");
-  writeFileSync(summary, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
-  chmodSync(summary, 0o600);
+  const path = join(auditRoot, name);
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  chmodSync(path, 0o600);
+}
+
+function writeAuditSummary(config, value) {
+  writeAuditRecord(config, "lightweight-first-summary.json", value);
+}
+
+function writeProgress(config, startedAt, phase, completedPercent, status = "RUNNING") {
+  writeAuditRecord(config, "lightweight-first-progress.json", {
+    formatVersion: 1,
+    status,
+    phase,
+    completedPercent,
+    elapsedMilliseconds: Date.now() - startedAt,
+    productionImport: "HOLD"
+  });
 }
 
 function execute(script, env, spawn = spawnSync) {
@@ -129,14 +144,18 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   const actor = uuid();
   const reached = [];
   const receipts = {};
+  const startedAt = Date.now();
   let primary = null;
   let result = null;
   let cleanup = { state: "not_started", residualCount: null };
   try {
+    writeProgress(config, startedAt, "CORE_CHECKPOINT", 5);
     const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
     assertCheckpoint(checkpoint);
+    writeProgress(config, startedAt, "T5_NONFILE", 15);
     execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
     receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5BaselinePath ? { YUZHOU_T5_BASELINE_FILE: t5BaselinePath } : {}), ...(t5IdentityResolutionPath ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: t5IdentityResolutionPath } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
+    writeProgress(config, startedAt, "T3", 35);
     receipts.T3 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
       YUZHOU_MIGRATION_RUN_ID: runs.t3,
       YUZHOU_STAGING_DIR: input.T3.path,
@@ -145,15 +164,20 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
       YUZHOU_SOURCE_BUSINESS_SHA256: input.T3.manifest.sourceBusinessSha256,
       YUZHOU_MAPPING_CONTRACT_SHA256: input.T3.manifest.mappingContractSha256
     }), spawn), { runId: runs.t3, code: "LIGHTWEIGHT_T3_LOAD_RECEIPT_INVALID" }) }; reached.push("T3");
+    writeProgress(config, startedAt, "T4", 55);
     const business = input.T4.manifest.businessContentSha256;
     if (!/^[0-9a-f]{64}$/u.test(business ?? "")) fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "business hash");
     receipts.T4 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn), { runId: runs.t4, code: "LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID" }) }; reached.push("T4");
+    writeProgress(config, startedAt, "TECHNICAL_UAT", 80);
     const uat = await technicalUat(configPath);
     if (uat?.status !== "PASS" || uat.productionImport !== "HOLD") fail("LIGHTWEIGHT_TECHNICAL_UAT_FAILED", "core technical UAT");
     result = { status: "CONTRACT_PASS", order: CONTRACT.orderedSlices.map(item => item.id), receipts, uat: "PASS", productionImport: "HOLD" };
   } catch (error) { primary = error; }
   finally {
     const rollback = (stage, script, env, receipt) => {
+      const phase = stage === "T4" ? "ROLLBACK_T4" : stage === "T3" ? "ROLLBACK_T3" : "ROLLBACK_T5_NONFILE";
+      const percent = stage === "T4" ? 85 : stage === "T3" ? 90 : 95;
+      writeProgress(config, startedAt, phase, percent);
       try { receipts[stage].rollback = receipt(execute(script, childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", ...env }), spawn)); }
       catch (error) { if (!primary) primary = error; }
     };
@@ -161,10 +185,12 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     if (reached.includes("T3")) rollback("T3", "scripts/rollback-yuzhou-t3-attendance-insurance.sh", { YUZHOU_MIGRATION_RUN_ID: runs.t3 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t3, code: "LIGHTWEIGHT_T3_ROLLBACK_RECEIPT_INVALID", requireZeroActiveMaps: true }));
     if (reached.includes("T5_NONFILE")) rollback("T5_NONFILE", "scripts/rollback-yuzhou-t5-nonfile-history.sh", { YUZHOU_T5_NONFILE_RUN_ID: runs.t5 }, output => assertIsolatedRollbackReceipt(output, { runId: runs.t5, code: "LIGHTWEIGHT_T5_ROLLBACK_RECEIPT_INVALID" }));
     if (reached.includes("T5_NONFILE")) {
+      writeProgress(config, startedAt, "ROLLBACK_T5_ACTOR", 96);
       try { execute("scripts/rollback-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { ALLOW_YUZHOU_ROLLBACK: "yes", YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn); }
       catch (error) { if (!primary) primary = error; }
     }
     try {
+      writeProgress(config, startedAt, "CORE_CLEANUP", 98);
       const coreCleanup = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000 });
       assertCleanup(coreCleanup);
       cleanup = { state: "cleaned", residualCount: 0 };
@@ -177,6 +203,7 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
       ? { formatVersion: 1, status: "HOLD", errorCode: safeCode(primary), ...(errorDetail ? { errorDetail } : {}), reached, cleanup, productionImport: "HOLD" }
       : { formatVersion: 1, status: "CONTRACT_PASS", ...result, reached, cleanup, productionImport: "HOLD" };
     writeAuditSummary(config, summary);
+    writeProgress(config, startedAt, primary ? "HOLD" : "COMPLETE", 100, primary ? "HOLD" : "CONTRACT_PASS");
     if (primary) throw primary;
     result = { ...result, cleanup };
   }
