@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* global process */
 import { randomUUID } from "node:crypto";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, lstatSync, readFileSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +20,7 @@ const privateMode = path => (statSync(path).mode & 0o777) === 0o600;
 const directoryMode = path => (statSync(path).mode & 0o777) === 0o700;
 const safeCode = error => /^[A-Z][A-Z0-9_]+$/u.test(error?.code ?? "") ? error.code : "LIGHTWEIGHT_CONTINUOUS_FAILED";
 const GLOBAL_LOCK_NAME = ".yuzhou-lightweight-first-continuous.lock";
+const T4_BATCH_TOTAL = 16;
 
 function privateJson(path, code) {
   const absolute = resolve(path);
@@ -79,14 +80,15 @@ function writeAuditSummary(config, value) {
   writeAuditRecord(config, "lightweight-first-summary.json", value);
 }
 
-function writeProgress(config, startedAt, phase, completedPercent, status = "RUNNING") {
+function writeProgress(config, startedAt, phase, completedPercent, status = "RUNNING", details = {}) {
   writeAuditRecord(config, "lightweight-first-progress.json", {
     formatVersion: 1,
     status,
     phase,
     completedPercent,
     elapsedMilliseconds: Date.now() - startedAt,
-    productionImport: "HOLD"
+    productionImport: "HOLD",
+    ...details
   });
 }
 
@@ -120,6 +122,49 @@ function execute(script, env, spawn = spawnSync) {
   const result = spawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, encoding: "utf8", stdio: "pipe" });
   if (result.error || result.status !== 0) fail(childFailureCode(script, result.stderr), script);
   return result.stdout;
+}
+
+export function parseT4BatchProgress(value) {
+  const match = String(value ?? "").match(/\bT4_PROGRESS_BATCH=(\d+)\/16\b/u);
+  if (!match) return null;
+  const completed = Number(match[1]);
+  return Number.isInteger(completed) && completed >= 1 && completed <= T4_BATCH_TOTAL ? completed : null;
+}
+
+function childError(code, script) {
+  const error = new Error(`${code}: ${script}`);
+  error.code = code;
+  return error;
+}
+
+async function executeT4WithProgress(script, env, onProgress, synchronousSpawn = spawnSync, asynchronousSpawn = spawn) {
+  // Contract tests inject a synchronous child stub. Production streams the
+  // child so the private receipt advances after each completed SQL shard.
+  if (synchronousSpawn !== spawnSync && asynchronousSpawn === spawn) return execute(script, env, synchronousSpawn);
+  return new Promise((resolvePromise, rejectPromise) => {
+    let stdout = "", stderrLine = "", latestBatch = 0;
+    let child;
+    try { child = asynchronousSpawn("sh", [resolve(ROOT, script)], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] }); }
+    catch { rejectPromise(childError(childFailureCode(script), script)); return; }
+    child.stdout.on("data", chunk => { stdout = `${stdout}${String(chunk)}`; });
+    child.stderr.on("data", chunk => {
+      stderrLine = `${stderrLine}${String(chunk)}`;
+      const lines = stderrLine.split(/\r?\n/u);
+      stderrLine = lines.pop() ?? "";
+      for (const line of lines) {
+        const completed = parseT4BatchProgress(line);
+        if (completed !== null && completed > latestBatch) {
+          latestBatch = completed;
+          onProgress(completed, T4_BATCH_TOTAL);
+        }
+      }
+    });
+    child.once("error", () => rejectPromise(childError(childFailureCode(script), script)));
+    child.once("close", code => {
+      if (code !== 0) rejectPromise(childError(childFailureCode(script), script));
+      else resolvePromise(stdout);
+    });
+  });
 }
 
 function assertCheckpoint(result) {
@@ -200,7 +245,8 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     writeProgress(config, startedAt, "T4", 55);
     const business = input.T4.manifest.businessContentSha256;
     if (!/^[0-9a-f]{64}$/u.test(business ?? "")) fail("LIGHTWEIGHT_T4_MANIFEST_INVALID", "business hash");
-    receipts.T4 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), spawn), { runId: runs.t4, code: "LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID" }) }; reached.push("T4");
+    const t4Output = await executeT4WithProgress("scripts/load-yuzhou-t4-payroll-history.sh", childEnvironment(config, { YUZHOU_MIGRATION_RUN_ID: runs.t4, YUZHOU_STAGING_DIR: input.T4.path, YUZHOU_T4_BUSINESS_SHA256: business, YUZHOU_T4_LOAD_MODE: "full_archive" }), (completed, total) => writeProgress(config, startedAt, "T4", 55 + Math.floor((completed * 24) / total), "RUNNING", { t4BatchCompleted: completed, t4BatchTotal: total }), spawn);
+    receipts.T4 = { load: assertIsolatedLoadReceipt(t4Output, { runId: runs.t4, code: "LIGHTWEIGHT_T4_LOAD_RECEIPT_INVALID" }) }; reached.push("T4");
     writeProgress(config, startedAt, "TECHNICAL_UAT", 80);
     const uat = await technicalUat(configPath);
     if (uat?.status !== "PASS" || uat.productionImport !== "HOLD") fail("LIGHTWEIGHT_TECHNICAL_UAT_FAILED", "core technical UAT");
