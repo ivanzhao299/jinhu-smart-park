@@ -10,6 +10,7 @@ import { runCoreT0T3ContinuousLab } from "./run-core-t0-t3-continuous-lab.mjs";
 import { runCoreTechnicalUat } from "./run-core-t0-t3-technical-uat.mjs";
 import { assertIsolatedLoadReceipt, assertIsolatedRollbackReceipt } from "./isolated-load-receipt.mjs";
 import { verifyLightweightFirstSliceOrder } from "./verify-lightweight-first-slice-order.mjs";
+import { canonicalT5Baseline } from "./t5-canonical-baseline.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL("../../", import.meta.url)));
 const CONTRACT = JSON.parse(readFileSync(resolve(ROOT, "scripts/hr-cutover/contracts/lightweight-first-slice-order-v1.json"), "utf8"));
@@ -87,19 +88,20 @@ function assertCleanup(result) {
 }
 
 export function parseLightweightFirstArgs(argv) {
-  const input = argv[0] === "--" ? argv.slice(1) : argv, args = {}, allowed = new Set(["--config", "--t5-stage", "--t3-stage", "--t4-stage", "--t5-identity-resolution"]);
+  const input = argv[0] === "--" ? argv.slice(1) : argv, args = {}, allowed = new Set(["--config", "--t5-stage", "--t3-stage", "--t4-stage", "--t5-identity-resolution", "--t5-baseline"]);
   for (let index = 0; index < input.length; index += 1) {
     const key = input[index];
     if (!allowed.has(key) || !input[index + 1] || allowed.has(input[index + 1])) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
-    const name = key.slice(2).replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+    const parsedName = key.slice(2).replace(/-([a-z])/gu, (_match, letter) => letter.toUpperCase());
+    const name = parsedName === "config" ? "configPath" : parsedName;
     if (Object.hasOwn(args, name)) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
     args[name] = resolve(input[++index]);
   }
-  for (const key of ["config", "t5Stage", "t3Stage", "t4Stage"]) if (!args[key]) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
+  for (const key of ["configPath", "t5Stage", "t3Stage", "t4Stage"]) if (!args[key]) fail("LIGHTWEIGHT_ARGUMENT_INVALID", key);
   return args;
 }
 
-export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Stage, t4Stage, t5IdentityResolution = null }, { coreRunner = runCoreT0T3ContinuousLab, technicalUat = runCoreTechnicalUat, spawn = spawnSync, uuid = randomUUID } = {}) {
+export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Stage, t4Stage, t5IdentityResolution = null, t5Baseline = null }, { coreRunner = runCoreT0T3ContinuousLab, technicalUat = runCoreTechnicalUat, spawn = spawnSync, uuid = randomUUID } = {}) {
   verifyLightweightFirstSliceOrder(CONTRACT);
   const config = validateCoreT0T3Config(privateJson(configPath, "LIGHTWEIGHT_CONFIG_UNSAFE"));
   if (config.profile !== "core_t0_t2") fail("LIGHTWEIGHT_CORE_PROFILE_INVALID", config.profile);
@@ -107,6 +109,10 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
   if (input.T3.manifest.artifactKind !== "yuzhou_t3_attendance_insurance_stage" || input.T3.manifest.sourceReadOnly !== true || input.T3.manifest.productionImport !== "HOLD") fail("LIGHTWEIGHT_T3_MANIFEST_INVALID", "T3 source boundary");
   if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T3.manifest.sourceSnapshotSha256 !== config.triple.sourceSnapshotHash || input.T4.manifest.sourceBackupSha256 !== config.triple.sourceSnapshotHash) fail("LIGHTWEIGHT_SOURCE_BINDING_DRIFT", "staging source differs from core config");
   if (t5IdentityResolution) privateJson(t5IdentityResolution, "LIGHTWEIGHT_T5_RESOLUTION_UNSAFE");
+  const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
+  if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
+  const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
+  if (input.T5_NONFILE.manifest.sourceSnapshotSha256 !== baseline.sourceSnapshotSha256 || input.T5_NONFILE.manifest.sourceRestoreReceiptSha256 !== baseline.sourceRestoreReceiptSha256 || input.T5_NONFILE.manifest.sourceBusinessSha256 !== baseline.businessSha256 || input.T5_NONFILE.manifest.sourceCatalogSha256 !== baseline.catalogSha256 || input.T5_NONFILE.manifest.mappingContractSha256 !== baseline.mappingContractSha256) fail("LIGHTWEIGHT_T5_BASELINE_DRIFT", "T5 stage differs from selected baseline");
   // T5's materialization actor uses the strictest historical run-id ceiling
   // (37 characters). Keep the timestamp and candidate SHA prefix while
   // deriving all three child runs from the same core run.
@@ -123,7 +129,7 @@ export async function runLightweightFirstContinuous({ configPath, t5Stage, t3Sta
     const checkpoint = await coreRunner({ configPath, durationMinutes: 300, pollMilliseconds: 1000, stopAfter: "rollback_ready" });
     assertCheckpoint(checkpoint);
     execute("scripts/provision-yuzhou-t5-nonfile-actor.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor }), spawn);
-    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
+    receipts.T5_NONFILE = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t5-nonfile-history.sh", childEnvironment(config, { YUZHOU_T5_NONFILE_RUN_ID: runs.t5, YUZHOU_T5_NONFILE_STAGING_DIR: input.T5_NONFILE.path, YUZHOU_MATERIALIZATION_ACTOR_USER_ID: actor, ...(t5BaselinePath ? { YUZHOU_T5_BASELINE_FILE: t5BaselinePath } : {}), ...(t5IdentityResolution ? { YUZHOU_T5_IDENTITY_RESOLUTION_FILE: resolve(t5IdentityResolution) } : {}) }), spawn), { runId: runs.t5, code: "LIGHTWEIGHT_T5_LOAD_RECEIPT_INVALID" }) }; reached.push("T5_NONFILE");
     receipts.T3 = { load: assertIsolatedLoadReceipt(execute("scripts/load-yuzhou-t3-attendance-insurance.sh", childEnvironment(config, {
       YUZHOU_MIGRATION_RUN_ID: runs.t3,
       YUZHOU_STAGING_DIR: input.T3.path,

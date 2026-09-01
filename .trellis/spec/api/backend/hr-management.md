@@ -1117,3 +1117,58 @@ assertReviewedDictionaryMachinePackages(config);
 const facts = queryCanonicalAndProtectedSideEffectFacts(postgres);
 return sealContractOnlyOrRealEvidence(facts);
 ```
+
+## Scenario: Receipt-bound T5 candidate baseline in a lightweight rehearsal
+
+### 1. Scope / Trigger
+
+- Trigger: changing `run-lightweight-first-continuous-lab.mjs`, the T5 non-file loader, or a source restore receipt requires a new T5 A/B rebase.
+- This path is an isolated `T0→T1→T2→T5_NONFILE→T3→T4` rehearsal only; production history import, files, and payroll release remain `HOLD`.
+
+### 2. Signatures
+
+- Runner: `pnpm hr:migration:lightweight-first:continuous -- --config <0600-json> --t5-stage <0700-dir> --t3-stage <0700-dir> --t4-stage <0700-dir> [--t5-baseline <absolute-0600-json>]`.
+- Loader environment: optional `YUZHOU_T5_BASELINE_FILE=<absolute-0600-json>` is passed only to `load-yuzhou-t5-nonfile-history.sh`.
+
+### 3. Contracts
+
+- The default is the committed canonical T5 baseline. A rebased candidate is permitted only when it is a regular, non-symbolic-link, `0600` JSON file and has the canonical baseline shape.
+- Before starting the core lab or a child process, the runner verifies the selected baseline against T5 stage snapshot, restore-receipt, business, catalog, and mapping hashes.
+- The CLI parses `--config` as `configPath`; it must not start an isolated workload with an undefined configuration path.
+- Candidate-baseline authority does not relax source binding, isolation, reverse rollback, UAT, or `productionImport=HOLD`.
+
+### 4. Validation & Error Matrix
+
+- Missing, symlinked, non-regular, or non-`0600` candidate -> `LIGHTWEIGHT_T5_BASELINE_UNSAFE` before a core-lab start.
+- Candidate shape or stage binding mismatch -> `LIGHTWEIGHT_T5_BASELINE_DRIFT` before a core-lab start.
+- Invalid/missing stage after a valid CLI configuration -> `LIGHTWEIGHT_STAGE_UNSAFE` before a core-lab start.
+- Candidate that matches the T5 stage -> pass it only to the T5 loader; T3/T4 receive their own receipt-bound inputs.
+
+### 5. Good / Base / Bad Cases
+
+- Good: a new read-only restore receipt produces A/B-equal T5 stages and a sealed candidate baseline; one isolated continuous run loads, verifies, reverses, and cleans all slices.
+- Base: the default canonical baseline still works without setting `YUZHOU_T5_BASELINE_FILE`.
+- Bad: pass a world-readable baseline, use a symlink, let a T5 candidate alter T3/T4 inputs, or treat a successful lab as production authorization.
+
+### 6. Tests Required
+
+- Contract-test default and candidate T5 manifests, candidate `0600` enforcement, exact CLI `configPath` mapping, and a valid CLI failing on an absent stage before any child command.
+- Assert `YUZHOU_T5_BASELINE_FILE` is absent for canonical runs and exists only on the T5 loader for candidate runs.
+- Run shell syntax and the T5 domain-item, stage, legacy-history, slice-order, and lightweight-runner contracts.
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```js
+const baseline = canonicalT5Baseline(process.argv[2]);
+runLightweightFirstContinuous(parseLightweightFirstArgs(argv)); // --config is not configPath
+```
+
+#### Correct
+
+```js
+const t5BaselinePath = t5Baseline ? resolve(t5Baseline) : null;
+if (t5BaselinePath) privateJson(t5BaselinePath, "LIGHTWEIGHT_T5_BASELINE_UNSAFE");
+const baseline = t5BaselinePath ? canonicalT5Baseline(t5BaselinePath) : canonicalT5Baseline();
+```

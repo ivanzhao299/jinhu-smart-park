@@ -6,6 +6,7 @@ ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 RUN_ID="${YUZHOU_T5_NONFILE_RUN_ID:-${YUZHOU_MIGRATION_RUN_ID:-}}"
 DB="${YUZHOU_TARGET_DATABASE:-}"
 STAGE="${YUZHOU_T5_NONFILE_STAGING_DIR:-}"
+BASELINE_FILE="${YUZHOU_T5_BASELINE_FILE:-}"
 PG="${YUZHOU_POSTGRES_CONTAINER:-}"
 EXPECTED_PROJECT="${YUZHOU_EXPECTED_POSTGRES_COMPOSE_PROJECT:-}"
 SNAPSHOT="${YUZHOU_BACKUP_SHA256:-}"
@@ -25,8 +26,16 @@ printf %s "$ACTOR" | grep -Eq '^[0-9a-fA-F-]{36}$' || fail "YUZHOU_MATERIALIZATI
 [ "$(stat -f '%Lp' "$STAGE" 2>/dev/null || stat -c '%a' "$STAGE")" = 700 ] || fail "nonfile staging directory must be mode 0700"
 [ "$(stat -f '%Lp' "$STAGE/manifest.json" 2>/dev/null || stat -c '%a' "$STAGE/manifest.json")" = 600 ] || fail "nonfile manifest must be mode 0600"
 [ "$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project"}}' "$PG" 2>/dev/null || true)" = "$EXPECTED_PROJECT" ] || fail "wrong PostgreSQL compose project"
+if [ -n "$BASELINE_FILE" ]; then
+  [ -f "$BASELINE_FILE" ] && [ ! -L "$BASELINE_FILE" ] || fail "T5 candidate baseline must be a regular file"
+  [ "$(stat -f '%Lp' "$BASELINE_FILE" 2>/dev/null || stat -c '%a' "$BASELINE_FILE")" = 600 ] || fail "T5 candidate baseline must be mode 0600"
+fi
 
-ITEMS="$(node "$ROOT_DIR/scripts/hr-cutover/t5-nonfile-stage-domain-items.mjs" "$STAGE/manifest.json")"
+if [ -n "$BASELINE_FILE" ]; then
+  ITEMS="$(node "$ROOT_DIR/scripts/hr-cutover/t5-nonfile-stage-domain-items.mjs" "$STAGE/manifest.json" --baseline "$BASELINE_FILE")"
+else
+  ITEMS="$(node "$ROOT_DIR/scripts/hr-cutover/t5-nonfile-stage-domain-items.mjs" "$STAGE/manifest.json")"
+fi
 META="$(node - "$STAGE" <<'NODE'
 const {readFileSync,statSync}=require('fs'),{join}=require('path');
 const stage=process.argv[2],manifest=JSON.parse(readFileSync(join(stage,'manifest.json'),'utf8'));

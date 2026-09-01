@@ -6,8 +6,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { parseLightweightFirstArgs, runLightweightFirstContinuous } from "../hr-cutover/run-lightweight-first-continuous-lab.mjs";
+import { canonicalT5Baseline } from "../hr-cutover/t5-canonical-baseline.mjs";
 
-assert.deepEqual(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5", "--t3-stage", "/tmp/t3", "--t4-stage", "/tmp/t4"]), { config: "/tmp/config", t5Stage: "/tmp/t5", t3Stage: "/tmp/t3", t4Stage: "/tmp/t4" });
+assert.deepEqual(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5", "--t3-stage", "/tmp/t3", "--t4-stage", "/tmp/t4"]), { configPath: "/tmp/config", t5Stage: "/tmp/t5", t3Stage: "/tmp/t3", t4Stage: "/tmp/t4" });
+assert.equal(parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5", "--t3-stage", "/tmp/t3", "--t4-stage", "/tmp/t4", "--t5-baseline", "/tmp/t5-baseline"]).t5Baseline, "/tmp/t5-baseline");
 assert.throws(() => parseLightweightFirstArgs(["--config", "/tmp/config", "--t5-stage", "/tmp/t5"]), /LIGHTWEIGHT_ARGUMENT_INVALID/);
 
 const root = mkdtempSync(join(tmpdir(), "yuzhou-lightweight-runner-"));
@@ -18,7 +20,8 @@ const database = "jinhu_hr_migration_lab_core_lwtest01", project = join(root, da
 for (const path of [project, runtime, join(runtime, "staging"), join(runtime, "evidence"), credentials]) { mkdirSync(path, { recursive: true, mode: 0o700 }); chmodSync(path, 0o700); }
 const backup = join(root, "source.dbk"), receipt = join(root, "receipt.json"), etl = join(credentials, "etl.env");
 writePrivate(backup, "backup"); writePrivate(receipt, "{}"); writePrivate(etl, "redacted\n");
-const snapshot = "a".repeat(64), business = "b".repeat(64);
+const legacyBaseline = canonicalT5Baseline();
+const snapshot = legacyBaseline.sourceSnapshotSha256, business = "b".repeat(64);
 const config = {
   formatVersion: 1, profile: "core_t0_t2", runId: "yzcore-20260831T010101Z-12345678-rA", rehearsal: "A",
   triple: { codeSha: "1".repeat(40), sourceSnapshotHash: snapshot, mappingContractHash: "2".repeat(64) },
@@ -29,11 +32,18 @@ const config = {
 };
 const configPath = join(root, "config.json"); writePrivate(configPath, JSON.stringify(config));
 const makeStage = (name, manifest) => { const path = join(root, name); mkdirSync(path, { mode: 0o700 }); chmodSync(path, 0o700); if (manifest) writePrivate(join(path, "manifest.json"), JSON.stringify(manifest)); return path; };
-const t5 = makeStage("t5", { sourceSnapshotSha256: snapshot });
+const domains = { person_core: { sourceObject: "dbo.person.core_residue", rows: 2949, fileSha256: "a".repeat(64) }, family: { sourceObject: "dbo.family", rows: 4560, fileSha256: "a".repeat(64) }, knowhow: { sourceObject: "dbo.knowhow", rows: 6, fileSha256: "a".repeat(64) }, ticket: { sourceObject: "dbo.ticket", rows: 237, fileSha256: "a".repeat(64) } };
+const t5Manifest = baseline => ({ artifactKind: "yuzhou_t5_nonfile_materialization_stage", productionImport: "HOLD", sourceRows: baseline.nonfileMaterializationRows, sourceSnapshotSha256: baseline.sourceSnapshotSha256, sourceRestoreReceiptSha256: baseline.sourceRestoreReceiptSha256, sourceBusinessSha256: baseline.businessSha256, sourceCatalogSha256: baseline.catalogSha256, mappingContractSha256: baseline.mappingContractSha256, nonfileBusinessSha256: "a".repeat(64), filesExcluded: ["photo", "docs"], domains });
+const t5 = makeStage("t5", t5Manifest(legacyBaseline));
+const candidateBaseline = { ...legacyBaseline, sourceRestoreReceiptSha256: "9".repeat(64) };
+const candidateBaselinePath = join(root, "candidate-baseline.json"); writePrivate(candidateBaselinePath, JSON.stringify(candidateBaseline));
+const candidateT5 = makeStage("candidate-t5", t5Manifest(candidateBaseline));
+const unsafeCandidateBaselinePath = join(root, "unsafe-candidate-baseline.json"); writeFileSync(unsafeCandidateBaselinePath, JSON.stringify(candidateBaseline), { mode: 0o644 }); chmodSync(unsafeCandidateBaselinePath, 0o644);
 const t3 = makeStage("t3", { artifactKind: "yuzhou_t3_attendance_insurance_stage", sourceReadOnly: true, sourceSnapshotSha256: snapshot, sourceRestoreReceiptSha256: "c".repeat(64), sourceCatalogSha256: "d".repeat(64), sourceBusinessSha256: "e".repeat(64), mappingContractSha256: "f".repeat(64), productionImport: "HOLD" });
 const t4 = makeStage("t4", { sourceBackupSha256: snapshot, businessContentSha256: business });
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: candidateT5, t3Stage: t3, t4Stage: t4, t5Baseline: unsafeCandidateBaselinePath }), /LIGHTWEIGHT_T5_BASELINE_UNSAFE/);
 const commands = [];
-const spawn = (_command, args, options) => {
+const successfulSpawn = commands => (_command, args, options) => {
   const script = args[0].split("/").at(-1); commands.push({ script, env: options.env });
   const stdout = script === "load-yuzhou-t5-nonfile-history.sh" ? "succeeded|12|10|2\n"
     : script === "load-yuzhou-t3-attendance-insurance.sh" ? "succeeded|30|28|2\n"
@@ -42,6 +52,7 @@ const spawn = (_command, args, options) => {
           : script === "rollback-yuzhou-t5-nonfile-history.sh" ? "rolled_back\n" : "";
   return { status: 0, stdout };
 };
+const spawn = successfulSpawn(commands);
 let coreCalls = 0;
 const coreRunner = async options => {
   coreCalls += 1;
@@ -62,6 +73,7 @@ assert.deepEqual(result.cleanup, { state: "cleaned", residualCount: 0 });
 assert.equal(coreCalls, 2);
 assert.deepEqual(commands.map(row => row.script), ["provision-yuzhou-t5-nonfile-actor.sh", "load-yuzhou-t5-nonfile-history.sh", "load-yuzhou-t3-attendance-insurance.sh", "load-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t4-payroll-history.sh", "rollback-yuzhou-t3-attendance-insurance.sh", "rollback-yuzhou-t5-nonfile-history.sh", "rollback-yuzhou-t5-nonfile-actor.sh"]);
 assert.equal(commands.at(3).env.YUZHOU_T4_LOAD_MODE, "full_archive");
+assert.equal(Object.hasOwn(commands.at(1).env, "YUZHOU_T5_BASELINE_FILE"), false);
 assert.equal(commands.at(2).env.YUZHOU_SOURCE_RESTORE_RECEIPT_SHA256, "c".repeat(64));
 assert.equal(commands.at(2).env.YUZHOU_SOURCE_CATALOG_SHA256, "d".repeat(64));
 assert.equal(commands.at(2).env.YUZHOU_SOURCE_BUSINESS_SHA256, "e".repeat(64));
@@ -81,6 +93,23 @@ await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: 
 const t5Failure = (_command, args, options) => args[0].endsWith("load-yuzhou-t5-nonfile-history.sh") ? { status: 1, stdout: "", stderr: "ERROR: T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT\n" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t5Failure, uuid: () => "00000000-0000-4000-8000-000000000003" }), /LIGHTWEIGHT_T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT/);
 
+const candidateCommands = [];
+let candidateCoreCalls = 0;
+const candidateCoreRunner = async options => {
+  candidateCoreCalls += 1;
+  if (options.stopAfter === "rollback_ready") return { status: "CHECKPOINT_READY", state: "rollback_ready" };
+  return { status: "CONTRACT_PASS", state: "cleaned", residualCount: 0 };
+};
+const candidateResult = await runLightweightFirstContinuous({ configPath, t5Stage: candidateT5, t3Stage: t3, t4Stage: t4, t5Baseline: candidateBaselinePath }, { coreRunner: candidateCoreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: successfulSpawn(candidateCommands), uuid: () => "00000000-0000-4000-8000-000000000005" });
+assert.equal(candidateResult.status, "CONTRACT_PASS");
+assert.equal(candidateCoreCalls, 2);
+assert.equal(candidateCommands.find(row => row.script === "load-yuzhou-t5-nonfile-history.sh").env.YUZHOU_T5_BASELINE_FILE, candidateBaselinePath);
+assert.equal(candidateCommands.filter(row => row.script === "load-yuzhou-t5-nonfile-history.sh").length, 1);
+
+const cliWiring = spawnSync(process.execPath, ["scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs", "--config", configPath, "--t5-stage", join(root, "missing-t5"), "--t3-stage", t3, "--t4-stage", t4], { cwd: resolve(import.meta.dirname, "../.."), encoding: "utf8" });
+assert.equal(cliWiring.status, 1);
+assert.equal(cliWiring.stderr.trim(), "LIGHTWEIGHT_STAGE_UNSAFE");
+assert.equal(cliWiring.stdout, "");
 const cli = spawnSync(process.execPath, ["scripts/hr-cutover/run-lightweight-first-continuous-lab.mjs"], { cwd: resolve(import.meta.dirname, "../.."), encoding: "utf8" });
 assert.equal(cli.status, 1);
 assert.equal(cli.stderr.trim(), "LIGHTWEIGHT_ARGUMENT_INVALID");
