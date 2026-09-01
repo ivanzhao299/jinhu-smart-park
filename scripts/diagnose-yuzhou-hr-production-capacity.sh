@@ -157,4 +157,4 @@ printf 'postgres_data_used_kib=%s\n' "$postgres_data_used_kib"
 printf 'api_tmp_free_kib=%s\n' "$api_tmp_free_kib"
 printf 'api_file_used_kib=%s\n' "$api_file_used_kib"
 
-docker system df --format 'docker_category={{.Type}} size={{.Size}} reclaimable={{.Reclaimable}}' 2>/dev/null || fail
+docker system df --format "docker_category={{.Type}} size={{.Size}} reclaimable={{.Reclaimable}}" 2>/dev/null || fail

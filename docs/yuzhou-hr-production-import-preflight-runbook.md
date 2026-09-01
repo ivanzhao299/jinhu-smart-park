@@ -177,6 +177,8 @@ node scripts/hr-cutover/production-import-preflight.mjs \
 
 当 Gate-19 因容量门禁退出且需要判断处置方式时，可手工运行 `Production Yuzhou HR Capacity Diagnostic`。该诊断只输出宿主、全实例持久化文件系统、已挂载/未挂载块设备及其是否具有可识别文件系统、Docker 数据区、PostgreSQL 临时/数据区和 API 文件区的汇总 KiB，以及 Docker 分类汇总；不会加载或显示环境值、主机路径、业务数据或连接信息，不会创建备份/恢复库/归档，也不会执行 Docker 清理。结果为 `DISK_GUARD` 时，先依据汇总确认扩容或经批准的精确清理对象，再重新执行 Gate-19；`READY_FOR_GATE19` 只表示容量条件满足，不表示生产导入获准。
 
+当实例存在唯一且无签名的空白数据盘，并已获得生产数据盘准备授权时，`prepare-yuzhou-hr-production-data-volume` 才会执行一次性格式化和持久挂载。它在写入前要求唯一候选、无子分区、未挂载、无识别文件系统、`wipefs -n` 无签名及免交互提权；任一条件不满足即失败关闭。该步骤只准备独立数据卷，不迁移现有应用或 Docker 数据，也不改变任何 HR 数据或生产导入状态。
+
 Gate-19 证明当前备份/恢复链和容量门禁，不能代替 T0～T3 的范围化 before-image、`legacy_record_map` 快照、冲突决策或一次性 rollback 授权；这些仍须由封存生产计划在写入窗口前生成和绑定。
 
 ## 8. 已实现但默认不可达的生产控制面
