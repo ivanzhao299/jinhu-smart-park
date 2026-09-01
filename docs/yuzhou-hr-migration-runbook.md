@@ -121,6 +121,14 @@ pnpm hr:migration:t5:rollback
 
 `docs` 的 1,003 行均没有 `Cont/FPath/FType`，只能记录为空且不可读的历史证据；不能生成下载地址。`person.photo` 仅保存内容 SHA-256、大小、魔数识别 MIME 和可读性证据，不把旧路径当成 URL。员工映射不唯一或缺失进入脱敏 quarantine。`his` 仅通过 `tableid -> histitle` 的动态表配置关联、没有人员所有者列时，作为 `employee_id=NULL` 的不可变兼容归档保存，绝不投影为员工履历；只有取得该动态表的客户端字段及归属语义后，才可单独关联。
 
+### 当前只读源恢复的最短入口
+
+当现有私有 ETL 封套失效或不可复用时，运行 `./scripts/bootstrap-yuzhou-readonly-source.sh`。它会使用本机已有的 SQL Server 镜像启动一个**新的**迁移容器和数据卷，从受控备份恢复一个新的数据库、创建新的最小只读 ETL 登录、锁定恢复库为 `READ_ONLY`，并生成 0600 的源恢复回执。操作者只在本机终端设置新的隔离 SQL Server 管理员密码；只有数据库恢复成功后，才设置一次新的 ETL 密码。脚本不显示、记录或提交密码、账户名、源行或个人数据。原有恢复库、容器和数据卷均不被更改；若新目标容器、卷、数据库或控制文件已存在，脚本在开始写入前拒绝。
+
+若启动后因可修复的恢复回执问题中断，保留已健康启动的候选容器和数据卷，使用 `YUZHOU_SQLSERVER_RESUME=yes ./scripts/bootstrap-yuzhou-readonly-source.sh` 续跑。续跑只要求输入该容器当前的管理员密码用于本次本机验证，不会重设管理员密码、不会新建或删除容器/卷；仍然仅在恢复成功后才提示 ETL 密码。
+
+该入口仅建立隔离源和回执，`productionImport` 固定为 `HOLD`。随后仍须执行真实 A/B 导入、比例核验、回滚重装、业务 UAT、明确生产目标备份与一次性生产执行授权，才可导入生产。
+
 完整演练只传递 `YUZHOU_PARTY_DATA_KEY_FILE` 的受控路径，文件必须为 `0600` 普通非符号链接，内容必须是精确 64 个十六进制字符且只允许一个可选的末尾 LF；CRLF、空格、空白行、多行、短值和超长值一律在任何 Docker、源库或目标库访问前拒绝。转换器从文件读取密钥，密钥内容不进入 config、manifest、日志或 Git。A/B 各持有独立私有副本，但内容必须来自同一个实验室密钥源，才能证明确定性；该实验室密钥不得替代生产密钥。转换器与目标 API 使用相同的 AES/HMAC 密钥派生合同，否则转换立即失败。生产 T5 导入始终为 `HOLD`。普通 schema 发布不得运行 T5 loader；只有单独的 run 级审批、目标备份和停机窗口才能解除此门禁。
 
 回滚仅接受 `staged + succeeded` 且已有已验证 rollback point 的批次。每个 active map 的目标 ID、来源表、来源 identity hash 和 row hash 都必须与历史目标一致；普通更新/删除、staged 后追加、修改已冻结计数和错误 run 均由数据库拒绝。
