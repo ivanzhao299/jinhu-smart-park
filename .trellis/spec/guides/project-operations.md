@@ -112,6 +112,10 @@ Reference files:
   source sync, migration, seed, or image build.
   The diagnostic may expose scope identifiers and aggregate counts, but never credentials, personal data, or an
   inferred cross-tenant mapping. A diagnostic-only workflow path must not write a release marker or run UAT.
+- A read-only production diagnostic must run successfully under the same least-privilege database role that will
+  perform its stated operation. Its target identity may use only that role's public connection and catalog facts;
+  do not depend on `pg_control_system()`, superuser-only statistics, or an implicit privileged fallback. Contract
+  tests must reject such privileged probes before a workflow can report a target-attestation result.
 - Fresh-schema Release Smoke is necessary but cannot represent all historical production states. Each newly
   observed production classification must become a deterministic isolated PostgreSQL fixture before the next
   deployment attempt.

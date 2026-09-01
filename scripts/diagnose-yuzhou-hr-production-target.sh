@@ -64,7 +64,7 @@ WITH hr_scope AS (
 )
 SELECT count(*)::text,
        count(*) FILTER (WHERE tenant_exists AND park_exists)::text,
-       coalesce(max(concat_ws(E'\x1f',current_database(),current_user,coalesce(inet_server_addr()::text,''),coalesce(inet_server_port()::text,''),(pg_control_system()).system_identifier::text,tenant_id,park_id)) FILTER (WHERE tenant_exists AND park_exists),''),
+       coalesce(max(concat_ws(E'\x1f',current_database(),current_user,coalesce(inet_server_addr()::text,''),coalesce(inet_server_port()::text,''),(SELECT oid::text FROM pg_database WHERE datname=current_database()),tenant_id,park_id)) FILTER (WHERE tenant_exists AND park_exists),''),
        coalesce(max(tenant_id) FILTER (WHERE tenant_exists AND park_exists),''),
        coalesce(max(park_id) FILTER (WHERE tenant_exists AND park_exists),'')
 FROM validated;

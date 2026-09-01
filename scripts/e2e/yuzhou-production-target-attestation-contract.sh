@@ -10,7 +10,12 @@ mkdir -p "$tmp/bin"
 cat > "$tmp/bin/docker" <<'SH'
 #!/bin/sh
 set -eu
-cat >/dev/null
+query="$(cat)"
+case "$query" in
+  *pg_control_system*) echo "target probe must not require a privileged cluster function" >&2; exit 41 ;;
+  *pg_database*) ;;
+  *) echo "target probe must bind a public database catalog identity" >&2; exit 42 ;;
+esac
 printf '%s\n' "${FAKE_TARGET_PROBE:?}"
 SH
 chmod 700 "$tmp/bin/docker"

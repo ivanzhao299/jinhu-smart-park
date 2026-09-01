@@ -13,14 +13,14 @@ const binding = () => ({
   databaseUser: "hr_import_role",
   targetIdentitySha256: H("a"),
   targetScope: { tenantId: "tenant-a", parkId: "park-a", scopeSha256: H("b") },
-  serverIdentity: { address: "127.0.0.1", port: 5432, systemIdentifier: "1234567890123456789" },
+  serverIdentity: { address: "127.0.0.1", port: 5432, databaseOid: "12345" },
 });
 const probeRow = (overrides = {}) => ({
   database_name: "jinhu_production",
   database_user: "hr_import_role",
   server_address: "127.0.0.1",
   server_port: 5432,
-  system_identifier: "1234567890123456789",
+  database_oid: "12345",
   tenant_exists: true,
   park_exists: true,
   ...overrides,
@@ -150,7 +150,7 @@ test("a rollback failure after a callback error quarantines a direct client", as
   await assert.rejects(database.transaction({ isolationLevel: "SERIALIZABLE", purpose: "record_import_failure" }, async () => {}), error => error.code === "PRODUCTION_IMPORT_PG_CONNECTION_POISONED");
 });
 
-test("read-only target probe binds current database, current user, target identity, and tenant/park scope", async () => {
+test("read-only target probe binds current database, current user, public database catalog identity, and tenant/park scope", async () => {
   const client = fakeClient(async sql => {
     if (sql.includes("current_database()")) return { rows: [probeRow()] };
     return { rows: [] };
@@ -161,6 +161,8 @@ test("read-only target probe binds current database, current user, target identi
   assert.deepEqual(observed, { ...expected, readOnlyProbe: true });
   assert.equal(client.calls.length, 1);
   assert.match(client.calls[0].sql, /^SELECT current_database\(\)/u);
+  assert.match(client.calls[0].sql, /FROM pg_database WHERE datname=current_database\(\)/u);
+  assert.doesNotMatch(client.calls[0].sql, /pg_control_system/u);
   assert.deepEqual(client.calls[0].parameters, ["tenant-a", "park-a"]);
 
   await assert.rejects(database.probeTarget({ targetIdentitySha256: H("f"), targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_TARGET_BINDING_MISMATCH");
@@ -173,8 +175,8 @@ test("target probe fails closed for connection identity or missing scope", async
   await assert.rejects(wrongIdentity.probeTarget({ targetIdentitySha256: expected.targetIdentitySha256, targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_CONNECTION_IDENTITY_MISMATCH");
   const wrongServer = adapterFor(fakeClient(async () => ({ rows: [probeRow({ server_address: "127.0.0.2" })] })));
   await assert.rejects(wrongServer.probeTarget({ targetIdentitySha256: expected.targetIdentitySha256, targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH");
-  const wrongCluster = adapterFor(fakeClient(async () => ({ rows: [probeRow({ system_identifier: "9876543210987654321" })] })));
-  await assert.rejects(wrongCluster.probeTarget({ targetIdentitySha256: expected.targetIdentitySha256, targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH");
+  const wrongDatabaseIdentity = adapterFor(fakeClient(async () => ({ rows: [probeRow({ database_oid: "67890" })] })));
+  await assert.rejects(wrongDatabaseIdentity.probeTarget({ targetIdentitySha256: expected.targetIdentitySha256, targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_SERVER_IDENTITY_MISMATCH");
   const missingScope = adapterFor(fakeClient(async () => ({ rows: [probeRow({ park_exists: false })] })));
   await assert.rejects(missingScope.probeTarget({ targetIdentitySha256: expected.targetIdentitySha256, targetScope: expected.targetScope }), error => error.code === "PRODUCTION_IMPORT_PG_TARGET_SCOPE_MISMATCH");
 });
