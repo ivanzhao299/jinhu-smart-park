@@ -61,7 +61,7 @@ const CHILD_FAILURE_CODES = Object.freeze({
 
 function childFailureCode(script, stderr) {
   if (script !== "scripts/load-yuzhou-t5-nonfile-history.sh") return CHILD_FAILURE_CODES[script] ?? "LIGHTWEIGHT_CHILD_FAILED";
-  const match = String(stderr ?? "").match(/\b(T5_NONFILE_TRANSACTION_[A-Z_]+)\b/u);
+  const match = String(stderr ?? "").match(/\b(T5_NONFILE_[A-Z_]+)\b/u);
   return match ? `LIGHTWEIGHT_${match[1]}` : CHILD_FAILURE_CODES[script];
 }
 

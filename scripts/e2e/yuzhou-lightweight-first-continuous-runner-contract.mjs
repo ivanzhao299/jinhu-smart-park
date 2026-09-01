@@ -93,6 +93,9 @@ await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: 
 const t5Failure = (_command, args, options) => args[0].endsWith("load-yuzhou-t5-nonfile-history.sh") ? { status: 1, stdout: "", stderr: "ERROR: T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT\n" } : spawn(_command, args, options);
 await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t5Failure, uuid: () => "00000000-0000-4000-8000-000000000003" }), /LIGHTWEIGHT_T5_NONFILE_TRANSACTION_STATEMENT_TIMEOUT/);
 
+const t5PreconditionFailure = (_command, args, options) => args[0].endsWith("load-yuzhou-t5-nonfile-history.sh") ? { status: 1, stdout: "", stderr: "ERROR: T5_NONFILE_STAGING_DIR_MODE_INVALID\n" } : spawn(_command, args, options);
+await assert.rejects(() => runLightweightFirstContinuous({ configPath, t5Stage: t5, t3Stage: t3, t4Stage: t4 }, { coreRunner, technicalUat: async () => ({ status: "PASS", productionImport: "HOLD" }), spawn: t5PreconditionFailure, uuid: () => "00000000-0000-4000-8000-000000000006" }), /LIGHTWEIGHT_T5_NONFILE_STAGING_DIR_MODE_INVALID/);
+
 const candidateCommands = [];
 let candidateCoreCalls = 0;
 const candidateCoreRunner = async options => {

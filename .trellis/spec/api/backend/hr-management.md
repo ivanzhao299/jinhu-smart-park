@@ -1142,6 +1142,7 @@ return sealContractOnlyOrRealEvidence(facts);
 - Missing, symlinked, non-regular, or non-`0600` candidate -> `LIGHTWEIGHT_T5_BASELINE_UNSAFE` before a core-lab start.
 - Candidate shape or stage binding mismatch -> `LIGHTWEIGHT_T5_BASELINE_DRIFT` before a core-lab start.
 - Invalid/missing stage after a valid CLI configuration -> `LIGHTWEIGHT_STAGE_UNSAFE` before a core-lab start.
+- A T5 loader precondition failure emits an allowlisted `T5_NONFILE_*` code (for example `T5_NONFILE_STAGING_DIR_MODE_INVALID`), and the runner records only the prefixed `LIGHTWEIGHT_T5_NONFILE_*` code; it never persists child stderr, paths, rows, credentials, or personal data.
 - Candidate that matches the T5 stage -> pass it only to the T5 loader; T3/T4 receive their own receipt-bound inputs.
 
 ### 5. Good / Base / Bad Cases
