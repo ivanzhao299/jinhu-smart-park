@@ -15,6 +15,7 @@ printf %s "${YUZHOU_BACKUP_SHA256:-}" | grep -Eq '^[0-9a-f]{64}$' || fail "YUZHO
 [ -n "$SOURCE_RESTORE_RECEIPT_PATH" ] && [ -f "$SOURCE_RESTORE_RECEIPT_PATH" ] || fail "YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required"
 printf %s "$MAPPING_CONTRACT_SHA256" | grep -Eq '^[0-9a-f]{64}$' || fail "YUZHOU_MAPPING_CONTRACT_SHA256 is required"
 [ -f "$CREDENTIAL_FILE" ] || fail "read-only ETL credential file is missing"
+node "$ROOT_DIR/scripts/hr-cutover/verify-source-restore-binding.mjs" --receipt "$SOURCE_RESTORE_RECEIPT_PATH" --backup "$ROOT_DIR/database/backups/yuzhou-hr/hr2026081914.dbk" --container "$CONTAINER" --database "$DATABASE" --etl-env "$CREDENTIAL_FILE" >/dev/null
 . "$CREDENTIAL_FILE"
 [ "$YUZHOU_SQLSERVER_ETL_LOGIN" != sa ] || fail "sa is forbidden for extraction"
 [ "$YUZHOU_SQLSERVER_DATABASE" = "$DATABASE" ] || fail "credential database mismatch"

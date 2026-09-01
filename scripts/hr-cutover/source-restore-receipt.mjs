@@ -48,6 +48,16 @@ export function hashFile(path) {
   return { sha256: hash.digest("hex"), bytes };
 }
 
+export function sourceRestoreReceiptFileHash(path) {
+  const receiptPath = privateFile(realpathSync(path), "source restore receipt");
+  return hashFile(receiptPath).sha256;
+}
+
+export function sourceBackupFileHash(path) {
+  const backupPath = privateFile(realpathSync(path), "source backup");
+  return hashFile(backupPath).sha256;
+}
+
 function validateAuthority(authority) {
   exactKeys(authority, ["loginSucceeded", "sysadmin", "dbDatareader", "viewDefinition", "insert", "update", "delete", "execute"], "SOURCE_ETL_AUTHORITY_INVALID", "authority shape");
   if (authority.loginSucceeded !== true) fail("SOURCE_ETL_LOGIN_FAILED", "minimum ETL login did not authenticate");

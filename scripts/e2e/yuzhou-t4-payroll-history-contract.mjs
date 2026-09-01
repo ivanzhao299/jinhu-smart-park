@@ -25,6 +25,8 @@ assert.deepEqual(
 assert.match(extract, /source must be read-only and ETL must be non-sysadmin/);
 assert.match(extract, /grep -Eiq '\^sa\$'/);
 assert.match(extract, /source backup SHA-256 mismatch/);
+assert.match(extract, /YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required/);
+assert.match(extract, /verify-source-restore-binding\.mjs/);
 assert.match(extract, /read-only ETL credential file must be mode 0600/);
 assert.match(extract, /IS_SRVROLEMEMBER\('sysadmin'\)/);
 assert.match(extract, /IS_ROLEMEMBER\('db_datareader'\)/);

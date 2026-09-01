@@ -31,6 +31,8 @@ assert.deepEqual(evidence.profile.absentObjects,["jch_1"]);
 assert.match(extract,/source database is not read-only/);
 assert.match(extract,/sa is forbidden for extraction/);
 assert.match(extract,/credential file must be mode 0600/);
+assert.match(extract,/YUZHOU_SOURCE_RESTORE_RECEIPT_PATH is required/);
+assert.match(extract,/verify-source-restore-binding\.mjs/);
 assert.match(extract,/umask 077/);
 assert.match(extract,/sysadmin login is forbidden/);
 for(const table of ["accept","family","his","knowhow","ticket","person","docs","course","train","trainhis","jobtrain","bonuscode","bonusrecord"]){
